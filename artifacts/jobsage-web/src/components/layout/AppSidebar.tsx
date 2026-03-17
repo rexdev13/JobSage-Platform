@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@workspace/replit-auth-web";
 import { 
   Home, User, FileText, CheckCircle, 
-  Map, ClipboardList, Shield, Users, LogOut 
+  Map, ClipboardList, Shield, Users, LogOut, Briefcase
 } from "lucide-react";
 import { cn } from "@/components/ui-enhanced";
 
@@ -17,6 +17,7 @@ export function AppSidebar() {
     { name: "My Profile", href: "/profile", icon: User, roles: ["candidate", "reviewer", "admin"] },
     { name: "My Documents", href: "/documents", icon: FileText, roles: ["candidate", "reviewer", "admin"] },
     { name: "My Eligibility", href: "/eligibility", icon: CheckCircle, roles: ["candidate", "reviewer", "admin"] },
+    { name: "Opportunities", href: "/opportunities", icon: Briefcase, roles: ["candidate", "reviewer", "admin"] },
     { name: "My Path", href: "/path", icon: Map, roles: ["candidate", "reviewer", "admin"] },
     
     // Reviewer + Admin

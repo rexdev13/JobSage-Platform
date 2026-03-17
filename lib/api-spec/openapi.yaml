@@ -26,6 +26,12 @@ tags:
     description: Regulatory ruleset management (admin).
   - name: Decisions
     description: Decision record management (admin).
+  - name: Roles
+    description: Role catalogue management and candidate opportunity matching.
+  - name: Sponsorship
+    description: Sponsorship feasibility assessment.
+  - name: Remediation
+    description: Remediation plan generation and progress tracking.
 paths:
   /healthz:
     get:
@@ -733,6 +739,179 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
 
+  /roles:
+    get:
+      tags: [Roles]
+      operationId: listMatchedRoles
+      summary: List roles matched to the current candidate's eligibility
+      responses:
+        '200':
+          description: Matched roles for eligible candidate or empty list with explanation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MatchedRoleList'
+        '400':
+          description: No eligibility decision available.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /admin/roles:
+    get:
+      tags: [Roles]
+      operationId: adminListRoles
+      summary: List all roles in the catalogue (admin only)
+      responses:
+        '200':
+          description: All roles.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleList'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /admin/roles/import:
+    post:
+      tags: [Roles]
+      operationId: importRolesCSV
+      summary: Import roles from a CSV file (admin only)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Import result with row-level errors.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleImportResult'
+        '400':
+          description: Missing or invalid CSV.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /sponsorship/feasibility/{roleId}:
+    get:
+      tags: [Sponsorship]
+      operationId: getSponsorshipFeasibility
+      summary: Get sponsorship feasibility for a specific role
+      parameters:
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Sponsorship feasibility assessment.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SponsorshipFeasibility'
+        '404':
+          description: Role not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /remediation/plan:
+    get:
+      tags: [Remediation]
+      operationId: getRemediationPlan
+      summary: Get or generate the current candidate's remediation plan
+      responses:
+        '200':
+          description: Remediation plan with steps.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemediationPlan'
+        '404':
+          description: No eligibility decision available or candidate is eligible.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /remediation/steps/{id}:
+    patch:
+      tags: [Remediation]
+      operationId: updateRemediationStep
+      summary: Update the status of a remediation step
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRemediationStepRequest'
+      responses:
+        '200':
+          description: Step updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemediationStep'
+        '404':
+          description: Step not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
 components:
   schemas:
     HealthStatus:
@@ -1306,3 +1485,167 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DecisionRecord'
+
+    Role:
+      type: object
+      required: [id, title, employer, location, regulator, sponsorshipOffered, requiredRegistration, active, importedAt]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        employer:
+          type: string
+        location:
+          type: string
+        regulator:
+          type: string
+          enum: [GMC, NMC, HCPC]
+        sponsorshipOffered:
+          type: boolean
+        requiredRegistration:
+          type: string
+        active:
+          type: boolean
+        importedAt:
+          type: string
+          format: date-time
+        importedBy:
+          type: string
+          nullable: true
+
+    MatchedRole:
+      type: object
+      required: [role, explanation]
+      properties:
+        role:
+          $ref: '#/components/schemas/Role'
+        explanation:
+          type: string
+        sponsorshipFeasibility:
+          $ref: '#/components/schemas/SponsorshipFeasibility'
+          nullable: true
+
+    MatchedRoleList:
+      type: object
+      required: [roles, decisionRecordId, rulesetVersion]
+      properties:
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/MatchedRole'
+        decisionRecordId:
+          type: integer
+        rulesetVersion:
+          type: string
+        eligibilityOutcome:
+          type: string
+        message:
+          type: string
+          nullable: true
+
+    RoleList:
+      type: object
+      required: [roles]
+      properties:
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/Role'
+
+    RoleImportResult:
+      type: object
+      required: [imported, skipped, errors]
+      properties:
+        imported:
+          type: integer
+        skipped:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: object
+            required: [row, message]
+            properties:
+              row:
+                type: integer
+              message:
+                type: string
+
+    SponsorshipFeasibilityOutcome:
+      type: string
+      enum: [feasible, not_feasible, uncertain]
+
+    SponsorshipFeasibility:
+      type: object
+      required: [roleId, outcome, reasonCode, explanation, disclaimer]
+      properties:
+        roleId:
+          type: integer
+        outcome:
+          $ref: '#/components/schemas/SponsorshipFeasibilityOutcome'
+        reasonCode:
+          type: string
+        explanation:
+          type: string
+        disclaimer:
+          type: string
+
+    RemediationStep:
+      type: object
+      required: [id, planId, stepOrder, title, description, gap, status, ruleId, rulesetVersion, updatedAt]
+      properties:
+        id:
+          type: integer
+        planId:
+          type: integer
+        stepOrder:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        gap:
+          type: string
+        timelineRange:
+          type: string
+          nullable: true
+        costRange:
+          type: string
+          nullable: true
+        ruleId:
+          type: integer
+        rulesetVersion:
+          type: string
+        status:
+          type: string
+          enum: [planned, in_progress, done]
+        updatedAt:
+          type: string
+          format: date-time
+
+    RemediationPlan:
+      type: object
+      required: [id, userId, decisionRecordId, createdAt, steps]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: string
+        decisionRecordId:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/RemediationStep'
+
+    UpdateRemediationStepRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [planned, in_progress, done]

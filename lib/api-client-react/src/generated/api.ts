@@ -31,18 +31,26 @@ import type {
   ErrorEnvelope,
   HandleBrowserLoginCallbackParams,
   HealthStatus,
+  ImportRolesCSVBody,
   ListDecisionsParams,
   ListRulesetsParams,
   LogoutSuccess,
+  MatchedRoleList,
   MobileTokenExchangeRequest,
   MobileTokenExchangeSuccess,
   RecordConsentRequest,
   RegisterDocumentRequest,
   RegressionTestRequest,
   RegressionTestResponse,
+  RemediationPlan,
+  RemediationStep,
+  RoleImportResult,
+  RoleList,
   Ruleset,
   RulesetList,
   RulesetWithRules,
+  SponsorshipFeasibility,
+  UpdateRemediationStepRequest,
   UploadDocumentBody,
   UploadUrlRequest,
   UploadUrlResponse,
@@ -2351,4 +2359,500 @@ export const useDeleteDocument = <
   TContext
 > => {
   return useMutation(getDeleteDocumentMutationOptions(options));
+};
+
+/**
+ * @summary List roles matched to the current candidate's eligibility
+ */
+export const getListMatchedRolesUrl = () => {
+  return `/api/roles`;
+};
+
+export const listMatchedRoles = async (
+  options?: RequestInit,
+): Promise<MatchedRoleList> => {
+  return customFetch<MatchedRoleList>(getListMatchedRolesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMatchedRolesQueryKey = () => {
+  return [`/api/roles`] as const;
+};
+
+export const getListMatchedRolesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMatchedRoles>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMatchedRoles>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListMatchedRolesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listMatchedRoles>>
+  > = ({ signal }) => listMatchedRoles({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMatchedRoles>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMatchedRolesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMatchedRoles>>
+>;
+export type ListMatchedRolesQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary List roles matched to the current candidate's eligibility
+ */
+
+export function useListMatchedRoles<
+  TData = Awaited<ReturnType<typeof listMatchedRoles>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMatchedRoles>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMatchedRolesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List all roles in the catalogue (admin only)
+ */
+export const getAdminListRolesUrl = () => {
+  return `/api/admin/roles`;
+};
+
+export const adminListRoles = async (
+  options?: RequestInit,
+): Promise<RoleList> => {
+  return customFetch<RoleList>(getAdminListRolesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminListRolesQueryKey = () => {
+  return [`/api/admin/roles`] as const;
+};
+
+export const getAdminListRolesQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListRoles>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListRoles>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getAdminListRolesQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof adminListRoles>>> = ({
+    signal,
+  }) => adminListRoles({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListRoles>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListRolesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListRoles>>
+>;
+export type AdminListRolesQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary List all roles in the catalogue (admin only)
+ */
+
+export function useAdminListRoles<
+  TData = Awaited<ReturnType<typeof adminListRoles>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListRoles>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListRolesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Import roles from a CSV file (admin only)
+ */
+export const getImportRolesCSVUrl = () => {
+  return `/api/admin/roles/import`;
+};
+
+export const importRolesCSV = async (
+  importRolesCSVBody: ImportRolesCSVBody,
+  options?: RequestInit,
+): Promise<RoleImportResult> => {
+  const formData = new FormData();
+  formData.append(`file`, importRolesCSVBody.file);
+
+  return customFetch<RoleImportResult>(getImportRolesCSVUrl(), {
+    ...options,
+    method: "POST",
+    body: formData,
+  });
+};
+
+export const getImportRolesCSVMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importRolesCSV>>,
+    TError,
+    { data: BodyType<ImportRolesCSVBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof importRolesCSV>>,
+  TError,
+  { data: BodyType<ImportRolesCSVBody> },
+  TContext
+> => {
+  const mutationKey = ["importRolesCSV"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof importRolesCSV>>,
+    { data: BodyType<ImportRolesCSVBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return importRolesCSV(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ImportRolesCSVMutationResult = NonNullable<
+  Awaited<ReturnType<typeof importRolesCSV>>
+>;
+export type ImportRolesCSVMutationBody = BodyType<ImportRolesCSVBody>;
+export type ImportRolesCSVMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Import roles from a CSV file (admin only)
+ */
+export const useImportRolesCSV = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importRolesCSV>>,
+    TError,
+    { data: BodyType<ImportRolesCSVBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof importRolesCSV>>,
+  TError,
+  { data: BodyType<ImportRolesCSVBody> },
+  TContext
+> => {
+  return useMutation(getImportRolesCSVMutationOptions(options));
+};
+
+/**
+ * @summary Get sponsorship feasibility for a specific role
+ */
+export const getGetSponsorshipFeasibilityUrl = (roleId: number) => {
+  return `/api/sponsorship/feasibility/${roleId}`;
+};
+
+export const getSponsorshipFeasibility = async (
+  roleId: number,
+  options?: RequestInit,
+): Promise<SponsorshipFeasibility> => {
+  return customFetch<SponsorshipFeasibility>(
+    getGetSponsorshipFeasibilityUrl(roleId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetSponsorshipFeasibilityQueryKey = (roleId: number) => {
+  return [`/api/sponsorship/feasibility/${roleId}`] as const;
+};
+
+export const getGetSponsorshipFeasibilityQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSponsorshipFeasibility>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  roleId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSponsorshipFeasibility>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetSponsorshipFeasibilityQueryKey(roleId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSponsorshipFeasibility>>
+  > = ({ signal }) =>
+    getSponsorshipFeasibility(roleId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!roleId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSponsorshipFeasibility>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSponsorshipFeasibilityQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSponsorshipFeasibility>>
+>;
+export type GetSponsorshipFeasibilityQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Get sponsorship feasibility for a specific role
+ */
+
+export function useGetSponsorshipFeasibility<
+  TData = Awaited<ReturnType<typeof getSponsorshipFeasibility>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  roleId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSponsorshipFeasibility>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSponsorshipFeasibilityQueryOptions(
+    roleId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get or generate the current candidate's remediation plan
+ */
+export const getGetRemediationPlanUrl = () => {
+  return `/api/remediation/plan`;
+};
+
+export const getRemediationPlan = async (
+  options?: RequestInit,
+): Promise<RemediationPlan> => {
+  return customFetch<RemediationPlan>(getGetRemediationPlanUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetRemediationPlanQueryKey = () => {
+  return [`/api/remediation/plan`] as const;
+};
+
+export const getGetRemediationPlanQueryOptions = <
+  TData = Awaited<ReturnType<typeof getRemediationPlan>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getRemediationPlan>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetRemediationPlanQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getRemediationPlan>>
+  > = ({ signal }) => getRemediationPlan({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getRemediationPlan>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetRemediationPlanQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getRemediationPlan>>
+>;
+export type GetRemediationPlanQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Get or generate the current candidate's remediation plan
+ */
+
+export function useGetRemediationPlan<
+  TData = Awaited<ReturnType<typeof getRemediationPlan>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getRemediationPlan>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetRemediationPlanQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update the status of a remediation step
+ */
+export const getUpdateRemediationStepUrl = (id: number) => {
+  return `/api/remediation/steps/${id}`;
+};
+
+export const updateRemediationStep = async (
+  id: number,
+  updateRemediationStepRequest: UpdateRemediationStepRequest,
+  options?: RequestInit,
+): Promise<RemediationStep> => {
+  return customFetch<RemediationStep>(getUpdateRemediationStepUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateRemediationStepRequest),
+  });
+};
+
+export const getUpdateRemediationStepMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateRemediationStep>>,
+    TError,
+    { id: number; data: BodyType<UpdateRemediationStepRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateRemediationStep>>,
+  TError,
+  { id: number; data: BodyType<UpdateRemediationStepRequest> },
+  TContext
+> => {
+  const mutationKey = ["updateRemediationStep"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateRemediationStep>>,
+    { id: number; data: BodyType<UpdateRemediationStepRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateRemediationStep(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateRemediationStepMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateRemediationStep>>
+>;
+export type UpdateRemediationStepMutationBody =
+  BodyType<UpdateRemediationStepRequest>;
+export type UpdateRemediationStepMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Update the status of a remediation step
+ */
+export const useUpdateRemediationStep = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateRemediationStep>>,
+    TError,
+    { id: number; data: BodyType<UpdateRemediationStepRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateRemediationStep>>,
+  TError,
+  { id: number; data: BodyType<UpdateRemediationStepRequest> },
+  TContext
+> => {
+  return useMutation(getUpdateRemediationStepMutationOptions(options));
 };

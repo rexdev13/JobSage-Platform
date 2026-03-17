@@ -6,7 +6,7 @@ import type { Profile, RuleCondition } from "@workspace/db";
 
 const router: IRouter = Router();
 
-function requireAdmin(req: Request, res: Response, next: NextFunction): void {
+export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
   if (!req.isAuthenticated()) {
     res.status(401).json({ error: "Not authenticated." });
     return;

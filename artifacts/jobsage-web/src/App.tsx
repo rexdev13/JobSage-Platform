@@ -16,10 +16,11 @@ import ProfilePage from "@/pages/ProfilePage";
 import DocumentsPage from "@/pages/DocumentsPage";
 import EligibilityPage from "@/pages/EligibilityPage";
 import AdminRulesetsPage from "@/pages/AdminRulesetsPage";
+import OpportunitiesPage from "@/pages/OpportunitiesPage";
+import PathPage from "@/pages/PathPage";
+import AdminRolesPage from "@/pages/AdminRolesPage";
 import { 
-  PathPage, 
   ReviewQueuePage, 
-  AdminRolesPage, 
   AdminAuditPage 
 } from "@/pages/Placeholders";
 import NotFound from "@/pages/not-found";
@@ -57,14 +58,13 @@ function Router() {
             <Route path="/documents" component={DocumentsPage} />
             
             <Route path="/eligibility" component={EligibilityPage} />
+            <Route path="/opportunities" component={OpportunitiesPage} />
+            <Route path="/path" component={PathPage} />
             <Route path="/admin/rulesets">
               <AdminGuard>
                 <AdminRulesetsPage />
               </AdminGuard>
             </Route>
-            
-            {/* Placeholders for next milestones */}
-            <Route path="/path" component={PathPage} />
             <Route path="/review-queue" component={ReviewQueuePage} />
             <Route path="/admin/roles">
               <AdminGuard>

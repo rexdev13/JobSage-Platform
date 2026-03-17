@@ -1,7 +1,7 @@
 import React from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageTransition, Card } from "@/components/ui-enhanced";
-import { Construction, Sparkles, Users, Shield, ClipboardCheck } from "lucide-react";
+import { Sparkles, Users, Shield, ClipboardCheck } from "lucide-react";
 
 function PlaceholderView({ title, description, icon: Icon }: { title: string; description: string; icon: React.ElementType }) {
   return (
@@ -30,27 +30,11 @@ export function EligibilityPage() {
   />;
 }
 
-export function PathPage() {
-  return <PlaceholderView 
-    title="My Remediation Path" 
-    description="Your structured, AI-assisted action plan for achieving eligibility will appear here, complete with timeline and cost estimates."
-    icon={Construction}
-  />;
-}
-
 export function ReviewQueuePage() {
   return <PlaceholderView 
     title="Human Review Queue" 
     description="The console for clinical reviewers to process flagged edge cases, annotate profiles, and provide expert pathway guidance."
     icon={Users}
-  />;
-}
-
-export function AdminRolesPage() {
-  return <PlaceholderView 
-    title="Role Catalogue Management" 
-    description="Admin tools for importing and managing the opportunity catalogue via CSV, and defining sponsorship constraints."
-    icon={Shield}
   />;
 }
 

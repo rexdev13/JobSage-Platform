@@ -3,3 +3,5 @@ export * from "./profiles";
 export * from "./consent";
 export * from "./documents";
 export * from "./rulesets";
+export * from "./roles";
+export * from "./remediation";
