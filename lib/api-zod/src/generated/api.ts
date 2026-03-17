@@ -641,6 +641,13 @@ export const GetRemediationPlanResponse = zod.object({
   userId: zod.string(),
   decisionRecordId: zod.number(),
   orderedStepIds: zod.array(zod.number()).nullish(),
+  reviewFlagged: zod
+    .boolean()
+    .describe("Whether this plan's decision has been flagged for human review"),
+  reviewNote: zod
+    .string()
+    .nullish()
+    .describe("Optional reviewer note attached to the decision"),
   createdAt: zod.date(),
   steps: zod.array(
     zod.object({
@@ -710,6 +717,13 @@ export const UpdateRemediationPlanOrderingResponse = zod.object({
   userId: zod.string(),
   decisionRecordId: zod.number(),
   orderedStepIds: zod.array(zod.number()).nullish(),
+  reviewFlagged: zod
+    .boolean()
+    .describe("Whether this plan's decision has been flagged for human review"),
+  reviewNote: zod
+    .string()
+    .nullish()
+    .describe("Optional reviewer note attached to the decision"),
   createdAt: zod.date(),
   steps: zod.array(
     zod.object({
@@ -769,6 +783,14 @@ export const ListReviewQueueResponse = zod.object({
       reviewedBy: zod.string().nullish(),
       reviewedAt: zod.date().nullish(),
       createdAt: zod.date(),
+      profession: zod
+        .string()
+        .nullish()
+        .describe("Candidate's profession from their profile snapshot"),
+      outcome: zod
+        .string()
+        .nullish()
+        .describe("Decision outcome for this flagged case"),
     }),
   ),
   total: zod.number(),
@@ -791,6 +813,14 @@ export const GetReviewCaseResponse = zod.object({
     reviewedBy: zod.string().nullish(),
     reviewedAt: zod.date().nullish(),
     createdAt: zod.date(),
+    profession: zod
+      .string()
+      .nullish()
+      .describe("Candidate's profession from their profile snapshot"),
+    outcome: zod
+      .string()
+      .nullish()
+      .describe("Decision outcome for this flagged case"),
   }),
   decision: zod.object({
     id: zod.number(),

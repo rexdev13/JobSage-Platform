@@ -1876,7 +1876,7 @@ components:
 
     RemediationPlan:
       type: object
-      required: [id, userId, decisionRecordId, createdAt, steps]
+      required: [id, userId, decisionRecordId, createdAt, steps, reviewFlagged]
       properties:
         id:
           type: integer
@@ -1889,6 +1889,13 @@ components:
           nullable: true
           items:
             type: integer
+        reviewFlagged:
+          type: boolean
+          description: Whether this plan's decision has been flagged for human review
+        reviewNote:
+          type: string
+          nullable: true
+          description: Optional reviewer note attached to the decision
         createdAt:
           type: string
           format: date-time
@@ -1966,6 +1973,14 @@ components:
         createdAt:
           type: string
           format: date-time
+        profession:
+          type: string
+          nullable: true
+          description: Candidate's profession from their profile snapshot
+        outcome:
+          type: string
+          nullable: true
+          description: Decision outcome for this flagged case
 
     ReviewQueueList:
       type: object

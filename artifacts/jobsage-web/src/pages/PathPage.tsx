@@ -169,6 +169,12 @@ function AiSuggestionsPanel({ planId, steps }: { planId: number; steps: Remediat
     applyOrdering({ id: planId, data: { stepOrder: orderedIds } });
   };
 
+  const handleKeep = () => {
+    const currentOrder = steps.map((s) => s.id);
+    applyOrdering({ id: planId, data: { stepOrder: currentOrder } });
+    setShow(false);
+  };
+
   const stepLookup = Object.fromEntries(steps.map((s) => [s.id, s.title]));
 
   return (
@@ -240,8 +246,9 @@ function AiSuggestionsPanel({ planId, steps }: { planId: number; steps: Remediat
                     Apply suggested order
                   </button>
                   <button
-                    onClick={() => setShow(false)}
-                    className="px-3 py-1.5 rounded-lg border border-border text-xs font-medium hover:bg-muted/50 transition-colors"
+                    onClick={handleKeep}
+                    disabled={isApplying}
+                    className="px-3 py-1.5 rounded-lg border border-border text-xs font-medium hover:bg-muted/50 disabled:opacity-50 transition-colors"
                   >
                     Keep my order
                   </button>
@@ -312,7 +319,7 @@ export default function PathPage() {
           </Card>
         )}
 
-        {!isLoading && !isError && plan && (plan as any).reviewFlagged && (
+        {!isLoading && !isError && plan && plan.reviewFlagged && (
           <Card className="p-4 bg-amber-50 border-amber-300 flex items-start gap-3">
             <Clock className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
             <div>
@@ -320,8 +327,8 @@ export default function PathPage() {
               <p className="text-xs text-amber-800 mt-0.5">
                 A qualified reviewer is checking your eligibility result. Your plan steps are visible below but final decisions rest with the relevant regulator. You will be notified once the review is complete.
               </p>
-              {(plan as any).reviewNote && (
-                <p className="text-xs text-amber-700 mt-1 italic">"{(plan as any).reviewNote}"</p>
+              {plan.reviewNote && (
+                <p className="text-xs text-amber-700 mt-1 italic">"{plan.reviewNote}"</p>
               )}
             </div>
           </Card>

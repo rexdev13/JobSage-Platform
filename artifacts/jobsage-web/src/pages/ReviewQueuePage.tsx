@@ -278,17 +278,17 @@ export default function ReviewQueuePage() {
                             #{c.id}
                           </span>
                           <StatusBadge status={c.status} />
-                          {(c as any).outcome && (
+                          {c.outcome && (
                             <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground capitalize">
-                              {(c as any).outcome}
+                              {c.outcome}
                             </span>
                           )}
                         </div>
                         <p className="text-sm text-foreground truncate">{c.flagReason}</p>
                         <div className="flex items-center gap-3 mt-0.5">
-                          {(c as any).profession && (
+                          {c.profession && (
                             <span className="text-xs text-muted-foreground capitalize">
-                              {(c as any).profession}
+                              {c.profession}
                             </span>
                           )}
                           <span className="text-xs text-muted-foreground">
