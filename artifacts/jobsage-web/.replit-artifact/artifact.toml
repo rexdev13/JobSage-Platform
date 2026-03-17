@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "JOBSAGE"
+version = "1.0.0"
+id = "artifacts/jobsage-web"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+localPort = 18286
+name = "web"
+paths = ["/"]
+
+[services.development]
+run = "pnpm --filter @workspace/jobsage-web run dev"
+
+[services.env]
+PORT = "18286"
+BASE_PATH = "/"
+
+[services.production]
+build = ["pnpm", "--filter", "@workspace/jobsage-web", "run", "build"]
+publicDir = "artifacts/jobsage-web/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"

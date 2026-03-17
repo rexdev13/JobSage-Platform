@@ -1,0 +1,17 @@
+packages:
+  "framer-motion": "For fluid page transitions, step wizard animations, and premium micro-interactions"
+  "@hookform/resolvers": "Zod validation for react-hook-form"
+  "zod": "Schema declaration and form validation"
+  "date-fns": "For formatting consent dates and document upload timestamps"
+  "clsx": "Utility for constructing className strings conditionally"
+  "tailwind-merge": "Utility to merge tailwind classes without style conflicts"
+
+images:
+  - path: "artifacts/jobsage-web/public/images/auth-bg.png"
+    description: "Clean, minimal, abstract gradient background in soft professional navy blue, teal, and pure white with subtle glassmorphism lighting. Corporate medical technology vibe."
+    aspect_ratio: "16:9"
+
+notes:
+  - using framer-motion for all major route transitions and form steps to ensure the premium feel
+  - leveraging the pre-generated TanStack Query hooks from @workspace/api-client-react
+  - object storage direct uploads are handled via standard fetch PUT requests using the pre-signed URLs from the API
