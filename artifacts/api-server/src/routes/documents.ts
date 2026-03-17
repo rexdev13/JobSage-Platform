@@ -1,4 +1,5 @@
-import { Router, type IRouter, type Request, type Response } from "express";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
+import multer from "multer";
 import { db, documentsTable, DOCUMENT_DISCLAIMER } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import {
@@ -6,11 +7,25 @@ import {
   RegisterDocumentBody,
   DeleteDocumentParams,
 } from "@workspace/api-zod";
+import { ObjectStorageService } from "../lib/objectStorage";
 
 const ALLOWED_MIME_TYPES = ["application/pdf", "image/jpeg", "image/png"];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 
 const router: IRouter = Router();
+const objectStorageService = new ObjectStorageService();
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_FILE_SIZE },
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("File type not allowed. Accepted: PDF, JPEG, PNG."));
+    }
+  },
+});
 
 router.get("/documents", async (req: Request, res: Response): Promise<void> => {
   if (!req.isAuthenticated()) {
@@ -25,6 +40,48 @@ router.get("/documents", async (req: Request, res: Response): Promise<void> => {
 
   res.json(ListMyDocumentsResponse.parse({ documents: docs }));
 });
+
+router.post(
+  "/documents/upload",
+  (req: Request, res: Response, next: NextFunction): void => {
+    if (!req.isAuthenticated()) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    next();
+  },
+  upload.single("file"),
+  async (req: Request, res: Response): Promise<void> => {
+    if (!req.file) {
+      res.status(400).json({ error: "No file provided" });
+      return;
+    }
+
+    try {
+      const storageKey = await objectStorageService.saveFileBuffer({
+        buffer: req.file.buffer,
+        contentType: req.file.mimetype,
+      });
+
+      const [doc] = await db
+        .insert(documentsTable)
+        .values({
+          userId: req.user!.id,
+          filename: req.file.originalname,
+          mimeType: req.file.mimetype,
+          storageKey,
+          fileSize: req.file.size,
+          disclaimerText: DOCUMENT_DISCLAIMER,
+        })
+        .returning();
+
+      res.status(201).json(doc);
+    } catch (err) {
+      console.error("Document upload error:", err);
+      res.status(500).json({ error: "Failed to upload document" });
+    }
+  },
+);
 
 router.post("/documents", async (req: Request, res: Response): Promise<void> => {
   if (!req.isAuthenticated()) {

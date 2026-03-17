@@ -30,7 +30,7 @@ export function AppSidebar() {
   const visibleNav = navigation.filter(item => item.roles.includes(role));
 
   return (
-    <div className="w-64 bg-sidebar border-r border-sidebar-border h-screen flex flex-col hidden md:flex shrink-0">
+    <div className="w-64 bg-sidebar border-r border-sidebar-border h-screen flex flex-col shrink-0">
       <div className="h-16 flex items-center px-6 border-b border-sidebar-border shrink-0">
         <h1 className="text-xl font-display font-bold text-primary tracking-tight">JOBSAGE</h1>
       </div>

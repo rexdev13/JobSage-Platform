@@ -327,6 +327,48 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
 
+  /documents/upload:
+    post:
+      tags: [Documents]
+      operationId: uploadDocument
+      summary: Upload a document file directly (multipart/form-data)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Document uploaded and registered.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+        '400':
+          description: Validation error (invalid type, size exceeded).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '500':
+          description: Upload failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
   /documents:
     get:
       tags: [Documents]
