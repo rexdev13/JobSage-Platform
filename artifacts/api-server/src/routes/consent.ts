@@ -1,3 +1,4 @@
+import { requireAuthenticated } from "../middlewares/requireRole";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, consentLogsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
@@ -6,16 +7,11 @@ import crypto from "crypto";
 
 const router: IRouter = Router();
 
-router.get("/consent", async (req: Request, res: Response): Promise<void> => {
-  if (!req.isAuthenticated()) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-
+router.get("/consent", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
   const [latestConsent] = await db
     .select()
     .from(consentLogsTable)
-    .where(eq(consentLogsTable.userId, req.user.id))
+    .where(eq(consentLogsTable.userId, req.user!.id))
     .orderBy(desc(consentLogsTable.consentedAt))
     .limit(1);
 
@@ -27,12 +23,7 @@ router.get("/consent", async (req: Request, res: Response): Promise<void> => {
   );
 });
 
-router.post("/consent", async (req: Request, res: Response): Promise<void> => {
-  if (!req.isAuthenticated()) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-
+router.post("/consent", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
   const parsed = RecordConsentBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -46,7 +37,7 @@ router.post("/consent", async (req: Request, res: Response): Promise<void> => {
   const [consent] = await db
     .insert(consentLogsTable)
     .values({
-      userId: req.user.id,
+      userId: req.user!.id,
       termsVersion: parsed.data.termsVersion,
       ipHash,
     })

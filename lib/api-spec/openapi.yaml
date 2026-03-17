@@ -1876,7 +1876,7 @@ components:
 
     RemediationPlan:
       type: object
-      required: [id, userId, decisionRecordId, createdAt, steps, reviewFlagged]
+      required: [id, userId, decisionRecordId, createdAt, steps, reviewFlagged, reviewComplete]
       properties:
         id:
           type: integer
@@ -1891,11 +1891,14 @@ components:
             type: integer
         reviewFlagged:
           type: boolean
-          description: Whether this plan's decision has been flagged for human review
+          description: Whether this plan's decision is currently pending human review
+        reviewComplete:
+          type: boolean
+          description: Whether the human review has been completed by a reviewer
         reviewNote:
           type: string
           nullable: true
-          description: Optional reviewer note attached to the decision
+          description: Optional reviewer note attached to the decision after review
         createdAt:
           type: string
           format: date-time

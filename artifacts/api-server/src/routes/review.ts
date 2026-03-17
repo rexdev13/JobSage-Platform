@@ -7,7 +7,7 @@ import {
   profilesTable,
   auditEventsTable,
 } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 import { requireRole } from "../middlewares/requireRole";
 
 const router: IRouter = Router();
@@ -214,6 +214,19 @@ router.post(
       .update(reviewCasesTable)
       .set({ status: "reviewed", reviewedBy: reviewerId, reviewedAt: new Date() })
       .where(eq(reviewCasesTable.id, caseId));
+
+    await db
+      .update(decisionRecordsTable)
+      .set({
+        reviewFlagged: 2,
+        reviewNote: [
+          recommendedPathway?.trim() ? `Recommended pathway: ${recommendedPathway.trim()}` : null,
+          notes.trim(),
+        ]
+          .filter(Boolean)
+          .join(" | "),
+      })
+      .where(eq(decisionRecordsTable.id, reviewCase.decisionRecordId));
 
     await writeAuditEvent(reviewerId, "review_annotated", `review_case:${caseId}`, {
       caseId,

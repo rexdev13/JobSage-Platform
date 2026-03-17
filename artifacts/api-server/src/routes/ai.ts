@@ -1,3 +1,4 @@
+import { requireAuthenticated } from "../middlewares/requireRole";
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { remediationPlansTable, remediationStepsTable } from "@workspace/db";
@@ -9,12 +10,7 @@ const router: IRouter = Router();
 const DISCLAIMER =
   "This platform provides decision support only. Final decisions rest with the relevant regulator. AI-generated suggestions should be reviewed alongside professional advice.";
 
-router.get("/ai/remediation-suggestions/:planId", async (req, res): Promise<void> => {
-  if (!req.isAuthenticated()) {
-    res.status(401).json({ error: "Not authenticated." });
-    return;
-  }
-
+router.get("/ai/remediation-suggestions/:planId", requireAuthenticated, async (req, res): Promise<void> => {
   const planId = parseInt(req.params.planId as string, 10);
   if (isNaN(planId)) {
     res.status(400).json({ error: "Invalid planId." });

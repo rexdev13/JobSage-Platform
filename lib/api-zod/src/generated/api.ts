@@ -643,11 +643,14 @@ export const GetRemediationPlanResponse = zod.object({
   orderedStepIds: zod.array(zod.number()).nullish(),
   reviewFlagged: zod
     .boolean()
-    .describe("Whether this plan's decision has been flagged for human review"),
+    .describe("Whether this plan's decision is currently pending human review"),
+  reviewComplete: zod
+    .boolean()
+    .describe("Whether the human review has been completed by a reviewer"),
   reviewNote: zod
     .string()
     .nullish()
-    .describe("Optional reviewer note attached to the decision"),
+    .describe("Optional reviewer note attached to the decision after review"),
   createdAt: zod.date(),
   steps: zod.array(
     zod.object({
@@ -719,11 +722,14 @@ export const UpdateRemediationPlanOrderingResponse = zod.object({
   orderedStepIds: zod.array(zod.number()).nullish(),
   reviewFlagged: zod
     .boolean()
-    .describe("Whether this plan's decision has been flagged for human review"),
+    .describe("Whether this plan's decision is currently pending human review"),
+  reviewComplete: zod
+    .boolean()
+    .describe("Whether the human review has been completed by a reviewer"),
   reviewNote: zod
     .string()
     .nullish()
-    .describe("Optional reviewer note attached to the decision"),
+    .describe("Optional reviewer note attached to the decision after review"),
   createdAt: zod.date(),
   steps: zod.array(
     zod.object({
