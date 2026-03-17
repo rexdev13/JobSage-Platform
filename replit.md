@@ -1,96 +1,85 @@
-# Workspace
+# JOBSAGE
 
-## Overview
+Decision-intelligence platform for regulated UK healthcare and academic professionals (doctors, nurses, allied health, clinical academics) to determine regulatory eligibility (GMC/NMC/HCPC), visa sponsorship feasibility, and receive personalized remediation plans.
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+## Architecture
 
-## Stack
+### Monorepo Structure
+- `artifacts/jobsage-web` — React + Vite frontend (port 18286, preview path `/`)
+- `artifacts/api-server` — Express 5 backend (port 8080, path `/api`)
+- `lib/db` — Drizzle ORM + PostgreSQL schema
+- `lib/api-spec` — OpenAPI 3.1 spec + codegen
+- `lib/api-zod` — Generated Zod schemas
+- `lib/api-client-react` — Generated React Query hooks
+- `lib/replit-auth-web` — Replit Auth hook for web
 
-- **Monorepo tool**: pnpm workspaces
-- **Node.js version**: 24
-- **Package manager**: pnpm
-- **TypeScript version**: 5.9
-- **API framework**: Express 5
-- **Database**: PostgreSQL + Drizzle ORM
-- **Validation**: Zod (`zod/v4`), `drizzle-zod`
-- **API codegen**: Orval (from OpenAPI spec)
-- **Build**: esbuild (CJS bundle)
+### Tech Stack
+- **Frontend**: React 18, Vite, TailwindCSS v4, shadcn/ui, Framer Motion, React Query, wouter
+- **Backend**: Express 5, tsx (dev), esbuild (prod)
+- **Database**: PostgreSQL via Drizzle ORM
+- **Auth**: Replit Auth (OIDC) — `openid-client` v6
+- **Storage**: Replit Object Storage (`@google-cloud/storage` adapter)
+- **API Contract**: OpenAPI 3.1 → Orval codegen
 
-## Structure
+## Database Schema
 
-```text
-artifacts-monorepo/
-├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
-├── lib/                    # Shared libraries
-│   ├── api-spec/           # OpenAPI spec + Orval codegen config
-│   ├── api-client-react/   # Generated React Query hooks
-│   ├── api-zod/            # Generated Zod schemas from OpenAPI
-│   └── db/                 # Drizzle ORM schema + DB connection
-├── scripts/                # Utility scripts (single workspace package)
-│   └── src/                # Individual .ts scripts, run via `pnpm --filter @workspace/scripts run <script>`
-├── pnpm-workspace.yaml     # pnpm workspace (artifacts/*, lib/*, lib/integrations/*, scripts)
-├── tsconfig.base.json      # Shared TS options (composite, bundler resolution, es2022)
-├── tsconfig.json           # Root TS project references
-└── package.json            # Root package with hoisted devDeps
-```
+### `sessions` — Replit Auth session store (mandatory)
+### `users` — Replit Auth user records + `role` column (candidate|admin|reviewer)
+### `profiles` — Candidate onboarding profile (profession, specialty, qualifications, visa status)
+### `consent_logs` — GDPR consent capture per user with IP hash
+### `documents` — Document metadata after object-storage uploads
 
-## TypeScript & Composite Projects
+## API Routes
 
-Every package extends `tsconfig.base.json` which sets `composite: true`. The root `tsconfig.json` lists all packages as project references. This means:
+All routes are under `/api`:
+- `GET /api/healthz` — health check
+- `GET /api/auth/user` — current authenticated user
+- `GET /api/login` — start OIDC browser login
+- `GET /api/callback` — OIDC callback
+- `GET /api/logout` — browser logout
+- `POST /api/mobile-auth/token-exchange` — mobile OIDC code exchange
+- `POST /api/mobile-auth/logout` — mobile session logout
+- `POST /api/storage/uploads/request-url` — get presigned upload URL
+- `GET /api/storage/public-objects/:filePath` — serve public file
+- `GET /api/storage/objects/:objectPath` — serve private file
+- `GET/PUT /api/profiles/me` — candidate profile CRUD
+- `GET/POST /api/consent` — consent status and capture
+- `GET/POST /api/documents` — document list and registration
+- `DELETE /api/documents/:id` — document deletion
 
-- **Always typecheck from the root** — run `pnpm run typecheck` (which runs `tsc --build --emitDeclarationOnly`). This builds the full dependency graph so that cross-package imports resolve correctly. Running `tsc` inside a single package will fail if its dependencies haven't been built yet.
-- **`emitDeclarationOnly`** — we only emit `.d.ts` files during typecheck; actual JS bundling is handled by esbuild/tsx/vite...etc, not `tsc`.
-- **Project references** — when package A depends on package B, A's `tsconfig.json` must list B in its `references` array. `tsc --build` uses this to determine build order and skip up-to-date packages.
+## Frontend Pages
 
-## Root Scripts
+- **LandingPage** — public marketing page with sign-in CTA
+- **ConsentPage** — GDPR consent gate (shown after first login)
+- **OnboardingPage** — multi-step profile wizard (4 steps)
+- **DashboardPage** — overview with profile completion, quick links
+- **ProfilePage** — editable profile form
+- **DocumentsPage** — document upload and management
+- **Placeholders** — Eligibility, Path, Review Queue, Role Mgmt, Audit Logs
 
-- `pnpm run build` — runs `typecheck` first, then recursively runs `build` in all packages that define it
-- `pnpm run typecheck` — runs `tsc --build --emitDeclarationOnly` using project references
+## Frontend Auth Flow
 
-## Packages
+1. User clicks "Sign In" → redirect to `/api/login`
+2. OIDC callback → session cookie set → redirect to app
+3. `useAuth()` from `@workspace/replit-auth-web` provides `user`, `isLoading`
+4. `AuthGuard` component checks auth, then checks consent, then checks profile
+5. If no consent → ConsentPage; if no profile → OnboardingPage; otherwise → main app
 
-### `artifacts/api-server` (`@workspace/api-server`)
+## Environment Variables
 
-Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` for request and response validation and `@workspace/db` for persistence.
+- `DATABASE_URL`, `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE` — PostgreSQL
+- `DEFAULT_OBJECT_STORAGE_BUCKET_ID`, `PUBLIC_OBJECT_SEARCH_PATHS`, `PRIVATE_OBJECT_DIR` — Object storage
+- `REPL_ID`, `ISSUER_URL` (auto-set by Replit) — OIDC auth
 
-- Entry: `src/index.ts` — reads `PORT`, starts Express
-- App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
-- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
-- Depends on: `@workspace/db`, `@workspace/api-zod`
-- `pnpm --filter @workspace/api-server run dev` — run the dev server
-- `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
-- Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest
+## Upcoming Tasks
 
-### `lib/db` (`@workspace/db`)
+- **Task #2**: Regulatory rules engine and eligibility evaluation (GMC/NMC/HCPC rules)
+- **Task #3**: Opportunity matching, visa sponsorship feasibility, remediation plans
+- **Task #4**: AI prioritisation, human review queue, compliance audit tools
 
-Database layer using Drizzle ORM with PostgreSQL. Exports a Drizzle client instance and schema models.
+## Development Notes
 
-- `src/index.ts` — creates a `Pool` + Drizzle instance, exports schema
-- `src/schema/index.ts` — barrel re-export of all models
-- `src/schema/<modelname>.ts` — table definitions with `drizzle-zod` insert schemas (no models definitions exist right now)
-- `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`, automatically provided by Replit)
-- Exports: `.` (pool, db, schema), `./schema` (schema only)
-
-Production migrations are handled by Replit when publishing. In development, we just use `pnpm --filter @workspace/db run push`, and we fallback to `pnpm --filter @workspace/db run push-force`.
-
-### `lib/api-spec` (`@workspace/api-spec`)
-
-Owns the OpenAPI 3.1 spec (`openapi.yaml`) and the Orval config (`orval.config.ts`). Running codegen produces output into two sibling packages:
-
-1. `lib/api-client-react/src/generated/` — React Query hooks + fetch client
-2. `lib/api-zod/src/generated/` — Zod schemas
-
-Run codegen: `pnpm --filter @workspace/api-spec run codegen`
-
-### `lib/api-zod` (`@workspace/api-zod`)
-
-Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used by `api-server` for response validation.
-
-### `lib/api-client-react` (`@workspace/api-client-react`)
-
-Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
-
-### `scripts` (`@workspace/scripts`)
-
-Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
+- Run `pnpm --filter @workspace/api-spec run codegen` after changing `lib/api-spec/openapi.yaml`
+- Run `pnpm --filter @workspace/db run push` after changing DB schema in `lib/db/src/schema/`
+- Auth templates live in `.local/skills/replit-auth/templates/`
+- Object storage templates live in `.local/skills/object-storage/templates/`
