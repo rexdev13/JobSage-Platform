@@ -1,8 +1,22 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { eq, and } from "drizzle-orm";
-import { db, rulesetsTable, rulesetRulesTable, decisionRecordsTable } from "@workspace/db";
+import { db, rulesetsTable, rulesetRulesTable, decisionRecordsTable, auditEventsTable } from "@workspace/db";
 import { evaluate } from "../lib/rulesEngine";
 import type { Profile, RuleCondition } from "@workspace/db";
+import { requireRole } from "../middlewares/requireRole";
+
+async function writeAuditEvent(
+  actor: string,
+  action: string,
+  target?: string,
+  details?: Record<string, unknown>
+): Promise<void> {
+  try {
+    await db.insert(auditEventsTable).values({ actor, action, target, details: details ?? {} });
+  } catch (err) {
+    console.error("[audit] event write failed:", err);
+  }
+}
 
 const router: IRouter = Router();
 
@@ -237,6 +251,12 @@ router.patch("/rulesets/:id/publish", requireAdmin, async (req, res): Promise<vo
     .set({ status: "published" })
     .where(eq(rulesetsTable.id, id))
     .returning();
+
+  writeAuditEvent(req.user!.id, "ruleset_published", `ruleset:${id}`, {
+    regulator: updated.regulator,
+    version: updated.version,
+    ruleCount: rules.length,
+  }).catch(() => {});
 
   res.json({
     id: updated.id,
