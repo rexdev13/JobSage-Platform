@@ -119,6 +119,44 @@ router.post("/rulesets", requireAdmin, async (req, res): Promise<void> => {
     return;
   }
 
+  const VALID_OUTCOMES = ["eligible", "not_eligible", "ineligible"] as const;
+  const VALID_OPERATORS = ["eq", "neq", "in", "not_in", "gte", "lte", "exists"] as const;
+
+  for (let i = 0; i < rules.length; i++) {
+    const rule = rules[i];
+    if (!rule.ruleKey?.trim()) {
+      res.status(400).json({ error: `Rule ${i + 1}: ruleKey is required.` });
+      return;
+    }
+    if (!VALID_OUTCOMES.includes(rule.outcome as typeof VALID_OUTCOMES[number])) {
+      res.status(400).json({ error: `Rule ${i + 1}: outcome must be one of: ${VALID_OUTCOMES.join(", ")}.` });
+      return;
+    }
+    if (!rule.reasonCode?.trim() || !rule.explanationText?.trim()) {
+      res.status(400).json({ error: `Rule ${i + 1}: reasonCode and explanationText are required.` });
+      return;
+    }
+    if (!Array.isArray(rule.conditions) || rule.conditions.length === 0) {
+      res.status(400).json({ error: `Rule ${i + 1}: at least one condition is required.` });
+      return;
+    }
+    for (let j = 0; j < rule.conditions.length; j++) {
+      const cond = rule.conditions[j];
+      if (!cond.field?.trim()) {
+        res.status(400).json({ error: `Rule ${i + 1}, condition ${j + 1}: field is required.` });
+        return;
+      }
+      if (!VALID_OPERATORS.includes(cond.operator as typeof VALID_OPERATORS[number])) {
+        res.status(400).json({ error: `Rule ${i + 1}, condition ${j + 1}: operator must be one of: ${VALID_OPERATORS.join(", ")}.` });
+        return;
+      }
+      if (cond.operator !== "exists" && cond.value === undefined) {
+        res.status(400).json({ error: `Rule ${i + 1}, condition ${j + 1}: value is required for operator "${cond.operator}".` });
+        return;
+      }
+    }
+  }
+
   const [ruleset] = await db
     .insert(rulesetsTable)
     .values({

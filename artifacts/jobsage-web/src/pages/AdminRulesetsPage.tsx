@@ -49,7 +49,7 @@ const SAMPLE_REGRESSION_CASES = [
     expectedOutcome: "eligible" as const,
   },
   {
-    label: "GMC — Indian doctor, not registered, PLAB needed",
+    label: "GMC — Indian doctor, not registered, English language required",
     profile: {
       profession: "doctor" as const,
       specialty: "Cardiology",
@@ -61,7 +61,7 @@ const SAMPLE_REGRESSION_CASES = [
       residencyStatus: "visa_required",
       requiresSponsorship: true,
     },
-    expectedOutcome: "eligible" as const,
+    expectedOutcome: "not_eligible" as const,
   },
   {
     label: "NMC — Nigerian nurse, registered, English-speaking country",
