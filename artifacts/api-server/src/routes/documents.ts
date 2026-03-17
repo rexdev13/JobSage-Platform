@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, documentsTable } from "@workspace/db";
+import { db, documentsTable, DOCUMENT_DISCLAIMER } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import {
   ListMyDocumentsResponse,
@@ -38,7 +38,7 @@ router.post("/documents", async (req: Request, res: Response): Promise<void> => 
     return;
   }
 
-  const { filename, mimeType, objectPath, fileSize } = parsed.data;
+  const { filename, mimeType, storageKey, fileSize } = parsed.data;
 
   if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
     res.status(400).json({ error: "File type not allowed. Accepted: PDF, JPEG, PNG." });
@@ -56,8 +56,9 @@ router.post("/documents", async (req: Request, res: Response): Promise<void> => 
       userId: req.user.id,
       filename,
       mimeType,
-      objectPath,
+      storageKey,
       fileSize: fileSize ?? null,
+      disclaimerText: DOCUMENT_DISCLAIMER,
     })
     .returning();
 

@@ -69,7 +69,7 @@ export interface UploadUrlRequest {
 
 export interface UploadUrlResponse {
   uploadURL: string;
-  objectPath: string;
+  storageKey: string;
   metadata?: UploadUrlRequest;
 }
 
@@ -165,8 +165,9 @@ export interface Document {
   userId: string;
   filename: string;
   mimeType: string;
-  objectPath: string;
+  storageKey: string;
   fileSize?: number | null;
+  disclaimerText: string;
   uploadedAt: string;
 }
 
@@ -180,7 +181,7 @@ export interface RegisterDocumentRequest {
   /** @minLength 1 */
   mimeType: string;
   /** @minLength 1 */
-  objectPath: string;
+  storageKey: string;
   fileSize?: number | null;
 }
 

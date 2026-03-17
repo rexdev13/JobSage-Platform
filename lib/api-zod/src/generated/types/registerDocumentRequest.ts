@@ -12,6 +12,6 @@ export interface RegisterDocumentRequest {
   /** @minLength 1 */
   mimeType: string;
   /** @minLength 1 */
-  objectPath: string;
+  storageKey: string;
   fileSize?: number | null;
 }

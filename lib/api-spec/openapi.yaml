@@ -503,12 +503,12 @@ components:
 
     UploadUrlResponse:
       type: object
-      required: [uploadURL, objectPath]
+      required: [uploadURL, storageKey]
       properties:
         uploadURL:
           type: string
           format: uri
-        objectPath:
+        storageKey:
           type: string
         metadata:
           $ref: '#/components/schemas/UploadUrlRequest'
@@ -629,7 +629,7 @@ components:
 
     Document:
       type: object
-      required: [id, userId, filename, mimeType, objectPath, uploadedAt]
+      required: [id, userId, filename, mimeType, storageKey, disclaimerText, uploadedAt]
       properties:
         id:
           type: integer
@@ -639,11 +639,13 @@ components:
           type: string
         mimeType:
           type: string
-        objectPath:
+        storageKey:
           type: string
         fileSize:
           type: integer
           nullable: true
+        disclaimerText:
+          type: string
         uploadedAt:
           type: string
           format: date-time
@@ -659,7 +661,7 @@ components:
 
     RegisterDocumentRequest:
       type: object
-      required: [filename, mimeType, objectPath]
+      required: [filename, mimeType, storageKey]
       properties:
         filename:
           type: string
@@ -667,7 +669,7 @@ components:
         mimeType:
           type: string
           minLength: 1
-        objectPath:
+        storageKey:
           type: string
           minLength: 1
         fileSize:
