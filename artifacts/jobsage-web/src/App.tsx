@@ -1,6 +1,8 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
+import { useAuth } from "@workspace/replit-auth-web";
+import { useEffect } from "react";
 
 // Layouts & Guards
 import { AuthGuard } from "@/components/layout/AuthGuard";
@@ -24,6 +26,21 @@ import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
 
+function AdminGuard({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (!isLoading && user && user.role !== "admin") {
+      setLocation("/");
+    }
+  }, [isLoading, user, setLocation]);
+
+  if (isLoading) return null;
+  if (!user || user.role !== "admin") return null;
+  return <>{children}</>;
+}
+
 function Router() {
   return (
     <Switch>
@@ -40,13 +57,25 @@ function Router() {
             <Route path="/documents" component={DocumentsPage} />
             
             <Route path="/eligibility" component={EligibilityPage} />
-            <Route path="/admin/rulesets" component={AdminRulesetsPage} />
+            <Route path="/admin/rulesets">
+              <AdminGuard>
+                <AdminRulesetsPage />
+              </AdminGuard>
+            </Route>
             
             {/* Placeholders for next milestones */}
             <Route path="/path" component={PathPage} />
             <Route path="/review-queue" component={ReviewQueuePage} />
-            <Route path="/admin/roles" component={AdminRolesPage} />
-            <Route path="/admin/audit" component={AdminAuditPage} />
+            <Route path="/admin/roles">
+              <AdminGuard>
+                <AdminRolesPage />
+              </AdminGuard>
+            </Route>
+            <Route path="/admin/audit">
+              <AdminGuard>
+                <AdminAuditPage />
+              </AdminGuard>
+            </Route>
             
             <Route component={NotFound} />
           </Switch>

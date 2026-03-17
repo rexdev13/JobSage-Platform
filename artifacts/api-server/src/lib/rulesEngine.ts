@@ -17,7 +17,32 @@ export interface EvaluationResult {
   reviewNote: string | null;
 }
 
+const KNOWN_QUALIFICATION_COUNTRIES = new Set([
+  "United Kingdom",
+  "Ireland",
+  "Australia",
+  "Canada",
+  "New Zealand",
+  "South Africa",
+  "United States",
+  "India",
+  "Pakistan",
+  "Nigeria",
+  "Ghana",
+  "Zimbabwe",
+  "Zambia",
+  "Jamaica",
+  "Trinidad and Tobago",
+  "Barbados",
+  "Singapore",
+  "Hong Kong",
+  "Malta",
+  "Cyprus",
+]);
+
 function detectAmbiguity(profile: Profile): { flagged: boolean; note: string | null } {
+  const reasons: string[] = [];
+
   const missing: string[] = [];
   if (!profile.qualificationCountry) missing.push("qualification country");
   if (!profile.qualificationType) missing.push("qualification type");
@@ -25,9 +50,22 @@ function detectAmbiguity(profile: Profile): { flagged: boolean; note: string | n
   if (!profile.residencyStatus) missing.push("residency status");
 
   if (missing.length > 0) {
+    reasons.push(`missing required fields: ${missing.join(", ")}`);
+  }
+
+  if (
+    profile.qualificationCountry &&
+    !KNOWN_QUALIFICATION_COUNTRIES.has(profile.qualificationCountry)
+  ) {
+    reasons.push(
+      `qualification country "${profile.qualificationCountry}" is not within the standard approved list and requires manual assessment`
+    );
+  }
+
+  if (reasons.length > 0) {
     return {
       flagged: true,
-      note: `Missing required fields for deterministic evaluation: ${missing.join(", ")}. A human reviewer will assess your case.`,
+      note: `This case has been flagged for human review due to: ${reasons.join("; ")}. A clinical reviewer will assess your case and contact you within 5 working days.`,
     };
   }
   return { flagged: false, note: null };
