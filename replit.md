@@ -45,6 +45,7 @@ All routes are under `/api`:
 - `GET/PUT /api/profiles/me` — candidate profile CRUD
 - `GET/POST /api/consent` — consent status and capture
 - `GET/POST /api/documents` — document list and registration
+- `POST /api/documents/upload` — multipart file upload (PDF/JPEG/PNG, max 5 MB), saves to object storage and registers in DB
 - `DELETE /api/documents/:id` — document deletion
 
 ## Frontend Pages
@@ -83,3 +84,7 @@ All routes are under `/api`:
 - Run `pnpm --filter @workspace/db run push` after changing DB schema in `lib/db/src/schema/`
 - Auth templates live in `.local/skills/replit-auth/templates/`
 - Object storage templates live in `.local/skills/object-storage/templates/`
+
+## Session Table Naming
+
+The session store table is named `sessions` (not `user_sessions`). This is intentional and required: Replit Auth uses `connect-pg-simple` which defaults to a table named `sessions`. Renaming it would break the auth system without additional configuration. The `sessions` table is managed by the auth middleware and should not be touched manually.

@@ -19,7 +19,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       )}
 
       {/* Desktop Sidebar */}
-      <AppSidebar />
+      <div className="hidden md:flex">
+        <AppSidebar />
+      </div>
 
       {/* Main Content */}
       <div className="flex flex-col flex-1 w-full overflow-hidden">
