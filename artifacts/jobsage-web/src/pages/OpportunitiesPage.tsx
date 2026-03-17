@@ -102,7 +102,7 @@ export default function OpportunitiesPage() {
             </div>
 
             <div className="space-y-4">
-              {roles.map(({ role, explanation, sponsorshipFeasibility }) => (
+              {roles.map(({ role, explanation, sponsorshipFeasibility, rulesetVersion, decisionRecordId, ruleId }) => (
                 <Card key={role.id} className="p-5 hover:shadow-md transition-shadow">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
@@ -148,8 +148,14 @@ export default function OpportunitiesPage() {
                     </div>
                   )}
 
-                  <div className="mt-3 text-xs text-muted-foreground">
-                    Required registration: <span className="font-medium text-foreground">{role.requiredRegistration}</span>
+                  <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                    <span>
+                      Required registration: <span className="font-medium text-foreground">{role.requiredRegistration}</span>
+                    </span>
+                    <span className="ml-auto">
+                      Ruleset v{rulesetVersion} · Decision #{decisionRecordId}
+                      {ruleId != null && ` · Rule #${ruleId}`}
+                    </span>
                   </div>
                 </Card>
               ))}

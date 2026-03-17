@@ -1516,12 +1516,19 @@ components:
 
     MatchedRole:
       type: object
-      required: [role, explanation]
+      required: [role, explanation, rulesetVersion, decisionRecordId]
       properties:
         role:
           $ref: '#/components/schemas/Role'
         explanation:
           type: string
+        rulesetVersion:
+          type: string
+        decisionRecordId:
+          type: integer
+        ruleId:
+          type: integer
+          nullable: true
         sponsorshipFeasibility:
           $ref: '#/components/schemas/SponsorshipFeasibility'
           nullable: true
@@ -1611,6 +1618,9 @@ components:
           type: string
           nullable: true
         costRange:
+          type: string
+          nullable: true
+        pathway:
           type: string
           nullable: true
         ruleId:

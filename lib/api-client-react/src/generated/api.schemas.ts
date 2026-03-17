@@ -390,6 +390,9 @@ export interface SponsorshipFeasibility {
 export interface MatchedRole {
   role: Role;
   explanation: string;
+  rulesetVersion: string;
+  decisionRecordId: number;
+  ruleId?: number | null;
   sponsorshipFeasibility?: SponsorshipFeasibility | null;
 }
 
@@ -434,6 +437,7 @@ export interface RemediationStep {
   gap: string;
   timelineRange?: string | null;
   costRange?: string | null;
+  pathway?: string | null;
   ruleId: number;
   rulesetVersion: string;
   status: RemediationStepStatus;

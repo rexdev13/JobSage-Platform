@@ -92,6 +92,12 @@ function StepCard({ step }: { step: RemediationStep }) {
         </button>
       </div>
 
+      {step.pathway && (
+        <p className="mt-2 text-xs text-primary/80 font-medium">
+          Pathway: {step.pathway}
+        </p>
+      )}
+
       <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
         {step.timelineRange && (
           <span className="flex items-center gap-1">
@@ -106,6 +112,7 @@ function StepCard({ step }: { step: RemediationStep }) {
         )}
         <span className="ml-auto text-muted-foreground/70">
           Ruleset v{step.rulesetVersion}
+          {step.ruleId > 0 && ` · Rule #${step.ruleId}`}
         </span>
       </div>
 

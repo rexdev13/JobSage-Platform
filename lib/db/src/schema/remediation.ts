@@ -23,6 +23,7 @@ export const remediationStepsTable = pgTable("remediation_steps", {
   gap: text("gap").notNull(),
   timelineRange: text("timeline_range"),
   costRange: text("cost_range"),
+  pathway: text("pathway"),
   ruleId: integer("rule_id").notNull(),
   rulesetVersion: varchar("ruleset_version").notNull(),
   status: varchar("status", { enum: ["planned", "in_progress", "done"] }).notNull().default("planned"),
