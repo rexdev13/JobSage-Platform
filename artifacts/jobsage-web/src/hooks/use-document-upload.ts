@@ -26,7 +26,7 @@ export function useDocumentUpload() {
     try {
       // 1. Get presigned URL
       setProgress(10);
-      const { uploadURL, objectPath } = await getUrlMutation.mutateAsync({
+      const { uploadURL, storageKey } = await getUrlMutation.mutateAsync({
         data: {
           name: file.name,
           size: file.size,
@@ -63,7 +63,7 @@ export function useDocumentUpload() {
         data: {
           filename: file.name,
           mimeType: file.type,
-          objectPath: objectPath,
+          storageKey: storageKey,
           fileSize: file.size,
         }
       });

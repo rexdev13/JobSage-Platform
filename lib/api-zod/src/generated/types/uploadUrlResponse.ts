@@ -9,6 +9,6 @@ import type { UploadUrlRequest } from "./uploadUrlRequest";
 
 export interface UploadUrlResponse {
   uploadURL: string;
-  objectPath: string;
+  storageKey: string;
   metadata?: UploadUrlRequest;
 }

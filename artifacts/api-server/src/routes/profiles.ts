@@ -2,10 +2,11 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { db, profilesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { GetMyProfileResponse, UpsertMyProfileBody, UpsertMyProfileResponse } from "@workspace/api-zod";
+import { requireConsent } from "../middlewares/consentMiddleware";
 
 const router: IRouter = Router();
 
-router.get("/profiles/me", async (req: Request, res: Response): Promise<void> => {
+router.get("/profiles/me", requireConsent, async (req: Request, res: Response): Promise<void> => {
   if (!req.isAuthenticated()) {
     res.status(401).json({ error: "Unauthorized" });
     return;
@@ -24,7 +25,7 @@ router.get("/profiles/me", async (req: Request, res: Response): Promise<void> =>
   res.json(GetMyProfileResponse.parse(profile));
 });
 
-router.put("/profiles/me", async (req: Request, res: Response): Promise<void> => {
+router.put("/profiles/me", requireConsent, async (req: Request, res: Response): Promise<void> => {
   if (!req.isAuthenticated()) {
     res.status(401).json({ error: "Unauthorized" });
     return;

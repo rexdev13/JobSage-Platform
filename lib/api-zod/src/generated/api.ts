@@ -83,7 +83,7 @@ export const RequestUploadUrlBody = zod.object({
 
 export const RequestUploadUrlResponse = zod.object({
   uploadURL: zod.string().url(),
-  objectPath: zod.string(),
+  storageKey: zod.string(),
   metadata: zod
     .object({
       name: zod.string().min(1),
@@ -221,8 +221,9 @@ export const ListMyDocumentsResponse = zod.object({
       userId: zod.string(),
       filename: zod.string(),
       mimeType: zod.string(),
-      objectPath: zod.string(),
+      storageKey: zod.string(),
       fileSize: zod.number().nullish(),
+      disclaimerText: zod.string(),
       uploadedAt: zod.date(),
     }),
   ),
@@ -235,7 +236,7 @@ export const ListMyDocumentsResponse = zod.object({
 export const RegisterDocumentBody = zod.object({
   filename: zod.string().min(1),
   mimeType: zod.string().min(1),
-  objectPath: zod.string().min(1),
+  storageKey: zod.string().min(1),
   fileSize: zod.number().nullish(),
 });
 
