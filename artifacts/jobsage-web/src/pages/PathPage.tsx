@@ -1,7 +1,11 @@
 import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, PageTransition, Button } from "@/components/ui-enhanced";
-import { useGetRemediationPlan, useUpdateRemediationStep } from "@workspace/api-client-react";
+import {
+  useGetRemediationPlan,
+  useUpdateRemediationStep,
+  useGetAiRemediationSuggestions,
+} from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetRemediationPlanQueryKey } from "@workspace/api-client-react";
 import {
@@ -14,9 +18,11 @@ import {
   AlertTriangle,
   TrendingUp,
   ArrowRight,
+  Sparkles,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import type { RemediationStep } from "@workspace/api-client-react";
+import { DisclaimerBanner } from "@/components/ui/DisclaimerBanner";
 
 type StepStatus = "planned" | "in_progress" | "done";
 
@@ -134,6 +140,71 @@ function StepCard({ step }: { step: RemediationStep }) {
   );
 }
 
+function AiSuggestionsPanel({ planId }: { planId: number }) {
+  const [show, setShow] = useState(false);
+  const { data, isLoading, isError } = useGetAiRemediationSuggestions(planId, {
+    query: {
+      enabled: show,
+      queryKey: ["getAiRemediationSuggestions", planId, show],
+    },
+  });
+
+  return (
+    <Card className="p-5 border-violet-200 bg-violet-50/30">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-violet-600" />
+          <span className="text-sm font-semibold text-violet-900">AI Step Ordering Suggestions</span>
+        </div>
+        <button
+          onClick={() => setShow((v) => !v)}
+          className="text-xs text-violet-700 font-medium hover:underline"
+        >
+          {show ? "Hide" : "Get suggestions"}
+        </button>
+      </div>
+
+      {show && (
+        <div className="mt-4 space-y-3">
+          {isLoading && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin" /> Generating AI suggestions…
+            </div>
+          )}
+          {isError && (
+            <p className="text-xs text-destructive">
+              Could not load AI suggestions. Please try again.
+            </p>
+          )}
+          {!isLoading && !isError && data && (
+            <>
+              {data.suggestions.map((s) => (
+                <div key={s.stepId} className="flex gap-3 text-xs">
+                  <span className="w-6 h-6 shrink-0 rounded-full bg-violet-200 text-violet-900 font-bold flex items-center justify-center">
+                    {s.suggestedOrder}
+                  </span>
+                  <div>
+                    <p className="font-medium text-foreground">Step ID {s.stepId}</p>
+                    <p className="text-muted-foreground mt-0.5">{s.rationale}</p>
+                  </div>
+                </div>
+              ))}
+              {data.overallRationale && (
+                <p className="text-xs text-muted-foreground italic mt-2 border-t border-violet-100 pt-2">
+                  {data.overallRationale}
+                </p>
+              )}
+              <p className="text-[10px] text-amber-700 mt-2 border-t border-violet-100 pt-2">
+                {data.disclaimer}
+              </p>
+            </>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 export default function PathPage() {
   const [, setLocation] = useLocation();
   const { data: plan, isLoading, isError, error } = useGetRemediationPlan();
@@ -150,6 +221,7 @@ export default function PathPage() {
   return (
     <AppLayout>
       <PageTransition className="max-w-4xl mx-auto p-6 space-y-6">
+        <DisclaimerBanner />
         <div>
           <h1 className="text-2xl font-display font-bold text-foreground">My Path</h1>
           <p className="text-muted-foreground mt-1 text-sm">
@@ -221,6 +293,8 @@ export default function PathPage() {
                 </span>
               </div>
             </Card>
+
+            {steps.length > 0 && <AiSuggestionsPanel planId={plan.id} />}
 
             {steps.length > 0 && (
               <Card className="p-4 bg-amber-50 border-amber-200">

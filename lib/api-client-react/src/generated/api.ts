@@ -17,22 +17,29 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AiRemediationSuggestions,
+  AnnotateReviewCaseRequest,
   AuthUserEnvelope,
   BeginBrowserLoginParams,
   CandidateProfile,
+  ConsentLogList,
   ConsentRecord,
   ConsentStatus,
   CreateRulesetRequest,
+  DecisionAuditExport,
   DecisionRecordList,
   Document,
   DocumentList,
   EligibilityHistoryList,
   EligibilityResult,
   ErrorEnvelope,
+  ExportDecisionAuditParams,
   HandleBrowserLoginCallbackParams,
   HealthStatus,
   ImportRolesCSVBody,
+  ListConsentLogParams,
   ListDecisionsParams,
+  ListReviewQueueParams,
   ListRulesetsParams,
   LogoutSuccess,
   MatchedRoleList,
@@ -44,12 +51,16 @@ import type {
   RegressionTestResponse,
   RemediationPlan,
   RemediationStep,
+  ReviewAnnotation,
+  ReviewCaseDetail,
+  ReviewQueueList,
   RoleImportResult,
   RoleList,
   Ruleset,
   RulesetList,
   RulesetWithRules,
   SponsorshipFeasibility,
+  UpdatePlanOrderingRequest,
   UpdateRemediationStepRequest,
   UploadDocumentBody,
   UploadUrlRequest,
@@ -2856,3 +2867,653 @@ export const useUpdateRemediationStep = <
 > => {
   return useMutation(getUpdateRemediationStepMutationOptions(options));
 };
+
+/**
+ * @summary Store the candidate's chosen step ordering for a plan
+ */
+export const getUpdateRemediationPlanOrderingUrl = (id: number) => {
+  return `/api/remediation/plans/${id}/ordering`;
+};
+
+export const updateRemediationPlanOrdering = async (
+  id: number,
+  updatePlanOrderingRequest: UpdatePlanOrderingRequest,
+  options?: RequestInit,
+): Promise<RemediationPlan> => {
+  return customFetch<RemediationPlan>(getUpdateRemediationPlanOrderingUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updatePlanOrderingRequest),
+  });
+};
+
+export const getUpdateRemediationPlanOrderingMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateRemediationPlanOrdering>>,
+    TError,
+    { id: number; data: BodyType<UpdatePlanOrderingRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateRemediationPlanOrdering>>,
+  TError,
+  { id: number; data: BodyType<UpdatePlanOrderingRequest> },
+  TContext
+> => {
+  const mutationKey = ["updateRemediationPlanOrdering"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateRemediationPlanOrdering>>,
+    { id: number; data: BodyType<UpdatePlanOrderingRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateRemediationPlanOrdering(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateRemediationPlanOrderingMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateRemediationPlanOrdering>>
+>;
+export type UpdateRemediationPlanOrderingMutationBody =
+  BodyType<UpdatePlanOrderingRequest>;
+export type UpdateRemediationPlanOrderingMutationError =
+  ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Store the candidate's chosen step ordering for a plan
+ */
+export const useUpdateRemediationPlanOrdering = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateRemediationPlanOrdering>>,
+    TError,
+    { id: number; data: BodyType<UpdatePlanOrderingRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateRemediationPlanOrdering>>,
+  TError,
+  { id: number; data: BodyType<UpdatePlanOrderingRequest> },
+  TContext
+> => {
+  return useMutation(getUpdateRemediationPlanOrderingMutationOptions(options));
+};
+
+/**
+ * @summary Get AI-generated step ordering suggestions for a remediation plan
+ */
+export const getGetAiRemediationSuggestionsUrl = (planId: number) => {
+  return `/api/ai/remediation-suggestions/${planId}`;
+};
+
+export const getAiRemediationSuggestions = async (
+  planId: number,
+  options?: RequestInit,
+): Promise<AiRemediationSuggestions> => {
+  return customFetch<AiRemediationSuggestions>(
+    getGetAiRemediationSuggestionsUrl(planId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetAiRemediationSuggestionsQueryKey = (planId: number) => {
+  return [`/api/ai/remediation-suggestions/${planId}`] as const;
+};
+
+export const getGetAiRemediationSuggestionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAiRemediationSuggestions>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  planId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAiRemediationSuggestions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAiRemediationSuggestionsQueryKey(planId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAiRemediationSuggestions>>
+  > = ({ signal }) =>
+    getAiRemediationSuggestions(planId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!planId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAiRemediationSuggestions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAiRemediationSuggestionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAiRemediationSuggestions>>
+>;
+export type GetAiRemediationSuggestionsQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Get AI-generated step ordering suggestions for a remediation plan
+ */
+
+export function useGetAiRemediationSuggestions<
+  TData = Awaited<ReturnType<typeof getAiRemediationSuggestions>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  planId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAiRemediationSuggestions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAiRemediationSuggestionsQueryOptions(
+    planId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List pending and recently reviewed cases (admin/reviewer only)
+ */
+export const getListReviewQueueUrl = (params?: ListReviewQueueParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/review-queue?${stringifiedParams}`
+    : `/api/admin/review-queue`;
+};
+
+export const listReviewQueue = async (
+  params?: ListReviewQueueParams,
+  options?: RequestInit,
+): Promise<ReviewQueueList> => {
+  return customFetch<ReviewQueueList>(getListReviewQueueUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListReviewQueueQueryKey = (params?: ListReviewQueueParams) => {
+  return [`/api/admin/review-queue`, ...(params ? [params] : [])] as const;
+};
+
+export const getListReviewQueueQueryOptions = <
+  TData = Awaited<ReturnType<typeof listReviewQueue>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  params?: ListReviewQueueParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listReviewQueue>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListReviewQueueQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listReviewQueue>>> = ({
+    signal,
+  }) => listReviewQueue(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listReviewQueue>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListReviewQueueQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listReviewQueue>>
+>;
+export type ListReviewQueueQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary List pending and recently reviewed cases (admin/reviewer only)
+ */
+
+export function useListReviewQueue<
+  TData = Awaited<ReturnType<typeof listReviewQueue>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  params?: ListReviewQueueParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listReviewQueue>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListReviewQueueQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get a single review case with profile snapshot and annotations
+ */
+export const getGetReviewCaseUrl = (caseId: number) => {
+  return `/api/admin/review-queue/${caseId}`;
+};
+
+export const getReviewCase = async (
+  caseId: number,
+  options?: RequestInit,
+): Promise<ReviewCaseDetail> => {
+  return customFetch<ReviewCaseDetail>(getGetReviewCaseUrl(caseId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetReviewCaseQueryKey = (caseId: number) => {
+  return [`/api/admin/review-queue/${caseId}`] as const;
+};
+
+export const getGetReviewCaseQueryOptions = <
+  TData = Awaited<ReturnType<typeof getReviewCase>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  caseId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getReviewCase>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetReviewCaseQueryKey(caseId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getReviewCase>>> = ({
+    signal,
+  }) => getReviewCase(caseId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!caseId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getReviewCase>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetReviewCaseQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getReviewCase>>
+>;
+export type GetReviewCaseQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Get a single review case with profile snapshot and annotations
+ */
+
+export function useGetReviewCase<
+  TData = Awaited<ReturnType<typeof getReviewCase>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  caseId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getReviewCase>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetReviewCaseQueryOptions(caseId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Add reviewer annotation and mark case as reviewed
+ */
+export const getAnnotateReviewCaseUrl = (caseId: number) => {
+  return `/api/admin/review-queue/${caseId}/annotate`;
+};
+
+export const annotateReviewCase = async (
+  caseId: number,
+  annotateReviewCaseRequest: AnnotateReviewCaseRequest,
+  options?: RequestInit,
+): Promise<ReviewAnnotation> => {
+  return customFetch<ReviewAnnotation>(getAnnotateReviewCaseUrl(caseId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(annotateReviewCaseRequest),
+  });
+};
+
+export const getAnnotateReviewCaseMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof annotateReviewCase>>,
+    TError,
+    { caseId: number; data: BodyType<AnnotateReviewCaseRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof annotateReviewCase>>,
+  TError,
+  { caseId: number; data: BodyType<AnnotateReviewCaseRequest> },
+  TContext
+> => {
+  const mutationKey = ["annotateReviewCase"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof annotateReviewCase>>,
+    { caseId: number; data: BodyType<AnnotateReviewCaseRequest> }
+  > = (props) => {
+    const { caseId, data } = props ?? {};
+
+    return annotateReviewCase(caseId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AnnotateReviewCaseMutationResult = NonNullable<
+  Awaited<ReturnType<typeof annotateReviewCase>>
+>;
+export type AnnotateReviewCaseMutationBody =
+  BodyType<AnnotateReviewCaseRequest>;
+export type AnnotateReviewCaseMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Add reviewer annotation and mark case as reviewed
+ */
+export const useAnnotateReviewCase = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof annotateReviewCase>>,
+    TError,
+    { caseId: number; data: BodyType<AnnotateReviewCaseRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof annotateReviewCase>>,
+  TError,
+  { caseId: number; data: BodyType<AnnotateReviewCaseRequest> },
+  TContext
+> => {
+  return useMutation(getAnnotateReviewCaseMutationOptions(options));
+};
+
+/**
+ * @summary Export anonymised decision records as CSV or JSON (admin only)
+ */
+export const getExportDecisionAuditUrl = (
+  params?: ExportDecisionAuditParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/audit/decisions?${stringifiedParams}`
+    : `/api/admin/audit/decisions`;
+};
+
+export const exportDecisionAudit = async (
+  params?: ExportDecisionAuditParams,
+  options?: RequestInit,
+): Promise<DecisionAuditExport | string> => {
+  return customFetch<DecisionAuditExport | string>(
+    getExportDecisionAuditUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getExportDecisionAuditQueryKey = (
+  params?: ExportDecisionAuditParams,
+) => {
+  return [`/api/admin/audit/decisions`, ...(params ? [params] : [])] as const;
+};
+
+export const getExportDecisionAuditQueryOptions = <
+  TData = Awaited<ReturnType<typeof exportDecisionAudit>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  params?: ExportDecisionAuditParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof exportDecisionAudit>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getExportDecisionAuditQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof exportDecisionAudit>>
+  > = ({ signal }) =>
+    exportDecisionAudit(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof exportDecisionAudit>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ExportDecisionAuditQueryResult = NonNullable<
+  Awaited<ReturnType<typeof exportDecisionAudit>>
+>;
+export type ExportDecisionAuditQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Export anonymised decision records as CSV or JSON (admin only)
+ */
+
+export function useExportDecisionAudit<
+  TData = Awaited<ReturnType<typeof exportDecisionAudit>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  params?: ExportDecisionAuditParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof exportDecisionAudit>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getExportDecisionAuditQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary View paginated consent log (admin only)
+ */
+export const getListConsentLogUrl = (params?: ListConsentLogParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/audit/consents?${stringifiedParams}`
+    : `/api/admin/audit/consents`;
+};
+
+export const listConsentLog = async (
+  params?: ListConsentLogParams,
+  options?: RequestInit,
+): Promise<ConsentLogList> => {
+  return customFetch<ConsentLogList>(getListConsentLogUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListConsentLogQueryKey = (params?: ListConsentLogParams) => {
+  return [`/api/admin/audit/consents`, ...(params ? [params] : [])] as const;
+};
+
+export const getListConsentLogQueryOptions = <
+  TData = Awaited<ReturnType<typeof listConsentLog>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  params?: ListConsentLogParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listConsentLog>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListConsentLogQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listConsentLog>>> = ({
+    signal,
+  }) => listConsentLog(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listConsentLog>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListConsentLogQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listConsentLog>>
+>;
+export type ListConsentLogQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary View paginated consent log (admin only)
+ */
+
+export function useListConsentLog<
+  TData = Awaited<ReturnType<typeof listConsentLog>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  params?: ListConsentLogParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listConsentLog>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListConsentLogQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}

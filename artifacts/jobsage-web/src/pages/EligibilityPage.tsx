@@ -19,6 +19,7 @@ import {
   HelpCircle,
   Loader2,
 } from "lucide-react";
+import { DisclaimerBanner } from "@/components/ui/DisclaimerBanner";
 
 type EligibilityOutcome = "eligible" | "not_eligible" | "ineligible";
 
@@ -171,7 +172,8 @@ export default function EligibilityPage() {
   return (
     <AppLayout>
       <PageTransition>
-        <header className="mb-8">
+        <DisclaimerBanner />
+        <header className="mt-6 mb-8">
           <h1 className="text-3xl font-display font-bold text-foreground">Eligibility Intelligence</h1>
           <p className="text-muted-foreground mt-2">
             Run your profile against the latest UK regulatory criteria for deterministic eligibility outcomes.

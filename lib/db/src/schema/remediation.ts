@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, timestamp, varchar, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, timestamp, varchar, uniqueIndex, json } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { decisionRecordsTable } from "./rulesets";
@@ -7,6 +7,7 @@ export const remediationPlansTable = pgTable("remediation_plans", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull(),
   decisionRecordId: integer("decision_record_id").notNull().references(() => decisionRecordsTable.id, { onDelete: "cascade" }),
+  orderedStepIds: json("ordered_step_ids").$type<number[]>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   uniqueIndex("remediation_plans_user_decision_uniq").on(t.userId, t.decisionRecordId),

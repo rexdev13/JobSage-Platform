@@ -3,6 +3,7 @@ import { Card, PageTransition } from "@/components/ui-enhanced";
 import { useListMatchedRoles } from "@workspace/api-client-react";
 import { useLocation } from "wouter";
 import { Briefcase, MapPin, Building2, CheckCircle2, XCircle, HelpCircle, AlertCircle, ArrowRight } from "lucide-react";
+import { DisclaimerBanner } from "@/components/ui/DisclaimerBanner";
 
 function SponsorshipBadge({
   outcome,
@@ -39,6 +40,7 @@ export default function OpportunitiesPage() {
   return (
     <AppLayout>
       <PageTransition className="max-w-4xl mx-auto p-6 space-y-6">
+        <DisclaimerBanner />
         <div>
           <h1 className="text-2xl font-display font-bold text-foreground">Opportunities</h1>
           <p className="text-muted-foreground mt-1 text-sm">

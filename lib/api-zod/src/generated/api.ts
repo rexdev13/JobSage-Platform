@@ -640,6 +640,7 @@ export const GetRemediationPlanResponse = zod.object({
   id: zod.number(),
   userId: zod.string(),
   decisionRecordId: zod.number(),
+  orderedStepIds: zod.array(zod.number()).nullish(),
   createdAt: zod.date(),
   steps: zod.array(
     zod.object({
@@ -687,4 +688,230 @@ export const UpdateRemediationStepResponse = zod.object({
   rulesetVersion: zod.string(),
   status: zod.enum(["planned", "in_progress", "done"]),
   updatedAt: zod.date(),
+});
+
+/**
+ * @summary Store the candidate's chosen step ordering for a plan
+ */
+export const UpdateRemediationPlanOrderingParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateRemediationPlanOrderingBody = zod.object({
+  stepOrder: zod
+    .array(zod.number())
+    .describe(
+      "Ordered list of step IDs representing the candidate's preferred ordering",
+    ),
+});
+
+export const UpdateRemediationPlanOrderingResponse = zod.object({
+  id: zod.number(),
+  userId: zod.string(),
+  decisionRecordId: zod.number(),
+  orderedStepIds: zod.array(zod.number()).nullish(),
+  createdAt: zod.date(),
+  steps: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      stepOrder: zod.number(),
+      title: zod.string(),
+      description: zod.string(),
+      gap: zod.string(),
+      timelineRange: zod.string().nullish(),
+      costRange: zod.string().nullish(),
+      pathway: zod.string().nullish(),
+      stepSource: zod.enum(["rule", "sponsorship", "manual"]),
+      ruleId: zod.number().nullish(),
+      rulesetVersion: zod.string(),
+      status: zod.enum(["planned", "in_progress", "done"]),
+      updatedAt: zod.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get AI-generated step ordering suggestions for a remediation plan
+ */
+export const GetAiRemediationSuggestionsParams = zod.object({
+  planId: zod.coerce.number(),
+});
+
+export const GetAiRemediationSuggestionsResponse = zod.object({
+  planId: zod.number(),
+  suggestions: zod.array(
+    zod.object({
+      stepId: zod.number(),
+      suggestedOrder: zod.number(),
+      rationale: zod.string(),
+    }),
+  ),
+  overallRationale: zod.string(),
+  disclaimer: zod.string(),
+});
+
+/**
+ * @summary List pending and recently reviewed cases (admin/reviewer only)
+ */
+export const ListReviewQueueQueryParams = zod.object({
+  status: zod.enum(["pending", "reviewed"]).optional(),
+});
+
+export const ListReviewQueueResponse = zod.object({
+  cases: zod.array(
+    zod.object({
+      id: zod.number(),
+      userId: zod.string(),
+      decisionRecordId: zod.number(),
+      flagReason: zod.string(),
+      status: zod.enum(["pending", "reviewed"]),
+      reviewedBy: zod.string().nullish(),
+      reviewedAt: zod.date().nullish(),
+      createdAt: zod.date(),
+    }),
+  ),
+  total: zod.number(),
+});
+
+/**
+ * @summary Get a single review case with profile snapshot and annotations
+ */
+export const GetReviewCaseParams = zod.object({
+  caseId: zod.coerce.number(),
+});
+
+export const GetReviewCaseResponse = zod.object({
+  case: zod.object({
+    id: zod.number(),
+    userId: zod.string(),
+    decisionRecordId: zod.number(),
+    flagReason: zod.string(),
+    status: zod.enum(["pending", "reviewed"]),
+    reviewedBy: zod.string().nullish(),
+    reviewedAt: zod.date().nullish(),
+    createdAt: zod.date(),
+  }),
+  decision: zod.object({
+    id: zod.number(),
+    userId: zod.string(),
+    outcome: zod.enum(["eligible", "not_eligible", "ineligible"]),
+    explanationText: zod.string(),
+    reasonCodes: zod.array(zod.string()),
+    pathways: zod.array(zod.string()).nullish(),
+    rulesetId: zod.number(),
+    rulesetVersion: zod.string(),
+    profileSnapshotHash: zod.string(),
+    reviewFlagged: zod.boolean(),
+    reviewNote: zod.string().nullish(),
+    createdAt: zod.date(),
+  }),
+  profile: zod
+    .object({
+      id: zod.number(),
+      userId: zod.string(),
+      profession: zod.enum([
+        "doctor",
+        "nurse",
+        "midwife",
+        "allied_health_professional",
+        "clinical_academic",
+      ]),
+      specialty: zod.string().nullish(),
+      qualificationCountry: zod.string().nullish(),
+      qualificationType: zod.string().nullish(),
+      qualificationYear: zod.number().nullish(),
+      experienceYears: zod.number().nullish(),
+      registrationStatus: zod
+        .enum(["registered", "not_registered", "in_process"])
+        .nullish(),
+      licenceReady: zod.boolean().nullish(),
+      residencyStatus: zod.string().nullish(),
+      requiresSponsorship: zod.boolean().nullish(),
+      createdAt: zod.date(),
+      updatedAt: zod.date(),
+    })
+    .nullish(),
+  annotations: zod.array(
+    zod.object({
+      id: zod.number(),
+      caseId: zod.number(),
+      reviewerId: zod.string(),
+      notes: zod.string(),
+      recommendedPathway: zod.string().nullish(),
+      createdAt: zod.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Add reviewer annotation and mark case as reviewed
+ */
+export const AnnotateReviewCaseParams = zod.object({
+  caseId: zod.coerce.number(),
+});
+
+export const AnnotateReviewCaseBody = zod.object({
+  notes: zod.string().min(1),
+  recommendedPathway: zod.string().optional(),
+});
+
+export const AnnotateReviewCaseResponse = zod.object({
+  id: zod.number(),
+  caseId: zod.number(),
+  reviewerId: zod.string(),
+  notes: zod.string(),
+  recommendedPathway: zod.string().nullish(),
+  createdAt: zod.date(),
+});
+
+/**
+ * @summary Export anonymised decision records as CSV or JSON (admin only)
+ */
+export const exportDecisionAuditQueryFormatDefault = `json`;
+
+export const ExportDecisionAuditQueryParams = zod.object({
+  format: zod
+    .enum(["csv", "json"])
+    .default(exportDecisionAuditQueryFormatDefault),
+  from: zod.date().optional(),
+  to: zod.date().optional(),
+});
+
+export const ExportDecisionAuditResponse = zod.object({
+  records: zod.array(
+    zod.object({
+      userIdHash: zod.string(),
+      createdAt: zod.date(),
+      rulesetVersion: zod.string(),
+      outcome: zod.enum(["eligible", "not_eligible", "ineligible"]),
+      reasonCodes: zod.array(zod.string()),
+    }),
+  ),
+  total: zod.number(),
+  exportedAt: zod.date(),
+});
+
+/**
+ * @summary View paginated consent log (admin only)
+ */
+export const listConsentLogQueryPageDefault = 1;
+export const listConsentLogQueryPageSizeDefault = 50;
+
+export const ListConsentLogQueryParams = zod.object({
+  page: zod.coerce.number().default(listConsentLogQueryPageDefault),
+  pageSize: zod.coerce.number().default(listConsentLogQueryPageSizeDefault),
+});
+
+export const ListConsentLogResponse = zod.object({
+  entries: zod.array(
+    zod.object({
+      userId: zod.string(),
+      consentedAt: zod.date(),
+      termsVersion: zod.string(),
+    }),
+  ),
+  total: zod.number(),
+  page: zod.number(),
+  pageSize: zod.number(),
 });

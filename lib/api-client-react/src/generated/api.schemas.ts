@@ -458,6 +458,7 @@ export interface RemediationPlan {
   id: number;
   userId: string;
   decisionRecordId: number;
+  orderedStepIds?: number[] | null;
   createdAt: string;
   steps: RemediationStep[];
 }
@@ -473,6 +474,106 @@ export const UpdateRemediationStepRequestStatus = {
 
 export interface UpdateRemediationStepRequest {
   status: UpdateRemediationStepRequestStatus;
+}
+
+export interface UpdatePlanOrderingRequest {
+  /** Ordered list of step IDs representing the candidate's preferred ordering */
+  stepOrder: number[];
+}
+
+export interface AiRemediationSuggestion {
+  stepId: number;
+  suggestedOrder: number;
+  rationale: string;
+}
+
+export interface AiRemediationSuggestions {
+  planId: number;
+  suggestions: AiRemediationSuggestion[];
+  overallRationale: string;
+  disclaimer: string;
+}
+
+export type ReviewCaseStatus =
+  (typeof ReviewCaseStatus)[keyof typeof ReviewCaseStatus];
+
+export const ReviewCaseStatus = {
+  pending: "pending",
+  reviewed: "reviewed",
+} as const;
+
+export interface ReviewCase {
+  id: number;
+  userId: string;
+  decisionRecordId: number;
+  flagReason: string;
+  status: ReviewCaseStatus;
+  reviewedBy?: string | null;
+  reviewedAt?: string | null;
+  createdAt: string;
+}
+
+export interface ReviewQueueList {
+  cases: ReviewCase[];
+  total: number;
+}
+
+export interface ReviewAnnotation {
+  id: number;
+  caseId: number;
+  reviewerId: string;
+  notes: string;
+  recommendedPathway?: string | null;
+  createdAt: string;
+}
+
+export interface ReviewCaseDetail {
+  case: ReviewCase;
+  decision: EligibilityResult;
+  profile?: CandidateProfile | null;
+  annotations: ReviewAnnotation[];
+}
+
+export interface AnnotateReviewCaseRequest {
+  /** @minLength 1 */
+  notes: string;
+  recommendedPathway?: string;
+}
+
+export type DecisionAuditRecordOutcome =
+  (typeof DecisionAuditRecordOutcome)[keyof typeof DecisionAuditRecordOutcome];
+
+export const DecisionAuditRecordOutcome = {
+  eligible: "eligible",
+  not_eligible: "not_eligible",
+  ineligible: "ineligible",
+} as const;
+
+export interface DecisionAuditRecord {
+  userIdHash: string;
+  createdAt: string;
+  rulesetVersion: string;
+  outcome: DecisionAuditRecordOutcome;
+  reasonCodes: string[];
+}
+
+export interface DecisionAuditExport {
+  records: DecisionAuditRecord[];
+  total: number;
+  exportedAt: string;
+}
+
+export interface ConsentLogEntry {
+  userId: string;
+  consentedAt: string;
+  termsVersion: string;
+}
+
+export interface ConsentLogList {
+  entries: ConsentLogEntry[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 export type BeginBrowserLoginParams = {
@@ -528,4 +629,35 @@ export const ListDecisionsOutcome = {
 
 export type ImportRolesCSVBody = {
   file: Blob;
+};
+
+export type ListReviewQueueParams = {
+  status?: ListReviewQueueStatus;
+};
+
+export type ListReviewQueueStatus =
+  (typeof ListReviewQueueStatus)[keyof typeof ListReviewQueueStatus];
+
+export const ListReviewQueueStatus = {
+  pending: "pending",
+  reviewed: "reviewed",
+} as const;
+
+export type ExportDecisionAuditParams = {
+  format?: ExportDecisionAuditFormat;
+  from?: string;
+  to?: string;
+};
+
+export type ExportDecisionAuditFormat =
+  (typeof ExportDecisionAuditFormat)[keyof typeof ExportDecisionAuditFormat];
+
+export const ExportDecisionAuditFormat = {
+  csv: "csv",
+  json: "json",
+} as const;
+
+export type ListConsentLogParams = {
+  page?: number;
+  pageSize?: number;
 };
