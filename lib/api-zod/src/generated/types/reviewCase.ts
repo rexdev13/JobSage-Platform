@@ -16,4 +16,8 @@ export interface ReviewCase {
   reviewedBy?: string | null;
   reviewedAt?: Date | null;
   createdAt: Date;
+  /** Candidate's profession from their profile snapshot */
+  profession?: string | null;
+  /** Decision outcome for this flagged case */
+  outcome?: string | null;
 }

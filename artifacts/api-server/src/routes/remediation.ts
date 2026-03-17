@@ -125,11 +125,20 @@ router.get("/remediation/plan", async (req, res): Promise<void> => {
     .limit(1);
 
   if (existingPlan) {
-    const steps = await db
+    const rawSteps = await db
       .select()
       .from(remediationStepsTable)
       .where(eq(remediationStepsTable.planId, existingPlan.id))
       .orderBy(remediationStepsTable.stepOrder);
+
+    const orderedIds = existingPlan.orderedStepIds as number[] | null;
+    const steps =
+      orderedIds && orderedIds.length > 0
+        ? orderedIds
+            .map((id) => rawSteps.find((s) => s.id === id))
+            .filter(Boolean)
+            .concat(rawSteps.filter((s) => !orderedIds.includes(s.id))) as typeof rawSteps
+        : rawSteps;
 
     res.json({
       ...existingPlan,

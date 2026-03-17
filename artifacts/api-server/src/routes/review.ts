@@ -169,7 +169,7 @@ router.get(
 
 router.post(
   "/admin/review-queue/:caseId/annotate",
-  requireRole("admin", "reviewer"),
+  requireRole("reviewer"),
   async (req, res): Promise<void> => {
     const caseId = parseInt(req.params.caseId as string, 10);
     if (isNaN(caseId)) {

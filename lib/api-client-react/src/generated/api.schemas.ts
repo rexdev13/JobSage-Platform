@@ -459,6 +459,10 @@ export interface RemediationPlan {
   userId: string;
   decisionRecordId: number;
   orderedStepIds?: number[] | null;
+  /** Whether this plan's decision has been flagged for human review */
+  reviewFlagged: boolean;
+  /** Optional reviewer note attached to the decision */
+  reviewNote?: string | null;
   createdAt: string;
   steps: RemediationStep[];
 }
@@ -511,6 +515,10 @@ export interface ReviewCase {
   reviewedBy?: string | null;
   reviewedAt?: string | null;
   createdAt: string;
+  /** Candidate's profession from their profile snapshot */
+  profession?: string | null;
+  /** Decision outcome for this flagged case */
+  outcome?: string | null;
 }
 
 export interface ReviewQueueList {
