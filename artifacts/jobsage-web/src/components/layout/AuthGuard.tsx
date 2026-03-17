@@ -1,36 +1,45 @@
 import { useEffect } from "react";
 import { useAuth } from "@workspace/replit-auth-web";
 import { useLocation } from "wouter";
-import { useGetMyConsent, useGetMyProfile } from "@workspace/api-client-react";
+import {
+  useGetMyConsent,
+  useGetMyProfile,
+  getGetMyConsentQueryKey,
+  getGetMyProfileQueryKey,
+} from "@workspace/api-client-react";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const [location, setLocation] = useLocation();
 
-  // Queries (enabled conditionally)
-  const { 
-    data: consentData, 
+  const {
+    data: consentData,
     isLoading: consentLoading,
-    error: consentError 
-  } = useGetMyConsent({ 
-    query: { 
+    error: consentError,
+  } = useGetMyConsent({
+    query: {
+      queryKey: getGetMyConsentQueryKey(),
       enabled: isAuthenticated,
-      retry: false 
-    } 
+      retry: false,
+    },
   });
 
-  const { 
-    data: profileData, 
+  const {
+    data: profileData,
     isLoading: profileLoading,
-    error: profileError
+    error: profileError,
   } = useGetMyProfile({
     query: {
+      queryKey: getGetMyProfileQueryKey(),
       enabled: isAuthenticated && consentData?.hasConsented === true,
-      retry: false
-    }
+      retry: false,
+    },
   });
 
-  const isLoading = authLoading || (isAuthenticated && consentLoading) || (isAuthenticated && consentData?.hasConsented && profileLoading);
+  const isLoading =
+    authLoading ||
+    (isAuthenticated && consentLoading) ||
+    (isAuthenticated && !!consentData?.hasConsented && profileLoading);
 
   useEffect(() => {
     if (isLoading) return;
@@ -40,33 +49,54 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Consent check
     if (consentData && !consentData.hasConsented && location !== "/consent") {
       setLocation("/consent");
       return;
     }
 
-    // Profile check
-    if (consentData?.hasConsented && profileError && location !== "/onboarding") {
-      // Assuming 404 error means no profile
+    if (
+      consentData?.hasConsented &&
+      profileError &&
+      location !== "/onboarding"
+    ) {
       setLocation("/onboarding");
       return;
     }
-
-  }, [isLoading, isAuthenticated, consentData, profileError, location, setLocation]);
+  }, [
+    isLoading,
+    isAuthenticated,
+    consentData,
+    profileError,
+    location,
+    setLocation,
+  ]);
 
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background">
         <div className="w-12 h-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin mb-4" />
-        <p className="text-muted-foreground font-medium animate-pulse">Loading JOBSAGE...</p>
+        <p className="text-muted-foreground font-medium animate-pulse">
+          Loading JOBSAGE...
+        </p>
       </div>
     );
   }
 
   if (!isAuthenticated && location !== "/login") return null;
-  if (isAuthenticated && consentData && !consentData.hasConsented && location !== "/consent") return null;
-  if (isAuthenticated && consentData?.hasConsented && profileError && location !== "/onboarding") return null;
+  if (
+    isAuthenticated &&
+    consentData &&
+    !consentData.hasConsented &&
+    location !== "/consent"
+  )
+    return null;
+  if (
+    isAuthenticated &&
+    consentData?.hasConsented &&
+    profileError &&
+    location !== "/onboarding"
+  )
+    return null;
 
   return <>{children}</>;
 }

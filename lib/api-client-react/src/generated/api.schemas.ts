@@ -194,3 +194,7 @@ export type HandleBrowserLoginCallbackParams = {
   state?: string;
   iss?: string;
 };
+
+export type UploadDocumentBody = {
+  file: Blob;
+};

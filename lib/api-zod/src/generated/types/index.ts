@@ -25,6 +25,7 @@ export * from "./mobileTokenExchangeRequest";
 export * from "./mobileTokenExchangeSuccess";
 export * from "./recordConsentRequest";
 export * from "./registerDocumentRequest";
+export * from "./uploadDocumentBody";
 export * from "./uploadUrlRequest";
 export * from "./uploadUrlResponse";
 export * from "./upsertProfileRequest";
