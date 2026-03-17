@@ -77,7 +77,8 @@ export async function ensureRemediationPlan(
         pathway: s.pathway,
         timelineRange: s.timelineRange,
         costRange: s.costRange,
-        ruleId: s.ruleId,
+        stepSource: s.stepSource,
+        ruleId: s.ruleId ?? null,
         rulesetVersion: s.rulesetVersion,
         status: "planned" as const,
       }))
@@ -178,7 +179,8 @@ router.get("/remediation/plan", async (req, res): Promise<void> => {
               pathway: s.pathway,
               timelineRange: s.timelineRange,
               costRange: s.costRange,
-              ruleId: s.ruleId,
+              stepSource: s.stepSource,
+              ruleId: s.ruleId ?? null,
               rulesetVersion: s.rulesetVersion,
               status: "planned" as const,
             }))

@@ -47,6 +47,7 @@ export * from "./regressionTestResponse";
 export * from "./remediationPlan";
 export * from "./remediationStep";
 export * from "./remediationStepStatus";
+export * from "./remediationStepStepSource";
 export * from "./role";
 export * from "./roleImportResult";
 export * from "./roleImportResultErrorsItem";
