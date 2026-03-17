@@ -357,7 +357,14 @@ export const CreateRulesetBody = zod.object({
             "lte",
             "exists",
           ]),
-          value: zod.unknown().nullish(),
+          value: zod
+            .union([
+              zod.string(),
+              zod.number(),
+              zod.boolean(),
+              zod.array(zod.string()),
+            ])
+            .nullish(),
         }),
       ),
       outcome: zod.enum(["eligible", "not_eligible", "ineligible"]),
@@ -406,7 +413,14 @@ export const GetRulesetResponse = zod
                 "lte",
                 "exists",
               ]),
-              value: zod.unknown().nullish(),
+              value: zod
+                .union([
+                  zod.string(),
+                  zod.number(),
+                  zod.boolean(),
+                  zod.array(zod.string()),
+                ])
+                .nullish(),
             }),
           ),
           outcome: zod.enum(["eligible", "not_eligible", "ineligible"]),
