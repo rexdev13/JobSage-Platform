@@ -79,6 +79,7 @@ export type CandidateProfileProfession =
 export const CandidateProfileProfession = {
   doctor: "doctor",
   nurse: "nurse",
+  midwife: "midwife",
   allied_health_professional: "allied_health_professional",
   clinical_academic: "clinical_academic",
 } as const;
@@ -116,6 +117,7 @@ export type UpsertProfileRequestProfession =
 export const UpsertProfileRequestProfession = {
   doctor: "doctor",
   nurse: "nurse",
+  midwife: "midwife",
   allied_health_professional: "allied_health_professional",
   clinical_academic: "clinical_academic",
 } as const;

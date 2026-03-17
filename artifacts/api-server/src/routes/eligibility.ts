@@ -10,7 +10,7 @@ const router: IRouter = Router();
 
 function regulatorForProfession(profession: string): "GMC" | "NMC" | "HCPC" | null {
   if (profession === "doctor" || profession === "clinical_academic") return "GMC";
-  if (profession === "nurse") return "NMC";
+  if (profession === "nurse" || profession === "midwife") return "NMC";
   if (profession === "allied_health_professional") return "HCPC";
   return null;
 }

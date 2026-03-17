@@ -854,7 +854,7 @@ components:
           type: string
         profession:
           type: string
-          enum: [doctor, nurse, allied_health_professional, clinical_academic]
+          enum: [doctor, nurse, midwife, allied_health_professional, clinical_academic]
         specialty:
           type: string
           nullable: true
@@ -905,7 +905,7 @@ components:
       properties:
         profession:
           type: string
-          enum: [doctor, nurse, allied_health_professional, clinical_academic]
+          enum: [doctor, nurse, midwife, allied_health_professional, clinical_academic]
         specialty:
           type: string
         qualificationCountry:

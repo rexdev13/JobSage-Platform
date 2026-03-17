@@ -7,7 +7,7 @@ import { Card, Button, Input, Select, Label, PageTransition } from "@/components
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, ArrowLeft, CheckCircle2 } from "lucide-react";
 
-type Profession = "doctor" | "nurse" | "allied_health_professional" | "clinical_academic";
+type Profession = "doctor" | "nurse" | "midwife" | "allied_health_professional" | "clinical_academic";
 type RegistrationStatus = "registered" | "not_registered" | "in_process";
 
 type ProfileData = {
@@ -128,6 +128,7 @@ export default function OnboardingPage() {
                       <option value="" disabled>Select profession...</option>
                       <option value="doctor">Doctor</option>
                       <option value="nurse">Nurse</option>
+                      <option value="midwife">Midwife</option>
                       <option value="allied_health_professional">Allied Health Professional</option>
                       <option value="clinical_academic">Clinical Academic</option>
                     </Select>
