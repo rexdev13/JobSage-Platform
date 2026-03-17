@@ -212,6 +212,13 @@ export const GetMyConsentResponse = zod.object({
 });
 
 /**
+ * @summary Upload a document file directly (multipart/form-data)
+ */
+export const UploadDocumentBody = zod.object({
+  file: zod.instanceof(File),
+});
+
+/**
  * @summary List the current user's uploaded documents
  */
 export const ListMyDocumentsResponse = zod.object({
