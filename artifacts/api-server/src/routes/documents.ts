@@ -50,7 +50,19 @@ router.post(
     }
     next();
   },
-  upload.single("file"),
+  (req: Request, res: Response, next: NextFunction): void => {
+    upload.single("file")(req, res, (err) => {
+      if (err) {
+        if (err.code === "LIMIT_FILE_SIZE") {
+          res.status(400).json({ error: "File exceeds maximum size of 5 MB." });
+          return;
+        }
+        res.status(400).json({ error: err.message ?? "File upload error" });
+        return;
+      }
+      next();
+    });
+  },
   async (req: Request, res: Response): Promise<void> => {
     if (!req.file) {
       res.status(400).json({ error: "No file provided" });
@@ -104,6 +116,12 @@ router.post("/documents", async (req: Request, res: Response): Promise<void> => 
 
   if (fileSize && fileSize > MAX_FILE_SIZE) {
     res.status(400).json({ error: "File exceeds maximum size of 5 MB." });
+    return;
+  }
+
+  // Validate that the storageKey belongs to the expected private uploads namespace
+  if (!storageKey.startsWith("/objects/uploads/")) {
+    res.status(400).json({ error: "Invalid storage key. Must be obtained from the presigned upload URL endpoint." });
     return;
   }
 
