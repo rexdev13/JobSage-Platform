@@ -18,12 +18,7 @@ function requireAdmin(req: Request, res: Response, next: NextFunction): void {
   next();
 }
 
-router.get("/rulesets", async (req, res): Promise<void> => {
-  if (!req.isAuthenticated()) {
-    res.status(401).json({ error: "Not authenticated." });
-    return;
-  }
-
+router.get("/rulesets", requireAdmin, async (req, res): Promise<void> => {
   const { regulator, status } = req.query as Record<string, string | undefined>;
 
   const conditions = [];
@@ -54,12 +49,7 @@ router.get("/rulesets", async (req, res): Promise<void> => {
   });
 });
 
-router.get("/rulesets/:id", async (req, res): Promise<void> => {
-  if (!req.isAuthenticated()) {
-    res.status(401).json({ error: "Not authenticated." });
-    return;
-  }
-
+router.get("/rulesets/:id", requireAdmin, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
 
