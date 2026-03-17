@@ -540,3 +540,144 @@ export const ListDecisionsResponse = zod.object({
 export const DeleteDocumentParams = zod.object({
   id: zod.coerce.number(),
 });
+
+/**
+ * @summary List roles matched to the current candidate's eligibility
+ */
+export const ListMatchedRolesResponse = zod.object({
+  roles: zod.array(
+    zod.object({
+      role: zod.object({
+        id: zod.number(),
+        title: zod.string(),
+        employer: zod.string(),
+        location: zod.string(),
+        regulator: zod.enum(["GMC", "NMC", "HCPC"]),
+        sponsorshipOffered: zod.boolean(),
+        requiredRegistration: zod.string(),
+        active: zod.boolean(),
+        importedAt: zod.date(),
+        importedBy: zod.string().nullish(),
+      }),
+      explanation: zod.string(),
+      sponsorshipFeasibility: zod
+        .object({
+          roleId: zod.number(),
+          outcome: zod.enum(["feasible", "not_feasible", "uncertain"]),
+          reasonCode: zod.string(),
+          explanation: zod.string(),
+          disclaimer: zod.string(),
+        })
+        .nullish(),
+    }),
+  ),
+  decisionRecordId: zod.number(),
+  rulesetVersion: zod.string(),
+  eligibilityOutcome: zod.string().optional(),
+  message: zod.string().nullish(),
+});
+
+/**
+ * @summary List all roles in the catalogue (admin only)
+ */
+export const AdminListRolesResponse = zod.object({
+  roles: zod.array(
+    zod.object({
+      id: zod.number(),
+      title: zod.string(),
+      employer: zod.string(),
+      location: zod.string(),
+      regulator: zod.enum(["GMC", "NMC", "HCPC"]),
+      sponsorshipOffered: zod.boolean(),
+      requiredRegistration: zod.string(),
+      active: zod.boolean(),
+      importedAt: zod.date(),
+      importedBy: zod.string().nullish(),
+    }),
+  ),
+});
+
+/**
+ * @summary Import roles from a CSV file (admin only)
+ */
+export const ImportRolesCSVBody = zod.object({
+  file: zod.instanceof(File),
+});
+
+export const ImportRolesCSVResponse = zod.object({
+  imported: zod.number(),
+  skipped: zod.number(),
+  errors: zod.array(
+    zod.object({
+      row: zod.number(),
+      message: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get sponsorship feasibility for a specific role
+ */
+export const GetSponsorshipFeasibilityParams = zod.object({
+  roleId: zod.coerce.number(),
+});
+
+export const GetSponsorshipFeasibilityResponse = zod.object({
+  roleId: zod.number(),
+  outcome: zod.enum(["feasible", "not_feasible", "uncertain"]),
+  reasonCode: zod.string(),
+  explanation: zod.string(),
+  disclaimer: zod.string(),
+});
+
+/**
+ * @summary Get or generate the current candidate's remediation plan
+ */
+export const GetRemediationPlanResponse = zod.object({
+  id: zod.number(),
+  userId: zod.string(),
+  decisionRecordId: zod.number(),
+  createdAt: zod.date(),
+  steps: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      stepOrder: zod.number(),
+      title: zod.string(),
+      description: zod.string(),
+      gap: zod.string(),
+      timelineRange: zod.string().nullish(),
+      costRange: zod.string().nullish(),
+      ruleId: zod.number(),
+      rulesetVersion: zod.string(),
+      status: zod.enum(["planned", "in_progress", "done"]),
+      updatedAt: zod.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Update the status of a remediation step
+ */
+export const UpdateRemediationStepParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateRemediationStepBody = zod.object({
+  status: zod.enum(["planned", "in_progress", "done"]),
+});
+
+export const UpdateRemediationStepResponse = zod.object({
+  id: zod.number(),
+  planId: zod.number(),
+  stepOrder: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  gap: zod.string(),
+  timelineRange: zod.string().nullish(),
+  costRange: zod.string().nullish(),
+  ruleId: zod.number(),
+  rulesetVersion: zod.string(),
+  status: zod.enum(["planned", "in_progress", "done"]),
+  updatedAt: zod.date(),
+});

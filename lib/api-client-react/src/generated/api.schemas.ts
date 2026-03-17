@@ -349,6 +349,118 @@ export interface DecisionRecordList {
   decisions: DecisionRecord[];
 }
 
+export type RoleRegulator = (typeof RoleRegulator)[keyof typeof RoleRegulator];
+
+export const RoleRegulator = {
+  GMC: "GMC",
+  NMC: "NMC",
+  HCPC: "HCPC",
+} as const;
+
+export interface Role {
+  id: number;
+  title: string;
+  employer: string;
+  location: string;
+  regulator: RoleRegulator;
+  sponsorshipOffered: boolean;
+  requiredRegistration: string;
+  active: boolean;
+  importedAt: string;
+  importedBy?: string | null;
+}
+
+export type SponsorshipFeasibilityOutcome =
+  (typeof SponsorshipFeasibilityOutcome)[keyof typeof SponsorshipFeasibilityOutcome];
+
+export const SponsorshipFeasibilityOutcome = {
+  feasible: "feasible",
+  not_feasible: "not_feasible",
+  uncertain: "uncertain",
+} as const;
+
+export interface SponsorshipFeasibility {
+  roleId: number;
+  outcome: SponsorshipFeasibilityOutcome;
+  reasonCode: string;
+  explanation: string;
+  disclaimer: string;
+}
+
+export interface MatchedRole {
+  role: Role;
+  explanation: string;
+  sponsorshipFeasibility?: SponsorshipFeasibility | null;
+}
+
+export interface MatchedRoleList {
+  roles: MatchedRole[];
+  decisionRecordId: number;
+  rulesetVersion: string;
+  eligibilityOutcome?: string;
+  message?: string | null;
+}
+
+export interface RoleList {
+  roles: Role[];
+}
+
+export type RoleImportResultErrorsItem = {
+  row: number;
+  message: string;
+};
+
+export interface RoleImportResult {
+  imported: number;
+  skipped: number;
+  errors: RoleImportResultErrorsItem[];
+}
+
+export type RemediationStepStatus =
+  (typeof RemediationStepStatus)[keyof typeof RemediationStepStatus];
+
+export const RemediationStepStatus = {
+  planned: "planned",
+  in_progress: "in_progress",
+  done: "done",
+} as const;
+
+export interface RemediationStep {
+  id: number;
+  planId: number;
+  stepOrder: number;
+  title: string;
+  description: string;
+  gap: string;
+  timelineRange?: string | null;
+  costRange?: string | null;
+  ruleId: number;
+  rulesetVersion: string;
+  status: RemediationStepStatus;
+  updatedAt: string;
+}
+
+export interface RemediationPlan {
+  id: number;
+  userId: string;
+  decisionRecordId: number;
+  createdAt: string;
+  steps: RemediationStep[];
+}
+
+export type UpdateRemediationStepRequestStatus =
+  (typeof UpdateRemediationStepRequestStatus)[keyof typeof UpdateRemediationStepRequestStatus];
+
+export const UpdateRemediationStepRequestStatus = {
+  planned: "planned",
+  in_progress: "in_progress",
+  done: "done",
+} as const;
+
+export interface UpdateRemediationStepRequest {
+  status: UpdateRemediationStepRequestStatus;
+}
+
 export type BeginBrowserLoginParams = {
   returnTo?: string;
 };
@@ -399,3 +511,7 @@ export const ListDecisionsOutcome = {
   not_eligible: "not_eligible",
   ineligible: "ineligible",
 } as const;
+
+export type ImportRolesCSVBody = {
+  file: Blob;
+};
