@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { createHash } from "crypto";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, lte } from "drizzle-orm";
 import { db, profilesTable, rulesetsTable, rulesetRulesTable, decisionRecordsTable } from "@workspace/db";
 import { requireConsent } from "../middlewares/consentMiddleware";
 import { evaluate } from "../lib/rulesEngine";
@@ -51,11 +51,18 @@ router.post("/eligibility/evaluate", requireConsent, async (req, res): Promise<v
     return;
   }
 
+  const now = new Date();
   const publishedRulesets = await db
     .select()
     .from(rulesetsTable)
-    .where(and(eq(rulesetsTable.regulator, regulator), eq(rulesetsTable.status, "published")))
-    .orderBy(desc(rulesetsTable.createdAt));
+    .where(
+      and(
+        eq(rulesetsTable.regulator, regulator),
+        eq(rulesetsTable.status, "published"),
+        lte(rulesetsTable.effectiveDate, now)
+      )
+    )
+    .orderBy(desc(rulesetsTable.effectiveDate), desc(rulesetsTable.createdAt));
 
   if (publishedRulesets.length === 0) {
     res.status(400).json({ error: `No published ruleset found for ${regulator}. Please contact support.` });

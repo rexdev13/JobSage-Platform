@@ -13,5 +13,4 @@ export const ListDecisionsOutcome = {
   eligible: "eligible",
   not_eligible: "not_eligible",
   ineligible: "ineligible",
-  review: "review",
 } as const;

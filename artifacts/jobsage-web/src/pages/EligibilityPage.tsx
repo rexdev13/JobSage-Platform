@@ -20,9 +20,17 @@ import {
   Loader2,
 } from "lucide-react";
 
-type EligibilityOutcome = "eligible" | "not_eligible" | "ineligible" | "review";
+type EligibilityOutcome = "eligible" | "not_eligible" | "ineligible";
 
-function OutcomeBadge({ outcome }: { outcome: EligibilityOutcome }) {
+function OutcomeBadge({ outcome, reviewFlagged }: { outcome: EligibilityOutcome; reviewFlagged?: boolean }) {
+  if (reviewFlagged && outcome === "not_eligible") {
+    return (
+      <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold bg-purple-100 text-purple-800 border border-purple-200">
+        <HelpCircle className="w-4 h-4" />
+        Pending Review
+      </span>
+    );
+  }
   const configs: Record<EligibilityOutcome, { label: string; className: string; Icon: React.ElementType }> = {
     eligible: {
       label: "Eligible Now",
@@ -39,28 +47,24 @@ function OutcomeBadge({ outcome }: { outcome: EligibilityOutcome }) {
       className: "bg-red-100 text-red-800 border border-red-200",
       Icon: XCircle,
     },
-    review: {
-      label: "Under Review",
-      className: "bg-purple-100 text-purple-800 border border-purple-200",
-      Icon: HelpCircle,
-    },
   };
 
-  const { label, className, Icon } = configs[outcome] ?? configs.review;
+  const config = configs[outcome] ?? configs.not_eligible;
 
   return (
-    <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold ${className}`}>
-      <Icon className="w-4 h-4" />
-      {label}
+    <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold ${config.className}`}>
+      <config.Icon className="w-4 h-4" />
+      {config.label}
     </span>
   );
 }
 
-function OutcomeIcon({ outcome }: { outcome: EligibilityOutcome }) {
+function OutcomeIcon({ outcome, reviewFlagged }: { outcome: EligibilityOutcome; reviewFlagged?: boolean }) {
+  if (reviewFlagged && outcome === "not_eligible") return <AlertTriangle className="w-12 h-12 text-purple-500" />;
   if (outcome === "eligible") return <ShieldCheck className="w-12 h-12 text-emerald-500" />;
   if (outcome === "not_eligible") return <Clock className="w-12 h-12 text-amber-500" />;
   if (outcome === "ineligible") return <ShieldX className="w-12 h-12 text-red-500" />;
-  return <AlertTriangle className="w-12 h-12 text-purple-500" />;
+  return <AlertTriangle className="w-12 h-12 text-muted-foreground" />;
 }
 
 function DecisionCard({ decision, isLatest }: { decision: EligibilityResult; isLatest?: boolean }) {
@@ -76,9 +80,9 @@ function DecisionCard({ decision, isLatest }: { decision: EligibilityResult; isL
 
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
         <div className="flex items-center gap-4">
-          <OutcomeIcon outcome={decision.outcome as EligibilityOutcome} />
+          <OutcomeIcon outcome={decision.outcome as EligibilityOutcome} reviewFlagged={decision.reviewFlagged} />
           <div>
-            <OutcomeBadge outcome={decision.outcome as EligibilityOutcome} />
+            <OutcomeBadge outcome={decision.outcome as EligibilityOutcome} reviewFlagged={decision.reviewFlagged} />
             <p className="text-xs text-muted-foreground mt-2">
               Evaluated against ruleset v{decision.rulesetVersion} •{" "}
               {new Date(decision.createdAt).toLocaleDateString("en-GB", {
