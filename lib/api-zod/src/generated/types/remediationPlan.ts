@@ -12,9 +12,11 @@ export interface RemediationPlan {
   userId: string;
   decisionRecordId: number;
   orderedStepIds?: number[] | null;
-  /** Whether this plan's decision has been flagged for human review */
+  /** Whether this plan's decision is currently pending human review */
   reviewFlagged: boolean;
-  /** Optional reviewer note attached to the decision */
+  /** Whether the human review has been completed by a reviewer */
+  reviewComplete: boolean;
+  /** Optional reviewer note attached to the decision after review */
   reviewNote?: string | null;
   createdAt: Date;
   steps: RemediationStep[];

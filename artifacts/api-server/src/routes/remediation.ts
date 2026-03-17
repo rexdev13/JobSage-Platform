@@ -9,6 +9,7 @@ import {
 } from "@workspace/db";
 import { eq, desc, and, inArray } from "drizzle-orm";
 import { generateRemediationSteps } from "../lib/remediationGenerator";
+import { requireAuthenticated } from "../middlewares/requireRole";
 
 const router: IRouter = Router();
 
@@ -86,12 +87,7 @@ export async function ensureRemediationPlan(
   }
 }
 
-router.get("/remediation/plan", async (req, res): Promise<void> => {
-  if (!req.isAuthenticated()) {
-    res.status(401).json({ error: "Not authenticated." });
-    return;
-  }
-
+router.get("/remediation/plan", requireAuthenticated, async (req, res): Promise<void> => {
   const userId = req.user!.id;
 
   const [decision] = await db
@@ -144,6 +140,7 @@ router.get("/remediation/plan", async (req, res): Promise<void> => {
       ...existingPlan,
       steps,
       reviewFlagged: decision.reviewFlagged === 1,
+      reviewComplete: decision.reviewFlagged === 2,
       reviewNote: decision.reviewNote ?? null,
     });
     return;
@@ -206,16 +203,12 @@ router.get("/remediation/plan", async (req, res): Promise<void> => {
     ...plan,
     steps: insertedSteps,
     reviewFlagged: decision.reviewFlagged === 1,
+    reviewComplete: decision.reviewFlagged === 2,
     reviewNote: decision.reviewNote ?? null,
   });
 });
 
-router.patch("/remediation/plans/:id/ordering", async (req, res): Promise<void> => {
-  if (!req.isAuthenticated()) {
-    res.status(401).json({ error: "Not authenticated." });
-    return;
-  }
-
+router.patch("/remediation/plans/:id/ordering", requireAuthenticated, async (req, res): Promise<void> => {
   const planId = parseInt(req.params.id as string, 10);
   if (isNaN(planId)) {
     res.status(400).json({ error: "Invalid planId." });
@@ -259,12 +252,7 @@ router.patch("/remediation/plans/:id/ordering", async (req, res): Promise<void> 
   res.json({ ...updated, steps });
 });
 
-router.patch("/remediation/steps/:id", async (req, res): Promise<void> => {
-  if (!req.isAuthenticated()) {
-    res.status(401).json({ error: "Not authenticated." });
-    return;
-  }
-
+router.patch("/remediation/steps/:id", requireAuthenticated, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
   if (isNaN(id)) {

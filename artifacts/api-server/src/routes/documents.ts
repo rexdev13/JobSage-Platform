@@ -1,3 +1,4 @@
+import { requireAuthenticated } from "../middlewares/requireRole";
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import multer from "multer";
 import { db, documentsTable, DOCUMENT_DISCLAIMER } from "@workspace/db";
@@ -27,29 +28,18 @@ const upload = multer({
   },
 });
 
-router.get("/documents", async (req: Request, res: Response): Promise<void> => {
-  if (!req.isAuthenticated()) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-
+router.get("/documents", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
   const docs = await db
     .select()
     .from(documentsTable)
-    .where(eq(documentsTable.userId, req.user.id));
+    .where(eq(documentsTable.userId, req.user!.id));
 
   res.json(ListMyDocumentsResponse.parse({ documents: docs }));
 });
 
 router.post(
   "/documents/upload",
-  (req: Request, res: Response, next: NextFunction): void => {
-    if (!req.isAuthenticated()) {
-      res.status(401).json({ error: "Unauthorized" });
-      return;
-    }
-    next();
-  },
+  requireAuthenticated,
   (req: Request, res: Response, next: NextFunction): void => {
     upload.single("file")(req, res, (err) => {
       if (err) {
@@ -95,12 +85,7 @@ router.post(
   },
 );
 
-router.post("/documents", async (req: Request, res: Response): Promise<void> => {
-  if (!req.isAuthenticated()) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-
+router.post("/documents", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
   const parsed = RegisterDocumentBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -128,7 +113,7 @@ router.post("/documents", async (req: Request, res: Response): Promise<void> => 
   const [doc] = await db
     .insert(documentsTable)
     .values({
-      userId: req.user.id,
+      userId: req.user!.id,
       filename,
       mimeType,
       storageKey,
@@ -140,12 +125,7 @@ router.post("/documents", async (req: Request, res: Response): Promise<void> => 
   res.status(201).json(doc);
 });
 
-router.delete("/documents/:id", async (req: Request, res: Response): Promise<void> => {
-  if (!req.isAuthenticated()) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-
+router.delete("/documents/:id", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
   const params = DeleteDocumentParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: "Invalid document ID" });
@@ -154,7 +134,7 @@ router.delete("/documents/:id", async (req: Request, res: Response): Promise<voi
 
   const [deleted] = await db
     .delete(documentsTable)
-    .where(and(eq(documentsTable.id, params.data.id), eq(documentsTable.userId, req.user.id)))
+    .where(and(eq(documentsTable.id, params.data.id), eq(documentsTable.userId, req.user!.id)))
     .returning();
 
   if (!deleted) {

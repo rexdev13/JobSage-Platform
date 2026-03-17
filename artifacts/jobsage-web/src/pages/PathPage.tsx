@@ -319,7 +319,7 @@ export default function PathPage() {
           </Card>
         )}
 
-        {!isLoading && !isError && plan && plan.reviewFlagged && (
+        {!isLoading && !isError && plan && plan.reviewFlagged && !plan.reviewComplete && (
           <Card className="p-4 bg-amber-50 border-amber-300 flex items-start gap-3">
             <Clock className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
             <div>
@@ -327,8 +327,20 @@ export default function PathPage() {
               <p className="text-xs text-amber-800 mt-0.5">
                 A qualified reviewer is checking your eligibility result. Your plan steps are visible below but final decisions rest with the relevant regulator. You will be notified once the review is complete.
               </p>
+            </div>
+          </Card>
+        )}
+
+        {!isLoading && !isError && plan && plan.reviewComplete && (
+          <Card className="p-4 bg-green-50 border-green-300 flex items-start gap-3">
+            <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-green-900">Your assessment has been reviewed</p>
+              <p className="text-xs text-green-800 mt-0.5">
+                A qualified reviewer has assessed your eligibility result. Final decisions rest with the relevant regulator.
+              </p>
               {plan.reviewNote && (
-                <p className="text-xs text-amber-700 mt-1 italic">"{plan.reviewNote}"</p>
+                <p className="text-xs text-green-700 mt-1 italic">Reviewer note: "{plan.reviewNote}"</p>
               )}
             </div>
           </Card>
@@ -387,12 +399,9 @@ export default function PathPage() {
             )}
 
             <div className="space-y-3">
-              {steps
-                .slice()
-                .sort((a, b) => a.stepOrder - b.stepOrder)
-                .map((step) => (
-                  <StepCard key={step.id} step={step} />
-                ))}
+              {steps.map((step) => (
+                <StepCard key={step.id} step={step} />
+              ))}
             </div>
 
             <p className="text-xs text-muted-foreground text-center py-2">

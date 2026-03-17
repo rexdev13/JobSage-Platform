@@ -1,3 +1,4 @@
+import { requireAuthenticated } from "../middlewares/requireRole";
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { rolesTable, profilesTable } from "@workspace/db";
@@ -6,12 +7,7 @@ import { assessSponsorshipFeasibility } from "../lib/sponsorshipFeasibility";
 
 const router: IRouter = Router();
 
-router.get("/sponsorship/feasibility/:roleId", async (req, res): Promise<void> => {
-  if (!req.isAuthenticated()) {
-    res.status(401).json({ error: "Not authenticated." });
-    return;
-  }
-
+router.get("/sponsorship/feasibility/:roleId", requireAuthenticated, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.roleId) ? req.params.roleId[0] : req.params.roleId;
   const roleId = parseInt(raw, 10);
   if (isNaN(roleId)) {

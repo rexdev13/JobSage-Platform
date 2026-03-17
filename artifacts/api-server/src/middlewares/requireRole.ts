@@ -3,6 +3,18 @@ import type { Request, Response, NextFunction } from "express";
 export type AppRole = "candidate" | "admin" | "reviewer";
 
 /**
+ * Middleware for candidate-facing routes: any authenticated user may proceed.
+ * Admin and reviewer users are also granted access so they can use the app as candidates.
+ */
+export function requireAuthenticated(req: Request, res: Response, next: NextFunction): void {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Not authenticated." });
+    return;
+  }
+  next();
+}
+
+/**
  * Unified role-gating middleware factory.
  * Pass one or more allowed roles — the request proceeds if the authenticated user has any of them.
  */

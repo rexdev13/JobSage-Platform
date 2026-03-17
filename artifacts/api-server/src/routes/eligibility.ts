@@ -1,3 +1,4 @@
+import { requireAuthenticated } from "../middlewares/requireRole";
 import { Router, type IRouter } from "express";
 import { createHash } from "crypto";
 import { eq, and, desc, lte } from "drizzle-orm";
@@ -32,13 +33,8 @@ function hashProfile(profile: Profile): string {
   return createHash("sha256").update(snapshot).digest("hex");
 }
 
-router.post("/eligibility/evaluate", requireConsent, async (req, res): Promise<void> => {
-  if (!req.isAuthenticated()) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-
-  const userId = req.user.id;
+router.post("/eligibility/evaluate", requireAuthenticated, requireConsent, async (req, res): Promise<void> => {
+  const userId = req.user!.id;
 
   const [profile] = await db.select().from(profilesTable).where(eq(profilesTable.userId, userId));
   if (!profile) {
@@ -125,13 +121,8 @@ router.post("/eligibility/evaluate", requireConsent, async (req, res): Promise<v
   });
 });
 
-router.get("/eligibility/results/:id", requireConsent, async (req, res): Promise<void> => {
-  if (!req.isAuthenticated()) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-
-  const userId = req.user.id;
+router.get("/eligibility/results/:id", requireAuthenticated, requireConsent, async (req, res): Promise<void> => {
+  const userId = req.user!.id;
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
 
@@ -166,13 +157,8 @@ router.get("/eligibility/results/:id", requireConsent, async (req, res): Promise
   });
 });
 
-router.get("/eligibility/history", requireConsent, async (req, res): Promise<void> => {
-  if (!req.isAuthenticated()) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-
-  const userId = req.user.id;
+router.get("/eligibility/history", requireAuthenticated, requireConsent, async (req, res): Promise<void> => {
+  const userId = req.user!.id;
 
   const decisions = await db
     .select()
