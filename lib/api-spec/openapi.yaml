@@ -1600,7 +1600,7 @@ components:
 
     RemediationStep:
       type: object
-      required: [id, planId, stepOrder, title, description, gap, status, ruleId, rulesetVersion, updatedAt]
+      required: [id, planId, stepOrder, title, description, gap, status, stepSource, rulesetVersion, updatedAt]
       properties:
         id:
           type: integer
@@ -1623,8 +1623,12 @@ components:
         pathway:
           type: string
           nullable: true
+        stepSource:
+          type: string
+          enum: [rule, sponsorship, manual]
         ruleId:
           type: integer
+          nullable: true
         rulesetVersion:
           type: string
         status:

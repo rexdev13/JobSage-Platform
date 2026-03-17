@@ -8,7 +8,8 @@ export interface RemediationStepDraft {
   pathway: string | null;
   timelineRange: string | null;
   costRange: string | null;
-  ruleId: number;
+  stepSource: "rule" | "sponsorship" | "manual";
+  ruleId: number | null;
   rulesetVersion: string;
 }
 
@@ -130,6 +131,7 @@ export function generateRemediationSteps(
         pathway,
         timelineRange: template.timelineRange,
         costRange: template.costRange,
+        stepSource: "rule",
         ruleId: rule.id,
         rulesetVersion: decisionRecord.rulesetVersion,
       });
@@ -143,7 +145,8 @@ export function generateRemediationSteps(
       pathway: null,
       timelineRange: "5–10 working days (manual review)",
       costRange: null,
-      ruleId: 0,
+      stepSource: "manual",
+      ruleId: null,
       rulesetVersion: decisionRecord.rulesetVersion,
     });
   }
@@ -158,7 +161,8 @@ export function generateRemediationSteps(
       pathway: SPONSORSHIP_REMEDIATION.pathway,
       timelineRange: SPONSORSHIP_REMEDIATION.timelineRange,
       costRange: SPONSORSHIP_REMEDIATION.costRange,
-      ruleId: 0,
+      stepSource: "sponsorship",
+      ruleId: null,
       rulesetVersion: decisionRecord.rulesetVersion,
     });
   }

@@ -112,7 +112,9 @@ function StepCard({ step }: { step: RemediationStep }) {
         )}
         <span className="ml-auto text-muted-foreground/70">
           Ruleset v{step.rulesetVersion}
-          {step.ruleId > 0 && ` · Rule #${step.ruleId}`}
+          {step.ruleId != null && ` · Rule #${step.ruleId}`}
+          {step.stepSource === "sponsorship" && " · Visa Requirement"}
+          {step.stepSource === "manual" && " · Manual Review"}
         </span>
       </div>
 

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { RemediationStepStatus } from "./remediationStepStatus";
+import type { RemediationStepStepSource } from "./remediationStepStepSource";
 
 export interface RemediationStep {
   id: number;
@@ -17,7 +18,8 @@ export interface RemediationStep {
   timelineRange?: string | null;
   costRange?: string | null;
   pathway?: string | null;
-  ruleId: number;
+  stepSource: RemediationStepStepSource;
+  ruleId?: number | null;
   rulesetVersion: string;
   status: RemediationStepStatus;
   updatedAt: Date;

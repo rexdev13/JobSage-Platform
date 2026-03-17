@@ -419,6 +419,15 @@ export interface RoleImportResult {
   errors: RoleImportResultErrorsItem[];
 }
 
+export type RemediationStepStepSource =
+  (typeof RemediationStepStepSource)[keyof typeof RemediationStepStepSource];
+
+export const RemediationStepStepSource = {
+  rule: "rule",
+  sponsorship: "sponsorship",
+  manual: "manual",
+} as const;
+
 export type RemediationStepStatus =
   (typeof RemediationStepStatus)[keyof typeof RemediationStepStatus];
 
@@ -438,7 +447,8 @@ export interface RemediationStep {
   timelineRange?: string | null;
   costRange?: string | null;
   pathway?: string | null;
-  ruleId: number;
+  stepSource: RemediationStepStepSource;
+  ruleId?: number | null;
   rulesetVersion: string;
   status: RemediationStepStatus;
   updatedAt: string;
