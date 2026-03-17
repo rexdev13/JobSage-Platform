@@ -10,13 +10,13 @@ import type { UpsertProfileRequestRegistrationStatus } from "./upsertProfileRequ
 
 export interface UpsertProfileRequest {
   profession: UpsertProfileRequestProfession;
-  specialty?: string | null;
-  qualificationCountry?: string | null;
-  qualificationType?: string | null;
-  qualificationYear?: number | null;
-  experienceYears?: number | null;
-  registrationStatus?: UpsertProfileRequestRegistrationStatus;
+  specialty: string;
+  qualificationCountry: string;
+  qualificationType: string;
+  qualificationYear: number;
+  experienceYears: number;
+  registrationStatus: UpsertProfileRequestRegistrationStatus;
   licenceReady?: boolean | null;
-  residencyStatus?: string | null;
-  requiresSponsorship?: boolean | null;
+  residencyStatus: string;
+  requiresSponsorship: boolean;
 }

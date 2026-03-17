@@ -7,8 +7,7 @@
  */
 
 export type UpsertProfileRequestRegistrationStatus =
-  | (typeof UpsertProfileRequestRegistrationStatus)[keyof typeof UpsertProfileRequestRegistrationStatus]
-  | null;
+  (typeof UpsertProfileRequestRegistrationStatus)[keyof typeof UpsertProfileRequestRegistrationStatus];
 
 export const UpsertProfileRequestRegistrationStatus = {
   registered: "registered",

@@ -29,8 +29,21 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
     return;
   }
 
+  const ALLOWED_MIME_TYPES = ["application/pdf", "image/jpeg", "image/png"];
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+
   try {
     const { name, size, contentType } = parsed.data;
+
+    if (!ALLOWED_MIME_TYPES.includes(contentType)) {
+      res.status(400).json({ error: "File type not allowed. Accepted: PDF, JPEG, PNG." });
+      return;
+    }
+
+    if (size && size > MAX_FILE_SIZE) {
+      res.status(400).json({ error: "File exceeds maximum size of 5 MB." });
+      return;
+    }
 
     const uploadURL = await objectStorageService.getObjectEntityUploadURL();
     const storageKey = objectStorageService.normalizeObjectEntityPath(uploadURL);

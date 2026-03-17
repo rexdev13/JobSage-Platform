@@ -144,17 +144,15 @@ export const UpsertMyProfileBody = zod.object({
     "allied_health_professional",
     "clinical_academic",
   ]),
-  specialty: zod.string().nullish(),
-  qualificationCountry: zod.string().nullish(),
-  qualificationType: zod.string().nullish(),
-  qualificationYear: zod.number().nullish(),
-  experienceYears: zod.number().nullish(),
-  registrationStatus: zod
-    .enum(["registered", "not_registered", "in_process"])
-    .nullish(),
+  specialty: zod.string(),
+  qualificationCountry: zod.string(),
+  qualificationType: zod.string(),
+  qualificationYear: zod.number(),
+  experienceYears: zod.number(),
+  registrationStatus: zod.enum(["registered", "not_registered", "in_process"]),
   licenceReady: zod.boolean().nullish(),
-  residencyStatus: zod.string().nullish(),
-  requiresSponsorship: zod.boolean().nullish(),
+  residencyStatus: zod.string(),
+  requiresSponsorship: zod.boolean(),
 });
 
 export const UpsertMyProfileResponse = zod.object({

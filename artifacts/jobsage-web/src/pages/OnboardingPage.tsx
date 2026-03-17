@@ -28,6 +28,7 @@ export default function OnboardingPage() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const upsertProfileMutation = useUpsertMyProfile();
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [data, setData] = useState<ProfileData>({
     profession: "",
@@ -52,33 +53,45 @@ export default function OnboardingPage() {
   const handlePrev = () => setStep(s => Math.max(s - 1, 1));
 
   const handleSubmit = async () => {
+    setSubmitError(null);
     try {
       if (!data.profession) throw new Error("Profession is required");
+      if (!data.qualificationCountry) throw new Error("Country of qualification is required");
+      if (!data.qualificationType) throw new Error("Degree type is required");
+      if (!data.qualificationYear) throw new Error("Qualification year is required");
+      if (!data.experienceYears) throw new Error("Years of experience is required");
+      if (!data.residencyStatus) throw new Error("Residency/visa status is required");
+
       await upsertProfileMutation.mutateAsync({
         data: {
           profession: data.profession,
-          specialty: data.specialty || null,
-          qualificationCountry: data.qualificationCountry || null,
-          qualificationType: data.qualificationType || null,
-          qualificationYear: data.qualificationYear ? parseInt(data.qualificationYear) : null,
-          experienceYears: data.experienceYears ? parseInt(data.experienceYears) : null,
+          specialty: data.specialty,
+          qualificationCountry: data.qualificationCountry,
+          qualificationType: data.qualificationType,
+          qualificationYear: parseInt(data.qualificationYear, 10),
+          experienceYears: parseInt(data.experienceYears, 10),
           registrationStatus: data.registrationStatus,
           licenceReady: data.licenceReady,
-          residencyStatus: data.residencyStatus || null,
+          residencyStatus: data.residencyStatus,
           requiresSponsorship: data.requiresSponsorship,
-        }
+        },
       });
       queryClient.invalidateQueries({ queryKey: getGetMyProfileQueryKey() });
       setLocation("/");
     } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Failed to save profile. Please try again.");
       console.error("Profile save failed", err);
     }
   };
 
   const isStep1Valid = data.profession !== "";
-  const isStep2Valid = data.qualificationCountry !== "" && data.qualificationYear !== "";
+  const isStep2Valid =
+    data.qualificationCountry !== "" &&
+    data.qualificationType !== "" &&
+    data.qualificationYear !== "";
   const isStep3Valid = data.experienceYears !== "";
-  
+  const isStep4Valid = data.residencyStatus !== "";
+
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 flex flex-col items-center">
       <div className="w-full max-w-2xl mb-8 flex justify-between items-center px-4">
@@ -102,7 +115,7 @@ export default function OnboardingPage() {
             transition={{ duration: 0.3 }}
           >
             <Card className="p-8 shadow-xl shadow-black/5">
-              
+
               {step === 1 && (
                 <div className="space-y-6">
                   <div>
@@ -120,8 +133,9 @@ export default function OnboardingPage() {
                     </Select>
                   </div>
                   <div>
-                    <Label htmlFor="specialty">Specialty (Optional)</Label>
+                    <Label htmlFor="specialty">Specialty</Label>
                     <Input name="specialty" placeholder="e.g. Cardiology, Pediatrics" value={data.specialty} onChange={handleChange} />
+                    <p className="text-xs text-muted-foreground mt-1">Leave blank if not applicable.</p>
                   </div>
                   <div className="pt-4 flex justify-end">
                     <Button onClick={handleNext} disabled={!isStep1Valid} size="lg">
@@ -139,16 +153,16 @@ export default function OnboardingPage() {
                   </div>
                   <div>
                     <Label htmlFor="qualificationCountry">Country of Qualification *</Label>
-                    <Input name="qualificationCountry" placeholder="e.g. India, Nigeria, UK" value={data.qualificationCountry} onChange={handleChange} />
+                    <Input name="qualificationCountry" placeholder="e.g. India, Nigeria, UK" value={data.qualificationCountry} onChange={handleChange} required />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="qualificationType">Degree Type</Label>
-                      <Input name="qualificationType" placeholder="e.g. MBBS, BSc" value={data.qualificationType} onChange={handleChange} />
+                      <Label htmlFor="qualificationType">Degree Type *</Label>
+                      <Input name="qualificationType" placeholder="e.g. MBBS, BSc" value={data.qualificationType} onChange={handleChange} required />
                     </div>
                     <div>
                       <Label htmlFor="qualificationYear">Year *</Label>
-                      <Input name="qualificationYear" type="number" placeholder="YYYY" value={data.qualificationYear} onChange={handleChange} />
+                      <Input name="qualificationYear" type="number" placeholder="YYYY" value={data.qualificationYear} onChange={handleChange} required />
                     </div>
                   </div>
                   <div className="pt-4 flex justify-between">
@@ -170,10 +184,10 @@ export default function OnboardingPage() {
                   </div>
                   <div>
                     <Label htmlFor="experienceYears">Years of Post-graduate Experience *</Label>
-                    <Input name="experienceYears" type="number" min="0" value={data.experienceYears} onChange={handleChange} />
+                    <Input name="experienceYears" type="number" min="0" value={data.experienceYears} onChange={handleChange} required />
                   </div>
                   <div>
-                    <Label htmlFor="registrationStatus">UK Registration Status</Label>
+                    <Label htmlFor="registrationStatus">UK Registration Status *</Label>
                     <Select name="registrationStatus" value={data.registrationStatus} onChange={handleChange}>
                       <option value="not_registered">Not Registered</option>
                       <option value="in_process">In Process</option>
@@ -181,8 +195,8 @@ export default function OnboardingPage() {
                     </Select>
                   </div>
                   <label className="flex items-center space-x-3 p-4 border rounded-xl hover:bg-muted/50 cursor-pointer">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       name="licenceReady"
                       checked={data.licenceReady}
                       onChange={handleChange}
@@ -211,12 +225,12 @@ export default function OnboardingPage() {
                     <p className="text-muted-foreground">Required for determining sponsorship feasibility.</p>
                   </div>
                   <div>
-                    <Label htmlFor="residencyStatus">Current Residency/Visa Status</Label>
-                    <Input name="residencyStatus" placeholder="e.g. Citizen, Tier 2, Outside UK" value={data.residencyStatus} onChange={handleChange} />
+                    <Label htmlFor="residencyStatus">Current Residency/Visa Status *</Label>
+                    <Input name="residencyStatus" placeholder="e.g. UK Citizen, Skilled Worker Visa, Outside UK" value={data.residencyStatus} onChange={handleChange} required />
                   </div>
                   <label className="flex items-center space-x-3 p-4 border rounded-xl hover:bg-muted/50 cursor-pointer">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       name="requiresSponsorship"
                       checked={data.requiresSponsorship}
                       onChange={handleChange}
@@ -227,12 +241,17 @@ export default function OnboardingPage() {
                       <div className="text-sm text-muted-foreground">Check this if you need an employer to sponsor your work visa.</div>
                     </div>
                   </label>
+                  {submitError && (
+                    <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+                      {submitError}
+                    </div>
+                  )}
                   <div className="pt-4 flex justify-between">
                     <Button variant="outline" onClick={handlePrev} size="lg">
                       <ArrowLeft className="w-5 h-5 mr-2" /> Back
                     </Button>
-                    <Button onClick={handleSubmit} disabled={upsertProfileMutation.isPending} size="lg" variant="accent">
-                      {upsertProfileMutation.isPending ? "Saving..." : "Complete Profile"} 
+                    <Button onClick={handleSubmit} disabled={!isStep4Valid || upsertProfileMutation.isPending} size="lg" variant="accent">
+                      {upsertProfileMutation.isPending ? "Saving..." : "Complete Profile"}
                       {!upsertProfileMutation.isPending && <CheckCircle2 className="w-5 h-5 ml-2" />}
                     </Button>
                   </div>

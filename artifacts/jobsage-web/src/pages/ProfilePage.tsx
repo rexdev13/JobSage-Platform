@@ -17,7 +17,7 @@ type ProfileFormData = {
   qualificationType: string;
   qualificationYear: string;
   experienceYears: string;
-  registrationStatus: RegistrationStatus | "";
+  registrationStatus: RegistrationStatus;
   licenceReady: boolean;
   residencyStatus: string;
   requiresSponsorship: boolean;
@@ -36,7 +36,7 @@ export default function ProfilePage() {
     qualificationType: "",
     qualificationYear: "",
     experienceYears: "",
-    registrationStatus: "",
+    registrationStatus: "not_registered",
     licenceReady: false,
     residencyStatus: "",
     requiresSponsorship: false,
@@ -51,7 +51,7 @@ export default function ProfilePage() {
         qualificationType: profile.qualificationType || "",
         qualificationYear: profile.qualificationYear?.toString() || "",
         experienceYears: profile.experienceYears?.toString() || "",
-        registrationStatus: profile.registrationStatus || "not_registered",
+        registrationStatus: (profile.registrationStatus as RegistrationStatus) || "not_registered",
         licenceReady: profile.licenceReady || false,
         residencyStatus: profile.residencyStatus || "",
         requiresSponsorship: profile.requiresSponsorship || false,
@@ -67,21 +67,37 @@ export default function ProfilePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.profession) return;
+    if (!formData.profession) {
+      toast({ title: "Validation Error", description: "Profession is required", variant: "destructive" });
+      return;
+    }
+    if (!formData.qualificationCountry || !formData.qualificationType || !formData.qualificationYear) {
+      toast({ title: "Validation Error", description: "All qualification fields are required", variant: "destructive" });
+      return;
+    }
+    if (!formData.experienceYears) {
+      toast({ title: "Validation Error", description: "Years of experience is required", variant: "destructive" });
+      return;
+    }
+    if (!formData.residencyStatus) {
+      toast({ title: "Validation Error", description: "Residency/visa status is required", variant: "destructive" });
+      return;
+    }
+
     try {
       await upsertMutation.mutateAsync({
         data: {
           profession: formData.profession,
-          specialty: formData.specialty || null,
-          qualificationCountry: formData.qualificationCountry || null,
-          qualificationType: formData.qualificationType || null,
-          qualificationYear: formData.qualificationYear ? parseInt(formData.qualificationYear) : null,
-          experienceYears: formData.experienceYears ? parseInt(formData.experienceYears) : null,
-          registrationStatus: formData.registrationStatus || null,
+          specialty: formData.specialty,
+          qualificationCountry: formData.qualificationCountry,
+          qualificationType: formData.qualificationType,
+          qualificationYear: parseInt(formData.qualificationYear, 10),
+          experienceYears: parseInt(formData.experienceYears, 10),
+          registrationStatus: formData.registrationStatus,
           licenceReady: formData.licenceReady,
-          residencyStatus: formData.residencyStatus || null,
+          residencyStatus: formData.residencyStatus,
           requiresSponsorship: formData.requiresSponsorship,
-        }
+        },
       });
       queryClient.invalidateQueries({ queryKey: getGetMyProfileQueryKey() });
       toast({
@@ -92,7 +108,7 @@ export default function ProfilePage() {
       toast({
         title: "Error",
         description: err instanceof Error ? err.message : "Failed to update profile",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
@@ -121,8 +137,8 @@ export default function ProfilePage() {
             <h3 className="text-lg font-semibold mb-6 border-b pb-4">Professional Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <Label>Profession</Label>
-                <Select name="profession" value={formData.profession || ""} onChange={handleChange}>
+                <Label>Profession *</Label>
+                <Select name="profession" value={formData.profession} onChange={handleChange}>
                   <option value="doctor">Doctor</option>
                   <option value="nurse">Nurse</option>
                   <option value="allied_health_professional">Allied Health Professional</option>
@@ -131,19 +147,19 @@ export default function ProfilePage() {
               </div>
               <div>
                 <Label>Specialty</Label>
-                <Input name="specialty" value={formData.specialty || ""} onChange={handleChange} />
+                <Input name="specialty" value={formData.specialty} onChange={handleChange} placeholder="e.g. Cardiology, Pediatrics" />
               </div>
               <div>
-                <Label>UK Registration Status</Label>
-                <Select name="registrationStatus" value={formData.registrationStatus || ""} onChange={handleChange}>
+                <Label>UK Registration Status *</Label>
+                <Select name="registrationStatus" value={formData.registrationStatus} onChange={handleChange}>
                   <option value="not_registered">Not Registered</option>
                   <option value="in_process">In Process</option>
                   <option value="registered">Fully Registered</option>
                 </Select>
               </div>
               <div>
-                <Label>Years of Experience</Label>
-                <Input type="number" name="experienceYears" value={formData.experienceYears || ""} onChange={handleChange} />
+                <Label>Years of Experience *</Label>
+                <Input type="number" name="experienceYears" value={formData.experienceYears} onChange={handleChange} min="0" required />
               </div>
             </div>
           </Card>
@@ -152,23 +168,23 @@ export default function ProfilePage() {
             <h3 className="text-lg font-semibold mb-6 border-b pb-4">Qualifications</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <Label>Country of Qualification</Label>
-                <Input name="qualificationCountry" value={formData.qualificationCountry || ""} onChange={handleChange} />
+                <Label>Country of Qualification *</Label>
+                <Input name="qualificationCountry" value={formData.qualificationCountry} onChange={handleChange} required />
               </div>
               <div>
-                <Label>Degree Type</Label>
-                <Input name="qualificationType" value={formData.qualificationType || ""} onChange={handleChange} />
+                <Label>Degree Type *</Label>
+                <Input name="qualificationType" value={formData.qualificationType} onChange={handleChange} placeholder="e.g. MBBS, BSc" required />
               </div>
               <div>
-                <Label>Graduation Year</Label>
-                <Input type="number" name="qualificationYear" value={formData.qualificationYear || ""} onChange={handleChange} />
+                <Label>Graduation Year *</Label>
+                <Input type="number" name="qualificationYear" value={formData.qualificationYear} onChange={handleChange} required />
               </div>
               <div className="flex items-center pt-8">
                 <label className="flex items-center space-x-3 cursor-pointer">
-                  <input 
-                    type="checkbox" 
+                  <input
+                    type="checkbox"
                     name="licenceReady"
-                    checked={formData.licenceReady || false}
+                    checked={formData.licenceReady}
                     onChange={handleChange}
                     className="w-5 h-5 rounded border-primary/30 text-primary focus:ring-primary"
                   />
@@ -182,15 +198,15 @@ export default function ProfilePage() {
             <h3 className="text-lg font-semibold mb-6 border-b pb-4">Immigration & Visa</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <Label>Residency/Visa Status</Label>
-                <Input name="residencyStatus" value={formData.residencyStatus || ""} onChange={handleChange} />
+                <Label>Residency/Visa Status *</Label>
+                <Input name="residencyStatus" value={formData.residencyStatus} onChange={handleChange} placeholder="e.g. UK Citizen, Skilled Worker Visa" required />
               </div>
               <div className="flex items-center pt-8">
                 <label className="flex items-center space-x-3 cursor-pointer">
-                  <input 
-                    type="checkbox" 
+                  <input
+                    type="checkbox"
                     name="requiresSponsorship"
-                    checked={formData.requiresSponsorship || false}
+                    checked={formData.requiresSponsorship}
                     onChange={handleChange}
                     className="w-5 h-5 rounded border-primary/30 text-primary focus:ring-primary"
                   />
