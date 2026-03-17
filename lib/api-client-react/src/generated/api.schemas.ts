@@ -121,8 +121,7 @@ export const UpsertProfileRequestProfession = {
 } as const;
 
 export type UpsertProfileRequestRegistrationStatus =
-  | (typeof UpsertProfileRequestRegistrationStatus)[keyof typeof UpsertProfileRequestRegistrationStatus]
-  | null;
+  (typeof UpsertProfileRequestRegistrationStatus)[keyof typeof UpsertProfileRequestRegistrationStatus];
 
 export const UpsertProfileRequestRegistrationStatus = {
   registered: "registered",
@@ -132,15 +131,15 @@ export const UpsertProfileRequestRegistrationStatus = {
 
 export interface UpsertProfileRequest {
   profession: UpsertProfileRequestProfession;
-  specialty?: string | null;
-  qualificationCountry?: string | null;
-  qualificationType?: string | null;
-  qualificationYear?: number | null;
-  experienceYears?: number | null;
-  registrationStatus?: UpsertProfileRequestRegistrationStatus;
+  specialty: string;
+  qualificationCountry: string;
+  qualificationType: string;
+  qualificationYear: number;
+  experienceYears: number;
+  registrationStatus: UpsertProfileRequestRegistrationStatus;
   licenceReady?: boolean | null;
-  residencyStatus?: string | null;
-  requiresSponsorship?: boolean | null;
+  residencyStatus: string;
+  requiresSponsorship: boolean;
 }
 
 export interface RecordConsentRequest {

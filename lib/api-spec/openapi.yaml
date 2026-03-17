@@ -603,39 +603,40 @@ components:
 
     UpsertProfileRequest:
       type: object
-      required: [profession]
+      required:
+        - profession
+        - specialty
+        - qualificationCountry
+        - qualificationType
+        - qualificationYear
+        - experienceYears
+        - registrationStatus
+        - residencyStatus
+        - requiresSponsorship
       properties:
         profession:
           type: string
           enum: [doctor, nurse, allied_health_professional, clinical_academic]
         specialty:
           type: string
-          nullable: true
         qualificationCountry:
           type: string
-          nullable: true
         qualificationType:
           type: string
-          nullable: true
         qualificationYear:
           type: integer
-          nullable: true
         experienceYears:
           type: integer
-          nullable: true
         registrationStatus:
           type: string
           enum: [registered, not_registered, in_process]
-          nullable: true
         licenceReady:
           type: boolean
           nullable: true
         residencyStatus:
           type: string
-          nullable: true
         requiresSponsorship:
           type: boolean
-          nullable: true
 
     RecordConsentRequest:
       type: object
