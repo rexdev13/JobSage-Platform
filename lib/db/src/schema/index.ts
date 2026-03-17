@@ -5,3 +5,5 @@ export * from "./documents";
 export * from "./rulesets";
 export * from "./roles";
 export * from "./remediation";
+export * from "./review";
+export * from "./audit";

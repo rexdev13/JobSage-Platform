@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { createHash } from "crypto";
 import { eq, and, desc, lte } from "drizzle-orm";
-import { db, profilesTable, rulesetsTable, rulesetRulesTable, decisionRecordsTable } from "@workspace/db";
+import { db, profilesTable, rulesetsTable, rulesetRulesTable, decisionRecordsTable, reviewCasesTable } from "@workspace/db";
 import { requireConsent } from "../middlewares/consentMiddleware";
 import { evaluate } from "../lib/rulesEngine";
 import { ensureRemediationPlan } from "./remediation";
@@ -96,6 +96,17 @@ router.post("/eligibility/evaluate", requireConsent, async (req, res): Promise<v
     ensureRemediationPlan(userId, decision.id).catch((err) =>
       console.error("[remediation] auto-generation failed:", err)
     );
+  }
+
+  if (decision.reviewFlagged === 1) {
+    db.insert(reviewCasesTable)
+      .values({
+        userId,
+        decisionRecordId: decision.id,
+        flagReason: result.reviewNote ?? "Ambiguous case flagged for human review",
+        status: "pending",
+      })
+      .catch((err) => console.error("[review] auto-flag insert failed:", err));
   }
 
   res.json({

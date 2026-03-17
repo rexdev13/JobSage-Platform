@@ -48,6 +48,36 @@ All routes are under `/api`:
 - `POST /api/documents/upload` — multipart file upload (PDF/JPEG/PNG, max 5 MB), saves to object storage and registers in DB
 - `DELETE /api/documents/:id` — document deletion
 
+## Database Schema (Additional)
+
+### `rulesets` — Published GMC/NMC/HCPC ruleset versions
+### `ruleset_rules` — Individual eligibility rules per ruleset
+### `decision_records` — Eligibility outcomes per user per ruleset (3 outcomes: eligible/not_eligible/ineligible, reviewFlagged)
+### `roles` — Available clinical/academic roles for opportunity matching
+### `remediation_plans` — Auto-generated action plans for ineligible/not_eligible candidates (with orderedStepIds JSON)
+### `remediation_steps` — Individual steps (title, gap, pathway, source, cost/timeline ranges, rulesetVersion)
+### `review_cases` — Flagged decisions queued for human reviewer annotation
+### `review_annotations` — Reviewer notes per review case
+### `audit_events` — (reserved) Generic audit event log
+
+## API Routes (Additional)
+
+- `GET/POST /api/eligibility/evaluate` — run eligibility check (rules engine)
+- `GET /api/eligibility/history` — list past decisions
+- `GET /api/eligibility/results/:id` — single decision result
+- `GET /api/remediation/plan` — get/generate remediation plan
+- `PATCH /api/remediation/steps/:id` — update step status
+- `PATCH /api/remediation/plans/:id/ordering` — save candidate's preferred step order
+- `GET /api/ai/remediation-suggestions/:planId` — AI-generated step ordering (OpenAI gpt-4o)
+- `GET /api/admin/review-queue` — list review cases (admin/reviewer)
+- `GET /api/admin/review-queue/:caseId` — case detail with profile snapshot
+- `POST /api/admin/review-queue/:caseId/annotate` — add reviewer annotation, mark reviewed
+- `GET /api/admin/audit/decisions` — anonymised decision export (JSON or CSV)
+- `GET /api/admin/audit/consents` — paginated consent log
+- `GET /api/roles` — matched roles for current candidate
+- `GET /api/sponsorship/feasibility/:roleId` — visa sponsorship feasibility
+- Admin CRUD: rulesets, rules, roles
+
 ## Frontend Pages
 
 - **LandingPage** — public marketing page with sign-in CTA
@@ -56,7 +86,13 @@ All routes are under `/api`:
 - **DashboardPage** — overview with profile completion, quick links
 - **ProfilePage** — editable profile form
 - **DocumentsPage** — document upload and management
-- **Placeholders** — Eligibility, Path, Review Queue, Role Mgmt, Audit Logs
+- **EligibilityPage** — run eligibility checks, view history, outcome badges + DisclaimerBanner
+- **OpportunitiesPage** — matched roles with sponsorship feasibility + DisclaimerBanner
+- **PathPage** — remediation plan with step tracking + AI ordering suggestions panel + DisclaimerBanner
+- **ReviewQueuePage** — human reviewer queue with case detail and annotation form (reviewer/admin)
+- **AdminAuditPage** — decision audit export (JSON/CSV) and paginated consent log (admin)
+- **AdminRulesetsPage** — ruleset management (admin)
+- **AdminRolesPage** — roles management (admin)
 
 ## Frontend Auth Flow
 
@@ -72,11 +108,18 @@ All routes are under `/api`:
 - `DEFAULT_OBJECT_STORAGE_BUCKET_ID`, `PUBLIC_OBJECT_SEARCH_PATHS`, `PRIVATE_OBJECT_DIR` — Object storage
 - `REPL_ID`, `ISSUER_URL` (auto-set by Replit) — OIDC auth
 
-## Upcoming Tasks
+## Completed Tasks
 
+- **Task #1**: Project scaffold — auth, profiles, consent, documents, storage
 - **Task #2**: Regulatory rules engine and eligibility evaluation (GMC/NMC/HCPC rules)
-- **Task #3**: Opportunity matching, visa sponsorship feasibility, remediation plans
-- **Task #4**: AI prioritisation, human review queue, compliance audit tools
+- **Task #3**: Opportunity matching, visa sponsorship feasibility, remediation plans with ruleId/rulesetVersion traceability
+- **Task #4**: AI pathway prioritisation (gpt-4o), human review queue, audit export, consent log view, global disclaimer banners, role enforcement (requireReviewer)
+
+## AI Integration
+
+- Package: `lib/integrations-openai-ai-server` — wraps OpenAI SDK with Replit proxy
+- `AI_INTEGRATIONS_OPENAI_BASE_URL` + `AI_INTEGRATIONS_OPENAI_API_KEY` env vars auto-set
+- Used in `/api/ai/remediation-suggestions/:planId` — gpt-4o with JSON mode
 
 ## Development Notes
 

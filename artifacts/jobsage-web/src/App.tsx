@@ -19,10 +19,8 @@ import AdminRulesetsPage from "@/pages/AdminRulesetsPage";
 import OpportunitiesPage from "@/pages/OpportunitiesPage";
 import PathPage from "@/pages/PathPage";
 import AdminRolesPage from "@/pages/AdminRolesPage";
-import { 
-  ReviewQueuePage, 
-  AdminAuditPage 
-} from "@/pages/Placeholders";
+import ReviewQueuePage from "@/pages/ReviewQueuePage";
+import AdminAuditPage from "@/pages/AdminAuditPage";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -39,6 +37,21 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
 
   if (isLoading) return null;
   if (!user || user.role !== "admin") return null;
+  return <>{children}</>;
+}
+
+function ReviewerGuard({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (!isLoading && user && user.role !== "admin" && user.role !== "reviewer") {
+      setLocation("/");
+    }
+  }, [isLoading, user, setLocation]);
+
+  if (isLoading) return null;
+  if (!user || (user.role !== "admin" && user.role !== "reviewer")) return null;
   return <>{children}</>;
 }
 
@@ -65,7 +78,11 @@ function Router() {
                 <AdminRulesetsPage />
               </AdminGuard>
             </Route>
-            <Route path="/review-queue" component={ReviewQueuePage} />
+            <Route path="/review-queue">
+              <ReviewerGuard>
+                <ReviewQueuePage />
+              </ReviewerGuard>
+            </Route>
             <Route path="/admin/roles">
               <AdminGuard>
                 <AdminRolesPage />

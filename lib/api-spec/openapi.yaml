@@ -912,6 +912,242 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
 
+  /remediation/plans/{id}/ordering:
+    patch:
+      tags: [Remediation]
+      operationId: updateRemediationPlanOrdering
+      summary: Store the candidate's chosen step ordering for a plan
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePlanOrderingRequest'
+      responses:
+        '200':
+          description: Ordering saved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemediationPlan'
+        '404':
+          description: Plan not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /ai/remediation-suggestions/{planId}:
+    get:
+      tags: [Remediation]
+      operationId: getAiRemediationSuggestions
+      summary: Get AI-generated step ordering suggestions for a remediation plan
+      parameters:
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: AI suggestions for step ordering.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiRemediationSuggestions'
+        '404':
+          description: Plan not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /admin/review-queue:
+    get:
+      tags: [Decisions]
+      operationId: listReviewQueue
+      summary: List pending and recently reviewed cases (admin/reviewer only)
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, reviewed]
+      responses:
+        '200':
+          description: Review queue cases.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewQueueList'
+        '401':
+          description: Not authenticated or not authorised.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /admin/review-queue/{caseId}:
+    get:
+      tags: [Decisions]
+      operationId: getReviewCase
+      summary: Get a single review case with profile snapshot and annotations
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Review case detail.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewCaseDetail'
+        '404':
+          description: Case not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated or not authorised.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /admin/review-queue/{caseId}/annotate:
+    post:
+      tags: [Decisions]
+      operationId: annotateReviewCase
+      summary: Add reviewer annotation and mark case as reviewed
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnnotateReviewCaseRequest'
+      responses:
+        '200':
+          description: Annotation saved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewAnnotation'
+        '404':
+          description: Case not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated or not authorised.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /admin/audit/decisions:
+    get:
+      tags: [Decisions]
+      operationId: exportDecisionAudit
+      summary: Export anonymised decision records as CSV or JSON (admin only)
+      parameters:
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [csv, json]
+            default: json
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Export data (CSV or JSON).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecisionAuditExport'
+            text/csv:
+              schema:
+                type: string
+        '401':
+          description: Not authenticated or not admin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /admin/audit/consents:
+    get:
+      tags: [Decisions]
+      operationId: listConsentLog
+      summary: View paginated consent log (admin only)
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Consent log entries.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsentLogList'
+        '401':
+          description: Not authenticated or not admin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
 components:
   schemas:
     HealthStatus:
@@ -1648,6 +1884,11 @@ components:
           type: string
         decisionRecordId:
           type: integer
+        orderedStepIds:
+          type: array
+          nullable: true
+          items:
+            type: integer
         createdAt:
           type: string
           format: date-time
@@ -1663,3 +1904,181 @@ components:
         status:
           type: string
           enum: [planned, in_progress, done]
+
+    UpdatePlanOrderingRequest:
+      type: object
+      required: [stepOrder]
+      properties:
+        stepOrder:
+          type: array
+          description: Ordered list of step IDs representing the candidate's preferred ordering
+          items:
+            type: integer
+
+    AiRemediationSuggestion:
+      type: object
+      required: [stepId, suggestedOrder, rationale]
+      properties:
+        stepId:
+          type: integer
+        suggestedOrder:
+          type: integer
+        rationale:
+          type: string
+
+    AiRemediationSuggestions:
+      type: object
+      required: [planId, suggestions, overallRationale, disclaimer]
+      properties:
+        planId:
+          type: integer
+        suggestions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AiRemediationSuggestion'
+        overallRationale:
+          type: string
+        disclaimer:
+          type: string
+
+    ReviewCase:
+      type: object
+      required: [id, userId, decisionRecordId, flagReason, status, createdAt]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: string
+        decisionRecordId:
+          type: integer
+        flagReason:
+          type: string
+        status:
+          type: string
+          enum: [pending, reviewed]
+        reviewedBy:
+          type: string
+          nullable: true
+        reviewedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    ReviewQueueList:
+      type: object
+      required: [cases, total]
+      properties:
+        cases:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReviewCase'
+        total:
+          type: integer
+
+    ReviewAnnotation:
+      type: object
+      required: [id, caseId, reviewerId, notes, createdAt]
+      properties:
+        id:
+          type: integer
+        caseId:
+          type: integer
+        reviewerId:
+          type: string
+        notes:
+          type: string
+        recommendedPathway:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    ReviewCaseDetail:
+      type: object
+      required: [case, decision, annotations]
+      properties:
+        case:
+          $ref: '#/components/schemas/ReviewCase'
+        decision:
+          $ref: '#/components/schemas/EligibilityResult'
+        profile:
+          $ref: '#/components/schemas/CandidateProfile'
+          nullable: true
+        annotations:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReviewAnnotation'
+
+    AnnotateReviewCaseRequest:
+      type: object
+      required: [notes]
+      properties:
+        notes:
+          type: string
+          minLength: 1
+        recommendedPathway:
+          type: string
+
+    DecisionAuditRecord:
+      type: object
+      required: [userIdHash, createdAt, rulesetVersion, outcome, reasonCodes]
+      properties:
+        userIdHash:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        rulesetVersion:
+          type: string
+        outcome:
+          type: string
+          enum: [eligible, not_eligible, ineligible]
+        reasonCodes:
+          type: array
+          items:
+            type: string
+
+    DecisionAuditExport:
+      type: object
+      required: [records, total, exportedAt]
+      properties:
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/DecisionAuditRecord'
+        total:
+          type: integer
+        exportedAt:
+          type: string
+          format: date-time
+
+    ConsentLogEntry:
+      type: object
+      required: [userId, consentedAt, termsVersion]
+      properties:
+        userId:
+          type: string
+        consentedAt:
+          type: string
+          format: date-time
+        termsVersion:
+          type: string
+
+    ConsentLogList:
+      type: object
+      required: [entries, total, page, pageSize]
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConsentLogEntry'
+        total:
+          type: integer
+        page:
+          type: integer
+        pageSize:
+          type: integer

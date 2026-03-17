@@ -10,6 +10,9 @@ import rulesetsRouter from "./rulesets";
 import rolesRouter from "./roles";
 import sponsorshipRouter from "./sponsorship";
 import remediationRouter from "./remediation";
+import aiRouter from "./ai";
+import reviewRouter from "./review";
+import adminAuditRouter from "./adminAudit";
 
 const router: IRouter = Router();
 
@@ -24,5 +27,8 @@ router.use(rulesetsRouter);
 router.use(rolesRouter);
 router.use(sponsorshipRouter);
 router.use(remediationRouter);
+router.use(aiRouter);
+router.use(reviewRouter);
+router.use(adminAuditRouter);
 
 export default router;

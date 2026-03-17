@@ -5,13 +5,15 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
-import type { RemediationStep } from "./remediationStep";
+import type { ReviewCaseStatus } from "./reviewCaseStatus";
 
-export interface RemediationPlan {
+export interface ReviewCase {
   id: number;
   userId: string;
   decisionRecordId: number;
-  orderedStepIds?: number[] | null;
+  flagReason: string;
+  status: ReviewCaseStatus;
+  reviewedBy?: string | null;
+  reviewedAt?: Date | null;
   createdAt: Date;
-  steps: RemediationStep[];
 }

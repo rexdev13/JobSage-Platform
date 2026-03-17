@@ -191,6 +191,55 @@ router.get("/remediation/plan", async (req, res): Promise<void> => {
   res.json({ ...plan, steps: insertedSteps });
 });
 
+router.patch("/remediation/plans/:id/ordering", async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Not authenticated." });
+    return;
+  }
+
+  const planId = parseInt(req.params.id as string, 10);
+  if (isNaN(planId)) {
+    res.status(400).json({ error: "Invalid planId." });
+    return;
+  }
+
+  const { stepOrder } = req.body as { stepOrder?: unknown };
+  if (!Array.isArray(stepOrder) || !stepOrder.every((x) => typeof x === "number")) {
+    res.status(400).json({ error: "stepOrder must be an array of step IDs." });
+    return;
+  }
+
+  const [plan] = await db
+    .select()
+    .from(remediationPlansTable)
+    .where(
+      and(
+        eq(remediationPlansTable.id, planId),
+        eq(remediationPlansTable.userId, req.user!.id)
+      )
+    )
+    .limit(1);
+
+  if (!plan) {
+    res.status(404).json({ error: "Remediation plan not found." });
+    return;
+  }
+
+  const [updated] = await db
+    .update(remediationPlansTable)
+    .set({ orderedStepIds: stepOrder as number[] })
+    .where(eq(remediationPlansTable.id, planId))
+    .returning();
+
+  const steps = await db
+    .select()
+    .from(remediationStepsTable)
+    .where(eq(remediationStepsTable.planId, planId))
+    .orderBy(remediationStepsTable.stepOrder);
+
+  res.json({ ...updated, steps });
+});
+
 router.patch("/remediation/steps/:id", async (req, res): Promise<void> => {
   if (!req.isAuthenticated()) {
     res.status(401).json({ error: "Not authenticated." });
