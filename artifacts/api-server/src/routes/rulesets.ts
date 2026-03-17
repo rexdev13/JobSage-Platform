@@ -154,6 +154,18 @@ router.post("/rulesets", requireAdmin, async (req, res): Promise<void> => {
         res.status(400).json({ error: `Rule ${i + 1}, condition ${j + 1}: value is required for operator "${cond.operator}".` });
         return;
       }
+      if ((cond.operator === "in" || cond.operator === "not_in") && !Array.isArray(cond.value)) {
+        res.status(400).json({ error: `Rule ${i + 1}, condition ${j + 1}: operator "${cond.operator}" requires an array value.` });
+        return;
+      }
+      if ((cond.operator === "in" || cond.operator === "not_in") && Array.isArray(cond.value) && (cond.value as unknown[]).length === 0) {
+        res.status(400).json({ error: `Rule ${i + 1}, condition ${j + 1}: operator "${cond.operator}" requires a non-empty array.` });
+        return;
+      }
+      if ((cond.operator === "gte" || cond.operator === "lte") && typeof cond.value !== "number") {
+        res.status(400).json({ error: `Rule ${i + 1}, condition ${j + 1}: operator "${cond.operator}" requires a numeric value.` });
+        return;
+      }
     }
   }
 

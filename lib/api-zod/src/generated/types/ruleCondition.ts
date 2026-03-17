@@ -10,5 +10,5 @@ import type { RuleConditionOperator } from "./ruleConditionOperator";
 export interface RuleCondition {
   field: string;
   operator: RuleConditionOperator;
-  value?: unknown | null;
+  value?: string | number | boolean | string[] | null;
 }

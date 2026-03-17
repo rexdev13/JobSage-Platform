@@ -257,7 +257,7 @@ export const RuleConditionOperator = {
 export interface RuleCondition {
   field: string;
   operator: RuleConditionOperator;
-  value?: unknown | null;
+  value?: string | number | boolean | string[] | null;
 }
 
 export interface RulesetRule {

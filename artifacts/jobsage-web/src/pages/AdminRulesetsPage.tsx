@@ -264,13 +264,15 @@ function RegressionTestResults({ results }: { results: RegressionTestCaseResult[
   );
 }
 
+type DraftCondition = { field: string; operator: string; value: string };
+
 type DraftRule = {
   ruleKey: string;
   outcome: "eligible" | "not_eligible" | "ineligible";
   reasonCode: string;
   explanationText: string;
   sortOrder: number;
-  conditions: Array<{ field: string; operator: string; value: string }>;
+  conditions: DraftCondition[];
 };
 
 const EMPTY_RULE = (): DraftRule => ({
@@ -281,6 +283,25 @@ const EMPTY_RULE = (): DraftRule => ({
   sortOrder: 0,
   conditions: [{ field: "", operator: "eq", value: "" }],
 });
+
+function isArrayOperator(op: string): boolean {
+  return op === "in" || op === "not_in";
+}
+
+function parseConditionValue(raw: string, operator: string): string | number | boolean | string[] {
+  if (isArrayOperator(operator)) {
+    return raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  if (operator === "exists") return true;
+  const n = Number(raw);
+  if (!isNaN(n) && raw.trim() !== "") return n;
+  if (raw.trim() === "true") return true;
+  if (raw.trim() === "false") return false;
+  return raw.trim();
+}
 
 function CreateDraftRulesetForm({ onCreated }: { onCreated: () => void }) {
   const [open, setOpen] = useState(false);
@@ -347,9 +368,20 @@ function CreateDraftRulesetForm({ onCreated }: { onCreated: () => void }) {
         return;
       }
       for (const cond of rule.conditions) {
-        if (!cond.field.trim() || !cond.value.trim()) {
-          setError("All condition fields and values must be filled.");
+        if (!cond.field.trim()) {
+          setError("All condition fields must be filled.");
           return;
+        }
+        if (cond.operator !== "exists" && !cond.value.trim()) {
+          setError("All condition values must be filled (use comma-separated values for in/not_in).");
+          return;
+        }
+        if (isArrayOperator(cond.operator)) {
+          const items = cond.value.split(",").map((s) => s.trim()).filter(Boolean);
+          if (items.length === 0) {
+            setError(`Condition value for '${cond.operator}' must be a comma-separated list of at least one item.`);
+            return;
+          }
         }
       }
     }
@@ -368,14 +400,7 @@ function CreateDraftRulesetForm({ onCreated }: { onCreated: () => void }) {
         conditions: r.conditions.map((c) => ({
           field: c.field.trim(),
           operator: c.operator as "eq" | "neq" | "in" | "not_in" | "gte" | "lte" | "exists",
-          value: (() => {
-            const raw = c.value.trim();
-            const n = Number(raw);
-            if (!isNaN(n) && raw !== "") return n as unknown as string;
-            if (raw === "true") return true as unknown as string;
-            if (raw === "false") return false as unknown as string;
-            return raw;
-          })(),
+          value: parseConditionValue(c.value, c.operator),
         })),
       })),
     };
@@ -538,42 +563,64 @@ function CreateDraftRulesetForm({ onCreated }: { onCreated: () => void }) {
                   </div>
                   <div className="space-y-1.5">
                     {rule.conditions.map((cond, ci) => (
-                      <div key={ci} className="flex items-center gap-1.5">
-                        <input
-                          type="text"
-                          placeholder="field"
-                          value={cond.field}
-                          onChange={(e) => updateCondition(ri, ci, { field: e.target.value })}
-                          className="flex-1 border border-border rounded px-2 py-1 text-xs bg-background text-foreground font-mono"
-                        />
-                        <select
-                          value={cond.operator}
-                          onChange={(e) => updateCondition(ri, ci, { operator: e.target.value })}
-                          className="border border-border rounded px-1.5 py-1 text-xs bg-background text-foreground"
-                        >
-                          <option value="eq">eq</option>
-                          <option value="neq">neq</option>
-                          <option value="in">in</option>
-                          <option value="not_in">not_in</option>
-                          <option value="gte">gte</option>
-                          <option value="lte">lte</option>
-                          <option value="exists">exists</option>
-                        </select>
-                        <input
-                          type="text"
-                          placeholder="value"
-                          value={cond.value}
-                          onChange={(e) => updateCondition(ri, ci, { value: e.target.value })}
-                          className="flex-1 border border-border rounded px-2 py-1 text-xs bg-background text-foreground"
-                        />
-                        {rule.conditions.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => removeCondition(ri, ci)}
-                            className="text-red-400 hover:text-red-600"
+                      <div key={ci} className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="text"
+                            placeholder="field"
+                            value={cond.field}
+                            onChange={(e) => updateCondition(ri, ci, { field: e.target.value })}
+                            className="flex-1 border border-border rounded px-2 py-1 text-xs bg-background text-foreground font-mono"
+                          />
+                          <select
+                            value={cond.operator}
+                            onChange={(e) => updateCondition(ri, ci, { operator: e.target.value, value: "" })}
+                            className="border border-border rounded px-1.5 py-1 text-xs bg-background text-foreground"
                           >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
+                            <option value="eq">eq</option>
+                            <option value="neq">neq</option>
+                            <option value="in">in (array)</option>
+                            <option value="not_in">not_in (array)</option>
+                            <option value="gte">gte</option>
+                            <option value="lte">lte</option>
+                            <option value="exists">exists</option>
+                          </select>
+                          {cond.operator === "exists" ? (
+                            <span className="flex-1 px-2 py-1 text-xs text-muted-foreground italic">
+                              (no value needed)
+                            </span>
+                          ) : isArrayOperator(cond.operator) ? (
+                            <input
+                              type="text"
+                              placeholder="val1, val2, val3"
+                              value={cond.value}
+                              onChange={(e) => updateCondition(ri, ci, { value: e.target.value })}
+                              className="flex-1 border border-primary/50 rounded px-2 py-1 text-xs bg-background text-foreground"
+                              title="Comma-separated list of values"
+                            />
+                          ) : (
+                            <input
+                              type="text"
+                              placeholder="value"
+                              value={cond.value}
+                              onChange={(e) => updateCondition(ri, ci, { value: e.target.value })}
+                              className="flex-1 border border-border rounded px-2 py-1 text-xs bg-background text-foreground"
+                            />
+                          )}
+                          {rule.conditions.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeCondition(ri, ci)}
+                              className="text-red-400 hover:text-red-600"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                        {isArrayOperator(cond.operator) && (
+                          <p className="text-xs text-muted-foreground pl-1">
+                            Enter comma-separated values, e.g. <code className="font-mono">nurse, midwife</code>
+                          </p>
                         )}
                       </div>
                     ))}

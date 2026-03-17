@@ -1103,6 +1103,13 @@ components:
           $ref: '#/components/schemas/RuleConditionOperator'
         value:
           nullable: true
+          oneOf:
+            - type: string
+            - type: number
+            - type: boolean
+            - type: array
+              items:
+                type: string
 
     RulesetRule:
       type: object
