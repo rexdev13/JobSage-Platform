@@ -6,7 +6,7 @@ import type { RuleCondition } from "@workspace/db";
 interface RuleSeedData {
   ruleKey: string;
   conditions: RuleCondition[];
-  outcome: "eligible" | "not_eligible" | "ineligible" | "review";
+  outcome: "eligible" | "not_eligible" | "ineligible";
   reasonCode: string;
   explanationText: string;
   pathways?: string[];

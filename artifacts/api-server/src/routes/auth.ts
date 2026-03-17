@@ -58,7 +58,22 @@ function getSafeReturnTo(value: unknown): string {
 }
 
 async function upsertUser(claims: Record<string, unknown>) {
-  const userData = {
+  const claimRoles = claims.roles;
+  const claimedRole =
+    Array.isArray(claimRoles) && claimRoles.includes("admin")
+      ? "admin"
+      : typeof claimRoles === "string" && claimRoles === "admin"
+        ? "admin"
+        : undefined;
+
+  const userData: {
+    id: string;
+    email: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    profileImageUrl: string | null;
+    role?: "candidate" | "admin" | "reviewer";
+  } = {
     id: claims.sub as string,
     email: (claims.email as string) || null,
     firstName: (claims.first_name as string) || null,
@@ -66,6 +81,7 @@ async function upsertUser(claims: Record<string, unknown>) {
     profileImageUrl: (claims.profile_image_url || claims.picture) as
       | string
       | null,
+    ...(claimedRole ? { role: claimedRole } : {}),
   };
 
   const [user] = await db

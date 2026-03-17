@@ -251,7 +251,7 @@ export const RegisterDocumentBody = zod.object({
 export const EvaluateEligibilityResponse = zod.object({
   id: zod.number(),
   userId: zod.string(),
-  outcome: zod.enum(["eligible", "not_eligible", "ineligible", "review"]),
+  outcome: zod.enum(["eligible", "not_eligible", "ineligible"]),
   explanationText: zod.string(),
   reasonCodes: zod.array(zod.string()),
   pathways: zod.array(zod.string()).nullish(),
@@ -273,7 +273,7 @@ export const GetEligibilityResultParams = zod.object({
 export const GetEligibilityResultResponse = zod.object({
   id: zod.number(),
   userId: zod.string(),
-  outcome: zod.enum(["eligible", "not_eligible", "ineligible", "review"]),
+  outcome: zod.enum(["eligible", "not_eligible", "ineligible"]),
   explanationText: zod.string(),
   reasonCodes: zod.array(zod.string()),
   pathways: zod.array(zod.string()).nullish(),
@@ -293,7 +293,7 @@ export const ListEligibilityHistoryResponse = zod.object({
     zod.object({
       id: zod.number(),
       userId: zod.string(),
-      outcome: zod.enum(["eligible", "not_eligible", "ineligible", "review"]),
+      outcome: zod.enum(["eligible", "not_eligible", "ineligible"]),
       explanationText: zod.string(),
       reasonCodes: zod.array(zod.string()),
       pathways: zod.array(zod.string()).nullish(),
@@ -357,7 +357,7 @@ export const CreateRulesetBody = zod.object({
           value: zod.unknown().nullish(),
         }),
       ),
-      outcome: zod.enum(["eligible", "not_eligible", "ineligible", "review"]),
+      outcome: zod.enum(["eligible", "not_eligible", "ineligible"]),
       reasonCode: zod.string().min(1),
       explanationText: zod.string().min(1),
       pathways: zod.array(zod.string()).nullish(),
@@ -406,12 +406,7 @@ export const GetRulesetResponse = zod
               value: zod.unknown().nullish(),
             }),
           ),
-          outcome: zod.enum([
-            "eligible",
-            "not_eligible",
-            "ineligible",
-            "review",
-          ]),
+          outcome: zod.enum(["eligible", "not_eligible", "ineligible"]),
           reasonCode: zod.string(),
           explanationText: zod.string(),
           pathways: zod.array(zod.string()).nullish(),
@@ -471,12 +466,7 @@ export const RunRegressionTestBody = zod.object({
         residencyStatus: zod.string(),
         requiresSponsorship: zod.boolean(),
       }),
-      expectedOutcome: zod.enum([
-        "eligible",
-        "not_eligible",
-        "ineligible",
-        "review",
-      ]),
+      expectedOutcome: zod.enum(["eligible", "not_eligible", "ineligible"]),
     }),
   ),
 });
@@ -489,18 +479,8 @@ export const RunRegressionTestResponse = zod.object({
   results: zod.array(
     zod.object({
       label: zod.string(),
-      expectedOutcome: zod.enum([
-        "eligible",
-        "not_eligible",
-        "ineligible",
-        "review",
-      ]),
-      actualOutcome: zod.enum([
-        "eligible",
-        "not_eligible",
-        "ineligible",
-        "review",
-      ]),
+      expectedOutcome: zod.enum(["eligible", "not_eligible", "ineligible"]),
+      actualOutcome: zod.enum(["eligible", "not_eligible", "ineligible"]),
       passed: zod.boolean(),
       reasonCodes: zod.array(zod.string()),
       explanationText: zod.string(),
@@ -513,9 +493,7 @@ export const RunRegressionTestResponse = zod.object({
  */
 export const ListDecisionsQueryParams = zod.object({
   userId: zod.coerce.string().optional(),
-  outcome: zod
-    .enum(["eligible", "not_eligible", "ineligible", "review"])
-    .optional(),
+  outcome: zod.enum(["eligible", "not_eligible", "ineligible"]).optional(),
   reviewFlagged: zod.coerce.boolean().optional(),
 });
 
@@ -524,7 +502,7 @@ export const ListDecisionsResponse = zod.object({
     zod.object({
       id: zod.number(),
       userId: zod.string(),
-      outcome: zod.enum(["eligible", "not_eligible", "ineligible", "review"]),
+      outcome: zod.enum(["eligible", "not_eligible", "ineligible"]),
       reasonCodes: zod.array(zod.string()),
       explanationText: zod.string(),
       pathways: zod.array(zod.string()).nullish(),

@@ -1,7 +1,7 @@
 import type { RuleCondition, RulesetRule } from "@workspace/db";
 import type { Profile } from "@workspace/db";
 
-export type EligibilityOutcome = "eligible" | "not_eligible" | "ineligible" | "review";
+export type EligibilityOutcome = "eligible" | "not_eligible" | "ineligible";
 
 export interface EvaluationInput {
   profile: Profile;
@@ -17,7 +17,7 @@ export interface EvaluationResult {
   reviewNote: string | null;
 }
 
-function isAmbiguous(profile: Profile): { flagged: boolean; note: string | null } {
+function detectAmbiguity(profile: Profile): { flagged: boolean; note: string | null } {
   const missing: string[] = [];
   if (!profile.qualificationCountry) missing.push("qualification country");
   if (!profile.qualificationType) missing.push("qualification type");
@@ -76,26 +76,27 @@ function evaluateRule(rule: RulesetRule, profile: Profile): boolean {
 }
 
 export function evaluate(profile: Profile, rules: RulesetRule[]): EvaluationResult {
-  const ambiguity = isAmbiguous(profile);
+  const ambiguity = detectAmbiguity(profile);
 
   const sortedRules = [...rules].sort((a, b) => a.sortOrder - b.sortOrder);
 
   for (const rule of sortedRules) {
     if (evaluateRule(rule, profile)) {
+      const outcome = rule.outcome as EligibilityOutcome;
       return {
-        outcome: rule.outcome as EligibilityOutcome,
+        outcome,
         reasonCodes: [rule.reasonCode],
         explanationText: rule.explanationText,
         pathways: rule.pathways ?? [],
         matchedRuleKey: rule.ruleKey,
-        reviewFlagged: ambiguity.flagged || rule.outcome === "review",
+        reviewFlagged: ambiguity.flagged,
         reviewNote: ambiguity.note,
       };
     }
   }
 
   return {
-    outcome: "review",
+    outcome: "not_eligible",
     reasonCodes: ["NO_RULE_MATCHED"],
     explanationText:
       "Your profile did not match any deterministic eligibility rule. A clinical reviewer will assess your case and contact you within 5 working days.",

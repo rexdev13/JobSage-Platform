@@ -7,11 +7,13 @@ import {
   usePublishRuleset,
   useRunRegressionTest,
   useListDecisions,
+  useCreateRuleset,
   getGetRulesetQueryKey,
 } from "@workspace/api-client-react";
 import type {
   Ruleset,
   RegressionTestCaseResult,
+  CreateRulesetRequest,
 } from "@workspace/api-client-react";
 import {
   CheckCircle2,
@@ -26,6 +28,8 @@ import {
   Shield,
   Users,
   AlertTriangle,
+  Plus,
+  Trash2,
 } from "lucide-react";
 
 const SAMPLE_REGRESSION_CASES = [
@@ -192,9 +196,7 @@ function RulesetCard({
                         ? "bg-emerald-100 text-emerald-700"
                         : rule.outcome === "ineligible"
                           ? "bg-red-100 text-red-700"
-                          : rule.outcome === "review"
-                            ? "bg-purple-100 text-purple-700"
-                            : "bg-amber-100 text-amber-700"
+                          : "bg-amber-100 text-amber-700"
                     }`}
                   >
                     {rule.outcome.replace("_", " ")}
@@ -247,6 +249,349 @@ function RegressionTestResults({ results }: { results: RegressionTestCaseResult[
   );
 }
 
+type DraftRule = {
+  ruleKey: string;
+  outcome: "eligible" | "not_eligible" | "ineligible";
+  reasonCode: string;
+  explanationText: string;
+  sortOrder: number;
+  conditions: Array<{ field: string; operator: string; value: string }>;
+};
+
+const EMPTY_RULE = (): DraftRule => ({
+  ruleKey: "",
+  outcome: "eligible",
+  reasonCode: "",
+  explanationText: "",
+  sortOrder: 0,
+  conditions: [{ field: "", operator: "eq", value: "" }],
+});
+
+function CreateDraftRulesetForm({ onCreated }: { onCreated: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [regulator, setRegulator] = useState<"GMC" | "NMC" | "HCPC">("GMC");
+  const [version, setVersion] = useState("");
+  const [effectiveDate, setEffectiveDate] = useState("");
+  const [changelog, setChangelog] = useState("");
+  const [rules, setRules] = useState<DraftRule[]>([EMPTY_RULE()]);
+  const [error, setError] = useState<string | null>(null);
+
+  const { mutate: createRuleset, isPending } = useCreateRuleset({
+    mutation: {
+      onSuccess: () => {
+        setOpen(false);
+        setVersion("");
+        setEffectiveDate("");
+        setChangelog("");
+        setRules([EMPTY_RULE()]);
+        setError(null);
+        onCreated();
+      },
+      onError: (err) => {
+        setError(err instanceof Error ? err.message : "Failed to create ruleset");
+      },
+    },
+  });
+
+  const addRule = () => setRules((rs) => [...rs, { ...EMPTY_RULE(), sortOrder: rs.length }]);
+  const removeRule = (i: number) => setRules((rs) => rs.filter((_, idx) => idx !== i));
+  const updateRule = (i: number, patch: Partial<DraftRule>) =>
+    setRules((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  const addCondition = (ri: number) =>
+    setRules((rs) =>
+      rs.map((r, idx) =>
+        idx === ri ? { ...r, conditions: [...r.conditions, { field: "", operator: "eq", value: "" }] } : r
+      )
+    );
+  const removeCondition = (ri: number, ci: number) =>
+    setRules((rs) =>
+      rs.map((r, idx) =>
+        idx === ri ? { ...r, conditions: r.conditions.filter((_, ci2) => ci2 !== ci) } : r
+      )
+    );
+  const updateCondition = (ri: number, ci: number, patch: Partial<DraftRule["conditions"][0]>) =>
+    setRules((rs) =>
+      rs.map((r, idx) =>
+        idx === ri
+          ? { ...r, conditions: r.conditions.map((c, ci2) => (ci2 === ci ? { ...c, ...patch } : c)) }
+          : r
+      )
+    );
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+
+    if (!version.trim() || !effectiveDate || !changelog.trim()) {
+      setError("All fields are required.");
+      return;
+    }
+    for (const rule of rules) {
+      if (!rule.ruleKey.trim() || !rule.reasonCode.trim() || !rule.explanationText.trim()) {
+        setError("All rule fields (key, reason code, explanation) are required.");
+        return;
+      }
+      for (const cond of rule.conditions) {
+        if (!cond.field.trim() || !cond.value.trim()) {
+          setError("All condition fields and values must be filled.");
+          return;
+        }
+      }
+    }
+
+    const payload: CreateRulesetRequest = {
+      regulator,
+      version: version.trim(),
+      effectiveDate: new Date(effectiveDate).toISOString(),
+      changelog: changelog.trim(),
+      rules: rules.map((r, i) => ({
+        ruleKey: r.ruleKey.trim(),
+        outcome: r.outcome,
+        reasonCode: r.reasonCode.trim(),
+        explanationText: r.explanationText.trim(),
+        sortOrder: i,
+        conditions: r.conditions.map((c) => ({
+          field: c.field.trim(),
+          operator: c.operator as "eq" | "neq" | "in" | "not_in" | "gte" | "lte" | "exists",
+          value: (() => {
+            const raw = c.value.trim();
+            const n = Number(raw);
+            if (!isNaN(n) && raw !== "") return n as unknown as string;
+            if (raw === "true") return true as unknown as string;
+            if (raw === "false") return false as unknown as string;
+            return raw;
+          })(),
+        })),
+      })),
+    };
+
+    createRuleset({ data: payload });
+  }
+
+  if (!open) {
+    return (
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+        <Plus className="w-4 h-4 mr-1.5" />
+        New Draft Ruleset
+      </Button>
+    );
+  }
+
+  return (
+    <Card className="p-6 border-primary/30">
+      <div className="flex items-center justify-between mb-5">
+        <h3 className="text-base font-semibold text-foreground">Create Draft Ruleset</h3>
+        <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground text-sm">
+          Cancel
+        </button>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Regulator</label>
+            <select
+              value={regulator}
+              onChange={(e) => setRegulator(e.target.value as "GMC" | "NMC" | "HCPC")}
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background text-foreground"
+            >
+              <option value="GMC">GMC</option>
+              <option value="NMC">NMC</option>
+              <option value="HCPC">HCPC</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Version</label>
+            <input
+              type="text"
+              placeholder="e.g. 1.1.0"
+              value={version}
+              onChange={(e) => setVersion(e.target.value)}
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background text-foreground"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Effective Date</label>
+            <input
+              type="date"
+              value={effectiveDate}
+              onChange={(e) => setEffectiveDate(e.target.value)}
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background text-foreground"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Changelog</label>
+            <input
+              type="text"
+              placeholder="Describe what changed"
+              value={changelog}
+              onChange={(e) => setChangelog(e.target.value)}
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background text-foreground"
+              required
+            />
+          </div>
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <label className="text-xs font-medium text-muted-foreground">Rules</label>
+            <button
+              type="button"
+              onClick={addRule}
+              className="text-xs text-primary hover:text-primary/80 flex items-center gap-1"
+            >
+              <Plus className="w-3 h-3" />
+              Add Rule
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            {rules.map((rule, ri) => (
+              <div key={ri} className="p-4 border border-border rounded-xl bg-muted/30 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-foreground">Rule {ri + 1}</span>
+                  {rules.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeRule(ri)}
+                      className="text-red-500 hover:text-red-600"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1">Rule Key</label>
+                    <input
+                      type="text"
+                      placeholder="RULE_001"
+                      value={rule.ruleKey}
+                      onChange={(e) => updateRule(ri, { ruleKey: e.target.value })}
+                      className="w-full border border-border rounded-lg px-2 py-1.5 text-xs bg-background text-foreground font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1">Outcome</label>
+                    <select
+                      value={rule.outcome}
+                      onChange={(e) => updateRule(ri, { outcome: e.target.value as DraftRule["outcome"] })}
+                      className="w-full border border-border rounded-lg px-2 py-1.5 text-xs bg-background text-foreground"
+                    >
+                      <option value="eligible">eligible</option>
+                      <option value="not_eligible">not_eligible</option>
+                      <option value="ineligible">ineligible</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1">Reason Code</label>
+                    <input
+                      type="text"
+                      placeholder="REASON_CODE"
+                      value={rule.reasonCode}
+                      onChange={(e) => updateRule(ri, { reasonCode: e.target.value })}
+                      className="w-full border border-border rounded-lg px-2 py-1.5 text-xs bg-background text-foreground font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1">Explanation</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Human-readable explanation of this rule's outcome"
+                    value={rule.explanationText}
+                    onChange={(e) => updateRule(ri, { explanationText: e.target.value })}
+                    className="w-full border border-border rounded-lg px-2 py-1.5 text-xs bg-background text-foreground resize-none"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs text-muted-foreground">Conditions (all must match)</label>
+                    <button
+                      type="button"
+                      onClick={() => addCondition(ri)}
+                      className="text-xs text-primary hover:text-primary/80 flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" />
+                      Add
+                    </button>
+                  </div>
+                  <div className="space-y-1.5">
+                    {rule.conditions.map((cond, ci) => (
+                      <div key={ci} className="flex items-center gap-1.5">
+                        <input
+                          type="text"
+                          placeholder="field"
+                          value={cond.field}
+                          onChange={(e) => updateCondition(ri, ci, { field: e.target.value })}
+                          className="flex-1 border border-border rounded px-2 py-1 text-xs bg-background text-foreground font-mono"
+                        />
+                        <select
+                          value={cond.operator}
+                          onChange={(e) => updateCondition(ri, ci, { operator: e.target.value })}
+                          className="border border-border rounded px-1.5 py-1 text-xs bg-background text-foreground"
+                        >
+                          <option value="eq">eq</option>
+                          <option value="neq">neq</option>
+                          <option value="in">in</option>
+                          <option value="not_in">not_in</option>
+                          <option value="gte">gte</option>
+                          <option value="lte">lte</option>
+                          <option value="exists">exists</option>
+                        </select>
+                        <input
+                          type="text"
+                          placeholder="value"
+                          value={cond.value}
+                          onChange={(e) => updateCondition(ri, ci, { value: e.target.value })}
+                          className="flex-1 border border-border rounded px-2 py-1 text-xs bg-background text-foreground"
+                        />
+                        {rule.conditions.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeCondition(ri, ci)}
+                            className="text-red-400 hover:text-red-600"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {error && (
+          <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+            {error}
+          </p>
+        )}
+
+        <div className="flex justify-end gap-3">
+          <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          <Button type="submit" size="sm" disabled={isPending}>
+            {isPending ? (
+              <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" />Creating…</>
+            ) : (
+              <><Plus className="w-4 h-4 mr-1.5" />Create Draft</>
+            )}
+          </Button>
+        </div>
+      </form>
+    </Card>
+  );
+}
+
 export default function AdminRulesetsPage() {
   const { data: rulesetsData, isLoading, refetch } = useListRulesets();
   const { data: decisionsData } = useListDecisions();
@@ -282,10 +627,15 @@ export default function AdminRulesetsPage() {
     <AppLayout>
       <PageTransition>
         <header className="mb-8">
-          <h1 className="text-3xl font-display font-bold text-foreground">Ruleset Management</h1>
-          <p className="text-muted-foreground mt-2">
-            Manage regulatory rulesets for GMC, NMC, and HCPC eligibility evaluations.
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-display font-bold text-foreground">Ruleset Management</h1>
+              <p className="text-muted-foreground mt-2">
+                Manage regulatory rulesets for GMC, NMC, and HCPC eligibility evaluations.
+              </p>
+            </div>
+            <CreateDraftRulesetForm onCreated={refetch} />
+          </div>
         </header>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
@@ -415,9 +765,7 @@ export default function AdminRulesetsPage() {
                             ? "bg-emerald-100 text-emerald-700"
                             : d.outcome === "ineligible"
                               ? "bg-red-100 text-red-700"
-                              : d.outcome === "review"
-                                ? "bg-purple-100 text-purple-700"
-                                : "bg-amber-100 text-amber-700"
+                              : "bg-amber-100 text-amber-700"
                         }`}
                       >
                         {d.outcome.replace("_", " ")}

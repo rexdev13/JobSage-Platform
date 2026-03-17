@@ -146,7 +146,7 @@ router.post("/rulesets", requireAdmin, async (req, res): Promise<void> => {
       rulesetId: ruleset.id,
       ruleKey: r.ruleKey,
       conditions: r.conditions as RuleCondition[],
-      outcome: r.outcome as "eligible" | "not_eligible" | "ineligible" | "review",
+      outcome: r.outcome as "eligible" | "not_eligible" | "ineligible",
       reasonCode: r.reasonCode,
       explanationText: r.explanationText,
       pathways: r.pathways ?? null,
@@ -289,8 +289,8 @@ router.get("/decisions", requireAdmin, async (req, res): Promise<void> => {
   if (userId) {
     conditions.push(eq(decisionRecordsTable.userId, userId));
   }
-  if (outcome && ["eligible", "not_eligible", "ineligible", "review"].includes(outcome)) {
-    conditions.push(eq(decisionRecordsTable.outcome, outcome as "eligible" | "not_eligible" | "ineligible" | "review"));
+  if (outcome && ["eligible", "not_eligible", "ineligible"].includes(outcome)) {
+    conditions.push(eq(decisionRecordsTable.outcome, outcome as "eligible" | "not_eligible" | "ineligible"));
   }
   if (reviewFlagged !== undefined) {
     conditions.push(eq(decisionRecordsTable.reviewFlagged, reviewFlagged === "true" ? 1 : 0));

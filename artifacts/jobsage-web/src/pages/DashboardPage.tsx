@@ -5,16 +5,15 @@ import { Card, Button, PageTransition } from "@/components/ui-enhanced";
 import { Activity, FileText, ArrowRight, ShieldCheck, CheckCircle2, Clock, XCircle, HelpCircle } from "lucide-react";
 import { Link } from "wouter";
 
-type EligibilityOutcome = "eligible" | "not_eligible" | "ineligible" | "review";
+type EligibilityOutcome = "eligible" | "not_eligible" | "ineligible";
 
 function OutcomePill({ outcome }: { outcome: EligibilityOutcome }) {
   const configs: Record<EligibilityOutcome, { label: string; className: string }> = {
     eligible: { label: "Eligible Now", className: "bg-emerald-500/20 text-emerald-100" },
     not_eligible: { label: "Not Yet Eligible", className: "bg-amber-500/20 text-amber-100" },
     ineligible: { label: "Ineligible", className: "bg-red-500/20 text-red-100" },
-    review: { label: "Under Review", className: "bg-purple-500/20 text-purple-100" },
   };
-  const { label, className } = configs[outcome] ?? configs.review;
+  const { label, className } = configs[outcome] ?? configs.not_eligible;
   return (
     <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${className}`}>
       {label}
