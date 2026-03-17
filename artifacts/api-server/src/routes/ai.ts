@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { remediationPlansTable, remediationStepsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
-import { openai } from "@workspace/integrations-openai-ai-server";
+import { prioritiseRemediationSteps } from "../lib/aiPrioritiser";
 
 const router: IRouter = Router();
 
@@ -53,53 +53,12 @@ router.get("/ai/remediation-suggestions/:planId", async (req, res): Promise<void
     return;
   }
 
-  const stepsText = steps
-    .map(
-      (s) =>
-        `- Step ID ${s.id}: "${s.title}" (gap: ${s.gap}, source: ${s.stepSource}${s.timelineRange ? `, timeline: ${s.timelineRange}` : ""})`
-    )
-    .join("\n");
-
-  const systemPrompt = `You are a clinical career advisor specialising in UK healthcare regulation and visa sponsorship. 
-Your task is to suggest an optimal ordering for remediation steps that a healthcare professional must complete to achieve UK regulatory registration.
-Consider: urgency of gaps, dependency between steps, typical timelines, and whether sponsorship steps should be addressed early.
-Provide practical, evidence-based reasoning for each ordering decision.
-Respond ONLY with valid JSON matching this shape exactly:
-{
-  "suggestions": [
-    { "stepId": <number>, "suggestedOrder": <number starting from 1>, "rationale": "<string>" }
-  ],
-  "overallRationale": "<string>"
-}`;
-
-  const userPrompt = `Here are the current remediation steps for plan ${plan.id}:
-${stepsText}
-
-Please suggest the best order to tackle these steps. Return a JSON object as described.`;
-
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      max_completion_tokens: 1000,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      response_format: { type: "json_object" },
-    });
-
-    const raw = response.choices[0]?.message?.content ?? "{}";
-    let parsed: { suggestions?: unknown[]; overallRationale?: string };
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      parsed = { suggestions: [], overallRationale: "Could not parse AI response." };
-    }
-
+    const result = await prioritiseRemediationSteps(plan.id, steps);
     res.json({
       planId: plan.id,
-      suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions : [],
-      overallRationale: parsed.overallRationale ?? "No overall rationale provided.",
+      suggestions: result.suggestions,
+      overallRationale: result.overallRationale,
       disclaimer: DISCLAIMER,
     });
   } catch (err) {

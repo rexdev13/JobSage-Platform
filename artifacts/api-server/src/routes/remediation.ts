@@ -131,7 +131,12 @@ router.get("/remediation/plan", async (req, res): Promise<void> => {
       .where(eq(remediationStepsTable.planId, existingPlan.id))
       .orderBy(remediationStepsTable.stepOrder);
 
-    res.json({ ...existingPlan, steps });
+    res.json({
+      ...existingPlan,
+      steps,
+      reviewFlagged: decision.reviewFlagged === 1,
+      reviewNote: decision.reviewNote ?? null,
+    });
     return;
   }
 
@@ -188,7 +193,12 @@ router.get("/remediation/plan", async (req, res): Promise<void> => {
           .returning()
       : [];
 
-  res.json({ ...plan, steps: insertedSteps });
+  res.json({
+    ...plan,
+    steps: insertedSteps,
+    reviewFlagged: decision.reviewFlagged === 1,
+    reviewNote: decision.reviewNote ?? null,
+  });
 });
 
 router.patch("/remediation/plans/:id/ordering", async (req, res): Promise<void> => {

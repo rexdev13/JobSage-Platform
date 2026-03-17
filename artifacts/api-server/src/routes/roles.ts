@@ -2,9 +2,9 @@ import { Router, type IRouter } from "express";
 import multer from "multer";
 import { parse } from "csv-parse/sync";
 import { db } from "@workspace/db";
-import { rolesTable, decisionRecordsTable, profilesTable, rulesetRulesTable } from "@workspace/db";
+import { rolesTable, decisionRecordsTable, profilesTable, rulesetRulesTable, auditEventsTable } from "@workspace/db";
 import { eq, desc, and } from "drizzle-orm";
-import { requireAdmin } from "./rulesets";
+import { requireRole } from "../middlewares/requireRole";
 import { assessSponsorshipFeasibility } from "../lib/sponsorshipFeasibility";
 
 const router: IRouter = Router();
@@ -138,12 +138,12 @@ router.get("/roles", async (req, res): Promise<void> => {
   });
 });
 
-router.get("/admin/roles", requireAdmin, async (_req, res): Promise<void> => {
+router.get("/admin/roles", requireRole("admin"), async (_req, res): Promise<void> => {
   const roles = await db.select().from(rolesTable).orderBy(desc(rolesTable.importedAt));
   res.json({ roles });
 });
 
-router.post("/admin/roles/import", requireAdmin, upload.single("file"), async (req, res): Promise<void> => {
+router.post("/admin/roles/import", requireRole("admin"), upload.single("file"), async (req, res): Promise<void> => {
   if (!req.file) {
     res.status(400).json({ error: "CSV file is required." });
     return;
@@ -231,6 +231,15 @@ router.post("/admin/roles/import", requireAdmin, upload.single("file"), async (r
   if (validRows.length > 0) {
     await db.insert(rolesTable).values(validRows);
   }
+
+  db.insert(auditEventsTable)
+    .values({
+      actor: req.user!.id,
+      action: "roles_imported",
+      target: undefined,
+      details: { imported: validRows.length, skipped: errors.length },
+    })
+    .catch(() => {});
 
   res.json({
     imported: validRows.length,

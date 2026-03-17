@@ -278,11 +278,23 @@ export default function ReviewQueuePage() {
                             #{c.id}
                           </span>
                           <StatusBadge status={c.status} />
+                          {(c as any).outcome && (
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground capitalize">
+                              {(c as any).outcome}
+                            </span>
+                          )}
                         </div>
                         <p className="text-sm text-foreground truncate">{c.flagReason}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {new Date(c.createdAt).toLocaleDateString()}
-                        </p>
+                        <div className="flex items-center gap-3 mt-0.5">
+                          {(c as any).profession && (
+                            <span className="text-xs text-muted-foreground capitalize">
+                              {(c as any).profession}
+                            </span>
+                          )}
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(c.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
                       </div>
                       <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 ml-2" />
                     </div>

@@ -5,6 +5,7 @@ import {
   useGetRemediationPlan,
   useUpdateRemediationStep,
   useGetAiRemediationSuggestions,
+  useUpdateRemediationPlanOrdering,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetRemediationPlanQueryKey } from "@workspace/api-client-react";
@@ -140,14 +141,35 @@ function StepCard({ step }: { step: RemediationStep }) {
   );
 }
 
-function AiSuggestionsPanel({ planId }: { planId: number }) {
+function AiSuggestionsPanel({ planId, steps }: { planId: number; steps: RemediationStep[] }) {
   const [show, setShow] = useState(false);
+  const [applied, setApplied] = useState(false);
+  const queryClient = useQueryClient();
+
   const { data, isLoading, isError } = useGetAiRemediationSuggestions(planId, {
     query: {
       enabled: show,
       queryKey: ["getAiRemediationSuggestions", planId, show],
     },
   });
+
+  const { mutate: applyOrdering, isPending: isApplying } = useUpdateRemediationPlanOrdering({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetRemediationPlanQueryKey() });
+        setApplied(true);
+      },
+    },
+  });
+
+  const handleApply = () => {
+    if (!data?.suggestions?.length) return;
+    const sorted = [...data.suggestions].sort((a, b) => a.suggestedOrder - b.suggestedOrder);
+    const orderedIds = sorted.map((s) => s.stepId);
+    applyOrdering({ id: planId, data: { stepOrder: orderedIds } });
+  };
+
+  const stepLookup = Object.fromEntries(steps.map((s) => [s.id, s.title]));
 
   return (
     <Card className="p-5 border-violet-200 bg-violet-50/30">
@@ -157,7 +179,7 @@ function AiSuggestionsPanel({ planId }: { planId: number }) {
           <span className="text-sm font-semibold text-violet-900">AI Step Ordering Suggestions</span>
         </div>
         <button
-          onClick={() => setShow((v) => !v)}
+          onClick={() => { setShow((v) => !v); setApplied(false); }}
           className="text-xs text-violet-700 font-medium hover:underline"
         >
           {show ? "Hide" : "Get suggestions"}
@@ -178,17 +200,22 @@ function AiSuggestionsPanel({ planId }: { planId: number }) {
           )}
           {!isLoading && !isError && data && (
             <>
-              {data.suggestions.map((s) => (
-                <div key={s.stepId} className="flex gap-3 text-xs">
-                  <span className="w-6 h-6 shrink-0 rounded-full bg-violet-200 text-violet-900 font-bold flex items-center justify-center">
-                    {s.suggestedOrder}
-                  </span>
-                  <div>
-                    <p className="font-medium text-foreground">Step ID {s.stepId}</p>
-                    <p className="text-muted-foreground mt-0.5">{s.rationale}</p>
+              <p className="text-xs text-muted-foreground mb-1">Recommended order:</p>
+              {[...data.suggestions]
+                .sort((a, b) => a.suggestedOrder - b.suggestedOrder)
+                .map((s) => (
+                  <div key={s.stepId} className="flex gap-3 text-xs">
+                    <span className="w-6 h-6 shrink-0 rounded-full bg-violet-200 text-violet-900 font-bold flex items-center justify-center">
+                      {s.suggestedOrder}
+                    </span>
+                    <div>
+                      <p className="font-medium text-foreground">
+                        {stepLookup[s.stepId] ?? `Step #${s.stepId}`}
+                      </p>
+                      <p className="text-muted-foreground mt-0.5">{s.rationale}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
               {data.overallRationale && (
                 <p className="text-xs text-muted-foreground italic mt-2 border-t border-violet-100 pt-2">
                   {data.overallRationale}
@@ -197,6 +224,29 @@ function AiSuggestionsPanel({ planId }: { planId: number }) {
               <p className="text-[10px] text-amber-700 mt-2 border-t border-violet-100 pt-2">
                 {data.disclaimer}
               </p>
+
+              {applied ? (
+                <div className="flex items-center gap-2 text-xs text-green-700 font-medium mt-2">
+                  <CheckCircle2 className="w-4 h-4" /> AI ordering applied
+                </div>
+              ) : (
+                <div className="flex gap-2 mt-3">
+                  <button
+                    onClick={handleApply}
+                    disabled={isApplying || !data.suggestions.length}
+                    className="px-3 py-1.5 rounded-lg bg-violet-600 text-white text-xs font-semibold hover:bg-violet-700 disabled:opacity-50 transition-colors flex items-center gap-1"
+                  >
+                    {isApplying ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                    Apply suggested order
+                  </button>
+                  <button
+                    onClick={() => setShow(false)}
+                    className="px-3 py-1.5 rounded-lg border border-border text-xs font-medium hover:bg-muted/50 transition-colors"
+                  >
+                    Keep my order
+                  </button>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -262,6 +312,21 @@ export default function PathPage() {
           </Card>
         )}
 
+        {!isLoading && !isError && plan && (plan as any).reviewFlagged && (
+          <Card className="p-4 bg-amber-50 border-amber-300 flex items-start gap-3">
+            <Clock className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-amber-900">Your assessment is under review</p>
+              <p className="text-xs text-amber-800 mt-0.5">
+                A qualified reviewer is checking your eligibility result. Your plan steps are visible below but final decisions rest with the relevant regulator. You will be notified once the review is complete.
+              </p>
+              {(plan as any).reviewNote && (
+                <p className="text-xs text-amber-700 mt-1 italic">"{(plan as any).reviewNote}"</p>
+              )}
+            </div>
+          </Card>
+        )}
+
         {!isLoading && !isError && plan && (
           <>
             <Card className="p-5 bg-gradient-to-r from-primary/5 to-accent/5 border-primary/20">
@@ -294,7 +359,7 @@ export default function PathPage() {
               </div>
             </Card>
 
-            {steps.length > 0 && <AiSuggestionsPanel planId={plan.id} />}
+            {steps.length > 0 && <AiSuggestionsPanel planId={plan.id} steps={steps} />}
 
             {steps.length > 0 && (
               <Card className="p-4 bg-amber-50 border-amber-200">
