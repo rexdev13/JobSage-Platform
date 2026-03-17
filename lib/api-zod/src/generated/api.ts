@@ -116,6 +116,7 @@ export const GetMyProfileResponse = zod.object({
   profession: zod.enum([
     "doctor",
     "nurse",
+    "midwife",
     "allied_health_professional",
     "clinical_academic",
   ]),
@@ -141,6 +142,7 @@ export const UpsertMyProfileBody = zod.object({
   profession: zod.enum([
     "doctor",
     "nurse",
+    "midwife",
     "allied_health_professional",
     "clinical_academic",
   ]),
@@ -161,6 +163,7 @@ export const UpsertMyProfileResponse = zod.object({
   profession: zod.enum([
     "doctor",
     "nurse",
+    "midwife",
     "allied_health_professional",
     "clinical_academic",
   ]),
@@ -449,6 +452,7 @@ export const RunRegressionTestBody = zod.object({
         profession: zod.enum([
           "doctor",
           "nurse",
+          "midwife",
           "allied_health_professional",
           "clinical_academic",
         ]),

@@ -7,7 +7,7 @@ import { Card, Button, Input, Select, Label, PageTransition } from "@/components
 import { Save, UserCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-type Profession = "doctor" | "nurse" | "allied_health_professional" | "clinical_academic";
+type Profession = "doctor" | "nurse" | "midwife" | "allied_health_professional" | "clinical_academic";
 type RegistrationStatus = "registered" | "not_registered" | "in_process";
 
 type ProfileFormData = {
@@ -141,6 +141,7 @@ export default function ProfilePage() {
                 <Select name="profession" value={formData.profession} onChange={handleChange}>
                   <option value="doctor">Doctor</option>
                   <option value="nurse">Nurse</option>
+                  <option value="midwife">Midwife</option>
                   <option value="allied_health_professional">Allied Health Professional</option>
                   <option value="clinical_academic">Clinical Academic</option>
                 </Select>

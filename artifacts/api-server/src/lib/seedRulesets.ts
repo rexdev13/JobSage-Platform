@@ -208,7 +208,7 @@ const rulesetSeedData: RulesetSeedData[] = [
       {
         ruleKey: "NMC_WRONG_PROFESSION",
         conditions: [
-          { field: "profession", operator: "not_in", value: ["nurse"] },
+          { field: "profession", operator: "not_in", value: ["nurse", "midwife"] },
         ],
         outcome: "ineligible",
         reasonCode: "NMC_PROFESSION_MISMATCH",
@@ -219,7 +219,7 @@ const rulesetSeedData: RulesetSeedData[] = [
       {
         ruleKey: "NMC_ALREADY_REGISTERED",
         conditions: [
-          { field: "profession", operator: "eq", value: "nurse" },
+          { field: "profession", operator: "in", value: ["nurse", "midwife"] },
           { field: "registrationStatus", operator: "eq", value: "registered" },
         ],
         outcome: "eligible",
@@ -232,7 +232,7 @@ const rulesetSeedData: RulesetSeedData[] = [
       {
         ruleKey: "NMC_IN_PROCESS",
         conditions: [
-          { field: "profession", operator: "eq", value: "nurse" },
+          { field: "profession", operator: "in", value: ["nurse", "midwife"] },
           { field: "registrationStatus", operator: "eq", value: "in_process" },
           { field: "qualificationCountry", operator: "in", value: NMC_APPROVED_COUNTRIES },
         ],
@@ -246,7 +246,7 @@ const rulesetSeedData: RulesetSeedData[] = [
       {
         ruleKey: "NMC_ELIGIBLE_APPROVED_COUNTRY_ENGLISH",
         conditions: [
-          { field: "profession", operator: "eq", value: "nurse" },
+          { field: "profession", operator: "in", value: ["nurse", "midwife"] },
           { field: "registrationStatus", operator: "eq", value: "not_registered" },
           { field: "qualificationCountry", operator: "in", value: NMC_APPROVED_COUNTRIES },
           { field: "qualificationCountry", operator: "in", value: ENGLISH_SPEAKING_COUNTRIES },
@@ -261,7 +261,7 @@ const rulesetSeedData: RulesetSeedData[] = [
       {
         ruleKey: "NMC_APPROVED_COUNTRY_ENGLISH_REQUIRED",
         conditions: [
-          { field: "profession", operator: "eq", value: "nurse" },
+          { field: "profession", operator: "in", value: ["nurse", "midwife"] },
           { field: "registrationStatus", operator: "eq", value: "not_registered" },
           { field: "qualificationCountry", operator: "in", value: NMC_APPROVED_COUNTRIES },
           { field: "qualificationCountry", operator: "not_in", value: ENGLISH_SPEAKING_COUNTRIES },
@@ -276,7 +276,7 @@ const rulesetSeedData: RulesetSeedData[] = [
       {
         ruleKey: "NMC_UNAPPROVED_COUNTRY",
         conditions: [
-          { field: "profession", operator: "eq", value: "nurse" },
+          { field: "profession", operator: "in", value: ["nurse", "midwife"] },
           { field: "qualificationCountry", operator: "not_in", value: NMC_APPROVED_COUNTRIES },
         ],
         outcome: "not_eligible",

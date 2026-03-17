@@ -108,6 +108,21 @@ const SAMPLE_REGRESSION_CASES = [
     },
     expectedOutcome: "ineligible" as const,
   },
+  {
+    label: "NMC — Australian midwife, registered, English-speaking",
+    profile: {
+      profession: "midwife" as const,
+      specialty: "Midwifery",
+      qualificationCountry: "Australia",
+      qualificationType: "BMid",
+      qualificationYear: 2018,
+      experienceYears: 6,
+      registrationStatus: "registered" as const,
+      residencyStatus: "visa_required",
+      requiresSponsorship: true,
+    },
+    expectedOutcome: "eligible" as const,
+  },
 ];
 
 function StatusBadge({ status }: { status: string }) {
