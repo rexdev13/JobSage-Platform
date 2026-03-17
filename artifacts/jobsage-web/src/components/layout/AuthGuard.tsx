@@ -8,6 +8,8 @@ import {
   getGetMyProfileQueryKey,
 } from "@workspace/api-client-react";
 
+const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/reset-password", "/landing"];
+
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const [location, setLocation] = useLocation();
@@ -36,13 +38,15 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     },
   });
 
+  const isPublic = PUBLIC_PATHS.some((p) => location.startsWith(p));
+
   const isLoading =
     authLoading ||
     (isAuthenticated && consentLoading) ||
     (isAuthenticated && !!consentData?.hasConsented && profileLoading);
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || isPublic) return;
 
     if (!isAuthenticated) {
       if (location !== "/login") setLocation("/login");
@@ -64,6 +68,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, [
     isLoading,
+    isPublic,
     isAuthenticated,
     consentData,
     profileError,
@@ -82,7 +87,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!isAuthenticated && location !== "/login") return null;
+  if (!isAuthenticated && !isPublic && location !== "/login") return null;
   if (
     isAuthenticated &&
     consentData &&

@@ -1,7 +1,6 @@
 import { sql } from "drizzle-orm";
-import { index, jsonb, pgTable, timestamp, varchar } from "drizzle-orm/pg-core";
+import { boolean, index, jsonb, pgTable, timestamp, varchar } from "drizzle-orm/pg-core";
 
-// (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
 export const sessionsTable = pgTable(
   "user_sessions",
   {
@@ -12,7 +11,6 @@ export const sessionsTable = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
-// (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
 export const usersTable = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: varchar("email").unique(),
@@ -20,6 +18,12 @@ export const usersTable = pgTable("users", {
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
   role: varchar("role", { enum: ["candidate", "admin", "reviewer"] }).notNull().default("candidate"),
+  passwordHash: varchar("password_hash"),
+  emailVerified: boolean("email_verified").notNull().default(false),
+  emailVerifyToken: varchar("email_verify_token"),
+  emailVerifyTokenExpires: timestamp("email_verify_token_expires", { withTimezone: true }),
+  passwordResetToken: varchar("password_reset_token"),
+  passwordResetTokenExpires: timestamp("password_reset_token_expires", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

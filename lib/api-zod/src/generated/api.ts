@@ -33,42 +33,82 @@ export const GetCurrentAuthUserResponse = zod.object({
 });
 
 /**
- * @summary Start the browser OIDC login flow
+ * @summary Register a new account with email and password
  */
-export const BeginBrowserLoginQueryParams = zod.object({
-  returnTo: zod.coerce.string().optional(),
+export const registerWithEmailBodyPasswordMin = 8;
+
+export const RegisterWithEmailBody = zod.object({
+  email: zod.string().email(),
+  password: zod.string().min(registerWithEmailBodyPasswordMin),
+  firstName: zod.string().optional(),
+  lastName: zod.string().optional(),
 });
 
 /**
- * @summary Complete the browser OIDC login flow
+ * @summary Sign in with email and password
  */
-export const HandleBrowserLoginCallbackQueryParams = zod.object({
-  code: zod.coerce.string().optional(),
-  state: zod.coerce.string().optional(),
-  iss: zod.coerce.string().url().optional(),
+
+export const LoginWithEmailBody = zod.object({
+  email: zod.string().email(),
+  password: zod.string().min(1),
+});
+
+export const LoginWithEmailResponse = zod.object({
+  user: zod.union([
+    zod.object({
+      id: zod.string(),
+      email: zod.string().nullish(),
+      firstName: zod.string().nullish(),
+      lastName: zod.string().nullish(),
+      profileImageUrl: zod.string().nullish(),
+      role: zod.enum(["candidate", "admin", "reviewer"]).nullish(),
+    }),
+    zod.null(),
+  ]),
 });
 
 /**
- * @summary Exchange a mobile OIDC code for a session token
+ * @summary Sign out and clear session
  */
-
-export const ExchangeMobileAuthorizationCodeBody = zod.object({
-  code: zod.string().min(1),
-  code_verifier: zod.string().min(1),
-  redirect_uri: zod.string().url().min(1),
-  state: zod.string().min(1),
-  nonce: zod.string().min(1).optional(),
-});
-
-export const ExchangeMobileAuthorizationCodeResponse = zod.object({
-  token: zod.string(),
-});
-
-/**
- * @summary Delete a mobile session token
- */
-export const LogoutMobileSessionResponse = zod.object({
+export const LogoutResponse = zod.object({
   success: zod.boolean(),
+});
+
+/**
+ * @summary Request a password reset email
+ */
+export const ForgotPasswordBody = zod.object({
+  email: zod.string().email(),
+});
+
+export const ForgotPasswordResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary Set a new password using a reset token
+ */
+
+export const resetPasswordBodyPasswordMin = 8;
+
+export const ResetPasswordBody = zod.object({
+  token: zod.string().min(1),
+  password: zod.string().min(resetPasswordBodyPasswordMin),
+});
+
+export const ResetPasswordResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary Resend email verification link
+ */
+export const ResendVerificationEmailBody = zod.object({
+  email: zod.string().email(),
+});
+
+export const ResendVerificationEmailResponse = zod.object({
+  message: zod.string(),
 });
 
 /**
