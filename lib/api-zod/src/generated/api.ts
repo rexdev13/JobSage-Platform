@@ -246,6 +246,299 @@ export const RegisterDocumentBody = zod.object({
 });
 
 /**
+ * @summary Evaluate the current candidate's regulatory eligibility
+ */
+export const EvaluateEligibilityResponse = zod.object({
+  id: zod.number(),
+  userId: zod.string(),
+  outcome: zod.enum(["eligible", "not_eligible", "ineligible", "review"]),
+  explanationText: zod.string(),
+  reasonCodes: zod.array(zod.string()),
+  pathways: zod.array(zod.string()).nullish(),
+  rulesetId: zod.number(),
+  rulesetVersion: zod.string(),
+  profileSnapshotHash: zod.string(),
+  reviewFlagged: zod.boolean(),
+  reviewNote: zod.string().nullish(),
+  createdAt: zod.date(),
+});
+
+/**
+ * @summary Get a specific eligibility decision record
+ */
+export const GetEligibilityResultParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetEligibilityResultResponse = zod.object({
+  id: zod.number(),
+  userId: zod.string(),
+  outcome: zod.enum(["eligible", "not_eligible", "ineligible", "review"]),
+  explanationText: zod.string(),
+  reasonCodes: zod.array(zod.string()),
+  pathways: zod.array(zod.string()).nullish(),
+  rulesetId: zod.number(),
+  rulesetVersion: zod.string(),
+  profileSnapshotHash: zod.string(),
+  reviewFlagged: zod.boolean(),
+  reviewNote: zod.string().nullish(),
+  createdAt: zod.date(),
+});
+
+/**
+ * @summary List the current candidate's eligibility decision history
+ */
+export const ListEligibilityHistoryResponse = zod.object({
+  decisions: zod.array(
+    zod.object({
+      id: zod.number(),
+      userId: zod.string(),
+      outcome: zod.enum(["eligible", "not_eligible", "ineligible", "review"]),
+      explanationText: zod.string(),
+      reasonCodes: zod.array(zod.string()),
+      pathways: zod.array(zod.string()).nullish(),
+      rulesetId: zod.number(),
+      rulesetVersion: zod.string(),
+      profileSnapshotHash: zod.string(),
+      reviewFlagged: zod.boolean(),
+      reviewNote: zod.string().nullish(),
+      createdAt: zod.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary List all rulesets (filtered by regulator or status)
+ */
+export const ListRulesetsQueryParams = zod.object({
+  regulator: zod.enum(["GMC", "NMC", "HCPC"]).optional(),
+  status: zod.enum(["draft", "published"]).optional(),
+});
+
+export const ListRulesetsResponse = zod.object({
+  rulesets: zod.array(
+    zod.object({
+      id: zod.number(),
+      regulator: zod.enum(["GMC", "NMC", "HCPC"]),
+      version: zod.string(),
+      status: zod.enum(["draft", "published"]),
+      effectiveDate: zod.date(),
+      changelog: zod.string(),
+      createdBy: zod.string().nullish(),
+      createdAt: zod.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Create a new draft ruleset (admin only)
+ */
+
+export const CreateRulesetBody = zod.object({
+  regulator: zod.enum(["GMC", "NMC", "HCPC"]),
+  version: zod.string().min(1),
+  effectiveDate: zod.date(),
+  changelog: zod.string().min(1),
+  rules: zod.array(
+    zod.object({
+      ruleKey: zod.string().min(1),
+      conditions: zod.array(
+        zod.object({
+          field: zod.string(),
+          operator: zod.enum([
+            "eq",
+            "neq",
+            "in",
+            "not_in",
+            "gte",
+            "lte",
+            "exists",
+          ]),
+          value: zod.unknown().nullish(),
+        }),
+      ),
+      outcome: zod.enum(["eligible", "not_eligible", "ineligible", "review"]),
+      reasonCode: zod.string().min(1),
+      explanationText: zod.string().min(1),
+      pathways: zod.array(zod.string()).nullish(),
+      sortOrder: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get a ruleset with its rules
+ */
+export const GetRulesetParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetRulesetResponse = zod
+  .object({
+    id: zod.number(),
+    regulator: zod.enum(["GMC", "NMC", "HCPC"]),
+    version: zod.string(),
+    status: zod.enum(["draft", "published"]),
+    effectiveDate: zod.date(),
+    changelog: zod.string(),
+    createdBy: zod.string().nullish(),
+    createdAt: zod.date(),
+  })
+  .and(
+    zod.object({
+      rules: zod.array(
+        zod.object({
+          id: zod.number(),
+          rulesetId: zod.number(),
+          ruleKey: zod.string(),
+          conditions: zod.array(
+            zod.object({
+              field: zod.string(),
+              operator: zod.enum([
+                "eq",
+                "neq",
+                "in",
+                "not_in",
+                "gte",
+                "lte",
+                "exists",
+              ]),
+              value: zod.unknown().nullish(),
+            }),
+          ),
+          outcome: zod.enum([
+            "eligible",
+            "not_eligible",
+            "ineligible",
+            "review",
+          ]),
+          reasonCode: zod.string(),
+          explanationText: zod.string(),
+          pathways: zod.array(zod.string()).nullish(),
+          sortOrder: zod.number(),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary Publish a draft ruleset (admin only)
+ */
+export const PublishRulesetParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const PublishRulesetResponse = zod.object({
+  id: zod.number(),
+  regulator: zod.enum(["GMC", "NMC", "HCPC"]),
+  version: zod.string(),
+  status: zod.enum(["draft", "published"]),
+  effectiveDate: zod.date(),
+  changelog: zod.string(),
+  createdBy: zod.string().nullish(),
+  createdAt: zod.date(),
+});
+
+/**
+ * @summary Run regression tests against a ruleset using sample profiles (admin only)
+ */
+export const RunRegressionTestParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const RunRegressionTestBody = zod.object({
+  cases: zod.array(
+    zod.object({
+      label: zod.string(),
+      profile: zod.object({
+        profession: zod.enum([
+          "doctor",
+          "nurse",
+          "allied_health_professional",
+          "clinical_academic",
+        ]),
+        specialty: zod.string(),
+        qualificationCountry: zod.string(),
+        qualificationType: zod.string(),
+        qualificationYear: zod.number(),
+        experienceYears: zod.number(),
+        registrationStatus: zod.enum([
+          "registered",
+          "not_registered",
+          "in_process",
+        ]),
+        licenceReady: zod.boolean().nullish(),
+        residencyStatus: zod.string(),
+        requiresSponsorship: zod.boolean(),
+      }),
+      expectedOutcome: zod.enum([
+        "eligible",
+        "not_eligible",
+        "ineligible",
+        "review",
+      ]),
+    }),
+  ),
+});
+
+export const RunRegressionTestResponse = zod.object({
+  rulesetId: zod.number(),
+  totalCases: zod.number(),
+  passed: zod.number(),
+  failed: zod.number(),
+  results: zod.array(
+    zod.object({
+      label: zod.string(),
+      expectedOutcome: zod.enum([
+        "eligible",
+        "not_eligible",
+        "ineligible",
+        "review",
+      ]),
+      actualOutcome: zod.enum([
+        "eligible",
+        "not_eligible",
+        "ineligible",
+        "review",
+      ]),
+      passed: zod.boolean(),
+      reasonCodes: zod.array(zod.string()),
+      explanationText: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary List all decision records (admin only)
+ */
+export const ListDecisionsQueryParams = zod.object({
+  userId: zod.coerce.string().optional(),
+  outcome: zod
+    .enum(["eligible", "not_eligible", "ineligible", "review"])
+    .optional(),
+  reviewFlagged: zod.coerce.boolean().optional(),
+});
+
+export const ListDecisionsResponse = zod.object({
+  decisions: zod.array(
+    zod.object({
+      id: zod.number(),
+      userId: zod.string(),
+      outcome: zod.enum(["eligible", "not_eligible", "ineligible", "review"]),
+      reasonCodes: zod.array(zod.string()),
+      explanationText: zod.string(),
+      pathways: zod.array(zod.string()).nullish(),
+      rulesetId: zod.number(),
+      rulesetVersion: zod.string(),
+      profileSnapshotHash: zod.string(),
+      reviewFlagged: zod.boolean(),
+      reviewNote: zod.string().nullish(),
+      createdAt: zod.date(),
+    }),
+  ),
+});
+
+/**
  * @summary Delete a document
  */
 export const DeleteDocumentParams = zod.object({

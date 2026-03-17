@@ -20,6 +20,12 @@ tags:
     description: Consent capture and retrieval.
   - name: Documents
     description: Candidate document uploads.
+  - name: Eligibility
+    description: Eligibility evaluation against UK regulatory rulesets.
+  - name: Rulesets
+    description: Regulatory ruleset management (admin).
+  - name: Decisions
+    description: Decision record management (admin).
 paths:
   /healthz:
     get:
@@ -417,6 +423,289 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
 
+  /eligibility/evaluate:
+    post:
+      tags: [Eligibility]
+      operationId: evaluateEligibility
+      summary: Evaluate the current candidate's regulatory eligibility
+      responses:
+        '200':
+          description: Evaluation completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EligibilityResult'
+        '400':
+          description: Profile incomplete or no matching ruleset found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /eligibility/results/{id}:
+    get:
+      tags: [Eligibility]
+      operationId: getEligibilityResult
+      summary: Get a specific eligibility decision record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Decision record found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EligibilityResult'
+        '404':
+          description: Decision record not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /eligibility/history:
+    get:
+      tags: [Eligibility]
+      operationId: listEligibilityHistory
+      summary: List the current candidate's eligibility decision history
+      responses:
+        '200':
+          description: Decision history.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EligibilityHistoryList'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /rulesets:
+    get:
+      tags: [Rulesets]
+      operationId: listRulesets
+      summary: List all rulesets (filtered by regulator or status)
+      parameters:
+        - name: regulator
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [GMC, NMC, HCPC]
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [draft, published]
+      responses:
+        '200':
+          description: List of rulesets.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RulesetList'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    post:
+      tags: [Rulesets]
+      operationId: createRuleset
+      summary: Create a new draft ruleset (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRulesetRequest'
+      responses:
+        '201':
+          description: Draft ruleset created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ruleset'
+        '400':
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated or not admin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /rulesets/{id}:
+    get:
+      tags: [Rulesets]
+      operationId: getRuleset
+      summary: Get a ruleset with its rules
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Ruleset with rules.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RulesetWithRules'
+        '404':
+          description: Ruleset not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /rulesets/{id}/publish:
+    patch:
+      tags: [Rulesets]
+      operationId: publishRuleset
+      summary: Publish a draft ruleset (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Ruleset published.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ruleset'
+        '400':
+          description: Ruleset not in draft state or validation error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Ruleset not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated or not admin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /rulesets/{id}/regression-test:
+    post:
+      tags: [Rulesets]
+      operationId: runRegressionTest
+      summary: Run regression tests against a ruleset using sample profiles (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegressionTestRequest'
+      responses:
+        '200':
+          description: Regression test results.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegressionTestResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Ruleset not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated or not admin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /decisions:
+    get:
+      tags: [Decisions]
+      operationId: listDecisions
+      summary: List all decision records (admin only)
+      parameters:
+        - name: userId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: outcome
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [eligible, not_eligible, ineligible, review]
+        - name: reviewFlagged
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: List of decision records.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecisionRecordList'
+        '401':
+          description: Not authenticated or not admin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
   /documents/{id}:
     delete:
       tags: [Documents]
@@ -718,3 +1007,295 @@ components:
         fileSize:
           type: integer
           nullable: true
+
+    EligibilityOutcome:
+      type: string
+      enum: [eligible, not_eligible, ineligible, review]
+
+    EligibilityResult:
+      type: object
+      required: [id, userId, outcome, explanationText, reasonCodes, rulesetId, rulesetVersion, profileSnapshotHash, reviewFlagged, createdAt]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: string
+        outcome:
+          $ref: '#/components/schemas/EligibilityOutcome'
+        explanationText:
+          type: string
+        reasonCodes:
+          type: array
+          items:
+            type: string
+        pathways:
+          type: array
+          items:
+            type: string
+          nullable: true
+        rulesetId:
+          type: integer
+        rulesetVersion:
+          type: string
+        profileSnapshotHash:
+          type: string
+        reviewFlagged:
+          type: boolean
+        reviewNote:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    EligibilityHistoryList:
+      type: object
+      required: [decisions]
+      properties:
+        decisions:
+          type: array
+          items:
+            $ref: '#/components/schemas/EligibilityResult'
+
+    RulesetStatus:
+      type: string
+      enum: [draft, published]
+
+    RulesetRegulator:
+      type: string
+      enum: [GMC, NMC, HCPC]
+
+    Ruleset:
+      type: object
+      required: [id, regulator, version, status, effectiveDate, changelog, createdAt]
+      properties:
+        id:
+          type: integer
+        regulator:
+          $ref: '#/components/schemas/RulesetRegulator'
+        version:
+          type: string
+        status:
+          $ref: '#/components/schemas/RulesetStatus'
+        effectiveDate:
+          type: string
+          format: date-time
+        changelog:
+          type: string
+        createdBy:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    RuleConditionOperator:
+      type: string
+      enum: [eq, neq, in, not_in, gte, lte, exists]
+
+    RuleCondition:
+      type: object
+      required: [field, operator]
+      properties:
+        field:
+          type: string
+        operator:
+          $ref: '#/components/schemas/RuleConditionOperator'
+        value:
+          nullable: true
+
+    RulesetRule:
+      type: object
+      required: [id, rulesetId, ruleKey, conditions, outcome, reasonCode, explanationText, sortOrder]
+      properties:
+        id:
+          type: integer
+        rulesetId:
+          type: integer
+        ruleKey:
+          type: string
+        conditions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuleCondition'
+        outcome:
+          $ref: '#/components/schemas/EligibilityOutcome'
+        reasonCode:
+          type: string
+        explanationText:
+          type: string
+        pathways:
+          type: array
+          items:
+            type: string
+          nullable: true
+        sortOrder:
+          type: integer
+
+    RulesetWithRules:
+      allOf:
+        - $ref: '#/components/schemas/Ruleset'
+        - type: object
+          required: [rules]
+          properties:
+            rules:
+              type: array
+              items:
+                $ref: '#/components/schemas/RulesetRule'
+
+    RulesetList:
+      type: object
+      required: [rulesets]
+      properties:
+        rulesets:
+          type: array
+          items:
+            $ref: '#/components/schemas/Ruleset'
+
+    CreateRulesetRequest:
+      type: object
+      required: [regulator, version, effectiveDate, changelog, rules]
+      properties:
+        regulator:
+          $ref: '#/components/schemas/RulesetRegulator'
+        version:
+          type: string
+          minLength: 1
+        effectiveDate:
+          type: string
+          format: date-time
+        changelog:
+          type: string
+          minLength: 1
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/CreateRuleRequest'
+
+    CreateRuleRequest:
+      type: object
+      required: [ruleKey, conditions, outcome, reasonCode, explanationText, sortOrder]
+      properties:
+        ruleKey:
+          type: string
+          minLength: 1
+        conditions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuleCondition'
+        outcome:
+          $ref: '#/components/schemas/EligibilityOutcome'
+        reasonCode:
+          type: string
+          minLength: 1
+        explanationText:
+          type: string
+          minLength: 1
+        pathways:
+          type: array
+          items:
+            type: string
+          nullable: true
+        sortOrder:
+          type: integer
+
+    RegressionTestCase:
+      type: object
+      required: [label, profile, expectedOutcome]
+      properties:
+        label:
+          type: string
+        profile:
+          $ref: '#/components/schemas/UpsertProfileRequest'
+        expectedOutcome:
+          $ref: '#/components/schemas/EligibilityOutcome'
+
+    RegressionTestRequest:
+      type: object
+      required: [cases]
+      properties:
+        cases:
+          type: array
+          items:
+            $ref: '#/components/schemas/RegressionTestCase'
+
+    RegressionTestCaseResult:
+      type: object
+      required: [label, expectedOutcome, actualOutcome, passed, reasonCodes, explanationText]
+      properties:
+        label:
+          type: string
+        expectedOutcome:
+          $ref: '#/components/schemas/EligibilityOutcome'
+        actualOutcome:
+          $ref: '#/components/schemas/EligibilityOutcome'
+        passed:
+          type: boolean
+        reasonCodes:
+          type: array
+          items:
+            type: string
+        explanationText:
+          type: string
+
+    RegressionTestResponse:
+      type: object
+      required: [rulesetId, totalCases, passed, failed, results]
+      properties:
+        rulesetId:
+          type: integer
+        totalCases:
+          type: integer
+        passed:
+          type: integer
+        failed:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/RegressionTestCaseResult'
+
+    DecisionRecord:
+      type: object
+      required: [id, userId, outcome, reasonCodes, explanationText, rulesetId, rulesetVersion, profileSnapshotHash, reviewFlagged, createdAt]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: string
+        outcome:
+          $ref: '#/components/schemas/EligibilityOutcome'
+        reasonCodes:
+          type: array
+          items:
+            type: string
+        explanationText:
+          type: string
+        pathways:
+          type: array
+          items:
+            type: string
+          nullable: true
+        rulesetId:
+          type: integer
+        rulesetVersion:
+          type: string
+        profileSnapshotHash:
+          type: string
+        reviewFlagged:
+          type: boolean
+        reviewNote:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    DecisionRecordList:
+      type: object
+      required: [decisions]
+      properties:
+        decisions:
+          type: array
+          items:
+            $ref: '#/components/schemas/DecisionRecord'

@@ -23,6 +23,7 @@ export function AppSidebar() {
     { name: "Review Queue", href: "/review-queue", icon: ClipboardList, roles: ["reviewer", "admin"] },
     
     // Admin Only
+    { name: "Ruleset Management", href: "/admin/rulesets", icon: Shield, roles: ["admin"] },
     { name: "Role Management", href: "/admin/roles", icon: Users, roles: ["admin"] },
     { name: "Audit Logs", href: "/admin/audit", icon: Shield, roles: ["admin"] },
   ];

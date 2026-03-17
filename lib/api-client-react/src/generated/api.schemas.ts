@@ -184,6 +184,170 @@ export interface RegisterDocumentRequest {
   fileSize?: number | null;
 }
 
+export type EligibilityOutcome =
+  (typeof EligibilityOutcome)[keyof typeof EligibilityOutcome];
+
+export const EligibilityOutcome = {
+  eligible: "eligible",
+  not_eligible: "not_eligible",
+  ineligible: "ineligible",
+  review: "review",
+} as const;
+
+export interface EligibilityResult {
+  id: number;
+  userId: string;
+  outcome: EligibilityOutcome;
+  explanationText: string;
+  reasonCodes: string[];
+  pathways?: string[] | null;
+  rulesetId: number;
+  rulesetVersion: string;
+  profileSnapshotHash: string;
+  reviewFlagged: boolean;
+  reviewNote?: string | null;
+  createdAt: string;
+}
+
+export interface EligibilityHistoryList {
+  decisions: EligibilityResult[];
+}
+
+export type RulesetStatus = (typeof RulesetStatus)[keyof typeof RulesetStatus];
+
+export const RulesetStatus = {
+  draft: "draft",
+  published: "published",
+} as const;
+
+export type RulesetRegulator =
+  (typeof RulesetRegulator)[keyof typeof RulesetRegulator];
+
+export const RulesetRegulator = {
+  GMC: "GMC",
+  NMC: "NMC",
+  HCPC: "HCPC",
+} as const;
+
+export interface Ruleset {
+  id: number;
+  regulator: RulesetRegulator;
+  version: string;
+  status: RulesetStatus;
+  effectiveDate: string;
+  changelog: string;
+  createdBy?: string | null;
+  createdAt: string;
+}
+
+export type RuleConditionOperator =
+  (typeof RuleConditionOperator)[keyof typeof RuleConditionOperator];
+
+export const RuleConditionOperator = {
+  eq: "eq",
+  neq: "neq",
+  in: "in",
+  not_in: "not_in",
+  gte: "gte",
+  lte: "lte",
+  exists: "exists",
+} as const;
+
+export interface RuleCondition {
+  field: string;
+  operator: RuleConditionOperator;
+  value?: unknown | null;
+}
+
+export interface RulesetRule {
+  id: number;
+  rulesetId: number;
+  ruleKey: string;
+  conditions: RuleCondition[];
+  outcome: EligibilityOutcome;
+  reasonCode: string;
+  explanationText: string;
+  pathways?: string[] | null;
+  sortOrder: number;
+}
+
+export type RulesetWithRules = Ruleset & {
+  rules: RulesetRule[];
+};
+
+export interface RulesetList {
+  rulesets: Ruleset[];
+}
+
+export interface CreateRuleRequest {
+  /** @minLength 1 */
+  ruleKey: string;
+  conditions: RuleCondition[];
+  outcome: EligibilityOutcome;
+  /** @minLength 1 */
+  reasonCode: string;
+  /** @minLength 1 */
+  explanationText: string;
+  pathways?: string[] | null;
+  sortOrder: number;
+}
+
+export interface CreateRulesetRequest {
+  regulator: RulesetRegulator;
+  /** @minLength 1 */
+  version: string;
+  effectiveDate: string;
+  /** @minLength 1 */
+  changelog: string;
+  rules: CreateRuleRequest[];
+}
+
+export interface RegressionTestCase {
+  label: string;
+  profile: UpsertProfileRequest;
+  expectedOutcome: EligibilityOutcome;
+}
+
+export interface RegressionTestRequest {
+  cases: RegressionTestCase[];
+}
+
+export interface RegressionTestCaseResult {
+  label: string;
+  expectedOutcome: EligibilityOutcome;
+  actualOutcome: EligibilityOutcome;
+  passed: boolean;
+  reasonCodes: string[];
+  explanationText: string;
+}
+
+export interface RegressionTestResponse {
+  rulesetId: number;
+  totalCases: number;
+  passed: number;
+  failed: number;
+  results: RegressionTestCaseResult[];
+}
+
+export interface DecisionRecord {
+  id: number;
+  userId: string;
+  outcome: EligibilityOutcome;
+  reasonCodes: string[];
+  explanationText: string;
+  pathways?: string[] | null;
+  rulesetId: number;
+  rulesetVersion: string;
+  profileSnapshotHash: string;
+  reviewFlagged: boolean;
+  reviewNote?: string | null;
+  createdAt: string;
+}
+
+export interface DecisionRecordList {
+  decisions: DecisionRecord[];
+}
+
 export type BeginBrowserLoginParams = {
   returnTo?: string;
 };
@@ -197,3 +361,41 @@ export type HandleBrowserLoginCallbackParams = {
 export type UploadDocumentBody = {
   file: Blob;
 };
+
+export type ListRulesetsParams = {
+  regulator?: ListRulesetsRegulator;
+  status?: ListRulesetsStatus;
+};
+
+export type ListRulesetsRegulator =
+  (typeof ListRulesetsRegulator)[keyof typeof ListRulesetsRegulator];
+
+export const ListRulesetsRegulator = {
+  GMC: "GMC",
+  NMC: "NMC",
+  HCPC: "HCPC",
+} as const;
+
+export type ListRulesetsStatus =
+  (typeof ListRulesetsStatus)[keyof typeof ListRulesetsStatus];
+
+export const ListRulesetsStatus = {
+  draft: "draft",
+  published: "published",
+} as const;
+
+export type ListDecisionsParams = {
+  userId?: string;
+  outcome?: ListDecisionsOutcome;
+  reviewFlagged?: boolean;
+};
+
+export type ListDecisionsOutcome =
+  (typeof ListDecisionsOutcome)[keyof typeof ListDecisionsOutcome];
+
+export const ListDecisionsOutcome = {
+  eligible: "eligible",
+  not_eligible: "not_eligible",
+  ineligible: "ineligible",
+  review: "review",
+} as const;

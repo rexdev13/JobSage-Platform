@@ -5,6 +5,8 @@ import storageRouter from "./storage";
 import profileRouter from "./profiles";
 import consentRouter from "./consent";
 import documentsRouter from "./documents";
+import eligibilityRouter from "./eligibility";
+import rulesetsRouter from "./rulesets";
 
 const router: IRouter = Router();
 
@@ -14,5 +16,7 @@ router.use(storageRouter);
 router.use(profileRouter);
 router.use(consentRouter);
 router.use(documentsRouter);
+router.use(eligibilityRouter);
+router.use(rulesetsRouter);
 
 export default router;
