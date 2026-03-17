@@ -1,14 +1,13 @@
-import { useAuth } from "@workspace/replit-auth-web";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui-enhanced";
 import { Shield, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function LandingPage() {
-  const { login } = useAuth();
+  const [, setLocation] = useLocation();
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden flex flex-col">
-      {/* Background Image & Overlay */}
       <div className="absolute inset-0 z-0">
         <img 
           src={`${import.meta.env.BASE_URL}images/auth-bg.png`} 
@@ -25,7 +24,7 @@ export default function LandingPage() {
           </div>
           <h1 className="text-2xl font-display font-extrabold text-primary tracking-tight">JOBSAGE</h1>
         </div>
-        <Button variant="outline" onClick={login} className="border-primary/20 bg-white/50 backdrop-blur-sm">
+        <Button variant="outline" onClick={() => setLocation("/login")} className="border-primary/20 bg-white/50 backdrop-blur-sm">
           Sign In
         </Button>
       </header>
@@ -48,9 +47,12 @@ export default function LandingPage() {
             The intelligent platform for UK healthcare and academic professionals. Evaluate regulatory requirements, visa feasibility, and discover clear remediation pathways.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Button size="lg" onClick={login} className="w-full sm:w-auto text-lg px-10">
+            <Button size="lg" onClick={() => setLocation("/register")} className="w-full sm:w-auto text-lg px-10">
               Get Started
               <ChevronRight className="w-5 h-5 ml-2" />
+            </Button>
+            <Button size="lg" variant="outline" onClick={() => setLocation("/login")} className="w-full sm:w-auto text-lg px-10 bg-white/50 backdrop-blur-sm border-primary/20">
+              Sign In
             </Button>
           </div>
         </motion.div>

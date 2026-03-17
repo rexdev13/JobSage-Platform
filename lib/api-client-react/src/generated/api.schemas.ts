@@ -36,21 +36,38 @@ export interface AuthUserEnvelope {
   user: AuthUser | null;
 }
 
-export interface MobileTokenExchangeRequest {
-  /** @minLength 1 */
-  code: string;
-  /** @minLength 1 */
-  code_verifier: string;
-  /** @minLength 1 */
-  redirect_uri: string;
-  /** @minLength 1 */
-  state: string;
-  /** @minLength 1 */
-  nonce?: string;
+export interface RegisterRequest {
+  email: string;
+  /** @minLength 8 */
+  password: string;
+  firstName?: string;
+  lastName?: string;
 }
 
-export interface MobileTokenExchangeSuccess {
+export interface RegisterSuccess {
+  message: string;
+  userId: string;
+}
+
+export interface LoginRequest {
+  email: string;
+  /** @minLength 1 */
+  password: string;
+}
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  /** @minLength 1 */
   token: string;
+  /** @minLength 8 */
+  password: string;
+}
+
+export interface MessageEnvelope {
+  message: string;
 }
 
 export const LogoutSuccessValue = {
@@ -585,16 +602,6 @@ export interface ConsentLogList {
   page: number;
   pageSize: number;
 }
-
-export type BeginBrowserLoginParams = {
-  returnTo?: string;
-};
-
-export type HandleBrowserLoginCallbackParams = {
-  code?: string;
-  state?: string;
-  iss?: string;
-};
 
 export type UploadDocumentBody = {
   file: Blob;

@@ -4,11 +4,13 @@ import { Toaster } from "@/components/ui/toaster";
 import { useAuth } from "@workspace/replit-auth-web";
 import { useEffect } from "react";
 
-// Layouts & Guards
 import { AuthGuard } from "@/components/layout/AuthGuard";
 
-// Pages
 import LandingPage from "@/pages/LandingPage";
+import LoginPage from "@/pages/LoginPage";
+import RegisterPage from "@/pages/RegisterPage";
+import ForgotPasswordPage from "@/pages/ForgotPasswordPage";
+import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import ConsentPage from "@/pages/ConsentPage";
 import OnboardingPage from "@/pages/OnboardingPage";
 import DashboardPage from "@/pages/DashboardPage";
@@ -58,8 +60,15 @@ function ReviewerGuard({ children }: { children: React.ReactNode }) {
 function Router() {
   return (
     <Switch>
-      <Route path="/login" component={LandingPage} />
-      
+      {/* Public auth routes */}
+      <Route path="/login" component={LoginPage} />
+      <Route path="/register" component={RegisterPage} />
+      <Route path="/forgot-password" component={ForgotPasswordPage} />
+      <Route path="/reset-password" component={ResetPasswordPage} />
+
+      {/* Public landing */}
+      <Route path="/landing" component={LandingPage} />
+
       {/* Protected Routes inside AuthGuard */}
       <Route path="*">
         <AuthGuard>
@@ -69,7 +78,7 @@ function Router() {
             <Route path="/" component={DashboardPage} />
             <Route path="/profile" component={ProfilePage} />
             <Route path="/documents" component={DocumentsPage} />
-            
+
             <Route path="/eligibility" component={EligibilityPage} />
             <Route path="/opportunities" component={OpportunitiesPage} />
             <Route path="/path" component={PathPage} />
@@ -93,7 +102,7 @@ function Router() {
                 <AdminAuditPage />
               </AdminGuard>
             </Route>
-            
+
             <Route component={NotFound} />
           </Switch>
         </AuthGuard>
