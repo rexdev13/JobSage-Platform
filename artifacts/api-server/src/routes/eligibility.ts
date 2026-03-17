@@ -4,6 +4,7 @@ import { eq, and, desc, lte } from "drizzle-orm";
 import { db, profilesTable, rulesetsTable, rulesetRulesTable, decisionRecordsTable } from "@workspace/db";
 import { requireConsent } from "../middlewares/consentMiddleware";
 import { evaluate } from "../lib/rulesEngine";
+import { ensureRemediationPlan } from "./remediation";
 import type { Profile } from "@workspace/db";
 
 const router: IRouter = Router();
@@ -90,6 +91,12 @@ router.post("/eligibility/evaluate", requireConsent, async (req, res): Promise<v
       reviewNote: result.reviewNote,
     })
     .returning();
+
+  if (decision.outcome === "not_eligible" || decision.outcome === "ineligible") {
+    ensureRemediationPlan(userId, decision.id).catch((err) =>
+      console.error("[remediation] auto-generation failed:", err)
+    );
+  }
 
   res.json({
     id: decision.id,

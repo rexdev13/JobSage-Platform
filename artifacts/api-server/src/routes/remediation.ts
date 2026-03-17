@@ -7,10 +7,83 @@ import {
   rulesetRulesTable,
   profilesTable,
 } from "@workspace/db";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, inArray } from "drizzle-orm";
 import { generateRemediationSteps } from "../lib/remediationGenerator";
 
 const router: IRouter = Router();
+
+export async function ensureRemediationPlan(
+  userId: string,
+  decisionId: number
+): Promise<void> {
+  const [decision] = await db
+    .select()
+    .from(decisionRecordsTable)
+    .where(eq(decisionRecordsTable.id, decisionId));
+
+  if (!decision || decision.outcome === "eligible") return;
+
+  const [existing] = await db
+    .select()
+    .from(remediationPlansTable)
+    .where(
+      and(
+        eq(remediationPlansTable.userId, userId),
+        eq(remediationPlansTable.decisionRecordId, decisionId)
+      )
+    )
+    .limit(1);
+
+  if (existing) return;
+
+  const [profile] = await db
+    .select()
+    .from(profilesTable)
+    .where(eq(profilesTable.userId, userId));
+
+  const nonGenericReasonCodes = decision.reasonCodes.filter(
+    (rc) => rc !== "NO_RULE_MATCHED" && rc !== "REVIEW_FLAGGED"
+  );
+
+  let matchedRules: typeof rulesetRulesTable.$inferSelect[] = [];
+  if (nonGenericReasonCodes.length > 0) {
+    matchedRules = await db
+      .select()
+      .from(rulesetRulesTable)
+      .where(
+        and(
+          eq(rulesetRulesTable.rulesetId, decision.rulesetId),
+          inArray(rulesetRulesTable.reasonCode, nonGenericReasonCodes)
+        )
+      );
+  }
+
+  const requiresSponsorship = profile?.requiresSponsorship ?? false;
+  const stepDrafts = generateRemediationSteps(decision, matchedRules, requiresSponsorship);
+
+  const [plan] = await db
+    .insert(remediationPlansTable)
+    .values({ userId, decisionRecordId: decision.id })
+    .returning();
+
+  if (stepDrafts.length > 0) {
+    await db.insert(remediationStepsTable).values(
+      stepDrafts.map((s) => ({
+        planId: plan.id,
+        stepOrder: s.stepOrder,
+        title: s.title,
+        description: s.description,
+        gap: s.gap,
+        pathway: s.pathway,
+        timelineRange: s.timelineRange,
+        costRange: s.costRange,
+        ruleId: s.ruleId,
+        rulesetVersion: s.rulesetVersion,
+        status: "planned" as const,
+      }))
+    );
+  }
+}
 
 router.get("/remediation/plan", async (req, res): Promise<void> => {
   if (!req.isAuthenticated()) {
@@ -66,47 +139,52 @@ router.get("/remediation/plan", async (req, res): Promise<void> => {
     .from(profilesTable)
     .where(eq(profilesTable.userId, userId));
 
-  let matchedRule = null;
-  if (decision.reasonCodes.length > 0 && decision.reasonCodes[0] !== "NO_RULE_MATCHED") {
-    const reasonCode = decision.reasonCodes[0];
-    const [rule] = await db
+  const nonGenericReasonCodes = decision.reasonCodes.filter(
+    (rc) => rc !== "NO_RULE_MATCHED" && rc !== "REVIEW_FLAGGED"
+  );
+
+  let matchedRules: typeof rulesetRulesTable.$inferSelect[] = [];
+  if (nonGenericReasonCodes.length > 0) {
+    matchedRules = await db
       .select()
       .from(rulesetRulesTable)
       .where(
         and(
           eq(rulesetRulesTable.rulesetId, decision.rulesetId),
-          eq(rulesetRulesTable.reasonCode, reasonCode)
+          inArray(rulesetRulesTable.reasonCode, nonGenericReasonCodes)
         )
-      )
-      .limit(1);
-    matchedRule = rule ?? null;
+      );
   }
 
   const requiresSponsorship = profile?.requiresSponsorship ?? false;
-  const stepDrafts = generateRemediationSteps(decision, matchedRule, requiresSponsorship);
+  const stepDrafts = generateRemediationSteps(decision, matchedRules, requiresSponsorship);
 
   const [plan] = await db
     .insert(remediationPlansTable)
     .values({ userId, decisionRecordId: decision.id })
     .returning();
 
-  const insertedSteps = await db
-    .insert(remediationStepsTable)
-    .values(
-      stepDrafts.map((s) => ({
-        planId: plan.id,
-        stepOrder: s.stepOrder,
-        title: s.title,
-        description: s.description,
-        gap: s.gap,
-        timelineRange: s.timelineRange,
-        costRange: s.costRange,
-        ruleId: s.ruleId,
-        rulesetVersion: s.rulesetVersion,
-        status: "planned" as const,
-      }))
-    )
-    .returning();
+  const insertedSteps =
+    stepDrafts.length > 0
+      ? await db
+          .insert(remediationStepsTable)
+          .values(
+            stepDrafts.map((s) => ({
+              planId: plan.id,
+              stepOrder: s.stepOrder,
+              title: s.title,
+              description: s.description,
+              gap: s.gap,
+              pathway: s.pathway,
+              timelineRange: s.timelineRange,
+              costRange: s.costRange,
+              ruleId: s.ruleId,
+              rulesetVersion: s.rulesetVersion,
+              status: "planned" as const,
+            }))
+          )
+          .returning()
+      : [];
 
   res.json({ ...plan, steps: insertedSteps });
 });

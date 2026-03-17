@@ -2,8 +2,8 @@ import { Router, type IRouter } from "express";
 import multer from "multer";
 import { parse } from "csv-parse/sync";
 import { db } from "@workspace/db";
-import { rolesTable, decisionRecordsTable, profilesTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { rolesTable, decisionRecordsTable, profilesTable, rulesetRulesTable } from "@workspace/db";
+import { eq, desc, and } from "drizzle-orm";
 import { requireAdmin } from "./rulesets";
 import { assessSponsorshipFeasibility } from "../lib/sponsorshipFeasibility";
 
@@ -80,7 +80,39 @@ router.get("/roles", async (req, res): Promise<void> => {
     .from(rolesTable)
     .where(eq(rolesTable.active, true));
 
-  const matchedRoles = allRoles.filter((role) => role.regulator === regulator);
+  const REGISTERED_STATUSES = ["registered", "fully_registered", "full_registration"];
+  const isRegistered =
+    profile.registrationStatus != null &&
+    REGISTERED_STATUSES.includes(profile.registrationStatus.toLowerCase());
+  const isLicenceReady = profile.licenceReady === true;
+
+  const matchedRoles = allRoles.filter((role) => {
+    if (role.regulator !== regulator) return false;
+
+    const reqReg = role.requiredRegistration.toLowerCase();
+
+    if (reqReg.includes("full") || reqReg.includes("registered")) {
+      if (!isRegistered && !isLicenceReady) return false;
+    }
+
+    return true;
+  });
+
+  let eligibleRuleId: number | null = null;
+  const eligibleReasonCode = decision.reasonCodes.find((rc) => rc !== "NO_RULE_MATCHED" && rc !== "REVIEW_FLAGGED");
+  if (eligibleReasonCode) {
+    const [eligibleRule] = await db
+      .select({ id: rulesetRulesTable.id })
+      .from(rulesetRulesTable)
+      .where(
+        and(
+          eq(rulesetRulesTable.rulesetId, decision.rulesetId),
+          eq(rulesetRulesTable.reasonCode, eligibleReasonCode)
+        )
+      )
+      .limit(1);
+    eligibleRuleId = eligibleRule?.id ?? null;
+  }
 
   const result = matchedRoles.map((role) => {
     const feasibility = profile.requiresSponsorship
@@ -89,7 +121,10 @@ router.get("/roles", async (req, res): Promise<void> => {
 
     return {
       role,
-      explanation: `This role is shown because you are eligible for ${regulator} registration as a ${profile.profession.replace(/_/g, " ")}. (Ruleset v${decision.rulesetVersion}, decision #${decision.id})`,
+      explanation: `Matched as eligible for ${regulator} registration (${profile.profession.replace(/_/g, " ")}). Ruleset v${decision.rulesetVersion}, decision #${decision.id}${eligibleRuleId ? `, rule #${eligibleRuleId}` : ""}.`,
+      rulesetVersion: decision.rulesetVersion,
+      decisionRecordId: decision.id,
+      ruleId: eligibleRuleId,
       sponsorshipFeasibility: feasibility,
     };
   });

@@ -11,5 +11,8 @@ import type { SponsorshipFeasibility } from "./sponsorshipFeasibility";
 export interface MatchedRole {
   role: Role;
   explanation: string;
+  rulesetVersion: string;
+  decisionRecordId: number;
+  ruleId?: number | null;
   sponsorshipFeasibility?: SponsorshipFeasibility | null;
 }

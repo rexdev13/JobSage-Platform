@@ -560,6 +560,9 @@ export const ListMatchedRolesResponse = zod.object({
         importedBy: zod.string().nullish(),
       }),
       explanation: zod.string(),
+      rulesetVersion: zod.string(),
+      decisionRecordId: zod.number(),
+      ruleId: zod.number().nullish(),
       sponsorshipFeasibility: zod
         .object({
           roleId: zod.number(),
@@ -648,6 +651,7 @@ export const GetRemediationPlanResponse = zod.object({
       gap: zod.string(),
       timelineRange: zod.string().nullish(),
       costRange: zod.string().nullish(),
+      pathway: zod.string().nullish(),
       ruleId: zod.number(),
       rulesetVersion: zod.string(),
       status: zod.enum(["planned", "in_progress", "done"]),
@@ -676,6 +680,7 @@ export const UpdateRemediationStepResponse = zod.object({
   gap: zod.string(),
   timelineRange: zod.string().nullish(),
   costRange: zod.string().nullish(),
+  pathway: zod.string().nullish(),
   ruleId: zod.number(),
   rulesetVersion: zod.string(),
   status: zod.enum(["planned", "in_progress", "done"]),
