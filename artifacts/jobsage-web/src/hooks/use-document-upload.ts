@@ -74,9 +74,9 @@ export function useDocumentUpload() {
       queryClient.invalidateQueries({ queryKey: getListMyDocumentsQueryKey() });
       
       return true;
-    } catch (err: any) {
+    } catch (err) {
       console.error("Upload error:", err);
-      setError(err.message || "Failed to upload document");
+      setError(err instanceof Error ? err.message : "Failed to upload document");
       return false;
     } finally {
       setIsUploading(false);

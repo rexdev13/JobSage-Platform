@@ -7,14 +7,17 @@ import { Card, Button, Input, Select, Label, PageTransition } from "@/components
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, ArrowLeft, CheckCircle2 } from "lucide-react";
 
+type Profession = "doctor" | "nurse" | "allied_health_professional" | "clinical_academic";
+type RegistrationStatus = "registered" | "not_registered" | "in_process";
+
 type ProfileData = {
-  profession: string;
+  profession: Profession | "";
   specialty: string;
   qualificationCountry: string;
   qualificationType: string;
   qualificationYear: string;
   experienceYears: string;
-  registrationStatus: string;
+  registrationStatus: RegistrationStatus;
   licenceReady: boolean;
   residencyStatus: string;
   requiresSponsorship: boolean;
@@ -50,15 +53,16 @@ export default function OnboardingPage() {
 
   const handleSubmit = async () => {
     try {
+      if (!data.profession) throw new Error("Profession is required");
       await upsertProfileMutation.mutateAsync({
         data: {
-          profession: data.profession as any,
+          profession: data.profession,
           specialty: data.specialty || null,
           qualificationCountry: data.qualificationCountry || null,
           qualificationType: data.qualificationType || null,
           qualificationYear: data.qualificationYear ? parseInt(data.qualificationYear) : null,
           experienceYears: data.experienceYears ? parseInt(data.experienceYears) : null,
-          registrationStatus: data.registrationStatus as any,
+          registrationStatus: data.registrationStatus,
           licenceReady: data.licenceReady,
           residencyStatus: data.residencyStatus || null,
           requiresSponsorship: data.requiresSponsorship,

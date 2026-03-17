@@ -7,13 +7,40 @@ import { Card, Button, Input, Select, Label, PageTransition } from "@/components
 import { Save, UserCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+type Profession = "doctor" | "nurse" | "allied_health_professional" | "clinical_academic";
+type RegistrationStatus = "registered" | "not_registered" | "in_process";
+
+type ProfileFormData = {
+  profession: Profession | "";
+  specialty: string;
+  qualificationCountry: string;
+  qualificationType: string;
+  qualificationYear: string;
+  experienceYears: string;
+  registrationStatus: RegistrationStatus | "";
+  licenceReady: boolean;
+  residencyStatus: string;
+  requiresSponsorship: boolean;
+};
+
 export default function ProfilePage() {
   const { data: profile } = useGetMyProfile();
   const upsertMutation = useUpsertMyProfile();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const [formData, setFormData] = useState<any>({});
+  const [formData, setFormData] = useState<ProfileFormData>({
+    profession: "",
+    specialty: "",
+    qualificationCountry: "",
+    qualificationType: "",
+    qualificationYear: "",
+    experienceYears: "",
+    registrationStatus: "",
+    licenceReady: false,
+    residencyStatus: "",
+    requiresSponsorship: false,
+  });
 
   useEffect(() => {
     if (profile) {
@@ -35,17 +62,25 @@ export default function ProfilePage() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     const checked = type === "checkbox" ? (e.target as HTMLInputElement).checked : undefined;
-    setFormData((prev: any) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+    setFormData(prev => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.profession) return;
     try {
       await upsertMutation.mutateAsync({
         data: {
-          ...formData,
+          profession: formData.profession,
+          specialty: formData.specialty || null,
+          qualificationCountry: formData.qualificationCountry || null,
+          qualificationType: formData.qualificationType || null,
           qualificationYear: formData.qualificationYear ? parseInt(formData.qualificationYear) : null,
           experienceYears: formData.experienceYears ? parseInt(formData.experienceYears) : null,
+          registrationStatus: formData.registrationStatus || null,
+          licenceReady: formData.licenceReady,
+          residencyStatus: formData.residencyStatus || null,
+          requiresSponsorship: formData.requiresSponsorship,
         }
       });
       queryClient.invalidateQueries({ queryKey: getGetMyProfileQueryKey() });
@@ -53,10 +88,10 @@ export default function ProfilePage() {
         title: "Profile Updated",
         description: "Your professional details have been saved successfully.",
       });
-    } catch (err: any) {
+    } catch (err) {
       toast({
         title: "Error",
-        description: err.message || "Failed to update profile",
+        description: err instanceof Error ? err.message : "Failed to update profile",
         variant: "destructive"
       });
     }

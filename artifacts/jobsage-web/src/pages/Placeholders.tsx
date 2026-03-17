@@ -1,8 +1,9 @@
+import React from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageTransition, Card } from "@/components/ui-enhanced";
 import { Construction, Sparkles, Users, Shield, ClipboardCheck } from "lucide-react";
 
-function PlaceholderView({ title, description, icon: Icon }: any) {
+function PlaceholderView({ title, description, icon: Icon }: { title: string; description: string; icon: React.ElementType }) {
   return (
     <AppLayout>
       <PageTransition className="flex items-center justify-center min-h-[80vh]">
