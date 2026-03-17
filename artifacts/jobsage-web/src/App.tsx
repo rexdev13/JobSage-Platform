@@ -12,8 +12,9 @@ import OnboardingPage from "@/pages/OnboardingPage";
 import DashboardPage from "@/pages/DashboardPage";
 import ProfilePage from "@/pages/ProfilePage";
 import DocumentsPage from "@/pages/DocumentsPage";
+import EligibilityPage from "@/pages/EligibilityPage";
+import AdminRulesetsPage from "@/pages/AdminRulesetsPage";
 import { 
-  EligibilityPage, 
   PathPage, 
   ReviewQueuePage, 
   AdminRolesPage, 
@@ -38,8 +39,10 @@ function Router() {
             <Route path="/profile" component={ProfilePage} />
             <Route path="/documents" component={DocumentsPage} />
             
-            {/* Placeholders for next milestones */}
             <Route path="/eligibility" component={EligibilityPage} />
+            <Route path="/admin/rulesets" component={AdminRulesetsPage} />
+            
+            {/* Placeholders for next milestones */}
             <Route path="/path" component={PathPage} />
             <Route path="/review-queue" component={ReviewQueuePage} />
             <Route path="/admin/roles" component={AdminRolesPage} />

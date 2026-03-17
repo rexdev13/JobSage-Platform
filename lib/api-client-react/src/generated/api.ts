@@ -22,16 +22,27 @@ import type {
   CandidateProfile,
   ConsentRecord,
   ConsentStatus,
+  CreateRulesetRequest,
+  DecisionRecordList,
   Document,
   DocumentList,
+  EligibilityHistoryList,
+  EligibilityResult,
   ErrorEnvelope,
   HandleBrowserLoginCallbackParams,
   HealthStatus,
+  ListDecisionsParams,
+  ListRulesetsParams,
   LogoutSuccess,
   MobileTokenExchangeRequest,
   MobileTokenExchangeSuccess,
   RecordConsentRequest,
   RegisterDocumentRequest,
+  RegressionTestRequest,
+  RegressionTestResponse,
+  Ruleset,
+  RulesetList,
+  RulesetWithRules,
   UploadDocumentBody,
   UploadUrlRequest,
   UploadUrlResponse,
@@ -1480,6 +1491,783 @@ export const useRegisterDocument = <
 > => {
   return useMutation(getRegisterDocumentMutationOptions(options));
 };
+
+/**
+ * @summary Evaluate the current candidate's regulatory eligibility
+ */
+export const getEvaluateEligibilityUrl = () => {
+  return `/api/eligibility/evaluate`;
+};
+
+export const evaluateEligibility = async (
+  options?: RequestInit,
+): Promise<EligibilityResult> => {
+  return customFetch<EligibilityResult>(getEvaluateEligibilityUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getEvaluateEligibilityMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof evaluateEligibility>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof evaluateEligibility>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["evaluateEligibility"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof evaluateEligibility>>,
+    void
+  > = () => {
+    return evaluateEligibility(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type EvaluateEligibilityMutationResult = NonNullable<
+  Awaited<ReturnType<typeof evaluateEligibility>>
+>;
+
+export type EvaluateEligibilityMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Evaluate the current candidate's regulatory eligibility
+ */
+export const useEvaluateEligibility = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof evaluateEligibility>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof evaluateEligibility>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getEvaluateEligibilityMutationOptions(options));
+};
+
+/**
+ * @summary Get a specific eligibility decision record
+ */
+export const getGetEligibilityResultUrl = (id: number) => {
+  return `/api/eligibility/results/${id}`;
+};
+
+export const getEligibilityResult = async (
+  id: number,
+  options?: RequestInit,
+): Promise<EligibilityResult> => {
+  return customFetch<EligibilityResult>(getGetEligibilityResultUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetEligibilityResultQueryKey = (id: number) => {
+  return [`/api/eligibility/results/${id}`] as const;
+};
+
+export const getGetEligibilityResultQueryOptions = <
+  TData = Awaited<ReturnType<typeof getEligibilityResult>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getEligibilityResult>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetEligibilityResultQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getEligibilityResult>>
+  > = ({ signal }) => getEligibilityResult(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getEligibilityResult>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetEligibilityResultQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getEligibilityResult>>
+>;
+export type GetEligibilityResultQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Get a specific eligibility decision record
+ */
+
+export function useGetEligibilityResult<
+  TData = Awaited<ReturnType<typeof getEligibilityResult>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getEligibilityResult>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetEligibilityResultQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List the current candidate's eligibility decision history
+ */
+export const getListEligibilityHistoryUrl = () => {
+  return `/api/eligibility/history`;
+};
+
+export const listEligibilityHistory = async (
+  options?: RequestInit,
+): Promise<EligibilityHistoryList> => {
+  return customFetch<EligibilityHistoryList>(getListEligibilityHistoryUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListEligibilityHistoryQueryKey = () => {
+  return [`/api/eligibility/history`] as const;
+};
+
+export const getListEligibilityHistoryQueryOptions = <
+  TData = Awaited<ReturnType<typeof listEligibilityHistory>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listEligibilityHistory>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListEligibilityHistoryQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listEligibilityHistory>>
+  > = ({ signal }) => listEligibilityHistory({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listEligibilityHistory>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListEligibilityHistoryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listEligibilityHistory>>
+>;
+export type ListEligibilityHistoryQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary List the current candidate's eligibility decision history
+ */
+
+export function useListEligibilityHistory<
+  TData = Awaited<ReturnType<typeof listEligibilityHistory>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listEligibilityHistory>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListEligibilityHistoryQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List all rulesets (filtered by regulator or status)
+ */
+export const getListRulesetsUrl = (params?: ListRulesetsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/rulesets?${stringifiedParams}`
+    : `/api/rulesets`;
+};
+
+export const listRulesets = async (
+  params?: ListRulesetsParams,
+  options?: RequestInit,
+): Promise<RulesetList> => {
+  return customFetch<RulesetList>(getListRulesetsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListRulesetsQueryKey = (params?: ListRulesetsParams) => {
+  return [`/api/rulesets`, ...(params ? [params] : [])] as const;
+};
+
+export const getListRulesetsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listRulesets>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  params?: ListRulesetsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listRulesets>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListRulesetsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listRulesets>>> = ({
+    signal,
+  }) => listRulesets(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listRulesets>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListRulesetsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listRulesets>>
+>;
+export type ListRulesetsQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary List all rulesets (filtered by regulator or status)
+ */
+
+export function useListRulesets<
+  TData = Awaited<ReturnType<typeof listRulesets>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  params?: ListRulesetsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listRulesets>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListRulesetsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a new draft ruleset (admin only)
+ */
+export const getCreateRulesetUrl = () => {
+  return `/api/rulesets`;
+};
+
+export const createRuleset = async (
+  createRulesetRequest: CreateRulesetRequest,
+  options?: RequestInit,
+): Promise<Ruleset> => {
+  return customFetch<Ruleset>(getCreateRulesetUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createRulesetRequest),
+  });
+};
+
+export const getCreateRulesetMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createRuleset>>,
+    TError,
+    { data: BodyType<CreateRulesetRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createRuleset>>,
+  TError,
+  { data: BodyType<CreateRulesetRequest> },
+  TContext
+> => {
+  const mutationKey = ["createRuleset"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createRuleset>>,
+    { data: BodyType<CreateRulesetRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createRuleset(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateRulesetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createRuleset>>
+>;
+export type CreateRulesetMutationBody = BodyType<CreateRulesetRequest>;
+export type CreateRulesetMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Create a new draft ruleset (admin only)
+ */
+export const useCreateRuleset = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createRuleset>>,
+    TError,
+    { data: BodyType<CreateRulesetRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createRuleset>>,
+  TError,
+  { data: BodyType<CreateRulesetRequest> },
+  TContext
+> => {
+  return useMutation(getCreateRulesetMutationOptions(options));
+};
+
+/**
+ * @summary Get a ruleset with its rules
+ */
+export const getGetRulesetUrl = (id: number) => {
+  return `/api/rulesets/${id}`;
+};
+
+export const getRuleset = async (
+  id: number,
+  options?: RequestInit,
+): Promise<RulesetWithRules> => {
+  return customFetch<RulesetWithRules>(getGetRulesetUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetRulesetQueryKey = (id: number) => {
+  return [`/api/rulesets/${id}`] as const;
+};
+
+export const getGetRulesetQueryOptions = <
+  TData = Awaited<ReturnType<typeof getRuleset>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getRuleset>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetRulesetQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getRuleset>>> = ({
+    signal,
+  }) => getRuleset(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getRuleset>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetRulesetQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getRuleset>>
+>;
+export type GetRulesetQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Get a ruleset with its rules
+ */
+
+export function useGetRuleset<
+  TData = Awaited<ReturnType<typeof getRuleset>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getRuleset>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetRulesetQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Publish a draft ruleset (admin only)
+ */
+export const getPublishRulesetUrl = (id: number) => {
+  return `/api/rulesets/${id}/publish`;
+};
+
+export const publishRuleset = async (
+  id: number,
+  options?: RequestInit,
+): Promise<Ruleset> => {
+  return customFetch<Ruleset>(getPublishRulesetUrl(id), {
+    ...options,
+    method: "PATCH",
+  });
+};
+
+export const getPublishRulesetMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof publishRuleset>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof publishRuleset>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["publishRuleset"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof publishRuleset>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return publishRuleset(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PublishRulesetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof publishRuleset>>
+>;
+
+export type PublishRulesetMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Publish a draft ruleset (admin only)
+ */
+export const usePublishRuleset = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof publishRuleset>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof publishRuleset>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getPublishRulesetMutationOptions(options));
+};
+
+/**
+ * @summary Run regression tests against a ruleset using sample profiles (admin only)
+ */
+export const getRunRegressionTestUrl = (id: number) => {
+  return `/api/rulesets/${id}/regression-test`;
+};
+
+export const runRegressionTest = async (
+  id: number,
+  regressionTestRequest: RegressionTestRequest,
+  options?: RequestInit,
+): Promise<RegressionTestResponse> => {
+  return customFetch<RegressionTestResponse>(getRunRegressionTestUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(regressionTestRequest),
+  });
+};
+
+export const getRunRegressionTestMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof runRegressionTest>>,
+    TError,
+    { id: number; data: BodyType<RegressionTestRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof runRegressionTest>>,
+  TError,
+  { id: number; data: BodyType<RegressionTestRequest> },
+  TContext
+> => {
+  const mutationKey = ["runRegressionTest"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof runRegressionTest>>,
+    { id: number; data: BodyType<RegressionTestRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return runRegressionTest(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RunRegressionTestMutationResult = NonNullable<
+  Awaited<ReturnType<typeof runRegressionTest>>
+>;
+export type RunRegressionTestMutationBody = BodyType<RegressionTestRequest>;
+export type RunRegressionTestMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Run regression tests against a ruleset using sample profiles (admin only)
+ */
+export const useRunRegressionTest = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof runRegressionTest>>,
+    TError,
+    { id: number; data: BodyType<RegressionTestRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof runRegressionTest>>,
+  TError,
+  { id: number; data: BodyType<RegressionTestRequest> },
+  TContext
+> => {
+  return useMutation(getRunRegressionTestMutationOptions(options));
+};
+
+/**
+ * @summary List all decision records (admin only)
+ */
+export const getListDecisionsUrl = (params?: ListDecisionsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/decisions?${stringifiedParams}`
+    : `/api/decisions`;
+};
+
+export const listDecisions = async (
+  params?: ListDecisionsParams,
+  options?: RequestInit,
+): Promise<DecisionRecordList> => {
+  return customFetch<DecisionRecordList>(getListDecisionsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListDecisionsQueryKey = (params?: ListDecisionsParams) => {
+  return [`/api/decisions`, ...(params ? [params] : [])] as const;
+};
+
+export const getListDecisionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listDecisions>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  params?: ListDecisionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listDecisions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListDecisionsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listDecisions>>> = ({
+    signal,
+  }) => listDecisions(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listDecisions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListDecisionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listDecisions>>
+>;
+export type ListDecisionsQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary List all decision records (admin only)
+ */
+
+export function useListDecisions<
+  TData = Awaited<ReturnType<typeof listDecisions>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  params?: ListDecisionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listDecisions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListDecisionsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Delete a document

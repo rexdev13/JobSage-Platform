@@ -1,13 +1,32 @@
 import { useAuth } from "@workspace/replit-auth-web";
-import { useGetMyProfile } from "@workspace/api-client-react";
+import { useGetMyProfile, useListEligibilityHistory } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, Button, PageTransition } from "@/components/ui-enhanced";
-import { Activity, FileText, ArrowRight, ShieldCheck } from "lucide-react";
+import { Activity, FileText, ArrowRight, ShieldCheck, CheckCircle2, Clock, XCircle, HelpCircle } from "lucide-react";
 import { Link } from "wouter";
+
+type EligibilityOutcome = "eligible" | "not_eligible" | "ineligible" | "review";
+
+function OutcomePill({ outcome }: { outcome: EligibilityOutcome }) {
+  const configs: Record<EligibilityOutcome, { label: string; className: string }> = {
+    eligible: { label: "Eligible Now", className: "bg-emerald-500/20 text-emerald-100" },
+    not_eligible: { label: "Not Yet Eligible", className: "bg-amber-500/20 text-amber-100" },
+    ineligible: { label: "Ineligible", className: "bg-red-500/20 text-red-100" },
+    review: { label: "Under Review", className: "bg-purple-500/20 text-purple-100" },
+  };
+  const { label, className } = configs[outcome] ?? configs.review;
+  return (
+    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${className}`}>
+      {label}
+    </span>
+  );
+}
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const { data: profile } = useGetMyProfile();
+  const { data: eligibilityHistory } = useListEligibilityHistory();
+  const latestDecision = eligibilityHistory?.decisions?.[0];
 
   return (
     <AppLayout>
@@ -25,22 +44,39 @@ export default function DashboardPage() {
           {/* Main Action Card */}
           <Card className="lg:col-span-2 p-8 bg-gradient-to-br from-primary to-primary/90 text-primary-foreground border-0">
             <div className="flex items-start justify-between">
-              <div>
-                <div className="inline-flex items-center px-3 py-1 rounded-full bg-white/20 text-white text-xs font-semibold mb-4 backdrop-blur-md">
-                  <Activity className="w-3 h-3 mr-2" />
-                  Action Required
-                </div>
-                <h2 className="text-2xl font-bold mb-3">Eligibility Evaluation</h2>
-                <p className="text-primary-foreground/80 mb-8 max-w-md leading-relaxed">
-                  Run your profile against the latest regulatory criteria to determine your eligibility status and get a personalized remediation plan.
-                </p>
+              <div className="flex-1">
+                {latestDecision ? (
+                  <>
+                    <div className="mb-4">
+                      <OutcomePill outcome={latestDecision.outcome as EligibilityOutcome} />
+                    </div>
+                    <h2 className="text-2xl font-bold mb-3">Your Eligibility Status</h2>
+                    <p className="text-primary-foreground/80 mb-6 max-w-md leading-relaxed line-clamp-3">
+                      {latestDecision.explanationText}
+                    </p>
+                    <p className="text-primary-foreground/60 text-xs mb-6">
+                      Last checked: {new Date(latestDecision.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} · Ruleset v{latestDecision.rulesetVersion}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div className="inline-flex items-center px-3 py-1 rounded-full bg-white/20 text-white text-xs font-semibold mb-4 backdrop-blur-md">
+                      <Activity className="w-3 h-3 mr-2" />
+                      Action Required
+                    </div>
+                    <h2 className="text-2xl font-bold mb-3">Eligibility Evaluation</h2>
+                    <p className="text-primary-foreground/80 mb-8 max-w-md leading-relaxed">
+                      Run your profile against the latest regulatory criteria to determine your eligibility status and get a personalised remediation plan.
+                    </p>
+                  </>
+                )}
                 <Link href="/eligibility" className="inline-flex">
                   <Button variant="accent" size="lg" className="shadow-lg shadow-accent/20">
-                    Run Check Now <ArrowRight className="w-5 h-5 ml-2" />
+                    {latestDecision ? "View Full Report" : "Run Check Now"} <ArrowRight className="w-5 h-5 ml-2" />
                   </Button>
                 </Link>
               </div>
-              <ShieldCheck className="w-32 h-32 text-white/10 hidden md:block" />
+              <ShieldCheck className="w-32 h-32 text-white/10 hidden md:block flex-shrink-0" />
             </div>
           </Card>
 
