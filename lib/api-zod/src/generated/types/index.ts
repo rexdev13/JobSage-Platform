@@ -92,3 +92,4 @@ export * from "./uploadUrlResponse";
 export * from "./upsertProfileRequest";
 export * from "./upsertProfileRequestProfession";
 export * from "./upsertProfileRequestRegistrationStatus";
+export * from "./verifyEmailParams";

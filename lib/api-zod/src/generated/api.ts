@@ -101,6 +101,16 @@ export const ResetPasswordResponse = zod.object({
 });
 
 /**
+ * Validates the email verification token, marks the user as verified, creates a session, and redirects to the app.
+ * @summary Verify email address via token
+ */
+export const VerifyEmailQueryParams = zod.object({
+  token: zod.coerce
+    .string()
+    .describe("Email verification token from the verification email."),
+});
+
+/**
  * @summary Resend email verification link
  */
 export const ResendVerificationEmailBody = zod.object({
