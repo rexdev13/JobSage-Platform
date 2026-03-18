@@ -17,6 +17,7 @@ import {
   Globe,
   Menu,
   X,
+  Building2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -223,7 +224,7 @@ const FEATURES = [
   {
     icon: Shield,
     title: "Regulatory Eligibility",
-    desc: "Instant GMC, NMC, and HCPC compliance checks based on your specific professional profile.",
+    desc: "Instant GMC, NMC, and HCPC checks with three clear outcomes: Eligible, Not Yet Eligible (with time-to-eligibility), or Ineligible — all with full rule-level explainability.",
     color: "bg-primary/10 text-primary",
   },
   {
@@ -235,13 +236,13 @@ const FEATURES = [
   {
     icon: BrainCircuit,
     title: "AI Remediation Plans",
-    desc: "Personalised, prioritised step-by-step guidance to close any gaps in your eligibility.",
+    desc: "Personalised, prioritised step-by-step guidance to close any gaps in your eligibility, with progress tracking built in.",
     color: "bg-purple-500/10 text-purple-600",
   },
   {
     icon: Briefcase,
     title: "Opportunity Matching",
-    desc: "Discover matched NHS and academic roles that fit your verified profile and eligibility status.",
+    desc: "Only eligible roles are shown — ineligible positions are filtered out before you ever see them, so every match is actionable.",
     color: "bg-green-500/10 text-green-600",
   },
   {
@@ -253,8 +254,14 @@ const FEATURES = [
   {
     icon: Users,
     title: "Human Expert Review",
-    desc: "Complex or borderline cases escalated to qualified human reviewers for thorough assessment.",
+    desc: "Complex or borderline cases escalated to qualified human reviewers for thorough, auditable assessment.",
     color: "bg-rose-500/10 text-rose-600",
+  },
+  {
+    icon: Building2,
+    title: "Institution Portal",
+    desc: "NHS trusts and agencies view opted-in, anonymised candidate pipelines with eligibility filters, time-to-eligibility bands, and CSV export.",
+    color: "bg-blue-500/10 text-blue-600",
   },
 ];
 
@@ -295,49 +302,54 @@ const TESTIMONIALS = [
 
 const PRICING = [
   {
-    name: "Starter",
-    price: "Free",
-    period: "",
-    desc: "Get a feel for the platform and run a basic eligibility check.",
+    name: "Individual",
+    price: "£180",
+    period: "/ year",
+    trial: "3-day free trial included",
+    desc: "Everything a candidate needs to assess and plan their UK healthcare journey.",
     features: [
-      "One eligibility check",
+      "Eligibility check (GMC · NMC · HCPC)",
       "Basic regulatory gap summary",
-      "Document upload (up to 3 files)",
-      "Community access",
+      "Role matching (eligible roles only)",
+      "Remediation plan",
+      "Document upload",
     ],
-    cta: "Get Started",
+    cta: "Start Free Trial",
     highlight: false,
   },
   {
-    name: "Professional",
-    price: "£29",
-    period: "/ month",
-    desc: "Everything you need to navigate your UK healthcare career move.",
+    name: "Premium Individual",
+    price: "£420",
+    period: "/ year",
+    trial: "3-day free trial included",
+    desc: "Advanced intelligence and priority support for professionals who need certainty.",
     features: [
-      "Unlimited eligibility checks",
-      "Full AI remediation plan",
+      "Everything in Individual",
+      "Advanced pathway intelligence",
+      "Deep progress tracking",
+      "Human expert review access",
       "Visa sponsorship assessment",
-      "Opportunity matching",
-      "Unlimited document storage",
       "Priority support",
     ],
     cta: "Start Free Trial",
     highlight: true,
   },
   {
-    name: "Enterprise",
-    price: "Custom",
-    period: "",
+    name: "Institutional",
+    price: "£5,000",
+    period: "/ year",
+    trial: "",
     desc: "For NHS trusts, staffing agencies, and medical schools.",
     features: [
-      "Bulk candidate assessment",
-      "Recruiter dashboard",
-      "API access",
-      "Human expert review queue",
-      "Audit trail & compliance export",
+      "Anonymised candidate pipeline (read-only)",
+      "Eligibility & sponsorship filters",
+      "Time-to-eligibility bands",
+      "CSV export",
+      "Contact-request workflow",
+      "Role-based access control",
       "Dedicated account manager",
     ],
-    cta: "Contact Us",
+    cta: "Contact Sales",
     highlight: false,
   },
 ];
@@ -366,6 +378,14 @@ const FAQS = [
   {
     q: "How long does a full eligibility check take?",
     a: "Most checks complete within 60 seconds. For cases that require human expert review, you can expect a response within 2 working days.",
+  },
+  {
+    q: "How does the free trial work?",
+    a: "Every new account receives a 3-day free trial with full access to Premium Individual features. No credit card is required to start. At the end of the trial your account moves to the Individual plan; you can upgrade at any time from your account settings. The trial can be used once per account.",
+  },
+  {
+    q: "What is the Institution Portal?",
+    a: "The Institution Portal gives NHS trusts, staffing agencies, and medical schools a read-only pipeline view of opted-in JOBSAGE candidates. Profiles are anonymised, filterable by profession, specialty, eligibility status, and sponsorship requirement, and can be exported as CSV. Contact requests are routed via an auditable admin workflow — candidate acceptance is not required.",
   },
 ];
 
@@ -436,7 +456,7 @@ export default function LandingPage() {
               before you apply.
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed">
-              The intelligent platform for UK healthcare and academic professionals. Evaluate regulatory requirements, visa feasibility, and discover clear remediation pathways.
+              The intelligent platform for UK healthcare and academic professionals. Get a clear Eligible, Not Yet Eligible, or Ineligible decision — with a concrete plan to get you there.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Button
@@ -489,7 +509,7 @@ export default function LandingPage() {
               Built for internationally trained healthcare professionals navigating the UK system.
             </motion.h2>
             <motion.p variants={fadeUp} className="text-primary-foreground/80 max-w-3xl mx-auto leading-relaxed text-lg">
-              JOBSAGE was created because the UK healthcare registration process is needlessly complex. We combine AI-driven rules intelligence with human expertise to give doctors, nurses, midwives, and allied health professionals a clear, honest view of their eligibility — and a concrete plan to get there.
+              JOBSAGE was created because the UK healthcare registration process is needlessly complex. We combine a deterministic rules engine with bounded AI and human review to give doctors, nurses, midwives, and allied health professionals a clear, honest eligibility decision — and a concrete, trackable plan to get there. Every new account starts with a 3-day free trial, no credit card required.
             </motion.p>
           </motion.div>
 
@@ -626,7 +646,7 @@ export default function LandingPage() {
           <SectionHeading
             eyebrow="Pricing"
             title="Simple, transparent pricing."
-            subtitle="Start free. Upgrade when you're ready. Cancel anytime."
+            subtitle="Annual plans. 3-day free trial on all candidate plans. No credit card required to start."
           />
           <motion.div
             variants={stagger}
@@ -635,7 +655,7 @@ export default function LandingPage() {
             viewport={{ once: true, margin: "-40px" }}
             className="mt-14 grid grid-cols-1 md:grid-cols-3 gap-6 items-start"
           >
-            {PRICING.map(({ name, price, period, desc, features, cta, highlight }) => (
+            {PRICING.map(({ name, price, period, trial, desc, features, cta, highlight }) => (
               <motion.div
                 key={name}
                 variants={fadeUp}
@@ -653,6 +673,11 @@ export default function LandingPage() {
                     <span className="text-4xl font-extrabold font-display">{price}</span>
                     {period && <span className={`text-sm mb-1 ${highlight ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{period}</span>}
                   </div>
+                  {trial && (
+                    <p className={`text-xs font-semibold mt-1 ${highlight ? "text-primary-foreground/70" : "text-accent"}`}>
+                      {trial}
+                    </p>
+                  )}
                   <p className={`text-sm mt-2 ${highlight ? "text-primary-foreground/80" : "text-muted-foreground"}`}>{desc}</p>
                 </div>
                 <ul className="flex flex-col gap-3 flex-1">
@@ -664,8 +689,8 @@ export default function LandingPage() {
                   ))}
                 </ul>
                 <Button
-                  variant={highlight ? "outline" : "outline"}
-                  onClick={() => setLocation("/register")}
+                  variant="outline"
+                  onClick={() => setLocation(cta === "Contact Sales" ? "/register" : "/register")}
                   className={`w-full ${highlight ? "bg-white text-primary border-white hover:bg-white/90 font-bold" : ""}`}
                 >
                   {cta}
@@ -674,6 +699,9 @@ export default function LandingPage() {
               </motion.div>
             ))}
           </motion.div>
+          <p className="mt-8 text-center text-sm text-muted-foreground">
+            3-day free trial · No credit card required · Cancel anytime
+          </p>
         </div>
       </section>
 
