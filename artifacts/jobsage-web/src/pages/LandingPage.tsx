@@ -41,7 +41,7 @@ export default function LandingPage() {
             Decision Intelligence for Healthcare Professionals
           </div>
           <h2 className="text-5xl md:text-7xl font-display font-extrabold text-foreground leading-tight tracking-tight mb-6">
-            Determine your <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent">legal eligibility</span> before you apply.
+            Determine your <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent">eligibility</span> before you apply.
           </h2>
           <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed">
             The intelligent platform for UK healthcare and academic professionals. Evaluate regulatory requirements, visa feasibility, and discover clear remediation pathways.
