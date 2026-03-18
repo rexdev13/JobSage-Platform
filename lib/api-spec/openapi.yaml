@@ -191,6 +191,29 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
 
+  /auth/verify-email:
+    get:
+      tags: [Auth]
+      operationId: verifyEmail
+      summary: Verify email address via token
+      description: Validates the email verification token, marks the user as verified, creates a session, and redirects to the app.
+      parameters:
+        - in: query
+          name: token
+          required: true
+          schema:
+            type: string
+          description: Email verification token from the verification email.
+      responses:
+        '302':
+          description: Redirect to the app on success, or to login page with error on failure.
+        '400':
+          description: Invalid or expired token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
   /auth/resend-verification:
     post:
       tags: [Auth]

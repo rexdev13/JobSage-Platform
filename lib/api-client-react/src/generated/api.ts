@@ -68,6 +68,7 @@ import type {
   UploadUrlRequest,
   UploadUrlResponse,
   UpsertProfileRequest,
+  VerifyEmailParams,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -652,6 +653,101 @@ export const useResetPassword = <
 > => {
   return useMutation(getResetPasswordMutationOptions(options));
 };
+
+/**
+ * Validates the email verification token, marks the user as verified, creates a session, and redirects to the app.
+ * @summary Verify email address via token
+ */
+export const getVerifyEmailUrl = (params: VerifyEmailParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/auth/verify-email?${stringifiedParams}`
+    : `/api/auth/verify-email`;
+};
+
+export const verifyEmail = async (
+  params: VerifyEmailParams,
+  options?: RequestInit,
+): Promise<unknown> => {
+  return customFetch<unknown>(getVerifyEmailUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getVerifyEmailQueryKey = (params?: VerifyEmailParams) => {
+  return [`/api/auth/verify-email`, ...(params ? [params] : [])] as const;
+};
+
+export const getVerifyEmailQueryOptions = <
+  TData = Awaited<ReturnType<typeof verifyEmail>>,
+  TError = ErrorType<void | ErrorEnvelope>,
+>(
+  params: VerifyEmailParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof verifyEmail>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getVerifyEmailQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof verifyEmail>>> = ({
+    signal,
+  }) => verifyEmail(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof verifyEmail>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type VerifyEmailQueryResult = NonNullable<
+  Awaited<ReturnType<typeof verifyEmail>>
+>;
+export type VerifyEmailQueryError = ErrorType<void | ErrorEnvelope>;
+
+/**
+ * @summary Verify email address via token
+ */
+
+export function useVerifyEmail<
+  TData = Awaited<ReturnType<typeof verifyEmail>>,
+  TError = ErrorType<void | ErrorEnvelope>,
+>(
+  params: VerifyEmailParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof verifyEmail>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getVerifyEmailQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Resend email verification link

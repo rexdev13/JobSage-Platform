@@ -603,6 +603,13 @@ export interface ConsentLogList {
   pageSize: number;
 }
 
+export type VerifyEmailParams = {
+  /**
+   * Email verification token from the verification email.
+   */
+  token: string;
+};
+
 export type UploadDocumentBody = {
   file: Blob;
 };

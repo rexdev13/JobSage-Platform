@@ -78,6 +78,7 @@ export * from "./generated/types/sponsorshipFeasibilityOutcome";
 export * from "./generated/types/updatePlanOrderingRequest";
 export * from "./generated/types/updateRemediationStepRequest";
 export * from "./generated/types/updateRemediationStepRequestStatus";
+export * from "./generated/types/verifyEmailParams";
 export * from "./generated/types/uploadUrlRequest";
 export * from "./generated/types/uploadUrlResponse";
 export * from "./generated/types/upsertProfileRequest";
