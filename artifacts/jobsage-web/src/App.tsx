@@ -27,6 +27,27 @@ import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
 
+function SmartHome() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background">
+        <div className="w-12 h-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin mb-4" />
+        <p className="text-muted-foreground font-medium animate-pulse">Loading JOBSAGE...</p>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) return <LandingPage />;
+
+  return (
+    <AuthGuard>
+      <DashboardPage />
+    </AuthGuard>
+  );
+}
+
 function AdminGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   const [, setLocation] = useLocation();
@@ -60,14 +81,14 @@ function ReviewerGuard({ children }: { children: React.ReactNode }) {
 function Router() {
   return (
     <Switch>
+      {/* Public home — LandingPage for guests, DashboardPage for signed-in users */}
+      <Route path="/" component={SmartHome} />
+
       {/* Public auth routes */}
       <Route path="/login" component={LoginPage} />
       <Route path="/register" component={RegisterPage} />
       <Route path="/forgot-password" component={ForgotPasswordPage} />
       <Route path="/reset-password" component={ResetPasswordPage} />
-
-      {/* Public landing */}
-      <Route path="/landing" component={LandingPage} />
 
       {/* Protected Routes inside AuthGuard */}
       <Route path="*">
@@ -75,7 +96,6 @@ function Router() {
           <Switch>
             <Route path="/consent" component={ConsentPage} />
             <Route path="/onboarding" component={OnboardingPage} />
-            <Route path="/" component={DashboardPage} />
             <Route path="/profile" component={ProfilePage} />
             <Route path="/documents" component={DocumentsPage} />
 
