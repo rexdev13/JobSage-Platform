@@ -95,6 +95,12 @@ router.post("/auth/register", async (req: Request, res: Response) => {
     await sendVerificationEmail(normalised, token);
   } catch (err) {
     console.error("[email] Failed to send verification email:", err);
+    // Roll back the user record so the registration can be retried
+    await db.delete(usersTable).where(eq(usersTable.id, user.id));
+    res.status(503).json({
+      error: "We were unable to send your verification email. Please try again shortly.",
+    });
+    return;
   }
 
   res.status(201).json({
