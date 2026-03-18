@@ -381,11 +381,11 @@ const FAQS = [
   },
   {
     q: "How does the free trial work?",
-    a: "Every new account receives a 3-day free trial with full access to Premium Individual features. No credit card is required to start. At the end of the trial your account moves to the Individual plan; you can upgrade at any time from your account settings. The trial can be used once per account.",
+    a: "Every new account receives a 3-day free trial with full access to Premium Individual features. No credit card is required to start. At the end of the trial, your account moves to the Individual plan; you can upgrade at any time from your account settings.",
   },
   {
     q: "What is the Institution Portal?",
-    a: "The Institution Portal gives NHS trusts, staffing agencies, and medical schools a read-only pipeline view of opted-in JOBSAGE candidates. Profiles are anonymised, filterable by profession, specialty, eligibility status, and sponsorship requirement, and can be exported as CSV. Contact requests are routed via an auditable admin workflow — candidate acceptance is not required.",
+    a: "The Institution Portal gives NHS trusts, staffing agencies, and medical schools a read-only pipeline view of opted-in JOBSAGE candidates. Profiles are anonymised, filterable by profession, specialty, eligibility status, and sponsorship requirement, and can be exported as CSV. Contact requests are routed via an auditable admin workflow.",
   },
 ];
 
@@ -700,7 +700,7 @@ export default function LandingPage() {
             ))}
           </motion.div>
           <p className="mt-8 text-center text-sm text-muted-foreground">
-            3-day free trial · No credit card required · Cancel anytime
+            3-day free trial · No credit card required
           </p>
         </div>
       </section>
