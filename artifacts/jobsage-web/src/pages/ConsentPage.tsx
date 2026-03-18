@@ -3,8 +3,27 @@ import { useLocation } from "wouter";
 import { useRecordConsent } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetMyConsentQueryKey } from "@workspace/api-client-react";
-import { Button, Card, PageTransition } from "@/components/ui-enhanced";
-import { ShieldAlert, Check } from "lucide-react";
+import { Button, PageTransition } from "@/components/ui-enhanced";
+import { Shield, Check, Lock, FileText, AlertCircle } from "lucide-react";
+import { motion } from "framer-motion";
+
+const COMMITMENTS = [
+  {
+    icon: FileText,
+    title: "Data Processing",
+    body: "We analyse your declared qualifications and experience against UK regulatory criteria (GMC, NMC, HCPC).",
+  },
+  {
+    icon: Lock,
+    title: "Secure Storage",
+    body: "Documents uploaded are stored securely and never shared with employers or regulators without your explicit action.",
+  },
+  {
+    icon: AlertCircle,
+    title: "Advisory Only",
+    body: "This platform provides decision support only. Final regulatory decisions rest with the relevant body.",
+  },
+];
 
 export default function ConsentPage() {
   const [checked, setChecked] = useState(false);
@@ -14,10 +33,7 @@ export default function ConsentPage() {
 
   const handleContinue = async () => {
     try {
-      await recordConsentMutation.mutateAsync({
-        data: { termsVersion: "1.0.0" }
-      });
-      // Invalidate to unblock AuthGuard
+      await recordConsentMutation.mutateAsync({ data: { termsVersion: "1.0.0" } });
       queryClient.invalidateQueries({ queryKey: getGetMyConsentQueryKey() });
       setLocation("/");
     } catch (err) {
@@ -26,55 +42,82 @@ export default function ConsentPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 relative overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5" />
-      
-      <PageTransition className="max-w-xl relative z-10">
-        <Card className="p-8 md:p-12 shadow-xl shadow-black/5">
-          <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-8">
-            <ShieldAlert className="w-8 h-8 text-primary" />
-          </div>
-          
-          <h1 className="text-3xl font-display font-bold text-foreground mb-4">
-            Data Privacy & Consent
-          </h1>
-          <p className="text-muted-foreground leading-relaxed mb-8 text-lg">
-            JOBSAGE processes your professional details to provide eligibility intelligence. 
-            Before we begin, we need your consent to store and analyze this data.
-          </p>
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-accent/5" />
 
-          <div className="bg-muted/50 border border-border rounded-xl p-6 mb-8 text-sm text-foreground/80 space-y-4">
-            <p><strong>1. Data Processing:</strong> We analyze your declared qualifications and experience against UK regulatory criteria (e.g., GMC, NMC, HCPC).</p>
-            <p><strong>2. Document Storage:</strong> Any documents uploaded are stored securely and are not shared with employers or regulators without explicit future action.</p>
-            <p><strong>3. Advisory Nature:</strong> This platform provides decision support only. Final decisions rest with the relevant regulator.</p>
+      <PageTransition className="w-full max-w-lg relative z-10">
+        {/* Logo */}
+        <div className="flex items-center justify-center gap-2.5 mb-8">
+          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg">
+            <Shield className="w-6 h-6 text-primary-foreground" />
+          </div>
+          <span className="text-2xl font-display font-extrabold text-primary tracking-tight">JOBSAGE</span>
+        </div>
+
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-border/50 p-8">
+          <div className="text-center mb-8">
+            <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Shield className="w-7 h-7 text-primary" />
+            </div>
+            <h1 className="text-2xl font-display font-bold text-foreground mb-2">
+              Data Privacy & Consent
+            </h1>
+            <p className="text-muted-foreground text-sm leading-relaxed">
+              Before accessing JOBSAGE, please review how we handle your data and give your consent.
+            </p>
           </div>
 
-          <label className="flex items-start space-x-4 p-4 rounded-xl border-2 border-transparent hover:bg-muted/50 cursor-pointer transition-colors group">
-            <div className="relative flex items-center justify-center mt-1">
-              <input 
-                type="checkbox" 
-                className="peer w-6 h-6 rounded-md border-2 border-primary/30 appearance-none checked:bg-primary checked:border-primary transition-all cursor-pointer"
+          <div className="space-y-3 mb-8">
+            {COMMITMENTS.map(({ icon: Icon, title, body }, i) => (
+              <motion.div
+                key={title}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.1 + 0.1 }}
+                className="flex items-start gap-3 p-4 rounded-xl bg-muted/40 border border-border/40"
+              >
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <Icon className="w-4 h-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">{title}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{body}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Consent checkbox */}
+          <label className="flex items-start gap-3 p-4 rounded-xl border-2 border-transparent hover:border-primary/20 hover:bg-primary/5 cursor-pointer transition-all group mb-6">
+            <div className="relative flex items-center justify-center mt-0.5 shrink-0">
+              <input
+                type="checkbox"
+                className="peer w-5 h-5 rounded border-2 border-primary/30 appearance-none checked:bg-primary checked:border-primary transition-all cursor-pointer"
                 checked={checked}
                 onChange={(e) => setChecked(e.target.checked)}
               />
-              <Check className="w-4 h-4 text-primary-foreground absolute pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity" />
+              <Check className="w-3 h-3 text-primary-foreground absolute pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity" />
             </div>
-            <span className="text-sm font-medium text-foreground select-none">
-              I have read and agree to the Terms of Service and Privacy Policy. I consent to JOBSAGE processing my professional data for eligibility evaluation.
+            <span className="text-sm text-foreground leading-relaxed select-none">
+              I have read and agree to the{" "}
+              <span className="text-primary underline cursor-pointer">Terms of Service</span> and{" "}
+              <span className="text-primary underline cursor-pointer">Privacy Policy</span>. I consent to JOBSAGE processing my professional data for eligibility evaluation.
             </span>
           </label>
 
-          <div className="mt-10">
-            <Button 
-              size="lg" 
-              className="w-full" 
-              disabled={!checked || recordConsentMutation.isPending}
-              onClick={handleContinue}
-            >
-              {recordConsentMutation.isPending ? "Recording Consent..." : "Accept & Continue"}
-            </Button>
-          </div>
-        </Card>
+          <Button
+            size="lg"
+            className="w-full"
+            disabled={!checked || recordConsentMutation.isPending}
+            onClick={handleContinue}
+          >
+            {recordConsentMutation.isPending ? "Recording Consent..." : "Accept & Continue"}
+          </Button>
+
+          <p className="mt-4 text-center text-xs text-muted-foreground">
+            You can withdraw consent at any time by contacting us.
+          </p>
+        </div>
       </PageTransition>
     </div>
   );
