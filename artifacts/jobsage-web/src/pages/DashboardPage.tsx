@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { useAuth } from "@workspace/auth-web";
-import { useGetMyProfile, useListEligibilityHistory } from "@workspace/api-client-react";
+import {
+  useGetMyProfile,
+  useListEligibilityHistory,
+  useListMyDocuments,
+  useListMatchedRoles,
+  useGetRemediationPlan,
+} from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, Button, PageTransition } from "@/components/ui-enhanced";
 import {
@@ -12,8 +18,15 @@ import {
   ChevronUp,
   AlertTriangle,
   MapPin,
+  Briefcase,
+  CheckCircle2,
+  Circle,
+  Files,
+  TrendingUp,
+  User,
 } from "lucide-react";
 import { Link } from "wouter";
+import { motion } from "framer-motion";
 
 type EligibilityOutcome = "eligible" | "not_eligible" | "ineligible";
 
@@ -38,27 +51,160 @@ function OutcomePill({ outcome, reviewFlagged }: { outcome: EligibilityOutcome; 
   );
 }
 
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  sub,
+  href,
+  delay,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: string | number;
+  sub?: string;
+  href: string;
+  delay: number;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay, duration: 0.4 }}
+    >
+      <Link href={href}>
+        <Card className="p-5 flex items-center gap-4 hover:shadow-md hover:border-primary/20 transition-all cursor-pointer group">
+          <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/15 transition-colors">
+            <Icon className="w-5 h-5 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs text-muted-foreground font-medium">{label}</p>
+            <p className="text-2xl font-display font-bold text-foreground leading-tight">{value}</p>
+            {sub && <p className="text-xs text-muted-foreground truncate">{sub}</p>}
+          </div>
+          <ArrowRight className="w-4 h-4 text-muted-foreground/40 ml-auto shrink-0 group-hover:text-primary/60 group-hover:translate-x-0.5 transition-all" />
+        </Card>
+      </Link>
+    </motion.div>
+  );
+}
+
+function ProfileCompletionRing({ pct }: { pct: number }) {
+  const r = 22;
+  const circ = 2 * Math.PI * r;
+  const dash = (pct / 100) * circ;
+  return (
+    <svg width="60" height="60" className="-rotate-90">
+      <circle cx="30" cy="30" r={r} strokeWidth="5" stroke="currentColor" className="text-primary/10" fill="none" />
+      <circle
+        cx="30"
+        cy="30"
+        r={r}
+        strokeWidth="5"
+        stroke="currentColor"
+        className="text-primary transition-all duration-700"
+        fill="none"
+        strokeDasharray={`${dash} ${circ}`}
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function profileCompletionPct(profile: Record<string, unknown> | undefined): number {
+  if (!profile) return 0;
+  const fields = [
+    "profession",
+    "specialty",
+    "qualificationCountry",
+    "qualificationType",
+    "qualificationYear",
+    "experienceYears",
+    "registrationStatus",
+    "residencyStatus",
+  ];
+  const filled = fields.filter((f) => profile[f] != null && profile[f] !== "").length;
+  return Math.round((filled / fields.length) * 100);
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const { data: profile } = useGetMyProfile();
   const { data: eligibilityHistory } = useListEligibilityHistory();
-  const latestDecision = eligibilityHistory?.decisions?.[0];
+  const { data: documents } = useListMyDocuments();
+  const { data: matchedRoles } = useListMatchedRoles();
+  const { data: plan } = useGetRemediationPlan();
 
+  const latestDecision = eligibilityHistory?.decisions?.[0];
   const [showReasonCodes, setShowReasonCodes] = useState(false);
+
+  const docCount = documents?.documents?.length ?? 0;
+  const rolesCount = matchedRoles?.roles?.length ?? 0;
+
+  const planSteps = plan?.steps ?? [];
+  const doneSteps = planSteps.filter((s) => s.status === "done").length;
+  const totalSteps = planSteps.length;
+  const planPct = totalSteps > 0 ? Math.round((doneSteps / totalSteps) * 100) : 0;
+  const nextStep = planSteps.find((s) => s.status !== "done");
+
+  const profilePct = profileCompletionPct(profile as Record<string, unknown> | undefined);
+
+  const professionLabel = profile?.profession
+    ? profile.profession.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())
+    : null;
 
   return (
     <AppLayout>
       <PageTransition>
-        <header className="mb-8">
-          <h1 className="text-3xl font-display font-bold text-foreground">
-            Welcome back, {user?.firstName || "Candidate"}
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            Here is your professional intelligence overview.
-          </p>
+        {/* Header */}
+        <header className="mb-8 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-display font-bold text-foreground">
+              Welcome back, {user?.firstName || "Candidate"}
+            </h1>
+            <div className="flex items-center gap-2 mt-2">
+              {professionLabel && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary">
+                  <User className="w-3 h-3" />
+                  {professionLabel}
+                </span>
+              )}
+              <p className="text-muted-foreground text-sm">Your professional intelligence overview.</p>
+            </div>
+          </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        {/* Quick stats row */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+          <StatCard
+            icon={Files}
+            label="Documents"
+            value={docCount}
+            sub={docCount === 1 ? "1 file uploaded" : `${docCount} files uploaded`}
+            href="/documents"
+            delay={0.05}
+          />
+          <StatCard
+            icon={Briefcase}
+            label="Matched Roles"
+            value={rolesCount}
+            sub={rolesCount > 0 ? "View opportunities" : "Run eligibility check first"}
+            href="/opportunities"
+            delay={0.1}
+          />
+          <StatCard
+            icon={TrendingUp}
+            label="Plan Progress"
+            value={totalSteps > 0 ? `${planPct}%` : "—"}
+            sub={totalSteps > 0 ? `${doneSteps} of ${totalSteps} steps done` : "No plan generated yet"}
+            href="/path"
+            delay={0.15}
+          />
+        </div>
+
+        {/* Main grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+          {/* Eligibility card — spans 2 cols */}
           <Card className="lg:col-span-2 p-8 bg-gradient-to-br from-primary to-primary/90 text-primary-foreground border-0">
             <div className="flex items-start justify-between">
               <div className="flex-1">
@@ -144,7 +290,7 @@ export default function DashboardPage() {
                     </p>
 
                     <p className="text-primary-foreground/40 text-xs mb-6 max-w-sm leading-relaxed">
-                      This assessment is based on publicly available regulatory criteria and is provided for guidance only. It does not constitute professional legal or medical regulatory advice. Always verify your eligibility directly with the relevant regulatory body (GMC, NMC, or HCPC).
+                      This assessment is for guidance only and does not constitute professional legal or medical regulatory advice. Always verify directly with GMC, NMC, or HCPC.
                     </p>
                   </>
                 ) : (
@@ -170,40 +316,57 @@ export default function DashboardPage() {
             </div>
           </Card>
 
+          {/* Profile card */}
           <Card className="p-6 flex flex-col">
-            <h3 className="text-lg font-semibold mb-4 flex items-center">
+            <h3 className="text-lg font-semibold mb-5 flex items-center">
               <span className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center mr-3">
                 <FileText className="w-4 h-4" />
               </span>
-              Profile Snapshot
+              Profile
             </h3>
 
-            <div className="space-y-4 flex-1">
-              <div>
-                <p className="text-sm text-muted-foreground">Profession</p>
-                <p className="font-medium capitalize">
-                  {profile?.profession?.replace(/_/g, " ") || "Not set"}
-                </p>
+            {/* Completion ring */}
+            <div className="flex items-center gap-4 mb-5 p-4 rounded-xl bg-muted/50">
+              <div className="relative shrink-0">
+                <ProfileCompletionRing pct={profilePct} />
+                <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-primary">
+                  {profilePct}%
+                </span>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Registration</p>
-                <p className="font-medium capitalize">
-                  {profile?.registrationStatus?.replace(/_/g, " ") || "Not set"}
+                <p className="text-sm font-semibold text-foreground">
+                  {profilePct === 100 ? "Profile complete" : "Profile incomplete"}
                 </p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Experience</p>
-                <p className="font-medium">
-                  {profile?.experienceYears ? `${profile.experienceYears} Years` : "Not set"}
+                <p className="text-xs text-muted-foreground">
+                  {profilePct === 100
+                    ? "All fields filled in"
+                    : "Complete your profile for accurate results"}
                 </p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Qualification Country</p>
-                <p className="font-medium">{profile?.qualificationCountry || "Not set"}</p>
               </div>
             </div>
 
-            <div className="mt-6 pt-6 border-t border-border">
+            <div className="space-y-3 flex-1">
+              {[
+                { label: "Profession", val: profile?.profession?.replace(/_/g, " ") },
+                { label: "Registration", val: profile?.registrationStatus?.replace(/_/g, " ") },
+                {
+                  label: "Experience",
+                  val: profile?.experienceYears != null ? `${profile.experienceYears} yrs` : null,
+                },
+                { label: "Qualification Country", val: profile?.qualificationCountry },
+              ].map(({ label, val }) => (
+                <div key={label} className="flex justify-between items-center py-1.5 border-b border-border/50 last:border-0">
+                  <p className="text-xs text-muted-foreground">{label}</p>
+                  <p className="text-sm font-medium capitalize text-right max-w-[55%] truncate">
+                    {(val as string | null | undefined) || (
+                      <span className="text-muted-foreground/60 italic font-normal">Not set</span>
+                    )}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-5 pt-5 border-t border-border">
               <Link href="/profile" className="inline-flex w-full">
                 <Button variant="outline" className="w-full">
                   Update Profile
@@ -212,6 +375,87 @@ export default function DashboardPage() {
             </div>
           </Card>
         </div>
+
+        {/* Remediation progress card — only show when a plan exists */}
+        {totalSteps > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.4 }}
+          >
+            <Card className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-lg bg-accent/10 text-accent flex items-center justify-center">
+                    <TrendingUp className="w-4 h-4" />
+                  </span>
+                  Remediation Plan
+                </h3>
+                <Link href="/path">
+                  <Button variant="ghost" size="sm" className="text-xs gap-1">
+                    View all <ArrowRight className="w-3 h-3" />
+                  </Button>
+                </Link>
+              </div>
+
+              {/* Progress bar */}
+              <div className="mb-4">
+                <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
+                  <span>{doneSteps} of {totalSteps} steps completed</span>
+                  <span className="font-semibold text-foreground">{planPct}%</span>
+                </div>
+                <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+                  <motion.div
+                    className="h-full bg-gradient-to-r from-accent to-primary rounded-full"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${planPct}%` }}
+                    transition={{ duration: 0.8, delay: 0.3, ease: "easeOut" }}
+                  />
+                </div>
+              </div>
+
+              {/* Step list — show up to 3 */}
+              <div className="space-y-2 mb-4">
+                {planSteps.slice(0, 3).map((step) => (
+                  <div key={step.id} className="flex items-start gap-3">
+                    {step.status === "done" ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    ) : (
+                      <Circle className="w-4 h-4 text-muted-foreground/40 shrink-0 mt-0.5" />
+                    )}
+                    <p className={`text-sm leading-snug ${step.status === "done" ? "line-through text-muted-foreground/50" : "text-foreground"}`}>
+                      {step.title}
+                    </p>
+                  </div>
+                ))}
+                {totalSteps > 3 && (
+                  <p className="text-xs text-muted-foreground pl-7">+ {totalSteps - 3} more steps</p>
+                )}
+              </div>
+
+              {/* Next step CTA */}
+              {nextStep && (
+                <div className="flex items-start gap-3 p-3 rounded-xl bg-accent/5 border border-accent/10">
+                  <span className="w-5 h-5 rounded-full bg-accent/20 text-accent flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">↓</span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-accent mb-0.5">Next Step</p>
+                    <p className="text-sm text-foreground font-medium truncate">{nextStep.title}</p>
+                    {nextStep.gap && (
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{nextStep.gap}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {planPct === 100 && (
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <p className="text-sm font-semibold text-emerald-800">All remediation steps completed!</p>
+                </div>
+              )}
+            </Card>
+          </motion.div>
+        )}
       </PageTransition>
     </AppLayout>
   );

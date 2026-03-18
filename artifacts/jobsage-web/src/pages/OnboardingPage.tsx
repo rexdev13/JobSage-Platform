@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getGetMyProfileQueryKey } from "@workspace/api-client-react";
 import { Card, Button, Input, Select, Label, PageTransition } from "@/components/ui-enhanced";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { ArrowRight, ArrowLeft, CheckCircle2, Shield } from "lucide-react";
 
 type Profession = "doctor" | "nurse" | "midwife" | "allied_health_professional" | "clinical_academic";
 type RegistrationStatus = "registered" | "not_registered" | "in_process";
@@ -22,6 +22,13 @@ type ProfileData = {
   residencyStatus: string;
   requiresSponsorship: boolean;
 };
+
+const STEPS = [
+  { label: "Identity", title: "Professional Identity" },
+  { label: "Qualifications", title: "Qualifications" },
+  { label: "Experience", title: "Experience & Registration" },
+  { label: "Immigration", title: "Immigration & Visa" },
+];
 
 export default function OnboardingPage() {
   const [step, setStep] = useState(1);
@@ -85,45 +92,62 @@ export default function OnboardingPage() {
   };
 
   const isStep1Valid = data.profession !== "";
-  const isStep2Valid =
-    data.qualificationCountry !== "" &&
-    data.qualificationType !== "" &&
-    data.qualificationYear !== "";
+  const isStep2Valid = data.qualificationCountry !== "" && data.qualificationType !== "" && data.qualificationYear !== "";
   const isStep3Valid = data.experienceYears !== "";
   const isStep4Valid = data.residencyStatus !== "";
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 flex flex-col items-center">
-      <div className="w-full max-w-2xl mb-8 flex justify-between items-center px-4">
-        <h1 className="text-2xl font-display font-bold text-primary tracking-tight">JOBSAGE</h1>
-        <div className="text-sm font-medium text-muted-foreground">Step {step} of 4</div>
+    <div className="min-h-screen bg-background py-10 px-4 flex flex-col items-center">
+      {/* Brand header */}
+      <div className="w-full max-w-2xl mb-8 flex justify-between items-center px-2">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shadow">
+            <Shield className="w-5 h-5 text-primary-foreground" />
+          </div>
+          <span className="text-xl font-display font-extrabold text-primary tracking-tight">JOBSAGE</span>
+        </div>
+        <div className="flex flex-col items-end">
+          <span className="text-xs text-muted-foreground">Step {step} of 4</span>
+          <span className="text-sm font-semibold text-foreground">{STEPS[step - 1].label}</span>
+        </div>
       </div>
 
-      <div className="w-full max-w-2xl mb-8 px-4 flex gap-2">
+      {/* Progress bar */}
+      <div className="w-full max-w-2xl mb-8 px-2 flex gap-1.5">
         {[1, 2, 3, 4].map(i => (
-          <div key={i} className={`h-2 flex-1 rounded-full transition-colors duration-500 ${i <= step ? "bg-primary" : "bg-primary/10"}`} />
+          <div key={i} className="relative flex-1 h-1.5 rounded-full bg-primary/10 overflow-hidden">
+            {i <= step && (
+              <motion.div
+                className="absolute inset-0 bg-primary rounded-full"
+                initial={{ scaleX: 0 }}
+                animate={{ scaleX: 1 }}
+                transition={{ duration: 0.4 }}
+                style={{ transformOrigin: "left" }}
+              />
+            )}
+          </div>
         ))}
       </div>
 
-      <div className="w-full max-w-2xl relative">
+      <div className="w-full max-w-2xl">
         <AnimatePresence mode="wait">
           <motion.div
             key={step}
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
+            transition={{ duration: 0.28 }}
           >
-            <Card className="p-8 shadow-xl shadow-black/5">
+            <Card className="p-8 shadow-xl shadow-black/5 border-border/60">
 
               {step === 1 && (
                 <div className="space-y-6">
                   <div>
-                    <h2 className="text-2xl font-display font-bold text-foreground mb-2">Professional Identity</h2>
-                    <p className="text-muted-foreground">Select your primary healthcare profession.</p>
+                    <h2 className="text-2xl font-display font-bold text-foreground mb-1">Professional Identity</h2>
+                    <p className="text-muted-foreground text-sm">Select your primary healthcare profession and specialty.</p>
                   </div>
                   <div>
-                    <Label htmlFor="profession">Profession *</Label>
+                    <Label htmlFor="profession">Profession <span className="text-destructive">*</span></Label>
                     <Select name="profession" value={data.profession} onChange={handleChange} required>
                       <option value="" disabled>Select profession...</option>
                       <option value="doctor">Doctor</option>
@@ -149,20 +173,20 @@ export default function OnboardingPage() {
               {step === 2 && (
                 <div className="space-y-6">
                   <div>
-                    <h2 className="text-2xl font-display font-bold text-foreground mb-2">Qualifications</h2>
-                    <p className="text-muted-foreground">Where and when did you obtain your primary qualification?</p>
+                    <h2 className="text-2xl font-display font-bold text-foreground mb-1">Qualifications</h2>
+                    <p className="text-muted-foreground text-sm">Where and when did you obtain your primary qualification?</p>
                   </div>
                   <div>
-                    <Label htmlFor="qualificationCountry">Country of Qualification *</Label>
+                    <Label htmlFor="qualificationCountry">Country of Qualification <span className="text-destructive">*</span></Label>
                     <Input name="qualificationCountry" placeholder="e.g. India, Nigeria, UK" value={data.qualificationCountry} onChange={handleChange} required />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="qualificationType">Degree Type *</Label>
+                      <Label htmlFor="qualificationType">Degree Type <span className="text-destructive">*</span></Label>
                       <Input name="qualificationType" placeholder="e.g. MBBS, BSc" value={data.qualificationType} onChange={handleChange} required />
                     </div>
                     <div>
-                      <Label htmlFor="qualificationYear">Year *</Label>
+                      <Label htmlFor="qualificationYear">Year <span className="text-destructive">*</span></Label>
                       <Input name="qualificationYear" type="number" placeholder="YYYY" value={data.qualificationYear} onChange={handleChange} required />
                     </div>
                   </div>
@@ -180,32 +204,32 @@ export default function OnboardingPage() {
               {step === 3 && (
                 <div className="space-y-6">
                   <div>
-                    <h2 className="text-2xl font-display font-bold text-foreground mb-2">Experience & Registration</h2>
-                    <p className="text-muted-foreground">Your regulatory standing and clinical experience.</p>
+                    <h2 className="text-2xl font-display font-bold text-foreground mb-1">Experience & Registration</h2>
+                    <p className="text-muted-foreground text-sm">Your regulatory standing and clinical experience.</p>
                   </div>
                   <div>
-                    <Label htmlFor="experienceYears">Years of Post-graduate Experience *</Label>
-                    <Input name="experienceYears" type="number" min="0" value={data.experienceYears} onChange={handleChange} required />
+                    <Label htmlFor="experienceYears">Years of Post-graduate Experience <span className="text-destructive">*</span></Label>
+                    <Input name="experienceYears" type="number" min="0" placeholder="e.g. 5" value={data.experienceYears} onChange={handleChange} required />
                   </div>
                   <div>
-                    <Label htmlFor="registrationStatus">UK Registration Status *</Label>
+                    <Label htmlFor="registrationStatus">UK Registration Status <span className="text-destructive">*</span></Label>
                     <Select name="registrationStatus" value={data.registrationStatus} onChange={handleChange}>
                       <option value="not_registered">Not Registered</option>
                       <option value="in_process">In Process</option>
                       <option value="registered">Fully Registered</option>
                     </Select>
                   </div>
-                  <label className="flex items-center space-x-3 p-4 border rounded-xl hover:bg-muted/50 cursor-pointer">
+                  <label className="flex items-center space-x-3 p-4 border border-border rounded-xl hover:bg-muted/50 cursor-pointer transition-colors">
                     <input
                       type="checkbox"
                       name="licenceReady"
                       checked={data.licenceReady}
                       onChange={handleChange}
-                      className="w-5 h-5 rounded border-primary/30 text-primary focus:ring-primary"
+                      className="w-5 h-5 rounded border-primary/30 text-primary focus:ring-primary accent-primary"
                     />
                     <div>
-                      <div className="font-semibold text-foreground">Licence to Practice Ready</div>
-                      <div className="text-sm text-muted-foreground">Do you have all documents required to apply for a licence?</div>
+                      <div className="font-semibold text-foreground text-sm">Licence to Practice Ready</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">Do you have all documents required to apply for a licence?</div>
                     </div>
                   </label>
                   <div className="pt-4 flex justify-between">
@@ -222,28 +246,28 @@ export default function OnboardingPage() {
               {step === 4 && (
                 <div className="space-y-6">
                   <div>
-                    <h2 className="text-2xl font-display font-bold text-foreground mb-2">Immigration & Visa</h2>
-                    <p className="text-muted-foreground">Required for determining sponsorship feasibility.</p>
+                    <h2 className="text-2xl font-display font-bold text-foreground mb-1">Immigration & Visa</h2>
+                    <p className="text-muted-foreground text-sm">Required for determining sponsorship feasibility.</p>
                   </div>
                   <div>
-                    <Label htmlFor="residencyStatus">Current Residency/Visa Status *</Label>
+                    <Label htmlFor="residencyStatus">Current Residency/Visa Status <span className="text-destructive">*</span></Label>
                     <Input name="residencyStatus" placeholder="e.g. UK Citizen, Skilled Worker Visa, Outside UK" value={data.residencyStatus} onChange={handleChange} required />
                   </div>
-                  <label className="flex items-center space-x-3 p-4 border rounded-xl hover:bg-muted/50 cursor-pointer">
+                  <label className="flex items-center space-x-3 p-4 border border-border rounded-xl hover:bg-muted/50 cursor-pointer transition-colors">
                     <input
                       type="checkbox"
                       name="requiresSponsorship"
                       checked={data.requiresSponsorship}
                       onChange={handleChange}
-                      className="w-5 h-5 rounded border-primary/30 text-primary focus:ring-primary"
+                      className="w-5 h-5 rounded border-primary/30 text-primary focus:ring-primary accent-primary"
                     />
                     <div>
-                      <div className="font-semibold text-foreground">Requires Visa Sponsorship</div>
-                      <div className="text-sm text-muted-foreground">Check this if you need an employer to sponsor your work visa.</div>
+                      <div className="font-semibold text-foreground text-sm">Requires Visa Sponsorship</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">Check this if you need an employer to sponsor your work visa.</div>
                     </div>
                   </label>
                   {submitError && (
-                    <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+                    <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
                       {submitError}
                     </div>
                   )}
@@ -263,6 +287,10 @@ export default function OnboardingPage() {
           </motion.div>
         </AnimatePresence>
       </div>
+
+      <p className="mt-6 text-xs text-muted-foreground text-center max-w-md">
+        Your data is processed securely and used solely to evaluate your eligibility against UK regulatory criteria.
+      </p>
     </div>
   );
 }
