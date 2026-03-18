@@ -8,7 +8,7 @@ import {
   getGetMyProfileQueryKey,
 } from "@workspace/api-client-react";
 
-const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/reset-password", "/landing"];
+const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/reset-password"];
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
