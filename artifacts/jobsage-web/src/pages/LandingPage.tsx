@@ -690,7 +690,7 @@ export default function LandingPage() {
                 </ul>
                 <Button
                   variant="outline"
-                  onClick={() => setLocation(cta === "Contact Sales" ? "/register" : "/register")}
+                  onClick={() => setLocation("/register")}
                   className={`w-full ${highlight ? "bg-white text-primary border-white hover:bg-white/90 font-bold" : ""}`}
                 >
                   {cta}
