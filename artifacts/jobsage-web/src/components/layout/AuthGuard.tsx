@@ -8,7 +8,7 @@ import {
   getGetMyProfileQueryKey,
 } from "@workspace/api-client-react";
 
-const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/reset-password"];
+const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/reset-password", "/"];
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
@@ -38,7 +38,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     },
   });
 
-  const isPublic = PUBLIC_PATHS.some((p) => location.startsWith(p));
+  const isPublic = PUBLIC_PATHS.some((p) =>
+    p === "/" ? location === "/" : location.startsWith(p)
+  );
 
   const isLoading =
     authLoading ||
