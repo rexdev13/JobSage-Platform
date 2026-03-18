@@ -40,7 +40,7 @@ export default function RegisterPage() {
       const data = await res.json() as { error?: string };
 
       if (!res.ok) {
-        setError(data.error ?? "Registration failed. Please try again.");
+        setError(data.error ?? (res.status === 503 ? "Could not send verification email. Please try again shortly." : "Registration failed. Please try again."));
         return;
       }
 
