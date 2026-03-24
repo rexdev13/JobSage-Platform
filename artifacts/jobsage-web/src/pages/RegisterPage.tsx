@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Shield, Eye, EyeOff, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Shield, Eye, EyeOff, AlertCircle, CheckCircle2, RefreshCw, MailOpen } from "lucide-react";
 import { Button } from "@/components/ui-enhanced";
 import { motion } from "framer-motion";
 
@@ -15,6 +15,24 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
+
+  async function handleResendVerification() {
+    setResendLoading(true);
+    setResendSuccess(false);
+    try {
+      await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      setResendSuccess(true);
+    } catch {
+    } finally {
+      setResendLoading(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -82,14 +100,48 @@ export default function RegisterPage() {
             </div>
             <h2 className="text-2xl font-display font-bold text-foreground mb-3">Check your email</h2>
             <p className="text-muted-foreground text-sm mb-2">
-              We sent a verification link to <span className="font-medium text-foreground">{email}</span>.
+              We sent a verification link to{" "}
+              <span className="font-semibold text-foreground">{email}</span>.
             </p>
-            <p className="text-muted-foreground text-sm mb-6">
-              Click the link in the email to activate your account and sign in.
+            <p className="text-muted-foreground text-sm mb-5">
+              Click the link in that email to activate your account and sign in.
             </p>
-            <Button variant="outline" onClick={() => setLocation("/login")} className="w-full">
-              Back to Sign In
-            </Button>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5 text-left">
+              <div className="flex items-start gap-2.5">
+                <MailOpen className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-amber-800 mb-1">Can't find the email?</p>
+                  <ul className="text-xs text-amber-700 space-y-0.5 list-disc list-inside">
+                    <li>Check your <strong>Spam</strong> or <strong>Junk</strong> folder</li>
+                    <li>Search for <strong>noreply@jobsage.co.uk</strong></li>
+                    <li>It may take a minute or two to arrive</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {resendSuccess ? (
+                <div className="flex items-center justify-center gap-1.5 text-green-700 text-sm py-2">
+                  <CheckCircle2 className="w-4 h-4" />
+                  New verification email sent — check your inbox.
+                </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  onClick={handleResendVerification}
+                  disabled={resendLoading}
+                  className="w-full text-sm"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 mr-2 ${resendLoading ? "animate-spin" : ""}`} />
+                  {resendLoading ? "Sending…" : "Resend verification email"}
+                </Button>
+              )}
+              <Button variant="ghost" onClick={() => setLocation("/login")} className="w-full text-sm">
+                Back to Sign In
+              </Button>
+            </div>
           </motion.div>
         </main>
       </div>
