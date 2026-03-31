@@ -38,16 +38,17 @@ function LoadingScreen() {
 }
 
 function ProfileGate() {
-  const { data: profile, isLoading: profileLoading } = useGetMyProfile();
+  const { data: profile, isLoading: profileLoading, isError: profileError } = useGetMyProfile();
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    if (!profileLoading && !profile?.profession) {
+    if (!profileLoading && !profileError && !profile?.profession) {
       setLocation("/onboarding");
     }
-  }, [profileLoading, profile, setLocation]);
+  }, [profileLoading, profileError, profile, setLocation]);
 
   if (profileLoading) return <LoadingScreen />;
+  if (profileError) return <DashboardPage />;
   if (!profile?.profession) return null;
 
   return <DashboardPage />;
