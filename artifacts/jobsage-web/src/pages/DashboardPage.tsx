@@ -137,6 +137,8 @@ export default function DashboardPage() {
 
   const latestDecision = eligibilityHistory?.decisions?.[0];
   const [showReasonCodes, setShowReasonCodes] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const showSetupBanner = !profile?.profession && !bannerDismissed;
 
   const docCount = documents?.documents?.length ?? 0;
   const rolesCount = matchedRoles?.roles?.length ?? 0;
@@ -156,6 +158,37 @@ export default function DashboardPage() {
   return (
     <AppLayout>
       <PageTransition>
+        {/* No-profile setup banner */}
+        {showSetupBanner && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4"
+          >
+            <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-amber-800">Complete your profile to get started</p>
+              <p className="text-xs text-amber-700 mt-0.5">
+                Your eligibility check, matched roles, and remediation plan all need your professional details first.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Link href="/onboarding">
+                <Button size="sm" className="text-xs h-8">
+                  Set up profile <ArrowRight className="w-3 h-3 ml-1" />
+                </Button>
+              </Link>
+              <button
+                onClick={() => setBannerDismissed(true)}
+                className="text-amber-500 hover:text-amber-700 transition-colors p-1"
+                aria-label="Dismiss"
+              >
+                ×
+              </button>
+            </div>
+          </motion.div>
+        )}
+
         {/* Header */}
         <header className="mb-8 flex items-start justify-between gap-4">
           <div>
