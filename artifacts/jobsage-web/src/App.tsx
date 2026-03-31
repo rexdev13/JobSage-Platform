@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { useAuth } from "@workspace/auth-web";
 import { useEffect } from "react";
+import { useGetMyProfile } from "@workspace/api-client-react";
 
 import { AuthGuard } from "@/components/layout/AuthGuard";
 
@@ -27,23 +28,40 @@ import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
 
+function LoadingScreen() {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background">
+      <div className="w-12 h-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin mb-4" />
+      <p className="text-muted-foreground font-medium animate-pulse">Loading JOBSAGE...</p>
+    </div>
+  );
+}
+
+function ProfileGate() {
+  const { data: profile, isLoading: profileLoading } = useGetMyProfile();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (!profileLoading && !profile?.profession) {
+      setLocation("/onboarding");
+    }
+  }, [profileLoading, profile, setLocation]);
+
+  if (profileLoading) return <LoadingScreen />;
+  if (!profile?.profession) return null;
+
+  return <DashboardPage />;
+}
+
 function SmartHome() {
   const { isAuthenticated, isLoading } = useAuth();
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background">
-        <div className="w-12 h-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin mb-4" />
-        <p className="text-muted-foreground font-medium animate-pulse">Loading JOBSAGE...</p>
-      </div>
-    );
-  }
-
+  if (isLoading) return <LoadingScreen />;
   if (!isAuthenticated) return <LandingPage />;
 
   return (
     <AuthGuard>
-      <DashboardPage />
+      <ProfileGate />
     </AuthGuard>
   );
 }
