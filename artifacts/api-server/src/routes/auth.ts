@@ -239,7 +239,7 @@ router.post("/auth/forgot-password", async (req: Request, res: Response) => {
     message: "If an account with that email exists, a password reset link has been sent.",
   };
 
-  if (!user || !user.emailVerified) {
+  if (!user) {
     res.json(SAFE_RESPONSE);
     return;
   }
@@ -299,6 +299,9 @@ router.post("/auth/reset-password", async (req: Request, res: Response) => {
     .update(usersTable)
     .set({
       passwordHash,
+      emailVerified: true,
+      emailVerifyToken: null,
+      emailVerifyTokenExpires: null,
       passwordResetToken: null,
       passwordResetTokenExpires: null,
     })
