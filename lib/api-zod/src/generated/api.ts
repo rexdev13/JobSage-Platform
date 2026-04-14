@@ -622,12 +622,22 @@ export const ListMatchedRolesResponse = zod.object({
           disclaimer: zod.string(),
         })
         .nullish(),
+      isEligible: zod.boolean(),
+      matchScore: zod.number().describe("Match score from 0-100"),
+      eligibilityGaps: zod
+        .array(zod.string())
+        .optional()
+        .describe("Specific gaps preventing eligibility for this role"),
     }),
   ),
-  decisionRecordId: zod.number(),
+  decisionRecordId: zod.number().nullish(),
   rulesetVersion: zod.string(),
   eligibilityOutcome: zod.string().optional(),
   message: zod.string().nullish(),
+  appliedRoleIds: zod
+    .array(zod.number())
+    .optional()
+    .describe("Role IDs the user has already applied to"),
 });
 
 /**
@@ -681,6 +691,59 @@ export const GetSponsorshipFeasibilityResponse = zod.object({
   reasonCode: zod.string(),
   explanation: zod.string(),
   disclaimer: zod.string(),
+});
+
+/**
+ * @summary List the current candidate's job applications
+ */
+export const ListMyApplicationsResponse = zod.object({
+  applications: zod.array(
+    zod.object({
+      id: zod.number(),
+      userId: zod.string(),
+      roleId: zod.number(),
+      status: zod.enum([
+        "applied",
+        "shortlisted",
+        "interview",
+        "offer",
+        "rejected",
+        "no_response",
+      ]),
+      appliedAt: zod.date(),
+      notes: zod.string().nullish(),
+    }),
+  ),
+  stats: zod.object({
+    total: zod.number(),
+    interviews: zod.number(),
+    offers: zod.number(),
+    noResponse: zod.number(),
+  }),
+});
+
+/**
+ * @summary Mark a role as applied (or update application status)
+ */
+export const MarkApplicationBody = zod.object({
+  roleId: zod.number(),
+  notes: zod.string().optional(),
+});
+
+export const MarkApplicationResponse = zod.object({
+  id: zod.number(),
+  userId: zod.string(),
+  roleId: zod.number(),
+  status: zod.enum([
+    "applied",
+    "shortlisted",
+    "interview",
+    "offer",
+    "rejected",
+    "no_response",
+  ]),
+  appliedAt: zod.date(),
+  notes: zod.string().nullish(),
 });
 
 /**

@@ -9,8 +9,10 @@ import type { MatchedRole } from "./matchedRole";
 
 export interface MatchedRoleList {
   roles: MatchedRole[];
-  decisionRecordId: number;
+  decisionRecordId?: number | null;
   rulesetVersion: string;
   eligibilityOutcome?: string;
   message?: string | null;
+  /** Role IDs the user has already applied to */
+  appliedRoleIds?: number[];
 }

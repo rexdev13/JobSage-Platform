@@ -411,14 +411,59 @@ export interface MatchedRole {
   decisionRecordId: number;
   ruleId?: number | null;
   sponsorshipFeasibility?: SponsorshipFeasibility | null;
+  isEligible: boolean;
+  /** Match score from 0-100 */
+  matchScore: number;
+  /** Specific gaps preventing eligibility for this role */
+  eligibilityGaps?: string[];
 }
 
 export interface MatchedRoleList {
   roles: MatchedRole[];
-  decisionRecordId: number;
+  decisionRecordId?: number | null;
   rulesetVersion: string;
   eligibilityOutcome?: string;
   message?: string | null;
+  /** Role IDs the user has already applied to */
+  appliedRoleIds?: number[];
+}
+
+export type ApplicationStatus =
+  (typeof ApplicationStatus)[keyof typeof ApplicationStatus];
+
+export const ApplicationStatus = {
+  applied: "applied",
+  shortlisted: "shortlisted",
+  interview: "interview",
+  offer: "offer",
+  rejected: "rejected",
+  no_response: "no_response",
+} as const;
+
+export interface Application {
+  id: number;
+  userId: string;
+  roleId: number;
+  status: ApplicationStatus;
+  appliedAt: string;
+  notes?: string | null;
+}
+
+export type ApplicationListStats = {
+  total: number;
+  interviews: number;
+  offers: number;
+  noResponse: number;
+};
+
+export interface ApplicationList {
+  applications: Application[];
+  stats: ApplicationListStats;
+}
+
+export interface MarkApplicationRequest {
+  roleId: number;
+  notes?: string;
 }
 
 export interface RoleList {

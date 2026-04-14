@@ -15,4 +15,9 @@ export interface MatchedRole {
   decisionRecordId: number;
   ruleId?: number | null;
   sponsorshipFeasibility?: SponsorshipFeasibility | null;
+  isEligible: boolean;
+  /** Match score from 0-100 */
+  matchScore: number;
+  /** Specific gaps preventing eligibility for this role */
+  eligibilityGaps?: string[];
 }

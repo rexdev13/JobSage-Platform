@@ -13,6 +13,7 @@ import remediationRouter from "./remediation";
 import aiRouter from "./ai";
 import reviewRouter from "./review";
 import adminAuditRouter from "./adminAudit";
+import applicationsRouter from "./applications";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(remediationRouter);
 router.use(aiRouter);
 router.use(reviewRouter);
 router.use(adminAuditRouter);
+router.use(applicationsRouter);
 
 export default router;
