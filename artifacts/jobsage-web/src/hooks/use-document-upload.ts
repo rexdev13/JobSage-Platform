@@ -59,7 +59,7 @@ export function useDocumentUpload() {
 
       // 3. Register document in database
       setProgress(90);
-      await registerMutation.mutateAsync({
+      const registered = await registerMutation.mutateAsync({
         data: {
           filename: file.name,
           mimeType: file.type,
@@ -73,11 +73,11 @@ export function useDocumentUpload() {
       // 4. Invalidate cache
       queryClient.invalidateQueries({ queryKey: getListMyDocumentsQueryKey() });
       
-      return true;
+      return { id: registered.id, mimeType: file.type };
     } catch (err) {
       console.error("Upload error:", err);
       setError(err instanceof Error ? err.message : "Failed to upload document");
-      return false;
+      return null;
     } finally {
       setIsUploading(false);
     }

@@ -194,10 +194,14 @@ export default function DocumentsPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const success = await uploadFile(file);
-    if (success) {
-      toast({ title: "Upload complete", description: `${file.name} was successfully uploaded.` });
+    const result = await uploadFile(file);
+    if (result) {
+      toast({ title: "Upload complete", description: `${file.name} uploaded. Extracting profile data…` });
       queryClient.invalidateQueries({ queryKey: getListMyDocumentsQueryKey() });
+      const canParse = result.mimeType === "application/pdf" || result.mimeType.startsWith("image/");
+      if (canParse) {
+        void handleParseCv(result.id);
+      }
     } else {
       toast({ title: "Upload failed", variant: "destructive", description: "There was a problem uploading your file." });
     }
