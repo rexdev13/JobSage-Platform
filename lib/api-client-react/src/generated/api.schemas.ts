@@ -1060,6 +1060,13 @@ export type ImportRolesCSVBody = {
   file: Blob;
 };
 
+export type GetInterviewPrepQuestionsParams = {
+  /**
+   * Override the specialty from the candidate's profile (e.g. "Cardiology", "General Practice").
+   */
+  specialty?: string;
+};
+
 export type ListReviewQueueParams = {
   status?: ListReviewQueueStatus;
 };

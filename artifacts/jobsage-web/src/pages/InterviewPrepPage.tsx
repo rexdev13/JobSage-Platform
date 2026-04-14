@@ -12,6 +12,7 @@ import {
   MessageSquare,
   Lightbulb,
   RefreshCw,
+  Search,
 } from "lucide-react";
 import { useState } from "react";
 import { motion } from "framer-motion";
@@ -125,7 +126,28 @@ function NhsAdviceCard({ advice }: { advice: string[] }) {
 }
 
 export default function InterviewPrepPage() {
-  const { data, isLoading, isError, refetch, isFetching } = useGetInterviewPrepQuestions();
+  const [specialtyInput, setSpecialtyInput] = useState("");
+  const [activeSpecialty, setActiveSpecialty] = useState<string | undefined>(undefined);
+
+  const { data, isLoading, isError, refetch, isFetching } = useGetInterviewPrepQuestions(
+    activeSpecialty ? { specialty: activeSpecialty } : {},
+  );
+
+  function handleSpecialtySearch() {
+    const trimmed = specialtyInput.trim();
+    if (trimmed) {
+      setActiveSpecialty(trimmed);
+    } else {
+      setActiveSpecialty(undefined);
+    }
+    void refetch();
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
+      handleSpecialtySearch();
+    }
+  }
 
   return (
     <AppLayout>
@@ -157,6 +179,52 @@ export default function InterviewPrepPage() {
             Regenerate
           </Button>
         </div>
+
+        {/* Specialty selector */}
+        <Card className="p-4 border-primary/15 bg-primary/3">
+          <p className="text-xs font-semibold text-foreground mb-2 flex items-center gap-1.5">
+            <Search className="w-3.5 h-3.5 text-primary" />
+            Generate questions for a different specialty
+          </p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={specialtyInput}
+              onChange={(e) => setSpecialtyInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={`e.g. Cardiology, General Practice, Paediatrics…`}
+              className="flex-1 h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+            <Button
+              size="sm"
+              onClick={handleSpecialtySearch}
+              disabled={isFetching}
+              className="gap-1.5 shrink-0"
+            >
+              {isFetching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+              Search
+            </Button>
+            {activeSpecialty && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setActiveSpecialty(undefined);
+                  setSpecialtyInput("");
+                  void refetch();
+                }}
+                className="shrink-0 text-xs"
+              >
+                Reset
+              </Button>
+            )}
+          </div>
+          {activeSpecialty && (
+            <p className="text-xs text-primary mt-2">
+              Showing questions for: <span className="font-semibold">{activeSpecialty}</span>
+            </p>
+          )}
+        </Card>
 
         {isLoading && (
           <Card className="p-12 text-center">
@@ -192,14 +260,14 @@ export default function InterviewPrepPage() {
                 </span>
               )}
               <span className="text-xs text-muted-foreground">
-                {data.questionBanks.reduce((sum, b) => sum + b.questions.length, 0)} questions across {data.questionBanks.length} categories
+                {data.questionBanks.reduce((sum: number, b: { questions: string[] }) => sum + b.questions.length, 0)} questions across {data.questionBanks.length} categories
               </span>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
               <div className="lg:col-span-2 space-y-4">
                 <h2 className="text-sm font-semibold text-foreground">Question Banks</h2>
-                {data.questionBanks.map((bank, i) => (
+                {data.questionBanks.map((bank: { category: string; questions: string[] }, i: number) => (
                   <QuestionBankCard
                     key={i}
                     category={bank.category}

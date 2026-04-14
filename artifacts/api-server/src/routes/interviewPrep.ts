@@ -20,7 +20,10 @@ router.get("/interview-prep/questions", requireAuthenticated, async (req, res): 
   }
 
   const profession = profile.profession.replace(/_/g, " ");
-  const specialty = profile.specialty || "General";
+  const specialtyOverride = typeof req.query.specialty === "string" && req.query.specialty.trim()
+    ? req.query.specialty.trim()
+    : null;
+  const specialty = specialtyOverride || profile.specialty || "General";
 
   try {
     const response = await openai.chat.completions.create({

@@ -1280,6 +1280,13 @@ paths:
       tags: [InterviewPrep]
       operationId: getInterviewPrepQuestions
       summary: Get AI-generated interview preparation questions for the candidate's profession and specialty
+      parameters:
+        - name: specialty
+          in: query
+          required: false
+          description: Override the specialty from the candidate's profile (e.g. "Cardiology", "General Practice").
+          schema:
+            type: string
       responses:
         '200':
           description: Interview preparation content.

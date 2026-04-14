@@ -1006,6 +1006,15 @@ export const GetForwardEligibilityResponse = zod.object({
 /**
  * @summary Get AI-generated interview preparation questions for the candidate's profession and specialty
  */
+export const GetInterviewPrepQuestionsQueryParams = zod.object({
+  specialty: zod.coerce
+    .string()
+    .optional()
+    .describe(
+      'Override the specialty from the candidate\'s profile (e.g. \"Cardiology\", \"General Practice\").',
+    ),
+});
+
 export const GetInterviewPrepQuestionsResponse = zod.object({
   profession: zod.string(),
   specialty: zod.string(),

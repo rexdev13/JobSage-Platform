@@ -366,12 +366,30 @@ router.get("/remediation/forward-eligibility", requireAuthenticated, async (req,
     REGISTERED_STATUSES.includes(profile.registrationStatus.toLowerCase());
   const isCurrentlyLicenceReady = profile.licenceReady === true;
 
+  // Determine whether completing the remediation plan would lead to registration.
+  // We look for steps in the plan that address registration gaps (e.g. PLAB, OSCE, licence steps).
+  const hasRegistrationPlanSteps = incompleteSteps.some(
+    (s) =>
+      s.gap?.toLowerCase().includes("registrat") ||
+      s.title?.toLowerCase().includes("registrat") ||
+      s.title?.toLowerCase().includes("plab") ||
+      s.title?.toLowerCase().includes("osce") ||
+      s.title?.toLowerCase().includes("licence") ||
+      s.stepSource === "registration"
+  );
+
+  // After completing the plan the candidate would be considered registration-ready if:
+  //   - they already are, OR
+  //   - they have explicit registration steps in the plan
+  const wouldBeRegisteredAfterPlan =
+    isCurrentlyRegistered || isCurrentlyLicenceReady || hasRegistrationPlanSteps;
+
   const newlyUnlockedRoles = regulatorRoles.filter((role) => {
     const reqReg = role.requiredRegistration.toLowerCase();
     const roleRequiresFull = reqReg.includes("full") || reqReg.includes("registered");
 
     const currentlyEligible = !roleRequiresFull || isCurrentlyRegistered || isCurrentlyLicenceReady;
-    const futureEligible = !roleRequiresFull || true;
+    const futureEligible = !roleRequiresFull || wouldBeRegisteredAfterPlan;
 
     return !currentlyEligible && futureEligible;
   });

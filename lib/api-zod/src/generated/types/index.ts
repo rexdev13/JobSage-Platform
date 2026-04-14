@@ -54,6 +54,7 @@ export * from "./forwardEligibilityResponse";
 export * from "./forwardEligibilityResponseRegulator";
 export * from "./forwardEligibilityRole";
 export * from "./generateJobDescriptionResponse";
+export * from "./getInterviewPrepQuestionsParams";
 export * from "./healthStatus";
 export * from "./importRolesCSVBody";
 export * from "./interviewPrepQuestionBank";
