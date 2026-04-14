@@ -124,6 +124,7 @@ export interface CandidateProfile {
   licenceReady?: boolean | null;
   residencyStatus?: string | null;
   requiresSponsorship?: boolean | null;
+  preferredRegion?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -159,6 +160,7 @@ export interface UpsertProfileRequest {
   licenceReady?: boolean | null;
   residencyStatus: string;
   requiresSponsorship: boolean;
+  preferredRegion?: string | null;
 }
 
 export interface RecordConsentRequest {

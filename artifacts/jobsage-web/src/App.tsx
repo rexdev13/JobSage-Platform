@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { useGetMyProfile } from "@workspace/api-client-react";
 
 import EmployerOnboardingPage from "@/pages/employer/EmployerOnboardingPage";
+import EmployerRegisterPage from "@/pages/employer/EmployerRegisterPage";
 import EmployerDashboardPage from "@/pages/employer/EmployerDashboardPage";
 import EmployerJobFormPage from "@/pages/employer/EmployerJobFormPage";
 import EmployerJobDetailPage from "@/pages/employer/EmployerJobDetailPage";
@@ -44,15 +45,23 @@ function LoadingScreen() {
 
 function ProfileGate() {
   const { data: profile, isLoading: profileLoading, isError: profileError } = useGetMyProfile();
+  const { user } = useAuth();
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    if (!profileLoading && !profileError && !profile?.profession) {
-      setLocation("/onboarding");
+    if (!profileLoading) {
+      if (user?.role === "employer") {
+        setLocation("/employer/dashboard");
+        return;
+      }
+      if (!profileError && !profile?.profession) {
+        setLocation("/onboarding");
+      }
     }
-  }, [profileLoading, profileError, profile, setLocation]);
+  }, [profileLoading, profileError, profile, setLocation, user]);
 
   if (profileLoading) return <LoadingScreen />;
+  if (user?.role === "employer") return null;
   if (profileError) return <DashboardPage />;
   if (!profile?.profession) return null;
 
@@ -126,6 +135,7 @@ function Router() {
       {/* Public auth routes */}
       <Route path="/login" component={LoginPage} />
       <Route path="/register" component={RegisterPage} />
+      <Route path="/employer/register" component={EmployerRegisterPage} />
       <Route path="/forgot-password" component={ForgotPasswordPage} />
       <Route path="/reset-password" component={ResetPasswordPage} />
 
