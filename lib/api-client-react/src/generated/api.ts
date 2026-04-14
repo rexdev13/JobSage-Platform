@@ -41,9 +41,11 @@ import type {
   ErrorEnvelope,
   ExportDecisionAuditParams,
   ForgotPasswordRequest,
+  ForwardEligibilityResponse,
   GenerateJobDescriptionResponse,
   HealthStatus,
   ImportRolesCSVBody,
+  InterviewPrepResponse,
   JobApplicantsResponse,
   JobListing,
   ListConsentLogParams,
@@ -3809,6 +3811,160 @@ export const useUpdateRemediationPlanOrdering = <
 > => {
   return useMutation(getUpdateRemediationPlanOrderingMutationOptions(options));
 };
+
+/**
+ * @summary Simulate eligibility after completing all remediation steps
+ */
+export const getGetForwardEligibilityUrl = () => {
+  return `/api/remediation/forward-eligibility`;
+};
+
+export const getForwardEligibility = async (
+  options?: RequestInit,
+): Promise<ForwardEligibilityResponse> => {
+  return customFetch<ForwardEligibilityResponse>(
+    getGetForwardEligibilityUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetForwardEligibilityQueryKey = () => {
+  return [`/api/remediation/forward-eligibility`] as const;
+};
+
+export const getGetForwardEligibilityQueryOptions = <
+  TData = Awaited<ReturnType<typeof getForwardEligibility>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getForwardEligibility>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetForwardEligibilityQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getForwardEligibility>>
+  > = ({ signal }) => getForwardEligibility({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getForwardEligibility>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetForwardEligibilityQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getForwardEligibility>>
+>;
+export type GetForwardEligibilityQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Simulate eligibility after completing all remediation steps
+ */
+
+export function useGetForwardEligibility<
+  TData = Awaited<ReturnType<typeof getForwardEligibility>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getForwardEligibility>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetForwardEligibilityQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get AI-generated interview preparation questions for the candidate's profession and specialty
+ */
+export const getGetInterviewPrepQuestionsUrl = () => {
+  return `/api/interview-prep/questions`;
+};
+
+export const getInterviewPrepQuestions = async (
+  options?: RequestInit,
+): Promise<InterviewPrepResponse> => {
+  return customFetch<InterviewPrepResponse>(getGetInterviewPrepQuestionsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetInterviewPrepQuestionsQueryKey = () => {
+  return [`/api/interview-prep/questions`] as const;
+};
+
+export const getGetInterviewPrepQuestionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getInterviewPrepQuestions>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getInterviewPrepQuestions>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetInterviewPrepQuestionsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getInterviewPrepQuestions>>
+  > = ({ signal }) => getInterviewPrepQuestions({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getInterviewPrepQuestions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetInterviewPrepQuestionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getInterviewPrepQuestions>>
+>;
+export type GetInterviewPrepQuestionsQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Get AI-generated interview preparation questions for the candidate's profession and specialty
+ */
+
+export function useGetInterviewPrepQuestions<
+  TData = Awaited<ReturnType<typeof getInterviewPrepQuestions>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getInterviewPrepQuestions>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetInterviewPrepQuestionsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Get AI-generated step ordering suggestions for a remediation plan

@@ -7,6 +7,7 @@ import {
   useListMatchedRoles,
   useGetRemediationPlan,
   useListMyApplications,
+  useGetForwardEligibility,
 } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, Button, PageTransition } from "@/components/ui-enhanced";
@@ -29,6 +30,8 @@ import {
   ClipboardList,
   Megaphone,
   DollarSign,
+  Timer,
+  Sparkles,
 } from "lucide-react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
@@ -140,6 +143,7 @@ export default function DashboardPage() {
   const { data: matchedRoles } = useListMatchedRoles();
   const { data: plan } = useGetRemediationPlan();
   const { data: applicationsData } = useListMyApplications();
+  const { data: forwardEligibility } = useGetForwardEligibility();
 
   const latestDecision = eligibilityHistory?.decisions?.[0];
   const [showReasonCodes, setShowReasonCodes] = useState(false);
@@ -248,7 +252,13 @@ export default function DashboardPage() {
             icon={TrendingUp}
             label="Plan Progress"
             value={totalSteps > 0 ? `${planPct}%` : "—"}
-            sub={totalSteps > 0 ? `${doneSteps} of ${totalSteps} steps done` : "No plan generated yet"}
+            sub={
+              forwardEligibility?.timeToEligibilityMonths
+                ? `~${forwardEligibility.timeToEligibilityLabel} to eligibility`
+                : totalSteps > 0
+                  ? `${doneSteps} of ${totalSteps} steps done`
+                  : "No plan generated yet"
+            }
             href="/path"
             delay={0.15}
           />
@@ -508,6 +518,38 @@ export default function DashboardPage() {
             </Card>
           </motion.div>
         )}
+        {/* Interview Prep Card */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
+          <Card className="mt-0 mb-6 p-5 border-violet-200 bg-gradient-to-br from-violet-50/50 to-purple-50/30">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center shrink-0">
+                <Sparkles className="w-5 h-5 text-violet-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-semibold text-foreground mb-1">NHS Interview Preparation</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed mb-3">
+                  AI-generated question banks and structured interview guidance tailored to your profession and specialty.
+                </p>
+                <Link href="/interview-prep" className="inline-flex">
+                  <Button variant="outline" size="sm" className="text-xs gap-1.5 border-violet-300 text-violet-700 hover:bg-violet-50">
+                    <Sparkles className="w-3.5 h-3.5" /> Open Interview Prep
+                  </Button>
+                </Link>
+              </div>
+              {forwardEligibility?.timeToEligibilityMonths ? (
+                <div className="shrink-0 text-right hidden sm:block">
+                  <div className="flex items-center gap-1.5 justify-end mb-0.5">
+                    <Timer className="w-4 h-4 text-accent" />
+                    <span className="text-xs font-semibold text-accent">Time to Eligibility</span>
+                  </div>
+                  <p className="text-sm font-bold text-foreground">{forwardEligibility.timeToEligibilityLabel}</p>
+                  <p className="text-[11px] text-muted-foreground">{forwardEligibility.regulator} estimate</p>
+                </div>
+              ) : null}
+            </div>
+          </Card>
+        </motion.div>
+
         {/* Boost your profile placeholder */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
           <Card className="mt-6 p-5 border-dashed border-2 border-primary/20 bg-gradient-to-br from-primary/3 to-accent/3">

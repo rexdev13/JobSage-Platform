@@ -1250,6 +1250,56 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
 
+  /remediation/forward-eligibility:
+    get:
+      tags: [Remediation]
+      operationId: getForwardEligibility
+      summary: Simulate eligibility after completing all remediation steps
+      responses:
+        '200':
+          description: Forward eligibility simulation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForwardEligibilityResponse'
+        '400':
+          description: Profile not found or profession unrecognised.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /interview-prep/questions:
+    get:
+      tags: [InterviewPrep]
+      operationId: getInterviewPrepQuestions
+      summary: Get AI-generated interview preparation questions for the candidate's profession and specialty
+      responses:
+        '200':
+          description: Interview preparation content.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InterviewPrepResponse'
+        '400':
+          description: Profile not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
   /ai/remediation-suggestions/{planId}:
     get:
       tags: [Remediation]
@@ -1865,6 +1915,14 @@ components:
         preferredRegion:
           type: string
           nullable: true
+        alertFrequency:
+          type: string
+          enum: [daily, weekly, off]
+          nullable: true
+        lastAlertSentAt:
+          type: string
+          format: date-time
+          nullable: true
         createdAt:
           type: string
           format: date-time
@@ -1910,6 +1968,10 @@ components:
           type: boolean
         preferredRegion:
           type: string
+          nullable: true
+        alertFrequency:
+          type: string
+          enum: [daily, weekly, off]
           nullable: true
 
     RecordConsentRequest:
@@ -2724,6 +2786,90 @@ components:
             $ref: '#/components/schemas/AiRemediationSuggestion'
         overallRationale:
           type: string
+        disclaimer:
+          type: string
+
+    ForwardEligibilityRole:
+      type: object
+      required: [id, title, employer, location, sponsorshipOffered, requiredRegistration]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        employer:
+          type: string
+        location:
+          type: string
+        sponsorshipOffered:
+          type: boolean
+        requiredRegistration:
+          type: string
+
+    ForwardEligibilityResponse:
+      type: object
+      required: [profession, regulator, timeToEligibilityMonths, timeToEligibilityLabel, incompleteStepCount, newlyUnlockedRoles, disclaimer]
+      properties:
+        profession:
+          type: string
+        regulator:
+          type: string
+          enum: [GMC, NMC, HCPC]
+        timeToEligibilityMonths:
+          type: integer
+        timeToEligibilityLabel:
+          type: string
+        incompleteStepCount:
+          type: integer
+        newlyUnlockedRoles:
+          type: array
+          items:
+            $ref: '#/components/schemas/ForwardEligibilityRole'
+        disclaimer:
+          type: string
+
+    InterviewPrepQuestionBank:
+      type: object
+      required: [category, questions]
+      properties:
+        category:
+          type: string
+        questions:
+          type: array
+          items:
+            type: string
+
+    InterviewPrepStructuredGuide:
+      type: object
+      required: [title, description, tips]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        tips:
+          type: array
+          items:
+            type: string
+
+    InterviewPrepResponse:
+      type: object
+      required: [profession, specialty, structuredInterviewGuide, questionBanks, nhsSpecificAdvice, disclaimer]
+      properties:
+        profession:
+          type: string
+        specialty:
+          type: string
+        structuredInterviewGuide:
+          $ref: '#/components/schemas/InterviewPrepStructuredGuide'
+        questionBanks:
+          type: array
+          items:
+            $ref: '#/components/schemas/InterviewPrepQuestionBank'
+        nhsSpecificAdvice:
+          type: array
+          items:
+            type: string
         disclaimer:
           type: string
 

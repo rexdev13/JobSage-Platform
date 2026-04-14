@@ -6,10 +6,28 @@ import {
   decisionRecordsTable,
   rulesetRulesTable,
   profilesTable,
+  rolesTable,
 } from "@workspace/db";
 import { eq, desc, and, inArray } from "drizzle-orm";
 import { generateRemediationSteps } from "../lib/remediationGenerator";
 import { requireAuthenticated } from "../middlewares/requireRole";
+
+const REGISTERED_STATUSES = ["registered", "fully_registered", "full_registration"];
+
+function parseMonthsFromRange(range: string | null): number {
+  if (!range) return 0;
+  const nums = range.match(/\d+(\.\d+)?/g);
+  if (!nums || nums.length === 0) return 0;
+  const values = nums.map(Number);
+  return values.reduce((a, b) => a + b, 0) / values.length;
+}
+
+function regulatorForProfession(profession: string): "GMC" | "NMC" | "HCPC" | null {
+  if (profession === "doctor" || profession === "clinical_academic") return "GMC";
+  if (profession === "nurse" || profession === "midwife") return "NMC";
+  if (profession === "allied_health_professional") return "HCPC";
+  return null;
+}
 
 const router: IRouter = Router();
 
@@ -293,6 +311,102 @@ router.patch("/remediation/steps/:id", requireAuthenticated, async (req, res): P
     .returning();
 
   res.json(updated);
+});
+
+router.get("/remediation/forward-eligibility", requireAuthenticated, async (req, res): Promise<void> => {
+  const userId = req.user!.id;
+
+  const [profile] = await db
+    .select()
+    .from(profilesTable)
+    .where(eq(profilesTable.userId, userId));
+
+  if (!profile) {
+    res.status(400).json({ error: "Profile not found." });
+    return;
+  }
+
+  const regulator = regulatorForProfession(profile.profession);
+  if (!regulator) {
+    res.status(400).json({ error: "Could not determine regulatory body." });
+    return;
+  }
+
+  const [latestPlan] = await db
+    .select()
+    .from(remediationPlansTable)
+    .where(eq(remediationPlansTable.userId, userId))
+    .orderBy(desc(remediationPlansTable.id))
+    .limit(1);
+
+  let remainingSteps: typeof remediationStepsTable.$inferSelect[] = [];
+  if (latestPlan) {
+    remainingSteps = await db
+      .select()
+      .from(remediationStepsTable)
+      .where(and(
+        eq(remediationStepsTable.planId, latestPlan.id),
+      ))
+      .orderBy(remediationStepsTable.stepOrder);
+  }
+
+  const incompleteSteps = remainingSteps.filter((s) => s.status !== "done");
+  const totalMonths = incompleteSteps.reduce((sum, s) => sum + parseMonthsFromRange(s.timelineRange), 0);
+  const roundedMonths = Math.round(totalMonths);
+
+  const allRoles = await db
+    .select()
+    .from(rolesTable)
+    .where(eq(rolesTable.active, true));
+
+  const regulatorRoles = allRoles.filter((r) => r.regulator === regulator);
+
+  const isCurrentlyRegistered =
+    profile.registrationStatus != null &&
+    REGISTERED_STATUSES.includes(profile.registrationStatus.toLowerCase());
+  const isCurrentlyLicenceReady = profile.licenceReady === true;
+
+  const newlyUnlockedRoles = regulatorRoles.filter((role) => {
+    const reqReg = role.requiredRegistration.toLowerCase();
+    const roleRequiresFull = reqReg.includes("full") || reqReg.includes("registered");
+
+    const currentlyEligible = !roleRequiresFull || isCurrentlyRegistered || isCurrentlyLicenceReady;
+    const futureEligible = !roleRequiresFull || true;
+
+    return !currentlyEligible && futureEligible;
+  });
+
+  const professionLabel = profile.profession.replace(/_/g, " ");
+
+  let timeToEligibilityLabel: string;
+  if (roundedMonths === 0) {
+    timeToEligibilityLabel = "You may already be close to eligibility";
+  } else if (roundedMonths === 1) {
+    timeToEligibilityLabel = "approximately 1 month";
+  } else if (roundedMonths < 12) {
+    timeToEligibilityLabel = `approximately ${roundedMonths} months`;
+  } else {
+    const years = Math.round((roundedMonths / 12) * 10) / 10;
+    timeToEligibilityLabel = `approximately ${years} year${years !== 1 ? "s" : ""}`;
+  }
+
+  res.json({
+    profession: professionLabel,
+    regulator,
+    timeToEligibilityMonths: roundedMonths,
+    timeToEligibilityLabel,
+    incompleteStepCount: incompleteSteps.length,
+    newlyUnlockedRoles: newlyUnlockedRoles.map((role) => ({
+      id: role.id,
+      title: role.title,
+      employer: role.employer,
+      location: role.location,
+      sponsorshipOffered: role.sponsorshipOffered,
+      requiredRegistration: role.requiredRegistration,
+    })),
+    disclaimer:
+      "Time estimates are indicative and based on step timeline ranges. Actual timelines vary by individual circumstance and regulatory body decisions.",
+  });
 });
 
 export default router;

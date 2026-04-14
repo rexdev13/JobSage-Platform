@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getGetMyProfileQueryKey } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, Button, Input, Select, Label, PageTransition } from "@/components/ui-enhanced";
-import { Save, UserCircle } from "lucide-react";
+import { Save, UserCircle, Bell } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type Profession = "doctor" | "nurse" | "midwife" | "allied_health_professional" | "clinical_academic";
@@ -15,6 +15,8 @@ const UK_REGIONS = [
   "South East", "South West", "West Midlands", "Yorkshire and the Humber",
   "Northern Ireland", "Scotland", "Wales", "National / Multiple Regions",
 ];
+
+type AlertFrequency = "daily" | "weekly" | "off";
 
 type ProfileFormData = {
   profession: Profession | "";
@@ -28,6 +30,7 @@ type ProfileFormData = {
   residencyStatus: string;
   requiresSponsorship: boolean;
   preferredRegion: string;
+  alertFrequency: AlertFrequency;
 };
 
 export default function ProfilePage() {
@@ -48,6 +51,7 @@ export default function ProfilePage() {
     residencyStatus: "",
     requiresSponsorship: false,
     preferredRegion: "",
+    alertFrequency: "daily",
   });
 
   useEffect(() => {
@@ -64,6 +68,7 @@ export default function ProfilePage() {
         residencyStatus: profile.residencyStatus || "",
         requiresSponsorship: profile.requiresSponsorship || false,
         preferredRegion: (profile as { preferredRegion?: string | null }).preferredRegion ?? "",
+        alertFrequency: ((profile as { alertFrequency?: string | null }).alertFrequency as AlertFrequency) ?? "daily",
       });
     }
   }, [profile]);
@@ -107,6 +112,7 @@ export default function ProfilePage() {
           residencyStatus: formData.residencyStatus,
           requiresSponsorship: formData.requiresSponsorship,
           preferredRegion: formData.preferredRegion || undefined,
+          alertFrequency: formData.alertFrequency,
         },
       });
       queryClient.invalidateQueries({ queryKey: getGetMyProfileQueryKey() });
@@ -233,6 +239,43 @@ export default function ProfilePage() {
                 <p className="text-xs text-muted-foreground mt-1">Helps employers with region-targeted job postings find you more easily.</p>
               </div>
             </div>
+          </Card>
+
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold mb-2 border-b pb-4 flex items-center gap-2">
+              <Bell className="w-5 h-5 text-primary" />
+              Job Alert Preferences
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Choose how often you'd like to receive personalised job alert emails with new roles matching your profile.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {(["daily", "weekly", "off"] as AlertFrequency[]).map((freq) => (
+                <button
+                  key={freq}
+                  type="button"
+                  onClick={() => setFormData((prev) => ({ ...prev, alertFrequency: freq }))}
+                  className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                    formData.alertFrequency === freq
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/30 hover:bg-muted/40"
+                  }`}
+                >
+                  <Bell className={`w-4 h-4 ${freq === "off" ? "opacity-40" : ""}`} />
+                  {freq === "daily" ? "Daily" : freq === "weekly" ? "Weekly" : "Off"}
+                </button>
+              ))}
+            </div>
+            {formData.alertFrequency !== "off" && (
+              <p className="text-xs text-muted-foreground mt-2">
+                You'll receive {formData.alertFrequency} emails listing new roles matching your eligibility status.
+              </p>
+            )}
+            {formData.alertFrequency === "off" && (
+              <p className="text-xs text-muted-foreground mt-2">
+                You won't receive any job alert emails. You can turn these back on at any time.
+              </p>
+            )}
           </Card>
         </form>
 

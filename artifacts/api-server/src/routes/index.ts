@@ -16,6 +16,7 @@ import adminAuditRouter from "./adminAudit";
 import applicationsRouter from "./applications";
 import employerRouter from "./employer";
 import smartApplyRouter from "./smartApply";
+import interviewPrepRouter from "./interviewPrep";
 
 const router: IRouter = Router();
 
@@ -36,5 +37,6 @@ router.use(adminAuditRouter);
 router.use(applicationsRouter);
 router.use(employerRouter);
 router.use(smartApplyRouter);
+router.use(interviewPrepRouter);
 
 export default router;
