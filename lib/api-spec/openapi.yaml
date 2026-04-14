@@ -2663,9 +2663,13 @@ components:
       allOf:
         - $ref: "#/components/schemas/JobListing"
         - type: object
-          required: [applicantCount]
+          required: [applicantCount, shortlistedCount, rejectedCount]
           properties:
             applicantCount:
+              type: integer
+            shortlistedCount:
+              type: integer
+            rejectedCount:
               type: integer
 
     EmployerJobsResponse:

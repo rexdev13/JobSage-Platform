@@ -107,10 +107,12 @@ router.get("/employer/jobs", requireEmployer(), async (req, res): Promise<void> 
   const jobsWithCounts = await Promise.all(
     jobs.map(async (job) => {
       const applicants = await db
-        .select({ id: applicationsTable.id })
+        .select({ id: applicationsTable.id, status: applicationsTable.status })
         .from(applicationsTable)
         .where(eq(applicationsTable.roleId, job.id + 1_000_000));
-      return { ...job, applicantCount: applicants.length };
+      const shortlistedCount = applicants.filter((a) => a.status === "shortlisted").length;
+      const rejectedCount = applicants.filter((a) => a.status === "rejected").length;
+      return { ...job, applicantCount: applicants.length, shortlistedCount, rejectedCount };
     }),
   );
 
