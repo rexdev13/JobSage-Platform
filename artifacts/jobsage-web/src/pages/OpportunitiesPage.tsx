@@ -167,7 +167,7 @@ function RoleDetailModal({ item, appliedRoleIds, onClose, onApply }: {
                 onClick={() => { onApply(role.id); onClose(); }}
                 disabled={applied}
               >
-                {applied ? <><CheckCircle2 className="w-4 h-4 mr-2" /> Applied</> : <><ClipboardList className="w-4 h-4 mr-2" /> Mark as Applied</>}
+                {applied ? <><CheckCircle2 className="w-4 h-4 mr-2" /> Applied</> : <><ClipboardList className="w-4 h-4 mr-2" /> Start Application</>}
               </Button>
             ) : (
               <Button
