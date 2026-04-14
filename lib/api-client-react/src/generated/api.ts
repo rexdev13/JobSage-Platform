@@ -28,6 +28,7 @@ import type {
   ConsentStatus,
   CreateJobListingRequest,
   CreateRulesetRequest,
+  CvParseResult,
   DecisionAuditExport,
   DecisionRecordList,
   DeleteJobListing200,
@@ -71,6 +72,8 @@ import type {
   Ruleset,
   RulesetList,
   RulesetWithRules,
+  SmartApplyPrefillResponse,
+  SmartApplyQuestionsResponse,
   SponsorshipFeasibility,
   UpdateApplicantStageRequest,
   UpdateApplicantStageResponse,
@@ -2543,6 +2546,253 @@ export const useDeleteDocument = <
   TContext
 > => {
   return useMutation(getDeleteDocumentMutationOptions(options));
+};
+
+/**
+ * @summary Extract profile fields from an uploaded CV document using AI
+ */
+export const getParseCvUrl = (id: number) => {
+  return `/api/documents/${id}/parse-cv`;
+};
+
+export const parseCv = async (
+  id: number,
+  options?: RequestInit,
+): Promise<CvParseResult> => {
+  return customFetch<CvParseResult>(getParseCvUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getParseCvMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof parseCv>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof parseCv>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["parseCv"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof parseCv>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return parseCv(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ParseCvMutationResult = NonNullable<
+  Awaited<ReturnType<typeof parseCv>>
+>;
+
+export type ParseCvMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Extract profile fields from an uploaded CV document using AI
+ */
+export const useParseCv = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof parseCv>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof parseCv>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getParseCvMutationOptions(options));
+};
+
+/**
+ * @summary Get the standard application questions
+ */
+export const getGetSmartApplyQuestionsUrl = () => {
+  return `/api/smart-apply/questions`;
+};
+
+export const getSmartApplyQuestions = async (
+  options?: RequestInit,
+): Promise<SmartApplyQuestionsResponse> => {
+  return customFetch<SmartApplyQuestionsResponse>(
+    getGetSmartApplyQuestionsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetSmartApplyQuestionsQueryKey = () => {
+  return [`/api/smart-apply/questions`] as const;
+};
+
+export const getGetSmartApplyQuestionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSmartApplyQuestions>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSmartApplyQuestions>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetSmartApplyQuestionsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSmartApplyQuestions>>
+  > = ({ signal }) => getSmartApplyQuestions({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSmartApplyQuestions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSmartApplyQuestionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSmartApplyQuestions>>
+>;
+export type GetSmartApplyQuestionsQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Get the standard application questions
+ */
+
+export function useGetSmartApplyQuestions<
+  TData = Awaited<ReturnType<typeof getSmartApplyQuestions>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSmartApplyQuestions>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSmartApplyQuestionsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary AI pre-fills application answers for a role based on the candidate's profile
+ */
+export const getSmartApplyPrefillUrl = (id: number) => {
+  return `/api/roles/${id}/smart-apply/prefill`;
+};
+
+export const smartApplyPrefill = async (
+  id: number,
+  options?: RequestInit,
+): Promise<SmartApplyPrefillResponse> => {
+  return customFetch<SmartApplyPrefillResponse>(getSmartApplyPrefillUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getSmartApplyPrefillMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof smartApplyPrefill>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof smartApplyPrefill>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["smartApplyPrefill"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof smartApplyPrefill>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return smartApplyPrefill(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SmartApplyPrefillMutationResult = NonNullable<
+  Awaited<ReturnType<typeof smartApplyPrefill>>
+>;
+
+export type SmartApplyPrefillMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary AI pre-fills application answers for a role based on the candidate's profile
+ */
+export const useSmartApplyPrefill = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof smartApplyPrefill>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof smartApplyPrefill>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getSmartApplyPrefillMutationOptions(options));
 };
 
 /**

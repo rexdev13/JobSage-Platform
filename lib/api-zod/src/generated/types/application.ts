@@ -14,4 +14,6 @@ export interface Application {
   status: ApplicationStatus;
   appliedAt: Date;
   notes?: string | null;
+  roleTitle?: string | null;
+  roleLocation?: string | null;
 }

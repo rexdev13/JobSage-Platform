@@ -26,6 +26,7 @@ import DocumentsPage from "@/pages/DocumentsPage";
 import EligibilityPage from "@/pages/EligibilityPage";
 import AdminRulesetsPage from "@/pages/AdminRulesetsPage";
 import OpportunitiesPage from "@/pages/OpportunitiesPage";
+import ApplicationsPage from "@/pages/ApplicationsPage";
 import PathPage from "@/pages/PathPage";
 import AdminRolesPage from "@/pages/AdminRolesPage";
 import ReviewQueuePage from "@/pages/ReviewQueuePage";
@@ -150,6 +151,7 @@ function Router() {
 
             <Route path="/eligibility" component={EligibilityPage} />
             <Route path="/opportunities" component={OpportunitiesPage} />
+            <Route path="/applications" component={ApplicationsPage} />
             <Route path="/path" component={PathPage} />
             <Route path="/admin/rulesets">
               <AdminGuard>

@@ -442,6 +442,67 @@ export const ApplicationStatus = {
   no_response: "no_response",
 } as const;
 
+export type CvExtractedFieldsConfidence = { [key: string]: string };
+
+export interface CvExtractedFields {
+  profession?: string | null;
+  specialty?: string | null;
+  qualificationCountry?: string | null;
+  qualificationType?: string | null;
+  qualificationYear?: number | null;
+  experienceYears?: number | null;
+  registrationStatus?: string | null;
+  requiresSponsorship?: boolean | null;
+  preferredRegion?: string | null;
+  confidence?: CvExtractedFieldsConfidence;
+  rawNotes?: string;
+}
+
+export interface CvParseResult {
+  extracted: CvExtractedFields;
+}
+
+export interface ApplicationQuestion {
+  id: string;
+  question: string;
+  hint: string;
+  required: boolean;
+}
+
+export type SmartApplyPrefillConfidence =
+  (typeof SmartApplyPrefillConfidence)[keyof typeof SmartApplyPrefillConfidence];
+
+export const SmartApplyPrefillConfidence = {
+  high: "high",
+  medium: "medium",
+  low: "low",
+  none: "none",
+} as const;
+
+export interface SmartApplyPrefill {
+  questionId: string;
+  aiAnswer: string;
+  confidence: SmartApplyPrefillConfidence;
+  needsReview: boolean;
+}
+
+export interface SmartApplyQuestionsResponse {
+  questions: ApplicationQuestion[];
+}
+
+export interface SmartApplyRoleContext {
+  title: string;
+  location: string;
+  regulator: string;
+  sponsorshipOffered: boolean;
+}
+
+export interface SmartApplyPrefillResponse {
+  questions: ApplicationQuestion[];
+  prefills: SmartApplyPrefill[];
+  roleContext: SmartApplyRoleContext;
+}
+
 export interface Application {
   id: number;
   userId: string;
@@ -449,6 +510,8 @@ export interface Application {
   status: ApplicationStatus;
   appliedAt: string;
   notes?: string | null;
+  roleTitle?: string | null;
+  roleLocation?: string | null;
 }
 
 export type ApplicationListStats = {

@@ -596,6 +596,75 @@ export const DeleteDocumentParams = zod.object({
 });
 
 /**
+ * @summary Extract profile fields from an uploaded CV document using AI
+ */
+export const ParseCvParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ParseCvResponse = zod.object({
+  extracted: zod.object({
+    profession: zod.string().nullish(),
+    specialty: zod.string().nullish(),
+    qualificationCountry: zod.string().nullish(),
+    qualificationType: zod.string().nullish(),
+    qualificationYear: zod.number().nullish(),
+    experienceYears: zod.number().nullish(),
+    registrationStatus: zod.string().nullish(),
+    requiresSponsorship: zod.boolean().nullish(),
+    preferredRegion: zod.string().nullish(),
+    confidence: zod.record(zod.string(), zod.string()).optional(),
+    rawNotes: zod.string().optional(),
+  }),
+});
+
+/**
+ * @summary Get the standard application questions
+ */
+export const GetSmartApplyQuestionsResponse = zod.object({
+  questions: zod.array(
+    zod.object({
+      id: zod.string(),
+      question: zod.string(),
+      hint: zod.string(),
+      required: zod.boolean(),
+    }),
+  ),
+});
+
+/**
+ * @summary AI pre-fills application answers for a role based on the candidate's profile
+ */
+export const SmartApplyPrefillParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const SmartApplyPrefillResponse = zod.object({
+  questions: zod.array(
+    zod.object({
+      id: zod.string(),
+      question: zod.string(),
+      hint: zod.string(),
+      required: zod.boolean(),
+    }),
+  ),
+  prefills: zod.array(
+    zod.object({
+      questionId: zod.string(),
+      aiAnswer: zod.string(),
+      confidence: zod.enum(["high", "medium", "low", "none"]),
+      needsReview: zod.boolean(),
+    }),
+  ),
+  roleContext: zod.object({
+    title: zod.string(),
+    location: zod.string(),
+    regulator: zod.string(),
+    sponsorshipOffered: zod.boolean(),
+  }),
+});
+
+/**
  * @summary List roles matched to the current candidate's eligibility
  */
 export const ListMatchedRolesResponse = zod.object({
@@ -716,6 +785,8 @@ export const ListMyApplicationsResponse = zod.object({
       ]),
       appliedAt: zod.date(),
       notes: zod.string().nullish(),
+      roleTitle: zod.string().nullish(),
+      roleLocation: zod.string().nullish(),
     }),
   ),
   stats: zod.object({
@@ -748,6 +819,8 @@ export const MarkApplicationResponse = zod.object({
   ]),
   appliedAt: zod.date(),
   notes: zod.string().nullish(),
+  roleTitle: zod.string().nullish(),
+  roleLocation: zod.string().nullish(),
 });
 
 /**

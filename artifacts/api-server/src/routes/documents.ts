@@ -9,6 +9,7 @@ import {
   DeleteDocumentParams,
 } from "@workspace/api-zod";
 import { ObjectStorageService } from "../lib/objectStorage";
+import { extractCvFields } from "../lib/cvParser";
 
 const ALLOWED_MIME_TYPES = ["application/pdf", "image/jpeg", "image/png"];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
@@ -123,6 +124,40 @@ router.post("/documents", requireAuthenticated, async (req: Request, res: Respon
     .returning();
 
   res.status(201).json(doc);
+});
+
+router.post("/documents/:id/parse-cv", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid document ID" });
+    return;
+  }
+
+  const [doc] = await db
+    .select()
+    .from(documentsTable)
+    .where(and(eq(documentsTable.id, id), eq(documentsTable.userId, req.user!.id)));
+
+  if (!doc) {
+    res.status(404).json({ error: "Document not found" });
+    return;
+  }
+
+  const allowedMimes = ["application/pdf", "image/jpeg", "image/png"];
+  if (!allowedMimes.includes(doc.mimeType)) {
+    res.status(400).json({ error: "Only PDF and image files can be parsed." });
+    return;
+  }
+
+  try {
+    const objectFile = await objectStorageService.getObjectEntityFile(doc.storageKey);
+    const [buffer] = await objectFile.download();
+    const extracted = await extractCvFields(buffer as Buffer, doc.mimeType);
+    res.json({ extracted });
+  } catch (err) {
+    console.error("CV parse error:", err);
+    res.status(500).json({ error: "Failed to parse CV. Please try again." });
+  }
 });
 
 router.delete("/documents/:id", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
