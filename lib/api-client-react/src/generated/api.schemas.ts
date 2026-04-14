@@ -111,6 +111,16 @@ export const CandidateProfileRegistrationStatus = {
   in_process: "in_process",
 } as const;
 
+export type CandidateProfileAlertFrequency =
+  | (typeof CandidateProfileAlertFrequency)[keyof typeof CandidateProfileAlertFrequency]
+  | null;
+
+export const CandidateProfileAlertFrequency = {
+  daily: "daily",
+  weekly: "weekly",
+  off: "off",
+} as const;
+
 export interface CandidateProfile {
   id: number;
   userId: string;
@@ -125,6 +135,8 @@ export interface CandidateProfile {
   residencyStatus?: string | null;
   requiresSponsorship?: boolean | null;
   preferredRegion?: string | null;
+  alertFrequency?: CandidateProfileAlertFrequency;
+  lastAlertSentAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -149,6 +161,16 @@ export const UpsertProfileRequestRegistrationStatus = {
   in_process: "in_process",
 } as const;
 
+export type UpsertProfileRequestAlertFrequency =
+  | (typeof UpsertProfileRequestAlertFrequency)[keyof typeof UpsertProfileRequestAlertFrequency]
+  | null;
+
+export const UpsertProfileRequestAlertFrequency = {
+  daily: "daily",
+  weekly: "weekly",
+  off: "off",
+} as const;
+
 export interface UpsertProfileRequest {
   profession: UpsertProfileRequestProfession;
   specialty: string;
@@ -161,6 +183,7 @@ export interface UpsertProfileRequest {
   residencyStatus: string;
   requiresSponsorship: boolean;
   preferredRegion?: string | null;
+  alertFrequency?: UpsertProfileRequestAlertFrequency;
 }
 
 export interface RecordConsentRequest {
@@ -637,6 +660,54 @@ export interface AiRemediationSuggestions {
   planId: number;
   suggestions: AiRemediationSuggestion[];
   overallRationale: string;
+  disclaimer: string;
+}
+
+export interface ForwardEligibilityRole {
+  id: number;
+  title: string;
+  employer: string;
+  location: string;
+  sponsorshipOffered: boolean;
+  requiredRegistration: string;
+}
+
+export type ForwardEligibilityResponseRegulator =
+  (typeof ForwardEligibilityResponseRegulator)[keyof typeof ForwardEligibilityResponseRegulator];
+
+export const ForwardEligibilityResponseRegulator = {
+  GMC: "GMC",
+  NMC: "NMC",
+  HCPC: "HCPC",
+} as const;
+
+export interface ForwardEligibilityResponse {
+  profession: string;
+  regulator: ForwardEligibilityResponseRegulator;
+  timeToEligibilityMonths: number;
+  timeToEligibilityLabel: string;
+  incompleteStepCount: number;
+  newlyUnlockedRoles: ForwardEligibilityRole[];
+  disclaimer: string;
+}
+
+export interface InterviewPrepQuestionBank {
+  category: string;
+  questions: string[];
+}
+
+export interface InterviewPrepStructuredGuide {
+  title: string;
+  description: string;
+  tips: string[];
+}
+
+export interface InterviewPrepResponse {
+  profession: string;
+  specialty: string;
+  structuredInterviewGuide: InterviewPrepStructuredGuide;
+  questionBanks: InterviewPrepQuestionBank[];
+  nhsSpecificAdvice: string[];
   disclaimer: string;
 }
 

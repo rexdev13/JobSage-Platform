@@ -5,6 +5,7 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { UpsertProfileRequestAlertFrequency } from "./upsertProfileRequestAlertFrequency";
 import type { UpsertProfileRequestProfession } from "./upsertProfileRequestProfession";
 import type { UpsertProfileRequestRegistrationStatus } from "./upsertProfileRequestRegistrationStatus";
 
@@ -20,4 +21,5 @@ export interface UpsertProfileRequest {
   residencyStatus: string;
   requiresSponsorship: boolean;
   preferredRegion?: string | null;
+  alertFrequency?: UpsertProfileRequestAlertFrequency;
 }

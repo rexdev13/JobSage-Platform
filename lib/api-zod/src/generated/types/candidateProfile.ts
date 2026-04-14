@@ -5,6 +5,7 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { CandidateProfileAlertFrequency } from "./candidateProfileAlertFrequency";
 import type { CandidateProfileProfession } from "./candidateProfileProfession";
 import type { CandidateProfileRegistrationStatus } from "./candidateProfileRegistrationStatus";
 
@@ -22,6 +23,8 @@ export interface CandidateProfile {
   residencyStatus?: string | null;
   requiresSponsorship?: boolean | null;
   preferredRegion?: string | null;
+  alertFrequency?: CandidateProfileAlertFrequency;
+  lastAlertSentAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

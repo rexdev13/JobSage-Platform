@@ -182,6 +182,8 @@ export const GetMyProfileResponse = zod.object({
   residencyStatus: zod.string().nullish(),
   requiresSponsorship: zod.boolean().nullish(),
   preferredRegion: zod.string().nullish(),
+  alertFrequency: zod.enum(["daily", "weekly", "off"]).nullish(),
+  lastAlertSentAt: zod.date().nullish(),
   createdAt: zod.date(),
   updatedAt: zod.date(),
 });
@@ -207,6 +209,7 @@ export const UpsertMyProfileBody = zod.object({
   residencyStatus: zod.string(),
   requiresSponsorship: zod.boolean(),
   preferredRegion: zod.string().nullish(),
+  alertFrequency: zod.enum(["daily", "weekly", "off"]).nullish(),
 });
 
 export const UpsertMyProfileResponse = zod.object({
@@ -231,6 +234,8 @@ export const UpsertMyProfileResponse = zod.object({
   residencyStatus: zod.string().nullish(),
   requiresSponsorship: zod.boolean().nullish(),
   preferredRegion: zod.string().nullish(),
+  alertFrequency: zod.enum(["daily", "weekly", "off"]).nullish(),
+  lastAlertSentAt: zod.date().nullish(),
   createdAt: zod.date(),
   updatedAt: zod.date(),
 });
@@ -537,6 +542,7 @@ export const RunRegressionTestBody = zod.object({
         residencyStatus: zod.string(),
         requiresSponsorship: zod.boolean(),
         preferredRegion: zod.string().nullish(),
+        alertFrequency: zod.enum(["daily", "weekly", "off"]).nullish(),
       }),
       expectedOutcome: zod.enum(["eligible", "not_eligible", "ineligible"]),
     }),
@@ -976,6 +982,49 @@ export const UpdateRemediationPlanOrderingResponse = zod.object({
 });
 
 /**
+ * @summary Simulate eligibility after completing all remediation steps
+ */
+export const GetForwardEligibilityResponse = zod.object({
+  profession: zod.string(),
+  regulator: zod.enum(["GMC", "NMC", "HCPC"]),
+  timeToEligibilityMonths: zod.number(),
+  timeToEligibilityLabel: zod.string(),
+  incompleteStepCount: zod.number(),
+  newlyUnlockedRoles: zod.array(
+    zod.object({
+      id: zod.number(),
+      title: zod.string(),
+      employer: zod.string(),
+      location: zod.string(),
+      sponsorshipOffered: zod.boolean(),
+      requiredRegistration: zod.string(),
+    }),
+  ),
+  disclaimer: zod.string(),
+});
+
+/**
+ * @summary Get AI-generated interview preparation questions for the candidate's profession and specialty
+ */
+export const GetInterviewPrepQuestionsResponse = zod.object({
+  profession: zod.string(),
+  specialty: zod.string(),
+  structuredInterviewGuide: zod.object({
+    title: zod.string(),
+    description: zod.string(),
+    tips: zod.array(zod.string()),
+  }),
+  questionBanks: zod.array(
+    zod.object({
+      category: zod.string(),
+      questions: zod.array(zod.string()),
+    }),
+  ),
+  nhsSpecificAdvice: zod.array(zod.string()),
+  disclaimer: zod.string(),
+});
+
+/**
  * @summary Get AI-generated step ordering suggestions for a remediation plan
  */
 export const GetAiRemediationSuggestionsParams = zod.object({
@@ -1089,6 +1138,8 @@ export const GetReviewCaseResponse = zod.object({
       residencyStatus: zod.string().nullish(),
       requiresSponsorship: zod.boolean().nullish(),
       preferredRegion: zod.string().nullish(),
+      alertFrequency: zod.enum(["daily", "weekly", "off"]).nullish(),
+      lastAlertSentAt: zod.date().nullish(),
       createdAt: zod.date(),
       updatedAt: zod.date(),
     })

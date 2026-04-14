@@ -28,6 +28,7 @@ import AdminRulesetsPage from "@/pages/AdminRulesetsPage";
 import OpportunitiesPage from "@/pages/OpportunitiesPage";
 import ApplicationsPage from "@/pages/ApplicationsPage";
 import PathPage from "@/pages/PathPage";
+import InterviewPrepPage from "@/pages/InterviewPrepPage";
 import AdminRolesPage from "@/pages/AdminRolesPage";
 import ReviewQueuePage from "@/pages/ReviewQueuePage";
 import AdminAuditPage from "@/pages/AdminAuditPage";
@@ -153,6 +154,7 @@ function Router() {
             <Route path="/opportunities" component={OpportunitiesPage} />
             <Route path="/applications" component={ApplicationsPage} />
             <Route path="/path" component={PathPage} />
+            <Route path="/interview-prep" component={InterviewPrepPage} />
             <Route path="/admin/rulesets">
               <AdminGuard>
                 <AdminRulesetsPage />

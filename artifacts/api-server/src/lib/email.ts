@@ -119,6 +119,114 @@ function resetPasswordEmailHtml(resetUrl: string): string {
 </html>`;
 }
 
+export interface AlertRole {
+  title: string;
+  employer: string;
+  location: string;
+  sponsorshipOffered: boolean;
+  isEligible: boolean;
+}
+
+function jobAlertEmailHtml(
+  firstName: string,
+  eligibleRoles: AlertRole[],
+  workTowardsRoles: AlertRole[],
+): string {
+  const roleRow = (role: AlertRole) => `
+    <tr>
+      <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;">
+        <p style="margin:0 0 2px;font-size:15px;font-weight:600;color:#0f172a;">${role.title}</p>
+        <p style="margin:0;font-size:13px;color:#64748b;">${role.employer} · ${role.location}${role.sponsorshipOffered ? " · <span style=\"color:#059669;\">Sponsorship Available</span>" : ""}</p>
+      </td>
+    </tr>`;
+
+  const eligibleSection =
+    eligibleRoles.length > 0
+      ? `<h3 style="color:#059669;font-size:16px;margin:24px 0 8px;">✅ Roles You Can Apply to Now (${eligibleRoles.length})</h3>
+         <table width="100%" cellpadding="0" cellspacing="0">${eligibleRoles.map(roleRow).join("")}</table>`
+      : "";
+
+  const workTowardsSection =
+    workTowardsRoles.length > 0
+      ? `<h3 style="color:#d97706;font-size:16px;margin:24px 0 8px;">🎯 Roles Worth Working Towards (${workTowardsRoles.length})</h3>
+         <table width="100%" cellpadding="0" cellspacing="0">${workTowardsRoles.map(roleRow).join("")}</table>`
+      : "";
+
+  const noRolesMsg =
+    eligibleRoles.length === 0 && workTowardsRoles.length === 0
+      ? `<p style="color:#64748b;font-size:15px;margin:16px 0;">No new matching roles were added since your last alert. We'll keep checking for you.</p>`
+      : "";
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Your JOBSAGE Job Alert</title></head>
+<body style="margin:0;padding:0;background:#f4f7fb;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f7fb;padding:40px 0;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+        <tr>
+          <td style="background:#0f172a;padding:28px 40px;text-align:center;">
+            <span style="color:#ffffff;font-size:22px;font-weight:800;letter-spacing:-0.5px;">JOBSAGE</span>
+            <p style="color:#94a3b8;font-size:13px;margin:4px 0 0;">Your daily job alert</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px 40px 20px;">
+            <h1 style="color:#0f172a;font-size:20px;font-weight:700;margin:0 0 8px;">Hi ${firstName},</h1>
+            <p style="color:#475569;font-size:15px;line-height:1.6;margin:0 0 16px;">
+              Here's your personalised job alert based on your professional profile and eligibility status.
+            </p>
+            ${noRolesMsg}
+            ${eligibleSection}
+            ${workTowardsSection}
+            <table cellpadding="0" cellspacing="0" style="margin:28px auto 0;">
+              <tr>
+                <td style="background:#0f172a;border-radius:8px;padding:14px 32px;text-align:center;">
+                  <a href="${APP_URL}/opportunities" style="color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;">View All Opportunities</a>
+                </td>
+              </tr>
+            </table>
+            <p style="color:#94a3b8;font-size:12px;margin:24px 0 0;text-align:center;">
+              You're receiving this because your alert preference is set to daily.<br/>
+              <a href="${APP_URL}/profile" style="color:#3b82f6;">Manage alert preferences</a>
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#f8fafc;padding:20px 40px;border-top:1px solid #e2e8f0;text-align:center;">
+            <p style="color:#94a3b8;font-size:12px;margin:0;">
+              &copy; ${new Date().getFullYear()} JOBSAGE. Decision intelligence for regulated healthcare professionals.
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+export async function sendJobAlertEmail(
+  to: string,
+  firstName: string,
+  eligibleRoles: AlertRole[],
+  workTowardsRoles: AlertRole[],
+): Promise<void> {
+  const totalRoles = eligibleRoles.length + workTowardsRoles.length;
+  const subject =
+    totalRoles > 0
+      ? `JOBSAGE: ${totalRoles} new role${totalRoles !== 1 ? "s" : ""} matching your profile`
+      : "JOBSAGE: Your daily job alert";
+
+  await resend.emails.send({
+    from: `JOBSAGE <${FROM}>`,
+    to,
+    subject,
+    html: jobAlertEmailHtml(firstName, eligibleRoles, workTowardsRoles),
+  });
+}
+
 export async function sendVerificationEmail(to: string, token: string): Promise<void> {
   const verifyUrl = `${APP_URL}/api/auth/verify-email?token=${encodeURIComponent(token)}`;
   await resend.emails.send({
