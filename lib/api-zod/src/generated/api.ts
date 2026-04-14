@@ -1150,6 +1150,8 @@ export const ListEmployerJobsResponse = zod.object({
       .and(
         zod.object({
           applicantCount: zod.number(),
+          shortlistedCount: zod.number(),
+          rejectedCount: zod.number(),
         }),
       ),
   ),

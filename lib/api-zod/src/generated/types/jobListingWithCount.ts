@@ -9,4 +9,6 @@ import type { JobListing } from "./jobListing";
 
 export type JobListingWithCount = JobListing & {
   applicantCount: number;
+  shortlistedCount: number;
+  rejectedCount: number;
 };

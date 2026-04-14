@@ -70,10 +70,18 @@ function JobCard({ job, onDelete, onPublish, onClose }: {
             {job.salaryBand && <span>{job.salaryBand}</span>}
           </div>
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <div className="text-center">
+        <div className="flex items-center gap-3 shrink-0 text-center">
+          <div>
             <p className="text-lg font-bold text-foreground leading-none">{job.applicantCount}</p>
-            <p className="text-xs text-muted-foreground">applicant{job.applicantCount !== 1 ? "s" : ""}</p>
+            <p className="text-xs text-muted-foreground">Total</p>
+          </div>
+          <div>
+            <p className="text-lg font-bold text-emerald-600 leading-none">{job.shortlistedCount}</p>
+            <p className="text-xs text-muted-foreground">Shortlisted</p>
+          </div>
+          <div>
+            <p className="text-lg font-bold text-rose-500 leading-none">{job.rejectedCount}</p>
+            <p className="text-xs text-muted-foreground">Rejected</p>
           </div>
         </div>
       </div>
@@ -122,6 +130,8 @@ export default function EmployerDashboardPage() {
   const publishedJobs = jobs.filter((j) => j.status === "published");
   const draftJobs = jobs.filter((j) => j.status === "draft");
   const totalApplicants = jobs.reduce((sum, j) => sum + j.applicantCount, 0);
+  const totalShortlisted = jobs.reduce((sum, j) => sum + (j.shortlistedCount ?? 0), 0);
+  const totalRejected = jobs.reduce((sum, j) => sum + (j.rejectedCount ?? 0), 0);
 
   const filteredJobs = activeFilter === "all" ? jobs : jobs.filter((j) => j.status === activeFilter);
 
@@ -179,20 +189,21 @@ export default function EmployerDashboardPage() {
         </div>
 
         {/* Stats row */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
-            { icon: Briefcase, label: "Total Listings", value: jobs.length, sub: `${publishedJobs.length} live, ${draftJobs.length} draft` },
-            { icon: Users, label: "Total Applicants", value: totalApplicants, sub: "Across all jobs" },
-            { icon: BarChart3, label: "Published", value: publishedJobs.length, sub: "Visible on job board" },
-          ].map(({ icon: Icon, label, value, sub }) => (
+            { icon: Briefcase, label: "Total Listings", value: jobs.length, sub: `${publishedJobs.length} live, ${draftJobs.length} draft`, color: "text-primary" },
+            { icon: Users, label: "Total Applicants", value: totalApplicants, sub: "Across all jobs", color: "text-primary" },
+            { icon: BarChart3, label: "Shortlisted", value: totalShortlisted, sub: "Ready for interview", color: "text-emerald-600" },
+            { icon: BarChart3, label: "Rejected", value: totalRejected, sub: "Not progressing", color: "text-rose-500" },
+          ].map(({ icon: Icon, label, value, sub, color }) => (
             <motion.div key={label} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
               <Card className="p-4 flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                  <Icon className="w-5 h-5 text-primary" />
+                  <Icon className={`w-5 h-5 ${color}`} />
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">{label}</p>
-                  <p className="text-xl font-bold text-foreground">{value}</p>
+                  <p className={`text-xl font-bold ${color}`}>{value}</p>
                   <p className="text-xs text-muted-foreground">{sub}</p>
                 </div>
               </Card>

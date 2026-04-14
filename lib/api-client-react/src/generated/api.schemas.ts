@@ -729,6 +729,8 @@ export interface JobListing {
 
 export type JobListingWithCount = JobListing & {
   applicantCount: number;
+  shortlistedCount: number;
+  rejectedCount: number;
 };
 
 export interface EmployerJobsResponse {
