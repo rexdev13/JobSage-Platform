@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { useRecordConsent } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@workspace/auth-web";
 import { getGetMyConsentQueryKey } from "@workspace/api-client-react";
 import { Button, PageTransition } from "@/components/ui-enhanced";
 import { Shield, Check, Lock, FileText, AlertCircle } from "lucide-react";
@@ -30,12 +31,13 @@ export default function ConsentPage() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const recordConsentMutation = useRecordConsent();
+  const { user } = useAuth();
 
   const handleContinue = async () => {
     try {
       await recordConsentMutation.mutateAsync({ data: { termsVersion: "1.0.0" } });
       queryClient.invalidateQueries({ queryKey: getGetMyConsentQueryKey() });
-      setLocation("/");
+      setLocation(user?.role === "employer" ? "/employer/onboarding" : "/");
     } catch (err) {
       console.error("Consent failed", err);
     }

@@ -33,9 +33,10 @@ export default function EmployerRegisterPage() {
 
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/register", {
+      const res = await fetch("/api/auth/employer-register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           firstName: form.firstName.trim(),
           lastName: form.lastName.trim(),
@@ -51,7 +52,7 @@ export default function EmployerRegisterPage() {
       }
 
       toast({
-        title: "Account created!",
+        title: "Employer account created!",
         description: "Welcome to JOBSAGE. Let's set up your organisation profile.",
       });
       await refresh();
