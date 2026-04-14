@@ -253,7 +253,7 @@ export default function DashboardPage() {
             label="Plan Progress"
             value={totalSteps > 0 ? `${planPct}%` : "—"}
             sub={
-              forwardEligibility?.timeToEligibilityMonths
+              forwardEligibility?.timeToEligibilityMonths != null
                 ? `~${forwardEligibility.timeToEligibilityLabel} to eligibility`
                 : totalSteps > 0
                   ? `${doneSteps} of ${totalSteps} steps done`
@@ -583,7 +583,7 @@ export default function DashboardPage() {
                   </Button>
                 </Link>
               </div>
-              {forwardEligibility?.timeToEligibilityMonths ? (
+              {forwardEligibility?.timeToEligibilityMonths != null ? (
                 <div className="shrink-0 text-right hidden sm:block">
                   <div className="flex items-center gap-1.5 justify-end mb-0.5">
                     <Timer className="w-4 h-4 text-accent" />

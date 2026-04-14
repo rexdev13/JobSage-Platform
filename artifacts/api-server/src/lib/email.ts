@@ -131,7 +131,9 @@ function jobAlertEmailHtml(
   firstName: string,
   eligibleRoles: AlertRole[],
   workTowardsRoles: AlertRole[],
+  alertFrequency: "daily" | "weekly" = "daily",
 ): string {
+  const frequencyLabel = alertFrequency === "weekly" ? "weekly" : "daily";
   const roleRow = (role: AlertRole) => `
     <tr>
       <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;">
@@ -168,7 +170,7 @@ function jobAlertEmailHtml(
         <tr>
           <td style="background:#0f172a;padding:28px 40px;text-align:center;">
             <span style="color:#ffffff;font-size:22px;font-weight:800;letter-spacing:-0.5px;">JOBSAGE</span>
-            <p style="color:#94a3b8;font-size:13px;margin:4px 0 0;">Your daily job alert</p>
+            <p style="color:#94a3b8;font-size:13px;margin:4px 0 0;">Your ${frequencyLabel} job alert</p>
           </td>
         </tr>
         <tr>
@@ -188,7 +190,7 @@ function jobAlertEmailHtml(
               </tr>
             </table>
             <p style="color:#94a3b8;font-size:12px;margin:24px 0 0;text-align:center;">
-              You're receiving this because your alert preference is set to daily.<br/>
+              You're receiving this because your alert preference is set to ${frequencyLabel}.<br/>
               <a href="${APP_URL}/profile" style="color:#3b82f6;">Manage alert preferences</a>
             </p>
           </td>
@@ -212,18 +214,20 @@ export async function sendJobAlertEmail(
   firstName: string,
   eligibleRoles: AlertRole[],
   workTowardsRoles: AlertRole[],
+  alertFrequency: "daily" | "weekly" = "daily",
 ): Promise<void> {
+  const frequencyLabel = alertFrequency === "weekly" ? "weekly" : "daily";
   const totalRoles = eligibleRoles.length + workTowardsRoles.length;
   const subject =
     totalRoles > 0
       ? `JOBSAGE: ${totalRoles} new role${totalRoles !== 1 ? "s" : ""} matching your profile`
-      : "JOBSAGE: Your daily job alert";
+      : `JOBSAGE: Your ${frequencyLabel} job alert`;
 
   await resend.emails.send({
     from: `JOBSAGE <${FROM}>`,
     to,
     subject,
-    html: jobAlertEmailHtml(firstName, eligibleRoles, workTowardsRoles),
+    html: jobAlertEmailHtml(firstName, eligibleRoles, workTowardsRoles, alertFrequency),
   });
 }
 
