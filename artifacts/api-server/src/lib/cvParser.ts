@@ -67,7 +67,7 @@ export async function extractCvFields(
     }
   }
 
-  if (mimeType.startsWith("image/") || !textContent) {
+  if (mimeType.startsWith("image/")) {
     const base64 = buffer.toString("base64");
     const dataUrl = `data:${mimeType};base64,${base64}`;
 
@@ -91,6 +91,13 @@ export async function extractCvFields(
     });
 
     return parseAiResponse(visionResponse.choices[0]?.message?.content ?? "{}");
+  }
+
+  if (!textContent) {
+    throw new Error(
+      "Could not extract text from this PDF. Please ensure the PDF contains selectable text (not a scanned image). " +
+        "Try uploading a JPG or PNG image of your CV instead."
+    );
   }
 
   const truncated = textContent.slice(0, 8000);

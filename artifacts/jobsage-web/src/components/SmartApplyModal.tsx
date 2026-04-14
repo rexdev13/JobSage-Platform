@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui-enhanced";
 import {
   useSmartApplyPrefill,
@@ -31,6 +31,36 @@ interface SmartApplyModalProps {
   onSuccess: () => void;
 }
 
+function draftKey(roleId: number) {
+  return `smart-apply-draft-${roleId}`;
+}
+
+function loadDraft(roleId: number): Record<string, string> | null {
+  try {
+    const raw = localStorage.getItem(draftKey(roleId));
+    if (!raw) return null;
+    return JSON.parse(raw) as Record<string, string>;
+  } catch {
+    return null;
+  }
+}
+
+function saveDraft(roleId: number, answers: Record<string, string>) {
+  try {
+    localStorage.setItem(draftKey(roleId), JSON.stringify(answers));
+  } catch {
+    // storage quota exceeded — silently ignore
+  }
+}
+
+function clearDraft(roleId: number) {
+  try {
+    localStorage.removeItem(draftKey(roleId));
+  } catch {
+    // silently ignore
+  }
+}
+
 const CONFIDENCE_CONFIG = {
   high: { color: "text-emerald-600", bg: "bg-emerald-50 border-emerald-200", label: "High confidence" },
   medium: { color: "text-amber-600", bg: "bg-amber-50 border-amber-200", label: "Medium confidence — review suggested" },
@@ -54,17 +84,39 @@ export function SmartApplyModal({
   const prefillMutation = useSmartApplyPrefill();
   const markApplicationMutation = useMarkApplication();
 
+  const updateAnswers = useCallback(
+    (updater: (prev: Record<string, string>) => Record<string, string>) => {
+      setAnswers((prev) => {
+        const next = updater(prev);
+        saveDraft(roleId, next);
+        return next;
+      });
+    },
+    [roleId]
+  );
+
+  const [hasDraft, setHasDraft] = useState(false);
+
   useEffect(() => {
+    const existingDraft = loadDraft(roleId);
+    if (existingDraft && Object.keys(existingDraft).length > 0) {
+      setHasDraft(true);
+    }
+
     prefillMutation.mutate(
       { id: roleId },
       {
         onSuccess: (data) => {
           setPrefillData(data);
-          const initial: Record<string, string> = {};
+          const aiAnswers: Record<string, string> = {};
           for (const pf of data.prefills) {
-            initial[pf.questionId] = pf.aiAnswer;
+            aiAnswers[pf.questionId] = pf.aiAnswer;
           }
-          setAnswers(initial);
+          const draft = loadDraft(roleId);
+          setAnswers(draft && Object.keys(draft).length > 0
+            ? { ...aiAnswers, ...draft }
+            : aiAnswers
+          );
           setStep("review");
         },
         onError: () => {
@@ -72,6 +124,7 @@ export function SmartApplyModal({
         },
       }
     );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roleId]);
 
   const questions: ApplicationQuestion[] = prefillData?.questions ?? [];
@@ -100,6 +153,7 @@ export function SmartApplyModal({
         data: { roleId, notes: answersJson },
       });
 
+      clearDraft(roleId);
       queryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
       toast({
         title: "Application submitted!",
@@ -130,9 +184,16 @@ export function SmartApplyModal({
               <Sparkles className="w-5 h-5 text-primary" />
               <h2 className="text-lg font-bold text-foreground">Smart Apply</h2>
             </div>
-            <p className="text-sm text-muted-foreground font-medium truncate max-w-md">
-              {roleTitle}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-muted-foreground font-medium truncate max-w-md">
+                {roleTitle}
+              </p>
+              {hasDraft && step === "review" && (
+                <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                  Draft restored
+                </span>
+              )}
+            </div>
             {roleContext && (
               <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1">
@@ -243,9 +304,10 @@ export function SmartApplyModal({
                   className="w-full h-40 p-3 text-sm rounded-xl border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
                   placeholder={currentQ.hint}
                   value={answers[currentQ.id] ?? ""}
-                  onChange={(e) =>
-                    setAnswers((prev) => ({ ...prev, [currentQ.id]: e.target.value }))
-                  }
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    updateAnswers((prev) => ({ ...prev, [currentQ.id]: val }));
+                  }}
                 />
               </motion.div>
             </AnimatePresence>
