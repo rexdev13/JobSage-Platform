@@ -10,6 +10,7 @@ import {
   type MatchedRole,
   type ApplicationList,
 } from "@workspace/api-client-react";
+import { SmartApplyModal } from "@/components/SmartApplyModal";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -35,6 +36,7 @@ import {
   BadgeCheck,
   Clock,
   DollarSign,
+  Sparkles,
 } from "lucide-react";
 import { DisclaimerBanner } from "@/components/ui/DisclaimerBanner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -189,11 +191,13 @@ function RoleCard({
   item,
   appliedRoleIds,
   onApply,
+  onSmartApply,
   onViewDetail,
 }: {
   item: MatchedRole;
   appliedRoleIds: number[];
   onApply: (roleId: number) => void;
+  onSmartApply: (roleId: number, roleTitle: string) => void;
   onViewDetail: (item: MatchedRole) => void;
 }) {
   const [, setLocation] = useLocation();
@@ -280,15 +284,19 @@ function RoleCard({
           Required: <span className="font-medium text-foreground">{role.requiredRegistration}</span>
         </span>
         <div className="flex gap-2">
-          {isEligible && (
+          {isEligible && !applied && (
             <Button
               size="sm"
-              variant={applied ? "outline" : "default"}
-              className="text-xs h-8"
-              onClick={() => onApply(role.id)}
-              disabled={applied}
+              variant="default"
+              className="text-xs h-8 gap-1"
+              onClick={(e) => { e.stopPropagation(); onSmartApply(role.id, role.title); }}
             >
-              {applied ? "Applied" : "Mark Applied"}
+              <Sparkles className="w-3 h-3" /> Smart Apply
+            </Button>
+          )}
+          {isEligible && applied && (
+            <Button size="sm" variant="outline" className="text-xs h-8" disabled>
+              Applied
             </Button>
           )}
           {!isEligible && (
@@ -470,6 +478,7 @@ export default function OpportunitiesPage() {
   const [activeTab, setActiveTab] = useState<Tab>("board");
   const [selectedRole, setSelectedRole] = useState<MatchedRole | null>(null);
   const [employerSearch, setEmployerSearch] = useState("");
+  const [smartApplyRole, setSmartApplyRole] = useState<{ id: number; title: string } | null>(null);
 
   const queryClient = useQueryClient();
   const { data, isLoading, isError } = useListMatchedRoles();
@@ -493,6 +502,10 @@ export default function OpportunitiesPage() {
       return acc;
     }, {}),
   ).filter(([emp]) => emp.toLowerCase().includes(employerSearch.toLowerCase()));
+
+  function handleSmartApply(roleId: number, roleTitle: string) {
+    setSmartApplyRole({ id: roleId, title: roleTitle });
+  }
 
   function handleApply(roleId: number) {
     if (appliedRoleIds.includes(roleId)) return;
@@ -623,6 +636,7 @@ export default function OpportunitiesPage() {
                             item={item}
                             appliedRoleIds={appliedRoleIds}
                             onApply={handleApply}
+                            onSmartApply={handleSmartApply}
                             onViewDetail={setSelectedRole}
                           />
                         </motion.div>
@@ -665,6 +679,7 @@ export default function OpportunitiesPage() {
                             item={item}
                             appliedRoleIds={appliedRoleIds}
                             onApply={handleApply}
+                            onSmartApply={handleSmartApply}
                             onViewDetail={setSelectedRole}
                           />
                         </motion.div>
@@ -758,6 +773,22 @@ export default function OpportunitiesPage() {
             appliedRoleIds={appliedRoleIds}
             onClose={() => setSelectedRole(null)}
             onApply={(roleId) => { handleApply(roleId); setSelectedRole(null); }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Smart Apply modal */}
+      <AnimatePresence>
+        {smartApplyRole && (
+          <SmartApplyModal
+            roleId={smartApplyRole.id}
+            roleTitle={smartApplyRole.title}
+            onClose={() => setSmartApplyRole(null)}
+            onSuccess={() => {
+              setSmartApplyRole(null);
+              void queryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
+              void queryClient.invalidateQueries({ queryKey: getListMatchedRolesQueryKey() });
+            }}
           />
         )}
       </AnimatePresence>

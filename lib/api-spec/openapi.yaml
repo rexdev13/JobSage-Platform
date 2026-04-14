@@ -822,6 +822,93 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
 
+  /documents/{id}/parse-cv:
+    post:
+      tags: [Documents]
+      operationId: parseCv
+      summary: Extract profile fields from an uploaded CV document using AI
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Extracted CV fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CvParseResult'
+        '400':
+          description: Invalid document or unsupported file type.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Document not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /smart-apply/questions:
+    get:
+      tags: [Applications]
+      operationId: getSmartApplyQuestions
+      summary: Get the standard application questions
+      responses:
+        '200':
+          description: Standard questions list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmartApplyQuestionsResponse'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /roles/{id}/smart-apply/prefill:
+    post:
+      tags: [Applications]
+      operationId: smartApplyPrefill
+      summary: AI pre-fills application answers for a role based on the candidate's profile
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Pre-filled answers with gap indicators.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmartApplyPrefillResponse'
+        '404':
+          description: Profile not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
   /roles:
     get:
       tags: [Roles]
@@ -2207,6 +2294,114 @@ components:
       type: string
       enum: [applied, shortlisted, interview, offer, rejected, no_response]
 
+    CvExtractedFields:
+      type: object
+      properties:
+        profession:
+          type: string
+          nullable: true
+        specialty:
+          type: string
+          nullable: true
+        qualificationCountry:
+          type: string
+          nullable: true
+        qualificationType:
+          type: string
+          nullable: true
+        qualificationYear:
+          type: integer
+          nullable: true
+        experienceYears:
+          type: integer
+          nullable: true
+        registrationStatus:
+          type: string
+          nullable: true
+        requiresSponsorship:
+          type: boolean
+          nullable: true
+        preferredRegion:
+          type: string
+          nullable: true
+        confidence:
+          type: object
+          additionalProperties:
+            type: string
+        rawNotes:
+          type: string
+
+    CvParseResult:
+      type: object
+      required: [extracted]
+      properties:
+        extracted:
+          $ref: '#/components/schemas/CvExtractedFields'
+
+    ApplicationQuestion:
+      type: object
+      required: [id, question, hint, required]
+      properties:
+        id:
+          type: string
+        question:
+          type: string
+        hint:
+          type: string
+        required:
+          type: boolean
+
+    SmartApplyPrefill:
+      type: object
+      required: [questionId, aiAnswer, confidence, needsReview]
+      properties:
+        questionId:
+          type: string
+        aiAnswer:
+          type: string
+        confidence:
+          type: string
+          enum: [high, medium, low, none]
+        needsReview:
+          type: boolean
+
+    SmartApplyQuestionsResponse:
+      type: object
+      required: [questions]
+      properties:
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApplicationQuestion'
+
+    SmartApplyRoleContext:
+      type: object
+      required: [title, location, regulator, sponsorshipOffered]
+      properties:
+        title:
+          type: string
+        location:
+          type: string
+        regulator:
+          type: string
+        sponsorshipOffered:
+          type: boolean
+
+    SmartApplyPrefillResponse:
+      type: object
+      required: [questions, prefills, roleContext]
+      properties:
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApplicationQuestion'
+        prefills:
+          type: array
+          items:
+            $ref: '#/components/schemas/SmartApplyPrefill'
+        roleContext:
+          $ref: '#/components/schemas/SmartApplyRoleContext'
+
     Application:
       type: object
       required: [id, userId, roleId, status, appliedAt]
@@ -2223,6 +2418,12 @@ components:
           type: string
           format: date-time
         notes:
+          type: string
+          nullable: true
+        roleTitle:
+          type: string
+          nullable: true
+        roleLocation:
           type: string
           nullable: true
 

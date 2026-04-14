@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
-import { db } from "@workspace/db";
+import { db, jobListingsTable } from "@workspace/db";
 import { applicationsTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { requireAuthenticated } from "../middlewares/requireRole";
 
 const router: IRouter = Router();
@@ -15,6 +15,27 @@ router.get("/applications", requireAuthenticated, async (req, res): Promise<void
     .where(eq(applicationsTable.userId, userId))
     .orderBy(applicationsTable.appliedAt);
 
+  const employerRoleIds = applications
+    .filter((a) => a.roleId > 1_000_000)
+    .map((a) => a.roleId - 1_000_000);
+
+  const jobTitleMap: Record<number, { title: string; employer?: string; location?: string }> = {};
+  if (employerRoleIds.length > 0) {
+    const jobs = await db
+      .select({ id: jobListingsTable.id, title: jobListingsTable.title, location: jobListingsTable.location })
+      .from(jobListingsTable)
+      .where(inArray(jobListingsTable.id, employerRoleIds));
+    for (const job of jobs) {
+      jobTitleMap[job.id + 1_000_000] = { title: job.title, location: job.location };
+    }
+  }
+
+  const enriched = applications.map((a) => ({
+    ...a,
+    roleTitle: jobTitleMap[a.roleId]?.title ?? null,
+    roleLocation: jobTitleMap[a.roleId]?.location ?? null,
+  }));
+
   const stats = {
     total: applications.length,
     interviews: applications.filter((a) => a.status === "interview").length,
@@ -22,7 +43,7 @@ router.get("/applications", requireAuthenticated, async (req, res): Promise<void
     noResponse: applications.filter((a) => a.status === "no_response").length,
   };
 
-  res.json({ applications, stats });
+  res.json({ applications: enriched, stats });
 });
 
 router.post("/applications", requireAuthenticated, async (req, res): Promise<void> => {
