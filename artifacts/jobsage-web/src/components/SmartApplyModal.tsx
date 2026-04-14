@@ -1,8 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui-enhanced";
 import {
   useSmartApplyPrefill,
   useMarkApplication,
+  useSaveSmartApplyDraft,
+  useDeleteSmartApplyDraft,
+  useGetSmartApplyDraft,
   getListMyApplicationsQueryKey,
   type ApplicationQuestion,
   type SmartApplyPrefill,
@@ -83,26 +86,30 @@ export function SmartApplyModal({
 
   const prefillMutation = useSmartApplyPrefill();
   const markApplicationMutation = useMarkApplication();
+  const saveDraftMutation = useSaveSmartApplyDraft();
+  const deleteDraftMutation = useDeleteSmartApplyDraft();
+  const serverDraftQuery = useGetSmartApplyDraft(roleId);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const updateAnswers = useCallback(
     (updater: (prev: Record<string, string>) => Record<string, string>) => {
       setAnswers((prev) => {
         const next = updater(prev);
         saveDraft(roleId, next);
+        if (debounceTimer.current) clearTimeout(debounceTimer.current);
+        debounceTimer.current = setTimeout(() => {
+          saveDraftMutation.mutate({ roleId, data: { answers: next } });
+        }, 800);
         return next;
       });
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [roleId]
   );
 
   const [hasDraft, setHasDraft] = useState(false);
 
   useEffect(() => {
-    const existingDraft = loadDraft(roleId);
-    if (existingDraft && Object.keys(existingDraft).length > 0) {
-      setHasDraft(true);
-    }
-
     prefillMutation.mutate(
       { id: roleId },
       {
@@ -112,11 +119,20 @@ export function SmartApplyModal({
           for (const pf of data.prefills) {
             aiAnswers[pf.questionId] = pf.aiAnswer;
           }
-          const draft = loadDraft(roleId);
-          setAnswers(draft && Object.keys(draft).length > 0
-            ? { ...aiAnswers, ...draft }
-            : aiAnswers
-          );
+          const serverDraft = serverDraftQuery.data?.answers;
+          const localDraft = loadDraft(roleId);
+          const bestDraft =
+            serverDraft && Object.keys(serverDraft).length > 0
+              ? serverDraft
+              : localDraft && Object.keys(localDraft).length > 0
+              ? localDraft
+              : null;
+          if (bestDraft) {
+            setHasDraft(true);
+            setAnswers({ ...aiAnswers, ...bestDraft });
+          } else {
+            setAnswers(aiAnswers);
+          }
           setStep("review");
         },
         onError: () => {
@@ -124,6 +140,9 @@ export function SmartApplyModal({
         },
       }
     );
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roleId]);
 
@@ -154,6 +173,7 @@ export function SmartApplyModal({
       });
 
       clearDraft(roleId);
+      deleteDraftMutation.mutate({ roleId });
       queryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
       toast({
         title: "Application submitted!",

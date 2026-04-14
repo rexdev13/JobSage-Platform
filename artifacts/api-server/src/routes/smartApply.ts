@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, profilesTable, jobListingsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, profilesTable, jobListingsTable, smartApplyDraftsTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
 import { requireAuthenticated } from "../middlewares/requireRole";
 import { getStandardQuestions, prefillApplicationAnswers } from "../lib/smartApply";
 
@@ -85,6 +85,78 @@ router.post("/roles/:id/smart-apply/prefill", requireAuthenticated, async (req: 
     console.error("Smart apply prefill error:", err);
     res.status(500).json({ error: "Failed to generate application answers. Please try again." });
   }
+});
+
+router.get("/smart-apply/draft/:roleId", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
+  const roleId = parseInt(req.params.roleId, 10);
+  if (isNaN(roleId)) {
+    res.status(400).json({ error: "Invalid role ID" });
+    return;
+  }
+
+  const [draft] = await db
+    .select()
+    .from(smartApplyDraftsTable)
+    .where(
+      and(
+        eq(smartApplyDraftsTable.userId, req.user!.id),
+        eq(smartApplyDraftsTable.roleId, roleId)
+      )
+    );
+
+  if (!draft) {
+    res.json({ answers: null });
+    return;
+  }
+
+  res.json({ answers: draft.answers, updatedAt: draft.updatedAt.toISOString() });
+});
+
+router.put("/smart-apply/draft/:roleId", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
+  const roleId = parseInt(req.params.roleId, 10);
+  if (isNaN(roleId)) {
+    res.status(400).json({ error: "Invalid role ID" });
+    return;
+  }
+
+  const { answers } = req.body as { answers?: Record<string, string> };
+  if (!answers || typeof answers !== "object") {
+    res.status(400).json({ error: "answers object is required" });
+    return;
+  }
+
+  await db
+    .insert(smartApplyDraftsTable)
+    .values({
+      userId: req.user!.id,
+      roleId,
+      answers,
+    })
+    .onConflictDoUpdate({
+      target: [smartApplyDraftsTable.userId, smartApplyDraftsTable.roleId],
+      set: { answers, updatedAt: new Date() },
+    });
+
+  res.json({ ok: true });
+});
+
+router.delete("/smart-apply/draft/:roleId", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
+  const roleId = parseInt(req.params.roleId, 10);
+  if (isNaN(roleId)) {
+    res.status(400).json({ error: "Invalid role ID" });
+    return;
+  }
+
+  await db
+    .delete(smartApplyDraftsTable)
+    .where(
+      and(
+        eq(smartApplyDraftsTable.userId, req.user!.id),
+        eq(smartApplyDraftsTable.roleId, roleId)
+      )
+    );
+
+  res.sendStatus(204);
 });
 
 export default router;

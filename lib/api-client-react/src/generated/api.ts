@@ -72,6 +72,9 @@ import type {
   Ruleset,
   RulesetList,
   RulesetWithRules,
+  SaveSmartApplyDraft200,
+  SaveSmartApplyDraftRequest,
+  SmartApplyDraftResponse,
   SmartApplyPrefillResponse,
   SmartApplyQuestionsResponse,
   SponsorshipFeasibility,
@@ -2793,6 +2796,272 @@ export const useSmartApplyPrefill = <
   TContext
 > => {
   return useMutation(getSmartApplyPrefillMutationOptions(options));
+};
+
+/**
+ * @summary Load a saved draft application for a role
+ */
+export const getGetSmartApplyDraftUrl = (roleId: number) => {
+  return `/api/smart-apply/draft/${roleId}`;
+};
+
+export const getSmartApplyDraft = async (
+  roleId: number,
+  options?: RequestInit,
+): Promise<SmartApplyDraftResponse> => {
+  return customFetch<SmartApplyDraftResponse>(
+    getGetSmartApplyDraftUrl(roleId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetSmartApplyDraftQueryKey = (roleId: number) => {
+  return [`/api/smart-apply/draft/${roleId}`] as const;
+};
+
+export const getGetSmartApplyDraftQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSmartApplyDraft>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  roleId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSmartApplyDraft>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetSmartApplyDraftQueryKey(roleId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSmartApplyDraft>>
+  > = ({ signal }) => getSmartApplyDraft(roleId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!roleId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSmartApplyDraft>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSmartApplyDraftQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSmartApplyDraft>>
+>;
+export type GetSmartApplyDraftQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Load a saved draft application for a role
+ */
+
+export function useGetSmartApplyDraft<
+  TData = Awaited<ReturnType<typeof getSmartApplyDraft>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  roleId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSmartApplyDraft>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSmartApplyDraftQueryOptions(roleId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Save (upsert) a draft application for a role
+ */
+export const getSaveSmartApplyDraftUrl = (roleId: number) => {
+  return `/api/smart-apply/draft/${roleId}`;
+};
+
+export const saveSmartApplyDraft = async (
+  roleId: number,
+  saveSmartApplyDraftRequest: SaveSmartApplyDraftRequest,
+  options?: RequestInit,
+): Promise<SaveSmartApplyDraft200> => {
+  return customFetch<SaveSmartApplyDraft200>(
+    getSaveSmartApplyDraftUrl(roleId),
+    {
+      ...options,
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(saveSmartApplyDraftRequest),
+    },
+  );
+};
+
+export const getSaveSmartApplyDraftMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof saveSmartApplyDraft>>,
+    TError,
+    { roleId: number; data: BodyType<SaveSmartApplyDraftRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof saveSmartApplyDraft>>,
+  TError,
+  { roleId: number; data: BodyType<SaveSmartApplyDraftRequest> },
+  TContext
+> => {
+  const mutationKey = ["saveSmartApplyDraft"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof saveSmartApplyDraft>>,
+    { roleId: number; data: BodyType<SaveSmartApplyDraftRequest> }
+  > = (props) => {
+    const { roleId, data } = props ?? {};
+
+    return saveSmartApplyDraft(roleId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SaveSmartApplyDraftMutationResult = NonNullable<
+  Awaited<ReturnType<typeof saveSmartApplyDraft>>
+>;
+export type SaveSmartApplyDraftMutationBody =
+  BodyType<SaveSmartApplyDraftRequest>;
+export type SaveSmartApplyDraftMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Save (upsert) a draft application for a role
+ */
+export const useSaveSmartApplyDraft = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof saveSmartApplyDraft>>,
+    TError,
+    { roleId: number; data: BodyType<SaveSmartApplyDraftRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof saveSmartApplyDraft>>,
+  TError,
+  { roleId: number; data: BodyType<SaveSmartApplyDraftRequest> },
+  TContext
+> => {
+  return useMutation(getSaveSmartApplyDraftMutationOptions(options));
+};
+
+/**
+ * @summary Delete a saved draft application for a role
+ */
+export const getDeleteSmartApplyDraftUrl = (roleId: number) => {
+  return `/api/smart-apply/draft/${roleId}`;
+};
+
+export const deleteSmartApplyDraft = async (
+  roleId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteSmartApplyDraftUrl(roleId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteSmartApplyDraftMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSmartApplyDraft>>,
+    TError,
+    { roleId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteSmartApplyDraft>>,
+  TError,
+  { roleId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteSmartApplyDraft"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteSmartApplyDraft>>,
+    { roleId: number }
+  > = (props) => {
+    const { roleId } = props ?? {};
+
+    return deleteSmartApplyDraft(roleId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteSmartApplyDraftMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteSmartApplyDraft>>
+>;
+
+export type DeleteSmartApplyDraftMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Delete a saved draft application for a role
+ */
+export const useDeleteSmartApplyDraft = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSmartApplyDraft>>,
+    TError,
+    { roleId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteSmartApplyDraft>>,
+  TError,
+  { roleId: number },
+  TContext
+> => {
+  return useMutation(getDeleteSmartApplyDraftMutationOptions(options));
 };
 
 /**

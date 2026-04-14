@@ -503,6 +503,19 @@ export interface SmartApplyPrefillResponse {
   roleContext: SmartApplyRoleContext;
 }
 
+export type SmartApplyDraftResponseAnswers = { [key: string]: string } | null;
+
+export interface SmartApplyDraftResponse {
+  answers?: SmartApplyDraftResponseAnswers;
+  updatedAt?: string | null;
+}
+
+export type SaveSmartApplyDraftRequestAnswers = { [key: string]: string };
+
+export interface SaveSmartApplyDraftRequest {
+  answers: SaveSmartApplyDraftRequestAnswers;
+}
+
 export interface Application {
   id: number;
   userId: string;
@@ -967,6 +980,10 @@ export const ListDecisionsOutcome = {
   not_eligible: "not_eligible",
   ineligible: "ineligible",
 } as const;
+
+export type SaveSmartApplyDraft200 = {
+  ok: boolean;
+};
 
 export type ImportRolesCSVBody = {
   file: Blob;

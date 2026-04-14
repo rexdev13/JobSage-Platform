@@ -665,6 +665,40 @@ export const SmartApplyPrefillResponse = zod.object({
 });
 
 /**
+ * @summary Load a saved draft application for a role
+ */
+export const GetSmartApplyDraftParams = zod.object({
+  roleId: zod.coerce.number(),
+});
+
+export const GetSmartApplyDraftResponse = zod.object({
+  answers: zod.record(zod.string(), zod.string()).nullish(),
+  updatedAt: zod.date().nullish(),
+});
+
+/**
+ * @summary Save (upsert) a draft application for a role
+ */
+export const SaveSmartApplyDraftParams = zod.object({
+  roleId: zod.coerce.number(),
+});
+
+export const SaveSmartApplyDraftBody = zod.object({
+  answers: zod.record(zod.string(), zod.string()),
+});
+
+export const SaveSmartApplyDraftResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
+ * @summary Delete a saved draft application for a role
+ */
+export const DeleteSmartApplyDraftParams = zod.object({
+  roleId: zod.coerce.number(),
+});
+
+/**
  * @summary List roles matched to the current candidate's eligibility
  */
 export const ListMatchedRolesResponse = zod.object({

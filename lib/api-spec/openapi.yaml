@@ -909,6 +909,89 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
 
+  /smart-apply/draft/{roleId}:
+    get:
+      tags: [Applications]
+      operationId: getSmartApplyDraft
+      summary: Load a saved draft application for a role
+      parameters:
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Draft answers (answers may be null if no draft saved).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmartApplyDraftResponse'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    put:
+      tags: [Applications]
+      operationId: saveSmartApplyDraft
+      summary: Save (upsert) a draft application for a role
+      parameters:
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveSmartApplyDraftRequest'
+      responses:
+        '200':
+          description: Draft saved.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+        '400':
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    delete:
+      tags: [Applications]
+      operationId: deleteSmartApplyDraft
+      summary: Delete a saved draft application for a role
+      parameters:
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Draft deleted.
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
   /roles:
     get:
       tags: [Roles]
@@ -2401,6 +2484,29 @@ components:
             $ref: '#/components/schemas/SmartApplyPrefill'
         roleContext:
           $ref: '#/components/schemas/SmartApplyRoleContext'
+
+    SmartApplyDraftResponse:
+      type: object
+      required: []
+      properties:
+        answers:
+          type: object
+          additionalProperties:
+            type: string
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    SaveSmartApplyDraftRequest:
+      type: object
+      required: [answers]
+      properties:
+        answers:
+          type: object
+          additionalProperties:
+            type: string
 
     Application:
       type: object

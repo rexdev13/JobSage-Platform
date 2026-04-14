@@ -233,29 +233,35 @@ export default function DocumentsPage() {
   };
 
   const handleConfirmMerge = async (extracted: CvExtractedFields) => {
-    if (!profile) {
-      toast({ title: "Profile not found", description: "Please complete your profile first.", variant: "destructive" });
-      return;
-    }
     setIsSavingProfile(true);
+    const isBootstrap = !profile;
     try {
       const merged = {
-        profession: (extracted.profession as typeof profile.profession) ?? profile.profession,
-        specialty: extracted.specialty ?? profile.specialty,
-        qualificationCountry: extracted.qualificationCountry ?? profile.qualificationCountry,
-        qualificationType: extracted.qualificationType ?? profile.qualificationType,
-        qualificationYear: extracted.qualificationYear ?? profile.qualificationYear,
-        experienceYears: extracted.experienceYears ?? profile.experienceYears,
-        registrationStatus: (extracted.registrationStatus as typeof profile.registrationStatus) ?? profile.registrationStatus,
-        requiresSponsorship: extracted.requiresSponsorship ?? profile.requiresSponsorship,
-        licenceReady: profile.licenceReady,
-        residencyStatus: profile.residencyStatus,
-        preferredRegion: extracted.preferredRegion ?? profile.preferredRegion,
+        profession:
+          ((extracted.profession ?? profile?.profession) as "doctor" | "nurse" | "midwife" | "allied_health_professional" | "clinical_academic") ??
+          "doctor",
+        specialty: extracted.specialty ?? profile?.specialty ?? "",
+        qualificationCountry: extracted.qualificationCountry ?? profile?.qualificationCountry ?? "Unknown",
+        qualificationType: extracted.qualificationType ?? profile?.qualificationType ?? "Unknown",
+        qualificationYear: extracted.qualificationYear ?? profile?.qualificationYear ?? (new Date().getFullYear() - 5),
+        experienceYears: extracted.experienceYears ?? profile?.experienceYears ?? 0,
+        registrationStatus:
+          ((extracted.registrationStatus ?? profile?.registrationStatus) as "registered" | "not_registered" | "in_process") ??
+          "not_registered",
+        requiresSponsorship: extracted.requiresSponsorship ?? profile?.requiresSponsorship ?? false,
+        licenceReady: profile?.licenceReady ?? null,
+        residencyStatus: profile?.residencyStatus ?? "unknown",
+        preferredRegion: extracted.preferredRegion ?? profile?.preferredRegion ?? null,
       };
 
       await upsertProfileMutation.mutateAsync({ data: merged });
       queryClient.invalidateQueries({ queryKey: getGetMyProfileQueryKey() });
-      toast({ title: "Profile updated!", description: "Your profile has been updated with data from your CV." });
+      toast({
+        title: isBootstrap ? "Profile created from CV!" : "Profile updated!",
+        description: isBootstrap
+          ? "Your profile has been created from your CV. Please review and complete any missing details."
+          : "Your profile has been updated with data from your CV.",
+      });
       setParsedExtracted(null);
     } catch {
       toast({ title: "Failed to save", description: "Could not update your profile. Please try again.", variant: "destructive" });
