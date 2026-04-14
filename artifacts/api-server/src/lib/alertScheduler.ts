@@ -28,6 +28,16 @@ async function processUserAlert(
   const regulator = regulatorForProfession(profile.profession);
   if (!regulator) return;
 
+  // Optimistically claim the send slot before querying/sending.
+  // This prevents duplicate sends when multiple API instances
+  // run the cron at the same time: the second instance will see
+  // the updated lastAlertSentAt and skip this user.
+  const claimedAt = new Date();
+  await db
+    .update(profilesTable)
+    .set({ lastAlertSentAt: claimedAt })
+    .where(eq(profilesTable.userId, userId));
+
   const [latestDecision] = await db
     .select()
     .from(decisionRecordsTable)
@@ -71,12 +81,8 @@ async function processUserAlert(
     }
   }
 
-  await sendJobAlertEmail(email, firstName || "Candidate", eligibleRoles, workTowardsRoles);
-
-  await db
-    .update(profilesTable)
-    .set({ lastAlertSentAt: new Date() })
-    .where(eq(profilesTable.userId, userId));
+  const frequency = profile.alertFrequency === "weekly" ? "weekly" : "daily";
+  await sendJobAlertEmail(email, firstName || "Candidate", eligibleRoles, workTowardsRoles, frequency);
 }
 
 async function runAlerts(): Promise<void> {
