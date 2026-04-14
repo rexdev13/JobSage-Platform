@@ -5,10 +5,14 @@ import {
   useListMatchedRoles,
   useListMyApplications,
   useMarkApplication,
+  getListMyApplicationsQueryKey,
+  getListMatchedRolesQueryKey,
   type MatchedRole,
+  type ApplicationList,
 } from "@workspace/api-client-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Briefcase,
   MapPin,
@@ -30,6 +34,7 @@ import {
   Search,
   BadgeCheck,
   Clock,
+  DollarSign,
 } from "lucide-react";
 import { DisclaimerBanner } from "@/components/ui/DisclaimerBanner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -73,7 +78,8 @@ function RoleDetailModal({ item, appliedRoleIds, onClose, onApply }: {
   onClose: () => void;
   onApply: (roleId: number) => void;
 }) {
-  const { role, isEligible, matchScore, eligibilityGaps, explanation, sponsorshipFeasibility } = item;
+  const [, setLocation] = useLocation();
+  const { role, isEligible, matchScore, eligibilityGaps, sponsorshipFeasibility } = item;
   const applied = appliedRoleIds.includes(role.id);
 
   return (
@@ -164,10 +170,12 @@ function RoleDetailModal({ item, appliedRoleIds, onClose, onApply }: {
                 {applied ? <><CheckCircle2 className="w-4 h-4 mr-2" /> Applied</> : <><ClipboardList className="w-4 h-4 mr-2" /> Mark as Applied</>}
               </Button>
             ) : (
-              <Button variant="outline" className="flex-1" onClick={onClose} asChild>
-                <a href="/path">
-                  View Remediation Path <ArrowRight className="w-4 h-4 ml-2" />
-                </a>
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => { onClose(); setLocation("/path"); }}
+              >
+                View Remediation Path <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             )}
           </div>
@@ -188,6 +196,7 @@ function RoleCard({
   onApply: (roleId: number) => void;
   onViewDetail: (item: MatchedRole) => void;
 }) {
+  const [, setLocation] = useLocation();
   const { role, isEligible, matchScore, eligibilityGaps, sponsorshipFeasibility } = item;
   const [expanded, setExpanded] = useState(false);
   const applied = appliedRoleIds.includes(role.id);
@@ -283,10 +292,13 @@ function RoleCard({
             </Button>
           )}
           {!isEligible && (
-            <Button size="sm" variant="ghost" className="text-xs h-8 text-amber-700" asChild>
-              <a href="/path" onClick={(e) => e.stopPropagation()}>
-                View path <ArrowRight className="w-3 h-3 ml-1" />
-              </a>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-xs h-8 text-amber-700"
+              onClick={(e) => { e.stopPropagation(); setLocation("/path"); }}
+            >
+              View path <ArrowRight className="w-3 h-3 ml-1" />
             </Button>
           )}
         </div>
@@ -302,21 +314,17 @@ function EmployerCard({ employer, roles }: { employer: string; roles: MatchedRol
 
   return (
     <Card className="p-5 hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
-              {employer.charAt(0)}
-            </div>
-            <div>
-              <h3 className="font-semibold text-foreground text-sm leading-tight">{employer}</h3>
-              <p className="text-xs text-muted-foreground">{regulator} · {locations.join(", ")}</p>
-            </div>
-          </div>
+      <div className="flex items-start gap-3 mb-3">
+        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
+          {employer.charAt(0)}
+        </div>
+        <div className="min-w-0 flex-1">
+          <h3 className="font-semibold text-foreground text-sm leading-tight truncate">{employer}</h3>
+          <p className="text-xs text-muted-foreground">{regulator} · {locations.join(", ")}</p>
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2 items-center">
+      <div className="flex flex-wrap gap-2 items-center mb-3">
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted">
           <Briefcase className="w-3 h-3" /> {roles.length} open role{roles.length !== 1 ? "s" : ""}
         </span>
@@ -327,13 +335,12 @@ function EmployerCard({ employer, roles }: { employer: string; roles: MatchedRol
         )}
       </div>
 
-      <div className="mt-3 flex gap-2">
+      <div className="flex gap-2">
         <a
           href={`https://www.linkedin.com/search/results/companies/?keywords=${encodeURIComponent(employer)}`}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0077B5]/10 text-[#0077B5] text-xs font-medium hover:bg-[#0077B5]/20 transition-colors"
-          onClick={(e) => e.stopPropagation()}
         >
           <Linkedin className="w-3.5 h-3.5" /> LinkedIn
         </a>
@@ -342,7 +349,6 @@ function EmployerCard({ employer, roles }: { employer: string; roles: MatchedRol
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted text-muted-foreground text-xs font-medium hover:bg-muted/80 transition-colors"
-          onClick={(e) => e.stopPropagation()}
         >
           <Globe className="w-3.5 h-3.5" /> Web
         </a>
@@ -351,18 +357,27 @@ function EmployerCard({ employer, roles }: { employer: string; roles: MatchedRol
   );
 }
 
-function ApplicationsTab({ data }: { data: ReturnType<typeof useListMyApplications>["data"] }) {
-  if (!data) return null;
+function ApplicationsTab({ data }: { data: ApplicationList | undefined }) {
+  if (!data) {
+    return (
+      <Card className="p-8 text-center">
+        <ClipboardList className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
+        <p className="text-sm text-muted-foreground">No applications tracked yet.</p>
+        <p className="text-xs text-muted-foreground mt-1">Use &quot;Mark Applied&quot; on eligible roles to track your journey.</p>
+      </Card>
+    );
+  }
+
   const { applications, stats } = data;
 
-  const statusConfig = {
+  const statusConfig: Record<string, { label: string; className: string }> = {
     applied: { label: "Applied", className: "bg-blue-100 text-blue-800" },
     shortlisted: { label: "Shortlisted", className: "bg-purple-100 text-purple-800" },
     interview: { label: "Interview", className: "bg-violet-100 text-violet-800" },
     offer: { label: "Offer", className: "bg-emerald-100 text-emerald-800" },
     rejected: { label: "Rejected", className: "bg-red-100 text-red-700" },
     no_response: { label: "No Response", className: "bg-muted text-muted-foreground" },
-  } as const;
+  };
 
   return (
     <div className="space-y-4">
@@ -384,12 +399,12 @@ function ApplicationsTab({ data }: { data: ReturnType<typeof useListMyApplicatio
         <Card className="p-8 text-center">
           <ClipboardList className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
           <p className="text-sm text-muted-foreground">No applications tracked yet.</p>
-          <p className="text-xs text-muted-foreground mt-1">Use "Mark Applied" on eligible roles to track your journey.</p>
+          <p className="text-xs text-muted-foreground mt-1">Use &quot;Mark Applied&quot; on eligible roles to track your journey.</p>
         </Card>
       ) : (
         <div className="space-y-3">
           {applications.map((app) => {
-            const config = statusConfig[app.status as keyof typeof statusConfig] ?? statusConfig.applied;
+            const config = statusConfig[app.status] ?? statusConfig.applied;
             return (
               <Card key={app.id} className="p-4 flex items-center justify-between gap-3">
                 <div className="flex-1 min-w-0">
@@ -410,12 +425,53 @@ function ApplicationsTab({ data }: { data: ReturnType<typeof useListMyApplicatio
   );
 }
 
+function SelfPromotionCard() {
+  const [budget, setBudget] = useState("");
+  return (
+    <Card className="p-5 border-dashed border-2 border-primary/20 bg-gradient-to-br from-primary/3 to-accent/3">
+      <div className="flex items-start gap-4">
+        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+          <Megaphone className="w-5 h-5 text-primary" />
+        </div>
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="text-sm font-semibold text-foreground">Boost Your Profile</h3>
+            <span className="px-1.5 py-0.5 text-xs rounded bg-primary/10 text-primary font-medium">Coming Soon</span>
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed mb-3">
+            Premium candidates can promote their profile to NHS trusts and academic institutions actively recruiting in their specialty.
+          </p>
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 max-w-[160px]">
+              <DollarSign className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="number"
+                min="0"
+                step="10"
+                placeholder="Monthly budget"
+                value={budget}
+                onChange={(e) => setBudget(e.target.value)}
+                disabled
+                className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-border bg-background/50 text-muted-foreground cursor-not-allowed"
+              />
+            </div>
+            <Button size="sm" className="text-xs" disabled>
+              Set Budget &amp; Go Live
+            </Button>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 export default function OpportunitiesPage() {
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState<Tab>("board");
   const [selectedRole, setSelectedRole] = useState<MatchedRole | null>(null);
   const [employerSearch, setEmployerSearch] = useState("");
 
+  const queryClient = useQueryClient();
   const { data, isLoading, isError } = useListMatchedRoles();
   const { data: applicationsData } = useListMyApplications();
   const markApplicationMutation = useMarkApplication();
@@ -443,6 +499,8 @@ export default function OpportunitiesPage() {
       { data: { roleId } },
       {
         onSuccess: () => {
+          void queryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
+          void queryClient.invalidateQueries({ queryKey: getListMatchedRolesQueryKey() });
           toast({ title: "Application tracked", description: "Role marked as applied. Check 'My Applications' for tracking." });
         },
         onError: () => {
@@ -562,7 +620,7 @@ export default function OpportunitiesPage() {
                         >
                           <RoleCard
                             item={item}
-                            appliedRoleIds={[...appliedRoleIds, ...(markApplicationMutation.data ? [markApplicationMutation.data.roleId] : [])]}
+                            appliedRoleIds={appliedRoleIds}
                             onApply={handleApply}
                             onViewDetail={setSelectedRole}
                           />
@@ -623,7 +681,12 @@ export default function OpportunitiesPage() {
                         <p className="text-xs text-amber-800 mt-0.5 leading-relaxed">
                           Complete your remediation steps to unlock eligible roles. Your personalised action plan shows exactly what&apos;s needed.
                         </p>
-                        <Button size="sm" variant="outline" className="mt-3 border-amber-300 text-amber-800 hover:bg-amber-100" onClick={() => setLocation("/path")}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="mt-3 border-amber-300 text-amber-800 hover:bg-amber-100"
+                          onClick={() => setLocation("/path")}
+                        >
                           View My Remediation Plan <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
                         </Button>
                       </div>
@@ -680,25 +743,7 @@ export default function OpportunitiesPage() {
 
         {/* Self-promotion placeholder */}
         {activeTab === "board" && !isLoading && !isError && (
-          <Card className="p-5 border-dashed border-2 border-primary/20 bg-gradient-to-br from-primary/3 to-accent/3">
-            <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                <Megaphone className="w-5 h-5 text-primary" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <h3 className="text-sm font-semibold text-foreground">Boost Your Profile</h3>
-                  <span className="px-1.5 py-0.5 text-xs rounded bg-primary/10 text-primary font-medium">Coming Soon</span>
-                </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Premium candidates can promote their profile to employers in their specialty — increasing visibility to NHS trusts and academic institutions actively recruiting.
-                </p>
-                <Button size="sm" variant="outline" className="mt-3 text-xs" disabled>
-                  Set Budget &amp; Go Live
-                </Button>
-              </div>
-            </div>
-          </Card>
+          <SelfPromotionCard />
         )}
       </PageTransition>
 
@@ -707,7 +752,7 @@ export default function OpportunitiesPage() {
         {selectedRole && (
           <RoleDetailModal
             item={selectedRole}
-            appliedRoleIds={[...appliedRoleIds, ...(markApplicationMutation.data ? [markApplicationMutation.data.roleId] : [])]}
+            appliedRoleIds={appliedRoleIds}
             onClose={() => setSelectedRole(null)}
             onApply={(roleId) => { handleApply(roleId); setSelectedRole(null); }}
           />
