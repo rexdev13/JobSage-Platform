@@ -117,6 +117,10 @@ All routes under `/api`:
 - **AdminAuditPage** `/admin/audit` — decision audit export + consent log (admin)
 - **AdminRulesetsPage** `/admin/rulesets` — ruleset management (admin)
 - **AdminRolesPage** `/admin/roles` — roles management (admin)
+- **EmployerOnboardingPage** `/employer/onboarding` — company profile setup (auto-upgrades role to employer)
+- **EmployerDashboardPage** `/employer/dashboard` — active job listings with stats, publish/close/delete actions
+- **EmployerJobFormPage** `/employer/jobs/new` + `/employer/jobs/:id/edit` — create/edit job with AI description generation
+- **EmployerJobDetailPage** `/employer/jobs/:id` — ranked applicants with pipeline stage management
 
 ## Environment Variables
 
@@ -142,3 +146,5 @@ All routes under `/api`:
 - **Task #3**: Opportunity matching, visa sponsorship feasibility, remediation plans
 - **Task #4**: AI pathway prioritisation (gpt-4o), human review queue, audit export, role enforcement
 - **Task #5**: Replace Replit Auth with custom email+password auth via Resend; rename lib/replit-auth-web → lib/auth-web
+- **Task #10**: OpportunitiesPage rewritten (3-tab: Job Board, Employer Discovery, My Applications); DashboardPage updated with 4 stat cards including applications stats and self-promotion card
+- **Task #11**: Employer Portal — DB tables (`employer_profiles`, `job_listings`), employer role, backend CRUD routes, AI description generation, ranked applicants with pipeline stages; Frontend: EmployerOnboardingPage, EmployerDashboardPage, EmployerJobFormPage, EmployerJobDetailPage; AppSidebar role-based nav; "For Employers" landing page CTA

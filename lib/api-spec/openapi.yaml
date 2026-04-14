@@ -34,6 +34,8 @@ tags:
     description: Candidate job application tracking.
   - name: Remediation
     description: Remediation plan generation and progress tracking.
+  - name: Employer
+    description: Employer portal — post jobs, generate AI descriptions, rank and pipeline candidates.
 paths:
   /healthz:
     get:
@@ -1277,6 +1279,236 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
 
+  /employer/profile:
+    get:
+      operationId: getEmployerProfile
+      tags: [Employer]
+      summary: Get employer profile
+      responses:
+        "200":
+          description: Employer profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployerProfile"
+        "401":
+          description: Not authenticated
+        "404":
+          description: Profile not found
+    post:
+      operationId: upsertEmployerProfile
+      tags: [Employer]
+      summary: Create or update employer profile (and upgrades user role to employer)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertEmployerProfileRequest"
+      responses:
+        "200":
+          description: Employer profile saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployerProfile"
+        "400":
+          description: Validation error
+  /employer/jobs:
+    get:
+      operationId: listEmployerJobs
+      tags: [Employer]
+      summary: List all job listings for the authenticated employer
+      responses:
+        "200":
+          description: Job listings list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployerJobsResponse"
+    post:
+      operationId: createJobListing
+      tags: [Employer]
+      summary: Create a new job listing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateJobListingRequest"
+      responses:
+        "201":
+          description: Job listing created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobListing"
+        "400":
+          description: Validation error
+  /employer/jobs/{id}:
+    get:
+      operationId: getJobListing
+      tags: [Employer]
+      summary: Get a specific job listing
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Job listing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobListing"
+        "404":
+          description: Not found
+    put:
+      operationId: updateJobListing
+      tags: [Employer]
+      summary: Update a job listing
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateJobListingRequest"
+      responses:
+        "200":
+          description: Updated job listing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobListing"
+    delete:
+      operationId: deleteJobListing
+      tags: [Employer]
+      summary: Delete a job listing
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+  /employer/jobs/{id}/publish:
+    put:
+      operationId: publishJobListing
+      tags: [Employer]
+      summary: Publish a job listing (makes it visible on candidate board)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Job listing published
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobListing"
+  /employer/jobs/{id}/close:
+    put:
+      operationId: closeJobListing
+      tags: [Employer]
+      summary: Close a job listing
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Job listing closed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobListing"
+  /employer/jobs/{id}/generate-description:
+    post:
+      operationId: generateJobDescription
+      tags: [Employer]
+      summary: AI-generate a job description for a listing
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Generated description
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateJobDescriptionResponse"
+  /employer/jobs/{id}/applicants:
+    get:
+      operationId: listJobApplicants
+      tags: [Employer]
+      summary: List ranked applicants for a job listing
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Ranked applicant list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobApplicantsResponse"
+  /employer/jobs/{jobId}/applicants/{applicationId}/stage:
+    put:
+      operationId: updateApplicantStage
+      tags: [Employer]
+      summary: Move an applicant to a different pipeline stage
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateApplicantStageRequest"
+      responses:
+        "200":
+          description: Stage updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdateApplicantStageResponse"
 components:
   schemas:
     HealthStatus:
@@ -2331,3 +2563,265 @@ components:
           type: integer
         pageSize:
           type: integer
+
+    EmployerProfile:
+      type: object
+      required: [id, userId, companyName, industry, region, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: string
+        companyName:
+          type: string
+        industry:
+          type: string
+          enum: [nhs_trust, university, private_healthcare, charity, other]
+        sponsorLicenceNumber:
+          type: string
+          nullable: true
+        region:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    UpsertEmployerProfileRequest:
+      type: object
+      required: [companyName, industry, region]
+      properties:
+        companyName:
+          type: string
+        industry:
+          type: string
+          enum: [nhs_trust, university, private_healthcare, charity, other]
+        sponsorLicenceNumber:
+          type: string
+          nullable: true
+        region:
+          type: string
+
+    JobListing:
+      type: object
+      required: [id, employerProfileId, title, location, sponsorshipOffered, status, regulator, requiredRegistration, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        employerProfileId:
+          type: integer
+        title:
+          type: string
+        specialty:
+          type: string
+          nullable: true
+        location:
+          type: string
+        salaryBand:
+          type: string
+          nullable: true
+        sponsorshipOffered:
+          type: boolean
+        requirements:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [draft, published, closed]
+        regulator:
+          type: string
+          enum: [GMC, NMC, HCPC]
+        requiredRegistration:
+          type: string
+        targetProfessions:
+          type: array
+          items:
+            type: string
+        targetRegions:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    JobListingWithCount:
+      allOf:
+        - $ref: "#/components/schemas/JobListing"
+        - type: object
+          required: [applicantCount]
+          properties:
+            applicantCount:
+              type: integer
+
+    EmployerJobsResponse:
+      type: object
+      required: [jobs]
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/JobListingWithCount"
+        employerProfile:
+          $ref: "#/components/schemas/EmployerProfile"
+
+    CreateJobListingRequest:
+      type: object
+      required: [title, location, regulator, requiredRegistration]
+      properties:
+        title:
+          type: string
+        specialty:
+          type: string
+        location:
+          type: string
+        salaryBand:
+          type: string
+        sponsorshipOffered:
+          type: boolean
+        requirements:
+          type: string
+        description:
+          type: string
+        regulator:
+          type: string
+          enum: [GMC, NMC, HCPC]
+        requiredRegistration:
+          type: string
+        targetProfessions:
+          type: array
+          items:
+            type: string
+        targetRegions:
+          type: array
+          items:
+            type: string
+
+    UpdateJobListingRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        specialty:
+          type: string
+        location:
+          type: string
+        salaryBand:
+          type: string
+        sponsorshipOffered:
+          type: boolean
+        requirements:
+          type: string
+        description:
+          type: string
+        regulator:
+          type: string
+          enum: [GMC, NMC, HCPC]
+        requiredRegistration:
+          type: string
+        targetProfessions:
+          type: array
+          items:
+            type: string
+        targetRegions:
+          type: array
+          items:
+            type: string
+
+    GenerateJobDescriptionResponse:
+      type: object
+      required: [description, disclaimer]
+      properties:
+        description:
+          type: string
+          nullable: true
+        disclaimer:
+          type: string
+
+    JobApplicant:
+      type: object
+      required: [applicationId, userId, isEligible, matchScore, complianceConfidence, stage, appliedAt]
+      properties:
+        applicationId:
+          type: integer
+        userId:
+          type: string
+        candidateName:
+          type: string
+        candidateEmail:
+          type: string
+          nullable: true
+        profession:
+          type: string
+          nullable: true
+        registrationStatus:
+          type: string
+          nullable: true
+        requiresSponsorship:
+          type: boolean
+        experienceYears:
+          type: integer
+          nullable: true
+        qualificationCountry:
+          type: string
+          nullable: true
+        eligibilityOutcome:
+          type: string
+          nullable: true
+        isEligible:
+          type: boolean
+        matchScore:
+          type: integer
+        complianceConfidence:
+          type: string
+          enum: [high, medium, low]
+        stage:
+          type: string
+          enum: [applied, shortlisted, interview, offer, rejected, no_response]
+        appliedAt:
+          type: string
+          format: date-time
+        notes:
+          type: string
+          nullable: true
+
+    JobApplicantsResponse:
+      type: object
+      required: [applicants, job]
+      properties:
+        applicants:
+          type: array
+          items:
+            $ref: "#/components/schemas/JobApplicant"
+        job:
+          $ref: "#/components/schemas/JobListing"
+
+    UpdateApplicantStageRequest:
+      type: object
+      required: [stage]
+      properties:
+        stage:
+          type: string
+          enum: [applied, shortlisted, interview, offer, rejected, no_response]
+        notes:
+          type: string
+
+    UpdateApplicantStageResponse:
+      type: object
+      required: [applicationId, stage]
+      properties:
+        applicationId:
+          type: integer
+        stage:
+          type: string
+        notes:
+          type: string
+          nullable: true

@@ -5,6 +5,11 @@ import { useAuth } from "@workspace/auth-web";
 import { useEffect } from "react";
 import { useGetMyProfile } from "@workspace/api-client-react";
 
+import EmployerOnboardingPage from "@/pages/employer/EmployerOnboardingPage";
+import EmployerDashboardPage from "@/pages/employer/EmployerDashboardPage";
+import EmployerJobFormPage from "@/pages/employer/EmployerJobFormPage";
+import EmployerJobDetailPage from "@/pages/employer/EmployerJobDetailPage";
+
 import { AuthGuard } from "@/components/layout/AuthGuard";
 
 import LandingPage from "@/pages/LandingPage";
@@ -82,6 +87,21 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function EmployerGuard({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (!isLoading && user && user.role !== "employer" && user.role !== "admin") {
+      setLocation("/employer/onboarding");
+    }
+  }, [isLoading, user, setLocation]);
+
+  if (isLoading) return null;
+  if (!user || (user.role !== "employer" && user.role !== "admin")) return null;
+  return <>{children}</>;
+}
+
 function ReviewerGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   const [, setLocation] = useLocation();
@@ -140,6 +160,34 @@ function Router() {
               <AdminGuard>
                 <AdminAuditPage />
               </AdminGuard>
+            </Route>
+
+            {/* Employer Portal Routes */}
+            <Route path="/employer/onboarding" component={EmployerOnboardingPage} />
+            <Route path="/employer/dashboard">
+              <EmployerGuard>
+                <EmployerDashboardPage />
+              </EmployerGuard>
+            </Route>
+            <Route path="/employer/profile">
+              <EmployerGuard>
+                <EmployerOnboardingPage />
+              </EmployerGuard>
+            </Route>
+            <Route path="/employer/jobs/new">
+              <EmployerGuard>
+                <EmployerJobFormPage />
+              </EmployerGuard>
+            </Route>
+            <Route path="/employer/jobs/:id/edit">
+              <EmployerGuard>
+                <EmployerJobFormPage />
+              </EmployerGuard>
+            </Route>
+            <Route path="/employer/jobs/:id">
+              <EmployerGuard>
+                <EmployerJobDetailPage />
+              </EmployerGuard>
             </Route>
 
             <Route component={NotFound} />
