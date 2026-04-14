@@ -15,6 +15,7 @@ export const profilesTable = pgTable("profiles", {
   licenceReady: boolean("licence_ready"),
   residencyStatus: text("residency_status").notNull(),
   requiresSponsorship: boolean("requires_sponsorship").notNull(),
+  preferredRegion: text("preferred_region"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

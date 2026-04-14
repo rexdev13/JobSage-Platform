@@ -10,6 +10,12 @@ import { useToast } from "@/hooks/use-toast";
 type Profession = "doctor" | "nurse" | "midwife" | "allied_health_professional" | "clinical_academic";
 type RegistrationStatus = "registered" | "not_registered" | "in_process";
 
+const UK_REGIONS = [
+  "East of England", "East Midlands", "London", "North East", "North West",
+  "South East", "South West", "West Midlands", "Yorkshire and the Humber",
+  "Northern Ireland", "Scotland", "Wales", "National / Multiple Regions",
+];
+
 type ProfileFormData = {
   profession: Profession | "";
   specialty: string;
@@ -21,6 +27,7 @@ type ProfileFormData = {
   licenceReady: boolean;
   residencyStatus: string;
   requiresSponsorship: boolean;
+  preferredRegion: string;
 };
 
 export default function ProfilePage() {
@@ -40,6 +47,7 @@ export default function ProfilePage() {
     licenceReady: false,
     residencyStatus: "",
     requiresSponsorship: false,
+    preferredRegion: "",
   });
 
   useEffect(() => {
@@ -55,6 +63,7 @@ export default function ProfilePage() {
         licenceReady: profile.licenceReady || false,
         residencyStatus: profile.residencyStatus || "",
         requiresSponsorship: profile.requiresSponsorship || false,
+        preferredRegion: (profile as { preferredRegion?: string | null }).preferredRegion ?? "",
       });
     }
   }, [profile]);
@@ -97,6 +106,7 @@ export default function ProfilePage() {
           licenceReady: formData.licenceReady,
           residencyStatus: formData.residencyStatus,
           requiresSponsorship: formData.requiresSponsorship,
+          preferredRegion: formData.preferredRegion || undefined,
         },
       });
       queryClient.invalidateQueries({ queryKey: getGetMyProfileQueryKey() });
@@ -196,7 +206,7 @@ export default function ProfilePage() {
           </Card>
 
           <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-6 border-b pb-4">Immigration & Visa</h3>
+            <h3 className="text-lg font-semibold mb-6 border-b pb-4">Immigration & Location</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <Label>Residency/Visa Status *</Label>
@@ -213,6 +223,14 @@ export default function ProfilePage() {
                   />
                   <span className="font-medium text-foreground">Requires Visa Sponsorship</span>
                 </label>
+              </div>
+              <div className="col-span-1 md:col-span-2">
+                <Label>Preferred UK Region</Label>
+                <Select name="preferredRegion" value={formData.preferredRegion} onChange={handleChange}>
+                  <option value="">Any / Not specified</option>
+                  {UK_REGIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">Helps employers with region-targeted job postings find you more easily.</p>
               </div>
             </div>
           </Card>

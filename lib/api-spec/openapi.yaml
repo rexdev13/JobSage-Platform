@@ -1692,6 +1692,9 @@ components:
         requiresSponsorship:
           type: boolean
           nullable: true
+        preferredRegion:
+          type: string
+          nullable: true
         createdAt:
           type: string
           format: date-time
@@ -1735,6 +1738,9 @@ components:
           type: string
         requiresSponsorship:
           type: boolean
+        preferredRegion:
+          type: string
+          nullable: true
 
     RecordConsentRequest:
       type: object

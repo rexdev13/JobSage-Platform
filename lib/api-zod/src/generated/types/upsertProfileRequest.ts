@@ -19,4 +19,5 @@ export interface UpsertProfileRequest {
   licenceReady?: boolean | null;
   residencyStatus: string;
   requiresSponsorship: boolean;
+  preferredRegion?: string | null;
 }

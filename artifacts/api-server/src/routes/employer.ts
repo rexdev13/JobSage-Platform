@@ -109,7 +109,7 @@ router.get("/employer/jobs", requireEmployer(), async (req, res): Promise<void> 
       const applicants = await db
         .select({ id: applicationsTable.id })
         .from(applicationsTable)
-        .where(eq(applicationsTable.roleId, job.id));
+        .where(eq(applicationsTable.roleId, job.id + 1_000_000));
       return { ...job, applicantCount: applicants.length };
     }),
   );
@@ -331,7 +331,7 @@ router.get("/employer/jobs/:id/applicants", requireEmployer(), async (req, res):
   const apps = await db
     .select()
     .from(applicationsTable)
-    .where(eq(applicationsTable.roleId, jobId))
+    .where(eq(applicationsTable.roleId, jobId + 1_000_000))
     .orderBy(desc(applicationsTable.appliedAt));
 
   const enriched = await Promise.all(
@@ -408,7 +408,7 @@ router.put("/employer/jobs/:jobId/applicants/:applicationId/stage", requireEmplo
   const [updated] = await db
     .update(applicationsTable)
     .set(updateData)
-    .where(and(eq(applicationsTable.id, applicationId), eq(applicationsTable.roleId, jobId)))
+    .where(and(eq(applicationsTable.id, applicationId), eq(applicationsTable.roleId, jobId + 1_000_000)))
     .returning();
 
   if (!updated) { res.status(404).json({ error: "Application not found." }); return; }

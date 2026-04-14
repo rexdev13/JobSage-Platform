@@ -181,6 +181,7 @@ export const GetMyProfileResponse = zod.object({
   licenceReady: zod.boolean().nullish(),
   residencyStatus: zod.string().nullish(),
   requiresSponsorship: zod.boolean().nullish(),
+  preferredRegion: zod.string().nullish(),
   createdAt: zod.date(),
   updatedAt: zod.date(),
 });
@@ -205,6 +206,7 @@ export const UpsertMyProfileBody = zod.object({
   licenceReady: zod.boolean().nullish(),
   residencyStatus: zod.string(),
   requiresSponsorship: zod.boolean(),
+  preferredRegion: zod.string().nullish(),
 });
 
 export const UpsertMyProfileResponse = zod.object({
@@ -228,6 +230,7 @@ export const UpsertMyProfileResponse = zod.object({
   licenceReady: zod.boolean().nullish(),
   residencyStatus: zod.string().nullish(),
   requiresSponsorship: zod.boolean().nullish(),
+  preferredRegion: zod.string().nullish(),
   createdAt: zod.date(),
   updatedAt: zod.date(),
 });
@@ -533,6 +536,7 @@ export const RunRegressionTestBody = zod.object({
         licenceReady: zod.boolean().nullish(),
         residencyStatus: zod.string(),
         requiresSponsorship: zod.boolean(),
+        preferredRegion: zod.string().nullish(),
       }),
       expectedOutcome: zod.enum(["eligible", "not_eligible", "ineligible"]),
     }),
@@ -977,6 +981,7 @@ export const GetReviewCaseResponse = zod.object({
       licenceReady: zod.boolean().nullish(),
       residencyStatus: zod.string().nullish(),
       requiresSponsorship: zod.boolean().nullish(),
+      preferredRegion: zod.string().nullish(),
       createdAt: zod.date(),
       updatedAt: zod.date(),
     })

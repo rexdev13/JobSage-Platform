@@ -21,6 +21,7 @@ export interface CandidateProfile {
   licenceReady?: boolean | null;
   residencyStatus?: string | null;
   requiresSponsorship?: boolean | null;
+  preferredRegion?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
