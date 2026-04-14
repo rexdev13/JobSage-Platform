@@ -156,7 +156,11 @@ router.post("/documents/:id/parse-cv", requireAuthenticated, async (req: Request
     res.json({ extracted });
   } catch (err) {
     console.error("CV parse error:", err);
-    res.status(500).json({ error: "Failed to parse CV. Please try again." });
+    const message =
+      err instanceof Error
+        ? err.message
+        : "Failed to parse CV. Please try again.";
+    res.status(422).json({ error: message });
   }
 });
 
