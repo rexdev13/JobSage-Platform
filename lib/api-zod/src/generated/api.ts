@@ -1064,3 +1064,345 @@ export const ListConsentLogResponse = zod.object({
   page: zod.number(),
   pageSize: zod.number(),
 });
+
+/**
+ * @summary Get employer profile
+ */
+export const GetEmployerProfileResponse = zod.object({
+  id: zod.number(),
+  userId: zod.string(),
+  companyName: zod.string(),
+  industry: zod.enum([
+    "nhs_trust",
+    "university",
+    "private_healthcare",
+    "charity",
+    "other",
+  ]),
+  sponsorLicenceNumber: zod.string().nullish(),
+  region: zod.string(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary Create or update employer profile (and upgrades user role to employer)
+ */
+export const UpsertEmployerProfileBody = zod.object({
+  companyName: zod.string(),
+  industry: zod.enum([
+    "nhs_trust",
+    "university",
+    "private_healthcare",
+    "charity",
+    "other",
+  ]),
+  sponsorLicenceNumber: zod.string().nullish(),
+  region: zod.string(),
+});
+
+export const UpsertEmployerProfileResponse = zod.object({
+  id: zod.number(),
+  userId: zod.string(),
+  companyName: zod.string(),
+  industry: zod.enum([
+    "nhs_trust",
+    "university",
+    "private_healthcare",
+    "charity",
+    "other",
+  ]),
+  sponsorLicenceNumber: zod.string().nullish(),
+  region: zod.string(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary List all job listings for the authenticated employer
+ */
+export const ListEmployerJobsResponse = zod.object({
+  jobs: zod.array(
+    zod
+      .object({
+        id: zod.number(),
+        employerProfileId: zod.number(),
+        title: zod.string(),
+        specialty: zod.string().nullish(),
+        location: zod.string(),
+        salaryBand: zod.string().nullish(),
+        sponsorshipOffered: zod.boolean(),
+        requirements: zod.string().nullish(),
+        description: zod.string().nullish(),
+        status: zod.enum(["draft", "published", "closed"]),
+        regulator: zod.enum(["GMC", "NMC", "HCPC"]),
+        requiredRegistration: zod.string(),
+        targetProfessions: zod.array(zod.string()).optional(),
+        targetRegions: zod.array(zod.string()).optional(),
+        createdAt: zod.date(),
+        updatedAt: zod.date(),
+      })
+      .and(
+        zod.object({
+          applicantCount: zod.number(),
+        }),
+      ),
+  ),
+  employerProfile: zod
+    .object({
+      id: zod.number(),
+      userId: zod.string(),
+      companyName: zod.string(),
+      industry: zod.enum([
+        "nhs_trust",
+        "university",
+        "private_healthcare",
+        "charity",
+        "other",
+      ]),
+      sponsorLicenceNumber: zod.string().nullish(),
+      region: zod.string(),
+      createdAt: zod.date(),
+      updatedAt: zod.date(),
+    })
+    .optional(),
+});
+
+/**
+ * @summary Create a new job listing
+ */
+export const CreateJobListingBody = zod.object({
+  title: zod.string(),
+  specialty: zod.string().optional(),
+  location: zod.string(),
+  salaryBand: zod.string().optional(),
+  sponsorshipOffered: zod.boolean().optional(),
+  requirements: zod.string().optional(),
+  description: zod.string().optional(),
+  regulator: zod.enum(["GMC", "NMC", "HCPC"]),
+  requiredRegistration: zod.string(),
+  targetProfessions: zod.array(zod.string()).optional(),
+  targetRegions: zod.array(zod.string()).optional(),
+});
+
+/**
+ * @summary Get a specific job listing
+ */
+export const GetJobListingParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetJobListingResponse = zod.object({
+  id: zod.number(),
+  employerProfileId: zod.number(),
+  title: zod.string(),
+  specialty: zod.string().nullish(),
+  location: zod.string(),
+  salaryBand: zod.string().nullish(),
+  sponsorshipOffered: zod.boolean(),
+  requirements: zod.string().nullish(),
+  description: zod.string().nullish(),
+  status: zod.enum(["draft", "published", "closed"]),
+  regulator: zod.enum(["GMC", "NMC", "HCPC"]),
+  requiredRegistration: zod.string(),
+  targetProfessions: zod.array(zod.string()).optional(),
+  targetRegions: zod.array(zod.string()).optional(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary Update a job listing
+ */
+export const UpdateJobListingParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateJobListingBody = zod.object({
+  title: zod.string().optional(),
+  specialty: zod.string().optional(),
+  location: zod.string().optional(),
+  salaryBand: zod.string().optional(),
+  sponsorshipOffered: zod.boolean().optional(),
+  requirements: zod.string().optional(),
+  description: zod.string().optional(),
+  regulator: zod.enum(["GMC", "NMC", "HCPC"]).optional(),
+  requiredRegistration: zod.string().optional(),
+  targetProfessions: zod.array(zod.string()).optional(),
+  targetRegions: zod.array(zod.string()).optional(),
+});
+
+export const UpdateJobListingResponse = zod.object({
+  id: zod.number(),
+  employerProfileId: zod.number(),
+  title: zod.string(),
+  specialty: zod.string().nullish(),
+  location: zod.string(),
+  salaryBand: zod.string().nullish(),
+  sponsorshipOffered: zod.boolean(),
+  requirements: zod.string().nullish(),
+  description: zod.string().nullish(),
+  status: zod.enum(["draft", "published", "closed"]),
+  regulator: zod.enum(["GMC", "NMC", "HCPC"]),
+  requiredRegistration: zod.string(),
+  targetProfessions: zod.array(zod.string()).optional(),
+  targetRegions: zod.array(zod.string()).optional(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary Delete a job listing
+ */
+export const DeleteJobListingParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteJobListingResponse = zod.object({
+  message: zod.string().optional(),
+});
+
+/**
+ * @summary Publish a job listing (makes it visible on candidate board)
+ */
+export const PublishJobListingParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const PublishJobListingResponse = zod.object({
+  id: zod.number(),
+  employerProfileId: zod.number(),
+  title: zod.string(),
+  specialty: zod.string().nullish(),
+  location: zod.string(),
+  salaryBand: zod.string().nullish(),
+  sponsorshipOffered: zod.boolean(),
+  requirements: zod.string().nullish(),
+  description: zod.string().nullish(),
+  status: zod.enum(["draft", "published", "closed"]),
+  regulator: zod.enum(["GMC", "NMC", "HCPC"]),
+  requiredRegistration: zod.string(),
+  targetProfessions: zod.array(zod.string()).optional(),
+  targetRegions: zod.array(zod.string()).optional(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary Close a job listing
+ */
+export const CloseJobListingParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const CloseJobListingResponse = zod.object({
+  id: zod.number(),
+  employerProfileId: zod.number(),
+  title: zod.string(),
+  specialty: zod.string().nullish(),
+  location: zod.string(),
+  salaryBand: zod.string().nullish(),
+  sponsorshipOffered: zod.boolean(),
+  requirements: zod.string().nullish(),
+  description: zod.string().nullish(),
+  status: zod.enum(["draft", "published", "closed"]),
+  regulator: zod.enum(["GMC", "NMC", "HCPC"]),
+  requiredRegistration: zod.string(),
+  targetProfessions: zod.array(zod.string()).optional(),
+  targetRegions: zod.array(zod.string()).optional(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary AI-generate a job description for a listing
+ */
+export const GenerateJobDescriptionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GenerateJobDescriptionResponse = zod.object({
+  description: zod.string().nullable(),
+  disclaimer: zod.string(),
+});
+
+/**
+ * @summary List ranked applicants for a job listing
+ */
+export const ListJobApplicantsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListJobApplicantsResponse = zod.object({
+  applicants: zod.array(
+    zod.object({
+      applicationId: zod.number(),
+      userId: zod.string(),
+      candidateName: zod.string().optional(),
+      candidateEmail: zod.string().nullish(),
+      profession: zod.string().nullish(),
+      registrationStatus: zod.string().nullish(),
+      requiresSponsorship: zod.boolean().optional(),
+      experienceYears: zod.number().nullish(),
+      qualificationCountry: zod.string().nullish(),
+      eligibilityOutcome: zod.string().nullish(),
+      isEligible: zod.boolean(),
+      matchScore: zod.number(),
+      complianceConfidence: zod.enum(["high", "medium", "low"]),
+      stage: zod.enum([
+        "applied",
+        "shortlisted",
+        "interview",
+        "offer",
+        "rejected",
+        "no_response",
+      ]),
+      appliedAt: zod.date(),
+      notes: zod.string().nullish(),
+    }),
+  ),
+  job: zod.object({
+    id: zod.number(),
+    employerProfileId: zod.number(),
+    title: zod.string(),
+    specialty: zod.string().nullish(),
+    location: zod.string(),
+    salaryBand: zod.string().nullish(),
+    sponsorshipOffered: zod.boolean(),
+    requirements: zod.string().nullish(),
+    description: zod.string().nullish(),
+    status: zod.enum(["draft", "published", "closed"]),
+    regulator: zod.enum(["GMC", "NMC", "HCPC"]),
+    requiredRegistration: zod.string(),
+    targetProfessions: zod.array(zod.string()).optional(),
+    targetRegions: zod.array(zod.string()).optional(),
+    createdAt: zod.date(),
+    updatedAt: zod.date(),
+  }),
+});
+
+/**
+ * @summary Move an applicant to a different pipeline stage
+ */
+export const UpdateApplicantStageParams = zod.object({
+  jobId: zod.coerce.number(),
+  applicationId: zod.coerce.number(),
+});
+
+export const UpdateApplicantStageBody = zod.object({
+  stage: zod.enum([
+    "applied",
+    "shortlisted",
+    "interview",
+    "offer",
+    "rejected",
+    "no_response",
+  ]),
+  notes: zod.string().optional(),
+});
+
+export const UpdateApplicantStageResponse = zod.object({
+  applicationId: zod.number(),
+  stage: zod.string(),
+  notes: zod.string().nullish(),
+});

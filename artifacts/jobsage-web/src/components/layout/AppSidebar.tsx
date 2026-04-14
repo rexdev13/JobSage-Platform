@@ -2,7 +2,8 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@workspace/auth-web";
 import { 
   Home, User, FileText, CheckCircle, 
-  Map, ClipboardList, Shield, Users, LogOut, Briefcase
+  Map, ClipboardList, Shield, Users, LogOut, Briefcase,
+  Building2, Plus, LayoutDashboard
 } from "lucide-react";
 import { cn } from "@/components/ui-enhanced";
 
@@ -13,12 +14,18 @@ export function AppSidebar() {
   const role = user?.role || "candidate";
 
   const navigation = [
+    // Candidate + Reviewer + Admin
     { name: "My Dashboard", href: "/", icon: Home, roles: ["candidate", "reviewer", "admin"] },
     { name: "My Profile", href: "/profile", icon: User, roles: ["candidate", "reviewer", "admin"] },
     { name: "My Documents", href: "/documents", icon: FileText, roles: ["candidate", "reviewer", "admin"] },
     { name: "My Eligibility", href: "/eligibility", icon: CheckCircle, roles: ["candidate", "reviewer", "admin"] },
-    { name: "Opportunities", href: "/opportunities", icon: Briefcase, roles: ["candidate", "reviewer", "admin"] },
+    { name: "Opportunities", href: "/opportunities", icon: Briefcase, roles: ["candidate", "reviewer", "admin", "employer"] },
     { name: "My Path", href: "/path", icon: Map, roles: ["candidate", "reviewer", "admin"] },
+
+    // Employer
+    { name: "Employer Dashboard", href: "/employer/dashboard", icon: LayoutDashboard, roles: ["employer", "admin"] },
+    { name: "Post a Job", href: "/employer/jobs/new", icon: Plus, roles: ["employer", "admin"] },
+    { name: "Organisation Profile", href: "/employer/profile", icon: Building2, roles: ["employer", "admin"] },
     
     // Reviewer + Admin
     { name: "Review Queue", href: "/review-queue", icon: ClipboardList, roles: ["reviewer", "admin"] },

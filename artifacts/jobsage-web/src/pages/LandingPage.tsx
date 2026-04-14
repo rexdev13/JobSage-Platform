@@ -36,6 +36,7 @@ function scrollTo(id: string) {
 function Navbar({ onLogin }: { onLogin: () => void }) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [, setLocation] = useLocation();
 
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 20);
@@ -84,6 +85,14 @@ function Navbar({ onLogin }: { onLogin: () => void }) {
             className="text-sm font-medium"
           >
             Sign In
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setLocation("/employer/onboarding")}
+            className="text-sm font-medium"
+          >
+            For Employers
           </Button>
           <Button
             size="sm"

@@ -9,6 +9,8 @@ import {
   rulesetRulesTable,
   auditEventsTable,
   applicationsTable,
+  jobListingsTable,
+  employerProfilesTable,
 } from "@workspace/db";
 import { eq, desc, and, inArray } from "drizzle-orm";
 import { requireRole } from "../middlewares/requireRole";
@@ -110,7 +112,37 @@ router.get("/roles", async (req, res): Promise<void> => {
 
   const allRoles = await db.select().from(rolesTable).where(eq(rolesTable.active, true));
 
-  const regulatorRoles = allRoles.filter((role) => role.regulator === regulator);
+  const publishedJobListings = await db
+    .select({ job: jobListingsTable, emp: employerProfilesTable })
+    .from(jobListingsTable)
+    .innerJoin(employerProfilesTable, eq(jobListingsTable.employerProfileId, employerProfilesTable.id))
+    .where(eq(jobListingsTable.status, "published"));
+
+  const employerJobsAsRoles = publishedJobListings
+    .filter((row) => {
+      const job = row.job;
+      if (job.regulator !== regulator) return false;
+      const tp = (job.targetProfessions ?? []) as string[];
+      if (tp.length > 0 && !tp.includes(profile.profession)) return false;
+      return true;
+    })
+    .map((row) => ({
+      id: row.job.id + 1_000_000,
+      title: row.job.title,
+      employer: row.emp.companyName,
+      location: row.job.location,
+      regulator: row.job.regulator,
+      sponsorshipOffered: row.job.sponsorshipOffered,
+      requiredRegistration: row.job.requiredRegistration,
+      active: true,
+      importedAt: row.job.createdAt,
+      importedBy: `employer:${row.emp.id}`,
+    }));
+
+  const regulatorRoles = [
+    ...allRoles.filter((role) => role.regulator === regulator),
+    ...employerJobsAsRoles,
+  ];
 
   const isRegistered =
     profile.registrationStatus != null &&

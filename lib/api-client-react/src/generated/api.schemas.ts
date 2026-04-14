@@ -648,6 +648,211 @@ export interface ConsentLogList {
   pageSize: number;
 }
 
+export type EmployerProfileIndustry =
+  (typeof EmployerProfileIndustry)[keyof typeof EmployerProfileIndustry];
+
+export const EmployerProfileIndustry = {
+  nhs_trust: "nhs_trust",
+  university: "university",
+  private_healthcare: "private_healthcare",
+  charity: "charity",
+  other: "other",
+} as const;
+
+export interface EmployerProfile {
+  id: number;
+  userId: string;
+  companyName: string;
+  industry: EmployerProfileIndustry;
+  sponsorLicenceNumber?: string | null;
+  region: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type UpsertEmployerProfileRequestIndustry =
+  (typeof UpsertEmployerProfileRequestIndustry)[keyof typeof UpsertEmployerProfileRequestIndustry];
+
+export const UpsertEmployerProfileRequestIndustry = {
+  nhs_trust: "nhs_trust",
+  university: "university",
+  private_healthcare: "private_healthcare",
+  charity: "charity",
+  other: "other",
+} as const;
+
+export interface UpsertEmployerProfileRequest {
+  companyName: string;
+  industry: UpsertEmployerProfileRequestIndustry;
+  sponsorLicenceNumber?: string | null;
+  region: string;
+}
+
+export type JobListingStatus =
+  (typeof JobListingStatus)[keyof typeof JobListingStatus];
+
+export const JobListingStatus = {
+  draft: "draft",
+  published: "published",
+  closed: "closed",
+} as const;
+
+export type JobListingRegulator =
+  (typeof JobListingRegulator)[keyof typeof JobListingRegulator];
+
+export const JobListingRegulator = {
+  GMC: "GMC",
+  NMC: "NMC",
+  HCPC: "HCPC",
+} as const;
+
+export interface JobListing {
+  id: number;
+  employerProfileId: number;
+  title: string;
+  specialty?: string | null;
+  location: string;
+  salaryBand?: string | null;
+  sponsorshipOffered: boolean;
+  requirements?: string | null;
+  description?: string | null;
+  status: JobListingStatus;
+  regulator: JobListingRegulator;
+  requiredRegistration: string;
+  targetProfessions?: string[];
+  targetRegions?: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type JobListingWithCount = JobListing & {
+  applicantCount: number;
+};
+
+export interface EmployerJobsResponse {
+  jobs: JobListingWithCount[];
+  employerProfile?: EmployerProfile;
+}
+
+export type CreateJobListingRequestRegulator =
+  (typeof CreateJobListingRequestRegulator)[keyof typeof CreateJobListingRequestRegulator];
+
+export const CreateJobListingRequestRegulator = {
+  GMC: "GMC",
+  NMC: "NMC",
+  HCPC: "HCPC",
+} as const;
+
+export interface CreateJobListingRequest {
+  title: string;
+  specialty?: string;
+  location: string;
+  salaryBand?: string;
+  sponsorshipOffered?: boolean;
+  requirements?: string;
+  description?: string;
+  regulator: CreateJobListingRequestRegulator;
+  requiredRegistration: string;
+  targetProfessions?: string[];
+  targetRegions?: string[];
+}
+
+export type UpdateJobListingRequestRegulator =
+  (typeof UpdateJobListingRequestRegulator)[keyof typeof UpdateJobListingRequestRegulator];
+
+export const UpdateJobListingRequestRegulator = {
+  GMC: "GMC",
+  NMC: "NMC",
+  HCPC: "HCPC",
+} as const;
+
+export interface UpdateJobListingRequest {
+  title?: string;
+  specialty?: string;
+  location?: string;
+  salaryBand?: string;
+  sponsorshipOffered?: boolean;
+  requirements?: string;
+  description?: string;
+  regulator?: UpdateJobListingRequestRegulator;
+  requiredRegistration?: string;
+  targetProfessions?: string[];
+  targetRegions?: string[];
+}
+
+export interface GenerateJobDescriptionResponse {
+  description: string | null;
+  disclaimer: string;
+}
+
+export type JobApplicantComplianceConfidence =
+  (typeof JobApplicantComplianceConfidence)[keyof typeof JobApplicantComplianceConfidence];
+
+export const JobApplicantComplianceConfidence = {
+  high: "high",
+  medium: "medium",
+  low: "low",
+} as const;
+
+export type JobApplicantStage =
+  (typeof JobApplicantStage)[keyof typeof JobApplicantStage];
+
+export const JobApplicantStage = {
+  applied: "applied",
+  shortlisted: "shortlisted",
+  interview: "interview",
+  offer: "offer",
+  rejected: "rejected",
+  no_response: "no_response",
+} as const;
+
+export interface JobApplicant {
+  applicationId: number;
+  userId: string;
+  candidateName?: string;
+  candidateEmail?: string | null;
+  profession?: string | null;
+  registrationStatus?: string | null;
+  requiresSponsorship?: boolean;
+  experienceYears?: number | null;
+  qualificationCountry?: string | null;
+  eligibilityOutcome?: string | null;
+  isEligible: boolean;
+  matchScore: number;
+  complianceConfidence: JobApplicantComplianceConfidence;
+  stage: JobApplicantStage;
+  appliedAt: string;
+  notes?: string | null;
+}
+
+export interface JobApplicantsResponse {
+  applicants: JobApplicant[];
+  job: JobListing;
+}
+
+export type UpdateApplicantStageRequestStage =
+  (typeof UpdateApplicantStageRequestStage)[keyof typeof UpdateApplicantStageRequestStage];
+
+export const UpdateApplicantStageRequestStage = {
+  applied: "applied",
+  shortlisted: "shortlisted",
+  interview: "interview",
+  offer: "offer",
+  rejected: "rejected",
+  no_response: "no_response",
+} as const;
+
+export interface UpdateApplicantStageRequest {
+  stage: UpdateApplicantStageRequestStage;
+  notes?: string;
+}
+
+export interface UpdateApplicantStageResponse {
+  applicationId: number;
+  stage: string;
+  notes?: string | null;
+}
+
 export type VerifyEmailParams = {
   /**
    * Email verification token from the verification email.
@@ -729,4 +934,8 @@ export const ExportDecisionAuditFormat = {
 export type ListConsentLogParams = {
   page?: number;
   pageSize?: number;
+};
+
+export type DeleteJobListing200 = {
+  message?: string;
 };
