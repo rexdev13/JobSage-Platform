@@ -6,6 +6,7 @@ import {
   useListMyDocuments,
   useListMatchedRoles,
   useGetRemediationPlan,
+  useListMyApplications,
 } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, Button, PageTransition } from "@/components/ui-enhanced";
@@ -24,6 +25,9 @@ import {
   Files,
   TrendingUp,
   User,
+  BadgeCheck,
+  ClipboardList,
+  Megaphone,
 } from "lucide-react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
@@ -134,6 +138,7 @@ export default function DashboardPage() {
   const { data: documents } = useListMyDocuments();
   const { data: matchedRoles } = useListMatchedRoles();
   const { data: plan } = useGetRemediationPlan();
+  const { data: applicationsData } = useListMyApplications();
 
   const latestDecision = eligibilityHistory?.decisions?.[0];
   const [showReasonCodes, setShowReasonCodes] = useState(false);
@@ -141,7 +146,12 @@ export default function DashboardPage() {
   const showSetupBanner = !profile?.profession && !bannerDismissed;
 
   const docCount = documents?.documents?.length ?? 0;
-  const rolesCount = matchedRoles?.roles?.length ?? 0;
+  const allRoles = matchedRoles?.roles ?? [];
+  const eligibleRolesCount = allRoles.filter((r) => r.isEligible).length;
+  const notYetEligibleCount = allRoles.filter((r) => !r.isEligible).length;
+
+  const appStats = applicationsData?.stats;
+  const totalApplied = appStats?.total ?? 0;
 
   const planSteps = plan?.steps ?? [];
   const doneSteps = planSteps.filter((s) => s.status === "done").length;
@@ -208,7 +218,7 @@ export default function DashboardPage() {
         </header>
 
         {/* Quick stats row */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <StatCard
             icon={Files}
             label="Documents"
@@ -218,12 +228,20 @@ export default function DashboardPage() {
             delay={0.05}
           />
           <StatCard
-            icon={Briefcase}
-            label="Matched Roles"
-            value={rolesCount}
-            sub={rolesCount > 0 ? "View opportunities" : "Run eligibility check first"}
+            icon={BadgeCheck}
+            label="Eligible Roles"
+            value={eligibleRolesCount}
+            sub={notYetEligibleCount > 0 ? `${notYetEligibleCount} more to work towards` : allRoles.length > 0 ? "All matched roles eligible" : "Run eligibility check"}
             href="/opportunities"
             delay={0.1}
+          />
+          <StatCard
+            icon={ClipboardList}
+            label="Applications"
+            value={totalApplied}
+            sub={appStats && totalApplied > 0 ? `${appStats.interviews} interview${appStats.interviews !== 1 ? "s" : ""} · ${appStats.offers} offer${appStats.offers !== 1 ? "s" : ""}` : "Track your applications"}
+            href="/opportunities"
+            delay={0.13}
           />
           <StatCard
             icon={TrendingUp}
@@ -489,6 +507,25 @@ export default function DashboardPage() {
             </Card>
           </motion.div>
         )}
+        {/* Boost your profile placeholder */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
+          <Card className="mt-6 p-5 border-dashed border-2 border-primary/20 bg-gradient-to-br from-primary/3 to-accent/3">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                <Megaphone className="w-5 h-5 text-primary" />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="text-sm font-semibold text-foreground">Boost Your Visibility to Employers</h3>
+                  <span className="px-1.5 py-0.5 text-xs rounded bg-primary/10 text-primary font-medium">Coming Soon</span>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed max-w-lg">
+                  Premium members can promote their profile to NHS trusts, academic institutions, and regulated employers in their specialty — with targeting by regulator, location, and registration status.
+                </p>
+              </div>
+            </div>
+          </Card>
+        </motion.div>
       </PageTransition>
     </AppLayout>
   );

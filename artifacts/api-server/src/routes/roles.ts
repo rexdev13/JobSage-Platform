@@ -2,8 +2,15 @@ import { Router, type IRouter } from "express";
 import multer from "multer";
 import { parse } from "csv-parse/sync";
 import { db } from "@workspace/db";
-import { rolesTable, decisionRecordsTable, profilesTable, rulesetRulesTable, auditEventsTable } from "@workspace/db";
-import { eq, desc, and } from "drizzle-orm";
+import {
+  rolesTable,
+  decisionRecordsTable,
+  profilesTable,
+  rulesetRulesTable,
+  auditEventsTable,
+  applicationsTable,
+} from "@workspace/db";
+import { eq, desc, and, inArray } from "drizzle-orm";
 import { requireRole } from "../middlewares/requireRole";
 import { assessSponsorshipFeasibility } from "../lib/sponsorshipFeasibility";
 
@@ -13,6 +20,66 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 *
 const REQUIRED_COLUMNS = ["title", "employer", "location", "regulator", "sponsorshipOffered", "requiredRegistration"];
 const VALID_REGULATORS = ["GMC", "NMC", "HCPC"];
 
+const REGISTERED_STATUSES = ["registered", "fully_registered", "full_registration"];
+
+function regulatorForProfession(profession: string): "GMC" | "NMC" | "HCPC" | null {
+  if (profession === "doctor" || profession === "clinical_academic") return "GMC";
+  if (profession === "nurse" || profession === "midwife") return "NMC";
+  if (profession === "allied_health_professional") return "HCPC";
+  return null;
+}
+
+function computeMatchScore(
+  role: typeof rolesTable.$inferSelect,
+  isEligible: boolean,
+  requiresSponsorship: boolean,
+): number {
+  let score = isEligible ? 60 : 20;
+
+  if (role.sponsorshipOffered && requiresSponsorship) {
+    score += 25;
+  } else if (!requiresSponsorship) {
+    score += 15;
+  }
+
+  if (isEligible) {
+    const reqReg = role.requiredRegistration.toLowerCase();
+    if (!reqReg.includes("full") && !reqReg.includes("senior")) {
+      score += 10;
+    }
+  }
+
+  return Math.min(score, 100);
+}
+
+function getRoleEligibilityGaps(
+  role: typeof rolesTable.$inferSelect,
+  profile: { registrationStatus: string | null; licenceReady: boolean | null; requiresSponsorship: boolean },
+  decisionExplanation: string | null,
+): string[] {
+  const gaps: string[] = [];
+
+  const reqReg = role.requiredRegistration.toLowerCase();
+  const isRegistered =
+    profile.registrationStatus != null &&
+    REGISTERED_STATUSES.includes(profile.registrationStatus.toLowerCase());
+  const isLicenceReady = profile.licenceReady === true;
+
+  if ((reqReg.includes("full") || reqReg.includes("registered")) && !isRegistered && !isLicenceReady) {
+    gaps.push(
+      `This role requires full registration. Your current status: ${
+        profile.registrationStatus?.replace(/_/g, " ") ?? "not set"
+      }.`,
+    );
+  }
+
+  if (decisionExplanation) {
+    gaps.push(decisionExplanation);
+  }
+
+  return gaps;
+}
+
 router.get("/roles", async (req, res): Promise<void> => {
   if (!req.isAuthenticated()) {
     res.status(401).json({ error: "Not authenticated." });
@@ -21,6 +88,19 @@ router.get("/roles", async (req, res): Promise<void> => {
 
   const userId = req.user!.id;
 
+  const [profile] = await db.select().from(profilesTable).where(eq(profilesTable.userId, userId));
+
+  if (!profile) {
+    res.status(400).json({ error: "Profile not found. Please complete your profile first." });
+    return;
+  }
+
+  const regulator = regulatorForProfession(profile.profession);
+  if (!regulator) {
+    res.status(400).json({ error: "Could not determine regulatory body from your profession." });
+    return;
+  }
+
   const [decision] = await db
     .select()
     .from(decisionRecordsTable)
@@ -28,113 +108,102 @@ router.get("/roles", async (req, res): Promise<void> => {
     .orderBy(desc(decisionRecordsTable.createdAt))
     .limit(1);
 
-  if (!decision) {
-    res.status(400).json({ error: "No eligibility assessment found. Please run your eligibility check first." });
-    return;
-  }
+  const allRoles = await db.select().from(rolesTable).where(eq(rolesTable.active, true));
 
-  const [profile] = await db
-    .select()
-    .from(profilesTable)
-    .where(eq(profilesTable.userId, userId));
+  const regulatorRoles = allRoles.filter((role) => role.regulator === regulator);
 
-  if (!profile) {
-    res.status(400).json({ error: "Profile not found." });
-    return;
-  }
-
-  if (decision.outcome !== "eligible") {
-    res.json({
-      roles: [],
-      decisionRecordId: decision.id,
-      rulesetVersion: decision.rulesetVersion,
-      eligibilityOutcome: decision.outcome,
-      message:
-        decision.outcome === "not_eligible"
-          ? "You are not yet eligible for UK registration. Please review your remediation plan to understand the steps needed to become eligible."
-          : "You are ineligible for UK registration via your current pathway. Please review your eligibility assessment for more information.",
-    });
-    return;
-  }
-
-  const regulator = (() => {
-    if (profile.profession === "doctor" || profile.profession === "clinical_academic") return "GMC";
-    if (profile.profession === "nurse" || profile.profession === "midwife") return "NMC";
-    if (profile.profession === "allied_health_professional") return "HCPC";
-    return null;
-  })();
-
-  if (!regulator) {
-    res.json({
-      roles: [],
-      decisionRecordId: decision.id,
-      rulesetVersion: decision.rulesetVersion,
-      eligibilityOutcome: decision.outcome,
-      message: "No regulator mapping found for your profession.",
-    });
-    return;
-  }
-
-  const allRoles = await db
-    .select()
-    .from(rolesTable)
-    .where(eq(rolesTable.active, true));
-
-  const REGISTERED_STATUSES = ["registered", "fully_registered", "full_registration"];
   const isRegistered =
     profile.registrationStatus != null &&
     REGISTERED_STATUSES.includes(profile.registrationStatus.toLowerCase());
   const isLicenceReady = profile.licenceReady === true;
 
-  const matchedRoles = allRoles.filter((role) => {
-    if (role.regulator !== regulator) return false;
-
-    const reqReg = role.requiredRegistration.toLowerCase();
-
-    if (reqReg.includes("full") || reqReg.includes("registered")) {
-      if (!isRegistered && !isLicenceReady) return false;
-    }
-
-    return true;
-  });
+  const userIsEligible = decision?.outcome === "eligible";
 
   let eligibleRuleId: number | null = null;
-  const eligibleReasonCode = decision.reasonCodes.find((rc) => rc !== "NO_RULE_MATCHED" && rc !== "REVIEW_FLAGGED");
-  if (eligibleReasonCode) {
-    const [eligibleRule] = await db
-      .select({ id: rulesetRulesTable.id })
-      .from(rulesetRulesTable)
-      .where(
-        and(
-          eq(rulesetRulesTable.rulesetId, decision.rulesetId),
-          eq(rulesetRulesTable.reasonCode, eligibleReasonCode)
+  if (decision && userIsEligible) {
+    const eligibleReasonCode = decision.reasonCodes.find(
+      (rc) => rc !== "NO_RULE_MATCHED" && rc !== "REVIEW_FLAGGED",
+    );
+    if (eligibleReasonCode) {
+      const [eligibleRule] = await db
+        .select({ id: rulesetRulesTable.id })
+        .from(rulesetRulesTable)
+        .where(
+          and(
+            eq(rulesetRulesTable.rulesetId, decision.rulesetId),
+            eq(rulesetRulesTable.reasonCode, eligibleReasonCode),
+          ),
         )
-      )
-      .limit(1);
-    eligibleRuleId = eligibleRule?.id ?? null;
+        .limit(1);
+      eligibleRuleId = eligibleRule?.id ?? null;
+    }
   }
 
-  const result = matchedRoles.map((role) => {
-    const feasibility = profile.requiresSponsorship
-      ? assessSponsorshipFeasibility(role, profile.requiresSponsorship)
-      : null;
+  const appliedApps = await db
+    .select({ roleId: applicationsTable.roleId })
+    .from(applicationsTable)
+    .where(eq(applicationsTable.userId, userId));
+  const appliedRoleIds = appliedApps.map((a) => a.roleId);
+
+  const rulesetVersion = decision?.rulesetVersion ?? "—";
+  const decisionRecordId = decision?.id ?? null;
+
+  const result = regulatorRoles.map((role) => {
+    const reqReg = role.requiredRegistration.toLowerCase();
+    const roleRequiresFull = reqReg.includes("full") || reqReg.includes("registered");
+    const meetsRegistration = roleRequiresFull ? isRegistered || isLicenceReady : true;
+
+    let isEligible: boolean;
+    let eligibilityGaps: string[] = [];
+
+    if (!decision) {
+      isEligible = false;
+      eligibilityGaps = ["Run your eligibility check to see which roles you qualify for."];
+    } else if (!userIsEligible) {
+      isEligible = false;
+      eligibilityGaps = getRoleEligibilityGaps(role, profile, decision.explanationText);
+    } else {
+      isEligible = meetsRegistration;
+      if (!isEligible) {
+        eligibilityGaps = getRoleEligibilityGaps(role, profile, null);
+      }
+    }
+
+    const sponsorshipFeasibility =
+      profile.requiresSponsorship ? assessSponsorshipFeasibility(role, profile.requiresSponsorship) : null;
+
+    const professionLabel = profile.profession.replace(/_/g, " ");
+    const explanation = isEligible
+      ? `Matched as eligible for ${regulator} registration (${professionLabel}). Ruleset v${rulesetVersion}, decision #${decisionRecordId}${eligibleRuleId ? `, rule #${eligibleRuleId}` : ""}.`
+      : decision
+        ? `Not yet eligible for this role. Complete your remediation steps to qualify.`
+        : `Run your eligibility assessment to see your match status for this role.`;
 
     return {
       role,
-      explanation: `Matched as eligible for ${regulator} registration (${profile.profession.replace(/_/g, " ")}). Ruleset v${decision.rulesetVersion}, decision #${decision.id}${eligibleRuleId ? `, rule #${eligibleRuleId}` : ""}.`,
-      rulesetVersion: decision.rulesetVersion,
-      decisionRecordId: decision.id,
+      explanation,
+      rulesetVersion,
+      decisionRecordId: decisionRecordId ?? 0,
       ruleId: eligibleRuleId,
-      sponsorshipFeasibility: feasibility,
+      sponsorshipFeasibility,
+      isEligible,
+      matchScore: computeMatchScore(role, isEligible, profile.requiresSponsorship),
+      eligibilityGaps,
     };
+  });
+
+  result.sort((a, b) => {
+    if (a.isEligible !== b.isEligible) return a.isEligible ? -1 : 1;
+    return b.matchScore - a.matchScore;
   });
 
   res.json({
     roles: result,
-    decisionRecordId: decision.id,
-    rulesetVersion: decision.rulesetVersion,
-    eligibilityOutcome: decision.outcome,
+    decisionRecordId,
+    rulesetVersion,
+    eligibilityOutcome: decision?.outcome ?? null,
     message: null,
+    appliedRoleIds,
   });
 });
 

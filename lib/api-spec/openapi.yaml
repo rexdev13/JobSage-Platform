@@ -30,6 +30,8 @@ tags:
     description: Role catalogue management and candidate opportunity matching.
   - name: Sponsorship
     description: Sponsorship feasibility assessment.
+  - name: Applications
+    description: Candidate job application tracking.
   - name: Remediation
     description: Remediation plan generation and progress tracking.
 paths:
@@ -918,6 +920,54 @@ paths:
                 $ref: '#/components/schemas/SponsorshipFeasibility'
         '404':
           description: Role not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /applications:
+    get:
+      tags: [Applications]
+      operationId: listMyApplications
+      summary: List the current candidate's job applications
+      responses:
+        '200':
+          description: Application list with stats.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationList'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    post:
+      tags: [Applications]
+      operationId: markApplication
+      summary: Mark a role as applied (or update application status)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarkApplicationRequest'
+      responses:
+        '200':
+          description: Application recorded or updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Application'
+        '400':
+          description: Invalid request.
           content:
             application/json:
               schema:
@@ -1864,7 +1914,7 @@ components:
 
     MatchedRole:
       type: object
-      required: [role, explanation, rulesetVersion, decisionRecordId]
+      required: [role, explanation, rulesetVersion, decisionRecordId, isEligible, matchScore]
       properties:
         role:
           $ref: '#/components/schemas/Role'
@@ -1880,10 +1930,20 @@ components:
         sponsorshipFeasibility:
           $ref: '#/components/schemas/SponsorshipFeasibility'
           nullable: true
+        isEligible:
+          type: boolean
+        matchScore:
+          type: number
+          description: Match score from 0-100
+        eligibilityGaps:
+          type: array
+          items:
+            type: string
+          description: Specific gaps preventing eligibility for this role
 
     MatchedRoleList:
       type: object
-      required: [roles, decisionRecordId, rulesetVersion]
+      required: [roles, rulesetVersion]
       properties:
         roles:
           type: array
@@ -1891,6 +1951,7 @@ components:
             $ref: '#/components/schemas/MatchedRole'
         decisionRecordId:
           type: integer
+          nullable: true
         rulesetVersion:
           type: string
         eligibilityOutcome:
@@ -1898,6 +1959,64 @@ components:
         message:
           type: string
           nullable: true
+        appliedRoleIds:
+          type: array
+          items:
+            type: integer
+          description: Role IDs the user has already applied to
+
+    ApplicationStatus:
+      type: string
+      enum: [applied, shortlisted, interview, offer, rejected, no_response]
+
+    Application:
+      type: object
+      required: [id, userId, roleId, status, appliedAt]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: string
+        roleId:
+          type: integer
+        status:
+          $ref: '#/components/schemas/ApplicationStatus'
+        appliedAt:
+          type: string
+          format: date-time
+        notes:
+          type: string
+          nullable: true
+
+    ApplicationList:
+      type: object
+      required: [applications, stats]
+      properties:
+        applications:
+          type: array
+          items:
+            $ref: '#/components/schemas/Application'
+        stats:
+          type: object
+          required: [total, interviews, offers, noResponse]
+          properties:
+            total:
+              type: integer
+            interviews:
+              type: integer
+            offers:
+              type: integer
+            noResponse:
+              type: integer
+
+    MarkApplicationRequest:
+      type: object
+      required: [roleId]
+      properties:
+        roleId:
+          type: integer
+        notes:
+          type: string
 
     RoleList:
       type: object

@@ -19,6 +19,8 @@ import type {
 import type {
   AiRemediationSuggestions,
   AnnotateReviewCaseRequest,
+  Application,
+  ApplicationList,
   AuthUserEnvelope,
   CandidateProfile,
   ConsentLogList,
@@ -42,6 +44,7 @@ import type {
   ListRulesetsParams,
   LoginRequest,
   LogoutSuccess,
+  MarkApplicationRequest,
   MatchedRoleList,
   MessageEnvelope,
   RecordConsentRequest,
@@ -2863,6 +2866,167 @@ export function useGetSponsorshipFeasibility<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary List the current candidate's job applications
+ */
+export const getListMyApplicationsUrl = () => {
+  return `/api/applications`;
+};
+
+export const listMyApplications = async (
+  options?: RequestInit,
+): Promise<ApplicationList> => {
+  return customFetch<ApplicationList>(getListMyApplicationsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMyApplicationsQueryKey = () => {
+  return [`/api/applications`] as const;
+};
+
+export const getListMyApplicationsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMyApplications>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMyApplications>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListMyApplicationsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listMyApplications>>
+  > = ({ signal }) => listMyApplications({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMyApplications>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMyApplicationsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMyApplications>>
+>;
+export type ListMyApplicationsQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary List the current candidate's job applications
+ */
+
+export function useListMyApplications<
+  TData = Awaited<ReturnType<typeof listMyApplications>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMyApplications>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMyApplicationsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Mark a role as applied (or update application status)
+ */
+export const getMarkApplicationUrl = () => {
+  return `/api/applications`;
+};
+
+export const markApplication = async (
+  markApplicationRequest: MarkApplicationRequest,
+  options?: RequestInit,
+): Promise<Application> => {
+  return customFetch<Application>(getMarkApplicationUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(markApplicationRequest),
+  });
+};
+
+export const getMarkApplicationMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markApplication>>,
+    TError,
+    { data: BodyType<MarkApplicationRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof markApplication>>,
+  TError,
+  { data: BodyType<MarkApplicationRequest> },
+  TContext
+> => {
+  const mutationKey = ["markApplication"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof markApplication>>,
+    { data: BodyType<MarkApplicationRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return markApplication(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MarkApplicationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof markApplication>>
+>;
+export type MarkApplicationMutationBody = BodyType<MarkApplicationRequest>;
+export type MarkApplicationMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Mark a role as applied (or update application status)
+ */
+export const useMarkApplication = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markApplication>>,
+    TError,
+    { data: BodyType<MarkApplicationRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof markApplication>>,
+  TError,
+  { data: BodyType<MarkApplicationRequest> },
+  TContext
+> => {
+  return useMutation(getMarkApplicationMutationOptions(options));
+};
 
 /**
  * @summary Get or generate the current candidate's remediation plan
