@@ -8,7 +8,7 @@ import {
   getGetMyProfileQueryKey,
 } from "@workspace/api-client-react";
 
-const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/reset-password", "/"];
+const PUBLIC_PATHS = ["/login", "/register", "/employer/register", "/forgot-password", "/reset-password", "/"];
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
@@ -63,7 +63,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     if (
       consentData?.hasConsented &&
       profileError &&
-      location !== "/onboarding"
+      location !== "/onboarding" &&
+      user?.role !== "employer"
     ) {
       setLocation("/onboarding");
       return;
@@ -76,6 +77,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     profileError,
     location,
     setLocation,
+    user,
   ]);
 
   if (isLoading) {
@@ -101,7 +103,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     isAuthenticated &&
     consentData?.hasConsented &&
     profileError &&
-    location !== "/onboarding"
+    location !== "/onboarding" &&
+    user?.role !== "employer"
   )
     return null;
 

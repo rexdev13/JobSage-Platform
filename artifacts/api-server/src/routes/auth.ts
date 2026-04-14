@@ -109,6 +109,68 @@ router.post("/auth/register", async (req: Request, res: Response) => {
   });
 });
 
+router.post("/auth/employer-register", async (req: Request, res: Response) => {
+  const { email, password, firstName, lastName } = req.body as {
+    email?: string;
+    password?: string;
+    firstName?: string;
+    lastName?: string;
+  };
+
+  if (!email || typeof email !== "string" || !email.includes("@")) {
+    res.status(400).json({ error: "Valid email is required" });
+    return;
+  }
+  if (!password || typeof password !== "string" || password.length < 8) {
+    res.status(400).json({ error: "Password must be at least 8 characters" });
+    return;
+  }
+
+  const normalised = email.trim().toLowerCase();
+
+  const [existing] = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(eq(usersTable.email, normalised));
+
+  if (existing) {
+    res.status(409).json({ error: "An account with this email already exists" });
+    return;
+  }
+
+  const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+
+  const [user] = await db
+    .insert(usersTable)
+    .values({
+      email: normalised,
+      passwordHash,
+      emailVerified: true,
+      role: "employer",
+      firstName: firstName?.trim() || null,
+      lastName: lastName?.trim() || null,
+    })
+    .returning();
+
+  const sessionData: SessionData = {
+    user: {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      profileImageUrl: user.profileImageUrl,
+      role: user.role,
+    },
+  };
+
+  const sid = await createSession(sessionData);
+  setSessionCookie(res, sid);
+
+  res.status(201).json(
+    GetCurrentAuthUserResponse.parse({ user: sessionData.user }),
+  );
+});
+
 router.get("/auth/verify-email", async (req: Request, res: Response) => {
   const token = req.query.token as string | undefined;
   const origin = getOrigin(req);

@@ -89,7 +89,7 @@ function Navbar({ onLogin }: { onLogin: () => void }) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setLocation("/employer/onboarding")}
+            onClick={() => setLocation("/employer/register")}
             className="text-sm font-medium"
           >
             For Employers
