@@ -509,12 +509,59 @@ export default function DashboardPage() {
                 </div>
               )}
 
-              {planPct === 100 && (
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50 border border-emerald-200">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                  <p className="text-sm font-semibold text-emerald-800">All remediation steps completed!</p>
-                </div>
-              )}
+              {/* Motivational message tied to completion state */}
+              {(() => {
+                if (planPct === 100) {
+                  return (
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                      <div>
+                        <p className="text-sm font-semibold text-emerald-800">All steps completed — you're ready!</p>
+                        <p className="text-xs text-emerald-700 mt-0.5">
+                          You've completed your full remediation plan. Now apply to eligible roles with confidence.
+                        </p>
+                      </div>
+                    </div>
+                  );
+                }
+                if (planPct >= 75) {
+                  return (
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-blue-50 border border-blue-200">
+                      <Sparkles className="w-5 h-5 text-blue-600 shrink-0" />
+                      <div>
+                        <p className="text-sm font-semibold text-blue-800">Almost there — keep going!</p>
+                        <p className="text-xs text-blue-700 mt-0.5">
+                          You're {planPct}% through your plan. Just {totalSteps - doneSteps} step{totalSteps - doneSteps !== 1 ? "s" : ""} left to unlock full eligibility.
+                        </p>
+                      </div>
+                    </div>
+                  );
+                }
+                if (planPct >= 40) {
+                  return (
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-50 border border-amber-200">
+                      <TrendingUp className="w-5 h-5 text-amber-600 shrink-0" />
+                      <div>
+                        <p className="text-sm font-semibold text-amber-800">Good momentum — stay consistent</p>
+                        <p className="text-xs text-amber-700 mt-0.5">
+                          {doneSteps} step{doneSteps !== 1 ? "s" : ""} done. Each milestone brings you closer to UK registration.
+                        </p>
+                      </div>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-primary/5 border border-primary/15">
+                    <Timer className="w-5 h-5 text-primary shrink-0" />
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">Your journey starts here</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Work through each step in order — completing them unlocks new roles and accelerates your path to registration.
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
             </Card>
           </motion.div>
         )}

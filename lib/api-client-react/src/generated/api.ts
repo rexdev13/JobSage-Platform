@@ -43,6 +43,7 @@ import type {
   ForgotPasswordRequest,
   ForwardEligibilityResponse,
   GenerateJobDescriptionResponse,
+  GetInterviewPrepQuestionsParams,
   HealthStatus,
   ImportRolesCSVBody,
   InterviewPrepResponse,
@@ -3893,42 +3894,69 @@ export function useGetForwardEligibility<
 /**
  * @summary Get AI-generated interview preparation questions for the candidate's profession and specialty
  */
-export const getGetInterviewPrepQuestionsUrl = () => {
-  return `/api/interview-prep/questions`;
+export const getGetInterviewPrepQuestionsUrl = (
+  params?: GetInterviewPrepQuestionsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/interview-prep/questions?${stringifiedParams}`
+    : `/api/interview-prep/questions`;
 };
 
 export const getInterviewPrepQuestions = async (
+  params?: GetInterviewPrepQuestionsParams,
   options?: RequestInit,
 ): Promise<InterviewPrepResponse> => {
-  return customFetch<InterviewPrepResponse>(getGetInterviewPrepQuestionsUrl(), {
-    ...options,
-    method: "GET",
-  });
+  return customFetch<InterviewPrepResponse>(
+    getGetInterviewPrepQuestionsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
 };
 
-export const getGetInterviewPrepQuestionsQueryKey = () => {
-  return [`/api/interview-prep/questions`] as const;
+export const getGetInterviewPrepQuestionsQueryKey = (
+  params?: GetInterviewPrepQuestionsParams,
+) => {
+  return [
+    `/api/interview-prep/questions`,
+    ...(params ? [params] : []),
+  ] as const;
 };
 
 export const getGetInterviewPrepQuestionsQueryOptions = <
   TData = Awaited<ReturnType<typeof getInterviewPrepQuestions>>,
   TError = ErrorType<ErrorEnvelope>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getInterviewPrepQuestions>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
+>(
+  params?: GetInterviewPrepQuestionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getInterviewPrepQuestions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey =
-    queryOptions?.queryKey ?? getGetInterviewPrepQuestionsQueryKey();
+    queryOptions?.queryKey ?? getGetInterviewPrepQuestionsQueryKey(params);
 
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof getInterviewPrepQuestions>>
-  > = ({ signal }) => getInterviewPrepQuestions({ signal, ...requestOptions });
+  > = ({ signal }) =>
+    getInterviewPrepQuestions(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof getInterviewPrepQuestions>>,
@@ -3949,15 +3977,21 @@ export type GetInterviewPrepQuestionsQueryError = ErrorType<ErrorEnvelope>;
 export function useGetInterviewPrepQuestions<
   TData = Awaited<ReturnType<typeof getInterviewPrepQuestions>>,
   TError = ErrorType<ErrorEnvelope>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getInterviewPrepQuestions>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetInterviewPrepQuestionsQueryOptions(options);
+>(
+  params?: GetInterviewPrepQuestionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getInterviewPrepQuestions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetInterviewPrepQuestionsQueryOptions(
+    params,
+    options,
+  );
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
