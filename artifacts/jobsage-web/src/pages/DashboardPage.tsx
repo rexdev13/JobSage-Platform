@@ -28,6 +28,7 @@ import {
   BadgeCheck,
   ClipboardList,
   Megaphone,
+  DollarSign,
 } from "lucide-react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
@@ -239,7 +240,7 @@ export default function DashboardPage() {
             icon={ClipboardList}
             label="Applications"
             value={totalApplied}
-            sub={appStats && totalApplied > 0 ? `${appStats.interviews} interview${appStats.interviews !== 1 ? "s" : ""} · ${appStats.offers} offer${appStats.offers !== 1 ? "s" : ""}` : "Track your applications"}
+            sub={appStats && totalApplied > 0 ? `${appStats.interviews} interviews · ${appStats.offers} offers · ${appStats.noResponse} no response` : "Track your applications"}
             href="/opportunities"
             delay={0.13}
           />
@@ -519,9 +520,25 @@ export default function DashboardPage() {
                   <h3 className="text-sm font-semibold text-foreground">Boost Your Visibility to Employers</h3>
                   <span className="px-1.5 py-0.5 text-xs rounded bg-primary/10 text-primary font-medium">Coming Soon</span>
                 </div>
-                <p className="text-xs text-muted-foreground leading-relaxed max-w-lg">
+                <p className="text-xs text-muted-foreground leading-relaxed max-w-lg mb-3">
                   Premium members can promote their profile to NHS trusts, academic institutions, and regulated employers in their specialty — with targeting by regulator, location, and registration status.
                 </p>
+                <div className="flex items-center gap-2">
+                  <div className="relative max-w-[160px]">
+                    <DollarSign className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                      type="number"
+                      min="0"
+                      step="10"
+                      placeholder="Monthly budget"
+                      disabled
+                      className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-border bg-background/50 text-muted-foreground cursor-not-allowed"
+                    />
+                  </div>
+                  <Button size="sm" className="text-xs" disabled>
+                    Set Budget &amp; Go Live
+                  </Button>
+                </div>
               </div>
             </div>
           </Card>
