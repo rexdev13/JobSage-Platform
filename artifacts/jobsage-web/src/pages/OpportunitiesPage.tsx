@@ -486,6 +486,7 @@ export default function OpportunitiesPage() {
 
   const employerGroups = Object.entries(
     roles.reduce<Record<string, MatchedRole[]>>((acc, r) => {
+      if (!r.role.sponsorshipOffered) return acc;
       const key = r.role.employer;
       acc[key] ??= [];
       acc[key].push(r);
@@ -718,13 +719,15 @@ export default function OpportunitiesPage() {
                 <p className="text-sm text-muted-foreground">
                   {roles.length === 0
                     ? "No employers in catalogue yet. Roles are imported by administrators."
-                    : "No employers match your search."}
+                    : employerSearch
+                    ? "No sponsoring employers match your search."
+                    : "No employers in your field currently hold a Skilled Worker sponsor licence."}
                 </p>
               </Card>
             ) : (
               <>
                 <p className="text-xs text-muted-foreground">
-                  {employerGroups.length} employer{employerGroups.length !== 1 ? "s" : ""} with roles in your field
+                  {employerGroups.length} Skilled Worker sponsor-licence holder{employerGroups.length !== 1 ? "s" : ""} with open roles in your field
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {employerGroups.map(([employer, empRoles]) => (
