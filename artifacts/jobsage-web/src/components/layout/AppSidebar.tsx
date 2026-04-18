@@ -3,7 +3,7 @@ import { useAuth } from "@workspace/auth-web";
 import { 
   Home, User, FileText, CheckCircle, 
   Map, ClipboardList, Shield, Users, LogOut, Briefcase,
-  Building2, Plus, LayoutDashboard, Sparkles
+  Building2, Plus, LayoutDashboard, Sparkles, UserCog
 } from "lucide-react";
 import { cn } from "@/components/ui-enhanced";
 
@@ -36,6 +36,7 @@ export function AppSidebar() {
     { name: "Ruleset Management", href: "/admin/rulesets", icon: Shield, roles: ["admin"] },
     { name: "Role Management", href: "/admin/roles", icon: Users, roles: ["admin"] },
     { name: "Audit Logs", href: "/admin/audit", icon: Shield, roles: ["admin"] },
+    { name: "User Management", href: "/admin/users", icon: UserCog, roles: ["admin"] },
   ];
 
   const visibleNav = navigation.filter(item => item.roles.includes(role));

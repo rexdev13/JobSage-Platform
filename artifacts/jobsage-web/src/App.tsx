@@ -32,6 +32,7 @@ import InterviewPrepPage from "@/pages/InterviewPrepPage";
 import AdminRolesPage from "@/pages/AdminRolesPage";
 import ReviewQueuePage from "@/pages/ReviewQueuePage";
 import AdminAuditPage from "@/pages/AdminAuditPage";
+import AdminUsersPage from "@/pages/AdminUsersPage";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -173,6 +174,11 @@ function Router() {
             <Route path="/admin/audit">
               <AdminGuard>
                 <AdminAuditPage />
+              </AdminGuard>
+            </Route>
+            <Route path="/admin/users">
+              <AdminGuard>
+                <AdminUsersPage />
               </AdminGuard>
             </Route>
 
