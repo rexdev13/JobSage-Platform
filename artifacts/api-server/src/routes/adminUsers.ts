@@ -66,6 +66,47 @@ router.get(
 );
 
 router.post(
+  "/admin/users/:id/mark-verified",
+  requireRole("admin"),
+  async (req: Request, res: Response): Promise<void> => {
+    const id = extractParamId(req);
+    if (!id) {
+      res.status(400).json({ error: "User ID is required." });
+      return;
+    }
+
+    const [user] = await db
+      .select({
+        id: usersTable.id,
+        emailVerified: usersTable.emailVerified,
+      })
+      .from(usersTable)
+      .where(eq(usersTable.id, id));
+
+    if (!user) {
+      res.status(404).json({ error: "User not found." });
+      return;
+    }
+
+    if (user.emailVerified) {
+      res.status(409).json({ error: "This account is already verified." });
+      return;
+    }
+
+    await db
+      .update(usersTable)
+      .set({
+        emailVerified: true,
+        emailVerifyToken: null,
+        emailVerifyTokenExpires: null,
+      })
+      .where(eq(usersTable.id, id));
+
+    res.json({ message: "Account marked as verified." });
+  }
+);
+
+router.post(
   "/admin/users/:id/resend-verification",
   requireRole("admin"),
   async (req: Request, res: Response): Promise<void> => {
