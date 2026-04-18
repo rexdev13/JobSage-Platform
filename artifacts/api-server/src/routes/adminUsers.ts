@@ -1,9 +1,22 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, usersTable } from "@workspace/db";
+import { db, usersTable, auditEventsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireRole } from "../middlewares/requireRole";
 import { sendVerificationEmail, sendPasswordResetEmail } from "../lib/email";
 import { generateToken, tokenExpiresAt } from "../lib/auth";
+
+async function writeAuditEvent(
+  actor: string,
+  action: string,
+  target?: string,
+  details?: Record<string, unknown>
+): Promise<void> {
+  try {
+    await db.insert(auditEventsTable).values({ actor, action, target, details: details ?? {} });
+  } catch (err) {
+    console.error("[audit] event write failed:", err);
+  }
+}
 
 const router: IRouter = Router();
 
@@ -156,6 +169,8 @@ router.post(
       return;
     }
 
+    writeAuditEvent(req.user!.id, "admin_resend_verification", user.id, { email: user.email }).catch(() => {});
+
     res.json({ message: `Verification email sent to ${user.email}.` });
   }
 );
@@ -203,6 +218,8 @@ router.post(
       res.status(503).json({ error: "Failed to send password reset email. Please try again." });
       return;
     }
+
+    writeAuditEvent(req.user!.id, "admin_send_password_reset", user.id, { email: user.email }).catch(() => {});
 
     res.json({ message: `Password reset email sent to ${user.email}.` });
   }

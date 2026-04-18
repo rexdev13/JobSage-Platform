@@ -1214,6 +1214,35 @@ export const ExportDecisionAuditResponse = zod.object({
 });
 
 /**
+ * @summary List paginated admin action audit events (admin only)
+ */
+export const listAdminAuditEventsQueryPageDefault = 1;
+export const listAdminAuditEventsQueryPageSizeDefault = 50;
+
+export const ListAdminAuditEventsQueryParams = zod.object({
+  page: zod.coerce.number().default(listAdminAuditEventsQueryPageDefault),
+  pageSize: zod.coerce
+    .number()
+    .default(listAdminAuditEventsQueryPageSizeDefault),
+});
+
+export const ListAdminAuditEventsResponse = zod.object({
+  events: zod.array(
+    zod.object({
+      id: zod.number(),
+      actor: zod.string(),
+      action: zod.string(),
+      target: zod.string().nullish(),
+      details: zod.record(zod.string(), zod.unknown()).optional(),
+      createdAt: zod.date(),
+    }),
+  ),
+  total: zod.number(),
+  page: zod.number(),
+  pageSize: zod.number(),
+});
+
+/**
  * @summary View paginated consent log (admin only)
  */
 export const listConsentLogQueryPageDefault = 1;

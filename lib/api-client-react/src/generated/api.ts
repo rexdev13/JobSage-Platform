@@ -17,6 +17,7 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AdminAuditEventList,
   AiRemediationSuggestions,
   AnnotateReviewCaseRequest,
   Application,
@@ -49,6 +50,7 @@ import type {
   InterviewPrepResponse,
   JobApplicantsResponse,
   JobListing,
+  ListAdminAuditEventsParams,
   ListConsentLogParams,
   ListDecisionsParams,
   ListReviewQueueParams,
@@ -4459,6 +4461,106 @@ export function useExportDecisionAudit<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getExportDecisionAuditQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List paginated admin action audit events (admin only)
+ */
+export const getListAdminAuditEventsUrl = (
+  params?: ListAdminAuditEventsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/audit/events?${stringifiedParams}`
+    : `/api/admin/audit/events`;
+};
+
+export const listAdminAuditEvents = async (
+  params?: ListAdminAuditEventsParams,
+  options?: RequestInit,
+): Promise<AdminAuditEventList> => {
+  return customFetch<AdminAuditEventList>(getListAdminAuditEventsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAdminAuditEventsQueryKey = (
+  params?: ListAdminAuditEventsParams,
+) => {
+  return [`/api/admin/audit/events`, ...(params ? [params] : [])] as const;
+};
+
+export const getListAdminAuditEventsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAdminAuditEvents>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  params?: ListAdminAuditEventsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAdminAuditEvents>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAdminAuditEventsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAdminAuditEvents>>
+  > = ({ signal }) =>
+    listAdminAuditEvents(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminAuditEvents>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAdminAuditEventsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAdminAuditEvents>>
+>;
+export type ListAdminAuditEventsQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary List paginated admin action audit events (admin only)
+ */
+
+export function useListAdminAuditEvents<
+  TData = Awaited<ReturnType<typeof listAdminAuditEvents>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  params?: ListAdminAuditEventsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAdminAuditEvents>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAdminAuditEventsQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
