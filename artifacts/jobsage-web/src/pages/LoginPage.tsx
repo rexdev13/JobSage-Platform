@@ -113,7 +113,26 @@ export default function LoginPage() {
             {urlError === "token_expired" && (
               <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm mb-4">
                 <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-                <span>That verification link has expired. Request a new one below.</span>
+                <div>
+                  <span>That verification link has expired.</span>
+                  <div className="mt-2">
+                    {resendSuccess ? (
+                      <span className="text-green-700 flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> Verification email sent — check your inbox.
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleResendVerification}
+                        disabled={resendLoading || !email}
+                        className="flex items-center gap-1 text-primary underline text-xs hover:opacity-80 disabled:opacity-50"
+                      >
+                        <RefreshCw className={`w-3 h-3 ${resendLoading ? "animate-spin" : ""}`} />
+                        {email ? "Resend verification email" : "Enter your email above to resend"}
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 
