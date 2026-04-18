@@ -1,5 +1,9 @@
 import { Resend } from "resend";
 
+if (!process.env.RESEND_API_KEY) {
+  console.error("[email] CRITICAL: RESEND_API_KEY is not set — all emails will fail");
+}
+
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = process.env.EMAIL_FROM ?? "noreply@jobsage.co.uk";
 const APP_URL = process.env.APP_URL ?? "https://jobsage.co.uk";

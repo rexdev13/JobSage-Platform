@@ -93,8 +93,9 @@ router.post("/auth/register", async (req: Request, res: Response) => {
 
   try {
     await sendVerificationEmail(normalised, token);
-  } catch (err) {
-    console.error("[email] Failed to send verification email:", err);
+  } catch (err: unknown) {
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error(`[email] Failed to send verification email to ${normalised}: ${detail}`, err);
     // Roll back the user record so the registration can be retried
     await db.delete(usersTable).where(eq(usersTable.id, user.id));
     res.status(503).json({
@@ -319,8 +320,9 @@ router.post("/auth/forgot-password", async (req: Request, res: Response) => {
 
   try {
     await sendPasswordResetEmail(normalised, token);
-  } catch (err) {
-    console.error("[email] Failed to send password reset email:", err);
+  } catch (err: unknown) {
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error(`[email] Failed to send password reset email to ${normalised}: ${detail}`, err);
   }
 
   res.json(SAFE_RESPONSE);
@@ -408,8 +410,9 @@ router.post("/auth/resend-verification", async (req: Request, res: Response) => 
 
   try {
     await sendVerificationEmail(normalised, token);
-  } catch (err) {
-    console.error("[email] Failed to resend verification email:", err);
+  } catch (err: unknown) {
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error(`[email] Failed to resend verification email to ${normalised}: ${detail}`, err);
   }
 
   res.json(SAFE_RESPONSE);
