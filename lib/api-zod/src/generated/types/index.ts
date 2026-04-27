@@ -6,6 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./adminAuditEvent";
+export * from "./adminAuditEventDetails";
+export * from "./adminAuditEventList";
 export * from "./aiRemediationSuggestion";
 export * from "./aiRemediationSuggestions";
 export * from "./annotateReviewCaseRequest";
@@ -68,6 +71,7 @@ export * from "./jobListing";
 export * from "./jobListingRegulator";
 export * from "./jobListingStatus";
 export * from "./jobListingWithCount";
+export * from "./listAdminAuditEventsParams";
 export * from "./listConsentLogParams";
 export * from "./listDecisionsOutcome";
 export * from "./listDecisionsParams";

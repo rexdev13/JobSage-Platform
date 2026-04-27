@@ -797,6 +797,24 @@ export interface ConsentLogList {
   pageSize: number;
 }
 
+export type AdminAuditEventDetails = { [key: string]: unknown };
+
+export interface AdminAuditEvent {
+  id: number;
+  actor: string;
+  action: string;
+  target?: string | null;
+  details?: AdminAuditEventDetails;
+  createdAt: string;
+}
+
+export interface AdminAuditEventList {
+  events: AdminAuditEvent[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 export type EmployerProfileIndustry =
   (typeof EmployerProfileIndustry)[keyof typeof EmployerProfileIndustry];
 
@@ -1092,6 +1110,11 @@ export const ExportDecisionAuditFormat = {
   csv: "csv",
   json: "json",
 } as const;
+
+export type ListAdminAuditEventsParams = {
+  page?: number;
+  pageSize?: number;
+};
 
 export type ListConsentLogParams = {
   page?: number;

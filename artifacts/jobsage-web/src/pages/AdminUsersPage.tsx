@@ -54,6 +54,17 @@ async function resendVerification(userId: string): Promise<{ message: string }> 
   return data as { message: string };
 }
 
+async function markVerified(userId: string): Promise<{ message: string }> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/api/admin/users/${userId}/mark-verified`, {
+    method: "POST",
+    credentials: "include",
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "Request failed");
+  return data as { message: string };
+}
+
 async function sendPasswordReset(userId: string): Promise<{ message: string }> {
   const base = getBaseUrl();
   const res = await fetch(`${base}/api/admin/users/${userId}/send-password-reset`, {
@@ -119,6 +130,12 @@ function UserCard({
     onRefresh();
   };
 
+  const { mutate: doMarkVerified, isPending: markingVerified } = useMutation({
+    mutationFn: () => markVerified(user.id),
+    onSuccess: (data) => showResult(data.message),
+    onError: (err: Error) => showResult(err.message, true),
+  });
+
   const { mutate: doResendVerification, isPending: sendingVerification } = useMutation({
     mutationFn: () => resendVerification(user.id),
     onSuccess: (data) => showResult(data.message),
@@ -180,6 +197,24 @@ function UserCard({
       </div>
 
       <div className="flex flex-wrap gap-3 pt-1 border-t border-border">
+        {!user.emailVerified && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => doMarkVerified()}
+            disabled={markingVerified}
+            title="Immediately mark this account as verified without sending an email"
+            className="text-green-700 border-green-300 hover:bg-green-50"
+          >
+            {markingVerified ? (
+              <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+            ) : (
+              <UserCheck className="w-4 h-4 mr-1.5" />
+            )}
+            Mark as Verified
+          </Button>
+        )}
+
         <Button
           size="sm"
           variant="outline"

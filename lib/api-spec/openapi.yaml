@@ -1474,6 +1474,38 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
 
+  /admin/audit/events:
+    get:
+      tags: [Decisions]
+      operationId: listAdminAuditEvents
+      summary: List paginated admin action audit events (admin only)
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Paginated admin audit events.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAuditEventList'
+        '401':
+          description: Not authenticated or not admin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
   /admin/audit/consents:
     get:
       tags: [Decisions]
@@ -3023,6 +3055,41 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ConsentLogEntry'
+        total:
+          type: integer
+        page:
+          type: integer
+        pageSize:
+          type: integer
+
+    AdminAuditEvent:
+      type: object
+      required: [id, actor, action, createdAt]
+      properties:
+        id:
+          type: integer
+        actor:
+          type: string
+        action:
+          type: string
+        target:
+          type: string
+          nullable: true
+        details:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+
+    AdminAuditEventList:
+      type: object
+      required: [events, total, page, pageSize]
+      properties:
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminAuditEvent'
         total:
           type: integer
         page:

@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { decisionRecordsTable, consentLogsTable, auditEventsTable } from "@workspace/db";
-import { desc, gte, lte, and, count } from "drizzle-orm";
+import { desc, gte, lte, and, count, like } from "drizzle-orm";
 import { requireRole } from "../middlewares/requireRole";
 import { createHash } from "crypto";
 
@@ -121,6 +121,46 @@ router.get(
         userId: e.userId,
         consentedAt: e.consentedAt,
         termsVersion: e.termsVersion,
+      })),
+      total,
+      page,
+      pageSize,
+    });
+  }
+);
+
+router.get(
+  "/admin/audit/events",
+  requireRole("admin"),
+  async (req, res): Promise<void> => {
+    const page = Math.max(1, parseInt((req.query.page as string) ?? "1", 10));
+    const pageSize = Math.min(100, Math.max(1, parseInt((req.query.pageSize as string) ?? "50", 10)));
+    const offset = (page - 1) * pageSize;
+
+    const adminActionFilter = like(auditEventsTable.action, "admin_%");
+
+    const [totalResult] = await db
+      .select({ count: count() })
+      .from(auditEventsTable)
+      .where(adminActionFilter);
+    const total = Number(totalResult?.count ?? 0);
+
+    const events = await db
+      .select()
+      .from(auditEventsTable)
+      .where(adminActionFilter)
+      .orderBy(desc(auditEventsTable.createdAt))
+      .limit(pageSize)
+      .offset(offset);
+
+    res.json({
+      events: events.map((e) => ({
+        id: e.id,
+        actor: e.actor,
+        action: e.action,
+        target: e.target ?? null,
+        details: e.details ?? {},
+        createdAt: e.createdAt,
       })),
       total,
       page,
