@@ -139,6 +139,11 @@ All routes under `/api`:
 - Rebuild libs: `pnpm exec tsc --build lib/db lib/api-zod lib/api-client-react lib/auth-web`
 - Session store table is `sessions` — managed by connect-pg-simple, do not rename
 
+## Git / Build Artifacts
+
+- `artifacts/api-server/.gitignore` excludes `dist/` — the compiled bundle is regenerated at deploy time via `pnpm --filter @workspace/api-server run build` and must not be committed.
+- The root `.gitignore` also contains a top-level `dist` exclusion rule. The package-level `.gitignore` makes the exclusion explicit at the artifact level and remains protective if the root rule is ever narrowed or removed.
+
 ## Completed Tasks
 
 - **Task #1**: Project scaffold — auth, profiles, consent, documents, storage
@@ -147,4 +152,5 @@ All routes under `/api`:
 - **Task #4**: AI pathway prioritisation (gpt-4o), human review queue, audit export, role enforcement
 - **Task #5**: Replace Replit Auth with custom email+password auth via Resend; rename lib/replit-auth-web → lib/auth-web
 - **Task #10**: OpportunitiesPage rewritten (3-tab: Job Board, Employer Discovery, My Applications); DashboardPage updated with 4 stat cards including applications stats and self-promotion card
+- **Task #21**: Added `artifacts/api-server/.gitignore` to exclude `dist/` from git. The compiled bundle (`dist/index.cjs`) is regenerated at deploy time and must not be committed.
 - **Task #11**: Employer Portal — DB tables (`employer_profiles`, `job_listings`), employer role, backend CRUD routes, AI description generation, ranked applicants with pipeline stages; Frontend: EmployerOnboardingPage, EmployerDashboardPage, EmployerJobFormPage, EmployerJobDetailPage; AppSidebar role-based nav; "For Employers" landing page CTA
