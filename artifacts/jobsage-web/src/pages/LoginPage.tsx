@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import { Shield, Eye, EyeOff, AlertCircle, CheckCircle2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui-enhanced";
@@ -14,6 +14,29 @@ export default function LoginPage() {
   const [unverified, setUnverified] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const cooldownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (cooldownTimerRef.current) clearInterval(cooldownTimerRef.current);
+    };
+  }, []);
+
+  function startCooldown(seconds: number) {
+    setResendCooldown(seconds);
+    if (cooldownTimerRef.current) clearInterval(cooldownTimerRef.current);
+    cooldownTimerRef.current = setInterval(() => {
+      setResendCooldown((prev) => {
+        if (prev <= 1) {
+          clearInterval(cooldownTimerRef.current!);
+          cooldownTimerRef.current = null;
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }
 
   const urlParams = new URLSearchParams(window.location.search);
   const urlError = urlParams.get("error");
@@ -56,12 +79,18 @@ export default function LoginPage() {
     setResendLoading(true);
     setResendSuccess(false);
     try {
-      await fetch("/api/auth/resend-verification", {
+      const res = await fetch("/api/auth/resend-verification", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
-      setResendSuccess(true);
+      if (res.status === 429) {
+        const data = await res.json() as { retryAfter?: number };
+        startCooldown(data.retryAfter ?? 60);
+      } else {
+        setResendSuccess(true);
+        startCooldown(60);
+      }
     } catch {
     } finally {
       setResendLoading(false);
@@ -119,6 +148,14 @@ export default function LoginPage() {
                     {resendSuccess ? (
                       <span className="text-green-700 flex items-center gap-1">
                         <CheckCircle2 className="w-3 h-3" /> Verification email sent — check your inbox.
+                        {resendCooldown > 0 && (
+                          <span className="text-muted-foreground ml-1">({resendCooldown}s)</span>
+                        )}
+                      </span>
+                    ) : resendCooldown > 0 ? (
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <RefreshCw className="w-3 h-3" />
+                        Please wait {resendCooldown}s before requesting another email.
                       </span>
                     ) : (
                       <button
@@ -188,6 +225,14 @@ export default function LoginPage() {
                         {resendSuccess ? (
                           <span className="text-green-700 flex items-center gap-1">
                             <CheckCircle2 className="w-3 h-3" /> Verification email sent — check your inbox.
+                            {resendCooldown > 0 && (
+                              <span className="text-muted-foreground ml-1">({resendCooldown}s)</span>
+                            )}
+                          </span>
+                        ) : resendCooldown > 0 ? (
+                          <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            <RefreshCw className="w-3 h-3" />
+                            Please wait {resendCooldown}s before requesting another email.
                           </span>
                         ) : (
                           <button

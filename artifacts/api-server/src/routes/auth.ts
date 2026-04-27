@@ -18,6 +18,16 @@ import { sendVerificationEmail, sendPasswordResetEmail } from "../lib/email";
 
 const BCRYPT_ROUNDS = 12;
 
+const RESEND_COOLDOWN_MS = 60_000;
+const resendLastSentAt = new Map<string, number>();
+
+setInterval(() => {
+  const cutoff = Date.now() - RESEND_COOLDOWN_MS;
+  for (const [email, ts] of resendLastSentAt) {
+    if (ts < cutoff) resendLastSentAt.delete(email);
+  }
+}, RESEND_COOLDOWN_MS).unref();
+
 function emailErrDetail(err: unknown): string {
   if (err && typeof err === "object") {
     const e = err as Record<string, unknown>;
@@ -393,6 +403,22 @@ router.post("/auth/resend-verification", async (req: Request, res: Response) => 
   }
 
   const normalised = email.trim().toLowerCase();
+
+  const lastSent = resendLastSentAt.get(normalised);
+  if (lastSent !== undefined) {
+    const elapsed = Date.now() - lastSent;
+    if (elapsed < RESEND_COOLDOWN_MS) {
+      const retryAfter = Math.ceil((RESEND_COOLDOWN_MS - elapsed) / 1000);
+      res.status(429).set("Retry-After", String(retryAfter)).json({
+        error: `Please wait before requesting another email.`,
+        retryAfter,
+      });
+      return;
+    }
+  }
+
+  resendLastSentAt.set(normalised, Date.now());
+
   const [user] = await db
     .select()
     .from(usersTable)
