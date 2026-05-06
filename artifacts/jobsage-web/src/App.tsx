@@ -3,7 +3,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { useAuth } from "@workspace/auth-web";
 import { useEffect } from "react";
-import { useGetMyProfile } from "@workspace/api-client-react";
+import {
+  useGetMyProfile,
+  useGetMyConsent,
+  getGetMyConsentQueryKey,
+  getGetMyProfileQueryKey,
+} from "@workspace/api-client-react";
 
 import EmployerOnboardingPage from "@/pages/employer/EmployerOnboardingPage";
 import EmployerRegisterPage from "@/pages/employer/EmployerRegisterPage";
@@ -47,24 +52,43 @@ function LoadingScreen() {
 }
 
 function ProfileGate() {
-  const { data: profile, isLoading: profileLoading, isError: profileError } = useGetMyProfile();
   const { user } = useAuth();
   const [, setLocation] = useLocation();
 
-  useEffect(() => {
-    if (!profileLoading) {
-      if (user?.role === "employer") {
-        setLocation("/employer/dashboard");
-        return;
-      }
-      if (!profileError && !profile?.profession) {
-        setLocation("/onboarding");
-      }
-    }
-  }, [profileLoading, profileError, profile, setLocation, user]);
+  const { data: consentData, isLoading: consentLoading } = useGetMyConsent({
+    query: { queryKey: getGetMyConsentQueryKey(), retry: false },
+  });
 
-  if (profileLoading) return <LoadingScreen />;
+  const hasConsented = consentData?.hasConsented === true;
+
+  const { data: profile, isLoading: profileLoading, isError: profileError } = useGetMyProfile({
+    query: {
+      queryKey: getGetMyProfileQueryKey(),
+      enabled: hasConsented,
+      retry: false,
+    },
+  });
+
+  const isLoading = consentLoading || (hasConsented && profileLoading);
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (user?.role === "employer") {
+      setLocation("/employer/dashboard");
+      return;
+    }
+    if (consentData && !consentData.hasConsented) {
+      setLocation("/consent");
+      return;
+    }
+    if (hasConsented && !profileError && !profile?.profession) {
+      setLocation("/onboarding");
+    }
+  }, [isLoading, consentData, hasConsented, profileError, profile, setLocation, user]);
+
+  if (isLoading) return <LoadingScreen />;
   if (user?.role === "employer") return null;
+  if (consentData && !consentData.hasConsented) return null;
   if (profileError) return <DashboardPage />;
   if (!profile?.profession) return null;
 
