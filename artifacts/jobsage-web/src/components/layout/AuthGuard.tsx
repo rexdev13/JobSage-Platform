@@ -96,7 +96,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     isAuthenticated &&
     consentData &&
     !consentData.hasConsented &&
-    location !== "/consent"
+    location !== "/consent" &&
+    !isPublic
   )
     return null;
   if (
