@@ -65,6 +65,17 @@ async function markVerified(userId: string): Promise<{ message: string }> {
   return data as { message: string };
 }
 
+async function unverifyAccount(userId: string): Promise<{ message: string }> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/api/admin/users/${userId}/unverify`, {
+    method: "POST",
+    credentials: "include",
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "Request failed");
+  return data as { message: string };
+}
+
 async function sendPasswordReset(userId: string): Promise<{ message: string }> {
   const base = getBaseUrl();
   const res = await fetch(`${base}/api/admin/users/${userId}/send-password-reset`, {
@@ -132,6 +143,12 @@ function UserCard({
 
   const { mutate: doMarkVerified, isPending: markingVerified } = useMutation({
     mutationFn: () => markVerified(user.id),
+    onSuccess: (data) => showResult(data.message),
+    onError: (err: Error) => showResult(err.message, true),
+  });
+
+  const { mutate: doUnverify, isPending: unverifying } = useMutation({
+    mutationFn: () => unverifyAccount(user.id),
     onSuccess: (data) => showResult(data.message),
     onError: (err: Error) => showResult(err.message, true),
   });
@@ -212,6 +229,24 @@ function UserCard({
               <UserCheck className="w-4 h-4 mr-1.5" />
             )}
             Mark as Verified
+          </Button>
+        )}
+
+        {user.emailVerified && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => doUnverify()}
+            disabled={unverifying}
+            title="Revoke email verification — sets emailVerified back to false"
+            className="text-amber-700 border-amber-300 hover:bg-amber-50"
+          >
+            {unverifying ? (
+              <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+            ) : (
+              <UserX className="w-4 h-4 mr-1.5" />
+            )}
+            Unverify Account
           </Button>
         )}
 
