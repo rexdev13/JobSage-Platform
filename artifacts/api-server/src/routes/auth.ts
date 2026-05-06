@@ -329,7 +329,7 @@ router.post("/auth/forgot-password", async (req: Request, res: Response) => {
   }
 
   const token = generateToken();
-  const tokenExpires = tokenExpiresAt(1);
+  const tokenExpires = tokenExpiresAt(24);
 
   await db
     .update(usersTable)
