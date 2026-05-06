@@ -133,11 +133,41 @@ router.get(
   "/admin/audit/events",
   requireRole("admin"),
   async (req, res): Promise<void> => {
+    const format = (req.query.format as string | undefined) ?? "json";
+    const adminActionFilter = like(auditEventsTable.action, "admin_%");
+
+    if (format === "csv") {
+      const events = await db
+        .select()
+        .from(auditEventsTable)
+        .where(adminActionFilter)
+        .orderBy(desc(auditEventsTable.createdAt));
+
+      const header = "action,actor,target,email,createdAt";
+      const rows = events.map((e) => {
+        const email = ((e.details as Record<string, unknown>)?.email as string) ?? "";
+        const escapeCsv = (v: string) =>
+          v.includes(",") || v.includes('"') || v.includes("\n") || v.includes("\r")
+            ? `"${v.replace(/"/g, '""')}"`
+            : v;
+        return [
+          escapeCsv(e.action),
+          escapeCsv(e.actor),
+          escapeCsv(e.target ?? ""),
+          escapeCsv(email),
+          e.createdAt.toISOString(),
+        ].join(",");
+      });
+
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", "attachment; filename=admin-actions-audit.csv");
+      res.send([header, ...rows].join("\n"));
+      return;
+    }
+
     const page = Math.max(1, parseInt((req.query.page as string) ?? "1", 10));
     const pageSize = Math.min(100, Math.max(1, parseInt((req.query.pageSize as string) ?? "50", 10)));
     const offset = (page - 1) * pageSize;
-
-    const adminActionFilter = like(auditEventsTable.action, "admin_%");
 
     const [totalResult] = await db
       .select({ count: count() })

@@ -227,8 +227,21 @@ function AdminActionsTab() {
 
   const totalPages = data ? Math.ceil(data.total / pageSize) : 1;
 
+  const handleCsvDownload = () => {
+    const baseUrl = import.meta.env.BASE_URL.replace(/\/$/, "");
+    window.open(`${baseUrl}/api/admin/audit/events?format=csv`);
+  };
+
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <button
+          onClick={handleCsvDownload}
+          className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg border border-border text-sm font-medium hover:bg-muted/50 transition-colors"
+        >
+          <Download className="w-4 h-4" /> Export CSV
+        </button>
+      </div>
       {isLoading && (
         <Card className="p-8 text-center">
           <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-2" />

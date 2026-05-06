@@ -1480,6 +1480,13 @@ paths:
       operationId: listAdminAuditEvents
       summary: List paginated admin action audit events (admin only)
       parameters:
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [csv, json]
+            default: json
         - name: page
           in: query
           required: false
@@ -1494,11 +1501,14 @@ paths:
             default: 50
       responses:
         '200':
-          description: Paginated admin audit events.
+          description: Paginated admin audit events (JSON) or CSV export.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AdminAuditEventList'
+            text/csv:
+              schema:
+                type: string
         '401':
           description: Not authenticated or not admin.
           content:
