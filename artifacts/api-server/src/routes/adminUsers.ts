@@ -115,7 +115,49 @@ router.post(
       })
       .where(eq(usersTable.id, id));
 
+    writeAuditEvent(req.user!.id, "admin_mark_verified", user.id, { email: undefined }).catch(() => {});
+
     res.json({ message: "Account marked as verified." });
+  }
+);
+
+router.post(
+  "/admin/users/:id/unverify",
+  requireRole("admin"),
+  async (req: Request, res: Response): Promise<void> => {
+    const id = extractParamId(req);
+    if (!id) {
+      res.status(400).json({ error: "User ID is required." });
+      return;
+    }
+
+    const [user] = await db
+      .select({
+        id: usersTable.id,
+        email: usersTable.email,
+        emailVerified: usersTable.emailVerified,
+      })
+      .from(usersTable)
+      .where(eq(usersTable.id, id));
+
+    if (!user) {
+      res.status(404).json({ error: "User not found." });
+      return;
+    }
+
+    if (!user.emailVerified) {
+      res.status(409).json({ error: "This account is not verified." });
+      return;
+    }
+
+    await db
+      .update(usersTable)
+      .set({ emailVerified: false })
+      .where(eq(usersTable.id, id));
+
+    writeAuditEvent(req.user!.id, "admin_unverify", user.id, { email: user.email }).catch(() => {});
+
+    res.json({ message: "Account verification has been revoked." });
   }
 );
 
