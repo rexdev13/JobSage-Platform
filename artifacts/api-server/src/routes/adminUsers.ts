@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, usersTable, auditEventsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, desc, like, and } from "drizzle-orm";
 import { requireRole } from "../middlewares/requireRole";
 import { sendVerificationEmail, sendPasswordResetEmail } from "../lib/email";
 import { generateToken, tokenExpiresAt } from "../lib/auth";
@@ -264,6 +264,53 @@ router.post(
     writeAuditEvent(req.user!.id, "admin_send_password_reset", user.id, { email: user.email }).catch(() => {});
 
     res.json({ message: `Password reset email sent to ${user.email}.` });
+  }
+);
+
+router.get(
+  "/admin/users/:id/audit-events",
+  requireRole("admin"),
+  async (req: Request, res: Response): Promise<void> => {
+    const id = extractParamId(req);
+    if (!id) {
+      res.status(400).json({ error: "User ID is required." });
+      return;
+    }
+
+    const parsedLimit = parseInt((req.query.limit as string) ?? "5", 10);
+    const limit = Math.min(20, Math.max(1, Number.isFinite(parsedLimit) ? parsedLimit : 5));
+
+    const events = await db
+      .select({
+        id: auditEventsTable.id,
+        actor: auditEventsTable.actor,
+        action: auditEventsTable.action,
+        target: auditEventsTable.target,
+        details: auditEventsTable.details,
+        createdAt: auditEventsTable.createdAt,
+        actorEmail: usersTable.email,
+      })
+      .from(auditEventsTable)
+      .leftJoin(usersTable, eq(auditEventsTable.actor, usersTable.id))
+      .where(
+        and(
+          eq(auditEventsTable.target, id),
+          like(auditEventsTable.action, "admin_%")
+        )
+      )
+      .orderBy(desc(auditEventsTable.createdAt))
+      .limit(limit);
+
+    res.json({
+      events: events.map((e) => ({
+        id: e.id,
+        actor: e.actor,
+        actorEmail: e.actorEmail ?? null,
+        action: e.action,
+        details: e.details ?? {},
+        createdAt: e.createdAt,
+      })),
+    });
   }
 );
 

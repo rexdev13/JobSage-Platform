@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   Clock,
   ShieldCheck,
+  History,
 } from "lucide-react";
 
 interface AdminUser {
@@ -27,6 +28,15 @@ interface AdminUser {
   passwordResetTokenExpires: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+interface AuditEvent {
+  id: number;
+  actor: string;
+  actorEmail: string | null;
+  action: string;
+  details: Record<string, unknown>;
+  createdAt: string;
 }
 
 function getBaseUrl(): string {
@@ -87,6 +97,34 @@ async function sendPasswordReset(userId: string): Promise<{ message: string }> {
   return data as { message: string };
 }
 
+async function fetchAuditEvents(userId: string): Promise<AuditEvent[]> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/api/admin/users/${userId}/audit-events?limit=5`, {
+    credentials: "include",
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "Request failed");
+  return (data as { events: AuditEvent[] }).events;
+}
+
+const ACTION_LABELS: Record<string, string> = {
+  admin_mark_verified: "Marked as verified",
+  admin_unverify: "Revoked verification",
+  admin_resend_verification: "Sent verification email",
+  admin_send_password_reset: "Sent password reset",
+};
+
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const minutes = Math.floor(diff / 60_000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
 function formatDate(iso: string | null): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleString();
@@ -126,6 +164,16 @@ function UserCard({
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const {
+    data: auditEvents,
+    isLoading: auditLoading,
+    refetch: refetchAudit,
+  } = useQuery({
+    queryKey: ["admin", "user-audit-events", user.id],
+    queryFn: () => fetchAuditEvents(user.id),
+    retry: false,
+  });
+
   const showResult = (msg: string, isError = false) => {
     if (isError) {
       setErrorMsg(msg);
@@ -139,6 +187,7 @@ function UserCard({
       setErrorMsg(null);
     }, 5000);
     onRefresh();
+    void refetchAudit();
   };
 
   const { mutate: doMarkVerified, isPending: markingVerified } = useMutation({
@@ -294,6 +343,39 @@ function UserCard({
           {errorMsg}
         </div>
       )}
+
+      <div className="pt-1 border-t border-border">
+        <h3 className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+          <History className="w-3.5 h-3.5" /> Recent Admin Actions
+        </h3>
+        {auditLoading && (
+          <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+            <Loader2 className="w-3 h-3 animate-spin" /> Loading history…
+          </p>
+        )}
+        {!auditLoading && (!auditEvents || auditEvents.length === 0) && (
+          <p className="text-xs text-muted-foreground">No admin actions recorded for this account yet.</p>
+        )}
+        {!auditLoading && auditEvents && auditEvents.length > 0 && (
+          <ul className="space-y-1.5">
+            {auditEvents.map((event) => (
+              <li key={event.id} className="text-xs text-muted-foreground flex items-start gap-1.5">
+                <Clock className="w-3 h-3 shrink-0 mt-0.5" />
+                <span>
+                  <span className="font-medium text-foreground">
+                    {ACTION_LABELS[event.action] ?? event.action}
+                  </span>
+                  {" · "}
+                  {relativeTime(event.createdAt)}
+                  {event.actorEmail && (
+                    <span className="text-muted-foreground"> by {event.actorEmail}</span>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </Card>
   );
 }
