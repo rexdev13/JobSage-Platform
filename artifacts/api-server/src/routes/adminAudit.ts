@@ -4,24 +4,12 @@ import { decisionRecordsTable, consentLogsTable, auditEventsTable } from "@works
 import { desc, gte, lte, and, count, like } from "drizzle-orm";
 import { requireRole } from "../middlewares/requireRole";
 import { createHash } from "crypto";
+import { writeAuditEvent } from "../lib/audit";
 
 const router: IRouter = Router();
 
 function hashUserId(userId: string): string {
   return createHash("sha256").update(userId).digest("hex").slice(0, 16);
-}
-
-async function writeAuditEvent(
-  actor: string,
-  action: string,
-  target?: string,
-  details?: Record<string, unknown>
-): Promise<void> {
-  try {
-    await db.insert(auditEventsTable).values({ actor, action, target, details: details ?? {} });
-  } catch (err) {
-    console.error("[audit] event write failed:", err);
-  }
 }
 
 router.get(

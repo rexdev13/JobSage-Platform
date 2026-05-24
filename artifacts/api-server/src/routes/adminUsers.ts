@@ -4,19 +4,7 @@ import { eq, desc, like, and } from "drizzle-orm";
 import { requireRole } from "../middlewares/requireRole";
 import { sendVerificationEmail, sendPasswordResetEmail } from "../lib/email";
 import { generateToken, tokenExpiresAt } from "../lib/auth";
-
-async function writeAuditEvent(
-  actor: string,
-  action: string,
-  target?: string,
-  details?: Record<string, unknown>
-): Promise<void> {
-  try {
-    await db.insert(auditEventsTable).values({ actor, action, target, details: details ?? {} });
-  } catch (err) {
-    console.error("[audit] event write failed:", err);
-  }
-}
+import { writeAuditEvent } from "../lib/audit";
 
 const router: IRouter = Router();
 
