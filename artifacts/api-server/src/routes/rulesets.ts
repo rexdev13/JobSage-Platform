@@ -1,22 +1,10 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { eq, and } from "drizzle-orm";
-import { db, rulesetsTable, rulesetRulesTable, decisionRecordsTable, auditEventsTable } from "@workspace/db";
+import { db, rulesetsTable, rulesetRulesTable, decisionRecordsTable } from "@workspace/db";
 import { evaluate } from "../lib/rulesEngine";
 import type { Profile, RuleCondition } from "@workspace/db";
 import { requireRole } from "../middlewares/requireRole";
-
-async function writeAuditEvent(
-  actor: string,
-  action: string,
-  target?: string,
-  details?: Record<string, unknown>
-): Promise<void> {
-  try {
-    await db.insert(auditEventsTable).values({ actor, action, target, details: details ?? {} });
-  } catch (err) {
-    console.error("[audit] event write failed:", err);
-  }
-}
+import { writeAuditEvent } from "../lib/audit";
 
 const router: IRouter = Router();
 

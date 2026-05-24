@@ -5,25 +5,12 @@ import {
   reviewAnnotationsTable,
   decisionRecordsTable,
   profilesTable,
-  auditEventsTable,
 } from "@workspace/db";
 import { eq, desc, sql } from "drizzle-orm";
 import { requireRole } from "../middlewares/requireRole";
+import { writeAuditEvent } from "../lib/audit";
 
 const router: IRouter = Router();
-
-async function writeAuditEvent(
-  actor: string,
-  action: string,
-  target?: string,
-  details?: Record<string, unknown>
-): Promise<void> {
-  try {
-    await db.insert(auditEventsTable).values({ actor, action, target, details: details ?? {} });
-  } catch (err) {
-    console.error("[audit] event write failed:", err);
-  }
-}
 
 router.get(
   "/admin/review-queue",
