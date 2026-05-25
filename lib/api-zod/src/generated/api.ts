@@ -1525,6 +1525,155 @@ export const CloseJobListingResponse = zod.object({
 });
 
 /**
+ * @summary AI-ranked candidate search against the JOBSAGE candidate pool
+ */
+export const talentSearchQueryPageDefault = 1;
+
+export const TalentSearchQueryParams = zod.object({
+  profession: zod.coerce.string().optional(),
+  specialty: zod.coerce.string().optional(),
+  eligibilityStatus: zod.enum(["eligible", "not_eligible"]).optional(),
+  requiresSponsorship: zod.enum(["true", "false"]).optional(),
+  experienceYearsMin: zod.coerce.number().optional(),
+  preferredRegion: zod.coerce.string().optional(),
+  vacancyId: zod.coerce.number().optional(),
+  page: zod.coerce.number().default(talentSearchQueryPageDefault),
+});
+
+export const TalentSearchResponse = zod.object({
+  candidates: zod.array(
+    zod.object({
+      userId: zod.string(),
+      displayName: zod.string(),
+      initials: zod.string(),
+      profession: zod.string().nullish(),
+      specialty: zod.string().nullish(),
+      experienceYears: zod.number().nullish(),
+      qualificationCountry: zod.string().nullish(),
+      registrationStatus: zod.string().nullish(),
+      requiresSponsorship: zod.boolean().nullish(),
+      isEligible: zod.boolean(),
+      eligibilityOutcome: zod.string().nullish(),
+      matchScore: zod.number(),
+      matchRationale: zod.string().nullish(),
+      isBoosted: zod.boolean(),
+    }),
+  ),
+  total: zod.number(),
+  page: zod.number(),
+  pageSize: zod.number(),
+});
+
+/**
+ * @summary List all saved talent search campaigns for the employer
+ */
+export const ListCampaignsResponse = zod.object({
+  campaigns: zod.array(
+    zod.object({
+      id: zod.number(),
+      employerProfileId: zod.number(),
+      vacancyId: zod.number().nullish(),
+      name: zod.string(),
+      filters: zod.record(zod.string(), zod.unknown()),
+      createdAt: zod.date(),
+      lastRunAt: zod.date().nullish(),
+    }),
+  ),
+});
+
+/**
+ * @summary Save a new talent search campaign
+ */
+export const CreateCampaignBody = zod.object({
+  name: zod.string(),
+  filters: zod.record(zod.string(), zod.unknown()).optional(),
+  vacancyId: zod.number().nullish(),
+});
+
+/**
+ * @summary Record a campaign run (updates lastRunAt)
+ */
+export const RunCampaignParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const RunCampaignResponse = zod.object({
+  id: zod.number(),
+  employerProfileId: zod.number(),
+  vacancyId: zod.number().nullish(),
+  name: zod.string(),
+  filters: zod.record(zod.string(), zod.unknown()),
+  createdAt: zod.date(),
+  lastRunAt: zod.date().nullish(),
+});
+
+/**
+ * @summary Delete a saved talent search campaign
+ */
+export const DeleteCampaignParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteCampaignResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary Send an in-platform message (and email) to a candidate
+ */
+export const ContactCandidateBody = zod.object({
+  recipientUserId: zod.string(),
+  messageText: zod.string(),
+  subject: zod.string().nullish(),
+  vacancyId: zod.number().nullish(),
+});
+
+/**
+ * @summary Get messages received by the current candidate from employers
+ */
+export const GetCandidateMessagesResponse = zod.object({
+  messages: zod.array(
+    zod.object({
+      id: zod.number(),
+      senderEmployerProfileId: zod.number(),
+      recipientUserId: zod.string(),
+      vacancyId: zod.number().nullish(),
+      messageText: zod.string(),
+      subject: zod.string(),
+      isRead: zod.boolean(),
+      createdAt: zod.date(),
+      companyName: zod.string().nullish(),
+      industry: zod.string().nullish(),
+    }),
+  ),
+  unreadCount: zod.number(),
+});
+
+/**
+ * @summary Mark a candidate message as read
+ */
+export const MarkMessageReadParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const MarkMessageReadResponse = zod.object({
+  message: zod
+    .object({
+      id: zod.number(),
+      senderEmployerProfileId: zod.number(),
+      recipientUserId: zod.string(),
+      vacancyId: zod.number().nullish(),
+      messageText: zod.string(),
+      subject: zod.string(),
+      isRead: zod.boolean(),
+      createdAt: zod.date(),
+      companyName: zod.string().nullish(),
+      industry: zod.string().nullish(),
+    })
+    .optional(),
+});
+
+/**
  * @summary AI-generate a job description for a listing
  */
 export const GenerateJobDescriptionParams = zod.object({

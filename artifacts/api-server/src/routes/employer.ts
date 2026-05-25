@@ -7,10 +7,13 @@ import {
   profilesTable,
   decisionRecordsTable,
   usersTable,
+  headhuntCampaignsTable,
+  candidateMessagesTable,
 } from "@workspace/db";
-import { eq, and, desc, ilike } from "drizzle-orm";
+import { eq, and, desc, ilike, gte } from "drizzle-orm";
 import { requireRole, requireAuthenticated } from "../middlewares/requireRole";
 import { openai } from "@workspace/integrations-openai-ai-server";
+import { sendCandidateContactEmail } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -504,6 +507,330 @@ router.get("/employer/candidates", requireEmployer(), async (req, res): Promise<
 
   const candidates = enriched.filter(Boolean);
   res.json({ candidates, total: candidates.length });
+});
+
+// --- Talent Search (AI-ranked) ---
+const aiMatchCache = new Map<string, { score: number; rationale: string; cachedAt: number }>();
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+async function getAiMatchScore(
+  candidateProfile: Record<string, unknown>,
+  vacancyContext: { title?: string; specialty?: string; description?: string; regulator?: string } | null,
+): Promise<{ score: number; rationale: string }> {
+  if (!vacancyContext) {
+    const base =
+      (candidateProfile.isEligible ? 40 : 10) +
+      (candidateProfile.experienceYears != null ? Math.min((candidateProfile.experienceYears as number) * 3, 30) : 0) +
+      20;
+    return { score: Math.min(base, 70), rationale: "Match based on eligibility status and experience." };
+  }
+
+  const cacheKey = `${JSON.stringify(candidateProfile)}::${JSON.stringify(vacancyContext)}`;
+  const cached = aiMatchCache.get(cacheKey);
+  if (cached && Date.now() - cached.cachedAt < CACHE_TTL_MS) {
+    return { score: cached.score, rationale: cached.rationale };
+  }
+
+  try {
+    const prompt = `You are a UK healthcare recruitment AI. Score how well this candidate matches the vacancy.
+
+Vacancy: ${vacancyContext.title ?? "Healthcare Role"}${vacancyContext.specialty ? ` — ${vacancyContext.specialty}` : ""}${vacancyContext.regulator ? ` (${vacancyContext.regulator})` : ""}
+${vacancyContext.description ? `Description: ${vacancyContext.description.slice(0, 300)}` : ""}
+
+Candidate Profile:
+- Profession: ${candidateProfile.profession ?? "Unknown"}
+- Specialty: ${candidateProfile.specialty ?? "General"}
+- Experience: ${candidateProfile.experienceYears != null ? `${candidateProfile.experienceYears} years` : "Unknown"}
+- Qualification country: ${candidateProfile.qualificationCountry ?? "Unknown"}
+- Registration status: ${candidateProfile.registrationStatus ?? "Unknown"}
+- Requires sponsorship: ${candidateProfile.requiresSponsorship ? "Yes" : "No"}
+- Eligible for UK practice: ${candidateProfile.isEligible ? "Yes" : "Not confirmed"}
+
+Respond with ONLY valid JSON: {"score": <0-100>, "rationale": "<one sentence, max 100 chars>"}`;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 80,
+      temperature: 0.3,
+    });
+    const raw = response.choices[0]?.message?.content?.trim() ?? '{"score":50,"rationale":"Candidate assessed."}';
+    const parsed = JSON.parse(raw) as { score: number; rationale: string };
+    const result = { score: Math.min(100, Math.max(0, Math.round(parsed.score))), rationale: parsed.rationale ?? "" };
+    aiMatchCache.set(cacheKey, { ...result, cachedAt: Date.now() });
+    return result;
+  } catch {
+    const base =
+      (candidateProfile.isEligible ? 40 : 10) +
+      (candidateProfile.experienceYears != null ? Math.min((candidateProfile.experienceYears as number) * 3, 30) : 0) +
+      20;
+    return { score: Math.min(base, 70), rationale: "Match estimated from profile data." };
+  }
+}
+
+router.get("/employer/talent-search", requireEmployer(), async (req, res): Promise<void> => {
+  const {
+    profession, specialty, eligibilityStatus, requiresSponsorship,
+    experienceYearsMin, preferredRegion, vacancyId, page: pageStr,
+  } = req.query as Record<string, string | undefined>;
+
+  const userId = req.user!.id;
+  const [empProfile] = await db.select().from(employerProfilesTable).where(eq(employerProfilesTable.userId, userId));
+  if (!empProfile) { res.status(404).json({ error: "Employer profile not found." }); return; }
+
+  let vacancyContext: { title?: string; specialty?: string; description?: string; regulator?: string } | null = null;
+  if (vacancyId) {
+    const vid = parseInt(vacancyId, 10);
+    if (!isNaN(vid)) {
+      const [job] = await db.select().from(jobListingsTable).where(and(eq(jobListingsTable.id, vid), eq(jobListingsTable.employerProfileId, empProfile.id)));
+      if (job) vacancyContext = { title: job.title, specialty: job.specialty ?? undefined, description: job.description ?? undefined, regulator: job.regulator };
+    }
+  }
+
+  const conditions = [eq(profilesTable.boostProfile, true)];
+  if (profession) conditions.push(ilike(profilesTable.profession, `%${profession}%`));
+  if (specialty) conditions.push(ilike(profilesTable.specialty ?? profilesTable.specialty, `%${specialty}%`));
+  if (experienceYearsMin) {
+    const minYrs = parseInt(experienceYearsMin, 10);
+    if (!isNaN(minYrs)) conditions.push(gte(profilesTable.experienceYears, minYrs));
+  }
+
+  const profiles = await db
+    .select({
+      userId: profilesTable.userId,
+      profession: profilesTable.profession,
+      specialty: profilesTable.specialty,
+      experienceYears: profilesTable.experienceYears,
+      qualificationCountry: profilesTable.qualificationCountry,
+      registrationStatus: profilesTable.registrationStatus,
+      requiresSponsorship: profilesTable.requiresSponsorship,
+      preferredRegion: profilesTable.preferredRegion,
+    })
+    .from(profilesTable)
+    .where(and(...conditions));
+
+  const enriched = await Promise.all(
+    profiles.map(async (p) => {
+      const [user] = await db.select({ firstName: usersTable.firstName, lastName: usersTable.lastName }).from(usersTable).where(eq(usersTable.id, p.userId));
+      const [latestDecision] = await db
+        .select({ outcome: decisionRecordsTable.outcome })
+        .from(decisionRecordsTable)
+        .where(eq(decisionRecordsTable.userId, p.userId))
+        .orderBy(desc(decisionRecordsTable.createdAt))
+        .limit(1);
+
+      const isEligible = latestDecision?.outcome === "eligible";
+
+      if (eligibilityStatus === "eligible" && !isEligible) return null;
+      if (eligibilityStatus === "not_eligible" && isEligible) return null;
+      if (requiresSponsorship === "true" && !p.requiresSponsorship) return null;
+      if (requiresSponsorship === "false" && p.requiresSponsorship) return null;
+      if (preferredRegion && p.preferredRegion && !p.preferredRegion.toLowerCase().includes(preferredRegion.toLowerCase())) return null;
+
+      const { score, rationale } = await getAiMatchScore(
+        { profession: p.profession, specialty: p.specialty, experienceYears: p.experienceYears, qualificationCountry: p.qualificationCountry, registrationStatus: p.registrationStatus, requiresSponsorship: p.requiresSponsorship, isEligible },
+        vacancyContext,
+      );
+
+      const initials = [(user?.firstName ?? "").charAt(0), (user?.lastName ?? "").charAt(0)].filter(Boolean).join("") || "?";
+
+      return {
+        userId: p.userId,
+        displayName: user ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || "Healthcare Professional" : "Healthcare Professional",
+        initials,
+        profession: p.profession,
+        specialty: p.specialty,
+        experienceYears: p.experienceYears,
+        qualificationCountry: p.qualificationCountry,
+        registrationStatus: p.registrationStatus,
+        requiresSponsorship: p.requiresSponsorship,
+        isEligible,
+        eligibilityOutcome: latestDecision?.outcome ?? null,
+        matchScore: score,
+        matchRationale: rationale,
+        isBoosted: true,
+      };
+    }),
+  );
+
+  const filtered = enriched.filter(Boolean) as NonNullable<(typeof enriched)[number]>[];
+  filtered.sort((a, b) => b.matchScore - a.matchScore);
+
+  const pageNum = Math.max(1, parseInt(pageStr ?? "1", 10) || 1);
+  const PAGE_SIZE = 20;
+  const paginated = filtered.slice((pageNum - 1) * PAGE_SIZE, pageNum * PAGE_SIZE);
+
+  res.json({ candidates: paginated, total: filtered.length, page: pageNum, pageSize: PAGE_SIZE });
+});
+
+// --- Campaign Management ---
+router.get("/employer/campaigns", requireEmployer(), async (req, res): Promise<void> => {
+  const userId = req.user!.id;
+  const [empProfile] = await db.select().from(employerProfilesTable).where(eq(employerProfilesTable.userId, userId));
+  if (!empProfile) { res.json({ campaigns: [] }); return; }
+
+  const campaigns = await db
+    .select()
+    .from(headhuntCampaignsTable)
+    .where(eq(headhuntCampaignsTable.employerProfileId, empProfile.id))
+    .orderBy(desc(headhuntCampaignsTable.createdAt));
+
+  res.json({ campaigns });
+});
+
+router.post("/employer/campaigns", requireEmployer(), async (req, res): Promise<void> => {
+  const userId = req.user!.id;
+  const { name, filters, vacancyId } = req.body as { name?: string; filters?: Record<string, unknown>; vacancyId?: number };
+
+  if (!name?.trim()) { res.status(400).json({ error: "Campaign name is required." }); return; }
+
+  const [empProfile] = await db.select().from(employerProfilesTable).where(eq(employerProfilesTable.userId, userId));
+  if (!empProfile) { res.status(404).json({ error: "Employer profile not found." }); return; }
+
+  const [campaign] = await db
+    .insert(headhuntCampaignsTable)
+    .values({
+      employerProfileId: empProfile.id,
+      name: name.trim(),
+      filters: filters ?? {},
+      vacancyId: vacancyId ?? null,
+    })
+    .returning();
+
+  res.status(201).json(campaign);
+});
+
+router.post("/employer/campaigns/:id/run", requireEmployer(), async (req, res): Promise<void> => {
+  const userId = req.user!.id;
+  const campaignId = parseInt(req.params.id as string, 10);
+  if (isNaN(campaignId)) { res.status(400).json({ error: "Invalid campaign ID." }); return; }
+
+  const [empProfile] = await db.select().from(employerProfilesTable).where(eq(employerProfilesTable.userId, userId));
+  if (!empProfile) { res.status(404).json({ error: "Employer profile not found." }); return; }
+
+  const [campaign] = await db.select().from(headhuntCampaignsTable).where(and(eq(headhuntCampaignsTable.id, campaignId), eq(headhuntCampaignsTable.employerProfileId, empProfile.id)));
+  if (!campaign) { res.status(404).json({ error: "Campaign not found." }); return; }
+
+  const [updated] = await db.update(headhuntCampaignsTable).set({ lastRunAt: new Date() }).where(eq(headhuntCampaignsTable.id, campaignId)).returning();
+  res.json(updated);
+});
+
+router.delete("/employer/campaigns/:id", requireEmployer(), async (req, res): Promise<void> => {
+  const userId = req.user!.id;
+  const campaignId = parseInt(req.params.id as string, 10);
+  if (isNaN(campaignId)) { res.status(400).json({ error: "Invalid campaign ID." }); return; }
+
+  const [empProfile] = await db.select().from(employerProfilesTable).where(eq(employerProfilesTable.userId, userId));
+  if (!empProfile) { res.status(404).json({ error: "Employer profile not found." }); return; }
+
+  const [deleted] = await db.delete(headhuntCampaignsTable).where(and(eq(headhuntCampaignsTable.id, campaignId), eq(headhuntCampaignsTable.employerProfileId, empProfile.id))).returning({ id: headhuntCampaignsTable.id });
+  if (!deleted) { res.status(404).json({ error: "Campaign not found." }); return; }
+
+  res.json({ message: "Campaign deleted." });
+});
+
+// --- Contact Candidate ---
+router.post("/employer/contact-candidate", requireEmployer(), async (req, res): Promise<void> => {
+  const userId = req.user!.id;
+  const { recipientUserId, messageText, subject, vacancyId } = req.body as {
+    recipientUserId?: string;
+    messageText?: string;
+    subject?: string;
+    vacancyId?: number;
+  };
+
+  if (!recipientUserId?.trim()) { res.status(400).json({ error: "Recipient user ID is required." }); return; }
+  if (!messageText?.trim()) { res.status(400).json({ error: "Message text is required." }); return; }
+
+  const [empProfile] = await db.select().from(employerProfilesTable).where(eq(employerProfilesTable.userId, userId));
+  if (!empProfile) { res.status(404).json({ error: "Employer profile not found." }); return; }
+
+  const [recipient] = await db
+    .select({ id: usersTable.id, email: usersTable.email, firstName: usersTable.firstName, role: usersTable.role })
+    .from(usersTable)
+    .where(eq(usersTable.id, recipientUserId.trim()));
+  if (!recipient) { res.status(404).json({ error: "Candidate not found." }); return; }
+  if (recipient.role !== "candidate" && recipient.role !== "reviewer") {
+    res.status(400).json({ error: "Can only contact candidates." }); return;
+  }
+
+  let vacancyTitle: string | null = null;
+  if (vacancyId) {
+    const [job] = await db.select({ title: jobListingsTable.title }).from(jobListingsTable).where(eq(jobListingsTable.id, vacancyId));
+    vacancyTitle = job?.title ?? null;
+  }
+
+  const effectiveSubject = subject?.trim() || `Message from ${empProfile.companyName}`;
+
+  const [message] = await db
+    .insert(candidateMessagesTable)
+    .values({
+      senderEmployerProfileId: empProfile.id,
+      recipientUserId: recipient.id,
+      vacancyId: vacancyId ?? null,
+      messageText: messageText.trim(),
+      subject: effectiveSubject,
+    })
+    .returning();
+
+  if (recipient.email) {
+    sendCandidateContactEmail({
+      to: recipient.email,
+      candidateFirstName: recipient.firstName ?? "there",
+      companyName: empProfile.companyName,
+      subject: effectiveSubject,
+      messageText: messageText.trim(),
+      vacancyTitle,
+    }).catch((err: unknown) => {
+      console.error("[employer] Failed to send candidate contact email:", err);
+    });
+  }
+
+  res.status(201).json({ message, sent: true });
+});
+
+// Get messages received by the current candidate
+router.get("/candidate/messages", requireAuthenticated, async (req, res): Promise<void> => {
+  const userId = req.user!.id;
+  const messages = await db
+    .select({
+      id: candidateMessagesTable.id,
+      subject: candidateMessagesTable.subject,
+      messageText: candidateMessagesTable.messageText,
+      isRead: candidateMessagesTable.isRead,
+      createdAt: candidateMessagesTable.createdAt,
+      vacancyId: candidateMessagesTable.vacancyId,
+      senderEmployerProfileId: candidateMessagesTable.senderEmployerProfileId,
+    })
+    .from(candidateMessagesTable)
+    .where(eq(candidateMessagesTable.recipientUserId, userId))
+    .orderBy(desc(candidateMessagesTable.createdAt));
+
+  const enriched = await Promise.all(
+    messages.map(async (m) => {
+      const [empProfile] = await db
+        .select({ companyName: employerProfilesTable.companyName, industry: employerProfilesTable.industry })
+        .from(employerProfilesTable)
+        .where(eq(employerProfilesTable.id, m.senderEmployerProfileId));
+      return { ...m, companyName: empProfile?.companyName ?? "An employer", industry: empProfile?.industry ?? null };
+    }),
+  );
+
+  res.json({ messages: enriched, unreadCount: enriched.filter((m) => !m.isRead).length });
+});
+
+router.patch("/candidate/messages/:id/read", requireAuthenticated, async (req, res): Promise<void> => {
+  const userId = req.user!.id;
+  const msgId = parseInt(req.params.id as string, 10);
+  if (isNaN(msgId)) { res.status(400).json({ error: "Invalid message ID." }); return; }
+
+  const [updated] = await db
+    .update(candidateMessagesTable)
+    .set({ isRead: true })
+    .where(and(eq(candidateMessagesTable.id, msgId), eq(candidateMessagesTable.recipientUserId, userId)))
+    .returning();
+  if (!updated) { res.status(404).json({ error: "Message not found." }); return; }
+  res.json({ message: updated });
 });
 
 export default router;

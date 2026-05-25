@@ -4,7 +4,7 @@ import {
   Home, User, FileText, CheckCircle, 
   Map, ClipboardList, Shield, Users, LogOut, Briefcase,
   Building2, Plus, LayoutDashboard, Sparkles, UserCog, List,
-  BarChart2, BookOpen,
+  BarChart2, BookOpen, Search, Bookmark,
 } from "lucide-react";
 import { cn } from "@/components/ui-enhanced";
 
@@ -31,6 +31,8 @@ export function AppSidebar() {
     // Employer
     { name: "Employer Dashboard", href: "/employer/dashboard", icon: LayoutDashboard, roles: ["employer", "admin"] },
     { name: "Post a Job", href: "/employer/jobs/new", icon: Plus, roles: ["employer", "admin"] },
+    { name: "Talent Search", href: "/employer/talent-search", icon: Search, roles: ["employer", "admin"] },
+    { name: "Campaigns", href: "/employer/campaigns", icon: Bookmark, roles: ["employer", "admin"] },
     { name: "Organisation Profile", href: "/employer/profile", icon: Building2, roles: ["employer", "admin"] },
     
     // Reviewer + Admin
