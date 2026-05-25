@@ -373,6 +373,7 @@ function AllUsersTab() {
             <thead>
               <tr className="border-b border-border bg-muted/50">
                 {[
+                  { label: "ID", col: null },
                   { label: "Email", col: "email" },
                   { label: "Role", col: "role" },
                   { label: "Verified", col: "emailVerified" },
@@ -398,10 +399,10 @@ function AllUsersTab() {
             </thead>
             <tbody>
               {loading && (
-                <tr><td colSpan={11} className="text-center py-10 text-muted-foreground">Loading...</td></tr>
+                <tr><td colSpan={12} className="text-center py-10 text-muted-foreground">Loading...</td></tr>
               )}
               {!loading && users.length === 0 && (
-                <tr><td colSpan={11} className="text-center py-10 text-muted-foreground">No users found.</td></tr>
+                <tr><td colSpan={12} className="text-center py-10 text-muted-foreground">No users found.</td></tr>
               )}
               {!loading && users.map((u) => (
                 <>
@@ -410,6 +411,7 @@ function AllUsersTab() {
                     className="border-b border-border/50 hover:bg-muted/30 cursor-pointer transition-colors"
                     onClick={() => setExpandedId(expandedId === u.id ? null : u.id)}
                   >
+                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground" title={u.id}>{u.id.slice(0, 8)}&hellip;</td>
                     <td className="px-4 py-3 font-medium">{u.email}</td>
                     <td className="px-4 py-3">
                       <span className="capitalize text-xs bg-muted px-2 py-0.5 rounded-full">{u.role.replace("_", " ")}</span>
@@ -455,7 +457,7 @@ function AllUsersTab() {
                   </tr>
                   {expandedId === u.id && (
                     <tr key={`${u.id}-detail`}>
-                      <td colSpan={11} className="p-0">
+                      <td colSpan={12} className="p-0">
                         <UserDetailPanel userId={u.id} apiBase={API_BASE} onImpersonate={handleImpersonate} />
                       </td>
                     </tr>
