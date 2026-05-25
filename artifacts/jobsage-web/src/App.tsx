@@ -10,6 +10,8 @@ import {
   getGetMyProfileQueryKey,
 } from "@workspace/api-client-react";
 
+import SuperAdminPage from "@/pages/admin/SuperAdminPage";
+import ImpersonatePage from "@/pages/ImpersonatePage";
 import EmployerOnboardingPage from "@/pages/employer/EmployerOnboardingPage";
 import EmployerRegisterPage from "@/pages/employer/EmployerRegisterPage";
 import EmployerDashboardPage from "@/pages/employer/EmployerDashboardPage";
@@ -118,13 +120,28 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    if (!isLoading && user && user.role !== "admin") {
+    if (!isLoading && user && user.role !== "admin" && user.role !== "super_admin") {
       setLocation("/");
     }
   }, [isLoading, user, setLocation]);
 
   if (isLoading) return null;
-  if (!user || user.role !== "admin") return null;
+  if (!user || (user.role !== "admin" && user.role !== "super_admin")) return null;
+  return <>{children}</>;
+}
+
+function SuperAdminGuard({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (!isLoading && user && user.role !== "super_admin") {
+      setLocation("/");
+    }
+  }, [isLoading, user, setLocation]);
+
+  if (isLoading) return null;
+  if (!user || user.role !== "super_admin") return null;
   return <>{children}</>;
 }
 
@@ -213,6 +230,14 @@ function Router() {
                 <AdminUsersPage />
               </AdminGuard>
             </Route>
+            <Route path="/admin/super">
+              <SuperAdminGuard>
+                <SuperAdminPage />
+              </SuperAdminGuard>
+            </Route>
+
+            {/* Impersonation — opened in new tab by super admin */}
+            <Route path="/impersonate" component={ImpersonatePage} />
 
             {/* Employer Portal Routes */}
             <Route path="/employer/onboarding" component={EmployerOnboardingPage} />

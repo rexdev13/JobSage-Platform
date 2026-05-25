@@ -22,6 +22,7 @@ import sponsorLicencesRouter from "./sponsorLicences";
 import coverLetterRouter from "./coverLetter";
 import progressReportRouter from "./progressReport";
 import speculativeApplicationsRouter from "./speculativeApplications";
+import superAdminRouter from "./superAdmin";
 
 const router: IRouter = Router();
 
@@ -48,5 +49,6 @@ router.use(sponsorLicencesRouter);
 router.use(coverLetterRouter);
 router.use(progressReportRouter);
 router.use(speculativeApplicationsRouter);
+router.use(superAdminRouter);
 
 export default router;

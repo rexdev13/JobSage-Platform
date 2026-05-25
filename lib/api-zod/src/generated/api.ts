@@ -1922,3 +1922,159 @@ export const ListSponsorLicencesResponse = zod.object({
   lastSyncedAt: zod.date().nullish(),
   lastSyncFailed: zod.boolean().optional(),
 });
+
+/**
+ * @summary Platform-wide aggregated statistics (super admin only)
+ */
+export const GetSuperAdminStatsResponse = zod.object({
+  totalUsers: zod.number(),
+  usersByRole: zod.record(zod.string(), zod.number()),
+  completedProfiles: zod.number(),
+  activeJobs: zod.number(),
+  applicationsThisWeek: zod.number(),
+  sponsorLicences: zod.number(),
+  lastSponsorSync: zod.date().nullish(),
+});
+
+/**
+ * @summary Paginated, filterable list of all users (super admin only)
+ */
+export const GetSuperAdminUsersQueryParams = zod.object({
+  page: zod.coerce.number().optional(),
+  search: zod.coerce.string().optional(),
+  role: zod.coerce.string().optional(),
+  verified: zod.coerce.string().optional(),
+  sortBy: zod.coerce.string().optional(),
+  sortDir: zod.coerce.string().optional(),
+});
+
+export const GetSuperAdminUsersResponse = zod.object({
+  users: zod.array(
+    zod.object({
+      id: zod.string(),
+      email: zod.string().nullable(),
+      firstName: zod.string().nullish(),
+      lastName: zod.string().nullish(),
+      role: zod.string(),
+      emailVerified: zod.boolean(),
+      createdAt: zod.date(),
+      updatedAt: zod.date(),
+      profileCompletion: zod.number(),
+      documentCount: zod.number(),
+      applicationCount: zod.number(),
+      eligibilityStatus: zod.string().nullish(),
+      hasConsented: zod.boolean(),
+    }),
+  ),
+  total: zod.number(),
+  page: zod.number(),
+  pageSize: zod.number(),
+});
+
+/**
+ * @summary Full backend state for a specific user (super admin only)
+ */
+export const GetSuperAdminUserFullParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const GetSuperAdminUserFullResponse = zod.object({
+  user: zod.object({
+    id: zod.string(),
+    email: zod.string().nullable(),
+    firstName: zod.string().nullish(),
+    lastName: zod.string().nullish(),
+    role: zod.string(),
+    emailVerified: zod.boolean(),
+    createdAt: zod.date(),
+    updatedAt: zod.date(),
+    profileCompletion: zod.number(),
+    documentCount: zod.number(),
+    applicationCount: zod.number(),
+    eligibilityStatus: zod.string().nullish(),
+    hasConsented: zod.boolean(),
+  }),
+  profile: zod.object({}).passthrough().nullish(),
+  employerProfile: zod.object({}).passthrough().nullish(),
+  documents: zod.array(zod.object({}).passthrough()),
+  applications: zod.array(zod.object({}).passthrough()),
+  eligibilityHistory: zod.array(zod.object({}).passthrough()),
+  auditEvents: zod.array(zod.object({}).passthrough()),
+  consent: zod.object({}).passthrough().nullish(),
+});
+
+/**
+ * @summary Create a short-lived read-only impersonation token (super admin only)
+ */
+export const CreateImpersonationTokenParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const CreateImpersonationTokenResponse = zod.object({
+  token: zod.string(),
+  expiresAt: zod.date(),
+  targetUser: zod.object({
+    id: zod.string(),
+    email: zod.string().nullable(),
+    displayName: zod.string(),
+    role: zod.string(),
+  }),
+});
+
+/**
+ * @summary Validate an impersonation token and return target user data
+ */
+export const ValidateImpersonationTokenQueryParams = zod.object({
+  token: zod.coerce.string(),
+});
+
+export const ValidateImpersonationTokenResponse = zod.object({
+  user: zod.object({
+    id: zod.string(),
+    email: zod.string().nullable(),
+    firstName: zod.string().nullish(),
+    lastName: zod.string().nullish(),
+    role: zod.string(),
+    emailVerified: zod.boolean(),
+    createdAt: zod.date(),
+    updatedAt: zod.date(),
+    profileCompletion: zod.number(),
+    documentCount: zod.number(),
+    applicationCount: zod.number(),
+    eligibilityStatus: zod.string().nullish(),
+    hasConsented: zod.boolean(),
+  }),
+  profile: zod.object({}).passthrough().nullish(),
+  employerProfile: zod.object({}).passthrough().nullish(),
+  documents: zod.array(zod.object({}).passthrough()),
+  applications: zod.array(zod.object({}).passthrough()),
+  eligibilityHistory: zod.array(zod.object({}).passthrough()),
+  auditEvents: zod.array(zod.object({}).passthrough()),
+  consent: zod.object({}).passthrough().nullish(),
+});
+
+/**
+ * @summary Platform health metrics (super admin only)
+ */
+export const GetSuperAdminHealthResponse = zod.object({
+  dailyRegistrations: zod.array(
+    zod.object({
+      date: zod.string().optional(),
+      count: zod.number().optional(),
+    }),
+  ),
+  dailyApplications: zod.array(
+    zod.object({
+      date: zod.string().optional(),
+      count: zod.number().optional(),
+    }),
+  ),
+  dailyActiveUsers: zod.array(
+    zod.object({
+      date: zod.string().optional(),
+      count: zod.number().optional(),
+    }),
+  ),
+  syncLog: zod.array(zod.object({}).passthrough()),
+  errorCount: zod.number(),
+});

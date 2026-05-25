@@ -54,8 +54,10 @@ import type {
   GenerateCoverLetterRequest,
   GenerateJobDescriptionResponse,
   GetInterviewPrepQuestionsParams,
+  GetSuperAdminUsersParams,
   HeadhuntCampaign,
   HealthStatus,
+  ImpersonationResponse,
   ImportRolesCSVBody,
   InterviewPrepResponse,
   JobApplicantsResponse,
@@ -101,6 +103,10 @@ import type {
   SponsorLicenceListResponse,
   SponsorLicenceRoutesResponse,
   SponsorshipFeasibility,
+  SuperAdminHealth,
+  SuperAdminStats,
+  SuperAdminUserFull,
+  SuperAdminUserListResponse,
   TalentSearchParams,
   TalentSearchResponse,
   UpdateApplicantStageRequest,
@@ -113,6 +119,7 @@ import type {
   UploadUrlResponse,
   UpsertEmployerProfileRequest,
   UpsertProfileRequest,
+  ValidateImpersonationTokenParams,
   VerifyEmailParams,
 } from "./api.schemas";
 
@@ -6987,6 +6994,540 @@ export function useListSponsorLicences<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListSponsorLicencesQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Platform-wide aggregated statistics (super admin only)
+ */
+export const getGetSuperAdminStatsUrl = () => {
+  return `/api/admin/super/stats`;
+};
+
+export const getSuperAdminStats = async (
+  options?: RequestInit,
+): Promise<SuperAdminStats> => {
+  return customFetch<SuperAdminStats>(getGetSuperAdminStatsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSuperAdminStatsQueryKey = () => {
+  return [`/api/admin/super/stats`] as const;
+};
+
+export const getGetSuperAdminStatsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSuperAdminStats>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSuperAdminStats>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetSuperAdminStatsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSuperAdminStats>>
+  > = ({ signal }) => getSuperAdminStats({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSuperAdminStats>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSuperAdminStatsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSuperAdminStats>>
+>;
+export type GetSuperAdminStatsQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Platform-wide aggregated statistics (super admin only)
+ */
+
+export function useGetSuperAdminStats<
+  TData = Awaited<ReturnType<typeof getSuperAdminStats>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSuperAdminStats>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSuperAdminStatsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Paginated, filterable list of all users (super admin only)
+ */
+export const getGetSuperAdminUsersUrl = (params?: GetSuperAdminUsersParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/super/users?${stringifiedParams}`
+    : `/api/admin/super/users`;
+};
+
+export const getSuperAdminUsers = async (
+  params?: GetSuperAdminUsersParams,
+  options?: RequestInit,
+): Promise<SuperAdminUserListResponse> => {
+  return customFetch<SuperAdminUserListResponse>(
+    getGetSuperAdminUsersUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetSuperAdminUsersQueryKey = (
+  params?: GetSuperAdminUsersParams,
+) => {
+  return [`/api/admin/super/users`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetSuperAdminUsersQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSuperAdminUsers>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  params?: GetSuperAdminUsersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSuperAdminUsers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetSuperAdminUsersQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSuperAdminUsers>>
+  > = ({ signal }) => getSuperAdminUsers(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSuperAdminUsers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSuperAdminUsersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSuperAdminUsers>>
+>;
+export type GetSuperAdminUsersQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Paginated, filterable list of all users (super admin only)
+ */
+
+export function useGetSuperAdminUsers<
+  TData = Awaited<ReturnType<typeof getSuperAdminUsers>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  params?: GetSuperAdminUsersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSuperAdminUsers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSuperAdminUsersQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Full backend state for a specific user (super admin only)
+ */
+export const getGetSuperAdminUserFullUrl = (id: string) => {
+  return `/api/admin/super/users/${id}/full`;
+};
+
+export const getSuperAdminUserFull = async (
+  id: string,
+  options?: RequestInit,
+): Promise<SuperAdminUserFull> => {
+  return customFetch<SuperAdminUserFull>(getGetSuperAdminUserFullUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSuperAdminUserFullQueryKey = (id: string) => {
+  return [`/api/admin/super/users/${id}/full`] as const;
+};
+
+export const getGetSuperAdminUserFullQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSuperAdminUserFull>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSuperAdminUserFull>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetSuperAdminUserFullQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSuperAdminUserFull>>
+  > = ({ signal }) => getSuperAdminUserFull(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSuperAdminUserFull>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSuperAdminUserFullQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSuperAdminUserFull>>
+>;
+export type GetSuperAdminUserFullQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Full backend state for a specific user (super admin only)
+ */
+
+export function useGetSuperAdminUserFull<
+  TData = Awaited<ReturnType<typeof getSuperAdminUserFull>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSuperAdminUserFull>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSuperAdminUserFullQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a short-lived read-only impersonation token (super admin only)
+ */
+export const getCreateImpersonationTokenUrl = (id: string) => {
+  return `/api/admin/super/impersonate/${id}`;
+};
+
+export const createImpersonationToken = async (
+  id: string,
+  options?: RequestInit,
+): Promise<ImpersonationResponse> => {
+  return customFetch<ImpersonationResponse>(
+    getCreateImpersonationTokenUrl(id),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getCreateImpersonationTokenMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createImpersonationToken>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createImpersonationToken>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["createImpersonationToken"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createImpersonationToken>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return createImpersonationToken(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateImpersonationTokenMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createImpersonationToken>>
+>;
+
+export type CreateImpersonationTokenMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Create a short-lived read-only impersonation token (super admin only)
+ */
+export const useCreateImpersonationToken = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createImpersonationToken>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createImpersonationToken>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getCreateImpersonationTokenMutationOptions(options));
+};
+
+/**
+ * @summary Validate an impersonation token and return target user data
+ */
+export const getValidateImpersonationTokenUrl = (
+  params: ValidateImpersonationTokenParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/super/impersonate/validate?${stringifiedParams}`
+    : `/api/admin/super/impersonate/validate`;
+};
+
+export const validateImpersonationToken = async (
+  params: ValidateImpersonationTokenParams,
+  options?: RequestInit,
+): Promise<SuperAdminUserFull> => {
+  return customFetch<SuperAdminUserFull>(
+    getValidateImpersonationTokenUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getValidateImpersonationTokenQueryKey = (
+  params?: ValidateImpersonationTokenParams,
+) => {
+  return [
+    `/api/admin/super/impersonate/validate`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getValidateImpersonationTokenQueryOptions = <
+  TData = Awaited<ReturnType<typeof validateImpersonationToken>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  params: ValidateImpersonationTokenParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof validateImpersonationToken>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getValidateImpersonationTokenQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof validateImpersonationToken>>
+  > = ({ signal }) =>
+    validateImpersonationToken(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof validateImpersonationToken>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ValidateImpersonationTokenQueryResult = NonNullable<
+  Awaited<ReturnType<typeof validateImpersonationToken>>
+>;
+export type ValidateImpersonationTokenQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Validate an impersonation token and return target user data
+ */
+
+export function useValidateImpersonationToken<
+  TData = Awaited<ReturnType<typeof validateImpersonationToken>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  params: ValidateImpersonationTokenParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof validateImpersonationToken>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getValidateImpersonationTokenQueryOptions(
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Platform health metrics (super admin only)
+ */
+export const getGetSuperAdminHealthUrl = () => {
+  return `/api/admin/super/health`;
+};
+
+export const getSuperAdminHealth = async (
+  options?: RequestInit,
+): Promise<SuperAdminHealth> => {
+  return customFetch<SuperAdminHealth>(getGetSuperAdminHealthUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSuperAdminHealthQueryKey = () => {
+  return [`/api/admin/super/health`] as const;
+};
+
+export const getGetSuperAdminHealthQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSuperAdminHealth>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSuperAdminHealth>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetSuperAdminHealthQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSuperAdminHealth>>
+  > = ({ signal }) => getSuperAdminHealth({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSuperAdminHealth>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSuperAdminHealthQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSuperAdminHealth>>
+>;
+export type GetSuperAdminHealthQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Platform health metrics (super admin only)
+ */
+
+export function useGetSuperAdminHealth<
+  TData = Awaited<ReturnType<typeof getSuperAdminHealth>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSuperAdminHealth>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSuperAdminHealthQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

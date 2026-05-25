@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 
-export type AppRole = "candidate" | "admin" | "reviewer" | "employer";
+export type AppRole = "candidate" | "admin" | "reviewer" | "employer" | "super_admin";
 
 /**
  * Middleware for candidate-facing routes: any authenticated user may proceed.
