@@ -1717,6 +1717,163 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/JobListing"
+  /employer/talent-search:
+    get:
+      operationId: talentSearch
+      tags: [Employer]
+      summary: AI-ranked candidate search against the JOBSAGE candidate pool
+      parameters:
+        - name: profession
+          in: query
+          schema: { type: string }
+        - name: specialty
+          in: query
+          schema: { type: string }
+        - name: eligibilityStatus
+          in: query
+          schema: { type: string, enum: [eligible, not_eligible] }
+        - name: requiresSponsorship
+          in: query
+          schema: { type: string, enum: ["true", "false"] }
+        - name: experienceYearsMin
+          in: query
+          schema: { type: integer }
+        - name: preferredRegion
+          in: query
+          schema: { type: string }
+        - name: vacancyId
+          in: query
+          schema: { type: integer }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+      responses:
+        "200":
+          description: Ranked candidate list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TalentSearchResponse"
+
+  /employer/campaigns:
+    get:
+      operationId: listCampaigns
+      tags: [Employer]
+      summary: List all saved talent search campaigns for the employer
+      responses:
+        "200":
+          description: Campaign list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignListResponse"
+    post:
+      operationId: createCampaign
+      tags: [Employer]
+      summary: Save a new talent search campaign
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCampaignRequest"
+      responses:
+        "201":
+          description: Campaign created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HeadhuntCampaign"
+
+  /employer/campaigns/{id}/run:
+    post:
+      operationId: runCampaign
+      tags: [Employer]
+      summary: Record a campaign run (updates lastRunAt)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Campaign updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HeadhuntCampaign"
+
+  /employer/campaigns/{id}:
+    delete:
+      operationId: deleteCampaign
+      tags: [Employer]
+      summary: Delete a saved talent search campaign
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Campaign deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageEnvelope"
+
+  /employer/contact-candidate:
+    post:
+      operationId: contactCandidate
+      tags: [Employer]
+      summary: Send an in-platform message (and email) to a candidate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContactCandidateRequest"
+      responses:
+        "201":
+          description: Message sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactCandidateResponse"
+
+  /candidate/messages:
+    get:
+      operationId: getCandidateMessages
+      tags: [CandidatePortal]
+      summary: Get messages received by the current candidate from employers
+      responses:
+        "200":
+          description: Message list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CandidateMessageListResponse"
+
+  /candidate/messages/{id}/read:
+    patch:
+      operationId: markMessageRead
+      tags: [CandidatePortal]
+      summary: Mark a candidate message as read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Message marked read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    $ref: "#/components/schemas/CandidateMessage"
+
   /employer/jobs/{id}/generate-description:
     post:
       operationId: generateJobDescription
@@ -3797,3 +3954,169 @@ components:
           $ref: "#/components/schemas/SpeculativeApplication"
         alreadySent:
           type: boolean
+
+    TalentCandidate:
+      type: object
+      required: [userId, displayName, initials, isEligible, matchScore, isBoosted]
+      properties:
+        userId:
+          type: string
+        displayName:
+          type: string
+        initials:
+          type: string
+        profession:
+          type: string
+          nullable: true
+        specialty:
+          type: string
+          nullable: true
+        experienceYears:
+          type: integer
+          nullable: true
+        qualificationCountry:
+          type: string
+          nullable: true
+        registrationStatus:
+          type: string
+          nullable: true
+        requiresSponsorship:
+          type: boolean
+          nullable: true
+        isEligible:
+          type: boolean
+        eligibilityOutcome:
+          type: string
+          nullable: true
+        matchScore:
+          type: integer
+        matchRationale:
+          type: string
+          nullable: true
+        isBoosted:
+          type: boolean
+
+    TalentSearchResponse:
+      type: object
+      required: [candidates, total, page, pageSize]
+      properties:
+        candidates:
+          type: array
+          items:
+            $ref: "#/components/schemas/TalentCandidate"
+        total:
+          type: integer
+        page:
+          type: integer
+        pageSize:
+          type: integer
+
+    HeadhuntCampaign:
+      type: object
+      required: [id, employerProfileId, name, filters, createdAt]
+      properties:
+        id:
+          type: integer
+        employerProfileId:
+          type: integer
+        vacancyId:
+          type: integer
+          nullable: true
+        name:
+          type: string
+        filters:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+        lastRunAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    CampaignListResponse:
+      type: object
+      required: [campaigns]
+      properties:
+        campaigns:
+          type: array
+          items:
+            $ref: "#/components/schemas/HeadhuntCampaign"
+
+    CreateCampaignRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        filters:
+          type: object
+          additionalProperties: true
+        vacancyId:
+          type: integer
+          nullable: true
+
+    ContactCandidateRequest:
+      type: object
+      required: [recipientUserId, messageText]
+      properties:
+        recipientUserId:
+          type: string
+        messageText:
+          type: string
+        subject:
+          type: string
+          nullable: true
+        vacancyId:
+          type: integer
+          nullable: true
+
+    CandidateMessage:
+      type: object
+      required: [id, senderEmployerProfileId, recipientUserId, messageText, subject, isRead, createdAt]
+      properties:
+        id:
+          type: integer
+        senderEmployerProfileId:
+          type: integer
+        recipientUserId:
+          type: string
+        vacancyId:
+          type: integer
+          nullable: true
+        messageText:
+          type: string
+        subject:
+          type: string
+        isRead:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        companyName:
+          type: string
+          nullable: true
+        industry:
+          type: string
+          nullable: true
+
+    ContactCandidateResponse:
+      type: object
+      required: [message, sent]
+      properties:
+        message:
+          $ref: "#/components/schemas/CandidateMessage"
+        sent:
+          type: boolean
+
+    CandidateMessageListResponse:
+      type: object
+      required: [messages, unreadCount]
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/CandidateMessage"
+        unreadCount:
+          type: integer

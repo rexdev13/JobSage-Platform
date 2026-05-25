@@ -1142,6 +1142,84 @@ export interface SpeculativeApplicationResult {
   alreadySent: boolean;
 }
 
+export interface TalentCandidate {
+  userId: string;
+  displayName: string;
+  initials: string;
+  profession?: string | null;
+  specialty?: string | null;
+  experienceYears?: number | null;
+  qualificationCountry?: string | null;
+  registrationStatus?: string | null;
+  requiresSponsorship?: boolean | null;
+  isEligible: boolean;
+  eligibilityOutcome?: string | null;
+  matchScore: number;
+  matchRationale?: string | null;
+  isBoosted: boolean;
+}
+
+export interface TalentSearchResponse {
+  candidates: TalentCandidate[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export type HeadhuntCampaignFilters = { [key: string]: unknown };
+
+export interface HeadhuntCampaign {
+  id: number;
+  employerProfileId: number;
+  vacancyId?: number | null;
+  name: string;
+  filters: HeadhuntCampaignFilters;
+  createdAt: string;
+  lastRunAt?: string | null;
+}
+
+export interface CampaignListResponse {
+  campaigns: HeadhuntCampaign[];
+}
+
+export type CreateCampaignRequestFilters = { [key: string]: unknown };
+
+export interface CreateCampaignRequest {
+  name: string;
+  filters?: CreateCampaignRequestFilters;
+  vacancyId?: number | null;
+}
+
+export interface ContactCandidateRequest {
+  recipientUserId: string;
+  messageText: string;
+  subject?: string | null;
+  vacancyId?: number | null;
+}
+
+export interface CandidateMessage {
+  id: number;
+  senderEmployerProfileId: number;
+  recipientUserId: string;
+  vacancyId?: number | null;
+  messageText: string;
+  subject: string;
+  isRead: boolean;
+  createdAt: string;
+  companyName?: string | null;
+  industry?: string | null;
+}
+
+export interface ContactCandidateResponse {
+  message: CandidateMessage;
+  sent: boolean;
+}
+
+export interface CandidateMessageListResponse {
+  messages: CandidateMessage[];
+  unreadCount: number;
+}
+
 export type VerifyEmailParams = {
   /**
    * Email verification token from the verification email.
@@ -1252,6 +1330,37 @@ export type ListConsentLogParams = {
 
 export type DeleteJobListing200 = {
   message?: string;
+};
+
+export type TalentSearchParams = {
+  profession?: string;
+  specialty?: string;
+  eligibilityStatus?: TalentSearchEligibilityStatus;
+  requiresSponsorship?: TalentSearchRequiresSponsorship;
+  experienceYearsMin?: number;
+  preferredRegion?: string;
+  vacancyId?: number;
+  page?: number;
+};
+
+export type TalentSearchEligibilityStatus =
+  (typeof TalentSearchEligibilityStatus)[keyof typeof TalentSearchEligibilityStatus];
+
+export const TalentSearchEligibilityStatus = {
+  eligible: "eligible",
+  not_eligible: "not_eligible",
+} as const;
+
+export type TalentSearchRequiresSponsorship =
+  (typeof TalentSearchRequiresSponsorship)[keyof typeof TalentSearchRequiresSponsorship];
+
+export const TalentSearchRequiresSponsorship = {
+  true: "true",
+  false: "false",
+} as const;
+
+export type MarkMessageRead200 = {
+  message?: CandidateMessage;
 };
 
 export type ListSponsorLicencesParams = {

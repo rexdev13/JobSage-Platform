@@ -30,6 +30,7 @@ import {
   BadgeCheck,
   BarChart3,
   Settings,
+  Search,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -39,11 +40,12 @@ const STATUS_CONFIG = {
   closed: { label: "Closed", icon: XCircle, className: "bg-red-100 text-red-700" },
 };
 
-function JobCard({ job, onDelete, onPublish, onClose }: {
+function JobCard({ job, onDelete, onPublish, onClose, onHeadhunt }: {
   job: JobListingWithCount;
   onDelete: (id: number) => void;
   onPublish: (id: number) => void;
   onClose: (id: number) => void;
+  onHeadhunt: (job: JobListingWithCount) => void;
 }) {
   const [, setLocation] = useLocation();
   const cfg = STATUS_CONFIG[job.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG.draft;
@@ -89,6 +91,9 @@ function JobCard({ job, onDelete, onPublish, onClose }: {
       <div className="mt-4 flex items-center gap-2 flex-wrap">
         <Button size="sm" variant="outline" className="text-xs h-8" onClick={() => setLocation(`/employer/jobs/${job.id}`)}>
           <Users className="w-3.5 h-3.5 mr-1.5" /> View Applicants
+        </Button>
+        <Button size="sm" variant="ghost" className="text-xs h-8 text-primary" onClick={() => onHeadhunt(job)}>
+          <Search className="w-3.5 h-3.5 mr-1.5" /> Headhunt
         </Button>
         <Button size="sm" variant="ghost" className="text-xs h-8" onClick={() => setLocation(`/employer/jobs/${job.id}/edit`)}>
           <Edit3 className="w-3.5 h-3.5 mr-1.5" /> Edit
@@ -159,6 +164,14 @@ export default function EmployerDashboardPage() {
       onSuccess: () => { toast({ title: "Job listing closed." }); invalidateJobs(); },
       onError: () => toast({ title: "Error", description: "Could not close listing.", variant: "destructive" }),
     });
+  }
+
+  function handleHeadhunt(job: JobListingWithCount) {
+    const params = new URLSearchParams({ vacancyId: String(job.id) });
+    if (job.specialty) params.set("specialty", job.specialty);
+    if (job.targetProfessions?.length) params.set("profession", job.targetProfessions[0]);
+    if (job.targetRegions?.length) params.set("preferredRegion", job.targetRegions[0]);
+    setLocation(`/employer/talent-search?${params.toString()}`);
   }
 
   return (
@@ -272,6 +285,7 @@ export default function EmployerDashboardPage() {
                     onDelete={handleDelete}
                     onPublish={handlePublish}
                     onClose={handleClose}
+                    onHeadhunt={handleHeadhunt}
                   />
                 </motion.div>
               ))}

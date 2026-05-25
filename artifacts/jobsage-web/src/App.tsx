@@ -15,6 +15,8 @@ import EmployerRegisterPage from "@/pages/employer/EmployerRegisterPage";
 import EmployerDashboardPage from "@/pages/employer/EmployerDashboardPage";
 import EmployerJobFormPage from "@/pages/employer/EmployerJobFormPage";
 import EmployerJobDetailPage from "@/pages/employer/EmployerJobDetailPage";
+import TalentSearchPage from "@/pages/employer/TalentSearchPage";
+import CampaignsPage from "@/pages/employer/CampaignsPage";
 
 import { AuthGuard } from "@/components/layout/AuthGuard";
 
@@ -237,6 +239,16 @@ function Router() {
             <Route path="/employer/jobs/:id">
               <EmployerGuard>
                 <EmployerJobDetailPage />
+              </EmployerGuard>
+            </Route>
+            <Route path="/employer/talent-search">
+              <EmployerGuard>
+                <TalentSearchPage />
+              </EmployerGuard>
+            </Route>
+            <Route path="/employer/campaigns">
+              <EmployerGuard>
+                <CampaignsPage />
               </EmployerGuard>
             </Route>
 

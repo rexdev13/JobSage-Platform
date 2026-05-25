@@ -25,11 +25,16 @@ import type {
   AuthUserEnvelope,
   BoostProfileRequest,
   BoostProfileResponse,
+  CampaignListResponse,
+  CandidateMessageListResponse,
   CandidateProfile,
   ConsentLogList,
   ConsentRecord,
   ConsentStatus,
+  ContactCandidateRequest,
+  ContactCandidateResponse,
   CoverLetterResponse,
+  CreateCampaignRequest,
   CreateJobListingRequest,
   CreateRulesetRequest,
   CvParseResult,
@@ -49,6 +54,7 @@ import type {
   GenerateCoverLetterRequest,
   GenerateJobDescriptionResponse,
   GetInterviewPrepQuestionsParams,
+  HeadhuntCampaign,
   HealthStatus,
   ImportRolesCSVBody,
   InterviewPrepResponse,
@@ -63,6 +69,7 @@ import type {
   LoginRequest,
   LogoutSuccess,
   MarkApplicationRequest,
+  MarkMessageRead200,
   MatchedRoleList,
   MessageEnvelope,
   ProgressReportResponse,
@@ -94,6 +101,8 @@ import type {
   SponsorLicenceListResponse,
   SponsorLicenceRoutesResponse,
   SponsorshipFeasibility,
+  TalentSearchParams,
+  TalentSearchResponse,
   UpdateApplicantStageRequest,
   UpdateApplicantStageResponse,
   UpdateJobListingRequest,
@@ -5424,6 +5433,677 @@ export const useCloseJobListing = <
   TContext
 > => {
   return useMutation(getCloseJobListingMutationOptions(options));
+};
+
+/**
+ * @summary AI-ranked candidate search against the JOBSAGE candidate pool
+ */
+export const getTalentSearchUrl = (params?: TalentSearchParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/employer/talent-search?${stringifiedParams}`
+    : `/api/employer/talent-search`;
+};
+
+export const talentSearch = async (
+  params?: TalentSearchParams,
+  options?: RequestInit,
+): Promise<TalentSearchResponse> => {
+  return customFetch<TalentSearchResponse>(getTalentSearchUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getTalentSearchQueryKey = (params?: TalentSearchParams) => {
+  return [`/api/employer/talent-search`, ...(params ? [params] : [])] as const;
+};
+
+export const getTalentSearchQueryOptions = <
+  TData = Awaited<ReturnType<typeof talentSearch>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: TalentSearchParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof talentSearch>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getTalentSearchQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof talentSearch>>> = ({
+    signal,
+  }) => talentSearch(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof talentSearch>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type TalentSearchQueryResult = NonNullable<
+  Awaited<ReturnType<typeof talentSearch>>
+>;
+export type TalentSearchQueryError = ErrorType<unknown>;
+
+/**
+ * @summary AI-ranked candidate search against the JOBSAGE candidate pool
+ */
+
+export function useTalentSearch<
+  TData = Awaited<ReturnType<typeof talentSearch>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: TalentSearchParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof talentSearch>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getTalentSearchQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List all saved talent search campaigns for the employer
+ */
+export const getListCampaignsUrl = () => {
+  return `/api/employer/campaigns`;
+};
+
+export const listCampaigns = async (
+  options?: RequestInit,
+): Promise<CampaignListResponse> => {
+  return customFetch<CampaignListResponse>(getListCampaignsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListCampaignsQueryKey = () => {
+  return [`/api/employer/campaigns`] as const;
+};
+
+export const getListCampaignsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCampaigns>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCampaigns>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListCampaignsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listCampaigns>>> = ({
+    signal,
+  }) => listCampaigns({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCampaigns>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCampaignsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCampaigns>>
+>;
+export type ListCampaignsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all saved talent search campaigns for the employer
+ */
+
+export function useListCampaigns<
+  TData = Awaited<ReturnType<typeof listCampaigns>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCampaigns>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCampaignsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Save a new talent search campaign
+ */
+export const getCreateCampaignUrl = () => {
+  return `/api/employer/campaigns`;
+};
+
+export const createCampaign = async (
+  createCampaignRequest: CreateCampaignRequest,
+  options?: RequestInit,
+): Promise<HeadhuntCampaign> => {
+  return customFetch<HeadhuntCampaign>(getCreateCampaignUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createCampaignRequest),
+  });
+};
+
+export const getCreateCampaignMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCampaign>>,
+    TError,
+    { data: BodyType<CreateCampaignRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCampaign>>,
+  TError,
+  { data: BodyType<CreateCampaignRequest> },
+  TContext
+> => {
+  const mutationKey = ["createCampaign"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCampaign>>,
+    { data: BodyType<CreateCampaignRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createCampaign(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateCampaignMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createCampaign>>
+>;
+export type CreateCampaignMutationBody = BodyType<CreateCampaignRequest>;
+export type CreateCampaignMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Save a new talent search campaign
+ */
+export const useCreateCampaign = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCampaign>>,
+    TError,
+    { data: BodyType<CreateCampaignRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createCampaign>>,
+  TError,
+  { data: BodyType<CreateCampaignRequest> },
+  TContext
+> => {
+  return useMutation(getCreateCampaignMutationOptions(options));
+};
+
+/**
+ * @summary Record a campaign run (updates lastRunAt)
+ */
+export const getRunCampaignUrl = (id: number) => {
+  return `/api/employer/campaigns/${id}/run`;
+};
+
+export const runCampaign = async (
+  id: number,
+  options?: RequestInit,
+): Promise<HeadhuntCampaign> => {
+  return customFetch<HeadhuntCampaign>(getRunCampaignUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getRunCampaignMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof runCampaign>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof runCampaign>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["runCampaign"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof runCampaign>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return runCampaign(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RunCampaignMutationResult = NonNullable<
+  Awaited<ReturnType<typeof runCampaign>>
+>;
+
+export type RunCampaignMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Record a campaign run (updates lastRunAt)
+ */
+export const useRunCampaign = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof runCampaign>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof runCampaign>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getRunCampaignMutationOptions(options));
+};
+
+/**
+ * @summary Delete a saved talent search campaign
+ */
+export const getDeleteCampaignUrl = (id: number) => {
+  return `/api/employer/campaigns/${id}`;
+};
+
+export const deleteCampaign = async (
+  id: number,
+  options?: RequestInit,
+): Promise<MessageEnvelope> => {
+  return customFetch<MessageEnvelope>(getDeleteCampaignUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteCampaignMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCampaign>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteCampaign>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteCampaign"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteCampaign>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteCampaign(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteCampaignMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteCampaign>>
+>;
+
+export type DeleteCampaignMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a saved talent search campaign
+ */
+export const useDeleteCampaign = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCampaign>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteCampaign>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteCampaignMutationOptions(options));
+};
+
+/**
+ * @summary Send an in-platform message (and email) to a candidate
+ */
+export const getContactCandidateUrl = () => {
+  return `/api/employer/contact-candidate`;
+};
+
+export const contactCandidate = async (
+  contactCandidateRequest: ContactCandidateRequest,
+  options?: RequestInit,
+): Promise<ContactCandidateResponse> => {
+  return customFetch<ContactCandidateResponse>(getContactCandidateUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(contactCandidateRequest),
+  });
+};
+
+export const getContactCandidateMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof contactCandidate>>,
+    TError,
+    { data: BodyType<ContactCandidateRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof contactCandidate>>,
+  TError,
+  { data: BodyType<ContactCandidateRequest> },
+  TContext
+> => {
+  const mutationKey = ["contactCandidate"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof contactCandidate>>,
+    { data: BodyType<ContactCandidateRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return contactCandidate(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ContactCandidateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof contactCandidate>>
+>;
+export type ContactCandidateMutationBody = BodyType<ContactCandidateRequest>;
+export type ContactCandidateMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Send an in-platform message (and email) to a candidate
+ */
+export const useContactCandidate = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof contactCandidate>>,
+    TError,
+    { data: BodyType<ContactCandidateRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof contactCandidate>>,
+  TError,
+  { data: BodyType<ContactCandidateRequest> },
+  TContext
+> => {
+  return useMutation(getContactCandidateMutationOptions(options));
+};
+
+/**
+ * @summary Get messages received by the current candidate from employers
+ */
+export const getGetCandidateMessagesUrl = () => {
+  return `/api/candidate/messages`;
+};
+
+export const getCandidateMessages = async (
+  options?: RequestInit,
+): Promise<CandidateMessageListResponse> => {
+  return customFetch<CandidateMessageListResponse>(
+    getGetCandidateMessagesUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetCandidateMessagesQueryKey = () => {
+  return [`/api/candidate/messages`] as const;
+};
+
+export const getGetCandidateMessagesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCandidateMessages>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCandidateMessages>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetCandidateMessagesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getCandidateMessages>>
+  > = ({ signal }) => getCandidateMessages({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCandidateMessages>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCandidateMessagesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCandidateMessages>>
+>;
+export type GetCandidateMessagesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get messages received by the current candidate from employers
+ */
+
+export function useGetCandidateMessages<
+  TData = Awaited<ReturnType<typeof getCandidateMessages>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCandidateMessages>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCandidateMessagesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Mark a candidate message as read
+ */
+export const getMarkMessageReadUrl = (id: number) => {
+  return `/api/candidate/messages/${id}/read`;
+};
+
+export const markMessageRead = async (
+  id: number,
+  options?: RequestInit,
+): Promise<MarkMessageRead200> => {
+  return customFetch<MarkMessageRead200>(getMarkMessageReadUrl(id), {
+    ...options,
+    method: "PATCH",
+  });
+};
+
+export const getMarkMessageReadMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markMessageRead>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof markMessageRead>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["markMessageRead"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof markMessageRead>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return markMessageRead(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MarkMessageReadMutationResult = NonNullable<
+  Awaited<ReturnType<typeof markMessageRead>>
+>;
+
+export type MarkMessageReadMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Mark a candidate message as read
+ */
+export const useMarkMessageRead = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markMessageRead>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof markMessageRead>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getMarkMessageReadMutationOptions(options));
 };
 
 /**
