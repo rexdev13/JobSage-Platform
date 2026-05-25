@@ -377,13 +377,13 @@ function AllUsersTab() {
                   { label: "Email", col: "email" },
                   { label: "Role", col: "role" },
                   { label: "Verified", col: "emailVerified" },
-                  { label: "Profile %", col: null },
-                  { label: "Docs", col: null },
-                  { label: "Apps", col: null },
-                  { label: "Eligibility", col: null },
-                  { label: "Consent", col: null },
+                  { label: "Profile %", col: "profileCompletion" },
+                  { label: "Docs", col: "documentCount" },
+                  { label: "Apps", col: "applicationCount" },
+                  { label: "Eligibility", col: "eligibilityStatus" },
+                  { label: "Consent", col: "hasConsented" },
                   { label: "Joined", col: "createdAt" },
-                  { label: "Last Activity", col: "updatedAt" },
+                  { label: "Last Activity", col: "lastLogin" },
                 ].map(({ label, col }) => (
                   <th
                     key={label}

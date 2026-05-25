@@ -98,15 +98,33 @@ router.get(
       dateTo ? lte(usersTable.createdAt, new Date(dateTo)) : undefined,
     );
 
-    const validSortCols: Record<string, typeof usersTable.createdAt | typeof usersTable.email | typeof usersTable.role | typeof usersTable.updatedAt | typeof usersTable.emailVerified> = {
-      createdAt: usersTable.createdAt,
-      updatedAt: usersTable.updatedAt,
-      email: usersTable.email,
-      role: usersTable.role,
-      emailVerified: usersTable.emailVerified,
-    };
-    const sortCol = validSortCols[sortBy ?? "createdAt"] ?? usersTable.createdAt;
-    const orderExpr = sortDir === "asc" ? asc(sortCol) : desc(sortCol);
+    const docCountExpr = sql<number>`(SELECT COUNT(*) FROM documents WHERE user_id = ${usersTable.id})`;
+    const appCountExpr = sql<number>`(SELECT COUNT(*) FROM applications WHERE user_id = ${usersTable.id})`;
+    const profileCompExpr = sql<number>`COALESCE((SELECT
+      (CASE WHEN profession IS NOT NULL THEN 25 ELSE 0 END +
+       CASE WHEN specialty IS NOT NULL THEN 25 ELSE 0 END +
+       CASE WHEN qualification_country IS NOT NULL THEN 25 ELSE 0 END +
+       CASE WHEN registration_status IS NOT NULL THEN 25 ELSE 0 END)
+      FROM profiles WHERE user_id = ${usersTable.id}), 0)`;
+    const eligibilityExpr = sql<string | null>`(SELECT outcome FROM decision_records WHERE user_id = ${usersTable.id} ORDER BY created_at DESC LIMIT 1)`;
+    const hasConsentedExpr = sql<boolean>`EXISTS(SELECT 1 FROM consent_logs WHERE user_id = ${usersTable.id})`;
+    const consentedAtExpr = sql<string | null>`(SELECT consented_at FROM consent_logs WHERE user_id = ${usersTable.id} ORDER BY consented_at DESC LIMIT 1)`;
+
+    const dir = (sortDir ?? "desc") === "asc" ? asc : desc;
+    const orderExpr = (() => {
+      switch (sortBy) {
+        case "email": return dir(usersTable.email);
+        case "role": return dir(usersTable.role);
+        case "emailVerified": return dir(usersTable.emailVerified);
+        case "updatedAt": case "lastLogin": return dir(usersTable.updatedAt);
+        case "documentCount": return dir(docCountExpr);
+        case "applicationCount": return dir(appCountExpr);
+        case "profileCompletion": return dir(profileCompExpr);
+        case "eligibilityStatus": return dir(eligibilityExpr);
+        case "hasConsented": return dir(hasConsentedExpr);
+        default: return dir(usersTable.createdAt);
+      }
+    })();
 
     const users = await db
       .select({
@@ -118,6 +136,13 @@ router.get(
         emailVerified: usersTable.emailVerified,
         createdAt: usersTable.createdAt,
         updatedAt: usersTable.updatedAt,
+        lastLogin: usersTable.updatedAt,
+        documentCount: docCountExpr,
+        applicationCount: appCountExpr,
+        profileCompletion: profileCompExpr,
+        eligibilityStatus: eligibilityExpr,
+        hasConsented: hasConsentedExpr,
+        consentedAt: consentedAtExpr,
       })
       .from(usersTable)
       .where(whereClause)
@@ -125,61 +150,12 @@ router.get(
       .limit(PAGE_SIZE)
       .offset(offset);
 
-    const enriched = await Promise.all(
-      users.map(async (u) => {
-        const [profile] = await db
-          .select({ profession: profilesTable.profession, specialty: profilesTable.specialty, qualificationCountry: profilesTable.qualificationCountry, registrationStatus: profilesTable.registrationStatus })
-          .from(profilesTable)
-          .where(eq(profilesTable.userId, u.id));
-
-        const [docCnt] = await db
-          .select({ cnt: count(documentsTable.id) })
-          .from(documentsTable)
-          .where(eq(documentsTable.userId, u.id));
-
-        const [appCnt] = await db
-          .select({ cnt: count(applicationsTable.id) })
-          .from(applicationsTable)
-          .where(eq(applicationsTable.userId, u.id));
-
-        const [latestDecision] = await db
-          .select({ outcome: decisionRecordsTable.outcome })
-          .from(decisionRecordsTable)
-          .where(eq(decisionRecordsTable.userId, u.id))
-          .orderBy(desc(decisionRecordsTable.createdAt))
-          .limit(1);
-
-        const [consent] = await db
-          .select({ consentedAt: consentLogsTable.consentedAt })
-          .from(consentLogsTable)
-          .where(eq(consentLogsTable.userId, u.id))
-          .orderBy(desc(consentLogsTable.consentedAt))
-          .limit(1);
-
-        const profileFieldsFilled = profile
-          ? [profile.profession, profile.specialty, profile.qualificationCountry, profile.registrationStatus].filter(Boolean).length
-          : 0;
-        const profileCompletion = profile ? Math.round((profileFieldsFilled / 4) * 100) : 0;
-
-        return {
-          ...u,
-          lastLogin: u.updatedAt,
-          profileCompletion,
-          documentCount: Number(docCnt?.cnt ?? 0),
-          applicationCount: Number(appCnt?.cnt ?? 0),
-          eligibilityStatus: latestDecision?.outcome ?? null,
-          hasConsented: !!consent,
-          consentedAt: consent?.consentedAt ?? null,
-        };
-      }),
-    );
-
     const [totalRow] = await db
       .select({ cnt: count(usersTable.id) })
       .from(usersTable)
       .where(whereClause);
 
-    res.json({ users: enriched, total: Number(totalRow?.cnt ?? 0), page: pageNum, pageSize: PAGE_SIZE });
+    res.json({ users, total: Number(totalRow?.cnt ?? 0), page: pageNum, pageSize: PAGE_SIZE });
   },
 );
 
@@ -320,7 +296,7 @@ router.get(
       .from(auditEventsTable)
       .where(
         and(
-          ilike(auditEventsTable.action, "%error%"),
+          eq(auditEventsTable.action, "api_error_5xx"),
           gte(auditEventsTable.createdAt, sevenDaysAgo),
         ),
       );

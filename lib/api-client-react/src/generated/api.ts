@@ -17,6 +17,7 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  ActivateImpersonationTokenParams,
   AdminAuditEventList,
   AiRemediationSuggestions,
   AnnotateReviewCaseRequest,
@@ -57,6 +58,7 @@ import type {
   GetSuperAdminUsersParams,
   HeadhuntCampaign,
   HealthStatus,
+  ImpersonationActivateResponse,
   ImpersonationResponse,
   ImportRolesCSVBody,
   InterviewPrepResponse,
@@ -119,7 +121,6 @@ import type {
   UploadUrlResponse,
   UpsertEmployerProfileRequest,
   UpsertProfileRequest,
-  ValidateImpersonationTokenParams,
   VerifyEmailParams,
 } from "./api.schemas";
 
@@ -7353,10 +7354,10 @@ export const useCreateImpersonationToken = <
 };
 
 /**
- * @summary Validate an impersonation token and return target user data
+ * @summary Activate impersonation token — sets session cookie and returns user context
  */
-export const getValidateImpersonationTokenUrl = (
-  params: ValidateImpersonationTokenParams,
+export const getActivateImpersonationTokenUrl = (
+  params: ActivateImpersonationTokenParams,
 ) => {
   const normalizedParams = new URLSearchParams();
 
@@ -7369,16 +7370,16 @@ export const getValidateImpersonationTokenUrl = (
   const stringifiedParams = normalizedParams.toString();
 
   return stringifiedParams.length > 0
-    ? `/api/admin/super/impersonate/validate?${stringifiedParams}`
-    : `/api/admin/super/impersonate/validate`;
+    ? `/api/admin/super/impersonate/activate?${stringifiedParams}`
+    : `/api/admin/super/impersonate/activate`;
 };
 
-export const validateImpersonationToken = async (
-  params: ValidateImpersonationTokenParams,
+export const activateImpersonationToken = async (
+  params: ActivateImpersonationTokenParams,
   options?: RequestInit,
-): Promise<SuperAdminUserFull> => {
-  return customFetch<SuperAdminUserFull>(
-    getValidateImpersonationTokenUrl(params),
+): Promise<ImpersonationActivateResponse> => {
+  return customFetch<ImpersonationActivateResponse>(
+    getActivateImpersonationTokenUrl(params),
     {
       ...options,
       method: "GET",
@@ -7386,23 +7387,23 @@ export const validateImpersonationToken = async (
   );
 };
 
-export const getValidateImpersonationTokenQueryKey = (
-  params?: ValidateImpersonationTokenParams,
+export const getActivateImpersonationTokenQueryKey = (
+  params?: ActivateImpersonationTokenParams,
 ) => {
   return [
-    `/api/admin/super/impersonate/validate`,
+    `/api/admin/super/impersonate/activate`,
     ...(params ? [params] : []),
   ] as const;
 };
 
-export const getValidateImpersonationTokenQueryOptions = <
-  TData = Awaited<ReturnType<typeof validateImpersonationToken>>,
+export const getActivateImpersonationTokenQueryOptions = <
+  TData = Awaited<ReturnType<typeof activateImpersonationToken>>,
   TError = ErrorType<ErrorEnvelope>,
 >(
-  params: ValidateImpersonationTokenParams,
+  params: ActivateImpersonationTokenParams,
   options?: {
     query?: UseQueryOptions<
-      Awaited<ReturnType<typeof validateImpersonationToken>>,
+      Awaited<ReturnType<typeof activateImpersonationToken>>,
       TError,
       TData
     >;
@@ -7412,44 +7413,44 @@ export const getValidateImpersonationTokenQueryOptions = <
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey =
-    queryOptions?.queryKey ?? getValidateImpersonationTokenQueryKey(params);
+    queryOptions?.queryKey ?? getActivateImpersonationTokenQueryKey(params);
 
   const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof validateImpersonationToken>>
+    Awaited<ReturnType<typeof activateImpersonationToken>>
   > = ({ signal }) =>
-    validateImpersonationToken(params, { signal, ...requestOptions });
+    activateImpersonationToken(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof validateImpersonationToken>>,
+    Awaited<ReturnType<typeof activateImpersonationToken>>,
     TError,
     TData
   > & { queryKey: QueryKey };
 };
 
-export type ValidateImpersonationTokenQueryResult = NonNullable<
-  Awaited<ReturnType<typeof validateImpersonationToken>>
+export type ActivateImpersonationTokenQueryResult = NonNullable<
+  Awaited<ReturnType<typeof activateImpersonationToken>>
 >;
-export type ValidateImpersonationTokenQueryError = ErrorType<ErrorEnvelope>;
+export type ActivateImpersonationTokenQueryError = ErrorType<ErrorEnvelope>;
 
 /**
- * @summary Validate an impersonation token and return target user data
+ * @summary Activate impersonation token — sets session cookie and returns user context
  */
 
-export function useValidateImpersonationToken<
-  TData = Awaited<ReturnType<typeof validateImpersonationToken>>,
+export function useActivateImpersonationToken<
+  TData = Awaited<ReturnType<typeof activateImpersonationToken>>,
   TError = ErrorType<ErrorEnvelope>,
 >(
-  params: ValidateImpersonationTokenParams,
+  params: ActivateImpersonationTokenParams,
   options?: {
     query?: UseQueryOptions<
-      Awaited<ReturnType<typeof validateImpersonationToken>>,
+      Awaited<ReturnType<typeof activateImpersonationToken>>,
       TError,
       TData
     >;
     request?: SecondParameter<typeof customFetch>;
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getValidateImpersonationTokenQueryOptions(
+  const queryOptions = getActivateImpersonationTokenQueryOptions(
     params,
     options,
   );
