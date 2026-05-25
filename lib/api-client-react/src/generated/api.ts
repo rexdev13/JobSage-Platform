@@ -55,6 +55,7 @@ import type {
   GenerateCoverLetterRequest,
   GenerateJobDescriptionResponse,
   GetInterviewPrepQuestionsParams,
+  GetSuperAdminDocumentParams,
   GetSuperAdminUsersParams,
   HeadhuntCampaign,
   HealthStatus,
@@ -7454,6 +7455,106 @@ export function useActivateImpersonationToken<
     params,
     options,
   );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Privileged document download for super admins (bypasses per-user ACL)
+ */
+export const getGetSuperAdminDocumentUrl = (
+  params: GetSuperAdminDocumentParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/super/documents?${stringifiedParams}`
+    : `/api/admin/super/documents`;
+};
+
+export const getSuperAdminDocument = async (
+  params: GetSuperAdminDocumentParams,
+  options?: RequestInit,
+): Promise<Blob> => {
+  return customFetch<Blob>(getGetSuperAdminDocumentUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSuperAdminDocumentQueryKey = (
+  params?: GetSuperAdminDocumentParams,
+) => {
+  return [`/api/admin/super/documents`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetSuperAdminDocumentQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSuperAdminDocument>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  params: GetSuperAdminDocumentParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSuperAdminDocument>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetSuperAdminDocumentQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSuperAdminDocument>>
+  > = ({ signal }) =>
+    getSuperAdminDocument(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSuperAdminDocument>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSuperAdminDocumentQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSuperAdminDocument>>
+>;
+export type GetSuperAdminDocumentQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Privileged document download for super admins (bypasses per-user ACL)
+ */
+
+export function useGetSuperAdminDocument<
+  TData = Awaited<ReturnType<typeof getSuperAdminDocument>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  params: GetSuperAdminDocumentParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSuperAdminDocument>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSuperAdminDocumentQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

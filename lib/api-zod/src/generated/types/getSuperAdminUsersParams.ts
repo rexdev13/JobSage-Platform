@@ -13,4 +13,6 @@ export type GetSuperAdminUsersParams = {
   verified?: string;
   sortBy?: string;
   sortDir?: string;
+  dateFrom?: Date;
+  dateTo?: Date;
 };

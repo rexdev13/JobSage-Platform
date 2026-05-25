@@ -2191,6 +2191,16 @@ paths:
           name: sortDir
           schema:
             type: string
+        - in: query
+          name: dateFrom
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: dateTo
+          schema:
+            type: string
+            format: date
       responses:
         "200":
           description: User list.
@@ -2275,6 +2285,44 @@ paths:
                 $ref: "#/components/schemas/ImpersonationActivateResponse"
         "401":
           description: Invalid or expired token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /admin/super/documents:
+    get:
+      tags: [SuperAdmin]
+      operationId: getSuperAdminDocument
+      summary: Privileged document download for super admins (bypasses per-user ACL)
+      parameters:
+        - in: query
+          name: storageKey
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: File stream.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "400":
+          description: Missing or invalid storageKey.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Document not found.
           content:
             application/json:
               schema:
@@ -4532,7 +4580,7 @@ components:
 
     SuperAdminHealth:
       type: object
-      required: [dailyRegistrations, dailyApplications, dailyActiveUsers, syncLog, errorAuditEventsLast7Days]
+      required: [dailyRegistrations, dailyApplications, dailyActiveUsers, syncLog, serverErrors5xxLast7Days]
       properties:
         dailyRegistrations:
           type: array
@@ -4565,6 +4613,6 @@ components:
           type: array
           items:
             type: object
-        errorAuditEventsLast7Days:
+        serverErrors5xxLast7Days:
           type: integer
-          description: Count of audit events with action containing "error" in the last 7 days.
+          description: Count of 5xx HTTP errors (api_error_5xx audit events) in the last 7 days.

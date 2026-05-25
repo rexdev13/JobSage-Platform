@@ -15,6 +15,6 @@ export interface SuperAdminHealth {
   dailyApplications: SuperAdminHealthDailyApplicationsItem[];
   dailyActiveUsers: SuperAdminHealthDailyActiveUsersItem[];
   syncLog: SuperAdminHealthSyncLogItem[];
-  /** Count of audit events with action containing "error" in the last 7 days. */
-  errorAuditEventsLast7Days: number;
+  /** Count of 5xx HTTP errors (api_error_5xx audit events) in the last 7 days. */
+  serverErrors5xxLast7Days: number;
 }
