@@ -26,7 +26,10 @@ export const GetCurrentAuthUserResponse = zod.object({
       firstName: zod.string().nullish(),
       lastName: zod.string().nullish(),
       profileImageUrl: zod.string().nullish(),
-      role: zod.enum(["candidate", "admin", "reviewer"]).nullish(),
+      emailVerified: zod.boolean().nullish(),
+      role: zod
+        .enum(["candidate", "admin", "reviewer", "employer", "super_admin"])
+        .nullish(),
     }),
     zod.null(),
   ]),
@@ -61,7 +64,10 @@ export const LoginWithEmailResponse = zod.object({
       firstName: zod.string().nullish(),
       lastName: zod.string().nullish(),
       profileImageUrl: zod.string().nullish(),
-      role: zod.enum(["candidate", "admin", "reviewer"]).nullish(),
+      emailVerified: zod.boolean().nullish(),
+      role: zod
+        .enum(["candidate", "admin", "reviewer", "employer", "super_admin"])
+        .nullish(),
     }),
     zod.null(),
   ]),
@@ -1952,18 +1958,20 @@ export const GetSuperAdminUsersResponse = zod.object({
   users: zod.array(
     zod.object({
       id: zod.string(),
-      email: zod.string().nullable(),
+      email: zod.string(),
       firstName: zod.string().nullish(),
       lastName: zod.string().nullish(),
       role: zod.string(),
       emailVerified: zod.boolean(),
       createdAt: zod.date(),
       updatedAt: zod.date(),
+      lastLogin: zod.date().nullable(),
       profileCompletion: zod.number(),
       documentCount: zod.number(),
       applicationCount: zod.number(),
       eligibilityStatus: zod.string().nullish(),
       hasConsented: zod.boolean(),
+      consentedAt: zod.date().nullish(),
     }),
   ),
   total: zod.number(),
@@ -1981,26 +1989,68 @@ export const GetSuperAdminUserFullParams = zod.object({
 export const GetSuperAdminUserFullResponse = zod.object({
   user: zod.object({
     id: zod.string(),
-    email: zod.string().nullable(),
+    email: zod.string(),
     firstName: zod.string().nullish(),
     lastName: zod.string().nullish(),
     role: zod.string(),
     emailVerified: zod.boolean(),
     createdAt: zod.date(),
     updatedAt: zod.date(),
-    profileCompletion: zod.number(),
-    documentCount: zod.number(),
-    applicationCount: zod.number(),
-    eligibilityStatus: zod.string().nullish(),
-    hasConsented: zod.boolean(),
+    lastLogin: zod.date().nullable(),
   }),
   profile: zod.object({}).passthrough().nullish(),
   employerProfile: zod.object({}).passthrough().nullish(),
-  documents: zod.array(zod.object({}).passthrough()),
-  applications: zod.array(zod.object({}).passthrough()),
-  eligibilityHistory: zod.array(zod.object({}).passthrough()),
-  auditEvents: zod.array(zod.object({}).passthrough()),
+  documents: zod.array(
+    zod.object({
+      id: zod.number().optional(),
+      fileName: zod.string().optional(),
+      fileType: zod.string().optional(),
+      storageKey: zod.string().optional(),
+      uploadedAt: zod.date().optional(),
+    }),
+  ),
+  applications: zod.array(
+    zod.object({
+      id: zod.number().optional(),
+      roleId: zod.number().optional(),
+      roleTitle: zod.string().nullish(),
+      roleEmployer: zod.string().nullish(),
+      status: zod.string().optional(),
+      appliedAt: zod.date().optional(),
+      notes: zod.string().nullish(),
+    }),
+  ),
+  eligibilityHistory: zod.array(
+    zod.object({
+      id: zod.number().optional(),
+      outcome: zod.string().optional(),
+      createdAt: zod.date().optional(),
+    }),
+  ),
+  auditEvents: zod.array(
+    zod.object({
+      id: zod.number().optional(),
+      actor: zod.string().optional(),
+      action: zod.string().optional(),
+      target: zod.string().nullish(),
+      createdAt: zod.date().optional(),
+    }),
+  ),
   consent: zod.object({}).passthrough().nullish(),
+  latestDecision: zod
+    .object({
+      outcome: zod.string().optional(),
+      createdAt: zod.date().optional(),
+    })
+    .nullish(),
+  impersonating: zod
+    .boolean()
+    .optional()
+    .describe("Present only on the validate-impersonation response."),
+  adminId: zod
+    .string()
+    .nullish()
+    .describe("Present only on the validate-impersonation response."),
 });
 
 /**
@@ -2011,11 +2061,15 @@ export const CreateImpersonationTokenParams = zod.object({
 });
 
 export const CreateImpersonationTokenResponse = zod.object({
-  token: zod.string(),
+  token: zod
+    .string()
+    .describe(
+      "Session ID to pass as Bearer token when calling the impersonation validate endpoint.",
+    ),
   expiresAt: zod.date(),
   targetUser: zod.object({
     id: zod.string(),
-    email: zod.string().nullable(),
+    email: zod.string(),
     displayName: zod.string(),
     role: zod.string(),
   }),
@@ -2031,26 +2085,68 @@ export const ValidateImpersonationTokenQueryParams = zod.object({
 export const ValidateImpersonationTokenResponse = zod.object({
   user: zod.object({
     id: zod.string(),
-    email: zod.string().nullable(),
+    email: zod.string(),
     firstName: zod.string().nullish(),
     lastName: zod.string().nullish(),
     role: zod.string(),
     emailVerified: zod.boolean(),
     createdAt: zod.date(),
     updatedAt: zod.date(),
-    profileCompletion: zod.number(),
-    documentCount: zod.number(),
-    applicationCount: zod.number(),
-    eligibilityStatus: zod.string().nullish(),
-    hasConsented: zod.boolean(),
+    lastLogin: zod.date().nullable(),
   }),
   profile: zod.object({}).passthrough().nullish(),
   employerProfile: zod.object({}).passthrough().nullish(),
-  documents: zod.array(zod.object({}).passthrough()),
-  applications: zod.array(zod.object({}).passthrough()),
-  eligibilityHistory: zod.array(zod.object({}).passthrough()),
-  auditEvents: zod.array(zod.object({}).passthrough()),
+  documents: zod.array(
+    zod.object({
+      id: zod.number().optional(),
+      fileName: zod.string().optional(),
+      fileType: zod.string().optional(),
+      storageKey: zod.string().optional(),
+      uploadedAt: zod.date().optional(),
+    }),
+  ),
+  applications: zod.array(
+    zod.object({
+      id: zod.number().optional(),
+      roleId: zod.number().optional(),
+      roleTitle: zod.string().nullish(),
+      roleEmployer: zod.string().nullish(),
+      status: zod.string().optional(),
+      appliedAt: zod.date().optional(),
+      notes: zod.string().nullish(),
+    }),
+  ),
+  eligibilityHistory: zod.array(
+    zod.object({
+      id: zod.number().optional(),
+      outcome: zod.string().optional(),
+      createdAt: zod.date().optional(),
+    }),
+  ),
+  auditEvents: zod.array(
+    zod.object({
+      id: zod.number().optional(),
+      actor: zod.string().optional(),
+      action: zod.string().optional(),
+      target: zod.string().nullish(),
+      createdAt: zod.date().optional(),
+    }),
+  ),
   consent: zod.object({}).passthrough().nullish(),
+  latestDecision: zod
+    .object({
+      outcome: zod.string().optional(),
+      createdAt: zod.date().optional(),
+    })
+    .nullish(),
+  impersonating: zod
+    .boolean()
+    .optional()
+    .describe("Present only on the validate-impersonation response."),
+  adminId: zod
+    .string()
+    .nullish()
+    .describe("Present only on the validate-impersonation response."),
 });
 
 /**
@@ -2076,5 +2172,9 @@ export const GetSuperAdminHealthResponse = zod.object({
     }),
   ),
   syncLog: zod.array(zod.object({}).passthrough()),
-  errorCount: zod.number(),
+  errorAuditEventsLast7Days: zod
+    .number()
+    .describe(
+      'Count of audit events with action containing \"error\" in the last 7 days.',
+    ),
 });

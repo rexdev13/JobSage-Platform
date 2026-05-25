@@ -5,17 +5,18 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
-import type { SuperAdminUser } from "./superAdminUser";
 import type { SuperAdminUserFullApplicationsItem } from "./superAdminUserFullApplicationsItem";
 import type { SuperAdminUserFullAuditEventsItem } from "./superAdminUserFullAuditEventsItem";
 import type { SuperAdminUserFullConsent } from "./superAdminUserFullConsent";
 import type { SuperAdminUserFullDocumentsItem } from "./superAdminUserFullDocumentsItem";
 import type { SuperAdminUserFullEligibilityHistoryItem } from "./superAdminUserFullEligibilityHistoryItem";
 import type { SuperAdminUserFullEmployerProfile } from "./superAdminUserFullEmployerProfile";
+import type { SuperAdminUserFullLatestDecision } from "./superAdminUserFullLatestDecision";
 import type { SuperAdminUserFullProfile } from "./superAdminUserFullProfile";
+import type { SuperAdminUserFullUser } from "./superAdminUserFullUser";
 
 export interface SuperAdminUserFull {
-  user: SuperAdminUser;
+  user: SuperAdminUserFullUser;
   profile?: SuperAdminUserFullProfile;
   employerProfile?: SuperAdminUserFullEmployerProfile;
   documents: SuperAdminUserFullDocumentsItem[];
@@ -23,4 +24,9 @@ export interface SuperAdminUserFull {
   eligibilityHistory: SuperAdminUserFullEligibilityHistoryItem[];
   auditEvents: SuperAdminUserFullAuditEventsItem[];
   consent?: SuperAdminUserFullConsent;
+  latestDecision?: SuperAdminUserFullLatestDecision;
+  /** Present only on the validate-impersonation response. */
+  impersonating?: boolean;
+  /** Present only on the validate-impersonation response. */
+  adminId?: string | null;
 }

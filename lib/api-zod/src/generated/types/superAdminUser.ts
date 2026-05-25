@@ -8,16 +8,18 @@
 
 export interface SuperAdminUser {
   id: string;
-  email: string | null;
+  email: string;
   firstName?: string | null;
   lastName?: string | null;
   role: string;
   emailVerified: boolean;
   createdAt: Date;
   updatedAt: Date;
+  lastLogin: Date | null;
   profileCompletion: number;
   documentCount: number;
   applicationCount: number;
   eligibilityStatus?: string | null;
   hasConsented: boolean;
+  consentedAt?: Date | null;
 }

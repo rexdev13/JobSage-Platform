@@ -2334,9 +2334,12 @@ components:
         profileImageUrl:
           type: string
           nullable: true
+        emailVerified:
+          type: boolean
+          nullable: true
         role:
           type: string
-          enum: [candidate, admin, reviewer]
+          enum: [candidate, admin, reviewer, employer, super_admin]
           nullable: true
 
     AuthUserEnvelope:
@@ -4311,13 +4314,12 @@ components:
 
     SuperAdminUser:
       type: object
-      required: [id, email, role, emailVerified, createdAt, updatedAt, profileCompletion, documentCount, applicationCount, hasConsented]
+      required: [id, email, role, emailVerified, createdAt, updatedAt, lastLogin, profileCompletion, documentCount, applicationCount, hasConsented]
       properties:
         id:
           type: string
         email:
           type: string
-          nullable: true
         firstName:
           type: string
           nullable: true
@@ -4334,6 +4336,10 @@ components:
         updatedAt:
           type: string
           format: date-time
+        lastLogin:
+          type: string
+          format: date-time
+          nullable: true
         profileCompletion:
           type: integer
         documentCount:
@@ -4345,6 +4351,10 @@ components:
           nullable: true
         hasConsented:
           type: boolean
+        consentedAt:
+          type: string
+          format: date-time
+          nullable: true
 
     SuperAdminUserListResponse:
       type: object
@@ -4366,7 +4376,33 @@ components:
       required: [user, documents, applications, eligibilityHistory, auditEvents]
       properties:
         user:
-          $ref: "#/components/schemas/SuperAdminUser"
+          type: object
+          required: [id, email, role, emailVerified, createdAt, updatedAt, lastLogin]
+          properties:
+            id:
+              type: string
+            email:
+              type: string
+            firstName:
+              type: string
+              nullable: true
+            lastName:
+              type: string
+              nullable: true
+            role:
+              type: string
+            emailVerified:
+              type: boolean
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+            lastLogin:
+              type: string
+              format: date-time
+              nullable: true
         profile:
           type: object
           nullable: true
@@ -4377,21 +4413,89 @@ components:
           type: array
           items:
             type: object
+            properties:
+              id:
+                type: integer
+              fileName:
+                type: string
+              fileType:
+                type: string
+              storageKey:
+                type: string
+              uploadedAt:
+                type: string
+                format: date-time
         applications:
           type: array
           items:
             type: object
+            properties:
+              id:
+                type: integer
+              roleId:
+                type: integer
+              roleTitle:
+                type: string
+                nullable: true
+              roleEmployer:
+                type: string
+                nullable: true
+              status:
+                type: string
+              appliedAt:
+                type: string
+                format: date-time
+              notes:
+                type: string
+                nullable: true
         eligibilityHistory:
           type: array
           items:
             type: object
+            properties:
+              id:
+                type: integer
+              outcome:
+                type: string
+              createdAt:
+                type: string
+                format: date-time
         auditEvents:
           type: array
           items:
             type: object
+            properties:
+              id:
+                type: integer
+              actor:
+                type: string
+              action:
+                type: string
+              target:
+                type: string
+                nullable: true
+              createdAt:
+                type: string
+                format: date-time
         consent:
           type: object
           nullable: true
+        latestDecision:
+          type: object
+          nullable: true
+          properties:
+            outcome:
+              type: string
+            createdAt:
+              type: string
+              format: date-time
+        impersonating:
+          type: boolean
+          description: Present only on the validate-impersonation response.
+        adminId:
+          type: string
+          nullable: true
+          description: Present only on the validate-impersonation response.
 
     ImpersonationResponse:
       type: object
@@ -4399,6 +4503,7 @@ components:
       properties:
         token:
           type: string
+          description: Session ID to pass as Bearer token when calling the impersonation validate endpoint.
         expiresAt:
           type: string
           format: date-time
@@ -4410,7 +4515,6 @@ components:
               type: string
             email:
               type: string
-              nullable: true
             displayName:
               type: string
             role:
@@ -4418,7 +4522,7 @@ components:
 
     SuperAdminHealth:
       type: object
-      required: [dailyRegistrations, dailyApplications, dailyActiveUsers, syncLog, errorCount]
+      required: [dailyRegistrations, dailyApplications, dailyActiveUsers, syncLog, errorAuditEventsLast7Days]
       properties:
         dailyRegistrations:
           type: array
@@ -4451,5 +4555,6 @@ components:
           type: array
           items:
             type: object
-        errorCount:
+        errorAuditEventsLast7Days:
           type: integer
+          description: Count of audit events with action containing "error" in the last 7 days.

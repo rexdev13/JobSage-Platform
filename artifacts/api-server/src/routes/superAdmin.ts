@@ -12,22 +12,14 @@ import {
   decisionRecordsTable,
   employerProfilesTable,
   jobListingsTable,
+  rolesTable,
 } from "@workspace/db";
-import { eq, and, desc, gte, count, max, ilike, sql, asc } from "drizzle-orm";
+import { eq, and, desc, gte, lte, count, max, ilike, sql, asc } from "drizzle-orm";
 import { requireRole } from "../middlewares/requireRole";
 import { writeAuditEvent } from "../lib/audit";
-import crypto from "crypto";
+import { createSession, getSession } from "../lib/auth";
 
 const router: IRouter = Router();
-
-const impersonationTokens = new Map<string, { targetUserId: string; adminId: string; expiresAt: Date }>();
-
-setInterval(() => {
-  const now = new Date();
-  for (const [token, data] of impersonationTokens) {
-    if (data.expiresAt < now) impersonationTokens.delete(token);
-  }
-}, 5 * 60 * 1000);
 
 router.get(
   "/admin/super/stats",
@@ -89,24 +81,29 @@ router.get(
       sortBy = "createdAt",
       sortDir = "desc",
       page: pageStr = "1",
+      dateFrom,
+      dateTo,
     } = req.query as Record<string, string | undefined>;
 
     const PAGE_SIZE = 25;
     const pageNum = Math.max(1, parseInt(pageStr ?? "1", 10) || 1);
     const offset = (pageNum - 1) * PAGE_SIZE;
 
-    const conditions: ReturnType<typeof eq>[] = [];
-    if (role) conditions.push(eq(usersTable.role, role) as ReturnType<typeof eq>);
-    if (verified === "true") conditions.push(eq(usersTable.emailVerified, true) as ReturnType<typeof eq>);
-    if (verified === "false") conditions.push(eq(usersTable.emailVerified, false) as ReturnType<typeof eq>);
-    if (search) conditions.push(ilike(usersTable.email, `%${search}%`) as ReturnType<typeof eq>);
+    const whereClause = and(
+      role ? eq(usersTable.role, role as "candidate" | "admin" | "reviewer" | "employer" | "super_admin") : undefined,
+      verified === "true" ? eq(usersTable.emailVerified, true) : undefined,
+      verified === "false" ? eq(usersTable.emailVerified, false) : undefined,
+      search ? ilike(usersTable.email, `%${search}%`) : undefined,
+      dateFrom ? gte(usersTable.createdAt, new Date(dateFrom)) : undefined,
+      dateTo ? lte(usersTable.createdAt, new Date(dateTo)) : undefined,
+    );
 
-    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
-
-    const validSortCols: Record<string, typeof usersTable.createdAt | typeof usersTable.email | typeof usersTable.role> = {
+    const validSortCols: Record<string, typeof usersTable.createdAt | typeof usersTable.email | typeof usersTable.role | typeof usersTable.updatedAt | typeof usersTable.emailVerified> = {
       createdAt: usersTable.createdAt,
+      updatedAt: usersTable.updatedAt,
       email: usersTable.email,
       role: usersTable.role,
+      emailVerified: usersTable.emailVerified,
     };
     const sortCol = validSortCols[sortBy ?? "createdAt"] ?? usersTable.createdAt;
     const orderExpr = sortDir === "asc" ? asc(sortCol) : desc(sortCol);
@@ -166,11 +163,13 @@ router.get(
 
         return {
           ...u,
+          lastLogin: u.updatedAt,
           profileCompletion,
           documentCount: Number(docCnt?.cnt ?? 0),
           applicationCount: Number(appCnt?.cnt ?? 0),
           eligibilityStatus: latestDecision?.outcome ?? null,
           hasConsented: !!consent,
+          consentedAt: consent?.consentedAt ?? null,
         };
       }),
     );
@@ -191,78 +190,13 @@ router.get(
     const targetId = req.params["id"] as string;
     writeAuditEvent(req.user!.id, "super_admin_view_user_detail", targetId).catch(() => {});
 
-    const [user] = await db
-      .select({
-        id: usersTable.id,
-        email: usersTable.email,
-        firstName: usersTable.firstName,
-        lastName: usersTable.lastName,
-        role: usersTable.role,
-        emailVerified: usersTable.emailVerified,
-        createdAt: usersTable.createdAt,
-        updatedAt: usersTable.updatedAt,
-      })
-      .from(usersTable)
-      .where(eq(usersTable.id, targetId));
-
-    if (!user) {
+    const fullDetail = await fetchUserFull(targetId);
+    if (!fullDetail) {
       res.status(404).json({ error: "User not found." });
       return;
     }
 
-    const [profile] = await db.select().from(profilesTable).where(eq(profilesTable.userId, targetId));
-    const [employerProfile] = await db.select().from(employerProfilesTable).where(eq(employerProfilesTable.userId, targetId));
-
-    const documents = await db
-      .select({ id: documentsTable.id, fileName: documentsTable.fileName, fileType: documentsTable.fileType, storageKey: documentsTable.storageKey, uploadedAt: documentsTable.uploadedAt })
-      .from(documentsTable)
-      .where(eq(documentsTable.userId, targetId))
-      .orderBy(desc(documentsTable.uploadedAt));
-
-    const applications = await db
-      .select({ id: applicationsTable.id, roleId: applicationsTable.roleId, status: applicationsTable.status, appliedAt: applicationsTable.appliedAt, notes: applicationsTable.notes })
-      .from(applicationsTable)
-      .where(eq(applicationsTable.userId, targetId))
-      .orderBy(desc(applicationsTable.appliedAt));
-
-    const eligibilityHistory = await db
-      .select({ id: decisionRecordsTable.id, outcome: decisionRecordsTable.outcome, createdAt: decisionRecordsTable.createdAt })
-      .from(decisionRecordsTable)
-      .where(eq(decisionRecordsTable.userId, targetId))
-      .orderBy(desc(decisionRecordsTable.createdAt))
-      .limit(10);
-
-    const auditEvents = await db
-      .select({
-        id: auditEventsTable.id,
-        actor: auditEventsTable.actor,
-        action: auditEventsTable.action,
-        target: auditEventsTable.target,
-        details: auditEventsTable.details,
-        createdAt: auditEventsTable.createdAt,
-      })
-      .from(auditEventsTable)
-      .where(eq(auditEventsTable.target, targetId))
-      .orderBy(desc(auditEventsTable.createdAt))
-      .limit(20);
-
-    const [consent] = await db
-      .select()
-      .from(consentLogsTable)
-      .where(eq(consentLogsTable.userId, targetId))
-      .orderBy(desc(consentLogsTable.consentedAt))
-      .limit(1);
-
-    res.json({
-      user,
-      profile: profile ?? null,
-      employerProfile: employerProfile ?? null,
-      documents,
-      applications,
-      eligibilityHistory,
-      auditEvents,
-      consent: consent ?? null,
-    });
+    res.json(fullDetail);
   },
 );
 
@@ -271,9 +205,10 @@ router.post(
   requireRole("super_admin"),
   async (req: Request, res: Response): Promise<void> => {
     const targetId = req.params["id"] as string;
+    const actorId = req.user!.id;
 
     const [targetUser] = await db
-      .select({ id: usersTable.id, email: usersTable.email, firstName: usersTable.firstName, lastName: usersTable.lastName, role: usersTable.role })
+      .select({ id: usersTable.id, email: usersTable.email, firstName: usersTable.firstName, lastName: usersTable.lastName, role: usersTable.role, emailVerified: usersTable.emailVerified })
       .from(usersTable)
       .where(eq(usersTable.id, targetId));
 
@@ -282,14 +217,28 @@ router.post(
       return;
     }
 
-    const token = crypto.randomBytes(32).toString("hex");
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
-    impersonationTokens.set(token, { targetUserId: targetId, adminId: req.user!.id, expiresAt });
+    const IMPERSONATE_TTL = 15 * 60 * 1000;
+    const sid = await createSession(
+      {
+        user: {
+          id: targetUser.id,
+          email: targetUser.email,
+          firstName: targetUser.firstName,
+          lastName: targetUser.lastName,
+          role: targetUser.role as import("@workspace/api-zod").AuthUserRole,
+          emailVerified: targetUser.emailVerified,
+        },
+        impersonating: true,
+        adminId: actorId,
+      },
+      IMPERSONATE_TTL,
+    );
 
-    writeAuditEvent(req.user!.id, "super_admin_impersonate", targetId, { targetEmail: targetUser.email }).catch(() => {});
+    writeAuditEvent(actorId, "super_admin_impersonate", targetId, { targetEmail: targetUser.email }).catch(() => {});
 
+    const expiresAt = new Date(Date.now() + IMPERSONATE_TTL);
     res.json({
-      token,
+      token: sid,
       expiresAt,
       targetUser: {
         id: targetUser.id,
@@ -310,20 +259,19 @@ router.get(
       return;
     }
 
-    const record = impersonationTokens.get(token);
-    if (!record || record.expiresAt < new Date()) {
-      impersonationTokens.delete(token);
+    const session = await getSession(token);
+    if (!session?.user?.id || !session.impersonating) {
       res.status(401).json({ error: "Invalid or expired impersonation token." });
       return;
     }
 
-    const fullDetail = await fetchUserFull(record.targetUserId);
+    const fullDetail = await fetchUserFull(session.user.id);
     if (!fullDetail) {
       res.status(404).json({ error: "Target user not found." });
       return;
     }
 
-    res.json({ ...fullDetail, impersonating: true, adminId: record.adminId });
+    res.json({ ...fullDetail, impersonating: true, adminId: session.adminId ?? null });
   },
 );
 
@@ -361,10 +309,16 @@ router.get(
       .orderBy(desc(sponsorLicenceSyncLogTable.createdAt))
       .limit(10);
 
-    const [errorCount] = await db
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const [errorAuditCount] = await db
       .select({ cnt: count(auditEventsTable.id) })
       .from(auditEventsTable)
-      .where(ilike(auditEventsTable.action, "%error%"));
+      .where(
+        and(
+          ilike(auditEventsTable.action, "%error%"),
+          gte(auditEventsTable.createdAt, sevenDaysAgo),
+        ),
+      );
 
     const dailyActiveUsers = await db
       .select({
@@ -381,7 +335,7 @@ router.get(
       dailyApplications: dailyApplications.map((r) => ({ date: r.date, count: Number(r.count) })),
       dailyActiveUsers: dailyActiveUsers.map((r) => ({ date: r.date, count: Number(r.count) })),
       syncLog,
-      errorCount: Number(errorCount?.cnt ?? 0),
+      errorAuditEventsLast7Days: Number(errorAuditCount?.cnt ?? 0),
     });
   },
 );
@@ -396,6 +350,7 @@ async function fetchUserFull(userId: string) {
       role: usersTable.role,
       emailVerified: usersTable.emailVerified,
       createdAt: usersTable.createdAt,
+      updatedAt: usersTable.updatedAt,
     })
     .from(usersTable)
     .where(eq(usersTable.id, userId));
@@ -406,16 +361,53 @@ async function fetchUserFull(userId: string) {
   const [employerProfile] = await db.select().from(employerProfilesTable).where(eq(employerProfilesTable.userId, userId));
 
   const documents = await db
-    .select({ id: documentsTable.id, fileName: documentsTable.fileName, fileType: documentsTable.fileType, storageKey: documentsTable.storageKey, uploadedAt: documentsTable.uploadedAt })
+    .select({ id: documentsTable.id, filename: documentsTable.filename, mimeType: documentsTable.mimeType, storageKey: documentsTable.storageKey, uploadedAt: documentsTable.uploadedAt })
     .from(documentsTable)
     .where(eq(documentsTable.userId, userId))
     .orderBy(desc(documentsTable.uploadedAt));
 
   const applications = await db
-    .select({ id: applicationsTable.id, roleId: applicationsTable.roleId, status: applicationsTable.status, appliedAt: applicationsTable.appliedAt })
+    .select({
+      id: applicationsTable.id,
+      roleId: applicationsTable.roleId,
+      status: applicationsTable.status,
+      appliedAt: applicationsTable.appliedAt,
+      notes: applicationsTable.notes,
+      roleTitle: rolesTable.title,
+      roleEmployer: rolesTable.employer,
+    })
     .from(applicationsTable)
+    .leftJoin(rolesTable, eq(applicationsTable.roleId, rolesTable.id))
     .where(eq(applicationsTable.userId, userId))
     .orderBy(desc(applicationsTable.appliedAt));
+
+  const eligibilityHistory = await db
+    .select({ id: decisionRecordsTable.id, outcome: decisionRecordsTable.outcome, createdAt: decisionRecordsTable.createdAt })
+    .from(decisionRecordsTable)
+    .where(eq(decisionRecordsTable.userId, userId))
+    .orderBy(desc(decisionRecordsTable.createdAt))
+    .limit(10);
+
+  const auditEvents = await db
+    .select({
+      id: auditEventsTable.id,
+      actor: auditEventsTable.actor,
+      action: auditEventsTable.action,
+      target: auditEventsTable.target,
+      details: auditEventsTable.details,
+      createdAt: auditEventsTable.createdAt,
+    })
+    .from(auditEventsTable)
+    .where(eq(auditEventsTable.target, userId))
+    .orderBy(desc(auditEventsTable.createdAt))
+    .limit(20);
+
+  const [consent] = await db
+    .select()
+    .from(consentLogsTable)
+    .where(eq(consentLogsTable.userId, userId))
+    .orderBy(desc(consentLogsTable.consentedAt))
+    .limit(1);
 
   const [latestDecision] = await db
     .select({ outcome: decisionRecordsTable.outcome, createdAt: decisionRecordsTable.createdAt })
@@ -424,7 +416,17 @@ async function fetchUserFull(userId: string) {
     .orderBy(desc(decisionRecordsTable.createdAt))
     .limit(1);
 
-  return { user, profile: profile ?? null, employerProfile: employerProfile ?? null, documents, applications, latestDecision: latestDecision ?? null };
+  return {
+    user: { ...user, lastLogin: user.updatedAt },
+    profile: profile ?? null,
+    employerProfile: employerProfile ?? null,
+    documents,
+    applications,
+    eligibilityHistory,
+    auditEvents,
+    consent: consent ?? null,
+    latestDecision: latestDecision ?? null,
+  };
 }
 
 export default router;

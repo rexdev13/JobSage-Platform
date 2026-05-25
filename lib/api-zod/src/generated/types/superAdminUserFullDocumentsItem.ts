@@ -6,4 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type SuperAdminUserFullDocumentsItem = { [key: string]: unknown };
+export type SuperAdminUserFullDocumentsItem = {
+  id?: number;
+  fileName?: string;
+  fileType?: string;
+  storageKey?: string;
+  uploadedAt?: Date;
+};
