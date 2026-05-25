@@ -256,11 +256,12 @@ function ContactModal({ candidate, companyName, onClose }: ContactModalProps) {
 
 interface SaveCampaignModalProps {
   filters: SearchFilters;
+  vacancyId: string;
   onClose: () => void;
   onSaved: () => void;
 }
 
-function SaveCampaignModal({ filters, onClose, onSaved }: SaveCampaignModalProps) {
+function SaveCampaignModal({ filters, vacancyId, onClose, onSaved }: SaveCampaignModalProps) {
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
@@ -269,11 +270,15 @@ function SaveCampaignModal({ filters, onClose, onSaved }: SaveCampaignModalProps
     if (!name.trim()) return;
     setSaving(true);
     try {
+      const { vacancyId: _vid, ...filterWithoutVacancy } = filters;
+      const body: Record<string, unknown> = { name: name.trim(), filters: filterWithoutVacancy };
+      const parsedVacancyId = vacancyId ? parseInt(vacancyId, 10) : null;
+      if (parsedVacancyId && !isNaN(parsedVacancyId)) body.vacancyId = parsedVacancyId;
       const res = await fetch(`${API_BASE}/employer/campaigns`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), filters }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error("Failed to save campaign");
       toast({ title: "Campaign saved!", description: `"${name}" has been saved to your campaigns.` });
@@ -551,6 +556,7 @@ export default function TalentSearchPage() {
         {showSaveCampaign && (
           <SaveCampaignModal
             filters={filters}
+            vacancyId={filters.vacancyId}
             onClose={() => setShowSaveCampaign(false)}
             onSaved={() => {}}
           />

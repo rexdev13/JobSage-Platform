@@ -9,8 +9,9 @@ import {
   usersTable,
   headhuntCampaignsTable,
   candidateMessagesTable,
+  documentsTable,
 } from "@workspace/db";
-import { eq, and, desc, ilike, gte } from "drizzle-orm";
+import { eq, and, desc, ilike, gte, isNotNull, count } from "drizzle-orm";
 import { requireRole, requireAuthenticated } from "../middlewares/requireRole";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { sendCandidateContactEmail } from "../lib/email";
@@ -587,12 +588,13 @@ router.get("/employer/talent-search", requireEmployer(), async (req, res): Promi
     }
   }
 
-  const conditions = [eq(profilesTable.boostProfile, true)];
-  if (profession) conditions.push(ilike(profilesTable.profession, `%${profession}%`));
-  if (specialty) conditions.push(ilike(profilesTable.specialty ?? profilesTable.specialty, `%${specialty}%`));
+  // Base conditions: must have a profession (completed profile)
+  const conditions: ReturnType<typeof eq>[] = [isNotNull(profilesTable.profession) as ReturnType<typeof eq>];
+  if (profession) conditions.push(ilike(profilesTable.profession, `%${profession}%`) as ReturnType<typeof eq>);
+  if (specialty) conditions.push(ilike(profilesTable.specialty, `%${specialty}%`) as ReturnType<typeof eq>);
   if (experienceYearsMin) {
     const minYrs = parseInt(experienceYearsMin, 10);
-    if (!isNaN(minYrs)) conditions.push(gte(profilesTable.experienceYears, minYrs));
+    if (!isNaN(minYrs)) conditions.push(gte(profilesTable.experienceYears, minYrs) as ReturnType<typeof eq>);
   }
 
   const profiles = await db
@@ -605,12 +607,35 @@ router.get("/employer/talent-search", requireEmployer(), async (req, res): Promi
       registrationStatus: profilesTable.registrationStatus,
       requiresSponsorship: profilesTable.requiresSponsorship,
       preferredRegion: profilesTable.preferredRegion,
+      boostProfile: profilesTable.boostProfile,
     })
     .from(profilesTable)
     .where(and(...conditions));
 
+  // Get document counts for all candidate user IDs
+  const userIds = profiles.map((p) => p.userId);
+  const docCounts: { userId: string; cnt: number }[] = userIds.length > 0
+    ? await Promise.all(
+        userIds.map(async (uid) => {
+          const [row] = await db
+            .select({ cnt: count(documentsTable.id) })
+            .from(documentsTable)
+            .where(eq(documentsTable.userId, uid));
+          return { userId: uid, cnt: Number(row?.cnt ?? 0) };
+        }),
+      )
+    : [];
+
+  const docCountMap = new Map(docCounts.map((d) => [d.userId, d.cnt]));
+
   const enriched = await Promise.all(
     profiles.map(async (p) => {
+      const isBoosted = !!p.boostProfile;
+      const docCount = docCountMap.get(p.userId) ?? 0;
+
+      // Include only boosted OR candidates with completed profile + at least 1 document
+      if (!isBoosted && docCount < 1) return null;
+
       const [user] = await db.select({ firstName: usersTable.firstName, lastName: usersTable.lastName }).from(usersTable).where(eq(usersTable.id, p.userId));
       const [latestDecision] = await db
         .select({ outcome: decisionRecordsTable.outcome })
@@ -648,13 +673,17 @@ router.get("/employer/talent-search", requireEmployer(), async (req, res): Promi
         eligibilityOutcome: latestDecision?.outcome ?? null,
         matchScore: score,
         matchRationale: rationale,
-        isBoosted: true,
+        isBoosted,
       };
     }),
   );
 
   const filtered = enriched.filter(Boolean) as NonNullable<(typeof enriched)[number]>[];
-  filtered.sort((a, b) => b.matchScore - a.matchScore);
+  // Boosted candidates first, then by match score descending within each group
+  filtered.sort((a, b) => {
+    if (a.isBoosted !== b.isBoosted) return a.isBoosted ? -1 : 1;
+    return b.matchScore - a.matchScore;
+  });
 
   const pageNum = Math.max(1, parseInt(pageStr ?? "1", 10) || 1);
   const PAGE_SIZE = 20;
