@@ -9,4 +9,6 @@ import type { AuthUser } from "./authUser";
 
 export interface AuthUserEnvelope {
   user: AuthUser | null;
+  /** True when the session is operating under impersonation of another user. */
+  isImpersonating?: boolean;
 }

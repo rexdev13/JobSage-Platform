@@ -18,7 +18,7 @@ import {
 import { eq, and, desc, gte, lte, count, max, ilike, sql, asc } from "drizzle-orm";
 import { requireRole } from "../middlewares/requireRole";
 import { writeAuditEvent } from "../lib/audit";
-import { createSession, getSession, SESSION_COOKIE } from "../lib/auth";
+import { createSession, getSession, deleteSession, updateSession, getSessionId } from "../lib/auth";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 
 const router: IRouter = Router();
@@ -120,7 +120,8 @@ router.get(
         case "email": return dir(usersTable.email);
         case "role": return dir(usersTable.role);
         case "emailVerified": return dir(usersTable.emailVerified);
-        case "updatedAt": case "lastLogin": return dir(usersTable.updatedAt);
+        case "updatedAt": return dir(usersTable.updatedAt);
+        case "lastLogin": return dir(sql`(SELECT max(created_at) FROM audit_events WHERE actor = ${usersTable.id} AND action = 'user_login')`);
         case "documentCount": return dir(docCountExpr);
         case "applicationCount": return dir(appCountExpr);
         case "profileCompletion": return dir(profileCompExpr);
@@ -140,7 +141,7 @@ router.get(
         emailVerified: usersTable.emailVerified,
         createdAt: usersTable.createdAt,
         updatedAt: usersTable.updatedAt,
-        lastLogin: usersTable.updatedAt,
+        lastLogin: sql<string | null>`(SELECT max(created_at) FROM audit_events WHERE actor = ${usersTable.id} AND action = 'user_login')`,
         documentCount: docCountExpr,
         applicationCount: appCountExpr,
         profileCompletion: profileCompExpr,
@@ -239,24 +240,53 @@ router.get(
       return;
     }
 
-    const session = await getSession(token);
-    if (!session?.user?.id || !session.impersonating) {
+    const impSession = await getSession(token);
+    if (!impSession?.user?.id || !impSession.impersonating) {
       res.status(401).json({ error: "Invalid or expired impersonation token." });
       return;
     }
 
-    res.cookie(SESSION_COOKIE, token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "lax",
-      path: "/",
-      maxAge: 15 * 60 * 1000,
-    });
+    const adminSid = getSessionId(req);
+    if (!adminSid) {
+      res.status(401).json({ error: "Admin session required." });
+      return;
+    }
+    const adminSession = await getSession(adminSid);
+    if (!adminSession?.user?.id || adminSession.user.role !== "super_admin") {
+      res.status(403).json({ error: "Only super admins can activate impersonation." });
+      return;
+    }
+
+    await updateSession(adminSid, { ...adminSession, impersonatingUserId: impSession.user.id });
+    await deleteSession(token);
 
     res.json({
-      user: session.user,
-      adminId: session.adminId ?? null,
+      user: impSession.user,
+      adminId: adminSession.user.id,
     });
+  },
+);
+
+router.post(
+  "/admin/super/impersonate/stop",
+  async (req: Request, res: Response): Promise<void> => {
+    const sid = getSessionId(req);
+    if (!sid) {
+      res.status(401).json({ error: "Not authenticated." });
+      return;
+    }
+    const session = await getSession(sid);
+    if (!session?.user?.id) {
+      res.status(401).json({ error: "Not authenticated." });
+      return;
+    }
+    if (!session.impersonatingUserId) {
+      res.status(400).json({ error: "Not currently impersonating." });
+      return;
+    }
+    await updateSession(sid, { user: session.user });
+    writeAuditEvent(session.user.id, "super_admin_impersonate_stop").catch(() => {});
+    res.json({ ok: true });
   },
 );
 
