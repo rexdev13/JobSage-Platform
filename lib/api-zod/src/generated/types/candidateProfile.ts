@@ -25,6 +25,7 @@ export interface CandidateProfile {
   preferredRegion?: string | null;
   alertFrequency?: CandidateProfileAlertFrequency;
   lastAlertSentAt?: Date | null;
+  boostProfile?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

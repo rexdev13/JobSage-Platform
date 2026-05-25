@@ -11,3 +11,4 @@ export * from "./applications";
 export * from "./employer";
 export * from "./smartApplyDrafts";
 export * from "./sponsorLicences";
+export * from "./speculativeApplications";

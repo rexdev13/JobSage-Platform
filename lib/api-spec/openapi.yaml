@@ -38,6 +38,8 @@ tags:
     description: Employer portal — post jobs, generate AI descriptions, rank and pipeline candidates.
   - name: SponsorLicences
     description: UK Home Office sponsor licence register — search and filter licensed sponsors.
+  - name: CandidatePortal
+    description: Candidate Portal Phase 2 — cover letter generation, progress report, speculative applications.
 paths:
   /healthz:
     get:
@@ -1781,6 +1783,135 @@ paths:
               schema:
                 $ref: "#/components/schemas/UpdateApplicantStageResponse"
 
+  /profiles/me/boost:
+    patch:
+      operationId: toggleProfileBoost
+      tags: [Profiles]
+      summary: Enable or disable profile boost (visible to headhunting employers)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BoostProfileRequest"
+      responses:
+        "200":
+          description: Boost status updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BoostProfileResponse"
+        "400":
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Profile not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /cover-letter/generate:
+    post:
+      operationId: generateCoverLetter
+      tags: [CandidatePortal]
+      summary: Generate a tailored cover letter using AI
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateCoverLetterRequest"
+      responses:
+        "200":
+          description: Cover letter generated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoverLetterResponse"
+        "400":
+          description: Missing required fields or profile not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: AI generation failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /my-progress-report:
+    get:
+      operationId: getMyProgressReport
+      tags: [CandidatePortal]
+      summary: Get the candidate's monthly progress report with AI recommendations
+      responses:
+        "200":
+          description: Progress report data.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgressReportResponse"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /speculative-applications:
+    get:
+      operationId: listSpeculativeApplications
+      tags: [CandidatePortal]
+      summary: List candidate's speculative CV submissions
+      responses:
+        "200":
+          description: List of speculative applications.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpeculativeApplicationListResponse"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    post:
+      operationId: sendSpeculativeApplication
+      tags: [CandidatePortal]
+      summary: Send a speculative CV to a sponsor licence company
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendSpeculativeApplicationRequest"
+      responses:
+        "201":
+          description: Speculative application sent.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpeculativeApplicationResult"
+        "200":
+          description: Already sent to this company.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpeculativeApplicationResult"
+        "400":
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
   /sponsor-licences/routes:
     get:
       operationId: getSponsorLicenceRoutes
@@ -2040,6 +2171,8 @@ components:
           type: string
           format: date-time
           nullable: true
+        boostProfile:
+          type: boolean
         createdAt:
           type: string
           format: date-time
@@ -3503,3 +3636,164 @@ components:
           type: array
           items:
             type: string
+
+    BoostProfileRequest:
+      type: object
+      required: [boost]
+      properties:
+        boost:
+          type: boolean
+
+    BoostProfileResponse:
+      type: object
+      required: [boostProfile]
+      properties:
+        boostProfile:
+          type: boolean
+
+    GenerateCoverLetterRequest:
+      type: object
+      required: [jobTitle, employer]
+      properties:
+        jobTitle:
+          type: string
+        employer:
+          type: string
+        jobDescription:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        regulator:
+          type: string
+          nullable: true
+        roleId:
+          type: integer
+          nullable: true
+
+    CoverLetterResponse:
+      type: object
+      required: [coverLetter, disclaimer]
+      properties:
+        coverLetter:
+          type: string
+        disclaimer:
+          type: string
+
+    ProgressReportStats:
+      type: object
+      required: [total, interviews, offers, noResponse, applicationsThisMonth, responseRate]
+      properties:
+        total:
+          type: integer
+        interviews:
+          type: integer
+        offers:
+          type: integer
+        noResponse:
+          type: integer
+        applicationsThisMonth:
+          type: integer
+        responseRate:
+          type: integer
+
+    ProgressReportResponse:
+      type: object
+      required: [period, stats, eligibility, plan, documentCount, boostProfile]
+      properties:
+        period:
+          type: object
+          required: [month, year]
+          properties:
+            month:
+              type: string
+            year:
+              type: integer
+        stats:
+          $ref: "#/components/schemas/ProgressReportStats"
+        eligibility:
+          type: object
+          required: [outcome, checkedAt]
+          properties:
+            outcome:
+              type: string
+              nullable: true
+            checkedAt:
+              type: string
+              format: date-time
+              nullable: true
+        plan:
+          type: object
+          required: [stepsDone, stepsTotal, progressPct]
+          properties:
+            stepsDone:
+              type: integer
+            stepsTotal:
+              type: integer
+            progressPct:
+              type: integer
+        documentCount:
+          type: integer
+        boostProfile:
+          type: boolean
+        recommendations:
+          type: string
+          nullable: true
+        disclaimer:
+          type: string
+          nullable: true
+
+    SpeculativeApplication:
+      type: object
+      required: [id, userId, companyName, status, createdAt]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: string
+        companyName:
+          type: string
+        sponsorLicenceId:
+          type: integer
+          nullable: true
+        status:
+          type: string
+          enum: [sent, acknowledged, no_account]
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    SpeculativeApplicationListResponse:
+      type: object
+      required: [applications]
+      properties:
+        applications:
+          type: array
+          items:
+            $ref: "#/components/schemas/SpeculativeApplication"
+
+    SendSpeculativeApplicationRequest:
+      type: object
+      required: [companyName]
+      properties:
+        companyName:
+          type: string
+        sponsorLicenceId:
+          type: integer
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    SpeculativeApplicationResult:
+      type: object
+      required: [application, alreadySent]
+      properties:
+        application:
+          $ref: "#/components/schemas/SpeculativeApplication"
+        alreadySent:
+          type: boolean

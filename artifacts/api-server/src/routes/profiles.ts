@@ -45,4 +45,25 @@ router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
   res.json(UpsertMyProfileResponse.parse(profile));
 });
 
+router.patch("/profiles/me/boost", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
+  const { boost } = req.body as { boost?: boolean };
+  if (typeof boost !== "boolean") {
+    res.status(400).json({ error: "boost must be a boolean." });
+    return;
+  }
+
+  const [profile] = await db
+    .update(profilesTable)
+    .set({ boostProfile: boost, updatedAt: new Date() })
+    .where(eq(profilesTable.userId, req.user!.id))
+    .returning();
+
+  if (!profile) {
+    res.status(404).json({ error: "Profile not found." });
+    return;
+  }
+
+  res.json({ boostProfile: profile.boostProfile });
+});
+
 export default router;

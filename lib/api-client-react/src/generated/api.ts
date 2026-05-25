@@ -23,10 +23,13 @@ import type {
   Application,
   ApplicationList,
   AuthUserEnvelope,
+  BoostProfileRequest,
+  BoostProfileResponse,
   CandidateProfile,
   ConsentLogList,
   ConsentRecord,
   ConsentStatus,
+  CoverLetterResponse,
   CreateJobListingRequest,
   CreateRulesetRequest,
   CvParseResult,
@@ -43,6 +46,7 @@ import type {
   ExportDecisionAuditParams,
   ForgotPasswordRequest,
   ForwardEligibilityResponse,
+  GenerateCoverLetterRequest,
   GenerateJobDescriptionResponse,
   GetInterviewPrepQuestionsParams,
   HealthStatus,
@@ -61,6 +65,7 @@ import type {
   MarkApplicationRequest,
   MatchedRoleList,
   MessageEnvelope,
+  ProgressReportResponse,
   RecordConsentRequest,
   RegisterDocumentRequest,
   RegisterRequest,
@@ -80,9 +85,12 @@ import type {
   RulesetWithRules,
   SaveSmartApplyDraft200,
   SaveSmartApplyDraftRequest,
+  SendSpeculativeApplicationRequest,
   SmartApplyDraftResponse,
   SmartApplyPrefillResponse,
   SmartApplyQuestionsResponse,
+  SpeculativeApplicationListResponse,
+  SpeculativeApplicationResult,
   SponsorLicenceListResponse,
   SponsorLicenceRoutesResponse,
   SponsorshipFeasibility,
@@ -5705,6 +5713,424 @@ export const useUpdateApplicantStage = <
   TContext
 > => {
   return useMutation(getUpdateApplicantStageMutationOptions(options));
+};
+
+/**
+ * @summary Enable or disable profile boost (visible to headhunting employers)
+ */
+export const getToggleProfileBoostUrl = () => {
+  return `/api/profiles/me/boost`;
+};
+
+export const toggleProfileBoost = async (
+  boostProfileRequest: BoostProfileRequest,
+  options?: RequestInit,
+): Promise<BoostProfileResponse> => {
+  return customFetch<BoostProfileResponse>(getToggleProfileBoostUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(boostProfileRequest),
+  });
+};
+
+export const getToggleProfileBoostMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof toggleProfileBoost>>,
+    TError,
+    { data: BodyType<BoostProfileRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof toggleProfileBoost>>,
+  TError,
+  { data: BodyType<BoostProfileRequest> },
+  TContext
+> => {
+  const mutationKey = ["toggleProfileBoost"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof toggleProfileBoost>>,
+    { data: BodyType<BoostProfileRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return toggleProfileBoost(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ToggleProfileBoostMutationResult = NonNullable<
+  Awaited<ReturnType<typeof toggleProfileBoost>>
+>;
+export type ToggleProfileBoostMutationBody = BodyType<BoostProfileRequest>;
+export type ToggleProfileBoostMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Enable or disable profile boost (visible to headhunting employers)
+ */
+export const useToggleProfileBoost = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof toggleProfileBoost>>,
+    TError,
+    { data: BodyType<BoostProfileRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof toggleProfileBoost>>,
+  TError,
+  { data: BodyType<BoostProfileRequest> },
+  TContext
+> => {
+  return useMutation(getToggleProfileBoostMutationOptions(options));
+};
+
+/**
+ * @summary Generate a tailored cover letter using AI
+ */
+export const getGenerateCoverLetterUrl = () => {
+  return `/api/cover-letter/generate`;
+};
+
+export const generateCoverLetter = async (
+  generateCoverLetterRequest: GenerateCoverLetterRequest,
+  options?: RequestInit,
+): Promise<CoverLetterResponse> => {
+  return customFetch<CoverLetterResponse>(getGenerateCoverLetterUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(generateCoverLetterRequest),
+  });
+};
+
+export const getGenerateCoverLetterMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateCoverLetter>>,
+    TError,
+    { data: BodyType<GenerateCoverLetterRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof generateCoverLetter>>,
+  TError,
+  { data: BodyType<GenerateCoverLetterRequest> },
+  TContext
+> => {
+  const mutationKey = ["generateCoverLetter"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof generateCoverLetter>>,
+    { data: BodyType<GenerateCoverLetterRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return generateCoverLetter(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GenerateCoverLetterMutationResult = NonNullable<
+  Awaited<ReturnType<typeof generateCoverLetter>>
+>;
+export type GenerateCoverLetterMutationBody =
+  BodyType<GenerateCoverLetterRequest>;
+export type GenerateCoverLetterMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Generate a tailored cover letter using AI
+ */
+export const useGenerateCoverLetter = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateCoverLetter>>,
+    TError,
+    { data: BodyType<GenerateCoverLetterRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof generateCoverLetter>>,
+  TError,
+  { data: BodyType<GenerateCoverLetterRequest> },
+  TContext
+> => {
+  return useMutation(getGenerateCoverLetterMutationOptions(options));
+};
+
+/**
+ * @summary Get the candidate's monthly progress report with AI recommendations
+ */
+export const getGetMyProgressReportUrl = () => {
+  return `/api/my-progress-report`;
+};
+
+export const getMyProgressReport = async (
+  options?: RequestInit,
+): Promise<ProgressReportResponse> => {
+  return customFetch<ProgressReportResponse>(getGetMyProgressReportUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMyProgressReportQueryKey = () => {
+  return [`/api/my-progress-report`] as const;
+};
+
+export const getGetMyProgressReportQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMyProgressReport>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyProgressReport>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMyProgressReportQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getMyProgressReport>>
+  > = ({ signal }) => getMyProgressReport({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMyProgressReport>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMyProgressReportQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMyProgressReport>>
+>;
+export type GetMyProgressReportQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Get the candidate's monthly progress report with AI recommendations
+ */
+
+export function useGetMyProgressReport<
+  TData = Awaited<ReturnType<typeof getMyProgressReport>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyProgressReport>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMyProgressReportQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List candidate's speculative CV submissions
+ */
+export const getListSpeculativeApplicationsUrl = () => {
+  return `/api/speculative-applications`;
+};
+
+export const listSpeculativeApplications = async (
+  options?: RequestInit,
+): Promise<SpeculativeApplicationListResponse> => {
+  return customFetch<SpeculativeApplicationListResponse>(
+    getListSpeculativeApplicationsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListSpeculativeApplicationsQueryKey = () => {
+  return [`/api/speculative-applications`] as const;
+};
+
+export const getListSpeculativeApplicationsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listSpeculativeApplications>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listSpeculativeApplications>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListSpeculativeApplicationsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listSpeculativeApplications>>
+  > = ({ signal }) =>
+    listSpeculativeApplications({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listSpeculativeApplications>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListSpeculativeApplicationsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listSpeculativeApplications>>
+>;
+export type ListSpeculativeApplicationsQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary List candidate's speculative CV submissions
+ */
+
+export function useListSpeculativeApplications<
+  TData = Awaited<ReturnType<typeof listSpeculativeApplications>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listSpeculativeApplications>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListSpeculativeApplicationsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Send a speculative CV to a sponsor licence company
+ */
+export const getSendSpeculativeApplicationUrl = () => {
+  return `/api/speculative-applications`;
+};
+
+export const sendSpeculativeApplication = async (
+  sendSpeculativeApplicationRequest: SendSpeculativeApplicationRequest,
+  options?: RequestInit,
+): Promise<SpeculativeApplicationResult> => {
+  return customFetch<SpeculativeApplicationResult>(
+    getSendSpeculativeApplicationUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(sendSpeculativeApplicationRequest),
+    },
+  );
+};
+
+export const getSendSpeculativeApplicationMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendSpeculativeApplication>>,
+    TError,
+    { data: BodyType<SendSpeculativeApplicationRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof sendSpeculativeApplication>>,
+  TError,
+  { data: BodyType<SendSpeculativeApplicationRequest> },
+  TContext
+> => {
+  const mutationKey = ["sendSpeculativeApplication"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof sendSpeculativeApplication>>,
+    { data: BodyType<SendSpeculativeApplicationRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return sendSpeculativeApplication(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SendSpeculativeApplicationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof sendSpeculativeApplication>>
+>;
+export type SendSpeculativeApplicationMutationBody =
+  BodyType<SendSpeculativeApplicationRequest>;
+export type SendSpeculativeApplicationMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Send a speculative CV to a sponsor licence company
+ */
+export const useSendSpeculativeApplication = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendSpeculativeApplication>>,
+    TError,
+    { data: BodyType<SendSpeculativeApplicationRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof sendSpeculativeApplication>>,
+  TError,
+  { data: BodyType<SendSpeculativeApplicationRequest> },
+  TContext
+> => {
+  return useMutation(getSendSpeculativeApplicationMutationOptions(options));
 };
 
 /**

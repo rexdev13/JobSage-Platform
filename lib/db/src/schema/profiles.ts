@@ -18,6 +18,7 @@ export const profilesTable = pgTable("profiles", {
   preferredRegion: text("preferred_region"),
   alertFrequency: varchar("alert_frequency", { enum: ["daily", "weekly", "off"] }).notNull().default("daily"),
   lastAlertSentAt: timestamp("last_alert_sent_at", { withTimezone: true }),
+  boostProfile: boolean("boost_profile").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

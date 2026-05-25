@@ -19,6 +19,9 @@ import smartApplyRouter from "./smartApply";
 import interviewPrepRouter from "./interviewPrep";
 import adminUsersRouter from "./adminUsers";
 import sponsorLicencesRouter from "./sponsorLicences";
+import coverLetterRouter from "./coverLetter";
+import progressReportRouter from "./progressReport";
+import speculativeApplicationsRouter from "./speculativeApplications";
 
 const router: IRouter = Router();
 
@@ -42,5 +45,8 @@ router.use(smartApplyRouter);
 router.use(interviewPrepRouter);
 router.use(adminUsersRouter);
 router.use(sponsorLicencesRouter);
+router.use(coverLetterRouter);
+router.use(progressReportRouter);
+router.use(speculativeApplicationsRouter);
 
 export default router;
