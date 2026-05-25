@@ -38,6 +38,7 @@ import AdminRolesPage from "@/pages/AdminRolesPage";
 import ReviewQueuePage from "@/pages/ReviewQueuePage";
 import AdminAuditPage from "@/pages/AdminAuditPage";
 import AdminUsersPage from "@/pages/AdminUsersPage";
+import SponsorLicencesPage from "@/pages/SponsorLicencesPage";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -180,6 +181,7 @@ function Router() {
             <Route path="/applications" component={ApplicationsPage} />
             <Route path="/path" component={PathPage} />
             <Route path="/interview-prep" component={InterviewPrepPage} />
+            <Route path="/sponsor-licences" component={SponsorLicencesPage} />
             <Route path="/admin/rulesets">
               <AdminGuard>
                 <AdminRulesetsPage />

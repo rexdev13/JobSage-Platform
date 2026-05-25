@@ -18,6 +18,7 @@ import employerRouter from "./employer";
 import smartApplyRouter from "./smartApply";
 import interviewPrepRouter from "./interviewPrep";
 import adminUsersRouter from "./adminUsers";
+import sponsorLicencesRouter from "./sponsorLicences";
 
 const router: IRouter = Router();
 
@@ -40,5 +41,6 @@ router.use(employerRouter);
 router.use(smartApplyRouter);
 router.use(interviewPrepRouter);
 router.use(adminUsersRouter);
+router.use(sponsorLicencesRouter);
 
 export default router;

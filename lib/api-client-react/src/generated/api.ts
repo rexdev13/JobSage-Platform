@@ -55,6 +55,7 @@ import type {
   ListDecisionsParams,
   ListReviewQueueParams,
   ListRulesetsParams,
+  ListSponsorLicencesParams,
   LoginRequest,
   LogoutSuccess,
   MarkApplicationRequest,
@@ -82,6 +83,8 @@ import type {
   SmartApplyDraftResponse,
   SmartApplyPrefillResponse,
   SmartApplyQuestionsResponse,
+  SponsorLicenceListResponse,
+  SponsorLicenceRoutesResponse,
   SponsorshipFeasibility,
   UpdateApplicantStageRequest,
   UpdateApplicantStageResponse,
@@ -4493,11 +4496,14 @@ export const getListAdminAuditEventsUrl = (
 export const listAdminAuditEvents = async (
   params?: ListAdminAuditEventsParams,
   options?: RequestInit,
-): Promise<AdminAuditEventList> => {
-  return customFetch<AdminAuditEventList>(getListAdminAuditEventsUrl(params), {
-    ...options,
-    method: "GET",
-  });
+): Promise<AdminAuditEventList | string> => {
+  return customFetch<AdminAuditEventList | string>(
+    getListAdminAuditEventsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
 };
 
 export const getListAdminAuditEventsQueryKey = (
@@ -5700,3 +5706,185 @@ export const useUpdateApplicantStage = <
 > => {
   return useMutation(getUpdateApplicantStageMutationOptions(options));
 };
+
+/**
+ * @summary Get distinct sponsorship routes present in the register
+ */
+export const getGetSponsorLicenceRoutesUrl = () => {
+  return `/api/sponsor-licences/routes`;
+};
+
+export const getSponsorLicenceRoutes = async (
+  options?: RequestInit,
+): Promise<SponsorLicenceRoutesResponse> => {
+  return customFetch<SponsorLicenceRoutesResponse>(
+    getGetSponsorLicenceRoutesUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetSponsorLicenceRoutesQueryKey = () => {
+  return [`/api/sponsor-licences/routes`] as const;
+};
+
+export const getGetSponsorLicenceRoutesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSponsorLicenceRoutes>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSponsorLicenceRoutes>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetSponsorLicenceRoutesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSponsorLicenceRoutes>>
+  > = ({ signal }) => getSponsorLicenceRoutes({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSponsorLicenceRoutes>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSponsorLicenceRoutesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSponsorLicenceRoutes>>
+>;
+export type GetSponsorLicenceRoutesQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Get distinct sponsorship routes present in the register
+ */
+
+export function useGetSponsorLicenceRoutes<
+  TData = Awaited<ReturnType<typeof getSponsorLicenceRoutes>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSponsorLicenceRoutes>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSponsorLicenceRoutesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Search and filter the UK Home Office sponsor licence register
+ */
+export const getListSponsorLicencesUrl = (
+  params?: ListSponsorLicencesParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/sponsor-licences?${stringifiedParams}`
+    : `/api/sponsor-licences`;
+};
+
+export const listSponsorLicences = async (
+  params?: ListSponsorLicencesParams,
+  options?: RequestInit,
+): Promise<SponsorLicenceListResponse> => {
+  return customFetch<SponsorLicenceListResponse>(
+    getListSponsorLicencesUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListSponsorLicencesQueryKey = (
+  params?: ListSponsorLicencesParams,
+) => {
+  return [`/api/sponsor-licences`, ...(params ? [params] : [])] as const;
+};
+
+export const getListSponsorLicencesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listSponsorLicences>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  params?: ListSponsorLicencesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSponsorLicences>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListSponsorLicencesQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listSponsorLicences>>
+  > = ({ signal }) =>
+    listSponsorLicences(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listSponsorLicences>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListSponsorLicencesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listSponsorLicences>>
+>;
+export type ListSponsorLicencesQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Search and filter the UK Home Office sponsor licence register
+ */
+
+export function useListSponsorLicences<
+  TData = Awaited<ReturnType<typeof listSponsorLicences>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  params?: ListSponsorLicencesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSponsorLicences>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListSponsorLicencesQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}

@@ -1022,6 +1022,33 @@ export interface UpdateApplicantStageResponse {
   notes?: string | null;
 }
 
+export interface SponsorLicenceCompany {
+  id: number;
+  organisationName: string;
+  townCity?: string | null;
+  county?: string | null;
+  route?: string | null;
+  subRoute?: string | null;
+  rating?: string | null;
+  syncedAt: string;
+  hasVacancies?: boolean;
+}
+
+export interface SponsorLicenceListResponse {
+  companies: SponsorLicenceCompany[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  withVacancies: number;
+  lastSyncedAt?: string | null;
+  lastSyncFailed?: boolean;
+}
+
+export interface SponsorLicenceRoutesResponse {
+  routes: string[];
+}
+
 export type VerifyEmailParams = {
   /**
    * Email verification token from the verification email.
@@ -1112,9 +1139,18 @@ export const ExportDecisionAuditFormat = {
 } as const;
 
 export type ListAdminAuditEventsParams = {
+  format?: ListAdminAuditEventsFormat;
   page?: number;
   pageSize?: number;
 };
+
+export type ListAdminAuditEventsFormat =
+  (typeof ListAdminAuditEventsFormat)[keyof typeof ListAdminAuditEventsFormat];
+
+export const ListAdminAuditEventsFormat = {
+  csv: "csv",
+  json: "json",
+} as const;
 
 export type ListConsentLogParams = {
   page?: number;
@@ -1123,4 +1159,24 @@ export type ListConsentLogParams = {
 
 export type DeleteJobListing200 = {
   message?: string;
+};
+
+export type ListSponsorLicencesParams = {
+  /**
+   * Organisation name search (case-insensitive partial match)
+   */
+  search?: string;
+  /**
+   * Filter by sponsorship route (e.g. Worker)
+   */
+  route?: string;
+  /**
+   * If true, return only companies with active vacancies on the platform
+   */
+  hasVacancies?: boolean;
+  page?: number;
+  /**
+   * @maximum 100
+   */
+  limit?: number;
 };
