@@ -2375,8 +2375,43 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /admin/super/sponsor-licences/sync:
+    post:
+      tags: [SuperAdmin]
+      operationId: triggerSponsorLicenceSync
+      summary: Trigger immediate sponsor licence register sync (super admin only)
+      responses:
+        "200":
+          description: Sync completed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SponsorLicenceSyncResult"
+        "500":
+          description: Sync failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SponsorLicenceSyncResult"
+
 components:
   schemas:
+    SponsorLicenceSyncResult:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+        recordCount:
+          type: number
+          nullable: true
+        syncedAt:
+          type: string
+          nullable: true
+        error:
+          type: string
+          nullable: true
+
     HealthStatus:
       type: object
       properties:

@@ -5,6 +5,13 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
+export interface SponsorLicenceSyncResult {
+  success: boolean;
+  recordCount?: number | null;
+  syncedAt?: string | null;
+  error?: string | null;
+}
+
 export interface HealthStatus {
   status: string;
 }

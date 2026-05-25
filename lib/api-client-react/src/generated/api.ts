@@ -105,6 +105,7 @@ import type {
   SpeculativeApplicationResult,
   SponsorLicenceListResponse,
   SponsorLicenceRoutesResponse,
+  SponsorLicenceSyncResult,
   SponsorshipFeasibility,
   StopImpersonation200,
   SuperAdminHealth,
@@ -7719,3 +7720,88 @@ export function useGetSuperAdminHealth<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Trigger immediate sponsor licence register sync (super admin only)
+ */
+export const getTriggerSponsorLicenceSyncUrl = () => {
+  return `/api/admin/super/sponsor-licences/sync`;
+};
+
+export const triggerSponsorLicenceSync = async (
+  options?: RequestInit,
+): Promise<SponsorLicenceSyncResult> => {
+  return customFetch<SponsorLicenceSyncResult>(
+    getTriggerSponsorLicenceSyncUrl(),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getTriggerSponsorLicenceSyncMutationOptions = <
+  TError = ErrorType<SponsorLicenceSyncResult>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof triggerSponsorLicenceSync>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof triggerSponsorLicenceSync>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["triggerSponsorLicenceSync"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof triggerSponsorLicenceSync>>,
+    void
+  > = () => {
+    return triggerSponsorLicenceSync(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type TriggerSponsorLicenceSyncMutationResult = NonNullable<
+  Awaited<ReturnType<typeof triggerSponsorLicenceSync>>
+>;
+
+export type TriggerSponsorLicenceSyncMutationError =
+  ErrorType<SponsorLicenceSyncResult>;
+
+/**
+ * @summary Trigger immediate sponsor licence register sync (super admin only)
+ */
+export const useTriggerSponsorLicenceSync = <
+  TError = ErrorType<SponsorLicenceSyncResult>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof triggerSponsorLicenceSync>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof triggerSponsorLicenceSync>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getTriggerSponsorLicenceSyncMutationOptions(options));
+};
