@@ -36,6 +36,8 @@ tags:
     description: Remediation plan generation and progress tracking.
   - name: Employer
     description: Employer portal — post jobs, generate AI descriptions, rank and pipeline candidates.
+  - name: SponsorLicences
+    description: UK Home Office sponsor licence register — search and filter licensed sponsors.
 paths:
   /healthz:
     get:
@@ -1778,6 +1780,72 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UpdateApplicantStageResponse"
+
+  /sponsor-licences/routes:
+    get:
+      operationId: getSponsorLicenceRoutes
+      tags: [SponsorLicences]
+      summary: Get distinct sponsorship routes present in the register
+      responses:
+        "200":
+          description: List of distinct routes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SponsorLicenceRoutesResponse"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /sponsor-licences:
+    get:
+      operationId: listSponsorLicences
+      tags: [SponsorLicences]
+      summary: Search and filter the UK Home Office sponsor licence register
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Organisation name search (case-insensitive partial match)
+        - name: route
+          in: query
+          schema:
+            type: string
+          description: Filter by sponsorship route (e.g. Worker)
+        - name: hasVacancies
+          in: query
+          schema:
+            type: boolean
+          description: If true, return only companies with active vacancies on the platform
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        "200":
+          description: Paginated sponsor licence companies
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SponsorLicenceListResponse"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
 components:
   schemas:
     HealthStatus:
@@ -3372,3 +3440,66 @@ components:
         notes:
           type: string
           nullable: true
+
+    SponsorLicenceCompany:
+      type: object
+      required: [id, organisationName, syncedAt]
+      properties:
+        id:
+          type: integer
+        organisationName:
+          type: string
+        townCity:
+          type: string
+          nullable: true
+        county:
+          type: string
+          nullable: true
+        route:
+          type: string
+          nullable: true
+        subRoute:
+          type: string
+          nullable: true
+        rating:
+          type: string
+          nullable: true
+        syncedAt:
+          type: string
+          format: date-time
+        hasVacancies:
+          type: boolean
+
+    SponsorLicenceListResponse:
+      type: object
+      required: [companies, total, page, limit, totalPages, withVacancies]
+      properties:
+        companies:
+          type: array
+          items:
+            $ref: "#/components/schemas/SponsorLicenceCompany"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+        withVacancies:
+          type: integer
+        lastSyncedAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastSyncFailed:
+          type: boolean
+
+    SponsorLicenceRoutesResponse:
+      type: object
+      required: [routes]
+      properties:
+        routes:
+          type: array
+          items:
+            type: string

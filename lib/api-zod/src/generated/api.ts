@@ -1216,10 +1216,14 @@ export const ExportDecisionAuditResponse = zod.object({
 /**
  * @summary List paginated admin action audit events (admin only)
  */
+export const listAdminAuditEventsQueryFormatDefault = `json`;
 export const listAdminAuditEventsQueryPageDefault = 1;
 export const listAdminAuditEventsQueryPageSizeDefault = 50;
 
 export const ListAdminAuditEventsQueryParams = zod.object({
+  format: zod
+    .enum(["csv", "json"])
+    .default(listAdminAuditEventsQueryFormatDefault),
   page: zod.coerce.number().default(listAdminAuditEventsQueryPageDefault),
   pageSize: zod.coerce
     .number()
@@ -1608,4 +1612,63 @@ export const UpdateApplicantStageResponse = zod.object({
   applicationId: zod.number(),
   stage: zod.string(),
   notes: zod.string().nullish(),
+});
+
+/**
+ * @summary Get distinct sponsorship routes present in the register
+ */
+export const GetSponsorLicenceRoutesResponse = zod.object({
+  routes: zod.array(zod.string()),
+});
+
+/**
+ * @summary Search and filter the UK Home Office sponsor licence register
+ */
+export const listSponsorLicencesQueryPageDefault = 1;
+export const listSponsorLicencesQueryLimitDefault = 20;
+export const listSponsorLicencesQueryLimitMax = 100;
+
+export const ListSponsorLicencesQueryParams = zod.object({
+  search: zod.coerce
+    .string()
+    .optional()
+    .describe("Organisation name search (case-insensitive partial match)"),
+  route: zod.coerce
+    .string()
+    .optional()
+    .describe("Filter by sponsorship route (e.g. Worker)"),
+  hasVacancies: zod.coerce
+    .boolean()
+    .optional()
+    .describe(
+      "If true, return only companies with active vacancies on the platform",
+    ),
+  page: zod.coerce.number().default(listSponsorLicencesQueryPageDefault),
+  limit: zod.coerce
+    .number()
+    .max(listSponsorLicencesQueryLimitMax)
+    .default(listSponsorLicencesQueryLimitDefault),
+});
+
+export const ListSponsorLicencesResponse = zod.object({
+  companies: zod.array(
+    zod.object({
+      id: zod.number(),
+      organisationName: zod.string(),
+      townCity: zod.string().nullish(),
+      county: zod.string().nullish(),
+      route: zod.string().nullish(),
+      subRoute: zod.string().nullish(),
+      rating: zod.string().nullish(),
+      syncedAt: zod.date(),
+      hasVacancies: zod.boolean().optional(),
+    }),
+  ),
+  total: zod.number(),
+  page: zod.number(),
+  limit: zod.number(),
+  totalPages: zod.number(),
+  withVacancies: zod.number(),
+  lastSyncedAt: zod.date().nullish(),
+  lastSyncFailed: zod.boolean().optional(),
 });

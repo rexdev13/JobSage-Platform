@@ -1,6 +1,7 @@
 import app from "./app";
 import { seedRulesets } from "./lib/seedRulesets";
 import { startAlertScheduler } from "./lib/alertScheduler";
+import { startSponsorLicenceScheduler } from "./lib/sponsorLicenceScheduler";
 
 const rawPort = process.env["PORT"];
 
@@ -22,4 +23,5 @@ app.listen(port, () => {
     console.error("[seed] Failed to seed rulesets:", err);
   });
   startAlertScheduler();
+  startSponsorLicenceScheduler();
 });

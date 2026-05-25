@@ -3,7 +3,7 @@ import { useAuth } from "@workspace/auth-web";
 import { 
   Home, User, FileText, CheckCircle, 
   Map, ClipboardList, Shield, Users, LogOut, Briefcase,
-  Building2, Plus, LayoutDashboard, Sparkles, UserCog
+  Building2, Plus, LayoutDashboard, Sparkles, UserCog, List
 } from "lucide-react";
 import { cn } from "@/components/ui-enhanced";
 
@@ -23,6 +23,7 @@ export function AppSidebar() {
     { name: "My Applications", href: "/applications", icon: ClipboardList, roles: ["candidate", "reviewer", "admin"] },
     { name: "My Path", href: "/path", icon: Map, roles: ["candidate", "reviewer", "admin"] },
     { name: "Interview Prep", href: "/interview-prep", icon: Sparkles, roles: ["candidate", "reviewer", "admin"] },
+    { name: "Sponsor Licences", href: "/sponsor-licences", icon: List, roles: ["candidate", "reviewer", "admin"] },
 
     // Employer
     { name: "Employer Dashboard", href: "/employer/dashboard", icon: LayoutDashboard, roles: ["employer", "admin"] },

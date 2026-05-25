@@ -5,8 +5,10 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { ListAdminAuditEventsFormat } from "./listAdminAuditEventsFormat";
 
 export type ListAdminAuditEventsParams = {
+  format?: ListAdminAuditEventsFormat;
   page?: number;
   pageSize?: number;
 };
