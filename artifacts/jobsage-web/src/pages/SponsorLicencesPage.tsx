@@ -22,6 +22,7 @@ import {
   Send,
   CheckCircle2,
   Loader2,
+  ExternalLink,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -326,21 +327,32 @@ export default function SponsorLicencesPage() {
                       </div>
                     </div>
 
-                    <Button
-                      size="sm"
-                      variant={sentCompanyNames.has(c.organisationName) ? "outline" : "default"}
-                      className="shrink-0 text-xs gap-1.5"
-                      onClick={() => handleSendCV(c.organisationName, c.id)}
-                      disabled={sendCVMutation.isPending}
-                    >
-                      {sendCVMutation.isPending ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : sentCompanyNames.has(c.organisationName) ? (
-                        <><CheckCircle2 className="w-3.5 h-3.5" /> CV Sent</>
-                      ) : (
-                        <><Send className="w-3.5 h-3.5" /> Send my CV</>
-                      )}
-                    </Button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <a
+                        href={`https://www.reed.co.uk/jobs?keywords=${encodeURIComponent(c.organisationName)}&locationName=United+Kingdom`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors font-medium"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        Find vacancies
+                      </a>
+                      <Button
+                        size="sm"
+                        variant={sentCompanyNames.has(c.organisationName) ? "outline" : "default"}
+                        className="text-xs gap-1.5"
+                        onClick={() => handleSendCV(c.organisationName, c.id)}
+                        disabled={sendCVMutation.isPending}
+                      >
+                        {sendCVMutation.isPending ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : sentCompanyNames.has(c.organisationName) ? (
+                          <><CheckCircle2 className="w-3.5 h-3.5" /> CV Sent</>
+                        ) : (
+                          <><Send className="w-3.5 h-3.5" /> Send my CV</>
+                        )}
+                      </Button>
+                    </div>
                   </Card>
                 </motion.div>
               ))}

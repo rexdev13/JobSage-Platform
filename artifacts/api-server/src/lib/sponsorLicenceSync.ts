@@ -3,7 +3,7 @@ import { sponsorLicencesTable, sponsorLicenceSyncLogTable } from "@workspace/db"
 import { sql } from "drizzle-orm";
 
 const DEFAULT_REGISTER_URL =
-  "https://assets.publishing.service.gov.uk/media/6824bc5e8d0c8b5e0e3f5e98/2025-05-14_-_Worker_and_Temporary_Worker.xlsx";
+  "https://assets.publishing.service.gov.uk/media/6a10190c0026f30a6d421c71/2026-05-22_-_Worker_and_Temporary_Worker.csv";
 
 function getRegisterUrl(): string {
   return process.env["SPONSOR_LICENCE_REGISTER_URL"] ?? DEFAULT_REGISTER_URL;
@@ -31,7 +31,82 @@ function findCol(headers: string[], ...candidates: string[]): number {
   return -1;
 }
 
-async function downloadAndParse(url: string): Promise<ParsedRow[]> {
+/**
+ * Parse "Type & Rating" values like:
+ *   "Worker (A rating)"          → route=Worker,  rating=A rating,  subRoute from Route col
+ *   "Temporary Worker (A rating)" → route=Temporary Worker, rating=A rating
+ *   "Worker-A Rating"             → (older XLSX style)
+ */
+function parseTypeRating(raw: string): { route: string | null; rating: string | null } {
+  const trimmed = raw.trim();
+  if (!trimmed) return { route: null, rating: null };
+
+  // Pattern: "Worker (A rating)" or "Temporary Worker (B rating)"
+  const parenMatch = /^(.+?)\s*\((.+?)\)\s*$/.exec(trimmed);
+  if (parenMatch) {
+    return {
+      route: (parenMatch[1] ?? "").trim() || null,
+      rating: (parenMatch[2] ?? "").trim() || null,
+    };
+  }
+
+  // Older dash-separated style: "Worker-A Rating-Skilled Worker"
+  const parts = trimmed.split(/[-|]/).map((p) => p.trim()).filter(Boolean);
+  if (parts.length >= 1) {
+    const route = parts[0] ?? null;
+    const rating = parts.length >= 2 ? (parts[1] ?? null) : null;
+    return { route, rating };
+  }
+
+  return { route: trimmed, rating: null };
+}
+
+async function downloadAndParseCSV(url: string): Promise<ParsedRow[]> {
+  const { parse } = await import("csv-parse");
+
+  const resp = await fetch(url, {
+    headers: { "User-Agent": "JOBSAGE/1.0 (sponsor-licence-sync)" },
+    signal: AbortSignal.timeout(120_000),
+  });
+
+  if (!resp.ok) {
+    throw new Error(`HTTP ${resp.status} ${resp.statusText} fetching register`);
+  }
+
+  const text = await resp.text();
+
+  return new Promise((resolve, reject) => {
+    parse(
+      text,
+      { columns: true, skip_empty_lines: true, trim: true, bom: true },
+      (err, records: Record<string, string>[]) => {
+        if (err) return reject(err);
+
+        const results: ParsedRow[] = [];
+        for (const record of records) {
+          const org = (record["Organisation Name"] ?? "").trim();
+          if (!org) continue;
+
+          const typeRating = record["Type & Rating"] ?? "";
+          const { route, rating } = parseTypeRating(typeRating);
+          const subRoute = (record["Route"] ?? "").trim() || null;
+
+          results.push({
+            organisationName: org,
+            townCity: (record["Town/City"] ?? "").trim() || null,
+            county: (record["County"] ?? "").trim() || null,
+            route,
+            subRoute,
+            rating,
+          });
+        }
+        resolve(results);
+      },
+    );
+  });
+}
+
+async function downloadAndParseXLSX(url: string): Promise<ParsedRow[]> {
   const { default: XLSX } = await import("xlsx");
 
   const resp = await fetch(url, {
@@ -53,7 +128,6 @@ async function downloadAndParse(url: string): Promise<ParsedRow[]> {
 
   if (rows.length < 2) throw new Error("XLSX appears empty");
 
-  // Find the header row — the Home Office file sometimes has blank rows at top
   let headerRowIdx = 0;
   for (let i = 0; i < Math.min(rows.length, 10); i++) {
     const row = rows[i];
@@ -64,11 +138,9 @@ async function downloadAndParse(url: string): Promise<ParsedRow[]> {
   }
 
   const headers = (rows[headerRowIdx] ?? []).map((h) => String(h));
-
   const orgCol = findCol(headers, "Organisation Name", "OrganisationName", "Organisation");
   const townCol = findCol(headers, "Town/City", "Town", "City", "TownCity");
   const countyCol = findCol(headers, "County");
-  // The register may have a combined "Type & Rating" column or separate Route/SubRoute/Rating columns
   const typeRatingCol = findCol(headers, "Type & Rating", "TypeRating", "Type&Rating");
   const routeCol = findCol(headers, "Route", "Worker Route");
   const subRouteCol = findCol(headers, "Sub Route", "SubRoute");
@@ -77,11 +149,9 @@ async function downloadAndParse(url: string): Promise<ParsedRow[]> {
   if (orgCol < 0) throw new Error("Could not find Organisation Name column in XLSX");
 
   const results: ParsedRow[] = [];
-
   for (let i = headerRowIdx + 1; i < rows.length; i++) {
     const row = rows[i];
     if (!row) continue;
-
     const org = String(row[orgCol] ?? "").trim();
     if (!org) continue;
 
@@ -91,23 +161,18 @@ async function downloadAndParse(url: string): Promise<ParsedRow[]> {
 
     if (typeRatingCol >= 0) {
       const combined = String(row[typeRatingCol] ?? "").trim();
-      // Example: "Worker-A Rating-Skilled Worker" or "Worker | A-Rating | Skilled Worker"
-      const parts = combined.split(/[-|]/).map((p) => p.trim()).filter(Boolean);
-      if (parts.length >= 1) route = parts[0] ?? null;
-      if (parts.length >= 2) {
-        const p1 = parts[1] ?? "";
-        if (/rating/i.test(p1)) {
-          rating = p1;
-          if (parts.length >= 3) subRoute = parts.slice(2).join(" ");
-        } else {
-          subRoute = p1;
-          if (parts.length >= 3) rating = parts[2] ?? null;
-        }
-      }
+      const parsed = parseTypeRating(combined);
+      route = parsed.route;
+      rating = parsed.rating;
     } else {
       if (routeCol >= 0) route = String(row[routeCol] ?? "").trim() || null;
-      if (subRouteCol >= 0) subRoute = String(row[subRouteCol] ?? "").trim() || null;
       if (ratingCol >= 0) rating = String(row[ratingCol] ?? "").trim() || null;
+    }
+
+    if (subRouteCol >= 0) subRoute = String(row[subRouteCol] ?? "").trim() || null;
+    // For XLSX with Route column but no SubRoute column, use routeCol as subRoute
+    else if (routeCol >= 0 && typeRatingCol >= 0) {
+      subRoute = String(row[routeCol] ?? "").trim() || null;
     }
 
     results.push({
@@ -123,6 +188,14 @@ async function downloadAndParse(url: string): Promise<ParsedRow[]> {
   return results;
 }
 
+async function downloadAndParse(url: string): Promise<ParsedRow[]> {
+  const lowerUrl = url.toLowerCase().split("?")[0] ?? "";
+  if (lowerUrl.endsWith(".csv")) {
+    return downloadAndParseCSV(url);
+  }
+  return downloadAndParseXLSX(url);
+}
+
 export async function runSponsorLicenceSync(): Promise<void> {
   const url = getRegisterUrl();
   console.log("[sponsor-sync] Starting sync from", url);
@@ -133,9 +206,8 @@ export async function runSponsorLicenceSync(): Promise<void> {
     const rows = await downloadAndParse(url);
     console.log(`[sponsor-sync] Parsed ${rows.length} records`);
 
-    if (rows.length === 0) throw new Error("No records parsed from XLSX");
+    if (rows.length === 0) throw new Error("No records parsed from register");
 
-    // Truncate and re-insert — the register is a full snapshot
     await db.transaction(async (tx) => {
       await tx.execute(sql`TRUNCATE TABLE sponsor_licences RESTART IDENTITY`);
       const BATCH = 500;

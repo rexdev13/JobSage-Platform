@@ -2154,3 +2154,13 @@ export const GetSuperAdminHealthResponse = zod.object({
       "Count of 5xx HTTP errors (api_error_5xx audit events) in the last 7 days.",
     ),
 });
+
+/**
+ * @summary Trigger immediate sponsor licence register sync (super admin only)
+ */
+export const TriggerSponsorLicenceSyncResponse = zod.object({
+  success: zod.boolean(),
+  recordCount: zod.number().nullish(),
+  syncedAt: zod.string().nullish(),
+  error: zod.string().nullish(),
+});

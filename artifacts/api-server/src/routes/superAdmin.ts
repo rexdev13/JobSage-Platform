@@ -498,4 +498,28 @@ router.get(
   },
 );
 
+/**
+ * POST /admin/super/sponsor-licences/sync
+ *
+ * Triggers an immediate download and import of the Home Office sponsor licence
+ * register. Useful when the register has been updated mid-day outside the
+ * scheduled 02:00 window.
+ */
+router.post(
+  "/admin/super/sponsor-licences/sync",
+  requireRole("super_admin"),
+  async (req: Request, res: Response) => {
+    try {
+      writeAuditEvent(req.user!.id, "super_admin_sponsor_sync", undefined, {}).catch(() => {});
+      const { runSponsorLicenceSync } = await import("../lib/sponsorLicenceSync");
+      await runSponsorLicenceSync();
+      const [row] = await db.select({ cnt: count(sponsorLicencesTable.id) }).from(sponsorLicencesTable);
+      res.json({ success: true, recordCount: Number(row?.cnt ?? 0), syncedAt: new Date().toISOString() });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ success: false, error: msg });
+    }
+  },
+);
+
 export default router;

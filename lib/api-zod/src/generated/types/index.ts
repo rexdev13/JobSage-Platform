@@ -162,6 +162,7 @@ export * from "./speculativeApplicationStatus";
 export * from "./sponsorLicenceCompany";
 export * from "./sponsorLicenceListResponse";
 export * from "./sponsorLicenceRoutesResponse";
+export * from "./sponsorLicenceSyncResult";
 export * from "./sponsorshipFeasibility";
 export * from "./sponsorshipFeasibilityOutcome";
 export * from "./stopImpersonation200";
