@@ -17,7 +17,7 @@ import {
 import { eq, and, desc, gte, lte, count, max, ilike, sql, asc } from "drizzle-orm";
 import { requireRole } from "../middlewares/requireRole";
 import { writeAuditEvent } from "../lib/audit";
-import { createSession, getSession } from "../lib/auth";
+import { createSession, getSession, SESSION_COOKIE } from "../lib/auth";
 
 const router: IRouter = Router();
 
@@ -251,7 +251,7 @@ router.post(
 );
 
 router.get(
-  "/admin/super/impersonate/validate",
+  "/admin/super/impersonate/activate",
   async (req: Request, res: Response): Promise<void> => {
     const token = (req.query["token"] as string) ?? "";
     if (!token) {
@@ -265,13 +265,18 @@ router.get(
       return;
     }
 
-    const fullDetail = await fetchUserFull(session.user.id);
-    if (!fullDetail) {
-      res.status(404).json({ error: "Target user not found." });
-      return;
-    }
+    res.cookie(SESSION_COOKIE, token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 15 * 60 * 1000,
+    });
 
-    res.json({ ...fullDetail, impersonating: true, adminId: session.adminId ?? null });
+    res.json({
+      user: session.user,
+      adminId: session.adminId ?? null,
+    });
   },
 );
 
@@ -361,7 +366,7 @@ async function fetchUserFull(userId: string) {
   const [employerProfile] = await db.select().from(employerProfilesTable).where(eq(employerProfilesTable.userId, userId));
 
   const documents = await db
-    .select({ id: documentsTable.id, filename: documentsTable.filename, mimeType: documentsTable.mimeType, storageKey: documentsTable.storageKey, uploadedAt: documentsTable.uploadedAt })
+    .select({ id: documentsTable.id, fileName: documentsTable.filename, fileType: documentsTable.mimeType, storageKey: documentsTable.storageKey, uploadedAt: documentsTable.uploadedAt })
     .from(documentsTable)
     .where(eq(documentsTable.userId, userId))
     .orderBy(desc(documentsTable.uploadedAt));
