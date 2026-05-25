@@ -181,56 +181,6 @@ router.get(
   },
 );
 
-router.post(
-  "/admin/super/impersonate/:id",
-  requireRole("super_admin"),
-  async (req: Request, res: Response): Promise<void> => {
-    const targetId = req.params["id"] as string;
-    const actorId = req.user!.id;
-
-    const [targetUser] = await db
-      .select({ id: usersTable.id, email: usersTable.email, firstName: usersTable.firstName, lastName: usersTable.lastName, role: usersTable.role, emailVerified: usersTable.emailVerified })
-      .from(usersTable)
-      .where(eq(usersTable.id, targetId));
-
-    if (!targetUser) {
-      res.status(404).json({ error: "User not found." });
-      return;
-    }
-
-    const IMPERSONATE_TTL = 15 * 60 * 1000;
-    const sid = await createSession(
-      {
-        user: {
-          id: targetUser.id,
-          email: targetUser.email,
-          firstName: targetUser.firstName,
-          lastName: targetUser.lastName,
-          role: targetUser.role as import("@workspace/api-zod").AuthUserRole,
-          emailVerified: targetUser.emailVerified,
-        },
-        impersonating: true,
-        adminId: actorId,
-      },
-      IMPERSONATE_TTL,
-    );
-
-    writeAuditEvent(actorId, "super_admin_impersonate", targetId, { targetEmail: targetUser.email }).catch(() => {});
-
-    const expiresAt = new Date(Date.now() + IMPERSONATE_TTL);
-    res.json({
-      token: sid,
-      expiresAt,
-      targetUser: {
-        id: targetUser.id,
-        email: targetUser.email,
-        displayName: [targetUser.firstName, targetUser.lastName].filter(Boolean).join(" ") || targetUser.email,
-        role: targetUser.role,
-      },
-    });
-  },
-);
-
 router.get(
   "/admin/super/impersonate/activate",
   async (req: Request, res: Response): Promise<void> => {
@@ -287,6 +237,56 @@ router.post(
     await updateSession(sid, { user: session.user });
     writeAuditEvent(session.user.id, "super_admin_impersonate_stop").catch(() => {});
     res.json({ ok: true });
+  },
+);
+
+router.post(
+  "/admin/super/impersonate/:id",
+  requireRole("super_admin"),
+  async (req: Request, res: Response): Promise<void> => {
+    const targetId = req.params["id"] as string;
+    const actorId = req.user!.id;
+
+    const [targetUser] = await db
+      .select({ id: usersTable.id, email: usersTable.email, firstName: usersTable.firstName, lastName: usersTable.lastName, role: usersTable.role, emailVerified: usersTable.emailVerified })
+      .from(usersTable)
+      .where(eq(usersTable.id, targetId));
+
+    if (!targetUser) {
+      res.status(404).json({ error: "User not found." });
+      return;
+    }
+
+    const IMPERSONATE_TTL = 15 * 60 * 1000;
+    const sid = await createSession(
+      {
+        user: {
+          id: targetUser.id,
+          email: targetUser.email,
+          firstName: targetUser.firstName,
+          lastName: targetUser.lastName,
+          role: targetUser.role as import("@workspace/api-zod").AuthUserRole,
+          emailVerified: targetUser.emailVerified,
+        },
+        impersonating: true,
+        adminId: actorId,
+      },
+      IMPERSONATE_TTL,
+    );
+
+    writeAuditEvent(actorId, "super_admin_impersonate", targetId, { targetEmail: targetUser.email }).catch(() => {});
+
+    const expiresAt = new Date(Date.now() + IMPERSONATE_TTL);
+    res.json({
+      token: sid,
+      expiresAt,
+      targetUser: {
+        id: targetUser.id,
+        email: targetUser.email,
+        displayName: [targetUser.firstName, targetUser.lastName].filter(Boolean).join(" ") || targetUser.email,
+        role: targetUser.role,
+      },
+    });
   },
 );
 
