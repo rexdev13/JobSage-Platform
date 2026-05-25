@@ -36,14 +36,7 @@ export default function ImpersonatePage() {
         return r.json() as Promise<ActivateResponse>;
       })
       .then((data) => {
-        const { user, adminId } = data;
-        const displayName = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email || user.id;
-
-        sessionStorage.setItem(
-          "impersonation",
-          JSON.stringify({ displayName, email: user.email ?? "", role: user.role ?? "", adminId }),
-        );
-
+        const { user } = data;
         const base = import.meta.env.BASE_URL.replace(/\/$/, "");
         const dashboardPath = user.role === "employer" ? "/employer/dashboard" : "/";
         window.location.href = base + dashboardPath;

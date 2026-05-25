@@ -106,6 +106,7 @@ import type {
   SponsorLicenceListResponse,
   SponsorLicenceRoutesResponse,
   SponsorshipFeasibility,
+  StopImpersonation200,
   SuperAdminHealth,
   SuperAdminStats,
   SuperAdminUserFull,
@@ -7352,6 +7353,87 @@ export const useCreateImpersonationToken = <
   TContext
 > => {
   return useMutation(getCreateImpersonationTokenMutationOptions(options));
+};
+
+/**
+ * @summary Stop impersonating — removes impersonating user from the admin's session without logging out
+ */
+export const getStopImpersonationUrl = () => {
+  return `/api/admin/super/impersonate/stop`;
+};
+
+export const stopImpersonation = async (
+  options?: RequestInit,
+): Promise<StopImpersonation200> => {
+  return customFetch<StopImpersonation200>(getStopImpersonationUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getStopImpersonationMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof stopImpersonation>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof stopImpersonation>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["stopImpersonation"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof stopImpersonation>>,
+    void
+  > = () => {
+    return stopImpersonation(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type StopImpersonationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof stopImpersonation>>
+>;
+
+export type StopImpersonationMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Stop impersonating — removes impersonating user from the admin's session without logging out
+ */
+export const useStopImpersonation = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof stopImpersonation>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof stopImpersonation>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getStopImpersonationMutationOptions(options));
 };
 
 /**

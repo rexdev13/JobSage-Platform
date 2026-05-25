@@ -164,6 +164,7 @@ export * from "./sponsorLicenceListResponse";
 export * from "./sponsorLicenceRoutesResponse";
 export * from "./sponsorshipFeasibility";
 export * from "./sponsorshipFeasibilityOutcome";
+export * from "./stopImpersonation200";
 export * from "./superAdminHealth";
 export * from "./superAdminHealthDailyActiveUsersItem";
 export * from "./superAdminHealthDailyApplicationsItem";

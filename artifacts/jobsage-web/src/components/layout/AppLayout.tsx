@@ -5,33 +5,46 @@ import { Button } from "@/components/ui-enhanced";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
-interface ImpersonationContext {
+interface ImpersonationState {
   displayName: string;
   email: string;
   role: string;
-  adminId: string | null;
+}
+
+interface AuthUserResponse {
+  user: { id: string; email?: string | null; firstName?: string | null; lastName?: string | null; role?: string | null } | null;
+  isImpersonating?: boolean;
 }
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
-  const [impersonation, setImpersonation] = React.useState<ImpersonationContext | null>(null);
+  const [impersonation, setImpersonation] = React.useState<ImpersonationState | null>(null);
+
+  function fetchImpersonationState() {
+    fetch(`${API_BASE}/auth/user`, { credentials: "include" })
+      .then((r) => r.json() as Promise<AuthUserResponse>)
+      .then((data) => {
+        if (data.isImpersonating && data.user) {
+          const displayName =
+            [data.user.firstName, data.user.lastName].filter(Boolean).join(" ") ||
+            data.user.email ||
+            data.user.id;
+          setImpersonation({ displayName, email: data.user.email ?? "", role: data.user.role ?? "" });
+        } else {
+          setImpersonation(null);
+        }
+      })
+      .catch(() => {});
+  }
 
   React.useEffect(() => {
-    const stored = sessionStorage.getItem("impersonation");
-    if (stored) {
-      try {
-        setImpersonation(JSON.parse(stored) as ImpersonationContext);
-      } catch {
-        sessionStorage.removeItem("impersonation");
-      }
-    }
+    fetchImpersonationState();
   }, []);
 
   async function stopImpersonating() {
-    sessionStorage.removeItem("impersonation");
-    setImpersonation(null);
-    await fetch(`${API_BASE}/auth/logout`, { method: "POST", credentials: "include" }).catch(() => {});
-    window.close();
+    await fetch(`${API_BASE}/admin/super/impersonate/stop`, { method: "POST", credentials: "include" }).catch(() => {});
+    const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+    window.location.href = base + "/admin/super";
   }
 
   return (

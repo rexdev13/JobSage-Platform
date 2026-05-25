@@ -33,6 +33,12 @@ export const GetCurrentAuthUserResponse = zod.object({
     }),
     zod.null(),
   ]),
+  isImpersonating: zod
+    .boolean()
+    .optional()
+    .describe(
+      "True when the session is operating under impersonation of another user.",
+    ),
 });
 
 /**
@@ -71,6 +77,12 @@ export const LoginWithEmailResponse = zod.object({
     }),
     zod.null(),
   ]),
+  isImpersonating: zod
+    .boolean()
+    .optional()
+    .describe(
+      "True when the session is operating under impersonation of another user.",
+    ),
 });
 
 /**
@@ -2075,6 +2087,13 @@ export const CreateImpersonationTokenResponse = zod.object({
     displayName: zod.string(),
     role: zod.string(),
   }),
+});
+
+/**
+ * @summary Stop impersonating — removes impersonating user from the admin's session without logging out
+ */
+export const StopImpersonationResponse = zod.object({
+  ok: zod.boolean().optional(),
 });
 
 /**

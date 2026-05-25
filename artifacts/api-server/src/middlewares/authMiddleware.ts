@@ -1,5 +1,7 @@
 import { type Request, type Response, type NextFunction } from "express";
 import type { AuthUser } from "@workspace/api-zod";
+import { db, usersTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 import {
   clearSession,
   getSessionId,
@@ -44,6 +46,26 @@ export async function authMiddleware(
     return;
   }
 
+  if (session.impersonatingUserId) {
+    const [impersonatedUser] = await db
+      .select({
+        id: usersTable.id,
+        email: usersTable.email,
+        firstName: usersTable.firstName,
+        lastName: usersTable.lastName,
+        profileImageUrl: usersTable.profileImageUrl,
+        role: usersTable.role,
+        emailVerified: usersTable.emailVerified,
+      })
+      .from(usersTable)
+      .where(eq(usersTable.id, session.impersonatingUserId));
+    if (impersonatedUser) {
+      req.user = impersonatedUser as AuthUser;
+      req.isImpersonating = true;
+      next();
+      return;
+    }
+  }
   req.user = session.user;
   req.isImpersonating = session.impersonating === true;
   next();

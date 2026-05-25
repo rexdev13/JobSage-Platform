@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { GetCurrentAuthUserResponse } from "@workspace/api-zod";
+import { writeAuditEvent } from "../lib/audit";
 import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import {
@@ -60,11 +61,10 @@ function getOrigin(req: Request): string {
 }
 
 router.get("/auth/user", (req: Request, res: Response) => {
-  res.json(
-    GetCurrentAuthUserResponse.parse({
-      user: req.isAuthenticated() ? req.user : null,
-    }),
-  );
+  res.json({
+    ...GetCurrentAuthUserResponse.parse({ user: req.isAuthenticated() ? req.user : null }),
+    isImpersonating: req.isImpersonating === true,
+  });
 });
 
 router.post("/auth/register", async (req: Request, res: Response) => {
@@ -291,6 +291,8 @@ router.post("/auth/login", async (req: Request, res: Response) => {
 
   const sid = await createSession(sessionData);
   setSessionCookie(res, sid);
+
+  writeAuditEvent(user.id, "user_login").catch(() => {});
 
   res.json(
     GetCurrentAuthUserResponse.parse({

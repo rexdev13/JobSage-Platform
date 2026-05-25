@@ -11,6 +11,7 @@ export interface SessionData {
   user: AuthUser;
   impersonating?: boolean;
   adminId?: string;
+  impersonatingUserId?: string;
 }
 
 export async function createSession(data: SessionData, ttl: number = SESSION_TTL): Promise<string> {
@@ -39,6 +40,10 @@ export async function getSession(sid: string): Promise<SessionData | null> {
 
 export async function deleteSession(sid: string): Promise<void> {
   await db.delete(sessionsTable).where(eq(sessionsTable.sid, sid));
+}
+
+export async function updateSession(sid: string, data: SessionData): Promise<void> {
+  await db.update(sessionsTable).set({ sess: data as unknown as Record<string, unknown> }).where(eq(sessionsTable.sid, sid));
 }
 
 export async function clearSession(

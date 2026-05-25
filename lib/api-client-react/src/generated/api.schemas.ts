@@ -37,6 +37,8 @@ export interface AuthUser {
 
 export interface AuthUserEnvelope {
   user: AuthUser | null;
+  /** True when the session is operating under impersonation of another user. */
+  isImpersonating?: boolean;
 }
 
 export interface RegisterRequest {
@@ -1550,6 +1552,10 @@ export type GetSuperAdminUsersParams = {
   sortDir?: string;
   dateFrom?: string;
   dateTo?: string;
+};
+
+export type StopImpersonation200 = {
+  ok?: boolean;
 };
 
 export type ActivateImpersonationTokenParams = {
