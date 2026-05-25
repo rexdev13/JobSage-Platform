@@ -116,6 +116,7 @@ router.get(
     const dir = (sortDir ?? "desc") === "asc" ? asc : desc;
     const orderExpr = (() => {
       switch (sortBy) {
+        case "id": return dir(usersTable.id);
         case "email": return dir(usersTable.email);
         case "role": return dir(usersTable.role);
         case "emailVerified": return dir(usersTable.emailVerified);
@@ -429,6 +430,7 @@ router.get(
       return;
     }
     try {
+      writeAuditEvent(req.user!.id, "super_admin_document_download", undefined, { storageKey }).catch(() => {});
       const objectFile = await objectStorageService.getObjectEntityFile(storageKey);
       const response = await objectStorageService.downloadObject(objectFile);
       res.status(response.status);

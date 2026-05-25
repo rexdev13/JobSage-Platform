@@ -230,17 +230,24 @@ function UserDetailPanel({ userId, apiBase, onImpersonate }: { userId: string; a
         </div>
       )}
 
-      {consent && (
-        <div className="text-xs text-muted-foreground">
-          Consent: v{consent.termsVersion} on {new Date(consent.consentedAt).toLocaleDateString("en-GB")}
+      {consent ? (
+        <div>
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-2">Consent Record</h4>
+          <div className="space-y-1 text-xs">
+            <div className="flex justify-between"><span className="text-muted-foreground">ID</span><span className="font-mono">{consent.id}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Terms Version</span><span>v{consent.termsVersion}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Consented At</span><span>{new Date(consent.consentedAt).toLocaleString("en-GB")}</span></div>
+          </div>
         </div>
+      ) : (
+        <div className="text-xs text-muted-foreground italic">No consent record.</div>
       )}
 
       {auditEvents.length > 0 && (
         <div>
-          <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-2">Recent Audit Events (last {auditEvents.length})</h4>
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-2">Audit Events (last {auditEvents.length})</h4>
           <div className="space-y-1">
-            {auditEvents.slice(0, 10).map((e) => (
+            {auditEvents.map((e) => (
               <div key={e.id} className="flex items-center justify-between text-xs py-1 border-b border-border/50 last:border-0">
                 <span className="font-mono text-muted-foreground">{e.action}</span>
                 <span className="text-muted-foreground">{new Date(e.createdAt).toLocaleDateString("en-GB")}</span>
@@ -373,7 +380,7 @@ function AllUsersTab() {
             <thead>
               <tr className="border-b border-border bg-muted/50">
                 {[
-                  { label: "ID", col: null },
+                  { label: "ID", col: "id" },
                   { label: "Email", col: "email" },
                   { label: "Role", col: "role" },
                   { label: "Verified", col: "emailVerified" },
