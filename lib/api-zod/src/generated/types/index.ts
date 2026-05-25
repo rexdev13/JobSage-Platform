@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./activateImpersonationTokenParams";
 export * from "./adminAuditEvent";
 export * from "./adminAuditEventDetails";
 export * from "./adminAuditEventList";
@@ -73,6 +74,7 @@ export * from "./getSuperAdminUsersParams";
 export * from "./headhuntCampaign";
 export * from "./headhuntCampaignFilters";
 export * from "./healthStatus";
+export * from "./impersonationActivateResponse";
 export * from "./impersonationResponse";
 export * from "./impersonationResponseTargetUser";
 export * from "./importRolesCSVBody";
@@ -202,5 +204,4 @@ export * from "./upsertProfileRequest";
 export * from "./upsertProfileRequestAlertFrequency";
 export * from "./upsertProfileRequestProfession";
 export * from "./upsertProfileRequestRegistrationStatus";
-export * from "./validateImpersonationTokenParams";
 export * from "./verifyEmailParams";

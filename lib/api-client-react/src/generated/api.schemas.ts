@@ -1333,6 +1333,11 @@ export interface SuperAdminUserFull {
   adminId?: string | null;
 }
 
+export interface ImpersonationActivateResponse {
+  user: AuthUser;
+  adminId: string | null;
+}
+
 export type ImpersonationResponseTargetUser = {
   id: string;
   email: string;
@@ -1341,7 +1346,7 @@ export type ImpersonationResponseTargetUser = {
 };
 
 export interface ImpersonationResponse {
-  /** Session ID to pass as Bearer token when calling the impersonation validate endpoint. */
+  /** Session ID to pass as query param to the impersonation activate endpoint. */
   token: string;
   expiresAt: string;
   targetUser: ImpersonationResponseTargetUser;
@@ -1545,6 +1550,6 @@ export type GetSuperAdminUsersParams = {
   sortDir?: string;
 };
 
-export type ValidateImpersonationTokenParams = {
+export type ActivateImpersonationTokenParams = {
   token: string;
 };

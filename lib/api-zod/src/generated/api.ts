@@ -2064,7 +2064,7 @@ export const CreateImpersonationTokenResponse = zod.object({
   token: zod
     .string()
     .describe(
-      "Session ID to pass as Bearer token when calling the impersonation validate endpoint.",
+      "Session ID to pass as query param to the impersonation activate endpoint.",
     ),
   expiresAt: zod.date(),
   targetUser: zod.object({
@@ -2076,77 +2076,25 @@ export const CreateImpersonationTokenResponse = zod.object({
 });
 
 /**
- * @summary Validate an impersonation token and return target user data
+ * @summary Activate impersonation token — sets session cookie and returns user context
  */
-export const ValidateImpersonationTokenQueryParams = zod.object({
+export const ActivateImpersonationTokenQueryParams = zod.object({
   token: zod.coerce.string(),
 });
 
-export const ValidateImpersonationTokenResponse = zod.object({
+export const ActivateImpersonationTokenResponse = zod.object({
   user: zod.object({
     id: zod.string(),
-    email: zod.string(),
+    email: zod.string().nullish(),
     firstName: zod.string().nullish(),
     lastName: zod.string().nullish(),
-    role: zod.string(),
-    emailVerified: zod.boolean(),
-    createdAt: zod.date(),
-    updatedAt: zod.date(),
-    lastLogin: zod.date().nullable(),
+    profileImageUrl: zod.string().nullish(),
+    emailVerified: zod.boolean().nullish(),
+    role: zod
+      .enum(["candidate", "admin", "reviewer", "employer", "super_admin"])
+      .nullish(),
   }),
-  profile: zod.object({}).passthrough().nullish(),
-  employerProfile: zod.object({}).passthrough().nullish(),
-  documents: zod.array(
-    zod.object({
-      id: zod.number().optional(),
-      fileName: zod.string().optional(),
-      fileType: zod.string().optional(),
-      storageKey: zod.string().optional(),
-      uploadedAt: zod.date().optional(),
-    }),
-  ),
-  applications: zod.array(
-    zod.object({
-      id: zod.number().optional(),
-      roleId: zod.number().optional(),
-      roleTitle: zod.string().nullish(),
-      roleEmployer: zod.string().nullish(),
-      status: zod.string().optional(),
-      appliedAt: zod.date().optional(),
-      notes: zod.string().nullish(),
-    }),
-  ),
-  eligibilityHistory: zod.array(
-    zod.object({
-      id: zod.number().optional(),
-      outcome: zod.string().optional(),
-      createdAt: zod.date().optional(),
-    }),
-  ),
-  auditEvents: zod.array(
-    zod.object({
-      id: zod.number().optional(),
-      actor: zod.string().optional(),
-      action: zod.string().optional(),
-      target: zod.string().nullish(),
-      createdAt: zod.date().optional(),
-    }),
-  ),
-  consent: zod.object({}).passthrough().nullish(),
-  latestDecision: zod
-    .object({
-      outcome: zod.string().optional(),
-      createdAt: zod.date().optional(),
-    })
-    .nullish(),
-  impersonating: zod
-    .boolean()
-    .optional()
-    .describe("Present only on the validate-impersonation response."),
-  adminId: zod
-    .string()
-    .nullish()
-    .describe("Present only on the validate-impersonation response."),
+  adminId: zod.string().nullable(),
 });
 
 /**

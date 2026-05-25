@@ -8,7 +8,7 @@
 import type { ImpersonationResponseTargetUser } from "./impersonationResponseTargetUser";
 
 export interface ImpersonationResponse {
-  /** Session ID to pass as Bearer token when calling the impersonation validate endpoint. */
+  /** Session ID to pass as query param to the impersonation activate endpoint. */
   token: string;
   expiresAt: Date;
   targetUser: ImpersonationResponseTargetUser;
