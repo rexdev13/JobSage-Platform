@@ -58,7 +58,7 @@ interface HealthData {
   dailyApplications: { date: string; count: number }[];
   dailyActiveUsers: { date: string; count: number }[];
   syncLog: { id: number; status: string; recordCount: number | null; errorMessage: string | null; createdAt: string }[];
-  errorAuditEventsLast7Days: number;
+  serverErrors5xxLast7Days: number;
 }
 
 function StatCard({ title, value, icon: Icon, sub }: { title: string; value: string | number; icon: React.ElementType; sub?: string }) {
@@ -189,7 +189,7 @@ function UserDetailPanel({ userId, apiBase, onImpersonate }: { userId: string; a
             {documents.map((doc) => (
               <div key={doc.id} className="flex items-center justify-between text-sm py-1 border-b border-border/50 last:border-0">
                 <span>{doc.fileName}</span>
-                <a href={`${apiBase}/storage/objects/${doc.storageKey}`} target="_blank" rel="noopener noreferrer" className="text-primary text-xs hover:underline flex items-center gap-1">
+                <a href={`${apiBase}/admin/super/documents?storageKey=${encodeURIComponent(doc.storageKey)}`} target="_blank" rel="noopener noreferrer" className="text-primary text-xs hover:underline flex items-center gap-1">
                   <ExternalLink className="w-3 h-3" /> Download
                 </a>
               </div>
@@ -522,7 +522,7 @@ function HealthTab() {
               <AlertTriangle className="w-4 h-4 text-amber-500" />
               <span className="text-xs font-semibold text-muted-foreground uppercase">Error Events (Audit Log)</span>
             </div>
-            <div className="text-3xl font-bold">{health.errorAuditEventsLast7Days}</div>
+            <div className="text-3xl font-bold">{health.serverErrors5xxLast7Days}</div>
           </CardContent>
         </Card>
         <Card>

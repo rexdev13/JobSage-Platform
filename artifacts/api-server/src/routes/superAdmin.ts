@@ -1,4 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
+import { Readable } from "stream";
 import {
   db,
   usersTable,
@@ -18,8 +19,10 @@ import { eq, and, desc, gte, lte, count, max, ilike, sql, asc } from "drizzle-or
 import { requireRole } from "../middlewares/requireRole";
 import { writeAuditEvent } from "../lib/audit";
 import { createSession, getSession, SESSION_COOKIE } from "../lib/auth";
+import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 
 const router: IRouter = Router();
+const objectStorageService = new ObjectStorageService();
 
 router.get(
   "/admin/super/stats",
@@ -316,7 +319,7 @@ router.get(
       dailyApplications: dailyApplications.map((r) => ({ date: r.date, count: Number(r.count) })),
       dailyActiveUsers: dailyActiveUsers.map((r) => ({ date: r.date, count: Number(r.count) })),
       syncLog,
-      errorAuditEventsLast7Days: Number(errorAuditCount?.cnt ?? 0),
+      serverErrors5xxLast7Days: Number(errorAuditCount?.cnt ?? 0),
     });
   },
 );
@@ -409,5 +412,41 @@ async function fetchUserFull(userId: string) {
     latestDecision: latestDecision ?? null,
   };
 }
+
+/**
+ * GET /admin/super/documents
+ *
+ * Privileged document download for super admins. Bypasses per-user ACL checks.
+ * Query param: storageKey (e.g. /objects/uploads/...)
+ */
+router.get(
+  "/admin/super/documents",
+  requireRole("super_admin"),
+  async (req: Request, res: Response) => {
+    const storageKey = req.query.storageKey as string | undefined;
+    if (!storageKey || !storageKey.startsWith("/objects/")) {
+      res.status(400).json({ error: "Missing or invalid storageKey" });
+      return;
+    }
+    try {
+      const objectFile = await objectStorageService.getObjectEntityFile(storageKey);
+      const response = await objectStorageService.downloadObject(objectFile);
+      res.status(response.status);
+      response.headers.forEach((value, key) => res.setHeader(key, value));
+      if (response.body) {
+        const nodeStream = Readable.fromWeb(response.body as ReadableStream<Uint8Array>);
+        nodeStream.pipe(res);
+      } else {
+        res.end();
+      }
+    } catch (error) {
+      if (error instanceof ObjectNotFoundError) {
+        res.status(404).json({ error: "Document not found" });
+        return;
+      }
+      res.status(500).json({ error: "Failed to serve document" });
+    }
+  },
+);
 
 export default router;

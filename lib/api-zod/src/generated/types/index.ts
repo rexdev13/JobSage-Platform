@@ -70,6 +70,7 @@ export * from "./forwardEligibilityRole";
 export * from "./generateCoverLetterRequest";
 export * from "./generateJobDescriptionResponse";
 export * from "./getInterviewPrepQuestionsParams";
+export * from "./getSuperAdminDocumentParams";
 export * from "./getSuperAdminUsersParams";
 export * from "./headhuntCampaign";
 export * from "./headhuntCampaignFilters";

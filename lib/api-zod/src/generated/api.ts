@@ -1952,6 +1952,8 @@ export const GetSuperAdminUsersQueryParams = zod.object({
   verified: zod.coerce.string().optional(),
   sortBy: zod.coerce.string().optional(),
   sortDir: zod.coerce.string().optional(),
+  dateFrom: zod.date().optional(),
+  dateTo: zod.date().optional(),
 });
 
 export const GetSuperAdminUsersResponse = zod.object({
@@ -2098,6 +2100,13 @@ export const ActivateImpersonationTokenResponse = zod.object({
 });
 
 /**
+ * @summary Privileged document download for super admins (bypasses per-user ACL)
+ */
+export const GetSuperAdminDocumentQueryParams = zod.object({
+  storageKey: zod.coerce.string(),
+});
+
+/**
  * @summary Platform health metrics (super admin only)
  */
 export const GetSuperAdminHealthResponse = zod.object({
@@ -2120,9 +2129,9 @@ export const GetSuperAdminHealthResponse = zod.object({
     }),
   ),
   syncLog: zod.array(zod.object({}).passthrough()),
-  errorAuditEventsLast7Days: zod
+  serverErrors5xxLast7Days: zod
     .number()
     .describe(
-      'Count of audit events with action containing \"error\" in the last 7 days.',
+      "Count of 5xx HTTP errors (api_error_5xx audit events) in the last 7 days.",
     ),
 });
