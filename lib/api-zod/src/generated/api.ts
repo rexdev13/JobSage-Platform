@@ -184,6 +184,7 @@ export const GetMyProfileResponse = zod.object({
   preferredRegion: zod.string().nullish(),
   alertFrequency: zod.enum(["daily", "weekly", "off"]).nullish(),
   lastAlertSentAt: zod.date().nullish(),
+  boostProfile: zod.boolean().optional(),
   createdAt: zod.date(),
   updatedAt: zod.date(),
 });
@@ -236,6 +237,7 @@ export const UpsertMyProfileResponse = zod.object({
   preferredRegion: zod.string().nullish(),
   alertFrequency: zod.enum(["daily", "weekly", "off"]).nullish(),
   lastAlertSentAt: zod.date().nullish(),
+  boostProfile: zod.boolean().optional(),
   createdAt: zod.date(),
   updatedAt: zod.date(),
 });
@@ -1149,6 +1151,7 @@ export const GetReviewCaseResponse = zod.object({
       preferredRegion: zod.string().nullish(),
       alertFrequency: zod.enum(["daily", "weekly", "off"]).nullish(),
       lastAlertSentAt: zod.date().nullish(),
+      boostProfile: zod.boolean().optional(),
       createdAt: zod.date(),
       updatedAt: zod.date(),
     })
@@ -1612,6 +1615,104 @@ export const UpdateApplicantStageResponse = zod.object({
   applicationId: zod.number(),
   stage: zod.string(),
   notes: zod.string().nullish(),
+});
+
+/**
+ * @summary Enable or disable profile boost (visible to headhunting employers)
+ */
+export const ToggleProfileBoostBody = zod.object({
+  boost: zod.boolean(),
+});
+
+export const ToggleProfileBoostResponse = zod.object({
+  boostProfile: zod.boolean(),
+});
+
+/**
+ * @summary Generate a tailored cover letter using AI
+ */
+export const GenerateCoverLetterBody = zod.object({
+  jobTitle: zod.string(),
+  employer: zod.string(),
+  jobDescription: zod.string().nullish(),
+  location: zod.string().nullish(),
+  regulator: zod.string().nullish(),
+  roleId: zod.number().nullish(),
+});
+
+export const GenerateCoverLetterResponse = zod.object({
+  coverLetter: zod.string(),
+  disclaimer: zod.string(),
+});
+
+/**
+ * @summary Get the candidate's monthly progress report with AI recommendations
+ */
+export const GetMyProgressReportResponse = zod.object({
+  period: zod.object({
+    month: zod.string(),
+    year: zod.number(),
+  }),
+  stats: zod.object({
+    total: zod.number(),
+    interviews: zod.number(),
+    offers: zod.number(),
+    noResponse: zod.number(),
+    applicationsThisMonth: zod.number(),
+    responseRate: zod.number(),
+  }),
+  eligibility: zod.object({
+    outcome: zod.string().nullable(),
+    checkedAt: zod.date().nullable(),
+  }),
+  plan: zod.object({
+    stepsDone: zod.number(),
+    stepsTotal: zod.number(),
+    progressPct: zod.number(),
+  }),
+  documentCount: zod.number(),
+  boostProfile: zod.boolean(),
+  recommendations: zod.string().nullish(),
+  disclaimer: zod.string().nullish(),
+});
+
+/**
+ * @summary List candidate's speculative CV submissions
+ */
+export const ListSpeculativeApplicationsResponse = zod.object({
+  applications: zod.array(
+    zod.object({
+      id: zod.number(),
+      userId: zod.string(),
+      companyName: zod.string(),
+      sponsorLicenceId: zod.number().nullish(),
+      status: zod.enum(["sent", "acknowledged", "no_account"]),
+      notes: zod.string().nullish(),
+      createdAt: zod.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Send a speculative CV to a sponsor licence company
+ */
+export const SendSpeculativeApplicationBody = zod.object({
+  companyName: zod.string(),
+  sponsorLicenceId: zod.number().nullish(),
+  notes: zod.string().nullish(),
+});
+
+export const SendSpeculativeApplicationResponse = zod.object({
+  application: zod.object({
+    id: zod.number(),
+    userId: zod.string(),
+    companyName: zod.string(),
+    sponsorLicenceId: zod.number().nullish(),
+    status: zod.enum(["sent", "acknowledged", "no_account"]),
+    notes: zod.string().nullish(),
+    createdAt: zod.date(),
+  }),
+  alreadySent: zod.boolean(),
 });
 
 /**

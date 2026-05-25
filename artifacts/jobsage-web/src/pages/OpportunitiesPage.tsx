@@ -5,6 +5,7 @@ import {
   useListMatchedRoles,
   useListMyApplications,
   useMarkApplication,
+  useGenerateCoverLetter,
   getListMyApplicationsQueryKey,
   getListMatchedRolesQueryKey,
   type MatchedRole,
@@ -37,6 +38,9 @@ import {
   Clock,
   DollarSign,
   Sparkles,
+  FileText,
+  Copy,
+  Loader2,
 } from "lucide-react";
 import { DisclaimerBanner } from "@/components/ui/DisclaimerBanner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -187,18 +191,147 @@ function RoleDetailModal({ item, appliedRoleIds, onClose, onApply }: {
   );
 }
 
+function CoverLetterModal({
+  role,
+  onClose,
+}: {
+  role: { id: number; title: string; employer: string; location: string; regulator: string; description?: string | null };
+  onClose: () => void;
+}) {
+  const generateMutation = useGenerateCoverLetter();
+  const { toast } = useToast();
+  const [result, setResult] = useState<{ coverLetter: string; disclaimer: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  function handleGenerate() {
+    generateMutation.mutate(
+      {
+        data: {
+          jobTitle: role.title,
+          employer: role.employer,
+          location: role.location,
+          regulator: role.regulator,
+          jobDescription: role.description ?? null,
+          roleId: role.id,
+        },
+      },
+      {
+        onSuccess: (data) => setResult(data),
+        onError: () =>
+          toast({
+            title: "Error",
+            description: "Failed to generate cover letter. Please try again.",
+            variant: "destructive",
+          }),
+      },
+    );
+  }
+
+  function handleCopy() {
+    if (!result?.coverLetter) return;
+    navigator.clipboard.writeText(result.coverLetter).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <motion.div
+        initial={{ opacity: 0, y: 40 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 40 }}
+        className="relative bg-background border border-border rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col overflow-hidden"
+      >
+        <div className="flex items-center justify-between p-5 border-b border-border">
+          <div>
+            <h3 className="font-semibold text-foreground flex items-center gap-2">
+              <FileText className="w-4 h-4 text-primary" /> Cover Letter Generator
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {role.title} · {role.employer}
+            </p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-xl hover:bg-accent transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5">
+          {!result && !generateMutation.isPending && (
+            <div className="text-center py-8">
+              <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                <Sparkles className="w-8 h-8 text-primary" />
+              </div>
+              <h4 className="text-base font-semibold text-foreground mb-2">Generate a tailored cover letter</h4>
+              <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
+                AI will write a personalised cover letter for this role based on your profile and any CV documents you have uploaded.
+              </p>
+              <Button onClick={handleGenerate} className="gap-2">
+                <Sparkles className="w-4 h-4" /> Generate Cover Letter
+              </Button>
+            </div>
+          )}
+
+          {generateMutation.isPending && (
+            <div className="text-center py-12">
+              <Loader2 className="w-8 h-8 text-primary animate-spin mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground">Writing your personalised cover letter…</p>
+            </div>
+          )}
+
+          {result && (
+            <div className="space-y-4">
+              <div className="relative">
+                <pre className="whitespace-pre-wrap text-sm text-foreground leading-relaxed font-sans bg-muted/40 rounded-xl p-5 border border-border">
+                  {result.coverLetter}
+                </pre>
+              </div>
+              {result.disclaimer && (
+                <p className="text-xs text-muted-foreground border-l-2 border-primary/30 pl-3">
+                  {result.disclaimer}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="p-5 border-t border-border flex items-center justify-between gap-3">
+          <Button variant="outline" size="sm" onClick={onClose}>
+            Close
+          </Button>
+          {result && (
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={handleGenerate} disabled={generateMutation.isPending} className="gap-1.5">
+                <Sparkles className="w-3.5 h-3.5" /> Regenerate
+              </Button>
+              <Button size="sm" onClick={handleCopy} className="gap-1.5">
+                {copied ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                {copied ? "Copied!" : "Copy"}
+              </Button>
+            </div>
+          )}
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 function RoleCard({
   item,
   appliedRoleIds,
   onApply,
   onSmartApply,
   onViewDetail,
+  onCoverLetter,
 }: {
   item: MatchedRole;
   appliedRoleIds: number[];
   onApply: (roleId: number) => void;
   onSmartApply: (roleId: number, roleTitle: string) => void;
   onViewDetail: (item: MatchedRole) => void;
+  onCoverLetter: (role: MatchedRole["role"]) => void;
 }) {
   const [, setLocation] = useLocation();
   const { role, isEligible, matchScore, eligibilityGaps, sponsorshipFeasibility } = item;
@@ -284,6 +417,14 @@ function RoleCard({
           Required: <span className="font-medium text-foreground">{role.requiredRegistration}</span>
         </span>
         <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-xs h-8 gap-1 text-muted-foreground"
+            onClick={(e) => { e.stopPropagation(); onCoverLetter(role); }}
+          >
+            <FileText className="w-3 h-3" /> Cover Letter
+          </Button>
           {isEligible && !applied && (
             <Button
               size="sm"
@@ -479,6 +620,7 @@ export default function OpportunitiesPage() {
   const [selectedRole, setSelectedRole] = useState<MatchedRole | null>(null);
   const [employerSearch, setEmployerSearch] = useState("");
   const [smartApplyRole, setSmartApplyRole] = useState<{ id: number; title: string } | null>(null);
+  const [coverLetterRole, setCoverLetterRole] = useState<MatchedRole["role"] | null>(null);
 
   const queryClient = useQueryClient();
   const { data, isLoading, isError } = useListMatchedRoles();
@@ -638,6 +780,7 @@ export default function OpportunitiesPage() {
                             onApply={handleApply}
                             onSmartApply={handleSmartApply}
                             onViewDetail={setSelectedRole}
+                            onCoverLetter={setCoverLetterRole}
                           />
                         </motion.div>
                       ))}
@@ -681,6 +824,7 @@ export default function OpportunitiesPage() {
                             onApply={handleApply}
                             onSmartApply={handleSmartApply}
                             onViewDetail={setSelectedRole}
+                            onCoverLetter={setCoverLetterRole}
                           />
                         </motion.div>
                       ))}
@@ -789,6 +933,16 @@ export default function OpportunitiesPage() {
               void queryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
               void queryClient.invalidateQueries({ queryKey: getListMatchedRolesQueryKey() });
             }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Cover Letter modal */}
+      <AnimatePresence>
+        {coverLetterRole && (
+          <CoverLetterModal
+            role={coverLetterRole}
+            onClose={() => setCoverLetterRole(null)}
           />
         )}
       </AnimatePresence>

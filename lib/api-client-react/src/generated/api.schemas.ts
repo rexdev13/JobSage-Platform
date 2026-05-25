@@ -137,6 +137,7 @@ export interface CandidateProfile {
   preferredRegion?: string | null;
   alertFrequency?: CandidateProfileAlertFrequency;
   lastAlertSentAt?: string | null;
+  boostProfile?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -1047,6 +1048,98 @@ export interface SponsorLicenceListResponse {
 
 export interface SponsorLicenceRoutesResponse {
   routes: string[];
+}
+
+export interface BoostProfileRequest {
+  boost: boolean;
+}
+
+export interface BoostProfileResponse {
+  boostProfile: boolean;
+}
+
+export interface GenerateCoverLetterRequest {
+  jobTitle: string;
+  employer: string;
+  jobDescription?: string | null;
+  location?: string | null;
+  regulator?: string | null;
+  roleId?: number | null;
+}
+
+export interface CoverLetterResponse {
+  coverLetter: string;
+  disclaimer: string;
+}
+
+export interface ProgressReportStats {
+  total: number;
+  interviews: number;
+  offers: number;
+  noResponse: number;
+  applicationsThisMonth: number;
+  responseRate: number;
+}
+
+export type ProgressReportResponsePeriod = {
+  month: string;
+  year: number;
+};
+
+export type ProgressReportResponseEligibility = {
+  outcome: string | null;
+  checkedAt: string | null;
+};
+
+export type ProgressReportResponsePlan = {
+  stepsDone: number;
+  stepsTotal: number;
+  progressPct: number;
+};
+
+export interface ProgressReportResponse {
+  period: ProgressReportResponsePeriod;
+  stats: ProgressReportStats;
+  eligibility: ProgressReportResponseEligibility;
+  plan: ProgressReportResponsePlan;
+  documentCount: number;
+  boostProfile: boolean;
+  recommendations?: string | null;
+  disclaimer?: string | null;
+}
+
+export type SpeculativeApplicationStatus =
+  (typeof SpeculativeApplicationStatus)[keyof typeof SpeculativeApplicationStatus];
+
+export const SpeculativeApplicationStatus = {
+  sent: "sent",
+  acknowledged: "acknowledged",
+  no_account: "no_account",
+} as const;
+
+export interface SpeculativeApplication {
+  id: number;
+  userId: string;
+  companyName: string;
+  sponsorLicenceId?: number | null;
+  status: SpeculativeApplicationStatus;
+  notes?: string | null;
+  createdAt: string;
+}
+
+export interface SpeculativeApplicationListResponse {
+  applications: SpeculativeApplication[];
+}
+
+export interface SendSpeculativeApplicationRequest {
+  companyName: string;
+  sponsorLicenceId?: number | null;
+  notes?: string | null;
+}
+
+export interface SpeculativeApplicationResult {
+  application: SpeculativeApplication;
+  alreadySent: boolean;
 }
 
 export type VerifyEmailParams = {

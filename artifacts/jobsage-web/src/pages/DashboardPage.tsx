@@ -8,7 +8,10 @@ import {
   useGetRemediationPlan,
   useListMyApplications,
   useGetForwardEligibility,
+  useToggleProfileBoost,
+  getGetMyProfileQueryKey,
 } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, Button, PageTransition } from "@/components/ui-enhanced";
 import {
@@ -29,9 +32,11 @@ import {
   BadgeCheck,
   ClipboardList,
   Megaphone,
-  DollarSign,
   Timer,
   Sparkles,
+  BarChart2,
+  BookOpen,
+  Loader2,
 } from "lucide-react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
@@ -137,6 +142,7 @@ function profileCompletionPct(profile: Record<string, unknown> | undefined): num
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { data: profile } = useGetMyProfile();
   const { data: eligibilityHistory } = useListEligibilityHistory();
   const { data: documents } = useListMyDocuments();
@@ -144,6 +150,7 @@ export default function DashboardPage() {
   const { data: plan } = useGetRemediationPlan();
   const { data: applicationsData } = useListMyApplications();
   const { data: forwardEligibility } = useGetForwardEligibility();
+  const toggleBoostMutation = useToggleProfileBoost();
 
   const latestDecision = eligibilityHistory?.decisions?.[0];
   const [showReasonCodes, setShowReasonCodes] = useState(false);
@@ -165,6 +172,19 @@ export default function DashboardPage() {
   const nextStep = planSteps.find((s) => s.status !== "done");
 
   const profilePct = profileCompletionPct(profile as Record<string, unknown> | undefined);
+
+  const boostProfile = profile?.boostProfile ?? false;
+
+  function handleBoostToggle() {
+    toggleBoostMutation.mutate(
+      { data: { boost: !boostProfile } },
+      {
+        onSuccess: () => {
+          void queryClient.invalidateQueries({ queryKey: getGetMyProfileQueryKey() });
+        },
+      },
+    );
+  }
 
   const professionLabel = profile?.profession
     ? profile.profession.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())
@@ -597,40 +617,78 @@ export default function DashboardPage() {
           </Card>
         </motion.div>
 
-        {/* Boost your profile placeholder */}
+        {/* Boost your profile — live toggle */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
-          <Card className="mt-6 p-5 border-dashed border-2 border-primary/20 bg-gradient-to-br from-primary/3 to-accent/3">
+          <Card className={`mt-6 p-5 border-2 transition-colors ${boostProfile ? "border-emerald-300 bg-gradient-to-br from-emerald-50/60 to-primary/5" : "border-dashed border-primary/20 bg-gradient-to-br from-primary/3 to-accent/3"}`}>
             <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                <Megaphone className="w-5 h-5 text-primary" />
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${boostProfile ? "bg-emerald-100" : "bg-primary/10"}`}>
+                <Megaphone className={`w-5 h-5 ${boostProfile ? "text-emerald-600" : "text-primary"}`} />
               </div>
               <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
                   <h3 className="text-sm font-semibold text-foreground">Boost Your Visibility to Employers</h3>
-                  <span className="px-1.5 py-0.5 text-xs rounded bg-primary/10 text-primary font-medium">Coming Soon</span>
+                  <span className={`px-2 py-0.5 text-xs rounded-full font-semibold ${boostProfile ? "bg-emerald-100 text-emerald-800" : "bg-muted text-muted-foreground"}`}>
+                    {boostProfile ? "Active" : "Inactive"}
+                  </span>
                 </div>
                 <p className="text-xs text-muted-foreground leading-relaxed max-w-lg mb-3">
-                  Premium members can promote their profile to NHS trusts, academic institutions, and regulated employers in their specialty — with targeting by regulator, location, and registration status.
+                  {boostProfile
+                    ? "Your profile is now visible to NHS trusts, academic institutions, and regulated employers actively recruiting in your specialty."
+                    : "Enable boost to promote your profile to NHS trusts, academic institutions, and regulated employers in your specialty."}
                 </p>
-                <div className="flex items-center gap-2">
-                  <div className="relative max-w-[160px]">
-                    <DollarSign className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                    <input
-                      type="number"
-                      min="0"
-                      step="10"
-                      placeholder="Monthly budget"
-                      disabled
-                      className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-border bg-background/50 text-muted-foreground cursor-not-allowed"
-                    />
-                  </div>
-                  <Button size="sm" className="text-xs" disabled>
-                    Set Budget &amp; Go Live
-                  </Button>
-                </div>
+                <Button
+                  size="sm"
+                  variant={boostProfile ? "outline" : "default"}
+                  className="text-xs gap-1.5"
+                  onClick={handleBoostToggle}
+                  disabled={toggleBoostMutation.isPending || !profile?.profession}
+                >
+                  {toggleBoostMutation.isPending ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : boostProfile ? (
+                    "Turn Off Boost"
+                  ) : (
+                    "Enable Boost"
+                  )}
+                </Button>
+                {!profile?.profession && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Complete your profile to enable boost.
+                  </p>
+                )}
               </div>
             </div>
           </Card>
+        </motion.div>
+
+        {/* Candidate Portal quick-links */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55 }}>
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Link href="/my-report">
+              <Card className="p-5 hover:shadow-md hover:border-primary/20 transition-all cursor-pointer group flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/15 transition-colors">
+                  <BarChart2 className="w-5 h-5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground">My Progress Report</p>
+                  <p className="text-xs text-muted-foreground">AI-powered monthly insights & next steps</p>
+                </div>
+                <ArrowRight className="w-4 h-4 text-muted-foreground/40 shrink-0 group-hover:text-primary/60 group-hover:translate-x-0.5 transition-all" />
+              </Card>
+            </Link>
+            <Link href="/regulatory-guidance">
+              <Card className="p-5 hover:shadow-md hover:border-primary/20 transition-all cursor-pointer group flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/15 transition-colors">
+                  <BookOpen className="w-5 h-5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground">Regulatory Guidance</p>
+                  <p className="text-xs text-muted-foreground">GMC, NMC, GDC & HCPC registration pathways</p>
+                </div>
+                <ArrowRight className="w-4 h-4 text-muted-foreground/40 shrink-0 group-hover:text-primary/60 group-hover:translate-x-0.5 transition-all" />
+              </Card>
+            </Link>
+          </div>
         </motion.div>
       </PageTransition>
     </AppLayout>

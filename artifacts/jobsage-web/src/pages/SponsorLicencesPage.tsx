@@ -1,7 +1,12 @@
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Card, PageTransition } from "@/components/ui-enhanced";
-import { useGetSponsorLicenceRoutes, useListSponsorLicences } from "@workspace/api-client-react";
+import { Card, PageTransition, Button } from "@/components/ui-enhanced";
+import {
+  useGetSponsorLicenceRoutes,
+  useListSponsorLicences,
+  useSendSpeculativeApplication,
+  useListSpeculativeApplications,
+} from "@workspace/api-client-react";
 import { motion } from "framer-motion";
 import {
   Building2,
@@ -14,7 +19,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Filter,
+  Send,
+  CheckCircle2,
+  Loader2,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const LIMIT = 20;
 
@@ -33,6 +42,29 @@ export default function SponsorLicencesPage() {
   const [selectedRoute, setSelectedRoute] = useState("");
   const [hasVacancies, setHasVacancies] = useState(false);
   const [page, setPage] = useState(1);
+  const { toast } = useToast();
+  const sendCVMutation = useSendSpeculativeApplication();
+  const { data: speculativeData, refetch: refetchSpeculative } = useListSpeculativeApplications();
+  const sentCompanyNames = new Set((speculativeData?.applications ?? []).map((a) => a.companyName));
+
+  function handleSendCV(companyName: string, companyId: number) {
+    sendCVMutation.mutate(
+      { data: { companyName, sponsorLicenceId: companyId } },
+      {
+        onSuccess: (res) => {
+          void refetchSpeculative();
+          if (res.alreadySent) {
+            toast({ title: "Already sent", description: `You already sent your CV to ${companyName}.` });
+          } else {
+            toast({ title: "CV sent!", description: `Your speculative application to ${companyName} has been recorded.` });
+          }
+        },
+        onError: () => {
+          toast({ title: "Error", description: "Could not send CV. Please try again.", variant: "destructive" });
+        },
+      },
+    );
+  }
 
   // Debounce search
   useEffect(() => {
@@ -263,6 +295,11 @@ export default function SponsorLicencesPage() {
                             Vacancies
                           </span>
                         )}
+                        {sentCompanyNames.has(c.organisationName) && (
+                          <span className="inline-flex items-center gap-1 text-xs bg-blue-500/10 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                            <CheckCircle2 className="w-3 h-3" /> CV Sent
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-3 mt-1 flex-wrap text-xs text-muted-foreground">
                         {(c.townCity || c.county) && (
@@ -288,6 +325,22 @@ export default function SponsorLicencesPage() {
                         )}
                       </div>
                     </div>
+
+                    <Button
+                      size="sm"
+                      variant={sentCompanyNames.has(c.organisationName) ? "outline" : "default"}
+                      className="shrink-0 text-xs gap-1.5"
+                      onClick={() => handleSendCV(c.organisationName, c.id)}
+                      disabled={sendCVMutation.isPending}
+                    >
+                      {sendCVMutation.isPending ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : sentCompanyNames.has(c.organisationName) ? (
+                        <><CheckCircle2 className="w-3.5 h-3.5" /> CV Sent</>
+                      ) : (
+                        <><Send className="w-3.5 h-3.5" /> Send my CV</>
+                      )}
+                    </Button>
                   </Card>
                 </motion.div>
               ))}
