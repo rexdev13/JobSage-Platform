@@ -35,7 +35,19 @@ router.get(
       .from(usersTable)
       .groupBy(usersTable.role);
 
-    const [profileCount] = await db.select({ cnt: count(profilesTable.id) }).from(profilesTable);
+    const [profileCount] = await db
+      .select({ cnt: count(profilesTable.id) })
+      .from(profilesTable)
+      .innerJoin(usersTable, eq(profilesTable.userId, usersTable.id))
+      .where(
+        and(
+          eq(usersTable.role, "candidate"),
+          sql`${profilesTable.profession} IS NOT NULL`,
+          sql`${profilesTable.specialty} IS NOT NULL`,
+          sql`${profilesTable.qualificationCountry} IS NOT NULL`,
+          sql`${profilesTable.registrationStatus} IS NOT NULL`,
+        ),
+      );
 
     const [activeJobsCount] = await db
       .select({ cnt: count(jobListingsTable.id) })
@@ -413,7 +425,7 @@ async function fetchUserFull(userId: string) {
       createdAt: auditEventsTable.createdAt,
     })
     .from(auditEventsTable)
-    .where(eq(auditEventsTable.target, userId))
+    .where(eq(auditEventsTable.actor, userId))
     .orderBy(desc(auditEventsTable.createdAt))
     .limit(20);
 
@@ -431,8 +443,13 @@ async function fetchUserFull(userId: string) {
     .orderBy(desc(decisionRecordsTable.createdAt))
     .limit(1);
 
+  const [lastLoginRow] = await db
+    .select({ lastLogin: max(auditEventsTable.createdAt) })
+    .from(auditEventsTable)
+    .where(and(eq(auditEventsTable.actor, userId), eq(auditEventsTable.action, "user_login")));
+
   return {
-    user: { ...user, lastLogin: user.updatedAt },
+    user: { ...user, lastLogin: lastLoginRow?.lastLogin ?? null },
     profile: profile ?? null,
     employerProfile: employerProfile ?? null,
     documents,
