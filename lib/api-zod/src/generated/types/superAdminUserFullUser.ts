@@ -5,14 +5,15 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
-import type { AuthUserRole } from "./authUserRole";
 
-export interface AuthUser {
+export type SuperAdminUserFullUser = {
   id: string;
-  email?: string | null;
+  email: string;
   firstName?: string | null;
   lastName?: string | null;
-  profileImageUrl?: string | null;
-  emailVerified?: boolean | null;
-  role?: AuthUserRole;
-}
+  role: string;
+  emailVerified: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  lastLogin: Date | null;
+};

@@ -3,9 +3,19 @@ import { useSearch } from "wouter";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
+interface ApplicationItem {
+  id: number;
+  roleId: number;
+  roleTitle: string | null;
+  roleEmployer: string | null;
+  status: string;
+  appliedAt: string;
+  notes: string | null;
+}
+
 interface ImpersonationData {
   impersonating: boolean;
-  adminId: string;
+  adminId: string | null;
   user: {
     id: string;
     email: string;
@@ -14,11 +24,15 @@ interface ImpersonationData {
     role: string;
     emailVerified: boolean;
     createdAt: string;
+    lastLogin: string | null;
   };
   profile: Record<string, unknown> | null;
   employerProfile: Record<string, unknown> | null;
-  documents: { id: number; fileName: string; fileType: string; storageKey: string; uploadedAt: string }[];
-  applications: { id: number; roleId: number; status: string; appliedAt: string }[];
+  documents: { id: number; filename: string; mimeType: string; storageKey: string; uploadedAt: string }[];
+  applications: ApplicationItem[];
+  eligibilityHistory: { id: number; outcome: string; createdAt: string }[];
+  auditEvents: { id: number; actor: string; action: string; target: string | null; createdAt: string }[];
+  consent: Record<string, unknown> | null;
   latestDecision: { outcome: string; createdAt: string } | null;
 }
 
@@ -32,6 +46,15 @@ function Field({ label, value }: { label: string; value: string | number | boole
   );
 }
 
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border border-border p-5 space-y-1">
+      <h2 className="text-sm font-semibold mb-3">{title}</h2>
+      {children}
+    </div>
+  );
+}
+
 export default function ImpersonatePage() {
   const searchStr = useSearch();
   const token = new URLSearchParams(searchStr).get("token") ?? "";
@@ -41,7 +64,9 @@ export default function ImpersonatePage() {
 
   useEffect(() => {
     if (!token) { setError("No impersonation token provided."); setLoading(false); return; }
-    fetch(`${API_BASE}/admin/super/impersonate/validate?token=${encodeURIComponent(token)}`, { credentials: "include" })
+    fetch(`${API_BASE}/admin/super/impersonate/validate?token=${encodeURIComponent(token)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
       .then(async (r) => {
         if (!r.ok) {
           const body = await r.json().catch(() => ({}));
@@ -72,8 +97,11 @@ export default function ImpersonatePage() {
     );
   }
 
-  const { user, profile, employerProfile, documents, applications, latestDecision } = data;
+  const { user, profile, employerProfile, documents, applications, eligibilityHistory, auditEvents, consent, latestDecision } = data;
   const displayName = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email;
+
+  const fmt = (d: string | null | undefined) =>
+    d ? new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
   return (
     <div className="min-h-screen bg-background">
@@ -83,10 +111,10 @@ export default function ImpersonatePage() {
           <span className="font-semibold text-sm">
             Impersonating: <strong>{displayName}</strong> ({user.email})
           </span>
-          <span className="text-xs bg-amber-900/20 px-2 py-0.5 rounded-full capitalize">{user.role.replace("_", " ")}</span>
+          <span className="text-xs bg-amber-900/20 px-2 py-0.5 rounded-full capitalize">{user.role.replace(/_/g, " ")}</span>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-xs">Read-only — no writes permitted</span>
+          <span className="text-xs font-medium">Read-only — all writes blocked by server</span>
           <button
             onClick={() => window.close()}
             className="text-xs bg-amber-900/20 hover:bg-amber-900/30 px-3 py-1 rounded-lg font-medium transition-colors"
@@ -96,53 +124,47 @@ export default function ImpersonatePage() {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-6 py-8 space-y-8">
+      <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
         <div>
           <h1 className="text-2xl font-bold">{displayName}</h1>
-          <p className="text-muted-foreground">{user.email} · <span className="capitalize">{user.role.replace("_", " ")}</span></p>
+          <p className="text-muted-foreground">{user.email} · <span className="capitalize">{user.role.replace(/_/g, " ")}</span></p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="rounded-xl border border-border p-5 space-y-1">
-            <h2 className="text-sm font-semibold mb-3">Account</h2>
+          <Section title="Account">
             <Field label="ID" value={user.id} />
             <Field label="Email Verified" value={user.emailVerified ? "Yes" : "No"} />
-            <Field label="Joined" value={new Date(user.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })} />
-            <Field label="Eligibility Status" value={latestDecision?.outcome?.replace("_", " ") ?? "Not evaluated"} />
-          </div>
+            <Field label="Joined" value={fmt(user.createdAt)} />
+            <Field label="Last Activity" value={fmt(user.lastLogin)} />
+            <Field label="Eligibility Status" value={latestDecision?.outcome?.replace(/_/g, " ") ?? "Not evaluated"} />
+            <Field label="Data Consent" value={consent ? `Consented ${fmt((consent as { consentedAt?: string }).consentedAt)}` : "Not consented"} />
+          </Section>
 
           {profile && (
-            <div className="rounded-xl border border-border p-5">
-              <h2 className="text-sm font-semibold mb-3">Candidate Profile</h2>
-              <div className="space-y-0">
-                {Object.entries(profile)
-                  .filter(([k]) => !["id", "userId", "createdAt", "updatedAt", "lastAlertSentAt", "boostProfile"].includes(k))
-                  .map(([k, v]) => <Field key={k} label={k} value={v as string} />)}
-              </div>
-            </div>
+            <Section title="Candidate Profile">
+              {Object.entries(profile)
+                .filter(([k]) => !["id", "userId", "createdAt", "updatedAt", "lastAlertSentAt", "boostProfile"].includes(k))
+                .map(([k, v]) => <Field key={k} label={k} value={v as string} />)}
+            </Section>
           )}
 
           {employerProfile && (
-            <div className="rounded-xl border border-border p-5">
-              <h2 className="text-sm font-semibold mb-3">Employer Profile</h2>
-              <div className="space-y-0">
-                {Object.entries(employerProfile)
-                  .filter(([k]) => !["id", "userId", "createdAt", "updatedAt"].includes(k))
-                  .map(([k, v]) => <Field key={k} label={k} value={v as string} />)}
-              </div>
-            </div>
+            <Section title="Employer Profile">
+              {Object.entries(employerProfile)
+                .filter(([k]) => !["id", "userId", "createdAt", "updatedAt"].includes(k))
+                .map(([k, v]) => <Field key={k} label={k} value={v as string} />)}
+            </Section>
           )}
         </div>
 
         {documents.length > 0 && (
-          <div className="rounded-xl border border-border p-5">
-            <h2 className="text-sm font-semibold mb-3">Documents ({documents.length})</h2>
-            <div className="space-y-2">
+          <Section title={`Documents (${documents.length})`}>
+            <div className="space-y-2 mt-1">
               {documents.map((doc) => (
                 <div key={doc.id} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
                   <div>
-                    <div className="text-sm font-medium">{doc.fileName}</div>
-                    <div className="text-xs text-muted-foreground">{doc.fileType} · {new Date(doc.uploadedAt).toLocaleDateString("en-GB")}</div>
+                    <div className="text-sm font-medium">{doc.filename}</div>
+                    <div className="text-xs text-muted-foreground">{doc.mimeType} · {fmt(doc.uploadedAt)}</div>
                   </div>
                   <a
                     href={`${API_BASE}/storage/objects/${doc.storageKey}`}
@@ -155,22 +177,52 @@ export default function ImpersonatePage() {
                 </div>
               ))}
             </div>
-          </div>
+          </Section>
         )}
 
         {applications.length > 0 && (
-          <div className="rounded-xl border border-border p-5">
-            <h2 className="text-sm font-semibold mb-3">Applications ({applications.length})</h2>
-            <div className="space-y-2">
+          <Section title={`Applications (${applications.length})`}>
+            <div className="space-y-0 mt-1">
               {applications.map((app) => (
-                <div key={app.id} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
-                  <div className="text-sm">Role #{app.roleId}</div>
-                  <span className="capitalize text-xs bg-muted px-2 py-0.5 rounded-full">{app.status}</span>
-                  <div className="text-xs text-muted-foreground">{new Date(app.appliedAt).toLocaleDateString("en-GB")}</div>
+                <div key={app.id} className="flex items-center justify-between py-2.5 border-b border-border/50 last:border-0">
+                  <div>
+                    <div className="text-sm font-medium">{app.roleTitle ?? `Role #${app.roleId}`}</div>
+                    {app.roleEmployer && <div className="text-xs text-muted-foreground">{app.roleEmployer}</div>}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="capitalize text-xs bg-muted px-2 py-0.5 rounded-full">{app.status}</span>
+                    <div className="text-xs text-muted-foreground">{fmt(app.appliedAt)}</div>
+                  </div>
                 </div>
               ))}
             </div>
-          </div>
+          </Section>
+        )}
+
+        {eligibilityHistory.length > 0 && (
+          <Section title="Eligibility History">
+            <div className="space-y-0 mt-1">
+              {eligibilityHistory.map((rec) => (
+                <div key={rec.id} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
+                  <span className="text-sm capitalize">{rec.outcome.replace(/_/g, " ")}</span>
+                  <span className="text-xs text-muted-foreground">{fmt(rec.createdAt)}</span>
+                </div>
+              ))}
+            </div>
+          </Section>
+        )}
+
+        {auditEvents.length > 0 && (
+          <Section title="Recent Audit Events (last 20)">
+            <div className="space-y-0 mt-1">
+              {auditEvents.map((ev) => (
+                <div key={ev.id} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0 text-xs">
+                  <span className="font-mono text-muted-foreground">{ev.action}</span>
+                  <span className="text-muted-foreground">{fmt(ev.createdAt)}</span>
+                </div>
+              ))}
+            </div>
+          </Section>
         )}
 
         {!profile && !employerProfile && documents.length === 0 && applications.length === 0 && (

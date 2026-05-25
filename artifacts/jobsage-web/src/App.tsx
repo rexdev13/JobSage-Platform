@@ -80,7 +80,7 @@ function ProfileGate() {
 
   useEffect(() => {
     if (isLoading) return;
-    if (user?.role === "employer") {
+    if ((user?.role as string) === "employer") {
       setLocation("/employer/dashboard");
       return;
     }
@@ -94,7 +94,7 @@ function ProfileGate() {
   }, [isLoading, consentData, hasConsented, profileError, profile, setLocation, user]);
 
   if (isLoading) return <LoadingScreen />;
-  if (user?.role === "employer") return null;
+  if ((user?.role as string) === "employer") return null;
   if (consentData && !consentData.hasConsented) return null;
   if (profileError) return <DashboardPage />;
   if (!profile?.profession) return null;
@@ -120,13 +120,13 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    if (!isLoading && user && user.role !== "admin" && user.role !== "super_admin") {
+    if (!isLoading && user && (user.role as string) !== "admin" && (user.role as string) !== "super_admin") {
       setLocation("/");
     }
   }, [isLoading, user, setLocation]);
 
   if (isLoading) return null;
-  if (!user || (user.role !== "admin" && user.role !== "super_admin")) return null;
+  if (!user || ((user.role as string) !== "admin" && (user.role as string) !== "super_admin")) return null;
   return <>{children}</>;
 }
 
@@ -135,13 +135,13 @@ function SuperAdminGuard({ children }: { children: React.ReactNode }) {
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    if (!isLoading && user && user.role !== "super_admin") {
+    if (!isLoading && user && (user.role as string) !== "super_admin") {
       setLocation("/");
     }
   }, [isLoading, user, setLocation]);
 
   if (isLoading) return null;
-  if (!user || user.role !== "super_admin") return null;
+  if (!user || (user.role as string) !== "super_admin") return null;
   return <>{children}</>;
 }
 
@@ -150,13 +150,13 @@ function EmployerGuard({ children }: { children: React.ReactNode }) {
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    if (!isLoading && user && user.role !== "employer" && user.role !== "admin") {
+    if (!isLoading && user && (user.role as string) !== "employer" && (user.role as string) !== "admin") {
       setLocation("/employer/onboarding");
     }
   }, [isLoading, user, setLocation]);
 
   if (isLoading) return null;
-  if (!user || (user.role !== "employer" && user.role !== "admin")) return null;
+  if (!user || ((user.role as string) !== "employer" && (user.role as string) !== "admin")) return null;
   return <>{children}</>;
 }
 

@@ -12,7 +12,7 @@ declare global {
 
     interface Request {
       isAuthenticated(): this is AuthedRequest;
-
+      isImpersonating?: boolean;
       user?: User | undefined;
     }
 
@@ -45,5 +45,6 @@ export async function authMiddleware(
   }
 
   req.user = session.user;
+  req.isImpersonating = session.impersonating === true;
   next();
 }

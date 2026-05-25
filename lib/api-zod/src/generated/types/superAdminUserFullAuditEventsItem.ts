@@ -6,4 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type SuperAdminUserFullAuditEventsItem = { [key: string]: unknown };
+export type SuperAdminUserFullAuditEventsItem = {
+  id?: number;
+  actor?: string;
+  action?: string;
+  target?: string | null;
+  createdAt?: Date;
+};

@@ -8,7 +8,7 @@
 
 export type ImpersonationResponseTargetUser = {
   id: string;
-  email: string | null;
+  email: string;
   displayName: string;
   role: string;
 };

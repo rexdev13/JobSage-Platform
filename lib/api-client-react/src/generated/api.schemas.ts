@@ -21,6 +21,8 @@ export const AuthUserRole = {
   candidate: "candidate",
   admin: "admin",
   reviewer: "reviewer",
+  employer: "employer",
+  super_admin: "super_admin",
 } as const;
 
 export interface AuthUser {
@@ -29,6 +31,7 @@ export interface AuthUser {
   firstName?: string | null;
   lastName?: string | null;
   profileImageUrl?: string | null;
+  emailVerified?: boolean | null;
   role?: AuthUserRole;
 }
 
@@ -1234,18 +1237,20 @@ export interface SuperAdminStats {
 
 export interface SuperAdminUser {
   id: string;
-  email: string | null;
+  email: string;
   firstName?: string | null;
   lastName?: string | null;
   role: string;
   emailVerified: boolean;
   createdAt: string;
   updatedAt: string;
+  lastLogin: string | null;
   profileCompletion: number;
   documentCount: number;
   applicationCount: number;
   eligibilityStatus?: string | null;
   hasConsented: boolean;
+  consentedAt?: string | null;
 }
 
 export interface SuperAdminUserListResponse {
@@ -1255,26 +1260,65 @@ export interface SuperAdminUserListResponse {
   pageSize: number;
 }
 
+export type SuperAdminUserFullUser = {
+  id: string;
+  email: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  role: string;
+  emailVerified: boolean;
+  createdAt: string;
+  updatedAt: string;
+  lastLogin: string | null;
+};
+
 export type SuperAdminUserFullProfile = { [key: string]: unknown } | null;
 
 export type SuperAdminUserFullEmployerProfile = {
   [key: string]: unknown;
 } | null;
 
-export type SuperAdminUserFullDocumentsItem = { [key: string]: unknown };
-
-export type SuperAdminUserFullApplicationsItem = { [key: string]: unknown };
-
-export type SuperAdminUserFullEligibilityHistoryItem = {
-  [key: string]: unknown;
+export type SuperAdminUserFullDocumentsItem = {
+  id?: number;
+  fileName?: string;
+  fileType?: string;
+  storageKey?: string;
+  uploadedAt?: string;
 };
 
-export type SuperAdminUserFullAuditEventsItem = { [key: string]: unknown };
+export type SuperAdminUserFullApplicationsItem = {
+  id?: number;
+  roleId?: number;
+  roleTitle?: string | null;
+  roleEmployer?: string | null;
+  status?: string;
+  appliedAt?: string;
+  notes?: string | null;
+};
+
+export type SuperAdminUserFullEligibilityHistoryItem = {
+  id?: number;
+  outcome?: string;
+  createdAt?: string;
+};
+
+export type SuperAdminUserFullAuditEventsItem = {
+  id?: number;
+  actor?: string;
+  action?: string;
+  target?: string | null;
+  createdAt?: string;
+};
 
 export type SuperAdminUserFullConsent = { [key: string]: unknown } | null;
 
+export type SuperAdminUserFullLatestDecision = {
+  outcome?: string;
+  createdAt?: string;
+} | null;
+
 export interface SuperAdminUserFull {
-  user: SuperAdminUser;
+  user: SuperAdminUserFullUser;
   profile?: SuperAdminUserFullProfile;
   employerProfile?: SuperAdminUserFullEmployerProfile;
   documents: SuperAdminUserFullDocumentsItem[];
@@ -1282,16 +1326,22 @@ export interface SuperAdminUserFull {
   eligibilityHistory: SuperAdminUserFullEligibilityHistoryItem[];
   auditEvents: SuperAdminUserFullAuditEventsItem[];
   consent?: SuperAdminUserFullConsent;
+  latestDecision?: SuperAdminUserFullLatestDecision;
+  /** Present only on the validate-impersonation response. */
+  impersonating?: boolean;
+  /** Present only on the validate-impersonation response. */
+  adminId?: string | null;
 }
 
 export type ImpersonationResponseTargetUser = {
   id: string;
-  email: string | null;
+  email: string;
   displayName: string;
   role: string;
 };
 
 export interface ImpersonationResponse {
+  /** Session ID to pass as Bearer token when calling the impersonation validate endpoint. */
   token: string;
   expiresAt: string;
   targetUser: ImpersonationResponseTargetUser;
@@ -1319,7 +1369,8 @@ export interface SuperAdminHealth {
   dailyApplications: SuperAdminHealthDailyApplicationsItem[];
   dailyActiveUsers: SuperAdminHealthDailyActiveUsersItem[];
   syncLog: SuperAdminHealthSyncLogItem[];
-  errorCount: number;
+  /** Count of audit events with action containing "error" in the last 7 days. */
+  errorAuditEventsLast7Days: number;
 }
 
 export type VerifyEmailParams = {

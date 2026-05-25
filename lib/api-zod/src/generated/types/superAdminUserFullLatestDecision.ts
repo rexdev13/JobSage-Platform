@@ -6,8 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type SuperAdminUserFullEligibilityHistoryItem = {
-  id?: number;
+export type SuperAdminUserFullLatestDecision = {
   outcome?: string;
   createdAt?: Date;
-};
+} | null;

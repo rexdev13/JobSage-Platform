@@ -33,11 +33,13 @@ interface SuperUser {
   emailVerified: boolean;
   createdAt: string;
   updatedAt: string;
+  lastLogin: string | null;
   profileCompletion: number;
   documentCount: number;
   applicationCount: number;
   eligibilityStatus: string | null;
   hasConsented: boolean;
+  consentedAt: string | null;
 }
 
 interface UserFull {
@@ -45,7 +47,7 @@ interface UserFull {
   profile: Record<string, unknown> | null;
   employerProfile: Record<string, unknown> | null;
   documents: { id: number; fileName: string; fileType: string; storageKey: string; uploadedAt: string }[];
-  applications: { id: number; roleId: number; status: string; appliedAt: string; notes: string | null }[];
+  applications: { id: number; roleId: number; roleTitle: string | null; roleEmployer: string | null; status: string; appliedAt: string; notes: string | null }[];
   eligibilityHistory: { id: number; outcome: string; createdAt: string }[];
   auditEvents: { id: number; actor: string; action: string; target: string | null; details: Record<string, unknown> | null; createdAt: string }[];
   consent: { id: number; termsVersion: string; consentedAt: string } | null;
@@ -56,7 +58,7 @@ interface HealthData {
   dailyApplications: { date: string; count: number }[];
   dailyActiveUsers: { date: string; count: number }[];
   syncLog: { id: number; status: string; recordCount: number | null; errorMessage: string | null; createdAt: string }[];
-  errorCount: number;
+  errorAuditEventsLast7Days: number;
 }
 
 function StatCard({ title, value, icon: Icon, sub }: { title: string; value: string | number; icon: React.ElementType; sub?: string }) {
@@ -202,7 +204,10 @@ function UserDetailPanel({ userId, apiBase, onImpersonate }: { userId: string; a
           <div className="space-y-1">
             {applications.map((app) => (
               <div key={app.id} className="flex items-center justify-between text-sm py-1 border-b border-border/50 last:border-0">
-                <span>Role #{app.roleId}</span>
+                <div>
+                  <div>{app.roleTitle ?? `Role #${app.roleId}`}</div>
+                  {app.roleEmployer && <div className="text-xs text-muted-foreground">{app.roleEmployer}</div>}
+                </div>
                 <span className="capitalize text-xs bg-muted px-2 py-0.5 rounded-full">{app.status}</span>
                 <span className="text-muted-foreground text-xs">{new Date(app.appliedAt).toLocaleDateString("en-GB")}</span>
               </div>
@@ -258,6 +263,8 @@ function AllUsersTab() {
   const [verifiedFilter, setVerifiedFilter] = useState("");
   const [sortBy, setSortBy] = useState("createdAt");
   const [sortDir, setSortDir] = useState("desc");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -268,6 +275,8 @@ function AllUsersTab() {
       if (search) params.set("search", search);
       if (roleFilter) params.set("role", roleFilter);
       if (verifiedFilter) params.set("verified", verifiedFilter);
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo) params.set("dateTo", dateTo);
       const res = await fetch(`${API_BASE}/admin/super/users?${params}`, { credentials: "include" });
       const data = await res.json();
       setUsers(data.users ?? []);
@@ -277,7 +286,7 @@ function AllUsersTab() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, roleFilter, verifiedFilter, sortBy, sortDir, toast]);
+  }, [page, search, roleFilter, verifiedFilter, sortBy, sortDir, dateFrom, dateTo, toast]);
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
@@ -335,6 +344,22 @@ function AllUsersTab() {
           <option value="true">Verified</option>
           <option value="false">Unverified</option>
         </select>
+        <div className="flex items-center gap-2 text-sm">
+          <label className="text-muted-foreground text-xs whitespace-nowrap">From</label>
+          <input
+            type="date"
+            className="text-sm border border-border rounded-lg px-3 py-2 bg-background focus:outline-none"
+            value={dateFrom}
+            onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
+          />
+          <label className="text-muted-foreground text-xs whitespace-nowrap">To</label>
+          <input
+            type="date"
+            className="text-sm border border-border rounded-lg px-3 py-2 bg-background focus:outline-none"
+            value={dateTo}
+            onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
+          />
+        </div>
         <Button variant="outline" size="sm" onClick={fetchUsers} className="gap-1.5">
           <RefreshCw className="w-3.5 h-3.5" /> Refresh
         </Button>
@@ -350,12 +375,14 @@ function AllUsersTab() {
                 {[
                   { label: "Email", col: "email" },
                   { label: "Role", col: "role" },
-                  { label: "Verified", col: null },
+                  { label: "Verified", col: "emailVerified" },
                   { label: "Profile %", col: null },
                   { label: "Docs", col: null },
                   { label: "Apps", col: null },
                   { label: "Eligibility", col: null },
+                  { label: "Consent", col: null },
                   { label: "Joined", col: "createdAt" },
+                  { label: "Last Activity", col: "updatedAt" },
                 ].map(({ label, col }) => (
                   <th
                     key={label}
@@ -371,10 +398,10 @@ function AllUsersTab() {
             </thead>
             <tbody>
               {loading && (
-                <tr><td colSpan={9} className="text-center py-10 text-muted-foreground">Loading...</td></tr>
+                <tr><td colSpan={11} className="text-center py-10 text-muted-foreground">Loading...</td></tr>
               )}
               {!loading && users.length === 0 && (
-                <tr><td colSpan={9} className="text-center py-10 text-muted-foreground">No users found.</td></tr>
+                <tr><td colSpan={11} className="text-center py-10 text-muted-foreground">No users found.</td></tr>
               )}
               {!loading && users.map((u) => (
                 <>
@@ -409,8 +436,18 @@ function AllUsersTab() {
                         </span>
                       ) : <span className="text-muted-foreground text-xs">—</span>}
                     </td>
+                    <td className="px-4 py-3 text-center">
+                      {u.hasConsented ? (
+                        <span className="text-xs text-green-600 font-medium">Yes</span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">No</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">
                       {new Date(u.createdAt).toLocaleDateString("en-GB")}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">
+                      {u.lastLogin ? new Date(u.lastLogin).toLocaleDateString("en-GB") : "—"}
                     </td>
                     <td className="px-4 py-3">
                       {expandedId === u.id ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
@@ -418,7 +455,7 @@ function AllUsersTab() {
                   </tr>
                   {expandedId === u.id && (
                     <tr key={`${u.id}-detail`}>
-                      <td colSpan={9} className="p-0">
+                      <td colSpan={11} className="p-0">
                         <UserDetailPanel userId={u.id} apiBase={API_BASE} onImpersonate={handleImpersonate} />
                       </td>
                     </tr>
@@ -483,7 +520,7 @@ function HealthTab() {
               <AlertTriangle className="w-4 h-4 text-amber-500" />
               <span className="text-xs font-semibold text-muted-foreground uppercase">Error Events (Audit Log)</span>
             </div>
-            <div className="text-3xl font-bold">{health.errorCount}</div>
+            <div className="text-3xl font-bold">{health.errorAuditEventsLast7Days}</div>
           </CardContent>
         </Card>
         <Card>

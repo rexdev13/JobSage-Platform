@@ -11,6 +11,10 @@ export function requireAuthenticated(req: Request, res: Response, next: NextFunc
     res.status(401).json({ error: "Not authenticated." });
     return;
   }
+  if (req.isImpersonating && req.method !== "GET") {
+    res.status(403).json({ error: "Write operations are not permitted during impersonation." });
+    return;
+  }
   next();
 }
 
@@ -22,6 +26,10 @@ export function requireRole(...allowedRoles: AppRole[]) {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.isAuthenticated()) {
       res.status(401).json({ error: "Not authenticated." });
+      return;
+    }
+    if (req.isImpersonating && req.method !== "GET") {
+      res.status(403).json({ error: "Write operations are not permitted during impersonation." });
       return;
     }
     const role = (req.user as { role?: string | null }).role;

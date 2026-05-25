@@ -6,4 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type SuperAdminUserFullApplicationsItem = { [key: string]: unknown };
+export type SuperAdminUserFullApplicationsItem = {
+  id?: number;
+  roleId?: number;
+  roleTitle?: string | null;
+  roleEmployer?: string | null;
+  status?: string;
+  appliedAt?: Date;
+  notes?: string | null;
+};
