@@ -1220,6 +1220,108 @@ export interface CandidateMessageListResponse {
   unreadCount: number;
 }
 
+export type SuperAdminStatsUsersByRole = { [key: string]: number };
+
+export interface SuperAdminStats {
+  totalUsers: number;
+  usersByRole: SuperAdminStatsUsersByRole;
+  completedProfiles: number;
+  activeJobs: number;
+  applicationsThisWeek: number;
+  sponsorLicences: number;
+  lastSponsorSync?: string | null;
+}
+
+export interface SuperAdminUser {
+  id: string;
+  email: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  role: string;
+  emailVerified: boolean;
+  createdAt: string;
+  updatedAt: string;
+  profileCompletion: number;
+  documentCount: number;
+  applicationCount: number;
+  eligibilityStatus?: string | null;
+  hasConsented: boolean;
+}
+
+export interface SuperAdminUserListResponse {
+  users: SuperAdminUser[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export type SuperAdminUserFullProfile = { [key: string]: unknown } | null;
+
+export type SuperAdminUserFullEmployerProfile = {
+  [key: string]: unknown;
+} | null;
+
+export type SuperAdminUserFullDocumentsItem = { [key: string]: unknown };
+
+export type SuperAdminUserFullApplicationsItem = { [key: string]: unknown };
+
+export type SuperAdminUserFullEligibilityHistoryItem = {
+  [key: string]: unknown;
+};
+
+export type SuperAdminUserFullAuditEventsItem = { [key: string]: unknown };
+
+export type SuperAdminUserFullConsent = { [key: string]: unknown } | null;
+
+export interface SuperAdminUserFull {
+  user: SuperAdminUser;
+  profile?: SuperAdminUserFullProfile;
+  employerProfile?: SuperAdminUserFullEmployerProfile;
+  documents: SuperAdminUserFullDocumentsItem[];
+  applications: SuperAdminUserFullApplicationsItem[];
+  eligibilityHistory: SuperAdminUserFullEligibilityHistoryItem[];
+  auditEvents: SuperAdminUserFullAuditEventsItem[];
+  consent?: SuperAdminUserFullConsent;
+}
+
+export type ImpersonationResponseTargetUser = {
+  id: string;
+  email: string | null;
+  displayName: string;
+  role: string;
+};
+
+export interface ImpersonationResponse {
+  token: string;
+  expiresAt: string;
+  targetUser: ImpersonationResponseTargetUser;
+}
+
+export type SuperAdminHealthDailyRegistrationsItem = {
+  date?: string;
+  count?: number;
+};
+
+export type SuperAdminHealthDailyApplicationsItem = {
+  date?: string;
+  count?: number;
+};
+
+export type SuperAdminHealthDailyActiveUsersItem = {
+  date?: string;
+  count?: number;
+};
+
+export type SuperAdminHealthSyncLogItem = { [key: string]: unknown };
+
+export interface SuperAdminHealth {
+  dailyRegistrations: SuperAdminHealthDailyRegistrationsItem[];
+  dailyApplications: SuperAdminHealthDailyApplicationsItem[];
+  dailyActiveUsers: SuperAdminHealthDailyActiveUsersItem[];
+  syncLog: SuperAdminHealthSyncLogItem[];
+  errorCount: number;
+}
+
 export type VerifyEmailParams = {
   /**
    * Email verification token from the verification email.
@@ -1381,4 +1483,17 @@ export type ListSponsorLicencesParams = {
    * @maximum 100
    */
   limit?: number;
+};
+
+export type GetSuperAdminUsersParams = {
+  page?: number;
+  search?: string;
+  role?: string;
+  verified?: string;
+  sortBy?: string;
+  sortDir?: string;
+};
+
+export type ValidateImpersonationTokenParams = {
+  token: string;
 };

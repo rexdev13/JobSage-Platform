@@ -40,6 +40,8 @@ tags:
     description: UK Home Office sponsor licence register — search and filter licensed sponsors.
   - name: CandidatePortal
     description: Candidate Portal Phase 2 — cover letter generation, progress report, speculative applications.
+  - name: SuperAdmin
+    description: Super admin operational intelligence — platform stats, full user visibility, impersonation, and health metrics.
 paths:
   /healthz:
     get:
@@ -2134,6 +2136,169 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /admin/super/stats:
+    get:
+      tags: [SuperAdmin]
+      operationId: getSuperAdminStats
+      summary: Platform-wide aggregated statistics (super admin only)
+      responses:
+        "200":
+          description: Platform stats.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuperAdminStats"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /admin/super/users:
+    get:
+      tags: [SuperAdmin]
+      operationId: getSuperAdminUsers
+      summary: Paginated, filterable list of all users (super admin only)
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+        - in: query
+          name: search
+          schema:
+            type: string
+        - in: query
+          name: role
+          schema:
+            type: string
+        - in: query
+          name: verified
+          schema:
+            type: string
+        - in: query
+          name: sortBy
+          schema:
+            type: string
+        - in: query
+          name: sortDir
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuperAdminUserListResponse"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /admin/super/users/{id}/full:
+    get:
+      tags: [SuperAdmin]
+      operationId: getSuperAdminUserFull
+      summary: Full backend state for a specific user (super admin only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Full user detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuperAdminUserFull"
+        "404":
+          description: User not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /admin/super/impersonate/{id}:
+    post:
+      tags: [SuperAdmin]
+      operationId: createImpersonationToken
+      summary: Create a short-lived read-only impersonation token (super admin only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Impersonation token created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImpersonationResponse"
+        "404":
+          description: User not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /admin/super/impersonate/validate:
+    get:
+      tags: [SuperAdmin]
+      operationId: validateImpersonationToken
+      summary: Validate an impersonation token and return target user data
+      parameters:
+        - in: query
+          name: token
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Valid token — returns user data.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuperAdminUserFull"
+        "401":
+          description: Invalid or expired token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /admin/super/health:
+    get:
+      tags: [SuperAdmin]
+      operationId: getSuperAdminHealth
+      summary: Platform health metrics (super admin only)
+      responses:
+        "200":
+          description: Health data.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuperAdminHealth"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
 components:
   schemas:
     HealthStatus:
@@ -4119,4 +4284,172 @@ components:
           items:
             $ref: "#/components/schemas/CandidateMessage"
         unreadCount:
+          type: integer
+
+    SuperAdminStats:
+      type: object
+      required: [totalUsers, usersByRole, completedProfiles, activeJobs, applicationsThisWeek, sponsorLicences]
+      properties:
+        totalUsers:
+          type: integer
+        usersByRole:
+          type: object
+          additionalProperties:
+            type: integer
+        completedProfiles:
+          type: integer
+        activeJobs:
+          type: integer
+        applicationsThisWeek:
+          type: integer
+        sponsorLicences:
+          type: integer
+        lastSponsorSync:
+          type: string
+          format: date-time
+          nullable: true
+
+    SuperAdminUser:
+      type: object
+      required: [id, email, role, emailVerified, createdAt, updatedAt, profileCompletion, documentCount, applicationCount, hasConsented]
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          nullable: true
+        firstName:
+          type: string
+          nullable: true
+        lastName:
+          type: string
+          nullable: true
+        role:
+          type: string
+        emailVerified:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        profileCompletion:
+          type: integer
+        documentCount:
+          type: integer
+        applicationCount:
+          type: integer
+        eligibilityStatus:
+          type: string
+          nullable: true
+        hasConsented:
+          type: boolean
+
+    SuperAdminUserListResponse:
+      type: object
+      required: [users, total, page, pageSize]
+      properties:
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/SuperAdminUser"
+        total:
+          type: integer
+        page:
+          type: integer
+        pageSize:
+          type: integer
+
+    SuperAdminUserFull:
+      type: object
+      required: [user, documents, applications, eligibilityHistory, auditEvents]
+      properties:
+        user:
+          $ref: "#/components/schemas/SuperAdminUser"
+        profile:
+          type: object
+          nullable: true
+        employerProfile:
+          type: object
+          nullable: true
+        documents:
+          type: array
+          items:
+            type: object
+        applications:
+          type: array
+          items:
+            type: object
+        eligibilityHistory:
+          type: array
+          items:
+            type: object
+        auditEvents:
+          type: array
+          items:
+            type: object
+        consent:
+          type: object
+          nullable: true
+
+    ImpersonationResponse:
+      type: object
+      required: [token, expiresAt, targetUser]
+      properties:
+        token:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        targetUser:
+          type: object
+          required: [id, email, displayName, role]
+          properties:
+            id:
+              type: string
+            email:
+              type: string
+              nullable: true
+            displayName:
+              type: string
+            role:
+              type: string
+
+    SuperAdminHealth:
+      type: object
+      required: [dailyRegistrations, dailyApplications, dailyActiveUsers, syncLog, errorCount]
+      properties:
+        dailyRegistrations:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+              count:
+                type: integer
+        dailyApplications:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+              count:
+                type: integer
+        dailyActiveUsers:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+              count:
+                type: integer
+        syncLog:
+          type: array
+          items:
+            type: object
+        errorCount:
           type: integer

@@ -4,7 +4,7 @@ import {
   Home, User, FileText, CheckCircle, 
   Map, ClipboardList, Shield, Users, LogOut, Briefcase,
   Building2, Plus, LayoutDashboard, Sparkles, UserCog, List,
-  BarChart2, BookOpen, Search, Bookmark,
+  BarChart2, BookOpen, Search, Bookmark, ShieldAlert,
 } from "lucide-react";
 import { cn } from "@/components/ui-enhanced";
 
@@ -39,10 +39,13 @@ export function AppSidebar() {
     { name: "Review Queue", href: "/review-queue", icon: ClipboardList, roles: ["reviewer", "admin"] },
     
     // Admin Only
-    { name: "Ruleset Management", href: "/admin/rulesets", icon: Shield, roles: ["admin"] },
-    { name: "Role Management", href: "/admin/roles", icon: Users, roles: ["admin"] },
-    { name: "Audit Logs", href: "/admin/audit", icon: Shield, roles: ["admin"] },
-    { name: "User Management", href: "/admin/users", icon: UserCog, roles: ["admin"] },
+    { name: "Ruleset Management", href: "/admin/rulesets", icon: Shield, roles: ["admin", "super_admin"] },
+    { name: "Role Management", href: "/admin/roles", icon: Users, roles: ["admin", "super_admin"] },
+    { name: "Audit Logs", href: "/admin/audit", icon: Shield, roles: ["admin", "super_admin"] },
+    { name: "User Management", href: "/admin/users", icon: UserCog, roles: ["admin", "super_admin"] },
+
+    // Super Admin Only
+    { name: "Super Admin", href: "/admin/super", icon: ShieldAlert, roles: ["super_admin"] },
   ];
 
   const visibleNav = navigation.filter(item => item.roles.includes(role));
