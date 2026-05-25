@@ -191,6 +191,76 @@ function RoleDetailModal({ item, appliedRoleIds, onClose, onApply }: {
   );
 }
 
+function useCoverLetterStream() {
+  const [text, setText] = useState("");
+  const [disclaimer, setDisclaimer] = useState("");
+  const [streaming, setStreaming] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function reset() {
+    setText("");
+    setDisclaimer("");
+    setStreaming(false);
+    setDone(false);
+    setError(null);
+  }
+
+  async function generate(payload: {
+    jobTitle: string;
+    employer: string;
+    location?: string | null;
+    regulator?: string | null;
+    jobDescription?: string | null;
+    roleId?: number;
+  }) {
+    reset();
+    setStreaming(true);
+    const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+    try {
+      const resp = await fetch(`${base}/api/cover-letter/generate-stream`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+      if (!resp.ok || !resp.body) {
+        setError("Failed to start generation. Please try again.");
+        setStreaming(false);
+        return;
+      }
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done: rdDone, value } = await reader.read();
+        if (rdDone) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const parsed = JSON.parse(line.slice(6)) as { text?: string; done?: boolean; disclaimer?: string; error?: string };
+            if (parsed.error) { setError(parsed.error); setStreaming(false); return; }
+            if (parsed.text) setText((prev) => prev + parsed.text);
+            if (parsed.done) {
+              setDisclaimer(parsed.disclaimer ?? "");
+              setDone(true);
+              setStreaming(false);
+            }
+          } catch { /* ignore parse errors */ }
+        }
+      }
+    } catch {
+      setError("Network error. Please try again.");
+      setStreaming(false);
+    }
+  }
+
+  return { text, setText, disclaimer, streaming, done, error, generate, reset };
+}
+
 function CoverLetterModal({
   role,
   onClose,
@@ -198,42 +268,49 @@ function CoverLetterModal({
   role: { id: number; title: string; employer: string; location: string; regulator: string; description?: string | null };
   onClose: () => void;
 }) {
-  const generateMutation = useGenerateCoverLetter();
   const { toast } = useToast();
-  const [result, setResult] = useState<{ coverLetter: string; disclaimer: string } | null>(null);
+  const stream = useCoverLetterStream();
+  const [editableText, setEditableText] = useState("");
   const [copied, setCopied] = useState(false);
 
+  // Sync editable text while streaming
+  if (stream.streaming && stream.text !== editableText) {
+    setEditableText(stream.text);
+  }
+
   function handleGenerate() {
-    generateMutation.mutate(
-      {
-        data: {
-          jobTitle: role.title,
-          employer: role.employer,
-          location: role.location,
-          regulator: role.regulator,
-          jobDescription: role.description ?? null,
-          roleId: role.id,
-        },
-      },
-      {
-        onSuccess: (data) => setResult(data),
-        onError: () =>
-          toast({
-            title: "Error",
-            description: "Failed to generate cover letter. Please try again.",
-            variant: "destructive",
-          }),
-      },
-    );
+    stream.generate({
+      jobTitle: role.title,
+      employer: role.employer,
+      location: role.location,
+      regulator: role.regulator,
+      jobDescription: role.description ?? null,
+      roleId: role.id,
+    }).catch(() => toast({ title: "Error", description: "Failed to generate cover letter.", variant: "destructive" }));
   }
 
   function handleCopy() {
-    if (!result?.coverLetter) return;
-    navigator.clipboard.writeText(result.coverLetter).then(() => {
+    const content = stream.done ? editableText : stream.text;
+    if (!content) return;
+    navigator.clipboard.writeText(content).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
   }
+
+  function handleDownload() {
+    const content = stream.done ? editableText : stream.text;
+    if (!content) return;
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `cover-letter-${role.employer.replace(/\s+/g, "-").toLowerCase()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const hasContent = stream.text.length > 0 || editableText.length > 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
@@ -259,7 +336,7 @@ function CoverLetterModal({
         </div>
 
         <div className="flex-1 overflow-y-auto p-5">
-          {!result && !generateMutation.isPending && (
+          {!hasContent && !stream.streaming && !stream.error && (
             <div className="text-center py-8">
               <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
                 <Sparkles className="w-8 h-8 text-primary" />
@@ -274,23 +351,33 @@ function CoverLetterModal({
             </div>
           )}
 
-          {generateMutation.isPending && (
-            <div className="text-center py-12">
-              <Loader2 className="w-8 h-8 text-primary animate-spin mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">Writing your personalised cover letter…</p>
+          {stream.error && (
+            <div className="text-center py-8">
+              <p className="text-sm text-destructive mb-3">{stream.error}</p>
+              <Button variant="outline" onClick={handleGenerate} className="gap-2">
+                <Sparkles className="w-4 h-4" /> Try Again
+              </Button>
             </div>
           )}
 
-          {result && (
+          {(hasContent || stream.streaming) && (
             <div className="space-y-4">
-              <div className="relative">
-                <pre className="whitespace-pre-wrap text-sm text-foreground leading-relaxed font-sans bg-muted/40 rounded-xl p-5 border border-border">
-                  {result.coverLetter}
-                </pre>
-              </div>
-              {result.disclaimer && (
+              {stream.streaming && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                  Writing your cover letter…
+                </div>
+              )}
+              <textarea
+                className="w-full min-h-[340px] p-4 text-sm text-foreground leading-relaxed bg-muted/40 rounded-xl border border-border resize-y focus:outline-none focus:ring-2 focus:ring-primary/30 font-sans"
+                value={stream.streaming ? stream.text : editableText}
+                onChange={(e) => setEditableText(e.target.value)}
+                readOnly={stream.streaming}
+                placeholder="Your cover letter will appear here…"
+              />
+              {stream.done && stream.disclaimer && (
                 <p className="text-xs text-muted-foreground border-l-2 border-primary/30 pl-3">
-                  {result.disclaimer}
+                  {stream.disclaimer}
                 </p>
               )}
             </div>
@@ -301,17 +388,27 @@ function CoverLetterModal({
           <Button variant="outline" size="sm" onClick={onClose}>
             Close
           </Button>
-          {result && (
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={handleGenerate} disabled={generateMutation.isPending} className="gap-1.5">
-                <Sparkles className="w-3.5 h-3.5" /> Regenerate
+          <div className="flex gap-2 flex-wrap justify-end">
+            {hasContent && (
+              <>
+                <Button size="sm" variant="outline" onClick={handleGenerate} disabled={stream.streaming} className="gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" /> Regenerate
+                </Button>
+                <Button size="sm" variant="outline" onClick={handleDownload} disabled={stream.streaming} className="gap-1.5">
+                  <FileText className="w-3.5 h-3.5" /> Download .txt
+                </Button>
+                <Button size="sm" onClick={handleCopy} disabled={stream.streaming} className="gap-1.5">
+                  {copied ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copied ? "Copied!" : "Copy"}
+                </Button>
+              </>
+            )}
+            {!hasContent && !stream.streaming && (
+              <Button size="sm" onClick={handleGenerate} className="gap-1.5">
+                <Sparkles className="w-3.5 h-3.5" /> Generate
               </Button>
-              <Button size="sm" onClick={handleCopy} className="gap-1.5">
-                {copied ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                {copied ? "Copied!" : "Copy"}
-              </Button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </motion.div>
     </div>

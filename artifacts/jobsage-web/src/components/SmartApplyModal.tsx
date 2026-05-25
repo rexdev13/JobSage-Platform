@@ -24,8 +24,57 @@ import {
   Loader2,
   Building2,
   MapPin,
+  FileText,
+  Copy,
+  Download,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+
+function useCoverLetterStream() {
+  const [text, setText] = useState("");
+  const [disclaimer, setDisclaimer] = useState("");
+  const [streaming, setStreaming] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function reset() { setText(""); setDisclaimer(""); setStreaming(false); setDone(false); setError(null); }
+
+  async function generate(payload: { jobTitle: string; employer?: string; location?: string | null; regulator?: string | null; roleId?: number }) {
+    reset();
+    setStreaming(true);
+    const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+    try {
+      const resp = await fetch(`${base}/api/cover-letter/generate-stream`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ ...payload, employer: payload.employer ?? "NHS Trust" }),
+      });
+      if (!resp.ok || !resp.body) { setError("Failed to generate. Please try again."); setStreaming(false); return; }
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done: rdDone, value } = await reader.read();
+        if (rdDone) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const p = JSON.parse(line.slice(6)) as { text?: string; done?: boolean; disclaimer?: string; error?: string };
+            if (p.error) { setError(p.error); setStreaming(false); return; }
+            if (p.text) setText((prev) => prev + p.text);
+            if (p.done) { setDisclaimer(p.disclaimer ?? ""); setDone(true); setStreaming(false); }
+          } catch { /* ignore */ }
+        }
+      }
+    } catch { setError("Network error. Please try again."); setStreaming(false); }
+  }
+
+  return { text, setText, disclaimer, streaming, done, error, generate, reset };
+}
 
 interface SmartApplyModalProps {
   roleId: number;
@@ -79,7 +128,14 @@ export function SmartApplyModal({
 }: SmartApplyModalProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [step, setStep] = useState<"loading" | "error" | "review" | "submitting">("loading");
+  const [step, setStep] = useState<"loading" | "error" | "review" | "submitting" | "coverLetter">("loading");
+  const coverLetter = useCoverLetterStream();
+  const [clEditable, setClEditable] = useState("");
+  const [clCopied, setClCopied] = useState(false);
+
+  if (coverLetter.streaming && coverLetter.text !== clEditable) {
+    setClEditable(coverLetter.text);
+  }
   const [prefillData, setPrefillData] = useState<SmartApplyPrefillResponse | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -339,6 +395,61 @@ export function SmartApplyModal({
               <p className="text-sm font-medium text-foreground">Submitting your application…</p>
             </div>
           )}
+
+          {step === "coverLetter" && (
+            <div className="space-y-3">
+              {!coverLetter.text && !coverLetter.streaming && !coverLetter.error && (
+                <div className="text-center py-8">
+                  <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                    <FileText className="w-7 h-7 text-primary" />
+                  </div>
+                  <h4 className="text-sm font-semibold text-foreground mb-1">Generate a tailored cover letter</h4>
+                  <p className="text-xs text-muted-foreground mb-5 max-w-sm mx-auto">
+                    AI will write a personalised cover letter for <strong>{roleTitle}</strong> based on your profile and uploaded CV.
+                  </p>
+                  <Button
+                    size="sm"
+                    onClick={() =>
+                      void coverLetter.generate({ jobTitle: roleTitle, roleId })
+                    }
+                    className="gap-2"
+                  >
+                    <Sparkles className="w-4 h-4" /> Generate Cover Letter
+                  </Button>
+                </div>
+              )}
+              {coverLetter.error && (
+                <div className="text-center py-6">
+                  <AlertTriangle className="w-8 h-8 text-destructive mx-auto mb-2" />
+                  <p className="text-sm text-destructive mb-3">{coverLetter.error}</p>
+                  <Button size="sm" variant="outline" onClick={() => void coverLetter.generate({ jobTitle: roleTitle, roleId })}>
+                    Try Again
+                  </Button>
+                </div>
+              )}
+              {(coverLetter.text || coverLetter.streaming) && (
+                <div className="space-y-2">
+                  {coverLetter.streaming && (
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" /> Writing cover letter…
+                    </div>
+                  )}
+                  <textarea
+                    className="w-full min-h-[280px] p-3 text-sm text-foreground leading-relaxed bg-muted/40 rounded-xl border border-border resize-y focus:outline-none focus:ring-2 focus:ring-primary/30 font-sans"
+                    value={coverLetter.streaming ? coverLetter.text : clEditable}
+                    onChange={(e) => setClEditable(e.target.value)}
+                    readOnly={coverLetter.streaming}
+                    placeholder="Your cover letter will appear here…"
+                  />
+                  {coverLetter.done && coverLetter.disclaimer && (
+                    <p className="text-[10px] text-muted-foreground border-l-2 border-primary/20 pl-2">
+                      {coverLetter.disclaimer}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {step === "review" && (
@@ -353,20 +464,82 @@ export function SmartApplyModal({
               <ChevronLeft className="w-4 h-4 mr-1" /> Back
             </Button>
 
-            {isLastQuestion ? (
-              <Button onClick={handleSubmit} size="sm" className="gap-1.5">
-                <Send className="w-4 h-4" /> Submit Application
-              </Button>
-            ) : (
+            <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentQuestion((p) => p + 1)}
-                className="text-sm"
+                className="gap-1.5 text-xs"
+                onClick={() => setStep("coverLetter")}
               >
-                Next <ChevronRight className="w-4 h-4 ml-1" />
+                <FileText className="w-3.5 h-3.5" /> Cover Letter
               </Button>
-            )}
+
+              {isLastQuestion ? (
+                <Button onClick={handleSubmit} size="sm" className="gap-1.5">
+                  <Send className="w-4 h-4" /> Submit Application
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentQuestion((p) => p + 1)}
+                  className="text-sm"
+                >
+                  Next <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {step === "coverLetter" && (
+          <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-muted/30 flex-wrap gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setStep("review")} className="gap-1 text-sm">
+              <ChevronLeft className="w-4 h-4" /> Back to Questions
+            </Button>
+            <div className="flex items-center gap-2">
+              {(coverLetter.text || clEditable) && (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={coverLetter.streaming}
+                    className="gap-1.5 text-xs"
+                    onClick={() => {
+                      const content = coverLetter.done ? clEditable : coverLetter.text;
+                      const blob = new Blob([content], { type: "text/plain" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `cover-letter-${roleTitle.replace(/\s+/g, "-").toLowerCase()}.txt`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                  >
+                    <Download className="w-3.5 h-3.5" /> .txt
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={coverLetter.streaming}
+                    className="gap-1.5 text-xs"
+                    onClick={() => {
+                      const content = coverLetter.done ? clEditable : coverLetter.text;
+                      void navigator.clipboard.writeText(content).then(() => {
+                        setClCopied(true);
+                        setTimeout(() => setClCopied(false), 2000);
+                      });
+                    }}
+                  >
+                    {clCopied ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    {clCopied ? "Copied!" : "Copy"}
+                  </Button>
+                </>
+              )}
+              <Button onClick={handleSubmit} size="sm" className="gap-1.5">
+                <Send className="w-4 h-4" /> Submit Application
+              </Button>
+            </div>
           </div>
         )}
       </motion.div>

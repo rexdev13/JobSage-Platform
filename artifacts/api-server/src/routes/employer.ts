@@ -8,7 +8,7 @@ import {
   decisionRecordsTable,
   usersTable,
 } from "@workspace/db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, ilike } from "drizzle-orm";
 import { requireRole, requireAuthenticated } from "../middlewares/requireRole";
 import { openai } from "@workspace/integrations-openai-ai-server";
 
@@ -416,6 +416,94 @@ router.put("/employer/jobs/:jobId/applicants/:applicationId/stage", requireEmplo
   if (!updated) { res.status(404).json({ error: "Application not found." }); return; }
 
   res.json({ applicationId: updated.id, stage: updated.status, notes: updated.notes });
+});
+
+// Headhunting: list boosted candidates visible to employers
+router.get("/employer/candidates", requireEmployer(), async (req, res): Promise<void> => {
+  const { profession, regulator, sponsorship } = req.query as {
+    profession?: string;
+    regulator?: string;
+    sponsorship?: string;
+  };
+
+  const boostedProfiles = await db
+    .select({
+      userId: profilesTable.userId,
+      profession: profilesTable.profession,
+      specialty: profilesTable.specialty,
+      experienceYears: profilesTable.experienceYears,
+      qualificationCountry: profilesTable.qualificationCountry,
+      registrationStatus: profilesTable.registrationStatus,
+      requiresSponsorship: profilesTable.requiresSponsorship,
+    })
+    .from(profilesTable)
+    .where(
+      and(
+        eq(profilesTable.boostProfile, true),
+        profession ? ilike(profilesTable.profession, `%${profession}%`) : undefined,
+      ),
+    );
+
+  const enriched = await Promise.all(
+    boostedProfiles.map(async (p) => {
+      const [user] = await db
+        .select({ firstName: usersTable.firstName, lastName: usersTable.lastName })
+        .from(usersTable)
+        .where(eq(usersTable.id, p.userId));
+
+      const [latestDecision] = await db
+        .select({ outcome: decisionRecordsTable.outcome, createdAt: decisionRecordsTable.createdAt })
+        .from(decisionRecordsTable)
+        .where(eq(decisionRecordsTable.userId, p.userId))
+        .orderBy(desc(decisionRecordsTable.createdAt))
+        .limit(1);
+
+      const isEligible = latestDecision?.outcome === "eligible";
+
+      // Filter by regulator if requested (based on profession mapping)
+      if (regulator) {
+        const profLower = (p.profession ?? "").toLowerCase();
+        const regMap: Record<string, string[]> = {
+          GMC: ["doctor", "physician"],
+          NMC: ["nurse", "midwife"],
+          HCPC: ["allied_health", "physiotherapist", "pharmacist", "radiographer"],
+        };
+        const matchedProfessions = regMap[regulator] ?? [];
+        if (!matchedProfessions.some((kw) => profLower.includes(kw))) {
+          return null;
+        }
+      }
+
+      // Filter by sponsorship requirement if requested
+      if (sponsorship === "true" && !p.requiresSponsorship) return null;
+      if (sponsorship === "false" && p.requiresSponsorship) return null;
+
+      const initials =
+        [(user?.firstName ?? "").charAt(0), (user?.lastName ?? "").charAt(0)]
+          .filter(Boolean)
+          .join("") || "?";
+
+      return {
+        userId: p.userId,
+        displayName: user
+          ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || "Healthcare Professional"
+          : "Healthcare Professional",
+        initials,
+        profession: p.profession,
+        specialty: p.specialty,
+        experienceYears: p.experienceYears,
+        qualificationCountry: p.qualificationCountry,
+        registrationStatus: p.registrationStatus,
+        requiresSponsorship: p.requiresSponsorship,
+        isEligible,
+        eligibilityOutcome: latestDecision?.outcome ?? null,
+        lastChecked: latestDecision?.createdAt ?? null,
+      };
+    }),
+  );
+
+  const candidates = enriched.filter(Boolean);
+  res.json({ candidates, total: candidates.length });
 });
 
 export default router;
