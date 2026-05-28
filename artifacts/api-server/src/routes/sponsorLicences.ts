@@ -22,6 +22,29 @@ router.get("/sponsor-licences/routes", requireAuthenticated, async (req, res) =>
   }
 });
 
+router.get("/sponsor-licences/industry-counts", requireAuthenticated, async (req, res) => {
+  try {
+    const rows = await db
+      .select({
+        industry: sponsorLicencesTable.industry,
+        count: sql<number>`cast(count(*) as int)`,
+      })
+      .from(sponsorLicencesTable)
+      .where(isNotNull(sponsorLicencesTable.industry))
+      .groupBy(sponsorLicencesTable.industry)
+      .orderBy(desc(sql`count(*)`));
+
+    const counts = rows
+      .filter((r) => r.industry)
+      .map((r) => ({ industry: r.industry as string, count: r.count }));
+
+    res.json({ counts });
+  } catch (err) {
+    console.error("[sponsor-licences] /industry-counts error:", err);
+    res.status(500).json({ error: "Failed to fetch industry counts." });
+  }
+});
+
 router.get("/sponsor-licences/industries", requireAuthenticated, async (req, res) => {
   try {
     const rows = await db

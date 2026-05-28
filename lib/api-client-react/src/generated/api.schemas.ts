@@ -1069,6 +1069,15 @@ export interface SponsorLicenceIndustriesResponse {
   industries: string[];
 }
 
+export interface SponsorLicenceIndustryCount {
+  industry: string;
+  count: number;
+}
+
+export interface SponsorLicenceIndustryCountsResponse {
+  counts: SponsorLicenceIndustryCount[];
+}
+
 export interface BoostProfileRequest {
   boost: boolean;
 }
