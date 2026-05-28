@@ -2023,6 +2023,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /my-analytics:
+    get:
+      operationId: getMyAnalytics
+      tags: [CandidatePortal]
+      summary: Get candidate's readiness score, chart data, and AI predictive insight
+      responses:
+        "200":
+          description: Analytics data.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CandidateAnalytics"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
   /speculative-applications:
     get:
       operationId: listSpeculativeApplications
@@ -4136,6 +4155,81 @@ components:
           type: integer
         responseRate:
           type: integer
+
+    CandidateAnalytics:
+      type: object
+      required:
+        - readinessScore
+        - readinessBreakdown
+        - monthlyApplications
+        - statusBreakdown
+        - profileCompleteness
+        - predictiveInsight
+        - disclaimer
+      properties:
+        readinessScore:
+          type: integer
+        readinessBreakdown:
+          type: object
+          required: [eligibility, planProgress, documents, applications, profileComplete]
+          properties:
+            eligibility:
+              type: integer
+            planProgress:
+              type: integer
+            documents:
+              type: integer
+            applications:
+              type: integer
+            profileComplete:
+              type: integer
+        monthlyApplications:
+          type: array
+          items:
+            type: object
+            required: [month, total, applied, shortlisted, interview, offer, rejected, no_response]
+            properties:
+              month:
+                type: string
+              total:
+                type: integer
+              applied:
+                type: integer
+              shortlisted:
+                type: integer
+              interview:
+                type: integer
+              offer:
+                type: integer
+              rejected:
+                type: integer
+              no_response:
+                type: integer
+        statusBreakdown:
+          type: object
+          required: [applied, shortlisted, interview, offer, rejected, no_response]
+          properties:
+            applied:
+              type: integer
+            shortlisted:
+              type: integer
+            interview:
+              type: integer
+            offer:
+              type: integer
+            rejected:
+              type: integer
+            no_response:
+              type: integer
+        profileCompleteness:
+          type: integer
+        streakDays:
+          type: integer
+          nullable: true
+        predictiveInsight:
+          type: string
+        disclaimer:
+          type: string
 
     ProgressReportResponse:
       type: object

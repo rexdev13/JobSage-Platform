@@ -1093,6 +1093,45 @@ export interface ProgressReportStats {
   responseRate: number;
 }
 
+export type CandidateAnalyticsReadinessBreakdown = {
+  eligibility: number;
+  planProgress: number;
+  documents: number;
+  applications: number;
+  profileComplete: number;
+};
+
+export type CandidateAnalyticsMonthlyApplicationsItem = {
+  month: string;
+  total: number;
+  applied: number;
+  shortlisted: number;
+  interview: number;
+  offer: number;
+  rejected: number;
+  no_response: number;
+};
+
+export type CandidateAnalyticsStatusBreakdown = {
+  applied: number;
+  shortlisted: number;
+  interview: number;
+  offer: number;
+  rejected: number;
+  no_response: number;
+};
+
+export interface CandidateAnalytics {
+  readinessScore: number;
+  readinessBreakdown: CandidateAnalyticsReadinessBreakdown;
+  monthlyApplications: CandidateAnalyticsMonthlyApplicationsItem[];
+  statusBreakdown: CandidateAnalyticsStatusBreakdown;
+  profileCompleteness: number;
+  streakDays?: number | null;
+  predictiveInsight: string;
+  disclaimer: string;
+}
+
 export type ProgressReportResponsePeriod = {
   month: string;
   year: number;

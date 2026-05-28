@@ -21,6 +21,7 @@ import adminUsersRouter from "./adminUsers";
 import sponsorLicencesRouter from "./sponsorLicences";
 import coverLetterRouter from "./coverLetter";
 import progressReportRouter from "./progressReport";
+import analyticsReportRouter from "./analyticsReport";
 import speculativeApplicationsRouter from "./speculativeApplications";
 import superAdminRouter from "./superAdmin";
 
@@ -48,6 +49,7 @@ router.use(adminUsersRouter);
 router.use(sponsorLicencesRouter);
 router.use(coverLetterRouter);
 router.use(progressReportRouter);
+router.use(analyticsReportRouter);
 router.use(speculativeApplicationsRouter);
 router.use(superAdminRouter);
 

@@ -1844,6 +1844,44 @@ export const GetMyProgressReportResponse = zod.object({
 });
 
 /**
+ * @summary Get candidate's readiness score, chart data, and AI predictive insight
+ */
+export const GetMyAnalyticsResponse = zod.object({
+  readinessScore: zod.number(),
+  readinessBreakdown: zod.object({
+    eligibility: zod.number(),
+    planProgress: zod.number(),
+    documents: zod.number(),
+    applications: zod.number(),
+    profileComplete: zod.number(),
+  }),
+  monthlyApplications: zod.array(
+    zod.object({
+      month: zod.string(),
+      total: zod.number(),
+      applied: zod.number(),
+      shortlisted: zod.number(),
+      interview: zod.number(),
+      offer: zod.number(),
+      rejected: zod.number(),
+      no_response: zod.number(),
+    }),
+  ),
+  statusBreakdown: zod.object({
+    applied: zod.number(),
+    shortlisted: zod.number(),
+    interview: zod.number(),
+    offer: zod.number(),
+    rejected: zod.number(),
+    no_response: zod.number(),
+  }),
+  profileCompleteness: zod.number(),
+  streakDays: zod.number().nullish(),
+  predictiveInsight: zod.string(),
+  disclaimer: zod.string(),
+});
+
+/**
  * @summary List candidate's speculative CV submissions
  */
 export const ListSpeculativeApplicationsResponse = zod.object({

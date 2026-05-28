@@ -27,6 +27,7 @@ import type {
   BoostProfileRequest,
   BoostProfileResponse,
   CampaignListResponse,
+  CandidateAnalytics,
   CandidateMessageListResponse,
   CandidateProfile,
   ConsentLogList,
@@ -6646,6 +6647,81 @@ export function useGetMyProgressReport<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetMyProgressReportQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get candidate's readiness score, chart data, and AI predictive insight
+ */
+export const getGetMyAnalyticsUrl = () => {
+  return `/api/my-analytics`;
+};
+
+export const getMyAnalytics = async (
+  options?: RequestInit,
+): Promise<CandidateAnalytics> => {
+  return customFetch<CandidateAnalytics>(getGetMyAnalyticsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMyAnalyticsQueryKey = () => {
+  return [`/api/my-analytics`] as const;
+};
+
+export const getGetMyAnalyticsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMyAnalytics>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyAnalytics>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMyAnalyticsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getMyAnalytics>>> = ({
+    signal,
+  }) => getMyAnalytics({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMyAnalytics>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMyAnalyticsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMyAnalytics>>
+>;
+export type GetMyAnalyticsQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Get candidate's readiness score, chart data, and AI predictive insight
+ */
+
+export function useGetMyAnalytics<
+  TData = Awaited<ReturnType<typeof getMyAnalytics>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyAnalytics>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMyAnalyticsQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
