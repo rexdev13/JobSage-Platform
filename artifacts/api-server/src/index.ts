@@ -3,6 +3,7 @@ import { seedRulesets } from "./lib/seedRulesets";
 import { startAlertScheduler } from "./lib/alertScheduler";
 import { startSponsorLicenceScheduler } from "./lib/sponsorLicenceScheduler";
 import { runSponsorLicenceSync } from "./lib/sponsorLicenceSync";
+import { runIndustryBackfill } from "./lib/industryBackfill";
 import { db, sponsorLicencesTable } from "@workspace/db";
 import { count } from "drizzle-orm";
 
@@ -42,4 +43,7 @@ app.listen(port, () => {
   startAlertScheduler();
   startSponsorLicenceScheduler();
   void triggerSyncIfEmpty();
+  runIndustryBackfill().catch((err) => {
+    console.error("[industry-backfill] Startup backfill failed:", err);
+  });
 });

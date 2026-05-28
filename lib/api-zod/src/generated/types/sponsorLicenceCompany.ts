@@ -14,6 +14,7 @@ export interface SponsorLicenceCompany {
   route?: string | null;
   subRoute?: string | null;
   rating?: string | null;
+  industry?: string | null;
   syncedAt: Date;
   hasVacancies?: boolean;
 }

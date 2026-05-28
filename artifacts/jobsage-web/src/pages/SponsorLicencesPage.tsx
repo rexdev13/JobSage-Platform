@@ -3,6 +3,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, PageTransition, Button } from "@/components/ui-enhanced";
 import {
   useGetSponsorLicenceRoutes,
+  useGetSponsorLicenceIndustries,
   useListSponsorLicences,
   useSendSpeculativeApplication,
   useListSpeculativeApplications,
@@ -23,6 +24,7 @@ import {
   CheckCircle2,
   Loader2,
   ExternalLink,
+  Tag,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -41,6 +43,7 @@ export default function SponsorLicencesPage() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedRoute, setSelectedRoute] = useState("");
+  const [selectedIndustry, setSelectedIndustry] = useState("");
   const [hasVacancies, setHasVacancies] = useState(false);
   const [page, setPage] = useState(1);
   const { toast } = useToast();
@@ -79,9 +82,13 @@ export default function SponsorLicencesPage() {
   const { data: routesData } = useGetSponsorLicenceRoutes();
   const routes = routesData?.routes ?? [];
 
+  const { data: industriesData } = useGetSponsorLicenceIndustries();
+  const industries = industriesData?.industries ?? [];
+
   const { data, isLoading, isError } = useListSponsorLicences({
     search: debouncedSearch || undefined,
     route: selectedRoute || undefined,
+    industry: selectedIndustry || undefined,
     hasVacancies: hasVacancies || undefined,
     page,
     limit: LIMIT,
@@ -94,11 +101,16 @@ export default function SponsorLicencesPage() {
   const lastSyncedAt = data?.lastSyncedAt;
   const lastSyncFailed = data?.lastSyncFailed;
 
-  const noData = !isLoading && !isError && total === 0 && !debouncedSearch && !selectedRoute && !hasVacancies;
-  const empty = !isLoading && !isError && total === 0 && (!!debouncedSearch || !!selectedRoute || hasVacancies);
+  const noData = !isLoading && !isError && total === 0 && !debouncedSearch && !selectedRoute && !selectedIndustry && !hasVacancies;
+  const empty = !isLoading && !isError && total === 0 && (!!debouncedSearch || !!selectedRoute || !!selectedIndustry || hasVacancies);
 
   function handleRouteChange(r: string) {
     setSelectedRoute(r);
+    setPage(1);
+  }
+
+  function handleIndustryChange(i: string) {
+    setSelectedIndustry(i);
     setPage(1);
   }
 
@@ -224,6 +236,24 @@ export default function SponsorLicencesPage() {
               </div>
             )}
 
+            {industries.length > 0 && (
+              <div className="relative">
+                <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                <select
+                  value={selectedIndustry}
+                  onChange={(e) => handleIndustryChange(e.target.value)}
+                  className="pl-9 pr-8 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 appearance-none cursor-pointer"
+                >
+                  <option value="">All industries</option>
+                  {industries.map((ind) => (
+                    <option key={ind} value={ind}>
+                      {ind}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <button
               onClick={handleVacancyToggle}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
@@ -307,6 +337,11 @@ export default function SponsorLicencesPage() {
                           <span className="flex items-center gap-1">
                             <MapPin className="w-3 h-3" />
                             {[c.townCity, c.county].filter(Boolean).join(", ")}
+                          </span>
+                        )}
+                        {c.industry && (
+                          <span className="bg-emerald-500/10 text-emerald-700 px-2 py-0.5 rounded-full font-medium">
+                            {c.industry}
                           </span>
                         )}
                         {c.route && (

@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { sponsorLicencesTable, sponsorLicenceSyncLogTable, jobListingsTable } from "@workspace/db";
-import { eq, ilike, and, inArray, desc, sql, isNotNull } from "drizzle-orm";
+import { eq, ilike, and, desc, sql, isNotNull } from "drizzle-orm";
 import { requireAuthenticated } from "../middlewares/requireRole";
 
 const router: IRouter = Router();
@@ -22,31 +22,40 @@ router.get("/sponsor-licences/routes", requireAuthenticated, async (req, res) =>
   }
 });
 
+router.get("/sponsor-licences/industries", requireAuthenticated, async (req, res) => {
+  try {
+    const rows = await db
+      .selectDistinct({ industry: sponsorLicencesTable.industry })
+      .from(sponsorLicencesTable)
+      .where(isNotNull(sponsorLicencesTable.industry))
+      .orderBy(sponsorLicencesTable.industry);
+
+    const industries = rows.map((r) => r.industry).filter(Boolean) as string[];
+    res.json({ industries });
+  } catch (err) {
+    console.error("[sponsor-licences] /industries error:", err);
+    res.status(500).json({ error: "Failed to fetch industries." });
+  }
+});
+
 router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
   try {
     const search = typeof req.query["search"] === "string" ? req.query["search"].trim() : "";
     const route = typeof req.query["route"] === "string" ? req.query["route"].trim() : "";
+    const industry = typeof req.query["industry"] === "string" ? req.query["industry"].trim() : "";
     const hasVacanciesParam = req.query["hasVacancies"];
     const filterVacancies = hasVacanciesParam === "true";
     const page = Math.max(1, parseInt(String(req.query["page"] ?? "1"), 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(String(req.query["limit"] ?? "20"), 10) || 20));
     const offset = (page - 1) * limit;
 
-    // Build base conditions
     const conditions = [];
     if (search) conditions.push(ilike(sponsorLicencesTable.organisationName, `%${search}%`));
     if (route) conditions.push(eq(sponsorLicencesTable.route, route));
+    if (industry) conditions.push(eq(sponsorLicencesTable.industry, industry));
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    // Get company names that have active vacancies on the platform
-    const activeVacancyRows = await db
-      .selectDistinct({ name: jobListingsTable.title })
-      .from(jobListingsTable)
-      .where(eq(jobListingsTable.status, "published"));
-
-    // We match by employer name — join by comparing organisation name against employer company name
-    // Since job listings store employer name differently, we get employer profile company names
     const { employerProfilesTable } = await import("@workspace/db");
     const employerRows = await db
       .selectDistinct({ companyName: employerProfilesTable.companyName })
@@ -67,21 +76,18 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
       companiesQuery = companiesQuery.where(whereClause);
     }
 
-    let allCompanies = await companiesQuery.orderBy(sponsorLicencesTable.organisationName);
+    const allCompanies = await companiesQuery.orderBy(sponsorLicencesTable.organisationName);
 
-    // Annotate with hasVacancies
     const annotated = allCompanies.map((c) => ({
       ...c,
       hasVacancies: employerNamesWithVacancies.has(c.organisationName.toLowerCase().trim()),
     }));
 
-    // Filter by hasVacancies if requested
     const filtered = filterVacancies ? annotated.filter((c) => c.hasVacancies) : annotated;
 
     const total = filtered.length;
     const companies = filtered.slice(offset, offset + limit);
 
-    // Get last successful sync timestamp
     const [lastSync] = await db
       .select({ createdAt: sponsorLicenceSyncLogTable.createdAt })
       .from(sponsorLicenceSyncLogTable)
@@ -89,7 +95,6 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
       .orderBy(desc(sponsorLicenceSyncLogTable.createdAt))
       .limit(1);
 
-    // Get last sync attempt (to detect failures)
     const [lastAttempt] = await db
       .select()
       .from(sponsorLicenceSyncLogTable)

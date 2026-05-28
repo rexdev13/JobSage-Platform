@@ -1933,6 +1933,13 @@ export const SendSpeculativeApplicationResponse = zod.object({
 });
 
 /**
+ * @summary Get distinct industry sectors present in the classified register
+ */
+export const GetSponsorLicenceIndustriesResponse = zod.object({
+  industries: zod.array(zod.string()),
+});
+
+/**
  * @summary Get distinct sponsorship routes present in the register
  */
 export const GetSponsorLicenceRoutesResponse = zod.object({
@@ -1955,6 +1962,12 @@ export const ListSponsorLicencesQueryParams = zod.object({
     .string()
     .optional()
     .describe("Filter by sponsorship route (e.g. Worker)"),
+  industry: zod.coerce
+    .string()
+    .optional()
+    .describe(
+      "Filter by industry sector (e.g. Healthcare, Social Care, Technology)",
+    ),
   hasVacancies: zod.coerce
     .boolean()
     .optional()
@@ -1978,6 +1991,7 @@ export const ListSponsorLicencesResponse = zod.object({
       route: zod.string().nullish(),
       subRoute: zod.string().nullish(),
       rating: zod.string().nullish(),
+      industry: zod.string().nullish(),
       syncedAt: zod.date(),
       hasVacancies: zod.boolean().optional(),
     }),

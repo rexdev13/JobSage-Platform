@@ -164,6 +164,7 @@ export * from "./speculativeApplicationListResponse";
 export * from "./speculativeApplicationResult";
 export * from "./speculativeApplicationStatus";
 export * from "./sponsorLicenceCompany";
+export * from "./sponsorLicenceIndustriesResponse";
 export * from "./sponsorLicenceListResponse";
 export * from "./sponsorLicenceRoutesResponse";
 export * from "./sponsorLicenceSyncResult";

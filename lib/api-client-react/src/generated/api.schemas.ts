@@ -1045,6 +1045,7 @@ export interface SponsorLicenceCompany {
   route?: string | null;
   subRoute?: string | null;
   rating?: string | null;
+  industry?: string | null;
   syncedAt: string;
   hasVacancies?: boolean;
 }
@@ -1062,6 +1063,10 @@ export interface SponsorLicenceListResponse {
 
 export interface SponsorLicenceRoutesResponse {
   routes: string[];
+}
+
+export interface SponsorLicenceIndustriesResponse {
+  industries: string[];
 }
 
 export interface BoostProfileRequest {
@@ -1580,6 +1585,10 @@ export type ListSponsorLicencesParams = {
    * Filter by sponsorship route (e.g. Worker)
    */
   route?: string;
+  /**
+   * Filter by industry sector (e.g. Healthcare, Social Care, Technology)
+   */
+  industry?: string;
   /**
    * If true, return only companies with active vacancies on the platform
    */

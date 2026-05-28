@@ -10,11 +10,13 @@ export const sponsorLicencesTable = pgTable(
     route: text("route"),
     subRoute: text("sub_route"),
     rating: text("rating"),
+    industry: text("industry"),
     syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index("sponsor_licences_name_idx").on(t.organisationName),
     index("sponsor_licences_route_idx").on(t.route),
+    index("sponsor_licences_industry_idx").on(t.industry),
   ],
 );
 
