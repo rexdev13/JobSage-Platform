@@ -16,6 +16,10 @@ export type ListSponsorLicencesParams = {
    */
   route?: string;
   /**
+   * Filter by industry sector (e.g. Healthcare, Social Care, Technology)
+   */
+  industry?: string;
+  /**
    * If true, return only companies with active vacancies on the platform
    */
   hasVacancies?: boolean;

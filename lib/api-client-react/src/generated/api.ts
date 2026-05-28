@@ -104,6 +104,7 @@ import type {
   SmartApplyQuestionsResponse,
   SpeculativeApplicationListResponse,
   SpeculativeApplicationResult,
+  SponsorLicenceIndustriesResponse,
   SponsorLicenceListResponse,
   SponsorLicenceRoutesResponse,
   SponsorLicenceSyncResult,
@@ -6899,6 +6900,86 @@ export const useSendSpeculativeApplication = <
 > => {
   return useMutation(getSendSpeculativeApplicationMutationOptions(options));
 };
+
+/**
+ * @summary Get distinct industry sectors present in the classified register
+ */
+export const getGetSponsorLicenceIndustriesUrl = () => {
+  return `/api/sponsor-licences/industries`;
+};
+
+export const getSponsorLicenceIndustries = async (
+  options?: RequestInit,
+): Promise<SponsorLicenceIndustriesResponse> => {
+  return customFetch<SponsorLicenceIndustriesResponse>(
+    getGetSponsorLicenceIndustriesUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetSponsorLicenceIndustriesQueryKey = () => {
+  return [`/api/sponsor-licences/industries`] as const;
+};
+
+export const getGetSponsorLicenceIndustriesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSponsorLicenceIndustries>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSponsorLicenceIndustries>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetSponsorLicenceIndustriesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSponsorLicenceIndustries>>
+  > = ({ signal }) =>
+    getSponsorLicenceIndustries({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSponsorLicenceIndustries>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSponsorLicenceIndustriesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSponsorLicenceIndustries>>
+>;
+export type GetSponsorLicenceIndustriesQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Get distinct industry sectors present in the classified register
+ */
+
+export function useGetSponsorLicenceIndustries<
+  TData = Awaited<ReturnType<typeof getSponsorLicenceIndustries>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSponsorLicenceIndustries>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSponsorLicenceIndustriesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Get distinct sponsorship routes present in the register

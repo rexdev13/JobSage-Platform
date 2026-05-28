@@ -1,6 +1,7 @@
 import { db } from "@workspace/db";
 import { sponsorLicencesTable, sponsorLicenceSyncLogTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { classifyByKeyword, classifyBatch } from "./industryClassifier";
 
 const DEFAULT_REGISTER_URL =
   "https://assets.publishing.service.gov.uk/media/6a10190c0026f30a6d421c71/2026-05-22_-_Worker_and_Temporary_Worker.csv";
@@ -16,6 +17,7 @@ interface ParsedRow {
   route: string | null;
   subRoute: string | null;
   rating: string | null;
+  industry: string | null;
 }
 
 function normaliseKey(s: string): string {
@@ -98,6 +100,7 @@ async function downloadAndParseCSV(url: string): Promise<ParsedRow[]> {
             route,
             subRoute,
             rating,
+            industry: classifyByKeyword(org),
           });
         }
         resolve(results);
@@ -182,6 +185,7 @@ async function downloadAndParseXLSX(url: string): Promise<ParsedRow[]> {
       route,
       subRoute,
       rating,
+      industry: classifyByKeyword(org),
     });
   }
 
@@ -207,6 +211,21 @@ export async function runSponsorLicenceSync(): Promise<void> {
     console.log(`[sponsor-sync] Parsed ${rows.length} records`);
 
     if (rows.length === 0) throw new Error("No records parsed from register");
+
+    // Apply AI classification in batches for rows that keyword didn't match
+    const aiNeededIdxs = rows.reduce<number[]>((acc, r, i) => {
+      if (r.industry === null) acc.push(i);
+      return acc;
+    }, []);
+    const AI_BATCH = 100;
+    for (let i = 0; i < aiNeededIdxs.length; i += AI_BATCH) {
+      const batchIdxs = aiNeededIdxs.slice(i, i + AI_BATCH);
+      const names = batchIdxs.map((idx) => rows[idx]!.organisationName);
+      const labels = await classifyBatch(names);
+      batchIdxs.forEach((idx, j) => {
+        rows[idx]!.industry = labels[j] ?? "Other";
+      });
+    }
 
     await db.transaction(async (tx) => {
       await tx.execute(sql`TRUNCATE TABLE sponsor_licences RESTART IDENTITY`);
