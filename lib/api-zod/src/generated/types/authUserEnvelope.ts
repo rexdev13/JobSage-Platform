@@ -11,4 +11,6 @@ export interface AuthUserEnvelope {
   user: AuthUser | null;
   /** True when the session is operating under impersonation of another user. */
   isImpersonating?: boolean;
+  /** Session token for mobile clients to use as a Bearer token. Only returned on login. */
+  token?: string;
 }

@@ -1,0 +1,27 @@
+kind = "mobile"
+previewPath = "/jobsage-mobile/"
+title = "JOBSAGE Mobile"
+version = "1.0.0"
+id = "artifacts/jobsage-mobile"
+router = "expo-domain"
+
+[[integratedSkills]]
+name = "expo"
+version = "1.0.0"
+
+[[services]]
+ensurePreviewReachable = "/status"
+name = "expo"
+paths = [ "/jobsage-mobile/" ]
+localPort = 18557
+
+[services.development]
+run = "pnpm --filter @workspace/jobsage-mobile run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/jobsage-mobile", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/jobsage-mobile", "run", "serve" ]
+
+[services.env]
+PORT = "18557"
+BASE_PATH = "/jobsage-mobile/"

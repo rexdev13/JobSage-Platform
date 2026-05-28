@@ -9,6 +9,17 @@ export type BodyType<T> = T;
 const NO_BODY_STATUS = new Set([204, 205, 304]);
 const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 
+let _baseUrl = "";
+let _authTokenGetter: (() => string | null | Promise<string | null>) | null = null;
+
+export function setBaseUrl(url: string) {
+  _baseUrl = url.replace(/\/$/, "");
+}
+
+export function setAuthTokenGetter(getter: () => string | null | Promise<string | null>) {
+  _authTokenGetter = getter;
+}
+
 function isRequest(input: RequestInfo | URL): input is Request {
   return typeof Request !== "undefined" && input instanceof Request;
 }
@@ -283,7 +294,21 @@ export async function customFetch<T = unknown>(
     throw new TypeError(`customFetch: ${method} requests cannot have a body.`);
   }
 
+  // Prepend base URL for relative paths when running outside the proxy (e.g. Expo mobile)
+  let resolvedInput: RequestInfo | URL = input;
+  if (typeof input === "string" && input.startsWith("/") && _baseUrl) {
+    resolvedInput = `${_baseUrl}${input}`;
+  }
+
   const headers = mergeHeaders(isRequest(input) ? input.headers : undefined, headersInit);
+
+  // Inject Bearer token for authenticated API calls
+  if (_authTokenGetter && !headers.has("authorization")) {
+    const token = await _authTokenGetter();
+    if (token) {
+      headers.set("authorization", `Bearer ${token}`);
+    }
+  }
 
   if (
     typeof init.body === "string" &&
@@ -297,9 +322,9 @@ export async function customFetch<T = unknown>(
     headers.set("accept", DEFAULT_JSON_ACCEPT);
   }
 
-  const requestInfo = { method, url: resolveUrl(input) };
+  const requestInfo = { method, url: resolveUrl(resolvedInput) };
 
-  const response = await fetch(input, { ...init, method, headers });
+  const response = await fetch(resolvedInput, { ...init, method, headers });
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);

@@ -294,11 +294,12 @@ router.post("/auth/login", async (req: Request, res: Response) => {
 
   writeAuditEvent(user.id, "user_login").catch(() => {});
 
-  res.json(
-    GetCurrentAuthUserResponse.parse({
+  res.json({
+    ...GetCurrentAuthUserResponse.parse({
       user: sessionData.user,
     }),
-  );
+    token: sid,
+  });
 });
 
 router.post("/auth/logout", async (req: Request, res: Response) => {
