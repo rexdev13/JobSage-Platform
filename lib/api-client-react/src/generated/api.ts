@@ -127,6 +127,7 @@ import type {
   UploadUrlResponse,
   UpsertEmployerProfileRequest,
   UpsertProfileRequest,
+  VacancyCheckResult,
   VerifyEmailParams,
 } from "./api.schemas";
 
@@ -7062,6 +7063,94 @@ export function useGetSponsorLicenceIndustries<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary AI-powered on-demand vacancy check for a specific sponsor licence company
+ */
+export const getCheckSponsorLicenceVacanciesUrl = (id: number) => {
+  return `/api/sponsor-licences/${id}/check-vacancies`;
+};
+
+export const checkSponsorLicenceVacancies = async (
+  id: number,
+  options?: RequestInit,
+): Promise<VacancyCheckResult> => {
+  return customFetch<VacancyCheckResult>(
+    getCheckSponsorLicenceVacanciesUrl(id),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getCheckSponsorLicenceVacanciesMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof checkSponsorLicenceVacancies>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof checkSponsorLicenceVacancies>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["checkSponsorLicenceVacancies"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof checkSponsorLicenceVacancies>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return checkSponsorLicenceVacancies(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CheckSponsorLicenceVacanciesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof checkSponsorLicenceVacancies>>
+>;
+
+export type CheckSponsorLicenceVacanciesMutationError =
+  ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary AI-powered on-demand vacancy check for a specific sponsor licence company
+ */
+export const useCheckSponsorLicenceVacancies = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof checkSponsorLicenceVacancies>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof checkSponsorLicenceVacancies>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getCheckSponsorLicenceVacanciesMutationOptions(options));
+};
 
 /**
  * @summary Get distinct sponsorship routes present in the register

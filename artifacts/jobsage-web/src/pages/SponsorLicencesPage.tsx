@@ -8,6 +8,8 @@ import {
   useListSponsorLicences,
   useSendSpeculativeApplication,
   useListSpeculativeApplications,
+  useCheckSponsorLicenceVacancies,
+  type VacancyCheckResult,
 } from "@workspace/api-client-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -26,6 +28,7 @@ import {
   Loader2,
   ExternalLink,
   ArrowLeft,
+  Sparkles,
   Heart,
   Users,
   GraduationCap,
@@ -94,6 +97,36 @@ export default function SponsorLicencesPage() {
   const sendCVMutation = useSendSpeculativeApplication();
   const { data: speculativeData, refetch: refetchSpeculative } = useListSpeculativeApplications();
   const sentCompanyNames = new Set((speculativeData?.applications ?? []).map((a) => a.companyName));
+
+  const [vacancyResults, setVacancyResults] = useState<Map<number, VacancyCheckResult>>(new Map());
+  const [checkingIds, setCheckingIds] = useState<Set<number>>(new Set());
+  const checkVacanciesMutation = useCheckSponsorLicenceVacancies();
+
+  function handleCheckVacancies(companyId: number) {
+    if (checkingIds.has(companyId)) return;
+    setCheckingIds((prev) => new Set(prev).add(companyId));
+    checkVacanciesMutation.mutate(
+      { id: companyId },
+      {
+        onSuccess: (result) => {
+          setVacancyResults((prev) => new Map(prev).set(companyId, result));
+          setCheckingIds((prev) => {
+            const next = new Set(prev);
+            next.delete(companyId);
+            return next;
+          });
+        },
+        onError: () => {
+          setCheckingIds((prev) => {
+            const next = new Set(prev);
+            next.delete(companyId);
+            return next;
+          });
+          toast({ title: "Check failed", description: "Could not check vacancies right now. Please try again.", variant: "destructive" });
+        },
+      },
+    );
+  }
 
   const showSectorGrid = !selectedIndustry;
 
@@ -478,81 +511,122 @@ export default function SponsorLicencesPage() {
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: i * 0.02 }}
                         >
-                          <Card className="px-5 py-4 flex items-center gap-4 hover:shadow-md transition-shadow">
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${cfg ? cfg.bg : "bg-primary/10"}`}>
-                              {cfg ? (
-                                <cfg.icon className={`w-5 h-5 ${cfg.iconColor}`} />
-                              ) : (
-                                <Building2 className="w-5 h-5 text-primary" />
-                              )}
-                            </div>
-
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-semibold text-foreground truncate">{c.organisationName}</span>
-                                {c.hasVacancies && (
-                                  <span className="inline-flex items-center gap-1 text-xs bg-green-500/10 text-green-700 px-2 py-0.5 rounded-full font-medium">
-                                    <BadgeCheck className="w-3 h-3" />
-                                    Vacancies
-                                  </span>
-                                )}
-                                {sentCompanyNames.has(c.organisationName) && (
-                                  <span className="inline-flex items-center gap-1 text-xs bg-blue-500/10 text-blue-700 px-2 py-0.5 rounded-full font-medium">
-                                    <CheckCircle2 className="w-3 h-3" /> CV Sent
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-3 mt-1 flex-wrap text-xs text-muted-foreground">
-                                {(c.townCity || c.county) && (
-                                  <span className="flex items-center gap-1">
-                                    <MapPin className="w-3 h-3" />
-                                    {[c.townCity, c.county].filter(Boolean).join(", ")}
-                                  </span>
-                                )}
-                                {c.route && (
-                                  <span className="bg-sky-500/10 text-sky-700 px-2 py-0.5 rounded-full">
-                                    {c.route}
-                                  </span>
-                                )}
-                                {c.subRoute && (
-                                  <span className="bg-violet-500/10 text-violet-700 px-2 py-0.5 rounded-full">
-                                    {c.subRoute}
-                                  </span>
-                                )}
-                                {c.rating && (
-                                  <span className="bg-amber-500/10 text-amber-700 px-2 py-0.5 rounded-full">
-                                    {c.rating}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-2 shrink-0">
-                              <a
-                                href={`https://www.reed.co.uk/jobs?keywords=${encodeURIComponent(c.organisationName)}&locationName=United+Kingdom`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors font-medium"
-                              >
-                                <ExternalLink className="w-3.5 h-3.5" />
-                                Find vacancies
-                              </a>
-                              <Button
-                                size="sm"
-                                variant={sentCompanyNames.has(c.organisationName) ? "outline" : "default"}
-                                className="text-xs gap-1.5"
-                                onClick={() => handleSendCV(c.organisationName, c.id)}
-                                disabled={sendCVMutation.isPending}
-                              >
-                                {sendCVMutation.isPending ? (
-                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                ) : sentCompanyNames.has(c.organisationName) ? (
-                                  <><CheckCircle2 className="w-3.5 h-3.5" /> CV Sent</>
+                          <Card className="px-5 py-4 hover:shadow-md transition-shadow">
+                            <div className="flex items-center gap-4">
+                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${cfg ? cfg.bg : "bg-primary/10"}`}>
+                                {cfg ? (
+                                  <cfg.icon className={`w-5 h-5 ${cfg.iconColor}`} />
                                 ) : (
-                                  <><Send className="w-3.5 h-3.5" /> Send my CV</>
+                                  <Building2 className="w-5 h-5 text-primary" />
                                 )}
-                              </Button>
+                              </div>
+
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-semibold text-foreground truncate">{c.organisationName}</span>
+                                  {c.hasVacancies && (
+                                    <span className="inline-flex items-center gap-1 text-xs bg-green-500/10 text-green-700 px-2 py-0.5 rounded-full font-medium">
+                                      <BadgeCheck className="w-3 h-3" />
+                                      Vacancies
+                                    </span>
+                                  )}
+                                  {sentCompanyNames.has(c.organisationName) && (
+                                    <span className="inline-flex items-center gap-1 text-xs bg-blue-500/10 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                                      <CheckCircle2 className="w-3 h-3" /> CV Sent
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-3 mt-1 flex-wrap text-xs text-muted-foreground">
+                                  {(c.townCity || c.county) && (
+                                    <span className="flex items-center gap-1">
+                                      <MapPin className="w-3 h-3" />
+                                      {[c.townCity, c.county].filter(Boolean).join(", ")}
+                                    </span>
+                                  )}
+                                  {c.route && (
+                                    <span className="bg-sky-500/10 text-sky-700 px-2 py-0.5 rounded-full">
+                                      {c.route}
+                                    </span>
+                                  )}
+                                  {c.subRoute && (
+                                    <span className="bg-violet-500/10 text-violet-700 px-2 py-0.5 rounded-full">
+                                      {c.subRoute}
+                                    </span>
+                                  )}
+                                  {c.rating && (
+                                    <span className="bg-amber-500/10 text-amber-700 px-2 py-0.5 rounded-full">
+                                      {c.rating}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2 shrink-0">
+                                {(() => {
+                                  const result = vacancyResults.get(c.id);
+                                  const checking = checkingIds.has(c.id);
+                                  if (checking) {
+                                    return (
+                                      <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground">
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                        Checking…
+                                      </span>
+                                    );
+                                  }
+                                  if (result) {
+                                    return result.vacanciesFound ? (
+                                      <a
+                                        href={result.sourceUrl ?? `https://www.reed.co.uk/jobs?keywords=${encodeURIComponent(c.organisationName)}&locationName=United+Kingdom`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/20 text-green-700 hover:bg-green-500/20 transition-colors font-medium"
+                                        title={result.summary ?? ""}
+                                      >
+                                        <BadgeCheck className="w-3.5 h-3.5" />
+                                        {result.vacancyCount != null ? `${result.vacancyCount} vacancies` : "Vacancies found"}
+                                        <ExternalLink className="w-3 h-3 opacity-60" />
+                                      </a>
+                                    ) : (
+                                      <span
+                                        className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-muted border border-border text-muted-foreground"
+                                        title={result.summary ?? ""}
+                                      >
+                                        No listings found
+                                      </span>
+                                    );
+                                  }
+                                  return (
+                                    <button
+                                      onClick={() => handleCheckVacancies(c.id)}
+                                      className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors font-medium"
+                                    >
+                                      <Sparkles className="w-3.5 h-3.5" />
+                                      Check vacancies
+                                    </button>
+                                  );
+                                })()}
+                                <Button
+                                  size="sm"
+                                  variant={sentCompanyNames.has(c.organisationName) ? "outline" : "default"}
+                                  className="text-xs gap-1.5"
+                                  onClick={() => handleSendCV(c.organisationName, c.id)}
+                                  disabled={sendCVMutation.isPending}
+                                >
+                                  {sendCVMutation.isPending ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  ) : sentCompanyNames.has(c.organisationName) ? (
+                                    <><CheckCircle2 className="w-3.5 h-3.5" /> CV Sent</>
+                                  ) : (
+                                    <><Send className="w-3.5 h-3.5" /> Send my CV</>
+                                  )}
+                                </Button>
+                              </div>
                             </div>
+                            {vacancyResults.get(c.id)?.summary && (
+                              <p className="mt-2 ml-14 text-xs text-muted-foreground leading-relaxed">
+                                {vacancyResults.get(c.id)!.summary}
+                              </p>
+                            )}
                           </Card>
                         </motion.div>
                       );

@@ -214,4 +214,5 @@ export * from "./upsertProfileRequest";
 export * from "./upsertProfileRequestAlertFrequency";
 export * from "./upsertProfileRequestProfession";
 export * from "./upsertProfileRequestRegistrationStatus";
+export * from "./vacancyCheckResult";
 export * from "./verifyEmailParams";

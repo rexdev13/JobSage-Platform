@@ -1,10 +1,123 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { sponsorLicencesTable, sponsorLicenceSyncLogTable, jobListingsTable } from "@workspace/db";
-import { eq, ilike, and, desc, sql, isNotNull } from "drizzle-orm";
+import { sponsorLicencesTable, sponsorLicenceSyncLogTable, jobListingsTable, sponsorLicenceVacancyChecksTable } from "@workspace/db";
+import { eq, ilike, and, desc, sql, isNotNull, gt } from "drizzle-orm";
 import { requireAuthenticated } from "../middlewares/requireRole";
+import { openai } from "@workspace/integrations-openai-ai-server";
 
 const router: IRouter = Router();
+
+const VACANCY_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+router.post("/sponsor-licences/:id/check-vacancies", requireAuthenticated, async (req, res) => {
+  try {
+    const rawId = typeof req.params["id"] === "string" ? req.params["id"] : "";
+    const id = parseInt(rawId, 10);
+    if (!id || isNaN(id)) {
+      res.status(400).json({ error: "Invalid company ID." });
+      return;
+    }
+
+    const [company] = await db
+      .select({ organisationName: sponsorLicencesTable.organisationName })
+      .from(sponsorLicencesTable)
+      .where(eq(sponsorLicencesTable.id, id))
+      .limit(1);
+
+    if (!company) {
+      res.status(404).json({ error: "Company not found." });
+      return;
+    }
+
+    const { organisationName } = company;
+
+    // Check 24-hour cache
+    const cutoff = new Date(Date.now() - VACANCY_CACHE_TTL_MS);
+    const [cached] = await db
+      .select()
+      .from(sponsorLicenceVacancyChecksTable)
+      .where(
+        and(
+          eq(sponsorLicenceVacancyChecksTable.organisationName, organisationName),
+          gt(sponsorLicenceVacancyChecksTable.checkedAt, cutoff),
+        ),
+      )
+      .orderBy(desc(sponsorLicenceVacancyChecksTable.checkedAt))
+      .limit(1);
+
+    if (cached) {
+      res.json({
+        vacanciesFound: cached.vacanciesFound,
+        vacancyCount: cached.vacancyCount,
+        sourceUrl: cached.sourceUrl,
+        summary: cached.summary,
+        checkedAt: cached.checkedAt,
+        fromCache: true,
+      });
+      return;
+    }
+
+    // Use OpenAI Responses API with web_search_preview
+    const query = `Current job vacancies at "${organisationName}" UK 2025`;
+    let vacanciesFound = false;
+    let vacancyCount: number | null = null;
+    let sourceUrl: string | null = `https://www.reed.co.uk/jobs?keywords=${encodeURIComponent(organisationName)}&locationName=United+Kingdom`;
+    let summary = "No active vacancies found.";
+
+    try {
+      const response = await openai.responses.create({
+        model: "gpt-4o",
+        tools: [{ type: "web_search_preview" as const }],
+        input: `Search for current job openings at "${organisationName}" in the United Kingdom in 2025. 
+Look on Reed, Indeed, LinkedIn, NHS Jobs, and the company's own careers page.
+After searching, reply with a JSON block ONLY in this exact format (no extra text):
+{
+  "vacanciesFound": true or false,
+  "vacancyCount": number or null,
+  "sourceUrl": "URL to search results or careers page",
+  "summary": "1-2 sentence summary of what you found"
+}`,
+      });
+
+      const text = response.output_text ?? "";
+      const jsonMatch = /\{[\s\S]*?"vacanciesFound"[\s\S]*?\}/.exec(text);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]) as {
+          vacanciesFound?: boolean;
+          vacancyCount?: number | null;
+          sourceUrl?: string | null;
+          summary?: string;
+        };
+        vacanciesFound = parsed.vacanciesFound === true;
+        vacancyCount = typeof parsed.vacancyCount === "number" ? parsed.vacancyCount : null;
+        sourceUrl = typeof parsed.sourceUrl === "string" && parsed.sourceUrl.startsWith("http")
+          ? parsed.sourceUrl
+          : sourceUrl;
+        summary = typeof parsed.summary === "string" ? parsed.summary : (vacanciesFound ? `Vacancies found for ${organisationName}.` : `No active vacancies found for ${organisationName}.`);
+      }
+    } catch (aiErr) {
+      console.warn("[sponsor-licences] AI vacancy check failed:", aiErr instanceof Error ? aiErr.message : aiErr);
+      // Fall through with default values — still cache the miss to avoid hammering
+    }
+
+    const [saved] = await db
+      .insert(sponsorLicenceVacancyChecksTable)
+      .values({ organisationName, vacanciesFound, vacancyCount, sourceUrl, summary })
+      .returning();
+
+    res.json({
+      vacanciesFound,
+      vacancyCount,
+      sourceUrl,
+      summary,
+      checkedAt: saved?.checkedAt ?? new Date(),
+      fromCache: false,
+    });
+  } catch (err) {
+    console.error("[sponsor-licences] /check-vacancies error:", err);
+    res.status(500).json({ error: "Vacancy check failed. Please try again." });
+  }
+});
 
 router.get("/sponsor-licences/routes", requireAuthenticated, async (req, res) => {
   try {

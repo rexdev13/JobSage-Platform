@@ -1078,6 +1078,15 @@ export interface SponsorLicenceIndustryCountsResponse {
   counts: SponsorLicenceIndustryCount[];
 }
 
+export interface VacancyCheckResult {
+  vacanciesFound: boolean;
+  vacancyCount?: number | null;
+  sourceUrl?: string | null;
+  summary?: string | null;
+  checkedAt: string;
+  fromCache: boolean;
+}
+
 export interface BoostProfileRequest {
   boost: boolean;
 }

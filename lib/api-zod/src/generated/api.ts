@@ -1952,6 +1952,22 @@ export const GetSponsorLicenceIndustriesResponse = zod.object({
 });
 
 /**
+ * @summary AI-powered on-demand vacancy check for a specific sponsor licence company
+ */
+export const CheckSponsorLicenceVacanciesParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const CheckSponsorLicenceVacanciesResponse = zod.object({
+  vacanciesFound: zod.boolean(),
+  vacancyCount: zod.number().nullish(),
+  sourceUrl: zod.string().nullish(),
+  summary: zod.string().nullish(),
+  checkedAt: zod.date(),
+  fromCache: zod.boolean(),
+});
+
+/**
  * @summary Get distinct sponsorship routes present in the register
  */
 export const GetSponsorLicenceRoutesResponse = zod.object({
