@@ -2090,6 +2090,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /sponsor-licences/industry-counts:
+    get:
+      operationId: getSponsorLicenceIndustryCounts
+      tags: [SponsorLicences]
+      summary: Get industry sector counts for the sector browser grid
+      responses:
+        "200":
+          description: Industry labels with sponsor counts ordered by count descending
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SponsorLicenceIndustryCountsResponse"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
   /sponsor-licences/industries:
     get:
       operationId: getSponsorLicenceIndustries
@@ -4133,6 +4152,24 @@ components:
           type: array
           items:
             type: string
+
+    SponsorLicenceIndustryCount:
+      type: object
+      required: [industry, count]
+      properties:
+        industry:
+          type: string
+        count:
+          type: integer
+
+    SponsorLicenceIndustryCountsResponse:
+      type: object
+      required: [counts]
+      properties:
+        counts:
+          type: array
+          items:
+            $ref: "#/components/schemas/SponsorLicenceIndustryCount"
 
     BoostProfileRequest:
       type: object

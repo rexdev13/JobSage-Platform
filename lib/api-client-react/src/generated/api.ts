@@ -105,6 +105,7 @@ import type {
   SpeculativeApplicationListResponse,
   SpeculativeApplicationResult,
   SponsorLicenceIndustriesResponse,
+  SponsorLicenceIndustryCountsResponse,
   SponsorLicenceListResponse,
   SponsorLicenceRoutesResponse,
   SponsorLicenceSyncResult,
@@ -6900,6 +6901,87 @@ export const useSendSpeculativeApplication = <
 > => {
   return useMutation(getSendSpeculativeApplicationMutationOptions(options));
 };
+
+/**
+ * @summary Get industry sector counts for the sector browser grid
+ */
+export const getGetSponsorLicenceIndustryCountsUrl = () => {
+  return `/api/sponsor-licences/industry-counts`;
+};
+
+export const getSponsorLicenceIndustryCounts = async (
+  options?: RequestInit,
+): Promise<SponsorLicenceIndustryCountsResponse> => {
+  return customFetch<SponsorLicenceIndustryCountsResponse>(
+    getGetSponsorLicenceIndustryCountsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetSponsorLicenceIndustryCountsQueryKey = () => {
+  return [`/api/sponsor-licences/industry-counts`] as const;
+};
+
+export const getGetSponsorLicenceIndustryCountsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSponsorLicenceIndustryCounts>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSponsorLicenceIndustryCounts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetSponsorLicenceIndustryCountsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSponsorLicenceIndustryCounts>>
+  > = ({ signal }) =>
+    getSponsorLicenceIndustryCounts({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSponsorLicenceIndustryCounts>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSponsorLicenceIndustryCountsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSponsorLicenceIndustryCounts>>
+>;
+export type GetSponsorLicenceIndustryCountsQueryError =
+  ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Get industry sector counts for the sector browser grid
+ */
+
+export function useGetSponsorLicenceIndustryCounts<
+  TData = Awaited<ReturnType<typeof getSponsorLicenceIndustryCounts>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSponsorLicenceIndustryCounts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSponsorLicenceIndustryCountsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Get distinct industry sectors present in the classified register

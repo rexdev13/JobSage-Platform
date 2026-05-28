@@ -1933,6 +1933,18 @@ export const SendSpeculativeApplicationResponse = zod.object({
 });
 
 /**
+ * @summary Get industry sector counts for the sector browser grid
+ */
+export const GetSponsorLicenceIndustryCountsResponse = zod.object({
+  counts: zod.array(
+    zod.object({
+      industry: zod.string(),
+      count: zod.number(),
+    }),
+  ),
+});
+
+/**
  * @summary Get distinct industry sectors present in the classified register
  */
 export const GetSponsorLicenceIndustriesResponse = zod.object({
