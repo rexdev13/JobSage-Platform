@@ -1,13 +1,44 @@
 import { db } from "@workspace/db";
 import { sponsorLicencesTable, sponsorLicenceSyncLogTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { classifyByKeyword, classifyBatch } from "./industryClassifier";
+import { classifyByKeyword } from "./industryClassifier";
 
 const DEFAULT_REGISTER_URL =
-  "https://assets.publishing.service.gov.uk/media/6a10190c0026f30a6d421c71/2026-05-22_-_Worker_and_Temporary_Worker.csv";
+  "https://assets.publishing.service.gov.uk/media/6a180589050971fbebf3bb6f/2026-05-28_-_Worker_and_Temporary_Worker.csv";
 
-function getRegisterUrl(): string {
-  return process.env["SPONSOR_LICENCE_REGISTER_URL"] ?? DEFAULT_REGISTER_URL;
+const GOV_UK_REGISTER_PAGE =
+  "https://www.gov.uk/government/publications/register-of-licensed-sponsors-workers";
+
+/**
+ * Fetches the GOV.UK register page and extracts the most recent CSV URL.
+ * Falls back to DEFAULT_REGISTER_URL if the page can't be fetched or parsed.
+ */
+async function resolveLatestRegisterUrl(): Promise<string> {
+  try {
+    const resp = await fetch(GOV_UK_REGISTER_PAGE, {
+      headers: { "User-Agent": "JOBSAGE/1.0 (sponsor-licence-sync)" },
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const html = await resp.text();
+    // Extract all CSV/XLSX links from assets.publishing.service.gov.uk
+    const matches = [...html.matchAll(
+      /https:\/\/assets\.publishing\.service\.gov\.uk\/media\/[a-f0-9]+\/[^"'\s]+\.(csv|xlsx)/gi,
+    )];
+    if (matches.length > 0) {
+      const url = matches[0]![0]!;
+      console.log("[sponsor-sync] Resolved latest register URL:", url);
+      return url;
+    }
+    console.warn("[sponsor-sync] No CSV/XLSX found on register page — using default URL");
+  } catch (err) {
+    console.warn("[sponsor-sync] Failed to resolve latest register URL:", err instanceof Error ? err.message : err);
+  }
+  return DEFAULT_REGISTER_URL;
+}
+
+function getRegisterUrl(): string | null {
+  return process.env["SPONSOR_LICENCE_REGISTER_URL"] ?? null;
 }
 
 interface ParsedRow {
@@ -201,7 +232,8 @@ async function downloadAndParse(url: string): Promise<ParsedRow[]> {
 }
 
 export async function runSponsorLicenceSync(): Promise<void> {
-  const url = getRegisterUrl();
+  // Prefer explicit env var, otherwise auto-resolve the latest URL from GOV.UK
+  const url = getRegisterUrl() ?? await resolveLatestRegisterUrl();
   console.log("[sponsor-sync] Starting sync from", url);
 
   const syncedAt = new Date();
@@ -212,20 +244,22 @@ export async function runSponsorLicenceSync(): Promise<void> {
 
     if (rows.length === 0) throw new Error("No records parsed from register");
 
-    // Apply AI classification in batches for rows that keyword didn't match
-    const aiNeededIdxs = rows.reduce<number[]>((acc, r, i) => {
-      if (r.industry === null) acc.push(i);
-      return acc;
-    }, []);
-    const AI_BATCH = 100;
-    for (let i = 0; i < aiNeededIdxs.length; i += AI_BATCH) {
-      const batchIdxs = aiNeededIdxs.slice(i, i + AI_BATCH);
-      const names = batchIdxs.map((idx) => rows[idx]!.organisationName);
-      const labels = await classifyBatch(names);
-      batchIdxs.forEach((idx, j) => {
-        rows[idx]!.industry = labels[j] ?? "Other";
-      });
+    // Safety guard: abort if the new dataset is less than 50% of what's already in the DB.
+    // This catches cases where a truncated/corrupt file would silently replace good data.
+    const [{ existingCount }] = await db
+      .select({ existingCount: sql<number>`cast(count(*) as int)` })
+      .from(sponsorLicencesTable);
+    if (existingCount > 0 && rows.length < existingCount * 0.5) {
+      throw new Error(
+        `Safety guard triggered: new data has ${rows.length} rows but DB already has ${existingCount}. ` +
+        `Refusing to truncate — possible corrupt/partial source file. ` +
+        `Set SPONSOR_LICENCE_REGISTER_URL to override.`,
+      );
     }
+
+    // Note: AI classification is intentionally skipped here to keep sync fast.
+    // Rows with industry=null (no keyword match) are picked up by the industry backfill
+    // process which runs on server startup and handles AI classification in the background.
 
     await db.transaction(async (tx) => {
       await tx.execute(sql`TRUNCATE TABLE sponsor_licences RESTART IDENTITY`);
