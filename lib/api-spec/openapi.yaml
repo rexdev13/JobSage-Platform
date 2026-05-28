@@ -2128,6 +2128,43 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /sponsor-licences/{id}/check-vacancies:
+    post:
+      operationId: checkSponsorLicenceVacancies
+      tags: [SponsorLicences]
+      summary: AI-powered on-demand vacancy check for a specific sponsor licence company
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Vacancy check result (may be served from 24-hour cache)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VacancyCheckResult"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Company not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: Vacancy check failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
   /sponsor-licences/routes:
     get:
       operationId: getSponsorLicenceRoutes
@@ -4170,6 +4207,27 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/SponsorLicenceIndustryCount"
+
+    VacancyCheckResult:
+      type: object
+      required: [vacanciesFound, checkedAt, fromCache]
+      properties:
+        vacanciesFound:
+          type: boolean
+        vacancyCount:
+          type: integer
+          nullable: true
+        sourceUrl:
+          type: string
+          nullable: true
+        summary:
+          type: string
+          nullable: true
+        checkedAt:
+          type: string
+          format: date-time
+        fromCache:
+          type: boolean
 
     BoostProfileRequest:
       type: object
