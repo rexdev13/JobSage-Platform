@@ -39,6 +39,12 @@ export const GetCurrentAuthUserResponse = zod.object({
     .describe(
       "True when the session is operating under impersonation of another user.",
     ),
+  token: zod
+    .string()
+    .optional()
+    .describe(
+      "Session token for mobile clients to use as a Bearer token. Only returned on login.",
+    ),
 });
 
 /**
@@ -82,6 +88,12 @@ export const LoginWithEmailResponse = zod.object({
     .optional()
     .describe(
       "True when the session is operating under impersonation of another user.",
+    ),
+  token: zod
+    .string()
+    .optional()
+    .describe(
+      "Session token for mobile clients to use as a Bearer token. Only returned on login.",
     ),
 });
 
