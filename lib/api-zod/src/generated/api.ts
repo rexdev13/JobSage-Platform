@@ -188,6 +188,18 @@ export const GetStorageObjectParams = zod.object({
 });
 
 /**
+ * Returns the merged list of well-known professions and any custom professions that have been used by 3 or more candidates.
+ * @summary List suggested profession values
+ */
+export const ListProfessionsResponse = zod.object({
+  professions: zod
+    .array(zod.string())
+    .describe(
+      "Merged list of well-known and community-contributed profession labels.",
+    ),
+});
+
+/**
  * @summary Get the current user's profile
  */
 export const GetMyProfileResponse = zod.object({

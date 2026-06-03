@@ -78,6 +78,7 @@ import type {
   MarkMessageRead200,
   MatchedRoleList,
   MessageEnvelope,
+  ProfessionListResponse,
   ProgressReportResponse,
   RecordConsentRequest,
   RegisterDocumentRequest,
@@ -1151,6 +1152,82 @@ export function useGetStorageObject<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetStorageObjectQueryOptions(objectPath, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns the merged list of well-known professions and any custom professions that have been used by 3 or more candidates.
+ * @summary List suggested profession values
+ */
+export const getListProfessionsUrl = () => {
+  return `/api/professions`;
+};
+
+export const listProfessions = async (
+  options?: RequestInit,
+): Promise<ProfessionListResponse> => {
+  return customFetch<ProfessionListResponse>(getListProfessionsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListProfessionsQueryKey = () => {
+  return [`/api/professions`] as const;
+};
+
+export const getListProfessionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listProfessions>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listProfessions>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListProfessionsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listProfessions>>> = ({
+    signal,
+  }) => listProfessions({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listProfessions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListProfessionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listProfessions>>
+>;
+export type ListProfessionsQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary List suggested profession values
+ */
+
+export function useListProfessions<
+  TData = Awaited<ReturnType<typeof listProfessions>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listProfessions>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListProfessionsQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
