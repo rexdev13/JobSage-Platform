@@ -65,7 +65,7 @@ function detectAmbiguity(profile: Profile): { flagged: boolean; note: string | n
   if (reasons.length > 0) {
     return {
       flagged: true,
-      note: `This case has been flagged for human review due to: ${reasons.join("; ")}. A clinical reviewer will assess your case and contact you within 5 working days.`,
+      note: `This case has been flagged for human review due to: ${reasons.join("; ")}. A JOBSAGE adviser will assess your case and contact you within 2–3 working days.`,
     };
   }
   return { flagged: false, note: null };
@@ -137,7 +137,7 @@ export function evaluate(profile: Profile, rules: RulesetRule[]): EvaluationResu
     outcome: "not_eligible",
     reasonCodes: ["NO_RULE_MATCHED"],
     explanationText:
-      "Your profile did not match any deterministic eligibility rule. A clinical reviewer will assess your case and contact you within 5 working days.",
+      "Your profile did not match any deterministic eligibility rule. A JOBSAGE adviser will assess your case and contact you within 2–3 working days.",
     pathways: [],
     matchedRuleKey: null,
     reviewFlagged: true,

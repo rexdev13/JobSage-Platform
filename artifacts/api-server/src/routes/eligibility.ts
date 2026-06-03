@@ -123,13 +123,19 @@ router.post("/eligibility/evaluate", requireAuthenticated, requireConsent, async
     return;
   }
 
-  if (!profile.profession) {
+  const requestedProfession = typeof req.body?.profession === "string" && req.body.profession.trim()
+    ? req.body.profession.trim()
+    : null;
+
+  const effectiveProfession = requestedProfession ?? profile.profession;
+
+  if (!effectiveProfession) {
     res.status(400).json({ error: "Please set your profession in My Profile before running an eligibility check." });
     return;
   }
 
-  const bucket = industryBucketForProfession(profile.profession);
-  const canonicalProfession = canonicalProfessionForBucket(profile.profession, bucket);
+  const bucket = industryBucketForProfession(effectiveProfession);
+  const canonicalProfession = canonicalProfessionForBucket(effectiveProfession, bucket);
   const evaluationProfile: Profile = { ...profile, profession: canonicalProfession };
 
   const now = new Date();
