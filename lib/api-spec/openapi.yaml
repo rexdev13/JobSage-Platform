@@ -2325,8 +2325,11 @@ paths:
         - name: region
           in: query
           schema:
-            type: string
-          description: Filter by UK region (e.g. London, North West, Scotland)
+            type: array
+            items:
+              type: string
+          explode: true
+          description: Filter by one or more UK regions (e.g. London, North West, Scotland)
         - name: bookmarkedOnly
           in: query
           schema:
@@ -4375,6 +4378,8 @@ components:
         industry:
           type: string
         count:
+          type: integer
+        bookmarkedCount:
           type: integer
 
     SponsorLicenceIndustryCountsResponse:

@@ -1986,6 +1986,7 @@ export const GetSponsorLicenceIndustryCountsResponse = zod.object({
     zod.object({
       industry: zod.string(),
       count: zod.number(),
+      bookmarkedCount: zod.number().optional(),
     }),
   ),
 });
@@ -2048,10 +2049,12 @@ export const ListSponsorLicencesQueryParams = zod.object({
     .describe(
       "If true, return only companies with active vacancies on the platform",
     ),
-  region: zod.coerce
-    .string()
+  region: zod
+    .array(zod.coerce.string())
     .optional()
-    .describe("Filter by UK region (e.g. London, North West, Scotland)"),
+    .describe(
+      "Filter by one or more UK regions (e.g. London, North West, Scotland)",
+    ),
   bookmarkedOnly: zod.coerce
     .boolean()
     .optional()
