@@ -5,7 +5,7 @@ import { z } from "zod/v4";
 export const profilesTable = pgTable("profiles", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull().unique(),
-  profession: varchar("profession", { enum: ["doctor", "nurse", "midwife", "allied_health_professional", "clinical_academic"] }).notNull(),
+  profession: text("profession").notNull(),
   specialty: text("specialty").notNull(),
   qualificationCountry: text("qualification_country").notNull(),
   qualificationType: text("qualification_type").notNull(),
