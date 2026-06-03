@@ -1,9 +1,12 @@
 import React, { useState } from "react";
+import { Link } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, Button, PageTransition } from "@/components/ui-enhanced";
 import {
   useEvaluateEligibility,
   useListEligibilityHistory,
+  useGetMyProfile,
+  useGetCurrentAuthUser,
 } from "@workspace/api-client-react";
 import type { EligibilityResult } from "@workspace/api-client-react";
 import {
@@ -18,6 +21,8 @@ import {
   XCircle,
   HelpCircle,
   Loader2,
+  UserCircle,
+  ArrowRight,
 } from "lucide-react";
 import { DisclaimerBanner } from "@/components/ui/DisclaimerBanner";
 
@@ -68,7 +73,15 @@ function OutcomeIcon({ outcome, reviewFlagged }: { outcome: EligibilityOutcome; 
   return <AlertTriangle className="w-12 h-12 text-muted-foreground" />;
 }
 
-function DecisionCard({ decision, isLatest }: { decision: EligibilityResult; isLatest?: boolean }) {
+function DecisionCard({
+  decision,
+  isLatest,
+  candidateEmail,
+}: {
+  decision: EligibilityResult;
+  isLatest?: boolean;
+  candidateEmail?: string | null;
+}) {
   const [showReasonCodes, setShowReasonCodes] = useState(false);
 
   return (
@@ -116,10 +129,13 @@ function DecisionCard({ decision, isLatest }: { decision: EligibilityResult; isL
         <div className="flex items-start gap-3 p-4 rounded-xl bg-purple-50 border border-purple-200 mb-4">
           <AlertTriangle className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-semibold text-purple-800">Manual Review Requested</p>
+            <p className="text-sm font-semibold text-purple-800">Pending Manual Review</p>
             <p className="text-sm text-purple-700 mt-1">
-              {decision.reviewNote ||
-                "A clinical reviewer will assess your case and contact you within 5 working days."}
+              {decision.reviewNote
+                ? decision.reviewNote
+                : candidateEmail
+                ? `Your eligibility assessment requires manual review by a JOBSAGE adviser. You'll receive an email at ${candidateEmail} within 2–3 working days.`
+                : "Your eligibility assessment requires manual review by a JOBSAGE adviser. You'll receive a response within 2–3 working days."}
             </p>
           </div>
         </div>
@@ -127,8 +143,8 @@ function DecisionCard({ decision, isLatest }: { decision: EligibilityResult; isL
 
       <div className="pt-4 border-t border-border">
         <p className="text-xs text-muted-foreground italic mb-3">
-          This assessment is based on publicly available regulatory guidance and is for indicative purposes only.
-          Final eligibility decisions rest solely with the relevant regulatory body (GMC, NMC, or HCPC).
+          This assessment is based on publicly available regulatory and professional guidance and is for indicative
+          purposes only. Final eligibility decisions rest with the relevant regulatory or professional body.
         </p>
 
         <button
@@ -156,6 +172,45 @@ function DecisionCard({ decision, isLatest }: { decision: EligibilityResult; isL
   );
 }
 
+function ProfessionContextBanner({ profession }: { profession: string | null | undefined }) {
+  if (!profession) {
+    return (
+      <div className="flex items-center gap-3 p-4 rounded-xl bg-amber-50 border border-amber-200 mb-6">
+        <UserCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-amber-800">Profession not set</p>
+          <p className="text-sm text-amber-700 mt-0.5">
+            Set your profession in My Profile so we can assess the right eligibility criteria for your industry.
+          </p>
+        </div>
+        <Link
+          to="/profile"
+          className="flex-shrink-0 inline-flex items-center gap-1 text-sm font-medium text-amber-800 hover:text-amber-900 transition-colors"
+        >
+          Set profession
+          <ArrowRight className="w-4 h-4" />
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-3 p-4 rounded-xl bg-primary/5 border border-primary/20 mb-6">
+      <UserCircle className="w-5 h-5 text-primary flex-shrink-0" />
+      <p className="text-sm text-foreground flex-1 min-w-0">
+        Your eligibility is assessed based on your profession —{" "}
+        <span className="font-semibold">{profession}</span>.
+      </p>
+      <Link
+        to="/profile"
+        className="flex-shrink-0 text-sm text-primary hover:underline font-medium transition-colors"
+      >
+        Change
+      </Link>
+    </div>
+  );
+}
+
 export default function EligibilityPage() {
   const { data: historyData, isLoading: historyLoading, refetch } = useListEligibilityHistory();
   const { mutate: evaluate, isPending: evaluating } = useEvaluateEligibility({
@@ -165,20 +220,26 @@ export default function EligibilityPage() {
       },
     },
   });
+  const { data: profileData } = useGetMyProfile();
+  const { data: authUser } = useGetCurrentAuthUser();
 
   const decisions = historyData?.decisions ?? [];
   const latest = decisions[0];
+  const profession = profileData?.profession;
+  const candidateEmail = authUser?.user?.email;
 
   return (
     <AppLayout>
       <PageTransition>
         <DisclaimerBanner />
-        <header className="mt-6 mb-8">
+        <header className="mt-6 mb-6">
           <h1 className="text-3xl font-display font-bold text-foreground">Eligibility Intelligence</h1>
           <p className="text-muted-foreground mt-2">
-            Run your profile against the latest UK regulatory criteria for deterministic eligibility outcomes.
+            Run your profile against the latest UK regulatory and professional criteria for deterministic eligibility outcomes.
           </p>
         </header>
+
+        <ProfessionContextBanner profession={profession} />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
@@ -195,12 +256,12 @@ export default function EligibilityPage() {
                   No Eligibility Check Run Yet
                 </h2>
                 <p className="text-muted-foreground mb-8 max-w-sm mx-auto leading-relaxed">
-                  Run your first eligibility check to see whether your profile meets UK regulatory requirements for
-                  GMC, NMC, or HCPC registration.
+                  Run your first eligibility check to see whether your profile meets the UK requirements
+                  for your profession and industry.
                 </p>
                 <Button
                   onClick={() => evaluate()}
-                  disabled={evaluating}
+                  disabled={evaluating || !profession}
                   size="lg"
                 >
                   {evaluating ? (
@@ -215,10 +276,19 @@ export default function EligibilityPage() {
                     </>
                   )}
                 </Button>
+                {!profession && (
+                  <p className="text-xs text-muted-foreground mt-3">
+                    Please{" "}
+                    <Link to="/profile" className="text-primary hover:underline">
+                      set your profession
+                    </Link>{" "}
+                    in My Profile first.
+                  </p>
+                )}
               </Card>
             ) : (
               <>
-                {latest && <DecisionCard decision={latest} isLatest />}
+                {latest && <DecisionCard decision={latest} isLatest candidateEmail={candidateEmail} />}
 
                 {decisions.length > 1 && (
                   <div>
@@ -227,7 +297,7 @@ export default function EligibilityPage() {
                     </h3>
                     <div className="space-y-4">
                       {decisions.slice(1).map((d) => (
-                        <DecisionCard key={d.id} decision={d} />
+                        <DecisionCard key={d.id} decision={d} candidateEmail={candidateEmail} />
                       ))}
                     </div>
                   </div>
@@ -240,13 +310,13 @@ export default function EligibilityPage() {
             <Card className="p-6">
               <h3 className="text-base font-semibold text-foreground mb-4">Run a New Check</h3>
               <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
-                Each check evaluates your current profile against the latest published ruleset. Update your profile
+                Each check evaluates your current profile against the latest published ruleset for your profession. Update your profile
                 first if your circumstances have changed.
               </p>
               <Button
                 className="w-full"
                 onClick={() => evaluate()}
-                disabled={evaluating}
+                disabled={evaluating || !profession}
               >
                 {evaluating ? (
                   <>
@@ -260,6 +330,14 @@ export default function EligibilityPage() {
                   </>
                 )}
               </Button>
+              {!profession && (
+                <p className="text-xs text-muted-foreground mt-2 text-center">
+                  <Link to="/profile" className="text-primary hover:underline">
+                    Set your profession
+                  </Link>{" "}
+                  to enable checks.
+                </p>
+              )}
             </Card>
 
             <Card className="p-6">
@@ -270,7 +348,7 @@ export default function EligibilityPage() {
                   <div>
                     <span className="font-medium text-foreground">Eligible Now</span>
                     <p className="text-muted-foreground text-xs mt-0.5">
-                      Your profile meets current regulatory criteria.
+                      Your profile meets current regulatory or professional criteria.
                     </p>
                   </div>
                 </div>
@@ -288,16 +366,16 @@ export default function EligibilityPage() {
                   <div>
                     <span className="font-medium text-foreground">Ineligible</span>
                     <p className="text-muted-foreground text-xs mt-0.5">
-                      A fundamental barrier exists for this regulatory pathway.
+                      A fundamental barrier exists for this pathway.
                     </p>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
                   <HelpCircle className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-medium text-foreground">Under Review</span>
+                    <span className="font-medium text-foreground">Pending Review</span>
                     <p className="text-muted-foreground text-xs mt-0.5">
-                      Complex case — a clinical reviewer will assess within 5 working days.
+                      Complex case — a JOBSAGE adviser will assess and respond within 2–3 working days.
                     </p>
                   </div>
                 </div>
@@ -307,8 +385,8 @@ export default function EligibilityPage() {
             <Card className="p-5 bg-muted/30">
               <p className="text-xs text-muted-foreground leading-relaxed">
                 <strong className="text-foreground">Disclaimer:</strong> Assessments are derived from publicly
-                available regulatory guidance and do not constitute legal advice. Final registration decisions rest
-                with GMC, NMC, or HCPC respectively.
+                available regulatory and professional guidance and do not constitute legal advice. Final
+                registration or licensing decisions rest with the relevant regulatory or professional body.
               </p>
             </Card>
           </div>
