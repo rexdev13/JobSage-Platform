@@ -131,9 +131,7 @@ function DecisionCard({
           <div>
             <p className="text-sm font-semibold text-purple-800">Pending Manual Review</p>
             <p className="text-sm text-purple-700 mt-1">
-              {decision.reviewNote
-                ? decision.reviewNote
-                : candidateEmail
+              {candidateEmail
                 ? `Your eligibility assessment requires manual review by a JOBSAGE adviser. You'll receive an email at ${candidateEmail} within 2–3 working days.`
                 : "Your eligibility assessment requires manual review by a JOBSAGE adviser. You'll receive a response within 2–3 working days."}
             </p>
@@ -172,6 +170,34 @@ function DecisionCard({
   );
 }
 
+function professionToIndustryLabel(profession: string): string {
+  const lower = profession.toLowerCase().replace(/_/g, " ").trim();
+  if (
+    lower.includes("doctor") || lower.includes("physician") || lower === "gp" ||
+    lower.includes("gp ") || lower.includes("surgeon") || lower.includes("psychiatrist") ||
+    lower.includes("clinical academic")
+  ) return "GMC — Medical Registration";
+  if (
+    lower.includes("nurse") || lower.includes("nursing") ||
+    lower.includes("midwife") || lower.includes("midwifery")
+  ) return "NMC — Nursing & Midwifery";
+  if (
+    lower.includes("allied health") || lower.includes("physiotherapist") ||
+    lower.includes("radiographer") || lower.includes("occupational therapist") ||
+    lower.includes("paramedic") || lower.includes("optometrist") ||
+    lower.includes("podiatrist") || lower.includes("speech") || lower.includes("dietitian")
+  ) return "HCPC — Allied Health Professions";
+  if (lower.includes("teacher") || lower.includes("teaching") || lower.includes("qts"))
+    return "Education — Qualified Teacher Status (QTS)";
+  if (
+    lower.includes("academic") || lower.includes("lecturer") || lower.includes("professor") ||
+    lower.includes("researcher") || lower.includes("postdoc")
+  ) return "Higher Education — PhD & Research";
+  if (lower.includes("engineer") || lower.includes("engineering") || lower.includes("ceng"))
+    return "Engineering — CEng / Professional Registration";
+  return "General — Professional Employment";
+}
+
 function ProfessionContextBanner({ profession }: { profession: string | null | undefined }) {
   if (!profession) {
     return (
@@ -194,13 +220,20 @@ function ProfessionContextBanner({ profession }: { profession: string | null | u
     );
   }
 
+  const industryLabel = professionToIndustryLabel(profession);
+
   return (
-    <div className="flex items-center gap-3 p-4 rounded-xl bg-primary/5 border border-primary/20 mb-6">
-      <UserCircle className="w-5 h-5 text-primary flex-shrink-0" />
-      <p className="text-sm text-foreground flex-1 min-w-0">
-        Your eligibility is assessed based on your profession —{" "}
-        <span className="font-semibold">{profession}</span>.
-      </p>
+    <div className="flex items-start gap-3 p-4 rounded-xl bg-primary/5 border border-primary/20 mb-6">
+      <UserCircle className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm text-foreground">
+          Your eligibility is assessed based on your profession —{" "}
+          <span className="font-semibold">{profession}</span>.
+        </p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Applying ruleset: <span className="font-medium">{industryLabel}</span>
+        </p>
+      </div>
       <Link
         to="/profile"
         className="flex-shrink-0 text-sm text-primary hover:underline font-medium transition-colors"
