@@ -4,7 +4,7 @@ import { z } from "zod/v4";
 
 export const rulesetsTable = pgTable("rulesets", {
   id: serial("id").primaryKey(),
-  regulator: varchar("regulator", { enum: ["GMC", "NMC", "HCPC"] }).notNull(),
+  regulator: text("regulator").notNull(),
   version: varchar("version").notNull(),
   status: varchar("status", { enum: ["draft", "published"] }).notNull().default("draft"),
   effectiveDate: timestamp("effective_date", { withTimezone: true }).notNull(),

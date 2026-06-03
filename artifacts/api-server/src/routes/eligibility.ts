@@ -10,11 +10,92 @@ import type { Profile } from "@workspace/db";
 
 const router: IRouter = Router();
 
-function regulatorForProfession(profession: string): "GMC" | "NMC" | "HCPC" | null {
-  if (profession === "doctor" || profession === "clinical_academic") return "GMC";
-  if (profession === "nurse" || profession === "midwife") return "NMC";
-  if (profession === "allied_health_professional") return "HCPC";
-  return null;
+export type IndustryBucket = "GMC" | "NMC" | "HCPC" | "EDUCATION" | "HIGHER_EDUCATION" | "ENGINEERING" | "GENERAL";
+
+export function industryBucketForProfession(profession: string): IndustryBucket {
+  const lower = profession.toLowerCase().replace(/_/g, " ").trim();
+
+  if (
+    lower.includes("doctor") ||
+    lower.includes("physician") ||
+    lower.includes("gp ") ||
+    lower === "gp" ||
+    lower.includes("surgeon") ||
+    lower.includes("psychiatrist") ||
+    lower.includes("clinical academic")
+  ) return "GMC";
+
+  if (
+    lower.includes("nurse") ||
+    lower.includes("nursing") ||
+    lower.includes("midwife") ||
+    lower.includes("midwifery")
+  ) return "NMC";
+
+  if (
+    lower.includes("allied health") ||
+    lower.includes("physiotherapist") ||
+    lower.includes("physiotherapy") ||
+    lower.includes("radiographer") ||
+    lower.includes("radiography") ||
+    lower.includes("occupational therapist") ||
+    lower.includes("paramedic") ||
+    lower.includes("optometrist") ||
+    lower.includes("podiatrist") ||
+    lower.includes("prosthetist") ||
+    lower.includes("orthotist") ||
+    lower.includes("speech and language") ||
+    lower.includes("speech therapist") ||
+    lower.includes("dietitian") ||
+    lower.includes("orthoptist") ||
+    lower.includes("biomedical scientist") ||
+    lower.includes("clinical scientist") ||
+    lower.includes("clinical psychologist") ||
+    lower.includes("art therapist") ||
+    lower.includes("drama therapist") ||
+    lower.includes("music therapist")
+  ) return "HCPC";
+
+  if (
+    lower.includes("teacher") ||
+    lower.includes("teaching") ||
+    lower.includes("school") ||
+    lower.includes("qts")
+  ) return "EDUCATION";
+
+  if (
+    lower.includes("academic") ||
+    lower.includes("lecturer") ||
+    lower.includes("professor") ||
+    lower.includes("researcher") ||
+    lower.includes("research fellow") ||
+    lower.includes("postdoc") ||
+    lower.includes("phd candidate") ||
+    lower.includes("university")
+  ) return "HIGHER_EDUCATION";
+
+  if (
+    lower.includes("engineer") ||
+    lower.includes("engineering") ||
+    lower.includes("ceng") ||
+    lower.includes("chartered engineer")
+  ) return "ENGINEERING";
+
+  return "GENERAL";
+}
+
+function canonicalProfessionForBucket(profession: string, bucket: IndustryBucket): string {
+  const lower = profession.toLowerCase().replace(/[\s-]+/g, "_").trim();
+  switch (bucket) {
+    case "GMC":
+      return lower.includes("clinical") ? "clinical_academic" : "doctor";
+    case "NMC":
+      return lower.includes("midwife") || lower.includes("midwifery") ? "midwife" : "nurse";
+    case "HCPC":
+      return "allied_health_professional";
+    default:
+      return lower;
+  }
 }
 
 function hashProfile(profile: Profile): string {
@@ -42,11 +123,14 @@ router.post("/eligibility/evaluate", requireAuthenticated, requireConsent, async
     return;
   }
 
-  const regulator = regulatorForProfession(profile.profession);
-  if (!regulator) {
-    res.status(400).json({ error: "Could not determine regulatory body from your profession." });
+  if (!profile.profession) {
+    res.status(400).json({ error: "Please set your profession in My Profile before running an eligibility check." });
     return;
   }
+
+  const bucket = industryBucketForProfession(profile.profession);
+  const canonicalProfession = canonicalProfessionForBucket(profile.profession, bucket);
+  const evaluationProfile: Profile = { ...profile, profession: canonicalProfession };
 
   const now = new Date();
   const publishedRulesets = await db
@@ -54,7 +138,7 @@ router.post("/eligibility/evaluate", requireAuthenticated, requireConsent, async
     .from(rulesetsTable)
     .where(
       and(
-        eq(rulesetsTable.regulator, regulator),
+        eq(rulesetsTable.regulator, bucket),
         eq(rulesetsTable.status, "published"),
         lte(rulesetsTable.effectiveDate, now)
       )
@@ -62,7 +146,7 @@ router.post("/eligibility/evaluate", requireAuthenticated, requireConsent, async
     .orderBy(desc(rulesetsTable.effectiveDate), desc(rulesetsTable.createdAt));
 
   if (publishedRulesets.length === 0) {
-    res.status(400).json({ error: `No published ruleset found for ${regulator}. Please contact support.` });
+    res.status(400).json({ error: `No published ruleset found for your industry (${bucket}). Please contact support.` });
     return;
   }
 
@@ -70,7 +154,7 @@ router.post("/eligibility/evaluate", requireAuthenticated, requireConsent, async
   const rules = await db.select().from(rulesetRulesTable).where(eq(rulesetRulesTable.rulesetId, ruleset.id));
 
   const profileSnapshotHash = hashProfile(profile);
-  const result = evaluate(profile, rules);
+  const result = evaluate(evaluationProfile, rules);
 
   const [decision] = await db
     .insert(decisionRecordsTable)
@@ -118,6 +202,7 @@ router.post("/eligibility/evaluate", requireAuthenticated, requireConsent, async
     reviewFlagged: decision.reviewFlagged === 1,
     reviewNote: decision.reviewNote ?? null,
     createdAt: decision.createdAt,
+    industry: bucket,
   });
 });
 

@@ -14,7 +14,7 @@ interface RuleSeedData {
 }
 
 interface RulesetSeedData {
-  regulator: "GMC" | "NMC" | "HCPC";
+  regulator: string;
   version: string;
   changelog: string;
   rules: RuleSeedData[];
@@ -90,6 +90,14 @@ const HCPC_APPROVED_COUNTRIES = [
   "United States",
   "South Africa",
   "India",
+];
+
+const RIGHT_TO_WORK_STATUSES = [
+  "british_citizen",
+  "uk_settled",
+  "uk_pre_settled",
+  "eea_citizen",
+  "other_visa",
 ];
 
 const rulesetSeedData: RulesetSeedData[] = [
@@ -391,6 +399,303 @@ const rulesetSeedData: RulesetSeedData[] = [
           "Your allied health qualification is from a country not on the HCPC's recognised list. You will need to have your qualification formally assessed for equivalence to a UK-approved programme. This process can take several months and may require additional study or supervised practice.",
         pathways: ["International Qualification Assessment", "Adaptation Programme (if directed)", "Aptitude Test (if directed)"],
         sortOrder: 7,
+      },
+    ],
+  },
+  {
+    regulator: "EDUCATION",
+    version: "1.0.0",
+    changelog:
+      "Initial Education ruleset v1.0.0 — covers UK teacher eligibility requirements including Qualified Teacher Status (QTS), DBS check, and degree requirements. Source: DfE guidance (www.gov.uk/become-teacher).",
+    rules: [
+      {
+        ruleKey: "EDUCATION_QTS_OBTAINED",
+        conditions: [
+          { field: "registrationStatus", operator: "eq", value: "registered" },
+        ],
+        outcome: "eligible",
+        reasonCode: "EDUCATION_QTS_OBTAINED",
+        explanationText:
+          "You hold Qualified Teacher Status (QTS) or equivalent professional registration. You are eligible to teach in UK state-maintained schools. Ensure your DBS Enhanced Certificate is current and that you are registered with the Teaching Regulation Agency (TRA).",
+        pathways: ["QTS via TRA", "International QTS Recognition", "Induction Period Completion"],
+        sortOrder: 1,
+      },
+      {
+        ruleKey: "EDUCATION_QTS_IN_PROGRESS",
+        conditions: [
+          { field: "registrationStatus", operator: "eq", value: "in_process" },
+        ],
+        outcome: "not_eligible",
+        reasonCode: "EDUCATION_QTS_IN_PROGRESS",
+        explanationText:
+          "Your QTS application or teacher training programme is in progress. Once you complete your Initial Teacher Training (ITT) and assessment, the Teaching Regulation Agency (TRA) will award QTS. In the meantime, you may work as an unqualified teacher in some settings.",
+        pathways: ["Initial Teacher Training (ITT)", "Assessment Only Route", "International QTS Recognition"],
+        sortOrder: 2,
+      },
+      {
+        ruleKey: "EDUCATION_RIGHT_TO_WORK",
+        conditions: [
+          { field: "registrationStatus", operator: "eq", value: "not_registered" },
+          { field: "requiresSponsorship", operator: "eq", value: true },
+        ],
+        outcome: "not_eligible",
+        reasonCode: "EDUCATION_VISA_REQUIRED",
+        explanationText:
+          "You will need a valid UK work visa to teach in UK schools. The Skilled Worker visa is the most common route for qualified international teachers. Your employer (school) must hold a valid sponsor licence. You should also obtain QTS through the Teaching Regulation Agency.",
+        pathways: ["Skilled Worker Visa (Teacher route)", "QTS via Teaching Regulation Agency", "DBS Enhanced Check"],
+        sortOrder: 3,
+      },
+      {
+        ruleKey: "EDUCATION_NO_QTS",
+        conditions: [
+          { field: "registrationStatus", operator: "eq", value: "not_registered" },
+          { field: "experienceYears", operator: "gte", value: 2 },
+        ],
+        outcome: "not_eligible",
+        reasonCode: "EDUCATION_QTS_REQUIRED",
+        explanationText:
+          "You have teaching experience but have not yet obtained QTS. You may be eligible for the Assessment Only (AO) route if you can demonstrate you already meet the Teachers' Standards without further training. Alternatively, you can apply for QTS recognition if you have international teaching qualifications.",
+        pathways: ["Assessment Only (AO) Route", "International QTS Recognition", "School Direct (Salaried)"],
+        sortOrder: 4,
+      },
+      {
+        ruleKey: "EDUCATION_EARLY_CAREER",
+        conditions: [
+          { field: "registrationStatus", operator: "eq", value: "not_registered" },
+        ],
+        outcome: "not_eligible",
+        reasonCode: "EDUCATION_TRAINING_REQUIRED",
+        explanationText:
+          "To teach in UK state-maintained schools, you need Qualified Teacher Status (QTS). You can obtain QTS by completing an accredited Initial Teacher Training (ITT) programme such as a PGCE, School Direct, or Teach First. A degree (or equivalent) is required for most ITT routes.",
+        pathways: ["PGCE Programme", "School Direct", "Teach First", "Undergraduate ITT"],
+        sortOrder: 5,
+      },
+    ],
+  },
+  {
+    regulator: "HIGHER_EDUCATION",
+    version: "1.0.0",
+    changelog:
+      "Initial Higher Education ruleset v1.0.0 — covers UK academic and researcher eligibility requirements including PhD, research experience, and right-to-work. Source: UCEA and Vitae guidance.",
+    rules: [
+      {
+        ruleKey: "HE_QUALIFIED_SENIOR",
+        conditions: [
+          { field: "registrationStatus", operator: "eq", value: "registered" },
+          { field: "experienceYears", operator: "gte", value: 5 },
+        ],
+        outcome: "eligible",
+        reasonCode: "HE_QUALIFIED_SENIOR",
+        explanationText:
+          "Your doctoral qualification and significant research experience make you eligible for academic and research positions in UK higher education. Senior roles (Reader, Professor, Principal Investigator) typically require a strong publication record and evidence of research leadership. Ensure your right to work in the UK is in order.",
+        pathways: ["Senior Lecturer / Reader Track", "Principal Investigator (PI) Route", "Professorial Appointment"],
+        sortOrder: 1,
+      },
+      {
+        ruleKey: "HE_QUALIFIED_EARLY_CAREER",
+        conditions: [
+          { field: "registrationStatus", operator: "eq", value: "registered" },
+        ],
+        outcome: "eligible",
+        reasonCode: "HE_QUALIFIED_EARLY_CAREER",
+        explanationText:
+          "Your doctoral qualification makes you eligible for early-career academic and researcher roles in UK higher education, including Postdoctoral Research Associate (PDRA), Research Fellow, and Lecturer positions. Building a publication record and securing funding will strengthen your academic career trajectory.",
+        pathways: ["Postdoctoral Research Associate", "Research Fellow", "Lecturer / Teaching Fellow"],
+        sortOrder: 2,
+      },
+      {
+        ruleKey: "HE_PHD_IN_PROGRESS",
+        conditions: [
+          { field: "registrationStatus", operator: "eq", value: "in_process" },
+        ],
+        outcome: "not_eligible",
+        reasonCode: "HE_PHD_IN_PROGRESS",
+        explanationText:
+          "Your doctoral research is in progress. Most permanent academic positions in UK universities require a completed PhD. You may be eligible for Graduate Teaching Assistant (GTA), Research Assistant, or fixed-term teaching roles while completing your doctorate.",
+        pathways: ["Graduate Teaching Assistant (GTA)", "Research Assistant", "Associate Lecturer"],
+        sortOrder: 3,
+      },
+      {
+        ruleKey: "HE_VISA_REQUIRED",
+        conditions: [
+          { field: "requiresSponsorship", operator: "eq", value: true },
+          { field: "registrationStatus", operator: "eq", value: "not_registered" },
+        ],
+        outcome: "not_eligible",
+        reasonCode: "HE_VISA_AND_PHD_REQUIRED",
+        explanationText:
+          "Academic and research roles in UK higher education typically require both a doctoral qualification (PhD or equivalent) and a valid UK work visa. Your employer (university) will need to sponsor your Skilled Worker visa. A PhD is generally essential for permanent academic posts.",
+        pathways: ["PhD Programme", "Skilled Worker Visa (Research route)", "Global Talent Visa"],
+        sortOrder: 4,
+      },
+      {
+        ruleKey: "HE_NO_PHD",
+        conditions: [
+          { field: "registrationStatus", operator: "eq", value: "not_registered" },
+        ],
+        outcome: "not_eligible",
+        reasonCode: "HE_PHD_REQUIRED",
+        explanationText:
+          "A doctoral qualification (PhD or equivalent) is typically required for academic and research roles in UK higher education. Without a PhD, you may be eligible for professional services, teaching support, or industry-partnership roles. Pursuing a doctoral programme is the primary pathway to a UK academic career.",
+        pathways: ["PhD Programme (Home or Overseas)", "Professional Doctorate", "Higher Education Administration"],
+        sortOrder: 5,
+      },
+    ],
+  },
+  {
+    regulator: "ENGINEERING",
+    version: "1.0.0",
+    changelog:
+      "Initial Engineering ruleset v1.0.0 — covers UK professional engineering eligibility including CEng, IEng, and EngTech registration via the Engineering Council. Source: Engineering Council guidance (www.engc.org.uk).",
+    rules: [
+      {
+        ruleKey: "ENG_CHARTERED_ENGINEER",
+        conditions: [
+          { field: "registrationStatus", operator: "eq", value: "registered" },
+          { field: "experienceYears", operator: "gte", value: 5 },
+        ],
+        outcome: "eligible",
+        reasonCode: "ENG_CHARTERED_ENGINEER",
+        explanationText:
+          "Your professional engineering registration and experience indicate you may hold or be eligible for Chartered Engineer (CEng) status. CEng is awarded by a licensed Professional Engineering Institution (PEI) on behalf of the Engineering Council. Ensure your registration is transferable to a UK PEI via mutual recognition agreements.",
+        pathways: ["CEng via Licensed Professional Engineering Institution", "International Mutual Recognition Agreement", "Incorporated Engineer (IEng) Route"],
+        sortOrder: 1,
+      },
+      {
+        ruleKey: "ENG_REGISTERED_JUNIOR",
+        conditions: [
+          { field: "registrationStatus", operator: "eq", value: "registered" },
+        ],
+        outcome: "eligible",
+        reasonCode: "ENG_REGISTERED",
+        explanationText:
+          "You hold professional engineering registration or membership of a recognised engineering institution. In the UK, professional engineers are registered through the Engineering Council via a Licensed Professional Engineering Institution (PEI). You should verify your qualification is recognised and apply through the appropriate PEI for CEng, IEng, or EngTech registration.",
+        pathways: ["Incorporated Engineer (IEng)", "Engineering Technician (EngTech)", "CEng (with additional experience)"],
+        sortOrder: 2,
+      },
+      {
+        ruleKey: "ENG_REGISTRATION_IN_PROGRESS",
+        conditions: [
+          { field: "registrationStatus", operator: "eq", value: "in_process" },
+        ],
+        outcome: "not_eligible",
+        reasonCode: "ENG_REGISTRATION_IN_PROGRESS",
+        explanationText:
+          "Your professional engineering registration application is in progress. Once complete, you can seek recognition from a UK Professional Engineering Institution (PEI). Gather evidence of your competencies aligned to the UK Standard for Professional Engineering Competence (UK-SPEC) while your application is being processed.",
+        pathways: ["UK-SPEC Competence Mapping", "Professional Engineering Institution Membership", "CEng Application"],
+        sortOrder: 3,
+      },
+      {
+        ruleKey: "ENG_EXPERIENCED_NO_REG",
+        conditions: [
+          { field: "registrationStatus", operator: "eq", value: "not_registered" },
+          { field: "experienceYears", operator: "gte", value: 4 },
+          { field: "requiresSponsorship", operator: "eq", value: false },
+        ],
+        outcome: "not_eligible",
+        reasonCode: "ENG_PROFESSIONAL_REG_REQUIRED",
+        explanationText:
+          "You have substantial engineering experience but do not yet hold formal professional registration. You may be eligible for Incorporated Engineer (IEng) or Chartered Engineer (CEng) status through a Licensed Professional Engineering Institution. Your application will be assessed against the UK Standard for Professional Engineering Competence (UK-SPEC).",
+        pathways: ["IEng Application via PEI", "CEng Application via PEI", "UK-SPEC Competence Mapping"],
+        sortOrder: 4,
+      },
+      {
+        ruleKey: "ENG_VISA_REQUIRED",
+        conditions: [
+          { field: "registrationStatus", operator: "eq", value: "not_registered" },
+          { field: "requiresSponsorship", operator: "eq", value: true },
+        ],
+        outcome: "not_eligible",
+        reasonCode: "ENG_VISA_AND_REG_REQUIRED",
+        explanationText:
+          "To work as an engineer in the UK, you will need both a valid UK work visa (typically the Skilled Worker route) and recognition of your engineering qualifications. An engineering degree plus relevant experience is required. Sponsorship from a UK employer holding a valid sponsor licence is needed for the Skilled Worker visa.",
+        pathways: ["Skilled Worker Visa (Engineering)", "Global Talent Visa", "Professional Engineering Institution Membership"],
+        sortOrder: 5,
+      },
+      {
+        ruleKey: "ENG_EARLY_CAREER",
+        conditions: [
+          { field: "registrationStatus", operator: "eq", value: "not_registered" },
+        ],
+        outcome: "not_eligible",
+        reasonCode: "ENG_QUALIFICATION_PATHWAY",
+        explanationText:
+          "To work as a professionally registered engineer in the UK, you will typically need an accredited engineering degree (BEng/MEng), relevant work experience, and registration through a Licensed Professional Engineering Institution (PEI). Engineering Technician (EngTech) status is available for those with HNC/HND-level qualifications.",
+        pathways: ["Accredited Engineering Degree", "EngTech (HNC/HND)", "Graduate Engineer Development Programme"],
+        sortOrder: 6,
+      },
+    ],
+  },
+  {
+    regulator: "GENERAL",
+    version: "1.0.0",
+    changelog:
+      "Initial General ruleset v1.0.0 — covers right-to-work, relevant qualifications, and general UK employment eligibility for professions not covered by a specific regulated pathway. Note that sector-specific requirements may apply.",
+    rules: [
+      {
+        ruleKey: "GENERAL_ELIGIBLE_EXPERIENCED",
+        conditions: [
+          { field: "requiresSponsorship", operator: "eq", value: false },
+          { field: "registrationStatus", operator: "eq", value: "registered" },
+          { field: "experienceYears", operator: "gte", value: 3 },
+        ],
+        outcome: "eligible",
+        reasonCode: "GENERAL_ELIGIBLE_EXPERIENCED",
+        explanationText:
+          "Based on your right to work in the UK, professional registration or qualifications, and relevant experience, you appear eligible to pursue employment in your field. Sector-specific requirements (such as DBS checks for roles with vulnerable people) will need to be confirmed with individual employers.",
+        pathways: ["Direct Employment", "Professional Body Membership (if applicable)", "DBS Enhanced Check (if required)"],
+        sortOrder: 1,
+      },
+      {
+        ruleKey: "GENERAL_ELIGIBLE_QUALIFIED",
+        conditions: [
+          { field: "requiresSponsorship", operator: "eq", value: false },
+          { field: "registrationStatus", operator: "in", value: ["registered", "in_process"] },
+        ],
+        outcome: "eligible",
+        reasonCode: "GENERAL_ELIGIBLE_QUALIFIED",
+        explanationText:
+          "You have right to work in the UK and hold or are working towards relevant professional qualifications. You are generally eligible to seek employment in your sector. Check whether your specific role requires additional regulatory registration, licensing, or a DBS check.",
+        pathways: ["Direct Employment", "Professional Body Membership (if applicable)", "Sector-Specific Licensing (if required)"],
+        sortOrder: 2,
+      },
+      {
+        ruleKey: "GENERAL_RIGHT_TO_WORK_ONLY",
+        conditions: [
+          { field: "requiresSponsorship", operator: "eq", value: false },
+          { field: "registrationStatus", operator: "eq", value: "not_registered" },
+          { field: "experienceYears", operator: "gte", value: 2 },
+        ],
+        outcome: "not_eligible",
+        reasonCode: "GENERAL_QUALIFICATIONS_RECOMMENDED",
+        explanationText:
+          "You have right to work in the UK and professional experience, but have not indicated formal qualifications or professional registration. While many roles do not require formal registration, obtaining relevant qualifications or professional body membership can strengthen your applications significantly. A DBS check may also be required for certain roles.",
+        pathways: ["Professional Body Membership", "NVQ / Vocational Qualification", "Relevant Degree or Diploma"],
+        sortOrder: 3,
+      },
+      {
+        ruleKey: "GENERAL_NEEDS_SPONSORSHIP",
+        conditions: [
+          { field: "requiresSponsorship", operator: "eq", value: true },
+        ],
+        outcome: "not_eligible",
+        reasonCode: "GENERAL_SPONSORSHIP_REQUIRED",
+        explanationText:
+          "You will need a UK work visa to take up employment. The Skilled Worker visa is the most common route for overseas professionals. Your employer must hold a valid Skilled Worker sponsor licence. The role must meet the minimum salary threshold (currently £38,700 per year or the 'going rate' for the occupation, whichever is higher).",
+        pathways: ["Skilled Worker Visa", "Global Talent Visa (for exceptional talent)", "Graduate Visa (if recently UK-qualified)"],
+        sortOrder: 4,
+      },
+      {
+        ruleKey: "GENERAL_DEFAULT",
+        conditions: [
+          { field: "experienceYears", operator: "gte", value: 0 },
+        ],
+        outcome: "not_eligible",
+        reasonCode: "GENERAL_PROFILE_INCOMPLETE",
+        explanationText:
+          "Based on your current profile, sector-specific eligibility requirements for your profession are being assessed. JOBSAGE will expand industry-specific guidance for your sector soon. In the meantime, please ensure your profile is fully complete — including qualifications, experience, and residency status — so we can provide the most accurate assessment.",
+        pathways: ["Complete Your Profile", "Contact a JOBSAGE Adviser"],
+        sortOrder: 5,
       },
     ],
   },
