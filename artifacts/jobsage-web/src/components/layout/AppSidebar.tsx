@@ -24,11 +24,11 @@ export function AppSidebar() {
     { name: "My Profile", href: "/profile", icon: User, roles: ["candidate", "reviewer", "admin"] },
     { name: "My Documents", href: "/documents", icon: FileText, roles: ["candidate", "reviewer", "admin"] },
     { name: "My Eligibility", href: "/eligibility", icon: CheckCircle, roles: ["candidate", "reviewer", "admin"] },
+    { name: "Sponsor Licences", href: "/sponsor-licences", icon: List, roles: ["candidate", "reviewer", "admin"] },
     { name: "Opportunities", href: "/opportunities", icon: Briefcase, roles: ["candidate", "reviewer", "admin"] },
     { name: "My Applications", href: "/applications", icon: ClipboardList, roles: ["candidate", "reviewer", "admin"] },
     { name: "My Path", href: "/path", icon: Map, roles: ["candidate", "reviewer", "admin"] },
     { name: "Interview Prep", href: "/interview-prep", icon: Sparkles, roles: ["candidate", "reviewer", "admin"] },
-    { name: "Sponsor Licences", href: "/sponsor-licences", icon: List, roles: ["candidate", "reviewer", "admin"] },
     { name: "My Report", href: "/my-report", icon: BarChart2, roles: ["candidate", "reviewer", "admin"] },
     { name: "Regulatory Guidance", href: "/regulatory-guidance", icon: BookOpen, roles: ["candidate", "reviewer", "admin"] },
 

@@ -1027,12 +1027,14 @@ export interface SponsorLicenceCompany {
   organisationName: string;
   townCity?: string | null;
   county?: string | null;
+  region?: string | null;
   route?: string | null;
   subRoute?: string | null;
   rating?: string | null;
   industry?: string | null;
   syncedAt: string;
   hasVacancies?: boolean;
+  isBookmarked?: boolean;
 }
 
 export interface SponsorLicenceListResponse {
@@ -1042,8 +1044,28 @@ export interface SponsorLicenceListResponse {
   limit: number;
   totalPages: number;
   withVacancies: number;
+  bookmarkedCount?: number;
   lastSyncedAt?: string | null;
   lastSyncFailed?: boolean;
+}
+
+export interface SponsorLicenceRegionsResponse {
+  regions: string[];
+}
+
+export interface SponsorLicenceBookmark {
+  id: number;
+  sponsorLicenceId: number;
+  createdAt: string;
+}
+
+export interface SponsorLicenceBookmarksResponse {
+  bookmarks: SponsorLicenceBookmark[];
+}
+
+export interface BookmarkToggleResponse {
+  bookmarked: boolean;
+  sponsorLicenceId: number;
 }
 
 export interface SponsorLicenceRoutesResponse {
@@ -1596,6 +1618,14 @@ export type ListSponsorLicencesParams = {
    * If true, return only companies with active vacancies on the platform
    */
   hasVacancies?: boolean;
+  /**
+   * Filter by UK region (e.g. London, North West, Scotland)
+   */
+  region?: string;
+  /**
+   * If true, return only the candidate's bookmarked companies
+   */
+  bookmarkedOnly?: boolean;
   page?: number;
   /**
    * @maximum 100

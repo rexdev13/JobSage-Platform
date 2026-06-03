@@ -1935,6 +1935,50 @@ export const SendSpeculativeApplicationResponse = zod.object({
 });
 
 /**
+ * @summary Get the list of standard UK regions for filtering
+ */
+export const GetSponsorLicenceRegionsResponse = zod.object({
+  regions: zod.array(zod.string()),
+});
+
+/**
+ * @summary Get the current candidate's bookmarked sponsor licence companies
+ */
+export const GetSponsorLicenceBookmarksResponse = zod.object({
+  bookmarks: zod.array(
+    zod.object({
+      id: zod.number(),
+      sponsorLicenceId: zod.number(),
+      createdAt: zod.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Bookmark a sponsor licence company
+ */
+export const BookmarkSponsorLicenceParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const BookmarkSponsorLicenceResponse = zod.object({
+  bookmarked: zod.boolean(),
+  sponsorLicenceId: zod.number(),
+});
+
+/**
+ * @summary Remove a bookmark from a sponsor licence company
+ */
+export const UnbookmarkSponsorLicenceParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UnbookmarkSponsorLicenceResponse = zod.object({
+  bookmarked: zod.boolean(),
+  sponsorLicenceId: zod.number(),
+});
+
+/**
  * @summary Get industry sector counts for the sector browser grid
  */
 export const GetSponsorLicenceIndustryCountsResponse = zod.object({
@@ -2004,6 +2048,14 @@ export const ListSponsorLicencesQueryParams = zod.object({
     .describe(
       "If true, return only companies with active vacancies on the platform",
     ),
+  region: zod.coerce
+    .string()
+    .optional()
+    .describe("Filter by UK region (e.g. London, North West, Scotland)"),
+  bookmarkedOnly: zod.coerce
+    .boolean()
+    .optional()
+    .describe("If true, return only the candidate's bookmarked companies"),
   page: zod.coerce.number().default(listSponsorLicencesQueryPageDefault),
   limit: zod.coerce
     .number()
@@ -2018,12 +2070,14 @@ export const ListSponsorLicencesResponse = zod.object({
       organisationName: zod.string(),
       townCity: zod.string().nullish(),
       county: zod.string().nullish(),
+      region: zod.string().nullish(),
       route: zod.string().nullish(),
       subRoute: zod.string().nullish(),
       rating: zod.string().nullish(),
       industry: zod.string().nullish(),
       syncedAt: zod.date(),
       hasVacancies: zod.boolean().optional(),
+      isBookmarked: zod.boolean().optional(),
     }),
   ),
   total: zod.number(),
@@ -2031,6 +2085,7 @@ export const ListSponsorLicencesResponse = zod.object({
   limit: zod.number(),
   totalPages: zod.number(),
   withVacancies: zod.number(),
+  bookmarkedCount: zod.number().optional(),
   lastSyncedAt: zod.date().nullish(),
   lastSyncFailed: zod.boolean().optional(),
 });

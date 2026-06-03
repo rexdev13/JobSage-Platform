@@ -14,6 +14,7 @@ export interface SponsorLicenceListResponse {
   limit: number;
   totalPages: number;
   withVacancies: number;
+  bookmarkedCount?: number;
   lastSyncedAt?: Date | null;
   lastSyncFailed?: boolean;
 }
