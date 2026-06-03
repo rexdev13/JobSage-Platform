@@ -374,8 +374,9 @@ router.get("/sponsor-licences/routes", requireAuthenticated, async (_req, res) =
 
 // ── Industry Counts ──────────────────────────────────────────────────────────
 
-router.get("/sponsor-licences/industry-counts", requireAuthenticated, async (_req, res) => {
+router.get("/sponsor-licences/industry-counts", requireAuthenticated, async (req, res) => {
   try {
+    const userId = req.user!.id;
     const rows = await db
       .select({
         industry: sponsorLicencesTable.industry,
@@ -386,9 +387,30 @@ router.get("/sponsor-licences/industry-counts", requireAuthenticated, async (_re
       .groupBy(sponsorLicencesTable.industry)
       .orderBy(desc(sql`count(*)`));
 
+    const bookmarkRows = await db
+      .select({
+        industry: sponsorLicencesTable.industry,
+        count: sql<number>`cast(count(*) as int)`,
+      })
+      .from(sponsorLicenceBookmarksTable)
+      .innerJoin(sponsorLicencesTable, eq(sponsorLicencesTable.id, sponsorLicenceBookmarksTable.sponsorLicenceId))
+      .where(and(
+        eq(sponsorLicenceBookmarksTable.userId, userId),
+        isNotNull(sponsorLicencesTable.industry),
+      ))
+      .groupBy(sponsorLicencesTable.industry);
+
+    const bookmarkedByIndustry = new Map(
+      bookmarkRows.filter((r) => r.industry).map((r) => [r.industry as string, r.count]),
+    );
+
     const counts = rows
       .filter((r) => r.industry)
-      .map((r) => ({ industry: r.industry as string, count: r.count }));
+      .map((r) => ({
+        industry: r.industry as string,
+        count: r.count,
+        bookmarkedCount: bookmarkedByIndustry.get(r.industry as string) ?? 0,
+      }));
 
     res.json({ counts });
   } catch (err) {
@@ -504,7 +526,12 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
     const search = typeof req.query["search"] === "string" ? req.query["search"].trim() : "";
     const route = typeof req.query["route"] === "string" ? req.query["route"].trim() : "";
     const industry = typeof req.query["industry"] === "string" ? req.query["industry"].trim() : "";
-    const region = typeof req.query["region"] === "string" ? req.query["region"].trim() : "";
+    const rawRegion = req.query["region"];
+    const regions: string[] = Array.isArray(rawRegion)
+      ? (rawRegion as string[]).map((r) => r.trim()).filter(Boolean)
+      : typeof rawRegion === "string" && rawRegion.trim()
+        ? [rawRegion.trim()]
+        : [];
     const hasVacanciesParam = req.query["hasVacancies"];
     const filterVacancies = hasVacanciesParam === "true";
     const bookmarkedOnly = req.query["bookmarkedOnly"] === "true";
@@ -556,7 +583,7 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
 
     let filtered = annotated;
     if (filterVacancies) filtered = filtered.filter((c) => c.hasVacancies);
-    if (region) filtered = filtered.filter((c) => c.region === region);
+    if (regions.length > 0) filtered = filtered.filter((c) => c.region !== null && regions.includes(c.region));
     if (bookmarkedOnly) filtered = filtered.filter((c) => c.isBookmarked);
 
     const total = filtered.length;

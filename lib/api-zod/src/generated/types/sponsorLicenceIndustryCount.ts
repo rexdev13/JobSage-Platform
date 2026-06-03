@@ -9,4 +9,5 @@
 export interface SponsorLicenceIndustryCount {
   industry: string;
   count: number;
+  bookmarkedCount?: number;
 }

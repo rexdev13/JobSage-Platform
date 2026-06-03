@@ -12,8 +12,11 @@ import {
   useGetSponsorLicenceRegions,
   useBookmarkSponsorLicence,
   useUnbookmarkSponsorLicence,
+  getListSponsorLicencesQueryKey,
+  getGetSponsorLicenceIndustryCountsQueryKey,
   type VacancyCheckResult,
 } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Building2,
@@ -49,6 +52,7 @@ import {
   Bookmark,
   BookmarkCheck,
   Globe,
+  ChevronDown,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -97,12 +101,14 @@ export default function SponsorLicencesPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedRoute, setSelectedRoute] = useState("");
   const [selectedIndustry, setSelectedIndustry] = useState("");
-  const [selectedRegion, setSelectedRegion] = useState("");
+  const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
+  const [regionDropdownOpen, setRegionDropdownOpen] = useState(false);
   const [hasVacancies, setHasVacancies] = useState(false);
   const [bookmarkedOnly, setBookmarkedOnly] = useState(false);
   const [page, setPage] = useState(1);
   const [localBookmarks, setLocalBookmarks] = useState<Set<number>>(new Set());
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const sendCVMutation = useSendSpeculativeApplication();
   const { data: speculativeData, refetch: refetchSpeculative } = useListSpeculativeApplications();
   const sentCompanyNames = new Set((speculativeData?.applications ?? []).map((a) => a.companyName));
@@ -148,10 +154,16 @@ export default function SponsorLicencesPage() {
     }
     setLocalBookmarks(optimisticNew);
 
+    const invalidate = () => {
+      void queryClient.invalidateQueries({ queryKey: [getListSponsorLicencesQueryKey()[0]] });
+      void queryClient.invalidateQueries({ queryKey: getGetSponsorLicenceIndustryCountsQueryKey() });
+    };
+
     if (currentlyBookmarked) {
       unbookmarkMutation.mutate(
         { id: companyId },
         {
+          onSuccess: invalidate,
           onError: () => {
             setLocalBookmarks((prev) => {
               const r = new Set(prev);
@@ -166,6 +178,7 @@ export default function SponsorLicencesPage() {
       bookmarkMutation.mutate(
         { id: companyId },
         {
+          onSuccess: invalidate,
           onError: () => {
             setLocalBookmarks((prev) => {
               const r = new Set(prev);
@@ -177,6 +190,14 @@ export default function SponsorLicencesPage() {
         },
       );
     }
+  }
+
+  function handleRegionToggle(region: string) {
+    setSelectedRegions((prev) => {
+      const next = prev.includes(region) ? prev.filter((r) => r !== region) : [...prev, region];
+      setPage(1);
+      return next;
+    });
   }
 
   const showSectorGrid = !selectedIndustry;
@@ -225,7 +246,7 @@ export default function SponsorLicencesPage() {
     search: debouncedSearch || undefined,
     route: selectedRoute || undefined,
     industry: selectedIndustry || undefined,
-    region: selectedRegion || undefined,
+    region: selectedRegions.length > 0 ? selectedRegions : undefined,
     hasVacancies: hasVacancies || undefined,
     bookmarkedOnly: bookmarkedOnly || undefined,
     page,
@@ -261,7 +282,8 @@ export default function SponsorLicencesPage() {
     setSelectedRoute("");
     setHasVacancies(false);
     setBookmarkedOnly(false);
-    setSelectedRegion("");
+    setSelectedRegions([]);
+    setRegionDropdownOpen(false);
     setPage(1);
   }
 
@@ -287,11 +309,6 @@ export default function SponsorLicencesPage() {
 
   function handleBookmarkedToggle() {
     setBookmarkedOnly((v) => !v);
-    setPage(1);
-  }
-
-  function handleRegionChange(r: string) {
-    setSelectedRegion(r);
     setPage(1);
   }
 
@@ -440,6 +457,12 @@ export default function SponsorLicencesPage() {
                               <p className="text-xs text-muted-foreground">
                                 {s.count.toLocaleString()} sponsor{s.count !== 1 ? "s" : ""}
                               </p>
+                              {(s.bookmarkedCount ?? 0) > 0 && (
+                                <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-medium text-amber-700 bg-amber-500/10 px-1.5 py-0.5 rounded-full">
+                                  <Bookmark className="w-2.5 h-2.5" />
+                                  {s.bookmarkedCount} saved
+                                </span>
+                              )}
                             </Card>
                           </button>
                         </motion.div>
@@ -571,17 +594,52 @@ export default function SponsorLicencesPage() {
 
                   {regions.length > 0 && (
                     <div className="relative">
-                      <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-                      <select
-                        value={selectedRegion}
-                        onChange={(e) => handleRegionChange(e.target.value)}
-                        className="pl-9 pr-8 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 appearance-none cursor-pointer"
+                      <button
+                        onClick={() => setRegionDropdownOpen((v) => !v)}
+                        className={`flex items-center gap-2 pl-3 pr-3 py-2.5 rounded-xl border text-sm transition-colors ${
+                          selectedRegions.length > 0
+                            ? "border-primary bg-primary/5 text-foreground"
+                            : "border-border bg-background text-foreground hover:bg-accent"
+                        }`}
                       >
-                        <option value="">All regions</option>
-                        {regions.map((r) => (
-                          <option key={r} value={r}>{r}</option>
-                        ))}
-                      </select>
+                        <Globe className="w-4 h-4 text-muted-foreground shrink-0" />
+                        <span>
+                          {selectedRegions.length === 0
+                            ? "All regions"
+                            : selectedRegions.length === 1
+                              ? selectedRegions[0]
+                              : `${selectedRegions.length} regions`}
+                        </span>
+                        <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${regionDropdownOpen ? "rotate-180" : ""}`} />
+                      </button>
+                      {regionDropdownOpen && (
+                        <div className="absolute z-50 top-full mt-1 left-0 bg-background border border-border rounded-xl shadow-lg py-1 min-w-[200px]">
+                          {regions.map((r) => (
+                            <label
+                              key={r}
+                              className="flex items-center gap-2.5 px-3 py-2 hover:bg-accent cursor-pointer text-sm"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedRegions.includes(r)}
+                                onChange={() => handleRegionToggle(r)}
+                                className="w-4 h-4 rounded accent-primary"
+                              />
+                              <span className="text-foreground">{r}</span>
+                            </label>
+                          ))}
+                          {selectedRegions.length > 0 && (
+                            <div className="border-t border-border mt-1 pt-1 px-3 pb-1">
+                              <button
+                                onClick={() => { setSelectedRegions([]); setPage(1); }}
+                                className="text-xs text-muted-foreground hover:text-foreground"
+                              >
+                                Clear selection
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -781,6 +839,9 @@ export default function SponsorLicencesPage() {
                                 {vacancyResults.get(c.id)!.summary}
                               </p>
                             )}
+                            <p className="mt-1.5 ml-14 text-[10px] text-muted-foreground/60 italic">
+                              Phone and email are not published in the official Home Office register.
+                            </p>
                           </Card>
                         </motion.div>
                       );
