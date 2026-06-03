@@ -2,17 +2,22 @@ import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, PageTransition } from "@/components/ui-enhanced";
 import { motion } from "framer-motion";
+import { useGetMyProfile } from "@workspace/api-client-react";
 import {
   Stethoscope,
   HeartPulse,
   Smile,
   Users,
+  GraduationCap,
+  BookOpen,
+  Wrench,
+  Heart,
+  Globe,
   ExternalLink,
   Clock,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
-  BookOpen,
   Shield,
   AlertCircle,
 } from "lucide-react";
@@ -285,9 +290,329 @@ const pathways: Record<string, Pathway> = {
       "NHS employers typically offer NHS pay bands which are published openly — Agenda for Change (AfC) band 5–8d depending on role.",
     ],
   },
+  teacher: {
+    icon: GraduationCap,
+    label: "Teacher (QTS)",
+    regulator: "Teaching Regulation Agency",
+    regulatorUrl: "https://www.gov.uk/government/organisations/teaching-regulation-agency",
+    overview:
+      "Internationally-trained teachers can obtain Qualified Teacher Status (QTS) through several routes. Since 2023, teachers from many countries can apply directly for QTS via the international recognition route without additional assessment, based on their existing qualifications and experience.",
+    estimatedTotal: "3–18 months",
+    steps: [
+      {
+        title: "Check the international recognition route",
+        description:
+          "Teachers qualified in Australia, Canada, EU/EEA, Gibraltar, New Zealand, Northern Ireland, Scotland, Switzerland, or the USA can apply directly for QTS. Other countries may have different routes.",
+        timeline: "1–2 weeks",
+        link: { label: "QTS international route", url: "https://www.gov.uk/government/publications/apply-for-qualified-teacher-status-qts-if-you-trained-outside-the-uk" },
+      },
+      {
+        title: "English Language Proficiency",
+        description:
+          "Required if English is not your first language or your qualification was not taught in English. IELTS Academic overall 6.5 or equivalent accepted.",
+        timeline: "1–4 months",
+      },
+      {
+        title: "Apply for QTS via TRA",
+        description:
+          "Submit your application through the Teaching Regulation Agency's online portal. Provide your teaching qualification, transcripts, proof of teaching experience, and good standing confirmation from your home regulatory authority.",
+        timeline: "4–12 weeks for decision",
+        link: { label: "Apply for QTS", url: "https://apply-for-qts-in-england.education.gov.uk/" },
+      },
+      {
+        title: "Assessment Only (AO) route (if required)",
+        description:
+          "If your country is not on the direct recognition list, you may pursue the Assessment Only route: demonstrate teaching competence against the Teachers' Standards without further training.",
+        timeline: "6–12 months",
+        link: { label: "Assessment Only route", url: "https://www.gov.uk/government/publications/the-assessment-only-route-to-qts" },
+      },
+      {
+        title: "DBS Enhanced Check",
+        description:
+          "All teachers working in UK schools require an Enhanced Disclosure and Barring Service (DBS) check before starting work. Usually arranged by the employer.",
+        timeline: "2–4 weeks",
+        link: { label: "DBS checks for teachers", url: "https://www.gov.uk/dbs-check-applicant-guidance" },
+      },
+      {
+        title: "Induction Year (ECT)",
+        description:
+          "Newly qualified teachers complete a two-year Early Career Teacher (ECT) induction supported by a mentor. Required for full independent teaching in maintained schools.",
+        timeline: "2 years",
+        link: { label: "ECT induction", url: "https://www.gov.uk/guidance/early-career-framework" },
+      },
+      {
+        title: "Visa & Sponsorship",
+        description:
+          "Teaching roles typically require a Skilled Worker visa. Many schools and multi-academy trusts hold sponsor licences. Teaching is on the Immigration Salary List.",
+        timeline: "8–12 weeks",
+        link: { label: "Teacher visa guidance", url: "https://www.gov.uk/skilled-worker-visa" },
+      },
+    ],
+    notes: [
+      "The iQTS (international QTS) route allows you to gain QTS while training outside of England.",
+      "Scottish and Welsh teaching registration (GTC Scotland, EWC) are separate from England's QTS.",
+      "Subject knowledge in maths, science, and languages is in high demand across UK schools.",
+      "Teachers from some countries can gain QTS automatically — check the GOV.UK list as it is updated regularly.",
+    ],
+  },
+  academic: {
+    icon: BookOpen,
+    label: "Academic / Researcher",
+    regulator: "No mandatory registration",
+    regulatorUrl: "https://www.ukri.org",
+    overview:
+      "Academic and research roles in UK universities do not require a mandatory regulatory registration. Appointment is based on qualifications, publications, and research impact. UK Research and Innovation (UKRI) and university HR requirements govern funding eligibility and employment terms.",
+    estimatedTotal: "Variable (role-dependent)",
+    steps: [
+      {
+        title: "Credential recognition",
+        description:
+          "UK universities assess overseas PhD and academic qualifications on merit. NARIC/ENIC can provide a Statement of Comparability to validate your degree level for formal purposes.",
+        timeline: "2–4 weeks for ENIC statement",
+        link: { label: "ENIC credential comparison", url: "https://www.enic.org.uk/" },
+      },
+      {
+        title: "English Language Proficiency",
+        description:
+          "Required for roles that involve student-facing teaching or supervision. IELTS Academic overall 7.0–7.5 or equivalent, depending on institution.",
+        timeline: "1–4 months",
+      },
+      {
+        title: "Research Excellence Framework (REF) awareness",
+        description:
+          "Understand how REF shapes UK academic hiring. Institutions prioritise candidates with strong publication records in 2* or 4* journals and verifiable impact case studies.",
+        timeline: "Ongoing",
+        link: { label: "REF 2029 guidance", url: "https://www.ref.ac.uk/" },
+      },
+      {
+        title: "UKRI eligibility",
+        description:
+          "If applying for UKRI-funded posts or grants, confirm your eligibility under the Terms and Conditions of Research Council Grants. Some fellowships require prior UK affiliation.",
+        timeline: "Review before applying",
+        link: { label: "UKRI eligibility", url: "https://www.ukri.org/apply-for-funding/before-you-apply/check-if-you-are-eligible-for-research-and-innovation-funding/" },
+      },
+      {
+        title: "Right-to-Work & DBS",
+        description:
+          "UK universities require right-to-work documentation. Roles involving student contact require a Standard or Enhanced DBS check arranged by the employer.",
+        timeline: "2–4 weeks",
+      },
+      {
+        title: "Visa & Sponsorship",
+        description:
+          "Academic posts requiring a visa typically use the Skilled Worker or Global Talent route. The Global Talent visa suits established researchers and does not require employer sponsorship.",
+        timeline: "4–12 weeks",
+        link: { label: "Global Talent visa", url: "https://www.gov.uk/global-talent" },
+      },
+    ],
+    notes: [
+      "Membership of learned societies (e.g. Royal Society, British Academy, learned subject associations) strengthens applications.",
+      "UK academics are typically employed on the USS or LGPS pension scheme — consider this in salary negotiations.",
+      "Many research-intensive universities use the Athena Swan charter; demonstrating awareness of EDI can help applications.",
+    ],
+  },
+  engineer: {
+    icon: Wrench,
+    label: "Engineer (CEng / IEng)",
+    regulator: "Engineering Council (via Licensed Bodies)",
+    regulatorUrl: "https://www.engc.org.uk",
+    overview:
+      "Engineering in the UK is not legally regulated for most roles, but Chartered Engineer (CEng) or Incorporated Engineer (IEng) status through a licensed professional body (IMechE, IET, ICE, etc.) is highly valued by employers and required for senior or safety-critical positions.",
+    estimatedTotal: "6–36 months",
+    steps: [
+      {
+        title: "Identify your professional body",
+        description:
+          "Select the relevant licensed body: IMechE (mechanical), IET (electrical/electronic), ICE (civil), IChemE (chemical), CIBSE (building services), or one of the other 35 Engineering Council licensed bodies.",
+        timeline: "1–2 weeks",
+        link: { label: "Engineering Council licensed bodies", url: "https://www.engc.org.uk/licenced-members/" },
+      },
+      {
+        title: "Overseas qualification assessment",
+        description:
+          "Submit your engineering degree for assessment against UK standard (BEng/MEng equivalent). ENIC can provide a formal Statement of Comparability. Your professional body may conduct their own review.",
+        timeline: "4–12 weeks",
+        link: { label: "ENIC comparison", url: "https://www.enic.org.uk/" },
+      },
+      {
+        title: "Membership application",
+        description:
+          "Apply for membership of your chosen professional body at the appropriate grade (e.g. MIMechE, MIET, MICE). Provide your academic transcripts, CPD record, and two professional references.",
+        timeline: "8–16 weeks",
+      },
+      {
+        title: "Professional Review Interview (PRI) — for CEng/IEng",
+        description:
+          "Demonstrate competence against the UK Standard for Professional Engineering Competence (UK-SPEC) through a written submission and interview with two assessors.",
+        timeline: "3–6 months preparation",
+        link: { label: "UK-SPEC", url: "https://www.engc.org.uk/ukspec/" },
+      },
+      {
+        title: "Chartership award",
+        description:
+          "On passing the PRI, you are awarded CEng or IEng designation. Annual CPD reporting required for continued registration.",
+        timeline: "Awarded within 4–8 weeks of PRI",
+      },
+      {
+        title: "Right-to-Work & DBS",
+        description:
+          "Most engineering roles require proof of right to work. Safety-critical roles (rail, nuclear, utilities) may require additional security or DBS checks.",
+        timeline: "2–4 weeks",
+      },
+      {
+        title: "Visa & Sponsorship",
+        description:
+          "Engineering roles typically use the Skilled Worker visa. Many engineering disciplines (civil, electrical, mechanical) appear on the Immigration Salary List. Some roles may qualify for the Global Talent visa.",
+        timeline: "8–12 weeks",
+        link: { label: "Skilled Worker visa", url: "https://www.gov.uk/skilled-worker-visa" },
+      },
+    ],
+    notes: [
+      "CEng status can accelerate career progression significantly — many senior and project engineer roles list it as desirable or essential.",
+      "Some overseas professional qualifications (e.g. US PE, European Eur Ing) may receive partial recognition — discuss with your professional body.",
+      "Health and Safety at Work Act 1974 applies to all UK workplaces; familiarity with UK HSE regulations is expected.",
+    ],
+  },
+  socialWorker: {
+    icon: Heart,
+    label: "Social Worker (SWE)",
+    regulator: "Social Work England",
+    regulatorUrl: "https://www.socialworkengland.org.uk",
+    overview:
+      "Social work is a protected title in England, regulated by Social Work England (SWE). Internationally-trained social workers must have their qualifications assessed and demonstrate they meet the Professional Standards before registering.",
+    estimatedTotal: "6–18 months",
+    steps: [
+      {
+        title: "Check qualification equivalence",
+        description:
+          "Contact Social Work England and ENIC to have your overseas social work qualification assessed against a UK degree-level social work qualification. SWE will determine if it meets the required standard.",
+        timeline: "6–12 weeks",
+        link: { label: "SWE international applicants", url: "https://www.socialworkengland.org.uk/registration/international-applications/" },
+      },
+      {
+        title: "English Language Proficiency",
+        description:
+          "IELTS Academic overall 7.0 (no component below 6.5) or equivalent. Evidence required if English is not your first language.",
+        timeline: "1–4 months",
+      },
+      {
+        title: "Submit SWE registration application",
+        description:
+          "Apply via the SWE online portal. Provide your qualification evidence, references, DBS declaration, and health declaration. Application fee: £90.",
+        timeline: "4–12 weeks",
+        link: { label: "SWE application portal", url: "https://www.socialworkengland.org.uk/registration/" },
+      },
+      {
+        title: "Competence assessment (if required)",
+        description:
+          "If SWE determines your qualification needs further assessment, you may be required to complete a period of supervised practice in a UK social work setting before full registration is granted.",
+        timeline: "3–12 months",
+      },
+      {
+        title: "DBS Enhanced Check",
+        description:
+          "All registered social workers must hold a valid Enhanced DBS check with Children and Adults Barred List check. Arranged by your employer.",
+        timeline: "2–4 weeks",
+        link: { label: "DBS guidance", url: "https://www.gov.uk/dbs-check-applicant-guidance" },
+      },
+      {
+        title: "Full SWE Registration",
+        description:
+          "On approval, you join the SWE register. Annual renewal required (£30/year), with CPD evidence (120 hours per 3-year period).",
+        timeline: "2–4 weeks after approval",
+      },
+      {
+        title: "Visa & Sponsorship",
+        description:
+          "Social work roles typically require a Skilled Worker visa. Local authorities, NHS trusts, and charities often hold sponsor licences. Social work is on the Immigration Salary List.",
+        timeline: "8–12 weeks",
+        link: { label: "Skilled Worker visa", url: "https://www.gov.uk/skilled-worker-visa" },
+      },
+    ],
+    notes: [
+      "The Care Act 2014, Mental Capacity Act 2005, and Children Act 1989 are the core legislative frameworks you will work within.",
+      "Scottish social workers register with the Scottish Social Services Council (SSSC) — a separate regulator from SWE.",
+      "Continuing Professional Development (CPD) is mandatory for ongoing SWE registration — keep records from day one.",
+      "Child protection and adult safeguarding experience are highly valued by UK local authority employers.",
+    ],
+  },
+  general: {
+    icon: Globe,
+    label: "Other / General",
+    regulator: "No mandatory UK-wide registration",
+    regulatorUrl: "https://www.gov.uk/check-if-you-need-a-licence",
+    overview:
+      "For professionals in sectors without a mandatory UK regulatory body, the key steps involve verifying your right to work, obtaining relevant UK certifications where required, and navigating the visa and sponsorship process. Check the GOV.UK licence finder to see if your specific role has any licensing requirements.",
+    estimatedTotal: "3–12 months",
+    steps: [
+      {
+        title: "Right-to-Work check",
+        description:
+          "Before starting employment, your employer must carry out a right-to-work check. If you need a visa, this must be in place first. Share Code checks are used for biometric residence permit holders.",
+        timeline: "Before start date",
+        link: { label: "Right-to-work guidance", url: "https://www.gov.uk/prove-right-to-work" },
+      },
+      {
+        title: "Check for role-specific licensing",
+        description:
+          "Some professions (e.g. financial services, legal, healthcare support) have sector-specific licensing or registration requirements. Use the GOV.UK licence finder to check your role.",
+        timeline: "1 week",
+        link: { label: "GOV.UK licence finder", url: "https://www.gov.uk/licence-finder" },
+      },
+      {
+        title: "Credential recognition",
+        description:
+          "Have overseas qualifications assessed by ENIC (formerly UK NARIC) for a formal Statement of Comparability. This helps employers understand your qualification level.",
+        timeline: "2–4 weeks",
+        link: { label: "ENIC statement of comparability", url: "https://www.enic.org.uk/" },
+      },
+      {
+        title: "DBS check (if applicable)",
+        description:
+          "Roles working with children, vulnerable adults, or in certain regulated sectors require a DBS check (Basic, Standard, or Enhanced). Arranged by the employer.",
+        timeline: "2–4 weeks",
+        link: { label: "DBS check types", url: "https://www.gov.uk/dbs-check-applicant-guidance" },
+      },
+      {
+        title: "Professional References",
+        description:
+          "UK employers typically require 2–3 professional references covering the last 5 years. Ensure referees can confirm employment dates, role, and conduct in English.",
+        timeline: "Ongoing",
+      },
+      {
+        title: "Visa & Sponsorship",
+        description:
+          "If you require a visa, the Skilled Worker visa is the most common route for professionals. Your employer must hold a Home Office sponsor licence. Some senior roles may qualify for the Global Talent visa.",
+        timeline: "8–12 weeks",
+        link: { label: "Skilled Worker visa", url: "https://www.gov.uk/skilled-worker-visa" },
+      },
+    ],
+    notes: [
+      "The National Living Wage (NLW) and National Minimum Wage (NMW) apply to all workers in the UK — check current rates on GOV.UK.",
+      "UK employment contracts must provide a written Statement of Particulars within the first day of employment.",
+      "Auto-enrolment pension schemes are mandatory — most employers use NEST or a workplace pension provider.",
+      "Understanding IR35 is important if you plan to work through a limited company or as a contractor.",
+    ],
+  },
 };
 
-type Tab = "doctor" | "nurse" | "dentist" | "other";
+type TabKey = keyof typeof pathways;
+
+function professionToTab(profession: string | undefined): TabKey {
+  if (!profession) return "general";
+  const p = profession.toLowerCase().replace(/ /g, "_");
+  if (p === "doctor" || p === "clinical_academic") return "doctor";
+  if (p === "nurse" || p === "midwife") return "nurse";
+  if (p === "dentist") return "dentist";
+  if (p === "allied_health_professional" || p.includes("physiother") || p.includes("occupational") ||
+      p.includes("paramedic") || p.includes("radiograph") || p.includes("speech"))
+    return "other";
+  if (p === "teacher" || p.includes("teach") || p.includes("school")) return "teacher";
+  if (p === "academic" || p === "lecturer" || p === "professor" || p.includes("research")) return "academic";
+  if (p === "engineer" || p.includes("engineer")) return "engineer";
+  if (p === "social_worker" || p.includes("social_work") || p.includes("social_care")) return "socialWorker";
+  return "general";
+}
 
 function StepCard({ step, index }: { step: Step; index: number }) {
   const [expanded, setExpanded] = useState(false);
@@ -348,9 +673,14 @@ function StepCard({ step, index }: { step: Step; index: number }) {
 }
 
 export default function RegulatoryGuidancePage() {
-  const [activeTab, setActiveTab] = useState<Tab>("doctor");
+  const { data: profile } = useGetMyProfile();
+  const defaultTab = professionToTab(profile?.profession);
+  const [activeTab, setActiveTab] = useState<TabKey>(defaultTab);
+
   const pathway = pathways[activeTab]!;
   const Icon = pathway.icon;
+
+  const tabEntries = Object.entries(pathways) as [TabKey, Pathway][];
 
   return (
     <AppLayout>
@@ -365,7 +695,7 @@ export default function RegulatoryGuidancePage() {
               <div>
                 <h1 className="text-2xl font-display font-bold text-foreground">Regulatory Guidance</h1>
                 <p className="text-sm text-muted-foreground">
-                  Step-by-step UK registration pathways for international healthcare professionals
+                  Step-by-step UK registration and certification pathways for international professionals
                 </p>
               </div>
             </div>
@@ -380,26 +710,29 @@ export default function RegulatoryGuidancePage() {
             </span>
           </div>
 
-          {/* Tabs */}
-          <div className="flex gap-2 flex-wrap">
-            {(Object.entries(pathways) as [Tab, Pathway][]).map(([key, p]) => {
-              const TabIcon = p.icon;
-              const isActive = activeTab === key;
-              return (
-                <button
-                  key={key}
-                  onClick={() => setActiveTab(key)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                    isActive
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "bg-card border border-border text-foreground hover:bg-accent"
-                  }`}
-                >
-                  <TabIcon className="w-4 h-4" />
-                  {p.label}
-                </button>
-              );
-            })}
+          {/* Profession selector */}
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Browse by profession</p>
+            <div className="flex gap-2 flex-wrap">
+              {tabEntries.map(([key, p]) => {
+                const TabIcon = p.icon;
+                const isActive = activeTab === key;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setActiveTab(key)}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                      isActive
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "bg-card border border-border text-foreground hover:bg-accent"
+                    }`}
+                  >
+                    <TabIcon className="w-4 h-4" />
+                    {p.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Pathway card */}
