@@ -6,11 +6,11 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { UpsertProfileRequestAlertFrequency } from "./upsertProfileRequestAlertFrequency";
-import type { UpsertProfileRequestProfession } from "./upsertProfileRequestProfession";
 import type { UpsertProfileRequestRegistrationStatus } from "./upsertProfileRequestRegistrationStatus";
 
 export interface UpsertProfileRequest {
-  profession: UpsertProfileRequestProfession;
+  /** The candidate's profession (free text; well-known values are suggested on the client). */
+  profession: string;
   specialty: string;
   qualificationCountry: string;
   qualificationType: string;

@@ -2672,7 +2672,7 @@ components:
           type: string
         profession:
           type: string
-          enum: [doctor, nurse, midwife, allied_health_professional, clinical_academic]
+          description: The candidate's profession (free text; well-known values are suggested on the client).
         specialty:
           type: string
           nullable: true
@@ -2736,7 +2736,7 @@ components:
       properties:
         profession:
           type: string
-          enum: [doctor, nurse, midwife, allied_health_professional, clinical_academic]
+          description: The candidate's profession (free text; well-known values are suggested on the client).
         specialty:
           type: string
         qualificationCountry:

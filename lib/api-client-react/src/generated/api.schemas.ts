@@ -104,17 +104,6 @@ export interface UploadUrlResponse {
   metadata?: UploadUrlRequest;
 }
 
-export type CandidateProfileProfession =
-  (typeof CandidateProfileProfession)[keyof typeof CandidateProfileProfession];
-
-export const CandidateProfileProfession = {
-  doctor: "doctor",
-  nurse: "nurse",
-  midwife: "midwife",
-  allied_health_professional: "allied_health_professional",
-  clinical_academic: "clinical_academic",
-} as const;
-
 export type CandidateProfileRegistrationStatus =
   | (typeof CandidateProfileRegistrationStatus)[keyof typeof CandidateProfileRegistrationStatus]
   | null;
@@ -138,7 +127,8 @@ export const CandidateProfileAlertFrequency = {
 export interface CandidateProfile {
   id: number;
   userId: string;
-  profession: CandidateProfileProfession;
+  /** The candidate's profession (free text; well-known values are suggested on the client). */
+  profession: string;
   specialty?: string | null;
   qualificationCountry?: string | null;
   qualificationType?: string | null;
@@ -155,17 +145,6 @@ export interface CandidateProfile {
   createdAt: string;
   updatedAt: string;
 }
-
-export type UpsertProfileRequestProfession =
-  (typeof UpsertProfileRequestProfession)[keyof typeof UpsertProfileRequestProfession];
-
-export const UpsertProfileRequestProfession = {
-  doctor: "doctor",
-  nurse: "nurse",
-  midwife: "midwife",
-  allied_health_professional: "allied_health_professional",
-  clinical_academic: "clinical_academic",
-} as const;
 
 export type UpsertProfileRequestRegistrationStatus =
   (typeof UpsertProfileRequestRegistrationStatus)[keyof typeof UpsertProfileRequestRegistrationStatus];
@@ -187,7 +166,8 @@ export const UpsertProfileRequestAlertFrequency = {
 } as const;
 
 export interface UpsertProfileRequest {
-  profession: UpsertProfileRequestProfession;
+  /** The candidate's profession (free text; well-known values are suggested on the client). */
+  profession: string;
   specialty: string;
   qualificationCountry: string;
   qualificationType: string;

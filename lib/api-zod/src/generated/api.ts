@@ -193,13 +193,11 @@ export const GetStorageObjectParams = zod.object({
 export const GetMyProfileResponse = zod.object({
   id: zod.number(),
   userId: zod.string(),
-  profession: zod.enum([
-    "doctor",
-    "nurse",
-    "midwife",
-    "allied_health_professional",
-    "clinical_academic",
-  ]),
+  profession: zod
+    .string()
+    .describe(
+      "The candidate's profession (free text; well-known values are suggested on the client).",
+    ),
   specialty: zod.string().nullish(),
   qualificationCountry: zod.string().nullish(),
   qualificationType: zod.string().nullish(),
@@ -223,13 +221,11 @@ export const GetMyProfileResponse = zod.object({
  * @summary Create or update the current user's profile
  */
 export const UpsertMyProfileBody = zod.object({
-  profession: zod.enum([
-    "doctor",
-    "nurse",
-    "midwife",
-    "allied_health_professional",
-    "clinical_academic",
-  ]),
+  profession: zod
+    .string()
+    .describe(
+      "The candidate's profession (free text; well-known values are suggested on the client).",
+    ),
   specialty: zod.string(),
   qualificationCountry: zod.string(),
   qualificationType: zod.string(),
@@ -246,13 +242,11 @@ export const UpsertMyProfileBody = zod.object({
 export const UpsertMyProfileResponse = zod.object({
   id: zod.number(),
   userId: zod.string(),
-  profession: zod.enum([
-    "doctor",
-    "nurse",
-    "midwife",
-    "allied_health_professional",
-    "clinical_academic",
-  ]),
+  profession: zod
+    .string()
+    .describe(
+      "The candidate's profession (free text; well-known values are suggested on the client).",
+    ),
   specialty: zod.string().nullish(),
   qualificationCountry: zod.string().nullish(),
   qualificationType: zod.string().nullish(),
@@ -553,13 +547,11 @@ export const RunRegressionTestBody = zod.object({
     zod.object({
       label: zod.string(),
       profile: zod.object({
-        profession: zod.enum([
-          "doctor",
-          "nurse",
-          "midwife",
-          "allied_health_professional",
-          "clinical_academic",
-        ]),
+        profession: zod
+          .string()
+          .describe(
+            "The candidate's profession (free text; well-known values are suggested on the client).",
+          ),
         specialty: zod.string(),
         qualificationCountry: zod.string(),
         qualificationType: zod.string(),
@@ -1160,13 +1152,11 @@ export const GetReviewCaseResponse = zod.object({
     .object({
       id: zod.number(),
       userId: zod.string(),
-      profession: zod.enum([
-        "doctor",
-        "nurse",
-        "midwife",
-        "allied_health_professional",
-        "clinical_academic",
-      ]),
+      profession: zod
+        .string()
+        .describe(
+          "The candidate's profession (free text; well-known values are suggested on the client).",
+        ),
       specialty: zod.string().nullish(),
       qualificationCountry: zod.string().nullish(),
       qualificationType: zod.string().nullish(),

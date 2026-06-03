@@ -6,13 +6,13 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CandidateProfileAlertFrequency } from "./candidateProfileAlertFrequency";
-import type { CandidateProfileProfession } from "./candidateProfileProfession";
 import type { CandidateProfileRegistrationStatus } from "./candidateProfileRegistrationStatus";
 
 export interface CandidateProfile {
   id: number;
   userId: string;
-  profession: CandidateProfileProfession;
+  /** The candidate's profession (free text; well-known values are suggested on the client). */
+  profession: string;
   specialty?: string | null;
   qualificationCountry?: string | null;
   qualificationType?: string | null;
