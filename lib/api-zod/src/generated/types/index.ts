@@ -111,6 +111,7 @@ export * from "./markMessageRead200";
 export * from "./matchedRole";
 export * from "./matchedRoleList";
 export * from "./messageEnvelope";
+export * from "./professionListResponse";
 export * from "./progressReportResponse";
 export * from "./progressReportResponseEligibility";
 export * from "./progressReportResponsePeriod";

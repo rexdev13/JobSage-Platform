@@ -332,6 +332,26 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
 
+  /professions:
+    get:
+      tags: [Profiles]
+      operationId: listProfessions
+      summary: List suggested profession values
+      description: Returns the merged list of well-known professions and any custom professions that have been used by 3 or more candidates.
+      responses:
+        '200':
+          description: Profession suggestions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfessionListResponse'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
   /profiles/me:
     get:
       tags: [Profiles]
@@ -2720,6 +2740,16 @@ components:
         updatedAt:
           type: string
           format: date-time
+
+    ProfessionListResponse:
+      type: object
+      required: [professions]
+      properties:
+        professions:
+          type: array
+          items:
+            type: string
+          description: Merged list of well-known and community-contributed profession labels.
 
     UpsertProfileRequest:
       type: object

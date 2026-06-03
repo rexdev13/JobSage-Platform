@@ -1,5 +1,9 @@
 import { useState, useEffect, useRef } from "react";
-import { useGetMyProfile, useUpsertMyProfile } from "@workspace/api-client-react";
+import {
+  useGetMyProfile,
+  useUpsertMyProfile,
+  useListProfessions,
+} from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetMyProfileQueryKey } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -10,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 type RegistrationStatus = "registered" | "not_registered" | "in_process";
 type AlertFrequency = "daily" | "weekly" | "off";
 
-const SUGGESTED_PROFESSIONS = [
+const FALLBACK_PROFESSIONS = [
   "Doctor",
   "Nurse",
   "Midwife",
@@ -30,7 +34,6 @@ const SUGGESTED_PROFESSIONS = [
   "IT Professional",
   "Lawyer / Solicitor",
   "Architect",
-  "Other",
 ];
 
 const REGULATED_PROFESSION_KEYWORDS = [
@@ -93,6 +96,7 @@ type ProfileFormData = {
   registrationStatus: RegistrationStatus;
   licenceReady: boolean;
   residencyStatus: string;
+  residencyStatusOther: string;
   requiresSponsorship: boolean;
   preferredRegion: string;
   alertFrequency: AlertFrequency;
@@ -146,9 +150,11 @@ function TooltipLabel({
 function ProfessionCombobox({
   value,
   onChange,
+  suggestions,
 }: {
   value: string;
   onChange: (val: string) => void;
+  suggestions: string[];
 }) {
   const [inputValue, setInputValue] = useState(value);
   const [open, setOpen] = useState(false);
@@ -170,10 +176,8 @@ function ProfessionCombobox({
 
   const filtered =
     inputValue.trim() === ""
-      ? SUGGESTED_PROFESSIONS
-      : SUGGESTED_PROFESSIONS.filter((p) =>
-          p.toLowerCase().includes(inputValue.toLowerCase())
-        );
+      ? suggestions
+      : suggestions.filter((p) => p.toLowerCase().includes(inputValue.toLowerCase()));
 
   return (
     <div ref={wrapperRef} className="relative">
@@ -190,6 +194,7 @@ function ProfessionCombobox({
         }}
         placeholder="e.g. Doctor, Nurse, Engineer…"
         autoComplete="off"
+        required
       />
       {open && filtered.length > 0 && (
         <ul className="absolute z-50 mt-1 w-full rounded-lg border border-border bg-popover shadow-lg max-h-52 overflow-y-auto text-sm">
@@ -217,9 +222,12 @@ function ProfessionCombobox({
 
 export default function ProfilePage() {
   const { data: profile } = useGetMyProfile();
+  const { data: professionsData } = useListProfessions();
   const upsertMutation = useUpsertMyProfile();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  const professionSuggestions = professionsData?.professions ?? FALLBACK_PROFESSIONS;
 
   const [formData, setFormData] = useState<ProfileFormData>({
     profession: "",
@@ -231,6 +239,7 @@ export default function ProfilePage() {
     registrationStatus: "not_registered",
     licenceReady: false,
     residencyStatus: "",
+    residencyStatusOther: "",
     requiresSponsorship: false,
     preferredRegion: "",
     alertFrequency: "daily",
@@ -238,6 +247,11 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (profile) {
+      const storedResidency = profile.residencyStatus || "";
+      const isOther =
+        storedResidency !== "" &&
+        !RESIDENCY_STATUS_OPTIONS.filter((o) => o !== "Other").includes(storedResidency);
+
       setFormData({
         profession: profile.profession || "",
         specialty: profile.specialty || "",
@@ -247,7 +261,8 @@ export default function ProfilePage() {
         experienceYears: profile.experienceYears?.toString() || "",
         registrationStatus: (profile.registrationStatus as RegistrationStatus) || "not_registered",
         licenceReady: profile.licenceReady || false,
-        residencyStatus: profile.residencyStatus || "",
+        residencyStatus: isOther ? "Other" : storedResidency,
+        residencyStatusOther: isOther ? storedResidency : "",
         requiresSponsorship: profile.requiresSponsorship || false,
         preferredRegion: (profile as { preferredRegion?: string | null }).preferredRegion ?? "",
         alertFrequency:
@@ -263,13 +278,18 @@ export default function ProfilePage() {
     setFormData((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
   };
 
+  const effectiveResidencyStatus =
+    formData.residencyStatus === "Other"
+      ? formData.residencyStatusOther.trim() || "Other"
+      : formData.residencyStatus;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.profession.trim()) {
       toast({ title: "Validation Error", description: "Profession is required", variant: "destructive" });
       return;
     }
-    if (!formData.qualificationCountry || !formData.qualificationType || !formData.qualificationYear) {
+    if (!formData.qualificationCountry.trim() || !formData.qualificationType.trim() || !formData.qualificationYear) {
       toast({ title: "Validation Error", description: "All qualification fields are required", variant: "destructive" });
       return;
     }
@@ -281,19 +301,23 @@ export default function ProfilePage() {
       toast({ title: "Validation Error", description: "Residency/visa status is required", variant: "destructive" });
       return;
     }
+    if (formData.residencyStatus === "Other" && !formData.residencyStatusOther.trim()) {
+      toast({ title: "Validation Error", description: "Please describe your visa / residency status", variant: "destructive" });
+      return;
+    }
 
     try {
       await upsertMutation.mutateAsync({
         data: {
           profession: formData.profession.trim(),
-          specialty: formData.specialty,
-          qualificationCountry: formData.qualificationCountry,
-          qualificationType: formData.qualificationType,
+          specialty: formData.specialty.trim(),
+          qualificationCountry: formData.qualificationCountry.trim(),
+          qualificationType: formData.qualificationType.trim(),
           qualificationYear: parseInt(formData.qualificationYear, 10),
           experienceYears: parseInt(formData.experienceYears, 10),
           registrationStatus: formData.registrationStatus,
           licenceReady: formData.licenceReady,
-          residencyStatus: formData.residencyStatus,
+          residencyStatus: effectiveResidencyStatus,
           requiresSponsorship: formData.requiresSponsorship,
           preferredRegion: formData.preferredRegion || undefined,
           alertFrequency: formData.alertFrequency,
@@ -347,9 +371,11 @@ export default function ProfilePage() {
                 <ProfessionCombobox
                   value={formData.profession}
                   onChange={(val) => setFormData((prev) => ({ ...prev, profession: val }))}
+                  suggestions={professionSuggestions}
                 />
                 <FieldHint>
-                  Start typing to search common professions, or enter yours if it's not listed.
+                  Start typing to search. If your profession isn't listed, type it in — it will
+                  become a suggestion for others once 3 or more candidates enter it.
                 </FieldHint>
               </div>
 
@@ -385,8 +411,8 @@ export default function ProfilePage() {
                     <option value="registered">Fully Registered</option>
                   </Select>
                   <FieldHint>
-                    Your current status with the UK statutory regulatory body for your profession
-                    (e.g. GMC, NMC, GDC, GPhC, HCPC).
+                    Your current status with the UK regulatory body for your profession (GMC, NMC,
+                    GDC, GPhC, HCPC, etc.).
                   </FieldHint>
                 </div>
               )}
@@ -400,6 +426,7 @@ export default function ProfilePage() {
                   onChange={handleChange}
                   min="0"
                   placeholder="0"
+                  required
                 />
                 <FieldHint>
                   Total years of post-qualification professional experience in your field.
@@ -419,6 +446,7 @@ export default function ProfilePage() {
                   value={formData.qualificationCountry}
                   onChange={handleChange}
                   placeholder="e.g. India, Nigeria, Philippines"
+                  required
                 />
                 <FieldHint>
                   The country where you obtained your primary professional qualification.
@@ -432,6 +460,7 @@ export default function ProfilePage() {
                   value={formData.qualificationType}
                   onChange={handleChange}
                   placeholder="e.g. MBBS, BSc Nursing, BEng"
+                  required
                 />
                 <FieldHint>
                   The name of your degree or professional qualification as it appears on your
@@ -449,6 +478,7 @@ export default function ProfilePage() {
                   placeholder="e.g. 2018"
                   min="1950"
                   max={new Date().getFullYear()}
+                  required
                 />
                 <FieldHint>The year you were awarded your qualification.</FieldHint>
               </div>
@@ -493,6 +523,7 @@ export default function ProfilePage() {
                   name="residencyStatus"
                   value={formData.residencyStatus}
                   onChange={handleChange}
+                  required
                 >
                   <option value="">— Select your status —</option>
                   {RESIDENCY_STATUS_OPTIONS.map((opt) => (
@@ -506,7 +537,24 @@ export default function ProfilePage() {
                 </FieldHint>
               </div>
 
-              <div className="flex items-start pt-8">
+              {formData.residencyStatus === "Other" && (
+                <div>
+                  <Label>Please describe your visa / residency status *</Label>
+                  <Input
+                    name="residencyStatusOther"
+                    value={formData.residencyStatusOther}
+                    onChange={handleChange}
+                    placeholder="e.g. Spouse / Family Visa, Tier 1 Innovator…"
+                    required
+                  />
+                  <FieldHint>
+                    Describe your current UK immigration status so JOBSAGE can assess your
+                    eligibility accurately.
+                  </FieldHint>
+                </div>
+              )}
+
+              <div className="flex items-start pt-2 md:pt-8">
                 <label className="flex items-start space-x-3 cursor-pointer">
                   <input
                     type="checkbox"

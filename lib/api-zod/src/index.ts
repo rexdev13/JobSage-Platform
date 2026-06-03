@@ -80,5 +80,6 @@ export * from "./generated/types/updateRemediationStepRequestStatus";
 export * from "./generated/types/verifyEmailParams";
 export * from "./generated/types/uploadUrlRequest";
 export * from "./generated/types/uploadUrlResponse";
+export * from "./generated/types/professionListResponse";
 export * from "./generated/types/upsertProfileRequest";
 export * from "./generated/types/upsertProfileRequestRegistrationStatus";

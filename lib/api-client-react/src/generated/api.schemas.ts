@@ -146,6 +146,11 @@ export interface CandidateProfile {
   updatedAt: string;
 }
 
+export interface ProfessionListResponse {
+  /** Merged list of well-known and community-contributed profession labels. */
+  professions: string[];
+}
+
 export type UpsertProfileRequestRegistrationStatus =
   (typeof UpsertProfileRequestRegistrationStatus)[keyof typeof UpsertProfileRequestRegistrationStatus];
 
