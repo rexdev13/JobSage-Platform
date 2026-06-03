@@ -1065,7 +1065,14 @@ export const GetInterviewPrepQuestionsResponse = zod.object({
       questions: zod.array(zod.string()),
     }),
   ),
-  nhsSpecificAdvice: zod.array(zod.string()),
+  nhsSpecificAdvice: zod
+    .array(zod.string())
+    .describe("Profession-specific advice items (title given by adviceLabel)."),
+  adviceLabel: zod
+    .string()
+    .describe(
+      'Contextual label for the advice section (e.g. \"NHS-Specific Advice\", \"Teaching in the UK — What to Expect\").',
+    ),
   disclaimer: zod.string(),
 });
 

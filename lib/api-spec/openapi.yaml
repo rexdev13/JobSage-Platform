@@ -3780,7 +3780,7 @@ components:
 
     InterviewPrepResponse:
       type: object
-      required: [profession, specialty, structuredInterviewGuide, questionBanks, nhsSpecificAdvice, disclaimer]
+      required: [profession, specialty, structuredInterviewGuide, questionBanks, nhsSpecificAdvice, adviceLabel, disclaimer]
       properties:
         profession:
           type: string
@@ -3796,6 +3796,10 @@ components:
           type: array
           items:
             type: string
+          description: Profession-specific advice items (title given by adviceLabel).
+        adviceLabel:
+          type: string
+          description: Contextual label for the advice section (e.g. "NHS-Specific Advice", "Teaching in the UK — What to Expect").
         disclaimer:
           type: string
 

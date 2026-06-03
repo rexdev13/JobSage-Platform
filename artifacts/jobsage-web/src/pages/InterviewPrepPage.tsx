@@ -1,6 +1,6 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, PageTransition, Button } from "@/components/ui-enhanced";
-import { useGetInterviewPrepQuestions } from "@workspace/api-client-react";
+import { useGetInterviewPrepQuestions, useGetMyProfile } from "@workspace/api-client-react";
 import {
   Sparkles,
   ChevronDown,
@@ -13,22 +13,45 @@ import {
   Lightbulb,
   RefreshCw,
   Search,
+  UserCircle,
 } from "lucide-react";
 import { useState } from "react";
+import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { DisclaimerBanner } from "@/components/ui/DisclaimerBanner";
 
 const CATEGORY_COLORS: Record<string, string> = {
-  "Values-based": "border-l-purple-400 bg-purple-50/30",
-  "Clinical": "border-l-blue-400 bg-blue-50/30",
-  "Situational": "border-l-amber-400 bg-amber-50/30",
-  "Leadership": "border-l-green-400 bg-green-50/30",
-  "Career": "border-l-rose-400 bg-rose-50/30",
+  "values": "border-l-purple-400 bg-purple-50/30",
+  "clinical": "border-l-blue-400 bg-blue-50/30",
+  "situational": "border-l-amber-400 bg-amber-50/30",
+  "leadership": "border-l-green-400 bg-green-50/30",
+  "career": "border-l-rose-400 bg-rose-50/30",
+  "behaviour": "border-l-orange-400 bg-orange-50/30",
+  "curriculum": "border-l-cyan-400 bg-cyan-50/30",
+  "safeguarding": "border-l-red-400 bg-red-50/30",
+  "lesson": "border-l-teal-400 bg-teal-50/30",
+  "school": "border-l-indigo-400 bg-indigo-50/30",
+  "research": "border-l-violet-400 bg-violet-50/30",
+  "teaching": "border-l-blue-400 bg-blue-50/30",
+  "grant": "border-l-emerald-400 bg-emerald-50/30",
+  "technical": "border-l-blue-400 bg-blue-50/30",
+  "problem": "border-l-amber-400 bg-amber-50/30",
+  "project": "border-l-green-400 bg-green-50/30",
+  "health": "border-l-red-400 bg-red-50/30",
+  "risk": "border-l-red-400 bg-red-50/30",
+  "person": "border-l-pink-400 bg-pink-50/30",
+  "legislation": "border-l-slate-400 bg-slate-50/30",
+  "lone": "border-l-orange-400 bg-orange-50/30",
+  "competency": "border-l-blue-400 bg-blue-50/30",
+  "motivation": "border-l-purple-400 bg-purple-50/30",
+  "adaptability": "border-l-amber-400 bg-amber-50/30",
+  "teamwork": "border-l-green-400 bg-green-50/30",
 };
 
 function getCategoryColor(category: string): string {
+  const lower = category.toLowerCase();
   for (const [key, val] of Object.entries(CATEGORY_COLORS)) {
-    if (category.toLowerCase().includes(key.toLowerCase())) return val;
+    if (lower.includes(key)) return val;
   }
   return "border-l-primary/40 bg-primary/5";
 }
@@ -104,12 +127,12 @@ function StructuredGuide({ guide }: {
   );
 }
 
-function NhsAdviceCard({ advice }: { advice: string[] }) {
+function ProfessionAdviceCard({ advice, label }: { advice: string[]; label: string }) {
   return (
     <Card className="p-5 border-amber-200 bg-amber-50/30">
       <h3 className="font-semibold text-sm text-amber-900 mb-3 flex items-center gap-2">
         <Lightbulb className="w-4 h-4 text-amber-600" />
-        NHS-Specific Advice
+        {label}
       </h3>
       <div className="space-y-2.5">
         {advice.map((item, i) => (
@@ -128,6 +151,9 @@ function NhsAdviceCard({ advice }: { advice: string[] }) {
 export default function InterviewPrepPage() {
   const [specialtyInput, setSpecialtyInput] = useState("");
   const [activeSpecialty, setActiveSpecialty] = useState<string | undefined>(undefined);
+
+  const { data: profile } = useGetMyProfile();
+  const noProfession = !profile?.profession || profile.profession.trim() === "";
 
   const { data, isLoading, isError, refetch, isFetching } = useGetInterviewPrepQuestions(
     activeSpecialty ? { specialty: activeSpecialty } : {},
@@ -149,6 +175,8 @@ export default function InterviewPrepPage() {
     }
   }
 
+  const adviceLabel = data?.adviceLabel ?? "Profession-Specific Advice";
+
   return (
     <AppLayout>
       <PageTransition className="max-w-4xl mx-auto p-6 space-y-6">
@@ -161,7 +189,7 @@ export default function InterviewPrepPage() {
               Interview Prep
             </h1>
             <p className="text-muted-foreground mt-1 text-sm">
-              AI-generated interview questions and NHS guidance tailored to your profession and specialty.
+              AI-generated interview questions and guidance tailored to your profession and specialty.
             </p>
           </div>
           <Button
@@ -180,11 +208,28 @@ export default function InterviewPrepPage() {
           </Button>
         </div>
 
+        {/* No-profession banner */}
+        {noProfession && (
+          <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-violet-50 border border-violet-200 text-sm">
+            <UserCircle className="w-5 h-5 text-violet-500 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <span className="font-medium text-violet-900">Your profession isn't set yet.</span>
+              <span className="text-violet-700 ml-1">
+                Questions are shown using a general template.{" "}
+                <Link href="/profile" className="underline font-medium hover:text-violet-900">
+                  Complete your profile
+                </Link>{" "}
+                to get questions tailored to your field.
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Specialty selector */}
         <Card className="p-4 border-primary/15 bg-primary/3">
           <p className="text-xs font-semibold text-foreground mb-2 flex items-center gap-1.5">
             <Search className="w-3.5 h-3.5 text-primary" />
-            Generate questions for a different specialty
+            Generate questions for a specific specialty
           </p>
           <div className="flex gap-2">
             <input
@@ -192,7 +237,7 @@ export default function InterviewPrepPage() {
               value={specialtyInput}
               onChange={(e) => setSpecialtyInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={`e.g. Cardiology, General Practice, Paediatrics…`}
+              placeholder="e.g. Cardiology, Secondary Maths, Structural Engineering…"
               className="flex-1 h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
             <Button
@@ -279,7 +324,7 @@ export default function InterviewPrepPage() {
 
               <div className="space-y-4">
                 <StructuredGuide guide={data.structuredInterviewGuide} />
-                <NhsAdviceCard advice={data.nhsSpecificAdvice} />
+                <ProfessionAdviceCard advice={data.nhsSpecificAdvice} label={adviceLabel} />
               </div>
             </div>
 

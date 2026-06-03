@@ -13,6 +13,9 @@ export interface InterviewPrepResponse {
   specialty: string;
   structuredInterviewGuide: InterviewPrepStructuredGuide;
   questionBanks: InterviewPrepQuestionBank[];
+  /** Profession-specific advice items (title given by adviceLabel). */
   nhsSpecificAdvice: string[];
+  /** Contextual label for the advice section (e.g. "NHS-Specific Advice", "Teaching in the UK — What to Expect"). */
+  adviceLabel: string;
   disclaimer: string;
 }
