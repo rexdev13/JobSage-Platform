@@ -30,24 +30,22 @@ const WELL_KNOWN_PROFESSIONS = [
 ];
 
 router.get("/professions", requireAuthenticated, async (_req: Request, res: Response): Promise<void> => {
-  const rows = await db
-    .select({
-      profession: profilesTable.profession,
-      count: sql<number>`cast(count(*) as int)`,
-    })
-    .from(profilesTable)
-    .groupBy(profilesTable.profession)
-    .having(sql`count(*) >= 3`);
+  const rows = await db.execute(
+    sql`SELECT max(trim(profession)) AS profession, cast(count(*) as int) AS count
+        FROM profiles
+        WHERE profession IS NOT NULL AND trim(profession) != ''
+        GROUP BY lower(trim(profession))
+        HAVING count(*) >= 3`
+  );
 
-  const popularCustom = rows
+  const wellKnownLower = WELL_KNOWN_PROFESSIONS.map((w) => w.toLowerCase());
+
+  const popularCustom = (rows.rows as { profession: string; count: number }[])
     .map((r) => r.profession)
     .filter(Boolean)
-    .filter((p) => !WELL_KNOWN_PROFESSIONS.map((w) => w.toLowerCase()).includes(p.toLowerCase()));
+    .filter((p) => !wellKnownLower.includes(p.toLowerCase().replace(/_/g, " ").trim()));
 
-  const merged = [
-    ...WELL_KNOWN_PROFESSIONS,
-    ...popularCustom,
-  ];
+  const merged = [...WELL_KNOWN_PROFESSIONS, ...popularCustom];
 
   res.json({ professions: merged });
 });

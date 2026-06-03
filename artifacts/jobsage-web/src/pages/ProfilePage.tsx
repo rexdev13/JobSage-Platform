@@ -53,7 +53,7 @@ const REGULATED_PROFESSION_KEYWORDS = [
 ];
 
 function isUkRegulatedProfession(profession: string): boolean {
-  const lower = profession.toLowerCase();
+  const lower = profession.toLowerCase().replace(/_/g, " ").trim();
   return REGULATED_PROFESSION_KEYWORDS.some((kw) => lower.includes(kw));
 }
 
