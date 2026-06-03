@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, PageTransition } from "@/components/ui-enhanced";
 import { motion } from "framer-motion";
@@ -598,8 +598,8 @@ const pathways: Record<string, Pathway> = {
 
 type TabKey = keyof typeof pathways;
 
-function professionToTab(profession: string | undefined): TabKey {
-  if (!profession) return "general";
+function professionToTab(profession: string | undefined): TabKey | null {
+  if (!profession || profession.trim() === "") return null;
   const p = profession.toLowerCase().replace(/ /g, "_");
   if (p === "doctor" || p === "clinical_academic") return "doctor";
   if (p === "nurse" || p === "midwife") return "nurse";
@@ -611,7 +611,7 @@ function professionToTab(profession: string | undefined): TabKey {
   if (p === "academic" || p === "lecturer" || p === "professor" || p.includes("research")) return "academic";
   if (p === "engineer" || p.includes("engineer")) return "engineer";
   if (p === "social_worker" || p.includes("social_work") || p.includes("social_care")) return "socialWorker";
-  return "general";
+  return null;
 }
 
 function StepCard({ step, index }: { step: Step; index: number }) {
@@ -674,8 +674,22 @@ function StepCard({ step, index }: { step: Step; index: number }) {
 
 export default function RegulatoryGuidancePage() {
   const { data: profile } = useGetMyProfile();
-  const defaultTab = professionToTab(profile?.profession);
-  const [activeTab, setActiveTab] = useState<TabKey>(defaultTab);
+  const [activeTab, setActiveTab] = useState<TabKey>("general");
+  const profileInitialised = useRef(false);
+
+  useEffect(() => {
+    if (profile && !profileInitialised.current) {
+      profileInitialised.current = true;
+      const mapped = professionToTab(profile.profession);
+      setActiveTab(mapped ?? "general");
+    }
+  }, [profile]);
+
+  const showComingSoonBanner =
+    profile &&
+    profile.profession &&
+    profile.profession.trim() !== "" &&
+    professionToTab(profile.profession) === null;
 
   const pathway = pathways[activeTab]!;
   const Icon = pathway.icon;
@@ -710,28 +724,34 @@ export default function RegulatoryGuidancePage() {
             </span>
           </div>
 
-          {/* Profession selector */}
+          {/* Coming soon banner for unmapped professions */}
+          {showComingSoonBanner && (
+            <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-blue-50 border border-blue-200 text-sm text-blue-800">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-blue-500" />
+              <span>
+                <span className="font-medium">A pathway specific to {profile!.profession.replace(/_/g, " ")} is coming soon.</span>
+                {" "}In the meantime, the General guidance below covers right-to-work, credential recognition, DBS checks, and UK visa options relevant to most professions.
+              </span>
+            </div>
+          )}
+
+          {/* Profession selector dropdown */}
           <div>
-            <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Browse by profession</p>
-            <div className="flex gap-2 flex-wrap">
-              {tabEntries.map(([key, p]) => {
-                const TabIcon = p.icon;
-                const isActive = activeTab === key;
-                return (
-                  <button
-                    key={key}
-                    onClick={() => setActiveTab(key)}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                      isActive
-                        ? "bg-primary text-primary-foreground shadow-sm"
-                        : "bg-card border border-border text-foreground hover:bg-accent"
-                    }`}
-                  >
-                    <TabIcon className="w-4 h-4" />
-                    {p.label}
-                  </button>
-                );
-              })}
+            <label htmlFor="profession-select" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-2">
+              Select profession
+            </label>
+            <div className="relative">
+              <select
+                id="profession-select"
+                value={activeTab}
+                onChange={(e) => setActiveTab(e.target.value as TabKey)}
+                className="w-full sm:w-72 pl-4 pr-10 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 appearance-none cursor-pointer"
+              >
+                {tabEntries.map(([key, p]) => (
+                  <option key={key} value={key}>{p.label}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             </div>
           </div>
 
