@@ -27,10 +27,10 @@ export interface CvExtractedFields {
   rawNotes: string;
 }
 
-const SYSTEM_PROMPT = `You are a specialist at extracting structured healthcare professional profile data from CVs/resumes.
+const SYSTEM_PROMPT = `You are a specialist at extracting structured professional profile data from CVs/resumes.
 Extract the following fields and return ONLY valid JSON.
 
-Profession values (pick exactly one): doctor, nurse, midwife, allied_health_professional, clinical_academic
+Profession values (pick the closest match): doctor, nurse, midwife, allied_health_professional, clinical_academic, teacher, engineer, social_worker, or any other profession string if none of the above fit.
 Registration status values (pick exactly one): registered, not_registered, in_process
 
 For each field also assess your confidence: "high" (clearly stated), "medium" (inferred), "low" (guessed), "none" (not found).
@@ -42,7 +42,7 @@ Return this exact JSON structure:
   "qualificationCountry": "<country where primary qualification obtained, or null>",
   "qualificationType": "<degree/qualification name, e.g. MBBS, BScN, or null>",
   "qualificationYear": <year as integer or null>,
-  "experienceYears": <total years of clinical experience as integer or null>,
+  "experienceYears": <total years of experience as integer or null>,
   "registrationStatus": "<registered|not_registered|in_process|null>",
   "requiresSponsorship": <true if non-UK national/no settled status/unclear, false if UK citizen/settled status, null if cannot determine>,
   "preferredRegion": "<UK region if stated, e.g. London, North West, Scotland, or null>",
@@ -104,7 +104,31 @@ async function callVisionApi(base64: string, mimeType: string): Promise<CvExtrac
         content: [
           {
             type: "text",
-            text: "Extract the healthcare professional profile data from this CV image:",
+            text: "Extract the professional profile data from this CV:",
+          },
+          { type: "image_url", image_url: { url: dataUrl, detail: "high" } },
+        ],
+      },
+    ],
+    response_format: { type: "json_object" },
+  });
+  return parseAiResponse(visionResponse.choices[0]?.message?.content ?? "{}");
+}
+
+async function callVisionApiWithPdf(pdfBuffer: Buffer): Promise<CvExtractedFields> {
+  const base64 = pdfBuffer.toString("base64");
+  const dataUrl = `data:application/pdf;base64,${base64}`;
+  const visionResponse = await openai.chat.completions.create({
+    model: "gpt-4o",
+    max_completion_tokens: 2000,
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: "Extract the professional profile data from this CV:",
           },
           { type: "image_url", image_url: { url: dataUrl, detail: "high" } },
         ],
@@ -141,7 +165,7 @@ export async function extractCvFields(
           { role: "system", content: SYSTEM_PROMPT },
           {
             role: "user",
-            content: `Extract the healthcare professional profile data from this CV text:\n\n${truncated}`,
+            content: `Extract the professional profile data from this CV text:\n\n${truncated}`,
           },
         ],
         response_format: { type: "json_object" },
@@ -149,15 +173,22 @@ export async function extractCvFields(
       return parseAiResponse(textResponse.choices[0]?.message?.content ?? "{}");
     }
 
-    // No text — scanned PDF. Render first page as PNG and use vision API.
+    // No text — scanned PDF. Try rendering via pdftoppm first (fastest, highest quality).
     try {
       const imgBuffer = await renderPdfFirstPageAsPng(buffer);
       return await callVisionApi(imgBuffer.toString("base64"), "image/png");
     } catch (renderErr) {
-      console.error("[cvParser] pdftoppm render failed:", renderErr);
+      console.warn("[cvParser] pdftoppm render failed, falling back to direct PDF vision:", renderErr);
+    }
+
+    // Fallback: send the raw PDF bytes directly to GPT-4o (no system binary required).
+    try {
+      return await callVisionApiWithPdf(buffer);
+    } catch (visionErr) {
+      console.error("[cvParser] direct PDF vision also failed:", visionErr);
       throw new Error(
-        "Could not extract text from this PDF. The document appears to be a scanned image " +
-          "and automatic rendering failed. Please try uploading a JPG or PNG image of your CV instead."
+        "We couldn't read this PDF. If it is a scanned document, try saving it as a text-based PDF " +
+          "or upload your CV as a JPEG or PNG image instead."
       );
     }
   }
@@ -182,8 +213,11 @@ function parseAiResponse(raw: string): CvExtractedFields {
   ];
   const validRegStatus = ["registered", "not_registered", "in_process"];
 
-  const profession = validProfessions.includes(parsed.profession as string)
-    ? (parsed.profession as string)
+  const rawProfession = typeof parsed.profession === "string" ? parsed.profession.trim() : null;
+  const profession = rawProfession
+    ? validProfessions.includes(rawProfession)
+      ? rawProfession
+      : rawProfession
     : null;
 
   const registrationStatus = validRegStatus.includes(
