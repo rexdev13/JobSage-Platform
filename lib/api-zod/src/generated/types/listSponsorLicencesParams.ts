@@ -23,6 +23,14 @@ export type ListSponsorLicencesParams = {
    * If true, return only companies with active vacancies on the platform
    */
   hasVacancies?: boolean;
+  /**
+   * Filter by UK region (e.g. London, North West, Scotland)
+   */
+  region?: string;
+  /**
+   * If true, return only the candidate's bookmarked companies
+   */
+  bookmarkedOnly?: boolean;
   page?: number;
   /**
    * @maximum 100

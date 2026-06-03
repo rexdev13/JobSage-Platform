@@ -9,6 +9,9 @@ import {
   useSendSpeculativeApplication,
   useListSpeculativeApplications,
   useCheckSponsorLicenceVacancies,
+  useGetSponsorLicenceRegions,
+  useBookmarkSponsorLicence,
+  useUnbookmarkSponsorLicence,
   type VacancyCheckResult,
 } from "@workspace/api-client-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -43,6 +46,9 @@ import {
   Landmark,
   Factory,
   LayoutGrid,
+  Bookmark,
+  BookmarkCheck,
+  Globe,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -91,8 +97,11 @@ export default function SponsorLicencesPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedRoute, setSelectedRoute] = useState("");
   const [selectedIndustry, setSelectedIndustry] = useState("");
+  const [selectedRegion, setSelectedRegion] = useState("");
   const [hasVacancies, setHasVacancies] = useState(false);
+  const [bookmarkedOnly, setBookmarkedOnly] = useState(false);
   const [page, setPage] = useState(1);
+  const [localBookmarks, setLocalBookmarks] = useState<Set<number>>(new Set());
   const { toast } = useToast();
   const sendCVMutation = useSendSpeculativeApplication();
   const { data: speculativeData, refetch: refetchSpeculative } = useListSpeculativeApplications();
@@ -101,6 +110,8 @@ export default function SponsorLicencesPage() {
   const [vacancyResults, setVacancyResults] = useState<Map<number, VacancyCheckResult>>(new Map());
   const [checkingIds, setCheckingIds] = useState<Set<number>>(new Set());
   const checkVacanciesMutation = useCheckSponsorLicenceVacancies();
+  const bookmarkMutation = useBookmarkSponsorLicence();
+  const unbookmarkMutation = useUnbookmarkSponsorLicence();
 
   function handleCheckVacancies(companyId: number) {
     if (checkingIds.has(companyId)) return;
@@ -126,6 +137,46 @@ export default function SponsorLicencesPage() {
         },
       },
     );
+  }
+
+  function handleToggleBookmark(companyId: number, currentlyBookmarked: boolean) {
+    const optimisticNew = new Set(localBookmarks);
+    if (currentlyBookmarked) {
+      optimisticNew.delete(companyId);
+    } else {
+      optimisticNew.add(companyId);
+    }
+    setLocalBookmarks(optimisticNew);
+
+    if (currentlyBookmarked) {
+      unbookmarkMutation.mutate(
+        { id: companyId },
+        {
+          onError: () => {
+            setLocalBookmarks((prev) => {
+              const r = new Set(prev);
+              r.add(companyId);
+              return r;
+            });
+            toast({ title: "Error", description: "Could not remove bookmark.", variant: "destructive" });
+          },
+        },
+      );
+    } else {
+      bookmarkMutation.mutate(
+        { id: companyId },
+        {
+          onError: () => {
+            setLocalBookmarks((prev) => {
+              const r = new Set(prev);
+              r.delete(companyId);
+              return r;
+            });
+            toast({ title: "Error", description: "Could not bookmark company.", variant: "destructive" });
+          },
+        },
+      );
+    }
   }
 
   const showSectorGrid = !selectedIndustry;
@@ -163,6 +214,9 @@ export default function SponsorLicencesPage() {
   const { data: industriesData } = useGetSponsorLicenceIndustries();
   const industries = industriesData?.industries ?? [];
 
+  const { data: regionsData } = useGetSponsorLicenceRegions();
+  const regions = regionsData?.regions ?? [];
+
   const { data: countsData, isLoading: countsLoading } = useGetSponsorLicenceIndustryCounts();
   const sectorCounts = countsData?.counts ?? [];
   const totalSponsors = sectorCounts.reduce((acc, s) => acc + s.count, 0);
@@ -171,7 +225,9 @@ export default function SponsorLicencesPage() {
     search: debouncedSearch || undefined,
     route: selectedRoute || undefined,
     industry: selectedIndustry || undefined,
+    region: selectedRegion || undefined,
     hasVacancies: hasVacancies || undefined,
+    bookmarkedOnly: bookmarkedOnly || undefined,
     page,
     limit: LIMIT,
   });
@@ -180,27 +236,43 @@ export default function SponsorLicencesPage() {
   const total = data?.total ?? 0;
   const totalPages = data?.totalPages ?? 0;
   const withVacancies = data?.withVacancies ?? 0;
+  const bookmarkedCount = data?.bookmarkedCount ?? 0;
   const lastSyncedAt = data?.lastSyncedAt;
   const lastSyncFailed = data?.lastSyncFailed;
 
+  // Seed local bookmark state from server on first load
+  useEffect(() => {
+    if (companies.length > 0) {
+      setLocalBookmarks((prev) => {
+        const next = new Set(prev);
+        companies.forEach((c) => {
+          if (c.isBookmarked) next.add(c.id);
+        });
+        return next;
+      });
+    }
+  }, [companies]);
+
   const empty = !isLoading && !isError && total === 0;
 
-  function handleSectorSelect(industry: string) {
-    setSelectedIndustry(industry);
+  function resetListFilters() {
     setSearch("");
     setDebouncedSearch("");
     setSelectedRoute("");
     setHasVacancies(false);
+    setBookmarkedOnly(false);
+    setSelectedRegion("");
     setPage(1);
+  }
+
+  function handleSectorSelect(industry: string) {
+    setSelectedIndustry(industry);
+    resetListFilters();
   }
 
   function handleBackToSectors() {
     setSelectedIndustry("");
-    setSearch("");
-    setDebouncedSearch("");
-    setSelectedRoute("");
-    setHasVacancies(false);
-    setPage(1);
+    resetListFilters();
   }
 
   function handleRouteChange(r: string) {
@@ -210,6 +282,16 @@ export default function SponsorLicencesPage() {
 
   function handleVacancyToggle() {
     setHasVacancies((v) => !v);
+    setPage(1);
+  }
+
+  function handleBookmarkedToggle() {
+    setBookmarkedOnly((v) => !v);
+    setPage(1);
+  }
+
+  function handleRegionChange(r: string) {
+    setSelectedRegion(r);
     setPage(1);
   }
 
@@ -264,7 +346,7 @@ export default function SponsorLicencesPage() {
                 className="space-y-6"
               >
                 {/* Summary stats */}
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                   <Card className="p-4 flex items-center gap-4">
                     <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
                       <Building2 className="w-5 h-5 text-primary" />
@@ -287,7 +369,18 @@ export default function SponsorLicencesPage() {
                       </p>
                     </div>
                   </Card>
-                  <Card className="p-4 flex items-center gap-4 col-span-2 sm:col-span-1">
+                  <Card className="p-4 flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
+                      <Bookmark className="w-5 h-5 text-amber-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Bookmarked</p>
+                      <p className="text-xl font-bold text-foreground">
+                        {bookmarkedCount.toLocaleString()}
+                      </p>
+                    </div>
+                  </Card>
+                  <Card className="p-4 flex items-center gap-4">
                     <div className="w-10 h-10 rounded-xl bg-sky-500/10 flex items-center justify-center shrink-0">
                       <RefreshCw className="w-5 h-5 text-sky-600" />
                     </div>
@@ -386,7 +479,7 @@ export default function SponsorLicencesPage() {
                 </div>
 
                 {/* Stats row */}
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   {[
                     {
                       label: "Sponsors in this sector",
@@ -401,6 +494,13 @@ export default function SponsorLicencesPage() {
                       icon: Briefcase,
                       color: "text-green-600",
                       bg: "bg-green-500/10",
+                    },
+                    {
+                      label: "Bookmarked",
+                      value: bookmarkedCount.toLocaleString(),
+                      icon: Bookmark,
+                      color: "text-amber-600",
+                      bg: "bg-amber-500/10",
                     },
                     {
                       label: "Last Register Sync",
@@ -423,8 +523,8 @@ export default function SponsorLicencesPage() {
                 </div>
 
                 {/* Search & filters */}
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <div className="relative flex-1">
+                <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+                  <div className="relative flex-1 min-w-[180px]">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
                       type="text"
@@ -469,6 +569,22 @@ export default function SponsorLicencesPage() {
                     </div>
                   )}
 
+                  {regions.length > 0 && (
+                    <div className="relative">
+                      <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                      <select
+                        value={selectedRegion}
+                        onChange={(e) => handleRegionChange(e.target.value)}
+                        className="pl-9 pr-8 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 appearance-none cursor-pointer"
+                      >
+                        <option value="">All regions</option>
+                        {regions.map((r) => (
+                          <option key={r} value={r}>{r}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
                   <button
                     onClick={handleVacancyToggle}
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
@@ -479,6 +595,23 @@ export default function SponsorLicencesPage() {
                   >
                     <Briefcase className="w-4 h-4" />
                     Has Vacancies
+                  </button>
+
+                  <button
+                    onClick={handleBookmarkedToggle}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
+                      bookmarkedOnly
+                        ? "bg-amber-500 text-white border-amber-500"
+                        : "border-border text-foreground hover:bg-accent"
+                    }`}
+                  >
+                    {bookmarkedOnly ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
+                    Bookmarked
+                    {bookmarkedCount > 0 && (
+                      <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${bookmarkedOnly ? "bg-white/20 text-white" : "bg-amber-500/10 text-amber-700"}`}>
+                        {bookmarkedCount}
+                      </span>
+                    )}
                   </button>
                 </div>
 
@@ -504,6 +637,7 @@ export default function SponsorLicencesPage() {
                   <div className="space-y-2">
                     {companies.map((c, i) => {
                       const cfg = c.industry ? getSectorConfig(c.industry) : null;
+                      const isBookmarked = localBookmarks.has(c.id) || (c.isBookmarked ?? false);
                       return (
                         <motion.div
                           key={c.id}
@@ -541,6 +675,9 @@ export default function SponsorLicencesPage() {
                                     <span className="flex items-center gap-1">
                                       <MapPin className="w-3 h-3" />
                                       {[c.townCity, c.county].filter(Boolean).join(", ")}
+                                      {c.region && (
+                                        <span className="ml-1 text-muted-foreground/60">({c.region})</span>
+                                      )}
                                     </span>
                                   )}
                                   {c.route && (
@@ -562,6 +699,23 @@ export default function SponsorLicencesPage() {
                               </div>
 
                               <div className="flex items-center gap-2 shrink-0">
+                                {/* Bookmark button */}
+                                <button
+                                  onClick={() => handleToggleBookmark(c.id, localBookmarks.has(c.id) || (c.isBookmarked ?? false))}
+                                  title={isBookmarked ? "Remove bookmark" : "Bookmark this company"}
+                                  className={`p-2 rounded-xl border transition-colors ${
+                                    isBookmarked
+                                      ? "bg-amber-500/10 border-amber-500/20 text-amber-600 hover:bg-amber-500/20"
+                                      : "border-border text-muted-foreground hover:text-foreground hover:bg-accent"
+                                  }`}
+                                >
+                                  {isBookmarked ? (
+                                    <BookmarkCheck className="w-4 h-4" />
+                                  ) : (
+                                    <Bookmark className="w-4 h-4" />
+                                  )}
+                                </button>
+
                                 {(() => {
                                   const result = vacancyResults.get(c.id);
                                   const checking = checkingIds.has(c.id);

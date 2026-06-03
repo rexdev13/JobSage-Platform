@@ -2110,6 +2110,98 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /sponsor-licences/regions:
+    get:
+      operationId: getSponsorLicenceRegions
+      tags: [SponsorLicences]
+      summary: Get the list of standard UK regions for filtering
+      responses:
+        "200":
+          description: List of UK regions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SponsorLicenceRegionsResponse"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /sponsor-licences/bookmarks:
+    get:
+      operationId: getSponsorLicenceBookmarks
+      tags: [SponsorLicences]
+      summary: Get the current candidate's bookmarked sponsor licence companies
+      responses:
+        "200":
+          description: List of bookmarks
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SponsorLicenceBookmarksResponse"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /sponsor-licences/{id}/bookmark:
+    post:
+      operationId: bookmarkSponsorLicence
+      tags: [SponsorLicences]
+      summary: Bookmark a sponsor licence company
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Bookmark toggled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookmarkToggleResponse"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Company not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    delete:
+      operationId: unbookmarkSponsorLicence
+      tags: [SponsorLicences]
+      summary: Remove a bookmark from a sponsor licence company
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Bookmark removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookmarkToggleResponse"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
   /sponsor-licences/industry-counts:
     get:
       operationId: getSponsorLicenceIndustryCounts
@@ -2230,6 +2322,16 @@ paths:
           schema:
             type: boolean
           description: If true, return only companies with active vacancies on the platform
+        - name: region
+          in: query
+          schema:
+            type: string
+          description: Filter by UK region (e.g. London, North West, Scotland)
+        - name: bookmarkedOnly
+          in: query
+          schema:
+            type: boolean
+          description: If true, return only the candidate's bookmarked companies
         - name: page
           in: query
           schema:
@@ -4159,6 +4261,9 @@ components:
         county:
           type: string
           nullable: true
+        region:
+          type: string
+          nullable: true
         route:
           type: string
           nullable: true
@@ -4175,6 +4280,8 @@ components:
           type: string
           format: date-time
         hasVacancies:
+          type: boolean
+        isBookmarked:
           type: boolean
 
     SponsorLicenceListResponse:
@@ -4195,12 +4302,53 @@ components:
           type: integer
         withVacancies:
           type: integer
+        bookmarkedCount:
+          type: integer
         lastSyncedAt:
           type: string
           format: date-time
           nullable: true
         lastSyncFailed:
           type: boolean
+
+    SponsorLicenceRegionsResponse:
+      type: object
+      required: [regions]
+      properties:
+        regions:
+          type: array
+          items:
+            type: string
+
+    SponsorLicenceBookmark:
+      type: object
+      required: [id, sponsorLicenceId, createdAt]
+      properties:
+        id:
+          type: integer
+        sponsorLicenceId:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    SponsorLicenceBookmarksResponse:
+      type: object
+      required: [bookmarks]
+      properties:
+        bookmarks:
+          type: array
+          items:
+            $ref: "#/components/schemas/SponsorLicenceBookmark"
+
+    BookmarkToggleResponse:
+      type: object
+      required: [bookmarked, sponsorLicenceId]
+      properties:
+        bookmarked:
+          type: boolean
+        sponsorLicenceId:
+          type: integer
 
     SponsorLicenceRoutesResponse:
       type: object

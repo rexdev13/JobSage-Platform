@@ -24,6 +24,7 @@ import type {
   Application,
   ApplicationList,
   AuthUserEnvelope,
+  BookmarkToggleResponse,
   BoostProfileRequest,
   BoostProfileResponse,
   CampaignListResponse,
@@ -105,9 +106,11 @@ import type {
   SmartApplyQuestionsResponse,
   SpeculativeApplicationListResponse,
   SpeculativeApplicationResult,
+  SponsorLicenceBookmarksResponse,
   SponsorLicenceIndustriesResponse,
   SponsorLicenceIndustryCountsResponse,
   SponsorLicenceListResponse,
+  SponsorLicenceRegionsResponse,
   SponsorLicenceRoutesResponse,
   SponsorLicenceSyncResult,
   SponsorshipFeasibility,
@@ -6978,6 +6981,335 @@ export const useSendSpeculativeApplication = <
   TContext
 > => {
   return useMutation(getSendSpeculativeApplicationMutationOptions(options));
+};
+
+/**
+ * @summary Get the list of standard UK regions for filtering
+ */
+export const getGetSponsorLicenceRegionsUrl = () => {
+  return `/api/sponsor-licences/regions`;
+};
+
+export const getSponsorLicenceRegions = async (
+  options?: RequestInit,
+): Promise<SponsorLicenceRegionsResponse> => {
+  return customFetch<SponsorLicenceRegionsResponse>(
+    getGetSponsorLicenceRegionsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetSponsorLicenceRegionsQueryKey = () => {
+  return [`/api/sponsor-licences/regions`] as const;
+};
+
+export const getGetSponsorLicenceRegionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSponsorLicenceRegions>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSponsorLicenceRegions>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetSponsorLicenceRegionsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSponsorLicenceRegions>>
+  > = ({ signal }) => getSponsorLicenceRegions({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSponsorLicenceRegions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSponsorLicenceRegionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSponsorLicenceRegions>>
+>;
+export type GetSponsorLicenceRegionsQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Get the list of standard UK regions for filtering
+ */
+
+export function useGetSponsorLicenceRegions<
+  TData = Awaited<ReturnType<typeof getSponsorLicenceRegions>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSponsorLicenceRegions>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSponsorLicenceRegionsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get the current candidate's bookmarked sponsor licence companies
+ */
+export const getGetSponsorLicenceBookmarksUrl = () => {
+  return `/api/sponsor-licences/bookmarks`;
+};
+
+export const getSponsorLicenceBookmarks = async (
+  options?: RequestInit,
+): Promise<SponsorLicenceBookmarksResponse> => {
+  return customFetch<SponsorLicenceBookmarksResponse>(
+    getGetSponsorLicenceBookmarksUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetSponsorLicenceBookmarksQueryKey = () => {
+  return [`/api/sponsor-licences/bookmarks`] as const;
+};
+
+export const getGetSponsorLicenceBookmarksQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSponsorLicenceBookmarks>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSponsorLicenceBookmarks>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetSponsorLicenceBookmarksQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSponsorLicenceBookmarks>>
+  > = ({ signal }) => getSponsorLicenceBookmarks({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSponsorLicenceBookmarks>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSponsorLicenceBookmarksQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSponsorLicenceBookmarks>>
+>;
+export type GetSponsorLicenceBookmarksQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Get the current candidate's bookmarked sponsor licence companies
+ */
+
+export function useGetSponsorLicenceBookmarks<
+  TData = Awaited<ReturnType<typeof getSponsorLicenceBookmarks>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSponsorLicenceBookmarks>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSponsorLicenceBookmarksQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Bookmark a sponsor licence company
+ */
+export const getBookmarkSponsorLicenceUrl = (id: number) => {
+  return `/api/sponsor-licences/${id}/bookmark`;
+};
+
+export const bookmarkSponsorLicence = async (
+  id: number,
+  options?: RequestInit,
+): Promise<BookmarkToggleResponse> => {
+  return customFetch<BookmarkToggleResponse>(getBookmarkSponsorLicenceUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getBookmarkSponsorLicenceMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bookmarkSponsorLicence>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof bookmarkSponsorLicence>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["bookmarkSponsorLicence"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof bookmarkSponsorLicence>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return bookmarkSponsorLicence(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type BookmarkSponsorLicenceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof bookmarkSponsorLicence>>
+>;
+
+export type BookmarkSponsorLicenceMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Bookmark a sponsor licence company
+ */
+export const useBookmarkSponsorLicence = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bookmarkSponsorLicence>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof bookmarkSponsorLicence>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getBookmarkSponsorLicenceMutationOptions(options));
+};
+
+/**
+ * @summary Remove a bookmark from a sponsor licence company
+ */
+export const getUnbookmarkSponsorLicenceUrl = (id: number) => {
+  return `/api/sponsor-licences/${id}/bookmark`;
+};
+
+export const unbookmarkSponsorLicence = async (
+  id: number,
+  options?: RequestInit,
+): Promise<BookmarkToggleResponse> => {
+  return customFetch<BookmarkToggleResponse>(
+    getUnbookmarkSponsorLicenceUrl(id),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getUnbookmarkSponsorLicenceMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unbookmarkSponsorLicence>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof unbookmarkSponsorLicence>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["unbookmarkSponsorLicence"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof unbookmarkSponsorLicence>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return unbookmarkSponsorLicence(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UnbookmarkSponsorLicenceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof unbookmarkSponsorLicence>>
+>;
+
+export type UnbookmarkSponsorLicenceMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Remove a bookmark from a sponsor licence company
+ */
+export const useUnbookmarkSponsorLicence = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unbookmarkSponsorLicence>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof unbookmarkSponsorLicence>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getUnbookmarkSponsorLicenceMutationOptions(options));
 };
 
 /**
