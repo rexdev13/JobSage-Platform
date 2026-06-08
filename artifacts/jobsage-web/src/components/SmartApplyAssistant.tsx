@@ -57,7 +57,7 @@ export function SmartApplyAssistant({
   }, [isOpen, messages.length, roleTitle]);
 
   useEffect(() => {
-    if (triggerQuestion && triggerQuestion.id !== currentQuestion?.id) {
+    if (triggerQuestion) {
       if (!isOpen) setIsOpen(true);
       void sendMessage(`Help me answer this question: "${triggerQuestion.question}"`);
       onTriggerConsumed?.();
