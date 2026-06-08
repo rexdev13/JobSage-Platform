@@ -27,8 +27,10 @@ import {
   FileText,
   Copy,
   Download,
+  MessageCircle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { SmartApplyAssistant } from "./SmartApplyAssistant";
 
 function useCoverLetterStream() {
   const [text, setText] = useState("");
@@ -132,6 +134,7 @@ export function SmartApplyModal({
   const coverLetter = useCoverLetterStream();
   const [clEditable, setClEditable] = useState("");
   const [clCopied, setClCopied] = useState(false);
+  const [triggerQuestion, setTriggerQuestion] = useState<{ id: string; question: string } | null>(null);
 
   if (coverLetter.streaming && coverLetter.text !== clEditable) {
     setClEditable(coverLetter.text);
@@ -248,6 +251,18 @@ export function SmartApplyModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <SmartApplyAssistant
+        roleId={roleId}
+        roleTitle={roleTitle}
+        currentQuestion={currentQ ? { id: currentQ.id, question: currentQ.question } : undefined}
+        onUseAnswer={(text) => {
+          if (currentQ) {
+            updateAnswers((prev) => ({ ...prev, [currentQ.id]: text }));
+          }
+        }}
+        triggerQuestion={triggerQuestion}
+        onTriggerConsumed={() => setTriggerQuestion(null)}
+      />
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -345,9 +360,19 @@ export function SmartApplyModal({
                 </div>
 
                 <div>
-                  <h3 className="text-base font-semibold text-foreground mb-1">
-                    {currentQ.question}
-                  </h3>
+                  <div className="flex items-start justify-between gap-2 mb-1">
+                    <h3 className="text-base font-semibold text-foreground leading-snug">
+                      {currentQ.question}
+                    </h3>
+                    <button
+                      onClick={() => setTriggerQuestion({ id: currentQ.id, question: currentQ.question })}
+                      className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-primary bg-primary/5 hover:bg-primary/10 border border-primary/20 transition-colors"
+                      title="Ask AI to help with this question"
+                    >
+                      <MessageCircle className="w-3 h-3" />
+                      Ask AI
+                    </button>
+                  </div>
                   <p className="text-xs text-muted-foreground">{currentQ.hint}</p>
                 </div>
 
