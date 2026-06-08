@@ -274,6 +274,112 @@ router.put("/employer/jobs/:id/close", requireEmployer(), async (req, res): Prom
   res.json(updated);
 });
 
+function buildDescriptionPrompt(params: {
+  title: string;
+  orgName: string;
+  industry: string;
+  location: string;
+  specialty: string;
+  salaryBand: string;
+  regulator: string;
+  requiredRegistration?: string;
+  sponsorshipOffered: boolean;
+  requirements?: string;
+}) {
+  return `Generate a professional UK healthcare job description for:
+- Role: ${params.title}
+- Organisation: ${params.orgName} (${params.industry.replace(/_/g, " ")})
+- Location: ${params.location}
+- Specialty: ${params.specialty}
+- Salary Band: ${params.salaryBand}
+- Regulator: ${params.regulator}${params.requiredRegistration ? `\n- Required Registration: ${params.requiredRegistration}` : ""}
+- Sponsorship offered: ${params.sponsorshipOffered ? "Yes" : "No"}
+${params.requirements ? `- Requirements/person spec:\n${params.requirements}` : ""}
+
+Write a structured, professionally-worded job description for a UK healthcare jobs board.
+Format your response using EXACTLY this structure (markdown):
+
+**Overview**
+[2–3 sentence paragraph describing the role, organisation, and what makes this opportunity compelling]
+
+**Duties**
+- [key duty]
+- [key duty]
+- [key duty]
+- [key duty]
+- [key duty]
+- [key duty]
+
+**Experience**
+- [experience/qualification requirement]
+- [experience/qualification requirement]
+- [experience/qualification requirement]
+- [experience/qualification requirement]
+- [experience/qualification requirement]
+
+Use plain English — avoid jargon. Do not add extra sections. Each bullet should be a single clear statement.`;
+}
+
+router.post("/employer/jobs/generate-description", requireEmployer(), async (req, res): Promise<void> => {
+  const userId = req.user!.id;
+
+  const [empProfile] = await db.select().from(employerProfilesTable).where(eq(employerProfilesTable.userId, userId));
+  if (!empProfile) { res.status(400).json({ error: "Employer profile not found." }); return; }
+
+  const { title, specialty, location, salaryBand, regulator, requirements, sponsorshipOffered } = req.body as {
+    title: string;
+    specialty?: string;
+    location: string;
+    salaryBand?: string;
+    regulator?: string;
+    requirements?: string;
+    sponsorshipOffered?: boolean;
+  };
+
+  if (!title?.trim() || !location?.trim()) {
+    res.status(400).json({ error: "title and location are required." });
+    return;
+  }
+
+  const prompt = buildDescriptionPrompt({
+    title: title.trim(),
+    orgName: empProfile.companyName,
+    industry: empProfile.industry,
+    location: location.trim(),
+    specialty: specialty?.trim() || "General",
+    salaryBand: salaryBand?.trim() || "Competitive",
+    regulator: regulator || "GMC",
+    sponsorshipOffered: sponsorshipOffered ?? false,
+    requirements: requirements?.trim(),
+  });
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: "You are an expert NHS and UK healthcare HR writer. Write clear, inclusive, structured job descriptions using the exact format requested." },
+        { role: "user", content: prompt },
+      ],
+      max_tokens: 900,
+      temperature: 0.7,
+    });
+
+    const description = response.choices[0]?.message?.content?.trim() ?? "";
+    res.json({ description, disclaimer: DISCLAIMER });
+  } catch (err) {
+    console.error("[employer] AI description preview generation failed:", err);
+    res.status(500).json({ error: "AI service unavailable. Please write the description manually." });
+  }
+});
+
+router.post("/employer/jobs/description-feedback", requireEmployer(), async (req, res): Promise<void> => {
+  const userId = req.user!.id;
+  const { sentiment, jobTitle, specialty } = req.body as { sentiment: "up" | "down"; jobTitle: string; specialty?: string };
+
+  console.info(`[ai-feedback] employer=${userId} title="${jobTitle}" specialty="${specialty ?? ""}" sentiment=${sentiment}`);
+  res.json({ ok: true });
+});
+
 router.post("/employer/jobs/:id/generate-description", requireEmployer(), async (req, res): Promise<void> => {
   const jobId = parseInt(req.params.id as string, 10);
   const userId = req.user!.id;
@@ -284,27 +390,27 @@ router.post("/employer/jobs/:id/generate-description", requireEmployer(), async 
   const [job] = await db.select().from(jobListingsTable).where(and(eq(jobListingsTable.id, jobId), eq(jobListingsTable.employerProfileId, empProfile.id)));
   if (!job) { res.status(404).json({ error: "Job listing not found." }); return; }
 
-  const prompt = `Generate a professional UK healthcare job description for:
-- Role: ${job.title}
-- Organisation: ${empProfile.companyName} (${empProfile.industry.replace(/_/g, " ")})
-- Location: ${job.location}
-- Specialty: ${job.specialty ?? "General"}
-- Salary Band: ${job.salaryBand ?? "Competitive"}
-- Regulator: ${job.regulator}
-- Required Registration: ${job.requiredRegistration}
-- Sponsorship offered: ${job.sponsorshipOffered ? "Yes" : "No"}
-${job.requirements ? `- Requirements/person spec:\n${job.requirements}` : ""}
-
-Write a clear, compelling, professionally-worded job description (300–500 words) suitable for posting on a UK healthcare jobs board. Include: role overview, key responsibilities, person specification highlights, and what the organisation offers. Use plain English — avoid jargon. End with a note about the regulatory requirement.`;
+  const prompt = buildDescriptionPrompt({
+    title: job.title,
+    orgName: empProfile.companyName,
+    industry: empProfile.industry,
+    location: job.location,
+    specialty: job.specialty ?? "General",
+    salaryBand: job.salaryBand ?? "Competitive",
+    regulator: job.regulator,
+    requiredRegistration: job.requiredRegistration,
+    sponsorshipOffered: job.sponsorshipOffered,
+    requirements: job.requirements ?? undefined,
+  });
 
   try {
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
-        { role: "system", content: "You are an expert NHS and UK healthcare HR writer. Write clear, inclusive, professionally-formatted job descriptions." },
+        { role: "system", content: "You are an expert NHS and UK healthcare HR writer. Write clear, inclusive, structured job descriptions using the exact format requested." },
         { role: "user", content: prompt },
       ],
-      max_tokens: 800,
+      max_tokens: 900,
       temperature: 0.7,
     });
 

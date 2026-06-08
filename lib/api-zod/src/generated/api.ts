@@ -1713,6 +1713,37 @@ export const MarkMessageReadResponse = zod.object({
 });
 
 /**
+ * @summary AI-generate a job description without requiring a saved job
+ */
+export const GenerateJobDescriptionPreviewBody = zod.object({
+  title: zod.string(),
+  specialty: zod.string().optional(),
+  location: zod.string(),
+  salaryBand: zod.string().optional(),
+  regulator: zod.string(),
+  requirements: zod.string().optional(),
+  sponsorshipOffered: zod.boolean().optional(),
+});
+
+export const GenerateJobDescriptionPreviewResponse = zod.object({
+  description: zod.string().nullable(),
+  disclaimer: zod.string(),
+});
+
+/**
+ * @summary Record employer thumbs up/down feedback on AI-generated job description
+ */
+export const SubmitDescriptionFeedbackBody = zod.object({
+  sentiment: zod.enum(["up", "down"]),
+  jobTitle: zod.string(),
+  specialty: zod.string().optional(),
+});
+
+export const SubmitDescriptionFeedbackResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
  * @summary AI-generate a job description for a listing
  */
 export const GenerateJobDescriptionParams = zod.object({
