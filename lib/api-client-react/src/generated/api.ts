@@ -44,6 +44,8 @@ import type {
   DecisionAuditExport,
   DecisionRecordList,
   DeleteJobListing200,
+  DescriptionFeedbackRequest,
+  DescriptionFeedbackResponse,
   Document,
   DocumentList,
   EligibilityHistoryList,
@@ -55,6 +57,7 @@ import type {
   ForgotPasswordRequest,
   ForwardEligibilityResponse,
   GenerateCoverLetterRequest,
+  GenerateJobDescriptionPreviewRequest,
   GenerateJobDescriptionResponse,
   GetInterviewPrepQuestionsParams,
   GetSuperAdminDocumentParams,
@@ -6199,6 +6202,186 @@ export const useMarkMessageRead = <
   TContext
 > => {
   return useMutation(getMarkMessageReadMutationOptions(options));
+};
+
+/**
+ * @summary AI-generate a job description without requiring a saved job
+ */
+export const getGenerateJobDescriptionPreviewUrl = () => {
+  return `/api/employer/jobs/generate-description`;
+};
+
+export const generateJobDescriptionPreview = async (
+  generateJobDescriptionPreviewRequest: GenerateJobDescriptionPreviewRequest,
+  options?: RequestInit,
+): Promise<GenerateJobDescriptionResponse> => {
+  return customFetch<GenerateJobDescriptionResponse>(
+    getGenerateJobDescriptionPreviewUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(generateJobDescriptionPreviewRequest),
+    },
+  );
+};
+
+export const getGenerateJobDescriptionPreviewMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateJobDescriptionPreview>>,
+    TError,
+    { data: BodyType<GenerateJobDescriptionPreviewRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof generateJobDescriptionPreview>>,
+  TError,
+  { data: BodyType<GenerateJobDescriptionPreviewRequest> },
+  TContext
+> => {
+  const mutationKey = ["generateJobDescriptionPreview"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof generateJobDescriptionPreview>>,
+    { data: BodyType<GenerateJobDescriptionPreviewRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return generateJobDescriptionPreview(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GenerateJobDescriptionPreviewMutationResult = NonNullable<
+  Awaited<ReturnType<typeof generateJobDescriptionPreview>>
+>;
+export type GenerateJobDescriptionPreviewMutationBody =
+  BodyType<GenerateJobDescriptionPreviewRequest>;
+export type GenerateJobDescriptionPreviewMutationError = ErrorType<unknown>;
+
+/**
+ * @summary AI-generate a job description without requiring a saved job
+ */
+export const useGenerateJobDescriptionPreview = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateJobDescriptionPreview>>,
+    TError,
+    { data: BodyType<GenerateJobDescriptionPreviewRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof generateJobDescriptionPreview>>,
+  TError,
+  { data: BodyType<GenerateJobDescriptionPreviewRequest> },
+  TContext
+> => {
+  return useMutation(getGenerateJobDescriptionPreviewMutationOptions(options));
+};
+
+/**
+ * @summary Record employer thumbs up/down feedback on AI-generated job description
+ */
+export const getSubmitDescriptionFeedbackUrl = () => {
+  return `/api/employer/jobs/description-feedback`;
+};
+
+export const submitDescriptionFeedback = async (
+  descriptionFeedbackRequest: DescriptionFeedbackRequest,
+  options?: RequestInit,
+): Promise<DescriptionFeedbackResponse> => {
+  return customFetch<DescriptionFeedbackResponse>(
+    getSubmitDescriptionFeedbackUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(descriptionFeedbackRequest),
+    },
+  );
+};
+
+export const getSubmitDescriptionFeedbackMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitDescriptionFeedback>>,
+    TError,
+    { data: BodyType<DescriptionFeedbackRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof submitDescriptionFeedback>>,
+  TError,
+  { data: BodyType<DescriptionFeedbackRequest> },
+  TContext
+> => {
+  const mutationKey = ["submitDescriptionFeedback"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof submitDescriptionFeedback>>,
+    { data: BodyType<DescriptionFeedbackRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return submitDescriptionFeedback(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SubmitDescriptionFeedbackMutationResult = NonNullable<
+  Awaited<ReturnType<typeof submitDescriptionFeedback>>
+>;
+export type SubmitDescriptionFeedbackMutationBody =
+  BodyType<DescriptionFeedbackRequest>;
+export type SubmitDescriptionFeedbackMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Record employer thumbs up/down feedback on AI-generated job description
+ */
+export const useSubmitDescriptionFeedback = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitDescriptionFeedback>>,
+    TError,
+    { data: BodyType<DescriptionFeedbackRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof submitDescriptionFeedback>>,
+  TError,
+  { data: BodyType<DescriptionFeedbackRequest> },
+  TContext
+> => {
+  return useMutation(getSubmitDescriptionFeedbackMutationOptions(options));
 };
 
 /**

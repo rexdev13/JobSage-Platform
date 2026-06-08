@@ -6,7 +6,8 @@ import {
   useCreateJobListing,
   useUpdateJobListing,
   useGetJobListing,
-  useGenerateJobDescription,
+  useGenerateJobDescriptionPreview,
+  useSubmitDescriptionFeedback,
   getListEmployerJobsQueryKey,
   type CreateJobListingRequest,
 } from "@workspace/api-client-react";
@@ -22,8 +23,10 @@ import {
   FileText,
   CheckCircle2,
   Info,
+  ThumbsUp,
+  ThumbsDown,
 } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 const PROFESSIONS = [
   { value: "doctor", label: "Doctor" },
@@ -86,12 +89,14 @@ export default function EmployerJobFormPage() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [generatingDesc, setGeneratingDesc] = useState(false);
-  const [savedId, setSavedId] = useState<number | null>(null);
+  const [isAiGenerated, setIsAiGenerated] = useState(false);
+  const [feedbackGiven, setFeedbackGiven] = useState<"up" | "down" | null>(null);
 
   const { data: existingJob } = useGetJobListing(jobId!, { query: { enabled: isEdit && !!jobId } });
   const createMutation = useCreateJobListing();
   const updateMutation = useUpdateJobListing();
-  const generateMutation = useGenerateJobDescription();
+  const generatePreviewMutation = useGenerateJobDescriptionPreview();
+  const feedbackMutation = useSubmitDescriptionFeedback();
 
   useEffect(() => {
     if (existingJob) {
@@ -121,7 +126,6 @@ export default function EmployerJobFormPage() {
   }
 
   function toggleProfession(val: string) {
-    const reg = REGULATOR_MAP[val];
     setForm((prev) => {
       const already = prev.targetProfessions.includes(val);
       const updated = already ? prev.targetProfessions.filter((p) => p !== val) : [...prev.targetProfessions, val];
@@ -173,9 +177,8 @@ export default function EmployerJobFormPage() {
       createMutation.mutate(
         { data: payload },
         {
-          onSuccess: (job) => {
+          onSuccess: () => {
             void queryClient.invalidateQueries({ queryKey: getListEmployerJobsQueryKey() });
-            setSavedId(job.id);
             toast({ title: "Job listing created!", description: andPublish ? "Now publishing…" : "Saved as draft." });
             setLocation("/employer/dashboard");
           },
@@ -186,23 +189,53 @@ export default function EmployerJobFormPage() {
   }
 
   async function handleGenerateDescription() {
-    const jobId = isEdit ? params.id ? parseInt(params.id, 10) : undefined : savedId;
-    if (!jobId) {
-      toast({ title: "Save the job first", description: "Save the job as a draft, then use AI to generate the description.", variant: "destructive" });
+    if (!form.title.trim()) {
+      toast({ title: "Job title required", description: "Enter a job title before generating a description.", variant: "destructive" });
       return;
     }
+    if (!form.location.trim()) {
+      toast({ title: "Location required", description: "Enter a location before generating a description.", variant: "destructive" });
+      return;
+    }
+
     setGeneratingDesc(true);
-    generateMutation.mutate(
-      { id: jobId },
+    setIsAiGenerated(false);
+    setFeedbackGiven(null);
+
+    generatePreviewMutation.mutate(
+      {
+        data: {
+          title: form.title.trim(),
+          specialty: form.specialty.trim() || undefined,
+          location: form.location.trim(),
+          salaryBand: form.salaryBand.trim() || undefined,
+          regulator: form.regulator,
+          requirements: form.requirements.trim() || undefined,
+          sponsorshipOffered: form.sponsorshipOffered,
+        },
+      },
       {
         onSuccess: (data) => {
           setForm((prev) => ({ ...prev, description: data.description ?? "" }));
+          setIsAiGenerated(true);
           toast({ title: "Description generated!", description: "Review and edit before publishing." });
         },
         onError: (err) => toast({ title: "AI error", description: (err as Error).message, variant: "destructive" }),
         onSettled: () => setGeneratingDesc(false),
       },
     );
+  }
+
+  function handleFeedback(sentiment: "up" | "down") {
+    if (feedbackGiven) return;
+    setFeedbackGiven(sentiment);
+    feedbackMutation.mutate({
+      data: {
+        sentiment,
+        jobTitle: form.title,
+        specialty: form.specialty || undefined,
+      },
+    });
   }
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
@@ -397,7 +430,7 @@ export default function EmployerJobFormPage() {
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-sm font-medium">Job Description</label>
+                <label className="text-sm font-medium">Job Description <span className="text-destructive">*</span></label>
                 <Button
                   type="button"
                   size="sm"
@@ -413,18 +446,77 @@ export default function EmployerJobFormPage() {
                   )}
                 </Button>
               </div>
+
+              {/* AI info banner — shown after generation */}
+              <AnimatePresence>
+                {isAiGenerated && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    className="flex items-start gap-2 mb-2 px-3 py-2.5 rounded-xl bg-primary/5 border border-primary/20 text-xs text-primary"
+                  >
+                    <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span>This is an OpenAI-powered job description. You can edit or replace it.</span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               <textarea
                 value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                onChange={(e) => {
+                  setForm({ ...form, description: e.target.value });
+                  if (isAiGenerated) setIsAiGenerated(false);
+                }}
                 placeholder="Write or generate a job description…"
-                rows={8}
-                className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+                rows={10}
+                className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none font-mono"
               />
-              {isEdit ? null : (
-                <p className="text-xs text-muted-foreground mt-1">
-                  <Sparkles className="w-3 h-3 inline mr-0.5" /> Save the job first, then use &quot;Generate with AI&quot; to create a professional description.
-                </p>
-              )}
+
+              {/* Thumbs up/down feedback — shown after AI generation */}
+              <AnimatePresence>
+                {isAiGenerated && !feedbackGiven && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="mt-3 flex items-center gap-3 py-2.5 px-3 rounded-xl bg-muted/50 border border-border"
+                  >
+                    <span className="text-xs text-muted-foreground flex-1">Did you find the AI generated job description useful?</span>
+                    <button
+                      type="button"
+                      onClick={() => handleFeedback("up")}
+                      className="p-1.5 rounded-lg hover:bg-emerald-100 hover:text-emerald-700 transition-colors text-muted-foreground"
+                      aria-label="Yes, useful"
+                    >
+                      <ThumbsUp className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleFeedback("down")}
+                      className="p-1.5 rounded-lg hover:bg-destructive/10 hover:text-destructive transition-colors text-muted-foreground"
+                      aria-label="Not useful"
+                    >
+                      <ThumbsDown className="w-4 h-4" />
+                    </button>
+                  </motion.div>
+                )}
+                {feedbackGiven && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="mt-3 text-xs text-muted-foreground px-3 py-2 flex items-center gap-1.5"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    Thanks for your feedback — it helps us improve.
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Disclaimer */}
+              <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
+                *This is an OpenAI-powered job description. It uses the job title, location, and your organisation profile. By using the content, you adopt it as your own and are responsible for its accuracy.
+              </p>
             </div>
           </Card>
 

@@ -952,9 +952,37 @@ export interface UpdateJobListingRequest {
   targetRegions?: string[];
 }
 
+export interface GenerateJobDescriptionPreviewRequest {
+  title: string;
+  specialty?: string;
+  location: string;
+  salaryBand?: string;
+  regulator: string;
+  requirements?: string;
+  sponsorshipOffered?: boolean;
+}
+
 export interface GenerateJobDescriptionResponse {
   description: string | null;
   disclaimer: string;
+}
+
+export type DescriptionFeedbackRequestSentiment =
+  (typeof DescriptionFeedbackRequestSentiment)[keyof typeof DescriptionFeedbackRequestSentiment];
+
+export const DescriptionFeedbackRequestSentiment = {
+  up: "up",
+  down: "down",
+} as const;
+
+export interface DescriptionFeedbackRequest {
+  sentiment: DescriptionFeedbackRequestSentiment;
+  jobTitle: string;
+  specialty?: string;
+}
+
+export interface DescriptionFeedbackResponse {
+  ok: boolean;
 }
 
 export type JobApplicantComplianceConfidence =

@@ -1896,6 +1896,44 @@ paths:
                   message:
                     $ref: "#/components/schemas/CandidateMessage"
 
+  /employer/jobs/generate-description:
+    post:
+      operationId: generateJobDescriptionPreview
+      tags: [Employer]
+      summary: AI-generate a job description without requiring a saved job
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateJobDescriptionPreviewRequest"
+      responses:
+        "200":
+          description: Generated description
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateJobDescriptionResponse"
+
+  /employer/jobs/description-feedback:
+    post:
+      operationId: submitDescriptionFeedback
+      tags: [Employer]
+      summary: Record employer thumbs up/down feedback on AI-generated job description
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DescriptionFeedbackRequest"
+      responses:
+        "200":
+          description: Feedback recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DescriptionFeedbackResponse"
+
   /employer/jobs/{id}/generate-description:
     post:
       operationId: generateJobDescription
@@ -4164,6 +4202,25 @@ components:
           items:
             type: string
 
+    GenerateJobDescriptionPreviewRequest:
+      type: object
+      required: [title, location, regulator]
+      properties:
+        title:
+          type: string
+        specialty:
+          type: string
+        location:
+          type: string
+        salaryBand:
+          type: string
+        regulator:
+          type: string
+        requirements:
+          type: string
+        sponsorshipOffered:
+          type: boolean
+
     GenerateJobDescriptionResponse:
       type: object
       required: [description, disclaimer]
@@ -4173,6 +4230,25 @@ components:
           nullable: true
         disclaimer:
           type: string
+
+    DescriptionFeedbackRequest:
+      type: object
+      required: [sentiment, jobTitle]
+      properties:
+        sentiment:
+          type: string
+          enum: [up, down]
+        jobTitle:
+          type: string
+        specialty:
+          type: string
+
+    DescriptionFeedbackResponse:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
 
     JobApplicant:
       type: object
