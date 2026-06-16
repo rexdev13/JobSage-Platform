@@ -8,4 +8,5 @@
 
 export type GetMyMatchesParams = {
   limit?: number;
+  offset?: number;
 };

@@ -1589,6 +1589,7 @@ export type SaveSmartApplyDraft200 = {
 
 export type GetMyMatchesParams = {
   limit?: number;
+  offset?: number;
 };
 
 export type ImportRolesCSVBody = {

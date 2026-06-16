@@ -19,18 +19,12 @@ export interface CandidateProfileForScoring {
   requiresSponsorship: boolean;
 }
 
-export interface MatchScore {
-  roleId: number;
-  score: number;
-  explanation: string;
-}
+const BATCH_SIZE = 50;
 
-export async function batchScoreRoles(
+async function scoreSingleBatch(
   profile: CandidateProfileForScoring,
   roles: RoleForScoring[],
 ): Promise<Map<number, { score: number; explanation: string }>> {
-  if (roles.length === 0) return new Map();
-
   const profileText = [
     `Profession: ${profile.profession.replace(/_/g, " ")}`,
     `Specialty: ${profile.specialty}`,
@@ -61,46 +55,65 @@ ${vacancyLines}
 Return ONLY valid JSON:
 {"scores":[{"roleId":<integer>,"score":<0-100>,"explanation":"<string>"}]}`;
 
-  try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: Math.min(4000, roles.length * 60 + 200),
-      temperature: 0.2,
-      response_format: { type: "json_object" },
-    });
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o",
+    messages: [{ role: "user", content: prompt }],
+    max_tokens: Math.min(8000, roles.length * 80 + 300),
+    temperature: 0.2,
+    response_format: { type: "json_object" },
+  });
 
-    const raw = response.choices[0]?.message?.content ?? "{}";
-    const parsed = JSON.parse(raw) as { scores?: unknown[] };
-    const result = new Map<number, { score: number; explanation: string }>();
+  const raw = response.choices[0]?.message?.content ?? "{}";
+  const parsed = JSON.parse(raw) as { scores?: unknown[] };
+  const result = new Map<number, { score: number; explanation: string }>();
 
-    if (Array.isArray(parsed.scores)) {
-      for (const item of parsed.scores) {
-        if (
-          typeof item === "object" &&
-          item !== null &&
-          "roleId" in item &&
-          "score" in item &&
-          "explanation" in item
-        ) {
-          const entry = item as { roleId: number; score: number; explanation: string };
-          result.set(entry.roleId, {
-            score: Math.min(100, Math.max(0, Math.round(Number(entry.score)))),
-            explanation: String(entry.explanation).slice(0, 120),
-          });
-        }
+  if (Array.isArray(parsed.scores)) {
+    for (const item of parsed.scores) {
+      if (
+        typeof item === "object" &&
+        item !== null &&
+        "roleId" in item &&
+        "score" in item &&
+        "explanation" in item
+      ) {
+        const entry = item as { roleId: number; score: number; explanation: string };
+        result.set(entry.roleId, {
+          score: Math.min(100, Math.max(0, Math.round(Number(entry.score)))),
+          explanation: String(entry.explanation).slice(0, 120),
+        });
       }
     }
-
-    return result;
-  } catch {
-    const fallback = new Map<number, { score: number; explanation: string }>();
-    for (const role of roles) {
-      fallback.set(role.id, {
-        score: role.sponsorshipOffered && profile.requiresSponsorship ? 60 : 45,
-        explanation: "Match based on your profile and role requirements.",
-      });
-    }
-    return fallback;
   }
+
+  return result;
+}
+
+export async function batchScoreRoles(
+  profile: CandidateProfileForScoring,
+  roles: RoleForScoring[],
+): Promise<Map<number, { score: number; explanation: string }>> {
+  if (roles.length === 0) return new Map();
+
+  const chunks: RoleForScoring[][] = [];
+  for (let i = 0; i < roles.length; i += BATCH_SIZE) {
+    chunks.push(roles.slice(i, i + BATCH_SIZE));
+  }
+
+  const merged = new Map<number, { score: number; explanation: string }>();
+
+  for (const chunk of chunks) {
+    try {
+      const chunkMap = await scoreSingleBatch(profile, chunk);
+      for (const [k, v] of chunkMap) merged.set(k, v);
+    } catch {
+      for (const role of chunk) {
+        merged.set(role.id, {
+          score: role.sponsorshipOffered && profile.requiresSponsorship ? 60 : 45,
+          explanation: "Match based on your profile and role requirements.",
+        });
+      }
+    }
+  }
+
+  return merged;
 }

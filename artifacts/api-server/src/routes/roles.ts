@@ -245,11 +245,10 @@ router.get("/roles", async (req, res): Promise<void> => {
 });
 
 const SCORE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-const MAX_ROLES_TO_SCORE = 25;
-
 router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<void> => {
   const userId = req.user!.id;
-  const limit = Math.min(50, parseInt(String(req.query.limit ?? "10"), 10) || 10);
+  const limit = Math.min(200, parseInt(String(req.query.limit ?? "10"), 10) || 10);
+  const offset = Math.max(0, parseInt(String(req.query.offset ?? "0"), 10) || 0);
 
   const [profile] = await db.select().from(profilesTable).where(eq(profilesTable.userId, userId));
   if (!profile) {
@@ -308,7 +307,7 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
       requiredRegistration: r.requiredRegistration,
     })),
     ...employerJobsAsRoles,
-  ].slice(0, MAX_ROLES_TO_SCORE);
+  ];
 
   if (regulatorRoles.length === 0) {
     res.json({ matches: [], dismissedRoleIds: [], totalCount: 0, cached: false });
@@ -368,7 +367,7 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
   const dismissedRoleIds = dismissals.map((d) => d.roleId);
   const dismissedSet = new Set(dismissedRoleIds);
 
-  const matches = regulatorRoles
+  const allSortedMatches = regulatorRoles
     .filter((r) => !dismissedSet.has(r.id))
     .map((r) => {
       const reqReg = r.requiredRegistration.toLowerCase();
@@ -405,10 +404,12 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
     .sort((a, b) => {
       if (a.isEligible !== b.isEligible) return a.isEligible ? -1 : 1;
       return b.aiScore - a.aiScore;
-    })
-    .slice(0, limit);
+    });
 
-  res.json({ matches, dismissedRoleIds, totalCount: regulatorRoles.length - dismissedSet.size, cached });
+  const totalCount = allSortedMatches.length;
+  const matches = allSortedMatches.slice(offset, offset + limit);
+
+  res.json({ matches, dismissedRoleIds, totalCount, cached });
 });
 
 router.post("/roles/dismiss-match", requireAuthenticated, async (req, res): Promise<void> => {
