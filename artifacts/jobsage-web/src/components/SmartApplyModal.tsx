@@ -228,7 +228,7 @@ export function SmartApplyModal({
       });
 
       await markApplicationMutation.mutateAsync({
-        data: { roleId, notes: answersJson },
+        data: { roleId, notes: answersJson, smartApply: true },
       });
 
       clearDraft(roleId);

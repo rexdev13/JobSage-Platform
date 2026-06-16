@@ -966,6 +966,7 @@ export const ListMyApplicationsResponse = zod.object({
 export const MarkApplicationBody = zod.object({
   roleId: zod.number(),
   notes: zod.string().optional(),
+  smartApply: zod.boolean().nullish(),
 });
 
 export const MarkApplicationResponse = zod.object({
