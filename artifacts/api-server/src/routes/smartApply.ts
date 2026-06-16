@@ -3,7 +3,7 @@ import { db, profilesTable, jobListingsTable, smartApplyDraftsTable } from "@wor
 import { eq, and } from "drizzle-orm";
 import { requireAuthenticated } from "../middlewares/requireRole";
 import { getStandardQuestions, prefillApplicationAnswers } from "../lib/smartApply";
-import { computeCompletionPct, SMART_APPLY_THRESHOLD } from "../lib/profileCompleteness";
+import { computeSmartApplyReady } from "../lib/profileCompleteness";
 import { openai } from "@workspace/integrations-openai-ai-server";
 
 const router: IRouter = Router();
@@ -31,9 +31,11 @@ router.post("/roles/:id/smart-apply/prefill", requireAuthenticated, async (req: 
     return;
   }
 
-  const completionPct = computeCompletionPct(profile);
-  if (completionPct < SMART_APPLY_THRESHOLD) {
-    res.status(422).json({ error: `Your profile is ${completionPct}% complete. Please complete the key fields before using Smart Apply.` });
+  const { ready, missingFields } = computeSmartApplyReady(profile);
+  if (!ready) {
+    res.status(422).json({
+      error: `Please complete the following key profile fields before using Smart Apply: ${missingFields.join(", ")}.`,
+    });
     return;
   }
 

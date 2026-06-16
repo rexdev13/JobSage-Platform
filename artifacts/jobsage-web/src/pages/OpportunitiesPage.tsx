@@ -744,15 +744,21 @@ export default function OpportunitiesPage() {
     }, {}),
   ).filter(([emp]) => emp.toLowerCase().includes(employerSearch.toLowerCase()));
 
-  const profileCompletionPct = typeof (myProfile as unknown as Record<string, unknown> | undefined)?.completionPct === "number"
-    ? ((myProfile as unknown as Record<string, unknown>).completionPct as number)
-    : 0;
+  const p = myProfile as unknown as Record<string, unknown> | undefined;
+  const keyFieldsComplete = !!(
+    p?.profession && p?.specialty && p?.qualificationCountry && p?.qualificationType &&
+    p?.qualificationYear && (p?.qualificationYear as number) > 0 &&
+    p?.experienceYears && (p?.experienceYears as number) > 0 &&
+    p?.registrationStatus && p?.residencyStatus && p?.preferredRegion &&
+    p?.preferredStartDate &&
+    Array.isArray(p?.languages) && (p?.languages as unknown[]).length > 0
+  );
 
   function handleSmartApply(roleId: number, roleTitle: string) {
-    if (profileCompletionPct < 80) {
+    if (!keyFieldsComplete) {
       toast({
         title: "Complete your profile first",
-        description: "Your profile must be 100% complete before using Smart Apply. Visit your Profile page to fill in the missing fields.",
+        description: "Please fill in all key profile fields (profession, qualifications, experience, preferred region, start date, and languages) before using Smart Apply.",
         variant: "destructive",
       });
       return;

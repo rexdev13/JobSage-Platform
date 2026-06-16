@@ -2,6 +2,14 @@ import { profilesTable } from "@workspace/db";
 
 type ProfileRow = typeof profilesTable.$inferSelect;
 
+function isFilled(v: unknown): boolean {
+  if (v == null) return false;
+  if (typeof v === "number") return v > 0;
+  if (typeof v === "string") return v !== "";
+  if (Array.isArray(v)) return v.length > 0;
+  return true;
+}
+
 export function computeCompletionPct(p: ProfileRow): number {
   const scored: unknown[] = [
     p.profession,
@@ -18,14 +26,24 @@ export function computeCompletionPct(p: ProfileRow): number {
     p.languages,
     p.additionalNotes,
   ];
-  const filled = scored.filter((f) => {
-    if (f == null) return false;
-    if (typeof f === "number") return f > 0;
-    if (typeof f === "string") return f !== "";
-    if (Array.isArray(f)) return f.length > 0;
-    return true;
-  }).length;
+  const filled = scored.filter(isFilled).length;
   return Math.min(100, Math.round((filled / scored.length) * 100));
 }
 
-export const SMART_APPLY_THRESHOLD = 80;
+export function computeSmartApplyReady(p: ProfileRow): { ready: boolean; missingFields: string[] } {
+  const keyFields: Array<{ label: string; value: unknown }> = [
+    { label: "Profession", value: p.profession },
+    { label: "Specialty", value: p.specialty },
+    { label: "Qualification country", value: p.qualificationCountry },
+    { label: "Qualification type", value: p.qualificationType },
+    { label: "Qualification year", value: p.qualificationYear },
+    { label: "Years of experience", value: p.experienceYears },
+    { label: "Registration status", value: p.registrationStatus },
+    { label: "Residency status", value: p.residencyStatus },
+    { label: "Preferred region", value: p.preferredRegion },
+    { label: "Preferred start date", value: p.preferredStartDate },
+    { label: "Languages", value: p.languages },
+  ];
+  const missingFields = keyFields.filter((f) => !isFilled(f.value)).map((f) => f.label);
+  return { ready: missingFields.length === 0, missingFields };
+}
