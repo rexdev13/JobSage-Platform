@@ -282,7 +282,7 @@ export async function sendCandidateContactEmail(opts: {
               <table cellpadding="0" cellspacing="0" style="margin:0 auto 24px;">
                 <tr>
                   <td style="background:#0f172a;border-radius:8px;padding:14px 32px;text-align:center;">
-                    <a href="${APP_URL}/employer/messages" style="color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;display:inline-block;">View on JOBSAGE</a>
+                    <a href="${APP_URL}/inbox" style="color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;display:inline-block;">View in your inbox</a>
                   </td>
                 </tr>
               </table>

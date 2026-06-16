@@ -88,6 +88,19 @@ function CandidateCard({
   onContact: (c: TalentCandidate) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [viewedFired, setViewedFired] = useState(false);
+
+  function handleToggleExpand() {
+    const next = !expanded;
+    setExpanded(next);
+    if (next && !viewedFired && candidate.isBoosted) {
+      setViewedFired(true);
+      fetch(`${API_BASE}/employer/candidates/${candidate.userId}/viewed`, {
+        method: "POST",
+        credentials: "include",
+      }).catch(() => {});
+    }
+  }
 
   return (
     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} layout>
@@ -157,7 +170,7 @@ function CandidateCard({
             </Button>
             {candidate.matchRationale && (
               <button
-                onClick={() => setExpanded(!expanded)}
+                onClick={handleToggleExpand}
                 className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-0.5 justify-end"
               >
                 {expanded ? <><ChevronUp className="w-3 h-3" /> Less</> : <><ChevronDown className="w-3 h-3" /> Why?</>}
