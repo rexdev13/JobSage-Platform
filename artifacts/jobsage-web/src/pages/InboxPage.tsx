@@ -6,6 +6,15 @@ import { Inbox, MailOpen, Archive, Building2, Info } from "lucide-react";
 import { cn } from "@/components/ui-enhanced";
 import type { CandidateMessage } from "@workspace/api-zod";
 
+const STAGE_BADGE: Record<string, { label: string; className: string }> = {
+  "Application received":              { label: "Applied",       className: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300" },
+  "You've been shortlisted!":          { label: "Shortlisted",   className: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300" },
+  "Interview invitation":              { label: "Interview",     className: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300" },
+  "Offer made":                        { label: "Offer",         className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300" },
+  "Application update":                { label: "Update",        className: "bg-muted text-muted-foreground" },
+  "Your profile was viewed by an employer": { label: "Profile viewed", className: "bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300" },
+};
+
 function formatDate(iso: string) {
   const d = new Date(iso);
   const now = new Date();
@@ -113,9 +122,16 @@ export default function InboxPage() {
                           </p>
                           <span className="text-[10px] text-muted-foreground shrink-0">{formatDate(msg.createdAt)}</span>
                         </div>
-                        <p className={cn("text-xs truncate mt-0.5", !msg.isRead ? "font-semibold text-foreground" : "text-muted-foreground")}>
-                          {msg.subject}
-                        </p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <p className={cn("text-xs truncate", !msg.isRead ? "font-semibold text-foreground" : "text-muted-foreground")}>
+                            {msg.subject}
+                          </p>
+                          {msg.messageType === "system" && STAGE_BADGE[msg.subject] && (
+                            <span className={cn("shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide", STAGE_BADGE[msg.subject].className)}>
+                              {STAGE_BADGE[msg.subject].label}
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[11px] text-muted-foreground truncate mt-0.5">{msg.messageText}</p>
                       </div>
                       {!msg.isRead && (

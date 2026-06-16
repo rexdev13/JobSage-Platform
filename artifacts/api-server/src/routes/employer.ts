@@ -11,7 +11,7 @@ import {
   candidateMessagesTable,
   documentsTable,
 } from "@workspace/db";
-import { eq, and, desc, ilike, gte, isNotNull, count } from "drizzle-orm";
+import { eq, and, desc, ilike, gte, isNotNull, isNull, count } from "drizzle-orm";
 import { requireRole, requireAuthenticated } from "../middlewares/requireRole";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { sendCandidateContactEmail } from "../lib/email";
@@ -543,6 +543,28 @@ router.put("/employer/jobs/:jobId/applicants/:applicationId/stage", requireEmplo
   res.json({ applicationId: updated.id, stage: updated.status, notes: updated.notes });
 });
 
+// Notify a boosted candidate that their profile was viewed by an employer
+router.post("/employer/candidates/:userId/viewed", requireEmployer(), async (req, res): Promise<void> => {
+  const userId = req.user!.id;
+  const candidateUserId = req.params.userId as string;
+
+  const [empProfile] = await db.select().from(employerProfilesTable).where(eq(employerProfilesTable.userId, userId));
+  if (!empProfile) { res.status(404).json({ error: "Employer profile not found." }); return; }
+
+  const [candidate] = await db.select({ id: profilesTable.userId, boostProfile: profilesTable.boostProfile }).from(profilesTable).where(eq(profilesTable.userId, candidateUserId));
+  if (!candidate?.boostProfile) { res.json({ ok: true }); return; }
+
+  await db.insert(candidateMessagesTable).values({
+    senderEmployerProfileId: empProfile.id,
+    recipientUserId: candidateUserId,
+    messageType: "system",
+    subject: "Your profile was viewed by an employer",
+    messageText: `An employer from ${empProfile.companyName} has viewed your featured JOBSAGE profile. Make sure your profile is up to date to maximise your chances!`,
+  }).onConflictDoNothing();
+
+  res.json({ ok: true });
+});
+
 // Headhunting: list boosted candidates visible to employers
 router.get("/employer/candidates", requireEmployer(), async (req, res): Promise<void> => {
   const { profession, regulator, sponsorship } = req.query as {
@@ -952,19 +974,30 @@ router.get("/candidate/messages", requireAuthenticated, async (req, res): Promis
       isRead: candidateMessagesTable.isRead,
       createdAt: candidateMessagesTable.createdAt,
       vacancyId: candidateMessagesTable.vacancyId,
+      applicationId: candidateMessagesTable.applicationId,
+      messageType: candidateMessagesTable.messageType,
+      archivedAt: candidateMessagesTable.archivedAt,
       senderEmployerProfileId: candidateMessagesTable.senderEmployerProfileId,
     })
     .from(candidateMessagesTable)
-    .where(eq(candidateMessagesTable.recipientUserId, userId))
+    .where(
+      and(
+        eq(candidateMessagesTable.recipientUserId, userId),
+        isNull(candidateMessagesTable.archivedAt),
+      ),
+    )
     .orderBy(desc(candidateMessagesTable.createdAt));
 
   const enriched = await Promise.all(
     messages.map(async (m) => {
+      if (!m.senderEmployerProfileId) {
+        return { ...m, companyName: null, industry: null };
+      }
       const [empProfile] = await db
         .select({ companyName: employerProfilesTable.companyName, industry: employerProfilesTable.industry })
         .from(employerProfilesTable)
         .where(eq(employerProfilesTable.id, m.senderEmployerProfileId));
-      return { ...m, companyName: empProfile?.companyName ?? "An employer", industry: empProfile?.industry ?? null };
+      return { ...m, companyName: empProfile?.companyName ?? null, industry: empProfile?.industry ?? null };
     }),
   );
 
@@ -1008,6 +1041,7 @@ router.get("/candidate/messages/unread-count", requireAuthenticated, async (req,
       and(
         eq(candidateMessagesTable.recipientUserId, userId),
         eq(candidateMessagesTable.isRead, false),
+        isNull(candidateMessagesTable.archivedAt),
       ),
     );
   res.json({ unreadCount: result[0]?.count ?? 0 });
