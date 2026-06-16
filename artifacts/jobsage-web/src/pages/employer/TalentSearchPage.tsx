@@ -24,6 +24,7 @@ interface TalentCandidate {
   qualificationCountry: string | null;
   registrationStatus: string | null;
   requiresSponsorship: boolean | null;
+  preferredStartDate: string | null;
   isEligible: boolean;
   eligibilityOutcome: string | null;
   matchScore: number;
@@ -127,6 +128,12 @@ function CandidateCard({
               )}
               {candidate.requiresSponsorship && (
                 <span className="text-blue-700 font-medium">Requires sponsorship</span>
+              )}
+              {candidate.preferredStartDate && (
+                <span className="flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  Available from {new Date(candidate.preferredStartDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                </span>
               )}
             </div>
             {candidate.matchRationale && (

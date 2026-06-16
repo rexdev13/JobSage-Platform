@@ -713,6 +713,7 @@ router.get("/employer/talent-search", requireEmployer(), async (req, res): Promi
       registrationStatus: profilesTable.registrationStatus,
       requiresSponsorship: profilesTable.requiresSponsorship,
       preferredRegion: profilesTable.preferredRegion,
+      preferredStartDate: profilesTable.preferredStartDate,
       boostProfile: profilesTable.boostProfile,
     })
     .from(profilesTable)
@@ -775,6 +776,7 @@ router.get("/employer/talent-search", requireEmployer(), async (req, res): Promi
         qualificationCountry: p.qualificationCountry,
         registrationStatus: p.registrationStatus,
         requiresSponsorship: p.requiresSponsorship,
+        preferredStartDate: p.preferredStartDate ?? null,
         isEligible,
         eligibilityOutcome: latestDecision?.outcome ?? null,
         matchScore: score,

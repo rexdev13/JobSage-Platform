@@ -3,6 +3,7 @@ import { db, profilesTable, jobListingsTable, smartApplyDraftsTable } from "@wor
 import { eq, and } from "drizzle-orm";
 import { requireAuthenticated } from "../middlewares/requireRole";
 import { getStandardQuestions, prefillApplicationAnswers } from "../lib/smartApply";
+import { computeCompletionPct } from "../lib/profileCompleteness";
 import { openai } from "@workspace/integrations-openai-ai-server";
 
 const router: IRouter = Router();
@@ -27,6 +28,12 @@ router.post("/roles/:id/smart-apply/prefill", requireAuthenticated, async (req: 
 
   if (!profile) {
     res.status(404).json({ error: "Candidate profile not found. Please complete your profile first." });
+    return;
+  }
+
+  const completionPct = computeCompletionPct(profile);
+  if (completionPct < 100) {
+    res.status(422).json({ error: `Your profile is ${completionPct}% complete. Please finish your profile before using Smart Apply.` });
     return;
   }
 

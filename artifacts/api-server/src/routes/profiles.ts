@@ -4,33 +4,7 @@ import { db, profilesTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { GetMyProfileResponse, UpsertMyProfileBody, UpsertMyProfileResponse } from "@workspace/api-zod";
 import { requireConsent } from "../middlewares/consentMiddleware";
-
-type ProfileRow = typeof profilesTable.$inferSelect;
-
-function computeCompletionPct(p: ProfileRow): number {
-  const scored: unknown[] = [
-    p.profession,
-    p.specialty,
-    p.qualificationCountry,
-    p.qualificationType,
-    p.qualificationYear,
-    p.experienceYears,
-    p.registrationStatus,
-    p.residencyStatus,
-    p.preferredRegion,
-    p.preferredStartDate,
-    p.profilePhotoKey,
-    p.languages,
-    p.additionalNotes,
-  ];
-  const filled = scored.filter((f) => {
-    if (f == null) return false;
-    if (typeof f === "string") return f !== "";
-    if (Array.isArray(f)) return f.length > 0;
-    return true;
-  }).length;
-  return Math.min(100, Math.round((filled / scored.length) * 100));
-}
+import { computeCompletionPct } from "../lib/profileCompleteness";
 
 const router: IRouter = Router();
 
