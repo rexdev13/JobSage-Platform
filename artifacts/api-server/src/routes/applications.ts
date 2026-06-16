@@ -1,8 +1,9 @@
 import { Router, type IRouter } from "express";
-import { db, jobListingsTable } from "@workspace/db";
+import { db, jobListingsTable, rolesTable } from "@workspace/db";
 import { applicationsTable } from "@workspace/db";
 import { eq, and, inArray } from "drizzle-orm";
 import { requireAuthenticated } from "../middlewares/requireRole";
+import { createApplicationReceivedMessage } from "../lib/systemMessages";
 
 const router: IRouter = Router();
 
@@ -69,6 +70,23 @@ router.post("/applications", requireAuthenticated, async (req, res): Promise<voi
     .insert(applicationsTable)
     .values({ userId, roleId, notes: notes ?? null, status: "applied" })
     .returning();
+
+  let roleTitle = `Role #${roleId}`;
+  if (roleId > 1_000_000) {
+    const [job] = await db.select({ title: jobListingsTable.title }).from(jobListingsTable).where(eq(jobListingsTable.id, roleId - 1_000_000));
+    if (job) roleTitle = job.title;
+  } else {
+    const [role] = await db.select({ title: rolesTable.title }).from(rolesTable).where(eq(rolesTable.id, roleId));
+    if (role) roleTitle = role.title;
+  }
+
+  createApplicationReceivedMessage({
+    recipientUserId: userId,
+    applicationId: application.id,
+    roleTitle,
+  }).catch((err: unknown) => {
+    console.error("[inbox] Failed to create application received message:", err);
+  });
 
   res.json(application);
 });

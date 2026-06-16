@@ -1326,14 +1326,29 @@ export interface ContactCandidateRequest {
   vacancyId?: number | null;
 }
 
+export interface UnreadCountResponse {
+  unreadCount: number;
+}
+
+export type CandidateMessageMessageType =
+  (typeof CandidateMessageMessageType)[keyof typeof CandidateMessageMessageType];
+
+export const CandidateMessageMessageType = {
+  system: "system",
+  employer: "employer",
+} as const;
+
 export interface CandidateMessage {
   id: number;
-  senderEmployerProfileId: number;
+  senderEmployerProfileId?: number | null;
   recipientUserId: string;
   vacancyId?: number | null;
+  applicationId?: number | null;
+  messageType: CandidateMessageMessageType;
   messageText: string;
   subject: string;
   isRead: boolean;
+  archivedAt?: string | null;
   createdAt: string;
   companyName?: string | null;
   industry?: string | null;

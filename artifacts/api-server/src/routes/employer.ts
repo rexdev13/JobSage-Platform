@@ -15,6 +15,7 @@ import { eq, and, desc, ilike, gte, isNotNull, count } from "drizzle-orm";
 import { requireRole, requireAuthenticated } from "../middlewares/requireRole";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { sendCandidateContactEmail } from "../lib/email";
+import { createSystemMessage } from "../lib/systemMessages";
 
 const router: IRouter = Router();
 
@@ -511,7 +512,7 @@ router.put("/employer/jobs/:jobId/applicants/:applicationId/stage", requireEmplo
   const [empProfile] = await db.select().from(employerProfilesTable).where(eq(employerProfilesTable.userId, userId));
   if (!empProfile) { res.status(404).json({ error: "Employer profile not found." }); return; }
 
-  const [job] = await db.select({ id: jobListingsTable.id }).from(jobListingsTable).where(and(eq(jobListingsTable.id, jobId), eq(jobListingsTable.employerProfileId, empProfile.id)));
+  const [job] = await db.select({ id: jobListingsTable.id, title: jobListingsTable.title }).from(jobListingsTable).where(and(eq(jobListingsTable.id, jobId), eq(jobListingsTable.employerProfileId, empProfile.id)));
   if (!job) { res.status(404).json({ error: "Job listing not found." }); return; }
 
   const updateData: { status: string; notes?: string } = { status: stage };
@@ -524,6 +525,20 @@ router.put("/employer/jobs/:jobId/applicants/:applicationId/stage", requireEmplo
     .returning();
 
   if (!updated) { res.status(404).json({ error: "Application not found." }); return; }
+
+  if (stage !== "applied") {
+    const candidateUserId = updated.userId;
+    createSystemMessage({
+      recipientUserId: candidateUserId,
+      applicationId: updated.id,
+      vacancyId: jobId,
+      stage,
+      roleTitle: job.title ?? `Job #${jobId}`,
+      companyName: empProfile.companyName,
+    }).catch((err: unknown) => {
+      console.error("[inbox] Failed to create system message:", err);
+    });
+  }
 
   res.json({ applicationId: updated.id, stage: updated.status, notes: updated.notes });
 });
@@ -968,6 +983,34 @@ router.patch("/candidate/messages/:id/read", requireAuthenticated, async (req, r
     .returning();
   if (!updated) { res.status(404).json({ error: "Message not found." }); return; }
   res.json({ message: updated });
+});
+
+router.delete("/candidate/messages/:id", requireAuthenticated, async (req, res): Promise<void> => {
+  const userId = req.user!.id;
+  const msgId = parseInt(req.params.id as string, 10);
+  if (isNaN(msgId)) { res.status(400).json({ error: "Invalid message ID." }); return; }
+
+  const [updated] = await db
+    .update(candidateMessagesTable)
+    .set({ archivedAt: new Date(), isRead: true })
+    .where(and(eq(candidateMessagesTable.id, msgId), eq(candidateMessagesTable.recipientUserId, userId)))
+    .returning({ id: candidateMessagesTable.id });
+  if (!updated) { res.status(404).json({ error: "Message not found." }); return; }
+  res.json({ ok: true });
+});
+
+router.get("/candidate/messages/unread-count", requireAuthenticated, async (req, res): Promise<void> => {
+  const userId = req.user!.id;
+  const result = await db
+    .select({ count: count() })
+    .from(candidateMessagesTable)
+    .where(
+      and(
+        eq(candidateMessagesTable.recipientUserId, userId),
+        eq(candidateMessagesTable.isRead, false),
+      ),
+    );
+  res.json({ unreadCount: result[0]?.count ?? 0 });
 });
 
 export default router;
