@@ -1328,6 +1328,54 @@ export interface ContactCandidateRequest {
   applicationId?: number | null;
 }
 
+export interface JourneySubTask {
+  id: string;
+  label: string;
+  done: boolean;
+  href?: string | null;
+}
+
+export type JourneyStageItemStatus =
+  (typeof JourneyStageItemStatus)[keyof typeof JourneyStageItemStatus];
+
+export const JourneyStageItemStatus = {
+  locked: "locked",
+  notStarted: "notStarted",
+  inProgress: "inProgress",
+  complete: "complete",
+} as const;
+
+export interface JourneyStageItem {
+  id: string;
+  index: number;
+  name: string;
+  description: string;
+  status: JourneyStageItemStatus;
+  completionPct: number;
+  locked: boolean;
+  subTasks: JourneySubTask[];
+  nextUnlockHint?: string | null;
+  href: string;
+  iconName: string;
+  badgeKey?: string | null;
+}
+
+export interface JourneyBadge {
+  key: string;
+  name: string;
+  description: string;
+  iconName: string;
+  awardedAt: string;
+  isNew?: boolean | null;
+}
+
+export interface JourneyStatusResponse {
+  stages: JourneyStageItem[];
+  badges: JourneyBadge[];
+  readinessScore: number;
+  nextAction: string | null;
+}
+
 export interface UnreadCountResponse {
   unreadCount: number;
 }

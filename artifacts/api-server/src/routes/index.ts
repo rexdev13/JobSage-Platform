@@ -24,6 +24,7 @@ import progressReportRouter from "./progressReport";
 import analyticsReportRouter from "./analyticsReport";
 import speculativeApplicationsRouter from "./speculativeApplications";
 import superAdminRouter from "./superAdmin";
+import journeyRouter from "./journey";
 
 const router: IRouter = Router();
 
@@ -52,5 +53,6 @@ router.use(progressReportRouter);
 router.use(analyticsReportRouter);
 router.use(speculativeApplicationsRouter);
 router.use(superAdminRouter);
+router.use(journeyRouter);
 
 export default router;

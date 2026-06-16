@@ -10,6 +10,8 @@ import {
   useGetForwardEligibility,
   useToggleProfileBoost,
   getGetMyProfileQueryKey,
+  useGetJourneyStatus,
+  getGetJourneyStatusQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -130,6 +132,44 @@ function OutcomePill({ outcome, reviewFlagged }: { outcome: EligibilityOutcome; 
     <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${className}`}>
       {label}
     </span>
+  );
+}
+
+function JourneyReadinessCard({ delay }: { delay: number }) {
+  const { data } = useGetJourneyStatus({
+    query: { queryKey: getGetJourneyStatusQueryKey(), staleTime: 60_000 },
+  });
+  const score = data?.readinessScore ?? null;
+  const nextAction = data?.nextAction ?? null;
+  const color = score === null ? "text-muted-foreground"
+    : score >= 75 ? "text-emerald-600"
+    : score >= 50 ? "text-blue-600"
+    : score >= 25 ? "text-amber-600"
+    : "text-muted-foreground";
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay, duration: 0.4 }}
+    >
+      <Link href="/path">
+        <Card className="p-5 flex items-center gap-4 hover:shadow-md hover:border-primary/20 transition-all cursor-pointer group">
+          <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/15 transition-colors">
+            <TrendingUp className="w-5 h-5 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs text-muted-foreground font-medium">Journey Readiness</p>
+            <p className={`text-2xl font-display font-bold leading-tight ${color}`}>
+              {score !== null ? `${score}%` : "—"}
+            </p>
+            {nextAction && <p className="text-xs text-muted-foreground truncate">{nextAction}</p>}
+            {score === null && <p className="text-xs text-muted-foreground">View your career journey</p>}
+          </div>
+          <ArrowRight className="w-4 h-4 text-muted-foreground/40 ml-auto shrink-0 group-hover:text-primary/60 group-hover:translate-x-0.5 transition-all" />
+        </Card>
+      </Link>
+    </motion.div>
   );
 }
 
@@ -411,20 +451,7 @@ export default function DashboardPage() {
             href="/opportunities"
             delay={0.13}
           />
-          <StatCard
-            icon={TrendingUp}
-            label="Plan Progress"
-            value={totalSteps > 0 ? `${planPct}%` : "—"}
-            sub={
-              forwardEligibility?.timeToEligibilityMonths != null
-                ? `~${forwardEligibility.timeToEligibilityLabel} to eligibility`
-                : totalSteps > 0
-                  ? `${doneSteps} of ${totalSteps} steps done`
-                  : "No plan generated yet"
-            }
-            href="/path"
-            delay={0.15}
-          />
+          <JourneyReadinessCard delay={0.15} />
         </div>
 
         {/* 8-stage journey widget */}

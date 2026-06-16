@@ -2026,6 +2026,47 @@ export const GetMyProgressReportResponse = zod.object({
 });
 
 /**
+ * @summary Get the candidate's gamified journey status, stage progress, and earned badges
+ */
+export const GetJourneyStatusResponse = zod.object({
+  stages: zod.array(
+    zod.object({
+      id: zod.string(),
+      index: zod.number(),
+      name: zod.string(),
+      description: zod.string(),
+      status: zod.enum(["locked", "notStarted", "inProgress", "complete"]),
+      completionPct: zod.number(),
+      locked: zod.boolean(),
+      subTasks: zod.array(
+        zod.object({
+          id: zod.string(),
+          label: zod.string(),
+          done: zod.boolean(),
+          href: zod.string().nullish(),
+        }),
+      ),
+      nextUnlockHint: zod.string().nullish(),
+      href: zod.string(),
+      iconName: zod.string(),
+      badgeKey: zod.string().nullish(),
+    }),
+  ),
+  badges: zod.array(
+    zod.object({
+      key: zod.string(),
+      name: zod.string(),
+      description: zod.string(),
+      iconName: zod.string(),
+      awardedAt: zod.string(),
+      isNew: zod.boolean().nullish(),
+    }),
+  ),
+  readinessScore: zod.number(),
+  nextAction: zod.string().nullable(),
+});
+
+/**
  * @summary Get candidate's readiness score, chart data, and AI predictive insight
  */
 export const GetMyAnalyticsResponse = zod.object({
