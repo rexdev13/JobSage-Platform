@@ -4,12 +4,15 @@ import {
   useUpsertMyProfile,
   useListProfessions,
   useRequestUploadUrl,
+  useGetJourneyStatus,
+  getGetJourneyStatusQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetMyProfileQueryKey } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Card, Button, Input, Select, Label, PageTransition } from "@/components/ui-enhanced";
-import { Save, UserCircle, Bell, Info, Camera, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Card, Button, Input, Select, Label, PageTransition, cn } from "@/components/ui-enhanced";
+import { Save, UserCircle, Bell, Info, Camera, Loader2, CheckCircle2, AlertCircle, Star, Trophy, Files, ShieldCheck, Send, MessageSquare, UserCheck } from "lucide-react";
+import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 
 type RegistrationStatus = "registered" | "not_registered" | "in_process";
@@ -242,6 +245,9 @@ export default function ProfilePage() {
   const { data: professionsData } = useListProfessions();
   const upsertMutation = useUpsertMyProfile();
   const queryClient = useQueryClient();
+  const { data: journeyData } = useGetJourneyStatus({
+    query: { queryKey: getGetJourneyStatusQueryKey(), staleTime: 60_000 },
+  });
   const { toast } = useToast();
 
   const professionSuggestions = professionsData?.professions ?? FALLBACK_PROFESSIONS;
@@ -890,6 +896,44 @@ export default function ProfilePage() {
               </div>
             </div>
           </Card>
+
+          {/* Earned Badges */}
+          {journeyData && journeyData.badges.length > 0 && (
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold mb-2 border-b pb-4 flex items-center gap-2">
+                <Star className="w-5 h-5 text-amber-500" />
+                My Badges
+                <span className="ml-1 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
+                  {journeyData.badges.length}
+                </span>
+              </h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Badges you've earned as you progress along your UK healthcare career journey.{" "}
+                <Link href="/path"><span className="text-primary font-medium hover:underline cursor-pointer">View full journey →</span></Link>
+              </p>
+              <div className="flex flex-wrap gap-3">
+                {journeyData.badges.map((badge) => {
+                  const iconMap: Record<string, React.ElementType> = { UserCheck, Files, ShieldCheck, Send, Star, MessageSquare, Trophy };
+                  const Icon = iconMap[badge.iconName] ?? Star;
+                  return (
+                    <div
+                      key={badge.key}
+                      title={badge.description}
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 dark:bg-amber-950/20 dark:border-amber-800/40"
+                    >
+                      <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center text-amber-700 dark:text-amber-400 shrink-0">
+                        <Icon className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-foreground leading-tight">{badge.name}</p>
+                        <p className="text-xs text-muted-foreground leading-tight">{badge.description}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          )}
 
           {/* Job Alert Preferences */}
           <Card className="p-6">

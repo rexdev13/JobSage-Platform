@@ -365,7 +365,6 @@ function BadgeShelf({ badges }: { badges: JourneyBadge[] }) {
 
 export default function PathPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [prevStageIds, setPrevStageIds] = useState<Set<string>>(new Set());
   const confettiFired = useRef(false);
   const queryClient = useQueryClient();
 
@@ -381,22 +380,19 @@ export default function PathPage() {
   const readinessScore = data?.readinessScore ?? 0;
   const nextAction = data?.nextAction ?? null;
 
-  // Detect newly completed stages and fire confetti
+  // Fire confetti when the API returns newly-awarded badges (isNew flag)
   useEffect(() => {
     if (!data || confettiFired.current) return;
-    const newlyCompleted = stages.filter(
-      (s) => s.status === "complete" && !prevStageIds.has(s.id),
-    );
-    if (newlyCompleted.length > 0 && prevStageIds.size > 0) {
+    const hasNew = badges.some((b) => b.isNew);
+    if (hasNew) {
       void confetti({
-        particleCount: 120,
-        spread: 70,
-        origin: { y: 0.5 },
+        particleCount: 140,
+        spread: 80,
+        origin: { y: 0.45 },
         colors: ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6"],
       });
       confettiFired.current = true;
     }
-    setPrevStageIds(new Set(stages.map((s) => s.id)));
   }, [data]);
 
   useEffect(() => {
