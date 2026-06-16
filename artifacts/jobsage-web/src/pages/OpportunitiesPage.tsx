@@ -749,7 +749,7 @@ export default function OpportunitiesPage() {
     : 0;
 
   function handleSmartApply(roleId: number, roleTitle: string) {
-    if (profileCompletionPct < 100) {
+    if (profileCompletionPct < 80) {
       toast({
         title: "Complete your profile first",
         description: "Your profile must be 100% complete before using Smart Apply. Visit your Profile page to fill in the missing fields.",
