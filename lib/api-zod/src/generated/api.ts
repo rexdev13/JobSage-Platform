@@ -832,6 +832,49 @@ export const ListMatchedRolesResponse = zod.object({
 });
 
 /**
+ * @summary Get AI-scored top job matches for the current candidate
+ */
+export const getMyMatchesQueryLimitDefault = 10;
+
+export const GetMyMatchesQueryParams = zod.object({
+  limit: zod.coerce.number().default(getMyMatchesQueryLimitDefault),
+});
+
+export const GetMyMatchesResponse = zod.object({
+  matches: zod.array(
+    zod.object({
+      roleId: zod.number(),
+      title: zod.string(),
+      employer: zod.string(),
+      location: zod.string(),
+      regulator: zod.string(),
+      sponsorshipOffered: zod.boolean(),
+      requiredRegistration: zod.string(),
+      aiScore: zod.number().describe("AI-generated match score 0-100"),
+      aiExplanation: zod
+        .string()
+        .describe("One-line AI explanation of the match"),
+      isEligible: zod.boolean(),
+      eligibilityGaps: zod.array(zod.string()).optional(),
+    }),
+  ),
+  dismissedRoleIds: zod.array(zod.number()),
+  totalCount: zod.number(),
+  cached: zod.boolean(),
+});
+
+/**
+ * @summary Dismiss a match from the candidate's queue
+ */
+export const DismissMatchBody = zod.object({
+  roleId: zod.number(),
+});
+
+export const DismissMatchResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
  * @summary List all roles in the catalogue (admin only)
  */
 export const AdminListRolesResponse = zod.object({

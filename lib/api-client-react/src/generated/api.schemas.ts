@@ -1504,6 +1504,37 @@ export interface SuperAdminHealth {
   serverErrors5xxLast7Days: number;
 }
 
+export interface CandidateMatchItem {
+  roleId: number;
+  title: string;
+  employer: string;
+  location: string;
+  regulator: string;
+  sponsorshipOffered: boolean;
+  requiredRegistration: string;
+  /** AI-generated match score 0-100 */
+  aiScore: number;
+  /** One-line AI explanation of the match */
+  aiExplanation: string;
+  isEligible: boolean;
+  eligibilityGaps?: string[];
+}
+
+export interface CandidateMatchList {
+  matches: CandidateMatchItem[];
+  dismissedRoleIds: number[];
+  totalCount: number;
+  cached: boolean;
+}
+
+export interface DismissMatchRequest {
+  roleId: number;
+}
+
+export interface OkResponse {
+  ok: boolean;
+}
+
 export type VerifyEmailParams = {
   /**
    * Email verification token from the verification email.
@@ -1554,6 +1585,10 @@ export const ListDecisionsOutcome = {
 
 export type SaveSmartApplyDraft200 = {
   ok: boolean;
+};
+
+export type GetMyMatchesParams = {
+  limit?: number;
 };
 
 export type ImportRolesCSVBody = {

@@ -29,6 +29,7 @@ import type {
   BoostProfileResponse,
   CampaignListResponse,
   CandidateAnalytics,
+  CandidateMatchList,
   CandidateMessageListResponse,
   CandidateProfile,
   ConsentLogList,
@@ -46,6 +47,7 @@ import type {
   DeleteJobListing200,
   DescriptionFeedbackRequest,
   DescriptionFeedbackResponse,
+  DismissMatchRequest,
   Document,
   DocumentList,
   EligibilityHistoryList,
@@ -60,6 +62,7 @@ import type {
   GenerateJobDescriptionPreviewRequest,
   GenerateJobDescriptionResponse,
   GetInterviewPrepQuestionsParams,
+  GetMyMatchesParams,
   GetSuperAdminDocumentParams,
   GetSuperAdminUsersParams,
   HeadhuntCampaign,
@@ -82,6 +85,7 @@ import type {
   MarkMessageRead200,
   MatchedRoleList,
   MessageEnvelope,
+  OkResponse,
   ProfessionListResponse,
   ProgressReportResponse,
   RecordConsentRequest,
@@ -3261,6 +3265,186 @@ export function useListMatchedRoles<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Get AI-scored top job matches for the current candidate
+ */
+export const getGetMyMatchesUrl = (params?: GetMyMatchesParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/roles/my-matches?${stringifiedParams}`
+    : `/api/roles/my-matches`;
+};
+
+export const getMyMatches = async (
+  params?: GetMyMatchesParams,
+  options?: RequestInit,
+): Promise<CandidateMatchList> => {
+  return customFetch<CandidateMatchList>(getGetMyMatchesUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMyMatchesQueryKey = (params?: GetMyMatchesParams) => {
+  return [`/api/roles/my-matches`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetMyMatchesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMyMatches>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  params?: GetMyMatchesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMyMatches>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMyMatchesQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getMyMatches>>> = ({
+    signal,
+  }) => getMyMatches(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMyMatches>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMyMatchesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMyMatches>>
+>;
+export type GetMyMatchesQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Get AI-scored top job matches for the current candidate
+ */
+
+export function useGetMyMatches<
+  TData = Awaited<ReturnType<typeof getMyMatches>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  params?: GetMyMatchesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMyMatches>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMyMatchesQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Dismiss a match from the candidate's queue
+ */
+export const getDismissMatchUrl = () => {
+  return `/api/roles/dismiss-match`;
+};
+
+export const dismissMatch = async (
+  dismissMatchRequest: DismissMatchRequest,
+  options?: RequestInit,
+): Promise<OkResponse> => {
+  return customFetch<OkResponse>(getDismissMatchUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(dismissMatchRequest),
+  });
+};
+
+export const getDismissMatchMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof dismissMatch>>,
+    TError,
+    { data: BodyType<DismissMatchRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof dismissMatch>>,
+  TError,
+  { data: BodyType<DismissMatchRequest> },
+  TContext
+> => {
+  const mutationKey = ["dismissMatch"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof dismissMatch>>,
+    { data: BodyType<DismissMatchRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return dismissMatch(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DismissMatchMutationResult = NonNullable<
+  Awaited<ReturnType<typeof dismissMatch>>
+>;
+export type DismissMatchMutationBody = BodyType<DismissMatchRequest>;
+export type DismissMatchMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Dismiss a match from the candidate's queue
+ */
+export const useDismissMatch = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof dismissMatch>>,
+    TError,
+    { data: BodyType<DismissMatchRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof dismissMatch>>,
+  TError,
+  { data: BodyType<DismissMatchRequest> },
+  TContext
+> => {
+  return useMutation(getDismissMatchMutationOptions(options));
+};
 
 /**
  * @summary List all roles in the catalogue (admin only)

@@ -14,3 +14,4 @@ export * from "./sponsorLicences";
 export * from "./speculativeApplications";
 export * from "./headhuntCampaigns";
 export * from "./candidateMessages";
+export * from "./candidateMatchScores";
