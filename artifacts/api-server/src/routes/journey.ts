@@ -60,7 +60,9 @@ router.get("/journey/status", requireAuthenticated, async (req, res): Promise<vo
   if (offers > 0 && !existingKeys.has("offer_received")) toAward.push("offer_received");
 
   if (toAward.length > 0) {
-    await db.insert(candidateBadgesTable).values(toAward.map((key) => ({ userId, badgeKey: key })));
+    await db.insert(candidateBadgesTable)
+      .values(toAward.map((key) => ({ userId, badgeKey: key })))
+      .onConflictDoNothing();
     toAward.forEach((k) => existingKeys.add(k));
   }
 
@@ -247,14 +249,20 @@ router.get("/journey/status", requireAuthenticated, async (req, res): Promise<vo
     },
   ];
 
-  // Apply strict sequential locking: stage N is locked until stage N-1 is complete
+  // Apply strict sequential locking using an iterative resolved-state pass.
+  // Each stage's lock is determined by the RESOLVED complete status of the previous stage
+  // (not its raw _complete flag), so a stage that is locked cannot propagate completion forward.
+  const resolvedCompleteArr: boolean[] = [];
   const stages = rawStages.map((raw, i) => {
-    const prevComplete = i === 0 || rawStages[i - 1]._complete;
-    const locked = !prevComplete;
+    const prevResolvedComplete = i === 0 || resolvedCompleteArr[i - 1];
+    const locked = !prevResolvedComplete;
+    const resolvedComplete = !locked && raw._complete;
+    resolvedCompleteArr.push(resolvedComplete);
+
     let status: "locked" | "notStarted" | "inProgress" | "complete";
     if (locked) {
       status = "locked";
-    } else if (raw._complete) {
+    } else if (resolvedComplete) {
       status = "complete";
     } else if (raw.completionPct > 0) {
       status = "inProgress";
@@ -267,7 +275,7 @@ router.get("/journey/status", requireAuthenticated, async (req, res): Promise<vo
       locked,
       status,
       completionPct: locked ? 0 : raw.completionPct,
-      nextUnlockHint: locked ? raw.nextUnlockHint : (raw._complete ? null : raw.nextUnlockHint),
+      nextUnlockHint: locked ? raw.nextUnlockHint : (resolvedComplete ? null : raw.nextUnlockHint),
     };
   });
 
