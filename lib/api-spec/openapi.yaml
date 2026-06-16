@@ -2886,9 +2886,11 @@ components:
           nullable: true
           description: Object storage key for the profile photo
         languages:
-          type: string
+          type: array
           nullable: true
-          description: Comma-separated languages spoken (e.g. English, Hindi, Urdu)
+          description: Languages spoken
+          items:
+            type: string
         additionalNotes:
           type: string
           nullable: true
@@ -2963,8 +2965,10 @@ components:
           type: string
           nullable: true
         languages:
-          type: string
+          type: array
           nullable: true
+          items:
+            type: string
         additionalNotes:
           type: string
           nullable: true

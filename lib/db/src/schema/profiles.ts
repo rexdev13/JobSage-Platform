@@ -21,7 +21,7 @@ export const profilesTable = pgTable("profiles", {
   boostProfile: boolean("boost_profile").notNull().default(false),
   preferredStartDate: date("preferred_start_date"),
   profilePhotoKey: text("profile_photo_key"),
-  languages: text("languages"),
+  languages: text("languages").array(),
   additionalNotes: text("additional_notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

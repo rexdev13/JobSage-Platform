@@ -23,7 +23,12 @@ function computeCompletionPct(p: ProfileRow): number {
     p.languages,
     p.additionalNotes,
   ];
-  const filled = scored.filter((f) => f != null && f !== "").length;
+  const filled = scored.filter((f) => {
+    if (f == null) return false;
+    if (typeof f === "string") return f !== "";
+    if (Array.isArray(f)) return f.length > 0;
+    return true;
+  }).length;
   return Math.min(100, Math.round((filled / scored.length) * 100));
 }
 
@@ -111,13 +116,15 @@ router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
     alertFrequency: (d.alertFrequency ?? "daily") as "daily" | "weekly" | "off",
     preferredStartDate: d.preferredStartDate ?? null,
     profilePhotoKey: d.profilePhotoKey ?? null,
-    languages: d.languages ?? null,
+    // drizzle types don't fully narrow text[].array() columns in .values()/.set(); cast needed
+    languages: (d.languages ?? null) as unknown as string[] | null,
     additionalNotes: d.additionalNotes ?? null,
   };
 
   const [profile] = await db
     .insert(profilesTable)
-    .values(values)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .values(values as any)
     .onConflictDoUpdate({
       target: profilesTable.userId,
       set: {
@@ -135,7 +142,8 @@ router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
         alertFrequency: d.alertFrequency ?? "daily",
         preferredStartDate: d.preferredStartDate ?? null,
         profilePhotoKey: d.profilePhotoKey ?? null,
-        languages: d.languages ?? null,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        languages: (d.languages ?? null) as any,
         additionalNotes: d.additionalNotes ?? null,
         updatedAt: new Date(),
       },
