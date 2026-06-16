@@ -11,10 +11,13 @@ import {
   applicationsTable,
   jobListingsTable,
   employerProfilesTable,
+  candidateMatchScoresTable,
+  matchDismissalsTable,
 } from "@workspace/db";
-import { eq, desc, and, inArray } from "drizzle-orm";
-import { requireRole } from "../middlewares/requireRole";
+import { eq, desc, and, inArray, gte } from "drizzle-orm";
+import { requireRole, requireAuthenticated } from "../middlewares/requireRole";
 import { assessSponsorshipFeasibility } from "../lib/sponsorshipFeasibility";
+import { batchScoreRoles } from "../lib/candidateAiMatch";
 
 const router: IRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -239,6 +242,190 @@ router.get("/roles", async (req, res): Promise<void> => {
     message: null,
     appliedRoleIds,
   });
+});
+
+const SCORE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const MAX_ROLES_TO_SCORE = 25;
+
+router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<void> => {
+  const userId = req.user!.id;
+  const limit = Math.min(50, parseInt(String(req.query.limit ?? "10"), 10) || 10);
+
+  const [profile] = await db.select().from(profilesTable).where(eq(profilesTable.userId, userId));
+  if (!profile) {
+    res.status(400).json({ error: "Profile not found. Please complete your profile first." });
+    return;
+  }
+
+  const regulator = regulatorForProfession(profile.profession);
+  if (!regulator) {
+    res.status(400).json({ error: "Could not determine regulatory body from your profession." });
+    return;
+  }
+
+  const [decision] = await db
+    .select()
+    .from(decisionRecordsTable)
+    .where(eq(decisionRecordsTable.userId, userId))
+    .orderBy(desc(decisionRecordsTable.createdAt))
+    .limit(1);
+
+  const isRegistered =
+    profile.registrationStatus != null &&
+    REGISTERED_STATUSES.includes(profile.registrationStatus.toLowerCase());
+  const isLicenceReady = profile.licenceReady === true;
+  const userIsEligible = decision?.outcome === "eligible";
+
+  const allRoles = await db.select().from(rolesTable).where(eq(rolesTable.active, true));
+  const publishedJobListings = await db
+    .select({ job: jobListingsTable, emp: employerProfilesTable })
+    .from(jobListingsTable)
+    .innerJoin(employerProfilesTable, eq(jobListingsTable.employerProfileId, employerProfilesTable.id))
+    .where(eq(jobListingsTable.status, "published"));
+
+  const employerJobsAsRoles = publishedJobListings
+    .filter((row) => {
+      const job = row.job;
+      if (job.regulator !== regulator) return false;
+      const tp = (job.targetProfessions ?? []) as string[];
+      if (tp.length > 0 && !tp.includes(profile.profession)) return false;
+      return true;
+    })
+    .map((row) => ({
+      id: row.job.id + 1_000_000,
+      title: row.job.title,
+      employer: row.emp.companyName,
+      location: row.job.location,
+      regulator: row.job.regulator as "GMC" | "NMC" | "HCPC",
+      sponsorshipOffered: row.job.sponsorshipOffered,
+      requiredRegistration: row.job.requiredRegistration,
+    }));
+
+  const regulatorRoles = [
+    ...allRoles.filter((r) => r.regulator === regulator).map((r) => ({
+      id: r.id, title: r.title, employer: r.employer, location: r.location,
+      regulator: r.regulator, sponsorshipOffered: r.sponsorshipOffered,
+      requiredRegistration: r.requiredRegistration,
+    })),
+    ...employerJobsAsRoles,
+  ].slice(0, MAX_ROLES_TO_SCORE);
+
+  if (regulatorRoles.length === 0) {
+    res.json({ matches: [], dismissedRoleIds: [], totalCount: 0, cached: false });
+    return;
+  }
+
+  const cutoff = new Date(Date.now() - SCORE_CACHE_TTL_MS);
+  const cachedScores = await db
+    .select()
+    .from(candidateMatchScoresTable)
+    .where(
+      and(
+        eq(candidateMatchScoresTable.userId, userId),
+        gte(candidateMatchScoresTable.scoredAt, cutoff),
+      ),
+    );
+
+  let scoreMap: Map<number, { score: number; explanation: string }>;
+  let cached = false;
+
+  const cachedRoleIds = new Set(cachedScores.map((s) => s.roleId));
+  const allCovered = regulatorRoles.every((r) => cachedRoleIds.has(r.id));
+
+  if (allCovered && cachedScores.length > 0) {
+    scoreMap = new Map(cachedScores.map((s) => [s.roleId, { score: s.score, explanation: s.aiExplanation }]));
+    cached = true;
+  } else {
+    scoreMap = await batchScoreRoles(
+      {
+        profession: profile.profession,
+        specialty: profile.specialty,
+        experienceYears: profile.experienceYears,
+        qualificationCountry: profile.qualificationCountry,
+        registrationStatus: profile.registrationStatus,
+        requiresSponsorship: profile.requiresSponsorship,
+      },
+      regulatorRoles,
+    );
+
+    await db.delete(candidateMatchScoresTable).where(eq(candidateMatchScoresTable.userId, userId));
+    if (regulatorRoles.length > 0) {
+      await db.insert(candidateMatchScoresTable).values(
+        regulatorRoles.map((r) => ({
+          userId,
+          roleId: r.id,
+          score: scoreMap.get(r.id)?.score ?? 50,
+          aiExplanation: scoreMap.get(r.id)?.explanation ?? "Profile matched to role requirements.",
+        })),
+      );
+    }
+  }
+
+  const dismissals = await db
+    .select({ roleId: matchDismissalsTable.roleId })
+    .from(matchDismissalsTable)
+    .where(eq(matchDismissalsTable.userId, userId));
+  const dismissedRoleIds = dismissals.map((d) => d.roleId);
+  const dismissedSet = new Set(dismissedRoleIds);
+
+  const matches = regulatorRoles
+    .filter((r) => !dismissedSet.has(r.id))
+    .map((r) => {
+      const reqReg = r.requiredRegistration.toLowerCase();
+      const roleRequiresFull = reqReg.includes("full") || reqReg.includes("registered");
+      const meetsRegistration = roleRequiresFull ? isRegistered || isLicenceReady : true;
+      const isEligible = userIsEligible && meetsRegistration;
+
+      const eligibilityGaps: string[] = [];
+      if (!isEligible && decision) {
+        if (!meetsRegistration) {
+          eligibilityGaps.push(
+            `Full registration required. Your current status: ${profile.registrationStatus?.replace(/_/g, " ") ?? "not set"}.`,
+          );
+        }
+        if (!userIsEligible && decision.explanationText) {
+          eligibilityGaps.push(decision.explanationText);
+        }
+      }
+
+      return {
+        roleId: r.id,
+        title: r.title,
+        employer: r.employer,
+        location: r.location,
+        regulator: r.regulator,
+        sponsorshipOffered: r.sponsorshipOffered,
+        requiredRegistration: r.requiredRegistration,
+        aiScore: scoreMap.get(r.id)?.score ?? 50,
+        aiExplanation: scoreMap.get(r.id)?.explanation ?? "Profile matched to role requirements.",
+        isEligible,
+        eligibilityGaps,
+      };
+    })
+    .sort((a, b) => {
+      if (a.isEligible !== b.isEligible) return a.isEligible ? -1 : 1;
+      return b.aiScore - a.aiScore;
+    })
+    .slice(0, limit);
+
+  res.json({ matches, dismissedRoleIds, totalCount: regulatorRoles.length - dismissedSet.size, cached });
+});
+
+router.post("/roles/dismiss-match", requireAuthenticated, async (req, res): Promise<void> => {
+  const userId = req.user!.id;
+  const { roleId } = req.body as { roleId: number };
+
+  if (!roleId || typeof roleId !== "number") {
+    res.status(400).json({ error: "roleId is required." });
+    return;
+  }
+
+  await db
+    .insert(matchDismissalsTable)
+    .values({ userId, roleId })
+    .onConflictDoNothing();
+
+  res.json({ ok: true });
 });
 
 router.get("/admin/roles", requireRole("admin"), async (_req, res): Promise<void> => {

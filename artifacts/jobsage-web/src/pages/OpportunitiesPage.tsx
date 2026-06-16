@@ -7,10 +7,14 @@ import {
   useMarkApplication,
   useGenerateCoverLetter,
   useGetMyProfile,
+  useGetMyMatches,
+  useDismissMatch,
   getListMyApplicationsQueryKey,
   getListMatchedRolesQueryKey,
+  getGetMyMatchesQueryKey,
   type MatchedRole,
   type ApplicationList,
+  type CandidateMatchItem,
 } from "@workspace/api-client-react";
 import { SmartApplyModal } from "@/components/SmartApplyModal";
 import { useLocation } from "wouter";
@@ -42,11 +46,180 @@ import {
   FileText,
   Copy,
   Loader2,
+  Zap,
 } from "lucide-react";
 import { DisclaimerBanner } from "@/components/ui/DisclaimerBanner";
 import { motion, AnimatePresence } from "framer-motion";
 
 type Tab = "board" | "employers" | "applications";
+
+function AiScoreBadge({ score }: { score: number }) {
+  const cls =
+    score >= 80
+      ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+      : score >= 55
+      ? "bg-blue-100 text-blue-800 border-blue-200"
+      : "bg-muted text-muted-foreground border-border";
+  return (
+    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border ${cls}`}>
+      <Zap className="w-3 h-3" /> {score}% match
+    </span>
+  );
+}
+
+function BestMatchesStrip({
+  appliedRoleIds,
+  onSmartApply,
+}: {
+  appliedRoleIds: number[];
+  onSmartApply: (roleId: number, roleTitle: string) => void;
+}) {
+  const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
+  const [localDismissedIds, setLocalDismissedIds] = useState<Set<number>>(new Set());
+
+  const { data, isLoading } = useGetMyMatches({ limit: 10 });
+  const dismissMutation = useDismissMatch();
+
+  const serverDismissed = new Set(data?.dismissedRoleIds ?? []);
+  const effectiveDismissed = new Set([...serverDismissed, ...localDismissedIds]);
+
+  const allMatches: CandidateMatchItem[] = data?.matches ?? [];
+  const visibleQueue = allMatches
+    .filter((m) => !effectiveDismissed.has(m.roleId) && !appliedRoleIds.includes(m.roleId))
+    .slice(0, 3);
+
+  const seeAllCount = data?.totalCount ?? allMatches.length;
+
+  function handleDismiss(roleId: number) {
+    setLocalDismissedIds((prev) => new Set([...prev, roleId]));
+    dismissMutation.mutate(
+      { data: { roleId } },
+      {
+        onSettled: () => {
+          void queryClient.invalidateQueries({ queryKey: getGetMyMatchesQueryKey({ limit: 10 }) });
+        },
+      },
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="rounded-2xl border border-border bg-gradient-to-br from-primary/3 to-accent/3 p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Zap className="w-4 h-4 text-primary animate-pulse" />
+          <span className="text-sm font-semibold text-foreground">Your Best Matches Right Now</span>
+          <span className="text-xs text-muted-foreground ml-1">AI scoring…</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-28 rounded-xl bg-muted/50 animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (!data || allMatches.length === 0) return null;
+
+  if (visibleQueue.length === 0) {
+    return (
+      <div className="rounded-2xl border border-border bg-gradient-to-br from-primary/3 to-accent/3 p-5 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+          <p className="text-sm font-medium text-foreground">You&apos;ve reviewed all your top matches — well done!</p>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => document.getElementById("job-board-section")?.scrollIntoView({ behavior: "smooth" })}
+        >
+          See all roles
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/3 to-accent/3 p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Zap className="w-4 h-4 text-primary" />
+          <h2 className="text-sm font-semibold text-foreground">Your Best Matches Right Now</h2>
+          <span className="px-1.5 py-0.5 text-xs rounded bg-primary/10 text-primary font-medium">AI</span>
+        </div>
+        <p className="text-xs text-muted-foreground">{data.cached ? "Updated today" : "Just scored"}</p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {visibleQueue.map((match) => (
+          <motion.div
+            key={match.roleId}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="relative bg-background rounded-xl border border-border p-4 flex flex-col gap-2 shadow-sm"
+          >
+            <button
+              className="absolute top-2 right-2 text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-muted transition-colors"
+              onClick={() => handleDismiss(match.roleId)}
+              title="Dismiss"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+
+            <div className="flex items-start gap-2 pr-6">
+              <AiScoreBadge score={match.aiScore} />
+            </div>
+
+            <p className="text-xs text-muted-foreground italic leading-snug">&ldquo;{match.aiExplanation}&rdquo;</p>
+
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-foreground leading-tight line-clamp-2">{match.title}</p>
+              <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1"><Building2 className="w-3 h-3" />{match.employer}</span>
+                <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{match.location}</span>
+              </div>
+            </div>
+
+            <div className="flex gap-2 mt-auto pt-1">
+              {match.isEligible ? (
+                <Button
+                  size="sm"
+                  className="flex-1 text-xs h-8 gap-1"
+                  onClick={() => onSmartApply(match.roleId, match.title)}
+                >
+                  <Sparkles className="w-3 h-3" /> Apply Now
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 text-xs h-8 gap-1 text-amber-700 border-amber-200"
+                  onClick={() => setLocation("/path")}
+                >
+                  View Path <ArrowRight className="w-3 h-3" />
+                </Button>
+              )}
+            </div>
+          </motion.div>
+        ))}
+      </div>
+
+      <div className="flex items-center justify-between pt-1">
+        <p className="text-xs text-muted-foreground">
+          Showing {visibleQueue.length} of {seeAllCount} AI-ranked matches
+        </p>
+        <button
+          className="text-xs text-primary font-medium flex items-center gap-1 hover:underline"
+          onClick={() => document.getElementById("job-board-section")?.scrollIntoView({ behavior: "smooth" })}
+        >
+          See all matches <ArrowRight className="w-3 h-3" />
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function SponsorshipBadge({ outcome }: { outcome: "feasible" | "not_feasible" | "uncertain" | undefined }) {
   if (!outcome) return null;
@@ -859,6 +1032,14 @@ export default function OpportunitiesPage() {
         {/* Job Board tab */}
         {!isLoading && !isError && activeTab === "board" && (
           <div className="space-y-8">
+            {/* Best Matches AI Strip */}
+            {roles.length > 0 && (
+              <BestMatchesStrip
+                appliedRoleIds={appliedRoleIds}
+                onSmartApply={handleSmartApply}
+              />
+            )}
+
             {roles.length === 0 ? (
               <Card className="p-8 text-center">
                 <Briefcase className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
@@ -876,7 +1057,7 @@ export default function OpportunitiesPage() {
               <>
                 {/* Eligible Now section */}
                 {eligibleRoles.length > 0 && (
-                  <section>
+                  <section id="job-board-section">
                     <div className="flex items-center gap-2 mb-4">
                       <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                       <h2 className="text-base font-semibold text-foreground">

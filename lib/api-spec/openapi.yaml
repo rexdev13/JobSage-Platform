@@ -1043,6 +1043,62 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
 
+  /roles/my-matches:
+    get:
+      tags: [Roles]
+      operationId: getMyMatches
+      summary: Get AI-scored top job matches for the current candidate
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: AI-ranked matches for this candidate.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CandidateMatchList'
+        '400':
+          description: Profile not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /roles/dismiss-match:
+    post:
+      tags: [Roles]
+      operationId: dismissMatch
+      summary: Dismiss a match from the candidate's queue
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DismissMatchRequest'
+      responses:
+        '200':
+          description: Match dismissed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
   /admin/roles:
     get:
       tags: [Roles]
@@ -5208,3 +5264,65 @@ components:
         serverErrors5xxLast7Days:
           type: integer
           description: Count of 5xx HTTP errors (api_error_5xx audit events) in the last 7 days.
+
+    CandidateMatchItem:
+      type: object
+      required: [roleId, title, employer, location, regulator, sponsorshipOffered, requiredRegistration, aiScore, aiExplanation, isEligible]
+      properties:
+        roleId:
+          type: integer
+        title:
+          type: string
+        employer:
+          type: string
+        location:
+          type: string
+        regulator:
+          type: string
+        sponsorshipOffered:
+          type: boolean
+        requiredRegistration:
+          type: string
+        aiScore:
+          type: integer
+          description: AI-generated match score 0-100
+        aiExplanation:
+          type: string
+          description: One-line AI explanation of the match
+        isEligible:
+          type: boolean
+        eligibilityGaps:
+          type: array
+          items:
+            type: string
+
+    CandidateMatchList:
+      type: object
+      required: [matches, dismissedRoleIds, totalCount, cached]
+      properties:
+        matches:
+          type: array
+          items:
+            $ref: '#/components/schemas/CandidateMatchItem'
+        dismissedRoleIds:
+          type: array
+          items:
+            type: integer
+        totalCount:
+          type: integer
+        cached:
+          type: boolean
+
+    DismissMatchRequest:
+      type: object
+      required: [roleId]
+      properties:
+        roleId:
+          type: integer
+
+    OkResponse:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
