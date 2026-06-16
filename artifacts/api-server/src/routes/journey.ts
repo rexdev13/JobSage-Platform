@@ -118,8 +118,8 @@ router.get("/journey/status", requireAuthenticated, async (req, res): Promise<vo
       badgeKey: "profile_complete",
     },
     {
-      id: "documents", index: 1, name: "Documents",
-      description: "Upload your qualification certificates and registration documents",
+      id: "documents", index: 1, name: "Verification",
+      description: "Upload and verify your qualification certificates and professional documents",
       href: "/documents", iconName: "Files",
       _complete: docCount >= 3,
       completionPct: Math.min(100, Math.round((docCount / 3) * 100)),
