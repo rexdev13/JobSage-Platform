@@ -128,6 +128,7 @@ import type {
   SuperAdminUserListResponse,
   TalentSearchParams,
   TalentSearchResponse,
+  UnreadCountResponse,
   UpdateApplicantStageRequest,
   UpdateApplicantStageResponse,
   UpdateJobListingRequest,
@@ -6305,6 +6306,81 @@ export function useGetCandidateMessages<
 }
 
 /**
+ * @summary Get the number of unread messages for the current candidate
+ */
+export const getGetInboxUnreadCountUrl = () => {
+  return `/api/candidate/messages/unread-count`;
+};
+
+export const getInboxUnreadCount = async (
+  options?: RequestInit,
+): Promise<UnreadCountResponse> => {
+  return customFetch<UnreadCountResponse>(getGetInboxUnreadCountUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetInboxUnreadCountQueryKey = () => {
+  return [`/api/candidate/messages/unread-count`] as const;
+};
+
+export const getGetInboxUnreadCountQueryOptions = <
+  TData = Awaited<ReturnType<typeof getInboxUnreadCount>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getInboxUnreadCount>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetInboxUnreadCountQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getInboxUnreadCount>>
+  > = ({ signal }) => getInboxUnreadCount({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getInboxUnreadCount>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetInboxUnreadCountQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getInboxUnreadCount>>
+>;
+export type GetInboxUnreadCountQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get the number of unread messages for the current candidate
+ */
+
+export function useGetInboxUnreadCount<
+  TData = Awaited<ReturnType<typeof getInboxUnreadCount>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getInboxUnreadCount>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetInboxUnreadCountQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary Mark a candidate message as read
  */
 export const getMarkMessageReadUrl = (id: number) => {
@@ -6386,6 +6462,90 @@ export const useMarkMessageRead = <
   TContext
 > => {
   return useMutation(getMarkMessageReadMutationOptions(options));
+};
+
+/**
+ * @summary Archive a message (soft-delete)
+ */
+export const getArchiveMessageUrl = (id: number) => {
+  return `/api/candidate/messages/${id}`;
+};
+
+export const archiveMessage = async (
+  id: number,
+  options?: RequestInit,
+): Promise<OkResponse> => {
+  return customFetch<OkResponse>(getArchiveMessageUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getArchiveMessageMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof archiveMessage>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof archiveMessage>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["archiveMessage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof archiveMessage>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return archiveMessage(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ArchiveMessageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof archiveMessage>>
+>;
+
+export type ArchiveMessageMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Archive a message (soft-delete)
+ */
+export const useArchiveMessage = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof archiveMessage>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof archiveMessage>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getArchiveMessageMutationOptions(options));
 };
 
 /**

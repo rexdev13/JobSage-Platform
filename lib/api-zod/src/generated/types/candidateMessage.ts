@@ -5,15 +5,19 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { CandidateMessageMessageType } from "./candidateMessageMessageType";
 
 export interface CandidateMessage {
   id: number;
-  senderEmployerProfileId: number;
+  senderEmployerProfileId?: number | null;
   recipientUserId: string;
   vacancyId?: number | null;
+  applicationId?: number | null;
+  messageType: CandidateMessageMessageType;
   messageText: string;
   subject: string;
   isRead: boolean;
+  archivedAt?: Date | null;
   createdAt: Date;
   companyName?: string | null;
   industry?: string | null;

@@ -36,6 +36,7 @@ import EligibilityPage from "@/pages/EligibilityPage";
 import AdminRulesetsPage from "@/pages/AdminRulesetsPage";
 import OpportunitiesPage from "@/pages/OpportunitiesPage";
 import ApplicationsPage from "@/pages/ApplicationsPage";
+import InboxPage from "@/pages/InboxPage";
 import PathPage from "@/pages/PathPage";
 import InterviewPrepPage from "@/pages/InterviewPrepPage";
 import AdminRolesPage from "@/pages/AdminRolesPage";
@@ -200,6 +201,7 @@ function Router() {
             <Route path="/eligibility" component={EligibilityPage} />
             <Route path="/opportunities" component={OpportunitiesPage} />
             <Route path="/applications" component={ApplicationsPage} />
+            <Route path="/inbox" component={InboxPage} />
             <Route path="/path" component={PathPage} />
             <Route path="/interview-prep" component={InterviewPrepPage} />
             <Route path="/sponsor-licences" component={SponsorLicencesPage} />

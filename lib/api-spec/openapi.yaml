@@ -1936,6 +1936,19 @@ paths:
               schema:
                 $ref: "#/components/schemas/CandidateMessageListResponse"
 
+  /candidate/messages/unread-count:
+    get:
+      operationId: getInboxUnreadCount
+      tags: [CandidatePortal]
+      summary: Get the number of unread messages for the current candidate
+      responses:
+        "200":
+          description: Unread count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnreadCountResponse"
+
   /candidate/messages/{id}/read:
     patch:
       operationId: markMessageRead
@@ -1956,6 +1969,30 @@ paths:
                 properties:
                   message:
                     $ref: "#/components/schemas/CandidateMessage"
+
+  /candidate/messages/{id}:
+    delete:
+      operationId: archiveMessage
+      tags: [CandidatePortal]
+      summary: Archive a message (soft-delete)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Message archived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "404":
+          description: Message not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
 
   /employer/jobs/generate-description:
     post:
@@ -4941,25 +4978,43 @@ components:
           type: integer
           nullable: true
 
+    UnreadCountResponse:
+      type: object
+      required: [unreadCount]
+      properties:
+        unreadCount:
+          type: integer
+
     CandidateMessage:
       type: object
-      required: [id, senderEmployerProfileId, recipientUserId, messageText, subject, isRead, createdAt]
+      required: [id, recipientUserId, messageText, subject, isRead, messageType, createdAt]
       properties:
         id:
           type: integer
         senderEmployerProfileId:
           type: integer
+          nullable: true
         recipientUserId:
           type: string
         vacancyId:
           type: integer
           nullable: true
+        applicationId:
+          type: integer
+          nullable: true
+        messageType:
+          type: string
+          enum: [system, employer]
         messageText:
           type: string
         subject:
           type: string
         isRead:
           type: boolean
+        archivedAt:
+          type: string
+          format: date-time
+          nullable: true
         createdAt:
           type: string
           format: date-time

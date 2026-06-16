@@ -5,10 +5,10 @@ import {
   Map, ClipboardList, Shield, Users, LogOut, Briefcase,
   Building2, Plus, LayoutDashboard, Sparkles, UserCog, List,
   BarChart2, BookOpen, Search, Bookmark, ShieldAlert,
-  TrendingUp,
+  TrendingUp, Inbox,
 } from "lucide-react";
 import { cn } from "@/components/ui-enhanced";
-import { useGetMyAnalytics, useGetMyProgressReport } from "@workspace/api-client-react";
+import { useGetMyAnalytics, useGetMyProgressReport, useGetInboxUnreadCount } from "@workspace/api-client-react";
 import { motion, useMotionValue, useTransform, animate } from "framer-motion";
 import { useEffect } from "react";
 
@@ -17,6 +17,14 @@ export function AppSidebar() {
   const { user, logout } = useAuth();
 
   const role = user?.role || "candidate";
+
+  const { data: inboxData } = useGetInboxUnreadCount({
+    query: {
+      refetchInterval: 30_000,
+      enabled: role === "candidate" || role === "reviewer" || role === "admin",
+    },
+  });
+  const inboxUnread = inboxData?.unreadCount ?? 0;
 
   const navigation = [
     // Candidate + Reviewer + Admin
@@ -27,6 +35,7 @@ export function AppSidebar() {
     { name: "Sponsor Licences", href: "/sponsor-licences", icon: List, roles: ["candidate", "reviewer", "admin"] },
     { name: "Opportunities", href: "/opportunities", icon: Briefcase, roles: ["candidate", "reviewer", "admin"] },
     { name: "My Applications", href: "/applications", icon: ClipboardList, roles: ["candidate", "reviewer", "admin"] },
+    { name: "Inbox", href: "/inbox", icon: Inbox, roles: ["candidate", "reviewer", "admin"], badge: inboxUnread },
     { name: "My Path", href: "/path", icon: Map, roles: ["candidate", "reviewer", "admin"] },
     { name: "Interview Prep", href: "/interview-prep", icon: Sparkles, roles: ["candidate", "reviewer", "admin"] },
     { name: "My Report", href: "/my-report", icon: BarChart2, roles: ["candidate", "reviewer", "admin"] },
@@ -63,6 +72,7 @@ export function AppSidebar() {
       <div className="flex-1 overflow-y-auto py-4 px-4 space-y-1">
         {visibleNav.map((item) => {
           const isActive = location === item.href;
+          const badge = (item as { badge?: number }).badge;
           return (
             <Link key={item.name} href={item.href} className={cn(
               "flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition-colors hover-elevate",
@@ -71,7 +81,15 @@ export function AppSidebar() {
                 : "text-sidebar-foreground hover:bg-sidebar-accent"
             )}>
               <item.icon className={cn("w-5 h-5 mr-3", isActive ? "text-primary-foreground/80" : "text-muted-foreground")} />
-              {item.name}
+              <span className="flex-1">{item.name}</span>
+              {badge != null && badge > 0 && (
+                <span className={cn(
+                  "ml-auto inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold",
+                  isActive ? "bg-primary-foreground text-primary" : "bg-primary text-primary-foreground"
+                )}>
+                  {badge > 99 ? "99+" : badge}
+                </span>
+              )}
             </Link>
           );
         })}

@@ -1778,17 +1778,27 @@ export const GetCandidateMessagesResponse = zod.object({
   messages: zod.array(
     zod.object({
       id: zod.number(),
-      senderEmployerProfileId: zod.number(),
+      senderEmployerProfileId: zod.number().nullish(),
       recipientUserId: zod.string(),
       vacancyId: zod.number().nullish(),
+      applicationId: zod.number().nullish(),
+      messageType: zod.enum(["system", "employer"]),
       messageText: zod.string(),
       subject: zod.string(),
       isRead: zod.boolean(),
+      archivedAt: zod.date().nullish(),
       createdAt: zod.date(),
       companyName: zod.string().nullish(),
       industry: zod.string().nullish(),
     }),
   ),
+  unreadCount: zod.number(),
+});
+
+/**
+ * @summary Get the number of unread messages for the current candidate
+ */
+export const GetInboxUnreadCountResponse = zod.object({
   unreadCount: zod.number(),
 });
 
@@ -1803,17 +1813,31 @@ export const MarkMessageReadResponse = zod.object({
   message: zod
     .object({
       id: zod.number(),
-      senderEmployerProfileId: zod.number(),
+      senderEmployerProfileId: zod.number().nullish(),
       recipientUserId: zod.string(),
       vacancyId: zod.number().nullish(),
+      applicationId: zod.number().nullish(),
+      messageType: zod.enum(["system", "employer"]),
       messageText: zod.string(),
       subject: zod.string(),
       isRead: zod.boolean(),
+      archivedAt: zod.date().nullish(),
       createdAt: zod.date(),
       companyName: zod.string().nullish(),
       industry: zod.string().nullish(),
     })
     .optional(),
+});
+
+/**
+ * @summary Archive a message (soft-delete)
+ */
+export const ArchiveMessageParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ArchiveMessageResponse = zod.object({
+  ok: zod.boolean(),
 });
 
 /**
