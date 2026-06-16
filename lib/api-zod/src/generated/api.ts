@@ -1770,6 +1770,7 @@ export const ContactCandidateBody = zod.object({
   messageText: zod.string(),
   subject: zod.string().nullish(),
   vacancyId: zod.number().nullish(),
+  applicationId: zod.number().nullish(),
 });
 
 /**

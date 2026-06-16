@@ -906,11 +906,12 @@ router.delete("/employer/campaigns/:id", requireEmployer(), async (req, res): Pr
 // --- Contact Candidate ---
 router.post("/employer/contact-candidate", requireEmployer(), async (req, res): Promise<void> => {
   const userId = req.user!.id;
-  const { recipientUserId, messageText, subject, vacancyId } = req.body as {
+  const { recipientUserId, messageText, subject, vacancyId, applicationId: bodyApplicationId } = req.body as {
     recipientUserId?: string;
     messageText?: string;
     subject?: string;
     vacancyId?: number;
+    applicationId?: number;
   };
 
   if (!recipientUserId?.trim()) { res.status(400).json({ error: "Recipient user ID is required." }); return; }
@@ -942,6 +943,7 @@ router.post("/employer/contact-candidate", requireEmployer(), async (req, res): 
       senderEmployerProfileId: empProfile.id,
       recipientUserId: recipient.id,
       vacancyId: vacancyId ?? null,
+      applicationId: bodyApplicationId ?? null,
       messageText: messageText.trim(),
       subject: effectiveSubject,
     })
