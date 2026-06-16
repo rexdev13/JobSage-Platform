@@ -15,6 +15,7 @@ import {
   type MatchedRole,
   type ApplicationList,
   type CandidateMatchItem,
+  type CandidateMatchList,
 } from "@workspace/api-client-react";
 import { SmartApplyModal } from "@/components/SmartApplyModal";
 import { useLocation } from "wouter";
@@ -68,42 +69,33 @@ function AiScoreBadge({ score }: { score: number }) {
 }
 
 function BestMatchesStrip({
+  matchesData,
+  matchesLoading,
   appliedRoleIds,
+  localDismissedIds,
   onSmartApply,
+  onDismiss,
 }: {
+  matchesData: CandidateMatchList | undefined;
+  matchesLoading: boolean;
   appliedRoleIds: number[];
+  localDismissedIds: Set<number>;
   onSmartApply: (roleId: number, roleTitle: string) => void;
+  onDismiss: (roleId: number) => void;
 }) {
   const [, setLocation] = useLocation();
-  const queryClient = useQueryClient();
-  const [localDismissedIds, setLocalDismissedIds] = useState<Set<number>>(new Set());
 
-  const { data, isLoading } = useGetMyMatches({ limit: 10 });
-  const dismissMutation = useDismissMatch();
-
-  const serverDismissed = new Set(data?.dismissedRoleIds ?? []);
+  const serverDismissed = new Set(matchesData?.dismissedRoleIds ?? []);
   const effectiveDismissed = new Set([...serverDismissed, ...localDismissedIds]);
 
-  const allMatches: CandidateMatchItem[] = data?.matches ?? [];
+  const allMatches: CandidateMatchItem[] = matchesData?.matches ?? [];
   const visibleQueue = allMatches
     .filter((m) => !effectiveDismissed.has(m.roleId) && !appliedRoleIds.includes(m.roleId))
     .slice(0, 3);
 
-  const seeAllCount = data?.totalCount ?? allMatches.length;
+  const totalAvailable = (matchesData?.totalCount ?? allMatches.length) - localDismissedIds.size;
 
-  function handleDismiss(roleId: number) {
-    setLocalDismissedIds((prev) => new Set([...prev, roleId]));
-    dismissMutation.mutate(
-      { data: { roleId } },
-      {
-        onSettled: () => {
-          void queryClient.invalidateQueries({ queryKey: getGetMyMatchesQueryKey({ limit: 10 }) });
-        },
-      },
-    );
-  }
-
-  if (isLoading) {
+  if (matchesLoading) {
     return (
       <div className="rounded-2xl border border-border bg-gradient-to-br from-primary/3 to-accent/3 p-5">
         <div className="flex items-center gap-2 mb-4">
@@ -120,7 +112,7 @@ function BestMatchesStrip({
     );
   }
 
-  if (!data || allMatches.length === 0) return null;
+  if (!matchesData || allMatches.length === 0) return null;
 
   if (visibleQueue.length === 0) {
     return (
@@ -148,73 +140,75 @@ function BestMatchesStrip({
           <h2 className="text-sm font-semibold text-foreground">Your Best Matches Right Now</h2>
           <span className="px-1.5 py-0.5 text-xs rounded bg-primary/10 text-primary font-medium">AI</span>
         </div>
-        <p className="text-xs text-muted-foreground">{data.cached ? "Updated today" : "Just scored"}</p>
+        <p className="text-xs text-muted-foreground">{matchesData.cached ? "Updated today" : "Just scored"}</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {visibleQueue.map((match) => (
-          <motion.div
-            key={match.roleId}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="relative bg-background rounded-xl border border-border p-4 flex flex-col gap-2 shadow-sm"
-          >
-            <button
-              className="absolute top-2 right-2 text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-muted transition-colors"
-              onClick={() => handleDismiss(match.roleId)}
-              title="Dismiss"
+        <AnimatePresence mode="popLayout">
+          {visibleQueue.map((match) => (
+            <motion.div
+              key={match.roleId}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative bg-background rounded-xl border border-border p-4 flex flex-col gap-2 shadow-sm"
             >
-              <X className="w-3.5 h-3.5" />
-            </button>
+              <button
+                className="absolute top-2 right-2 text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-muted transition-colors"
+                onClick={() => onDismiss(match.roleId)}
+                title="Dismiss"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
 
-            <div className="flex items-start gap-2 pr-6">
-              <AiScoreBadge score={match.aiScore} />
-            </div>
-
-            <p className="text-xs text-muted-foreground italic leading-snug">&ldquo;{match.aiExplanation}&rdquo;</p>
-
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-foreground leading-tight line-clamp-2">{match.title}</p>
-              <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1"><Building2 className="w-3 h-3" />{match.employer}</span>
-                <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{match.location}</span>
+              <div className="flex items-start gap-2 pr-6">
+                <AiScoreBadge score={match.aiScore} />
               </div>
-            </div>
 
-            <div className="flex gap-2 mt-auto pt-1">
-              {match.isEligible ? (
-                <Button
-                  size="sm"
-                  className="flex-1 text-xs h-8 gap-1"
-                  onClick={() => onSmartApply(match.roleId, match.title)}
-                >
-                  <Sparkles className="w-3 h-3" /> Apply Now
-                </Button>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="flex-1 text-xs h-8 gap-1 text-amber-700 border-amber-200"
-                  onClick={() => setLocation("/path")}
-                >
-                  View Path <ArrowRight className="w-3 h-3" />
-                </Button>
-              )}
-            </div>
-          </motion.div>
-        ))}
+              <p className="text-xs text-muted-foreground italic leading-snug">&ldquo;{match.aiExplanation}&rdquo;</p>
+
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-foreground leading-tight line-clamp-2">{match.title}</p>
+                <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1"><Building2 className="w-3 h-3" />{match.employer}</span>
+                  <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{match.location}</span>
+                </div>
+              </div>
+
+              <div className="flex gap-2 mt-auto pt-1">
+                {match.isEligible ? (
+                  <Button
+                    size="sm"
+                    className="flex-1 text-xs h-8 gap-1"
+                    onClick={() => onSmartApply(match.roleId, match.title)}
+                  >
+                    <Sparkles className="w-3 h-3" /> Apply Now
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 text-xs h-8 gap-1 text-amber-700 border-amber-200"
+                    onClick={() => setLocation("/path")}
+                  >
+                    View Path <ArrowRight className="w-3 h-3" />
+                  </Button>
+                )}
+              </div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
       </div>
 
       <div className="flex items-center justify-between pt-1">
         <p className="text-xs text-muted-foreground">
-          Showing {visibleQueue.length} of {seeAllCount} AI-ranked matches
+          Showing top 3 of {totalAvailable} AI-ranked matches
         </p>
         <button
           className="text-xs text-primary font-medium flex items-center gap-1 hover:underline"
           onClick={() => document.getElementById("job-board-section")?.scrollIntoView({ behavior: "smooth" })}
         >
-          See all matches <ArrowRight className="w-3 h-3" />
+          See all {totalAvailable} matches below <ArrowRight className="w-3 h-3" />
         </button>
       </div>
     </div>
@@ -900,12 +894,36 @@ export default function OpportunitiesPage() {
   const markApplicationMutation = useMarkApplication();
   const { toast } = useToast();
 
+  const [localDismissedIds, setLocalDismissedIds] = useState<Set<number>>(new Set());
+  const { data: aiMatchesData, isLoading: aiMatchesLoading } = useGetMyMatches({ limit: 200 });
+  const dismissMutation = useDismissMatch();
+
+  function handleDismissMatch(roleId: number) {
+    setLocalDismissedIds((prev) => new Set([...prev, roleId]));
+    dismissMutation.mutate(
+      { data: { roleId } },
+      {
+        onSettled: () => {
+          void queryClient.invalidateQueries({ queryKey: getGetMyMatchesQueryKey({ limit: 200 }) });
+        },
+      },
+    );
+  }
+
+  const aiScoreMap = new Map(
+    (aiMatchesData?.matches ?? []).map((m) => [m.roleId, m.aiScore]),
+  );
+
   const roles = data?.roles ?? [];
   const appliedRoleIds = data?.appliedRoleIds ?? [];
   const eligibilityOutcome = data?.eligibilityOutcome;
 
-  const eligibleRoles = roles.filter((r) => r.isEligible).sort((a, b) => b.matchScore - a.matchScore);
-  const notYetEligibleRoles = roles.filter((r) => !r.isEligible).sort((a, b) => b.matchScore - a.matchScore);
+  const eligibleRoles = roles
+    .filter((r) => r.isEligible)
+    .sort((a, b) => (aiScoreMap.get(b.role.id) ?? b.matchScore) - (aiScoreMap.get(a.role.id) ?? a.matchScore));
+  const notYetEligibleRoles = roles
+    .filter((r) => !r.isEligible)
+    .sort((a, b) => (aiScoreMap.get(b.role.id) ?? b.matchScore) - (aiScoreMap.get(a.role.id) ?? a.matchScore));
 
   const employerGroups = Object.entries(
     roles.reduce<Record<string, MatchedRole[]>>((acc, r) => {
@@ -1035,8 +1053,12 @@ export default function OpportunitiesPage() {
             {/* Best Matches AI Strip */}
             {roles.length > 0 && (
               <BestMatchesStrip
+                matchesData={aiMatchesData}
+                matchesLoading={aiMatchesLoading}
                 appliedRoleIds={appliedRoleIds}
+                localDismissedIds={localDismissedIds}
                 onSmartApply={handleSmartApply}
+                onDismiss={handleDismissMatch}
               />
             )}
 

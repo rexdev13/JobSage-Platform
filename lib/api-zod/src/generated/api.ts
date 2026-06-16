@@ -835,9 +835,11 @@ export const ListMatchedRolesResponse = zod.object({
  * @summary Get AI-scored top job matches for the current candidate
  */
 export const getMyMatchesQueryLimitDefault = 10;
+export const getMyMatchesQueryOffsetDefault = 0;
 
 export const GetMyMatchesQueryParams = zod.object({
   limit: zod.coerce.number().default(getMyMatchesQueryLimitDefault),
+  offset: zod.coerce.number().default(getMyMatchesQueryOffsetDefault),
 });
 
 export const GetMyMatchesResponse = zod.object({
