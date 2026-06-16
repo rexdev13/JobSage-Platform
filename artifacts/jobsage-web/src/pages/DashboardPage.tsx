@@ -25,7 +25,6 @@ import {
   ChevronUp,
   AlertTriangle,
   MapPin,
-  Briefcase,
   CheckCircle2,
   Circle,
   Files,
@@ -33,80 +32,157 @@ import {
   User,
   BadgeCheck,
   ClipboardList,
-  Megaphone,
-  Timer,
   Sparkles,
+  Loader2,
+  Timer,
+  Megaphone,
   BarChart2,
   BookOpen,
-  Loader2,
 } from "lucide-react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
 
 type EligibilityOutcome = "eligible" | "not_eligible" | "ineligible";
 
-type StageStatus = "green" | "orange" | "red";
+function LiveJourneyWidget() {
+  const { data } = useGetJourneyStatus({
+    query: { queryKey: getGetJourneyStatusQueryKey(), staleTime: 30_000 },
+  });
+  const stages = data?.stages ?? [];
+  const completeCount = stages.filter((s) => s.status === "complete").length;
 
-interface JourneyStage {
-  label: string;
-  description: string;
-  href: string;
-  status: StageStatus;
-  locked: boolean;
-  lockReason?: string;
-}
+  if (stages.length === 0) return null;
 
-function stageColor(status: StageStatus, locked: boolean) {
-  if (locked) return { bg: "bg-muted/60", border: "border-border", dot: "bg-muted-foreground/30", text: "text-muted-foreground/50" };
-  if (status === "green") return { bg: "bg-emerald-50", border: "border-emerald-200", dot: "bg-emerald-500", text: "text-emerald-700" };
-  if (status === "orange") return { bg: "bg-amber-50", border: "border-amber-200", dot: "bg-amber-400", text: "text-amber-700" };
-  return { bg: "bg-red-50/60", border: "border-red-200", dot: "bg-red-400", text: "text-red-700" };
-}
-
-function JourneyWidget({ stages }: { stages: JourneyStage[] }) {
-  const [tooltip, setTooltip] = useState<number | null>(null);
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18, duration: 0.4 }}>
       <div className="mb-6">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
-            <span className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-xs">⬤</span>
+            <span className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+              <TrendingUp className="w-3.5 h-3.5" />
+            </span>
             Your Journey
           </h2>
-          <span className="text-xs text-muted-foreground">
-            {stages.filter((s) => s.status === "green" && !s.locked).length}/{stages.length} stages complete
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground">{completeCount}/{stages.length} stages complete</span>
+            <Link href="/path">
+              <span className="text-xs text-primary font-medium hover:underline flex items-center gap-0.5">
+                View all <ArrowRight className="w-3 h-3" />
+              </span>
+            </Link>
+          </div>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
-          {stages.map((stage, idx) => {
-            const colors = stageColor(stage.status, stage.locked);
-            const content = (
+
+        {/* Progress bar */}
+        <div className="h-1.5 rounded-full bg-muted mb-3 overflow-hidden">
+          <motion.div
+            className="h-full rounded-full bg-primary"
+            initial={{ width: 0 }}
+            animate={{ width: `${(completeCount / stages.length) * 100}%` }}
+            transition={{ duration: 0.7, delay: 0.3, ease: "easeOut" }}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 gap-2">
+          {stages.map((stage) => {
+            const isComplete = stage.status === "complete";
+            const isInProgress = stage.status === "inProgress";
+            const isLocked = stage.locked;
+            const tileClass = isComplete
+              ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-800/40"
+              : isInProgress
+                ? "bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800/40"
+                : isLocked
+                  ? "bg-muted/40 border-border opacity-50"
+                  : "bg-muted/20 border-border";
+            const dotClass = isComplete ? "bg-emerald-500"
+              : isInProgress ? "bg-blue-500"
+                : isLocked ? "bg-muted-foreground/20"
+                  : "bg-amber-400";
+            const textClass = isComplete ? "text-emerald-700 dark:text-emerald-400"
+              : isInProgress ? "text-blue-700 dark:text-blue-400"
+                : isLocked ? "text-muted-foreground/50"
+                  : "text-amber-700 dark:text-amber-400";
+
+            const tile = (
               <div
-                key={idx}
-                className={`relative rounded-xl border p-3 flex flex-col items-center text-center gap-1.5 transition-all ${colors.bg} ${colors.border} ${stage.locked ? "opacity-50 cursor-default" : "cursor-pointer hover:shadow-sm hover:scale-[1.02]"}`}
-                onMouseEnter={() => stage.locked && setTooltip(idx)}
-                onMouseLeave={() => setTooltip(null)}
-                onClick={() => !stage.locked && (window.location.href = stage.href)}
+                key={stage.id}
+                className={`relative rounded-xl border p-2.5 flex flex-col items-center text-center gap-1 transition-all ${tileClass} ${!isLocked ? "cursor-pointer hover:shadow-sm hover:scale-[1.02]" : "cursor-default"}`}
               >
-                <div className={`w-2 h-2 rounded-full ${colors.dot}`} />
-                <span className={`text-[11px] font-semibold leading-tight ${colors.text}`}>{stage.label}</span>
-                {stage.locked && <span className="text-[9px] text-muted-foreground/60 leading-tight">🔒 Locked</span>}
-                {tooltip === idx && stage.lockReason && (
-                  <div className="absolute z-10 bottom-full mb-1 left-1/2 -translate-x-1/2 w-40 bg-foreground text-background text-[10px] rounded-lg px-2 py-1.5 shadow-xl pointer-events-none">
-                    {stage.lockReason}
-                  </div>
-                )}
+                <div className={`w-2 h-2 rounded-full ${dotClass}`} />
+                <span className={`text-[10px] font-semibold leading-tight ${textClass}`}>{stage.name}</span>
+                {isLocked && <span className="text-[9px] text-muted-foreground/50">🔒</span>}
+                {isComplete && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-500 absolute top-1.5 right-1.5" />}
               </div>
             );
-            return stage.locked ? content : <Link key={idx} href={stage.href}>{content}</Link>;
+            return isLocked ? <div key={stage.id}>{tile}</div> : (
+              <Link key={stage.id} href="/path">{tile}</Link>
+            );
           })}
         </div>
+
         <div className="flex items-center gap-4 mt-2 pl-1">
-          {(["green", "orange", "red"] as StageStatus[]).map((s) => (
-            <span key={s} className="flex items-center gap-1 text-[10px] text-muted-foreground">
-              <span className={`w-1.5 h-1.5 rounded-full ${stageColor(s, false).dot}`} />
-              {s === "green" ? "Complete" : s === "orange" ? "In progress" : "Not started"}
+          {[
+            { label: "Complete", dot: "bg-emerald-500" },
+            { label: "In progress", dot: "bg-blue-500" },
+            { label: "Not started", dot: "bg-amber-400" },
+            { label: "Locked", dot: "bg-muted-foreground/20" },
+          ].map(({ label, dot }) => (
+            <span key={label} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+              <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
+              {label}
             </span>
+          ))}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function StageAttentionStrip() {
+  const { data } = useGetJourneyStatus({
+    query: { queryKey: getGetJourneyStatusQueryKey(), staleTime: 30_000 },
+  });
+  const stages = data?.stages ?? [];
+  const needsAttention = stages.filter(
+    (s) => !s.locked && s.status !== "complete" && (s.status === "inProgress" || s.status === "notStarted"),
+  ).slice(0, 3);
+
+  if (needsAttention.length === 0) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.1, duration: 0.35 }}
+      className="mb-5"
+    >
+      <div className="rounded-xl border border-blue-200 bg-blue-50/70 dark:bg-blue-950/20 dark:border-blue-800/40 p-3.5">
+        <div className="flex items-center gap-2 mb-2.5">
+          <Sparkles className="w-4 h-4 text-blue-600 shrink-0" />
+          <p className="text-sm font-semibold text-blue-900 dark:text-blue-200">
+            {needsAttention.length} stage{needsAttention.length !== 1 ? "s" : ""} need{needsAttention.length === 1 ? "s" : ""} your attention
+          </p>
+          <Link href="/path" className="ml-auto">
+            <span className="text-xs text-blue-600 font-medium hover:underline flex items-center gap-0.5">
+              Go to journey <ArrowRight className="w-3 h-3" />
+            </span>
+          </Link>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-2">
+          {needsAttention.map((stage) => (
+            <Link key={stage.id} href={stage.href ?? "/path"} className="flex-1">
+              <div className="flex items-center gap-2 rounded-lg bg-white/70 dark:bg-white/5 border border-blue-100 dark:border-blue-800/30 px-3 py-2 hover:bg-white dark:hover:bg-white/10 transition-colors">
+                <Circle className="w-3 h-3 text-blue-400 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-foreground truncate">{stage.name}</p>
+                  <p className="text-[10px] text-muted-foreground truncate">
+                    {stage.status === "inProgress" ? `${stage.completionPct}% complete` : "Not started"}
+                  </p>
+                </div>
+                <ArrowRight className="w-3 h-3 text-blue-400 shrink-0 ml-auto" />
+              </div>
+            </Link>
           ))}
         </div>
       </div>
@@ -308,70 +384,6 @@ export default function DashboardPage() {
   const interviews = appStats?.interviews ?? 0;
   const offers = appStats?.offers ?? 0;
 
-  const journeyStages: JourneyStage[] = [
-    {
-      label: "Profile Completion",
-      description: "Fill in your professional details",
-      href: "/profile",
-      status: profilePct === 100 ? "green" : profilePct > 0 ? "orange" : "red",
-      locked: false,
-    },
-    {
-      label: "Regulatory Compliance",
-      description: "Run your eligibility check",
-      href: "/eligibility",
-      status: latestDecision?.outcome === "eligible" ? "green" : latestDecision ? "orange" : "red",
-      locked: profilePct === 0,
-      lockReason: "Complete your profile first to unlock regulatory compliance checks.",
-    },
-    {
-      label: "Applications",
-      description: "Apply to matched roles",
-      href: "/opportunities",
-      status: totalApplied >= 3 ? "green" : totalApplied >= 1 ? "orange" : "red",
-      locked: !latestDecision,
-      lockReason: "Run your eligibility check first to unlock matched role applications.",
-    },
-    {
-      label: "Career Pathing",
-      description: "Work through your remediation plan",
-      href: "/path",
-      status: planPct === 100 && totalSteps > 0 ? "green" : totalSteps > 0 ? "orange" : "red",
-      locked: !latestDecision,
-      lockReason: "Complete your eligibility check to generate your personalised career path.",
-    },
-    {
-      label: "Training",
-      description: "Complete required training steps",
-      href: "/path",
-      status: planPct >= 60 && totalSteps > 0 ? "green" : totalSteps > 0 ? "orange" : "red",
-      locked: totalSteps === 0,
-      lockReason: "Generate your career plan first — training steps will appear here.",
-    },
-    {
-      label: "Reporting & Insights",
-      description: "View your monthly progress report",
-      href: "/my-report",
-      status: totalApplied > 0 ? "green" : profilePct > 0 ? "orange" : "red",
-      locked: false,
-    },
-    {
-      label: "Interview to Placement",
-      description: "Track interviews and offers",
-      href: "/opportunities",
-      status: interviews > 0 ? "green" : totalApplied > 0 ? "orange" : "red",
-      locked: totalApplied === 0,
-      lockReason: "Submit at least one application to unlock interview and placement tracking.",
-    },
-    {
-      label: "Visa & Onboarding",
-      description: "Guidance on visa and UK relocation",
-      href: "/regulatory-guidance",
-      status: offers > 0 ? "green" : interviews > 0 ? "orange" : "red",
-      locked: interviews === 0 && offers === 0,
-      lockReason: "Reach the interview stage to unlock visa and onboarding guidance.",
-    },
-  ];
 
   return (
     <AppLayout>
@@ -454,8 +466,11 @@ export default function DashboardPage() {
           <JourneyReadinessCard delay={0.15} />
         </div>
 
-        {/* 8-stage journey widget */}
-        <JourneyWidget stages={journeyStages} />
+        {/* Stage attention strip — surfaces in-progress/not-started stages */}
+        <StageAttentionStrip />
+
+        {/* 10-stage live journey widget */}
+        <LiveJourneyWidget />
 
         {/* Main grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
