@@ -1,4 +1,4 @@
-import { pgTable, serial, text, varchar, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, varchar, timestamp, unique } from "drizzle-orm/pg-core";
 
 export const BADGE_DEFINITIONS = {
   profile_complete: { name: "Profile Champion", description: "Completed your full professional profile", iconName: "UserCheck" },
@@ -17,6 +17,6 @@ export const candidateBadgesTable = pgTable("candidate_badges", {
   userId: varchar("user_id").notNull(),
   badgeKey: varchar("badge_key", { length: 50 }).notNull(),
   awardedAt: timestamp("awarded_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [unique("candidate_badges_user_badge_unique").on(t.userId, t.badgeKey)]);
 
 export type CandidateBadge = typeof candidateBadgesTable.$inferSelect;
