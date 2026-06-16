@@ -1,20 +1,26 @@
 import { useState, useEffect, useRef } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, Button, PageTransition } from "@/components/ui-enhanced";
-import { useGetJourneyStatus, getGetJourneyStatusQueryKey } from "@workspace/api-client-react";
-import type { JourneyStageItem, JourneyBadge } from "@workspace/api-client-react";
+import {
+  useGetJourneyStatus, getGetJourneyStatusQueryKey,
+  useGetRemediationPlan, getGetRemediationPlanQueryKey,
+  useGetForwardEligibility, getGetForwardEligibilityQueryKey,
+} from "@workspace/api-client-react";
+import type { JourneyStageItem, JourneyBadge, RemediationStep, ForwardEligibilityResponse } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   User, Files, ShieldCheck, Briefcase, ClipboardList,
   MessageSquare, Trophy, Globe, Home, TrendingUp,
-  CheckCircle2, Lock, Circle, ChevronRight, ChevronLeft,
+  CheckCircle2, Lock, Circle, ChevronRight,
   Star, Send, UserCheck, X, ArrowRight, Sparkles,
-  Loader2, AlertCircle,
+  Loader2, AlertCircle, ListChecks, Clock, CalendarClock,
 } from "lucide-react";
 import { cn } from "@/components/ui-enhanced";
 import confetti from "canvas-confetti";
+
+const JOURNEY_STORAGE_KEY = "jobsage_journey_complete_v1";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   User, Files, ShieldCheck, Briefcase, ClipboardList,
@@ -143,14 +149,92 @@ function StageNode({
   );
 }
 
+function RemediationPlanInDrawer({ steps }: { steps: RemediationStep[] }) {
+  if (steps.length === 0) return null;
+  const done = steps.filter(s => s.status === "done").length;
+  return (
+    <div>
+      <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+        <ListChecks className="w-4 h-4 text-primary" />
+        Your Remediation Plan
+        <span className="ml-auto text-xs text-muted-foreground">{done}/{steps.length} done</span>
+      </h3>
+      <div className="space-y-2">
+        {steps.map((step, i) => (
+          <div
+            key={step.id}
+            className={cn(
+              "p-3 rounded-xl border text-sm transition-colors",
+              step.status === "done"
+                ? "bg-emerald-50/50 border-emerald-200/60 dark:bg-emerald-950/20 dark:border-emerald-800/40"
+                : step.status === "in_progress"
+                  ? "bg-blue-50/50 border-blue-200/60 dark:bg-blue-950/20 dark:border-blue-800/40"
+                  : "bg-muted/30 border-border",
+            )}
+          >
+            <div className="flex items-start gap-2">
+              <div className={cn(
+                "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 text-[10px] font-bold",
+                step.status === "done" ? "bg-emerald-500 border-emerald-500 text-white"
+                  : step.status === "in_progress" ? "bg-blue-500 border-blue-500 text-white"
+                    : "border-muted-foreground/30 text-muted-foreground",
+              )}>
+                {step.status === "done" ? <CheckCircle2 className="w-3.5 h-3.5" /> : i + 1}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className={cn("font-medium leading-tight", step.status === "done" && "line-through text-muted-foreground")}>{step.title}</p>
+                {step.timelineRange && (
+                  <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                    <Clock className="w-3 h-3" /> {step.timelineRange}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <Link href="/eligibility">
+        <span className="mt-3 inline-flex items-center gap-1 text-xs text-primary font-medium hover:underline">
+          View full eligibility assessment <ArrowRight className="w-3 h-3" />
+        </span>
+      </Link>
+    </div>
+  );
+}
+
+function ForwardEligibilityInDrawer({ data }: { data: ForwardEligibilityResponse }) {
+  return (
+    <div className="p-4 rounded-xl bg-blue-50/50 border border-blue-200/60 dark:bg-blue-950/20 dark:border-blue-800/40">
+      <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+        <CalendarClock className="w-4 h-4 text-blue-600" />
+        Eligibility Timeline
+      </h3>
+      {data.timeToEligibilityMonths != null && (
+        <p className="text-sm text-foreground">
+          Estimated <span className="font-bold text-blue-700">{data.timeToEligibilityLabel}</span> to full eligibility
+        </p>
+      )}
+      {data.newlyUnlockedRoles.length > 0 && (
+        <p className="text-xs text-muted-foreground mt-1">
+          Completing your plan could unlock {data.newlyUnlockedRoles.length} more matched role{data.newlyUnlockedRoles.length !== 1 ? "s" : ""}.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function StageDrawer({
   stage,
   badge,
   onClose,
+  planSteps,
+  forwardEligibility,
 }: {
   stage: JourneyStageItem;
   badge?: JourneyBadge;
   onClose: () => void;
+  planSteps?: RemediationStep[];
+  forwardEligibility?: ForwardEligibilityResponse | null;
 }) {
   const Icon = getIcon(stage.iconName);
   const doneTasks = stage.subTasks.filter((t) => t.done).length;
@@ -280,6 +364,16 @@ function StageDrawer({
           </div>
         </div>
 
+        {/* Embedded remediation plan (eligibility stage) */}
+        {planSteps && planSteps.length > 0 && !stage.locked && (
+          <RemediationPlanInDrawer steps={planSteps} />
+        )}
+
+        {/* Forward eligibility timeline (eligibility stage) */}
+        {forwardEligibility && !stage.locked && (
+          <ForwardEligibilityInDrawer data={forwardEligibility} />
+        )}
+
         {/* Badge earned */}
         {badge && (
           <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 dark:bg-amber-950/20 dark:border-amber-800/40">
@@ -369,22 +463,36 @@ export default function PathPage() {
   const queryClient = useQueryClient();
 
   const { data, isLoading, isError } = useGetJourneyStatus({
-    query: {
-      queryKey: getGetJourneyStatusQueryKey(),
-      staleTime: 30_000,
-    },
+    query: { queryKey: getGetJourneyStatusQueryKey(), staleTime: 30_000 },
+  });
+  const { data: planData } = useGetRemediationPlan({
+    query: { queryKey: getGetRemediationPlanQueryKey(), staleTime: 60_000 },
+  });
+  const { data: forwardElig } = useGetForwardEligibility({
+    query: { queryKey: getGetForwardEligibilityQueryKey(), staleTime: 60_000 },
   });
 
   const stages = data?.stages ?? [];
   const badges = data?.badges ?? [];
   const readinessScore = data?.readinessScore ?? 0;
   const nextAction = data?.nextAction ?? null;
+  const planSteps = planData?.steps ?? [];
 
-  // Fire confetti when the API returns newly-awarded badges (isNew flag)
+  // Fire confetti when a stage newly completes (localStorage) OR a new badge is awarded (isNew)
   useEffect(() => {
     if (!data || confettiFired.current) return;
-    const hasNew = badges.some((b) => b.isNew);
-    if (hasNew) {
+    const nowComplete = stages.filter(s => s.status === "complete").map(s => s.id);
+    const nowCompleteSet = new Set(nowComplete);
+    let prevComplete: Set<string>;
+    try {
+      const stored = localStorage.getItem(JOURNEY_STORAGE_KEY);
+      prevComplete = stored ? new Set(JSON.parse(stored) as string[]) : new Set();
+    } catch {
+      prevComplete = new Set();
+    }
+    const newlyCompleteStages = nowComplete.filter(id => !prevComplete.has(id));
+    const hasNewBadge = badges.some(b => b.isNew);
+    if ((newlyCompleteStages.length > 0 && prevComplete.size > 0) || hasNewBadge) {
       void confetti({
         particleCount: 140,
         spread: 80,
@@ -393,6 +501,9 @@ export default function PathPage() {
       });
       confettiFired.current = true;
     }
+    try {
+      localStorage.setItem(JOURNEY_STORAGE_KEY, JSON.stringify([...nowCompleteSet]));
+    } catch { /* ignore quota errors */ }
   }, [data]);
 
   useEffect(() => {
@@ -403,6 +514,10 @@ export default function PathPage() {
   const selectedBadge = selectedStage?.badgeKey
     ? badges.find((b) => b.key === selectedStage.badgeKey)
     : undefined;
+  // Pass plan data only to eligibility-related stages
+  const drawerPlanSteps = (selectedStage?.id === "eligibility" || selectedStage?.id === "career_growth")
+    ? planSteps : undefined;
+  const drawerForwardElig = selectedStage?.id === "eligibility" ? forwardElig : undefined;
 
   const completeCount = stages.filter((s) => s.status === "complete").length;
   const inProgressCount = stages.filter((s) => s.status === "inProgress").length;
@@ -554,6 +669,8 @@ export default function PathPage() {
               stage={selectedStage}
               badge={selectedBadge}
               onClose={() => setSelectedId(null)}
+              planSteps={drawerPlanSteps}
+              forwardEligibility={drawerForwardElig}
             />
           </>
         )}
