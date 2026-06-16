@@ -5,7 +5,7 @@ const STAGE_SUBJECT: Record<string, string> = {
   shortlisted: "You've been shortlisted!",
   interview: "Interview invitation",
   offer: "Offer made",
-  rejected: "Application update",
+  rejected: "Application declined",
   no_response: "Application status update",
 };
 

@@ -84,6 +84,7 @@ function ApplicantCard({ applicant, jobId, jobTitle, onStageChange }: {
           messageText: messageText.trim(),
           subject: `Message regarding your application for ${jobTitle}`,
           vacancyId: jobId,
+          applicationId: applicant.applicationId,
         }),
       });
       if (!res.ok) throw new Error("Send failed");

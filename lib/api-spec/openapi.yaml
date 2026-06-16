@@ -4980,6 +4980,9 @@ components:
         vacancyId:
           type: integer
           nullable: true
+        applicationId:
+          type: integer
+          nullable: true
 
     UnreadCountResponse:
       type: object

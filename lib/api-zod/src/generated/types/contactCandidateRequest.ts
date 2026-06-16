@@ -11,4 +11,5 @@ export interface ContactCandidateRequest {
   messageText: string;
   subject?: string | null;
   vacancyId?: number | null;
+  applicationId?: number | null;
 }
