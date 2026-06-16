@@ -30,8 +30,8 @@ export interface CandidateProfile {
   preferredStartDate?: string | null;
   /** Object storage key for the profile photo */
   profilePhotoKey?: string | null;
-  /** Comma-separated languages spoken (e.g. English, Hindi, Urdu) */
-  languages?: string | null;
+  /** Languages spoken */
+  languages?: string[] | null;
   /** Free-text notes the candidate wants employers to see */
   additionalNotes?: string | null;
   /** Profile completeness score (0–100), computed server-side */

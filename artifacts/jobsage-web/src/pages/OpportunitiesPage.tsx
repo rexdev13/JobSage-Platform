@@ -6,6 +6,7 @@ import {
   useListMyApplications,
   useMarkApplication,
   useGenerateCoverLetter,
+  useGetMyProfile,
   getListMyApplicationsQueryKey,
   getListMatchedRolesQueryKey,
   type MatchedRole,
@@ -722,6 +723,7 @@ export default function OpportunitiesPage() {
   const queryClient = useQueryClient();
   const { data, isLoading, isError } = useListMatchedRoles();
   const { data: applicationsData } = useListMyApplications();
+  const { data: myProfile } = useGetMyProfile();
   const markApplicationMutation = useMarkApplication();
   const { toast } = useToast();
 
@@ -742,7 +744,19 @@ export default function OpportunitiesPage() {
     }, {}),
   ).filter(([emp]) => emp.toLowerCase().includes(employerSearch.toLowerCase()));
 
+  const profileCompletionPct = typeof (myProfile as unknown as Record<string, unknown> | undefined)?.completionPct === "number"
+    ? ((myProfile as unknown as Record<string, unknown>).completionPct as number)
+    : 0;
+
   function handleSmartApply(roleId: number, roleTitle: string) {
+    if (profileCompletionPct < 100) {
+      toast({
+        title: "Complete your profile first",
+        description: "Your profile must be 100% complete before using Smart Apply. Visit your Profile page to fill in the missing fields.",
+        variant: "destructive",
+      });
+      return;
+    }
     setSmartApplyRole({ id: roleId, title: roleTitle });
   }
 

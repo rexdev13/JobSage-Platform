@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   useGetMyProfile,
   useUpsertMyProfile,
@@ -9,7 +9,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getGetMyProfileQueryKey } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, Button, Input, Select, Label, PageTransition } from "@/components/ui-enhanced";
-import { Save, UserCircle, Bell, Info, Camera, Loader2, CheckCircle2 } from "lucide-react";
+import { Save, UserCircle, Bell, Info, Camera, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type RegistrationStatus = "registered" | "not_registered" | "in_process";
@@ -116,6 +116,15 @@ function FieldHint({ children }: { children: React.ReactNode }) {
   );
 }
 
+function NotFoundBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 ml-2">
+      <AlertCircle className="w-3 h-3" />
+      Not found
+    </span>
+  );
+}
+
 function TooltipLabel({
   label,
   tip,
@@ -155,10 +164,12 @@ function TooltipLabel({
 function ProfessionCombobox({
   value,
   onChange,
+  onBlur,
   suggestions,
 }: {
   value: string;
   onChange: (val: string) => void;
+  onBlur?: () => void;
   suggestions: string[];
 }) {
   const [inputValue, setInputValue] = useState(value);
@@ -194,6 +205,7 @@ function ProfessionCombobox({
           setOpen(true);
         }}
         onFocus={() => setOpen(true)}
+        onBlur={() => { setOpen(false); onBlur?.(); }}
         onKeyDown={(e) => {
           if (e.key === "Escape") setOpen(false);
         }}
@@ -259,6 +271,11 @@ export default function ProfilePage() {
   const photoInputRef = useRef<HTMLInputElement>(null);
   const requestUploadUrlMutation = useRequestUploadUrl();
 
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const formDataRef = useRef(formData);
+  useEffect(() => { formDataRef.current = formData; }, [formData]);
+
   useEffect(() => {
     if (profile) {
       const storedResidency = profile.residencyStatus || "";
@@ -267,6 +284,11 @@ export default function ProfilePage() {
         !RESIDENCY_STATUS_OPTIONS.filter((o) => o !== "Other").includes(storedResidency);
 
       const p = profile as unknown as Record<string, unknown>;
+      const rawLanguages = p.languages;
+      const languagesStr = Array.isArray(rawLanguages)
+        ? (rawLanguages as string[]).join(", ")
+        : (rawLanguages as string) ?? "";
+
       setFormData({
         profession: profile.profession || "",
         specialty: profile.specialty || "",
@@ -282,7 +304,7 @@ export default function ProfilePage() {
         preferredRegion: (p.preferredRegion as string) ?? "",
         alertFrequency: ((p.alertFrequency as AlertFrequency) ?? "daily"),
         preferredStartDate: (p.preferredStartDate as string) ?? "",
-        languages: (p.languages as string) ?? "",
+        languages: languagesStr,
         additionalNotes: (p.additionalNotes as string) ?? "",
         profilePhotoKey: (p.profilePhotoKey as string) ?? "",
       });
@@ -294,6 +316,53 @@ export default function ProfilePage() {
     const checked = type === "checkbox" ? (e.target as HTMLInputElement).checked : undefined;
     setFormData((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
   };
+
+  const buildPayload = useCallback(() => {
+    const fd = formDataRef.current;
+    const effectiveResidency =
+      fd.residencyStatus === "Other"
+        ? fd.residencyStatusOther.trim() || "Other"
+        : fd.residencyStatus;
+    return {
+      profession: fd.profession.trim(),
+      specialty: fd.specialty.trim(),
+      qualificationCountry: fd.qualificationCountry.trim(),
+      qualificationType: fd.qualificationType.trim(),
+      qualificationYear: parseInt(fd.qualificationYear, 10) || 0,
+      experienceYears: parseInt(fd.experienceYears, 10) || 0,
+      registrationStatus: fd.registrationStatus,
+      licenceReady: fd.licenceReady,
+      residencyStatus: effectiveResidency,
+      requiresSponsorship: fd.requiresSponsorship,
+      preferredRegion: fd.preferredRegion || undefined,
+      alertFrequency: fd.alertFrequency,
+      preferredStartDate: fd.preferredStartDate || undefined,
+      profilePhotoKey: fd.profilePhotoKey || undefined,
+      languages: fd.languages
+        ? fd.languages.split(",").map((l) => l.trim()).filter(Boolean)
+        : undefined,
+      additionalNotes: fd.additionalNotes || undefined,
+    };
+  }, []);
+
+  const doAutoSave = useCallback(async () => {
+    const fd = formDataRef.current;
+    if (!fd.profession.trim() || !fd.residencyStatus) return;
+    setAutoSaveStatus("saving");
+    try {
+      await upsertMutation.mutateAsync({ data: buildPayload() });
+      queryClient.invalidateQueries({ queryKey: getGetMyProfileQueryKey() });
+      setAutoSaveStatus("saved");
+      setTimeout(() => setAutoSaveStatus("idle"), 2500);
+    } catch {
+      setAutoSaveStatus("idle");
+    }
+  }, [upsertMutation, queryClient, buildPayload]);
+
+  const handleBlur = useCallback(() => {
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(doAutoSave, 800);
+  }, [doAutoSave]);
 
   const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -315,7 +384,8 @@ export default function ProfilePage() {
       });
       await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
       setFormData((prev) => ({ ...prev, profilePhotoKey: storageKey }));
-      toast({ title: "Photo ready", description: "Click Save Changes to apply your new photo." });
+      toast({ title: "Photo ready", description: "Photo uploaded — auto-saving…" });
+      setTimeout(() => doAutoSave(), 200);
     } catch {
       toast({ title: "Photo upload failed", description: "Could not upload photo. Please try again.", variant: "destructive" });
       setPhotoPreviewUrl(null);
@@ -323,11 +393,6 @@ export default function ProfilePage() {
       setIsPhotoUploading(false);
     }
   };
-
-  const effectiveResidencyStatus =
-    formData.residencyStatus === "Other"
-      ? formData.residencyStatusOther.trim() || "Other"
-      : formData.residencyStatus;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -353,26 +418,7 @@ export default function ProfilePage() {
     }
 
     try {
-      await upsertMutation.mutateAsync({
-        data: {
-          profession: formData.profession.trim(),
-          specialty: formData.specialty.trim(),
-          qualificationCountry: formData.qualificationCountry.trim(),
-          qualificationType: formData.qualificationType.trim(),
-          qualificationYear: parseInt(formData.qualificationYear, 10),
-          experienceYears: parseInt(formData.experienceYears, 10),
-          registrationStatus: formData.registrationStatus,
-          licenceReady: formData.licenceReady,
-          residencyStatus: effectiveResidencyStatus,
-          requiresSponsorship: formData.requiresSponsorship,
-          preferredRegion: formData.preferredRegion || undefined,
-          alertFrequency: formData.alertFrequency,
-          preferredStartDate: formData.preferredStartDate || undefined,
-          profilePhotoKey: formData.profilePhotoKey || undefined,
-          languages: formData.languages || undefined,
-          additionalNotes: formData.additionalNotes || undefined,
-        },
-      });
+      await upsertMutation.mutateAsync({ data: buildPayload() });
       queryClient.invalidateQueries({ queryKey: getGetMyProfileQueryKey() });
       toast({
         title: "Profile Updated",
@@ -390,14 +436,20 @@ export default function ProfilePage() {
   const showRegistrationStatus = isUkRegulatedProfession(formData.profession);
 
   const p = profile as unknown as Record<string, unknown>;
-  const storedPhotoKey = p.profilePhotoKey as string | null | undefined;
+  const storedPhotoKey = p?.profilePhotoKey as string | null | undefined;
   const storedPhotoUrl = storedPhotoKey
     ? `/api/storage/objects/${storedPhotoKey.replace(/^\/objects\//, "")}`
     : null;
   const displayPhotoUrl = photoPreviewUrl ?? storedPhotoUrl;
-  const completionPct = typeof p.completionPct === "number" ? p.completionPct : 0;
+  const completionPct = typeof p?.completionPct === "number" ? p.completionPct : 0;
 
   if (!profile) return null;
+
+  const effectiveResidencyStatus =
+    formData.residencyStatus === "Other"
+      ? formData.residencyStatusOther.trim() || "Other"
+      : formData.residencyStatus;
+  void effectiveResidencyStatus;
 
   return (
     <AppLayout>
@@ -405,7 +457,6 @@ export default function ProfilePage() {
         <header className="mb-6">
           <div className="flex items-start justify-between gap-4 mb-6">
             <div className="flex items-center gap-5">
-              {/* Profile photo */}
               <div className="relative shrink-0">
                 <div className="w-20 h-20 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center overflow-hidden">
                   {displayPhotoUrl ? (
@@ -439,15 +490,40 @@ export default function ProfilePage() {
               <div>
                 <h1 className="text-3xl font-display font-bold text-foreground">My Profile</h1>
                 <p className="text-muted-foreground mt-1 text-sm">
-                  Keep your professional details up to date for accurate eligibility assessments and job matches.
+                  Review and complete your details — fields are saved automatically as you fill them in.
                 </p>
               </div>
             </div>
-            <Button onClick={handleSubmit} disabled={upsertMutation.isPending} className="shrink-0">
-              <Save className="w-4 h-4 mr-2" />
-              {upsertMutation.isPending ? "Saving…" : "Save Changes"}
-            </Button>
+            <div className="flex items-center gap-3 shrink-0">
+              {autoSaveStatus === "saving" && (
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Saving…
+                </span>
+              )}
+              {autoSaveStatus === "saved" && (
+                <span className="text-xs text-emerald-600 flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" /> Saved
+                </span>
+              )}
+              <Button onClick={handleSubmit} disabled={upsertMutation.isPending} variant="outline" size="sm">
+                <Save className="w-4 h-4 mr-2" />
+                {upsertMutation.isPending ? "Saving…" : "Save Changes"}
+              </Button>
+            </div>
           </div>
+
+          {/* Profile complete banner */}
+          {completionPct === 100 && (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 flex items-center gap-3 mb-4">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-emerald-800">Profile complete!</p>
+                <p className="text-xs text-emerald-700 mt-0.5">
+                  Your profile is 100% complete. You can now Smart Apply to any matched role.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Profile completeness bar */}
           <div className="rounded-xl border border-border bg-muted/30 px-5 py-4">
@@ -472,7 +548,7 @@ export default function ProfilePage() {
             </div>
             {completionPct < 100 && (
               <p className="text-xs text-muted-foreground mt-1.5">
-                Fill in your languages, availability date, and photo below to reach 100%.
+                Fields marked <span className="text-amber-600 font-medium">Not found</span> below are still missing — fill them in to reach 100%.
               </p>
             )}
           </div>
@@ -484,10 +560,14 @@ export default function ProfilePage() {
             <h3 className="text-lg font-semibold mb-6 border-b pb-4">Professional Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <Label>Profession *</Label>
+                <Label className="flex items-center gap-1">
+                  Profession *
+                  {!formData.profession && <NotFoundBadge />}
+                </Label>
                 <ProfessionCombobox
                   value={formData.profession}
                   onChange={(val) => setFormData((prev) => ({ ...prev, profession: val }))}
+                  onBlur={handleBlur}
                   suggestions={professionSuggestions}
                 />
                 <FieldHint>
@@ -497,11 +577,15 @@ export default function ProfilePage() {
               </div>
 
               <div>
-                <Label>Specialty</Label>
+                <Label className="flex items-center gap-1">
+                  Specialty
+                  {!formData.specialty && <NotFoundBadge />}
+                </Label>
                 <Input
                   name="specialty"
                   value={formData.specialty}
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   placeholder="e.g. Cardiology, Paediatrics, Civil Engineering"
                 />
                 <FieldHint>
@@ -522,6 +606,7 @@ export default function ProfilePage() {
                     name="registrationStatus"
                     value={formData.registrationStatus}
                     onChange={handleChange}
+                    onBlur={handleBlur}
                   >
                     <option value="not_registered">Not Yet Registered</option>
                     <option value="in_process">In Process</option>
@@ -535,12 +620,16 @@ export default function ProfilePage() {
               )}
 
               <div>
-                <Label>Years of Experience *</Label>
+                <Label className="flex items-center gap-1">
+                  Years of Experience *
+                  {!formData.experienceYears && <NotFoundBadge />}
+                </Label>
                 <Input
                   type="number"
                   name="experienceYears"
                   value={formData.experienceYears}
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   min="0"
                   placeholder="0"
                   required
@@ -557,11 +646,15 @@ export default function ProfilePage() {
             <h3 className="text-lg font-semibold mb-6 border-b pb-4">Qualifications</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <Label>Country of Qualification *</Label>
+                <Label className="flex items-center gap-1">
+                  Country of Qualification *
+                  {!formData.qualificationCountry && <NotFoundBadge />}
+                </Label>
                 <Input
                   name="qualificationCountry"
                   value={formData.qualificationCountry}
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   placeholder="e.g. India, Nigeria, Philippines"
                   required
                 />
@@ -571,11 +664,15 @@ export default function ProfilePage() {
               </div>
 
               <div>
-                <Label>Degree / Qualification Type *</Label>
+                <Label className="flex items-center gap-1">
+                  Degree / Qualification Type *
+                  {!formData.qualificationType && <NotFoundBadge />}
+                </Label>
                 <Input
                   name="qualificationType"
                   value={formData.qualificationType}
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   placeholder="e.g. MBBS, BSc Nursing, BEng"
                   required
                 />
@@ -586,12 +683,16 @@ export default function ProfilePage() {
               </div>
 
               <div>
-                <Label>Graduation Year *</Label>
+                <Label className="flex items-center gap-1">
+                  Graduation Year *
+                  {!formData.qualificationYear && <NotFoundBadge />}
+                </Label>
                 <Input
                   type="number"
                   name="qualificationYear"
                   value={formData.qualificationYear}
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   placeholder="e.g. 2018"
                   min="1950"
                   max={new Date().getFullYear()}
@@ -635,11 +736,13 @@ export default function ProfilePage() {
                     required
                     tip="Your current UK immigration status determines which roles you're legally eligible for and whether you'll need an employer to sponsor your visa."
                   />
+                  {!formData.residencyStatus && <NotFoundBadge />}
                 </Label>
                 <Select
                   name="residencyStatus"
                   value={formData.residencyStatus}
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   required
                 >
                   <option value="">— Select your status —</option>
@@ -661,6 +764,7 @@ export default function ProfilePage() {
                     name="residencyStatusOther"
                     value={formData.residencyStatusOther}
                     onChange={handleChange}
+                    onBlur={handleBlur}
                     placeholder="e.g. Spouse / Family Visa, Tier 1 Innovator…"
                     required
                   />
@@ -692,11 +796,15 @@ export default function ProfilePage() {
               </div>
 
               <div className="col-span-1 md:col-span-2">
-                <Label>Preferred UK Region</Label>
+                <Label className="flex items-center gap-1">
+                  Preferred UK Region
+                  {!formData.preferredRegion && <NotFoundBadge />}
+                </Label>
                 <Select
                   name="preferredRegion"
                   value={formData.preferredRegion}
                   onChange={handleChange}
+                  onBlur={handleBlur}
                 >
                   <option value="">Any / Not specified</option>
                   {UK_REGIONS.map((r) => (
@@ -715,15 +823,22 @@ export default function ProfilePage() {
 
           {/* Additional Details */}
           <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-6 border-b pb-4">Additional Details</h3>
+            <h3 className="text-lg font-semibold mb-2 border-b pb-4">Additional Details</h3>
+            <p className="text-xs text-muted-foreground mb-5">
+              These fields help employers understand your availability and background. Fill them in to complete your profile.
+            </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <Label>Earliest Available Start Date</Label>
+                <Label className="flex items-center gap-1">
+                  Earliest Available Start Date
+                  {!formData.preferredStartDate && <NotFoundBadge />}
+                </Label>
                 <Input
                   type="date"
                   name="preferredStartDate"
                   value={formData.preferredStartDate}
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   min={new Date().toISOString().split("T")[0]}
                 />
                 <FieldHint>
@@ -732,11 +847,15 @@ export default function ProfilePage() {
               </div>
 
               <div>
-                <Label>Languages Spoken</Label>
+                <Label className="flex items-center gap-1">
+                  Languages Spoken
+                  {!formData.languages && <NotFoundBadge />}
+                </Label>
                 <Input
                   name="languages"
                   value={formData.languages}
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   placeholder="e.g. English, Hindi, Urdu"
                 />
                 <FieldHint>
@@ -745,11 +864,15 @@ export default function ProfilePage() {
               </div>
 
               <div className="col-span-1 md:col-span-2">
-                <Label>Additional Notes</Label>
+                <Label className="flex items-center gap-1">
+                  Additional Notes
+                  {!formData.additionalNotes && <NotFoundBadge />}
+                </Label>
                 <textarea
                   name="additionalNotes"
                   value={formData.additionalNotes}
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   placeholder="Anything else you'd like employers or JOBSAGE to know about you…"
                   rows={3}
                   className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
@@ -776,7 +899,10 @@ export default function ProfilePage() {
                 <button
                   key={freq}
                   type="button"
-                  onClick={() => setFormData((prev) => ({ ...prev, alertFrequency: freq }))}
+                  onClick={() => {
+                    setFormData((prev) => ({ ...prev, alertFrequency: freq }));
+                    setTimeout(doAutoSave, 300);
+                  }}
                   className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
                     formData.alertFrequency === freq
                       ? "border-primary bg-primary/10 text-primary"

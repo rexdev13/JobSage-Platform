@@ -24,6 +24,6 @@ export interface UpsertProfileRequest {
   alertFrequency?: UpsertProfileRequestAlertFrequency;
   preferredStartDate?: string | null;
   profilePhotoKey?: string | null;
-  languages?: string | null;
+  languages?: string[] | null;
   additionalNotes?: string | null;
 }

@@ -1,0 +1,1 @@
+- [Drizzle array column inserts](drizzle-array-column.md) — text("col").array() columns require `as any` cast in .values()/.set() due to drizzle TypeScript type narrowing gap.

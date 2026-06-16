@@ -233,10 +233,7 @@ export const GetMyProfileResponse = zod.object({
     .string()
     .nullish()
     .describe("Object storage key for the profile photo"),
-  languages: zod
-    .string()
-    .nullish()
-    .describe("Comma-separated languages spoken (e.g. English, Hindi, Urdu)"),
+  languages: zod.array(zod.string()).nullish().describe("Languages spoken"),
   additionalNotes: zod
     .string()
     .nullish()
@@ -271,7 +268,7 @@ export const UpsertMyProfileBody = zod.object({
   alertFrequency: zod.enum(["daily", "weekly", "off"]).nullish(),
   preferredStartDate: zod.string().nullish(),
   profilePhotoKey: zod.string().nullish(),
-  languages: zod.string().nullish(),
+  languages: zod.array(zod.string()).nullish(),
   additionalNotes: zod.string().nullish(),
 });
 
@@ -306,10 +303,7 @@ export const UpsertMyProfileResponse = zod.object({
     .string()
     .nullish()
     .describe("Object storage key for the profile photo"),
-  languages: zod
-    .string()
-    .nullish()
-    .describe("Comma-separated languages spoken (e.g. English, Hindi, Urdu)"),
+  languages: zod.array(zod.string()).nullish().describe("Languages spoken"),
   additionalNotes: zod
     .string()
     .nullish()
@@ -625,7 +619,7 @@ export const RunRegressionTestBody = zod.object({
         alertFrequency: zod.enum(["daily", "weekly", "off"]).nullish(),
         preferredStartDate: zod.string().nullish(),
         profilePhotoKey: zod.string().nullish(),
-        languages: zod.string().nullish(),
+        languages: zod.array(zod.string()).nullish(),
         additionalNotes: zod.string().nullish(),
       }),
       expectedOutcome: zod.enum(["eligible", "not_eligible", "ineligible"]),
@@ -1247,12 +1241,7 @@ export const GetReviewCaseResponse = zod.object({
         .string()
         .nullish()
         .describe("Object storage key for the profile photo"),
-      languages: zod
-        .string()
-        .nullish()
-        .describe(
-          "Comma-separated languages spoken (e.g. English, Hindi, Urdu)",
-        ),
+      languages: zod.array(zod.string()).nullish().describe("Languages spoken"),
       additionalNotes: zod
         .string()
         .nullish()
