@@ -347,7 +347,14 @@ export default function ProfilePage() {
 
   const doAutoSave = useCallback(async () => {
     const fd = formDataRef.current;
-    if (!fd.profession.trim() || !fd.residencyStatus) return;
+    if (
+      !fd.profession.trim() ||
+      !fd.residencyStatus ||
+      !fd.qualificationCountry.trim() ||
+      !fd.qualificationType.trim() ||
+      !fd.qualificationYear ||
+      !fd.experienceYears
+    ) return;
     setAutoSaveStatus("saving");
     try {
       await upsertMutation.mutateAsync({ data: buildPayload() });
