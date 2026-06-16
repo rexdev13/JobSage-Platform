@@ -22,4 +22,8 @@ export interface UpsertProfileRequest {
   requiresSponsorship: boolean;
   preferredRegion?: string | null;
   alertFrequency?: UpsertProfileRequestAlertFrequency;
+  preferredStartDate?: string | null;
+  profilePhotoKey?: string | null;
+  languages?: string | null;
+  additionalNotes?: string | null;
 }

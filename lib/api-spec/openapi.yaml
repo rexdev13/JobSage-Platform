@@ -2877,6 +2877,25 @@ components:
           nullable: true
         boostProfile:
           type: boolean
+        preferredStartDate:
+          type: string
+          nullable: true
+          description: Target start date (ISO date string, e.g. 2025-06-01)
+        profilePhotoKey:
+          type: string
+          nullable: true
+          description: Object storage key for the profile photo
+        languages:
+          type: string
+          nullable: true
+          description: Comma-separated languages spoken (e.g. English, Hindi, Urdu)
+        additionalNotes:
+          type: string
+          nullable: true
+          description: Free-text notes the candidate wants employers to see
+        completionPct:
+          type: integer
+          description: Profile completeness score (0–100), computed server-side
         createdAt:
           type: string
           format: date-time
@@ -2936,6 +2955,18 @@ components:
         alertFrequency:
           type: string
           enum: [daily, weekly, off]
+          nullable: true
+        preferredStartDate:
+          type: string
+          nullable: true
+        profilePhotoKey:
+          type: string
+          nullable: true
+        languages:
+          type: string
+          nullable: true
+        additionalNotes:
+          type: string
           nullable: true
 
     RecordConsentRequest:

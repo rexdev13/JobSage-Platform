@@ -142,6 +142,16 @@ export interface CandidateProfile {
   alertFrequency?: CandidateProfileAlertFrequency;
   lastAlertSentAt?: string | null;
   boostProfile?: boolean;
+  /** Target start date (ISO date string, e.g. 2025-06-01) */
+  preferredStartDate?: string | null;
+  /** Object storage key for the profile photo */
+  profilePhotoKey?: string | null;
+  /** Comma-separated languages spoken (e.g. English, Hindi, Urdu) */
+  languages?: string | null;
+  /** Free-text notes the candidate wants employers to see */
+  additionalNotes?: string | null;
+  /** Profile completeness score (0–100), computed server-side */
+  completionPct?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -184,6 +194,10 @@ export interface UpsertProfileRequest {
   requiresSponsorship: boolean;
   preferredRegion?: string | null;
   alertFrequency?: UpsertProfileRequestAlertFrequency;
+  preferredStartDate?: string | null;
+  profilePhotoKey?: string | null;
+  languages?: string | null;
+  additionalNotes?: string | null;
 }
 
 export interface RecordConsentRequest {

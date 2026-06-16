@@ -232,6 +232,8 @@ export default function DocumentsPage() {
     }
   };
 
+  const [showParseBanner, setShowParseBanner] = useState(false);
+
   const handleConfirmMerge = async (extracted: CvExtractedFields) => {
     setIsSavingProfile(true);
     const isBootstrap = !profile;
@@ -263,6 +265,7 @@ export default function DocumentsPage() {
           : "Your profile has been updated with data from your CV.",
       });
       setParsedExtracted(null);
+      setShowParseBanner(true);
     } catch {
       toast({ title: "Failed to save", description: "Could not update your profile. Please try again.", variant: "destructive" });
     } finally {
@@ -308,6 +311,42 @@ export default function DocumentsPage() {
             </Button>
           </div>
         </header>
+
+        <AnimatePresence>
+          {showParseBanner && (
+            <motion.div
+              key="parse-banner"
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className="mb-6 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4"
+            >
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 mt-0.5 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-emerald-800">Profile updated from your CV</p>
+                <p className="text-xs text-emerald-700 mt-0.5">
+                  Some fields like languages, photo, and availability still need to be filled in manually.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <a
+                  href="/profile"
+                  className="inline-flex items-center gap-1 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg px-3 py-1.5 transition-colors"
+                >
+                  <User className="w-3.5 h-3.5" />
+                  Complete Profile
+                </a>
+                <button
+                  onClick={() => setShowParseBanner(false)}
+                  className="text-emerald-500 hover:text-emerald-700 transition-colors p-1"
+                  aria-label="Dismiss"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl flex items-start mb-8 shadow-sm">
           <ShieldAlert className="w-5 h-5 mr-3 shrink-0 mt-0.5 text-amber-600" />

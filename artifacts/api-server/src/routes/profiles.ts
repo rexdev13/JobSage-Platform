@@ -5,6 +5,28 @@ import { eq, sql } from "drizzle-orm";
 import { GetMyProfileResponse, UpsertMyProfileBody, UpsertMyProfileResponse } from "@workspace/api-zod";
 import { requireConsent } from "../middlewares/consentMiddleware";
 
+type ProfileRow = typeof profilesTable.$inferSelect;
+
+function computeCompletionPct(p: ProfileRow): number {
+  const scored: unknown[] = [
+    p.profession,
+    p.specialty,
+    p.qualificationCountry,
+    p.qualificationType,
+    p.qualificationYear,
+    p.experienceYears,
+    p.registrationStatus,
+    p.residencyStatus,
+    p.preferredRegion,
+    p.preferredStartDate,
+    p.profilePhotoKey,
+    p.languages,
+    p.additionalNotes,
+  ];
+  const filled = scored.filter((f) => f != null && f !== "").length;
+  return Math.min(100, Math.round((filled / scored.length) * 100));
+}
+
 const router: IRouter = Router();
 
 const WELL_KNOWN_PROFESSIONS = [
@@ -61,7 +83,7 @@ router.get("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
     return;
   }
 
-  res.json(GetMyProfileResponse.parse(profile));
+  res.json(GetMyProfileResponse.parse({ ...profile, completionPct: computeCompletionPct(profile) }));
 });
 
 router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Request, res: Response): Promise<void> => {
@@ -71,7 +93,27 @@ router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
     return;
   }
 
-  const values = { ...parsed.data, userId: req.user!.id };
+  const d = parsed.data;
+
+  const values = {
+    userId: req.user!.id,
+    profession: d.profession,
+    specialty: d.specialty,
+    qualificationCountry: d.qualificationCountry,
+    qualificationType: d.qualificationType,
+    qualificationYear: d.qualificationYear,
+    experienceYears: d.experienceYears,
+    registrationStatus: d.registrationStatus,
+    licenceReady: d.licenceReady ?? null,
+    residencyStatus: d.residencyStatus,
+    requiresSponsorship: d.requiresSponsorship,
+    preferredRegion: d.preferredRegion ?? null,
+    alertFrequency: (d.alertFrequency ?? "daily") as "daily" | "weekly" | "off",
+    preferredStartDate: d.preferredStartDate ?? null,
+    profilePhotoKey: d.profilePhotoKey ?? null,
+    languages: d.languages ?? null,
+    additionalNotes: d.additionalNotes ?? null,
+  };
 
   const [profile] = await db
     .insert(profilesTable)
@@ -79,13 +121,28 @@ router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
     .onConflictDoUpdate({
       target: profilesTable.userId,
       set: {
-        ...parsed.data,
+        profession: d.profession,
+        specialty: d.specialty,
+        qualificationCountry: d.qualificationCountry,
+        qualificationType: d.qualificationType,
+        qualificationYear: d.qualificationYear,
+        experienceYears: d.experienceYears,
+        registrationStatus: d.registrationStatus,
+        licenceReady: d.licenceReady ?? null,
+        residencyStatus: d.residencyStatus,
+        requiresSponsorship: d.requiresSponsorship,
+        preferredRegion: d.preferredRegion ?? null,
+        alertFrequency: d.alertFrequency ?? "daily",
+        preferredStartDate: d.preferredStartDate ?? null,
+        profilePhotoKey: d.profilePhotoKey ?? null,
+        languages: d.languages ?? null,
+        additionalNotes: d.additionalNotes ?? null,
         updatedAt: new Date(),
       },
     })
     .returning();
 
-  res.json(UpsertMyProfileResponse.parse(profile));
+  res.json(UpsertMyProfileResponse.parse({ ...profile, completionPct: computeCompletionPct(profile) }));
 });
 
 router.patch("/profiles/me/boost", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
