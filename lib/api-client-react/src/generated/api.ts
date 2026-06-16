@@ -73,6 +73,7 @@ import type {
   InterviewPrepResponse,
   JobApplicantsResponse,
   JobListing,
+  JourneyStatusResponse,
   ListAdminAuditEventsParams,
   ListConsentLogParams,
   ListDecisionsParams,
@@ -7257,6 +7258,81 @@ export function useGetMyProgressReport<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetMyProgressReportQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get the candidate's gamified journey status, stage progress, and earned badges
+ */
+export const getGetJourneyStatusUrl = () => {
+  return `/api/journey/status`;
+};
+
+export const getJourneyStatus = async (
+  options?: RequestInit,
+): Promise<JourneyStatusResponse> => {
+  return customFetch<JourneyStatusResponse>(getGetJourneyStatusUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetJourneyStatusQueryKey = () => {
+  return [`/api/journey/status`] as const;
+};
+
+export const getGetJourneyStatusQueryOptions = <
+  TData = Awaited<ReturnType<typeof getJourneyStatus>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getJourneyStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetJourneyStatusQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getJourneyStatus>>
+  > = ({ signal }) => getJourneyStatus({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getJourneyStatus>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetJourneyStatusQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getJourneyStatus>>
+>;
+export type GetJourneyStatusQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Get the candidate's gamified journey status, stage progress, and earned badges
+ */
+
+export function useGetJourneyStatus<
+  TData = Awaited<ReturnType<typeof getJourneyStatus>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getJourneyStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetJourneyStatusQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

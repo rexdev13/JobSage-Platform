@@ -2179,6 +2179,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /journey/status:
+    get:
+      operationId: getJourneyStatus
+      tags: [CandidatePortal]
+      summary: Get the candidate's gamified journey status, stage progress, and earned badges
+      responses:
+        "200":
+          description: Journey status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JourneyStatusResponse"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
   /my-analytics:
     get:
       operationId: getMyAnalytics
@@ -4982,6 +5001,90 @@ components:
           nullable: true
         applicationId:
           type: integer
+          nullable: true
+
+    JourneySubTask:
+      type: object
+      required: [id, label, done]
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        done:
+          type: boolean
+        href:
+          type: string
+          nullable: true
+
+    JourneyStageItem:
+      type: object
+      required: [id, index, name, description, status, completionPct, subTasks, locked, href, iconName]
+      properties:
+        id:
+          type: string
+        index:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [locked, notStarted, inProgress, complete]
+        completionPct:
+          type: integer
+        locked:
+          type: boolean
+        subTasks:
+          type: array
+          items:
+            $ref: "#/components/schemas/JourneySubTask"
+        nextUnlockHint:
+          type: string
+          nullable: true
+        href:
+          type: string
+        iconName:
+          type: string
+        badgeKey:
+          type: string
+          nullable: true
+
+    JourneyBadge:
+      type: object
+      required: [key, name, description, iconName, awardedAt]
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        iconName:
+          type: string
+        awardedAt:
+          type: string
+        isNew:
+          type: boolean
+          nullable: true
+
+    JourneyStatusResponse:
+      type: object
+      required: [stages, badges, readinessScore, nextAction]
+      properties:
+        stages:
+          type: array
+          items:
+            $ref: "#/components/schemas/JourneyStageItem"
+        badges:
+          type: array
+          items:
+            $ref: "#/components/schemas/JourneyBadge"
+        readinessScore:
+          type: integer
+        nextAction:
+          type: string
           nullable: true
 
     UnreadCountResponse:

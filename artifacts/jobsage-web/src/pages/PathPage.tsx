@@ -1,560 +1,567 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Card, PageTransition, Button } from "@/components/ui-enhanced";
-import {
-  useGetRemediationPlan,
-  useUpdateRemediationStep,
-  useGetAiRemediationSuggestions,
-  useUpdateRemediationPlanOrdering,
-  useGetForwardEligibility,
-} from "@workspace/api-client-react";
+import { Card, Button, PageTransition } from "@/components/ui-enhanced";
+import { useGetJourneyStatus, getGetJourneyStatusQueryKey } from "@workspace/api-client-react";
+import type { JourneyStageItem, JourneyBadge } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { getGetRemediationPlanQueryKey } from "@workspace/api-client-react";
+import { Link } from "wouter";
+import { motion, AnimatePresence } from "framer-motion";
 import {
-  CheckCircle2,
-  Clock,
-  AlertCircle,
-  ChevronDown,
-  ChevronUp,
-  Loader2,
-  AlertTriangle,
-  TrendingUp,
-  ArrowRight,
-  Sparkles,
-  Circle,
-  Zap,
-  Timer,
-  Briefcase,
-  MapPin,
-  Building2,
+  User, Files, ShieldCheck, Briefcase, ClipboardList,
+  MessageSquare, Trophy, Globe, Home, TrendingUp,
+  CheckCircle2, Lock, Circle, ChevronRight, ChevronLeft,
+  Star, Send, UserCheck, X, ArrowRight, Sparkles,
+  Loader2, AlertCircle,
 } from "lucide-react";
-import { useLocation, Link } from "wouter";
-import type { RemediationStep } from "@workspace/api-client-react";
-import { DisclaimerBanner } from "@/components/ui/DisclaimerBanner";
-import { motion } from "framer-motion";
+import { cn } from "@/components/ui-enhanced";
+import confetti from "canvas-confetti";
 
-type StepStatus = "planned" | "in_progress" | "done";
+const ICON_MAP: Record<string, React.ElementType> = {
+  User, Files, ShieldCheck, Briefcase, ClipboardList,
+  MessageSquare, Trophy, Globe, Home, TrendingUp,
+  Star, Send, UserCheck,
+};
 
-function getStepIcon(status: StepStatus, index: number) {
-  if (status === "done") {
-    return (
-      <div className="w-9 h-9 rounded-full bg-emerald-100 border-2 border-emerald-500 flex items-center justify-center shadow-sm">
-        <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-      </div>
-    );
-  }
-  if (status === "in_progress") {
-    return (
-      <div className="w-9 h-9 rounded-full bg-blue-100 border-2 border-blue-500 flex items-center justify-center shadow-sm animate-pulse">
-        <Zap className="w-4 h-4 text-blue-600" />
-      </div>
-    );
-  }
+function getIcon(name: string): React.ElementType {
+  return ICON_MAP[name] ?? Circle;
+}
+
+function BadgeIcon({ iconName, size = 20 }: { iconName: string; size?: number }) {
+  const Icon = getIcon(iconName);
+  return <Icon style={{ width: size, height: size }} />;
+}
+
+function ReadinessRing({ score }: { score: number }) {
+  const r = 52;
+  const circ = 2 * Math.PI * r;
+  const dash = (score / 100) * circ;
+  const color = score >= 75 ? "#10b981" : score >= 50 ? "#3b82f6" : score >= 25 ? "#f59e0b" : "#6b7280";
+
   return (
-    <div className="w-9 h-9 rounded-full bg-muted border-2 border-border flex items-center justify-center shadow-sm">
-      <span className="text-xs font-bold text-muted-foreground">{index + 1}</span>
+    <div className="relative w-36 h-36">
+      <svg width="144" height="144" className="-rotate-90">
+        <circle cx="72" cy="72" r={r} strokeWidth="10" stroke="currentColor" className="text-muted/30" fill="none" />
+        <motion.circle
+          cx="72" cy="72" r={r} strokeWidth="10"
+          stroke={color}
+          fill="none"
+          strokeDasharray={`${dash} ${circ}`}
+          strokeLinecap="round"
+          initial={{ strokeDasharray: `0 ${circ}` }}
+          animate={{ strokeDasharray: `${dash} ${circ}` }}
+          transition={{ duration: 1.2, ease: "easeOut" }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <motion.span
+          className="text-3xl font-display font-black"
+          style={{ color }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5 }}
+        >
+          {score}
+        </motion.span>
+        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Readiness</span>
+      </div>
     </div>
   );
 }
 
-function TimelineStep({ step, index, isLast }: { step: RemediationStep; index: number; isLast: boolean }) {
-  const [expanded, setExpanded] = useState(false);
-  const queryClient = useQueryClient();
-  const { mutate: updateStep, isPending } = useUpdateRemediationStep({
-    mutation: {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getGetRemediationPlanQueryKey() });
-      },
-    },
-  });
+function StageNode({
+  stage,
+  isSelected,
+  onClick,
+}: {
+  stage: JourneyStageItem;
+  isSelected: boolean;
+  onClick: () => void;
+}) {
+  const Icon = getIcon(stage.iconName);
+  const isLocked = stage.locked;
+  const isComplete = stage.status === "complete";
+  const isInProgress = stage.status === "inProgress";
 
-  const STATUS_CYCLE: StepStatus[] = ["planned", "in_progress", "done"];
-  const nextStatus = STATUS_CYCLE[(STATUS_CYCLE.indexOf(step.status as StepStatus) + 1) % STATUS_CYCLE.length];
+  const nodeStyle = isComplete
+    ? "bg-emerald-500 border-emerald-400 text-white shadow-emerald-200 shadow-md"
+    : isInProgress
+      ? "bg-blue-500 border-blue-400 text-white shadow-blue-200 shadow-md"
+      : isLocked
+        ? "bg-muted/50 border-border text-muted-foreground/40"
+        : "bg-background border-border text-muted-foreground hover:border-primary/40 hover:text-primary";
 
-  const statusColors: Record<StepStatus, string> = {
-    done: "border-l-emerald-400 bg-emerald-50/20",
-    in_progress: "border-l-blue-400 bg-blue-50/20",
-    planned: "border-l-border",
-  };
+  const ringStyle = isSelected
+    ? "ring-2 ring-primary ring-offset-2"
+    : "";
+
+  return (
+    <motion.button
+      onClick={!isLocked ? onClick : undefined}
+      initial={{ opacity: 0, scale: 0.85 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ delay: stage.index * 0.06, duration: 0.35 }}
+      className={cn(
+        "relative flex flex-col items-center gap-2 p-1 rounded-xl transition-all",
+        !isLocked && "cursor-pointer",
+        isLocked && "cursor-default opacity-60",
+      )}
+    >
+      <div className={cn(
+        "w-14 h-14 rounded-2xl border-2 flex items-center justify-center transition-all",
+        nodeStyle,
+        ringStyle,
+      )}>
+        {isLocked ? (
+          <Lock className="w-5 h-5" />
+        ) : isComplete ? (
+          <CheckCircle2 className="w-6 h-6" />
+        ) : (
+          <Icon className="w-6 h-6" />
+        )}
+        {isInProgress && !isComplete && (
+          <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-blue-500 border-2 border-background animate-pulse" />
+        )}
+      </div>
+      <span className={cn(
+        "text-[11px] font-semibold text-center leading-tight max-w-[72px]",
+        isComplete ? "text-emerald-700 dark:text-emerald-400"
+          : isInProgress ? "text-blue-700 dark:text-blue-400"
+            : isLocked ? "text-muted-foreground/50"
+              : "text-foreground",
+      )}>
+        {stage.name}
+      </span>
+      {stage.completionPct > 0 && stage.completionPct < 100 && !isLocked && (
+        <div className="w-14 h-1 rounded-full bg-muted overflow-hidden">
+          <div
+            className="h-full bg-blue-500 rounded-full transition-all"
+            style={{ width: `${stage.completionPct}%` }}
+          />
+        </div>
+      )}
+    </motion.button>
+  );
+}
+
+function StageDrawer({
+  stage,
+  badge,
+  onClose,
+}: {
+  stage: JourneyStageItem;
+  badge?: JourneyBadge;
+  onClose: () => void;
+}) {
+  const Icon = getIcon(stage.iconName);
+  const doneTasks = stage.subTasks.filter((t) => t.done).length;
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: -8 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: index * 0.06, duration: 0.35 }}
-      className="flex gap-4"
+      initial={{ x: "100%", opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      exit={{ x: "100%", opacity: 0 }}
+      transition={{ type: "spring", stiffness: 320, damping: 32 }}
+      className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-background border-l border-border shadow-2xl z-50 flex flex-col"
     >
-      <div className="flex flex-col items-center">
-        {getStepIcon(step.status as StepStatus, index)}
-        {!isLast && (
-          <div className={`w-0.5 flex-1 mt-1.5 ${step.status === "done" ? "bg-emerald-300" : "bg-border"}`} />
+      {/* Header */}
+      <div className={cn(
+        "p-6 border-b border-border",
+        stage.status === "complete" ? "bg-emerald-50/50 dark:bg-emerald-950/20"
+          : stage.status === "inProgress" ? "bg-blue-50/50 dark:bg-blue-950/20"
+            : stage.locked ? "bg-muted/30" : "bg-background",
+      )}>
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className={cn(
+              "w-12 h-12 rounded-2xl flex items-center justify-center",
+              stage.status === "complete" ? "bg-emerald-500 text-white"
+                : stage.status === "inProgress" ? "bg-blue-500 text-white"
+                  : stage.locked ? "bg-muted text-muted-foreground"
+                    : "bg-primary/10 text-primary",
+            )}>
+              {stage.locked ? <Lock className="w-6 h-6" /> : stage.status === "complete" ? <CheckCircle2 className="w-6 h-6" /> : <Icon className="w-6 h-6" />}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold text-foreground">{stage.name}</h2>
+                {stage.status === "complete" && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                    <CheckCircle2 className="w-3 h-3" /> Complete
+                  </span>
+                )}
+                {stage.status === "inProgress" && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
+                    In Progress
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">{stage.description}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
+            <X className="w-5 h-5 text-muted-foreground" />
+          </button>
+        </div>
+
+        {/* Progress bar */}
+        {!stage.locked && (
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs text-muted-foreground">{doneTasks}/{stage.subTasks.length} tasks complete</span>
+              <span className="text-xs font-bold text-foreground">{stage.completionPct}%</span>
+            </div>
+            <div className="w-full h-2 bg-muted/50 rounded-full overflow-hidden">
+              <motion.div
+                className={cn(
+                  "h-full rounded-full",
+                  stage.status === "complete" ? "bg-emerald-500"
+                    : stage.status === "inProgress" ? "bg-blue-500"
+                      : "bg-primary",
+                )}
+                initial={{ width: 0 }}
+                animate={{ width: `${stage.completionPct}%` }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+              />
+            </div>
+          </div>
         )}
       </div>
 
-      <div className={`flex-1 pb-6 ${isLast ? "" : ""}`}>
-        <Card className={`p-4 border-l-4 ${statusColors[step.status as StepStatus] ?? ""} ${step.status === "done" ? "opacity-80" : ""}`}>
-          <div className="flex items-start justify-between gap-3 mb-2">
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-wrap items-center gap-2 mb-1">
-                {step.status === "in_progress" && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
-                    <Zap className="w-3 h-3" /> In Progress
-                  </span>
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-5">
+        {stage.locked && stage.nextUnlockHint && (
+          <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-50 border border-amber-200">
+            <Lock className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-amber-900">Stage locked</p>
+              <p className="text-xs text-amber-700 mt-0.5">{stage.nextUnlockHint}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Sub-tasks checklist */}
+        <div>
+          <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+            <ClipboardList className="w-4 h-4 text-primary" />
+            Checklist
+          </h3>
+          <div className="space-y-2">
+            {stage.subTasks.map((task) => (
+              <div
+                key={task.id}
+                className={cn(
+                  "flex items-center gap-3 p-3 rounded-xl border transition-colors",
+                  task.done
+                    ? "bg-emerald-50/50 border-emerald-200/60 dark:bg-emerald-950/20 dark:border-emerald-800/40"
+                    : "bg-muted/30 border-border",
                 )}
-                {step.status === "done" && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
-                    <CheckCircle2 className="w-3 h-3" /> Done
-                  </span>
-                )}
-                {step.pathway && (
-                  <span className="text-xs text-primary/70 font-medium">{step.pathway}</span>
+              >
+                <div className={cn(
+                  "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0",
+                  task.done ? "bg-emerald-500 border-emerald-500" : "border-muted-foreground/30",
+                )}>
+                  {task.done && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+                </div>
+                <span className={cn(
+                  "text-sm flex-1",
+                  task.done ? "line-through text-muted-foreground" : "text-foreground",
+                )}>
+                  {task.label}
+                </span>
+                {!task.done && task.href && (
+                  <Link href={task.href}>
+                    <span className="text-xs text-primary font-medium flex items-center gap-0.5 hover:underline">
+                      Go <ChevronRight className="w-3 h-3" />
+                    </span>
+                  </Link>
                 )}
               </div>
-              <h3 className={`text-sm font-semibold leading-snug ${step.status === "done" ? "line-through text-muted-foreground/60" : "text-foreground"}`}>
-                {step.title}
-              </h3>
+            ))}
+          </div>
+        </div>
+
+        {/* Badge earned */}
+        {badge && (
+          <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 dark:bg-amber-950/20 dark:border-amber-800/40">
+            <h3 className="text-sm font-semibold text-amber-900 dark:text-amber-200 mb-2 flex items-center gap-2">
+              <Star className="w-4 h-4" /> Badge
+            </h3>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
+                <BadgeIcon iconName={badge.iconName} size={20} />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-foreground">{badge.name}</p>
+                <p className="text-xs text-muted-foreground">{badge.description}</p>
+              </div>
             </div>
-            <button
-              onClick={() => updateStep({ id: step.id, data: { status: nextStatus } })}
-              disabled={isPending}
-              className="shrink-0 px-3 py-1.5 rounded-lg border border-border text-xs font-medium text-foreground hover:bg-muted/60 transition-colors disabled:opacity-50 whitespace-nowrap"
-            >
-              {isPending ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                `Mark ${nextStatus.replace("_", " ")}`
-              )}
-            </button>
           </div>
+        )}
 
-          <div className="flex flex-wrap gap-3 text-xs text-muted-foreground mt-2">
-            {step.timelineRange && (
-              <span className="flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5" />
-                <span className="font-medium text-foreground">{step.timelineRange}</span>
-              </span>
-            )}
-            {step.costRange && (
-              <span className="flex items-center gap-1">
-                Cost: <span className="font-medium text-foreground">{step.costRange}</span>
-              </span>
-            )}
-            {step.gap && (
-              <span className="text-muted-foreground/70 italic truncate max-w-xs">Gap: {step.gap}</span>
-            )}
+        {/* What unlocks next */}
+        {stage.nextUnlockHint && !stage.locked && (
+          <div className="p-4 rounded-xl bg-primary/5 border border-primary/20">
+            <h3 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-primary" /> Next
+            </h3>
+            <p className="text-xs text-muted-foreground">{stage.nextUnlockHint}</p>
           </div>
-
-          <div className="mt-2">
-            <button
-              onClick={() => setExpanded((v) => !v)}
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-              {expanded ? "Hide details" : "Show details"}
-            </button>
-            {expanded && (
-              <p className="mt-2 text-xs text-muted-foreground leading-relaxed">{step.description}</p>
-            )}
-          </div>
-        </Card>
+        )}
       </div>
+
+      {/* CTA */}
+      {!stage.locked && (
+        <div className="p-5 border-t border-border">
+          <Link href={stage.href}>
+            <Button className="w-full gap-2">
+              {stage.status === "complete" ? "View Section" : "Continue"} <ArrowRight className="w-4 h-4" />
+            </Button>
+          </Link>
+        </div>
+      )}
     </motion.div>
   );
 }
 
-function AiSuggestionsPanel({ planId, steps }: { planId: number; steps: RemediationStep[] }) {
-  const [show, setShow] = useState(false);
-  const [applied, setApplied] = useState(false);
-  const queryClient = useQueryClient();
-
-  const { data, isLoading, isError } = useGetAiRemediationSuggestions(planId, {
-    query: {
-      enabled: show,
-      queryKey: ["getAiRemediationSuggestions", planId, show],
-    },
-  });
-
-  const { mutate: applyOrdering, isPending: isApplying } = useUpdateRemediationPlanOrdering({
-    mutation: {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getGetRemediationPlanQueryKey() });
-        setApplied(true);
-      },
-    },
-  });
-
-  const handleApply = () => {
-    if (!data?.suggestions?.length) return;
-    const sorted = [...data.suggestions].sort((a, b) => a.suggestedOrder - b.suggestedOrder);
-    applyOrdering({ id: planId, data: { stepOrder: sorted.map((s) => s.stepId) } });
-  };
-
-  const handleKeep = () => {
-    applyOrdering({ id: planId, data: { stepOrder: steps.map((s) => s.id) } });
-    setShow(false);
-  };
-
-  const stepLookup = Object.fromEntries(steps.map((s) => [s.id, s.title]));
-
-  return (
-    <Card className="p-5 border-violet-200 bg-violet-50/30">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-violet-600" />
-          <span className="text-sm font-semibold text-violet-900">AI Step Ordering Suggestions</span>
-        </div>
-        <button
-          onClick={() => { setShow((v) => !v); setApplied(false); }}
-          className="text-xs text-violet-700 font-medium hover:underline"
-        >
-          {show ? "Hide" : "Get suggestions"}
-        </button>
-      </div>
-
-      {show && (
-        <div className="mt-4 space-y-3">
-          {isLoading && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="w-4 h-4 animate-spin" /> Generating AI suggestions…
-            </div>
-          )}
-          {isError && (
-            <p className="text-xs text-destructive">Could not load AI suggestions. Please try again.</p>
-          )}
-          {!isLoading && !isError && data && (
-            <>
-              <p className="text-xs text-muted-foreground mb-1">Recommended order:</p>
-              {[...data.suggestions]
-                .sort((a, b) => a.suggestedOrder - b.suggestedOrder)
-                .map((s) => (
-                  <div key={s.stepId} className="flex gap-3 text-xs">
-                    <span className="w-6 h-6 shrink-0 rounded-full bg-violet-200 text-violet-900 font-bold flex items-center justify-center">
-                      {s.suggestedOrder}
-                    </span>
-                    <div>
-                      <p className="font-medium text-foreground">{stepLookup[s.stepId] ?? `Step #${s.stepId}`}</p>
-                      <p className="text-muted-foreground mt-0.5">{s.rationale}</p>
-                    </div>
-                  </div>
-                ))}
-              {data.overallRationale && (
-                <p className="text-xs text-muted-foreground italic mt-2 border-t border-violet-100 pt-2">
-                  {data.overallRationale}
-                </p>
-              )}
-              <p className="text-[10px] text-amber-700 mt-2 border-t border-violet-100 pt-2">{data.disclaimer}</p>
-              {applied ? (
-                <div className="flex items-center gap-2 text-xs text-green-700 font-medium mt-2">
-                  <CheckCircle2 className="w-4 h-4" /> AI ordering applied
-                </div>
-              ) : (
-                <div className="flex gap-2 mt-3">
-                  <button
-                    onClick={handleApply}
-                    disabled={isApplying || !data.suggestions.length}
-                    className="px-3 py-1.5 rounded-lg bg-violet-600 text-white text-xs font-semibold hover:bg-violet-700 disabled:opacity-50 transition-colors flex items-center gap-1"
-                  >
-                    {isApplying ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                    Apply suggested order
-                  </button>
-                  <button
-                    onClick={handleKeep}
-                    disabled={isApplying}
-                    className="px-3 py-1.5 rounded-lg border border-border text-xs font-medium hover:bg-muted/50 disabled:opacity-50 transition-colors"
-                  >
-                    Keep my order
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      )}
-    </Card>
-  );
-}
-
-function ForwardEligibilityCard() {
-  const { data, isLoading, isError } = useGetForwardEligibility();
-
-  if (isLoading) {
-    return (
-      <Card className="p-5 border-primary/20 bg-primary/5">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="w-4 h-4 animate-spin" /> Calculating forward eligibility…
-        </div>
-      </Card>
-    );
-  }
-
-  if (isError || !data) return null;
-
+function BadgeShelf({ badges }: { badges: JourneyBadge[] }) {
+  if (badges.length === 0) return null;
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.3, duration: 0.4 }}
+      transition={{ delay: 0.7 }}
     >
-      <Card className="p-5 border-accent/20 bg-accent/5">
-        <div className="flex items-start gap-3 mb-4">
-          <div className="w-9 h-9 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
-            <Timer className="w-5 h-5 text-accent" />
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-foreground">Time to Eligibility Estimate</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Based on your remaining {data.incompleteStepCount} step{data.incompleteStepCount !== 1 ? "s" : ""}
-            </p>
-          </div>
+      <Card className="p-5">
+        <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Star className="w-4 h-4 text-amber-500" />
+          My Badges
+          <span className="ml-1 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
+            {badges.length}
+          </span>
+        </h3>
+        <div className="flex flex-wrap gap-3">
+          {badges.map((badge) => (
+            <motion.div
+              key={badge.key}
+              initial={badge.isNew ? { scale: 0 } : false}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", stiffness: 300, damping: 20 }}
+              title={badge.description}
+              className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-amber-50 border border-amber-200 hover:shadow-sm transition-all dark:bg-amber-950/20 dark:border-amber-800/40 min-w-[80px]"
+            >
+              <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center text-amber-700 dark:text-amber-400">
+                <BadgeIcon iconName={badge.iconName} size={20} />
+              </div>
+              <span className="text-[10px] font-semibold text-amber-900 dark:text-amber-300 text-center leading-tight">
+                {badge.name}
+              </span>
+            </motion.div>
+          ))}
         </div>
-
-        <div className="rounded-xl bg-accent/10 p-4 mb-4 text-center">
-          <p className="text-2xl font-display font-bold text-accent">{data.timeToEligibilityLabel}</p>
-          <p className="text-xs text-muted-foreground mt-1">estimated to {data.regulator} eligibility</p>
-        </div>
-
-        {data.newlyUnlockedRoles.length > 0 ? (
-          <div>
-            <p className="text-xs font-semibold text-foreground mb-2 flex items-center gap-1.5">
-              <Briefcase className="w-3.5 h-3.5 text-accent" />
-              {data.newlyUnlockedRoles.length} role{data.newlyUnlockedRoles.length !== 1 ? "s" : ""} you'll qualify for next
-            </p>
-            <div className="space-y-2">
-              {data.newlyUnlockedRoles.slice(0, 4).map((role) => (
-                <div key={role.id} className="flex items-start gap-2 p-2.5 rounded-lg bg-background border border-border/60">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-foreground truncate">{role.title}</p>
-                    <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
-                      <Building2 className="w-3 h-3" />{role.employer}
-                      <span className="mx-1">·</span>
-                      <MapPin className="w-3 h-3" />{role.location}
-                    </p>
-                  </div>
-                  {role.sponsorshipOffered && (
-                    <span className="shrink-0 text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full">
-                      Sponsorship
-                    </span>
-                  )}
-                </div>
-              ))}
-              {data.newlyUnlockedRoles.length > 4 && (
-                <p className="text-xs text-muted-foreground pl-1">
-                  + {data.newlyUnlockedRoles.length - 4} more roles
-                </p>
-              )}
-            </div>
-            <Link href="/opportunities" className="block mt-3">
-              <Button variant="outline" size="sm" className="w-full text-xs gap-1">
-                View all opportunities <ArrowRight className="w-3 h-3" />
-              </Button>
-            </Link>
-          </div>
-        ) : (
-          <p className="text-xs text-muted-foreground">
-            Once you complete all remediation steps, you will qualify for all {data.regulator} roles in our database.
-          </p>
-        )}
-
-        <p className="text-[10px] text-muted-foreground/60 mt-3 border-t border-border pt-2">
-          {data.disclaimer}
-        </p>
       </Card>
     </motion.div>
   );
 }
 
 export default function PathPage() {
-  const [, setLocation] = useLocation();
-  const { data: plan, isLoading, isError, error } = useGetRemediationPlan();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [prevStageIds, setPrevStageIds] = useState<Set<string>>(new Set());
+  const confettiFired = useRef(false);
+  const queryClient = useQueryClient();
 
-  const steps = plan?.steps ?? [];
-  const doneCount = steps.filter((s) => s.status === "done").length;
-  const inProgressCount = steps.filter((s) => s.status === "in_progress").length;
-  const plannedCount = steps.length - doneCount - inProgressCount;
-  const progressPct = steps.length > 0 ? Math.round((doneCount / steps.length) * 100) : 0;
+  const { data, isLoading, isError } = useGetJourneyStatus({
+    query: {
+      queryKey: getGetJourneyStatusQueryKey(),
+      staleTime: 30_000,
+    },
+  });
 
-  const errorMsg = error instanceof Error ? error.message : "Could not load your remediation plan.";
-  const isEligible = errorMsg.toLowerCase().includes("eligible");
+  const stages = data?.stages ?? [];
+  const badges = data?.badges ?? [];
+  const readinessScore = data?.readinessScore ?? 0;
+  const nextAction = data?.nextAction ?? null;
+
+  // Detect newly completed stages and fire confetti
+  useEffect(() => {
+    if (!data || confettiFired.current) return;
+    const newlyCompleted = stages.filter(
+      (s) => s.status === "complete" && !prevStageIds.has(s.id),
+    );
+    if (newlyCompleted.length > 0 && prevStageIds.size > 0) {
+      void confetti({
+        particleCount: 120,
+        spread: 70,
+        origin: { y: 0.5 },
+        colors: ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6"],
+      });
+      confettiFired.current = true;
+    }
+    setPrevStageIds(new Set(stages.map((s) => s.id)));
+  }, [data]);
+
+  useEffect(() => {
+    void queryClient.invalidateQueries({ queryKey: getGetJourneyStatusQueryKey() });
+  }, []);
+
+  const selectedStage = selectedId ? stages.find((s) => s.id === selectedId) ?? null : null;
+  const selectedBadge = selectedStage?.badgeKey
+    ? badges.find((b) => b.key === selectedStage.badgeKey)
+    : undefined;
+
+  const completeCount = stages.filter((s) => s.status === "complete").length;
+  const inProgressCount = stages.filter((s) => s.status === "inProgress").length;
 
   return (
     <AppLayout>
-      <PageTransition className="max-w-4xl mx-auto p-6 space-y-6">
-        <DisclaimerBanner />
-
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-display font-bold text-foreground">My Path</h1>
-            <p className="text-muted-foreground mt-1 text-sm">
-              Your structured action plan for achieving UK regulatory eligibility.
+      <PageTransition className="max-w-5xl mx-auto p-6 space-y-6">
+        {/* Header + Readiness Score */}
+        <motion.div
+          initial={{ opacity: 0, y: -12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6"
+        >
+          <div className="flex-1">
+            <h1 className="text-2xl font-display font-bold text-foreground">My Journey</h1>
+            <p className="text-muted-foreground text-sm mt-1">
+              Your staged UK healthcare career path — {completeCount} of {stages.length} stages complete
             </p>
+            {nextAction && (
+              <div className="mt-3 inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-primary/8 border border-primary/20">
+                <Sparkles className="w-4 h-4 text-primary shrink-0" />
+                <span className="text-sm text-foreground font-medium">Next: </span>
+                <span className="text-sm text-muted-foreground">{nextAction}</span>
+              </div>
+            )}
           </div>
-          <Link href="/interview-prep">
-            <Button variant="outline" size="sm" className="gap-1.5 shrink-0">
-              <Sparkles className="w-4 h-4" /> Interview Prep
-            </Button>
-          </Link>
+          <ReadinessRing score={readinessScore} />
+        </motion.div>
+
+        {/* Stats strip */}
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { label: "Complete", value: completeCount, color: "text-emerald-600" },
+            { label: "In Progress", value: inProgressCount, color: "text-blue-600" },
+            { label: "Badges", value: badges.length, color: "text-amber-600" },
+          ].map((stat) => (
+            <Card key={stat.label} className="p-4 text-center">
+              <p className={cn("text-2xl font-display font-black", stat.color)}>{stat.value}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{stat.label}</p>
+            </Card>
+          ))}
         </div>
 
+        {/* Loading / error */}
         {isLoading && (
-          <Card className="p-8 text-center">
-            <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-muted-foreground text-sm">Loading your remediation plan…</p>
+          <Card className="p-12 flex flex-col items-center gap-3">
+            <Loader2 className="w-10 h-10 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">Loading your journey…</p>
+          </Card>
+        )}
+        {isError && (
+          <Card className="p-10 flex flex-col items-center gap-3 border-destructive/20">
+            <AlertCircle className="w-10 h-10 text-destructive" />
+            <p className="text-sm text-muted-foreground">Could not load journey. Please try again.</p>
           </Card>
         )}
 
-        {isError && isEligible && (
-          <Card className="p-8 text-center border-green-200 bg-green-50/40">
-            <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-3" />
-            <h2 className="text-lg font-semibold text-foreground mb-2">You Are Eligible</h2>
-            <p className="text-sm text-muted-foreground mb-5 max-w-sm mx-auto">
-              You are already eligible for UK registration. No remediation plan is required — head to Opportunities to see matched roles.
-            </p>
-            <Button onClick={() => setLocation("/opportunities")}>
-              View Opportunities <ArrowRight className="w-4 h-4 ml-1.5" />
-            </Button>
-          </Card>
-        )}
+        {/* Stage track */}
+        {!isLoading && !isError && stages.length > 0 && (
+          <Card className="p-6">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-6">
+              Your 10-Stage Journey
+            </h2>
 
-        {isError && !isEligible && (
-          <Card className="p-8 text-center border-destructive/20">
-            <AlertCircle className="w-10 h-10 text-destructive mx-auto mb-3" />
-            <h2 className="text-lg font-semibold text-foreground mb-1">No Plan Available</h2>
-            <p className="text-sm text-muted-foreground mb-4">
-              Please complete your eligibility assessment first.
-            </p>
-            <Button variant="outline" onClick={() => setLocation("/eligibility")}>
-              Go to Eligibility Check
-            </Button>
-          </Card>
-        )}
+            {/* 5 × 2 grid with connecting arrows */}
+            <div className="grid grid-cols-5 gap-x-2 gap-y-6">
+              {stages.map((stage, i) => {
+                const isEvenRow = Math.floor(i / 5) % 2 === 0;
+                const posInRow = isEvenRow ? i % 5 : 4 - (i % 5);
+                const isLast = i === stages.length - 1;
+                const isRowEnd = (i + 1) % 5 === 0;
 
-        {!isLoading && !isError && plan && plan.reviewFlagged && !plan.reviewComplete && (
-          <Card className="p-4 bg-amber-50 border-amber-300 flex items-start gap-3">
-            <Clock className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
-            <div>
-              <p className="text-sm font-semibold text-amber-900">Your assessment is under review</p>
-              <p className="text-xs text-amber-800 mt-0.5">
-                A qualified reviewer is checking your eligibility result. Your plan steps are visible below but final decisions rest with the relevant regulator.
-              </p>
-            </div>
-          </Card>
-        )}
-
-        {!isLoading && !isError && plan && plan.reviewComplete && (
-          <Card className="p-4 bg-green-50 border-green-300 flex items-start gap-3">
-            <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 shrink-0" />
-            <div>
-              <p className="text-sm font-semibold text-green-900">Your assessment has been reviewed</p>
-              {plan.reviewNote && (
-                <p className="text-xs text-green-700 mt-1 italic">Reviewer note: "{plan.reviewNote}"</p>
-              )}
-            </div>
-          </Card>
-        )}
-
-        {!isLoading && !isError && plan && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-5">
-              {/* Progress banner */}
-              <Card className="p-5 bg-gradient-to-r from-primary/5 to-accent/5 border-primary/20">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5 text-primary" />
-                    <span className="font-semibold text-foreground text-sm">Overall Progress</span>
+                return (
+                  <div key={stage.id} className="relative flex flex-col items-center" style={{ order: Math.floor(i / 5) * 5 + posInRow }}>
+                    <StageNode
+                      stage={stage}
+                      isSelected={selectedId === stage.id}
+                      onClick={() => setSelectedId(selectedId === stage.id ? null : stage.id)}
+                    />
+                    {/* Connector line */}
+                    {!isLast && !isRowEnd && (
+                      <div className="absolute right-0 top-7 w-1/2 h-0.5 bg-border translate-x-full" />
+                    )}
                   </div>
-                  <span className="text-lg font-bold text-primary">{progressPct}%</span>
-                </div>
-                <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden mb-3">
-                  <motion.div
-                    className="h-full bg-gradient-to-r from-primary to-accent rounded-full"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${progressPct}%` }}
-                    transition={{ duration: 0.8, ease: "easeOut" }}
-                  />
-                </div>
-                <div className="flex gap-4 text-xs text-muted-foreground">
-                  <span>
-                    <span className="font-semibold text-emerald-600">{doneCount}</span> done
-                  </span>
-                  <span>
-                    <span className="font-semibold text-blue-600">{inProgressCount}</span> in progress
-                  </span>
-                  <span>
-                    <span className="font-semibold text-muted-foreground">{plannedCount}</span> planned
-                  </span>
-                </div>
-              </Card>
-
-              {/* AI suggestions */}
-              {steps.length > 0 && <AiSuggestionsPanel planId={plan.id} steps={steps} />}
-
-              {/* Gaps summary */}
-              {steps.length > 0 && (
-                <Card className="p-4 bg-amber-50 border-amber-200">
-                  <h3 className="text-sm font-semibold text-amber-900 mb-2 flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4" /> Identified Gaps
-                  </h3>
-                  <ul className="space-y-1.5">
-                    {steps.map((step, i) => (
-                      <li key={step.id} className="flex items-start gap-2 text-xs text-amber-800">
-                        <span className="mt-0.5 w-4 h-4 rounded-full bg-amber-200 flex items-center justify-center text-amber-900 font-bold shrink-0 text-[10px]">
-                          {i + 1}
-                        </span>
-                        {step.gap}
-                      </li>
-                    ))}
-                  </ul>
-                </Card>
-              )}
-
-              {/* Visual milestone timeline */}
-              {steps.length > 0 && (
-                <div>
-                  <h2 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-                    <Circle className="w-4 h-4 text-primary" />
-                    Milestone Timeline
-                  </h2>
-                  <div>
-                    {steps.map((step, index) => (
-                      <TimelineStep
-                        key={step.id}
-                        step={step}
-                        index={index}
-                        isLast={index === steps.length - 1}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <p className="text-xs text-muted-foreground text-center py-2">
-                This plan was generated based on your eligibility assessment (decision #{plan.decisionRecordId}).
-                Timeline and cost ranges are indicative only.
-              </p>
+                );
+              })}
             </div>
 
-            {/* Right sidebar */}
-            <div className="space-y-5">
-              <ForwardEligibilityCard />
+            {/* Legend */}
+            <div className="flex flex-wrap gap-4 mt-6 pt-4 border-t border-border">
+              {[
+                { color: "bg-emerald-500", label: "Complete" },
+                { color: "bg-blue-500", label: "In Progress" },
+                { color: "bg-primary/10 border border-border", label: "Not Started" },
+                { color: "bg-muted/50 border border-border", label: "Locked" },
+              ].map((item) => (
+                <span key={item.label} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span className={cn("w-3 h-3 rounded-full", item.color)} />
+                  {item.label}
+                </span>
+              ))}
+            </div>
+          </Card>
+        )}
 
-              <Card className="p-4">
-                <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-violet-500" />
-                  Interview Prep
-                </h3>
-                <p className="text-xs text-muted-foreground mb-3">
-                  Get AI-generated NHS interview questions tailored to your profession and specialty.
-                </p>
-                <Link href="/interview-prep">
-                  <Button variant="outline" size="sm" className="w-full text-xs gap-1">
-                    Open Interview Prep <ArrowRight className="w-3 h-3" />
-                  </Button>
+        {/* Badges shelf */}
+        <BadgeShelf badges={badges} />
+
+        {/* Quick links to existing tools */}
+        {!isLoading && !isError && (
+          <Card className="p-5">
+            <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+              <ChevronRight className="w-4 h-4 text-primary" />
+              Journey Tools
+            </h3>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { label: "Eligibility Check", href: "/eligibility", icon: ShieldCheck },
+                { label: "Interview Prep", href: "/interview-prep", icon: MessageSquare },
+                { label: "Opportunities", href: "/opportunities", icon: Briefcase },
+                { label: "Progress Report", href: "/my-report", icon: TrendingUp },
+              ].map((tool) => (
+                <Link key={tool.href} href={tool.href}>
+                  <div className="flex items-center gap-2 p-3 rounded-xl border border-border bg-muted/30 hover:bg-primary/5 hover:border-primary/30 transition-all cursor-pointer group">
+                    <tool.icon className="w-4 h-4 text-muted-foreground group-hover:text-primary shrink-0 transition-colors" />
+                    <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground transition-colors leading-tight">
+                      {tool.label}
+                    </span>
+                  </div>
                 </Link>
-              </Card>
+              ))}
             </div>
-          </div>
+          </Card>
         )}
       </PageTransition>
+
+      {/* Stage detail drawer */}
+      <AnimatePresence>
+        {selectedStage && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40"
+              onClick={() => setSelectedId(null)}
+            />
+            <StageDrawer
+              stage={selectedStage}
+              badge={selectedBadge}
+              onClose={() => setSelectedId(null)}
+            />
+          </>
+        )}
+      </AnimatePresence>
     </AppLayout>
   );
 }
