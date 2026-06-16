@@ -11,7 +11,7 @@ import {
   candidateMessagesTable,
   documentsTable,
 } from "@workspace/db";
-import { eq, and, desc, ilike, gte, isNotNull, isNull, count } from "drizzle-orm";
+import { eq, and, asc, desc, ilike, gte, isNotNull, isNull, count } from "drizzle-orm";
 import { requireRole, requireAuthenticated } from "../middlewares/requireRole";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { sendCandidateContactEmail } from "../lib/email";
@@ -986,7 +986,7 @@ router.get("/candidate/messages", requireAuthenticated, async (req, res): Promis
         isNull(candidateMessagesTable.archivedAt),
       ),
     )
-    .orderBy(desc(candidateMessagesTable.createdAt));
+    .orderBy(asc(candidateMessagesTable.isRead), desc(candidateMessagesTable.createdAt));
 
   const enriched = await Promise.all(
     messages.map(async (m) => {

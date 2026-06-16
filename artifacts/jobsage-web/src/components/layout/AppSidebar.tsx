@@ -8,7 +8,7 @@ import {
   TrendingUp, Inbox,
 } from "lucide-react";
 import { cn } from "@/components/ui-enhanced";
-import { useGetMyAnalytics, useGetMyProgressReport, useGetInboxUnreadCount } from "@workspace/api-client-react";
+import { useGetMyAnalytics, useGetMyProgressReport, useGetInboxUnreadCount, getGetInboxUnreadCountQueryKey } from "@workspace/api-client-react";
 import { motion, useMotionValue, useTransform, animate } from "framer-motion";
 import { useEffect } from "react";
 
@@ -20,6 +20,7 @@ export function AppSidebar() {
 
   const { data: inboxData } = useGetInboxUnreadCount({
     query: {
+      queryKey: getGetInboxUnreadCountQueryKey(),
       refetchInterval: 30_000,
       enabled: role === "candidate" || role === "reviewer" || role === "admin",
     },

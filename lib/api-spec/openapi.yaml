@@ -3721,6 +3721,9 @@ components:
           type: integer
         notes:
           type: string
+        smartApply:
+          type: boolean
+          nullable: true
 
     RoleList:
       type: object

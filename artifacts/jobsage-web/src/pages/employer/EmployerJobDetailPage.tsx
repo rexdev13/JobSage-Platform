@@ -26,6 +26,7 @@ import {
   Building2,
   AlertCircle,
   StickyNote,
+  Mail,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -54,14 +55,47 @@ function ConfidenceBadge({ confidence }: { confidence: string }) {
   );
 }
 
-function ApplicantCard({ applicant, jobId, onStageChange }: {
+const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
+
+function ApplicantCard({ applicant, jobId, jobTitle, onStageChange }: {
   applicant: JobApplicant;
   jobId: number;
+  jobTitle: string;
   onStageChange: (applicationId: number, stage: PipelineStage, notes?: string) => void;
 }) {
   const [showNotes, setShowNotes] = useState(false);
   const [notes, setNotes] = useState(applicant.notes ?? "");
   const [stageMenuOpen, setStageMenuOpen] = useState(false);
+  const [showMessage, setShowMessage] = useState(false);
+  const [messageText, setMessageText] = useState("");
+  const [sending, setSending] = useState(false);
+  const { toast } = useToast();
+
+  async function handleSendMessage() {
+    if (!messageText.trim()) return;
+    setSending(true);
+    try {
+      const res = await fetch(`${API_BASE}/employer/contact-candidate`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipientUserId: applicant.userId,
+          messageText: messageText.trim(),
+          subject: `Message regarding your application for ${jobTitle}`,
+          vacancyId: jobId,
+        }),
+      });
+      if (!res.ok) throw new Error("Send failed");
+      toast({ title: "Message sent", description: `${applicant.candidateName ?? "Candidate"} will see it in their inbox.` });
+      setMessageText("");
+      setShowMessage(false);
+    } catch {
+      toast({ title: "Failed to send", variant: "destructive" });
+    } finally {
+      setSending(false);
+    }
+  }
 
   const stageConfig = PIPELINE_STAGES.find((s) => s.value === applicant.stage) ?? PIPELINE_STAGES[0];
 
@@ -167,6 +201,36 @@ function ApplicantCard({ applicant, jobId, onStageChange }: {
               onClick={() => { onStageChange(applicant.applicationId, applicant.stage as PipelineStage, notes); setShowNotes(false); }}
             >
               Save Note
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Message candidate */}
+      <div className="mt-2">
+        <button
+          onClick={() => setShowMessage((v) => !v)}
+          className="text-xs text-primary hover:text-primary/80 flex items-center gap-1 transition-colors"
+        >
+          <Mail className="w-3 h-3" />
+          {showMessage ? "Cancel" : "Message this candidate"}
+        </button>
+        {showMessage && (
+          <div className="mt-2">
+            <textarea
+              value={messageText}
+              onChange={(e) => setMessageText(e.target.value)}
+              placeholder={`Write a message to ${applicant.candidateName ?? "this candidate"}…`}
+              rows={3}
+              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+            />
+            <Button
+              size="sm"
+              className="mt-1.5 text-xs h-7"
+              onClick={handleSendMessage}
+              disabled={sending || !messageText.trim()}
+            >
+              {sending ? "Sending…" : "Send message"}
             </Button>
           </div>
         )}
@@ -282,6 +346,7 @@ export default function EmployerJobDetailPage() {
                 <ApplicantCard
                   applicant={applicant}
                   jobId={jobId}
+                  jobTitle={data?.job?.title ?? job?.title ?? "this role"}
                   onStageChange={handleStageChange}
                 />
               </motion.div>

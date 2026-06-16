@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, jobListingsTable, rolesTable } from "@workspace/db";
+import { db, jobListingsTable, rolesTable, candidateMessagesTable } from "@workspace/db";
 import { applicationsTable } from "@workspace/db";
 import { eq, and, inArray } from "drizzle-orm";
 import { requireAuthenticated } from "../middlewares/requireRole";
@@ -49,7 +49,7 @@ router.get("/applications", requireAuthenticated, async (req, res): Promise<void
 
 router.post("/applications", requireAuthenticated, async (req, res): Promise<void> => {
   const userId = req.user!.id;
-  const { roleId, notes } = req.body as { roleId?: number; notes?: string };
+  const { roleId, notes, smartApply } = req.body as { roleId?: number; notes?: string; smartApply?: boolean };
 
   if (!roleId || typeof roleId !== "number") {
     res.status(400).json({ error: "roleId is required and must be a number." });
@@ -80,13 +80,26 @@ router.post("/applications", requireAuthenticated, async (req, res): Promise<voi
     if (role) roleTitle = role.title;
   }
 
-  createApplicationReceivedMessage({
-    recipientUserId: userId,
-    applicationId: application.id,
-    roleTitle,
-  }).catch((err: unknown) => {
-    console.error("[inbox] Failed to create application received message:", err);
-  });
+  if (smartApply) {
+    db.insert(candidateMessagesTable).values({
+      senderEmployerProfileId: null,
+      recipientUserId: userId,
+      applicationId: application.id,
+      messageType: "system",
+      subject: "Application submitted via Smart Apply",
+      messageText: `Your Smart Apply submission for ${roleTitle} was sent successfully. Your answers have been captured and forwarded to the hiring team. We'll notify you here of any updates.`,
+    }).catch((err: unknown) => {
+      console.error("[inbox] Failed to create Smart Apply message:", err);
+    });
+  } else {
+    createApplicationReceivedMessage({
+      recipientUserId: userId,
+      applicationId: application.id,
+      roleTitle,
+    }).catch((err: unknown) => {
+      console.error("[inbox] Failed to create application received message:", err);
+    });
+  }
 
   res.json(application);
 });
