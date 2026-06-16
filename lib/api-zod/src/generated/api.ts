@@ -225,6 +225,26 @@ export const GetMyProfileResponse = zod.object({
   alertFrequency: zod.enum(["daily", "weekly", "off"]).nullish(),
   lastAlertSentAt: zod.date().nullish(),
   boostProfile: zod.boolean().optional(),
+  preferredStartDate: zod
+    .string()
+    .nullish()
+    .describe("Target start date (ISO date string, e.g. 2025-06-01)"),
+  profilePhotoKey: zod
+    .string()
+    .nullish()
+    .describe("Object storage key for the profile photo"),
+  languages: zod
+    .string()
+    .nullish()
+    .describe("Comma-separated languages spoken (e.g. English, Hindi, Urdu)"),
+  additionalNotes: zod
+    .string()
+    .nullish()
+    .describe("Free-text notes the candidate wants employers to see"),
+  completionPct: zod
+    .number()
+    .optional()
+    .describe("Profile completeness score (0–100), computed server-side"),
   createdAt: zod.date(),
   updatedAt: zod.date(),
 });
@@ -249,6 +269,10 @@ export const UpsertMyProfileBody = zod.object({
   requiresSponsorship: zod.boolean(),
   preferredRegion: zod.string().nullish(),
   alertFrequency: zod.enum(["daily", "weekly", "off"]).nullish(),
+  preferredStartDate: zod.string().nullish(),
+  profilePhotoKey: zod.string().nullish(),
+  languages: zod.string().nullish(),
+  additionalNotes: zod.string().nullish(),
 });
 
 export const UpsertMyProfileResponse = zod.object({
@@ -274,6 +298,26 @@ export const UpsertMyProfileResponse = zod.object({
   alertFrequency: zod.enum(["daily", "weekly", "off"]).nullish(),
   lastAlertSentAt: zod.date().nullish(),
   boostProfile: zod.boolean().optional(),
+  preferredStartDate: zod
+    .string()
+    .nullish()
+    .describe("Target start date (ISO date string, e.g. 2025-06-01)"),
+  profilePhotoKey: zod
+    .string()
+    .nullish()
+    .describe("Object storage key for the profile photo"),
+  languages: zod
+    .string()
+    .nullish()
+    .describe("Comma-separated languages spoken (e.g. English, Hindi, Urdu)"),
+  additionalNotes: zod
+    .string()
+    .nullish()
+    .describe("Free-text notes the candidate wants employers to see"),
+  completionPct: zod
+    .number()
+    .optional()
+    .describe("Profile completeness score (0–100), computed server-side"),
   createdAt: zod.date(),
   updatedAt: zod.date(),
 });
@@ -579,6 +623,10 @@ export const RunRegressionTestBody = zod.object({
         requiresSponsorship: zod.boolean(),
         preferredRegion: zod.string().nullish(),
         alertFrequency: zod.enum(["daily", "weekly", "off"]).nullish(),
+        preferredStartDate: zod.string().nullish(),
+        profilePhotoKey: zod.string().nullish(),
+        languages: zod.string().nullish(),
+        additionalNotes: zod.string().nullish(),
       }),
       expectedOutcome: zod.enum(["eligible", "not_eligible", "ineligible"]),
     }),
@@ -1191,6 +1239,28 @@ export const GetReviewCaseResponse = zod.object({
       alertFrequency: zod.enum(["daily", "weekly", "off"]).nullish(),
       lastAlertSentAt: zod.date().nullish(),
       boostProfile: zod.boolean().optional(),
+      preferredStartDate: zod
+        .string()
+        .nullish()
+        .describe("Target start date (ISO date string, e.g. 2025-06-01)"),
+      profilePhotoKey: zod
+        .string()
+        .nullish()
+        .describe("Object storage key for the profile photo"),
+      languages: zod
+        .string()
+        .nullish()
+        .describe(
+          "Comma-separated languages spoken (e.g. English, Hindi, Urdu)",
+        ),
+      additionalNotes: zod
+        .string()
+        .nullish()
+        .describe("Free-text notes the candidate wants employers to see"),
+      completionPct: zod
+        .number()
+        .optional()
+        .describe("Profile completeness score (0–100), computed server-side"),
       createdAt: zod.date(),
       updatedAt: zod.date(),
     })

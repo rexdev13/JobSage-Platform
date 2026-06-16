@@ -3,12 +3,13 @@ import {
   useGetMyProfile,
   useUpsertMyProfile,
   useListProfessions,
+  useRequestUploadUrl,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetMyProfileQueryKey } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, Button, Input, Select, Label, PageTransition } from "@/components/ui-enhanced";
-import { Save, UserCircle, Bell, Info } from "lucide-react";
+import { Save, UserCircle, Bell, Info, Camera, Loader2, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type RegistrationStatus = "registered" | "not_registered" | "in_process";
@@ -100,6 +101,10 @@ type ProfileFormData = {
   requiresSponsorship: boolean;
   preferredRegion: string;
   alertFrequency: AlertFrequency;
+  preferredStartDate: string;
+  languages: string;
+  additionalNotes: string;
+  profilePhotoKey: string;
 };
 
 function FieldHint({ children }: { children: React.ReactNode }) {
@@ -243,7 +248,16 @@ export default function ProfilePage() {
     requiresSponsorship: false,
     preferredRegion: "",
     alertFrequency: "daily",
+    preferredStartDate: "",
+    languages: "",
+    additionalNotes: "",
+    profilePhotoKey: "",
   });
+
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
+  const [isPhotoUploading, setIsPhotoUploading] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const requestUploadUrlMutation = useRequestUploadUrl();
 
   useEffect(() => {
     if (profile) {
@@ -252,6 +266,7 @@ export default function ProfilePage() {
         storedResidency !== "" &&
         !RESIDENCY_STATUS_OPTIONS.filter((o) => o !== "Other").includes(storedResidency);
 
+      const p = profile as unknown as Record<string, unknown>;
       setFormData({
         profession: profile.profession || "",
         specialty: profile.specialty || "",
@@ -264,18 +279,49 @@ export default function ProfilePage() {
         residencyStatus: isOther ? "Other" : storedResidency,
         residencyStatusOther: isOther ? storedResidency : "",
         requiresSponsorship: profile.requiresSponsorship || false,
-        preferredRegion: (profile as { preferredRegion?: string | null }).preferredRegion ?? "",
-        alertFrequency:
-          ((profile as { alertFrequency?: string | null }).alertFrequency as AlertFrequency) ??
-          "daily",
+        preferredRegion: (p.preferredRegion as string) ?? "",
+        alertFrequency: ((p.alertFrequency as AlertFrequency) ?? "daily"),
+        preferredStartDate: (p.preferredStartDate as string) ?? "",
+        languages: (p.languages as string) ?? "",
+        additionalNotes: (p.additionalNotes as string) ?? "",
+        profilePhotoKey: (p.profilePhotoKey as string) ?? "",
       });
     }
   }, [profile]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
     const checked = type === "checkbox" ? (e.target as HTMLInputElement).checked : undefined;
     setFormData((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+  };
+
+  const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!["image/jpeg", "image/png"].includes(file.type)) {
+      toast({ title: "Invalid file type", description: "Please upload a JPEG or PNG image.", variant: "destructive" });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Profile photo must be under 5 MB.", variant: "destructive" });
+      return;
+    }
+    const localUrl = URL.createObjectURL(file);
+    setPhotoPreviewUrl(localUrl);
+    setIsPhotoUploading(true);
+    try {
+      const { uploadURL, storageKey } = await requestUploadUrlMutation.mutateAsync({
+        data: { name: file.name, size: file.size, contentType: file.type },
+      });
+      await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+      setFormData((prev) => ({ ...prev, profilePhotoKey: storageKey }));
+      toast({ title: "Photo ready", description: "Click Save Changes to apply your new photo." });
+    } catch {
+      toast({ title: "Photo upload failed", description: "Could not upload photo. Please try again.", variant: "destructive" });
+      setPhotoPreviewUrl(null);
+    } finally {
+      setIsPhotoUploading(false);
+    }
   };
 
   const effectiveResidencyStatus =
@@ -321,6 +367,10 @@ export default function ProfilePage() {
           requiresSponsorship: formData.requiresSponsorship,
           preferredRegion: formData.preferredRegion || undefined,
           alertFrequency: formData.alertFrequency,
+          preferredStartDate: formData.preferredStartDate || undefined,
+          profilePhotoKey: formData.profilePhotoKey || undefined,
+          languages: formData.languages || undefined,
+          additionalNotes: formData.additionalNotes || undefined,
         },
       });
       queryClient.invalidateQueries({ queryKey: getGetMyProfileQueryKey() });
@@ -339,26 +389,93 @@ export default function ProfilePage() {
 
   const showRegistrationStatus = isUkRegulatedProfession(formData.profession);
 
+  const p = profile as unknown as Record<string, unknown>;
+  const storedPhotoKey = p.profilePhotoKey as string | null | undefined;
+  const storedPhotoUrl = storedPhotoKey
+    ? `/api/storage/objects/${storedPhotoKey.replace(/^\/objects\//, "")}`
+    : null;
+  const displayPhotoUrl = photoPreviewUrl ?? storedPhotoUrl;
+  const completionPct = typeof p.completionPct === "number" ? p.completionPct : 0;
+
   if (!profile) return null;
 
   return (
     <AppLayout>
       <PageTransition>
-        <header className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-display font-bold text-foreground flex items-center">
-              <UserCircle className="w-8 h-8 mr-3 text-primary" />
-              My Profile
-            </h1>
-            <p className="text-muted-foreground mt-2">
-              Keep your professional details up to date so JOBSAGE can give you the most accurate
-              eligibility assessments and job matches.
-            </p>
+        <header className="mb-6">
+          <div className="flex items-start justify-between gap-4 mb-6">
+            <div className="flex items-center gap-5">
+              {/* Profile photo */}
+              <div className="relative shrink-0">
+                <div className="w-20 h-20 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center overflow-hidden">
+                  {displayPhotoUrl ? (
+                    <img src={displayPhotoUrl} alt="Profile" className="w-full h-full object-cover" />
+                  ) : (
+                    <UserCircle className="w-10 h-10 text-primary/40" />
+                  )}
+                  {isPhotoUploading && (
+                    <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center">
+                      <Loader2 className="w-5 h-5 text-white animate-spin" />
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => photoInputRef.current?.click()}
+                  disabled={isPhotoUploading}
+                  className="absolute -bottom-1 -right-1 w-7 h-7 bg-primary text-primary-foreground rounded-full flex items-center justify-center shadow-md hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  aria-label="Upload profile photo"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                </button>
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png"
+                  className="hidden"
+                  onChange={handlePhotoSelect}
+                />
+              </div>
+              <div>
+                <h1 className="text-3xl font-display font-bold text-foreground">My Profile</h1>
+                <p className="text-muted-foreground mt-1 text-sm">
+                  Keep your professional details up to date for accurate eligibility assessments and job matches.
+                </p>
+              </div>
+            </div>
+            <Button onClick={handleSubmit} disabled={upsertMutation.isPending} className="shrink-0">
+              <Save className="w-4 h-4 mr-2" />
+              {upsertMutation.isPending ? "Saving…" : "Save Changes"}
+            </Button>
           </div>
-          <Button onClick={handleSubmit} disabled={upsertMutation.isPending}>
-            <Save className="w-4 h-4 mr-2" />
-            {upsertMutation.isPending ? "Saving…" : "Save Changes"}
-          </Button>
+
+          {/* Profile completeness bar */}
+          <div className="rounded-xl border border-border bg-muted/30 px-5 py-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-semibold text-foreground flex items-center gap-2">
+                {completionPct === 100 ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                ) : (
+                  <span className="w-4 h-4 rounded-full border-2 border-primary/40 inline-flex" />
+                )}
+                Profile Completeness
+              </span>
+              <span className={`text-sm font-bold tabular-nums ${completionPct === 100 ? "text-emerald-600" : "text-primary"}`}>
+                {completionPct}%
+              </span>
+            </div>
+            <div className="w-full h-2 bg-border rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-700 ${completionPct === 100 ? "bg-emerald-500" : "bg-primary"}`}
+                style={{ width: `${completionPct}%` }}
+              />
+            </div>
+            {completionPct < 100 && (
+              <p className="text-xs text-muted-foreground mt-1.5">
+                Fill in your languages, availability date, and photo below to reach 100%.
+              </p>
+            )}
+          </div>
         </header>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -591,6 +708,54 @@ export default function ProfilePage() {
                 <FieldHint>
                   Employers with region-targeted job postings will find you more easily. Leave blank
                   if you're open to any UK location.
+                </FieldHint>
+              </div>
+            </div>
+          </Card>
+
+          {/* Additional Details */}
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold mb-6 border-b pb-4">Additional Details</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <Label>Earliest Available Start Date</Label>
+                <Input
+                  type="date"
+                  name="preferredStartDate"
+                  value={formData.preferredStartDate}
+                  onChange={handleChange}
+                  min={new Date().toISOString().split("T")[0]}
+                />
+                <FieldHint>
+                  The earliest date you could start a new role. Helps employers plan their hiring timeline.
+                </FieldHint>
+              </div>
+
+              <div>
+                <Label>Languages Spoken</Label>
+                <Input
+                  name="languages"
+                  value={formData.languages}
+                  onChange={handleChange}
+                  placeholder="e.g. English, Hindi, Urdu"
+                />
+                <FieldHint>
+                  List languages you can communicate in professionally, separated by commas.
+                </FieldHint>
+              </div>
+
+              <div className="col-span-1 md:col-span-2">
+                <Label>Additional Notes</Label>
+                <textarea
+                  name="additionalNotes"
+                  value={formData.additionalNotes}
+                  onChange={handleChange}
+                  placeholder="Anything else you'd like employers or JOBSAGE to know about you…"
+                  rows={3}
+                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                />
+                <FieldHint>
+                  Optional free-text space for any extra context — certifications, research interests, relocation flexibility, etc.
                 </FieldHint>
               </div>
             </div>

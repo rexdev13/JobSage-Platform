@@ -195,6 +195,7 @@ function ProfileCompletionRing({ pct }: { pct: number }) {
 
 function profileCompletionPct(profile: Record<string, unknown> | undefined): number {
   if (!profile) return 0;
+  if (typeof profile.completionPct === "number") return profile.completionPct;
   const fields = [
     "profession",
     "specialty",
@@ -204,6 +205,11 @@ function profileCompletionPct(profile: Record<string, unknown> | undefined): num
     "experienceYears",
     "registrationStatus",
     "residencyStatus",
+    "preferredRegion",
+    "preferredStartDate",
+    "profilePhotoKey",
+    "languages",
+    "additionalNotes",
   ];
   const filled = fields.filter((f) => profile[f] != null && profile[f] !== "").length;
   return Math.round((filled / fields.length) * 100);
