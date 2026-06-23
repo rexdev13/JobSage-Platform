@@ -6,7 +6,8 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Users, Briefcase, CheckCircle, FileText, Building2, RefreshCw,
   ChevronDown, ChevronUp, Shield, Activity, Search, ExternalLink,
-  TrendingUp, AlertTriangle,
+  TrendingUp, AlertTriangle, ShieldCheck, Star, BadgeCheck, UserCheck,
+  XCircle, Clock,
 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -611,7 +612,278 @@ function HealthTab() {
   );
 }
 
-type Tab = "overview" | "users" | "health";
+interface IdentityRecord {
+  id: number;
+  userId: string;
+  passportKey: string | null;
+  selfieKey: string | null;
+  status: "pending" | "verified" | "rejected";
+  aiConfidence: "high" | "medium" | "low" | "none" | null;
+  aiNotes: string | null;
+  adminNotes: string | null;
+  verifiedAt: string | null;
+  createdAt: string;
+}
+
+interface RecommendationLetterAdmin {
+  id: number;
+  candidateUserId: string;
+  employerUserId: string | null;
+  authorName: string;
+  authorTitle: string;
+  organisation: string;
+  relationship: string;
+  content: string;
+  isEmployerVerified: boolean;
+  createdAt: string;
+}
+
+function IdentityQueueTab() {
+  const [records, setRecords] = useState<IdentityRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [adminNote, setAdminNote] = useState<Record<number, string>>({});
+  const { toast } = useToast();
+
+  const fetchRecords = useCallback(async () => {
+    setLoading(true);
+    const res = await fetch(`${API_BASE}/admin/identity`, { credentials: "include" });
+    const data = await res.json() as { verifications: IdentityRecord[] };
+    setRecords(data.verifications ?? []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { void fetchRecords(); }, [fetchRecords]);
+
+  async function updateStatus(id: number, status: "verified" | "rejected") {
+    setActionLoading(id);
+    const res = await fetch(`${API_BASE}/admin/identity/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ status, adminNotes: adminNote[id] ?? null }),
+    });
+    if (res.ok) {
+      toast({ title: `Verification ${status}` });
+      void fetchRecords();
+    } else {
+      toast({ title: "Error", variant: "destructive" });
+    }
+    setActionLoading(null);
+  }
+
+  const statusIcon = (s: IdentityRecord["status"]) =>
+    s === "verified" ? <CheckCircle className="w-4 h-4 text-emerald-500" /> :
+    s === "rejected" ? <XCircle className="w-4 h-4 text-rose-500" /> :
+    <Clock className="w-4 h-4 text-amber-500" />;
+
+  const confColor = (c: IdentityRecord["aiConfidence"]) =>
+    c === "high" ? "text-emerald-600 bg-emerald-50" :
+    c === "medium" ? "text-amber-600 bg-amber-50" :
+    c === "low" ? "text-rose-600 bg-rose-50" : "text-muted-foreground bg-muted";
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+          <ShieldCheck className="w-5 h-5 text-primary" /> Identity Verification Queue
+        </h2>
+        <Button variant="outline" size="sm" onClick={fetchRecords} className="gap-1.5">
+          <RefreshCw className="w-3.5 h-3.5" /> Refresh
+        </Button>
+      </div>
+
+      {loading ? (
+        <div className="text-center py-12 text-muted-foreground">Loading…</div>
+      ) : records.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground">No identity verification submissions yet.</div>
+      ) : (
+        <div className="border border-border rounded-xl overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground">User ID</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground">Status</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground">AI Confidence</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground">AI Notes</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground">Submitted</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {records.map((r) => (
+                <tr key={r.id} className="border-t border-border hover:bg-muted/30">
+                  <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{r.userId.slice(0, 12)}…</td>
+                  <td className="px-4 py-3">
+                    <span className="flex items-center gap-1.5">{statusIcon(r.status)} {r.status}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {r.aiConfidence ? (
+                      <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold ${confColor(r.aiConfidence)}`}>
+                        {r.aiConfidence}
+                      </span>
+                    ) : <span className="text-muted-foreground">—</span>}
+                  </td>
+                  <td className="px-4 py-3 max-w-[200px]">
+                    <p className="text-xs text-muted-foreground truncate">{r.aiNotes ?? "—"}</p>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-muted-foreground">
+                    {new Date(r.createdAt).toLocaleDateString("en-GB")}
+                  </td>
+                  <td className="px-4 py-3">
+                    {r.status === "pending" ? (
+                      <div className="flex flex-col gap-1.5">
+                        <input
+                          type="text"
+                          placeholder="Admin note (optional)"
+                          value={adminNote[r.id] ?? ""}
+                          onChange={(e) => setAdminNote((p) => ({ ...p, [r.id]: e.target.value }))}
+                          className="text-xs px-2 py-1 rounded-lg border border-border bg-muted/40 w-36"
+                        />
+                        <div className="flex gap-1.5">
+                          <button
+                            disabled={actionLoading === r.id}
+                            onClick={() => void updateStatus(r.id, "verified")}
+                            className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-200 font-semibold"
+                          >
+                            <CheckCircle className="w-3 h-3" /> Verify
+                          </button>
+                          <button
+                            disabled={actionLoading === r.id}
+                            onClick={() => void updateStatus(r.id, "rejected")}
+                            className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg bg-rose-100 text-rose-700 hover:bg-rose-200 font-semibold"
+                          >
+                            <XCircle className="w-3 h-3" /> Reject
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">{r.adminNotes ?? "—"}</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LettersTab() {
+  const [letters, setLetters] = useState<RecommendationLetterAdmin[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<number | null>(null);
+  const { toast } = useToast();
+
+  const fetchLetters = useCallback(async () => {
+    setLoading(true);
+    const res = await fetch(`${API_BASE}/admin/recommendation-letters`, { credentials: "include" });
+    const data = await res.json() as { letters: RecommendationLetterAdmin[] };
+    setLetters(data.letters ?? []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { void fetchLetters(); }, [fetchLetters]);
+
+  async function deleteLetter(id: number) {
+    const res = await fetch(`${API_BASE}/recommendation-letters/${id}`, { method: "DELETE", credentials: "include" });
+    if (res.ok) {
+      toast({ title: "Letter removed" });
+      void fetchLetters();
+    } else {
+      toast({ title: "Error deleting letter", variant: "destructive" });
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+          <Star className="w-5 h-5 text-primary" /> Recommendation Letters ({letters.length})
+        </h2>
+        <Button variant="outline" size="sm" onClick={fetchLetters} className="gap-1.5">
+          <RefreshCw className="w-3.5 h-3.5" /> Refresh
+        </Button>
+      </div>
+
+      {loading ? (
+        <div className="text-center py-12 text-muted-foreground">Loading…</div>
+      ) : letters.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground">No recommendation letters submitted yet.</div>
+      ) : (
+        <div className="border border-border rounded-xl overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground">Candidate</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground">Author</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground">Organisation</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground">Type</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground">Date</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {letters.map((l) => (
+                <>
+                  <tr key={l.id} className="border-t border-border hover:bg-muted/30">
+                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{l.candidateUserId.slice(0, 12)}…</td>
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-foreground">{l.authorName}</p>
+                      <p className="text-xs text-muted-foreground">{l.authorTitle}</p>
+                    </td>
+                    <td className="px-4 py-3 text-xs">{l.organisation}</td>
+                    <td className="px-4 py-3">
+                      {l.isEmployerVerified ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-700 border border-emerald-300">
+                          <BadgeCheck className="w-3 h-3" /> Employer
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-muted text-muted-foreground border border-border">
+                          <UserCheck className="w-3 h-3" /> Self
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">
+                      {new Date(l.createdAt).toLocaleDateString("en-GB")}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setExpanded(expanded === l.id ? null : l.id)}
+                          className="text-xs text-primary hover:underline"
+                        >
+                          {expanded === l.id ? "Hide" : "Read"}
+                        </button>
+                        <button
+                          onClick={() => void deleteLetter(l.id)}
+                          className="text-xs text-rose-500 hover:underline"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  {expanded === l.id && (
+                    <tr key={`${l.id}-exp`} className="border-t border-border bg-muted/20">
+                      <td colSpan={6} className="px-4 py-3">
+                        <p className="text-xs text-foreground whitespace-pre-wrap leading-relaxed max-w-2xl">{l.content}</p>
+                      </td>
+                    </tr>
+                  )}
+                </>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+type Tab = "overview" | "users" | "health" | "identity" | "letters";
 
 export default function SuperAdminPage() {
   const [activeTab, setActiveTab] = useState<Tab>("overview");
@@ -620,6 +892,8 @@ export default function SuperAdminPage() {
     { id: "overview", label: "Overview", icon: Shield },
     { id: "users", label: "All Users", icon: Users },
     { id: "health", label: "Platform Health", icon: Activity },
+    { id: "identity", label: "Identity Queue", icon: ShieldCheck },
+    { id: "letters", label: "References", icon: Star },
   ];
 
   return (
@@ -651,6 +925,8 @@ export default function SuperAdminPage() {
           {activeTab === "overview" && <OverviewTab />}
           {activeTab === "users" && <AllUsersTab />}
           {activeTab === "health" && <HealthTab />}
+          {activeTab === "identity" && <IdentityQueueTab />}
+          {activeTab === "letters" && <LettersTab />}
         </div>
       </div>
     </AppLayout>

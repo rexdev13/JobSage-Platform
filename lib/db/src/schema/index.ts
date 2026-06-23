@@ -16,3 +16,5 @@ export * from "./headhuntCampaigns";
 export * from "./candidateMessages";
 export * from "./candidateMatchScores";
 export * from "./badges";
+export * from "./recommendationLetters";
+export * from "./identityVerifications";

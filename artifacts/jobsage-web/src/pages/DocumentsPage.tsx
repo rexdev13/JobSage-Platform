@@ -159,42 +159,77 @@ function CvParseDialog({
             const label = FIELD_LABELS[key];
             if (!label) return null;
 
-            const displayValue =
-              value === null || value === undefined
-                ? "Not found"
-                : typeof value === "boolean"
-                ? value
-                  ? "Yes"
-                  : "No"
-                : String(value);
+            const confIcon =
+              conf === "high" ? <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" /> :
+              conf === "medium" ? <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" /> :
+              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />;
+
+            const confLabel =
+              conf === "high" ? "High confidence" :
+              conf === "medium" ? "Review suggested" :
+              "Low confidence — please correct";
+
+            const inputClass = "w-full text-sm rounded-lg border border-border bg-muted/40 px-2.5 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40";
 
             return (
-              <div key={key} className="flex items-start gap-3">
-                <div className="flex-1">
-                  <p className="text-xs text-muted-foreground font-medium mb-0.5">{label}</p>
-                  <p className={`text-sm font-medium ${value === null || value === undefined ? "text-muted-foreground italic" : "text-foreground"}`}>
-                    {displayValue}
-                  </p>
+              <div key={key} className="space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <label className="text-xs font-semibold text-foreground">{label}</label>
+                  <span className={`flex items-center gap-1 text-[10px] ${conf === "high" ? "text-emerald-600" : conf === "medium" ? "text-amber-600" : "text-rose-500"}`}>
+                    {confIcon} {confLabel}
+                  </span>
                 </div>
-                <div className="shrink-0 mt-4">
-                  {conf === "high" ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                  ) : conf === "medium" ? (
-                    <AlertTriangle className="w-4 h-4 text-amber-500" />
-                  ) : conf === "low" || conf === "none" ? (
-                    <AlertTriangle className="w-4 h-4 text-rose-400" />
-                  ) : null}
-                </div>
+                {key === "registrationStatus" ? (
+                  <select
+                    value={String(value ?? "")}
+                    onChange={(e) => setFields((f) => ({ ...f, [key]: e.target.value || null }))}
+                    className={inputClass}
+                  >
+                    <option value="">Not found</option>
+                    <option value="registered">Registered</option>
+                    <option value="not_registered">Not registered</option>
+                    <option value="in_process">In process</option>
+                  </select>
+                ) : key === "requiresSponsorship" ? (
+                  <select
+                    value={value === null || value === undefined ? "" : value ? "true" : "false"}
+                    onChange={(e) => setFields((f) => ({ ...f, [key]: e.target.value === "" ? null : e.target.value === "true" }))}
+                    className={inputClass}
+                  >
+                    <option value="">Not found</option>
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                  </select>
+                ) : key === "qualificationYear" || key === "experienceYears" ? (
+                  <input
+                    type="number"
+                    value={value === null || value === undefined ? "" : String(value)}
+                    onChange={(e) => setFields((f) => ({ ...f, [key]: e.target.value ? parseInt(e.target.value, 10) : null }))}
+                    className={inputClass}
+                    placeholder="Not found"
+                    min={key === "experienceYears" ? 0 : 1950}
+                    max={key === "experienceYears" ? 60 : new Date().getFullYear()}
+                  />
+                ) : key === "rawNotes" ? (
+                  <textarea
+                    value={String(value ?? "")}
+                    onChange={(e) => setFields((f) => ({ ...f, [key]: e.target.value || undefined }))}
+                    rows={2}
+                    className={`${inputClass} resize-none`}
+                    placeholder="No notes"
+                  />
+                ) : (
+                  <input
+                    type="text"
+                    value={String(value ?? "")}
+                    onChange={(e) => setFields((f) => ({ ...f, [key]: e.target.value || null }))}
+                    className={inputClass}
+                    placeholder="Not found — type to add"
+                  />
+                )}
               </div>
             );
           })}
-
-          {extracted.rawNotes && (
-            <div className="bg-muted/50 rounded-xl p-3 mt-2">
-              <p className="text-xs text-muted-foreground font-medium mb-1">AI Notes</p>
-              <p className="text-xs text-foreground">{extracted.rawNotes}</p>
-            </div>
-          )}
 
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mt-2">
             <p className="text-xs text-amber-800">

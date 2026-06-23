@@ -47,6 +47,8 @@ import SponsorLicencesPage from "@/pages/SponsorLicencesPage";
 import MyProgressReportPage from "@/pages/MyProgressReportPage";
 import RegulatoryGuidancePage from "@/pages/RegulatoryGuidancePage";
 import InterviewCalendarPage from "@/pages/InterviewCalendarPage";
+import RecommendationLettersPage from "@/pages/RecommendationLettersPage";
+import IdentityVerificationPage from "@/pages/IdentityVerificationPage";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -209,6 +211,8 @@ function Router() {
             <Route path="/my-report" component={MyProgressReportPage} />
             <Route path="/regulatory-guidance" component={RegulatoryGuidancePage} />
             <Route path="/calendar" component={InterviewCalendarPage} />
+            <Route path="/recommendations" component={RecommendationLettersPage} />
+            <Route path="/identity" component={IdentityVerificationPage} />
             <Route path="/admin/rulesets">
               <AdminGuard>
                 <AdminRulesetsPage />
