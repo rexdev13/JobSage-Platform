@@ -61,14 +61,13 @@ function Navbar({ onLogin }: { onLogin: () => void }) {
       <div className="max-w-7xl mx-auto px-6 md:px-10 h-16 flex items-center justify-between">
         <button
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          className="flex items-center space-x-3"
+          className="flex items-center"
         >
-          <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shadow-md">
-            <Shield className="w-5 h-5 text-primary-foreground" />
-          </div>
-          <span className="text-xl font-display font-extrabold text-primary tracking-tight">
-            JOBSAGE
-          </span>
+          <img
+            src={`${import.meta.env.BASE_URL}logo.png`}
+            alt="JOBSAGE"
+            className="h-9 w-auto object-contain"
+          />
         </button>
 
         <nav className="hidden md:flex items-center gap-8">
@@ -522,6 +521,12 @@ export default function LandingPage() {
           <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/75 to-background" />
         </div>
 
+        {/* Red radial glow behind hero */}
+        <div className="absolute inset-0 z-[1] pointer-events-none" aria-hidden>
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[600px] rounded-full"
+            style={{ background: "radial-gradient(ellipse at center, hsl(12 95% 52% / 0.12) 0%, hsl(0 70% 38% / 0.06) 45%, transparent 75%)" }} />
+        </div>
+
         <div className="relative z-10 flex-1 flex items-center justify-center px-4 pt-16">
           <motion.div
             initial={{ opacity: 0, y: 28 }}
@@ -530,8 +535,22 @@ export default function LandingPage() {
             className="max-w-4xl w-full"
           >
             <div className="text-center mb-12">
-              <div className="inline-flex items-center px-4 py-2 rounded-full bg-accent/10 text-accent font-semibold text-sm mb-6 border border-accent/20 backdrop-blur-sm">
-                <span className="w-2 h-2 rounded-full bg-accent mr-2 animate-pulse" />
+              {/* Hero logo */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5 }}
+                className="flex justify-center mb-8"
+              >
+                <img
+                  src={`${import.meta.env.BASE_URL}logo.png`}
+                  alt="JOBSAGE"
+                  className="h-14 md:h-20 w-auto object-contain drop-shadow-sm"
+                />
+              </motion.div>
+
+              <div className="inline-flex items-center px-4 py-2 rounded-full bg-primary/10 text-primary font-semibold text-sm mb-6 border border-primary/20 backdrop-blur-sm">
+                <span className="w-2 h-2 rounded-full bg-primary mr-2 animate-pulse" />
                 One Platform. Two Powerful Engines.
               </div>
               <h1 className="text-5xl md:text-7xl font-display font-extrabold text-foreground leading-tight tracking-tight mb-4">

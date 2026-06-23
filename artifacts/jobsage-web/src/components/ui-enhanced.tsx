@@ -12,7 +12,7 @@ export const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDi
     <div
       ref={ref}
       className={cn(
-        "bg-card text-card-foreground rounded-2xl border border-border shadow-sm overflow-hidden",
+        "bg-card text-card-foreground rounded-2xl border border-border shadow-sm overflow-hidden transition-all duration-200 hover:border-primary/25 hover:shadow-[0_4px_24px_hsl(12_95%_52%/0.08)]",
         className
       )}
       {...props}
@@ -29,7 +29,7 @@ export const Button = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttrib
         className={cn(
           "inline-flex items-center justify-center font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98]",
           {
-            "bg-primary text-primary-foreground hover-elevate active-elevate-2 shadow-sm": variant === "default",
+            "bg-primary text-primary-foreground hover-elevate active-elevate-2 shadow-sm hover:shadow-[0_0_20px_hsl(12_95%_52%/0.40)]": variant === "default",
             "border-2 border-input bg-transparent hover:bg-muted text-foreground hover-elevate": variant === "outline",
             "hover:bg-muted text-foreground": variant === "ghost",
             "bg-accent text-accent-foreground hover-elevate active-elevate-2 shadow-sm": variant === "accent",
