@@ -1821,6 +1821,41 @@ export type StopImpersonation200 = {
   ok?: boolean;
 };
 
+export interface RecommendationLetter {
+  id: number;
+  candidateUserId: string;
+  employerUserId?: string | null;
+  authorName: string;
+  authorTitle: string;
+  organisation: string;
+  relationship: string;
+  content: string;
+  isEmployerVerified: boolean;
+  createdAt: string;
+}
+
+export interface RecommendationLettersResponse {
+  letters: RecommendationLetter[];
+}
+
+export interface IdentityVerification {
+  id: number;
+  userId: string;
+  passportKey?: string | null;
+  selfieKey?: string | null;
+  status: "pending" | "verified" | "rejected";
+  aiConfidence?: "high" | "medium" | "low" | "none" | null;
+  aiNotes?: string | null;
+  adminNotes?: string | null;
+  verifiedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IdentityVerificationStatusResponse {
+  verification: IdentityVerification | null;
+}
+
 export type ActivateImpersonationTokenParams = {
   token: string;
 };

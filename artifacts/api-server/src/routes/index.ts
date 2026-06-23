@@ -26,6 +26,8 @@ import speculativeApplicationsRouter from "./speculativeApplications";
 import superAdminRouter from "./superAdmin";
 import journeyRouter from "./journey";
 import nudgeRouter from "./nudge";
+import recommendationLettersRouter from "./recommendationLetters";
+import identityRouter from "./identity";
 
 const router: IRouter = Router();
 
@@ -56,5 +58,7 @@ router.use(speculativeApplicationsRouter);
 router.use(superAdminRouter);
 router.use(journeyRouter);
 router.use(nudgeRouter);
+router.use(recommendationLettersRouter);
+router.use(identityRouter);
 
 export default router;
