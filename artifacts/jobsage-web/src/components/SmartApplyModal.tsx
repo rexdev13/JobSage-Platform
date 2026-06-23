@@ -478,41 +478,54 @@ export function SmartApplyModal({
         </div>
 
         {step === "review" && (
-          <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-muted/30">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setCurrentQuestion((p) => p - 1)}
-              disabled={isFirstQuestion}
-              className="text-sm"
-            >
-              <ChevronLeft className="w-4 h-4 mr-1" /> Back
-            </Button>
-
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col border-t border-border bg-muted/30">
+            {!isLastQuestion && (
+              <div className="flex items-center justify-center px-6 pt-3">
+                <button
+                  onClick={handleSubmit}
+                  className="flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Accept all AI answers &amp; submit now
+                </button>
+              </div>
+            )}
+            <div className="flex items-center justify-between px-6 py-4">
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
-                className="gap-1.5 text-xs"
-                onClick={() => setStep("coverLetter")}
+                onClick={() => setCurrentQuestion((p) => p - 1)}
+                disabled={isFirstQuestion}
+                className="text-sm"
               >
-                <FileText className="w-3.5 h-3.5" /> Cover Letter
+                <ChevronLeft className="w-4 h-4 mr-1" /> Back
               </Button>
 
-              {isLastQuestion ? (
-                <Button onClick={handleSubmit} size="sm" className="gap-1.5">
-                  <Send className="w-4 h-4" /> Submit Application
-                </Button>
-              ) : (
+              <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentQuestion((p) => p + 1)}
-                  className="text-sm"
+                  className="gap-1.5 text-xs"
+                  onClick={() => setStep("coverLetter")}
                 >
-                  Next <ChevronRight className="w-4 h-4 ml-1" />
+                  <FileText className="w-3.5 h-3.5" /> Cover Letter
                 </Button>
-              )}
+
+                {isLastQuestion ? (
+                  <Button onClick={handleSubmit} size="sm" className="gap-1.5">
+                    <Send className="w-4 h-4" /> Submit Application
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentQuestion((p) => p + 1)}
+                    className="text-sm"
+                  >
+                    Next <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         )}

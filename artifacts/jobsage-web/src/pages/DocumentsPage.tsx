@@ -25,10 +25,44 @@ import {
   X,
   Loader2,
   User,
+  Tag,
+  ChevronDown,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
+
+const DOCUMENT_TYPES = [
+  { value: "cv", label: "CV / Résumé" },
+  { value: "qualification", label: "Qualification" },
+  { value: "cpd_certificate", label: "CPD Certificate" },
+  { value: "recommendation_letter", label: "Recommendation Letter" },
+  { value: "passport", label: "Passport" },
+  { value: "proof_of_address", label: "Proof of Address" },
+  { value: "other", label: "Other" },
+] as const;
+
+type DocType = (typeof DOCUMENT_TYPES)[number]["value"];
+
+const TYPE_COLORS: Record<DocType, string> = {
+  cv: "bg-primary/10 text-primary border-primary/20",
+  qualification: "bg-violet-100 text-violet-800 border-violet-200",
+  cpd_certificate: "bg-sky-100 text-sky-800 border-sky-200",
+  recommendation_letter: "bg-amber-100 text-amber-800 border-amber-200",
+  passport: "bg-emerald-100 text-emerald-800 border-emerald-200",
+  proof_of_address: "bg-orange-100 text-orange-800 border-orange-200",
+  other: "bg-muted text-muted-foreground border-border",
+};
+
+const CATEGORY_ORDER: DocType[] = [
+  "cv",
+  "qualification",
+  "cpd_certificate",
+  "recommendation_letter",
+  "passport",
+  "proof_of_address",
+  "other",
+];
 
 const CONFIDENCE_COLOR: Record<string, string> = {
   high: "text-emerald-600",
@@ -50,6 +84,21 @@ const FIELD_LABELS: Record<keyof CvExtractedFields, string> = {
   confidence: "",
   rawNotes: "AI Notes",
 };
+
+function getTypeLabel(value: string | null | undefined): string {
+  const found = DOCUMENT_TYPES.find((t) => t.value === value);
+  return found ? found.label : "Uncategorised";
+}
+
+function TypeBadge({ docType }: { docType: string | null | undefined }) {
+  const colorClass = docType ? TYPE_COLORS[docType as DocType] ?? TYPE_COLORS.other : "bg-muted text-muted-foreground border-border";
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${colorClass}`}>
+      <Tag className="w-2.5 h-2.5" />
+      {getTypeLabel(docType)}
+    </span>
+  );
+}
 
 function CvParseDialog({
   extracted,
@@ -129,11 +178,11 @@ function CvParseDialog({
                 </div>
                 <div className="shrink-0 mt-4">
                   {conf === "high" ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500" title="High confidence" />
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                   ) : conf === "medium" ? (
-                    <AlertTriangle className="w-4 h-4 text-amber-500" title="Medium confidence" />
+                    <AlertTriangle className="w-4 h-4 text-amber-500" />
                   ) : conf === "low" || conf === "none" ? (
-                    <AlertTriangle className="w-4 h-4 text-rose-400" title="Low/no confidence" />
+                    <AlertTriangle className="w-4 h-4 text-rose-400" />
                   ) : null}
                 </div>
               </div>
@@ -189,6 +238,8 @@ export default function DocumentsPage() {
   const [parsingDocId, setParsingDocId] = useState<number | null>(null);
   const [parsedExtracted, setParsedExtracted] = useState<CvExtractedFields | null>(null);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [updatingTypeId, setUpdatingTypeId] = useState<number | null>(null);
+  const [showParseBanner, setShowParseBanner] = useState(false);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -196,7 +247,7 @@ export default function DocumentsPage() {
 
     const result = await uploadFile(file);
     if (result) {
-      toast({ title: "Upload complete", description: `${file.name} uploaded. Extracting profile data…` });
+      toast({ title: "Upload complete", description: `${file.name} uploaded.` });
       queryClient.invalidateQueries({ queryKey: getListMyDocumentsQueryKey() });
       const canParse = result.mimeType === "application/pdf" || result.mimeType.startsWith("image/");
       if (canParse) {
@@ -232,7 +283,22 @@ export default function DocumentsPage() {
     }
   };
 
-  const [showParseBanner, setShowParseBanner] = useState(false);
+  const handleSetType = async (id: number, documentType: string) => {
+    setUpdatingTypeId(id);
+    try {
+      await fetch(`/api/documents/${id}/type`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ documentType }),
+      });
+      queryClient.invalidateQueries({ queryKey: getListMyDocumentsQueryKey() });
+    } catch {
+      toast({ title: "Failed to update category", variant: "destructive" });
+    } finally {
+      setUpdatingTypeId(null);
+    }
+  };
 
   const handleConfirmMerge = async (extracted: CvExtractedFields) => {
     setIsSavingProfile(true);
@@ -273,6 +339,20 @@ export default function DocumentsPage() {
     }
   };
 
+  const documents = data?.documents ?? [];
+
+  const grouped: Record<string, typeof documents> = {};
+  for (const doc of documents) {
+    const key = doc.documentType ?? "uncategorised";
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(doc);
+  }
+
+  const sortedCategories = [
+    ...CATEGORY_ORDER.filter((k) => grouped[k]),
+    ...(grouped["uncategorised"] ? ["uncategorised"] : []),
+  ];
+
   return (
     <AppLayout>
       <PageTransition>
@@ -294,7 +374,7 @@ export default function DocumentsPage() {
               My Documents
             </h1>
             <p className="text-muted-foreground mt-2">
-              Upload your CV to auto-fill your profile, or keep documents for easy reference.
+              Upload and categorise your CV, qualifications, certificates, and identity documents.
             </p>
           </div>
           <div>
@@ -371,7 +451,7 @@ export default function DocumentsPage() {
           </Card>
         )}
 
-        {(!data?.documents || data.documents.length === 0) && !isUploading ? (
+        {documents.length === 0 && !isUploading ? (
           <Card className="p-12 text-center border-dashed border-2">
             <div className="w-16 h-16 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-4">
               <File className="w-8 h-8 text-muted-foreground" />
@@ -386,61 +466,109 @@ export default function DocumentsPage() {
             </Button>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {data?.documents.map((doc) => {
-              const isPdf = doc.mimeType === "application/pdf";
-              const isImg = doc.mimeType.startsWith("image/");
-              const canParse = isPdf || isImg;
-              const isParsing = parsingDocId === doc.id;
+          <div className="space-y-8">
+            {sortedCategories.map((category) => {
+              const docs = grouped[category] ?? [];
+              const categoryLabel = category === "uncategorised"
+                ? "Uncategorised"
+                : getTypeLabel(category);
+              const colorClass = category !== "uncategorised"
+                ? TYPE_COLORS[category as DocType] ?? TYPE_COLORS.other
+                : "bg-muted text-muted-foreground border-border";
 
               return (
-                <Card key={doc.id} className="p-5 flex flex-col group hover:shadow-md transition-all">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary shrink-0">
-                      <FileText className="w-5 h-5" />
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 -mr-2 -mt-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => handleDelete(doc.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  <h4
-                    className="font-semibold text-foreground truncate mb-1"
-                    title={doc.filename}
-                  >
-                    {doc.filename}
-                  </h4>
-                  <div className="flex justify-between items-center text-xs text-muted-foreground mt-auto pt-4 border-t border-border">
-                    <span>
-                      {doc.fileSize ? `${Math.round(doc.fileSize / 1024)} KB` : "Unknown size"}
+                <div key={category}>
+                  <div className="flex items-center gap-3 mb-4">
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${colorClass}`}>
+                      <Tag className="w-3 h-3" />
+                      {categoryLabel}
                     </span>
-                    <span>{format(new Date(doc.uploadedAt), "MMM d, yyyy")}</span>
+                    <span className="text-xs text-muted-foreground">{docs.length} document{docs.length !== 1 ? "s" : ""}</span>
+                    <div className="flex-1 h-px bg-border" />
                   </div>
 
-                  {canParse && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-3 w-full text-xs h-8 gap-1.5"
-                      disabled={isParsing}
-                      onClick={() => handleParseCv(doc.id)}
-                    >
-                      {isParsing ? (
-                        <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Parsing CV…
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="w-3.5 h-3.5" /> Parse CV with AI
-                        </>
-                      )}
-                    </Button>
-                  )}
-                </Card>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {docs.map((doc) => {
+                      const isPdf = doc.mimeType === "application/pdf";
+                      const isImg = doc.mimeType.startsWith("image/");
+                      const canParse = isPdf || isImg;
+                      const isParsing = parsingDocId === doc.id;
+                      const isUpdatingType = updatingTypeId === doc.id;
+
+                      return (
+                        <Card key={doc.id} className="p-5 flex flex-col group hover:shadow-md transition-all">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary shrink-0">
+                              <FileText className="w-5 h-5" />
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 -mr-2 -mt-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => handleDelete(doc.id)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+
+                          <h4
+                            className="font-semibold text-foreground truncate mb-2"
+                            title={doc.filename}
+                          >
+                            {doc.filename}
+                          </h4>
+
+                          {/* Category selector */}
+                          <div className="relative mb-3">
+                            <select
+                              value={doc.documentType ?? ""}
+                              onChange={(e) => void handleSetType(doc.id, e.target.value || "other")}
+                              disabled={isUpdatingType}
+                              className="w-full appearance-none text-xs rounded-lg border border-border bg-muted/40 px-3 py-1.5 pr-7 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-60 cursor-pointer"
+                            >
+                              <option value="">Set category…</option>
+                              {DOCUMENT_TYPES.map((t) => (
+                                <option key={t.value} value={t.value}>{t.label}</option>
+                              ))}
+                            </select>
+                            {isUpdatingType ? (
+                              <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 animate-spin text-muted-foreground" />
+                            ) : (
+                              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                            )}
+                          </div>
+
+                          <div className="flex justify-between items-center text-xs text-muted-foreground mt-auto pt-3 border-t border-border">
+                            <span>
+                              {doc.fileSize ? `${Math.round(doc.fileSize / 1024)} KB` : "Unknown size"}
+                            </span>
+                            <span>{format(new Date(doc.uploadedAt), "MMM d, yyyy")}</span>
+                          </div>
+
+                          {canParse && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="mt-3 w-full text-xs h-8 gap-1.5"
+                              disabled={isParsing}
+                              onClick={() => handleParseCv(doc.id)}
+                            >
+                              {isParsing ? (
+                                <>
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Parsing CV…
+                                </>
+                              ) : (
+                                <>
+                                  <Sparkles className="w-3.5 h-3.5" /> Parse CV with AI
+                                </>
+                              )}
+                            </Button>
+                          )}
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </div>
               );
             })}
           </div>

@@ -4,6 +4,28 @@ import { z } from "zod/v4";
 
 export const DOCUMENT_DISCLAIMER = "Documents are uploaded for reference only and are not verified by JOBSAGE or any regulator.";
 
+export const DOCUMENT_TYPES = [
+  "cv",
+  "qualification",
+  "cpd_certificate",
+  "recommendation_letter",
+  "passport",
+  "proof_of_address",
+  "other",
+] as const;
+
+export type DocumentType = (typeof DOCUMENT_TYPES)[number];
+
+export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
+  cv: "CV / Résumé",
+  qualification: "Qualification",
+  cpd_certificate: "CPD Certificate",
+  recommendation_letter: "Recommendation Letter",
+  passport: "Passport",
+  proof_of_address: "Proof of Address",
+  other: "Other",
+};
+
 export const documentsTable = pgTable("documents", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull(),
@@ -11,6 +33,7 @@ export const documentsTable = pgTable("documents", {
   mimeType: text("mime_type").notNull(),
   storageKey: text("storage_key").notNull(),
   fileSize: integer("file_size"),
+  documentType: text("document_type"),
   disclaimerText: text("disclaimer_text").notNull().default(DOCUMENT_DISCLAIMER),
   uploadedAt: timestamp("uploaded_at", { withTimezone: true }).notNull().defaultNow(),
 });

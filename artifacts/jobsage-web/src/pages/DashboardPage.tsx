@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import type { NudgeNextRolesResponse } from "@workspace/api-client-react";
 import { useAuth } from "@workspace/auth-web";
 import {
   useGetMyProfile,
@@ -383,6 +385,19 @@ export default function DashboardPage() {
 
   const interviews = appStats?.interviews ?? 0;
   const offers = appStats?.offers ?? 0;
+
+  const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const { data: nudgeData, isLoading: nudgeLoading } = useQuery<NudgeNextRolesResponse>({
+    queryKey: ["nudge-next-roles"],
+    queryFn: async () => {
+      const res = await fetch(`${base}/api/nudge/next-roles`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch role nudge");
+      return res.json() as Promise<NudgeNextRolesResponse>;
+    },
+    enabled: !!profile?.profession,
+    staleTime: 5 * 60 * 1000,
+  });
+  const nudgeRoles = nudgeData?.roles ?? [];
 
 
   return (
@@ -848,6 +863,72 @@ export default function DashboardPage() {
             </div>
           </Card>
         </motion.div>
+
+        {/* AI next-3-roles nudge */}
+        {(nudgeLoading || nudgeRoles.length > 0) && (
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.48 }}>
+            <div className="mt-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+                  <span className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                    <Sparkles className="w-3.5 h-3.5" />
+                  </span>
+                  Your Next Career Moves
+                </h2>
+                <Link href="/opportunities">
+                  <span className="text-xs text-primary font-medium hover:underline flex items-center gap-0.5">
+                    Browse roles <ArrowRight className="w-3 h-3" />
+                  </span>
+                </Link>
+              </div>
+
+              {nudgeLoading ? (
+                <div className="flex items-center gap-3 text-sm text-muted-foreground py-4">
+                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                  AI is generating role suggestions…
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {nudgeRoles.map((role, i) => (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.5 + i * 0.07 }}
+                    >
+                      <Card className="p-4 flex flex-col gap-2 hover:shadow-md hover:border-primary/20 transition-all h-full">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-foreground leading-snug">{role.title}</p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">{role.setting}</p>
+                          </div>
+                          <div className="shrink-0 flex flex-col items-center">
+                            <span className="text-lg font-bold text-primary leading-none">{role.fitScore}</span>
+                            <span className="text-[9px] text-muted-foreground leading-none">fit</span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-relaxed flex-1">{role.reason}</p>
+                        {role.location && (
+                          <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                            <MapPin className="w-2.5 h-2.5" /> {role.location}
+                          </p>
+                        )}
+                        <Link href="/opportunities">
+                          <span className="text-[11px] font-medium text-primary hover:underline flex items-center gap-0.5 mt-1">
+                            Explore <ArrowRight className="w-3 h-3" />
+                          </span>
+                        </Link>
+                      </Card>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+              {nudgeData?.disclaimer && (
+                <p className="text-[10px] text-muted-foreground mt-2 italic">{nudgeData.disclaimer}</p>
+              )}
+            </div>
+          </motion.div>
+        )}
 
         {/* Candidate Portal quick-links */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55 }}>

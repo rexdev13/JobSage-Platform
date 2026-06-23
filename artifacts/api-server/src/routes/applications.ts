@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
 import { db, jobListingsTable, rolesTable, candidateMessagesTable } from "@workspace/db";
 import { applicationsTable } from "@workspace/db";
 import { eq, and, inArray } from "drizzle-orm";
@@ -7,7 +7,7 @@ import { createApplicationReceivedMessage } from "../lib/systemMessages";
 
 const router: IRouter = Router();
 
-router.get("/applications", requireAuthenticated, async (req, res): Promise<void> => {
+router.get("/applications", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.id;
 
   const applications = await db
@@ -47,7 +47,7 @@ router.get("/applications", requireAuthenticated, async (req, res): Promise<void
   res.json({ applications: enriched, stats });
 });
 
-router.post("/applications", requireAuthenticated, async (req, res): Promise<void> => {
+router.post("/applications", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.id;
   const { roleId, notes, smartApply } = req.body as { roleId?: number; notes?: string; smartApply?: boolean };
 
@@ -102,6 +102,38 @@ router.post("/applications", requireAuthenticated, async (req, res): Promise<voi
   }
 
   res.json(application);
+});
+
+router.patch("/applications/:id/interview-date", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user!.id;
+  const id = parseInt(String(req.params.id), 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid application ID" });
+    return;
+  }
+
+  const { interviewDate, interviewNotes } = req.body as { interviewDate?: string | null; interviewNotes?: string | null };
+
+  const [existing] = await db
+    .select()
+    .from(applicationsTable)
+    .where(and(eq(applicationsTable.id, id), eq(applicationsTable.userId, userId)));
+
+  if (!existing) {
+    res.status(404).json({ error: "Application not found" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(applicationsTable)
+    .set({
+      interviewDate: interviewDate ? new Date(interviewDate) : null,
+      interviewNotes: interviewNotes ?? null,
+    })
+    .where(eq(applicationsTable.id, id))
+    .returning();
+
+  res.json(updated);
 });
 
 export default router;

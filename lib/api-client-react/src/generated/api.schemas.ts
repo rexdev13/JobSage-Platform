@@ -224,6 +224,7 @@ export interface Document {
   mimeType: string;
   storageKey: string;
   fileSize?: number | null;
+  documentType?: string | null;
   disclaimerText: string;
   uploadedAt: string;
 }
@@ -562,6 +563,22 @@ export interface Application {
   notes?: string | null;
   roleTitle?: string | null;
   roleLocation?: string | null;
+  interviewDate?: string | null;
+  interviewNotes?: string | null;
+}
+
+export interface NudgeRole {
+  title: string;
+  reason: string;
+  fitScore: number;
+  setting: string;
+  location?: string;
+}
+
+export interface NudgeNextRolesResponse {
+  roles: NudgeRole[];
+  profession?: string;
+  disclaimer?: string;
 }
 
 export type ApplicationListStats = {
@@ -1227,6 +1244,14 @@ export type ProgressReportResponsePlan = {
   progressPct: number;
 };
 
+export interface ProgressReportTopCompany {
+  name: string;
+  type: string;
+  matchPct: number;
+  reason: string;
+  location?: string | null;
+}
+
 export interface ProgressReportResponse {
   period: ProgressReportResponsePeriod;
   stats: ProgressReportStats;
@@ -1236,6 +1261,7 @@ export interface ProgressReportResponse {
   boostProfile: boolean;
   recommendations?: string | null;
   disclaimer?: string | null;
+  topCompanies?: ProgressReportTopCompany[] | null;
 }
 
 export type SpeculativeApplicationStatus =

@@ -82,89 +82,113 @@ function DecisionCard({
   isLatest?: boolean;
   candidateEmail?: string | null;
 }) {
-  const [showReasonCodes, setShowReasonCodes] = useState(false);
+  const [showTechnical, setShowTechnical] = useState(false);
+  const outcome = decision.outcome as EligibilityOutcome;
+
+  const heroBg: Record<EligibilityOutcome, string> = {
+    eligible: "bg-emerald-50 border-b border-emerald-100",
+    not_eligible: "bg-amber-50 border-b border-amber-100",
+    ineligible: "bg-red-50 border-b border-red-100",
+  };
 
   return (
-    <Card className={`p-6 ${isLatest ? "border-primary/30 shadow-md" : ""}`}>
-      {isLatest && (
-        <div className="inline-flex items-center px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold mb-4">
-          Latest Check
-        </div>
-      )}
-
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
-        <div className="flex items-center gap-4">
-          <OutcomeIcon outcome={decision.outcome as EligibilityOutcome} reviewFlagged={decision.reviewFlagged} />
-          <div>
-            <OutcomeBadge outcome={decision.outcome as EligibilityOutcome} reviewFlagged={decision.reviewFlagged} />
-            <p className="text-xs text-muted-foreground mt-2">
-              Evaluated against ruleset v{decision.rulesetVersion} •{" "}
-              {new Date(decision.createdAt).toLocaleDateString("en-GB", {
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-              })}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <p className="text-foreground leading-relaxed mb-4">{decision.explanationText}</p>
-
-      {decision.pathways && decision.pathways.length > 0 && (
-        <div className="mb-4">
-          <h4 className="text-sm font-semibold text-foreground mb-2">Applicable Pathways</h4>
-          <ul className="space-y-1">
-            {decision.pathways.map((pathway) => (
-              <li key={pathway} className="flex items-center gap-2 text-sm text-muted-foreground">
-                <CheckCircle2 className="w-4 h-4 text-primary flex-shrink-0" />
-                {pathway}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {decision.reviewFlagged && (
-        <div className="flex items-start gap-3 p-4 rounded-xl bg-purple-50 border border-purple-200 mb-4">
-          <AlertTriangle className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-semibold text-purple-800">Pending Manual Review</p>
-            <p className="text-sm text-purple-700 mt-1">
-              {candidateEmail
-                ? `Your eligibility assessment requires manual review by a JOBSAGE adviser. You'll receive an email at ${candidateEmail} within 2–3 working days.`
-                : "Your eligibility assessment requires manual review by a JOBSAGE adviser. You'll receive a response within 2–3 working days."}
-            </p>
-          </div>
-        </div>
-      )}
-
-      <div className="pt-4 border-t border-border">
-        <p className="text-xs text-muted-foreground italic mb-3">
-          This assessment is based on publicly available regulatory and professional guidance and is for indicative
-          purposes only. Final eligibility decisions rest with the relevant regulatory or professional body.
-        </p>
-
-        <button
-          onClick={() => setShowReasonCodes(!showReasonCodes)}
-          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          {showReasonCodes ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-          {showReasonCodes ? "Hide" : "Show"} reason codes
-        </button>
-
-        {showReasonCodes && (
-          <div className="mt-2 flex flex-wrap gap-2">
-            {decision.reasonCodes.map((code) => (
-              <code
-                key={code}
-                className="px-2 py-0.5 rounded bg-muted text-muted-foreground text-xs font-mono"
-              >
-                {code}
-              </code>
-            ))}
+    <Card className={`overflow-hidden ${isLatest ? "shadow-md border-primary/20" : ""}`}>
+      {/* Outcome hero */}
+      <div className={`px-6 pt-5 pb-5 ${heroBg[outcome] ?? "bg-muted/30"}`}>
+        {isLatest && (
+          <div className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-white/80 text-foreground text-xs font-semibold mb-3 border border-border/40">
+            Latest Check
           </div>
         )}
+        <div className="flex items-center gap-4 mb-3">
+          <OutcomeIcon outcome={outcome} reviewFlagged={decision.reviewFlagged} />
+          <div>
+            <OutcomeBadge outcome={outcome} reviewFlagged={decision.reviewFlagged} />
+            <p className="text-xs text-muted-foreground mt-1.5">
+              {new Date(decision.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
+            </p>
+          </div>
+        </div>
+        <p className="text-sm text-foreground leading-relaxed">{decision.explanationText}</p>
+      </div>
+
+      <div className="p-6 space-y-5">
+        {/* Eligible roles */}
+        {decision.pathways && decision.pathways.length > 0 && (
+          <div>
+            <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              Roles you qualify for
+            </h4>
+            <div className="flex flex-wrap gap-2">
+              {decision.pathways.map((pathway) => (
+                <span
+                  key={pathway}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-800 text-sm font-medium border border-emerald-200"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+                  {pathway}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Not yet eligible — remediation CTA */}
+        {outcome === "not_eligible" && !decision.reviewFlagged && (
+          <div className="p-4 rounded-xl bg-primary/5 border border-primary/20">
+            <h4 className="text-sm font-semibold text-foreground mb-1.5 flex items-center gap-2">
+              <ArrowRight className="w-4 h-4 text-primary" />
+              Your route to eligibility
+            </h4>
+            <p className="text-sm text-muted-foreground mb-3">
+              You have a personalised step-by-step plan to close the gaps. Follow your Path to become eligible.
+            </p>
+            <Link to="/path">
+              <Button size="sm" variant="outline" className="gap-2 h-8 text-xs">
+                View My Path <ArrowRight className="w-3 h-3" />
+              </Button>
+            </Link>
+          </div>
+        )}
+
+        {/* Pending review */}
+        {decision.reviewFlagged && (
+          <div className="flex items-start gap-3 p-4 rounded-xl bg-purple-50 border border-purple-200">
+            <AlertTriangle className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-purple-800">Pending Manual Review</p>
+              <p className="text-sm text-purple-700 mt-1">
+                {candidateEmail
+                  ? `Your assessment is being reviewed by a JOBSAGE adviser. You'll hear back at ${candidateEmail} within 2–3 working days.`
+                  : "Your assessment is being reviewed by a JOBSAGE adviser. You'll receive a response within 2–3 working days."}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Technical details */}
+        <div className="pt-3 border-t border-border">
+          <p className="text-xs text-muted-foreground italic mb-2">
+            Based on publicly available regulatory guidance — indicative only. Final decisions rest with the relevant regulatory body.
+          </p>
+          <button
+            onClick={() => setShowTechnical(!showTechnical)}
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {showTechnical ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            {showTechnical ? "Hide" : "Show"} technical details (ruleset v{decision.rulesetVersion})
+          </button>
+          {showTechnical && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {decision.reasonCodes.map((code) => (
+                <code key={code} className="px-2 py-0.5 rounded bg-muted text-muted-foreground text-xs font-mono">
+                  {code}
+                </code>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </Card>
   );
@@ -266,9 +290,9 @@ export default function EligibilityPage() {
       <PageTransition>
         <DisclaimerBanner />
         <header className="mt-6 mb-6">
-          <h1 className="text-3xl font-display font-bold text-foreground">Eligibility Intelligence</h1>
+          <h1 className="text-3xl font-display font-bold text-foreground">My Eligibility</h1>
           <p className="text-muted-foreground mt-2">
-            Run your profile against the latest UK regulatory and professional criteria for deterministic eligibility outcomes.
+            Find out which UK roles you qualify for today — and what it takes to unlock the rest.
           </p>
         </header>
 

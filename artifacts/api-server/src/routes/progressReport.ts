@@ -79,7 +79,7 @@ router.get("/my-progress-report", requireAuthenticated, async (req, res): Promis
       .filter(Boolean)
       .join(" ") || user.email || "Candidate";
 
-  let recommendations = { recommendedNextSteps: "", disclaimer: "" };
+  let recommendations = { recommendedNextSteps: "", topCompanies: [] as import("../lib/progressReportGenerator").CompanyRecommendation[], disclaimer: "" };
   if (profile) {
     try {
       recommendations = await generateProgressRecommendations({
@@ -98,6 +98,7 @@ router.get("/my-progress-report", requireAuthenticated, async (req, res): Promis
         planStepsTotal,
         boostProfile: profile.boostProfile,
         documentCount: documents.length,
+        preferredRegion: profile.preferredRegion ?? null,
       });
     } catch (err) {
       console.error("[progress-report] AI error:", err);
@@ -123,6 +124,7 @@ router.get("/my-progress-report", requireAuthenticated, async (req, res): Promis
     boostProfile: profile?.boostProfile ?? false,
     recommendations: recommendations.recommendedNextSteps,
     disclaimer: recommendations.disclaimer,
+    topCompanies: recommendations.topCompanies,
   });
 });
 
