@@ -69,8 +69,12 @@ export function AppSidebar() {
 
   return (
     <div className="w-64 bg-sidebar border-r border-sidebar-border h-screen flex flex-col shrink-0">
-      <div className="h-16 flex items-center px-6 border-b border-sidebar-border shrink-0">
-        <h1 className="text-xl font-display font-bold text-primary tracking-tight">JOBSAGE</h1>
+      <div className="h-16 flex items-center px-5 border-b border-sidebar-border shrink-0">
+        <img
+          src={`${import.meta.env.BASE_URL}logo.png`}
+          alt="JOBSAGE"
+          className="h-8 w-auto object-contain"
+        />
       </div>
       
       <div className="flex-1 overflow-y-auto py-4 px-4 space-y-1">
