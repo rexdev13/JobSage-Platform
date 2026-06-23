@@ -23,6 +23,8 @@ export const applicationsTable = pgTable("applications", {
     .default("applied"),
   appliedAt: timestamp("applied_at", { withTimezone: true }).notNull().defaultNow(),
   notes: text("notes"),
+  interviewDate: timestamp("interview_date", { withTimezone: true }),
+  interviewNotes: text("interview_notes"),
 });
 
 export const applicationStatusValues = z.enum(["applied", "shortlisted", "interview", "offer", "rejected", "no_response"]);

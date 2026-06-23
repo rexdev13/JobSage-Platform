@@ -25,6 +25,7 @@ import analyticsReportRouter from "./analyticsReport";
 import speculativeApplicationsRouter from "./speculativeApplications";
 import superAdminRouter from "./superAdmin";
 import journeyRouter from "./journey";
+import nudgeRouter from "./nudge";
 
 const router: IRouter = Router();
 
@@ -54,5 +55,6 @@ router.use(analyticsReportRouter);
 router.use(speculativeApplicationsRouter);
 router.use(superAdminRouter);
 router.use(journeyRouter);
+router.use(nudgeRouter);
 
 export default router;

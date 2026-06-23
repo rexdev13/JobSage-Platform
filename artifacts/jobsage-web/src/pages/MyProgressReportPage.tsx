@@ -17,6 +17,8 @@ import {
   Megaphone,
   Activity,
   Zap,
+  Building2,
+  MapPin,
 } from "lucide-react";
 import { Link } from "wouter";
 import {
@@ -563,6 +565,71 @@ export default function MyProgressReportPage() {
                       </div>
                     ))}
                 </div>
+              </Card>
+            </motion.div>
+          )}
+
+          {/* Top 10 Companies */}
+          {report!.topCompanies && report!.topCompanies.length > 0 && (
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }}>
+              <Card className="p-6">
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <Building2 className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-semibold text-foreground">Top 10 Employers to Target</h2>
+                    <p className="text-xs text-muted-foreground">AI-matched to your profession, specialty and location</p>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {report!.topCompanies.map((co, i) => (
+                    <div key={i} className="flex items-start gap-3 p-3 rounded-xl border border-border hover:border-primary/20 hover:bg-muted/30 transition-all">
+                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                        <span className="text-xs font-bold text-primary">{i + 1}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2 flex-wrap">
+                          <div>
+                            <p className="text-sm font-semibold text-foreground leading-tight">{co.name}</p>
+                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                              <span className="text-xs text-muted-foreground">{co.type}</span>
+                              {co.location && (
+                                <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
+                                  <MapPin className="w-3 h-3" />
+                                  {co.location}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <span className={`shrink-0 text-xs font-bold px-2.5 py-1 rounded-full ${
+                            co.matchPct >= 85 ? "bg-emerald-100 text-emerald-800" :
+                            co.matchPct >= 70 ? "bg-sky-100 text-sky-800" :
+                            "bg-amber-100 text-amber-800"
+                          }`}>
+                            {co.matchPct}% match
+                          </span>
+                        </div>
+                        <div className="mt-2">
+                          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full ${
+                                co.matchPct >= 85 ? "bg-emerald-500" :
+                                co.matchPct >= 70 ? "bg-sky-500" :
+                                "bg-amber-500"
+                              }`}
+                              style={{ width: `${co.matchPct}%` }}
+                            />
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">{co.reason}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-4 pt-4 border-t border-border/50">
+                  AI-generated recommendations for guidance only. Research each employer and verify current vacancies before applying.
+                </p>
               </Card>
             </motion.div>
           )}

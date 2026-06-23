@@ -365,6 +365,7 @@ export const ListMyDocumentsResponse = zod.object({
       mimeType: zod.string(),
       storageKey: zod.string(),
       fileSize: zod.number().nullish(),
+      documentType: zod.string().nullish(),
       disclaimerText: zod.string(),
       uploadedAt: zod.date(),
     }),
@@ -2023,6 +2024,15 @@ export const GetMyProgressReportResponse = zod.object({
   boostProfile: zod.boolean(),
   recommendations: zod.string().nullish(),
   disclaimer: zod.string().nullish(),
+  topCompanies: zod.array(
+    zod.object({
+      name: zod.string(),
+      type: zod.string(),
+      matchPct: zod.number(),
+      reason: zod.string(),
+      location: zod.string().nullish(),
+    }),
+  ).nullish(),
 });
 
 /**

@@ -1,7 +1,8 @@
 import { requireAuthenticated } from "../middlewares/requireRole";
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import multer from "multer";
-import { db, documentsTable, DOCUMENT_DISCLAIMER } from "@workspace/db";
+import { db, documentsTable, DOCUMENT_DISCLAIMER, DOCUMENT_TYPES } from "@workspace/db";
+import type { DocumentType } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import {
   ListMyDocumentsResponse,
@@ -127,7 +128,7 @@ router.post("/documents", requireAuthenticated, async (req: Request, res: Respon
 });
 
 router.post("/documents/:id/parse-cv", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid document ID" });
     return;
@@ -162,6 +163,34 @@ router.post("/documents/:id/parse-cv", requireAuthenticated, async (req: Request
         : "Failed to parse CV. Please try again.";
     res.status(422).json({ error: message });
   }
+});
+
+router.patch("/documents/:id/type", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
+  const id = parseInt(String(req.params.id), 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid document ID" });
+    return;
+  }
+
+  const { documentType } = req.body as { documentType: string | null };
+
+  if (documentType !== null && !DOCUMENT_TYPES.includes(documentType as DocumentType)) {
+    res.status(400).json({ error: `Invalid document type. Allowed: ${DOCUMENT_TYPES.join(", ")}` });
+    return;
+  }
+
+  const [updated] = await db
+    .update(documentsTable)
+    .set({ documentType: documentType ?? null })
+    .where(and(eq(documentsTable.id, id), eq(documentsTable.userId, req.user!.id)))
+    .returning();
+
+  if (!updated) {
+    res.status(404).json({ error: "Document not found" });
+    return;
+  }
+
+  res.json(updated);
 });
 
 router.delete("/documents/:id", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {

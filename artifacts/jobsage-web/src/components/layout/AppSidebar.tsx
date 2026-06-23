@@ -5,7 +5,7 @@ import {
   Map, ClipboardList, Shield, Users, LogOut, Briefcase,
   Building2, Plus, LayoutDashboard, Sparkles, UserCog, List,
   BarChart2, BookOpen, Search, Bookmark, ShieldAlert,
-  TrendingUp, Inbox,
+  TrendingUp, Inbox, CalendarDays,
 } from "lucide-react";
 import { cn } from "@/components/ui-enhanced";
 import { useGetMyAnalytics, useGetMyProgressReport, useGetInboxUnreadCount, getGetInboxUnreadCountQueryKey } from "@workspace/api-client-react";
@@ -39,6 +39,7 @@ export function AppSidebar() {
     { name: "Inbox", href: "/inbox", icon: Inbox, roles: ["candidate", "reviewer", "admin"], badge: inboxUnread },
     { name: "My Path", href: "/path", icon: Map, roles: ["candidate", "reviewer", "admin"] },
     { name: "Interview Prep", href: "/interview-prep", icon: Sparkles, roles: ["candidate", "reviewer", "admin"] },
+    { name: "Interview Calendar", href: "/calendar", icon: CalendarDays, roles: ["candidate", "reviewer", "admin"] },
     { name: "My Report", href: "/my-report", icon: BarChart2, roles: ["candidate", "reviewer", "admin"] },
     { name: "Regulatory Guidance", href: "/regulatory-guidance", icon: BookOpen, roles: ["candidate", "reviewer", "admin"] },
 
