@@ -452,14 +452,14 @@ export default function DashboardPage() {
             label="Eligible Roles"
             value={eligibleRolesCount}
             sub={notYetEligibleCount > 0 ? `${notYetEligibleCount} more to work towards` : allRoles.length > 0 ? "All matched roles eligible" : "Run eligibility check"}
-            href="/opportunities"
+            href="/eligibility"
             delay={0.1}
           />
           <StatCard
             icon={ClipboardList}
-            label="Applications"
+            label="Opportunities"
             value={totalApplied}
-            sub={appStats && totalApplied > 0 ? `${appStats.interviews} interviews · ${appStats.offers} offers · ${appStats.noResponse} no response` : "Track your applications"}
+            sub={appStats && totalApplied > 0 ? `${appStats.interviews} interviews · ${appStats.offers} offers · ${eligibleRolesCount} eligible roles` : `${eligibleRolesCount > 0 ? `${eligibleRolesCount} matched roles` : "Find sponsor-licensed roles"}`}
             href="/opportunities"
             delay={0.13}
           />

@@ -53,6 +53,9 @@ import {
   BookmarkCheck,
   Globe,
   ChevronDown,
+  Phone,
+  Mail,
+  ChevronUp,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -115,6 +118,8 @@ export default function SponsorLicencesPage() {
 
   const [vacancyResults, setVacancyResults] = useState<Map<number, VacancyCheckResult>>(new Map());
   const [checkingIds, setCheckingIds] = useState<Set<number>>(new Set());
+  const [expandedVacancies, setExpandedVacancies] = useState<Set<number>>(new Set());
+  const [expandedContact, setExpandedContact] = useState<Set<number>>(new Set());
   const checkVacanciesMutation = useCheckSponsorLicenceVacancies();
   const bookmarkMutation = useBookmarkSponsorLicence();
   const unbookmarkMutation = useUnbookmarkSponsorLicence();
@@ -774,7 +779,8 @@ export default function SponsorLicencesPage() {
                                   )}
                                 </button>
 
-                                {(() => {
+                                {/* Vacancy check button / status */}
+                              {(() => {
                                   const result = vacancyResults.get(c.id);
                                   const checking = checkingIds.has(c.id);
                                   if (checking) {
@@ -785,64 +791,224 @@ export default function SponsorLicencesPage() {
                                       </span>
                                     );
                                   }
-                                  if (result) {
-                                    return result.vacanciesFound ? (
-                                      <a
-                                        href={result.sourceUrl ?? `https://www.reed.co.uk/jobs?keywords=${encodeURIComponent(c.organisationName)}&locationName=United+Kingdom`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/20 text-green-700 hover:bg-green-500/20 transition-colors font-medium"
-                                        title={result.summary ?? ""}
+                                  if (!result) {
+                                    return (
+                                      <button
+                                        onClick={() => handleCheckVacancies(c.id)}
+                                        className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors font-medium"
                                       >
-                                        <BadgeCheck className="w-3.5 h-3.5" />
-                                        {result.vacancyCount != null ? `${result.vacancyCount} vacancies` : "Vacancies found"}
-                                        <ExternalLink className="w-3 h-3 opacity-60" />
-                                      </a>
-                                    ) : (
-                                      <span
-                                        className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-muted border border-border text-muted-foreground"
-                                        title={result.summary ?? ""}
-                                      >
-                                        No listings found
-                                      </span>
+                                        <Sparkles className="w-3.5 h-3.5" />
+                                        Check vacancies
+                                      </button>
                                     );
                                   }
-                                  return (
-                                    <button
-                                      onClick={() => handleCheckVacancies(c.id)}
-                                      className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors font-medium"
-                                    >
-                                      <Sparkles className="w-3.5 h-3.5" />
-                                      Check vacancies
-                                    </button>
-                                  );
+                                  return null;
                                 })()}
-                                <Button
-                                  size="sm"
-                                  variant={sentCompanyNames.has(c.organisationName) ? "outline" : "default"}
-                                  className="text-xs gap-1.5"
-                                  onClick={() => handleSendCV(c.organisationName, c.id)}
-                                  disabled={sendCVMutation.isPending}
-                                >
-                                  {sendCVMutation.isPending ? (
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                  ) : sentCompanyNames.has(c.organisationName) ? (
-                                    <><CheckCircle2 className="w-3.5 h-3.5" /> CV Sent</>
-                                  ) : (
-                                    <><Send className="w-3.5 h-3.5" /> Send my CV</>
-                                  )}
-                                </Button>
-                              </div>
+
+                              {/* Contact toggle */}
+                              <button
+                                onClick={() => setExpandedContact((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(c.id)) next.delete(c.id); else next.add(c.id);
+                                  return next;
+                                })}
+                                className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors font-medium ${
+                                  expandedContact.has(c.id)
+                                    ? "bg-primary/10 border-primary/20 text-primary"
+                                    : "border-border text-muted-foreground hover:text-foreground hover:bg-accent"
+                                }`}
+                                title="Find contact details for this company"
+                              >
+                                <Phone className="w-3.5 h-3.5" />
+                                Contact
+                                {expandedContact.has(c.id) ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                              </button>
+
+                              <Button
+                                size="sm"
+                                variant={sentCompanyNames.has(c.organisationName) ? "outline" : "default"}
+                                className="text-xs gap-1.5"
+                                onClick={() => handleSendCV(c.organisationName, c.id)}
+                                disabled={sendCVMutation.isPending}
+                              >
+                                {sendCVMutation.isPending ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : sentCompanyNames.has(c.organisationName) ? (
+                                  <><CheckCircle2 className="w-3.5 h-3.5" /> CV Sent</>
+                                ) : (
+                                  <><Send className="w-3.5 h-3.5" /> Send my CV</>
+                                )}
+                              </Button>
                             </div>
-                            {vacancyResults.get(c.id)?.summary && (
-                              <p className="mt-2 ml-14 text-xs text-muted-foreground leading-relaxed">
-                                {vacancyResults.get(c.id)!.summary}
-                              </p>
+                          </div>
+
+                          {/* ── Contact panel ── */}
+                          <AnimatePresence>
+                            {expandedContact.has(c.id) && (
+                              <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: "auto" }}
+                                exit={{ opacity: 0, height: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="overflow-hidden"
+                              >
+                                <div className="mt-3 ml-14 p-4 rounded-xl bg-muted/40 border border-border">
+                                  <p className="text-xs font-semibold text-foreground mb-3 flex items-center gap-1.5">
+                                    <Phone className="w-3.5 h-3.5 text-primary" />
+                                    Contact {c.organisationName}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
+                                    Contact details are not published in the official Home Office register. Use the links below to find their website, phone, and email:
+                                  </p>
+                                  <div className="flex flex-wrap gap-2">
+                                    <a
+                                      href={`https://www.google.com/search?q=${encodeURIComponent(c.organisationName + " " + (c.townCity ?? "") + " contact email phone")}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-background border border-border text-foreground hover:bg-accent transition-colors font-medium"
+                                    >
+                                      <Globe className="w-3.5 h-3.5 text-primary" />
+                                      Search online
+                                      <ExternalLink className="w-3 h-3 opacity-50" />
+                                    </a>
+                                    <a
+                                      href={`https://find-and-update.company-information.service.gov.uk/search?q=${encodeURIComponent(c.organisationName)}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-background border border-border text-foreground hover:bg-accent transition-colors font-medium"
+                                    >
+                                      <Building2 className="w-3.5 h-3.5 text-primary" />
+                                      Companies House
+                                      <ExternalLink className="w-3 h-3 opacity-50" />
+                                    </a>
+                                    <a
+                                      href={`mailto:?subject=Application enquiry — ${encodeURIComponent(c.organisationName)}&body=Hello%2C%0A%0AI am writing to enquire about employment opportunities at ${encodeURIComponent(c.organisationName)}.`}
+                                      className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-background border border-border text-foreground hover:bg-accent transition-colors font-medium"
+                                    >
+                                      <Mail className="w-3.5 h-3.5 text-primary" />
+                                      Draft email
+                                    </a>
+                                  </div>
+                                </div>
+                              </motion.div>
                             )}
-                            <p className="mt-1.5 ml-14 text-[10px] text-muted-foreground/60 italic">
-                              Phone and email are not published in the official Home Office register.
-                            </p>
-                          </Card>
+                          </AnimatePresence>
+
+                          {/* ── Vacancy results panel ── */}
+                          {(() => {
+                            const result = vacancyResults.get(c.id);
+                            if (!result) return null;
+                            const isExpanded = expandedVacancies.has(c.id);
+                            return (
+                              <motion.div
+                                initial={{ opacity: 0, y: -4 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="mt-3 ml-14"
+                              >
+                                {result.vacanciesFound ? (
+                                  <div className="rounded-xl border border-green-200 bg-green-50/60 dark:bg-green-950/20 dark:border-green-800/40 overflow-hidden">
+                                    {/* Header row */}
+                                    <button
+                                      className="w-full flex items-center justify-between px-4 py-3 hover:bg-green-100/50 dark:hover:bg-green-900/20 transition-colors"
+                                      onClick={() => setExpandedVacancies((prev) => {
+                                        const next = new Set(prev);
+                                        if (next.has(c.id)) next.delete(c.id); else next.add(c.id);
+                                        return next;
+                                      })}
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <BadgeCheck className="w-4 h-4 text-green-600 shrink-0" />
+                                        <span className="text-sm font-semibold text-green-800 dark:text-green-300">
+                                          {result.vacancyCount != null
+                                            ? `${result.vacancyCount} ${result.vacancyCount === 1 ? "vacancy" : "vacancies"} found`
+                                            : "Vacancies found"}
+                                        </span>
+                                        {result.summary && (
+                                          <span className="text-xs text-green-700/70 dark:text-green-400/70 hidden sm:block">
+                                            · {result.summary}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center gap-2 shrink-0">
+                                        <a
+                                          href={result.sourceUrl ?? `https://www.reed.co.uk/jobs?keywords=${encodeURIComponent(c.organisationName)}&locationName=United+Kingdom`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          onClick={(e) => e.stopPropagation()}
+                                          className="inline-flex items-center gap-1 text-xs px-3 py-1 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors font-medium"
+                                        >
+                                          Browse vacancies
+                                          <ExternalLink className="w-3 h-3" />
+                                        </a>
+                                        {isExpanded ? <ChevronUp className="w-4 h-4 text-green-600" /> : <ChevronDown className="w-4 h-4 text-green-600" />}
+                                      </div>
+                                    </button>
+
+                                    {/* Expandable detail */}
+                                    <AnimatePresence>
+                                      {isExpanded && (
+                                        <motion.div
+                                          initial={{ opacity: 0, height: 0 }}
+                                          animate={{ opacity: 1, height: "auto" }}
+                                          exit={{ opacity: 0, height: 0 }}
+                                          transition={{ duration: 0.2 }}
+                                          className="overflow-hidden border-t border-green-200 dark:border-green-800/40"
+                                        >
+                                          <div className="px-4 py-3 space-y-3">
+                                            {result.summary && (
+                                              <p className="text-xs text-green-800/80 dark:text-green-300/80 leading-relaxed">
+                                                {result.summary}
+                                              </p>
+                                            )}
+                                            <div className="flex flex-wrap gap-2">
+                                              <a
+                                                href={result.sourceUrl ?? `https://www.reed.co.uk/jobs?keywords=${encodeURIComponent(c.organisationName)}&locationName=United+Kingdom`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center gap-1.5 text-xs px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors font-medium"
+                                              >
+                                                <Briefcase className="w-3.5 h-3.5" />
+                                                View all vacancies
+                                                <ExternalLink className="w-3 h-3" />
+                                              </a>
+                                              <Button
+                                                size="sm"
+                                                variant={sentCompanyNames.has(c.organisationName) ? "outline" : "default"}
+                                                className="text-xs gap-1.5 h-8"
+                                                onClick={() => handleSendCV(c.organisationName, c.id)}
+                                                disabled={sendCVMutation.isPending}
+                                              >
+                                                {sentCompanyNames.has(c.organisationName) ? (
+                                                  <><CheckCircle2 className="w-3.5 h-3.5" /> CV Sent</>
+                                                ) : (
+                                                  <><Send className="w-3.5 h-3.5" /> Send my CV</>
+                                                )}
+                                              </Button>
+                                            </div>
+                                            <p className="text-[10px] text-green-700/60 dark:text-green-400/50">
+                                              Vacancies sourced from job boards. Always verify directly on the employer's official site.
+                                            </p>
+                                          </div>
+                                        </motion.div>
+                                      )}
+                                    </AnimatePresence>
+                                  </div>
+                                ) : (
+                                  <div className="rounded-xl border border-border bg-muted/30 px-4 py-2.5 flex items-center gap-2">
+                                    <span className="text-xs text-muted-foreground">No current vacancies found on job boards.</span>
+                                    <button
+                                      onClick={() => handleSendCV(c.organisationName, c.id)}
+                                      disabled={sentCompanyNames.has(c.organisationName) || sendCVMutation.isPending}
+                                      className="ml-auto text-xs text-primary font-medium hover:underline disabled:opacity-50 flex items-center gap-1"
+                                    >
+                                      {sentCompanyNames.has(c.organisationName) ? "CV Sent ✓" : "Send CV speculatively"}
+                                    </button>
+                                  </div>
+                                )}
+                              </motion.div>
+                            );
+                          })()}
+                        </Card>
                         </motion.div>
                       );
                     })}
