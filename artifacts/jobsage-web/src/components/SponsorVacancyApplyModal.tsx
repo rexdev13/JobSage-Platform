@@ -1,0 +1,386 @@
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui-enhanced";
+import { useSendSpeculativeApplication, useListSpeculativeApplications } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import {
+  X,
+  Sparkles,
+  Building2,
+  MapPin,
+  DollarSign,
+  FileText,
+  Copy,
+  CheckCircle2,
+  Send,
+  Loader2,
+  ExternalLink,
+  AlertTriangle,
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+
+function useCoverLetterStream() {
+  const [text, setText] = useState("");
+  const [disclaimer, setDisclaimer] = useState("");
+  const [streaming, setStreaming] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function reset() {
+    setText("");
+    setDisclaimer("");
+    setStreaming(false);
+    setDone(false);
+    setError(null);
+  }
+
+  async function generate(payload: { jobTitle: string; employer?: string; location?: string | null }) {
+    reset();
+    setStreaming(true);
+    const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+    try {
+      const resp = await fetch(`${base}/api/cover-letter/generate-stream`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ ...payload, employer: payload.employer ?? "the organisation" }),
+      });
+      if (!resp.ok || !resp.body) {
+        setError("Failed to generate. Please try again.");
+        setStreaming(false);
+        return;
+      }
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done: rdDone, value } = await reader.read();
+        if (rdDone) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const p = JSON.parse(line.slice(6)) as {
+              text?: string;
+              done?: boolean;
+              disclaimer?: string;
+              error?: string;
+            };
+            if (p.error) { setError(p.error); setStreaming(false); return; }
+            if (p.text) setText((prev) => prev + p.text);
+            if (p.done) { setDisclaimer(p.disclaimer ?? ""); setDone(true); setStreaming(false); }
+          } catch { /* ignore */ }
+        }
+      }
+    } catch {
+      setError("Network error. Please try again.");
+      setStreaming(false);
+    }
+  }
+
+  return { text, setText, disclaimer, streaming, done, error, generate, reset };
+}
+
+export interface SponsorVacancyApplyModalProps {
+  vacancyTitle: string;
+  companyName: string;
+  companyId: number;
+  location?: string | null;
+  salary?: string | null;
+  externalUrl?: string | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+export function SponsorVacancyApplyModal({
+  vacancyTitle,
+  companyName,
+  companyId,
+  location,
+  salary,
+  externalUrl,
+  onClose,
+  onSuccess,
+}: SponsorVacancyApplyModalProps) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const sendCVMutation = useSendSpeculativeApplication();
+  const { data: speculativeData } = useListSpeculativeApplications();
+  const sentCompanyNames = new Set((speculativeData?.applications ?? []).map((a) => a.companyName));
+  const alreadySent = sentCompanyNames.has(companyName);
+
+  const coverLetter = useCoverLetterStream();
+  const [clEditable, setClEditable] = useState("");
+  const [clCopied, setClCopied] = useState(false);
+  const [step, setStep] = useState<"details" | "coverletter" | "submitting" | "done">("details");
+
+  useEffect(() => {
+    if (coverLetter.streaming) {
+      setClEditable(coverLetter.text);
+    }
+  }, [coverLetter.streaming, coverLetter.text]);
+
+  async function handleApply() {
+    setStep("submitting");
+    const notes = clEditable.trim()
+      ? `Cover letter for ${vacancyTitle}:\n\n${clEditable}`
+      : `Speculative application for the role: ${vacancyTitle}`;
+
+    sendCVMutation.mutate(
+      {
+        data: {
+          companyName,
+          sponsorLicenceId: companyId,
+          vacancyTitle,
+          notes,
+        },
+      },
+      {
+        onSuccess: (res) => {
+          void queryClient.invalidateQueries({ queryKey: ["listSpeculativeApplications"] });
+          if (res.alreadySent) {
+            toast({ title: "Already sent", description: `You already have an application at ${companyName}.` });
+          } else {
+            toast({
+              title: "Application sent!",
+              description: `Your CV and cover note for "${vacancyTitle}" at ${companyName} have been recorded.`,
+            });
+          }
+          setStep("done");
+          onSuccess();
+        },
+        onError: () => {
+          toast({
+            title: "Error",
+            description: "Could not submit application. Please try again.",
+            variant: "destructive",
+          });
+          setStep("details");
+        },
+      },
+    );
+  }
+
+  function handleCopy() {
+    void navigator.clipboard.writeText(clEditable);
+    setClCopied(true);
+    setTimeout(() => setClCopied(false), 2000);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm">
+      <motion.div
+        initial={{ opacity: 0, y: 40 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 40 }}
+        transition={{ type: "spring", damping: 28, stiffness: 300 }}
+        className="w-full max-w-xl bg-background rounded-t-2xl sm:rounded-2xl shadow-2xl border border-border overflow-hidden"
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between p-5 pb-4 border-b border-border">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+              <Sparkles className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-foreground leading-snug">{vacancyTitle}</h2>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <Building2 className="w-3 h-3 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">{companyName}</span>
+              </div>
+              <div className="flex items-center gap-3 mt-1 flex-wrap">
+                {location && (
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <MapPin className="w-3 h-3" /> {location}
+                  </span>
+                )}
+                {salary && (
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <DollarSign className="w-3 h-3" /> {salary}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-5 max-h-[60vh] overflow-y-auto space-y-4">
+          {step === "submitting" && (
+            <div className="flex flex-col items-center justify-center py-10">
+              <Loader2 className="w-9 h-9 text-primary animate-spin mb-3" />
+              <p className="text-sm font-medium text-foreground">Submitting your application…</p>
+            </div>
+          )}
+
+          {(step === "details" || step === "coverletter") && (
+            <>
+              {/* AI Cover Letter section */}
+              <div className="rounded-xl border border-border overflow-hidden">
+                <button
+                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors"
+                  onClick={() => {
+                    if (step === "details") {
+                      setStep("coverletter");
+                    } else {
+                      setStep("details");
+                    }
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-semibold text-foreground">AI Cover Letter</span>
+                    {coverLetter.done && (
+                      <span className="text-xs px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 font-medium">
+                        Generated
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {step === "coverletter" ? "Hide" : "Generate & edit"}
+                  </span>
+                </button>
+
+                <AnimatePresence>
+                  {step === "coverletter" && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden border-t border-border"
+                    >
+                      <div className="p-4 space-y-3">
+                        {!coverLetter.text && !coverLetter.streaming && !coverLetter.error && (
+                          <div className="text-center py-6">
+                            <p className="text-xs text-muted-foreground mb-4">
+                              AI will write a personalised cover letter for <strong>{vacancyTitle}</strong> at <strong>{companyName}</strong> based on your profile and CV.
+                            </p>
+                            <Button
+                              size="sm"
+                              onClick={() => void coverLetter.generate({ jobTitle: vacancyTitle, employer: companyName, location })}
+                              className="gap-2"
+                            >
+                              <Sparkles className="w-4 h-4" /> Generate Cover Letter
+                            </Button>
+                          </div>
+                        )}
+
+                        {coverLetter.error && (
+                          <div className="text-center py-4">
+                            <AlertTriangle className="w-6 h-6 text-destructive mx-auto mb-2" />
+                            <p className="text-xs text-destructive mb-3">{coverLetter.error}</p>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => void coverLetter.generate({ jobTitle: vacancyTitle, employer: companyName, location })}
+                            >
+                              Try Again
+                            </Button>
+                          </div>
+                        )}
+
+                        {(coverLetter.text || coverLetter.streaming) && (
+                          <div className="space-y-2">
+                            {coverLetter.streaming && (
+                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                                Writing cover letter…
+                              </div>
+                            )}
+                            <textarea
+                              className="w-full min-h-[220px] p-3 text-sm text-foreground leading-relaxed bg-muted/40 rounded-xl border border-border resize-y focus:outline-none focus:ring-2 focus:ring-primary/30 font-sans"
+                              value={coverLetter.streaming ? coverLetter.text : clEditable}
+                              onChange={(e) => setClEditable(e.target.value)}
+                              readOnly={coverLetter.streaming}
+                              placeholder="Your cover letter will appear here…"
+                            />
+                            {coverLetter.done && (
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <button
+                                  onClick={handleCopy}
+                                  className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                                >
+                                  {clCopied ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                                  {clCopied ? "Copied" : "Copy letter"}
+                                </button>
+                                <button
+                                  onClick={() => { coverLetter.reset(); setClEditable(""); }}
+                                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                                >
+                                  Regenerate
+                                </button>
+                              </div>
+                            )}
+                            {coverLetter.done && coverLetter.disclaimer && (
+                              <p className="text-[10px] text-muted-foreground border-l-2 border-primary/20 pl-2">
+                                {coverLetter.disclaimer}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Info notice */}
+              <p className="text-xs text-muted-foreground bg-muted/40 rounded-lg px-3 py-2 border border-border leading-relaxed">
+                Submitting creates a tracked speculative application in JOBSAGE linked to this vacancy. Your CV will be logged so you can follow up and track progress from your Application Tracker.
+              </p>
+
+              {alreadySent && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-500/10 border border-blue-200 text-xs text-blue-700">
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                  You already have an application at {companyName}. Submitting will update it with this vacancy detail.
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Footer */}
+        {(step === "details" || step === "coverletter") && (
+          <div className="flex items-center justify-between px-5 py-4 border-t border-border bg-muted/30 gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              {externalUrl && (
+                <a
+                  href={externalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors font-medium"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  View posting
+                </a>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={onClose} className="text-xs">
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                className="gap-2 text-xs"
+                onClick={() => void handleApply()}
+                disabled={sendCVMutation.isPending}
+              >
+                <Send className="w-3.5 h-3.5" />
+                {alreadySent ? "Update application" : "Apply with JOBSAGE"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </motion.div>
+    </div>
+  );
+}

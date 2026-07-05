@@ -22,10 +22,11 @@ router.get("/speculative-applications", requireAuthenticated, async (req, res): 
 
 router.post("/speculative-applications", requireAuthenticated, async (req, res): Promise<void> => {
   const userId = req.user!.id;
-  const { companyName, sponsorLicenceId, notes } = req.body as {
+  const { companyName, sponsorLicenceId, notes, vacancyTitle } = req.body as {
     companyName?: string;
     sponsorLicenceId?: number | null;
     notes?: string | null;
+    vacancyTitle?: string | null;
   };
 
   if (!companyName || typeof companyName !== "string") {
@@ -58,6 +59,7 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
       sponsorLicenceId: sponsorLicenceId ?? null,
       status: "cv_sent",
       notes: notes ?? null,
+      vacancyTitle: vacancyTitle ?? null,
     })
     .returning();
 

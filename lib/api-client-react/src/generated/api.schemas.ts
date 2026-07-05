@@ -1302,6 +1302,7 @@ export interface SendSpeculativeApplicationRequest {
   companyName: string;
   sponsorLicenceId?: number | null;
   notes?: string | null;
+  vacancyTitle?: string | null;
 }
 
 export interface SpeculativeApplicationResult {

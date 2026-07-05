@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, PageTransition, Button } from "@/components/ui-enhanced";
+import { SponsorVacancyApplyModal } from "@/components/SponsorVacancyApplyModal";
 import {
   useGetSponsorLicenceRoutes,
   useGetSponsorLicenceIndustryCounts,
@@ -129,6 +130,20 @@ export default function SponsorLicencesPage() {
 
   type SelectedVacancy = VacancyListing & { companyName: string; companyId: number };
   const [selectedVacancy, setSelectedVacancy] = useState<SelectedVacancy | null>(null);
+  const [applyModalVacancy, setApplyModalVacancy] = useState<SelectedVacancy | null>(null);
+
+  function handleOpenApplyModal(vacancy: SelectedVacancy) {
+    if (!hasCvUploaded) {
+      toast({
+        title: "No CV uploaded",
+        description: "Please upload your CV in 'CV & Supporting Documents' before applying.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setSelectedVacancy(null);
+    setApplyModalVacancy(vacancy);
+  }
   const checkVacanciesMutation = useCheckSponsorLicenceVacancies();
   const bookmarkMutation = useBookmarkSponsorLicence();
   const unbookmarkMutation = useUnbookmarkSponsorLicence();
@@ -1016,11 +1031,11 @@ export default function SponsorLicencesPage() {
                                                         </a>
                                                       )}
                                                       <button
-                                                        onClick={(e) => { e.stopPropagation(); setSelectedVacancy({ ...v, companyName: c.organisationName, companyId: c.id }); }}
+                                                        onClick={(e) => { e.stopPropagation(); handleOpenApplyModal({ ...v, companyName: c.organisationName, companyId: c.id }); }}
                                                         className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 transition-colors font-medium"
                                                       >
-                                                        <Send className="w-3 h-3" />
-                                                        Apply
+                                                        <Sparkles className="w-3 h-3" />
+                                                        Apply with JOBSAGE
                                                       </button>
                                                     </div>
                                                   </div>
@@ -1202,24 +1217,31 @@ export default function SponsorLicencesPage() {
                 )}
                 <Button
                   className="gap-2"
-                  variant={sentCompanyNames.has(selectedVacancy.companyName) ? "outline" : "default"}
-                  onClick={() => {
-                    handleSendCV(selectedVacancy.companyName, selectedVacancy.companyId);
-                    setSelectedVacancy(null);
-                  }}
-                  disabled={sendCVMutation.isPending}
+                  onClick={() => handleOpenApplyModal(selectedVacancy)}
                 >
-                  {sendCVMutation.isPending ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : sentCompanyNames.has(selectedVacancy.companyName) ? (
-                    <><CheckCircle2 className="w-4 h-4" /> CV Sent</>
-                  ) : (
-                    <><Send className="w-4 h-4" /> Send my CV</>
-                  )}
+                  <Sparkles className="w-4 h-4" />
+                  Apply with JOBSAGE
                 </Button>
               </div>
             </motion.div>
           </>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {applyModalVacancy && (
+          <SponsorVacancyApplyModal
+            vacancyTitle={applyModalVacancy.title}
+            companyName={applyModalVacancy.companyName}
+            companyId={applyModalVacancy.companyId}
+            location={applyModalVacancy.location}
+            salary={applyModalVacancy.salary}
+            externalUrl={applyModalVacancy.url}
+            onClose={() => setApplyModalVacancy(null)}
+            onSuccess={() => {
+              setApplyModalVacancy(null);
+              void refetchSpeculative();
+            }}
+          />
         )}
       </AnimatePresence>
     </AppLayout>
