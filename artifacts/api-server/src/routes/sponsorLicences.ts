@@ -393,18 +393,16 @@ Include up to 8 specific vacancies in vacancyList if found. Use null for missing
       .values({ organisationName, vacanciesFound, vacancyCount, sourceUrl, summary, vacancyList })
       .returning();
 
-    // Persist individual vacancy rows to sponsor_licence_vacancies for stable IDs + global stats
+    // Persist individual vacancy rows to sponsor_licence_vacancies for stable IDs + global stats.
+    // Always delete ALL existing rows for this org first so the table holds only the current
+    // snapshot — prevents historical accumulation across check dates and correctly zeroes out
+    // companies whose vacancies have been filled.
+    await db
+      .delete(sponsorLicenceVacanciesTable)
+      .where(eq(sponsorLicenceVacanciesTable.organisationName, organisationName));
+
     if (vacancyList && vacancyList.length > 0) {
       const checkDate = new Date().toISOString().split("T")[0]!;
-      // Delete any existing rows for this org on today's check date, then re-insert
-      await db
-        .delete(sponsorLicenceVacanciesTable)
-        .where(
-          and(
-            eq(sponsorLicenceVacanciesTable.organisationName, organisationName),
-            eq(sponsorLicenceVacanciesTable.checkDate, checkDate),
-          ),
-        );
       await db.insert(sponsorLicenceVacanciesTable).values(
         vacancyList.map((v) => ({
           organisationName,
