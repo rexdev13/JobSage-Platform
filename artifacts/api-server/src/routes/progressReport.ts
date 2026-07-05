@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { requireAuthenticated } from "../middlewares/requireRole";
 import { db, profilesTable, applicationsTable, documentsTable } from "@workspace/db";
-import { remediationPlansTable, remediationStepsTable, decisionRecordsTable } from "@workspace/db";
+import { remediationPlansTable, remediationStepsTable, decisionRecordsTable, speculativeApplicationsTable } from "@workspace/db";
 import { eq, and, gte, desc } from "drizzle-orm";
 import { generateProgressRecommendations } from "../lib/progressReportGenerator";
 
@@ -15,14 +15,21 @@ router.get("/my-progress-report", requireAuthenticated, async (req, res): Promis
     .from(profilesTable)
     .where(eq(profilesTable.userId, userId));
 
-  const allApplications = await db
-    .select()
-    .from(applicationsTable)
-    .where(eq(applicationsTable.userId, userId));
+  const [allApplications, speculativeApps] = await Promise.all([
+    db
+      .select()
+      .from(applicationsTable)
+      .where(eq(applicationsTable.userId, userId)),
+    db
+      .select()
+      .from(speculativeApplicationsTable)
+      .where(eq(speculativeApplicationsTable.userId, userId)),
+  ]);
 
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const appsThisMonth = allApplications.filter((a) => new Date(a.appliedAt) >= monthStart);
+  const speculativeThisMonth = speculativeApps.filter((s) => new Date(s.createdAt) >= monthStart);
 
   const documents = await db
     .select({ id: documentsTable.id })
@@ -56,12 +63,14 @@ router.get("/my-progress-report", requireAuthenticated, async (req, res): Promis
 
   const planProgress = planStepsTotal > 0 ? Math.round((planStepsDone / planStepsTotal) * 100) : 0;
 
+  const totalApplications = allApplications.length + speculativeApps.length;
   const stats = {
-    total: allApplications.length,
+    total: totalApplications,
     interviews: allApplications.filter((a) => a.status === "interview").length,
     offers: allApplications.filter((a) => a.status === "offer").length,
     noResponse: allApplications.filter((a) => a.status === "no_response").length,
-    applicationsThisMonth: appsThisMonth.length,
+    applicationsThisMonth: appsThisMonth.length + speculativeThisMonth.length,
+    cvSent: speculativeApps.length,
     responseRate:
       allApplications.length > 0
         ? Math.round(
@@ -88,8 +97,8 @@ router.get("/my-progress-report", requireAuthenticated, async (req, res): Promis
         specialty: profile.specialty,
         registrationStatus: profile.registrationStatus,
         eligibilityOutcome: latestDecision?.outcome ?? null,
-        applicationsThisMonth: appsThisMonth.length,
-        totalApplications: allApplications.length,
+        applicationsThisMonth: stats.applicationsThisMonth,
+        totalApplications,
         interviews: stats.interviews,
         offers: stats.offers,
         noResponse: stats.noResponse,

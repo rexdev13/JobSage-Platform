@@ -478,6 +478,7 @@ export const ApplicationStatus = {
   offer: "offer",
   rejected: "rejected",
   no_response: "no_response",
+  cv_sent: "cv_sent",
 } as const;
 
 export type CvExtractedFieldsConfidence = { [key: string]: string };
@@ -565,6 +566,8 @@ export interface Application {
   roleLocation?: string | null;
   interviewDate?: string | null;
   interviewNotes?: string | null;
+  applicationKind?: "formal" | "speculative";
+  companyName?: string | null;
 }
 
 export interface NudgeRole {
