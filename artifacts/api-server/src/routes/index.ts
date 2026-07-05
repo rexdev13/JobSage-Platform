@@ -28,6 +28,7 @@ import journeyRouter from "./journey";
 import nudgeRouter from "./nudge";
 import recommendationLettersRouter from "./recommendationLetters";
 import identityRouter from "./identity";
+import careerProfilesRouter from "./careerProfiles";
 
 const router: IRouter = Router();
 
@@ -60,5 +61,6 @@ router.use(journeyRouter);
 router.use(nudgeRouter);
 router.use(recommendationLettersRouter);
 router.use(identityRouter);
+router.use(careerProfilesRouter);
 
 export default router;
