@@ -1,6 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { NudgeNextRolesResponse } from "@workspace/api-client-react";
 import { useAuth } from "@workspace/auth-web";
 import {
   useGetMyProfile,
@@ -19,8 +18,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, Button, PageTransition } from "@/components/ui-enhanced";
 import {
-  Activity,
-  FileText,
   ArrowRight,
   ShieldCheck,
   ChevronDown,
@@ -38,16 +35,40 @@ import {
   Loader2,
   Timer,
   Megaphone,
-  BarChart2,
-  BookOpen,
   Building2,
+  GraduationCap,
+  Lock,
+  Briefcase,
+  Activity,
+  ShieldAlert,
+  Send,
 } from "lucide-react";
 import { Link } from "wouter";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { AIChatSlideover } from "@/components/AIChatSlideover";
+import { cn } from "@/components/ui-enhanced";
 
 type EligibilityOutcome = "eligible" | "not_eligible" | "ineligible";
 
-function LiveJourneyWidget() {
+// ── Stage icon map (mirrors PathPage) ────────────────────────────────────────
+const ICON_MAP: Record<string, React.ElementType> = {
+  User,
+  Files,
+  ShieldCheck,
+  Briefcase,
+  ClipboardList,
+  Send,
+  TrendingUp,
+  Building2,
+  Sparkles,
+  BadgeCheck,
+};
+function getStageIcon(name: string): React.ElementType {
+  return ICON_MAP[name] ?? Circle;
+}
+
+// ── Milestone Journey Track ───────────────────────────────────────────────────
+function MilestoneJourneyTrack() {
   const { data } = useGetJourneyStatus({
     query: { queryKey: getGetJourneyStatusQueryKey(), staleTime: 30_000 },
   });
@@ -57,142 +78,312 @@ function LiveJourneyWidget() {
   if (stages.length === 0) return null;
 
   return (
-    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18, duration: 0.4 }}>
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
-            <span className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-              <TrendingUp className="w-3.5 h-3.5" />
-            </span>
-            Your Journey
-          </h2>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground">{completeCount}/{stages.length} stages complete</span>
-            <Link href="/path">
-              <span className="text-xs text-primary font-medium hover:underline flex items-center gap-0.5">
-                View all <ArrowRight className="w-3 h-3" />
-              </span>
-            </Link>
-          </div>
-        </div>
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.18, duration: 0.4 }}
+      className="mb-6"
+    >
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <span className="w-6 h-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+            <TrendingUp className="w-3 h-3" />
+          </span>
+          UK Journey — {completeCount}/{stages.length} stages complete
+        </h2>
+        <Link href="/path">
+          <span className="text-xs text-primary font-medium hover:underline flex items-center gap-0.5">
+            Full journey <ArrowRight className="w-3 h-3" />
+          </span>
+        </Link>
+      </div>
 
-        {/* Progress bar */}
-        <div className="h-1.5 rounded-full bg-muted mb-3 overflow-hidden">
-          <motion.div
-            className="h-full rounded-full bg-primary"
-            initial={{ width: 0 }}
-            animate={{ width: `${(completeCount / stages.length) * 100}%` }}
-            transition={{ duration: 0.7, delay: 0.3, ease: "easeOut" }}
-          />
-        </div>
+      {/* Progress bar */}
+      <div className="h-1.5 rounded-full bg-muted mb-4 overflow-hidden">
+        <motion.div
+          className="h-full rounded-full bg-primary"
+          initial={{ width: 0 }}
+          animate={{ width: `${(completeCount / stages.length) * 100}%` }}
+          transition={{ duration: 0.8, delay: 0.3, ease: "easeOut" }}
+        />
+      </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 gap-2">
+      {/* Horizontal milestone track */}
+      <div className="relative">
+        {/* Connector line */}
+        <div className="absolute top-7 left-7 right-7 h-px bg-border hidden sm:block" />
+
+        <div className="grid grid-cols-5 sm:grid-cols-10 gap-1 relative">
           {stages.map((stage) => {
             const isComplete = stage.status === "complete";
             const isInProgress = stage.status === "inProgress";
             const isLocked = stage.locked;
-            const tileClass = isComplete
-              ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-800/40"
+            const Icon = getStageIcon(stage.iconName);
+
+            const nodeClass = isComplete
+              ? "bg-emerald-500 border-emerald-400 text-white"
               : isInProgress
-                ? "bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800/40"
+                ? "bg-primary border-primary text-primary-foreground"
                 : isLocked
-                  ? "bg-muted/40 border-border opacity-50"
-                  : "bg-muted/20 border-border";
-            const dotClass = isComplete ? "bg-emerald-500"
-              : isInProgress ? "bg-blue-500"
-                : isLocked ? "bg-muted-foreground/20"
-                  : "bg-amber-400";
-            const textClass = isComplete ? "text-emerald-700 dark:text-emerald-400"
-              : isInProgress ? "text-blue-700 dark:text-blue-400"
-                : isLocked ? "text-muted-foreground/50"
-                  : "text-amber-700 dark:text-amber-400";
+                  ? "bg-muted/50 border-border text-muted-foreground/30"
+                  : "bg-background border-border text-muted-foreground";
 
             const tile = (
               <div
                 key={stage.id}
-                className={`relative rounded-xl border p-2.5 flex flex-col items-center text-center gap-1 transition-all ${tileClass} ${!isLocked ? "cursor-pointer hover:shadow-sm hover:scale-[1.02]" : "cursor-default"}`}
+                className={cn(
+                  "flex flex-col items-center gap-1.5 p-1",
+                  !isLocked && "cursor-pointer group",
+                )}
               >
-                <div className={`w-2 h-2 rounded-full ${dotClass}`} />
-                <span className={`text-[10px] font-semibold leading-tight ${textClass}`}>{stage.name}</span>
-                {isLocked && <span className="text-[9px] text-muted-foreground/50">🔒</span>}
-                {isComplete && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-500 absolute top-1.5 right-1.5" />}
+                <div
+                  className={cn(
+                    "relative w-14 h-14 rounded-2xl border-2 flex items-center justify-center transition-all z-10",
+                    nodeClass,
+                    !isLocked && "group-hover:scale-105 group-hover:shadow-md",
+                    isLocked && "opacity-50",
+                  )}
+                >
+                  {isLocked ? (
+                    <Lock className="w-4 h-4" />
+                  ) : isComplete ? (
+                    <CheckCircle2 className="w-5 h-5" />
+                  ) : (
+                    <Icon className="w-5 h-5" />
+                  )}
+                  {isInProgress && !isComplete && (
+                    <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-primary border-2 border-background animate-pulse" />
+                  )}
+                </div>
+                <span
+                  className={cn(
+                    "text-[9px] sm:text-[10px] font-semibold text-center leading-tight max-w-[56px]",
+                    isComplete
+                      ? "text-emerald-700 dark:text-emerald-400"
+                      : isInProgress
+                        ? "text-primary"
+                        : isLocked
+                          ? "text-muted-foreground/40"
+                          : "text-foreground/70",
+                  )}
+                >
+                  {stage.name}
+                </span>
               </div>
             );
-            return isLocked ? <div key={stage.id}>{tile}</div> : (
-              <Link key={stage.id} href="/path">{tile}</Link>
+
+            return isLocked ? (
+              <div key={stage.id}>{tile}</div>
+            ) : (
+              <Link key={stage.id} href={stage.href ?? "/path"}>
+                {tile}
+              </Link>
             );
           })}
         </div>
+      </div>
 
-        <div className="flex items-center gap-4 mt-2 pl-1">
-          {[
-            { label: "Complete", dot: "bg-emerald-500" },
-            { label: "In progress", dot: "bg-blue-500" },
-            { label: "Not started", dot: "bg-amber-400" },
-            { label: "Locked", dot: "bg-muted-foreground/20" },
-          ].map(({ label, dot }) => (
-            <span key={label} className="flex items-center gap-1 text-[10px] text-muted-foreground">
-              <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
-              {label}
-            </span>
-          ))}
-        </div>
+      {/* Legend */}
+      <div className="flex items-center gap-4 mt-3 pl-1">
+        {[
+          { label: "Complete", cls: "bg-emerald-500" },
+          { label: "Active", cls: "bg-primary" },
+          { label: "Pending", cls: "bg-border" },
+        ].map(({ label, cls }) => (
+          <span key={label} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+            <span className={cn("w-2 h-2 rounded-full", cls)} />
+            {label}
+          </span>
+        ))}
       </div>
     </motion.div>
   );
 }
 
-function StageAttentionStrip() {
-  const { data } = useGetJourneyStatus({
-    query: { queryKey: getGetJourneyStatusQueryKey(), staleTime: 30_000 },
-  });
-  const stages = data?.stages ?? [];
-  const needsAttention = stages.filter(
-    (s) => !s.locked && s.status !== "complete" && (s.status === "inProgress" || s.status === "notStarted"),
-  ).slice(0, 3);
+// ── Top-3 Recommended Opportunities ─────────────────────────────────────────
+interface RecommendedRole {
+  id: number;
+  title: string;
+  employer: string;
+  location: string | null;
+  matchScore: number;
+  isEligible: boolean;
+  sponsorshipOffered: boolean;
+}
 
-  if (needsAttention.length === 0) return null;
+function RecommendedOpportunitiesWidget() {
+  const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const { data, isLoading } = useQuery<{ roles: RecommendedRole[] }>({
+    queryKey: ["opportunities-recommended"],
+    queryFn: async () => {
+      const res = await fetch(`${base}/api/opportunities/recommended?limit=3`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json() as Promise<{ roles: RecommendedRole[] }>;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const roles = data?.roles ?? [];
+
+  if (!isLoading && roles.length === 0) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.25, duration: 0.4 }}
+      className="mb-6"
+    >
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <span className="w-6 h-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+            <Sparkles className="w-3 h-3" />
+          </span>
+          Your Top 3 Matched Roles
+        </h2>
+        <Link href="/opportunities">
+          <span className="text-xs text-primary font-medium hover:underline flex items-center gap-0.5">
+            Browse all <ArrowRight className="w-3 h-3" />
+          </span>
+        </Link>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+          <Loader2 className="w-4 h-4 animate-spin text-primary" />
+          Finding your best matches…
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {roles.map((role, i) => (
+            <motion.div
+              key={role.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.28 + i * 0.06 }}
+            >
+              <Card className="p-4 flex flex-col gap-2.5 hover:shadow-md hover:border-primary/20 transition-all h-full group">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-foreground leading-snug truncate">{role.title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1 truncate">
+                      <Building2 className="w-3 h-3 shrink-0" /> {role.employer}
+                    </p>
+                  </div>
+                  <div className="shrink-0 flex flex-col items-end gap-1">
+                    <span
+                      className={cn(
+                        "text-sm font-black leading-none",
+                        role.matchScore >= 75
+                          ? "text-emerald-600"
+                          : role.matchScore >= 50
+                            ? "text-primary"
+                            : "text-amber-600",
+                      )}
+                    >
+                      {role.matchScore}%
+                    </span>
+                    <span className="text-[9px] text-muted-foreground">match</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  {role.isEligible && (
+                    <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 font-semibold">
+                      <CheckCircle2 className="w-2.5 h-2.5" /> Eligible
+                    </span>
+                  )}
+                  {role.sponsorshipOffered && (
+                    <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-700 font-semibold">
+                      <BadgeCheck className="w-2.5 h-2.5" /> Sponsor
+                    </span>
+                  )}
+                  {role.location && (
+                    <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                      <MapPin className="w-2.5 h-2.5" /> {role.location}
+                    </span>
+                  )}
+                </div>
+
+                <Link href="/opportunities" className="mt-auto">
+                  <Button
+                    size="sm"
+                    variant={role.isEligible ? "default" : "outline"}
+                    className="w-full text-xs h-7 gap-1 group-hover:gap-1.5 transition-all"
+                  >
+                    Apply <ArrowRight className="w-3 h-3" />
+                  </Button>
+                </Link>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+// ── Identity Verification Banner ──────────────────────────────────────────────
+function VerificationCTABanner() {
+  const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const { data, isLoading } = useQuery<{ verification: { status: string } | null }>({
+    queryKey: ["identity-status-dashboard"],
+    queryFn: async () => {
+      const res = await fetch(`${base}/api/identity/status`, { credentials: "include" });
+      if (!res.ok) return { verification: null };
+      return res.json() as Promise<{ verification: { status: string } | null }>;
+    },
+    staleTime: 60_000,
+  });
+
+  if (isLoading) return null;
+  const status = data?.verification?.status;
+  if (status === "verified") return null;
 
   return (
     <motion.div
       initial={{ opacity: 0, y: -6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.1, duration: 0.35 }}
-      className="mb-5"
+      transition={{ delay: 0.05 }}
+      className="mb-5 rounded-xl border border-amber-200 bg-amber-50/80 dark:bg-amber-950/20 dark:border-amber-800/40 p-4"
     >
-      <div className="rounded-xl border border-blue-200 bg-blue-50/70 dark:bg-blue-950/20 dark:border-blue-800/40 p-3.5">
-        <div className="flex items-center gap-2 mb-2.5">
-          <Sparkles className="w-4 h-4 text-blue-600 shrink-0" />
-          <p className="text-sm font-semibold text-blue-900 dark:text-blue-200">
-            {needsAttention.length} stage{needsAttention.length !== 1 ? "s" : ""} need{needsAttention.length === 1 ? "s" : ""} your attention
+      <div className="flex items-start gap-3">
+        <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0">
+          <ShieldAlert className="w-4 h-4 text-amber-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+            {status === "pending" ? "ID Verification in progress" : "Identity not yet verified"}
           </p>
-          <Link href="/path" className="ml-auto">
-            <span className="text-xs text-blue-600 font-medium hover:underline flex items-center gap-0.5">
-              Go to journey <ArrowRight className="w-3 h-3" />
-            </span>
-          </Link>
+          <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5 leading-relaxed">
+            {status === "pending"
+              ? "Your documents are under review — this usually takes a few minutes."
+              : "Upload your passport and a selfie to unlock the verified badge and increase employer trust."}
+          </p>
+          {status !== "pending" && (
+            <div className="mt-2.5 flex items-center gap-3 flex-wrap text-xs text-amber-800">
+              {["Upload Passport / ID", "Upload selfie photo", "AI verifies in minutes"].map((step, i) => (
+                <span key={step} className="flex items-center gap-1.5">
+                  <span className="w-4 h-4 rounded-full bg-amber-200 text-amber-800 font-bold flex items-center justify-center text-[10px]">{i + 1}</span>
+                  {step}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
-        <div className="flex flex-col sm:flex-row gap-2">
-          {needsAttention.map((stage) => (
-            <Link key={stage.id} href={stage.href ?? "/path"} className="flex-1">
-              <div className="flex items-center gap-2 rounded-lg bg-white/70 dark:bg-white/5 border border-blue-100 dark:border-blue-800/30 px-3 py-2 hover:bg-white dark:hover:bg-white/10 transition-colors">
-                <Circle className="w-3 h-3 text-blue-400 shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold text-foreground truncate">{stage.name}</p>
-                  <p className="text-[10px] text-muted-foreground truncate">
-                    {stage.status === "inProgress" ? `${stage.completionPct}% complete` : "Not started"}
-                  </p>
-                </div>
-                <ArrowRight className="w-3 h-3 text-blue-400 shrink-0 ml-auto" />
-              </div>
-            </Link>
-          ))}
-        </div>
+        <Link href="/identity" className="shrink-0">
+          <Button size="sm" className="h-8 text-xs gap-1 bg-amber-600 hover:bg-amber-700 text-white">
+            {status === "pending" ? "View status" : "Verify now"} <ArrowRight className="w-3 h-3" />
+          </Button>
+        </Link>
       </div>
     </motion.div>
   );
 }
 
+// ── Outcome Pill ─────────────────────────────────────────────────────────────
 function OutcomePill({ outcome, reviewFlagged }: { outcome: EligibilityOutcome; reviewFlagged?: boolean }) {
   if (reviewFlagged && outcome === "not_eligible") {
     return (
@@ -214,126 +405,48 @@ function OutcomePill({ outcome, reviewFlagged }: { outcome: EligibilityOutcome; 
   );
 }
 
-function JourneyReadinessCard({ delay }: { delay: number }) {
-  const { data } = useGetJourneyStatus({
-    query: { queryKey: getGetJourneyStatusQueryKey(), staleTime: 60_000 },
-  });
-  const score = data?.readinessScore ?? null;
-  const nextAction = data?.nextAction ?? null;
-  const color = score === null ? "text-muted-foreground"
-    : score >= 75 ? "text-emerald-600"
-    : score >= 50 ? "text-blue-600"
-    : score >= 25 ? "text-amber-600"
-    : "text-muted-foreground";
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.4 }}
-    >
-      <Link href="/path">
-        <Card className="p-5 flex items-center gap-4 hover:shadow-md hover:border-primary/20 transition-all cursor-pointer group">
-          <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/15 transition-colors">
-            <TrendingUp className="w-5 h-5 text-primary" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs text-muted-foreground font-medium">Journey Readiness</p>
-            <p className={`text-2xl font-display font-bold leading-tight ${color}`}>
-              {score !== null ? `${score}%` : "—"}
-            </p>
-            {nextAction && <p className="text-xs text-muted-foreground truncate">{nextAction}</p>}
-            {score === null && <p className="text-xs text-muted-foreground">View your career journey</p>}
-          </div>
-          <ArrowRight className="w-4 h-4 text-muted-foreground/40 ml-auto shrink-0 group-hover:text-primary/60 group-hover:translate-x-0.5 transition-all" />
-        </Card>
-      </Link>
-    </motion.div>
-  );
-}
-
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-  sub,
-  href,
-  delay,
-}: {
-  icon: React.ElementType;
-  label: string;
-  value: string | number;
-  sub?: string;
-  href: string;
-  delay: number;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.4 }}
-    >
-      <Link href={href}>
-        <Card className="p-5 flex items-center gap-4 hover:shadow-md hover:border-primary/20 transition-all cursor-pointer group">
-          <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/15 transition-colors">
-            <Icon className="w-5 h-5 text-primary" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs text-muted-foreground font-medium">{label}</p>
-            <p className="text-2xl font-display font-bold text-foreground leading-tight">{value}</p>
-            {sub && <p className="text-xs text-muted-foreground truncate">{sub}</p>}
-          </div>
-          <ArrowRight className="w-4 h-4 text-muted-foreground/40 ml-auto shrink-0 group-hover:text-primary/60 group-hover:translate-x-0.5 transition-all" />
-        </Card>
-      </Link>
-    </motion.div>
-  );
+// ── Profile completion % ──────────────────────────────────────────────────────
+function profileCompletionPct(profile: { completionPct?: number | null } | undefined): number {
+  return profile?.completionPct ?? 0;
 }
 
 function ProfileCompletionRing({ pct }: { pct: number }) {
-  const r = 22;
+  const r = 18;
   const circ = 2 * Math.PI * r;
   const dash = (pct / 100) * circ;
   return (
-    <svg width="60" height="60" className="-rotate-90">
-      <circle cx="30" cy="30" r={r} strokeWidth="5" stroke="currentColor" className="text-primary/10" fill="none" />
-      <circle
-        cx="30"
-        cy="30"
-        r={r}
-        strokeWidth="5"
-        stroke="currentColor"
-        className="text-primary transition-all duration-700"
-        fill="none"
-        strokeDasharray={`${dash} ${circ}`}
-        strokeLinecap="round"
-      />
+    <svg width="44" height="44" className="-rotate-90">
+      <circle cx="22" cy="22" r={r} strokeWidth="4" stroke="currentColor" className="text-primary/10" fill="none" />
+      <circle cx="22" cy="22" r={r} strokeWidth="4" stroke="currentColor" className="text-primary transition-all duration-700" fill="none"
+        strokeDasharray={`${dash} ${circ}`} strokeLinecap="round" />
     </svg>
   );
 }
 
-function profileCompletionPct(profile: Record<string, unknown> | undefined): number {
-  if (!profile) return 0;
-  if (typeof profile.completionPct === "number") return profile.completionPct;
-  const fields = [
-    "profession",
-    "specialty",
-    "qualificationCountry",
-    "qualificationType",
-    "qualificationYear",
-    "experienceYears",
-    "registrationStatus",
-    "residencyStatus",
-    "preferredRegion",
-    "preferredStartDate",
-    "profilePhotoKey",
-    "languages",
-    "additionalNotes",
-  ];
-  const filled = fields.filter((f) => profile[f] != null && profile[f] !== "").length;
-  return Math.round((filled / fields.length) * 100);
+// ── Stat Card ─────────────────────────────────────────────────────────────────
+function StatCard({
+  icon: Icon, label, value, sub, href, delay,
+}: { icon: React.ElementType; label: string; value: string | number; sub?: string; href: string; delay: number }) {
+  return (
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay, duration: 0.4 }}>
+      <Link href={href}>
+        <Card className="p-4 flex items-center gap-3 hover:shadow-md hover:border-primary/20 transition-all cursor-pointer group">
+          <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/15 transition-colors">
+            <Icon className="w-4 h-4 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] text-muted-foreground font-medium">{label}</p>
+            <p className="text-xl font-display font-bold text-foreground leading-tight">{value}</p>
+            {sub && <p className="text-[10px] text-muted-foreground truncate">{sub}</p>}
+          </div>
+          <ArrowRight className="w-3.5 h-3.5 text-muted-foreground/40 ml-auto shrink-0 group-hover:text-primary/60 group-hover:translate-x-0.5 transition-all" />
+        </Card>
+      </Link>
+    </motion.div>
+  );
 }
 
+// ── Main Dashboard ────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -354,29 +467,33 @@ export default function DashboardPage() {
   const docCount = documents?.documents?.length ?? 0;
   const allRoles = matchedRoles?.roles ?? [];
   const eligibleRolesCount = allRoles.filter((r) => r.isEligible).length;
-  const notYetEligibleCount = allRoles.filter((r) => !r.isEligible).length;
-
   const appStats = applicationsData?.stats;
   const totalApplied = appStats?.total ?? 0;
-
   const planSteps = plan?.steps ?? [];
   const doneSteps = planSteps.filter((s) => s.status === "done").length;
   const totalSteps = planSteps.length;
   const planPct = totalSteps > 0 ? Math.round((doneSteps / totalSteps) * 100) : 0;
   const nextStep = planSteps.find((s) => s.status !== "done");
-
   const profilePct = profileCompletionPct(profile as Record<string, unknown> | undefined);
-
   const boostProfile = profile?.boostProfile ?? false;
+
+  const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const { data: vacancyStatsData } = useQuery<{ totalVacanciesFound: number; companiesWithVacancies: number }>({
+    queryKey: ["sponsor-vacancy-stats"],
+    queryFn: async () => {
+      const res = await fetch(`${base}/api/sponsor-licences/vacancy-stats`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json() as Promise<{ totalVacanciesFound: number; companiesWithVacancies: number }>;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+  const totalVacanciesFound = vacancyStatsData?.totalVacanciesFound ?? 0;
+  const companiesWithVacancies = vacancyStatsData?.companiesWithVacancies ?? 0;
 
   function handleBoostToggle() {
     toggleBoostMutation.mutate(
       { data: { boost: !boostProfile } },
-      {
-        onSuccess: () => {
-          void queryClient.invalidateQueries({ queryKey: getGetMyProfileQueryKey() });
-        },
-      },
+      { onSuccess: () => { void queryClient.invalidateQueries({ queryKey: getGetMyProfileQueryKey() }); } },
     );
   }
 
@@ -384,112 +501,99 @@ export default function DashboardPage() {
     ? profile.profession.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())
     : null;
 
-  const interviews = appStats?.interviews ?? 0;
-  const offers = appStats?.offers ?? 0;
-
-  const base = import.meta.env.BASE_URL.replace(/\/$/, "");
-  const { data: nudgeData, isLoading: nudgeLoading } = useQuery<NudgeNextRolesResponse>({
-    queryKey: ["nudge-next-roles"],
-    queryFn: async () => {
-      const res = await fetch(`${base}/api/nudge/next-roles`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch role nudge");
-      return res.json() as Promise<NudgeNextRolesResponse>;
-    },
-    enabled: !!profile?.profession,
-    staleTime: 5 * 60 * 1000,
-  });
-  const nudgeRoles = nudgeData?.roles ?? [];
-
-  const { data: vacancyStatsData } = useQuery<{ companiesChecked: number; companiesWithVacancies: number; totalVacanciesFound: number }>({
-    queryKey: ["sponsor-vacancy-stats"],
-    queryFn: async () => {
-      const res = await fetch(`${base}/api/sponsor-licences/vacancy-stats`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch vacancy stats");
-      return res.json() as Promise<{ companiesChecked: number; companiesWithVacancies: number; totalVacanciesFound: number }>;
-    },
-    staleTime: 5 * 60 * 1000,
-  });
-  const totalVacanciesFound = vacancyStatsData?.totalVacanciesFound ?? 0;
-  const companiesWithVacancies = vacancyStatsData?.companiesWithVacancies ?? 0;
+  const qualLabel = profile?.qualificationType ?? undefined;
+  const qualCountry = profile?.qualificationCountry;
 
   return (
     <AppLayout>
       <PageTransition>
-        {/* No-profile setup banner */}
+        {/* ─── Setup banner ─────────────────────────────────────────────── */}
         {showSetupBanner && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-6 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4"
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+            className="mb-5 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4"
           >
             <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
-            <div className="flex-1 min-w-0">
+            <div className="flex-1">
               <p className="text-sm font-semibold text-amber-800">Complete your profile to get started</p>
-              <p className="text-xs text-amber-700 mt-0.5">
-                Your eligibility check, matched roles, and remediation plan all need your professional details first.
-              </p>
+              <p className="text-xs text-amber-700 mt-0.5">Your eligibility, matched roles, and remediation plan need your professional details first.</p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <Link href="/onboarding">
-                <Button size="sm" className="text-xs h-8">
-                  Set up profile <ArrowRight className="w-3 h-3 ml-1" />
-                </Button>
+                <Button size="sm" className="text-xs h-8">Set up profile <ArrowRight className="w-3 h-3 ml-1" /></Button>
               </Link>
-              <button
-                onClick={() => setBannerDismissed(true)}
-                className="text-amber-500 hover:text-amber-700 transition-colors p-1"
-                aria-label="Dismiss"
-              >
-                ×
-              </button>
+              <button onClick={() => setBannerDismissed(true)} className="text-amber-500 hover:text-amber-700 p-1">×</button>
             </div>
           </motion.div>
         )}
 
-        {/* Header */}
-        <header className="mb-8 flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-display font-bold text-foreground">
-              Welcome back, {user?.firstName || "Candidate"}
-            </h1>
-            <div className="flex items-center gap-2 mt-2">
-              {professionLabel && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary">
-                  <User className="w-3 h-3" />
-                  {professionLabel}
-                </span>
-              )}
-              <p className="text-muted-foreground text-sm">Your professional intelligence overview.</p>
-            </div>
-          </div>
-        </header>
+        {/* ─── ZONE 1: Profile strip + Journey track ────────────────────── */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05, duration: 0.4 }}>
+          <Card className="p-5 mb-5 border-primary/10 bg-gradient-to-r from-primary/3 to-background">
+            <div className="flex items-start gap-4">
+              {/* Completion ring */}
+              <div className="relative shrink-0">
+                <ProfileCompletionRing pct={profilePct} />
+                <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-primary">{profilePct}%</span>
+              </div>
 
-        {/* Quick stats row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-          <StatCard
-            icon={Files}
-            label="Documents"
-            value={docCount}
+              <div className="flex-1 min-w-0">
+                <h1 className="text-xl font-display font-bold text-foreground leading-tight">
+                  Welcome back, {user?.firstName || "Candidate"}
+                </h1>
+                <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                  {professionLabel && (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary">
+                      <User className="w-3 h-3" /> {professionLabel}
+                    </span>
+                  )}
+                  {qualLabel && (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-violet-500/10 text-violet-700">
+                      <GraduationCap className="w-3 h-3" />
+                      {qualLabel}{qualCountry ? ` · ${qualCountry}` : ""}
+                    </span>
+                  )}
+                  {latestDecision && (
+                    <span className={cn(
+                      "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold",
+                      latestDecision.outcome === "eligible"
+                        ? "bg-emerald-500/10 text-emerald-700"
+                        : "bg-amber-500/10 text-amber-700",
+                    )}>
+                      <ShieldCheck className="w-3 h-3" />
+                      {latestDecision.outcome === "eligible" ? "Eligible" : "Not yet eligible"}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="shrink-0 hidden sm:block">
+                <Link href="/profile">
+                  <Button variant="outline" size="sm" className="text-xs gap-1">
+                    <User className="w-3 h-3" /> Profile
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </Card>
+        </motion.div>
+
+        {/* Identity verification CTA */}
+        <VerificationCTABanner />
+
+        {/* Journey milestone track */}
+        <MilestoneJourneyTrack />
+
+        {/* ─── ZONE 2: Recommended opportunities ───────────────────────── */}
+        {profile?.profession && <RecommendedOpportunitiesWidget />}
+
+        {/* ─── Quick stats (3 key metrics) ──────────────────────────────── */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+          <StatCard icon={Files} label="Documents" value={docCount}
             sub={docCount === 1 ? "1 file uploaded" : `${docCount} files uploaded`}
-            href="/documents"
-            delay={0.05}
-          />
-          <StatCard
-            icon={BadgeCheck}
-            label="Eligibility Status"
-            value={eligibleRolesCount}
-            sub={notYetEligibleCount > 0 ? `${notYetEligibleCount} more to work towards` : allRoles.length > 0 ? "All matched roles eligible" : "Run eligibility check"}
-            href="/eligibility"
-            delay={0.1}
-          />
-          <StatCard
-            icon={ClipboardList}
-            label="Applications"
-            value={totalApplied}
-            sub={appStats && totalApplied > 0 ? `${appStats.interviews} interviews · ${appStats.offers} offers · ${eligibleRolesCount} eligible roles` : `${eligibleRolesCount > 0 ? `${eligibleRolesCount} matched roles` : "Find sponsor-licensed roles"}`}
-            href="/applications"
-            delay={0.13}
-          />
+            href="/documents" delay={0.08} />
+          <StatCard icon={ClipboardList} label="Applications" value={totalApplied}
+            sub={appStats && totalApplied > 0 ? `${appStats.interviews} interviews · ${appStats.offers} offers` : "Track your applications"}
+            href="/applications" delay={0.11} />
           <StatCard
             icon={Building2}
             label="Sponsor Opportunities"
@@ -498,19 +602,15 @@ export default function DashboardPage() {
             href="/sponsor-licences"
             delay={0.14}
           />
-          <JourneyReadinessCard delay={0.15} />
         </div>
 
-        {/* Stage attention strip — surfaces in-progress/not-started stages */}
-        <StageAttentionStrip />
-
-        {/* 10-stage live journey widget */}
-        <LiveJourneyWidget />
-
-        {/* Main grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-          {/* Eligibility card — spans 2 cols */}
-          <Card className="lg:col-span-2 p-8 bg-gradient-to-br from-primary to-primary/90 text-primary-foreground border-0">
+        {/* ─── ZONE 3: Eligibility card + Remediation ──────────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
+          {/* Eligibility card — crimson accent background */}
+          <Card
+            className="lg:col-span-2 p-8 border-0 text-primary-foreground"
+            style={{ background: "linear-gradient(135deg, hsl(0 70% 38%), hsl(0 70% 30%))" }}
+          >
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 {latestDecision ? (
@@ -521,88 +621,55 @@ export default function DashboardPage() {
                         reviewFlagged={latestDecision.reviewFlagged}
                       />
                     </div>
-
                     <h2 className="text-2xl font-bold mb-3">Your Eligibility Status</h2>
-
                     <p className="text-primary-foreground/80 mb-4 max-w-md leading-relaxed">
                       {latestDecision.explanationText}
                     </p>
-
                     {latestDecision.reviewFlagged && latestDecision.reviewNote && (
                       <div className="flex items-start gap-2 p-3 rounded-xl bg-white/10 backdrop-blur-sm mb-4">
                         <AlertTriangle className="w-4 h-4 text-amber-300 flex-shrink-0 mt-0.5" />
-                        <p className="text-xs text-primary-foreground/90 leading-relaxed">
-                          {latestDecision.reviewNote}
-                        </p>
+                        <p className="text-xs text-primary-foreground/90 leading-relaxed">{latestDecision.reviewNote}</p>
                       </div>
                     )}
-
                     {latestDecision.pathways && latestDecision.pathways.length > 0 && (
                       <div className="mb-4">
-                        <p className="text-xs font-semibold text-primary-foreground/70 uppercase tracking-wide mb-2">
-                          Possible Pathways
-                        </p>
+                        <p className="text-xs font-semibold text-primary-foreground/70 uppercase tracking-wide mb-2">Possible Pathways</p>
                         <div className="flex flex-wrap gap-2">
                           {latestDecision.pathways.map((p: string) => (
-                            <span
-                              key={p}
-                              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-xs text-primary-foreground/90"
-                            >
-                              <MapPin className="w-3 h-3" />
-                              {p}
+                            <span key={p} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-xs text-primary-foreground/90">
+                              <MapPin className="w-3 h-3" />{p}
                             </span>
                           ))}
                         </div>
                       </div>
                     )}
-
                     {latestDecision.reasonCodes && latestDecision.reasonCodes.length > 0 && (
                       <div className="mb-4">
-                        <button
-                          onClick={() => setShowReasonCodes((v) => !v)}
-                          className="flex items-center gap-1.5 text-xs text-primary-foreground/60 hover:text-primary-foreground/80 transition-colors"
-                        >
-                          {showReasonCodes ? (
-                            <ChevronUp className="w-3 h-3" />
-                          ) : (
-                            <ChevronDown className="w-3 h-3" />
-                          )}
+                        <button onClick={() => setShowReasonCodes((v) => !v)}
+                          className="flex items-center gap-1.5 text-xs text-primary-foreground/60 hover:text-primary-foreground/80 transition-colors">
+                          {showReasonCodes ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                           {showReasonCodes ? "Hide" : "Show"} reason codes
                         </button>
                         {showReasonCodes && (
                           <div className="mt-2 flex flex-wrap gap-1.5">
                             {latestDecision.reasonCodes.map((code: string) => (
-                              <code
-                                key={code}
-                                className="px-2 py-0.5 text-xs bg-white/10 rounded font-mono text-primary-foreground/70"
-                              >
-                                {code}
-                              </code>
+                              <code key={code} className="px-2 py-0.5 text-xs bg-white/10 rounded font-mono text-primary-foreground/70">{code}</code>
                             ))}
                           </div>
                         )}
                       </div>
                     )}
-
                     <p className="text-primary-foreground/50 text-xs mb-6">
-                      Last checked:{" "}
-                      {new Date(latestDecision.createdAt).toLocaleDateString("en-GB", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      })}{" "}
-                      · Ruleset v{latestDecision.rulesetVersion}
+                      Last checked: {new Date(latestDecision.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} · Ruleset v{latestDecision.rulesetVersion}
                     </p>
-
                     <p className="text-primary-foreground/40 text-xs mb-6 max-w-sm leading-relaxed">
-                      This assessment is for guidance only and does not constitute professional legal or medical regulatory advice. Always verify directly with GMC, NMC, or HCPC.
+                      This assessment is for guidance only. Always verify directly with GMC, NMC, or HCPC.
                     </p>
                   </>
                 ) : (
                   <>
                     <div className="inline-flex items-center px-3 py-1 rounded-full bg-white/20 text-white text-xs font-semibold mb-4 backdrop-blur-md">
-                      <Activity className="w-3 h-3 mr-2" />
-                      Action Required
+                      <Activity className="w-3 h-3 mr-2" /> Action Required
                     </div>
                     <h2 className="text-2xl font-bold mb-3">Eligibility Evaluation</h2>
                     <p className="text-primary-foreground/80 mb-8 max-w-md leading-relaxed">
@@ -612,117 +679,81 @@ export default function DashboardPage() {
                 )}
                 <Link href="/eligibility" className="inline-flex">
                   <Button variant="accent" size="lg" className="shadow-lg shadow-accent/20">
-                    {latestDecision ? "View Full Report" : "Run Check Now"}{" "}
-                    <ArrowRight className="w-5 h-5 ml-2" />
+                    {latestDecision ? "View Full Report" : "Run Check Now"} <ArrowRight className="w-5 h-5 ml-2" />
                   </Button>
                 </Link>
               </div>
-              <ShieldCheck className="w-32 h-32 text-white/10 hidden md:block flex-shrink-0" />
+              <ShieldCheck className="w-28 h-28 text-white/10 hidden md:block flex-shrink-0" />
             </div>
           </Card>
 
-          {/* Profile card */}
-          <Card className="p-6 flex flex-col">
-            <h3 className="text-lg font-semibold mb-5 flex items-center">
-              <span className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center mr-3">
-                <FileText className="w-4 h-4" />
+          {/* Profile detail card */}
+          <Card className="p-5 flex flex-col">
+            <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+              <span className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                <User className="w-3.5 h-3.5" />
               </span>
-              Profile
+              Profile Details
             </h3>
-
-            {/* Completion ring */}
-            <div className="flex items-center gap-4 mb-5 p-4 rounded-xl bg-muted/50">
-              <div className="relative shrink-0">
-                <ProfileCompletionRing pct={profilePct} />
-                <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-primary">
-                  {profilePct}%
-                </span>
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-foreground">
-                  {profilePct === 100 ? "Profile complete" : "Profile incomplete"}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {profilePct === 100
-                    ? "All fields filled in"
-                    : "Complete your profile for accurate results"}
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-3 flex-1">
+            <div className="space-y-2.5 flex-1">
               {[
                 { label: "Profession", val: profile?.profession?.replace(/_/g, " ") },
+                { label: "Qualification", val: qualLabel },
+                { label: "Trained in", val: qualCountry },
                 { label: "Registration", val: profile?.registrationStatus?.replace(/_/g, " ") },
-                {
-                  label: "Experience",
-                  val: profile?.experienceYears != null ? `${profile.experienceYears} yrs` : null,
-                },
-                { label: "Qualification Country", val: profile?.qualificationCountry },
+                { label: "Experience", val: profile?.experienceYears != null ? `${profile.experienceYears} yrs` : null },
               ].map(({ label, val }) => (
-                <div key={label} className="flex justify-between items-center py-1.5 border-b border-border/50 last:border-0">
+                <div key={label} className="flex justify-between items-center py-1 border-b border-border/50 last:border-0">
                   <p className="text-xs text-muted-foreground">{label}</p>
-                  <p className="text-sm font-medium capitalize text-right max-w-[55%] truncate">
-                    {(val as string | null | undefined) || (
-                      <span className="text-muted-foreground/60 italic font-normal">Not set</span>
-                    )}
+                  <p className="text-xs font-semibold capitalize text-right max-w-[55%] truncate">
+                    {val || <span className="text-muted-foreground/50 italic font-normal">Not set</span>}
                   </p>
                 </div>
               ))}
             </div>
-
-            <div className="mt-5 pt-5 border-t border-border">
+            <div className="mt-4 pt-4 border-t border-border">
+              {forwardEligibility?.timeToEligibilityMonths != null && (
+                <div className="flex items-center gap-2 mb-3 p-2.5 rounded-lg bg-accent/5 border border-accent/10">
+                  <Timer className="w-3.5 h-3.5 text-accent shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-[10px] text-muted-foreground">Time to eligibility</p>
+                    <p className="text-xs font-bold text-foreground">{forwardEligibility.timeToEligibilityLabel}</p>
+                  </div>
+                </div>
+              )}
               <Link href="/profile" className="inline-flex w-full">
-                <Button variant="outline" className="w-full">
-                  Update Profile
-                </Button>
+                <Button variant="outline" className="w-full text-xs">Update Profile</Button>
               </Link>
             </div>
           </Card>
         </div>
 
-        {/* Remediation progress card — only show when a plan exists */}
+        {/* Remediation plan */}
         {totalSteps > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.4 }}
-          >
-            <Card className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-lg bg-accent/10 text-accent flex items-center justify-center">
-                    <TrendingUp className="w-4 h-4" />
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.4 }}>
+            <Card className="p-5 mb-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                  <span className="w-7 h-7 rounded-lg bg-accent/10 text-accent flex items-center justify-center">
+                    <TrendingUp className="w-3.5 h-3.5" />
                   </span>
                   Remediation Plan
+                  <span className="text-xs text-muted-foreground ml-1">({doneSteps}/{totalSteps} done)</span>
                 </h3>
                 <Link href="/path">
-                  <Button variant="ghost" size="sm" className="text-xs gap-1">
-                    View all <ArrowRight className="w-3 h-3" />
-                  </Button>
+                  <Button variant="ghost" size="sm" className="text-xs gap-1">View all <ArrowRight className="w-3 h-3" /></Button>
                 </Link>
               </div>
-
-              {/* Progress bar */}
-              <div className="mb-4">
-                <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
-                  <span>{doneSteps} of {totalSteps} steps completed</span>
-                  <span className="font-semibold text-foreground">{planPct}%</span>
-                </div>
-                <div className="h-2.5 rounded-full bg-muted overflow-hidden">
-                  <motion.div
-                    className="h-full bg-gradient-to-r from-accent to-primary rounded-full"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${planPct}%` }}
-                    transition={{ duration: 0.8, delay: 0.3, ease: "easeOut" }}
-                  />
+              <div className="mb-3">
+                <div className="h-2 rounded-full bg-muted overflow-hidden">
+                  <motion.div className="h-full bg-gradient-to-r from-accent to-primary rounded-full"
+                    initial={{ width: 0 }} animate={{ width: `${planPct}%` }}
+                    transition={{ duration: 0.8, delay: 0.3, ease: "easeOut" }} />
                 </div>
               </div>
-
-              {/* Step list — show up to 3 */}
-              <div className="space-y-2 mb-4">
+              <div className="space-y-1.5 mb-3">
                 {planSteps.slice(0, 3).map((step) => (
-                  <div key={step.id} className="flex items-start gap-3">
+                  <div key={step.id} className="flex items-start gap-2.5">
                     {step.status === "done" ? (
                       <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
                     ) : (
@@ -733,252 +764,75 @@ export default function DashboardPage() {
                     </p>
                   </div>
                 ))}
-                {totalSteps > 3 && (
-                  <p className="text-xs text-muted-foreground pl-7">+ {totalSteps - 3} more steps</p>
-                )}
+                {totalSteps > 3 && <p className="text-xs text-muted-foreground pl-6">+ {totalSteps - 3} more steps</p>}
               </div>
-
-              {/* Next step CTA */}
               {nextStep && (
-                <div className="flex items-start gap-3 p-3 rounded-xl bg-accent/5 border border-accent/10">
+                <div className="flex items-start gap-2.5 p-3 rounded-xl bg-accent/5 border border-accent/10">
                   <span className="w-5 h-5 rounded-full bg-accent/20 text-accent flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">↓</span>
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold text-accent mb-0.5">Next Step</p>
-                    <p className="text-sm text-foreground font-medium truncate">{nextStep.title}</p>
-                    {nextStep.gap && (
-                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{nextStep.gap}</p>
-                    )}
+                  <div>
+                    <p className="text-xs font-semibold text-accent">Next Step</p>
+                    <p className="text-sm text-foreground font-medium">{nextStep.title}</p>
                   </div>
                 </div>
               )}
-
-              {/* Motivational message tied to completion state */}
-              {(() => {
-                if (planPct === 100) {
-                  return (
-                    <div className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50 border border-emerald-200">
-                      <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                      <div>
-                        <p className="text-sm font-semibold text-emerald-800">All steps completed — you're ready!</p>
-                        <p className="text-xs text-emerald-700 mt-0.5">
-                          You've completed your full remediation plan. Now apply to eligible roles with confidence.
-                        </p>
-                      </div>
-                    </div>
-                  );
-                }
-                if (planPct >= 75) {
-                  return (
-                    <div className="flex items-center gap-3 p-3 rounded-xl bg-blue-50 border border-blue-200">
-                      <Sparkles className="w-5 h-5 text-blue-600 shrink-0" />
-                      <div>
-                        <p className="text-sm font-semibold text-blue-800">Almost there — keep going!</p>
-                        <p className="text-xs text-blue-700 mt-0.5">
-                          You're {planPct}% through your plan. Just {totalSteps - doneSteps} step{totalSteps - doneSteps !== 1 ? "s" : ""} left to unlock full eligibility.
-                        </p>
-                      </div>
-                    </div>
-                  );
-                }
-                if (planPct >= 40) {
-                  return (
-                    <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-50 border border-amber-200">
-                      <TrendingUp className="w-5 h-5 text-amber-600 shrink-0" />
-                      <div>
-                        <p className="text-sm font-semibold text-amber-800">Good momentum — stay consistent</p>
-                        <p className="text-xs text-amber-700 mt-0.5">
-                          {doneSteps} step{doneSteps !== 1 ? "s" : ""} done. Each milestone brings you closer to UK registration.
-                        </p>
-                      </div>
-                    </div>
-                  );
-                }
-                return (
-                  <div className="flex items-center gap-3 p-3 rounded-xl bg-primary/5 border border-primary/15">
-                    <Timer className="w-5 h-5 text-primary shrink-0" />
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">Your journey starts here</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Work through each step in order — completing them unlocks new roles and accelerates your path to registration.
-                      </p>
-                    </div>
-                  </div>
-                );
-              })()}
             </Card>
           </motion.div>
         )}
-        {/* Interview Prep Card */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
-          <Card className="mt-0 mb-6 p-5 border-violet-200 bg-gradient-to-br from-violet-50/50 to-purple-50/30">
-            <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center shrink-0">
-                <Sparkles className="w-5 h-5 text-violet-600" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-semibold text-foreground mb-1">NHS Interview Preparation</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed mb-3">
-                  AI-generated question banks and structured interview guidance tailored to your profession and specialty.
-                </p>
-                <Link href="/interview-prep" className="inline-flex">
-                  <Button variant="outline" size="sm" className="text-xs gap-1.5 border-violet-300 text-violet-700 hover:bg-violet-50">
-                    <Sparkles className="w-3.5 h-3.5" /> Open Interview Prep
-                  </Button>
-                </Link>
-              </div>
-              {forwardEligibility?.timeToEligibilityMonths != null ? (
-                <div className="shrink-0 text-right hidden sm:block">
-                  <div className="flex items-center gap-1.5 justify-end mb-0.5">
-                    <Timer className="w-4 h-4 text-accent" />
-                    <span className="text-xs font-semibold text-accent">Time to Eligibility</span>
+
+        {/* Boost card + Interview prep */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.38 }}>
+            <Card className={cn(
+              "p-5 border-2 transition-colors h-full",
+              boostProfile ? "border-emerald-300 bg-gradient-to-br from-emerald-50/60 to-primary/5" : "border-dashed border-primary/20",
+            )}>
+              <div className="flex items-start gap-3">
+                <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center shrink-0", boostProfile ? "bg-emerald-100" : "bg-primary/10")}>
+                  <Megaphone className={cn("w-4 h-4", boostProfile ? "text-emerald-600" : "text-primary")} />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="text-sm font-semibold text-foreground">Boost Visibility</h3>
+                    <span className={cn("px-1.5 py-0.5 text-[10px] rounded-full font-semibold", boostProfile ? "bg-emerald-100 text-emerald-800" : "bg-muted text-muted-foreground")}>
+                      {boostProfile ? "Active" : "Off"}
+                    </span>
                   </div>
-                  <p className="text-sm font-bold text-foreground">{forwardEligibility.timeToEligibilityLabel}</p>
-                  <p className="text-[11px] text-muted-foreground">{forwardEligibility.regulator} estimate</p>
-                </div>
-              ) : null}
-            </div>
-          </Card>
-        </motion.div>
-
-        {/* Boost your profile — live toggle */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
-          <Card className={`mt-6 p-5 border-2 transition-colors ${boostProfile ? "border-emerald-300 bg-gradient-to-br from-emerald-50/60 to-primary/5" : "border-dashed border-primary/20 bg-gradient-to-br from-primary/3 to-accent/3"}`}>
-            <div className="flex items-start gap-4">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${boostProfile ? "bg-emerald-100" : "bg-primary/10"}`}>
-                <Megaphone className={`w-5 h-5 ${boostProfile ? "text-emerald-600" : "text-primary"}`} />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
-                  <h3 className="text-sm font-semibold text-foreground">Boost Your Visibility to Employers</h3>
-                  <span className={`px-2 py-0.5 text-xs rounded-full font-semibold ${boostProfile ? "bg-emerald-100 text-emerald-800" : "bg-muted text-muted-foreground"}`}>
-                    {boostProfile ? "Active" : "Inactive"}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground leading-relaxed max-w-lg mb-3">
-                  {boostProfile
-                    ? "Your profile is now visible to NHS trusts, academic institutions, and regulated employers actively recruiting in your specialty."
-                    : "Enable boost to promote your profile to NHS trusts, academic institutions, and regulated employers in your specialty."}
-                </p>
-                <Button
-                  size="sm"
-                  variant={boostProfile ? "outline" : "default"}
-                  className="text-xs gap-1.5"
-                  onClick={handleBoostToggle}
-                  disabled={toggleBoostMutation.isPending || !profile?.profession}
-                >
-                  {toggleBoostMutation.isPending ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                  ) : boostProfile ? (
-                    "Turn Off Boost"
-                  ) : (
-                    "Enable Boost"
-                  )}
-                </Button>
-                {!profile?.profession && (
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Complete your profile to enable boost.
+                  <p className="text-xs text-muted-foreground leading-relaxed mb-3">
+                    {boostProfile ? "Your profile is visible to NHS trusts actively recruiting in your specialty." : "Enable to be found by NHS trusts and regulated employers."}
                   </p>
-                )}
-              </div>
-            </div>
-          </Card>
-        </motion.div>
-
-        {/* AI next-3-roles nudge */}
-        {(nudgeLoading || nudgeRoles.length > 0) && (
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.48 }}>
-            <div className="mt-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
-                  <span className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-                    <Sparkles className="w-3.5 h-3.5" />
-                  </span>
-                  Your Next Career Moves
-                </h2>
-                <Link href="/opportunities">
-                  <span className="text-xs text-primary font-medium hover:underline flex items-center gap-0.5">
-                    Browse roles <ArrowRight className="w-3 h-3" />
-                  </span>
-                </Link>
-              </div>
-
-              {nudgeLoading ? (
-                <div className="flex items-center gap-3 text-sm text-muted-foreground py-4">
-                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                  AI is generating role suggestions…
+                  <Button size="sm" variant={boostProfile ? "outline" : "default"} className="text-xs"
+                    onClick={handleBoostToggle} disabled={toggleBoostMutation.isPending || !profile?.profession}>
+                    {toggleBoostMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : boostProfile ? "Turn Off" : "Enable Boost"}
+                  </Button>
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {nudgeRoles.map((role, i) => (
-                    <motion.div
-                      key={i}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.5 + i * 0.07 }}
-                    >
-                      <Card className="p-4 flex flex-col gap-2 hover:shadow-md hover:border-primary/20 transition-all h-full">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-foreground leading-snug">{role.title}</p>
-                            <p className="text-[11px] text-muted-foreground mt-0.5">{role.setting}</p>
-                          </div>
-                          <div className="shrink-0 flex flex-col items-center">
-                            <span className="text-lg font-bold text-primary leading-none">{role.fitScore}</span>
-                            <span className="text-[9px] text-muted-foreground leading-none">fit</span>
-                          </div>
-                        </div>
-                        <p className="text-xs text-muted-foreground leading-relaxed flex-1">{role.reason}</p>
-                        {role.location && (
-                          <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                            <MapPin className="w-2.5 h-2.5" /> {role.location}
-                          </p>
-                        )}
-                        <Link href="/opportunities">
-                          <span className="text-[11px] font-medium text-primary hover:underline flex items-center gap-0.5 mt-1">
-                            Explore <ArrowRight className="w-3 h-3" />
-                          </span>
-                        </Link>
-                      </Card>
-                    </motion.div>
-                  ))}
-                </div>
-              )}
-              {nudgeData?.disclaimer && (
-                <p className="text-[10px] text-muted-foreground mt-2 italic">{nudgeData.disclaimer}</p>
-              )}
-            </div>
+              </div>
+            </Card>
           </motion.div>
-        )}
 
-        {/* Candidate Portal quick-links */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55 }}>
-          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Link href="/my-report">
-              <Card className="p-5 hover:shadow-md hover:border-primary/20 transition-all cursor-pointer group flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/15 transition-colors">
-                  <BarChart2 className="w-5 h-5 text-primary" />
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.42 }}>
+            <Card className="p-5 border-violet-200 bg-gradient-to-br from-violet-50/50 to-purple-50/30 h-full">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-violet-100 flex items-center justify-center shrink-0">
+                  <Sparkles className="w-4 h-4 text-violet-600" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground">My Progress Report</p>
-                  <p className="text-xs text-muted-foreground">AI-powered monthly insights & next steps</p>
+                <div className="flex-1">
+                  <h3 className="text-sm font-semibold text-foreground mb-1">NHS Interview Preparation</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed mb-3">
+                    AI-generated question banks and structured guidance tailored to your profession.
+                  </p>
+                  <Link href="/interview-prep">
+                    <Button variant="outline" size="sm" className="text-xs gap-1.5 border-violet-300 text-violet-700 hover:bg-violet-50">
+                      <Sparkles className="w-3 h-3" /> Open
+                    </Button>
+                  </Link>
                 </div>
-                <ArrowRight className="w-4 h-4 text-muted-foreground/40 shrink-0 group-hover:text-primary/60 group-hover:translate-x-0.5 transition-all" />
-              </Card>
-            </Link>
-            <Link href="/regulatory-guidance">
-              <Card className="p-5 hover:shadow-md hover:border-primary/20 transition-all cursor-pointer group flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/15 transition-colors">
-                  <BookOpen className="w-5 h-5 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground">Regulatory Guidance</p>
-                  <p className="text-xs text-muted-foreground">GMC, NMC, GDC & HCPC registration pathways</p>
-                </div>
-                <ArrowRight className="w-4 h-4 text-muted-foreground/40 shrink-0 group-hover:text-primary/60 group-hover:translate-x-0.5 transition-all" />
-              </Card>
-            </Link>
-          </div>
-        </motion.div>
+              </div>
+            </Card>
+          </motion.div>
+        </div>
+
+        {/* Floating AI chat */}
+        <AIChatSlideover />
       </PageTransition>
     </AppLayout>
   );

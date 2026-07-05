@@ -150,7 +150,7 @@ export function AppSidebar() {
         <img
           src={`${import.meta.env.BASE_URL}logo.png`}
           alt="JOBSAGE"
-          className="h-8 w-auto object-contain"
+          className="h-10 w-auto object-contain"
         />
       </div>
 

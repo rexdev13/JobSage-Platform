@@ -412,6 +412,105 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
   res.json({ matches, dismissedRoleIds, totalCount, cached });
 });
 
+// ── GET /opportunities/recommended — top-N matched roles for the dashboard ────
+
+router.get("/opportunities/recommended", requireAuthenticated, async (req, res): Promise<void> => {
+  const userId = req.user!.id;
+  const limit = Math.min(10, Math.max(1, parseInt(String(req.query.limit ?? "3"), 10) || 3));
+
+  const [profile] = await db.select().from(profilesTable).where(eq(profilesTable.userId, userId));
+  if (!profile?.profession) {
+    res.json({ roles: [] });
+    return;
+  }
+
+  const regulator = regulatorForProfession(profile.profession);
+  if (!regulator) {
+    res.json({ roles: [] });
+    return;
+  }
+
+  const [decision] = await db
+    .select()
+    .from(decisionRecordsTable)
+    .where(eq(decisionRecordsTable.userId, userId))
+    .orderBy(desc(decisionRecordsTable.createdAt))
+    .limit(1);
+
+  const isRegistered =
+    profile.registrationStatus != null &&
+    REGISTERED_STATUSES.includes(profile.registrationStatus.toLowerCase());
+  const isLicenceReady = profile.licenceReady === true;
+  const userIsEligible = decision?.outcome === "eligible";
+
+  const allRoles = await db.select().from(rolesTable).where(eq(rolesTable.active, true));
+  const publishedJobListings = await db
+    .select({ job: jobListingsTable, emp: employerProfilesTable })
+    .from(jobListingsTable)
+    .innerJoin(employerProfilesTable, eq(jobListingsTable.employerProfileId, employerProfilesTable.id))
+    .where(eq(jobListingsTable.status, "published"));
+
+  const employerJobsAsRoles = publishedJobListings
+    .filter((row) => {
+      if (row.job.regulator !== regulator) return false;
+      const tp = (row.job.targetProfessions ?? []) as string[];
+      if (tp.length > 0 && !tp.includes(profile.profession)) return false;
+      return true;
+    })
+    .map((row) => ({
+      id: row.job.id + 1_000_000,
+      title: row.job.title,
+      employer: row.emp.companyName,
+      location: row.job.location,
+      regulator: row.job.regulator as "GMC" | "NMC" | "HCPC",
+      sponsorshipOffered: row.job.sponsorshipOffered,
+      requiredRegistration: row.job.requiredRegistration,
+    }));
+
+  const regulatorRoles = [
+    ...allRoles.filter((r) => r.regulator === regulator).map((r) => ({
+      id: r.id, title: r.title, employer: r.employer, location: r.location,
+      regulator: r.regulator, sponsorshipOffered: r.sponsorshipOffered,
+      requiredRegistration: r.requiredRegistration,
+    })),
+    ...employerJobsAsRoles,
+  ];
+
+  if (regulatorRoles.length === 0) {
+    res.json({ roles: [] });
+    return;
+  }
+
+  // Use cached match scores if available — avoid expensive AI re-scoring
+  const cutoff = new Date(Date.now() - SCORE_CACHE_TTL_MS);
+  const cachedScores = await db
+    .select()
+    .from(candidateMatchScoresTable)
+    .where(and(eq(candidateMatchScoresTable.userId, userId), gte(candidateMatchScoresTable.scoredAt, cutoff)));
+  const scoreMap = new Map(cachedScores.map((s) => [s.roleId, s.score]));
+
+  const scored = regulatorRoles.map((r) => {
+    const reqReg = r.requiredRegistration.toLowerCase();
+    const roleRequiresFull = reqReg.includes("full") || reqReg.includes("registered");
+    const meetsRegistration = roleRequiresFull ? isRegistered || isLicenceReady : true;
+    const isEligible = userIsEligible && meetsRegistration;
+    // AI score if cached, else heuristic
+    const matchScore = scoreMap.get(r.id) ?? computeMatchScore(
+      { ...r, id: r.id, regulator: r.regulator, active: true, importedAt: new Date(), importedBy: "" },
+      isEligible,
+      profile.requiresSponsorship,
+    );
+    return { ...r, matchScore, isEligible };
+  });
+
+  scored.sort((a, b) => {
+    if (a.isEligible !== b.isEligible) return a.isEligible ? -1 : 1;
+    return b.matchScore - a.matchScore;
+  });
+
+  res.json({ roles: scored.slice(0, limit) });
+});
+
 router.post("/roles/dismiss-match", requireAuthenticated, async (req, res): Promise<void> => {
   const userId = req.user!.id;
   const { roleId } = req.body as { roleId: number };
