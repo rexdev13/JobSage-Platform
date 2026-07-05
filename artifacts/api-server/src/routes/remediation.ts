@@ -408,26 +408,52 @@ router.get("/remediation/forward-eligibility", requireAuthenticated, async (req,
     timeToEligibilityLabel = `approximately ${years} year${years !== 1 ? "s" : ""}`;
   }
 
-  // Build per-gap grouped data for the Unlock More UI
-  // Each incomplete step gets 2–3 sample roles from the newly unlocked set
-  const unlockableRolesSample = newlyUnlockedRoles.slice(0, 9).map((role) => ({
-    id: role.id,
-    title: role.title,
-    employer: role.employer,
-    location: role.location,
-    sponsorshipOffered: role.sponsorshipOffered,
-    requiredRegistration: role.requiredRegistration,
-  }));
+  // Build per-gap grouped data for the Unlock More UI.
+  // For each incomplete step, we simulate resolving ONLY that step and compute
+  // which additional roles become newly eligible as a result.
+  function isRegistrationStep(s: { gap: string; title: string; stepSource: string }): boolean {
+    const g = s.gap?.toLowerCase() ?? "";
+    const t = s.title?.toLowerCase() ?? "";
+    return (
+      g.includes("registrat") ||
+      t.includes("registrat") ||
+      t.includes("plab") ||
+      t.includes("osce") ||
+      t.includes("licence") ||
+      t.includes("certificate of good standing") ||
+      t.includes("language test") ||
+      t.includes("ielts") ||
+      t.includes("oet")
+    );
+  }
 
-  const gapsWithRoles = incompleteSteps.map((step, idx) => {
-    // Distribute the unlockable roles across steps (round-robin 2–3 per step)
-    const chunkSize = 2;
-    const start = (idx * chunkSize) % Math.max(1, unlockableRolesSample.length);
-    const chunk = unlockableRolesSample.slice(start, start + chunkSize);
-    // Wrap around if needed
-    const rolesForStep = chunk.length < chunkSize && unlockableRolesSample.length > 0
-      ? [...chunk, ...unlockableRolesSample.slice(0, chunkSize - chunk.length)]
-      : chunk;
+  const gapsWithRoles = incompleteSteps.map((step) => {
+    // Simulate: what if ONLY this step were resolved?
+    // If this step is a registration step, completing it alone would make the
+    // candidate registration-ready (assuming no other blockers).
+    const stepIsRegistration = isRegistrationStep(step);
+    const wouldBeRegisteredAfterThisStep =
+      isCurrentlyRegistered || isCurrentlyLicenceReady || stepIsRegistration;
+
+    // Roles unlocked specifically by resolving this step:
+    // They must not be currently eligible, but become eligible after resolving this step.
+    const rolesUnlockedByStep = regulatorRoles
+      .filter((role) => {
+        const reqReg = role.requiredRegistration.toLowerCase();
+        const roleRequiresFull = reqReg.includes("full") || reqReg.includes("registered");
+        const currentlyEligible = !roleRequiresFull || isCurrentlyRegistered || isCurrentlyLicenceReady;
+        const eligibleAfterStep = !roleRequiresFull || wouldBeRegisteredAfterThisStep;
+        return !currentlyEligible && eligibleAfterStep;
+      })
+      .slice(0, 3)
+      .map((role) => ({
+        id: role.id,
+        title: role.title,
+        employer: role.employer,
+        location: role.location,
+        sponsorshipOffered: role.sponsorshipOffered,
+        requiredRegistration: role.requiredRegistration,
+      }));
 
     return {
       stepId: step.id,
@@ -436,7 +462,7 @@ router.get("/remediation/forward-eligibility", requireAuthenticated, async (req,
       timelineRange: step.timelineRange,
       stepSource: step.stepSource,
       estimatedMonths: parseMonthsFromRange(step.timelineRange),
-      sampleRolesUnlocked: rolesForStep,
+      sampleRolesUnlocked: rolesUnlockedByStep,
     };
   });
 

@@ -1108,6 +1108,7 @@ function CareerProfileCard({
 
 function CareerProfilesSection() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { data, isLoading } = useListCareerProfiles();
   const createMutation = useCreateCareerProfile();
   const deleteMutation = useDeleteCareerProfile();
@@ -1151,6 +1152,12 @@ function CareerProfilesSection() {
     setActingId(id);
     try {
       await activateMutation.mutateAsync(id);
+      // Invalidate recommendation and eligibility feeds so switching profile
+      // immediately reflects the new active profile's focus area in both
+      // Eligible Now vacancies and the forward-eligibility Unlock More data.
+      await queryClient.invalidateQueries({ queryKey: ["eligibility-eligible-vacancies"] });
+      await queryClient.invalidateQueries({ queryKey: ["identity-status"] });
+      await queryClient.refetchQueries({ queryKey: ["eligibility-eligible-vacancies"] });
       toast({ title: "Active profile updated", description: "Your active career profile has been switched." });
     } catch {
       toast({ title: "Error", description: "Failed to switch profile.", variant: "destructive" });

@@ -124,8 +124,9 @@ router.patch("/career-profiles/:id", requireAuthenticated, requireConsent, async
   const { name, focusArea } = req.body as { name?: string; focusArea?: string };
   const updates: Partial<{ name: string; focusArea: string; aiCvContent: string | null }> = {};
   if (name?.trim()) updates.name = name.trim();
-  if (focusArea?.trim()) {
-    updates.focusArea = focusArea.trim();
+  const focusAreaChanged = !!focusArea?.trim() && focusArea.trim() !== profile.focusArea;
+  if (focusAreaChanged) {
+    updates.focusArea = focusArea!.trim();
     updates.aiCvContent = null;
   }
 
@@ -141,6 +142,11 @@ router.patch("/career-profiles/:id", requireAuthenticated, requireConsent, async
     .returning();
 
   res.json(updated);
+
+  // Background: regenerate CV when the focus area changes
+  if (focusAreaChanged) {
+    setImmediate(() => void generateCvBackground(id, userId));
+  }
 });
 
 router.delete("/career-profiles/:id", requireAuthenticated, requireConsent, async (req, res): Promise<void> => {
