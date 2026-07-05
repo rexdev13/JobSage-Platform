@@ -1,10 +1,10 @@
 import { Router, type IRouter } from "express";
 import { requireAuthenticated } from "../middlewares/requireRole";
 import { db } from "@workspace/db";
-import { speculativeApplicationsTable, employerProfilesTable } from "@workspace/db";
+import { speculativeApplicationsTable, employerProfilesTable, documentsTable } from "@workspace/db";
 import { eq, and, desc, ilike } from "drizzle-orm";
 import { writeAuditEvent } from "../lib/audit";
-import { sendSpeculativeCVNotification } from "../lib/email";
+import { sendSpeculativeCVNotification, sendSpeculativeCVToOps } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -60,19 +60,54 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
     })
     .returning();
 
-  // Send confirmation email to candidate (best-effort)
   const user = req.user!;
   const candidateName =
     [(user as { firstName?: string }).firstName, (user as { lastName?: string }).lastName]
       .filter(Boolean)
       .join(" ") || "there";
-  sendSpeculativeCVNotification({
-    candidateEmail: user.email,
-    candidateName,
-    companyName,
-  }).catch((err: unknown) => {
-    console.error("[speculative] Failed to send CV notification email:", err);
-  });
+
+  // Resolve the candidate's CV document (prefer documentType = "cv", fall back to most recent)
+  const allDocs = await db
+    .select({ id: documentsTable.id, filename: documentsTable.filename, storageKey: documentsTable.storageKey, documentType: documentsTable.documentType })
+    .from(documentsTable)
+    .where(eq(documentsTable.userId, userId))
+    .orderBy(desc(documentsTable.uploadedAt));
+  const cvDocument = allDocs.find((d) => d.documentType === "cv") ?? allDocs[0] ?? null;
+
+  // Fire outbound emails and persist delivery metadata
+  const now = new Date();
+  let emailDelivered = false;
+  try {
+    await Promise.all([
+      // Candidate confirmation
+      sendSpeculativeCVNotification({ candidateEmail: user.email, candidateName, companyName }),
+      // JOBSAGE ops inbox — includes CV reference for follow-up
+      sendSpeculativeCVToOps({
+        candidateEmail: user.email,
+        candidateName,
+        candidateUserId: userId,
+        companyName,
+        applicationId: app!.id,
+        cvFilename: cvDocument?.filename ?? null,
+        cvStorageKey: cvDocument?.storageKey ?? null,
+        notes: notes ?? null,
+      }),
+    ]);
+    emailDelivered = true;
+  } catch (err: unknown) {
+    console.error("[speculative] Failed to send CV emails:", err);
+  }
+
+  // Persist delivery metadata on the record
+  await db
+    .update(speculativeApplicationsTable)
+    .set({
+      cvDocumentId: cvDocument?.id ?? null,
+      emailSent: emailDelivered,
+      emailSentAt: emailDelivered ? now : null,
+      emailRecipient: "ops@jobsage.co.uk",
+    })
+    .where(eq(speculativeApplicationsTable.id, app!.id));
 
   // Employer notification / admin follow-up logging
   try {
