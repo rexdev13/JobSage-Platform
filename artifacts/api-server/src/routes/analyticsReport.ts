@@ -4,6 +4,7 @@ import {
   db,
   profilesTable,
   applicationsTable,
+  speculativeApplicationsTable,
   documentsTable,
   remediationPlansTable,
   remediationStepsTable,
@@ -98,9 +99,10 @@ router.get("/my-analytics", requireAuthenticated, async (req, res): Promise<void
   const userId = req.user!.id;
   const user = req.user!;
 
-  const [profileRows, allApplications, documents, decisionRows, planRows] = await Promise.all([
+  const [profileRows, allApplications, speculativeApps, documents, decisionRows, planRows] = await Promise.all([
     db.select().from(profilesTable).where(eq(profilesTable.userId, userId)),
     db.select().from(applicationsTable).where(eq(applicationsTable.userId, userId)),
+    db.select().from(speculativeApplicationsTable).where(eq(speculativeApplicationsTable.userId, userId)),
     db.select({ id: documentsTable.id }).from(documentsTable).where(eq(documentsTable.userId, userId)),
     db
       .select()
@@ -133,13 +135,15 @@ router.get("/my-analytics", requireAuthenticated, async (req, res): Promise<void
   const planProgressPct =
     planStepsTotal > 0 ? Math.round((planStepsDone / planStepsTotal) * 100) : 0;
 
+  const totalCombinedApplications = allApplications.length + speculativeApps.length;
+
   const eligibilityOutcome = latestDecision?.outcome ?? null;
   const eligibilityPts =
     eligibilityOutcome === "eligible" ? 30 : eligibilityOutcome ? 15 : 0;
   const planPts =
     planStepsTotal > 0 ? Math.round((planStepsDone / planStepsTotal) * 25) : 0;
   const docPts = Math.round(Math.min(documents.length / 5, 1) * 20);
-  const appPts = Math.round(Math.min(allApplications.length / 10, 1) * 15);
+  const appPts = Math.round(Math.min(totalCombinedApplications / 10, 1) * 15);
 
   let filledFields = 0;
   if (profile) {
@@ -155,6 +159,20 @@ router.get("/my-analytics", requireAuthenticated, async (req, res): Promise<void
   const now = new Date();
   const monthlyApplications = buildMonthlyBreakdown(allApplications, now);
 
+  // Add speculative CV sends into monthly totals as "cv_sent" activity
+  for (const spec of speculativeApps) {
+    const specDate = new Date(spec.createdAt);
+    const entry = monthlyApplications.find((m) => {
+      const [mon, yr] = m.month.split(" ");
+      const d = new Date(`${mon} 1 ${yr}`);
+      const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+      return specDate >= d && specDate < monthEnd;
+    });
+    if (entry) {
+      entry.total += 1;
+    }
+  }
+
   const statusBreakdown = {
     applied: allApplications.filter((a) => a.status === "applied").length,
     shortlisted: allApplications.filter((a) => a.status === "shortlisted").length,
@@ -162,16 +180,21 @@ router.get("/my-analytics", requireAuthenticated, async (req, res): Promise<void
     offer: allApplications.filter((a) => a.status === "offer").length,
     rejected: allApplications.filter((a) => a.status === "rejected").length,
     no_response: allApplications.filter((a) => a.status === "no_response").length,
+    cv_sent: speculativeApps.length,
   };
 
-  const sorted = [...allApplications].sort(
+  // Most recent activity across both formal and speculative
+  const lastFormal = [...allApplications].sort(
     (a, b) => new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime(),
-  );
-  const lastApp = sorted[0] ?? null;
-  const streakDays = lastApp
-    ? Math.floor(
-        (now.getTime() - new Date(lastApp.appliedAt).getTime()) / (1000 * 60 * 60 * 24),
-      )
+  )[0] ?? null;
+  const lastSpeculative = [...speculativeApps].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  )[0] ?? null;
+  const lastFormalTime = lastFormal ? new Date(lastFormal.appliedAt).getTime() : 0;
+  const lastSpecTime = lastSpeculative ? new Date(lastSpeculative.createdAt).getTime() : 0;
+  const lastActivityTime = Math.max(lastFormalTime, lastSpecTime);
+  const streakDays = lastActivityTime > 0
+    ? Math.floor((now.getTime() - lastActivityTime) / (1000 * 60 * 60 * 24))
     : null;
 
   const candidateName =
@@ -190,7 +213,7 @@ router.get("/my-analytics", requireAuthenticated, async (req, res): Promise<void
     readinessScore,
     eligibilityOutcome,
     planProgress: planProgressPct,
-    totalApplications: allApplications.length,
+    totalApplications: totalCombinedApplications,
     interviews: statusBreakdown.interview,
   });
 

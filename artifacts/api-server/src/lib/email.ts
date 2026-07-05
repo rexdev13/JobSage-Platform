@@ -313,6 +313,49 @@ export async function sendCandidateContactEmail(opts: {
   });
 }
 
+const OPS_INBOX = process.env.EMAIL_OPS ?? "ops@jobsage.co.uk";
+
+export async function sendSpeculativeCVToOps(opts: {
+  candidateEmail: string;
+  candidateName: string;
+  candidateUserId: string;
+  companyName: string;
+  applicationId: number;
+  cvFilename?: string | null;
+  cvStorageKey?: string | null;
+  notes?: string | null;
+}): Promise<void> {
+  await resend.emails.send({
+    from: `JOBSAGE <${FROM}>`,
+    to: OPS_INBOX,
+    replyTo: opts.candidateEmail,
+    subject: `[Speculative CV] ${opts.candidateName} → ${opts.companyName}`,
+    html: `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /></head>
+<body style="margin:0;padding:24px;font-family:'Segoe UI',Arial,sans-serif;background:#f4f7fb;">
+  <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:10px;padding:32px;border:1px solid #e2e8f0;">
+    <tr><td>
+      <h2 style="color:#0f172a;margin:0 0 16px;">Speculative CV Submission</h2>
+      <table width="100%" cellpadding="4" cellspacing="0" style="font-size:14px;color:#334155;">
+        <tr><td style="width:160px;font-weight:600;">Application ID</td><td>#${opts.applicationId}</td></tr>
+        <tr><td style="font-weight:600;">Candidate</td><td>${opts.candidateName} &lt;${opts.candidateEmail}&gt;</td></tr>
+        <tr><td style="font-weight:600;">User ID</td><td>${opts.candidateUserId}</td></tr>
+        <tr><td style="font-weight:600;">Target company</td><td>${opts.companyName}</td></tr>
+        <tr><td style="font-weight:600;">CV document</td><td>${opts.cvFilename ?? "not specified"}</td></tr>
+        <tr><td style="font-weight:600;">Storage key</td><td style="font-family:monospace;font-size:12px;">${opts.cvStorageKey ?? "—"}</td></tr>
+        <tr><td style="font-weight:600;">Cover note</td><td>${opts.notes ? opts.notes.replace(/\n/g, "<br>") : "—"}</td></tr>
+      </table>
+      <p style="margin:24px 0 0;font-size:12px;color:#94a3b8;">
+        Sent by JOBSAGE platform. Please follow up with ${opts.companyName} on behalf of the candidate if appropriate.
+      </p>
+    </td></tr>
+  </table>
+</body>
+</html>`,
+  });
+}
+
 export async function sendSpeculativeCVNotification(opts: {
   candidateEmail: string;
   candidateName: string;
