@@ -16,8 +16,10 @@ import {
   Loader2,
   ExternalLink,
   AlertTriangle,
+  CalendarDays,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { SmartApplyAssistant } from "@/components/SmartApplyAssistant";
 
 function useCoverLetterStream() {
   const [text, setText] = useState("");
@@ -112,19 +114,22 @@ export function SponsorVacancyApplyModal({
   const queryClient = useQueryClient();
   const sendCVMutation = useSendSpeculativeApplication();
   const { data: speculativeData } = useListSpeculativeApplications();
-  const sentCompanyNames = new Set((speculativeData?.applications ?? []).map((a) => a.companyName));
-  const alreadySent = sentCompanyNames.has(companyName);
+
+  const alreadySent = (speculativeData?.applications ?? []).some(
+    (a) => a.companyName === companyName && (a as { vacancyTitle?: string | null }).vacancyTitle === vacancyTitle,
+  );
 
   const coverLetter = useCoverLetterStream();
   const [clEditable, setClEditable] = useState("");
   const [clCopied, setClCopied] = useState(false);
   const [step, setStep] = useState<"details" | "coverletter" | "submitting" | "done">("details");
+  const [aiAnswer, setAiAnswer] = useState("");
 
   useEffect(() => {
-    if (coverLetter.streaming) {
+    if (coverLetter.done && !clEditable) {
       setClEditable(coverLetter.text);
     }
-  }, [coverLetter.streaming, coverLetter.text]);
+  }, [coverLetter.done, coverLetter.text, clEditable]);
 
   async function handleApply() {
     setStep("submitting");
@@ -142,18 +147,11 @@ export function SponsorVacancyApplyModal({
         },
       },
       {
-        onSuccess: (res) => {
+        onSuccess: () => {
           void queryClient.invalidateQueries({ queryKey: ["listSpeculativeApplications"] });
-          if (res.alreadySent) {
-            toast({ title: "Already sent", description: `You already have an application at ${companyName}.` });
-          } else {
-            toast({
-              title: "Application sent!",
-              description: `Your CV and cover note for "${vacancyTitle}" at ${companyName} have been recorded.`,
-            });
-          }
           setStep("done");
-          onSuccess();
+          // Notify parent after a short delay so user sees success screen
+          setTimeout(() => { onSuccess(); }, 1500);
         },
         onError: () => {
           toast({
@@ -173,231 +171,282 @@ export function SponsorVacancyApplyModal({
     setTimeout(() => setClCopied(false), 2000);
   }
 
+  function handleUseAiAnswer(text: string) {
+    setAiAnswer(text);
+    setClEditable((prev) => prev ? prev + "\n\n" + text : text);
+    setStep("coverletter");
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm">
-      <motion.div
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 40 }}
-        transition={{ type: "spring", damping: 28, stiffness: 300 }}
-        className="w-full max-w-xl bg-background rounded-t-2xl sm:rounded-2xl shadow-2xl border border-border overflow-hidden"
-      >
-        {/* Header */}
-        <div className="flex items-start justify-between p-5 pb-4 border-b border-border">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-              <Sparkles className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-foreground leading-snug">{vacancyTitle}</h2>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <Building2 className="w-3 h-3 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">{companyName}</span>
-              </div>
-              <div className="flex items-center gap-3 mt-1 flex-wrap">
-                {location && (
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <MapPin className="w-3 h-3" /> {location}
-                  </span>
-                )}
-                {salary && (
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <DollarSign className="w-3 h-3" /> {salary}
-                  </span>
-                )}
-                {postedDate && (
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <FileText className="w-3 h-3" /> {postedDate}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+    <>
+      {/* Floating AI Assistant — visible while modal is open (not in done/submitting state) */}
+      {(step === "details" || step === "coverletter") && (
+        <SmartApplyAssistant
+          roleId={0}
+          roleTitle={`${vacancyTitle} at ${companyName}`}
+          onUseAnswer={handleUseAiAnswer}
+        />
+      )}
 
-        {/* Body */}
-        <div className="p-5 max-h-[60vh] overflow-y-auto space-y-4">
-          {step === "submitting" && (
-            <div className="flex flex-col items-center justify-center py-10">
-              <Loader2 className="w-9 h-9 text-primary animate-spin mb-3" />
-              <p className="text-sm font-medium text-foreground">Submitting your application…</p>
-            </div>
-          )}
-
-          {(step === "details" || step === "coverletter") && (
-            <>
-              {/* Vacancy description */}
-              {description && (
-                <div className="rounded-xl bg-muted/40 border border-border px-4 py-3">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">About the role</p>
-                  <p className="text-sm text-foreground/80 leading-relaxed">{description}</p>
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm">
+        <motion.div
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 40 }}
+          transition={{ type: "spring", damping: 28, stiffness: 300 }}
+          className="w-full max-w-xl bg-background rounded-t-2xl sm:rounded-2xl shadow-2xl border border-border overflow-hidden"
+        >
+          {/* Header */}
+          <div className="flex items-start justify-between p-5 pb-4 border-b border-border">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                <Sparkles className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-foreground leading-snug">{vacancyTitle}</h2>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <Building2 className="w-3 h-3 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">{companyName}</span>
                 </div>
-              )}
-
-              {/* AI Cover Letter section */}
-              <div className="rounded-xl border border-border overflow-hidden">
-                <button
-                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors"
-                  onClick={() => {
-                    if (step === "details") {
-                      setStep("coverletter");
-                    } else {
-                      setStep("details");
-                    }
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-semibold text-foreground">AI Cover Letter</span>
-                    {coverLetter.done && (
-                      <span className="text-xs px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 font-medium">
-                        Generated
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-xs text-muted-foreground">
-                    {step === "coverletter" ? "Hide" : "Generate & edit"}
-                  </span>
-                </button>
-
-                <AnimatePresence>
-                  {step === "coverletter" && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="overflow-hidden border-t border-border"
-                    >
-                      <div className="p-4 space-y-3">
-                        {!coverLetter.text && !coverLetter.streaming && !coverLetter.error && (
-                          <div className="text-center py-6">
-                            <p className="text-xs text-muted-foreground mb-4">
-                              AI will write a personalised cover letter for <strong>{vacancyTitle}</strong> at <strong>{companyName}</strong> based on your profile and CV.
-                            </p>
-                            <Button
-                              size="sm"
-                              onClick={() => void coverLetter.generate({ jobTitle: vacancyTitle, employer: companyName, location })}
-                              className="gap-2"
-                            >
-                              <Sparkles className="w-4 h-4" /> Generate Cover Letter
-                            </Button>
-                          </div>
-                        )}
-
-                        {coverLetter.error && (
-                          <div className="text-center py-4">
-                            <AlertTriangle className="w-6 h-6 text-destructive mx-auto mb-2" />
-                            <p className="text-xs text-destructive mb-3">{coverLetter.error}</p>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => void coverLetter.generate({ jobTitle: vacancyTitle, employer: companyName, location })}
-                            >
-                              Try Again
-                            </Button>
-                          </div>
-                        )}
-
-                        {(coverLetter.text || coverLetter.streaming) && (
-                          <div className="space-y-2">
-                            {coverLetter.streaming && (
-                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
-                                Writing cover letter…
-                              </div>
-                            )}
-                            <textarea
-                              className="w-full min-h-[220px] p-3 text-sm text-foreground leading-relaxed bg-muted/40 rounded-xl border border-border resize-y focus:outline-none focus:ring-2 focus:ring-primary/30 font-sans"
-                              value={coverLetter.streaming ? coverLetter.text : clEditable}
-                              onChange={(e) => setClEditable(e.target.value)}
-                              readOnly={coverLetter.streaming}
-                              placeholder="Your cover letter will appear here…"
-                            />
-                            {coverLetter.done && (
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <button
-                                  onClick={handleCopy}
-                                  className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                                >
-                                  {clCopied ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                                  {clCopied ? "Copied" : "Copy letter"}
-                                </button>
-                                <button
-                                  onClick={() => { coverLetter.reset(); setClEditable(""); }}
-                                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                                >
-                                  Regenerate
-                                </button>
-                              </div>
-                            )}
-                            {coverLetter.done && coverLetter.disclaimer && (
-                              <p className="text-[10px] text-muted-foreground border-l-2 border-primary/20 pl-2">
-                                {coverLetter.disclaimer}
-                              </p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </motion.div>
+                <div className="flex items-center gap-3 mt-1 flex-wrap">
+                  {location && (
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <MapPin className="w-3 h-3" /> {location}
+                    </span>
                   )}
-                </AnimatePresence>
-              </div>
-
-              {/* Info notice */}
-              <p className="text-xs text-muted-foreground bg-muted/40 rounded-lg px-3 py-2 border border-border leading-relaxed">
-                Submitting creates a tracked speculative application in JOBSAGE linked to this vacancy. Your CV will be logged so you can follow up and track progress from your Application Tracker.
-              </p>
-
-              {alreadySent && (
-                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-500/10 border border-blue-200 text-xs text-blue-700">
-                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                  You already have an application at {companyName}. Submitting will update it with this vacancy detail.
+                  {salary && (
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <DollarSign className="w-3 h-3" /> {salary}
+                    </span>
+                  )}
+                  {postedDate && (
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <CalendarDays className="w-3 h-3" /> {postedDate}
+                    </span>
+                  )}
                 </div>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Footer */}
-        {(step === "details" || step === "coverletter") && (
-          <div className="flex items-center justify-between px-5 py-4 border-t border-border bg-muted/30 gap-3 flex-wrap">
-            <div className="flex items-center gap-2">
-              {externalUrl && (
-                <a
-                  href={externalUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors font-medium"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  View posting
-                </a>
-              )}
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={onClose} className="text-xs">
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                className="gap-2 text-xs"
-                onClick={() => void handleApply()}
-                disabled={sendCVMutation.isPending}
-              >
-                <Send className="w-3.5 h-3.5" />
-                {alreadySent ? "Update application" : "Apply with JOBSAGE"}
-              </Button>
-            </div>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
-        )}
-      </motion.div>
-    </div>
+
+          {/* Body */}
+          <div className="p-5 max-h-[60vh] overflow-y-auto space-y-4">
+            {/* Success screen */}
+            {step === "done" && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="flex flex-col items-center justify-center py-10 text-center"
+              >
+                <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mb-4">
+                  <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+                </div>
+                <h3 className="text-lg font-bold text-foreground mb-1">Application submitted!</h3>
+                <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
+                  Your application for <strong>{vacancyTitle}</strong> at <strong>{companyName}</strong> has been recorded. You can track it in your Application Tracker.
+                </p>
+                <Button className="mt-6 gap-2" onClick={onClose}>
+                  Close
+                </Button>
+              </motion.div>
+            )}
+
+            {step === "submitting" && (
+              <div className="flex flex-col items-center justify-center py-10">
+                <Loader2 className="w-9 h-9 text-primary animate-spin mb-3" />
+                <p className="text-sm font-medium text-foreground">Submitting your application…</p>
+              </div>
+            )}
+
+            {(step === "details" || step === "coverletter") && (
+              <>
+                {/* Vacancy description */}
+                {description && (
+                  <div className="rounded-xl bg-muted/40 border border-border px-4 py-3">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">About the role</p>
+                    <p className="text-sm text-foreground/80 leading-relaxed">{description}</p>
+                  </div>
+                )}
+
+                {/* AI Answer from assistant */}
+                {aiAnswer && (
+                  <div className="rounded-xl bg-primary/5 border border-primary/20 px-4 py-3">
+                    <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-1.5">AI Assistant suggestion</p>
+                    <p className="text-sm text-foreground/80 leading-relaxed">{aiAnswer}</p>
+                    <button
+                      onClick={() => setAiAnswer("")}
+                      className="text-xs text-muted-foreground hover:text-foreground mt-2 transition-colors"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                )}
+
+                {/* AI Cover Letter section */}
+                <div className="rounded-xl border border-border overflow-hidden">
+                  <button
+                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors"
+                    onClick={() => {
+                      if (step === "details") {
+                        setStep("coverletter");
+                      } else {
+                        setStep("details");
+                      }
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-primary" />
+                      <span className="text-sm font-semibold text-foreground">AI Cover Letter</span>
+                      {coverLetter.done && (
+                        <span className="text-xs px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 font-medium">
+                          Generated
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {step === "coverletter" ? "Hide" : "Generate & edit"}
+                    </span>
+                  </button>
+
+                  <AnimatePresence>
+                    {step === "coverletter" && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden border-t border-border"
+                      >
+                        <div className="p-4 space-y-3">
+                          {!coverLetter.text && !coverLetter.streaming && !coverLetter.error && (
+                            <div className="text-center py-6">
+                              <p className="text-xs text-muted-foreground mb-4">
+                                AI will write a personalised cover letter for <strong>{vacancyTitle}</strong> at <strong>{companyName}</strong> based on your profile and CV.
+                              </p>
+                              <Button
+                                size="sm"
+                                onClick={() => void coverLetter.generate({ jobTitle: vacancyTitle, employer: companyName, location })}
+                                className="gap-2"
+                              >
+                                <Sparkles className="w-4 h-4" /> Generate Cover Letter
+                              </Button>
+                            </div>
+                          )}
+
+                          {coverLetter.error && (
+                            <div className="text-center py-4">
+                              <AlertTriangle className="w-6 h-6 text-destructive mx-auto mb-2" />
+                              <p className="text-xs text-destructive mb-3">{coverLetter.error}</p>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => void coverLetter.generate({ jobTitle: vacancyTitle, employer: companyName, location })}
+                              >
+                                Try Again
+                              </Button>
+                            </div>
+                          )}
+
+                          {(coverLetter.text || coverLetter.streaming) && (
+                            <div className="space-y-2">
+                              {coverLetter.streaming && (
+                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                                  Writing cover letter…
+                                </div>
+                              )}
+                              <textarea
+                                className="w-full min-h-[220px] p-3 text-sm text-foreground leading-relaxed bg-muted/40 rounded-xl border border-border resize-y focus:outline-none focus:ring-2 focus:ring-primary/30 font-sans"
+                                value={coverLetter.streaming ? coverLetter.text : clEditable}
+                                onChange={(e) => setClEditable(e.target.value)}
+                                readOnly={coverLetter.streaming}
+                                placeholder="Your cover letter will appear here…"
+                              />
+                              {coverLetter.done && (
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <button
+                                    onClick={handleCopy}
+                                    className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                                  >
+                                    {clCopied ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                                    {clCopied ? "Copied" : "Copy letter"}
+                                  </button>
+                                  <button
+                                    onClick={() => { coverLetter.reset(); setClEditable(""); }}
+                                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                                  >
+                                    Regenerate
+                                  </button>
+                                </div>
+                              )}
+                              {coverLetter.done && coverLetter.disclaimer && (
+                                <p className="text-[10px] text-muted-foreground border-l-2 border-primary/20 pl-2">
+                                  {coverLetter.disclaimer}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Info notice */}
+                <p className="text-xs text-muted-foreground bg-muted/40 rounded-lg px-3 py-2 border border-border leading-relaxed">
+                  Submitting creates a tracked speculative application in JOBSAGE linked to this vacancy. Your CV will be logged so you can follow up and track progress from your Application Tracker.
+                </p>
+
+                {alreadySent && (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-500/10 border border-blue-200 text-xs text-blue-700">
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                    You already applied for this vacancy at {companyName}.
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Footer */}
+          {(step === "details" || step === "coverletter") && (
+            <div className="flex items-center justify-between px-5 py-4 border-t border-border bg-muted/30 gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                {externalUrl && (
+                  <a
+                    href={externalUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors font-medium"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    View posting
+                  </a>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={onClose} className="text-xs">
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  className="gap-2 text-xs"
+                  onClick={() => void handleApply()}
+                  disabled={sendCVMutation.isPending}
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  {alreadySent ? "Update application" : "Apply with JOBSAGE"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </motion.div>
+      </div>
+    </>
   );
 }
