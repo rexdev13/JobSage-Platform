@@ -16,6 +16,7 @@ import {
   getListSponsorLicencesQueryKey,
   getGetSponsorLicenceIndustryCountsQueryKey,
   type VacancyCheckResult,
+  type VacancyListing,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
@@ -57,6 +58,8 @@ import {
   Phone,
   Mail,
   ChevronUp,
+  X,
+  DollarSign,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -123,6 +126,9 @@ export default function SponsorLicencesPage() {
   const [checkingIds, setCheckingIds] = useState<Set<number>>(new Set());
   const [expandedVacancies, setExpandedVacancies] = useState<Set<number>>(new Set());
   const [expandedContact, setExpandedContact] = useState<Set<number>>(new Set());
+
+  type SelectedVacancy = VacancyListing & { companyName: string; companyId: number };
+  const [selectedVacancy, setSelectedVacancy] = useState<SelectedVacancy | null>(null);
   const checkVacanciesMutation = useCheckSponsorLicenceVacancies();
   const bookmarkMutation = useBookmarkSponsorLicence();
   const unbookmarkMutation = useUnbookmarkSponsorLicence();
@@ -140,6 +146,9 @@ export default function SponsorLicencesPage() {
             next.delete(companyId);
             return next;
           });
+          if (result.vacanciesFound) {
+            setExpandedVacancies((prev) => new Set(prev).add(companyId));
+          }
         },
         onError: () => {
           setCheckingIds((prev) => {
@@ -347,7 +356,7 @@ export default function SponsorLicencesPage() {
               </div>
               <div>
                 <h1 className="text-2xl font-display font-bold text-foreground">
-                  Sponsor Licence Companies
+                  Visa Sponsoring Employers
                 </h1>
                 <p className="text-sm text-muted-foreground">
                   Official UK Home Office register of licensed sponsors — updated daily
@@ -910,6 +919,7 @@ export default function SponsorLicencesPage() {
                             const result = vacancyResults.get(c.id);
                             if (!result) return null;
                             const isExpanded = expandedVacancies.has(c.id);
+                            const listings = result.vacancyList ?? [];
                             return (
                               <motion.div
                                 initial={{ opacity: 0, y: -4 }}
@@ -965,34 +975,86 @@ export default function SponsorLicencesPage() {
                                           transition={{ duration: 0.2 }}
                                           className="overflow-hidden border-t border-green-200 dark:border-green-800/40"
                                         >
-                                          <div className="px-4 py-3 space-y-3">
-                                            {result.summary && (
-                                              <p className="text-xs text-green-800/80 dark:text-green-300/80 leading-relaxed">
-                                                {result.summary}
-                                              </p>
+                                          <div className="px-4 py-3 space-y-2">
+                                            {/* Structured vacancy list */}
+                                            {listings.length > 0 ? (
+                                              <div className="space-y-1.5">
+                                                {listings.map((v, vi) => (
+                                                  <div
+                                                    key={vi}
+                                                    className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg bg-white dark:bg-green-950/40 border border-green-100 dark:border-green-800/30 group hover:border-green-300 dark:hover:border-green-700/60 transition-colors cursor-pointer"
+                                                    onClick={() => setSelectedVacancy({ ...v, companyName: c.organisationName, companyId: c.id })}
+                                                  >
+                                                    <div className="flex-1 min-w-0">
+                                                      <p className="text-sm font-medium text-foreground truncate">{v.title}</p>
+                                                      <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground flex-wrap">
+                                                        {v.location && (
+                                                          <span className="flex items-center gap-1">
+                                                            <MapPin className="w-3 h-3" />
+                                                            {v.location}
+                                                          </span>
+                                                        )}
+                                                        {v.salary && (
+                                                          <span className="flex items-center gap-1">
+                                                            <DollarSign className="w-3 h-3" />
+                                                            {v.salary}
+                                                          </span>
+                                                        )}
+                                                      </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 shrink-0">
+                                                      {v.url && (
+                                                        <a
+                                                          href={v.url}
+                                                          target="_blank"
+                                                          rel="noopener noreferrer"
+                                                          onClick={(e) => e.stopPropagation()}
+                                                          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                                                          title="View on job board"
+                                                        >
+                                                          <ExternalLink className="w-3 h-3" />
+                                                        </a>
+                                                      )}
+                                                      <button
+                                                        onClick={(e) => { e.stopPropagation(); setSelectedVacancy({ ...v, companyName: c.organisationName, companyId: c.id }); }}
+                                                        className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 transition-colors font-medium"
+                                                      >
+                                                        <Send className="w-3 h-3" />
+                                                        Apply
+                                                      </button>
+                                                    </div>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            ) : (
+                                              result.summary && (
+                                                <p className="text-xs text-green-800/80 dark:text-green-300/80 leading-relaxed">
+                                                  {result.summary}
+                                                </p>
+                                              )
                                             )}
-                                            <div className="flex flex-wrap gap-2">
+                                            <div className="flex flex-wrap gap-2 pt-1">
                                               <a
                                                 href={result.sourceUrl ?? `https://www.reed.co.uk/jobs?keywords=${encodeURIComponent(c.organisationName)}&locationName=United+Kingdom`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="inline-flex items-center gap-1.5 text-xs px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors font-medium"
+                                                className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors font-medium"
                                               >
                                                 <Briefcase className="w-3.5 h-3.5" />
-                                                View all vacancies
+                                                View all on job board
                                                 <ExternalLink className="w-3 h-3" />
                                               </a>
                                               <Button
                                                 size="sm"
                                                 variant={sentCompanyNames.has(c.organisationName) ? "outline" : "default"}
-                                                className="text-xs gap-1.5 h-8"
+                                                className="text-xs gap-1.5 h-7"
                                                 onClick={() => handleSendCV(c.organisationName, c.id)}
                                                 disabled={sendCVMutation.isPending}
                                               >
                                                 {sentCompanyNames.has(c.organisationName) ? (
                                                   <><CheckCircle2 className="w-3.5 h-3.5" /> CV Sent</>
                                                 ) : (
-                                                  <><Send className="w-3.5 h-3.5" /> Send my CV</>
+                                                  <><Send className="w-3.5 h-3.5" /> Send CV speculatively</>
                                                 )}
                                               </Button>
                                             </div>
@@ -1070,6 +1132,96 @@ export default function SponsorLicencesPage() {
           </AnimatePresence>
         </div>
       </PageTransition>
+
+      {/* ── Vacancy Detail Sheet ── */}
+      <AnimatePresence>
+        {selectedVacancy && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
+              onClick={() => setSelectedVacancy(null)}
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 40 }}
+              transition={{ type: "spring", damping: 28, stiffness: 300 }}
+              className="fixed bottom-0 left-0 right-0 z-50 bg-background rounded-t-2xl shadow-2xl border border-border p-6 max-w-xl mx-auto"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center shrink-0">
+                    <Briefcase className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold text-foreground">{selectedVacancy.title}</h2>
+                    <p className="text-sm text-muted-foreground">{selectedVacancy.companyName}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedVacancy(null)}
+                  className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="flex flex-wrap gap-3 mb-5">
+                {selectedVacancy.location && (
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <MapPin className="w-4 h-4 shrink-0 text-primary/60" />
+                    {selectedVacancy.location}
+                  </div>
+                )}
+                {selectedVacancy.salary && (
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <DollarSign className="w-4 h-4 shrink-0 text-primary/60" />
+                    {selectedVacancy.salary}
+                  </div>
+                )}
+              </div>
+
+              <p className="text-xs text-muted-foreground mb-5 bg-muted/40 rounded-lg px-3 py-2 border border-border leading-relaxed">
+                This vacancy was sourced from a public job board. Sending your CV creates a speculative application record in JOBSAGE so you can track it.
+              </p>
+
+              <div className="flex items-center gap-3 flex-wrap">
+                {selectedVacancy.url && (
+                  <a
+                    href={selectedVacancy.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-medium text-foreground hover:bg-accent transition-colors"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    View original posting
+                  </a>
+                )}
+                <Button
+                  className="gap-2"
+                  variant={sentCompanyNames.has(selectedVacancy.companyName) ? "outline" : "default"}
+                  onClick={() => {
+                    handleSendCV(selectedVacancy.companyName, selectedVacancy.companyId);
+                    setSelectedVacancy(null);
+                  }}
+                  disabled={sendCVMutation.isPending}
+                >
+                  {sendCVMutation.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : sentCompanyNames.has(selectedVacancy.companyName) ? (
+                    <><CheckCircle2 className="w-4 h-4" /> CV Sent</>
+                  ) : (
+                    <><Send className="w-4 h-4" /> Send my CV</>
+                  )}
+                </Button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </AppLayout>
   );
 }

@@ -40,6 +40,7 @@ import {
   Megaphone,
   BarChart2,
   BookOpen,
+  Building2,
 } from "lucide-react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
@@ -399,6 +400,17 @@ export default function DashboardPage() {
   });
   const nudgeRoles = nudgeData?.roles ?? [];
 
+  const { data: vacancyStatsData } = useQuery<{ companiesChecked: number; companiesWithVacancies: number; totalVacanciesFound: number }>({
+    queryKey: ["sponsor-vacancy-stats"],
+    queryFn: async () => {
+      const res = await fetch(`${base}/api/sponsor-licences/vacancy-stats`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch vacancy stats");
+      return res.json() as Promise<{ companiesChecked: number; companiesWithVacancies: number; totalVacanciesFound: number }>;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+  const totalVacanciesFound = vacancyStatsData?.totalVacanciesFound ?? 0;
+  const companiesWithVacancies = vacancyStatsData?.companiesWithVacancies ?? 0;
 
   return (
     <AppLayout>
@@ -453,7 +465,7 @@ export default function DashboardPage() {
         </header>
 
         {/* Quick stats row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
           <StatCard
             icon={Files}
             label="Documents"
@@ -477,6 +489,14 @@ export default function DashboardPage() {
             sub={appStats && totalApplied > 0 ? `${appStats.interviews} interviews · ${appStats.offers} offers · ${eligibleRolesCount} eligible roles` : `${eligibleRolesCount > 0 ? `${eligibleRolesCount} matched roles` : "Find sponsor-licensed roles"}`}
             href="/applications"
             delay={0.13}
+          />
+          <StatCard
+            icon={Building2}
+            label="Sponsor Opportunities"
+            value={totalVacanciesFound > 0 ? totalVacanciesFound : companiesWithVacancies}
+            sub={totalVacanciesFound > 0 ? `${companiesWithVacancies} employer${companiesWithVacancies !== 1 ? "s" : ""} with open roles` : "Check employers for vacancies"}
+            href="/sponsor-licences"
+            delay={0.14}
           />
           <JourneyReadinessCard delay={0.15} />
         </div>
