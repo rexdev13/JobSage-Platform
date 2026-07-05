@@ -707,7 +707,7 @@ export default function RegulatoryGuidancePage() {
                 <BookOpen className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <h1 className="text-2xl font-display font-bold text-foreground">Regulatory Guidance</h1>
+                <h1 className="text-2xl font-display font-bold text-foreground">Visa & Legal Guidance</h1>
                 <p className="text-sm text-muted-foreground">
                   Step-by-step UK registration and certification pathways for international professionals
                 </p>

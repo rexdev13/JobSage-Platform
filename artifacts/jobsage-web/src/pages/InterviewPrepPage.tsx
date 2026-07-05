@@ -186,7 +186,7 @@ export default function InterviewPrepPage() {
           <div>
             <h1 className="text-2xl font-display font-bold text-foreground flex items-center gap-2">
               <Sparkles className="w-6 h-6 text-violet-500" />
-              Interview Prep
+              Interview Preparation
             </h1>
             <p className="text-muted-foreground mt-1 text-sm">
               AI-generated interview questions and guidance tailored to your profession and specialty.

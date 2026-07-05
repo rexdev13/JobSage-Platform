@@ -146,7 +146,7 @@ function DecisionCard({
             </p>
             <Link to="/path">
               <Button size="sm" variant="outline" className="gap-2 h-8 text-xs">
-                View My Path <ArrowRight className="w-3 h-3" />
+                View Career Path <ArrowRight className="w-3 h-3" />
               </Button>
             </Link>
           </div>
@@ -290,7 +290,7 @@ export default function EligibilityPage() {
       <PageTransition>
         <DisclaimerBanner />
         <header className="mt-6 mb-6">
-          <h1 className="text-3xl font-display font-bold text-foreground">My Eligibility</h1>
+          <h1 className="text-3xl font-display font-bold text-foreground">Eligibility Status</h1>
           <p className="text-muted-foreground mt-2">
             Find out which UK roles you qualify for today — and what it takes to unlock the rest.
           </p>

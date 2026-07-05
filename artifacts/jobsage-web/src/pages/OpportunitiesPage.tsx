@@ -965,7 +965,7 @@ export default function OpportunitiesPage() {
         onSuccess: () => {
           void queryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
           void queryClient.invalidateQueries({ queryKey: getListMatchedRolesQueryKey() });
-          toast({ title: "Application tracked", description: "Role marked as applied. Check 'My Applications' for tracking." });
+          toast({ title: "Application tracked", description: "Role marked as applied. Check 'Application Tracker' for tracking." });
         },
         onError: () => {
           toast({ title: "Error", description: "Could not track application. Please try again.", variant: "destructive" });
@@ -977,7 +977,7 @@ export default function OpportunitiesPage() {
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
     { id: "board", label: "Job Board", icon: Briefcase },
     { id: "employers", label: "Employer Discovery", icon: Building2 },
-    { id: "applications", label: "My Applications", icon: ClipboardList },
+    { id: "applications", label: "Application Tracker", icon: ClipboardList },
   ];
 
   return (
@@ -988,7 +988,7 @@ export default function OpportunitiesPage() {
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-display font-bold text-foreground">Opportunities</h1>
+            <h1 className="text-2xl font-display font-bold text-foreground">Job Opportunities</h1>
             <p className="text-muted-foreground mt-1 text-sm">
               {data
                 ? `${eligibleRoles.length} eligible now · ${notYetEligibleRoles.length} to work towards`

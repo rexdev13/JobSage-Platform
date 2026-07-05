@@ -137,14 +137,14 @@ export default function ApplicationsPage() {
           <div>
             <h1 className="text-2xl font-display font-bold text-foreground flex items-center gap-2">
               <ClipboardList className="w-6 h-6 text-primary" />
-              My Applications
+              Application Tracker
             </h1>
             <p className="text-muted-foreground text-sm mt-1">
               Track all your job applications and their current status.
             </p>
           </div>
           <Button onClick={() => setLocation("/opportunities")}>
-            <Briefcase className="w-4 h-4 mr-1.5" /> Browse Opportunities
+            <Briefcase className="w-4 h-4 mr-1.5" /> Browse Jobs
           </Button>
         </div>
 
@@ -179,7 +179,7 @@ export default function ApplicationsPage() {
               Use Smart Apply on any role to submit an AI-assisted application in minutes.
             </p>
             <Button variant="outline" onClick={() => setLocation("/opportunities")}>
-              Browse Opportunities
+              Browse Jobs
             </Button>
           </Card>
         ) : (

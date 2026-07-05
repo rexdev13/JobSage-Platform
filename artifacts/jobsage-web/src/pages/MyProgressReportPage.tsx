@@ -641,7 +641,7 @@ export default function MyProgressReportPage() {
                 <Card className="p-4 hover:shadow-md hover:border-primary/20 transition-all cursor-pointer group flex items-center gap-3">
                   <Target className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" />
                   <div>
-                    <p className="text-sm font-semibold text-foreground">My Path</p>
+                    <p className="text-sm font-semibold text-foreground">Career Path</p>
                     <p className="text-xs text-muted-foreground">View remediation steps</p>
                   </div>
                 </Card>
@@ -650,7 +650,7 @@ export default function MyProgressReportPage() {
                 <Card className="p-4 hover:shadow-md hover:border-primary/20 transition-all cursor-pointer group flex items-center gap-3">
                   <ClipboardList className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" />
                   <div>
-                    <p className="text-sm font-semibold text-foreground">My Applications</p>
+                    <p className="text-sm font-semibold text-foreground">Application Tracker</p>
                     <p className="text-xs text-muted-foreground">Track job applications</p>
                   </div>
                 </Card>
@@ -659,7 +659,7 @@ export default function MyProgressReportPage() {
                 <Card className="p-4 hover:shadow-md hover:border-primary/20 transition-all cursor-pointer group flex items-center gap-3">
                   <CheckCircle2 className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" />
                   <div>
-                    <p className="text-sm font-semibold text-foreground">Regulatory Guidance</p>
+                    <p className="text-sm font-semibold text-foreground">Visa & Legal Guidance</p>
                     <p className="text-xs text-muted-foreground">Registration pathways</p>
                   </div>
                 </Card>

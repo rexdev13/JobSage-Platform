@@ -501,7 +501,7 @@ export default function ProfilePage() {
                 />
               </div>
               <div>
-                <h1 className="text-3xl font-display font-bold text-foreground">My Profile</h1>
+                <h1 className="text-3xl font-display font-bold text-foreground">Personal & Professional Profile</h1>
                 <p className="text-muted-foreground mt-1 text-sm">
                   Review and complete your details — fields are saved automatically as you fill them in.
                 </p>
