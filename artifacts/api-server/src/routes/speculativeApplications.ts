@@ -34,15 +34,21 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
     return;
   }
 
-  // Prevent duplicate speculative applications to the same company
+  // Deduplicate per vacancy (if provided) or per company (speculative/no vacancy)
   const [existing] = await db
     .select()
     .from(speculativeApplicationsTable)
     .where(
-      and(
-        eq(speculativeApplicationsTable.userId, userId),
-        eq(speculativeApplicationsTable.companyName, companyName),
-      ),
+      vacancyTitle
+        ? and(
+            eq(speculativeApplicationsTable.userId, userId),
+            eq(speculativeApplicationsTable.companyName, companyName),
+            eq(speculativeApplicationsTable.vacancyTitle, vacancyTitle),
+          )
+        : and(
+            eq(speculativeApplicationsTable.userId, userId),
+            eq(speculativeApplicationsTable.companyName, companyName),
+          ),
     )
     .limit(1);
 

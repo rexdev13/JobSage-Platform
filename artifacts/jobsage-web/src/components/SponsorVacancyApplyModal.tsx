@@ -89,6 +89,8 @@ export interface SponsorVacancyApplyModalProps {
   companyId: number;
   location?: string | null;
   salary?: string | null;
+  postedDate?: string | null;
+  description?: string | null;
   externalUrl?: string | null;
   onClose: () => void;
   onSuccess: () => void;
@@ -100,6 +102,8 @@ export function SponsorVacancyApplyModal({
   companyId,
   location,
   salary,
+  postedDate,
+  description,
   externalUrl,
   onClose,
   onSuccess,
@@ -201,6 +205,11 @@ export function SponsorVacancyApplyModal({
                     <DollarSign className="w-3 h-3" /> {salary}
                   </span>
                 )}
+                {postedDate && (
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <FileText className="w-3 h-3" /> {postedDate}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -223,6 +232,14 @@ export function SponsorVacancyApplyModal({
 
           {(step === "details" || step === "coverletter") && (
             <>
+              {/* Vacancy description */}
+              {description && (
+                <div className="rounded-xl bg-muted/40 border border-border px-4 py-3">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">About the role</p>
+                  <p className="text-sm text-foreground/80 leading-relaxed">{description}</p>
+                </div>
+              )}
+
               {/* AI Cover Letter section */}
               <div className="rounded-xl border border-border overflow-hidden">
                 <button

@@ -61,6 +61,7 @@ import {
   ChevronUp,
   X,
   DollarSign,
+  CalendarDays,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -1015,6 +1016,12 @@ export default function SponsorLicencesPage() {
                                                             {v.salary}
                                                           </span>
                                                         )}
+                                                        {v.postedDate && (
+                                                          <span className="flex items-center gap-1">
+                                                            <CalendarDays className="w-3 h-3" />
+                                                            {v.postedDate}
+                                                          </span>
+                                                        )}
                                                       </div>
                                                     </div>
                                                     <div className="flex items-center gap-1.5 shrink-0">
@@ -1184,7 +1191,7 @@ export default function SponsorLicencesPage() {
                 </button>
               </div>
 
-              <div className="flex flex-wrap gap-3 mb-5">
+              <div className="flex flex-wrap gap-3 mb-4">
                 {selectedVacancy.location && (
                   <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                     <MapPin className="w-4 h-4 shrink-0 text-primary/60" />
@@ -1197,7 +1204,19 @@ export default function SponsorLicencesPage() {
                     {selectedVacancy.salary}
                   </div>
                 )}
+                {selectedVacancy.postedDate && (
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <CalendarDays className="w-4 h-4 shrink-0 text-primary/60" />
+                    {selectedVacancy.postedDate}
+                  </div>
+                )}
               </div>
+
+              {selectedVacancy.description && (
+                <p className="text-sm text-foreground/80 leading-relaxed mb-4">
+                  {selectedVacancy.description}
+                </p>
+              )}
 
               <p className="text-xs text-muted-foreground mb-5 bg-muted/40 rounded-lg px-3 py-2 border border-border leading-relaxed">
                 This vacancy was sourced from a public job board. Sending your CV creates a speculative application record in JOBSAGE so you can track it.
@@ -1235,6 +1254,8 @@ export default function SponsorLicencesPage() {
             companyId={applyModalVacancy.companyId}
             location={applyModalVacancy.location}
             salary={applyModalVacancy.salary}
+            postedDate={applyModalVacancy.postedDate}
+            description={applyModalVacancy.description}
             externalUrl={applyModalVacancy.url}
             onClose={() => setApplyModalVacancy(null)}
             onSuccess={() => {
