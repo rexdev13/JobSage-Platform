@@ -9,6 +9,7 @@ import {
   rulesetRulesTable,
   auditEventsTable,
   applicationsTable,
+  speculativeApplicationsTable,
   jobListingsTable,
   employerProfilesTable,
   candidateMatchScoresTable,
@@ -493,20 +494,27 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
       requiredRegistration: row.job.requiredRegistration,
     }));
 
-  // Fetch roles the user has already applied to and exclude them
-  const appliedRows = await db
-    .select({ roleId: applicationsTable.roleId })
-    .from(applicationsTable)
-    .where(eq(applicationsTable.userId, userId));
+  // Fetch roles already applied to via both standard and speculative paths
+  const [appliedRows, speculativeRows] = await Promise.all([
+    db.select({ roleId: applicationsTable.roleId })
+      .from(applicationsTable)
+      .where(eq(applicationsTable.userId, userId)),
+    db.select({ companyName: speculativeApplicationsTable.companyName })
+      .from(speculativeApplicationsTable)
+      .where(eq(speculativeApplicationsTable.userId, userId)),
+  ]);
   const appliedIds = new Set(appliedRows.map((a) => a.roleId).filter(Boolean) as number[]);
+  const speculativeCompanies = new Set(speculativeRows.map((s) => s.companyName.toLowerCase()));
 
   const regulatorRoles = [
-    ...allRoles.filter((r) => r.regulator === regulator && !appliedIds.has(r.id)).map((r) => ({
-      id: r.id, title: r.title, employer: r.employer, location: r.location,
-      regulator: r.regulator, sponsorshipOffered: r.sponsorshipOffered,
-      requiredRegistration: r.requiredRegistration,
-    })),
-    ...employerJobsAsRoles.filter((r) => !appliedIds.has(r.id)),
+    ...allRoles
+      .filter((r) => r.regulator === regulator && !appliedIds.has(r.id) && !speculativeCompanies.has(r.employer.toLowerCase()))
+      .map((r) => ({
+        id: r.id, title: r.title, employer: r.employer, location: r.location,
+        regulator: r.regulator, sponsorshipOffered: r.sponsorshipOffered,
+        requiredRegistration: r.requiredRegistration,
+      })),
+    ...employerJobsAsRoles.filter((r) => !appliedIds.has(r.id) && !speculativeCompanies.has(r.employer.toLowerCase())),
   ];
 
   if (regulatorRoles.length === 0) {
