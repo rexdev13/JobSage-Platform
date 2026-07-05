@@ -406,7 +406,7 @@ export default function DocumentsPage() {
           <div>
             <h1 className="text-3xl font-display font-bold text-foreground flex items-center">
               <FileText className="w-8 h-8 mr-3 text-primary" />
-              My Documents
+              CV & Supporting Documents
             </h1>
             <p className="text-muted-foreground mt-2">
               Upload and categorise your CV, qualifications, certificates, and identity documents.

@@ -243,7 +243,7 @@ export default function RecommendationLettersPage() {
           <div>
             <h1 className="text-3xl font-display font-bold text-foreground flex items-center gap-3">
               <Star className="w-8 h-8 text-primary" />
-              Recommendation Letters
+              References
             </h1>
             <p className="text-muted-foreground mt-2 text-sm">
               Professional references and verified employer endorsements that strengthen your profile.

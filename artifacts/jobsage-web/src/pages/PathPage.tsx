@@ -636,8 +636,8 @@ export default function PathPage() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
                 { label: "Eligibility Check", href: "/eligibility", icon: ShieldCheck },
-                { label: "Interview Prep", href: "/interview-prep", icon: MessageSquare },
-                { label: "Opportunities", href: "/opportunities", icon: Briefcase },
+                { label: "Interview Preparation", href: "/interview-prep", icon: MessageSquare },
+                { label: "Job Opportunities", href: "/opportunities", icon: Briefcase },
                 { label: "Progress Report", href: "/my-report", icon: TrendingUp },
               ].map((tool) => (
                 <Link key={tool.href} href={tool.href}>

@@ -464,7 +464,7 @@ export default function DashboardPage() {
           />
           <StatCard
             icon={BadgeCheck}
-            label="Eligible Roles"
+            label="Eligibility Status"
             value={eligibleRolesCount}
             sub={notYetEligibleCount > 0 ? `${notYetEligibleCount} more to work towards` : allRoles.length > 0 ? "All matched roles eligible" : "Run eligibility check"}
             href="/eligibility"
@@ -472,10 +472,10 @@ export default function DashboardPage() {
           />
           <StatCard
             icon={ClipboardList}
-            label="Opportunities"
+            label="Applications"
             value={totalApplied}
             sub={appStats && totalApplied > 0 ? `${appStats.interviews} interviews · ${appStats.offers} offers · ${eligibleRolesCount} eligible roles` : `${eligibleRolesCount > 0 ? `${eligibleRolesCount} matched roles` : "Find sponsor-licensed roles"}`}
-            href="/opportunities"
+            href="/applications"
             delay={0.13}
           />
           <JourneyReadinessCard delay={0.15} />

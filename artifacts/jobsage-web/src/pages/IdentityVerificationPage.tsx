@@ -187,7 +187,7 @@ export default function IdentityVerificationPage() {
         <header className="mb-8">
           <h1 className="text-3xl font-display font-bold text-foreground flex items-center gap-3">
             <ShieldCheck className="w-8 h-8 text-primary" />
-            Identity Verification
+            ID Verification
           </h1>
           <p className="text-muted-foreground mt-2 text-sm">
             Verify your identity to unlock the verified badge on your profile and increase employer trust.

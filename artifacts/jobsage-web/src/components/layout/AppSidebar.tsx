@@ -12,6 +12,19 @@ import { useGetMyAnalytics, useGetMyProgressReport, useGetInboxUnreadCount, getG
 import { motion, useMotionValue, useTransform, animate } from "framer-motion";
 import { useEffect } from "react";
 
+type NavItem = {
+  name: string;
+  href: string;
+  icon: React.ElementType;
+  roles: string[];
+  badge?: number;
+};
+
+type NavGroup = {
+  label: string;
+  items: NavItem[];
+};
+
 export function AppSidebar() {
   const [location] = useLocation();
   const { user, logout } = useAuth();
@@ -27,45 +40,94 @@ export function AppSidebar() {
   });
   const inboxUnread = inboxData?.unreadCount ?? 0;
 
-  const navigation = [
-    // Candidate + Reviewer + Admin
-    { name: "My Dashboard", href: "/", icon: Home, roles: ["candidate", "reviewer", "admin"] },
-    { name: "My Profile", href: "/profile", icon: User, roles: ["candidate", "reviewer", "admin"] },
-    { name: "My Documents", href: "/documents", icon: FileText, roles: ["candidate", "reviewer", "admin"] },
-    { name: "My Eligibility", href: "/eligibility", icon: CheckCircle, roles: ["candidate", "reviewer", "admin"] },
-    { name: "Sponsor Licences", href: "/sponsor-licences", icon: List, roles: ["candidate", "reviewer", "admin"] },
-    { name: "Opportunities", href: "/opportunities", icon: Briefcase, roles: ["candidate", "reviewer", "admin"] },
-    { name: "My Applications", href: "/applications", icon: ClipboardList, roles: ["candidate", "reviewer", "admin"] },
-    { name: "Inbox", href: "/inbox", icon: Inbox, roles: ["candidate", "reviewer", "admin"], badge: inboxUnread },
-    { name: "My Path", href: "/path", icon: Map, roles: ["candidate", "reviewer", "admin"] },
-    { name: "Interview Prep", href: "/interview-prep", icon: Sparkles, roles: ["candidate", "reviewer", "admin"] },
-    { name: "Interview Calendar", href: "/calendar", icon: CalendarDays, roles: ["candidate", "reviewer", "admin"] },
-    { name: "Identity Verification", href: "/identity", icon: ShieldCheck, roles: ["candidate"] },
-    { name: "Recommendation Letters", href: "/recommendations", icon: Star, roles: ["candidate"] },
-    { name: "My Report", href: "/my-report", icon: BarChart2, roles: ["candidate", "reviewer", "admin"] },
-    { name: "Regulatory Guidance", href: "/regulatory-guidance", icon: BookOpen, roles: ["candidate", "reviewer", "admin"] },
+  const candidateGroups: NavGroup[] = [
+    {
+      label: "Jobs & Applications",
+      items: [
+        { name: "Job Opportunities", href: "/opportunities", icon: Briefcase, roles: ["candidate", "reviewer", "admin"] },
+        { name: "Application Tracker", href: "/applications", icon: ClipboardList, roles: ["candidate", "reviewer", "admin"] },
+        { name: "Interview Schedule", href: "/calendar", icon: CalendarDays, roles: ["candidate", "reviewer", "admin"] },
+        { name: "Messages", href: "/inbox", icon: Inbox, roles: ["candidate", "reviewer", "admin"], badge: inboxUnread },
+      ],
+    },
+    {
+      label: "My Journey",
+      items: [
+        { name: "Progress Hub", href: "/", icon: Home, roles: ["candidate", "reviewer", "admin"] },
+        { name: "Career Path", href: "/path", icon: Map, roles: ["candidate", "reviewer", "admin"] },
+      ],
+    },
+    {
+      label: "Profile & Compliance",
+      items: [
+        { name: "Personal & Professional Profile", href: "/profile", icon: User, roles: ["candidate", "reviewer", "admin"] },
+        { name: "CV & Supporting Documents", href: "/documents", icon: FileText, roles: ["candidate", "reviewer", "admin"] },
+        { name: "ID Verification", href: "/identity", icon: ShieldCheck, roles: ["candidate"] },
+        { name: "Eligibility Status", href: "/eligibility", icon: CheckCircle, roles: ["candidate", "reviewer", "admin"] },
+      ],
+    },
+    {
+      label: "Opportunity Enablers",
+      items: [
+        { name: "Visa Sponsoring Employers", href: "/sponsor-licences", icon: List, roles: ["candidate", "reviewer", "admin"] },
+        { name: "References", href: "/recommendations", icon: Star, roles: ["candidate"] },
+      ],
+    },
+    {
+      label: "Support & Preparation",
+      items: [
+        { name: "Interview Preparation", href: "/interview-prep", icon: Sparkles, roles: ["candidate", "reviewer", "admin"] },
+        { name: "Visa & Legal Guidance", href: "/regulatory-guidance", icon: BookOpen, roles: ["candidate", "reviewer", "admin"] },
+      ],
+    },
+    {
+      label: "Insights & Tracking",
+      items: [
+        { name: "Performance Report", href: "/my-report", icon: BarChart2, roles: ["candidate", "reviewer", "admin"] },
+      ],
+    },
+  ];
 
-    // Employer
+  const flatNavForOtherRoles: NavItem[] = [
     { name: "Employer Dashboard", href: "/employer/dashboard", icon: LayoutDashboard, roles: ["employer", "admin"] },
     { name: "Post a Job", href: "/employer/jobs/new", icon: Plus, roles: ["employer", "admin"] },
     { name: "Talent Search", href: "/employer/talent-search", icon: Search, roles: ["employer", "admin"] },
     { name: "Campaigns", href: "/employer/campaigns", icon: Bookmark, roles: ["employer", "admin"] },
     { name: "Organisation Profile", href: "/employer/profile", icon: Building2, roles: ["employer", "admin"] },
-    
-    // Reviewer + Admin
     { name: "Review Queue", href: "/review-queue", icon: ClipboardList, roles: ["reviewer", "admin"] },
-    
-    // Admin Only
     { name: "Ruleset Management", href: "/admin/rulesets", icon: Shield, roles: ["admin", "super_admin"] },
     { name: "Role Management", href: "/admin/roles", icon: Users, roles: ["admin", "super_admin"] },
     { name: "Audit Logs", href: "/admin/audit", icon: Shield, roles: ["admin", "super_admin"] },
     { name: "User Management", href: "/admin/users", icon: UserCog, roles: ["admin", "super_admin"] },
-
-    // Super Admin Only
     { name: "Super Admin", href: "/admin/super", icon: ShieldAlert, roles: ["super_admin"] },
   ];
 
-  const visibleNav = navigation.filter(item => item.roles.includes(role));
+  const isCandidateLike = role === "candidate" || role === "reviewer" || role === "admin";
+
+  function renderNavItem(item: NavItem) {
+    if (!item.roles.includes(role)) return null;
+    const isActive = location === item.href;
+    const badge = item.badge;
+    return (
+      <Link key={item.href} href={item.href} className={cn(
+        "flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition-colors hover-elevate",
+        isActive
+          ? "bg-primary text-primary-foreground shadow-sm"
+          : "text-sidebar-foreground hover:bg-sidebar-accent"
+      )}>
+        <item.icon className={cn("w-4 h-4 mr-3 shrink-0", isActive ? "text-primary-foreground/80" : "text-muted-foreground")} />
+        <span className="flex-1 leading-tight">{item.name}</span>
+        {badge != null && badge > 0 && (
+          <span className={cn(
+            "ml-auto inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold",
+            isActive ? "bg-primary-foreground text-primary" : "bg-primary text-primary-foreground"
+          )}>
+            {badge > 99 ? "99+" : badge}
+          </span>
+        )}
+      </Link>
+    );
+  }
 
   return (
     <div className="w-64 bg-sidebar border-r border-sidebar-border h-screen flex flex-col shrink-0">
@@ -76,31 +138,28 @@ export function AppSidebar() {
           className="h-8 w-auto object-contain"
         />
       </div>
-      
-      <div className="flex-1 overflow-y-auto py-4 px-4 space-y-1">
-        {visibleNav.map((item) => {
-          const isActive = location === item.href;
-          const badge = (item as { badge?: number }).badge;
-          return (
-            <Link key={item.name} href={item.href} className={cn(
-              "flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition-colors hover-elevate",
-              isActive 
-                ? "bg-primary text-primary-foreground shadow-sm" 
-                : "text-sidebar-foreground hover:bg-sidebar-accent"
-            )}>
-              <item.icon className={cn("w-5 h-5 mr-3", isActive ? "text-primary-foreground/80" : "text-muted-foreground")} />
-              <span className="flex-1">{item.name}</span>
-              {badge != null && badge > 0 && (
-                <span className={cn(
-                  "ml-auto inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold",
-                  isActive ? "bg-primary-foreground text-primary" : "bg-primary text-primary-foreground"
-                )}>
-                  {badge > 99 ? "99+" : badge}
-                </span>
-              )}
-            </Link>
-          );
-        })}
+
+      <div className="flex-1 overflow-y-auto py-3 px-3">
+        {isCandidateLike ? (
+          candidateGroups.map((group) => {
+            const visibleItems = group.items.filter(item => item.roles.includes(role));
+            if (visibleItems.length === 0) return null;
+            return (
+              <div key={group.label} className="mb-4">
+                <p className="px-3 mb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 select-none">
+                  {group.label}
+                </p>
+                <div className="space-y-0.5">
+                  {visibleItems.map(renderNavItem)}
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="space-y-0.5">
+            {flatNavForOtherRoles.filter(item => item.roles.includes(role)).map(renderNavItem)}
+          </div>
+        )}
       </div>
 
       {role === "candidate" && (
@@ -123,7 +182,7 @@ export function AppSidebar() {
             <p className="text-xs text-muted-foreground capitalize">{role}</p>
           </div>
         </div>
-        <button 
+        <button
           onClick={logout}
           className="w-full flex items-center px-3 py-2.5 rounded-xl text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
         >
@@ -139,9 +198,9 @@ const RING_R = 26;
 const RING_CIRC = 2 * Math.PI * RING_R;
 
 function ringColor(score: number) {
-  if (score >= 90) return "#22c55e";   // emerald-500
+  if (score >= 90) return "#22c55e";
   if (score >= 70) return "hsl(var(--primary))";
-  if (score >= 40) return "#f59e0b";   // amber-500
+  if (score >= 40) return "#f59e0b";
   return "hsl(var(--destructive))";
 }
 
