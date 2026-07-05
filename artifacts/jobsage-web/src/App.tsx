@@ -24,6 +24,7 @@ import { AuthGuard } from "@/components/layout/AuthGuard";
 
 import LandingPage from "@/pages/LandingPage";
 import LoginPage from "@/pages/LoginPage";
+import AdminLoginPage from "@/pages/admin/AdminLoginPage";
 import RegisterPage from "@/pages/RegisterPage";
 import ForgotPasswordPage from "@/pages/ForgotPasswordPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
@@ -187,6 +188,7 @@ function Router() {
 
       {/* Public auth routes */}
       <Route path="/login" component={LoginPage} />
+      <Route path="/admin/login" component={AdminLoginPage} />
       <Route path="/register" component={RegisterPage} />
       <Route path="/employer/register" component={EmployerRegisterPage} />
       <Route path="/forgot-password" component={ForgotPasswordPage} />

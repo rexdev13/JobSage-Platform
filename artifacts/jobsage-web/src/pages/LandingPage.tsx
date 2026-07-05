@@ -83,6 +83,12 @@ function Navbar({ onLogin }: { onLogin: () => void }) {
         </nav>
 
         <div className="hidden md:flex items-center gap-3">
+          <button
+            onClick={() => setLocation("/admin/login")}
+            className="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors px-2 py-1"
+          >
+            Admin
+          </button>
           <Button
             variant="ghost"
             size="sm"
