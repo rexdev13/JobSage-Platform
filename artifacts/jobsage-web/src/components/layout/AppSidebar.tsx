@@ -102,7 +102,7 @@ export function AppSidebar() {
     { name: "Super Admin", href: "/admin/super", icon: ShieldAlert, roles: ["super_admin"] },
   ];
 
-  const isCandidateLike = role === "candidate" || role === "reviewer" || role === "admin";
+  const isCandidateLike = role === "candidate";
 
   function renderNavItem(item: NavItem) {
     if (!item.roles.includes(role)) return null;
