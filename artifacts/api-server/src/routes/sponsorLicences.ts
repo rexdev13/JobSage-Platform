@@ -413,6 +413,7 @@ Include up to 8 specific vacancies in vacancyList if found. Use null for missing
 router.get("/sponsor-licences/vacancy-stats", requireAuthenticated, async (_req, res) => {
   try {
     const cutoff = new Date(Date.now() - VACANCY_CACHE_TTL_MS);
+    // Order DESC so the first row seen per org is the most recent check
     const rows = await db
       .select({
         organisationName: sponsorLicenceVacancyChecksTable.organisationName,
@@ -420,12 +421,13 @@ router.get("/sponsor-licences/vacancy-stats", requireAuthenticated, async (_req,
         vacancyCount: sponsorLicenceVacancyChecksTable.vacancyCount,
       })
       .from(sponsorLicenceVacancyChecksTable)
-      .where(gt(sponsorLicenceVacancyChecksTable.checkedAt, cutoff));
+      .where(gt(sponsorLicenceVacancyChecksTable.checkedAt, cutoff))
+      .orderBy(desc(sponsorLicenceVacancyChecksTable.checkedAt));
 
+    // Keep only the latest check per organisation (rows already sorted newest-first)
     const byOrg = new Map<string, { found: boolean; count: number }>();
     for (const row of rows) {
-      const existing = byOrg.get(row.organisationName);
-      if (!existing || row.vacanciesFound) {
+      if (!byOrg.has(row.organisationName)) {
         byOrg.set(row.organisationName, {
           found: row.vacanciesFound,
           count: row.vacancyCount ?? 0,
