@@ -86,6 +86,21 @@ export function AppSidebar() {
         { name: "Performance Report", href: "/my-report", icon: BarChart2, roles: ["candidate", "reviewer", "admin"] },
       ],
     },
+    {
+      label: "Operations",
+      items: [
+        { name: "Review Queue", href: "/review-queue", icon: ClipboardList, roles: ["reviewer", "admin"] },
+        { name: "Employer Dashboard", href: "/employer/dashboard", icon: LayoutDashboard, roles: ["admin"] },
+        { name: "Post a Job", href: "/employer/jobs/new", icon: Plus, roles: ["admin"] },
+        { name: "Talent Search", href: "/employer/talent-search", icon: Search, roles: ["admin"] },
+        { name: "Campaigns", href: "/employer/campaigns", icon: Bookmark, roles: ["admin"] },
+        { name: "Organisation Profile", href: "/employer/profile", icon: Building2, roles: ["admin"] },
+        { name: "Ruleset Management", href: "/admin/rulesets", icon: Shield, roles: ["admin"] },
+        { name: "Role Management", href: "/admin/roles", icon: Users, roles: ["admin"] },
+        { name: "Audit Logs", href: "/admin/audit", icon: Shield, roles: ["admin"] },
+        { name: "User Management", href: "/admin/users", icon: UserCog, roles: ["admin"] },
+      ],
+    },
   ];
 
   const flatNavForOtherRoles: NavItem[] = [
@@ -102,7 +117,7 @@ export function AppSidebar() {
     { name: "Super Admin", href: "/admin/super", icon: ShieldAlert, roles: ["super_admin"] },
   ];
 
-  const isCandidateLike = role === "candidate";
+  const isCandidateLike = role === "candidate" || role === "reviewer" || role === "admin";
 
   function renderNavItem(item: NavItem) {
     if (!item.roles.includes(role)) return null;
