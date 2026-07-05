@@ -1194,6 +1194,97 @@ function JobListingsTab() {
   );
 }
 
+interface EmployerDetailData {
+  employer: Record<string, unknown>;
+  user: Record<string, unknown>;
+  listings: Array<Record<string, unknown>>;
+}
+
+function EmployerDetailPanel({ id, onClose }: { id: number; onClose: () => void }) {
+  const [data, setData] = useState<EmployerDetailData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/admin/super/employers/${id}`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((d: EmployerDetailData) => setData(d))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  return (
+    <div className="px-6 py-5 bg-muted/30 border-t border-border space-y-5">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-sm">Full Employer Detail</h3>
+        <button onClick={onClose} className="text-xs text-muted-foreground hover:text-foreground underline">Close</button>
+      </div>
+
+      {loading && <div className="flex justify-center py-4"><div className="w-5 h-5 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>}
+
+      {!loading && data && (
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+            {[
+              ["Company", String(data.employer["companyName"] ?? "—")],
+              ["Region", String(data.employer["region"] ?? "—")],
+              ["Industry", String(data.employer["industry"] ?? "—").replace(/_/g, " ")],
+              ["Sponsor Licence", String(data.employer["sponsorLicenceNumber"] ?? "—")],
+              ["Website", String(data.employer["website"] ?? "—")],
+              ["Phone", String(data.employer["phone"] ?? "—")],
+              ["User Email", String(data.user["email"] ?? "—")],
+              ["User Role", String(data.user["role"] ?? "—").replace("_", " ")],
+              ["Email Verified", String(data.user["emailVerified"]) === "true" ? "Yes" : "No"],
+              ["User ID", String(data.user["id"] ?? "—").slice(0, 16) + "…"],
+              ["Joined", data.employer["createdAt"] ? new Date(String(data.employer["createdAt"])).toLocaleDateString("en-GB") : "—"],
+            ].map(([label, val]) => (
+              <div key={label} className="bg-background rounded-lg px-3 py-2 border border-border">
+                <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
+                <p className="font-medium text-sm break-all">{val}</p>
+              </div>
+            ))}
+          </div>
+
+          <div>
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Job Listings ({data.listings.length})</h4>
+            {data.listings.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No listings.</p>
+            ) : (
+              <div className="overflow-x-auto rounded-lg border border-border">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/50">
+                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Title</th>
+                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Location</th>
+                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Status</th>
+                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Posted</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.listings.map((l, i) => (
+                      <tr key={i} className="border-b border-border/50 last:border-0">
+                        <td className="px-3 py-2 font-medium">{String(l["title"] ?? "—")}</td>
+                        <td className="px-3 py-2 text-xs text-muted-foreground">{String(l["location"] ?? "—")}</td>
+                        <td className="px-3 py-2">
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${String(l["status"]) === "published" ? "bg-green-100 text-green-700" : String(l["status"]) === "draft" ? "bg-amber-100 text-amber-700" : "bg-muted text-muted-foreground"}`}>
+                            {String(l["status"] ?? "—")}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-xs text-muted-foreground">
+                          {l["createdAt"] ? new Date(String(l["createdAt"])).toLocaleDateString("en-GB") : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function EmployersTab() {
   const [employers, setEmployers] = useState<AdminEmployer[]>([]);
   const [total, setTotal] = useState(0);
@@ -1284,14 +1375,7 @@ function EmployersTab() {
                   {expandedId === e.id && (
                     <tr key={`${e.id}-detail`}>
                       <td colSpan={8} className="p-0">
-                        <div className="px-6 py-4 bg-muted/30 border-t border-border space-y-2 text-sm">
-                          <div className="flex gap-6 flex-wrap">
-                            <div><span className="text-muted-foreground text-xs">User ID</span><p className="font-mono text-xs">{e.userId}</p></div>
-                            <div><span className="text-muted-foreground text-xs">Email Verified</span><p className={e.emailVerified ? "text-green-600" : "text-red-500"}>{e.emailVerified ? "Yes" : "No"}</p></div>
-                            <div><span className="text-muted-foreground text-xs">Sponsor Licence</span><p>{e.sponsorLicenceNumber ?? "—"}</p></div>
-                            <div><span className="text-muted-foreground text-xs">Role</span><p className="capitalize">{e.userRole.replace("_", " ")}</p></div>
-                          </div>
-                        </div>
+                        <EmployerDetailPanel id={e.id} onClose={() => setExpandedId(null)} />
                       </td>
                     </tr>
                   )}
