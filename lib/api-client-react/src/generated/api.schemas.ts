@@ -1157,6 +1157,8 @@ export interface VacancyListing {
   location?: string | null;
   salary?: string | null;
   url?: string | null;
+  description?: string | null;
+  postedDate?: string | null;
 }
 
 export interface VacancyCheckResult {

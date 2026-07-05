@@ -294,7 +294,29 @@ router.post("/sponsor-licences/:id/check-vacancies", requireAuthenticated, async
     let vacancyCount: number | null = null;
     let sourceUrl: string | null = `https://www.reed.co.uk/jobs?keywords=${encodeURIComponent(organisationName)}&locationName=United+Kingdom`;
     let summary = "No active vacancies found.";
-    let vacancyList: Array<{ title: string; location: string | null; salary: string | null; url: string | null }> | null = null;
+    let vacancyList: Array<{ title: string; location: string | null; salary: string | null; url: string | null; description: string | null; postedDate: string | null }> | null = null;
+
+    // Extracts the outermost complete JSON object from a string using bracket counting
+    function extractOutermostJson(text: string): string | null {
+      const start = text.indexOf("{");
+      if (start === -1) return null;
+      let depth = 0;
+      let inString = false;
+      let escape = false;
+      for (let i = start; i < text.length; i++) {
+        const ch = text[i];
+        if (escape) { escape = false; continue; }
+        if (ch === "\\" && inString) { escape = true; continue; }
+        if (ch === '"') { inString = !inString; continue; }
+        if (inString) continue;
+        if (ch === "{") depth++;
+        else if (ch === "}") {
+          depth--;
+          if (depth === 0) return text.slice(start, i + 1);
+        }
+      }
+      return null;
+    }
 
     try {
       const response = await openai.responses.create({
@@ -302,7 +324,7 @@ router.post("/sponsor-licences/:id/check-vacancies", requireAuthenticated, async
         tools: [{ type: "web_search_preview" as const }],
         input: `Search for current job openings at "${organisationName}" in the United Kingdom.
 Look on Reed, Indeed, LinkedIn, NHS Jobs, and the company's own careers page.
-After searching, reply with a JSON block ONLY in this exact format (no extra text):
+After searching, reply with a JSON object ONLY — no markdown, no extra text, just raw JSON:
 {
   "vacanciesFound": true or false,
   "vacancyCount": number or null,
@@ -313,22 +335,31 @@ After searching, reply with a JSON block ONLY in this exact format (no extra tex
       "title": "Job title",
       "location": "City, County or null",
       "salary": "£XX,XXX - £XX,XXX or null",
-      "url": "direct link to job posting or null"
+      "url": "direct link to job posting or null",
+      "description": "2-3 sentence description of the role or null",
+      "postedDate": "YYYY-MM-DD or relative like '3 days ago' or null"
     }
   ]
 }
-Include up to 8 specific vacancies in vacancyList if found. Use null for missing fields. vacancyList should be an empty array if no vacancies found.`,
+Include up to 8 specific vacancies in vacancyList if found. Use null for missing fields. vacancyList must be an empty array if no vacancies found.`,
       });
 
       const text = response.output_text ?? "";
-      const jsonMatch = /\{[\s\S]*?"vacanciesFound"[\s\S]*?\}/.exec(text);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]) as {
+      const jsonStr = extractOutermostJson(text);
+      if (jsonStr) {
+        const parsed = JSON.parse(jsonStr) as {
           vacanciesFound?: boolean;
           vacancyCount?: number | null;
           sourceUrl?: string | null;
           summary?: string;
-          vacancyList?: Array<{ title?: string; location?: string | null; salary?: string | null; url?: string | null }>;
+          vacancyList?: Array<{
+            title?: string;
+            location?: string | null;
+            salary?: string | null;
+            url?: string | null;
+            description?: string | null;
+            postedDate?: string | null;
+          }>;
         };
         vacanciesFound = parsed.vacanciesFound === true;
         vacancyCount = typeof parsed.vacancyCount === "number" ? parsed.vacancyCount : null;
@@ -344,6 +375,8 @@ Include up to 8 specific vacancies in vacancyList if found. Use null for missing
               location: typeof v.location === "string" ? v.location.trim() || null : null,
               salary: typeof v.salary === "string" ? v.salary.trim() || null : null,
               url: typeof v.url === "string" && v.url.startsWith("http") ? v.url.trim() : null,
+              description: typeof v.description === "string" ? v.description.trim() || null : null,
+              postedDate: typeof v.postedDate === "string" ? v.postedDate.trim() || null : null,
             }))
             .slice(0, 8);
           if (vacancyList.length > 0 && !vacancyCount) {
