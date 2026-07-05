@@ -1152,6 +1152,13 @@ export interface SponsorLicenceIndustryCountsResponse {
   counts: SponsorLicenceIndustryCount[];
 }
 
+export interface VacancyListing {
+  title: string;
+  location?: string | null;
+  salary?: string | null;
+  url?: string | null;
+}
+
 export interface VacancyCheckResult {
   vacanciesFound: boolean;
   vacancyCount?: number | null;
@@ -1159,6 +1166,7 @@ export interface VacancyCheckResult {
   summary?: string | null;
   checkedAt: string;
   fromCache: boolean;
+  vacancyList?: VacancyListing[] | null;
 }
 
 export interface BoostProfileRequest {

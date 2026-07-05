@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, integer, boolean, varchar, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, integer, boolean, varchar, index, uniqueIndex, jsonb } from "drizzle-orm/pg-core";
 
 export const sponsorLicencesTable = pgTable(
   "sponsor_licences",
@@ -43,6 +43,7 @@ export const sponsorLicenceVacancyChecksTable = pgTable(
     vacancyCount: integer("vacancy_count"),
     sourceUrl: text("source_url"),
     summary: text("summary"),
+    vacancyList: jsonb("vacancy_list").$type<Array<{ title: string; location: string | null; salary: string | null; url: string | null }>>(),
   },
   (t) => [
     index("vacancy_checks_org_name_idx").on(t.organisationName),
