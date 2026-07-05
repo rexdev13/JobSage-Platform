@@ -8,9 +8,11 @@ import {
   TrendingUp, Inbox, CalendarDays, Star, ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/components/ui-enhanced";
-import { useGetMyAnalytics, useGetMyProgressReport, useGetInboxUnreadCount, getGetInboxUnreadCountQueryKey } from "@workspace/api-client-react";
+import { useGetMyAnalytics, useGetMyProgressReport, useGetInboxUnreadCount, getGetInboxUnreadCountQueryKey, useGetMyProfile, getGetMyProfileQueryKey } from "@workspace/api-client-react";
 import { motion, useMotionValue, useTransform, animate } from "framer-motion";
 import { useEffect } from "react";
+
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 type NavItem = {
   name: string;
@@ -39,6 +41,11 @@ export function AppSidebar() {
     },
   });
   const inboxUnread = inboxData?.unreadCount ?? 0;
+
+  const { data: myProfile } = useGetMyProfile({ query: { queryKey: getGetMyProfileQueryKey(), enabled: role === "candidate" } });
+  const profilePhotoUrl = myProfile?.profilePhotoKey
+    ? `${BASE}/api/storage/objects/${myProfile.profilePhotoKey.replace(/^\/objects\//, "")}`
+    : null;
 
   const candidateGroups: NavGroup[] = [
     {
@@ -184,7 +191,9 @@ export function AppSidebar() {
       <div className="p-4 border-t border-sidebar-border shrink-0">
         <div className="flex items-center mb-4 px-2">
           <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold overflow-hidden shrink-0">
-            {user?.profileImageUrl ? (
+            {profilePhotoUrl ? (
+              <img src={profilePhotoUrl} alt="Avatar" className="w-full h-full object-cover" />
+            ) : user?.profileImageUrl ? (
               <img src={user.profileImageUrl} alt="Avatar" className="w-full h-full object-cover" />
             ) : (
               (user?.firstName?.[0] || user?.email?.[0] || "U").toUpperCase()

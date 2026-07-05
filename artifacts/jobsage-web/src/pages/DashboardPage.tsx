@@ -478,6 +478,9 @@ export default function DashboardPage() {
   const boostProfile = profile?.boostProfile ?? false;
 
   const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const profilePhotoUrl = profile?.profilePhotoKey
+    ? `${base}/api/storage/objects/${(profile.profilePhotoKey as string).replace(/^\/objects\//, "")}`
+    : null;
   const { data: vacancyStatsData } = useQuery<{ totalVacanciesFound: number; companiesWithVacancies: number }>({
     queryKey: ["sponsor-vacancy-stats"],
     queryFn: async () => {
@@ -530,11 +533,24 @@ export default function DashboardPage() {
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05, duration: 0.4 }}>
           <Card className="p-5 mb-5 border-primary/10 bg-gradient-to-r from-primary/3 to-background">
             <div className="flex items-start gap-4">
-              {/* Completion ring */}
-              <div className="relative shrink-0">
-                <ProfileCompletionRing pct={profilePct} />
-                <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-primary">{profilePct}%</span>
-              </div>
+              {/* Profile photo or completion ring */}
+              {profilePhotoUrl ? (
+                <div className="relative shrink-0">
+                  <div className="w-14 h-14 rounded-full overflow-hidden ring-2 ring-primary/20 ring-offset-1">
+                    <img src={profilePhotoUrl} alt="Profile" className="w-full h-full object-cover" />
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-0.5 shadow-sm">
+                    <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center">
+                      <span className="text-[8px] font-bold text-primary">{profilePct}%</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="relative shrink-0">
+                  <ProfileCompletionRing pct={profilePct} />
+                  <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-primary">{profilePct}%</span>
+                </div>
+              )}
 
               <div className="flex-1 min-w-0">
                 <h1 className="text-xl font-display font-bold text-foreground leading-tight">
