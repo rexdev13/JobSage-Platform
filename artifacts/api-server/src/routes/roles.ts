@@ -278,7 +278,10 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
   const limit = Math.min(200, parseInt(String(req.query.limit ?? "10"), 10) || 10);
   const offset = Math.max(0, parseInt(String(req.query.offset ?? "0"), 10) || 0);
 
-  const [profile] = await db.select().from(profilesTable).where(eq(profilesTable.userId, userId));
+  const [[profile], [activeCareerProfile]] = await Promise.all([
+    db.select().from(profilesTable).where(eq(profilesTable.userId, userId)),
+    db.select().from(careerProfilesTable).where(and(eq(careerProfilesTable.userId, userId), eq(careerProfilesTable.isActive, true))),
+  ]);
   if (!profile) {
     res.status(400).json({ error: "Profile not found. Please complete your profile first." });
     return;
@@ -395,6 +398,12 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
   const dismissedRoleIds = dismissals.map((d) => d.roleId);
   const dismissedSet = new Set(dismissedRoleIds);
 
+  // Career profile focus-area boost (same logic as /opportunities/recommended)
+  const focusAreaWords = activeCareerProfile?.focusArea
+    ? activeCareerProfile.focusArea.toLowerCase().split(/\s+/).filter(Boolean)
+    : [];
+  const effectiveSpecialty = activeCareerProfile?.focusArea ?? profile.specialty ?? "";
+
   const allSortedMatches = regulatorRoles
     .filter((r) => !dismissedSet.has(r.id))
     .map((r) => {
@@ -415,6 +424,18 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
         }
       }
 
+      const baseScore = scoreMap.get(r.id)?.score ?? 50;
+      const baseExplanation = scoreMap.get(r.id)?.explanation ?? "Profile matched to role requirements.";
+
+      // Boost score if the role title matches career profile focus-area keywords
+      const titleLower = r.title.toLowerCase();
+      const boost = focusAreaWords.filter((w) => titleLower.includes(w)).length * 8;
+      const aiScore = Math.min(100, baseScore + boost);
+      const aiExplanation =
+        boost > 0 && effectiveSpecialty
+          ? `${baseExplanation} Aligned with your career focus: ${effectiveSpecialty}.`
+          : baseExplanation;
+
       return {
         roleId: r.id,
         title: r.title,
@@ -423,10 +444,11 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
         regulator: r.regulator,
         sponsorshipOffered: r.sponsorshipOffered,
         requiredRegistration: r.requiredRegistration,
-        aiScore: scoreMap.get(r.id)?.score ?? 50,
-        aiExplanation: scoreMap.get(r.id)?.explanation ?? "Profile matched to role requirements.",
+        aiScore,
+        aiExplanation,
         isEligible,
         eligibilityGaps,
+        careerProfileId: activeCareerProfile?.id ?? null,
       };
     })
     .sort((a, b) => {
