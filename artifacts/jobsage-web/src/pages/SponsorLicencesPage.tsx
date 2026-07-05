@@ -757,12 +757,17 @@ export default function SponsorLicencesPage() {
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <span className="font-semibold text-foreground truncate">{c.organisationName}</span>
-                                  {c.hasVacancies && (
+                                  {(c.storedVacancyCount != null && c.storedVacancyCount > 0) ? (
+                                    <span className="inline-flex items-center gap-1 text-xs bg-green-500/10 text-green-700 px-2 py-0.5 rounded-full font-medium">
+                                      <BadgeCheck className="w-3 h-3" />
+                                      {c.storedVacancyCount} {c.storedVacancyCount === 1 ? "Vacancy" : "Vacancies"}
+                                    </span>
+                                  ) : c.hasVacancies ? (
                                     <span className="inline-flex items-center gap-1 text-xs bg-green-500/10 text-green-700 px-2 py-0.5 rounded-full font-medium">
                                       <BadgeCheck className="w-3 h-3" />
                                       Vacancies
                                     </span>
-                                  )}
+                                  ) : null}
                                   {sentCompanyNames.has(c.organisationName) && (
                                     <span className="inline-flex items-center gap-1 text-xs bg-blue-500/10 text-blue-700 px-2 py-0.5 rounded-full font-medium">
                                       <CheckCircle2 className="w-3 h-3" /> CV Sent
