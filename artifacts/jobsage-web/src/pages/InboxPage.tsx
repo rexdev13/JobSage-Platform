@@ -127,7 +127,7 @@ export default function InboxPage() {
         {/* Header */}
         <div className="h-16 border-b border-border flex items-center px-6 shrink-0">
           <Inbox className="w-5 h-5 text-primary mr-2" />
-          <h1 className="text-lg font-display font-bold text-foreground">Inbox</h1>
+          <h1 className="text-lg font-display font-bold text-foreground">Messages</h1>
           {totalUnread > 0 && (
             <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold bg-primary text-primary-foreground">
               {totalUnread}
