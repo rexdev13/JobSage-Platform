@@ -4,7 +4,8 @@ import { db } from "@workspace/db";
 import { speculativeApplicationsTable, employerProfilesTable, documentsTable } from "@workspace/db";
 import { eq, and, desc, ilike } from "drizzle-orm";
 import { writeAuditEvent } from "../lib/audit";
-import { sendSpeculativeCVNotification, sendSpeculativeCVToOps } from "../lib/email";
+import { sendSpeculativeCVNotification, sendSpeculativeCVToOps, OPS_INBOX } from "../lib/email";
+import { ObjectStorageService } from "../lib/objectStorage";
 
 const router: IRouter = Router();
 
@@ -55,7 +56,7 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
       userId,
       companyName,
       sponsorLicenceId: sponsorLicenceId ?? null,
-      status: "sent",
+      status: "cv_sent",
       notes: notes ?? null,
     })
     .returning();
@@ -74,6 +75,19 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
     .orderBy(desc(documentsTable.uploadedAt));
   const cvDocument = allDocs.find((d) => d.documentType === "cv") ?? allDocs[0] ?? null;
 
+  // Fetch CV file bytes from object storage for email attachment (best-effort)
+  let cvContent: Buffer | null = null;
+  if (cvDocument?.storageKey) {
+    try {
+      const storage = new ObjectStorageService();
+      const gcsFile = await storage.getObjectEntityFile(cvDocument.storageKey);
+      const [downloaded] = await gcsFile.download();
+      cvContent = downloaded as Buffer;
+    } catch (err: unknown) {
+      console.error("[speculative] Could not fetch CV from storage:", err);
+    }
+  }
+
   // Fire outbound emails and persist delivery metadata
   const now = new Date();
   let emailDelivered = false;
@@ -81,7 +95,7 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
     await Promise.all([
       // Candidate confirmation
       sendSpeculativeCVNotification({ candidateEmail: user.email, candidateName, companyName }),
-      // JOBSAGE ops inbox — includes CV reference for follow-up
+      // JOBSAGE ops inbox — actual CV file attached where available
       sendSpeculativeCVToOps({
         candidateEmail: user.email,
         candidateName,
@@ -89,7 +103,7 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
         companyName,
         applicationId: app!.id,
         cvFilename: cvDocument?.filename ?? null,
-        cvStorageKey: cvDocument?.storageKey ?? null,
+        cvContent,
         notes: notes ?? null,
       }),
     ]);
@@ -105,7 +119,7 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
       cvDocumentId: cvDocument?.id ?? null,
       emailSent: emailDelivered,
       emailSentAt: emailDelivered ? now : null,
-      emailRecipient: "ops@jobsage.co.uk",
+      emailRecipient: OPS_INBOX,
     })
     .where(eq(speculativeApplicationsTable.id, app!.id));
 
