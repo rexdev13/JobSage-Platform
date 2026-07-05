@@ -19,6 +19,7 @@ import { eq, desc, and, inArray, gte } from "drizzle-orm";
 import { requireRole, requireAuthenticated } from "../middlewares/requireRole";
 import { assessSponsorshipFeasibility } from "../lib/sponsorshipFeasibility";
 import { batchScoreRoles } from "../lib/candidateAiMatch";
+import { careerProfilesTable } from "@workspace/db";
 
 const router: IRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -445,7 +446,10 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
   const userId = req.user!.id;
   const limit = Math.min(10, Math.max(1, parseInt(String(req.query.limit ?? "3"), 10) || 3));
 
-  const [profile] = await db.select().from(profilesTable).where(eq(profilesTable.userId, userId));
+  const [[profile], [activeCareerProfile]] = await Promise.all([
+    db.select().from(profilesTable).where(eq(profilesTable.userId, userId)),
+    db.select().from(careerProfilesTable).where(and(eq(careerProfilesTable.userId, userId), eq(careerProfilesTable.isActive, true))),
+  ]);
   if (!profile?.profession) {
     res.json({ roles: [] });
     return;
@@ -530,19 +534,29 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
     .where(and(eq(candidateMatchScoresTable.userId, userId), gte(candidateMatchScoresTable.scoredAt, cutoff)));
   const scoreMap = new Map(cachedScores.map((s) => [s.roleId, s.score]));
 
+  const focusAreaLower = activeCareerProfile?.focusArea?.toLowerCase() ?? null;
+
   const scored = regulatorRoles.map((r) => {
     const reqReg = r.requiredRegistration.toLowerCase();
     const roleRequiresFull = reqReg.includes("full") || reqReg.includes("registered");
     const meetsRegistration = roleRequiresFull ? isRegistered || isLicenceReady : true;
     const isEligible = userIsEligible && meetsRegistration;
     // AI score if cached, else heuristic
-    const matchScore = scoreMap.get(r.id) ?? computeMatchScore(
+    let matchScore = scoreMap.get(r.id) ?? computeMatchScore(
       { ...r, id: r.id, regulator: r.regulator, active: true, importedAt: new Date(), importedBy: "" },
       isEligible,
       profile.requiresSponsorship,
     );
-    const matchReason = deriveMatchReason(r, isEligible, profile.requiresSponsorship, profile.specialty);
-    return { ...r, matchScore, isEligible, matchReason };
+    // Boost score when the active career profile's focus area matches the role title/location
+    if (focusAreaLower) {
+      const titleLower = r.title.toLowerCase();
+      const words = focusAreaLower.split(/\s+/);
+      const matchCount = words.filter((w: string) => w.length > 3 && titleLower.includes(w)).length;
+      if (matchCount > 0) matchScore = Math.min(100, matchScore + matchCount * 8);
+    }
+    const effectiveSpecialty = activeCareerProfile?.focusArea ?? profile.specialty;
+    const matchReason = deriveMatchReason(r, isEligible, profile.requiresSponsorship, effectiveSpecialty);
+    return { ...r, matchScore, isEligible, matchReason, careerProfileId: activeCareerProfile?.id ?? null };
   });
 
   scored.sort((a, b) => {

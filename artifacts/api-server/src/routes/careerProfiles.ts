@@ -9,6 +9,59 @@ const router: IRouter = Router();
 
 const MAX_PROFILES = 3;
 
+async function generateCvBackground(profileId: number, userId: string): Promise<void> {
+  try {
+    const [[careerProfile], [baseProfile]] = await Promise.all([
+      db.select().from(careerProfilesTable).where(and(eq(careerProfilesTable.id, profileId), eq(careerProfilesTable.userId, userId))),
+      db.select().from(profilesTable).where(eq(profilesTable.userId, userId)),
+    ]);
+    if (!careerProfile) return;
+
+    const profileContext = baseProfile
+      ? [
+          `Profession: ${baseProfile.profession}`,
+          `Specialty: ${baseProfile.specialty}`,
+          `Qualification: ${baseProfile.qualificationType} (${baseProfile.qualificationCountry}, ${baseProfile.qualificationYear})`,
+          `Experience: ${baseProfile.experienceYears} year(s)`,
+          `Registration Status: ${baseProfile.registrationStatus}`,
+          `Languages: ${(baseProfile.languages ?? []).join(", ") || "Not specified"}`,
+          baseProfile.additionalNotes ? `Notes: ${baseProfile.additionalNotes}` : "",
+        ].filter(Boolean).join("\n")
+      : "No base profile found.";
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a professional CV writer specialising in UK healthcare and professional sector roles. " +
+            "Write a tailored, concise professional summary and key skills section for a candidate applying for UK roles. " +
+            "Focus on the specific career profile focus area provided. " +
+            "Format: 2–3 sentence professional summary, followed by 5–6 bullet-point key skills. " +
+            "Keep it under 300 words. Do not include personal details or contact information. " +
+            "End with a short disclaimer: 'This CV content was AI-assisted. Please review and personalise before submitting applications.'",
+        },
+        {
+          role: "user",
+          content:
+            `Generate a tailored CV summary for the following career profile:\n\n` +
+            `Career Profile Name: ${careerProfile.name}\n` +
+            `Focus Area: ${careerProfile.focusArea}\n\n` +
+            `Base Professional Profile:\n${profileContext}`,
+        },
+      ],
+      max_tokens: 500,
+      temperature: 0.7,
+    });
+
+    const aiCvContent = completion.choices[0]?.message?.content?.trim() ?? "";
+    await db.update(careerProfilesTable).set({ aiCvContent }).where(eq(careerProfilesTable.id, profileId));
+  } catch (err) {
+    console.error("[career-profiles] Background CV generation failed:", err);
+  }
+}
+
 router.get("/career-profiles", requireAuthenticated, requireConsent, async (req, res): Promise<void> => {
   const userId = req.user!.id;
   const profiles = await db
@@ -51,11 +104,14 @@ router.post("/career-profiles", requireAuthenticated, requireConsent, async (req
     .returning();
 
   res.status(201).json(created);
+
+  // Background: auto-generate CV for the new profile so it's ready immediately
+  setImmediate(() => void generateCvBackground(created.id, userId));
 });
 
 router.patch("/career-profiles/:id", requireAuthenticated, requireConsent, async (req, res): Promise<void> => {
   const userId = req.user!.id;
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id." }); return; }
 
   const [profile] = await db
@@ -89,7 +145,7 @@ router.patch("/career-profiles/:id", requireAuthenticated, requireConsent, async
 
 router.delete("/career-profiles/:id", requireAuthenticated, requireConsent, async (req, res): Promise<void> => {
   const userId = req.user!.id;
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id." }); return; }
 
   const [profile] = await db
@@ -120,7 +176,7 @@ router.delete("/career-profiles/:id", requireAuthenticated, requireConsent, asyn
 
 router.post("/career-profiles/:id/activate", requireAuthenticated, requireConsent, async (req, res): Promise<void> => {
   const userId = req.user!.id;
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id." }); return; }
 
   const [profile] = await db
@@ -146,7 +202,7 @@ router.post("/career-profiles/:id/activate", requireAuthenticated, requireConsen
 
 router.post("/career-profiles/:id/generate-cv", requireAuthenticated, requireConsent, async (req, res): Promise<void> => {
   const userId = req.user!.id;
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id." }); return; }
 
   const [careerProfile] = await db
@@ -156,63 +212,15 @@ router.post("/career-profiles/:id/generate-cv", requireAuthenticated, requireCon
 
   if (!careerProfile) { res.status(404).json({ error: "Career profile not found." }); return; }
 
-  const [baseProfile] = await db
+  await generateCvBackground(id, userId);
+
+  const [updated] = await db
     .select()
-    .from(profilesTable)
-    .where(eq(profilesTable.userId, userId));
+    .from(careerProfilesTable)
+    .where(eq(careerProfilesTable.id, id));
 
-  const profileContext = baseProfile
-    ? [
-        `Profession: ${baseProfile.profession}`,
-        `Specialty: ${baseProfile.specialty}`,
-        `Qualification: ${baseProfile.qualificationType} (${baseProfile.qualificationCountry}, ${baseProfile.qualificationYear})`,
-        `Experience: ${baseProfile.experienceYears} year(s)`,
-        `Registration Status: ${baseProfile.registrationStatus}`,
-        `Languages: ${(baseProfile.languages ?? []).join(", ") || "Not specified"}`,
-        baseProfile.additionalNotes ? `Notes: ${baseProfile.additionalNotes}` : "",
-      ].filter(Boolean).join("\n")
-    : "No base profile found.";
-
-  try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a professional CV writer specialising in UK healthcare and professional sector roles. " +
-            "Write a tailored, concise professional summary and key skills section for a candidate applying for UK roles. " +
-            "Focus on the specific career profile focus area provided. " +
-            "Format: 2–3 sentence professional summary, followed by 5–6 bullet-point key skills. " +
-            "Keep it under 300 words. Do not include personal details or contact information. " +
-            "End with a short disclaimer: 'This CV content was AI-assisted. Please review and personalise before submitting applications.'",
-        },
-        {
-          role: "user",
-          content:
-            `Generate a tailored CV summary for the following career profile:\n\n` +
-            `Career Profile Name: ${careerProfile.name}\n` +
-            `Focus Area: ${careerProfile.focusArea}\n\n` +
-            `Base Professional Profile:\n${profileContext}`,
-        },
-      ],
-      max_tokens: 500,
-      temperature: 0.7,
-    });
-
-    const aiCvContent = completion.choices[0]?.message?.content?.trim() ?? "";
-
-    const [updated] = await db
-      .update(careerProfilesTable)
-      .set({ aiCvContent })
-      .where(eq(careerProfilesTable.id, id))
-      .returning();
-
-    res.json(updated);
-  } catch (err) {
-    console.error("[career-profiles] AI CV generation failed:", err);
-    res.status(500).json({ error: "AI CV generation failed. Please try again." });
-  }
+  if (!updated) { res.status(404).json({ error: "Career profile not found after generation." }); return; }
+  res.json(updated);
 });
 
 export default router;

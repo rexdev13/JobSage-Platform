@@ -6,7 +6,6 @@ import {
   useEvaluateEligibility,
   useListEligibilityHistory,
   useGetMyProfile,
-  useGetCurrentAuthUser,
   useGetForwardEligibility,
 } from "@workspace/api-client-react";
 import type { EligibilityResult } from "@workspace/api-client-react";
@@ -57,6 +56,21 @@ function useEligibleVacancies(enabled: boolean) {
       const res = await fetch(`${base}/api/opportunities/recommended?limit=10`, { credentials: "include" });
       if (!res.ok) return { roles: [] };
       return res.json() as Promise<{ roles: RecommendedRole[] }>;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+type IdentityStatus = { verification: { status: "pending" | "verified" | "rejected" } | null };
+
+function useIdentityStatus() {
+  return useQuery<IdentityStatus>({
+    queryKey: ["identity-status"],
+    queryFn: async () => {
+      const base = (import.meta as unknown as { env: { BASE_URL: string } }).env.BASE_URL.replace(/\/$/, "");
+      const res = await fetch(`${base}/api/identity/status`, { credentials: "include" });
+      if (!res.ok) return { verification: null };
+      return res.json() as Promise<IdentityStatus>;
     },
     staleTime: 5 * 60 * 1000,
   });
@@ -116,8 +130,8 @@ function StatusSection({
         <div className="flex items-start gap-3 p-3 rounded-xl bg-amber-100 border border-amber-300 mb-5">
           <ShieldAlert className="w-4 h-4 text-amber-700 flex-shrink-0 mt-0.5" />
           <p className="text-xs font-medium text-amber-800">
-            Verification required before applying —{" "}
-            <Link to="/verify" className="underline hover:text-amber-900">upload your passport &amp; certificates</Link>.
+            Identity verification required before applying —{" "}
+            <Link to="/identity" className="underline hover:text-amber-900">upload your passport &amp; selfie</Link>.
           </p>
         </div>
       )}
@@ -270,8 +284,25 @@ function EligibleNowSection({ outcome }: { outcome: EligibilityOutcome }) {
   );
 }
 
+type GapWithRoles = {
+  stepId: number;
+  title: string;
+  gap: string | null;
+  timelineRange: string;
+  stepSource: string;
+  estimatedMonths: number;
+  sampleRolesUnlocked: Array<{ id: number; title: string; employer: string; location: string; sponsorshipOffered: boolean }>;
+};
+
+type ForwardEligibilityData = {
+  timeToEligibilityLabel?: string;
+  timeToEligibilityMonths?: number;
+  newlyUnlockedRoles?: Array<{ id: number; title: string; employer: string; location: string; sponsorshipOffered: boolean }>;
+  gapsWithRoles?: GapWithRoles[];
+};
+
 function UnlockMoreSection({ outcome }: { outcome: EligibilityOutcome }) {
-  const { data: forwardData, isLoading } = useGetForwardEligibility();
+  const { data: forwardData, isLoading } = useGetForwardEligibility() as { data: ForwardEligibilityData | undefined; isLoading: boolean };
 
   if (outcome === "eligible") {
     return (
@@ -290,9 +321,10 @@ function UnlockMoreSection({ outcome }: { outcome: EligibilityOutcome }) {
     );
   }
 
-  const roles = forwardData?.newlyUnlockedRoles ?? [];
+  const gaps = forwardData?.gapsWithRoles ?? [];
+  const totalRoles = forwardData?.newlyUnlockedRoles?.length ?? 0;
 
-  if (!forwardData || roles.length === 0) {
+  if (!forwardData || (gaps.length === 0 && totalRoles === 0)) {
     return (
       <div className="rounded-2xl border border-dashed border-muted-foreground/30 p-8 text-center">
         <Lock className="w-8 h-8 text-muted-foreground/40 mx-auto mb-3" />
@@ -308,36 +340,86 @@ function UnlockMoreSection({ outcome }: { outcome: EligibilityOutcome }) {
           <Clock className="w-4 h-4 text-blue-600 flex-shrink-0" />
           <p className="text-xs text-blue-800">
             Complete your remediation plan and you could be eligible in{" "}
-            <span className="font-semibold">{forwardData.timeToEligibilityLabel}</span>.
+            <span className="font-semibold">{forwardData.timeToEligibilityLabel}</span>.{" "}
+            <span className="text-blue-600">{totalRoles} role{totalRoles !== 1 ? "s" : ""} would become available to you.</span>
           </p>
         </div>
       )}
 
-      <div className="space-y-3">
-        {roles.slice(0, 5).map((role) => (
-          <div key={role.id} className="rounded-xl border border-border bg-muted/20 p-4 flex items-start gap-4">
-            <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
-              <Lock className="w-4 h-4 text-muted-foreground" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-foreground leading-tight">{role.title}</p>
-              <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1"><Building2 className="w-3 h-3" />{role.employer}</span>
-                {role.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{role.location}</span>}
+      {/* Per-gap breakdown */}
+      {gaps.length > 0 ? (
+        <div className="space-y-4">
+          {gaps.slice(0, 4).map((gap) => (
+            <div key={gap.stepId} className="rounded-xl border border-blue-100 bg-blue-50/30 p-4">
+              <div className="flex items-start gap-3 mb-3">
+                <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center shrink-0 mt-0.5">
+                  <Lock className="w-3.5 h-3.5 text-blue-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground leading-tight">{gap.title}</p>
+                  {gap.gap && <p className="text-xs text-muted-foreground mt-0.5 italic">Gap: {gap.gap}</p>}
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
+                      <Clock className="w-3 h-3" /> {gap.timelineRange}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      ~{gap.estimatedMonths > 0 ? `${gap.estimatedMonths} month${gap.estimatedMonths !== 1 ? "s" : ""}` : "varies"}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <p className="text-xs text-blue-700 mt-1">Complete your career path to unlock this role</p>
+              {gap.sampleRolesUnlocked.length > 0 && (
+                <div className="ml-11 space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground mb-1.5">Roles unlocked by completing this step:</p>
+                  {gap.sampleRolesUnlocked.map((role) => (
+                    <div key={role.id} className="rounded-lg border border-border bg-background/80 p-3 flex items-center gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-foreground leading-tight">{role.title}</p>
+                        <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1"><Building2 className="w-3 h-3" />{role.employer}</span>
+                          {role.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{role.location}</span>}
+                        </div>
+                      </div>
+                      {role.sponsorshipOffered && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200 shrink-0">
+                          Sponsors
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-            {role.sponsorshipOffered && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200 shrink-0">
-                Sponsors
-              </span>
-            )}
-          </div>
-        ))}
-        {roles.length > 5 && (
-          <p className="text-xs text-center text-muted-foreground pt-1">{roles.length - 5} more roles become available when eligible</p>
-        )}
-      </div>
+          ))}
+          {gaps.length > 4 && (
+            <p className="text-xs text-center text-muted-foreground">+ {gaps.length - 4} more gaps in your remediation plan</p>
+          )}
+        </div>
+      ) : (
+        /* Fallback: flat role list if no per-gap data */
+        <div className="space-y-3">
+          {(forwardData.newlyUnlockedRoles ?? []).slice(0, 5).map((role) => (
+            <div key={role.id} className="rounded-xl border border-border bg-muted/20 p-4 flex items-start gap-4">
+              <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                <Lock className="w-4 h-4 text-muted-foreground" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground leading-tight">{role.title}</p>
+                <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1"><Building2 className="w-3 h-3" />{role.employer}</span>
+                  {role.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{role.location}</span>}
+                </div>
+                <p className="text-xs text-blue-700 mt-1">Complete your career path to unlock this role</p>
+              </div>
+              {role.sponsorshipOffered && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200 shrink-0">
+                  Sponsors
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       <Link to="/path">
         <Button variant="outline" size="sm" className="w-full gap-2 mt-2">
@@ -365,13 +447,13 @@ export default function EligibilityPage() {
     mutation: { onSuccess: () => { refetch(); } },
   });
   const { data: profileData } = useGetMyProfile();
-  const { data: authUser } = useGetCurrentAuthUser();
+  const { data: identityData } = useIdentityStatus();
 
   const decisions = historyData?.decisions ?? [];
   const latest = decisions[0];
   const profession = profileData?.profession;
-  const candidateEmail = authUser?.user?.email;
-  const isVerified = authUser?.user?.emailVerified === true;
+  const candidateEmail = null;
+  const isVerified = identityData?.verification?.status === "verified";
   const outcome = (latest?.outcome ?? "not_eligible") as EligibilityOutcome;
   const industryLabel = profession ? professionToIndustryLabel(profession) : null;
 
