@@ -14,7 +14,7 @@ import {
   type CareerProfile,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { getGetMyProfileQueryKey } from "@workspace/api-client-react";
+import { getGetMyProfileQueryKey, getGetMyMatchesQueryKey, getListMatchedRolesQueryKey } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, Button, Input, Select, Label, PageTransition, cn } from "@/components/ui-enhanced";
 import { Save, UserCircle, Bell, Info, Camera, Loader2, CheckCircle2, AlertCircle, Star, Trophy, Files, ShieldCheck, Send, MessageSquare, UserCheck, Plus, Trash2, Sparkles, Download, BadgeCheck, FolderOpen } from "lucide-react";
@@ -1152,12 +1152,12 @@ function CareerProfilesSection() {
     setActingId(id);
     try {
       await activateMutation.mutateAsync(id);
-      // Invalidate recommendation and eligibility feeds so switching profile
-      // immediately reflects the new active profile's focus area in both
-      // Eligible Now vacancies and the forward-eligibility Unlock More data.
-      await queryClient.invalidateQueries({ queryKey: ["eligibility-eligible-vacancies"] });
-      await queryClient.invalidateQueries({ queryKey: ["identity-status"] });
-      await queryClient.refetchQueries({ queryKey: ["eligibility-eligible-vacancies"] });
+      // Invalidate all recommendation and matching query keys so switching profile
+      // immediately reflects the new active profile's focus area across all pages.
+      void queryClient.invalidateQueries({ queryKey: ["eligibility-eligible-vacancies"] });
+      void queryClient.invalidateQueries({ queryKey: ["opportunities-recommended"] });
+      void queryClient.invalidateQueries({ queryKey: getGetMyMatchesQueryKey({ limit: 200 }) });
+      void queryClient.invalidateQueries({ queryKey: getListMatchedRolesQueryKey() });
       toast({ title: "Active profile updated", description: "Your active career profile has been switched." });
     } catch {
       toast({ title: "Error", description: "Failed to switch profile.", variant: "destructive" });
