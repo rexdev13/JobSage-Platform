@@ -6,12 +6,18 @@ import {
   useRequestUploadUrl,
   useGetJourneyStatus,
   getGetJourneyStatusQueryKey,
+  useListCareerProfiles,
+  useCreateCareerProfile,
+  useDeleteCareerProfile,
+  useActivateCareerProfile,
+  useGenerateProfileCv,
+  type CareerProfile,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetMyProfileQueryKey } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, Button, Input, Select, Label, PageTransition, cn } from "@/components/ui-enhanced";
-import { Save, UserCircle, Bell, Info, Camera, Loader2, CheckCircle2, AlertCircle, Star, Trophy, Files, ShieldCheck, Send, MessageSquare, UserCheck } from "lucide-react";
+import { Save, UserCircle, Bell, Info, Camera, Loader2, CheckCircle2, AlertCircle, Star, Trophy, Files, ShieldCheck, Send, MessageSquare, UserCheck, Plus, Trash2, Sparkles, Download, BadgeCheck, FolderOpen } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 
@@ -978,7 +984,302 @@ export default function ProfilePage() {
             )}
           </Card>
         </form>
+
+        {/* ── My Career Profiles ── */}
+        <CareerProfilesSection />
       </PageTransition>
     </AppLayout>
+  );
+}
+
+const MAX_PROFILES = 3;
+
+function CareerProfileCard({
+  cp,
+  onActivate,
+  onDelete,
+  onGenerateCv,
+  activating,
+  deleting,
+  generating,
+}: {
+  cp: CareerProfile;
+  onActivate: (id: number) => void;
+  onDelete: (id: number) => void;
+  onGenerateCv: (id: number) => void;
+  activating: boolean;
+  deleting: boolean;
+  generating: boolean;
+}) {
+  const { toast } = useToast();
+
+  function handleDownloadCv() {
+    if (!cp.aiCvContent) return;
+    const blob = new Blob([cp.aiCvContent], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `cv-${cp.name.replace(/\s+/g, "-").toLowerCase()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "CV downloaded", description: `${cp.name} CV saved as a text file.` });
+  }
+
+  return (
+    <div className={cn(
+      "rounded-xl border p-5 flex flex-col gap-4 transition-all",
+      cp.isActive
+        ? "border-primary/40 bg-primary/5 shadow-sm"
+        : "border-border bg-background hover:border-primary/20"
+    )}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <div className={cn(
+            "w-9 h-9 rounded-lg flex items-center justify-center shrink-0",
+            cp.isActive ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+          )}>
+            <FolderOpen className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold text-foreground">{cp.name}</p>
+              {cp.isActive && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20">
+                  <BadgeCheck className="w-3 h-3" /> Active
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">{cp.focusArea}</p>
+          </div>
+        </div>
+        <button
+          onClick={() => onDelete(cp.id)}
+          disabled={deleting}
+          className="text-muted-foreground hover:text-destructive transition-colors p-1 rounded-lg hover:bg-destructive/10 shrink-0"
+          aria-label="Delete profile"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+      </div>
+
+      {cp.aiCvContent && (
+        <div className="p-3 rounded-lg bg-muted/40 border border-border">
+          <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">{cp.aiCvContent}</p>
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-2 mt-auto">
+        {!cp.isActive && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5 h-8 text-xs"
+            onClick={() => onActivate(cp.id)}
+            disabled={activating}
+          >
+            {activating ? <Loader2 className="w-3 h-3 animate-spin" /> : <BadgeCheck className="w-3 h-3" />}
+            Set Active
+          </Button>
+        )}
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1.5 h-8 text-xs"
+          onClick={() => onGenerateCv(cp.id)}
+          disabled={generating}
+        >
+          {generating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+          {cp.aiCvContent ? "Regenerate CV" : "Generate AI CV"}
+        </Button>
+        {cp.aiCvContent && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5 h-8 text-xs"
+            onClick={handleDownloadCv}
+          >
+            <Download className="w-3 h-3" /> Download CV
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CareerProfilesSection() {
+  const { toast } = useToast();
+  const { data, isLoading } = useListCareerProfiles();
+  const createMutation = useCreateCareerProfile();
+  const deleteMutation = useDeleteCareerProfile();
+  const activateMutation = useActivateCareerProfile();
+  const generateCvMutation = useGenerateProfileCv();
+
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newFocusArea, setNewFocusArea] = useState("");
+  const [actingId, setActingId] = useState<number | null>(null);
+
+  const profiles = data?.profiles ?? [];
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newName.trim() || !newFocusArea.trim()) return;
+    try {
+      await createMutation.mutateAsync({ name: newName.trim(), focusArea: newFocusArea.trim() });
+      setNewName("");
+      setNewFocusArea("");
+      setShowCreateForm(false);
+      toast({ title: "Profile created", description: `${newName.trim()} profile added.` });
+    } catch {
+      toast({ title: "Error", description: "Failed to create career profile.", variant: "destructive" });
+    }
+  }
+
+  async function handleDelete(id: number) {
+    setActingId(id);
+    try {
+      await deleteMutation.mutateAsync(id);
+      toast({ title: "Profile deleted" });
+    } catch {
+      toast({ title: "Error", description: "Failed to delete profile.", variant: "destructive" });
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  async function handleActivate(id: number) {
+    setActingId(id);
+    try {
+      await activateMutation.mutateAsync(id);
+      toast({ title: "Active profile updated", description: "Your active career profile has been switched." });
+    } catch {
+      toast({ title: "Error", description: "Failed to switch profile.", variant: "destructive" });
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  async function handleGenerateCv(id: number) {
+    setActingId(id);
+    try {
+      await generateCvMutation.mutateAsync(id);
+      toast({ title: "CV generated", description: "Your AI-tailored CV summary is ready to download." });
+    } catch {
+      toast({ title: "Error", description: "AI CV generation failed. Please try again.", variant: "destructive" });
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  return (
+    <Card className="p-6 mt-6">
+      <div className="flex items-center justify-between mb-2 border-b pb-4">
+        <div className="flex items-center gap-2">
+          <FolderOpen className="w-5 h-5 text-primary" />
+          <h3 className="text-lg font-semibold text-foreground">My Career Profiles</h3>
+          <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary">
+            {profiles.length}/{MAX_PROFILES}
+          </span>
+        </div>
+        {profiles.length < MAX_PROFILES && !showCreateForm && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setShowCreateForm(true)}
+            className="gap-1.5 h-8 text-xs"
+          >
+            <Plus className="w-3 h-3" /> Add Profile
+          </Button>
+        )}
+      </div>
+
+      <p className="text-sm text-muted-foreground mb-5">
+        Create up to {MAX_PROFILES} career profiles — each with its own focus area and AI-generated CV. Switch your active profile to tailor your opportunities and eligibility view.
+      </p>
+
+      {isLoading ? (
+        <div className="space-y-3">
+          {[0, 1].map((i) => <div key={i} className="h-28 rounded-xl bg-muted/50 animate-pulse" />)}
+        </div>
+      ) : profiles.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-muted-foreground/30 p-8 text-center">
+          <FolderOpen className="w-8 h-8 text-muted-foreground/40 mx-auto mb-3" />
+          <p className="text-sm font-medium text-muted-foreground mb-1">No career profiles yet</p>
+          <p className="text-xs text-muted-foreground mb-4">Add a profile to get a tailored AI CV and targeted opportunities for each career path.</p>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setShowCreateForm(true)}
+            className="gap-1.5"
+          >
+            <Plus className="w-3 h-3" /> Create first profile
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {profiles.map((cp) => (
+            <CareerProfileCard
+              key={cp.id}
+              cp={cp}
+              onActivate={handleActivate}
+              onDelete={handleDelete}
+              onGenerateCv={handleGenerateCv}
+              activating={actingId === cp.id && activateMutation.isPending}
+              deleting={actingId === cp.id && deleteMutation.isPending}
+              generating={actingId === cp.id && generateCvMutation.isPending}
+            />
+          ))}
+        </div>
+      )}
+
+      {showCreateForm && (
+        <form onSubmit={handleCreate} className="mt-5 p-4 rounded-xl border border-primary/20 bg-primary/5 space-y-4">
+          <h4 className="text-sm font-semibold text-foreground">New Career Profile</h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label>Profile Name *</Label>
+              <Input
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="e.g. Clinical Nurse, Nurse Educator"
+                required
+              />
+              <p className="text-xs text-muted-foreground mt-1">A short label for this career direction.</p>
+            </div>
+            <div>
+              <Label>Focus Area *</Label>
+              <Input
+                value={newFocusArea}
+                onChange={(e) => setNewFocusArea(e.target.value)}
+                placeholder="e.g. Critical Care, Academic Leadership"
+                required
+              />
+              <p className="text-xs text-muted-foreground mt-1">The specialisation for this profile's AI CV.</p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button type="submit" size="sm" className="gap-1.5 h-8 text-xs" disabled={createMutation.isPending}>
+              {createMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+              Create Profile
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs"
+              onClick={() => { setShowCreateForm(false); setNewName(""); setNewFocusArea(""); }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      )}
+
+      <p className="text-xs text-muted-foreground mt-4 italic">
+        AI-generated CV content is tailored to each profile's focus area. Review and personalise before submitting applications.
+      </p>
+    </Card>
   );
 }
