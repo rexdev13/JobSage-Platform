@@ -408,6 +408,38 @@ router.get("/remediation/forward-eligibility", requireAuthenticated, async (req,
     timeToEligibilityLabel = `approximately ${years} year${years !== 1 ? "s" : ""}`;
   }
 
+  // Build per-gap grouped data for the Unlock More UI
+  // Each incomplete step gets 2–3 sample roles from the newly unlocked set
+  const unlockableRolesSample = newlyUnlockedRoles.slice(0, 9).map((role) => ({
+    id: role.id,
+    title: role.title,
+    employer: role.employer,
+    location: role.location,
+    sponsorshipOffered: role.sponsorshipOffered,
+    requiredRegistration: role.requiredRegistration,
+  }));
+
+  const gapsWithRoles = incompleteSteps.map((step, idx) => {
+    // Distribute the unlockable roles across steps (round-robin 2–3 per step)
+    const chunkSize = 2;
+    const start = (idx * chunkSize) % Math.max(1, unlockableRolesSample.length);
+    const chunk = unlockableRolesSample.slice(start, start + chunkSize);
+    // Wrap around if needed
+    const rolesForStep = chunk.length < chunkSize && unlockableRolesSample.length > 0
+      ? [...chunk, ...unlockableRolesSample.slice(0, chunkSize - chunk.length)]
+      : chunk;
+
+    return {
+      stepId: step.id,
+      title: step.title,
+      gap: step.gap ?? null,
+      timelineRange: step.timelineRange,
+      stepSource: step.stepSource,
+      estimatedMonths: parseMonthsFromRange(step.timelineRange),
+      sampleRolesUnlocked: rolesForStep,
+    };
+  });
+
   res.json({
     profession: professionLabel,
     regulator,
@@ -422,6 +454,7 @@ router.get("/remediation/forward-eligibility", requireAuthenticated, async (req,
       sponsorshipOffered: role.sponsorshipOffered,
       requiredRegistration: role.requiredRegistration,
     })),
+    gapsWithRoles,
     disclaimer:
       "Time estimates are indicative and based on step timeline ranges. Actual timelines vary by individual circumstance and regulatory body decisions.",
   });
