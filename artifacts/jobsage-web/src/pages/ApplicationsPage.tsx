@@ -14,12 +14,15 @@ import {
   Briefcase,
   MapPin,
   Calendar,
+  Send,
+  Building2,
+  Tag,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Application, ApplicationStatus } from "@workspace/api-client-react";
 
 const STATUS_CONFIG: Record<
-  ApplicationStatus,
+  string,
   { label: string; icon: React.ElementType; className: string }
 > = {
   applied: {
@@ -52,11 +55,24 @@ const STATUS_CONFIG: Record<
     icon: Clock,
     className: "bg-muted text-muted-foreground",
   },
+  cv_sent: {
+    label: "CV Sent",
+    icon: Send,
+    className: "bg-sky-100 text-sky-800",
+  },
 };
 
-function ApplicationCard({ application }: { application: Application & { roleTitle?: string | null; roleLocation?: string | null } }) {
-  const cfg = STATUS_CONFIG[application.status as ApplicationStatus] ?? STATUS_CONFIG.applied;
+type EnrichedApplication = Application & {
+  roleTitle?: string | null;
+  roleLocation?: string | null;
+  applicationKind?: "formal" | "speculative";
+  companyName?: string | null;
+};
+
+function ApplicationCard({ application }: { application: EnrichedApplication }) {
+  const cfg = STATUS_CONFIG[application.status as string] ?? STATUS_CONFIG.applied!;
   const Icon = cfg.icon;
+  const isSpeculative = application.applicationKind === "speculative";
 
   return (
     <motion.div
@@ -67,11 +83,21 @@ function ApplicationCard({ application }: { application: Application & { roleTit
       <Card className="p-5 flex flex-col gap-3 hover:shadow-md transition-all">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-foreground truncate">
-              {application.roleTitle ?? `Role #${application.roleId}`}
-            </h3>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="font-semibold text-foreground truncate">
+                {isSpeculative
+                  ? application.companyName ?? application.roleTitle ?? "Speculative Application"
+                  : application.roleTitle ?? `Role #${application.roleId}`}
+              </h3>
+              {isSpeculative && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-50 text-sky-700 border border-sky-200 shrink-0">
+                  <Building2 className="w-2.5 h-2.5" />
+                  Speculative CV
+                </span>
+              )}
+            </div>
             <div className="flex items-center flex-wrap gap-3 mt-1 text-xs text-muted-foreground">
-              {application.roleLocation && (
+              {!isSpeculative && application.roleLocation && (
                 <span className="flex items-center gap-1">
                   <MapPin className="w-3 h-3" />
                   {application.roleLocation}
@@ -79,7 +105,7 @@ function ApplicationCard({ application }: { application: Application & { roleTit
               )}
               <span className="flex items-center gap-1">
                 <Calendar className="w-3 h-3" />
-                Applied {format(new Date(application.appliedAt), "MMM d, yyyy")}
+                {isSpeculative ? "Sent" : "Applied"} {format(new Date(application.appliedAt), "MMM d, yyyy")}
               </span>
             </div>
           </div>
@@ -91,7 +117,7 @@ function ApplicationCard({ application }: { application: Application & { roleTit
           </span>
         </div>
 
-        {application.notes && (
+        {!isSpeculative && application.notes && (
           <div className="bg-muted/50 rounded-lg p-3 text-xs text-muted-foreground leading-relaxed line-clamp-2">
             {(() => {
               try {
@@ -103,7 +129,7 @@ function ApplicationCard({ application }: { application: Application & { roleTit
           </div>
         )}
 
-        {application.roleId > 1_000_000 && (
+        {!isSpeculative && application.roleId > 1_000_000 && (
           <div className="flex">
             <Button
               size="sm"
@@ -127,8 +153,11 @@ export default function ApplicationsPage() {
   const { data, isLoading } = useListMyApplications();
   const [, setLocation] = useLocation();
 
-  const applications = (data?.applications ?? []) as (Application & { roleTitle?: string | null; roleLocation?: string | null })[];
-  const stats = data?.stats;
+  const applications = (data?.applications ?? []) as EnrichedApplication[];
+  const stats = data?.stats as (typeof data)["stats"] & { cvSent?: number } | undefined;
+
+  const formalCount = applications.filter((a) => a.applicationKind !== "speculative").length;
+  const speculativeCount = applications.filter((a) => a.applicationKind === "speculative").length;
 
   return (
     <AppLayout>
@@ -140,7 +169,7 @@ export default function ApplicationsPage() {
               Application Tracker
             </h1>
             <p className="text-muted-foreground text-sm mt-1">
-              Track all your job applications and their current status.
+              Track all your job applications and speculative CV sends.
             </p>
           </div>
           <Button onClick={() => setLocation("/opportunities")}>
@@ -154,7 +183,7 @@ export default function ApplicationsPage() {
               { label: "Total", value: stats.total, color: "text-foreground" },
               { label: "Interviews", value: stats.interviews, color: "text-purple-600" },
               { label: "Offers", value: stats.offers, color: "text-amber-600" },
-              { label: "No Response", value: stats.noResponse, color: "text-muted-foreground" },
+              { label: "CV Sends", value: speculativeCount, color: "text-sky-600" },
             ].map(({ label, value, color }) => (
               <Card key={label} className="p-4 text-center">
                 <p className={`text-2xl font-bold ${color}`}>{value}</p>
@@ -176,7 +205,7 @@ export default function ApplicationsPage() {
             </div>
             <h3 className="text-lg font-semibold text-foreground mb-2">No applications yet</h3>
             <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
-              Use Smart Apply on any role to submit an AI-assisted application in minutes.
+              Use Smart Apply on any role or send your CV directly to sponsor licence companies.
             </p>
             <Button variant="outline" onClick={() => setLocation("/opportunities")}>
               Browse Jobs
@@ -185,7 +214,7 @@ export default function ApplicationsPage() {
         ) : (
           <div className="flex flex-col gap-4">
             {applications.map((app) => (
-              <ApplicationCard key={app.id} application={app} />
+              <ApplicationCard key={`${app.applicationKind ?? "formal"}-${app.id}`} application={app} />
             ))}
           </div>
         )}

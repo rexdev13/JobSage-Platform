@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, jobListingsTable, rolesTable, candidateMessagesTable } from "@workspace/db";
-import { applicationsTable } from "@workspace/db";
-import { eq, and, inArray } from "drizzle-orm";
+import { applicationsTable, speculativeApplicationsTable } from "@workspace/db";
+import { eq, and, inArray, desc } from "drizzle-orm";
 import { requireAuthenticated } from "../middlewares/requireRole";
 import { createApplicationReceivedMessage } from "../lib/systemMessages";
 
@@ -10,11 +10,18 @@ const router: IRouter = Router();
 router.get("/applications", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.id;
 
-  const applications = await db
-    .select()
-    .from(applicationsTable)
-    .where(eq(applicationsTable.userId, userId))
-    .orderBy(applicationsTable.appliedAt);
+  const [applications, speculativeApps] = await Promise.all([
+    db
+      .select()
+      .from(applicationsTable)
+      .where(eq(applicationsTable.userId, userId))
+      .orderBy(desc(applicationsTable.appliedAt)),
+    db
+      .select()
+      .from(speculativeApplicationsTable)
+      .where(eq(speculativeApplicationsTable.userId, userId))
+      .orderBy(desc(speculativeApplicationsTable.createdAt)),
+  ]);
 
   const employerRoleIds = applications
     .filter((a) => a.roleId > 1_000_000)
@@ -31,20 +38,42 @@ router.get("/applications", requireAuthenticated, async (req: Request, res: Resp
     }
   }
 
-  const enriched = applications.map((a) => ({
+  const enrichedFormal = applications.map((a) => ({
     ...a,
     roleTitle: jobTitleMap[a.roleId]?.title ?? null,
     roleLocation: jobTitleMap[a.roleId]?.location ?? null,
+    applicationKind: "formal" as const,
+    companyName: null as string | null,
   }));
 
+  const enrichedSpeculative = speculativeApps.map((s) => ({
+    id: s.id * -1,
+    userId: s.userId,
+    roleId: 0,
+    status: "cv_sent" as const,
+    appliedAt: s.createdAt.toISOString(),
+    notes: s.notes ?? null,
+    roleTitle: s.companyName,
+    roleLocation: null as string | null,
+    interviewDate: null as Date | null,
+    interviewNotes: null as string | null,
+    applicationKind: "speculative" as const,
+    companyName: s.companyName,
+  }));
+
+  const merged = [...enrichedFormal, ...enrichedSpeculative].sort(
+    (a, b) => new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime(),
+  );
+
   const stats = {
-    total: applications.length,
+    total: applications.length + speculativeApps.length,
     interviews: applications.filter((a) => a.status === "interview").length,
     offers: applications.filter((a) => a.status === "offer").length,
     noResponse: applications.filter((a) => a.status === "no_response").length,
+    cvSent: speculativeApps.length,
   };
 
-  res.json({ applications: enriched, stats });
+  res.json({ applications: merged, stats });
 });
 
 router.post("/applications", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {

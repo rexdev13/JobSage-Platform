@@ -12,6 +12,7 @@ import {
   useGetSponsorLicenceRegions,
   useBookmarkSponsorLicence,
   useUnbookmarkSponsorLicence,
+  useListMyDocuments,
   getListSponsorLicencesQueryKey,
   getGetSponsorLicenceIndustryCountsQueryKey,
   type VacancyCheckResult,
@@ -114,6 +115,8 @@ export default function SponsorLicencesPage() {
   const queryClient = useQueryClient();
   const sendCVMutation = useSendSpeculativeApplication();
   const { data: speculativeData, refetch: refetchSpeculative } = useListSpeculativeApplications();
+  const { data: documentsData } = useListMyDocuments();
+  const hasCvUploaded = (documentsData?.documents ?? []).some((d) => d.documentType === "cv");
   const sentCompanyNames = new Set((speculativeData?.applications ?? []).map((a) => a.companyName));
 
   const [vacancyResults, setVacancyResults] = useState<Map<number, VacancyCheckResult>>(new Map());
@@ -208,6 +211,14 @@ export default function SponsorLicencesPage() {
   const showSectorGrid = !selectedIndustry;
 
   function handleSendCV(companyName: string, companyId: number) {
+    if (!hasCvUploaded) {
+      toast({
+        title: "No CV uploaded",
+        description: "Please upload your CV in 'CV & Supporting Documents' before sending a speculative application.",
+        variant: "destructive",
+      });
+      return;
+    }
     sendCVMutation.mutate(
       { data: { companyName, sponsorLicenceId: companyId } },
       {

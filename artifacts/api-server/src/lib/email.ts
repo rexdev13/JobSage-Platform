@@ -313,6 +313,45 @@ export async function sendCandidateContactEmail(opts: {
   });
 }
 
+export async function sendSpeculativeCVNotification(opts: {
+  candidateEmail: string;
+  candidateName: string;
+  companyName: string;
+}): Promise<void> {
+  await resend.emails.send({
+    from: `JOBSAGE <${FROM}>`,
+    to: opts.candidateEmail,
+    subject: `JOBSAGE: Your speculative CV to ${opts.companyName} has been recorded`,
+    html: `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
+<body style="margin:0;padding:0;background:#f4f7fb;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f7fb;padding:40px 0;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+        <tr><td style="background:#0f172a;padding:28px 40px;text-align:center;">
+          <span style="color:#ffffff;font-size:22px;font-weight:800;letter-spacing:-0.5px;">JOBSAGE</span>
+        </td></tr>
+        <tr><td style="padding:36px 40px 24px;">
+          <h1 style="color:#0f172a;font-size:20px;font-weight:700;margin:0 0 8px;">Hi ${opts.candidateName},</h1>
+          <p style="color:#475569;font-size:15px;line-height:1.6;margin:0 0 16px;">
+            Your speculative CV has been recorded for <strong>${opts.companyName}</strong>. The JOBSAGE team has been notified and will follow up if a direct contact is available.
+          </p>
+          <p style="color:#475569;font-size:15px;line-height:1.6;margin:0 0 24px;">
+            You can track this outreach in your <a href="${APP_URL}/applications" style="color:#3b82f6;font-weight:600;">Application Tracker</a>.
+          </p>
+          <p style="color:#94a3b8;font-size:12px;margin:0;">
+            &copy; ${new Date().getFullYear()} JOBSAGE. Decision intelligence for regulated healthcare professionals.
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`,
+  });
+}
+
 export async function sendPasswordResetEmail(to: string, token: string): Promise<void> {
   const resetUrl = `${APP_URL}/reset-password?token=${encodeURIComponent(token)}`;
   await resend.emails.send({

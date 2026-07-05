@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { speculativeApplicationsTable, employerProfilesTable } from "@workspace/db";
 import { eq, and, desc, ilike } from "drizzle-orm";
 import { writeAuditEvent } from "../lib/audit";
+import { sendSpeculativeCVNotification } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -58,6 +59,20 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
       notes: notes ?? null,
     })
     .returning();
+
+  // Send confirmation email to candidate (best-effort)
+  const user = req.user!;
+  const candidateName =
+    [(user as { firstName?: string }).firstName, (user as { lastName?: string }).lastName]
+      .filter(Boolean)
+      .join(" ") || "there";
+  sendSpeculativeCVNotification({
+    candidateEmail: user.email,
+    candidateName,
+    companyName,
+  }).catch((err: unknown) => {
+    console.error("[speculative] Failed to send CV notification email:", err);
+  });
 
   // Employer notification / admin follow-up logging
   try {
