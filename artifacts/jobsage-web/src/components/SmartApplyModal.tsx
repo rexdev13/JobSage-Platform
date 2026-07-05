@@ -28,6 +28,8 @@ import {
   Copy,
   Download,
   MessageCircle,
+  ArrowRight,
+  Zap,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { SmartApplyAssistant } from "./SmartApplyAssistant";
@@ -122,6 +124,16 @@ const CONFIDENCE_CONFIG = {
   none: { color: "text-muted-foreground", bg: "bg-muted/50 border-border", label: "Could not answer — please complete" },
 };
 
+interface NextMatchRole {
+  id: number;
+  title: string;
+  employer: string;
+  location: string | null;
+  matchScore: number;
+  isEligible: boolean;
+  matchReason?: string | null;
+}
+
 export function SmartApplyModal({
   roleId,
   roleTitle,
@@ -130,7 +142,8 @@ export function SmartApplyModal({
 }: SmartApplyModalProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [step, setStep] = useState<"loading" | "error" | "review" | "submitting" | "coverLetter">("loading");
+  const [step, setStep] = useState<"loading" | "error" | "review" | "submitting" | "coverLetter" | "nextMatches">("loading");
+  const [nextMatchRoles, setNextMatchRoles] = useState<NextMatchRole[]>([]);
   const coverLetter = useCoverLetterStream();
   const [clEditable, setClEditable] = useState("");
   const [clCopied, setClCopied] = useState(false);
@@ -238,6 +251,24 @@ export function SmartApplyModal({
         title: "Application submitted!",
         description: `Your application for ${roleTitle} has been sent.`,
       });
+
+      // Fetch next 3 best matches (excluding the role just applied for)
+      try {
+        const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+        const res = await fetch(`${base}/api/opportunities/recommended?limit=4`, { credentials: "include" });
+        if (res.ok) {
+          const data = await (res.json() as Promise<{ roles: NextMatchRole[] }>);
+          const filtered = (data.roles ?? []).filter((r) => r.id !== roleId).slice(0, 3);
+          if (filtered.length > 0) {
+            setNextMatchRoles(filtered);
+            setStep("nextMatches");
+            return;
+          }
+        }
+      } catch {
+        // If fetch fails, fall through to onSuccess normally
+      }
+
       onSuccess();
     } catch {
       toast({
@@ -421,6 +452,50 @@ export function SmartApplyModal({
             </div>
           )}
 
+          {step === "nextMatches" && (
+            <div className="space-y-4">
+              <div className="flex flex-col items-center text-center pt-4 pb-2">
+                <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center mb-3">
+                  <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+                </div>
+                <h4 className="text-base font-bold text-foreground">Application submitted!</h4>
+                <p className="text-sm text-muted-foreground mt-1 max-w-sm">
+                  Great work. Keep the momentum going — here are your next 3 best matches:
+                </p>
+              </div>
+              <div className="space-y-2">
+                {nextMatchRoles.map((r, i) => (
+                  <div key={r.id}
+                    className="flex items-center gap-3 p-3 rounded-xl border border-border hover:border-primary/20 hover:bg-muted/20 transition-all"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                      <span className="text-xs font-bold text-primary">{i + 1}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground leading-tight truncate">{r.title}</p>
+                      <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1 truncate"><Building2 className="w-3 h-3 shrink-0" />{r.employer}</span>
+                        {r.location && <span className="flex items-center gap-1 truncate"><MapPin className="w-3 h-3 shrink-0" />{r.location}</span>}
+                      </div>
+                      {r.matchReason && (
+                        <p className="text-[10px] text-primary/70 italic mt-0.5 leading-snug line-clamp-1">{r.matchReason}</p>
+                      )}
+                    </div>
+                    <div className="shrink-0 flex flex-col items-end gap-1">
+                      <span className={`text-xs font-bold flex items-center gap-1 px-2 py-0.5 rounded-full ${
+                        r.matchScore >= 75 ? "bg-emerald-100 text-emerald-800" :
+                        r.matchScore >= 50 ? "bg-blue-100 text-blue-800" :
+                        "bg-muted text-muted-foreground"
+                      }`}>
+                        <Zap className="w-3 h-3" />{r.matchScore}%
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {step === "coverLetter" && (
             <div className="space-y-3">
               {!coverLetter.text && !coverLetter.streaming && !coverLetter.error && (
@@ -578,6 +653,19 @@ export function SmartApplyModal({
                 <Send className="w-4 h-4" /> Submit Application
               </Button>
             </div>
+          </div>
+        )}
+
+        {step === "nextMatches" && (
+          <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-muted/30 flex-wrap gap-2">
+            <a href="/opportunities">
+              <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+                <ArrowRight className="w-3.5 h-3.5" /> Browse All Opportunities
+              </Button>
+            </a>
+            <Button size="sm" onClick={onSuccess} className="gap-1.5">
+              <CheckCircle2 className="w-4 h-4" /> Done
+            </Button>
           </div>
         )}
       </motion.div>

@@ -34,6 +34,32 @@ function regulatorForProfession(profession: string): "GMC" | "NMC" | "HCPC" | nu
   return null;
 }
 
+function deriveMatchReason(
+  r: { sponsorshipOffered: boolean; requiredRegistration: string },
+  isEligible: boolean,
+  requiresSponsorship: boolean,
+  specialty: string | null,
+): string {
+  const specialtyHint = specialty ? ` ${specialty}` : "";
+  if (isEligible && r.sponsorshipOffered && requiresSponsorship) {
+    return `You're eligible now and this employer offers the visa sponsorship you need`;
+  }
+  if (isEligible && !requiresSponsorship) {
+    return `Strong fit for your${specialtyHint} background — you can apply today`;
+  }
+  if (isEligible) {
+    return `You meet the eligibility criteria and can apply now`;
+  }
+  if (r.sponsorshipOffered && requiresSponsorship) {
+    return `Offers visa sponsorship aligned with your needs — worth pursuing`;
+  }
+  const reqReg = r.requiredRegistration.toLowerCase();
+  if (!reqReg.includes("full") && !reqReg.includes("senior")) {
+    return `Lower registration bar — accessible while you complete your UK journey`;
+  }
+  return `Matched to your${specialtyHint} profession and registration pathway`;
+}
+
 function computeMatchScore(
   role: typeof rolesTable.$inferSelect,
   isEligible: boolean,
@@ -500,7 +526,8 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
       isEligible,
       profile.requiresSponsorship,
     );
-    return { ...r, matchScore, isEligible };
+    const matchReason = deriveMatchReason(r, isEligible, profile.requiresSponsorship, profile.specialty);
+    return { ...r, matchScore, isEligible, matchReason };
   });
 
   scored.sort((a, b) => {
