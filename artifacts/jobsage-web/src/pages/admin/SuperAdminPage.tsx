@@ -7,7 +7,7 @@ import {
   Users, Briefcase, CheckCircle, FileText, Building2, RefreshCw,
   ChevronDown, ChevronUp, Shield, Activity, Search, ExternalLink,
   TrendingUp, AlertTriangle, ShieldCheck, Star, BadgeCheck, UserCheck,
-  XCircle, Clock,
+  XCircle, Clock, Ban, RotateCcw, Trash2, UserCog, ListOrdered,
 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -32,6 +32,7 @@ interface SuperUser {
   lastName: string | null;
   role: string;
   emailVerified: boolean;
+  suspendedAt: string | null;
   createdAt: string;
   updatedAt: string;
   lastLogin: string | null;
@@ -41,6 +42,34 @@ interface SuperUser {
   eligibilityStatus: string | null;
   hasConsented: boolean;
   consentedAt: string | null;
+}
+
+interface AdminJobListing {
+  id: number;
+  title: string;
+  status: string;
+  location: string;
+  regulator: string;
+  sponsorshipOffered: boolean;
+  requiredRegistration: string;
+  createdAt: string;
+  companyName: string;
+  employerUserId: string;
+}
+
+interface AdminEmployer {
+  id: number;
+  userId: string;
+  companyName: string;
+  industry: string;
+  region: string;
+  sponsorLicenceNumber: string | null;
+  createdAt: string;
+  email: string;
+  userRole: string;
+  emailVerified: boolean;
+  totalListings: number;
+  publishedListings: number;
 }
 
 interface UserFull {
@@ -128,11 +157,15 @@ function OverviewTab() {
   );
 }
 
-function UserDetailPanel({ userId, apiBase, onImpersonate }: { userId: string; apiBase: string; onImpersonate: (userId: string) => void }) {
+function UserDetailPanel({ userId, apiBase, onImpersonate, onAction }: { userId: string; apiBase: string; onImpersonate: (userId: string) => void; onAction: () => void }) {
   const [detail, setDetail] = useState<UserFull | null>(null);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [newRole, setNewRole] = useState("");
+  const { toast } = useToast();
 
-  useEffect(() => {
+  const loadDetail = useCallback(() => {
+    setLoading(true);
     fetch(`${apiBase}/admin/super/users/${userId}/full`, { credentials: "include" })
       .then((r) => r.json())
       .then(setDetail)
@@ -140,18 +173,113 @@ function UserDetailPanel({ userId, apiBase, onImpersonate }: { userId: string; a
       .finally(() => setLoading(false));
   }, [userId, apiBase]);
 
+  useEffect(() => { loadDetail(); }, [loadDetail]);
+
+  async function doAction(path: string, method: string, body?: Record<string, unknown>) {
+    setActionLoading(path);
+    try {
+      const res = await fetch(`${apiBase}${path}`, {
+        method,
+        credentials: "include",
+        headers: body ? { "Content-Type": "application/json" } : undefined,
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({})) as { error?: string };
+        toast({ title: "Error", description: err.error ?? "Action failed.", variant: "destructive" });
+        return false;
+      }
+      onAction();
+      loadDetail();
+      return true;
+    } catch {
+      toast({ title: "Error", description: "Network error.", variant: "destructive" });
+      return false;
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleSuspend() {
+    if (!confirm("Suspend this account? The user will not be able to log in.")) return;
+    if (await doAction(`/admin/super/users/${userId}/suspend`, "POST"))
+      toast({ title: "Account suspended" });
+  }
+
+  async function handleRestore() {
+    if (await doAction(`/admin/super/users/${userId}/restore`, "POST"))
+      toast({ title: "Account restored" });
+  }
+
+  async function handleDelete() {
+    if (!confirm("Permanently delete this account? This cannot be undone.")) return;
+    if (await doAction(`/admin/super/users/${userId}`, "DELETE")) {
+      toast({ title: "Account deleted" });
+    }
+  }
+
+  async function handleRoleChange() {
+    if (!newRole) return;
+    if (!confirm(`Change role to "${newRole}"?`)) return;
+    if (await doAction(`/admin/super/users/${userId}/role`, "PATCH", { role: newRole }))
+      toast({ title: "Role updated", description: `Role changed to ${newRole}.` });
+  }
+
   if (loading) return <div className="py-6 flex justify-center"><div className="w-6 h-6 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>;
   if (!detail) return <p className="text-xs text-muted-foreground py-4 px-6">Failed to load user detail.</p>;
 
   const { user, profile, employerProfile, documents, applications, eligibilityHistory, auditEvents, consent } = detail;
+  const isSuspended = !!user.suspendedAt;
 
   return (
     <div className="px-6 pb-6 pt-2 space-y-5 border-t border-border bg-muted/30">
-      <div className="flex items-center justify-end pt-2">
-        <Button size="sm" variant="outline" onClick={() => onImpersonate(userId)} className="gap-1.5">
-          <ExternalLink className="w-3.5 h-3.5" />
-          Impersonate (Read-Only)
+      <div className="flex flex-wrap items-center gap-2 pt-2">
+        {isSuspended && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-200">
+            <Ban className="w-3 h-3" /> Suspended since {new Date(user.suspendedAt!).toLocaleDateString("en-GB")}
+          </span>
+        )}
+        <div className="ml-auto flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" onClick={() => onImpersonate(userId)} className="gap-1.5">
+            <ExternalLink className="w-3.5 h-3.5" />
+            Impersonate (Read-Only)
+          </Button>
+          {isSuspended ? (
+            <Button size="sm" variant="outline" onClick={() => void handleRestore()} disabled={!!actionLoading} className="gap-1.5 text-green-600 border-green-300 hover:bg-green-50">
+              <RotateCcw className="w-3.5 h-3.5" /> Restore Account
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" onClick={() => void handleSuspend()} disabled={!!actionLoading} className="gap-1.5 text-amber-600 border-amber-300 hover:bg-amber-50">
+              <Ban className="w-3.5 h-3.5" /> Suspend
+            </Button>
+          )}
+          <Button size="sm" variant="outline" onClick={() => void handleDelete()} disabled={!!actionLoading} className="gap-1.5 text-red-600 border-red-300 hover:bg-red-50">
+            <Trash2 className="w-3.5 h-3.5" /> Delete Account
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-end gap-2 p-3 bg-background rounded-lg border border-border">
+        <UserCog className="w-4 h-4 text-muted-foreground mt-1" />
+        <div className="flex-1 min-w-32">
+          <label className="text-xs text-muted-foreground block mb-1">Change Role</label>
+          <select
+            className="text-sm border border-border rounded-lg px-3 py-1.5 bg-background focus:outline-none w-full"
+            value={newRole}
+            onChange={(e) => setNewRole(e.target.value)}
+          >
+            <option value="">— select new role —</option>
+            <option value="candidate">Candidate</option>
+            <option value="employer">Employer</option>
+            <option value="reviewer">Reviewer</option>
+            <option value="admin">Admin</option>
+            <option value="super_admin">Super Admin</option>
+          </select>
+        </div>
+        <Button size="sm" onClick={() => void handleRoleChange()} disabled={!newRole || !!actionLoading} className="gap-1.5">
+          Apply
         </Button>
+        <span className="text-xs text-muted-foreground">Current: <strong>{user.role.replace("_", " ")}</strong></span>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -422,7 +550,14 @@ function AllUsersTab() {
                     <td className="px-4 py-3 font-mono text-xs text-muted-foreground" title={u.id}>{u.id.slice(0, 8)}&hellip;</td>
                     <td className="px-4 py-3 font-medium">{u.email}</td>
                     <td className="px-4 py-3">
-                      <span className="capitalize text-xs bg-muted px-2 py-0.5 rounded-full">{u.role.replace("_", " ")}</span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="capitalize text-xs bg-muted px-2 py-0.5 rounded-full">{u.role.replace("_", " ")}</span>
+                        {u.suspendedAt && (
+                          <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 flex items-center gap-0.5">
+                            <Ban className="w-2.5 h-2.5" /> Suspended
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <span className={`text-xs font-medium ${u.emailVerified ? "text-green-600" : "text-red-500"}`}>
@@ -466,7 +601,7 @@ function AllUsersTab() {
                   {expandedId === u.id && (
                     <tr key={`${u.id}-detail`}>
                       <td colSpan={12} className="p-0">
-                        <UserDetailPanel userId={u.id} apiBase={API_BASE} onImpersonate={handleImpersonate} />
+                        <UserDetailPanel userId={u.id} apiBase={API_BASE} onImpersonate={handleImpersonate} onAction={fetchUsers} />
                       </td>
                     </tr>
                   )}
@@ -883,7 +1018,302 @@ function LettersTab() {
   );
 }
 
-type Tab = "overview" | "users" | "health" | "identity" | "letters";
+function JobListingsTab() {
+  const [listings, setListings] = useState<AdminJobListing[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const { toast } = useToast();
+
+  const fetchListings = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ page: String(page) });
+      if (search) params.set("search", search);
+      if (statusFilter) params.set("status", statusFilter);
+      const res = await fetch(`${API_BASE}/admin/super/job-listings?${params}`, { credentials: "include" });
+      const data = await res.json() as { listings: AdminJobListing[]; total: number };
+      setListings(data.listings ?? []);
+      setTotal(data.total ?? 0);
+    } catch {
+      toast({ title: "Error", description: "Failed to load listings.", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  }, [page, search, statusFilter, toast]);
+
+  useEffect(() => { void fetchListings(); }, [fetchListings]);
+
+  async function handleStatusChange(id: number, status: string) {
+    setActionLoading(id);
+    try {
+      const res = await fetch(`${API_BASE}/admin/super/job-listings/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) throw new Error();
+      toast({ title: "Status updated" });
+      void fetchListings();
+    } catch {
+      toast({ title: "Error", description: "Failed to update status.", variant: "destructive" });
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleDelete(id: number, title: string) {
+    if (!confirm(`Delete job listing "${title}"? This cannot be undone.`)) return;
+    setActionLoading(id);
+    try {
+      const res = await fetch(`${API_BASE}/admin/super/job-listings/${id}`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error();
+      toast({ title: "Listing deleted" });
+      void fetchListings();
+    } catch {
+      toast({ title: "Error", description: "Failed to delete listing.", variant: "destructive" });
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  const PAGE_SIZE = 25;
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+
+  const statusColor = (s: string) =>
+    s === "published" ? "bg-green-100 text-green-700" :
+    s === "draft" ? "bg-amber-100 text-amber-700" :
+    "bg-muted text-muted-foreground";
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-3 items-center">
+        <div className="relative flex-1 min-w-48">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <input
+            className="w-full pl-9 pr-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+            placeholder="Search by title or company..."
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+          />
+        </div>
+        <select
+          className="text-sm border border-border rounded-lg px-3 py-2 bg-background focus:outline-none"
+          value={statusFilter}
+          onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+        >
+          <option value="">All Statuses</option>
+          <option value="published">Published</option>
+          <option value="draft">Draft</option>
+          <option value="closed">Closed</option>
+        </select>
+        <Button variant="outline" size="sm" onClick={() => void fetchListings()} className="gap-1.5">
+          <RefreshCw className="w-3.5 h-3.5" /> Refresh
+        </Button>
+      </div>
+
+      <div className="text-xs text-muted-foreground">{total} listings total</div>
+
+      <Card className="overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-muted/50">
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Title</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Company</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Location</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Regulator</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Status</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Created</th>
+                <th className="px-4 py-3" />
+              </tr>
+            </thead>
+            <tbody>
+              {loading && <tr><td colSpan={7} className="text-center py-10 text-muted-foreground">Loading...</td></tr>}
+              {!loading && listings.length === 0 && <tr><td colSpan={7} className="text-center py-10 text-muted-foreground">No listings found.</td></tr>}
+              {!loading && listings.map((l) => (
+                <tr key={l.id} className="border-b border-border/50 hover:bg-muted/30">
+                  <td className="px-4 py-3 font-medium">{l.title}</td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground">{l.companyName}</td>
+                  <td className="px-4 py-3 text-xs text-muted-foreground">{l.location}</td>
+                  <td className="px-4 py-3">
+                    <span className="text-xs bg-muted px-2 py-0.5 rounded-full">{l.regulator}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${statusColor(l.status)}`}>{l.status}</span>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-muted-foreground">{new Date(l.createdAt).toLocaleDateString("en-GB")}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      {l.status !== "published" && (
+                        <button
+                          disabled={actionLoading === l.id}
+                          onClick={() => void handleStatusChange(l.id, "published")}
+                          className="text-xs text-green-600 hover:underline disabled:opacity-50"
+                        >
+                          Publish
+                        </button>
+                      )}
+                      {l.status === "published" && (
+                        <button
+                          disabled={actionLoading === l.id}
+                          onClick={() => void handleStatusChange(l.id, "closed")}
+                          className="text-xs text-amber-600 hover:underline disabled:opacity-50"
+                        >
+                          Unpublish
+                        </button>
+                      )}
+                      <button
+                        disabled={actionLoading === l.id}
+                        onClick={() => void handleDelete(l.id, l.title)}
+                        className="text-xs text-red-500 hover:underline disabled:opacity-50"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <Button variant="outline" size="sm" onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1}>Previous</Button>
+          <span className="text-sm text-muted-foreground">Page {page} of {totalPages}</span>
+          <Button variant="outline" size="sm" onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page === totalPages}>Next</Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EmployersTab() {
+  const [employers, setEmployers] = useState<AdminEmployer[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const { toast } = useToast();
+
+  const fetchEmployers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ page: String(page) });
+      if (search) params.set("search", search);
+      const res = await fetch(`${API_BASE}/admin/super/employers?${params}`, { credentials: "include" });
+      const data = await res.json() as { employers: AdminEmployer[]; total: number };
+      setEmployers(data.employers ?? []);
+      setTotal(data.total ?? 0);
+    } catch {
+      toast({ title: "Error", description: "Failed to load employers.", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  }, [page, search, toast]);
+
+  useEffect(() => { void fetchEmployers(); }, [fetchEmployers]);
+
+  const PAGE_SIZE = 25;
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-3 items-center">
+        <div className="relative flex-1 min-w-48">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <input
+            className="w-full pl-9 pr-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+            placeholder="Search by company or email..."
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+          />
+        </div>
+        <Button variant="outline" size="sm" onClick={() => void fetchEmployers()} className="gap-1.5">
+          <RefreshCw className="w-3.5 h-3.5" /> Refresh
+        </Button>
+      </div>
+
+      <div className="text-xs text-muted-foreground">{total} employers total</div>
+
+      <Card className="overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-muted/50">
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Company</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Email</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Industry</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Region</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Listings</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Published</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Joined</th>
+                <th className="px-4 py-3" />
+              </tr>
+            </thead>
+            <tbody>
+              {loading && <tr><td colSpan={8} className="text-center py-10 text-muted-foreground">Loading...</td></tr>}
+              {!loading && employers.length === 0 && <tr><td colSpan={8} className="text-center py-10 text-muted-foreground">No employers found.</td></tr>}
+              {!loading && employers.map((e) => (
+                <>
+                  <tr
+                    key={e.id}
+                    className="border-b border-border/50 hover:bg-muted/30 cursor-pointer"
+                    onClick={() => setExpandedId(expandedId === e.id ? null : e.id)}
+                  >
+                    <td className="px-4 py-3 font-medium">{e.companyName}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{e.email}</td>
+                    <td className="px-4 py-3 text-xs capitalize">{e.industry.replace(/_/g, " ")}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{e.region}</td>
+                    <td className="px-4 py-3 text-center font-medium">{e.totalListings}</td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`text-xs font-medium ${e.publishedListings > 0 ? "text-green-600" : "text-muted-foreground"}`}>{e.publishedListings}</span>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{new Date(e.createdAt).toLocaleDateString("en-GB")}</td>
+                    <td className="px-4 py-3">
+                      {expandedId === e.id ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+                    </td>
+                  </tr>
+                  {expandedId === e.id && (
+                    <tr key={`${e.id}-detail`}>
+                      <td colSpan={8} className="p-0">
+                        <div className="px-6 py-4 bg-muted/30 border-t border-border space-y-2 text-sm">
+                          <div className="flex gap-6 flex-wrap">
+                            <div><span className="text-muted-foreground text-xs">User ID</span><p className="font-mono text-xs">{e.userId}</p></div>
+                            <div><span className="text-muted-foreground text-xs">Email Verified</span><p className={e.emailVerified ? "text-green-600" : "text-red-500"}>{e.emailVerified ? "Yes" : "No"}</p></div>
+                            <div><span className="text-muted-foreground text-xs">Sponsor Licence</span><p>{e.sponsorLicenceNumber ?? "—"}</p></div>
+                            <div><span className="text-muted-foreground text-xs">Role</span><p className="capitalize">{e.userRole.replace("_", " ")}</p></div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <Button variant="outline" size="sm" onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1}>Previous</Button>
+          <span className="text-sm text-muted-foreground">Page {page} of {totalPages}</span>
+          <Button variant="outline" size="sm" onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page === totalPages}>Next</Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+type Tab = "overview" | "users" | "health" | "identity" | "letters" | "job-listings" | "employers";
 
 export default function SuperAdminPage() {
   const [activeTab, setActiveTab] = useState<Tab>("overview");
@@ -891,6 +1321,8 @@ export default function SuperAdminPage() {
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
     { id: "overview", label: "Overview", icon: Shield },
     { id: "users", label: "All Users", icon: Users },
+    { id: "job-listings", label: "Job Listings", icon: ListOrdered },
+    { id: "employers", label: "Employers", icon: Building2 },
     { id: "health", label: "Platform Health", icon: Activity },
     { id: "identity", label: "Identity Queue", icon: ShieldCheck },
     { id: "letters", label: "References", icon: Star },
@@ -924,6 +1356,8 @@ export default function SuperAdminPage() {
         <div>
           {activeTab === "overview" && <OverviewTab />}
           {activeTab === "users" && <AllUsersTab />}
+          {activeTab === "job-listings" && <JobListingsTab />}
+          {activeTab === "employers" && <EmployersTab />}
           {activeTab === "health" && <HealthTab />}
           {activeTab === "identity" && <IdentityQueueTab />}
           {activeTab === "letters" && <LettersTab />}

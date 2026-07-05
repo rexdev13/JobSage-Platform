@@ -278,6 +278,14 @@ router.post("/auth/login", async (req: Request, res: Response) => {
     return;
   }
 
+  if (user.suspendedAt) {
+    res.status(403).json({
+      error: "Your account has been suspended. Please contact support@jobsage.co.uk if you believe this is an error.",
+      code: "account_suspended",
+    });
+    return;
+  }
+
   const sessionData: SessionData = {
     user: {
       id: user.id,

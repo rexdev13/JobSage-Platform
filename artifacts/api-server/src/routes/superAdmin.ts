@@ -498,6 +498,270 @@ router.get(
   },
 );
 
+// ── Account management actions ───────────────────────────────────────────────
+
+router.post(
+  "/admin/super/users/:id/suspend",
+  requireRole("super_admin"),
+  async (req: Request, res: Response): Promise<void> => {
+    const targetId = req.params["id"] as string;
+    const actorId = req.user!.id;
+
+    if (targetId === actorId) {
+      res.status(400).json({ error: "You cannot suspend your own account." });
+      return;
+    }
+
+    const [user] = await db.select({ id: usersTable.id, email: usersTable.email, role: usersTable.role, suspendedAt: usersTable.suspendedAt })
+      .from(usersTable).where(eq(usersTable.id, targetId));
+    if (!user) { res.status(404).json({ error: "User not found." }); return; }
+    if (user.suspendedAt) { res.status(409).json({ error: "Account is already suspended." }); return; }
+    if (user.role === "super_admin") { res.status(403).json({ error: "Cannot suspend another super admin." }); return; }
+
+    const [updated] = await db.update(usersTable).set({ suspendedAt: new Date() }).where(eq(usersTable.id, targetId)).returning();
+    writeAuditEvent(actorId, "super_admin_suspend_user", targetId, { email: user.email }).catch(() => {});
+    res.json(updated);
+  },
+);
+
+router.post(
+  "/admin/super/users/:id/restore",
+  requireRole("super_admin"),
+  async (req: Request, res: Response): Promise<void> => {
+    const targetId = req.params["id"] as string;
+    const actorId = req.user!.id;
+
+    const [user] = await db.select({ id: usersTable.id, email: usersTable.email, suspendedAt: usersTable.suspendedAt })
+      .from(usersTable).where(eq(usersTable.id, targetId));
+    if (!user) { res.status(404).json({ error: "User not found." }); return; }
+    if (!user.suspendedAt) { res.status(409).json({ error: "Account is not suspended." }); return; }
+
+    const [updated] = await db.update(usersTable).set({ suspendedAt: null }).where(eq(usersTable.id, targetId)).returning();
+    writeAuditEvent(actorId, "super_admin_restore_user", targetId, { email: user.email }).catch(() => {});
+    res.json(updated);
+  },
+);
+
+router.delete(
+  "/admin/super/users/:id",
+  requireRole("super_admin"),
+  async (req: Request, res: Response): Promise<void> => {
+    const targetId = req.params["id"] as string;
+    const actorId = req.user!.id;
+
+    if (targetId === actorId) {
+      res.status(400).json({ error: "You cannot delete your own account." });
+      return;
+    }
+
+    const [user] = await db.select({ id: usersTable.id, email: usersTable.email, role: usersTable.role })
+      .from(usersTable).where(eq(usersTable.id, targetId));
+    if (!user) { res.status(404).json({ error: "User not found." }); return; }
+    if (user.role === "super_admin") { res.status(403).json({ error: "Cannot delete another super admin account." }); return; }
+
+    writeAuditEvent(actorId, "super_admin_delete_user", targetId, { email: user.email }).catch(() => {});
+    await db.delete(usersTable).where(eq(usersTable.id, targetId));
+    res.json({ deleted: true, id: targetId });
+  },
+);
+
+router.patch(
+  "/admin/super/users/:id/role",
+  requireRole("super_admin"),
+  async (req: Request, res: Response): Promise<void> => {
+    const targetId = req.params["id"] as string;
+    const actorId = req.user!.id;
+    const { role } = req.body as { role?: string };
+
+    const VALID_ROLES = ["candidate", "employer", "reviewer", "admin", "super_admin"] as const;
+    type AppRole = typeof VALID_ROLES[number];
+    if (!role || !(VALID_ROLES as readonly string[]).includes(role)) {
+      res.status(400).json({ error: `Invalid role. Must be one of: ${VALID_ROLES.join(", ")}.` });
+      return;
+    }
+
+    if (targetId === actorId && role !== "super_admin") {
+      res.status(400).json({ error: "You cannot demote your own super admin account." });
+      return;
+    }
+
+    const [user] = await db.select({ id: usersTable.id, email: usersTable.email, role: usersTable.role })
+      .from(usersTable).where(eq(usersTable.id, targetId));
+    if (!user) { res.status(404).json({ error: "User not found." }); return; }
+
+    const [updated] = await db.update(usersTable).set({ role: role as AppRole }).where(eq(usersTable.id, targetId)).returning();
+    writeAuditEvent(actorId, "super_admin_change_role", targetId, { email: user.email, fromRole: user.role, toRole: role }).catch(() => {});
+    res.json(updated);
+  },
+);
+
+// ── Job listings management ───────────────────────────────────────────────────
+
+router.get(
+  "/admin/super/job-listings",
+  requireRole("super_admin"),
+  async (req: Request, res: Response): Promise<void> => {
+    writeAuditEvent(req.user!.id, "super_admin_view_job_listings").catch(() => {});
+
+    const { search, status, page: pageStr = "1" } = req.query as Record<string, string | undefined>;
+    const PAGE_SIZE = 25;
+    const pageNum = Math.max(1, parseInt(pageStr ?? "1", 10) || 1);
+    const offset = (pageNum - 1) * PAGE_SIZE;
+
+    const whereClause = and(
+      status ? eq(jobListingsTable.status, status as "draft" | "published" | "closed") : undefined,
+      search ? sql`(${jobListingsTable.title} ILIKE ${"%" + search + "%"} OR ${employerProfilesTable.companyName} ILIKE ${"%" + search + "%"})` : undefined,
+    );
+
+    const rows = await db
+      .select({
+        id: jobListingsTable.id,
+        title: jobListingsTable.title,
+        status: jobListingsTable.status,
+        location: jobListingsTable.location,
+        regulator: jobListingsTable.regulator,
+        sponsorshipOffered: jobListingsTable.sponsorshipOffered,
+        requiredRegistration: jobListingsTable.requiredRegistration,
+        createdAt: jobListingsTable.createdAt,
+        employerProfileId: jobListingsTable.employerProfileId,
+        companyName: employerProfilesTable.companyName,
+        employerUserId: employerProfilesTable.userId,
+      })
+      .from(jobListingsTable)
+      .innerJoin(employerProfilesTable, eq(jobListingsTable.employerProfileId, employerProfilesTable.id))
+      .where(whereClause)
+      .orderBy(desc(jobListingsTable.createdAt))
+      .limit(PAGE_SIZE)
+      .offset(offset);
+
+    const [totalRow] = await db
+      .select({ cnt: count(jobListingsTable.id) })
+      .from(jobListingsTable)
+      .innerJoin(employerProfilesTable, eq(jobListingsTable.employerProfileId, employerProfilesTable.id))
+      .where(whereClause);
+
+    res.json({ listings: rows, total: Number(totalRow?.cnt ?? 0), page: pageNum, pageSize: PAGE_SIZE });
+  },
+);
+
+router.patch(
+  "/admin/super/job-listings/:id",
+  requireRole("super_admin"),
+  async (req: Request, res: Response): Promise<void> => {
+    const id = parseInt(String(req.params["id"]), 10);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id." }); return; }
+
+    const { status } = req.body as { status?: string };
+    const VALID = ["draft", "published", "closed"] as const;
+    if (!status || !(VALID as readonly string[]).includes(status)) {
+      res.status(400).json({ error: "status must be draft, published, or closed." });
+      return;
+    }
+
+    const [listing] = await db.select({ id: jobListingsTable.id }).from(jobListingsTable).where(eq(jobListingsTable.id, id));
+    if (!listing) { res.status(404).json({ error: "Job listing not found." }); return; }
+
+    const [updated] = await db.update(jobListingsTable).set({ status: status as "draft" | "published" | "closed" }).where(eq(jobListingsTable.id, id)).returning();
+    writeAuditEvent(req.user!.id, "super_admin_update_job_listing", String(id), { status }).catch(() => {});
+    res.json(updated);
+  },
+);
+
+router.delete(
+  "/admin/super/job-listings/:id",
+  requireRole("super_admin"),
+  async (req: Request, res: Response): Promise<void> => {
+    const id = parseInt(String(req.params["id"]), 10);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id." }); return; }
+
+    const [listing] = await db.select({ id: jobListingsTable.id, title: jobListingsTable.title }).from(jobListingsTable).where(eq(jobListingsTable.id, id));
+    if (!listing) { res.status(404).json({ error: "Job listing not found." }); return; }
+
+    writeAuditEvent(req.user!.id, "super_admin_delete_job_listing", String(id), { title: listing.title }).catch(() => {});
+    await db.delete(jobListingsTable).where(eq(jobListingsTable.id, id));
+    res.json({ deleted: true, id });
+  },
+);
+
+// ── Employer accounts ─────────────────────────────────────────────────────────
+
+router.get(
+  "/admin/super/employers",
+  requireRole("super_admin"),
+  async (req: Request, res: Response): Promise<void> => {
+    writeAuditEvent(req.user!.id, "super_admin_view_employers").catch(() => {});
+
+    const { search, page: pageStr = "1" } = req.query as Record<string, string | undefined>;
+    const PAGE_SIZE = 25;
+    const pageNum = Math.max(1, parseInt(pageStr ?? "1", 10) || 1);
+    const offset = (pageNum - 1) * PAGE_SIZE;
+
+    const whereClause = search
+      ? sql`(${employerProfilesTable.companyName} ILIKE ${"%" + search + "%"} OR ${usersTable.email} ILIKE ${"%" + search + "%"})`
+      : undefined;
+
+    const listingCountExpr = sql<number>`(SELECT COUNT(*) FROM job_listings WHERE employer_profile_id = ${employerProfilesTable.id})`;
+    const publishedCountExpr = sql<number>`(SELECT COUNT(*) FROM job_listings WHERE employer_profile_id = ${employerProfilesTable.id} AND status = 'published')`;
+
+    const rows = await db
+      .select({
+        id: employerProfilesTable.id,
+        userId: employerProfilesTable.userId,
+        companyName: employerProfilesTable.companyName,
+        industry: employerProfilesTable.industry,
+        region: employerProfilesTable.region,
+        sponsorLicenceNumber: employerProfilesTable.sponsorLicenceNumber,
+        createdAt: employerProfilesTable.createdAt,
+        email: usersTable.email,
+        userRole: usersTable.role,
+        emailVerified: usersTable.emailVerified,
+        totalListings: listingCountExpr,
+        publishedListings: publishedCountExpr,
+      })
+      .from(employerProfilesTable)
+      .innerJoin(usersTable, eq(employerProfilesTable.userId, usersTable.id))
+      .where(whereClause)
+      .orderBy(desc(employerProfilesTable.createdAt))
+      .limit(PAGE_SIZE)
+      .offset(offset);
+
+    const [totalRow] = await db
+      .select({ cnt: count(employerProfilesTable.id) })
+      .from(employerProfilesTable)
+      .innerJoin(usersTable, eq(employerProfilesTable.userId, usersTable.id))
+      .where(whereClause);
+
+    res.json({ employers: rows, total: Number(totalRow?.cnt ?? 0), page: pageNum, pageSize: PAGE_SIZE });
+  },
+);
+
+router.get(
+  "/admin/super/employers/:id",
+  requireRole("super_admin"),
+  async (req: Request, res: Response): Promise<void> => {
+    const id = parseInt(String(req.params["id"]), 10);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id." }); return; }
+
+    writeAuditEvent(req.user!.id, "super_admin_view_employer_detail", String(id)).catch(() => {});
+
+    const [employer] = await db
+      .select()
+      .from(employerProfilesTable)
+      .innerJoin(usersTable, eq(employerProfilesTable.userId, usersTable.id))
+      .where(eq(employerProfilesTable.id, id));
+
+    if (!employer) { res.status(404).json({ error: "Employer not found." }); return; }
+
+    const listings = await db
+      .select()
+      .from(jobListingsTable)
+      .where(eq(jobListingsTable.employerProfileId, id))
+      .orderBy(desc(jobListingsTable.createdAt));
+
+    res.json({ employer: employer.employer_profiles, user: employer.users, listings });
+  },
+);
+
 /**
  * POST /admin/super/sponsor-licences/sync
  *
