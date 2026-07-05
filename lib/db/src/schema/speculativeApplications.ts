@@ -15,6 +15,7 @@ export const speculativeApplicationsTable = pgTable(
     emailSent: boolean("email_sent").notNull().default(false),
     emailSentAt: timestamp("email_sent_at", { withTimezone: true }),
     emailRecipient: text("email_recipient"),
+    vacancyTitle: text("vacancy_title"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("speculative_apps_user_idx").on(t.userId)],

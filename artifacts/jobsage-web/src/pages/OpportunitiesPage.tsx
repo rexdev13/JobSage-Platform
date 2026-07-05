@@ -17,6 +17,7 @@ import {
   type CandidateMatchItem,
   type CandidateMatchList,
 } from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
 import { SmartApplyModal } from "@/components/SmartApplyModal";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -898,6 +899,17 @@ export default function OpportunitiesPage() {
   const { data: aiMatchesData, isLoading: aiMatchesLoading } = useGetMyMatches({ limit: 200 });
   const dismissMutation = useDismissMatch();
 
+  const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const { data: vacancyStatsData } = useQuery<{ companiesChecked: number; companiesWithVacancies: number; totalVacanciesFound: number }>({
+    queryKey: ["sponsorVacancyStats"],
+    queryFn: async () => {
+      const res = await fetch(`${base}/api/sponsor-licences/vacancy-stats`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch vacancy stats");
+      return res.json() as Promise<{ companiesChecked: number; companiesWithVacancies: number; totalVacanciesFound: number }>;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
   function handleDismissMatch(roleId: number) {
     setLocalDismissedIds((prev) => new Set([...prev, roleId]));
     dismissMutation.mutate(
@@ -994,6 +1006,13 @@ export default function OpportunitiesPage() {
                 ? `${eligibleRoles.length} eligible now · ${notYetEligibleRoles.length} to work towards`
                 : "Roles matched to your regulatory eligibility."}
             </p>
+            {(vacancyStatsData?.totalVacanciesFound ?? 0) > 0 && (
+              <p className="text-xs text-primary/80 mt-0.5 font-medium">
+                {vacancyStatsData!.totalVacanciesFound} sponsor vacancies found across {vacancyStatsData!.companiesWithVacancies} employer{vacancyStatsData!.companiesWithVacancies !== 1 ? "s" : ""}
+                {" · "}
+                <a href="/sponsor-licences" className="underline underline-offset-2 hover:text-primary transition-colors">View sponsors</a>
+              </p>
+            )}
           </div>
           {eligibilityOutcome && (
             <div className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 ${
