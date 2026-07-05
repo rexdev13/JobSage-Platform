@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, integer, boolean, varchar, index, uniqueIndex, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, integer, boolean, varchar, index, uniqueIndex, jsonb, date } from "drizzle-orm/pg-core";
 
 export const sponsorLicencesTable = pgTable(
   "sponsor_licences",
@@ -53,6 +53,29 @@ export const sponsorLicenceVacancyChecksTable = pgTable(
 
 export type SponsorLicenceVacancyCheck = typeof sponsorLicenceVacancyChecksTable.$inferSelect;
 export type InsertSponsorLicenceVacancyCheck = typeof sponsorLicenceVacancyChecksTable.$inferInsert;
+
+export const sponsorLicenceVacanciesTable = pgTable(
+  "sponsor_licence_vacancies",
+  {
+    id: serial("id").primaryKey(),
+    organisationName: text("organisation_name").notNull(),
+    checkDate: date("check_date").notNull(),
+    title: text("title").notNull(),
+    location: text("location"),
+    salary: text("salary"),
+    url: text("url"),
+    description: text("description"),
+    postedDate: text("posted_date"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("sponsor_licence_vacancies_org_date_idx").on(t.organisationName, t.checkDate),
+    index("sponsor_licence_vacancies_org_idx").on(t.organisationName),
+  ],
+);
+
+export type SponsorLicenceVacancy = typeof sponsorLicenceVacanciesTable.$inferSelect;
+export type InsertSponsorLicenceVacancy = typeof sponsorLicenceVacanciesTable.$inferInsert;
 
 export const sponsorLicenceBookmarksTable = pgTable(
   "sponsor_licence_bookmarks",

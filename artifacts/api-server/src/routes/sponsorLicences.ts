@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { sponsorLicencesTable, sponsorLicenceSyncLogTable, jobListingsTable, sponsorLicenceVacancyChecksTable, sponsorLicenceBookmarksTable } from "@workspace/db";
+import { sponsorLicencesTable, sponsorLicenceSyncLogTable, jobListingsTable, sponsorLicenceVacancyChecksTable, sponsorLicenceBookmarksTable, sponsorLicenceVacanciesTable } from "@workspace/db";
 import { eq, ilike, and, desc, sql, isNotNull, gt } from "drizzle-orm";
 import { requireAuthenticated } from "../middlewares/requireRole";
 import { openai } from "@workspace/integrations-openai-ai-server";
@@ -393,6 +393,32 @@ Include up to 8 specific vacancies in vacancyList if found. Use null for missing
       .values({ organisationName, vacanciesFound, vacancyCount, sourceUrl, summary, vacancyList })
       .returning();
 
+    // Persist individual vacancy rows to sponsor_licence_vacancies for stable IDs + global stats
+    if (vacancyList && vacancyList.length > 0) {
+      const checkDate = new Date().toISOString().split("T")[0]!;
+      // Delete any existing rows for this org on today's check date, then re-insert
+      await db
+        .delete(sponsorLicenceVacanciesTable)
+        .where(
+          and(
+            eq(sponsorLicenceVacanciesTable.organisationName, organisationName),
+            eq(sponsorLicenceVacanciesTable.checkDate, checkDate),
+          ),
+        );
+      await db.insert(sponsorLicenceVacanciesTable).values(
+        vacancyList.map((v) => ({
+          organisationName,
+          checkDate,
+          title: v.title,
+          location: v.location ?? null,
+          salary: v.salary ?? null,
+          url: v.url ?? null,
+          description: v.description ?? null,
+          postedDate: v.postedDate ?? null,
+        })),
+      );
+    }
+
     res.json({
       vacanciesFound,
       vacancyCount,
@@ -412,32 +438,23 @@ Include up to 8 specific vacancies in vacancyList if found. Use null for missing
 
 router.get("/sponsor-licences/vacancy-stats", requireAuthenticated, async (_req, res) => {
   try {
-    const cutoff = new Date(Date.now() - VACANCY_CACHE_TTL_MS);
-    // Order DESC so the first row seen per org is the most recent check
-    const rows = await db
+    // Aggregate from all persisted sponsor_licence_vacancies rows (no TTL — all stored records)
+    const countRows = await db
       .select({
-        organisationName: sponsorLicenceVacancyChecksTable.organisationName,
-        vacanciesFound: sponsorLicenceVacancyChecksTable.vacanciesFound,
-        vacancyCount: sponsorLicenceVacancyChecksTable.vacancyCount,
+        organisationName: sponsorLicenceVacanciesTable.organisationName,
+        vacancyCount: sql<number>`cast(count(*) as integer)`,
       })
-      .from(sponsorLicenceVacancyChecksTable)
-      .where(gt(sponsorLicenceVacancyChecksTable.checkedAt, cutoff))
-      .orderBy(desc(sponsorLicenceVacancyChecksTable.checkedAt));
+      .from(sponsorLicenceVacanciesTable)
+      .groupBy(sponsorLicenceVacanciesTable.organisationName);
 
-    // Keep only the latest check per organisation (rows already sorted newest-first)
-    const byOrg = new Map<string, { found: boolean; count: number }>();
-    for (const row of rows) {
-      if (!byOrg.has(row.organisationName)) {
-        byOrg.set(row.organisationName, {
-          found: row.vacanciesFound,
-          count: row.vacancyCount ?? 0,
-        });
-      }
-    }
+    const companiesWithVacancies = countRows.length;
+    const totalVacanciesFound = countRows.reduce((acc, r) => acc + r.vacancyCount, 0);
 
-    const companiesChecked = byOrg.size;
-    const companiesWithVacancies = [...byOrg.values()].filter((v) => v.found).length;
-    const totalVacanciesFound = [...byOrg.values()].reduce((acc, v) => acc + (v.found ? v.count : 0), 0);
+    // companiesChecked = organisations that have ever had a check run
+    const [checkedCountRow] = await db
+      .select({ count: sql<number>`cast(count(distinct organisation_name) as integer)` })
+      .from(sponsorLicenceVacancyChecksTable);
+    const companiesChecked = checkedCountRow?.count ?? 0;
 
     res.json({ companiesChecked, companiesWithVacancies, totalVacanciesFound });
   } catch (err) {
@@ -672,12 +689,29 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
 
     const allCompanies = await companiesQuery.orderBy(sponsorLicencesTable.organisationName);
 
-    const annotated = allCompanies.map((c) => ({
-      ...c,
-      hasVacancies: employerNamesWithVacancies.has(c.organisationName.toLowerCase().trim()),
-      isBookmarked: bookmarkedIds.has(c.id),
-      region: countyToRegion(c.county),
-    }));
+    // Fetch stored vacancy counts per org from sponsor_licence_vacancies (no TTL)
+    const storedVacancyRows = await db
+      .select({
+        organisationName: sponsorLicenceVacanciesTable.organisationName,
+        count: sql<number>`cast(count(*) as integer)`,
+      })
+      .from(sponsorLicenceVacanciesTable)
+      .groupBy(sponsorLicenceVacanciesTable.organisationName);
+    const storedVacancyCounts = new Map<string, number>(
+      storedVacancyRows.map((r) => [r.organisationName.toLowerCase().trim(), r.count]),
+    );
+
+    const annotated = allCompanies.map((c) => {
+      const key = c.organisationName.toLowerCase().trim();
+      const storedVacancyCount = storedVacancyCounts.get(key) ?? null;
+      return {
+        ...c,
+        hasVacancies: employerNamesWithVacancies.has(key) || (storedVacancyCount !== null && storedVacancyCount > 0),
+        storedVacancyCount,
+        isBookmarked: bookmarkedIds.has(c.id),
+        region: countyToRegion(c.county),
+      };
+    });
 
     let filtered = annotated;
     if (filterVacancies) filtered = filtered.filter((c) => c.hasVacancies);

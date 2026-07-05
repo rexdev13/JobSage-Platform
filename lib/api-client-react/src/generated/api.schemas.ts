@@ -1100,6 +1100,7 @@ export interface SponsorLicenceCompany {
   industry?: string | null;
   syncedAt: string;
   hasVacancies?: boolean;
+  storedVacancyCount?: number | null;
   isBookmarked?: boolean;
 }
 
