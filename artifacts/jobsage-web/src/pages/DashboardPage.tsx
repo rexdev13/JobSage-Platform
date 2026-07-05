@@ -209,6 +209,7 @@ interface RecommendedRole {
   matchScore: number;
   isEligible: boolean;
   sponsorshipOffered: boolean;
+  matchReason?: string | null;
 }
 
 function RecommendedOpportunitiesWidget() {
@@ -271,6 +272,11 @@ function RecommendedOpportunitiesWidget() {
                     <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1 truncate">
                       <Building2 className="w-3 h-3 shrink-0" /> {role.employer}
                     </p>
+                    {role.matchReason && (
+                      <p className="text-[10px] text-primary/70 italic mt-1 leading-snug line-clamp-2">
+                        {role.matchReason}
+                      </p>
+                    )}
                   </div>
                   <div className="shrink-0 flex flex-col items-end gap-1">
                     <span
