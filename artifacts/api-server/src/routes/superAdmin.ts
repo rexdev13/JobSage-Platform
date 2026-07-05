@@ -153,6 +153,7 @@ router.get(
         emailVerified: usersTable.emailVerified,
         createdAt: usersTable.createdAt,
         updatedAt: usersTable.updatedAt,
+        suspendedAt: usersTable.suspendedAt,
         lastLogin: sql<string | null>`(SELECT max(created_at) FROM audit_events WHERE actor = ${usersTable.id} AND action = 'user_login')`,
         documentCount: docCountExpr,
         applicationCount: appCountExpr,
@@ -378,6 +379,7 @@ async function fetchUserFull(userId: string) {
       emailVerified: usersTable.emailVerified,
       createdAt: usersTable.createdAt,
       updatedAt: usersTable.updatedAt,
+      suspendedAt: usersTable.suspendedAt,
     })
     .from(usersTable)
     .where(eq(usersTable.id, userId));
