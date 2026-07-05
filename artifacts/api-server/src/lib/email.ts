@@ -313,7 +313,7 @@ export async function sendCandidateContactEmail(opts: {
   });
 }
 
-const OPS_INBOX = process.env.EMAIL_OPS ?? "ops@jobsage.co.uk";
+export const OPS_INBOX = process.env.EMAIL_OPS ?? "ops@jobsage.co.uk";
 
 export async function sendSpeculativeCVToOps(opts: {
   candidateEmail: string;
@@ -322,14 +322,20 @@ export async function sendSpeculativeCVToOps(opts: {
   companyName: string;
   applicationId: number;
   cvFilename?: string | null;
-  cvStorageKey?: string | null;
+  cvContent?: Buffer | null;
   notes?: string | null;
 }): Promise<void> {
+  const attachments =
+    opts.cvContent && opts.cvFilename
+      ? [{ filename: opts.cvFilename, content: opts.cvContent }]
+      : [];
+
   await resend.emails.send({
     from: `JOBSAGE <${FROM}>`,
     to: OPS_INBOX,
     replyTo: opts.candidateEmail,
     subject: `[Speculative CV] ${opts.candidateName} → ${opts.companyName}`,
+    attachments,
     html: `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8" /></head>
@@ -342,8 +348,7 @@ export async function sendSpeculativeCVToOps(opts: {
         <tr><td style="font-weight:600;">Candidate</td><td>${opts.candidateName} &lt;${opts.candidateEmail}&gt;</td></tr>
         <tr><td style="font-weight:600;">User ID</td><td>${opts.candidateUserId}</td></tr>
         <tr><td style="font-weight:600;">Target company</td><td>${opts.companyName}</td></tr>
-        <tr><td style="font-weight:600;">CV document</td><td>${opts.cvFilename ?? "not specified"}</td></tr>
-        <tr><td style="font-weight:600;">Storage key</td><td style="font-family:monospace;font-size:12px;">${opts.cvStorageKey ?? "—"}</td></tr>
+        <tr><td style="font-weight:600;">CV document</td><td>${opts.cvFilename ?? "not attached"}</td></tr>
         <tr><td style="font-weight:600;">Cover note</td><td>${opts.notes ? opts.notes.replace(/\n/g, "<br>") : "—"}</td></tr>
       </table>
       <p style="margin:24px 0 0;font-size:12px;color:#94a3b8;">
