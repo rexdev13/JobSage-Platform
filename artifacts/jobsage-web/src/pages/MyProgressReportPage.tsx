@@ -624,7 +624,7 @@ export default function MyProgressReportPage() {
                         </div>
                         <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">{co.reason}</p>
                         <div className="mt-2">
-                          <Link href="/opportunities">
+                          <Link href={`/opportunities?tab=employers&q=${encodeURIComponent(co.name)}`}>
                             <span className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
                               View &amp; Apply <Zap className="w-3 h-3" />
                             </span>

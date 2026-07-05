@@ -882,9 +882,13 @@ function SelfPromotionCard() {
 
 export default function OpportunitiesPage() {
   const [, setLocation] = useLocation();
-  const [activeTab, setActiveTab] = useState<Tab>("board");
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    const p = new URLSearchParams(window.location.search);
+    const t = p.get("tab");
+    return (t === "employers" || t === "board" || t === "applications") ? t as Tab : "board";
+  });
   const [selectedRole, setSelectedRole] = useState<MatchedRole | null>(null);
-  const [employerSearch, setEmployerSearch] = useState("");
+  const [employerSearch, setEmployerSearch] = useState(() => new URLSearchParams(window.location.search).get("q") ?? "");
   const [smartApplyRole, setSmartApplyRole] = useState<{ id: number; title: string } | null>(null);
   const [coverLetterRole, setCoverLetterRole] = useState<MatchedRole["role"] | null>(null);
 

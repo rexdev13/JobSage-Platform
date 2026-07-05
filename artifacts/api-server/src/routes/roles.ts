@@ -493,13 +493,20 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
       requiredRegistration: row.job.requiredRegistration,
     }));
 
+  // Fetch roles the user has already applied to and exclude them
+  const appliedRows = await db
+    .select({ roleId: applicationsTable.roleId })
+    .from(applicationsTable)
+    .where(eq(applicationsTable.userId, userId));
+  const appliedIds = new Set(appliedRows.map((a) => a.roleId).filter(Boolean) as number[]);
+
   const regulatorRoles = [
-    ...allRoles.filter((r) => r.regulator === regulator).map((r) => ({
+    ...allRoles.filter((r) => r.regulator === regulator && !appliedIds.has(r.id)).map((r) => ({
       id: r.id, title: r.title, employer: r.employer, location: r.location,
       regulator: r.regulator, sponsorshipOffered: r.sponsorshipOffered,
       requiredRegistration: r.requiredRegistration,
     })),
-    ...employerJobsAsRoles,
+    ...employerJobsAsRoles.filter((r) => !appliedIds.has(r.id)),
   ];
 
   if (regulatorRoles.length === 0) {
