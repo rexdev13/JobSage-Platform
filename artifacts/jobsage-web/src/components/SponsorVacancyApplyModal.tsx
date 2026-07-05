@@ -17,6 +17,8 @@ import {
   ExternalLink,
   AlertTriangle,
   CalendarDays,
+  ArrowRight,
+  Zap,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { SmartApplyAssistant } from "@/components/SmartApplyAssistant";
@@ -122,8 +124,12 @@ export function SponsorVacancyApplyModal({
   const coverLetter = useCoverLetterStream();
   const [clEditable, setClEditable] = useState("");
   const [clCopied, setClCopied] = useState(false);
-  const [step, setStep] = useState<"details" | "coverletter" | "submitting" | "done">("details");
+  const [step, setStep] = useState<"details" | "coverletter" | "submitting" | "done" | "nextMatches">("details");
   const [aiAnswer, setAiAnswer] = useState("");
+  const [nextMatchRoles, setNextMatchRoles] = useState<Array<{
+    id: number; title: string; employer: string; location: string | null;
+    matchScore: number; isEligible: boolean; matchReason?: string | null;
+  }>>([]);
 
   useEffect(() => {
     if (coverLetter.done && !clEditable) {
@@ -147,10 +153,27 @@ export function SponsorVacancyApplyModal({
         },
       },
       {
-        onSuccess: () => {
+        onSuccess: async () => {
           void queryClient.invalidateQueries({ queryKey: ["listSpeculativeApplications"] });
           setStep("done");
-          // Notify parent after a short delay so user sees success screen
+
+          // Fetch next 3 best unapplied role matches
+          try {
+            const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+            const res = await fetch(`${base}/api/opportunities/recommended?limit=3`, { credentials: "include" });
+            if (res.ok) {
+              const data = await (res.json() as Promise<{ roles: typeof nextMatchRoles }>);
+              if ((data.roles ?? []).length > 0) {
+                setNextMatchRoles(data.roles.slice(0, 3));
+                setStep("nextMatches");
+                return;
+              }
+            }
+          } catch {
+            // fall through to done step
+          }
+
+          // If no next matches, notify parent after a short delay
           setTimeout(() => { onSuccess(); }, 1500);
         },
         onError: () => {
@@ -261,6 +284,48 @@ export function SponsorVacancyApplyModal({
               <div className="flex flex-col items-center justify-center py-10">
                 <Loader2 className="w-9 h-9 text-primary animate-spin mb-3" />
                 <p className="text-sm font-medium text-foreground">Submitting your application…</p>
+              </div>
+            )}
+
+            {step === "nextMatches" && (
+              <div className="space-y-4">
+                <div className="flex flex-col items-center text-center pt-3 pb-1">
+                  <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center mb-3">
+                    <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+                  </div>
+                  <h4 className="text-base font-bold text-foreground">Application submitted!</h4>
+                  <p className="text-sm text-muted-foreground mt-1 max-w-xs">
+                    Great work. Keep the momentum going — here are your next 3 best matches:
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  {nextMatchRoles.map((r, i) => (
+                    <div key={r.id}
+                      className="flex items-center gap-3 p-3 rounded-xl border border-border hover:border-primary/20 hover:bg-muted/20 transition-all"
+                    >
+                      <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                        <span className="text-xs font-bold text-primary">{i + 1}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-foreground leading-tight truncate">{r.title}</p>
+                        <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1 truncate"><Building2 className="w-3 h-3 shrink-0" />{r.employer}</span>
+                          {r.location && <span className="flex items-center gap-1 truncate"><MapPin className="w-3 h-3 shrink-0" />{r.location}</span>}
+                        </div>
+                        {r.matchReason && (
+                          <p className="text-[10px] text-primary/70 italic mt-0.5 line-clamp-1">{r.matchReason}</p>
+                        )}
+                      </div>
+                      <span className={`shrink-0 text-xs font-bold flex items-center gap-1 px-2 py-0.5 rounded-full ${
+                        r.matchScore >= 75 ? "bg-emerald-100 text-emerald-800" :
+                        r.matchScore >= 50 ? "bg-blue-100 text-blue-800" :
+                        "bg-muted text-muted-foreground"
+                      }`}>
+                        <Zap className="w-3 h-3" />{r.matchScore}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -414,6 +479,19 @@ export function SponsorVacancyApplyModal({
           </div>
 
           {/* Footer */}
+          {step === "nextMatches" && (
+            <div className="flex items-center justify-between px-5 py-4 border-t border-border bg-muted/30 flex-wrap gap-2">
+              <a href="/opportunities">
+                <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+                  <ArrowRight className="w-3.5 h-3.5" /> Browse All Opportunities
+                </Button>
+              </a>
+              <Button size="sm" onClick={onSuccess} className="gap-1.5">
+                <CheckCircle2 className="w-4 h-4" /> Done
+              </Button>
+            </div>
+          )}
+
           {(step === "details" || step === "coverletter") && (
             <div className="flex items-center justify-between px-5 py-4 border-t border-border bg-muted/30 gap-3 flex-wrap">
               <div className="flex items-center gap-2">
