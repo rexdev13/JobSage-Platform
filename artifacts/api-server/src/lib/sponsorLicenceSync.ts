@@ -3,19 +3,14 @@ import { sponsorLicencesTable, sponsorLicenceSyncLogTable } from "@workspace/db"
 import { sql } from "drizzle-orm";
 import { classifyByKeyword } from "./industryClassifier";
 
-// Updated July 2026 — GOV.UK publishes a new file each month.
-// If resolveLatestRegisterUrl() fails, this is the safe fallback.
+export type SyncTriggeredBy = "scheduler" | "manual";
+
 const DEFAULT_REGISTER_URL =
   "https://assets.publishing.service.gov.uk/media/6a47768c1c8bd7ce25a5ea44/SP_-_Worker_and_Temporary_Worker_Web_Register_-_2026-07-03.csv";
 
 const GOV_UK_REGISTER_PAGE =
   "https://www.gov.uk/government/publications/register-of-licensed-sponsors-workers";
 
-/**
- * Fetches the GOV.UK register page and extracts the most recent CSV/XLSX URL.
- * Tries multiple patterns to handle GOV.UK page restructures.
- * Falls back to SPONSOR_LICENCE_REGISTER_URL env var, then DEFAULT_REGISTER_URL.
- */
 async function resolveLatestRegisterUrl(): Promise<string> {
   try {
     const resp = await fetch(GOV_UK_REGISTER_PAGE, {
@@ -28,7 +23,6 @@ async function resolveLatestRegisterUrl(): Promise<string> {
     if (!resp.ok) throw new Error(`HTTP ${resp.status} fetching register page`);
     const html = await resp.text();
 
-    // Pattern 1: full URL in href or text (covers most GOV.UK asset CDN patterns)
     const patterns = [
       /https:\/\/assets\.publishing\.service\.gov\.uk\/media\/[a-f0-9]+\/[^\s"'<>]+\.(?:csv|xlsx)/gi,
       /https:\/\/assets\.publishing\.service\.gov\.uk\/[^\s"'<>]+Worker[^\s"'<>]+\.(?:csv|xlsx)/gi,
@@ -42,7 +36,7 @@ async function resolveLatestRegisterUrl(): Promise<string> {
         return url;
       }
     }
-    console.warn("[sponsor-sync] No CSV/XLSX found on register page (html length:", html.length, ") — using default URL");
+    console.warn("[sponsor-sync] No CSV/XLSX found on register page — using default URL");
   } catch (err) {
     console.warn("[sponsor-sync] Failed to resolve latest register URL:", err instanceof Error ? err.message : err);
   }
@@ -76,17 +70,10 @@ function findCol(headers: string[], ...candidates: string[]): number {
   return -1;
 }
 
-/**
- * Parse "Type & Rating" values like:
- *   "Worker (A rating)"          → route=Worker,  rating=A rating,  subRoute from Route col
- *   "Temporary Worker (A rating)" → route=Temporary Worker, rating=A rating
- *   "Worker-A Rating"             → (older XLSX style)
- */
 function parseTypeRating(raw: string): { route: string | null; rating: string | null } {
   const trimmed = raw.trim();
   if (!trimmed) return { route: null, rating: null };
 
-  // Pattern: "Worker (A rating)" or "Temporary Worker (B rating)"
   const parenMatch = /^(.+?)\s*\((.+?)\)\s*$/.exec(trimmed);
   if (parenMatch) {
     return {
@@ -95,7 +82,6 @@ function parseTypeRating(raw: string): { route: string | null; rating: string | 
     };
   }
 
-  // Older dash-separated style: "Worker-A Rating-Skilled Worker"
   const parts = trimmed.split(/[-|]/).map((p) => p.trim()).filter(Boolean);
   if (parts.length >= 1) {
     const route = parts[0] ?? null;
@@ -216,7 +202,6 @@ async function downloadAndParseXLSX(url: string): Promise<ParsedRow[]> {
     }
 
     if (subRouteCol >= 0) subRoute = String(row[subRouteCol] ?? "").trim() || null;
-    // For XLSX with Route column but no SubRoute column, use routeCol as subRoute
     else if (routeCol >= 0 && typeRatingCol >= 0) {
       subRoute = String(row[routeCol] ?? "").trim() || null;
     }
@@ -243,60 +228,103 @@ async function downloadAndParse(url: string): Promise<ParsedRow[]> {
   return downloadAndParseXLSX(url);
 }
 
-export async function runSponsorLicenceSync(): Promise<void> {
-  // Prefer explicit env var, otherwise auto-resolve the latest URL from GOV.UK
-  const url = getRegisterUrl() ?? await resolveLatestRegisterUrl();
-  console.log("[sponsor-sync] Starting sync from", url);
+async function attemptSync(url: string): Promise<{ rows: ParsedRow[]; existingCount: number }> {
+  const rows = await downloadAndParse(url);
+  console.log(`[sponsor-sync] Parsed ${rows.length} records`);
 
+  if (rows.length === 0) throw new Error("No records parsed from register");
+
+  const [{ existingCount }] = await db
+    .select({ existingCount: sql<number>`cast(count(*) as int)` })
+    .from(sponsorLicencesTable);
+
+  if (existingCount > 0 && rows.length < existingCount * 0.5) {
+    throw new Error(
+      `Safety guard triggered: new data has ${rows.length} rows but DB already has ${existingCount}. ` +
+      `Refusing to truncate — possible corrupt/partial source file. ` +
+      `Set SPONSOR_LICENCE_REGISTER_URL to override.`,
+    );
+  }
+
+  return { rows, existingCount };
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function runSponsorLicenceSync(triggeredBy: SyncTriggeredBy = "scheduler"): Promise<void> {
+  const url = getRegisterUrl() ?? await resolveLatestRegisterUrl();
+  console.log(`[sponsor-sync] Starting sync from ${url} (triggered by: ${triggeredBy})`);
+
+  const startMs = Date.now();
   const syncedAt = new Date();
 
-  try {
-    const rows = await downloadAndParse(url);
-    console.log(`[sponsor-sync] Parsed ${rows.length} records`);
+  const MAX_ATTEMPTS = 3;
+  const RETRY_DELAY_MS = 30_000;
 
-    if (rows.length === 0) throw new Error("No records parsed from register");
+  let lastError: Error | null = null;
 
-    // Safety guard: abort if the new dataset is less than 50% of what's already in the DB.
-    // This catches cases where a truncated/corrupt file would silently replace good data.
-    const [{ existingCount }] = await db
-      .select({ existingCount: sql<number>`cast(count(*) as int)` })
-      .from(sponsorLicencesTable);
-    if (existingCount > 0 && rows.length < existingCount * 0.5) {
-      throw new Error(
-        `Safety guard triggered: new data has ${rows.length} rows but DB already has ${existingCount}. ` +
-        `Refusing to truncate — possible corrupt/partial source file. ` +
-        `Set SPONSOR_LICENCE_REGISTER_URL to override.`,
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const { rows, existingCount } = await attemptSync(url);
+
+      await db.transaction(async (tx) => {
+        await tx.execute(sql`TRUNCATE TABLE sponsor_licences RESTART IDENTITY`);
+        const BATCH = 500;
+        for (let i = 0; i < rows.length; i += BATCH) {
+          const batch = rows.slice(i, i + BATCH).map((r) => ({ ...r, syncedAt }));
+          await tx.insert(sponsorLicencesTable).values(batch);
+        }
+      });
+
+      const durationMs = Date.now() - startMs;
+      const addedCount = Math.max(0, rows.length - existingCount);
+      const removedCount = Math.max(0, existingCount - rows.length);
+      const updatedCount = Math.min(existingCount, rows.length);
+
+      await db.insert(sponsorLicenceSyncLogTable).values({
+        status: "success",
+        recordCount: rows.length,
+        addedCount,
+        updatedCount,
+        removedCount,
+        durationMs,
+        triggeredBy,
+        errorMessage: null,
+      });
+
+      console.log(
+        `[sponsor-sync] Sync complete — ${rows.length} records, ` +
+        `+${addedCount} added, ~${updatedCount} updated, -${removedCount} removed, ` +
+        `${durationMs}ms (attempt ${attempt}/${MAX_ATTEMPTS})`,
       );
-    }
+      return;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      console.error(`[sponsor-sync] Attempt ${attempt}/${MAX_ATTEMPTS} failed:`, lastError.message);
 
-    // Note: AI classification is intentionally skipped here to keep sync fast.
-    // Rows with industry=null (no keyword match) are picked up by the industry backfill
-    // process which runs on server startup and handles AI classification in the background.
-
-    await db.transaction(async (tx) => {
-      await tx.execute(sql`TRUNCATE TABLE sponsor_licences RESTART IDENTITY`);
-      const BATCH = 500;
-      for (let i = 0; i < rows.length; i += BATCH) {
-        const batch = rows.slice(i, i + BATCH).map((r) => ({ ...r, syncedAt }));
-        await tx.insert(sponsorLicencesTable).values(batch);
+      if (attempt < MAX_ATTEMPTS) {
+        console.log(`[sponsor-sync] Retrying in ${RETRY_DELAY_MS / 1000}s...`);
+        await sleep(RETRY_DELAY_MS);
       }
-    });
-
-    await db.insert(sponsorLicenceSyncLogTable).values({
-      status: "success",
-      recordCount: rows.length,
-      errorMessage: null,
-    });
-
-    console.log(`[sponsor-sync] Sync complete — ${rows.length} records`);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error("[sponsor-sync] Sync failed:", msg);
-    await db.insert(sponsorLicenceSyncLogTable).values({
-      status: "error",
-      recordCount: null,
-      errorMessage: msg.slice(0, 2000),
-    }).catch(() => {});
-    throw err;
+    }
   }
+
+  const durationMs = Date.now() - startMs;
+  const msg = lastError?.message ?? "Unknown error";
+  console.error("[sponsor-sync] All attempts failed. Existing data preserved.");
+
+  await db.insert(sponsorLicenceSyncLogTable).values({
+    status: "error",
+    recordCount: null,
+    addedCount: null,
+    updatedCount: null,
+    removedCount: null,
+    durationMs,
+    triggeredBy,
+    errorMessage: msg.slice(0, 2000),
+  }).catch(() => {});
+
+  throw lastError ?? new Error("Sync failed after all retries");
 }

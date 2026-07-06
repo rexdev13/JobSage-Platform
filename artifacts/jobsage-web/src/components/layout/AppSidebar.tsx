@@ -5,7 +5,7 @@ import {
   Map, ClipboardList, Shield, Users, LogOut, Briefcase,
   Building2, Plus, LayoutDashboard, Sparkles, UserCog, List,
   BarChart2, BookOpen, Search, Bookmark, ShieldAlert,
-  TrendingUp, Inbox, CalendarDays, Star, ShieldCheck,
+  TrendingUp, Inbox, CalendarDays, Star, ShieldCheck, RefreshCw,
 } from "lucide-react";
 import { cn } from "@/components/ui-enhanced";
 import { useGetMyAnalytics, useGetMyProgressReport, useGetInboxUnreadCount, getGetInboxUnreadCountQueryKey, useGetMyProfile, getGetMyProfileQueryKey } from "@workspace/api-client-react";
@@ -122,6 +122,7 @@ export function AppSidebar() {
     { name: "Audit Logs", href: "/admin/audit", icon: Shield, roles: ["admin", "super_admin"] },
     { name: "User Management", href: "/admin/users", icon: UserCog, roles: ["admin", "super_admin"] },
     { name: "Super Admin", href: "/admin/super", icon: ShieldAlert, roles: ["super_admin"] },
+    { name: "Sync Management", href: "/admin/sync", icon: RefreshCw, roles: ["super_admin"] },
   ];
 
   const isCandidateLike = role === "candidate" || role === "reviewer" || role === "admin";

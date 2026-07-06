@@ -27,11 +27,31 @@ export const sponsorLicenceSyncLogTable = pgTable("sponsor_licence_sync_log", {
   id: serial("id").primaryKey(),
   status: varchar("status", { enum: ["success", "error"] }).notNull(),
   recordCount: integer("record_count"),
+  addedCount: integer("added_count"),
+  updatedCount: integer("updated_count"),
+  removedCount: integer("removed_count"),
+  durationMs: integer("duration_ms"),
+  triggeredBy: varchar("triggered_by", { enum: ["scheduler", "manual"] }),
   errorMessage: text("error_message"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export type SponsorLicenceSyncLog = typeof sponsorLicenceSyncLogTable.$inferSelect;
+
+export const vacancySyncLogTable = pgTable("vacancy_sync_log", {
+  id: serial("id").primaryKey(),
+  status: varchar("status", { enum: ["success", "error"] }).notNull(),
+  batchSize: integer("batch_size"),
+  checkedCount: integer("checked_count"),
+  cacheHitCount: integer("cache_hit_count"),
+  errorCount: integer("error_count"),
+  errorMessage: text("error_message"),
+  triggeredBy: varchar("triggered_by", { enum: ["scheduler", "manual"] }),
+  durationMs: integer("duration_ms"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type VacancySyncLog = typeof vacancySyncLogTable.$inferSelect;
 
 export const sponsorLicenceVacancyChecksTable = pgTable(
   "sponsor_licence_vacancy_checks",
