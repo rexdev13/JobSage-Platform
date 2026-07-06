@@ -534,7 +534,7 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
           ORDER BY organisation_name, checked_at DESC`,
     );
     const storedVacancyCounts = new Map<string, number>(
-      storedVacancyRows
+      storedVacancyRows.rows
         .filter((r) => r.vacancy_count !== null && r.vacancy_count > 0)
         .map((r) => [r.organisation_name.toLowerCase().trim(), r.vacancy_count!]),
     );
