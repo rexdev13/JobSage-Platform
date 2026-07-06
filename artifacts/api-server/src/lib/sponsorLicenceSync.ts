@@ -228,15 +228,27 @@ async function downloadAndParse(url: string): Promise<ParsedRow[]> {
   return downloadAndParseXLSX(url);
 }
 
-async function attemptSync(url: string): Promise<{ rows: ParsedRow[]; existingCount: number }> {
+interface SyncDiff {
+  rows: ParsedRow[];
+  addedCount: number;
+  updatedCount: number;
+  removedCount: number;
+  existingCount: number;
+}
+
+async function attemptSync(url: string): Promise<SyncDiff> {
   const rows = await downloadAndParse(url);
   console.log(`[sponsor-sync] Parsed ${rows.length} records`);
 
   if (rows.length === 0) throw new Error("No records parsed from register");
 
-  const [{ existingCount }] = await db
-    .select({ existingCount: sql<number>`cast(count(*) as int)` })
+  // Load existing org names to compute a real record-level diff.
+  // We key on organisation_name (the stable identifier in the register).
+  const existingRows = await db
+    .select({ organisationName: sponsorLicencesTable.organisationName })
     .from(sponsorLicencesTable);
+
+  const existingCount = existingRows.length;
 
   if (existingCount > 0 && rows.length < existingCount * 0.5) {
     throw new Error(
@@ -246,7 +258,15 @@ async function attemptSync(url: string): Promise<{ rows: ParsedRow[]; existingCo
     );
   }
 
-  return { rows, existingCount };
+  // Build org name sets for true diff computation
+  const existingNames = new Set(existingRows.map((r) => r.organisationName.toLowerCase().trim()));
+  const newNames = new Set(rows.map((r) => r.organisationName.toLowerCase().trim()));
+
+  const addedCount = rows.filter((r) => !existingNames.has(r.organisationName.toLowerCase().trim())).length;
+  const removedCount = existingRows.filter((r) => !newNames.has(r.organisationName.toLowerCase().trim())).length;
+  const updatedCount = rows.filter((r) => existingNames.has(r.organisationName.toLowerCase().trim())).length;
+
+  return { rows, addedCount, updatedCount, removedCount, existingCount };
 }
 
 function sleep(ms: number): Promise<void> {
@@ -267,7 +287,7 @@ export async function runSponsorLicenceSync(triggeredBy: SyncTriggeredBy = "sche
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
-      const { rows, existingCount } = await attemptSync(url);
+      const { rows, addedCount, updatedCount, removedCount } = await attemptSync(url);
 
       await db.transaction(async (tx) => {
         await tx.execute(sql`TRUNCATE TABLE sponsor_licences RESTART IDENTITY`);
@@ -279,9 +299,6 @@ export async function runSponsorLicenceSync(triggeredBy: SyncTriggeredBy = "sche
       });
 
       const durationMs = Date.now() - startMs;
-      const addedCount = Math.max(0, rows.length - existingCount);
-      const removedCount = Math.max(0, existingCount - rows.length);
-      const updatedCount = Math.min(existingCount, rows.length);
 
       await db.insert(sponsorLicenceSyncLogTable).values({
         status: "success",
