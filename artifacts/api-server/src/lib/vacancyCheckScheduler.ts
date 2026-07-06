@@ -15,12 +15,20 @@ function getBatchSize(): number {
 }
 
 /**
- * Select up to batchSize companies to vacancy-check, in priority order:
- *  1. Bookmarked by the most users (most user interest) — checked > 24h ago or never
- *  2. Any other companies not checked in the last 24h, oldest-checked first
+ * Select up to batchSize companies to vacancy-check, in explicit priority order:
  *
- * Companies with a fresh check (< 24h) are excluded entirely — the helper
- * would return a cached hit anyway, so there's no point including them.
+ * Tier A (priority 1): Bookmarked by any user AND last checked > 7 days ago (or never).
+ *   These are the most likely to surface relevant results for engaged users.
+ *
+ * Tier B (priority 2): Has any check history AND stale (> 24h), NOT in Tier A.
+ *   Ordered by last_checked DESC — companies checked most recently by users are
+ *   prioritised first (they show active user interest in that company).
+ *
+ * Tier C (priority 3): Never checked at all, NOT in Tier A.
+ *   Lowest priority; fills remaining batch slots.
+ *
+ * Global exclusion: any company with a check fresher than 24h is excluded — the
+ * helper would return a cached hit anyway, so there is no value in including them.
  */
 async function selectBatch(batchSize: number): Promise<{ id: number; organisation_name: string }[]> {
   return db.execute<{ id: number; organisation_name: string }>(sql`
@@ -32,15 +40,25 @@ async function selectBatch(batchSize: number): Promise<{ id: number; organisatio
       GROUP BY organisation_name
     ) vc ON vc.organisation_name = sl.organisation_name
     LEFT JOIN (
-      SELECT sponsor_licence_id, COUNT(DISTINCT user_id) AS bookmark_count
+      SELECT DISTINCT sponsor_licence_id
       FROM sponsor_licence_bookmarks
-      GROUP BY sponsor_licence_id
     ) b ON b.sponsor_licence_id = sl.id
-    WHERE vc.last_checked IS NULL
-       OR vc.last_checked < NOW() - INTERVAL '24 hours'
+    WHERE
+      vc.last_checked IS NULL
+      OR vc.last_checked < NOW() - INTERVAL '24 hours'
     ORDER BY
-      COALESCE(b.bookmark_count, 0) DESC,
-      vc.last_checked ASC NULLS FIRST
+      -- Tier assignment: A=1, B=2, C=3
+      CASE
+        WHEN b.sponsor_licence_id IS NOT NULL
+         AND (vc.last_checked IS NULL OR vc.last_checked < NOW() - INTERVAL '7 days')
+        THEN 1
+        WHEN vc.last_checked IS NOT NULL
+        THEN 2
+        ELSE 3
+      END ASC,
+      -- Within Tier B: most recently checked companies first (interest signal).
+      -- For Tier A and C this expression is NULL, so NULLS LAST has no effect on ordering.
+      CASE WHEN vc.last_checked IS NOT NULL THEN vc.last_checked END DESC NULLS LAST
     LIMIT ${batchSize}
   `);
 }
