@@ -5,7 +5,7 @@ export function startSponsorLicenceScheduler(): void {
   cron.schedule(
     "0 2 * * *",
     () => {
-      runSponsorLicenceSync().catch((err) => {
+      runSponsorLicenceSync("scheduler").catch((err) => {
         console.error("[sponsor-sync] Unhandled scheduler error:", err);
       });
     },

@@ -11,6 +11,7 @@ import {
 } from "@workspace/api-client-react";
 
 import SuperAdminPage from "@/pages/admin/SuperAdminPage";
+import AdminSyncPage from "@/pages/admin/AdminSyncPage";
 import ImpersonatePage from "@/pages/ImpersonatePage";
 import EmployerOnboardingPage from "@/pages/employer/EmployerOnboardingPage";
 import EmployerRegisterPage from "@/pages/employer/EmployerRegisterPage";
@@ -243,6 +244,11 @@ function Router() {
             <Route path="/admin/super">
               <SuperAdminGuard>
                 <SuperAdminPage />
+              </SuperAdminGuard>
+            </Route>
+            <Route path="/admin/sync">
+              <SuperAdminGuard>
+                <AdminSyncPage />
               </SuperAdminGuard>
             </Route>
 

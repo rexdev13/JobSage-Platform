@@ -765,11 +765,8 @@ router.get(
 );
 
 /**
- * POST /admin/super/sponsor-licences/sync
- *
- * Triggers an immediate download and import of the Home Office sponsor licence
- * register. Useful when the register has been updated mid-day outside the
- * scheduled 02:00 window.
+ * POST /admin/super/sponsor-licences/sync  (legacy — kept for backward compat)
+ * POST /admin/super/sync/trigger-register  (new — returns 202 immediately)
  */
 router.post(
   "/admin/super/sponsor-licences/sync",
@@ -778,13 +775,90 @@ router.post(
     try {
       writeAuditEvent(req.user!.id, "super_admin_sponsor_sync", undefined, {}).catch(() => {});
       const { runSponsorLicenceSync } = await import("../lib/sponsorLicenceSync");
-      await runSponsorLicenceSync();
+      await runSponsorLicenceSync("manual");
       const [row] = await db.select({ cnt: count(sponsorLicencesTable.id) }).from(sponsorLicencesTable);
       res.json({ success: true, recordCount: Number(row?.cnt ?? 0), syncedAt: new Date().toISOString() });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       res.status(500).json({ success: false, error: msg });
     }
+  },
+);
+
+// ── Sync Management Endpoints ─────────────────────────────────────────────────
+
+router.get(
+  "/admin/super/sync/register-logs",
+  requireRole("super_admin"),
+  async (req: Request, res: Response): Promise<void> => {
+    writeAuditEvent(req.user!.id, "super_admin_view_sync_logs").catch(() => {});
+
+    const logs = await db
+      .select()
+      .from(sponsorLicenceSyncLogTable)
+      .orderBy(desc(sponsorLicenceSyncLogTable.createdAt))
+      .limit(20);
+
+    const lastSuccess = logs.find((l) => l.status === "success") ?? null;
+    const lastFailure = logs.find((l) => l.status === "error") ?? null;
+
+    res.json({ logs, lastSuccess, lastFailure });
+  },
+);
+
+router.get(
+  "/admin/super/sync/vacancy-logs",
+  requireRole("super_admin"),
+  async (req: Request, res: Response): Promise<void> => {
+    const { vacancySyncLogTable } = await import("@workspace/db");
+    writeAuditEvent(req.user!.id, "super_admin_view_vacancy_sync_logs").catch(() => {});
+
+    const logs = await db
+      .select()
+      .from(vacancySyncLogTable)
+      .orderBy(desc(vacancySyncLogTable.createdAt))
+      .limit(20);
+
+    const lastSuccess = logs.find((l) => l.status === "success") ?? null;
+    const lastFailure = logs.find((l) => l.status === "error") ?? null;
+
+    res.json({ logs, lastSuccess, lastFailure });
+  },
+);
+
+router.post(
+  "/admin/super/sync/trigger-register",
+  requireRole("super_admin"),
+  async (req: Request, res: Response): Promise<void> => {
+    writeAuditEvent(req.user!.id, "super_admin_trigger_register_sync", undefined, {}).catch(() => {});
+    res.status(202).json({ queued: true });
+
+    setImmediate(async () => {
+      try {
+        const { runSponsorLicenceSync } = await import("../lib/sponsorLicenceSync");
+        await runSponsorLicenceSync("manual");
+      } catch (err) {
+        console.error("[admin-sync] Manual register sync failed:", err instanceof Error ? err.message : err);
+      }
+    });
+  },
+);
+
+router.post(
+  "/admin/super/sync/trigger-vacancy",
+  requireRole("super_admin"),
+  async (req: Request, res: Response): Promise<void> => {
+    writeAuditEvent(req.user!.id, "super_admin_trigger_vacancy_sync", undefined, {}).catch(() => {});
+    res.status(202).json({ queued: true });
+
+    setImmediate(async () => {
+      try {
+        const { runVacancyCheckBatch } = await import("../lib/vacancyCheckScheduler");
+        await runVacancyCheckBatch("manual");
+      } catch (err) {
+        console.error("[admin-sync] Manual vacancy sync failed:", err instanceof Error ? err.message : err);
+      }
+    });
   },
 );
 
