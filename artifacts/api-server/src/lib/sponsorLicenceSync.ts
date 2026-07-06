@@ -3,34 +3,46 @@ import { sponsorLicencesTable, sponsorLicenceSyncLogTable } from "@workspace/db"
 import { sql } from "drizzle-orm";
 import { classifyByKeyword } from "./industryClassifier";
 
+// Updated July 2026 — GOV.UK publishes a new file each month.
+// If resolveLatestRegisterUrl() fails, this is the safe fallback.
 const DEFAULT_REGISTER_URL =
-  "https://assets.publishing.service.gov.uk/media/6a180589050971fbebf3bb6f/2026-05-28_-_Worker_and_Temporary_Worker.csv";
+  "https://assets.publishing.service.gov.uk/media/6a47768c1c8bd7ce25a5ea44/SP_-_Worker_and_Temporary_Worker_Web_Register_-_2026-07-03.csv";
 
 const GOV_UK_REGISTER_PAGE =
   "https://www.gov.uk/government/publications/register-of-licensed-sponsors-workers";
 
 /**
- * Fetches the GOV.UK register page and extracts the most recent CSV URL.
- * Falls back to DEFAULT_REGISTER_URL if the page can't be fetched or parsed.
+ * Fetches the GOV.UK register page and extracts the most recent CSV/XLSX URL.
+ * Tries multiple patterns to handle GOV.UK page restructures.
+ * Falls back to SPONSOR_LICENCE_REGISTER_URL env var, then DEFAULT_REGISTER_URL.
  */
 async function resolveLatestRegisterUrl(): Promise<string> {
   try {
     const resp = await fetch(GOV_UK_REGISTER_PAGE, {
-      headers: { "User-Agent": "JOBSAGE/1.0 (sponsor-licence-sync)" },
-      signal: AbortSignal.timeout(15_000),
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; JOBSAGE/1.0; +https://jobsage.co.uk)",
+        "Accept": "text/html,application/xhtml+xml",
+      },
+      signal: AbortSignal.timeout(20_000),
     });
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status} fetching register page`);
     const html = await resp.text();
-    // Extract all CSV/XLSX links from assets.publishing.service.gov.uk
-    const matches = [...html.matchAll(
-      /https:\/\/assets\.publishing\.service\.gov\.uk\/media\/[a-f0-9]+\/[^"'\s]+\.(csv|xlsx)/gi,
-    )];
-    if (matches.length > 0) {
-      const url = matches[0]![0]!;
-      console.log("[sponsor-sync] Resolved latest register URL:", url);
-      return url;
+
+    // Pattern 1: full URL in href or text (covers most GOV.UK asset CDN patterns)
+    const patterns = [
+      /https:\/\/assets\.publishing\.service\.gov\.uk\/media\/[a-f0-9]+\/[^\s"'<>]+\.(?:csv|xlsx)/gi,
+      /https:\/\/assets\.publishing\.service\.gov\.uk\/[^\s"'<>]+Worker[^\s"'<>]+\.(?:csv|xlsx)/gi,
+    ];
+
+    for (const pattern of patterns) {
+      const matches = [...html.matchAll(pattern)];
+      if (matches.length > 0) {
+        const url = matches[0]![0]!;
+        console.log("[sponsor-sync] Resolved latest register URL:", url);
+        return url;
+      }
     }
-    console.warn("[sponsor-sync] No CSV/XLSX found on register page — using default URL");
+    console.warn("[sponsor-sync] No CSV/XLSX found on register page (html length:", html.length, ") — using default URL");
   } catch (err) {
     console.warn("[sponsor-sync] Failed to resolve latest register URL:", err instanceof Error ? err.message : err);
   }
@@ -103,7 +115,7 @@ async function downloadAndParseCSV(url: string): Promise<ParsedRow[]> {
   });
 
   if (!resp.ok) {
-    throw new Error(`HTTP ${resp.status} ${resp.statusText} fetching register`);
+    throw new Error(`HTTP ${resp.status} ${resp.statusText} fetching register from ${url}`);
   }
 
   const text = await resp.text();
@@ -149,7 +161,7 @@ async function downloadAndParseXLSX(url: string): Promise<ParsedRow[]> {
   });
 
   if (!resp.ok) {
-    throw new Error(`HTTP ${resp.status} ${resp.statusText} fetching register`);
+    throw new Error(`HTTP ${resp.status} ${resp.statusText} fetching register from ${url}`);
   }
 
   const buf = await resp.arrayBuffer();

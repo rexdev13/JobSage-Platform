@@ -687,16 +687,18 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
 
     const allCompanies = await companiesQuery.orderBy(sponsorLicencesTable.organisationName);
 
-    // Fetch stored vacancy counts per org from sponsor_licence_vacancies (no TTL)
-    const storedVacancyRows = await db
-      .select({
-        organisationName: sponsorLicenceVacanciesTable.organisationName,
-        count: sql<number>`cast(count(*) as integer)`,
-      })
-      .from(sponsorLicenceVacanciesTable)
-      .groupBy(sponsorLicenceVacanciesTable.organisationName);
+    // Fetch the most recent AI-reported vacancy count per org from vacancy_checks.
+    // vacancyCount here is the actual total the AI found (e.g. 40), not the count
+    // of stored sample rows (which is capped at 8).
+    const storedVacancyRows = await db.execute<{ organisation_name: string; vacancy_count: number | null }>(
+      sql`SELECT DISTINCT ON (organisation_name) organisation_name, vacancy_count
+          FROM sponsor_licence_vacancy_checks
+          ORDER BY organisation_name, checked_at DESC`,
+    );
     const storedVacancyCounts = new Map<string, number>(
-      storedVacancyRows.map((r) => [r.organisationName.toLowerCase().trim(), r.count]),
+      storedVacancyRows
+        .filter((r) => r.vacancy_count !== null && r.vacancy_count > 0)
+        .map((r) => [r.organisation_name.toLowerCase().trim(), r.vacancy_count!]),
     );
 
     const annotated = allCompanies.map((c) => {
