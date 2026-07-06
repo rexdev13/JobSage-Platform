@@ -13,6 +13,7 @@ import {
 } from "@workspace/api-client-react";
 import {
   RefreshCw, CheckCircle2, XCircle, Clock, Zap, Database, Briefcase, AlertTriangle, Play,
+  TrendingUp, TrendingDown, Minus,
 } from "lucide-react";
 
 function formatDate(dt: string | null | undefined): string {
@@ -55,19 +56,36 @@ function TriggeredByBadge({ triggeredBy }: { triggeredBy: "scheduler" | "manual"
   );
 }
 
-function SyncStatusCard({
-  title,
-  icon: Icon,
+function MetricChip({
+  label, value, color = "default",
+}: {
+  label: string;
+  value: string | number | null | undefined;
+  color?: "default" | "green" | "red" | "sky";
+}) {
+  const colors = {
+    default: "bg-muted text-muted-foreground border-border",
+    green: "bg-green-50 text-green-700 border-green-200",
+    red: "bg-red-50 text-red-700 border-red-200",
+    sky: "bg-sky-50 text-sky-700 border-sky-200",
+  };
+  return (
+    <div className={`flex flex-col items-center px-3 py-2 rounded-lg border text-center ${colors[color]}`}>
+      <span className="text-lg font-bold leading-none">{value != null ? String(value).replace(/\B(?=(\d{3})+(?!\d))/g, ",") : "—"}</span>
+      <span className="text-[10px] font-medium mt-1 uppercase tracking-wide opacity-70">{label}</span>
+    </div>
+  );
+}
+
+function RegisterSyncStatusCard({
   lastSuccess,
   lastFailure,
   onTrigger,
   triggering,
   queued,
 }: {
-  title: string;
-  icon: React.ElementType;
-  lastSuccess: RegisterSyncLogEntry | VacancySyncLogEntry | null;
-  lastFailure: RegisterSyncLogEntry | VacancySyncLogEntry | null;
+  lastSuccess: RegisterSyncLogEntry | null;
+  lastFailure: RegisterSyncLogEntry | null;
   onTrigger: () => void;
   triggering: boolean;
   queued: boolean;
@@ -80,9 +98,9 @@ function SyncStatusCard({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${hasFailed ? "bg-destructive/10" : "bg-primary/10"}`}>
-              <Icon className={`w-4 h-4 ${hasFailed ? "text-destructive" : "text-primary"}`} />
+              <Database className={`w-4 h-4 ${hasFailed ? "text-destructive" : "text-primary"}`} />
             </div>
-            <CardTitle className="text-sm font-semibold">{title}</CardTitle>
+            <CardTitle className="text-sm font-semibold">Register Sync</CardTitle>
           </div>
           <Button
             size="sm"
@@ -108,10 +126,96 @@ function SyncStatusCard({
           </div>
         )}
 
+        {/* Latest sync counts from most recent successful run */}
+        {lastSuccess && (
+          <div className="grid grid-cols-4 gap-2">
+            <MetricChip label="Total" value={lastSuccess.recordCount} />
+            <MetricChip label="Added" value={lastSuccess.addedCount != null ? `+${lastSuccess.addedCount}` : null} color="green" />
+            <MetricChip label="Updated" value={lastSuccess.updatedCount} color="sky" />
+            <MetricChip label="Removed" value={lastSuccess.removedCount != null ? `-${lastSuccess.removedCount}` : null} color="red" />
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-3">
           <div className="p-3 rounded-lg bg-green-50 border border-green-100">
             <p className="text-xs text-green-700 font-medium mb-1">Last Success</p>
             <p className="text-xs text-green-900 font-semibold">{formatDate(lastSuccess?.createdAt)}</p>
+            {lastSuccess && <p className="text-[10px] text-green-700 mt-0.5">{formatDuration(lastSuccess.durationMs)}</p>}
+          </div>
+          <div className={`p-3 rounded-lg ${lastFailure ? "bg-red-50 border border-red-100" : "bg-muted border border-border"}`}>
+            <p className={`text-xs font-medium mb-1 ${lastFailure ? "text-red-700" : "text-muted-foreground"}`}>Last Failure</p>
+            <p className={`text-xs font-semibold ${lastFailure ? "text-red-900" : "text-muted-foreground"}`}>{formatDate(lastFailure?.createdAt)}</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function VacancySyncStatusCard({
+  lastSuccess,
+  lastFailure,
+  onTrigger,
+  triggering,
+  queued,
+}: {
+  lastSuccess: VacancySyncLogEntry | null;
+  lastFailure: VacancySyncLogEntry | null;
+  onTrigger: () => void;
+  triggering: boolean;
+  queued: boolean;
+}) {
+  const hasFailed = !!lastFailure && (!lastSuccess || new Date(lastFailure.createdAt) > new Date(lastSuccess.createdAt));
+
+  return (
+    <Card className={hasFailed ? "border-destructive/40" : ""}>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${hasFailed ? "bg-destructive/10" : "bg-primary/10"}`}>
+              <Briefcase className={`w-4 h-4 ${hasFailed ? "text-destructive" : "text-primary"}`} />
+            </div>
+            <CardTitle className="text-sm font-semibold">Vacancy Check Sync</CardTitle>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onTrigger}
+            disabled={triggering || queued}
+            className="gap-1.5 text-xs"
+          >
+            {triggering || queued ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Play className="w-3.5 h-3.5" />
+            )}
+            {queued ? "Queued..." : triggering ? "Running..." : "Run Now"}
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {hasFailed && (
+          <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/20 text-xs text-destructive">
+            <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+            <span>{lastFailure?.errorMessage ?? "Unknown error"}</span>
+          </div>
+        )}
+
+        {/* Latest vacancy check counts from most recent successful run */}
+        {lastSuccess && (
+          <div className="grid grid-cols-4 gap-2">
+            <MetricChip label="Batch" value={lastSuccess.batchSize} />
+            <MetricChip label="Checked" value={lastSuccess.checkedCount} color="green" />
+            <MetricChip label="Cache Hits" value={lastSuccess.cacheHitCount} color="sky" />
+            <MetricChip label="Errors" value={lastSuccess.errorCount} color={lastSuccess.errorCount ? "red" : "default"} />
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="p-3 rounded-lg bg-green-50 border border-green-100">
+            <p className="text-xs text-green-700 font-medium mb-1">Last Success</p>
+            <p className="text-xs text-green-900 font-semibold">{formatDate(lastSuccess?.createdAt)}</p>
+            {lastSuccess && <p className="text-[10px] text-green-700 mt-0.5">{formatDuration(lastSuccess.durationMs)}</p>}
           </div>
           <div className={`p-3 rounded-lg ${lastFailure ? "bg-red-50 border border-red-100" : "bg-muted border border-border"}`}>
             <p className={`text-xs font-medium mb-1 ${lastFailure ? "text-red-700" : "text-muted-foreground"}`}>Last Failure</p>
@@ -136,9 +240,15 @@ function RegisterLogTable({ logs }: { logs: RegisterSyncLogEntry[] }) {
             <th className="text-left py-2 pr-3 font-medium">Time</th>
             <th className="text-left py-2 pr-3 font-medium">Status</th>
             <th className="text-right py-2 pr-3 font-medium">Records</th>
-            <th className="text-right py-2 pr-3 font-medium">+Added</th>
-            <th className="text-right py-2 pr-3 font-medium">~Updated</th>
-            <th className="text-right py-2 pr-3 font-medium">-Removed</th>
+            <th className="text-right py-2 pr-3 font-medium">
+              <span className="inline-flex items-center gap-0.5"><TrendingUp className="w-3 h-3 text-green-600" />Added</span>
+            </th>
+            <th className="text-right py-2 pr-3 font-medium">
+              <span className="inline-flex items-center gap-0.5"><Minus className="w-3 h-3 text-sky-600" />Same</span>
+            </th>
+            <th className="text-right py-2 pr-3 font-medium">
+              <span className="inline-flex items-center gap-0.5"><TrendingDown className="w-3 h-3 text-red-600" />Removed</span>
+            </th>
             <th className="text-right py-2 pr-3 font-medium">Duration</th>
             <th className="text-left py-2 font-medium">Source</th>
           </tr>
@@ -275,14 +385,12 @@ export default function AdminSyncPage() {
           </div>
         </div>
 
-        {/* Status cards */}
+        {/* Status cards with latest counts */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {registerLoading ? (
-            <Card className="animate-pulse h-48" />
+            <Card className="animate-pulse h-52" />
           ) : (
-            <SyncStatusCard
-              title="Register Sync"
-              icon={Database}
+            <RegisterSyncStatusCard
               lastSuccess={registerData?.lastSuccess ?? null}
               lastFailure={registerData?.lastFailure ?? null}
               onTrigger={handleTriggerRegister}
@@ -291,11 +399,9 @@ export default function AdminSyncPage() {
             />
           )}
           {vacancyLoading ? (
-            <Card className="animate-pulse h-48" />
+            <Card className="animate-pulse h-52" />
           ) : (
-            <SyncStatusCard
-              title="Vacancy Check Sync"
-              icon={Briefcase}
+            <VacancySyncStatusCard
               lastSuccess={vacancyData?.lastSuccess ?? null}
               lastFailure={vacancyData?.lastFailure ?? null}
               onTrigger={handleTriggerVacancy}
