@@ -31,7 +31,7 @@ function getBatchSize(): number {
  * helper would return a cached hit anyway, so there is no value in including them.
  */
 async function selectBatch(batchSize: number): Promise<{ id: number; organisation_name: string }[]> {
-  return db.execute<{ id: number; organisation_name: string }[]>(sql`
+  const result = await db.execute<{ id: number; organisation_name: string }>(sql`
     SELECT sl.id, sl.organisation_name
     FROM sponsor_licences sl
     LEFT JOIN (
@@ -61,6 +61,7 @@ async function selectBatch(batchSize: number): Promise<{ id: number; organisatio
       CASE WHEN vc.last_checked IS NOT NULL THEN vc.last_checked END DESC NULLS LAST
     LIMIT ${batchSize}
   `);
+  return result.rows;
 }
 
 async function runVacancyCheckBatch(): Promise<void> {
