@@ -31,7 +31,7 @@ function getBatchSize(): number {
  * helper would return a cached hit anyway, so there is no value in including them.
  */
 async function selectBatch(batchSize: number): Promise<{ id: number; organisation_name: string }[]> {
-  return db.execute<{ id: number; organisation_name: string }>(sql`
+  return db.execute<{ id: number; organisation_name: string }[]>(sql`
     SELECT sl.id, sl.organisation_name
     FROM sponsor_licences sl
     LEFT JOIN (
