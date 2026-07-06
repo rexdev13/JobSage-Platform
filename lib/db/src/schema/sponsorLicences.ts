@@ -14,7 +14,7 @@ export const sponsorLicencesTable = pgTable(
     syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    index("sponsor_licences_name_idx").on(t.organisationName),
+    uniqueIndex("sponsor_licences_org_name_unique_idx").on(t.organisationName),
     index("sponsor_licences_route_idx").on(t.route),
     index("sponsor_licences_industry_idx").on(t.industry),
   ],

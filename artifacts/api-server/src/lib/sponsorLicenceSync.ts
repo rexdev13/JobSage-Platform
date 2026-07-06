@@ -1,6 +1,6 @@
 import { db } from "@workspace/db";
 import { sponsorLicencesTable, sponsorLicenceSyncLogTable } from "@workspace/db";
-import { sql } from "drizzle-orm";
+import { sql, lt } from "drizzle-orm";
 import { classifyByKeyword } from "./industryClassifier";
 
 export type SyncTriggeredBy = "scheduler" | "manual";
@@ -289,14 +289,33 @@ export async function runSponsorLicenceSync(triggeredBy: SyncTriggeredBy = "sche
     try {
       const { rows, addedCount, updatedCount, removedCount } = await attemptSync(url);
 
-      await db.transaction(async (tx) => {
-        await tx.execute(sql`TRUNCATE TABLE sponsor_licences RESTART IDENTITY`);
-        const BATCH = 500;
-        for (let i = 0; i < rows.length; i += BATCH) {
-          const batch = rows.slice(i, i + BATCH).map((r) => ({ ...r, syncedAt }));
-          await tx.insert(sponsorLicencesTable).values(batch);
-        }
-      });
+      // Upsert all records keyed on organisation_name, then delete any record
+      // not touched in this sync run (synced_at < syncedAt). This preserves
+      // existing IDs (and thus user bookmarks) for orgs that remain.
+      const BATCH = 500;
+      for (let i = 0; i < rows.length; i += BATCH) {
+        const batch = rows.slice(i, i + BATCH).map((r) => ({ ...r, syncedAt }));
+        await db
+          .insert(sponsorLicencesTable)
+          .values(batch as any)
+          .onConflictDoUpdate({
+            target: sponsorLicencesTable.organisationName,
+            set: {
+              townCity: sql`excluded.town_city`,
+              county: sql`excluded.county`,
+              route: sql`excluded.route`,
+              subRoute: sql`excluded.sub_route`,
+              rating: sql`excluded.rating`,
+              industry: sql`excluded.industry`,
+              syncedAt: sql`excluded.synced_at`,
+            },
+          });
+      }
+
+      // Remove orgs that were in the old register but not the new one
+      await db
+        .delete(sponsorLicencesTable)
+        .where(lt(sponsorLicencesTable.syncedAt, syncedAt));
 
       const durationMs = Date.now() - startMs;
 
