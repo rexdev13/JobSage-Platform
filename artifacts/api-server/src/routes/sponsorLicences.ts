@@ -1,13 +1,12 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { sponsorLicencesTable, sponsorLicenceSyncLogTable, jobListingsTable, sponsorLicenceVacancyChecksTable, sponsorLicenceBookmarksTable, sponsorLicenceVacanciesTable } from "@workspace/db";
-import { eq, ilike, and, desc, sql, isNotNull, gt } from "drizzle-orm";
+import { eq, ilike, and, desc, sql, isNotNull } from "drizzle-orm";
 import { requireAuthenticated } from "../middlewares/requireRole";
-import { openai } from "@workspace/integrations-openai-ai-server";
+import { runVacancyCheck } from "../lib/vacancyCheckHelper";
 
 const router: IRouter = Router();
 
-const VACANCY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 // ── County → UK Region mapping ──────────────────────────────────────────────
 
@@ -263,169 +262,8 @@ router.post("/sponsor-licences/:id/check-vacancies", requireAuthenticated, async
     }
 
     const { organisationName } = company;
-
-    const cutoff = new Date(Date.now() - VACANCY_CACHE_TTL_MS);
-    const [cached] = await db
-      .select()
-      .from(sponsorLicenceVacancyChecksTable)
-      .where(
-        and(
-          eq(sponsorLicenceVacancyChecksTable.organisationName, organisationName),
-          gt(sponsorLicenceVacancyChecksTable.checkedAt, cutoff),
-        ),
-      )
-      .orderBy(desc(sponsorLicenceVacancyChecksTable.checkedAt))
-      .limit(1);
-
-    if (cached) {
-      res.json({
-        vacanciesFound: cached.vacanciesFound,
-        vacancyCount: cached.vacancyCount,
-        sourceUrl: cached.sourceUrl,
-        summary: cached.summary,
-        checkedAt: cached.checkedAt,
-        fromCache: true,
-        vacancyList: cached.vacancyList ?? null,
-      });
-      return;
-    }
-
-    let vacanciesFound = false;
-    let vacancyCount: number | null = null;
-    let sourceUrl: string | null = `https://www.reed.co.uk/jobs?keywords=${encodeURIComponent(organisationName)}&locationName=United+Kingdom`;
-    let summary = "No active vacancies found.";
-    let vacancyList: Array<{ title: string; location: string | null; salary: string | null; url: string | null; description: string | null; postedDate: string | null }> | null = null;
-
-    // Extracts the outermost complete JSON object from a string using bracket counting
-    function extractOutermostJson(text: string): string | null {
-      const start = text.indexOf("{");
-      if (start === -1) return null;
-      let depth = 0;
-      let inString = false;
-      let escape = false;
-      for (let i = start; i < text.length; i++) {
-        const ch = text[i];
-        if (escape) { escape = false; continue; }
-        if (ch === "\\" && inString) { escape = true; continue; }
-        if (ch === '"') { inString = !inString; continue; }
-        if (inString) continue;
-        if (ch === "{") depth++;
-        else if (ch === "}") {
-          depth--;
-          if (depth === 0) return text.slice(start, i + 1);
-        }
-      }
-      return null;
-    }
-
-    try {
-      const response = await openai.responses.create({
-        model: "gpt-4o",
-        tools: [{ type: "web_search_preview" as const }],
-        input: `Search for current job openings at "${organisationName}" in the United Kingdom.
-Look on Reed, Indeed, LinkedIn, NHS Jobs, and the company's own careers page.
-After searching, reply with a JSON object ONLY — no markdown, no extra text, just raw JSON:
-{
-  "vacanciesFound": true or false,
-  "vacancyCount": number or null,
-  "sourceUrl": "URL to search results or careers page",
-  "summary": "1-2 sentence summary of what you found",
-  "vacancyList": [
-    {
-      "title": "Job title",
-      "location": "City, County or null",
-      "salary": "£XX,XXX - £XX,XXX or null",
-      "url": "direct link to job posting or null",
-      "description": "2-3 sentence description of the role or null",
-      "postedDate": "YYYY-MM-DD or relative like '3 days ago' or null"
-    }
-  ]
-}
-Include up to 8 specific vacancies in vacancyList if found. Use null for missing fields. vacancyList must be an empty array if no vacancies found.`,
-      });
-
-      const text = response.output_text ?? "";
-      const jsonStr = extractOutermostJson(text);
-      if (jsonStr) {
-        const parsed = JSON.parse(jsonStr) as {
-          vacanciesFound?: boolean;
-          vacancyCount?: number | null;
-          sourceUrl?: string | null;
-          summary?: string;
-          vacancyList?: Array<{
-            title?: string;
-            location?: string | null;
-            salary?: string | null;
-            url?: string | null;
-            description?: string | null;
-            postedDate?: string | null;
-          }>;
-        };
-        vacanciesFound = parsed.vacanciesFound === true;
-        vacancyCount = typeof parsed.vacancyCount === "number" ? parsed.vacancyCount : null;
-        sourceUrl = typeof parsed.sourceUrl === "string" && parsed.sourceUrl.startsWith("http")
-          ? parsed.sourceUrl
-          : sourceUrl;
-        summary = typeof parsed.summary === "string" ? parsed.summary : (vacanciesFound ? `Vacancies found for ${organisationName}.` : `No active vacancies found for ${organisationName}.`);
-        if (Array.isArray(parsed.vacancyList) && parsed.vacancyList.length > 0) {
-          vacancyList = parsed.vacancyList
-            .filter((v) => typeof v.title === "string" && v.title.trim())
-            .map((v) => ({
-              title: (v.title ?? "").trim(),
-              location: typeof v.location === "string" ? v.location.trim() || null : null,
-              salary: typeof v.salary === "string" ? v.salary.trim() || null : null,
-              url: typeof v.url === "string" && v.url.startsWith("http") ? v.url.trim() : null,
-              description: typeof v.description === "string" ? v.description.trim() || null : null,
-              postedDate: typeof v.postedDate === "string" ? v.postedDate.trim() || null : null,
-            }))
-            .slice(0, 8);
-          if (vacancyList.length > 0 && !vacancyCount) {
-            vacancyCount = vacancyList.length;
-          }
-        }
-      }
-    } catch (aiErr) {
-      console.warn("[sponsor-licences] AI vacancy check failed:", aiErr instanceof Error ? aiErr.message : aiErr);
-    }
-
-    const [saved] = await db
-      .insert(sponsorLicenceVacancyChecksTable)
-      .values({ organisationName, vacanciesFound, vacancyCount, sourceUrl, summary, vacancyList })
-      .returning();
-
-    // Persist individual vacancy rows to sponsor_licence_vacancies for stable IDs + global stats.
-    // Always delete ALL existing rows for this org first so the table holds only the current
-    // snapshot — prevents historical accumulation across check dates and correctly zeroes out
-    // companies whose vacancies have been filled.
-    await db
-      .delete(sponsorLicenceVacanciesTable)
-      .where(eq(sponsorLicenceVacanciesTable.organisationName, organisationName));
-
-    if (vacancyList && vacancyList.length > 0) {
-      const checkDate = new Date().toISOString().split("T")[0]!;
-      await db.insert(sponsorLicenceVacanciesTable).values(
-        vacancyList.map((v) => ({
-          organisationName,
-          checkDate,
-          title: v.title,
-          location: v.location ?? null,
-          salary: v.salary ?? null,
-          url: v.url ?? null,
-          description: v.description ?? null,
-          postedDate: v.postedDate ?? null,
-        })),
-      );
-    }
-
-    res.json({
-      vacanciesFound,
-      vacancyCount,
-      sourceUrl,
-      summary,
-      checkedAt: saved?.checkedAt ?? new Date(),
-      fromCache: false,
-      vacancyList,
-    });
+    const result = await runVacancyCheck(organisationName);
+    res.json(result);
   } catch (err) {
     console.error("[sponsor-licences] /check-vacancies error:", err);
     res.status(500).json({ error: "Vacancy check failed. Please try again." });

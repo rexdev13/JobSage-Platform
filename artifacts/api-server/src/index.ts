@@ -2,10 +2,11 @@ import app from "./app";
 import { seedRulesets } from "./lib/seedRulesets";
 import { startAlertScheduler } from "./lib/alertScheduler";
 import { startSponsorLicenceScheduler } from "./lib/sponsorLicenceScheduler";
+import { startVacancyCheckScheduler } from "./lib/vacancyCheckScheduler";
 import { runSponsorLicenceSync } from "./lib/sponsorLicenceSync";
 import { runIndustryBackfill } from "./lib/industryBackfill";
-import { db, sponsorLicencesTable } from "@workspace/db";
-import { count } from "drizzle-orm";
+import { db, sponsorLicenceSyncLogTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 
 const rawPort = process.env["PORT"];
 
@@ -21,17 +22,21 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-async function triggerSyncIfEmpty(): Promise<void> {
+async function triggerSyncIfNeverSucceeded(): Promise<void> {
   try {
-    const [row] = await db.select({ cnt: count(sponsorLicencesTable.id) }).from(sponsorLicencesTable);
-    if (Number(row?.cnt ?? 0) === 0) {
-      console.log("[sponsor-sync] Table empty on startup — triggering initial sync");
+    const [row] = await db
+      .select({ id: sponsorLicenceSyncLogTable.id })
+      .from(sponsorLicenceSyncLogTable)
+      .where(eq(sponsorLicenceSyncLogTable.status, "success"))
+      .limit(1);
+    if (!row) {
+      console.log("[sponsor-sync] No successful sync on record — triggering initial sync");
       runSponsorLicenceSync().catch((err) => {
         console.error("[sponsor-sync] Initial startup sync failed:", err);
       });
     }
   } catch (err) {
-    console.error("[sponsor-sync] Could not check table for startup sync:", err);
+    console.error("[sponsor-sync] Could not check sync log for startup sync:", err);
   }
 }
 
@@ -42,7 +47,8 @@ app.listen(port, () => {
   });
   startAlertScheduler();
   startSponsorLicenceScheduler();
-  void triggerSyncIfEmpty();
+  startVacancyCheckScheduler();
+  void triggerSyncIfNeverSucceeded();
   runIndustryBackfill().catch((err) => {
     console.error("[industry-backfill] Startup backfill failed:", err);
   });
