@@ -302,7 +302,10 @@ export async function runSponsorLicenceSync(triggeredBy: SyncTriggeredBy = "sche
         const toInsert = batch.filter((r) => !existingNames.has(r.organisationName.toLowerCase().trim()));
 
         if (toUpdate.length > 0) {
-          // Single UPDATE statement for the whole sub-batch using a VALUES table
+          // Single UPDATE statement for the whole sub-batch using a VALUES table.
+          // NOTE: industry is intentionally excluded from this UPDATE — sync only
+          // refreshes location/route/rating data. Existing AI-backfill classifications
+          // are preserved, and new orgs receive a keyword seed on INSERT below.
           await db.execute(sql`
             UPDATE sponsor_licences AS sl
             SET
@@ -311,14 +314,13 @@ export async function runSponsorLicenceSync(triggeredBy: SyncTriggeredBy = "sche
               route       = d.route,
               sub_route   = d.sub_route,
               rating      = d.rating,
-              industry    = d.industry,
               synced_at   = d.synced_at
             FROM (VALUES ${sql.join(
               toUpdate.map((r) =>
-                sql`(${r.organisationName}::text, ${r.townCity}::text, ${r.county}::text, ${r.route}::text, ${r.subRoute}::text, ${r.rating}::text, ${r.industry}::text, ${syncedAt}::timestamptz)`
+                sql`(${r.organisationName}::text, ${r.townCity}::text, ${r.county}::text, ${r.route}::text, ${r.subRoute}::text, ${r.rating}::text, ${syncedAt}::timestamptz)`
               ),
               sql`, `
-            )}) AS d(organisation_name, town_city, county, route, sub_route, rating, industry, synced_at)
+            )}) AS d(organisation_name, town_city, county, route, sub_route, rating, synced_at)
             WHERE sl.organisation_name = d.organisation_name
           `);
         }
