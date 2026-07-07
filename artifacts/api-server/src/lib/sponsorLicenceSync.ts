@@ -6,7 +6,7 @@ import { classifyByKeyword } from "./industryClassifier";
 export type SyncTriggeredBy = "scheduler" | "manual";
 
 const DEFAULT_REGISTER_URL =
-  "https://assets.publishing.service.gov.uk/media/6a4bafe6d200ca05e289e60f/SP_-_Worker_and_Temporary_Worker_Web_Register_-_2026-07-06.csv";
+  "https://assets.publishing.service.gov.uk/media/6a47768c1c8bd7ce25a5ea44/SP_-_Worker_and_Temporary_Worker_Web_Register_-_2026-07-03.csv";
 
 const GOV_UK_REGISTER_PAGE =
   "https://www.gov.uk/government/publications/register-of-licensed-sponsors-workers";

@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, integer, boolean, varchar, index, uniqueIndex, jsonb, date } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, integer, boolean, varchar, index, uniqueIndex, jsonb, date, foreignKey } from "drizzle-orm/pg-core";
 
 export const sponsorLicencesTable = pgTable(
   "sponsor_licences",
@@ -102,12 +102,15 @@ export const sponsorLicenceBookmarksTable = pgTable(
   {
     id: serial("id").primaryKey(),
     userId: text("user_id").notNull(),
-    sponsorLicenceId: integer("sponsor_licence_id")
-      .notNull()
-      .references(() => sponsorLicencesTable.id, { onDelete: "cascade" }),
+    sponsorLicenceId: integer("sponsor_licence_id").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
+    foreignKey({
+      name: "sl_bookmarks_sl_id_fk",
+      columns: [t.sponsorLicenceId],
+      foreignColumns: [sponsorLicencesTable.id],
+    }).onDelete("cascade"),
     uniqueIndex("sponsor_licence_bookmarks_user_sponsor_idx").on(t.userId, t.sponsorLicenceId),
     index("sponsor_licence_bookmarks_user_idx").on(t.userId),
   ],
