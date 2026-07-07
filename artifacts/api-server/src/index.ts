@@ -6,7 +6,7 @@ import { startVacancyCheckScheduler } from "./lib/vacancyCheckScheduler";
 import { runSponsorLicenceSync } from "./lib/sponsorLicenceSync";
 import { runIndustryBackfill } from "./lib/industryBackfill";
 import { db, sponsorLicenceSyncLogTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 
 const rawPort = process.env["PORT"];
 
@@ -22,17 +22,25 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-async function triggerSyncIfNeverSucceeded(): Promise<void> {
+const STALE_SYNC_THRESHOLD_MS = 2 * 24 * 60 * 60 * 1000; // 2 days
+
+async function triggerSyncIfStale(): Promise<void> {
   try {
     const [row] = await db
-      .select({ id: sponsorLicenceSyncLogTable.id })
+      .select({ createdAt: sponsorLicenceSyncLogTable.createdAt })
       .from(sponsorLicenceSyncLogTable)
       .where(eq(sponsorLicenceSyncLogTable.status, "success"))
+      .orderBy(desc(sponsorLicenceSyncLogTable.createdAt))
       .limit(1);
-    if (!row) {
-      console.log("[sponsor-sync] No successful sync on record — triggering initial sync");
-      runSponsorLicenceSync().catch((err) => {
-        console.error("[sponsor-sync] Initial startup sync failed:", err);
+
+    const lastSuccessMs = row?.createdAt ? row.createdAt.getTime() : 0;
+    const ageMs = Date.now() - lastSuccessMs;
+
+    if (ageMs > STALE_SYNC_THRESHOLD_MS) {
+      const ageDays = Math.round(ageMs / 86_400_000);
+      console.log(`[sponsor-sync] Last successful sync was ${ageDays}d ago — triggering catch-up sync on startup`);
+      runSponsorLicenceSync("manual").catch((err) => {
+        console.error("[sponsor-sync] Startup catch-up sync failed:", err);
       });
     }
   } catch (err) {
@@ -48,7 +56,7 @@ app.listen(port, () => {
   startAlertScheduler();
   startSponsorLicenceScheduler();
   startVacancyCheckScheduler();
-  void triggerSyncIfNeverSucceeded();
+  void triggerSyncIfStale();
   runIndustryBackfill().catch((err) => {
     console.error("[industry-backfill] Startup backfill failed:", err);
   });

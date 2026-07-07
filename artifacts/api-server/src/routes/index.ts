@@ -29,6 +29,7 @@ import nudgeRouter from "./nudge";
 import recommendationLettersRouter from "./recommendationLetters";
 import identityRouter from "./identity";
 import careerProfilesRouter from "./careerProfiles";
+import internalSyncRouter from "./internalSync";
 
 const router: IRouter = Router();
 
@@ -62,5 +63,6 @@ router.use(nudgeRouter);
 router.use(recommendationLettersRouter);
 router.use(identityRouter);
 router.use(careerProfilesRouter);
+router.use(internalSyncRouter);
 
 export default router;
