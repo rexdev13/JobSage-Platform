@@ -38,7 +38,9 @@ async function triggerSyncIfStale(): Promise<void> {
 
     if (ageMs > STALE_SYNC_THRESHOLD_MS) {
       const ageDays = Math.round(ageMs / 86_400_000);
-      console.log(`[sponsor-sync] Last successful sync was ${ageDays}d ago — triggering catch-up sync on startup`);
+      console.log(
+        `[sponsor-sync] Last successful sync was ${ageDays}d ago — triggering catch-up sync on startup`,
+      );
       runSponsorLicenceSync("manual").catch((err) => {
         console.error("[sponsor-sync] Startup catch-up sync failed:", err);
       });

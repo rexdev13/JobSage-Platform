@@ -33,4 +33,6 @@ channel = "stable-25_05"
 [userenv.shared]
 EMAIL_FROM = "noreply@jobsage.co.uk"
 APP_URL = "https://jobsage.co.uk"
+
+[userenv.production]
 INTERNAL_SYNC_KEY = "dd1e3f9cbdc1ddb63409835bad58e09de58c0b73f5f0dd461cada94a6b4ae03e"
