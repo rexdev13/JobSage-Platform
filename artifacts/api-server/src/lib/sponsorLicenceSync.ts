@@ -234,6 +234,7 @@ interface SyncDiff {
   updatedCount: number;
   removedCount: number;
   existingCount: number;
+  existingNames: Set<string>;
 }
 
 async function attemptSync(url: string): Promise<SyncDiff> {
@@ -266,7 +267,7 @@ async function attemptSync(url: string): Promise<SyncDiff> {
   const removedCount = existingRows.filter((r) => !newNames.has(r.organisationName.toLowerCase().trim())).length;
   const updatedCount = rows.filter((r) => existingNames.has(r.organisationName.toLowerCase().trim())).length;
 
-  return { rows, addedCount, updatedCount, removedCount, existingCount };
+  return { rows, addedCount, updatedCount, removedCount, existingCount, existingNames };
 }
 
 function sleep(ms: number): Promise<void> {
@@ -287,29 +288,66 @@ export async function runSponsorLicenceSync(triggeredBy: SyncTriggeredBy = "sche
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
-      const { rows, addedCount, updatedCount, removedCount } = await attemptSync(url);
+      const { rows, addedCount, updatedCount, removedCount, existingNames } = await attemptSync(url);
 
-      // Upsert all records keyed on organisation_name, then delete any record
-      // not touched in this sync run (synced_at < syncedAt). This preserves
-      // existing IDs (and thus user bookmarks) for orgs that remain.
+      // Remove any duplicate organisation_name rows (keep highest id per name).
+      // This is idempotent and a no-op once the table is clean. Ensures the
+      // batch UPDATE logic below works correctly (one row per org name).
+      const dedupResult = await db.execute(sql`
+        DELETE FROM sponsor_licences
+        WHERE id NOT IN (
+          SELECT MAX(id)
+          FROM sponsor_licences
+          GROUP BY organisation_name
+        )
+      `);
+      const dedupCount = (dedupResult as any).rowCount ?? 0;
+      if (dedupCount > 0) {
+        console.log(`[sponsor-sync] Deduped ${dedupCount} duplicate rows before sync`);
+      }
+
+      // Process in batches of 500:
+      // - UPDATE existing orgs via a bulk VALUES clause (no unique constraint needed)
+      // - INSERT new orgs directly
+      // This preserves existing IDs (and thus user bookmarks) for continuing orgs.
       const BATCH = 500;
       for (let i = 0; i < rows.length; i += BATCH) {
-        const batch = rows.slice(i, i + BATCH).map((r) => ({ ...r, syncedAt }));
-        await db
-          .insert(sponsorLicencesTable)
-          .values(batch as any)
-          .onConflictDoUpdate({
-            target: sponsorLicencesTable.organisationName,
-            set: {
-              townCity: sql`excluded.town_city`,
-              county: sql`excluded.county`,
-              route: sql`excluded.route`,
-              subRoute: sql`excluded.sub_route`,
-              rating: sql`excluded.rating`,
-              industry: sql`excluded.industry`,
-              syncedAt: sql`excluded.synced_at`,
-            },
-          });
+        const batch = rows.slice(i, i + BATCH);
+
+        const toUpdate = batch.filter((r) => existingNames.has(r.organisationName.toLowerCase().trim()));
+        const toInsert = batch.filter((r) => !existingNames.has(r.organisationName.toLowerCase().trim()));
+
+        if (toUpdate.length > 0) {
+          // Single UPDATE statement for the whole sub-batch using a VALUES table
+          await db.execute(sql`
+            UPDATE sponsor_licences AS sl
+            SET
+              town_city   = d.town_city,
+              county      = d.county,
+              route       = d.route,
+              sub_route   = d.sub_route,
+              rating      = d.rating,
+              industry    = d.industry,
+              synced_at   = d.synced_at
+            FROM (VALUES ${sql.join(
+              toUpdate.map((r) =>
+                sql`(${r.organisationName}::text, ${r.townCity}::text, ${r.county}::text, ${r.route}::text, ${r.subRoute}::text, ${r.rating}::text, ${r.industry}::text, ${syncedAt}::timestamptz)`
+              ),
+              sql`, `
+            )}) AS d(organisation_name, town_city, county, route, sub_route, rating, industry, synced_at)
+            WHERE sl.organisation_name = d.organisation_name
+          `);
+        }
+
+        if (toInsert.length > 0) {
+          await db.insert(sponsorLicencesTable).values(
+            toInsert.map((r) => ({ ...r, syncedAt })) as any
+          );
+          // Track newly inserted names so later batches don't re-insert them
+          for (const r of toInsert) {
+            existingNames.add(r.organisationName.toLowerCase().trim());
+          }
+        }
       }
 
       // Remove orgs that were in the old register but not the new one
