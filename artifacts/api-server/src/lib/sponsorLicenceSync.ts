@@ -302,27 +302,55 @@ export async function runSponsorLicenceSync(triggeredBy: SyncTriggeredBy = "sche
         const toInsert = batch.filter((r) => !existingNames.has(r.organisationName.toLowerCase().trim()));
 
         if (toUpdate.length > 0) {
-          // Single UPDATE statement for the whole sub-batch using a VALUES table.
-          // NOTE: industry is intentionally excluded from this UPDATE — sync only
-          // refreshes location/route/rating data. Existing AI-backfill classifications
-          // are preserved, and new orgs receive a keyword seed on INSERT below.
-          await db.execute(sql`
-            UPDATE sponsor_licences AS sl
-            SET
-              town_city   = d.town_city,
-              county      = d.county,
-              route       = d.route,
-              sub_route   = d.sub_route,
-              rating      = d.rating,
-              synced_at   = d.synced_at
-            FROM (VALUES ${sql.join(
-              toUpdate.map((r) =>
-                sql`(${r.organisationName}::text, ${r.townCity}::text, ${r.county}::text, ${r.route}::text, ${r.subRoute}::text, ${r.rating}::text, ${syncedAt}::timestamptz)`
-              ),
-              sql`, `
-            )}) AS d(organisation_name, town_city, county, route, sub_route, rating, synced_at)
-            WHERE sl.organisation_name = d.organisation_name
-          `);
+          // Split into two groups to achieve COALESCE(d.industry, sl.industry) semantics
+          // without relying on Drizzle passing JS null as SQL NULL in parameterised VALUES:
+          //   - Orgs the keyword classifier matched: write the new industry label
+          //   - Orgs it didn't match: omit industry from SET so existing AI classification
+          //     is naturally preserved (UPDATE never touches the column)
+          const withKeyword    = toUpdate.filter((r) => r.industry !== null);
+          const withoutKeyword = toUpdate.filter((r) => r.industry === null);
+
+          if (withKeyword.length > 0) {
+            await db.execute(sql`
+              UPDATE sponsor_licences AS sl
+              SET
+                town_city   = d.town_city,
+                county      = d.county,
+                route       = d.route,
+                sub_route   = d.sub_route,
+                rating      = d.rating,
+                industry    = d.industry,
+                synced_at   = d.synced_at
+              FROM (VALUES ${sql.join(
+                withKeyword.map((r) =>
+                  sql`(${r.organisationName}::text, ${r.townCity}::text, ${r.county}::text, ${r.route}::text, ${r.subRoute}::text, ${r.rating}::text, ${r.industry}::text, ${syncedAt}::timestamptz)`
+                ),
+                sql`, `
+              )}) AS d(organisation_name, town_city, county, route, sub_route, rating, industry, synced_at)
+              WHERE sl.organisation_name = d.organisation_name
+            `);
+          }
+
+          if (withoutKeyword.length > 0) {
+            // No industry in SET — existing classification (AI or null) is left untouched
+            await db.execute(sql`
+              UPDATE sponsor_licences AS sl
+              SET
+                town_city   = d.town_city,
+                county      = d.county,
+                route       = d.route,
+                sub_route   = d.sub_route,
+                rating      = d.rating,
+                synced_at   = d.synced_at
+              FROM (VALUES ${sql.join(
+                withoutKeyword.map((r) =>
+                  sql`(${r.organisationName}::text, ${r.townCity}::text, ${r.county}::text, ${r.route}::text, ${r.subRoute}::text, ${r.rating}::text, ${syncedAt}::timestamptz)`
+                ),
+                sql`, `
+              )}) AS d(organisation_name, town_city, county, route, sub_route, rating, synced_at)
+              WHERE sl.organisation_name = d.organisation_name
+            `);
+          }
         }
 
         if (toInsert.length > 0) {
