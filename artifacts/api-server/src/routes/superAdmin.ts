@@ -862,4 +862,57 @@ router.post(
   },
 );
 
+/**
+ * POST /admin/super/dedup-sponsor-licences
+ * One-time utility: removes duplicate organisation_name rows from sponsor_licences,
+ * keeping the highest id per name. Checks FK safety first (no bookmarks on
+ * to-be-deleted rows). Remove this endpoint once production data is confirmed clean.
+ */
+router.post(
+  "/admin/super/dedup-sponsor-licences",
+  requireRole("super_admin"),
+  async (req: Request, res: Response): Promise<void> => {
+    writeAuditEvent(req.user!.id, "super_admin_dedup_sponsor_licences", undefined, {}).catch(() => {});
+
+    // Safety check: confirm no bookmarks point at rows that would be deleted
+    const fkResult = await db.execute(sql`
+      SELECT COUNT(*) AS bookmarks_on_duplicates
+      FROM sponsor_licence_bookmarks slb
+      JOIN sponsor_licences sl ON sl.id = slb.sponsor_licence_id
+      WHERE sl.id NOT IN (
+        SELECT MAX(id)
+        FROM sponsor_licences
+        GROUP BY organisation_name
+      )
+    `) as any;
+
+    const fkRow = fkResult.rows?.[0] ?? fkResult[0];
+    const bookmarksAtRisk = Number(fkRow?.bookmarks_on_duplicates ?? 0);
+    if (bookmarksAtRisk > 0) {
+      res.status(409).json({
+        success: false,
+        error: `Cannot dedup: ${bookmarksAtRisk} bookmark(s) point at duplicate rows that would be deleted. Resolve manually first.`,
+      });
+      return;
+    }
+
+    const result = await db.execute(sql`
+      DELETE FROM sponsor_licences
+      WHERE id NOT IN (
+        SELECT MAX(id)
+        FROM sponsor_licences
+        GROUP BY organisation_name
+      )
+    `) as any;
+
+    const deleted = Number(result.rowCount ?? 0);
+    const [countRow] = await db.select({ cnt: count(sponsorLicencesTable.id) }).from(sponsorLicencesTable);
+    const remaining = Number(countRow?.cnt ?? 0);
+
+    console.log(`[admin-dedup] Deduped sponsor_licences: ${deleted} rows removed, ${remaining} remaining`);
+
+    res.json({ success: true, deleted, remaining });
+  },
+);
+
 export default router;

@@ -290,22 +290,6 @@ export async function runSponsorLicenceSync(triggeredBy: SyncTriggeredBy = "sche
     try {
       const { rows, addedCount, updatedCount, removedCount, existingNames } = await attemptSync(url);
 
-      // Remove any duplicate organisation_name rows (keep highest id per name).
-      // This is idempotent and a no-op once the table is clean. Ensures the
-      // batch UPDATE logic below works correctly (one row per org name).
-      const dedupResult = await db.execute(sql`
-        DELETE FROM sponsor_licences
-        WHERE id NOT IN (
-          SELECT MAX(id)
-          FROM sponsor_licences
-          GROUP BY organisation_name
-        )
-      `);
-      const dedupCount = (dedupResult as any).rowCount ?? 0;
-      if (dedupCount > 0) {
-        console.log(`[sponsor-sync] Deduped ${dedupCount} duplicate rows before sync`);
-      }
-
       // Process in batches of 500:
       // - UPDATE existing orgs via a bulk VALUES clause (no unique constraint needed)
       // - INSERT new orgs directly
