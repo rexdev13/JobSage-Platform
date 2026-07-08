@@ -67,6 +67,7 @@ import {
   Gauge,
   AlertTriangle,
   PlayCircle,
+  Clock,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -79,6 +80,21 @@ function formatSyncDate(dt: string | null | undefined): string {
     month: "short",
     year: "numeric",
   });
+}
+
+function formatCheckedAt(dt: string | null | undefined): string | null {
+  if (!dt) return null;
+  const then = new Date(dt).getTime();
+  if (Number.isNaN(then)) return null;
+  const diffMs = Date.now() - then;
+  const diffMins = Math.round(diffMs / 60000);
+  if (diffMins < 1) return "just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHours = Math.round(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.round(diffHours / 24);
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return new Date(dt).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
 type SectorConfig = {
@@ -1017,6 +1033,12 @@ export default function SponsorLicencesPage() {
                                   {c.rating && (
                                     <span className="bg-amber-500/10 text-amber-700 px-2 py-0.5 rounded-full">
                                       {c.rating}
+                                    </span>
+                                  )}
+                                  {formatCheckedAt(c.lastVacancyCheckedAt) && (
+                                    <span className="flex items-center gap-1" title="Last checked for vacancies">
+                                      <Clock className="w-3 h-3" />
+                                      Checked {formatCheckedAt(c.lastVacancyCheckedAt)}
                                     </span>
                                   )}
                                 </div>

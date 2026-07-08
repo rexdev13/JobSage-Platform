@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { sponsorLicencesTable, sponsorLicenceSyncLogTable, jobListingsTable, sponsorLicenceVacancyChecksTable, sponsorLicenceBookmarksTable, sponsorLicenceVacanciesTable, sponsorLicenceVacancyScoresTable } from "@workspace/db";
+import { sponsorLicencesTable, sponsorLicenceSyncLogTable, sponsorLicenceVacancyChecksTable, sponsorLicenceBookmarksTable, sponsorLicenceVacanciesTable, sponsorLicenceVacancyScoresTable } from "@workspace/db";
 import { eq, ilike, and, desc, sql, isNotNull } from "drizzle-orm";
 import { requireAuthenticated } from "../middlewares/requireRole";
 import { runVacancyCheck } from "../lib/vacancyCheckHelper";
@@ -591,17 +591,6 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    const { employerProfilesTable } = await import("@workspace/db");
-    const employerRows = await db
-      .selectDistinct({ companyName: employerProfilesTable.companyName })
-      .from(employerProfilesTable)
-      .innerJoin(jobListingsTable, eq(jobListingsTable.employerProfileId, employerProfilesTable.id))
-      .where(eq(jobListingsTable.status, "published"));
-
-    const employerNamesWithVacancies = new Set(
-      employerRows.map((r) => r.companyName.toLowerCase().trim()),
-    );
-
     const bookmarkRows = await db
       .select({ sponsorLicenceId: sponsorLicenceBookmarksTable.sponsorLicenceId })
       .from(sponsorLicenceBookmarksTable)
@@ -653,7 +642,7 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
       const match = matchScoresByOrg.get(key);
       return {
         ...c,
-        hasVacancies: employerNamesWithVacancies.has(key) || (storedVacancyCount !== null && storedVacancyCount > 0),
+        hasVacancies: storedVacancyCount !== null && storedVacancyCount > 0,
         storedVacancyCount,
         isBookmarked: bookmarkedIds.has(c.id),
         region: countyToRegion(c.county),

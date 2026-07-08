@@ -4,6 +4,7 @@ import { eq, sql } from "drizzle-orm";
 import { batchScoreVacancies, type CandidateProfileForScoring, type VacancyForScoring } from "./sponsorVacancyMatch";
 
 interface UnscoredVacancyRow {
+  [key: string]: unknown;
   id: number;
   organisation_name: string;
   title: string;
@@ -23,24 +24,23 @@ function toProfileForScoring(profile: typeof profilesTable.$inferSelect): Candid
 }
 
 /**
- * Score any vacancies not yet scored for this user and persist results.
- * Safe to call repeatedly — only scores the delta since the last run.
+ * Fully recalculate suitability scores for every vacancy against this candidate's
+ * current profile and persist the results (upserting existing score rows). Called
+ * after every check-all pass and by the daily sync, so scores stay in sync with
+ * profile changes and re-runs of the AI scoring model — not just newly-seen vacancies.
  */
 export async function rescoreVacanciesForUser(userId: string): Promise<{ scored: number }> {
   const [profile] = await db.select().from(profilesTable).where(eq(profilesTable.userId, userId)).limit(1);
   if (!profile) return { scored: 0 };
 
-  const unscored = await db.execute<UnscoredVacancyRow>(sql`
+  const allVacancies = await db.execute<UnscoredVacancyRow>(sql`
     SELECT v.id, v.organisation_name, v.title, v.location, v.description
     FROM sponsor_licence_vacancies v
-    LEFT JOIN sponsor_licence_vacancy_scores s
-      ON s.vacancy_id = v.id AND s.user_id = ${userId}
-    WHERE s.id IS NULL
   `);
 
-  if (unscored.rows.length === 0) return { scored: 0 };
+  if (allVacancies.rows.length === 0) return { scored: 0 };
 
-  const vacanciesForScoring: VacancyForScoring[] = unscored.rows.map((r) => ({
+  const vacanciesForScoring: VacancyForScoring[] = allVacancies.rows.map((r) => ({
     id: r.id,
     title: r.title,
     organisationName: r.organisation_name,
@@ -54,7 +54,7 @@ export async function rescoreVacanciesForUser(userId: string): Promise<{ scored:
   await db
     .insert(sponsorLicenceVacancyScoresTable)
     .values(
-      unscored.rows.map((r) => {
+      allVacancies.rows.map((r) => {
         const s = scoreMap.get(r.id);
         return {
           userId,
@@ -64,12 +64,23 @@ export async function rescoreVacanciesForUser(userId: string): Promise<{ scored:
           isEligible: s?.isEligible ?? false,
           missingRequirements: s?.missingRequirements ?? [],
           explanation: s?.explanation ?? "Match based on your profile and vacancy details.",
+          scoredAt: new Date(),
         };
       }),
     )
-    .onConflictDoNothing();
+    .onConflictDoUpdate({
+      target: [sponsorLicenceVacancyScoresTable.userId, sponsorLicenceVacancyScoresTable.vacancyId],
+      set: {
+        organisationName: sql`excluded.organisation_name`,
+        score: sql`excluded.score`,
+        isEligible: sql`excluded.is_eligible`,
+        missingRequirements: sql`excluded.missing_requirements`,
+        explanation: sql`excluded.explanation`,
+        scoredAt: sql`excluded.scored_at`,
+      },
+    });
 
-  return { scored: unscored.rows.length };
+  return { scored: allVacancies.rows.length };
 }
 
 /**
