@@ -18,5 +18,12 @@ export interface SponsorLicenceCompany {
   industry?: string | null;
   syncedAt: Date;
   hasVacancies?: boolean;
+  storedVacancyCount?: number | null;
   isBookmarked?: boolean;
+  /** Suitability score (0-100) of this employer's single highest-scoring vacancy for the current candidate. Null if not yet scored. */
+  matchScore?: number | null;
+  /** Whether the current candidate is eligible for the top-scoring vacancy at this employer. */
+  matchIsEligible?: boolean | null;
+  /** Timestamp of the most recent successful vacancy check for this employer. */
+  lastVacancyCheckedAt?: Date | null;
 }

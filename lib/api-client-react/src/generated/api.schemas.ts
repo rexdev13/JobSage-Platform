@@ -224,7 +224,6 @@ export interface Document {
   mimeType: string;
   storageKey: string;
   fileSize?: number | null;
-  documentType?: string | null;
   disclaimerText: string;
   uploadedAt: string;
 }
@@ -478,7 +477,6 @@ export const ApplicationStatus = {
   offer: "offer",
   rejected: "rejected",
   no_response: "no_response",
-  cv_sent: "cv_sent",
 } as const;
 
 export type CvExtractedFieldsConfidence = { [key: string]: string };
@@ -564,24 +562,6 @@ export interface Application {
   notes?: string | null;
   roleTitle?: string | null;
   roleLocation?: string | null;
-  interviewDate?: string | null;
-  interviewNotes?: string | null;
-  applicationKind?: "formal" | "speculative";
-  companyName?: string | null;
-}
-
-export interface NudgeRole {
-  title: string;
-  reason: string;
-  fitScore: number;
-  setting: string;
-  location?: string;
-}
-
-export interface NudgeNextRolesResponse {
-  roles: NudgeRole[];
-  profession?: string;
-  disclaimer?: string;
 }
 
 export type ApplicationListStats = {
@@ -1102,6 +1082,12 @@ export interface SponsorLicenceCompany {
   hasVacancies?: boolean;
   storedVacancyCount?: number | null;
   isBookmarked?: boolean;
+  /** Suitability score (0-100) of this employer's single highest-scoring vacancy for the current candidate. Null if not yet scored. */
+  matchScore?: number | null;
+  /** Whether the current candidate is eligible for the top-scoring vacancy at this employer. */
+  matchIsEligible?: boolean | null;
+  /** Timestamp of the most recent successful vacancy check for this employer. */
+  lastVacancyCheckedAt?: string | null;
 }
 
 export interface SponsorLicenceListResponse {
@@ -1170,6 +1156,53 @@ export interface VacancyCheckResult {
   checkedAt: string;
   fromCache: boolean;
   vacancyList?: VacancyListing[] | null;
+}
+
+export interface CheckAllVacanciesStartResponse {
+  /** False if a check-all pass was already running. */
+  started: boolean;
+}
+
+export type CheckAllVacanciesStatusTriggeredBy =
+  | (typeof CheckAllVacanciesStatusTriggeredBy)[keyof typeof CheckAllVacanciesStatusTriggeredBy]
+  | null;
+
+export const CheckAllVacanciesStatusTriggeredBy = {
+  scheduler: "scheduler",
+  manual: "manual",
+} as const;
+
+export interface CheckAllVacanciesStatus {
+  isRunning: boolean;
+  total: number;
+  processed: number;
+  newChecks: number;
+  cacheHits: number;
+  errors: number;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  lastError?: string | null;
+  triggeredBy?: CheckAllVacanciesStatusTriggeredBy;
+}
+
+export interface SponsorLicenceVacancyMatch {
+  id: number;
+  title: string;
+  location?: string | null;
+  salary?: string | null;
+  url?: string | null;
+  description?: string | null;
+  postedDate?: string | null;
+  matchScore?: number | null;
+  isEligible?: boolean | null;
+  missingRequirements?: string[];
+  matchExplanation?: string | null;
+}
+
+export interface SponsorLicenceVacanciesResponse {
+  organisationName: string;
+  vacancies: SponsorLicenceVacancyMatch[];
+  lastCheckedAt?: string | null;
 }
 
 export interface BoostProfileRequest {
@@ -1258,14 +1291,6 @@ export type ProgressReportResponsePlan = {
   progressPct: number;
 };
 
-export interface ProgressReportTopCompany {
-  name: string;
-  type: string;
-  matchPct: number;
-  reason: string;
-  location?: string | null;
-}
-
 export interface ProgressReportResponse {
   period: ProgressReportResponsePeriod;
   stats: ProgressReportStats;
@@ -1275,7 +1300,6 @@ export interface ProgressReportResponse {
   boostProfile: boolean;
   recommendations?: string | null;
   disclaimer?: string | null;
-  topCompanies?: ProgressReportTopCompany[] | null;
 }
 
 export type SpeculativeApplicationStatus =
@@ -1305,7 +1329,6 @@ export interface SendSpeculativeApplicationRequest {
   companyName: string;
   sponsorLicenceId?: number | null;
   notes?: string | null;
-  vacancyTitle?: string | null;
 }
 
 export interface SpeculativeApplicationResult {
@@ -1835,41 +1858,6 @@ export type GetSuperAdminUsersParams = {
 export type StopImpersonation200 = {
   ok?: boolean;
 };
-
-export interface RecommendationLetter {
-  id: number;
-  candidateUserId: string;
-  employerUserId?: string | null;
-  authorName: string;
-  authorTitle: string;
-  organisation: string;
-  relationship: string;
-  content: string;
-  isEmployerVerified: boolean;
-  createdAt: string;
-}
-
-export interface RecommendationLettersResponse {
-  letters: RecommendationLetter[];
-}
-
-export interface IdentityVerification {
-  id: number;
-  userId: string;
-  passportKey?: string | null;
-  selfieKey?: string | null;
-  status: "pending" | "verified" | "rejected";
-  aiConfidence?: "high" | "medium" | "low" | "none" | null;
-  aiNotes?: string | null;
-  adminNotes?: string | null;
-  verifiedAt?: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface IdentityVerificationStatusResponse {
-  verification: IdentityVerification | null;
-}
 
 export type ActivateImpersonationTokenParams = {
   token: string;

@@ -3,6 +3,7 @@ import { seedRulesets } from "./lib/seedRulesets";
 import { startAlertScheduler } from "./lib/alertScheduler";
 import { startSponsorLicenceScheduler } from "./lib/sponsorLicenceScheduler";
 import { startVacancyCheckScheduler } from "./lib/vacancyCheckScheduler";
+import { startDailyVacancySyncScheduler } from "./lib/dailyVacancySync";
 import { runSponsorLicenceSync } from "./lib/sponsorLicenceSync";
 import { runIndustryBackfill } from "./lib/industryBackfill";
 import { db, sponsorLicenceSyncLogTable } from "@workspace/db";
@@ -58,6 +59,7 @@ app.listen(port, () => {
   startAlertScheduler();
   startSponsorLicenceScheduler();
   startVacancyCheckScheduler();
+  startDailyVacancySyncScheduler();
   void triggerSyncIfStale();
   runIndustryBackfill().catch((err) => {
     console.error("[industry-backfill] Startup backfill failed:", err);

@@ -365,7 +365,6 @@ export const ListMyDocumentsResponse = zod.object({
       mimeType: zod.string(),
       storageKey: zod.string(),
       fileSize: zod.number().nullish(),
-      documentType: zod.string().nullish(),
       disclaimerText: zod.string(),
       uploadedAt: zod.date(),
     }),
@@ -2024,15 +2023,6 @@ export const GetMyProgressReportResponse = zod.object({
   boostProfile: zod.boolean(),
   recommendations: zod.string().nullish(),
   disclaimer: zod.string().nullish(),
-  topCompanies: zod.array(
-    zod.object({
-      name: zod.string(),
-      type: zod.string(),
-      matchPct: zod.number(),
-      reason: zod.string(),
-      location: zod.string().nullish(),
-    }),
-  ).nullish(),
 });
 
 /**
@@ -2231,6 +2221,70 @@ export const CheckSponsorLicenceVacanciesResponse = zod.object({
   summary: zod.string().nullish(),
   checkedAt: zod.date(),
   fromCache: zod.boolean(),
+  vacancyList: zod
+    .array(
+      zod.object({
+        title: zod.string(),
+        location: zod.string().nullish(),
+        salary: zod.string().nullish(),
+        url: zod.string().nullish(),
+        description: zod.string().nullish(),
+        postedDate: zod.string().nullish(),
+      }),
+    )
+    .nullish(),
+});
+
+/**
+ * @summary Start (or report already-running) a background scan of every sponsor licence employer for vacancies, scoring results for the current candidate
+ */
+export const CheckAllSponsorLicenceVacanciesResponse = zod.object({
+  started: zod
+    .boolean()
+    .describe("False if a check-all pass was already running."),
+});
+
+/**
+ * @summary Poll progress of the background "check all vacancies" job
+ */
+export const GetCheckAllSponsorLicenceVacanciesStatusResponse = zod.object({
+  isRunning: zod.boolean(),
+  total: zod.number(),
+  processed: zod.number(),
+  newChecks: zod.number(),
+  cacheHits: zod.number(),
+  errors: zod.number(),
+  startedAt: zod.date().nullish(),
+  completedAt: zod.date().nullish(),
+  lastError: zod.string().nullish(),
+  triggeredBy: zod.enum(["scheduler", "manual"]).nullish(),
+});
+
+/**
+ * @summary Get all stored vacancies for a sponsor licence employer, ranked by suitability for the current candidate
+ */
+export const GetSponsorLicenceVacanciesParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetSponsorLicenceVacanciesResponse = zod.object({
+  organisationName: zod.string(),
+  vacancies: zod.array(
+    zod.object({
+      id: zod.number(),
+      title: zod.string(),
+      location: zod.string().nullish(),
+      salary: zod.string().nullish(),
+      url: zod.string().nullish(),
+      description: zod.string().nullish(),
+      postedDate: zod.string().nullish(),
+      matchScore: zod.number().nullish(),
+      isEligible: zod.boolean().nullish(),
+      missingRequirements: zod.array(zod.string()).optional(),
+      matchExplanation: zod.string().nullish(),
+    }),
+  ),
+  lastCheckedAt: zod.date().nullish(),
 });
 
 /**
@@ -2299,7 +2353,26 @@ export const ListSponsorLicencesResponse = zod.object({
       industry: zod.string().nullish(),
       syncedAt: zod.date(),
       hasVacancies: zod.boolean().optional(),
+      storedVacancyCount: zod.number().nullish(),
       isBookmarked: zod.boolean().optional(),
+      matchScore: zod
+        .number()
+        .nullish()
+        .describe(
+          "Suitability score (0-100) of this employer's single highest-scoring vacancy for the current candidate. Null if not yet scored.",
+        ),
+      matchIsEligible: zod
+        .boolean()
+        .nullish()
+        .describe(
+          "Whether the current candidate is eligible for the top-scoring vacancy at this employer.",
+        ),
+      lastVacancyCheckedAt: zod
+        .date()
+        .nullish()
+        .describe(
+          "Timestamp of the most recent successful vacancy check for this employer.",
+        ),
     }),
   ),
   total: zod.number(),

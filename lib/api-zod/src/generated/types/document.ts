@@ -13,7 +13,6 @@ export interface Document {
   mimeType: string;
   storageKey: string;
   fileSize?: number | null;
-  documentType?: string | null;
   disclaimerText: string;
   uploadedAt: Date;
 }

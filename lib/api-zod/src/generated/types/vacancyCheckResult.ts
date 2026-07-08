@@ -5,6 +5,7 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { VacancyListing } from "./vacancyListing";
 
 export interface VacancyCheckResult {
   vacanciesFound: boolean;
@@ -13,4 +14,5 @@ export interface VacancyCheckResult {
   summary?: string | null;
   checkedAt: Date;
   fromCache: boolean;
+  vacancyList?: VacancyListing[] | null;
 }
