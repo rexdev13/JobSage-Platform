@@ -1,0 +1,559 @@
+This is a much stronger UX and product flow than the current implementation. I would redesign it as follows.
+
+---
+
+# New Top Filters
+
+Current
+
+```
+Search Company
+All Routes
+Education
+All Regions
+
+[Has Vacancies] [Bookmarked]
+```
+
+Change to
+
+```
+Search Company
+All Routes
+Education
+All Regions
+
+[Has Vacancies] [Bookmarked] [Check All Vacancies]
+```
+
+Move **Check Vacancies** from every company card and make it one global action.
+
+The button should be coloured blue or orange and include a loading spinner when running.
+
+Example
+
+```
+✓ Check All Vacancies
+```
+
+---
+
+# What happens when "Check All Vacancies" is clicked
+
+Instead of checking one employer...
+
+The system should
+
+```
+Load every employer shown
+
+↓
+
+Query Jobsage Vacancy Engine
+
+↓
+
+Search:
+
+Company website
+
+NHS Jobs
+
+LinkedIn
+
+Indeed
+
+Reed
+
+TotalJobs
+
+CV Library
+
+AcademicJobs
+
+University websites
+
+↓
+
+Extract vacancies
+
+↓
+
+Remove duplicates
+
+↓
+
+Match each vacancy against candidate profile
+
+↓
+
+Calculate eligibility score
+
+↓
+
+Store vacancies
+
+↓
+
+Update employer statistics
+
+↓
+
+Refresh screen
+```
+
+No manual work should ever be required.
+
+---
+
+# Automatic Daily Sync
+
+Instead of requiring the user to press the button every day...
+
+Create a scheduled background job.
+
+Every day
+
+```
+02:00 AM
+
+↓
+
+Read latest UK Sponsor Register
+
+↓
+
+Check every employer
+
+↓
+
+Extract new vacancies
+
+↓
+
+Update database
+
+↓
+
+Recalculate candidate matches
+
+↓
+
+Update vacancy totals
+
+↓
+
+Update suitability percentages
+
+↓
+
+Notify candidate if new suitable vacancy exists
+```
+
+The user never needs to press anything.
+
+The button simply forces an immediate refresh.
+
+---
+
+# Replace "Check Vacancies"
+
+Currently every card has
+
+```
+Check Vacancies
+```
+
+Replace this with
+
+```
+92% Match
+
+```
+
+or
+
+```
+Excellent Match
+92%
+
+```
+
+using colours.
+
+Example
+
+```
+98%
+🟢 Excellent
+
+90%
+🟢 Very Strong
+
+82%
+🟢 Strong
+
+71%
+🟡 Good
+
+60%
+🟠 Moderate
+
+45%
+🔴 Weak
+```
+
+---
+
+# When user clicks company
+
+Instead of opening vacancies randomly...
+
+Open
+
+```
+ABC University
+
+92% Overall Match
+
+15 vacancies found
+
+--------------------------------
+
+98%
+Senior Lecturer
+
+Eligible
+
+Apply
+
+--------------------------------
+
+94%
+Research Fellow
+
+Eligible
+
+Apply
+
+--------------------------------
+
+87%
+Teaching Fellow
+
+Eligible
+
+Apply
+
+--------------------------------
+
+79%
+Postdoctoral Researcher
+
+Missing:
+HEA Fellowship
+
+--------------------------------
+
+66%
+Research Assistant
+
+Needs 2 years experience
+```
+
+Everything ranked highest first.
+
+---
+
+# Ranking Algorithm
+
+Every vacancy receives a Jobsage Suitability Score.
+
+Example
+
+```
+Education
+
+Experience
+
+Visa Sponsorship
+
+Location
+
+Salary
+
+Professional Registration
+
+Publications
+
+Teaching Experience
+
+Research Experience
+
+Required Skills
+
+Candidate Preferences
+
+Availability
+```
+
+Example weighting
+
+```
+Eligibility
+
+40%
+
+Experience
+
+20%
+
+Location
+
+10%
+
+Salary
+
+5%
+
+Visa Sponsorship
+
+10%
+
+Required Skills
+
+10%
+
+Career Goals
+
+5%
+```
+
+Total
+
+```
+Overall Match
+
+94%
+```
+
+---
+
+# Vacancy Count
+
+Current
+
+```
+With Jobsage Vacancies
+
+22
+```
+
+This should automatically update.
+
+Example
+
+```
+ABC University
+
+23 vacancies
+
+↓
+
+Candidate matches
+
+12
+
+↓
+
+Eligible
+
+8
+
+↓
+
+Nearly Eligible
+
+3
+
+↓
+
+Not Eligible
+
+1
+```
+
+Then the top card becomes
+
+```
+Jobsage Vacancies
+
+8,946
+
+Updated
+
+Today 02:03 AM
+```
+
+Every company card displays
+
+```
+Jobsage Vacancies
+
+12
+```
+
+instead of
+
+```
+Check Vacancies
+```
+
+---
+
+# Automatic Candidate Notifications
+
+If today's sync finds
+
+```
+Yesterday
+
+6 vacancies
+
+Today
+
+9 vacancies
+
+```
+
+User receives
+
+> 🔔 Three new matching vacancies have been found for your profile.
+
+No searching required.
+
+---
+
+# Company Card Redesign
+
+Current
+
+```
+Company
+
+Location
+
+Worker
+
+Skilled Worker
+
+Rating
+
+Check Vacancies
+
+Contact
+
+Send CV
+```
+
+Replace with
+
+```
+Company
+
+Location
+
+Worker
+
+Skilled Worker
+
+★★★★★ A Rating
+
+────────────────────
+
+Jobsage Vacancies
+
+18
+
+Candidate Match
+
+94%
+
+Updated
+
+Today 02:03
+
+────────────────────
+
+Bookmark
+
+Contact
+
+Send CV
+```
+
+---
+
+# Backend Architecture
+
+```
+Daily Scheduler (Cron)
+
+↓
+
+Sponsor Register Sync
+
+↓
+
+Company Database
+
+↓
+
+Vacancy Crawlers
+
+↓
+
+Vacancy Parser
+
+↓
+
+Deduplication Engine
+
+↓
+
+AI Vacancy Matcher
+
+↓
+
+Suitability Score Engine
+
+↓
+
+Eligibility Engine
+
+↓
+
+Database Update
+
+↓
+
+Notifications
+
+↓
+
+Frontend Refresh
+```
+
+---
+
+## Prompt for Replit
+
+> **Redesign the Visa Sponsoring Employers page to improve usability and automate vacancy management. Remove the "Check Vacancies" button from each employer card. Add a new global button called "Check All Vacancies" immediately to the right of the "Bookmarked" filter. When clicked, it should scan every employer currently in the sponsor database, retrieve vacancies from all configured sources, deduplicate results, calculate a Jobsage suitability score for the logged-in candidate, update the database, refresh the vacancy counts, and display progress with a loading indicator.**
+>
+> **Replace the old "Check Vacancies" button on each employer card with a dynamic "Match %" indicator showing how well the candidate fits vacancies at that employer. The percentage should be based on the highest-scoring vacancy available. Clicking an employer should display all vacancies sorted from highest suitability to lowest, with eligibility status, missing requirements (if any), and an Apply action.**
+>
+> **Run the vacancy synchronisation automatically every day using a scheduled background job. During each sync, refresh the UK sponsor register, check all employers for new vacancies, update vacancy counts, recalculate candidate suitability scores, and store the results. The "With Jobsage Vacancies" counter at the top of the page should always reflect the current number of employers that have one or more Jobsage vacancies available after the latest sync, and each employer card should also display its own vacancy count and the timestamp of the most recent successful update.**
+>
+> **The entire process should be fully automated so that candidates always see fresh vacancies ranked by relevance without needing to manually check each employer.**
+
+This design turns the page into an AI-driven matching engine rather than a simple sponsor directory, which aligns much more closely with Jobsage's goal of presenting only the most relevant opportunities to each candidate.
