@@ -32,6 +32,8 @@ import type {
   CandidateMatchList,
   CandidateMessageListResponse,
   CandidateProfile,
+  CheckAllVacanciesStartResponse,
+  CheckAllVacanciesStatus,
   ConsentLogList,
   ConsentRecord,
   ConsentStatus,
@@ -121,6 +123,7 @@ import type {
   SponsorLicenceRegionsResponse,
   SponsorLicenceRoutesResponse,
   SponsorLicenceSyncResult,
+  SponsorLicenceVacanciesResponse,
   SponsorshipFeasibility,
   StopImpersonation200,
   SuperAdminHealth,
@@ -8163,6 +8166,268 @@ export const useCheckSponsorLicenceVacancies = <
 > => {
   return useMutation(getCheckSponsorLicenceVacanciesMutationOptions(options));
 };
+
+/**
+ * @summary Start (or report already-running) a background scan of every sponsor licence employer for vacancies, scoring results for the current candidate
+ */
+export const getCheckAllSponsorLicenceVacanciesUrl = () => {
+  return `/api/sponsor-licences/check-all-vacancies`;
+};
+
+export const checkAllSponsorLicenceVacancies = async (
+  options?: RequestInit,
+): Promise<CheckAllVacanciesStartResponse> => {
+  return customFetch<CheckAllVacanciesStartResponse>(
+    getCheckAllSponsorLicenceVacanciesUrl(),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getCheckAllSponsorLicenceVacanciesMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof checkAllSponsorLicenceVacancies>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof checkAllSponsorLicenceVacancies>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["checkAllSponsorLicenceVacancies"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof checkAllSponsorLicenceVacancies>>,
+    void
+  > = () => {
+    return checkAllSponsorLicenceVacancies(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CheckAllSponsorLicenceVacanciesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof checkAllSponsorLicenceVacancies>>
+>;
+
+export type CheckAllSponsorLicenceVacanciesMutationError =
+  ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Start (or report already-running) a background scan of every sponsor licence employer for vacancies, scoring results for the current candidate
+ */
+export const useCheckAllSponsorLicenceVacancies = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof checkAllSponsorLicenceVacancies>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof checkAllSponsorLicenceVacancies>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(
+    getCheckAllSponsorLicenceVacanciesMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Poll progress of the background "check all vacancies" job
+ */
+export const getGetCheckAllSponsorLicenceVacanciesStatusUrl = () => {
+  return `/api/sponsor-licences/check-all-vacancies/status`;
+};
+
+export const getCheckAllSponsorLicenceVacanciesStatus = async (
+  options?: RequestInit,
+): Promise<CheckAllVacanciesStatus> => {
+  return customFetch<CheckAllVacanciesStatus>(
+    getGetCheckAllSponsorLicenceVacanciesStatusUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetCheckAllSponsorLicenceVacanciesStatusQueryKey = () => {
+  return [`/api/sponsor-licences/check-all-vacancies/status`] as const;
+};
+
+export const getGetCheckAllSponsorLicenceVacanciesStatusQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCheckAllSponsorLicenceVacanciesStatus>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCheckAllSponsorLicenceVacanciesStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getGetCheckAllSponsorLicenceVacanciesStatusQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getCheckAllSponsorLicenceVacanciesStatus>>
+  > = ({ signal }) =>
+    getCheckAllSponsorLicenceVacanciesStatus({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCheckAllSponsorLicenceVacanciesStatus>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCheckAllSponsorLicenceVacanciesStatusQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCheckAllSponsorLicenceVacanciesStatus>>
+>;
+export type GetCheckAllSponsorLicenceVacanciesStatusQueryError =
+  ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Poll progress of the background "check all vacancies" job
+ */
+
+export function useGetCheckAllSponsorLicenceVacanciesStatus<
+  TData = Awaited<ReturnType<typeof getCheckAllSponsorLicenceVacanciesStatus>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCheckAllSponsorLicenceVacanciesStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions =
+    getGetCheckAllSponsorLicenceVacanciesStatusQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get all stored vacancies for a sponsor licence employer, ranked by suitability for the current candidate
+ */
+export const getGetSponsorLicenceVacanciesUrl = (id: number) => {
+  return `/api/sponsor-licences/${id}/vacancies`;
+};
+
+export const getSponsorLicenceVacancies = async (
+  id: number,
+  options?: RequestInit,
+): Promise<SponsorLicenceVacanciesResponse> => {
+  return customFetch<SponsorLicenceVacanciesResponse>(
+    getGetSponsorLicenceVacanciesUrl(id),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetSponsorLicenceVacanciesQueryKey = (id: number) => {
+  return [`/api/sponsor-licences/${id}/vacancies`] as const;
+};
+
+export const getGetSponsorLicenceVacanciesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSponsorLicenceVacancies>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSponsorLicenceVacancies>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetSponsorLicenceVacanciesQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSponsorLicenceVacancies>>
+  > = ({ signal }) =>
+    getSponsorLicenceVacancies(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSponsorLicenceVacancies>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSponsorLicenceVacanciesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSponsorLicenceVacancies>>
+>;
+export type GetSponsorLicenceVacanciesQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Get all stored vacancies for a sponsor licence employer, ranked by suitability for the current candidate
+ */
+
+export function useGetSponsorLicenceVacancies<
+  TData = Awaited<ReturnType<typeof getSponsorLicenceVacancies>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSponsorLicenceVacancies>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSponsorLicenceVacanciesQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Get distinct sponsorship routes present in the register

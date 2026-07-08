@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, PageTransition, Button } from "@/components/ui-enhanced";
 import { SponsorVacancyApplyModal } from "@/components/SponsorVacancyApplyModal";
@@ -9,15 +9,17 @@ import {
   useListSponsorLicences,
   useSendSpeculativeApplication,
   useListSpeculativeApplications,
-  useCheckSponsorLicenceVacancies,
+  useCheckAllSponsorLicenceVacancies,
+  useGetCheckAllSponsorLicenceVacanciesStatus,
+  useGetSponsorLicenceVacancies,
   useGetSponsorLicenceRegions,
   useBookmarkSponsorLicence,
   useUnbookmarkSponsorLicence,
   useListMyDocuments,
   getListSponsorLicencesQueryKey,
   getGetSponsorLicenceIndustryCountsQueryKey,
-  type VacancyCheckResult,
-  type VacancyListing,
+  getGetCheckAllSponsorLicenceVacanciesStatusQueryKey,
+  type SponsorLicenceVacancyMatch,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
@@ -62,6 +64,9 @@ import {
   X,
   DollarSign,
   CalendarDays,
+  Gauge,
+  AlertTriangle,
+  PlayCircle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -105,6 +110,174 @@ function getSectorConfig(industry: string): SectorConfig {
   return SECTOR_CONFIG[industry] ?? SECTOR_CONFIG["Other"]!;
 }
 
+type SelectedVacancy = SponsorLicenceVacancyMatch & { companyName: string; companyId: number };
+
+function VacancyMatchPanel({
+  companyId,
+  companyName,
+  hasCvUploaded,
+  isSent,
+  sendCVPending,
+  onSendCV,
+  onSelectVacancy,
+  onApply,
+}: {
+  companyId: number;
+  companyName: string;
+  hasCvUploaded: boolean;
+  isSent: boolean;
+  sendCVPending: boolean;
+  onSendCV: () => void;
+  onSelectVacancy: (v: SelectedVacancy) => void;
+  onApply: (v: SelectedVacancy) => void;
+}) {
+  const { data, isLoading } = useGetSponsorLicenceVacancies(companyId);
+  const vacancies = data?.vacancies ?? [];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -4 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="mt-3 ml-14"
+    >
+      {isLoading ? (
+        <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Loading matched vacancies…
+        </div>
+      ) : vacancies.length === 0 ? (
+        <div className="rounded-xl border border-border bg-muted/30 px-4 py-2.5 flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">No current vacancies found on job boards.</span>
+          <button
+            onClick={onSendCV}
+            disabled={isSent || sendCVPending}
+            className="ml-auto text-xs text-primary font-medium hover:underline disabled:opacity-50 flex items-center gap-1"
+          >
+            {isSent ? "CV Sent ✓" : "Send CV speculatively"}
+          </button>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-green-200 bg-green-50/60 dark:bg-green-950/20 dark:border-green-800/40 overflow-hidden">
+          <div className="px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <BadgeCheck className="w-4 h-4 text-green-600 shrink-0" />
+              <span className="text-sm font-semibold text-green-800 dark:text-green-300">
+                {vacancies.length} {vacancies.length === 1 ? "vacancy" : "vacancies"}, sorted by suitability
+              </span>
+              {data?.lastCheckedAt && (
+                <span className="text-xs text-green-700/70 dark:text-green-400/70 hidden sm:block">
+                  · checked {formatSyncDate(data.lastCheckedAt)}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="border-t border-green-200 dark:border-green-800/40 px-4 py-3 space-y-1.5">
+            {vacancies.map((v) => {
+              const score = v.matchScore ?? null;
+              const eligible = v.isEligible ?? null;
+              return (
+                <div
+                  key={v.id}
+                  className="flex items-start justify-between gap-3 px-3 py-2.5 rounded-lg bg-white dark:bg-green-950/40 border border-green-100 dark:border-green-800/30 group hover:border-green-300 dark:hover:border-green-700/60 transition-colors cursor-pointer"
+                  onClick={() => onSelectVacancy({ ...v, companyName, companyId })}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-medium text-foreground truncate">{v.title}</p>
+                      {score != null && (
+                        <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
+                          eligible ? "bg-green-500/15 text-green-700" : "bg-amber-500/15 text-amber-700"
+                        }`}>
+                          <Gauge className="w-3 h-3" />
+                          {Math.round(score)}%
+                        </span>
+                      )}
+                      {eligible === false && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-700 shrink-0">
+                          <AlertTriangle className="w-3 h-3" />
+                          Not yet eligible
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground flex-wrap">
+                      {v.location && (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="w-3 h-3" />
+                          {v.location}
+                        </span>
+                      )}
+                      {v.salary && (
+                        <span className="flex items-center gap-1">
+                          <DollarSign className="w-3 h-3" />
+                          {v.salary}
+                        </span>
+                      )}
+                      {v.postedDate && (
+                        <span className="flex items-center gap-1">
+                          <CalendarDays className="w-3 h-3" />
+                          {v.postedDate}
+                        </span>
+                      )}
+                    </div>
+                    {v.missingRequirements && v.missingRequirements.length > 0 && (
+                      <p className="text-xs text-amber-700/90 mt-1">
+                        Missing: {v.missingRequirements.join(", ")}
+                      </p>
+                    )}
+                    {v.matchExplanation && (
+                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{v.matchExplanation}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {v.url && (
+                      <a
+                        href={v.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                        title="View on job board"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onApply({ ...v, companyName, companyId }); }}
+                      disabled={!hasCvUploaded || eligible === false}
+                      className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      Apply with JOBSAGE
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="px-4 pb-3 flex flex-wrap gap-2 items-center">
+            <Button
+              size="sm"
+              variant={isSent ? "outline" : "default"}
+              className="text-xs gap-1.5 h-7"
+              onClick={onSendCV}
+              disabled={sendCVPending}
+            >
+              {isSent ? (
+                <><CheckCircle2 className="w-3.5 h-3.5" /> CV Sent</>
+              ) : (
+                <><Send className="w-3.5 h-3.5" /> Send CV speculatively</>
+              )}
+            </Button>
+            <p className="text-[10px] text-green-700/60 dark:text-green-400/50">
+              Vacancies sourced from job boards. Always verify directly on the employer's official site.
+            </p>
+          </div>
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
 export default function SponsorLicencesPage() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -124,12 +297,9 @@ export default function SponsorLicencesPage() {
   const hasCvUploaded = (documentsData?.documents ?? []).some((d) => d.documentType === "cv");
   const sentCompanyNames = new Set((speculativeData?.applications ?? []).map((a) => a.companyName));
 
-  const [vacancyResults, setVacancyResults] = useState<Map<number, VacancyCheckResult>>(new Map());
-  const [checkingIds, setCheckingIds] = useState<Set<number>>(new Set());
   const [expandedVacancies, setExpandedVacancies] = useState<Set<number>>(new Set());
   const [expandedContact, setExpandedContact] = useState<Set<number>>(new Set());
 
-  type SelectedVacancy = VacancyListing & { companyName: string; companyId: number };
   const [selectedVacancy, setSelectedVacancy] = useState<SelectedVacancy | null>(null);
   const [applyModalVacancy, setApplyModalVacancy] = useState<SelectedVacancy | null>(null);
 
@@ -145,38 +315,48 @@ export default function SponsorLicencesPage() {
     setSelectedVacancy(null);
     setApplyModalVacancy(vacancy);
   }
-  const checkVacanciesMutation = useCheckSponsorLicenceVacancies();
   const bookmarkMutation = useBookmarkSponsorLicence();
   const unbookmarkMutation = useUnbookmarkSponsorLicence();
 
-  function handleCheckVacancies(companyId: number) {
-    if (checkingIds.has(companyId)) return;
-    setCheckingIds((prev) => new Set(prev).add(companyId));
-    checkVacanciesMutation.mutate(
-      { id: companyId },
-      {
-        onSuccess: (result) => {
-          setVacancyResults((prev) => new Map(prev).set(companyId, result));
-          setCheckingIds((prev) => {
-            const next = new Set(prev);
-            next.delete(companyId);
-            return next;
-          });
-          if (result.vacanciesFound) {
-            setExpandedVacancies((prev) => new Set(prev).add(companyId));
-          }
-        },
-        onError: () => {
-          setCheckingIds((prev) => {
-            const next = new Set(prev);
-            next.delete(companyId);
-            return next;
-          });
-          toast({ title: "Check failed", description: "Could not check vacancies right now. Please try again.", variant: "destructive" });
-        },
+  const checkAllMutation = useCheckAllSponsorLicenceVacancies();
+  const { data: checkAllStatus } = useGetCheckAllSponsorLicenceVacanciesStatus({
+    query: {
+      queryKey: getGetCheckAllSponsorLicenceVacanciesStatusQueryKey(),
+      refetchInterval: (query) => (query.state.data?.isRunning ? 2000 : false),
+    },
+  });
+  const isCheckingAll = checkAllStatus?.isRunning ?? false;
+  const checkAllProgressPct =
+    checkAllStatus && checkAllStatus.total > 0
+      ? Math.round((checkAllStatus.processed / checkAllStatus.total) * 100)
+      : 0;
+
+  function handleCheckAllVacancies() {
+    checkAllMutation.mutate(undefined, {
+      onSuccess: (res) => {
+        if (res.started) {
+          toast({ title: "Vacancy check started", description: "We're scanning all employers for new vacancies. This can take a while." });
+        } else {
+          toast({ title: "Already running", description: "A vacancy check is already in progress." });
+        }
+        void queryClient.invalidateQueries({ queryKey: getGetCheckAllSponsorLicenceVacanciesStatusQueryKey() });
       },
-    );
+      onError: () => {
+        toast({ title: "Error", description: "Could not start the vacancy check. Please try again.", variant: "destructive" });
+      },
+    });
   }
+
+  // Refresh company list and industry counts once a running check-all pass completes
+  const wasCheckingAllRef = useRef(false);
+  useEffect(() => {
+    if (wasCheckingAllRef.current && !isCheckingAll) {
+      void queryClient.invalidateQueries({ queryKey: [getListSponsorLicencesQueryKey()[0]] });
+      void queryClient.invalidateQueries({ queryKey: getGetSponsorLicenceIndustryCountsQueryKey() });
+      toast({ title: "Vacancy check complete", description: "Match scores have been updated." });
+    }
+    wasCheckingAllRef.current = isCheckingAll;
+  }, [isCheckingAll]);
 
   function handleToggleBookmark(companyId: number, currentlyBookmarked: boolean) {
     const optimisticNew = new Set(localBookmarks);
@@ -712,7 +892,47 @@ export default function SponsorLicencesPage() {
                       </span>
                     )}
                   </button>
+
+                  <button
+                    onClick={handleCheckAllVacancies}
+                    disabled={isCheckingAll}
+                    title={isCheckingAll ? "A vacancy check is already running" : "Scan every employer for new vacancies and rescore matches"}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
+                      isCheckingAll
+                        ? "bg-primary/10 border-primary/20 text-primary cursor-not-allowed"
+                        : "bg-primary text-primary-foreground border-primary hover:bg-primary/90"
+                    }`}
+                  >
+                    {isCheckingAll ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Checking… {checkAllStatus ? `${checkAllStatus.processed}/${checkAllStatus.total}` : ""}
+                      </>
+                    ) : (
+                      <>
+                        <PlayCircle className="w-4 h-4" />
+                        Check All Vacancies
+                      </>
+                    )}
+                  </button>
                 </div>
+
+                {isCheckingAll && checkAllStatus && checkAllStatus.total > 0 && (
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                      <motion.div
+                        className="h-full bg-primary rounded-full"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${checkAllProgressPct}%` }}
+                        transition={{ duration: 0.3 }}
+                      />
+                    </div>
+                    <span className="text-xs text-muted-foreground shrink-0">
+                      {checkAllProgressPct}% · {checkAllStatus.newChecks} new · {checkAllStatus.cacheHits} cached
+                      {checkAllStatus.errors > 0 ? ` · ${checkAllStatus.errors} errors` : ""}
+                    </span>
+                  </div>
+                )}
 
                 {/* Empty state */}
                 {empty && (
@@ -820,31 +1040,26 @@ export default function SponsorLicencesPage() {
                                   )}
                                 </button>
 
-                                {/* Vacancy check button / status */}
-                              {(() => {
-                                  const result = vacancyResults.get(c.id);
-                                  const checking = checkingIds.has(c.id);
-                                  if (checking) {
-                                    return (
-                                      <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground">
-                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                        Checking…
-                                      </span>
-                                    );
-                                  }
-                                  if (!result) {
-                                    return (
-                                      <button
-                                        onClick={() => handleCheckVacancies(c.id)}
-                                        className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors font-medium"
-                                      >
-                                        <Sparkles className="w-3.5 h-3.5" />
-                                        Check vacancies
-                                      </button>
-                                    );
-                                  }
-                                  return null;
-                                })()}
+                                {/* Match % badge */}
+                                {c.matchScore != null && (
+                                  <button
+                                    onClick={() => setExpandedVacancies((prev) => {
+                                      const next = new Set(prev);
+                                      if (next.has(c.id)) next.delete(c.id); else next.add(c.id);
+                                      return next;
+                                    })}
+                                    title="View matched vacancies for this employer"
+                                    className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors font-semibold ${
+                                      c.matchIsEligible
+                                        ? "bg-green-500/10 border-green-500/20 text-green-700 hover:bg-green-500/20"
+                                        : "bg-amber-500/10 border-amber-500/20 text-amber-700 hover:bg-amber-500/20"
+                                    }`}
+                                  >
+                                    <Gauge className="w-3.5 h-3.5" />
+                                    {Math.round(c.matchScore)}% Match
+                                    {expandedVacancies.has(c.id) ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                                  </button>
+                                )}
 
                               {/* Contact toggle */}
                               <button
@@ -935,179 +1150,19 @@ export default function SponsorLicencesPage() {
                             )}
                           </AnimatePresence>
 
-                          {/* ── Vacancy results panel ── */}
-                          {(() => {
-                            const result = vacancyResults.get(c.id);
-                            if (!result) return null;
-                            const isExpanded = expandedVacancies.has(c.id);
-                            const listings = result.vacancyList ?? [];
-                            return (
-                              <motion.div
-                                initial={{ opacity: 0, y: -4 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className="mt-3 ml-14"
-                              >
-                                {result.vacanciesFound ? (
-                                  <div className="rounded-xl border border-green-200 bg-green-50/60 dark:bg-green-950/20 dark:border-green-800/40 overflow-hidden">
-                                    {/* Header row */}
-                                    <button
-                                      className="w-full flex items-center justify-between px-4 py-3 hover:bg-green-100/50 dark:hover:bg-green-900/20 transition-colors"
-                                      onClick={() => setExpandedVacancies((prev) => {
-                                        const next = new Set(prev);
-                                        if (next.has(c.id)) next.delete(c.id); else next.add(c.id);
-                                        return next;
-                                      })}
-                                    >
-                                      <div className="flex items-center gap-2">
-                                        <BadgeCheck className="w-4 h-4 text-green-600 shrink-0" />
-                                        <span className="text-sm font-semibold text-green-800 dark:text-green-300">
-                                          {result.vacancyCount != null
-                                            ? `${result.vacancyCount} ${result.vacancyCount === 1 ? "vacancy" : "vacancies"} found`
-                                            : "Vacancies found"}
-                                        </span>
-                                        {result.summary && (
-                                          <span className="text-xs text-green-700/70 dark:text-green-400/70 hidden sm:block">
-                                            · {result.summary}
-                                          </span>
-                                        )}
-                                      </div>
-                                      <div className="flex items-center gap-2 shrink-0">
-                                        <a
-                                          href={result.sourceUrl ?? `https://www.reed.co.uk/jobs?keywords=${encodeURIComponent(c.organisationName)}&locationName=United+Kingdom`}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          onClick={(e) => e.stopPropagation()}
-                                          className="inline-flex items-center gap-1 text-xs px-3 py-1 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors font-medium"
-                                        >
-                                          Browse vacancies
-                                          <ExternalLink className="w-3 h-3" />
-                                        </a>
-                                        {isExpanded ? <ChevronUp className="w-4 h-4 text-green-600" /> : <ChevronDown className="w-4 h-4 text-green-600" />}
-                                      </div>
-                                    </button>
-
-                                    {/* Expandable detail */}
-                                    <AnimatePresence>
-                                      {isExpanded && (
-                                        <motion.div
-                                          initial={{ opacity: 0, height: 0 }}
-                                          animate={{ opacity: 1, height: "auto" }}
-                                          exit={{ opacity: 0, height: 0 }}
-                                          transition={{ duration: 0.2 }}
-                                          className="overflow-hidden border-t border-green-200 dark:border-green-800/40"
-                                        >
-                                          <div className="px-4 py-3 space-y-2">
-                                            {/* Structured vacancy list */}
-                                            {listings.length > 0 ? (
-                                              <div className="space-y-1.5">
-                                                {listings.map((v, vi) => (
-                                                  <div
-                                                    key={vi}
-                                                    className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg bg-white dark:bg-green-950/40 border border-green-100 dark:border-green-800/30 group hover:border-green-300 dark:hover:border-green-700/60 transition-colors cursor-pointer"
-                                                    onClick={() => setSelectedVacancy({ ...v, companyName: c.organisationName, companyId: c.id })}
-                                                  >
-                                                    <div className="flex-1 min-w-0">
-                                                      <p className="text-sm font-medium text-foreground truncate">{v.title}</p>
-                                                      <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground flex-wrap">
-                                                        {v.location && (
-                                                          <span className="flex items-center gap-1">
-                                                            <MapPin className="w-3 h-3" />
-                                                            {v.location}
-                                                          </span>
-                                                        )}
-                                                        {v.salary && (
-                                                          <span className="flex items-center gap-1">
-                                                            <DollarSign className="w-3 h-3" />
-                                                            {v.salary}
-                                                          </span>
-                                                        )}
-                                                        {v.postedDate && (
-                                                          <span className="flex items-center gap-1">
-                                                            <CalendarDays className="w-3 h-3" />
-                                                            {v.postedDate}
-                                                          </span>
-                                                        )}
-                                                      </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-1.5 shrink-0">
-                                                      {v.url && (
-                                                        <a
-                                                          href={v.url}
-                                                          target="_blank"
-                                                          rel="noopener noreferrer"
-                                                          onClick={(e) => e.stopPropagation()}
-                                                          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                                                          title="View on job board"
-                                                        >
-                                                          <ExternalLink className="w-3 h-3" />
-                                                        </a>
-                                                      )}
-                                                      <button
-                                                        onClick={(e) => { e.stopPropagation(); handleOpenApplyModal({ ...v, companyName: c.organisationName, companyId: c.id }); }}
-                                                        className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 transition-colors font-medium"
-                                                      >
-                                                        <Sparkles className="w-3 h-3" />
-                                                        Apply with JOBSAGE
-                                                      </button>
-                                                    </div>
-                                                  </div>
-                                                ))}
-                                              </div>
-                                            ) : (
-                                              result.summary && (
-                                                <p className="text-xs text-green-800/80 dark:text-green-300/80 leading-relaxed">
-                                                  {result.summary}
-                                                </p>
-                                              )
-                                            )}
-                                            <div className="flex flex-wrap gap-2 pt-1">
-                                              <a
-                                                href={result.sourceUrl ?? `https://www.reed.co.uk/jobs?keywords=${encodeURIComponent(c.organisationName)}&locationName=United+Kingdom`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors font-medium"
-                                              >
-                                                <Briefcase className="w-3.5 h-3.5" />
-                                                View all on job board
-                                                <ExternalLink className="w-3 h-3" />
-                                              </a>
-                                              <Button
-                                                size="sm"
-                                                variant={sentCompanyNames.has(c.organisationName) ? "outline" : "default"}
-                                                className="text-xs gap-1.5 h-7"
-                                                onClick={() => handleSendCV(c.organisationName, c.id)}
-                                                disabled={sendCVMutation.isPending}
-                                              >
-                                                {sentCompanyNames.has(c.organisationName) ? (
-                                                  <><CheckCircle2 className="w-3.5 h-3.5" /> CV Sent</>
-                                                ) : (
-                                                  <><Send className="w-3.5 h-3.5" /> Send CV speculatively</>
-                                                )}
-                                              </Button>
-                                            </div>
-                                            <p className="text-[10px] text-green-700/60 dark:text-green-400/50">
-                                              Vacancies sourced from job boards. Always verify directly on the employer's official site.
-                                            </p>
-                                          </div>
-                                        </motion.div>
-                                      )}
-                                    </AnimatePresence>
-                                  </div>
-                                ) : (
-                                  <div className="rounded-xl border border-border bg-muted/30 px-4 py-2.5 flex items-center gap-2">
-                                    <span className="text-xs text-muted-foreground">No current vacancies found on job boards.</span>
-                                    <button
-                                      onClick={() => handleSendCV(c.organisationName, c.id)}
-                                      disabled={sentCompanyNames.has(c.organisationName) || sendCVMutation.isPending}
-                                      className="ml-auto text-xs text-primary font-medium hover:underline disabled:opacity-50 flex items-center gap-1"
-                                    >
-                                      {sentCompanyNames.has(c.organisationName) ? "CV Sent ✓" : "Send CV speculatively"}
-                                    </button>
-                                  </div>
-                                )}
-                              </motion.div>
-                            );
-                          })()}
+                          {/* ── Vacancy match panel ── */}
+                          {expandedVacancies.has(c.id) && (
+                            <VacancyMatchPanel
+                              companyId={c.id}
+                              companyName={c.organisationName}
+                              hasCvUploaded={hasCvUploaded}
+                              isSent={sentCompanyNames.has(c.organisationName)}
+                              sendCVPending={sendCVMutation.isPending}
+                              onSendCV={() => handleSendCV(c.organisationName, c.id)}
+                              onSelectVacancy={setSelectedVacancy}
+                              onApply={handleOpenApplyModal}
+                            />
+                          )}
                         </Card>
                         </motion.div>
                       );

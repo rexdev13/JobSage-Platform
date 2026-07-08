@@ -2432,6 +2432,75 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /sponsor-licences/check-all-vacancies:
+    post:
+      operationId: checkAllSponsorLicenceVacancies
+      tags: [SponsorLicences]
+      summary: Start (or report already-running) a background scan of every sponsor licence employer for vacancies, scoring results for the current candidate
+      responses:
+        "200":
+          description: Started status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckAllVacanciesStartResponse"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /sponsor-licences/check-all-vacancies/status:
+    get:
+      operationId: getCheckAllSponsorLicenceVacanciesStatus
+      tags: [SponsorLicences]
+      summary: Poll progress of the background "check all vacancies" job
+      responses:
+        "200":
+          description: Current job status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckAllVacanciesStatus"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /sponsor-licences/{id}/vacancies:
+    get:
+      operationId: getSponsorLicenceVacancies
+      tags: [SponsorLicences]
+      summary: Get all stored vacancies for a sponsor licence employer, ranked by suitability for the current candidate
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Vacancies sorted by suitability score (highest first)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SponsorLicenceVacanciesResponse"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Company not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
   /sponsor-licences/routes:
     get:
       operationId: getSponsorLicenceRoutes
@@ -4519,8 +4588,24 @@ components:
           format: date-time
         hasVacancies:
           type: boolean
+        storedVacancyCount:
+          type: integer
+          nullable: true
         isBookmarked:
           type: boolean
+        matchScore:
+          type: integer
+          nullable: true
+          description: Suitability score (0-100) of this employer's single highest-scoring vacancy for the current candidate. Null if not yet scored.
+        matchIsEligible:
+          type: boolean
+          nullable: true
+          description: Whether the current candidate is eligible for the top-scoring vacancy at this employer.
+        lastVacancyCheckedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp of the most recent successful vacancy check for this employer.
 
     SponsorLicenceListResponse:
       type: object
@@ -4626,6 +4711,28 @@ components:
           items:
             $ref: "#/components/schemas/SponsorLicenceIndustryCount"
 
+    VacancyListing:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+        location:
+          type: string
+          nullable: true
+        salary:
+          type: string
+          nullable: true
+        url:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        postedDate:
+          type: string
+          nullable: true
+
     VacancyCheckResult:
       type: object
       required: [vacanciesFound, checkedAt, fromCache]
@@ -4646,6 +4753,103 @@ components:
           format: date-time
         fromCache:
           type: boolean
+        vacancyList:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/VacancyListing"
+
+    CheckAllVacanciesStartResponse:
+      type: object
+      required: [started]
+      properties:
+        started:
+          type: boolean
+          description: False if a check-all pass was already running.
+
+    CheckAllVacanciesStatus:
+      type: object
+      required: [isRunning, total, processed, newChecks, cacheHits, errors]
+      properties:
+        isRunning:
+          type: boolean
+        total:
+          type: integer
+        processed:
+          type: integer
+        newChecks:
+          type: integer
+        cacheHits:
+          type: integer
+        errors:
+          type: integer
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastError:
+          type: string
+          nullable: true
+        triggeredBy:
+          type: string
+          nullable: true
+          enum: [scheduler, manual]
+
+    SponsorLicenceVacancyMatch:
+      type: object
+      required: [id, title]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        location:
+          type: string
+          nullable: true
+        salary:
+          type: string
+          nullable: true
+        url:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        postedDate:
+          type: string
+          nullable: true
+        matchScore:
+          type: integer
+          nullable: true
+        isEligible:
+          type: boolean
+          nullable: true
+        missingRequirements:
+          type: array
+          items:
+            type: string
+        matchExplanation:
+          type: string
+          nullable: true
+
+    SponsorLicenceVacanciesResponse:
+      type: object
+      required: [organisationName, vacancies]
+      properties:
+        organisationName:
+          type: string
+        vacancies:
+          type: array
+          items:
+            $ref: "#/components/schemas/SponsorLicenceVacancyMatch"
+        lastCheckedAt:
+          type: string
+          format: date-time
+          nullable: true
 
     BoostProfileRequest:
       type: object

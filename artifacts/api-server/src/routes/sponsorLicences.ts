@@ -1,9 +1,10 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { sponsorLicencesTable, sponsorLicenceSyncLogTable, jobListingsTable, sponsorLicenceVacancyChecksTable, sponsorLicenceBookmarksTable, sponsorLicenceVacanciesTable } from "@workspace/db";
+import { sponsorLicencesTable, sponsorLicenceSyncLogTable, jobListingsTable, sponsorLicenceVacancyChecksTable, sponsorLicenceBookmarksTable, sponsorLicenceVacanciesTable, sponsorLicenceVacancyScoresTable } from "@workspace/db";
 import { eq, ilike, and, desc, sql, isNotNull } from "drizzle-orm";
 import { requireAuthenticated } from "../middlewares/requireRole";
 import { runVacancyCheck } from "../lib/vacancyCheckHelper";
+import { startCheckAllVacancies, getCheckAllStatus } from "../lib/vacancyCheckAllRunner";
 
 const router: IRouter = Router();
 
@@ -270,6 +271,99 @@ router.post("/sponsor-licences/:id/check-vacancies", requireAuthenticated, async
   }
 });
 
+// ── Check All Vacancies ──────────────────────────────────────────────────────
+
+router.post("/sponsor-licences/check-all-vacancies", requireAuthenticated, (req, res) => {
+  try {
+    const userId = req.user!.id;
+    const result = startCheckAllVacancies(userId);
+    res.json(result);
+  } catch (err) {
+    console.error("[sponsor-licences] /check-all-vacancies POST error:", err);
+    res.status(500).json({ error: "Failed to start vacancy check." });
+  }
+});
+
+router.get("/sponsor-licences/check-all-vacancies/status", requireAuthenticated, (_req, res) => {
+  res.json(getCheckAllStatus());
+});
+
+// ── Employer Vacancies (ranked by suitability) ────────────────────────────────
+
+router.get("/sponsor-licences/:id/vacancies", requireAuthenticated, async (req, res) => {
+  try {
+    const userId = req.user!.id;
+    const rawId = typeof req.params["id"] === "string" ? req.params["id"] : "";
+    const id = parseInt(rawId, 10);
+    if (!id || isNaN(id)) {
+      res.status(400).json({ error: "Invalid company ID." });
+      return;
+    }
+
+    const [company] = await db
+      .select({ organisationName: sponsorLicencesTable.organisationName })
+      .from(sponsorLicencesTable)
+      .where(eq(sponsorLicencesTable.id, id))
+      .limit(1);
+
+    if (!company) {
+      res.status(404).json({ error: "Company not found." });
+      return;
+    }
+
+    const vacancyRows = await db
+      .select()
+      .from(sponsorLicenceVacanciesTable)
+      .where(eq(sponsorLicenceVacanciesTable.organisationName, company.organisationName));
+
+    const scoreRows = await db
+      .select()
+      .from(sponsorLicenceVacancyScoresTable)
+      .where(
+        and(
+          eq(sponsorLicenceVacancyScoresTable.userId, userId),
+          eq(sponsorLicenceVacancyScoresTable.organisationName, company.organisationName),
+        ),
+      );
+    const scoreMap = new Map(scoreRows.map((s) => [s.vacancyId, s]));
+
+    const [lastCheck] = await db
+      .select({ checkedAt: sponsorLicenceVacancyChecksTable.checkedAt })
+      .from(sponsorLicenceVacancyChecksTable)
+      .where(eq(sponsorLicenceVacancyChecksTable.organisationName, company.organisationName))
+      .orderBy(desc(sponsorLicenceVacancyChecksTable.checkedAt))
+      .limit(1);
+
+    const vacancies = vacancyRows
+      .map((v) => {
+        const s = scoreMap.get(v.id);
+        return {
+          id: v.id,
+          title: v.title,
+          location: v.location,
+          salary: v.salary,
+          url: v.url,
+          description: v.description,
+          postedDate: v.postedDate,
+          matchScore: s?.score ?? null,
+          isEligible: s?.isEligible ?? null,
+          missingRequirements: (s?.missingRequirements as string[] | null) ?? [],
+          matchExplanation: s?.explanation ?? null,
+        };
+      })
+      .sort((a, b) => (b.matchScore ?? -1) - (a.matchScore ?? -1));
+
+    res.json({
+      organisationName: company.organisationName,
+      vacancies,
+      lastCheckedAt: lastCheck?.checkedAt ?? null,
+    });
+  } catch (err) {
+    console.error("[sponsor-licences] /:id/vacancies error:", err);
+    res.status(500).json({ error: "Failed to fetch vacancies." });
+  }
+});
+
 // ── Vacancy Stats ─────────────────────────────────────────────────────────────
 
 router.get("/sponsor-licences/vacancy-stats", requireAuthenticated, async (_req, res) => {
@@ -528,8 +622,8 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
     // Fetch the most recent AI-reported vacancy count per org from vacancy_checks.
     // vacancyCount here is the actual total the AI found (e.g. 40), not the count
     // of stored sample rows (which is capped at 8).
-    const storedVacancyRows = await db.execute<{ organisation_name: string; vacancy_count: number | null }>(
-      sql`SELECT DISTINCT ON (organisation_name) organisation_name, vacancy_count
+    const storedVacancyRows = await db.execute<{ organisation_name: string; vacancy_count: number | null; checked_at: string }>(
+      sql`SELECT DISTINCT ON (organisation_name) organisation_name, vacancy_count, checked_at
           FROM sponsor_licence_vacancy_checks
           ORDER BY organisation_name, checked_at DESC`,
     );
@@ -538,16 +632,34 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
         .filter((r) => r.vacancy_count !== null && r.vacancy_count > 0)
         .map((r) => [r.organisation_name.toLowerCase().trim(), r.vacancy_count!]),
     );
+    const lastVacancyCheckedAtByOrg = new Map<string, string>(
+      storedVacancyRows.rows.map((r) => [r.organisation_name.toLowerCase().trim(), r.checked_at]),
+    );
+
+    // Top vacancy match score/eligibility per org for the current candidate.
+    const matchScoreRows = await db.execute<{ organisation_name: string; score: number; is_eligible: boolean }>(
+      sql`SELECT DISTINCT ON (organisation_name) organisation_name, score, is_eligible
+          FROM sponsor_licence_vacancy_scores
+          WHERE user_id = ${userId}
+          ORDER BY organisation_name, score DESC`,
+    );
+    const matchScoresByOrg = new Map<string, { score: number; isEligible: boolean }>(
+      matchScoreRows.rows.map((r) => [r.organisation_name.toLowerCase().trim(), { score: r.score, isEligible: r.is_eligible }]),
+    );
 
     const annotated = allCompanies.map((c) => {
       const key = c.organisationName.toLowerCase().trim();
       const storedVacancyCount = storedVacancyCounts.get(key) ?? null;
+      const match = matchScoresByOrg.get(key);
       return {
         ...c,
         hasVacancies: employerNamesWithVacancies.has(key) || (storedVacancyCount !== null && storedVacancyCount > 0),
         storedVacancyCount,
         isBookmarked: bookmarkedIds.has(c.id),
         region: countyToRegion(c.county),
+        matchScore: match?.score ?? null,
+        matchIsEligible: match?.isEligible ?? null,
+        lastVacancyCheckedAt: lastVacancyCheckedAtByOrg.get(key) ?? null,
       };
     });
 

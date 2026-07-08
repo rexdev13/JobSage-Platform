@@ -118,3 +118,30 @@ export const sponsorLicenceBookmarksTable = pgTable(
 
 export type SponsorLicenceBookmark = typeof sponsorLicenceBookmarksTable.$inferSelect;
 export type InsertSponsorLicenceBookmark = typeof sponsorLicenceBookmarksTable.$inferInsert;
+
+export const sponsorLicenceVacancyScoresTable = pgTable(
+  "sponsor_licence_vacancy_scores",
+  {
+    id: serial("id").primaryKey(),
+    userId: varchar("user_id").notNull(),
+    vacancyId: integer("vacancy_id").notNull(),
+    organisationName: text("organisation_name").notNull(),
+    score: integer("score").notNull(),
+    isEligible: boolean("is_eligible").notNull(),
+    missingRequirements: jsonb("missing_requirements").$type<string[]>(),
+    explanation: text("explanation"),
+    scoredAt: timestamp("scored_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      name: "sl_vacancy_scores_vacancy_id_fk",
+      columns: [t.vacancyId],
+      foreignColumns: [sponsorLicenceVacanciesTable.id],
+    }).onDelete("cascade"),
+    uniqueIndex("sl_vacancy_scores_user_vacancy_idx").on(t.userId, t.vacancyId),
+    index("sl_vacancy_scores_user_org_idx").on(t.userId, t.organisationName),
+  ],
+);
+
+export type SponsorLicenceVacancyScore = typeof sponsorLicenceVacancyScoresTable.$inferSelect;
+export type InsertSponsorLicenceVacancyScore = typeof sponsorLicenceVacancyScoresTable.$inferInsert;

@@ -16,6 +16,7 @@ These files have TypeScript errors that existed before the current work and must
 - `src/pages/employer/EmployerJobFormPage.tsx` — missing queryKey
 - `src/components/ui/button-group.tsx` — SlotProps incompatibility
 - `src/components/ui/calendar.tsx` — Ref type mismatch
+- `Document.documentType` field — generated `Document` type lacks `documentType`; any page reading `d.documentType` (e.g. `DocumentsPage.tsx`, `SponsorLicencesPage.tsx`) has this pre-existing error
 
 **Why:** These were already present when F7–F10 work began. Fixing them is out of scope and risks scope creep / unintended regressions.
 

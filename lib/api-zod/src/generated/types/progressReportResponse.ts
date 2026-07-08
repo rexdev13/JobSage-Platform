@@ -10,14 +10,6 @@ import type { ProgressReportResponsePeriod } from "./progressReportResponsePerio
 import type { ProgressReportResponsePlan } from "./progressReportResponsePlan";
 import type { ProgressReportStats } from "./progressReportStats";
 
-export interface ProgressReportTopCompany {
-  name: string;
-  type: string;
-  matchPct: number;
-  reason: string;
-  location?: string | null;
-}
-
 export interface ProgressReportResponse {
   period: ProgressReportResponsePeriod;
   stats: ProgressReportStats;
@@ -27,5 +19,4 @@ export interface ProgressReportResponse {
   boostProfile: boolean;
   recommendations?: string | null;
   disclaimer?: string | null;
-  topCompanies?: ProgressReportTopCompany[] | null;
 }
