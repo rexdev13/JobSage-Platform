@@ -55,7 +55,7 @@ router.get("/applications", requireAuthenticated, async (req: Request, res: Resp
     const cvDocs = await db
       .select({ id: documentsTable.id, label: documentsTable.label, filename: documentsTable.filename })
       .from(documentsTable)
-      .where(inArray(documentsTable.id, cvDocumentIds));
+      .where(and(inArray(documentsTable.id, cvDocumentIds), eq(documentsTable.userId, userId)));
     for (const doc of cvDocs) {
       cvLabelMap[doc.id] = doc.label ?? doc.filename;
     }
@@ -147,6 +147,18 @@ router.post("/applications", requireAuthenticated, async (req: Request, res: Res
   };
 
   const isWebsite = applicationType === "website";
+
+  // Verify cvDocumentId belongs to the authenticated user (prevent IDOR / metadata disclosure)
+  if (cvDocumentId) {
+    const [cvDoc] = await db
+      .select({ id: documentsTable.id })
+      .from(documentsTable)
+      .where(and(eq(documentsTable.id, cvDocumentId), eq(documentsTable.userId, userId)));
+    if (!cvDoc) {
+      res.status(403).json({ error: "Document not found or does not belong to you." });
+      return;
+    }
+  }
 
   if (isWebsite) {
     if (!companyName || typeof companyName !== "string") {

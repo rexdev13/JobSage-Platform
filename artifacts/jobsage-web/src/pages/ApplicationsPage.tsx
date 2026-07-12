@@ -284,10 +284,10 @@ function ApplicationCard({ application, onStatusUpdated }: { application: Enrich
           </div>
         )}
 
-        {isSpeculative && application.cvLabel && (
+        {application.cvLabel && (
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/40 border border-border rounded-lg px-3 py-2">
             <FileText className="w-3 h-3 shrink-0 text-primary" />
-            <span>CV sent: <span className="font-medium text-foreground">{application.cvLabel}</span></span>
+            <span>{isSpeculative ? "CV sent" : "CV used"}: <span className="font-medium text-foreground">{application.cvLabel}</span></span>
           </div>
         )}
 
