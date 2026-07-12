@@ -20,4 +20,12 @@ export interface MatchedRole {
   matchScore: number;
   /** Specific gaps preventing eligibility for this role */
   eligibilityGaps?: string[];
+  /** True for the top-5 highest-matching roles — should be highlighted as "Apply First" */
+  recommended?: boolean;
+  /** Company contact email from employer profile, where available */
+  contactEmail?: string | null;
+  /** Company contact phone from employer profile, where available */
+  contactPhone?: string | null;
+  /** Company website URL from employer profile, where available */
+  contactWebsite?: string | null;
 }

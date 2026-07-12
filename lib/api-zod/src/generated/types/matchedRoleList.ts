@@ -15,4 +15,6 @@ export interface MatchedRoleList {
   message?: string | null;
   /** Role IDs the user has already applied to */
   appliedRoleIds?: number[];
+  /** True when the candidate has no profile — show upload nudge instead of roles */
+  noProfile?: boolean;
 }
