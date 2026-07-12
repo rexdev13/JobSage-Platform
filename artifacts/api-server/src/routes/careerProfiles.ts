@@ -26,6 +26,7 @@ async function generateCvBackground(profileId: number, userId: string): Promise<
           `Registration Status: ${baseProfile.registrationStatus}`,
           `Languages: ${(baseProfile.languages ?? []).join(", ") || "Not specified"}`,
           baseProfile.additionalNotes ? `Notes: ${baseProfile.additionalNotes}` : "",
+          baseProfile.jobsageEmail ? `JOBSAGE Contact Email: ${baseProfile.jobsageEmail}` : "",
         ].filter(Boolean).join("\n")
       : "No base profile found.";
 

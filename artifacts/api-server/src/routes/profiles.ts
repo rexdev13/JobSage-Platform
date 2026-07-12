@@ -157,7 +157,8 @@ router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         languages: (d.languages ?? null) as any,
         additionalNotes: d.additionalNotes ?? null,
-        // jobsageEmail intentionally omitted — never overwrite an existing alias
+        // Use COALESCE so existing aliases are preserved while null rows are backfilled
+        jobsageEmail: sql`COALESCE(${profilesTable.jobsageEmail}, ${jobsageEmail})`,
         updatedAt: new Date(),
       },
     })

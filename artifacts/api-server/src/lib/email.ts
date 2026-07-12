@@ -326,6 +326,8 @@ export async function sendSpeculativeCVToOps(opts: {
   notes?: string | null;
   /** JOBSAGE alias assigned to this candidate — shown as the contact address instead of personal email */
   jobsageEmail?: string | null;
+  /** Masked plain-text extract of the CV (personal email/phone replaced with JOBSAGE alias) */
+  maskedCvTextExtract?: string | null;
 }): Promise<void> {
   const attachments =
     opts.cvContent && opts.cvFilename
@@ -333,6 +335,13 @@ export async function sendSpeculativeCVToOps(opts: {
       : [];
 
   const contactEmail = opts.jobsageEmail ?? opts.candidateEmail;
+
+  const cvExtractSection = opts.maskedCvTextExtract
+    ? `<tr><td colspan="2" style="padding-top:16px;">
+        <p style="font-size:13px;font-weight:600;color:#0f172a;margin:0 0 6px;">CV text extract (contact info masked)</p>
+        <pre style="font-size:12px;white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px;color:#334155;margin:0;">${opts.maskedCvTextExtract.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>
+      </td></tr>`
+    : "";
 
   await resend.emails.send({
     from: `JOBSAGE <${FROM}>`,
@@ -354,8 +363,10 @@ export async function sendSpeculativeCVToOps(opts: {
         <tr><td style="font-weight:600;">Target company</td><td>${opts.companyName}</td></tr>
         <tr><td style="font-weight:600;">CV document</td><td>${opts.cvFilename ?? "not attached"}</td></tr>
         <tr><td style="font-weight:600;">Cover note</td><td>${opts.notes ? opts.notes.replace(/\n/g, "<br>") : "—"}</td></tr>
+        ${cvExtractSection}
       </table>
-      <p style="margin:24px 0 0;font-size:12px;color:#94a3b8;">
+      ${opts.jobsageEmail ? `<p style="margin:16px 0 0;font-size:12px;color:#64748b;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;padding:10px;">⚠️ Contact this candidate via their JOBSAGE alias only: <strong>${opts.jobsageEmail}</strong>. Any personal contact info in the attached file should be disregarded.</p>` : ""}
+      <p style="margin:16px 0 0;font-size:12px;color:#94a3b8;">
         Sent by JOBSAGE platform. Please follow up with ${opts.companyName} on behalf of the candidate if appropriate.
       </p>
     </td></tr>

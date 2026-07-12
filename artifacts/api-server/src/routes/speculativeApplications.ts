@@ -93,12 +93,25 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
 
   // Fetch CV file bytes from object storage for email attachment (best-effort)
   let cvContent: Buffer | null = null;
+  let maskedCvTextExtract: string | null = null;
   if (cvDocument?.storageKey) {
     try {
       const storage = new ObjectStorageService();
       const gcsFile = await storage.getObjectEntityFile(cvDocument.storageKey);
       const [downloaded] = await gcsFile.download();
       cvContent = downloaded as Buffer;
+
+      // Attempt to extract and mask text from the CV (PDF only) so personal contact
+      // info in the document body is replaced with the JOBSAGE alias before ops see it.
+      if (cvDocument.filename?.toLowerCase().endsWith(".pdf") && jobsageEmail) {
+        try {
+          const pdfParse = (await import("pdf-parse")).default;
+          const parsed = await pdfParse(cvContent);
+          maskedCvTextExtract = maskPersonalContactInfo(parsed.text.slice(0, 5000), jobsageEmail);
+        } catch {
+          // Best-effort — proceed without the text extract
+        }
+      }
     } catch (err: unknown) {
       console.error("[speculative] Could not fetch CV from storage:", err);
     }
@@ -114,7 +127,7 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
     await Promise.all([
       // Candidate confirmation (sent to personal email — this is intentional)
       sendSpeculativeCVNotification({ candidateEmail: user.email, candidateName, companyName }),
-      // JOBSAGE ops inbox — contact shown as JOBSAGE alias, personal email never exposed
+      // JOBSAGE ops inbox — contact shown as JOBSAGE alias, personal email never exposed to employer
       sendSpeculativeCVToOps({
         candidateEmail: user.email,
         candidateName,
@@ -125,6 +138,7 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
         cvContent,
         notes: maskedNotes,
         jobsageEmail,
+        maskedCvTextExtract,
       }),
     ]);
     emailDelivered = true;
