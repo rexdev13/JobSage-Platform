@@ -238,6 +238,12 @@ export const GetMyProfileResponse = zod.object({
     .string()
     .nullish()
     .describe("Free-text notes the candidate wants employers to see"),
+  jobsageEmail: zod
+    .string()
+    .nullish()
+    .describe(
+      "Auto-assigned JOBSAGE communication alias (e.g. jane.smith.a1b2c3@mail.jobsage.app). Used in place of personal email when CVs are sent to employers.",
+    ),
   completionPct: zod
     .number()
     .optional()
@@ -308,6 +314,12 @@ export const UpsertMyProfileResponse = zod.object({
     .string()
     .nullish()
     .describe("Free-text notes the candidate wants employers to see"),
+  jobsageEmail: zod
+    .string()
+    .nullish()
+    .describe(
+      "Auto-assigned JOBSAGE communication alias (e.g. jane.smith.a1b2c3@mail.jobsage.app). Used in place of personal email when CVs are sent to employers.",
+    ),
   completionPct: zod
     .number()
     .optional()

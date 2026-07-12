@@ -17,7 +17,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getGetMyProfileQueryKey, getGetMyMatchesQueryKey, getListMatchedRolesQueryKey } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, Button, Input, Select, Label, PageTransition, cn } from "@/components/ui-enhanced";
-import { Save, UserCircle, Bell, Info, Camera, Loader2, CheckCircle2, AlertCircle, Star, Trophy, Files, ShieldCheck, Send, MessageSquare, UserCheck, Plus, Trash2, Sparkles, Download, BadgeCheck, FolderOpen } from "lucide-react";
+import { Save, UserCircle, Bell, Info, Camera, Loader2, CheckCircle2, AlertCircle, Star, Trophy, Files, ShieldCheck, Send, MessageSquare, UserCheck, Plus, Trash2, Sparkles, Download, BadgeCheck, FolderOpen, Mail, Copy } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 
@@ -131,6 +131,35 @@ function NotFoundBadge() {
       <AlertCircle className="w-3 h-3" />
       Not found
     </span>
+  );
+}
+
+function JobsageEmailBanner({ email }: { email: string }) {
+  const { toast } = useToast();
+  const handleCopy = () => {
+    navigator.clipboard.writeText(email).then(() => {
+      toast({ title: "Copied!", description: "Your JOBSAGE address has been copied to the clipboard." });
+    });
+  };
+  return (
+    <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 px-5 py-4 flex items-center gap-3">
+      <Mail className="w-5 h-5 text-primary shrink-0" />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-foreground">Your JOBSAGE communication address</p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          This alias is used in place of your personal email when CVs are forwarded to employers. Employers will contact you through JOBSAGE.
+        </p>
+        <p className="text-sm font-mono text-primary mt-1.5 truncate">{email}</p>
+      </div>
+      <button
+        type="button"
+        onClick={handleCopy}
+        className="shrink-0 p-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+        aria-label="Copy JOBSAGE address"
+      >
+        <Copy className="w-4 h-4" />
+      </button>
+    </div>
   );
 }
 
@@ -571,6 +600,11 @@ export default function ProfilePage() {
               </p>
             )}
           </div>
+
+          {/* JOBSAGE communication alias */}
+          {p?.jobsageEmail && (
+            <JobsageEmailBanner email={p.jobsageEmail} />
+          )}
         </header>
 
         <form onSubmit={handleSubmit} className="space-y-6">

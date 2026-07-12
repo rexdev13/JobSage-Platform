@@ -1,10 +1,11 @@
 import { requireAuthenticated } from "../middlewares/requireRole";
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, profilesTable } from "@workspace/db";
+import { db, profilesTable, usersTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { GetMyProfileResponse, UpsertMyProfileBody, UpsertMyProfileResponse } from "@workspace/api-zod";
 import { requireConsent } from "../middlewares/consentMiddleware";
 import { computeCompletionPct } from "../lib/profileCompleteness";
+import { generateJobsageEmail } from "../lib/jobsageEmailGen";
 
 const router: IRouter = Router();
 
@@ -74,6 +75,22 @@ router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
 
   const d = parsed.data;
 
+  // Resolve a JOBSAGE email alias for this candidate.
+  // Look up any existing profile first so we never overwrite an already-assigned alias.
+  const [existing] = await db
+    .select({ jobsageEmail: profilesTable.jobsageEmail })
+    .from(profilesTable)
+    .where(eq(profilesTable.userId, req.user!.id));
+
+  let jobsageEmail = existing?.jobsageEmail ?? null;
+  if (!jobsageEmail) {
+    const [userRow] = await db
+      .select({ firstName: usersTable.firstName, lastName: usersTable.lastName })
+      .from(usersTable)
+      .where(eq(usersTable.id, req.user!.id));
+    jobsageEmail = generateJobsageEmail(userRow?.firstName, userRow?.lastName);
+  }
+
   const values = {
     userId: req.user!.id,
     profession: d.profession,
@@ -93,6 +110,7 @@ router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
     // drizzle types don't fully narrow text[].array() columns in .values()/.set(); cast needed
     languages: (d.languages ?? null) as unknown as string[] | null,
     additionalNotes: d.additionalNotes ?? null,
+    jobsageEmail,
   };
 
   const [profile] = await db
@@ -119,6 +137,7 @@ router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         languages: (d.languages ?? null) as any,
         additionalNotes: d.additionalNotes ?? null,
+        // jobsageEmail intentionally omitted — never overwrite an existing alias
         updatedAt: new Date(),
       },
     })
