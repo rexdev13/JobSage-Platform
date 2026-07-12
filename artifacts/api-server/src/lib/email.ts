@@ -324,12 +324,19 @@ export async function sendSpeculativeCVToOps(opts: {
   cvFilename?: string | null;
   cvContent?: Buffer | null;
   notes?: string | null;
-  /** JOBSAGE alias — required for all ops sends; personal email is never used as contact in employer-facing comms */
+  /** JOBSAGE alias — required; personal email is never used as contact in employer-facing comms */
   jobsageEmail: string;
+  /**
+   * Resolved contact address for the target employer.
+   * When the employer has a JOBSAGE account this is their registered email.
+   * Defaults to OPS_INBOX so ops can manually forward if no employer account exists.
+   */
+  recipientEmail?: string;
   /** Masked plain-text extract of the CV (personal email/phone replaced with JOBSAGE alias) */
   maskedCvTextExtract?: string | null;
 }): Promise<void> {
   const contactEmail = opts.jobsageEmail;
+  const recipientEmail = opts.recipientEmail ?? OPS_INBOX;
 
   // Attachment strategy (true document redaction):
   // • When alias is present: personal email/phone in the document MUST be masked before ops see it.
@@ -365,13 +372,12 @@ export async function sendSpeculativeCVToOps(opts: {
       </td></tr>`
     : "";
 
-  // Send FROM the candidate's JOBSAGE alias so ops see it as coming from their identity.
-  // This requires mail.jobsage.app to be a verified Resend sending domain (DNS setup).
-  // Until DNS is verified Resend will reject this; emailDelivered stays false, which is
-  // the correct fallback — the caller gates the inbox notification on emailDelivered.
+  // Send FROM the candidate's JOBSAGE alias — requires mail.jobsage.app DNS verification.
+  // TO the resolved employer address (or OPS_INBOX as fallback when employer has no account).
+  // Until DNS is verified Resend rejects this; emailDelivered stays false → inbox not created.
   await resend.emails.send({
     from: `${opts.candidateName} <${opts.jobsageEmail}>`,
-    to: OPS_INBOX,
+    to: recipientEmail,
     replyTo: opts.jobsageEmail,
     subject: `[Speculative CV] ${opts.candidateName} → ${opts.companyName}`,
     attachments,
