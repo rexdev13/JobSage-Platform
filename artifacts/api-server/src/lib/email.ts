@@ -329,8 +329,12 @@ export async function sendSpeculativeCVToOps(opts: {
   /** Masked plain-text extract of the CV (personal email/phone replaced with JOBSAGE alias) */
   maskedCvTextExtract?: string | null;
 }): Promise<void> {
+  // When a JOBSAGE alias is assigned, suppress the raw binary CV attachment entirely
+  // to prevent personal PII leaking through unredacted document content.
+  // Instead, the masked plain-text extract is embedded in the email body below.
+  // Without an alias (legacy/emergency fallback), attach as before.
   const attachments =
-    opts.cvContent && opts.cvFilename
+    !opts.jobsageEmail && opts.cvContent && opts.cvFilename
       ? [{ filename: opts.cvFilename, content: opts.cvContent }]
       : [];
 
@@ -341,7 +345,9 @@ export async function sendSpeculativeCVToOps(opts: {
         <p style="font-size:13px;font-weight:600;color:#0f172a;margin:0 0 6px;">CV text extract (contact info masked)</p>
         <pre style="font-size:12px;white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px;color:#334155;margin:0;">${opts.maskedCvTextExtract.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>
       </td></tr>`
-    : "";
+    : opts.cvFilename
+      ? `<tr><td colspan="2" style="padding-top:8px;font-size:12px;color:#94a3b8;">(CV file: ${opts.cvFilename} — no alias assigned, raw attachment included)</td></tr>`
+      : "";
 
   await resend.emails.send({
     from: `JOBSAGE <${FROM}>`,
