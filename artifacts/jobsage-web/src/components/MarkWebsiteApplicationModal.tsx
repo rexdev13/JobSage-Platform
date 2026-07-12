@@ -111,7 +111,7 @@ export function MarkWebsiteApplicationModal({ companyName: initialCompany = "", 
               />
             </div>
 
-            {cvDocuments.length >= 1 && (
+            {cvDocuments.length >= 2 && (
               <div>
                 <label className="text-xs font-semibold text-foreground mb-1.5 flex items-center gap-1">
                   <FileText className="w-3 h-3 text-primary" /> Which CV did you use? <span className="text-muted-foreground font-normal">(optional)</span>
