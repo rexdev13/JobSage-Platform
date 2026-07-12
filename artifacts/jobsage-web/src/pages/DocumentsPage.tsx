@@ -85,6 +85,8 @@ const FIELD_LABELS: Record<keyof CvExtractedFields, string> = {
   preferredRegion: "Preferred UK Region",
   confidence: "",
   rawNotes: "AI Notes",
+  professionQualMismatch: "",
+  professionQualMismatchWarning: "",
 };
 
 function getTypeLabel(value: string | null | undefined): string {
@@ -154,6 +156,16 @@ function CvParseDialog({
         </div>
 
         <div className="p-6 max-h-[60vh] overflow-y-auto space-y-3">
+          {fields.professionQualMismatch && fields.professionQualMismatchWarning && (
+            <div className="flex items-start gap-3 p-3 rounded-xl border border-orange-300 bg-orange-50">
+              <AlertTriangle className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-orange-800">Profession may not match qualification</p>
+                <p className="text-xs text-orange-700 mt-0.5 leading-snug">{fields.professionQualMismatchWarning}</p>
+                <p className="text-xs text-orange-600 mt-1">Please review the <strong>Profession</strong> field below and correct it if needed before saving.</p>
+              </div>
+            </div>
+          )}
           {displayFields.map((key) => {
             if (key === "confidence") return null;
             const value = fields[key];

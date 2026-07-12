@@ -508,6 +508,8 @@ export interface CvExtractedFields {
   preferredRegion?: string | null;
   confidence?: CvExtractedFieldsConfidence;
   rawNotes?: string;
+  professionQualMismatch?: boolean;
+  professionQualMismatchWarning?: string | null;
 }
 
 export interface CvParseResult {

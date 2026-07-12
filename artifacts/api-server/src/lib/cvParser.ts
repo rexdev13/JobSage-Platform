@@ -25,10 +25,24 @@ export interface CvExtractedFields {
   preferredRegion: string | null;
   confidence: Record<string, "high" | "medium" | "low" | "none">;
   rawNotes: string;
+  professionQualMismatch: boolean;
+  professionQualMismatchWarning: string | null;
 }
 
 const SYSTEM_PROMPT = `You are a specialist at extracting structured professional profile data from CVs/resumes.
 Extract the following fields and return ONLY valid JSON.
+
+CRITICAL DISTINCTION — Clinical profession vs Academic qualification:
+- "profession" MUST be based on the candidate's WORK EXPERIENCE and JOB TITLES, NOT their degree title.
+  A PhD in Education does NOT make someone a doctor. A person with an MBBS who has practised in a hospital IS a doctor.
+  If the CV shows only academic/research roles with a non-clinical degree, do NOT assign a clinical profession.
+- "qualificationType" = the highest ACADEMIC degree found on the CV (e.g. MBBS, BScN, PhD in Education, MBA).
+  Record the actual degree name as written — do not infer profession from the degree alone.
+- Set "professionQualMismatch" to true if ALL of these are met:
+    1. profession is a clinical role (doctor/nurse/midwife/allied_health_professional), AND
+    2. qualificationType is clearly a non-clinical academic degree (PhD in Education, MSc in Business, MBA, LLB, MA in Arts, etc.)
+  This flag catches cases where an academic credential was incorrectly mapped to a clinical profession.
+- Set "professionQualMismatchWarning" to a short plain-English explanation when professionQualMismatch is true, null otherwise.
 
 Profession values (pick the closest match): doctor, nurse, midwife, allied_health_professional, clinical_academic, teacher, engineer, social_worker, or any other profession string if none of the above fit.
 Registration status values (pick exactly one): registered, not_registered, in_process
@@ -57,8 +71,35 @@ Return this exact JSON structure:
     "requiresSponsorship": "<high|medium|low|none>",
     "preferredRegion": "<high|medium|low|none>"
   },
-  "rawNotes": "<any additional relevant notes about the candidate, max 200 chars>"
+  "rawNotes": "<any additional relevant notes about the candidate, max 200 chars>",
+  "professionQualMismatch": <true|false>,
+  "professionQualMismatchWarning": "<explanation string or null>"
 }`;
+
+const CLINICAL_PROFESSIONS = new Set(["doctor", "nurse", "midwife", "allied_health_professional"]);
+
+const NON_CLINICAL_PATTERNS = [
+  /\b(education|pedagogy)\b/i,
+  /\b(business|management|mba|commerce)\b/i,
+  /\b(law|llb|llm|jurisprudence)\b/i,
+  /\b(economics|finance|accounting|banking)\b/i,
+  /\b(arts|humanities|history|literature|philosophy|politics|geography|sociology|linguistics)\b/i,
+];
+
+const CLINICAL_QUAL_PATTERNS =
+  /\b(mbbs|bmbs|mbchb|mb\s?bch|bscn|b\.sc\. nurs|bachelor.*nurs|bachelor.*midwif|bpharm|bds|bpt|physiother|occupational therapy|radiograph|speech)\b/i;
+
+function detectMismatchFromRules(
+  profession: string | null,
+  qualificationType: string | null
+): boolean {
+  if (!profession || !qualificationType) return false;
+  if (!CLINICAL_PROFESSIONS.has(profession)) return false;
+  const qual = qualificationType.toLowerCase();
+  const hasNonClinical = NON_CLINICAL_PATTERNS.some((p) => p.test(qual));
+  if (hasNonClinical && !CLINICAL_QUAL_PATTERNS.test(qual)) return true;
+  return false;
+}
 
 async function renderPdfFirstPageAsPng(pdfBuffer: Buffer): Promise<Buffer> {
   const id = randomUUID();
@@ -240,6 +281,18 @@ function parseAiResponse(raw: string): CvExtractedFields {
       : null;
 
   const confidence = (parsed.confidence as Record<string, string>) ?? {};
+  const qualificationType =
+    typeof parsed.qualificationType === "string" ? parsed.qualificationType : null;
+
+  const aiMismatch = parsed.professionQualMismatch === true;
+  const ruleMismatch = detectMismatchFromRules(profession, qualificationType);
+  const professionQualMismatch = aiMismatch || ruleMismatch;
+
+  const professionQualMismatchWarning = professionQualMismatch
+    ? typeof parsed.professionQualMismatchWarning === "string" && parsed.professionQualMismatchWarning.trim()
+      ? parsed.professionQualMismatchWarning.trim().slice(0, 300)
+      : `The detected profession "${profession ?? "unknown"}" may not match the qualification "${qualificationType ?? "unknown"}". Please verify this is correct before saving.`
+    : null;
 
   return {
     profession,
@@ -248,10 +301,7 @@ function parseAiResponse(raw: string): CvExtractedFields {
       typeof parsed.qualificationCountry === "string"
         ? parsed.qualificationCountry
         : null,
-    qualificationType:
-      typeof parsed.qualificationType === "string"
-        ? parsed.qualificationType
-        : null,
+    qualificationType,
     qualificationYear: qualYear,
     experienceYears: expYears,
     registrationStatus,
@@ -273,6 +323,8 @@ function parseAiResponse(raw: string): CvExtractedFields {
       typeof parsed.rawNotes === "string"
         ? parsed.rawNotes.slice(0, 200)
         : "",
+    professionQualMismatch,
+    professionQualMismatchWarning,
   };
 }
 

@@ -11,9 +11,9 @@ interface Message {
 }
 
 const STARTERS = [
+  "What should I do next?",
   "What are my next steps to UK registration?",
   "How do I get a Skilled Worker visa?",
-  "What is the PLAB exam?",
   "How long does GMC registration take?",
 ];
 

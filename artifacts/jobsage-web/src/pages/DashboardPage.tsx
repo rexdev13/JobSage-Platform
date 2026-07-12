@@ -300,6 +300,101 @@ function StatCard({
   );
 }
 
+// ── AI Next Steps Card ────────────────────────────────────────────────────────
+function NextStepsCard() {
+  const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const { data, isLoading } = useQuery<{
+    steps: Array<{
+      priority: number;
+      title: string;
+      description: string;
+      action: string;
+      href: string;
+      category: string;
+    }>;
+    generatedAt: string;
+  }>({
+    queryKey: ["ai-next-steps"],
+    queryFn: async () => {
+      const res = await fetch(`${base}/api/ai/next-steps`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json() as Promise<{ steps: Array<{ priority: number; title: string; description: string; action: string; href: string; category: string }>; generatedAt: string }>;
+    },
+    staleTime: 10 * 60 * 1000,
+    retry: 1,
+  });
+
+  const steps = data?.steps ?? [];
+  if (!isLoading && steps.length === 0) return null;
+
+  const categoryIcon = (cat: string) => {
+    switch (cat) {
+      case "apply": return <Briefcase className="w-3.5 h-3.5" />;
+      case "profile": return <User className="w-3.5 h-3.5" />;
+      case "document": return <Files className="w-3.5 h-3.5" />;
+      case "eligibility": return <ShieldCheck className="w-3.5 h-3.5" />;
+      case "interview": return <Sparkles className="w-3.5 h-3.5" />;
+      default: return <Activity className="w-3.5 h-3.5" />;
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.17, duration: 0.4 }}
+      className="mb-5"
+    >
+      <Card className="p-5 border-primary/15 bg-gradient-to-br from-primary/3 to-transparent">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <span className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+              <Sparkles className="w-3.5 h-3.5" />
+            </span>
+            Recommended Next Steps
+          </h3>
+          {data?.generatedAt && (
+            <span className="text-[10px] text-muted-foreground italic">AI · personalised for you</span>
+          )}
+        </div>
+
+        {isLoading ? (
+          <div className="space-y-2.5">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-muted/40 animate-pulse">
+                <div className="w-7 h-7 rounded-lg bg-muted shrink-0" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-3 bg-muted rounded w-3/4" />
+                  <div className="h-2.5 bg-muted rounded w-full" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {steps.slice(0, 3).map((step) => (
+              <Link key={step.priority} href={step.href}>
+                <div className="flex items-start gap-3 p-3 rounded-xl bg-background/70 hover:bg-muted/50 transition-colors cursor-pointer group border border-transparent hover:border-primary/15">
+                  <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-primary/20 transition-colors">
+                    {categoryIcon(step.category)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground truncate">{step.title}</p>
+                    <p className="text-xs text-muted-foreground leading-snug mt-0.5 line-clamp-2">{step.description}</p>
+                  </div>
+                  <span className="text-xs font-medium text-primary shrink-0 hidden sm:flex items-center gap-0.5 mt-0.5 group-hover:gap-1.5 transition-all whitespace-nowrap">
+                    {step.action} <ArrowRight className="w-3 h-3" />
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </Card>
+    </motion.div>
+  );
+}
+
 // ── Main Dashboard ────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -504,6 +599,9 @@ export default function DashboardPage() {
             delay={0.14}
           />
         </div>
+
+        {/* ─── AI Next Steps ────────────────────────────────────────────── */}
+        <NextStepsCard />
 
         {/* ─── ZONE 3: Eligibility card + Remediation ──────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
