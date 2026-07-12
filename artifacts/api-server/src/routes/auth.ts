@@ -2,7 +2,7 @@ import bcrypt from "bcryptjs";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { GetCurrentAuthUserResponse } from "@workspace/api-zod";
 import { writeAuditEvent } from "../lib/audit";
-import { db, usersTable, profilesTable } from "@workspace/db";
+import { db, usersTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import {
   clearSession,
@@ -19,24 +19,24 @@ import { sendVerificationEmail, sendPasswordResetEmail } from "../lib/email";
 import { generateJobsageEmail } from "../lib/jobsageEmailGen";
 
 /**
- * Fire-and-forget: ensure any candidate who logs in gets a JOBSAGE alias assigned
- * even if they have never visited GET /profiles/me (retroactive backfill on next login).
+ * Fire-and-forget: backfill JOBSAGE alias on users table for existing accounts that
+ * registered before the alias feature was introduced.
  */
 async function backfillJobsageAliasOnLogin(userId: string, firstName: string | null, lastName: string | null): Promise<void> {
   try {
-    const [profile] = await db
-      .select({ jobsageEmail: profilesTable.jobsageEmail })
-      .from(profilesTable)
-      .where(eq(profilesTable.userId, userId));
-    if (profile && !profile.jobsageEmail) {
+    const [user] = await db
+      .select({ jobsageEmail: usersTable.jobsageEmail })
+      .from(usersTable)
+      .where(eq(usersTable.id, userId));
+    if (user && !user.jobsageEmail) {
       const alias = generateJobsageEmail(firstName, lastName);
       await db
-        .update(profilesTable)
-        .set({ jobsageEmail: sql`COALESCE(${profilesTable.jobsageEmail}, ${alias})` })
-        .where(eq(profilesTable.userId, userId));
+        .update(usersTable)
+        .set({ jobsageEmail: sql`COALESCE(${usersTable.jobsageEmail}, ${alias})` })
+        .where(eq(usersTable.id, userId));
     }
   } catch {
-    // Non-critical — alias is also assigned on next GET /profiles/me
+    // Non-critical — backfill will retry on next login
   }
 }
 
@@ -122,6 +122,7 @@ router.post("/auth/register", async (req: Request, res: Response) => {
   const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
   const token = generateToken();
   const tokenExpires = tokenExpiresAt(24);
+  const jobsageAlias = generateJobsageEmail(firstName?.trim() || null, lastName?.trim() || null);
 
   const [user] = await db
     .insert(usersTable)
@@ -133,6 +134,7 @@ router.post("/auth/register", async (req: Request, res: Response) => {
       emailVerifyTokenExpires: tokenExpires,
       firstName: firstName?.trim() || null,
       lastName: lastName?.trim() || null,
+      jobsageEmail: jobsageAlias,
     })
     .returning();
 
