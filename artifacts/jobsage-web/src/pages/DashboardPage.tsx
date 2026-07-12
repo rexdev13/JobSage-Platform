@@ -601,7 +601,7 @@ export default function DashboardPage() {
         </div>
 
         {/* ─── AI Next Steps ────────────────────────────────────────────── */}
-        <NextStepsCard />
+        {(totalApplied > 0 || allRoles.length > 0) && <NextStepsCard />}
 
         {/* ─── ZONE 3: Eligibility card + Remediation ──────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
