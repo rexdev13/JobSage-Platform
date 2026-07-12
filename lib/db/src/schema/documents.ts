@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, timestamp, varchar } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, timestamp, varchar, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -34,6 +34,8 @@ export const documentsTable = pgTable("documents", {
   storageKey: text("storage_key").notNull(),
   fileSize: integer("file_size"),
   documentType: text("document_type"),
+  label: text("label"),
+  isPrimary: boolean("is_primary").notNull().default(false),
   disclaimerText: text("disclaimer_text").notNull().default(DOCUMENT_DISCLAIMER),
   uploadedAt: timestamp("uploaded_at", { withTimezone: true }).notNull().defaultNow(),
 });

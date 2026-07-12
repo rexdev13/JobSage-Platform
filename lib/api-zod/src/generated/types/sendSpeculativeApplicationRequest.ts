@@ -9,5 +9,7 @@
 export interface SendSpeculativeApplicationRequest {
   companyName: string;
   sponsorLicenceId?: number | null;
+  vacancyTitle?: string | null;
   notes?: string | null;
+  cvDocumentId?: number | null;
 }

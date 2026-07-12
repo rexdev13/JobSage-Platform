@@ -25,11 +25,12 @@ router.get("/speculative-applications", requireAuthenticated, async (req, res): 
 
 router.post("/speculative-applications", requireAuthenticated, async (req, res): Promise<void> => {
   const userId = req.user!.id;
-  const { companyName, sponsorLicenceId, notes, vacancyTitle } = req.body as {
+  const { companyName, sponsorLicenceId, notes, vacancyTitle, cvDocumentId } = req.body as {
     companyName?: string;
     sponsorLicenceId?: number | null;
     notes?: string | null;
     vacancyTitle?: string | null;
+    cvDocumentId?: number | null;
   };
 
   if (!companyName || typeof companyName !== "string") {
@@ -77,13 +78,15 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
     return;
   }
 
-  // Resolve the candidate's CV document (prefer documentType = "cv", fall back to most recent)
+  // Resolve the candidate's CV document:
+  // 1. If the caller explicitly chose a CV (cvDocumentId), use that document.
+  // 2. Otherwise prefer isPrimary=true CV, then any documentType="cv", then most recent.
   const allDocs = await db
-    .select({ id: documentsTable.id, filename: documentsTable.filename, storageKey: documentsTable.storageKey, documentType: documentsTable.documentType })
+    .select({ id: documentsTable.id, filename: documentsTable.filename, storageKey: documentsTable.storageKey, documentType: documentsTable.documentType, isPrimary: documentsTable.isPrimary, label: documentsTable.label })
     .from(documentsTable)
     .where(eq(documentsTable.userId, userId))
     .orderBy(desc(documentsTable.uploadedAt));
-  const cvDocument = allDocs.find((d) => d.documentType === "cv") ?? allDocs[0] ?? null;
+  let cvDocument = allDocs.find((d) => cvDocumentId ? d.id === cvDocumentId : d.isPrimary) ?? allDocs.find((d) => d.documentType === "cv") ?? allDocs[0] ?? null;
 
   // Validate BEFORE insert: non-PDF CVs cannot be redacted when alias is active.
   // Returning 422 here does NOT create a database record, so deduplication is unaffected.

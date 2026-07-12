@@ -377,6 +377,9 @@ export const ListMyDocumentsResponse = zod.object({
       mimeType: zod.string(),
       storageKey: zod.string(),
       fileSize: zod.number().nullish(),
+      documentType: zod.string().nullish(),
+      label: zod.string().nullish(),
+      isPrimary: zod.boolean(),
       disclaimerText: zod.string(),
       uploadedAt: zod.date(),
     }),
@@ -831,6 +834,28 @@ export const ListMatchedRolesResponse = zod.object({
         .array(zod.string())
         .optional()
         .describe("Specific gaps preventing eligibility for this role"),
+      recommended: zod
+        .boolean()
+        .optional()
+        .describe(
+          'True for the top-5 highest-matching roles — should be highlighted as \"Apply First\"',
+        ),
+      contactEmail: zod
+        .string()
+        .nullish()
+        .describe(
+          "Company contact email from employer profile, where available",
+        ),
+      contactPhone: zod
+        .string()
+        .nullish()
+        .describe(
+          "Company contact phone from employer profile, where available",
+        ),
+      contactWebsite: zod
+        .string()
+        .nullish()
+        .describe("Company website URL from employer profile, where available"),
     }),
   ),
   decisionRecordId: zod.number().nullish(),
@@ -841,6 +866,12 @@ export const ListMatchedRolesResponse = zod.object({
     .array(zod.number())
     .optional()
     .describe("Role IDs the user has already applied to"),
+  noProfile: zod
+    .boolean()
+    .optional()
+    .describe(
+      "True when the candidate has no profile — show upload nudge instead of roles",
+    ),
 });
 
 /**
@@ -1304,6 +1335,12 @@ export const GetReviewCaseResponse = zod.object({
         .string()
         .nullish()
         .describe("Free-text notes the candidate wants employers to see"),
+      jobsageEmail: zod
+        .string()
+        .nullish()
+        .describe(
+          "Auto-assigned JOBSAGE communication alias (e.g. jane.smith.a1b2c3@mail.jobsage.app). Used in place of personal email when CVs are sent to employers.",
+        ),
       completionPct: zod
         .number()
         .optional()
@@ -2139,7 +2176,9 @@ export const ListSpeculativeApplicationsResponse = zod.object({
 export const SendSpeculativeApplicationBody = zod.object({
   companyName: zod.string(),
   sponsorLicenceId: zod.number().nullish(),
+  vacancyTitle: zod.string().nullish(),
   notes: zod.string().nullish(),
+  cvDocumentId: zod.number().nullish(),
 });
 
 export const SendSpeculativeApplicationResponse = zod.object({

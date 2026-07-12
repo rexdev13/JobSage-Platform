@@ -226,6 +226,9 @@ export interface Document {
   mimeType: string;
   storageKey: string;
   fileSize?: number | null;
+  documentType?: string | null;
+  label?: string | null;
+  isPrimary: boolean;
   disclaimerText: string;
   uploadedAt: string;
 }
@@ -459,11 +462,11 @@ export interface MatchedRole {
   eligibilityGaps?: string[];
   /** True for the top-5 highest-matching roles — should be highlighted as "Apply First" */
   recommended?: boolean;
-  /** Company contact email (from employer profile, where available) */
+  /** Company contact email from employer profile, where available */
   contactEmail?: string | null;
-  /** Company contact phone (from employer profile, where available) */
+  /** Company contact phone from employer profile, where available */
   contactPhone?: string | null;
-  /** Company website URL (from employer profile, where available) */
+  /** Company website URL from employer profile, where available */
   contactWebsite?: string | null;
 }
 
@@ -475,7 +478,7 @@ export interface MatchedRoleList {
   message?: string | null;
   /** Role IDs the user has already applied to */
   appliedRoleIds?: number[];
-  /** True when the candidate has no profile/CV — show upload nudge instead of roles */
+  /** True when the candidate has no profile — show upload nudge instead of roles */
   noProfile?: boolean;
 }
 
@@ -1330,9 +1333,6 @@ export interface SpeculativeApplication {
   sponsorLicenceId?: number | null;
   status: SpeculativeApplicationStatus;
   notes?: string | null;
-  jobsageEmail?: string | null;
-  vacancyTitle?: string | null;
-  emailSentAt?: string | null;
   createdAt: string;
 }
 
@@ -1343,7 +1343,9 @@ export interface SpeculativeApplicationListResponse {
 export interface SendSpeculativeApplicationRequest {
   companyName: string;
   sponsorLicenceId?: number | null;
+  vacancyTitle?: string | null;
   notes?: string | null;
+  cvDocumentId?: number | null;
 }
 
 export interface SpeculativeApplicationResult {

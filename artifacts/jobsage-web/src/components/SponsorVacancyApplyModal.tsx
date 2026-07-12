@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui-enhanced";
-import { useSendSpeculativeApplication, useListSpeculativeApplications } from "@workspace/api-client-react";
+import { useSendSpeculativeApplication, useListSpeculativeApplications, useListMyDocuments } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -19,6 +19,7 @@ import {
   CalendarDays,
   ArrowRight,
   Zap,
+  ChevronDown,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { SmartApplyAssistant } from "@/components/SmartApplyAssistant";
@@ -116,6 +117,13 @@ export function SponsorVacancyApplyModal({
   const queryClient = useQueryClient();
   const sendCVMutation = useSendSpeculativeApplication();
   const { data: speculativeData } = useListSpeculativeApplications();
+  const { data: documentsData } = useListMyDocuments();
+
+  const cvDocuments = (documentsData?.documents ?? []).filter(
+    (d) => (d as { documentType?: string | null }).documentType === "cv",
+  );
+  const primaryCv = cvDocuments.find((d) => (d as { isPrimary?: boolean }).isPrimary);
+  const [selectedCvId, setSelectedCvId] = useState<number | null>(primaryCv?.id ?? cvDocuments[0]?.id ?? null);
 
   const alreadySent = (speculativeData?.applications ?? []).some(
     (a) => a.companyName === companyName && (a as { vacancyTitle?: string | null }).vacancyTitle === vacancyTitle,
@@ -150,6 +158,7 @@ export function SponsorVacancyApplyModal({
           sponsorLicenceId: companyId,
           vacancyTitle,
           notes,
+          cvDocumentId: selectedCvId ?? null,
         },
       },
       {
@@ -478,6 +487,33 @@ export function SponsorVacancyApplyModal({
                     )}
                   </AnimatePresence>
                 </div>
+
+                {/* CV picker — only shown when candidate has 2+ CV documents */}
+                {cvDocuments.length >= 2 && (
+                  <div className="rounded-xl border border-border px-4 py-3 space-y-2">
+                    <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-primary" />
+                      Which CV should we send?
+                    </p>
+                    <div className="relative">
+                      <select
+                        value={selectedCvId ?? ""}
+                        onChange={(e) => setSelectedCvId(e.target.value ? parseInt(e.target.value, 10) : null)}
+                        className="w-full appearance-none text-sm rounded-lg border border-border bg-muted/40 px-3 py-2 pr-8 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      >
+                        {cvDocuments.map((cv) => {
+                          const cvExtra = cv as typeof cv & { label?: string | null; isPrimary?: boolean };
+                          return (
+                            <option key={cv.id} value={cv.id}>
+                              {cvExtra.label ?? cv.filename}{cvExtra.isPrimary ? " ★ Primary" : ""}
+                            </option>
+                          );
+                        })}
+                      </select>
+                      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                    </div>
+                  </div>
+                )}
 
                 {/* Info notice */}
                 <p className="text-xs text-muted-foreground bg-muted/40 rounded-lg px-3 py-2 border border-border leading-relaxed">
