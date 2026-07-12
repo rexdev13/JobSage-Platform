@@ -3690,6 +3690,11 @@ components:
             type: string
         rawNotes:
           type: string
+        professionQualMismatch:
+          type: boolean
+        professionQualMismatchWarning:
+          type: string
+          nullable: true
 
     CvParseResult:
       type: object
