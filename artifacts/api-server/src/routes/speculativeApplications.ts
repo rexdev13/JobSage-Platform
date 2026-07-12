@@ -84,21 +84,24 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
     .from(profilesTable)
     .where(eq(profilesTable.userId, userId));
   let jobsageEmail = candidateProfile?.jobsageEmail ?? null;
-  if (!jobsageEmail && candidateProfile) {
-    // Profile exists but alias not yet assigned — generate and persist now (synchronous)
+  if (!jobsageEmail) {
+    // Alias missing (no profile row yet, or backfill not yet run) — generate synchronously
+    // so personal email is NEVER exposed in the outbound ops notification.
     const generated = generateJobsageEmail(
       (user as { firstName?: string }).firstName ?? null,
       (user as { lastName?: string }).lastName ?? null,
     );
-    try {
-      await db
-        .update(profilesTable)
-        .set({ jobsageEmail: sql`COALESCE(${profilesTable.jobsageEmail}, ${generated})` })
-        .where(eq(profilesTable.userId, userId));
-      jobsageEmail = generated;
-    } catch {
-      // Persist failure — we still use the generated alias in-memory for this request
-      jobsageEmail = generated;
+    jobsageEmail = generated;
+    if (candidateProfile) {
+      // Profile row exists — persist the alias for future requests
+      try {
+        await db
+          .update(profilesTable)
+          .set({ jobsageEmail: sql`COALESCE(${profilesTable.jobsageEmail}, ${generated})` })
+          .where(eq(profilesTable.userId, userId));
+      } catch {
+        // Persist failure is non-critical; alias is used in-memory for this request
+      }
     }
   }
 

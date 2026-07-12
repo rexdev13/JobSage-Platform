@@ -324,12 +324,12 @@ export async function sendSpeculativeCVToOps(opts: {
   cvFilename?: string | null;
   cvContent?: Buffer | null;
   notes?: string | null;
-  /** JOBSAGE alias assigned to this candidate — shown as the contact address instead of personal email */
-  jobsageEmail?: string | null;
+  /** JOBSAGE alias — required for all ops sends; personal email is never used as contact in employer-facing comms */
+  jobsageEmail: string;
   /** Masked plain-text extract of the CV (personal email/phone replaced with JOBSAGE alias) */
   maskedCvTextExtract?: string | null;
 }): Promise<void> {
-  const contactEmail = opts.jobsageEmail ?? opts.candidateEmail;
+  const contactEmail = opts.jobsageEmail;
 
   // Attachment strategy:
   // • Alias present + masked text available  → attach redacted .txt only (no raw binary)
