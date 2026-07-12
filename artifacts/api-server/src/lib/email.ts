@@ -331,21 +331,22 @@ export async function sendSpeculativeCVToOps(opts: {
 }): Promise<void> {
   const contactEmail = opts.jobsageEmail ?? opts.candidateEmail;
 
-  // When a JOBSAGE alias exists, suppress the raw CV binary to prevent personal contact
-  // PII leaking through the unredacted document. Instead attach only the masked text derivative.
-  // When no alias is assigned (legacy/emergency fallback), send the binary as before.
+  // Attachment strategy when a JOBSAGE alias is assigned:
+  // 1. Prefer the masked text derivative (contact info redacted) — attached when available.
+  // 2. If no text extract could be produced (non-PDF or parse failure) fall back to the
+  //    original binary so ops always receive a usable CV; the alias warning below instructs
+  //    them to use the JOBSAGE alias for all contact, not any address in the file.
+  // When no alias exists (legacy fallback), attach original binary as before.
   const attachments: { filename: string; content: Buffer | string }[] = [];
-  if (opts.jobsageEmail) {
-    // Alias present → send only the sanitised text derivative (no raw binary)
-    if (opts.maskedCvTextExtract) {
-      const baseName = opts.cvFilename?.replace(/\.[^.]+$/, "") ?? "cv";
-      attachments.push({
-        filename: `${baseName}_redacted_contact.txt`,
-        content: opts.maskedCvTextExtract,
-      });
-    }
+  if (opts.jobsageEmail && opts.maskedCvTextExtract) {
+    // Masked text available → attach redacted derivative
+    const baseName = opts.cvFilename?.replace(/\.[^.]+$/, "") ?? "cv";
+    attachments.push({
+      filename: `${baseName}_redacted_contact.txt`,
+      content: opts.maskedCvTextExtract,
+    });
   } else if (opts.cvContent && opts.cvFilename) {
-    // No alias → fallback to original binary
+    // No masked extract (non-PDF / parse failure / no alias) → attach original binary
     attachments.push({ filename: opts.cvFilename, content: opts.cvContent });
   }
 
