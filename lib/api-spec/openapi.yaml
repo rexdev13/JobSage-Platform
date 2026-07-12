@@ -3842,6 +3842,9 @@ components:
         smartApply:
           type: boolean
           nullable: true
+        cvDocumentId:
+          type: integer
+          nullable: true
 
     RoleList:
       type: object

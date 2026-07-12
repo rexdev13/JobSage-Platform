@@ -1073,14 +1073,14 @@ export default function OpportunitiesPage() {
     );
   }
 
-  async function handleWebsiteAppSubmit({ companyName, applicationUrl, notes }: { companyName: string; applicationUrl: string; notes: string }) {
+  async function handleWebsiteAppSubmit({ companyName, applicationUrl, notes, cvDocumentId }: { companyName: string; applicationUrl: string; notes: string; cvDocumentId?: number | null }) {
     setWebsiteAppPending(true);
     try {
       const res = await fetch(`${base}/api/applications`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ applicationType: "website", companyName, applicationUrl: applicationUrl || null, notes: notes || null }),
+        body: JSON.stringify({ applicationType: "website", companyName, applicationUrl: applicationUrl || null, notes: notes || null, cvDocumentId: cvDocumentId ?? null }),
       });
       if (!res.ok) throw new Error("Failed to submit");
       void queryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });

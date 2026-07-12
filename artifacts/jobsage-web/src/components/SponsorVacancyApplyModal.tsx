@@ -122,8 +122,19 @@ export function SponsorVacancyApplyModal({
   const cvDocuments = (documentsData?.documents ?? []).filter(
     (d) => (d as { documentType?: string | null }).documentType === "cv",
   );
-  const primaryCv = cvDocuments.find((d) => (d as { isPrimary?: boolean }).isPrimary);
-  const [selectedCvId, setSelectedCvId] = useState<number | null>(primaryCv?.id ?? cvDocuments[0]?.id ?? null);
+  const [selectedCvId, setSelectedCvId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!documentsData) return;
+    setSelectedCvId((prev) => {
+      if (prev !== null) return prev;
+      const cvDocs = (documentsData.documents ?? []).filter(
+        (d) => (d as { documentType?: string | null }).documentType === "cv",
+      );
+      const primary = cvDocs.find((d) => (d as { isPrimary?: boolean }).isPrimary);
+      return primary?.id ?? cvDocs[0]?.id ?? null;
+    });
+  }, [documentsData]);
 
   const alreadySent = (speculativeData?.applications ?? []).some(
     (a) => a.companyName === companyName && (a as { vacancyTitle?: string | null }).vacancyTitle === vacancyTitle,

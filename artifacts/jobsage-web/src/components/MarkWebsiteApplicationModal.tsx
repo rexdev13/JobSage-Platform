@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui-enhanced";
-import { Globe, X, ExternalLink, Building2 } from "lucide-react";
+import { useListMyDocuments } from "@workspace/api-client-react";
+import { Globe, X, ExternalLink, Building2, FileText, ChevronDown } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface Props {
   companyName?: string;
-  onSubmit: (data: { companyName: string; applicationUrl: string; notes: string }) => void;
+  onSubmit: (data: { companyName: string; applicationUrl: string; notes: string; cvDocumentId?: number | null }) => void;
   onClose: () => void;
   isPending?: boolean;
 }
@@ -15,10 +16,32 @@ export function MarkWebsiteApplicationModal({ companyName: initialCompany = "", 
   const [url, setUrl] = useState("");
   const [notes, setNotes] = useState("");
 
+  const { data: documentsData } = useListMyDocuments();
+  const cvDocuments = (documentsData?.documents ?? []).filter(
+    (d) => (d as { documentType?: string | null }).documentType === "cv",
+  );
+  const [selectedCvId, setSelectedCvId] = useState<number | null>(null);
+  useEffect(() => {
+    if (!documentsData) return;
+    setSelectedCvId((prev) => {
+      if (prev !== null) return prev;
+      const cvDocs = (documentsData.documents ?? []).filter(
+        (d) => (d as { documentType?: string | null }).documentType === "cv",
+      );
+      const primary = cvDocs.find((d) => (d as { isPrimary?: boolean }).isPrimary);
+      return primary?.id ?? cvDocs[0]?.id ?? null;
+    });
+  }, [documentsData]);
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!company.trim()) return;
-    onSubmit({ companyName: company.trim(), applicationUrl: url.trim(), notes: notes.trim() });
+    onSubmit({
+      companyName: company.trim(),
+      applicationUrl: url.trim(),
+      notes: notes.trim(),
+      cvDocumentId: selectedCvId,
+    });
   }
 
   return (
@@ -87,6 +110,32 @@ export function MarkWebsiteApplicationModal({ companyName: initialCompany = "", 
                 className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
               />
             </div>
+
+            {cvDocuments.length >= 1 && (
+              <div>
+                <label className="text-xs font-semibold text-foreground mb-1.5 flex items-center gap-1">
+                  <FileText className="w-3 h-3 text-primary" /> Which CV did you use? <span className="text-muted-foreground font-normal">(optional)</span>
+                </label>
+                <div className="relative">
+                  <select
+                    value={selectedCvId ?? ""}
+                    onChange={(e) => setSelectedCvId(e.target.value ? parseInt(e.target.value, 10) : null)}
+                    className="w-full appearance-none text-sm rounded-lg border border-border bg-muted/40 px-3 py-2 pr-8 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  >
+                    <option value="">None / not sure</option>
+                    {cvDocuments.map((cv) => {
+                      const cvExtra = cv as typeof cv & { label?: string | null; isPrimary?: boolean };
+                      return (
+                        <option key={cv.id} value={cv.id}>
+                          {cvExtra.label ?? cv.filename}{cvExtra.isPrimary ? " ★ Primary" : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-3 pt-1">
               <Button type="button" variant="outline" className="flex-1" onClick={onClose}>
