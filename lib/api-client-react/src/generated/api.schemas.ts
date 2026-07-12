@@ -150,6 +150,8 @@ export interface CandidateProfile {
   languages?: string[] | null;
   /** Free-text notes the candidate wants employers to see */
   additionalNotes?: string | null;
+  /** Auto-assigned JOBSAGE communication alias (e.g. jane.smith.a1b2c3@mail.jobsage.app). Used in place of personal email when CVs are sent to employers. */
+  jobsageEmail?: string | null;
   /** Profile completeness score (0–100), computed server-side */
   completionPct?: number;
   createdAt: string;

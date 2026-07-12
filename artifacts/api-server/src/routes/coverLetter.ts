@@ -66,7 +66,7 @@ router.post("/cover-letter/generate", requireAuthenticated, async (req, res): Pr
   const candidateName =
     [(user as { firstName?: string }).firstName, (user as { lastName?: string }).lastName]
       .filter(Boolean)
-      .join(" ") || user.email || "Candidate";
+      .join(" ") || "Candidate";
 
   // Mask personal contact info in the parsed CV text before it reaches the AI prompt
   const jobsageEmail = profile.jobsageEmail ?? null;
@@ -144,7 +144,7 @@ router.post("/cover-letter/generate-stream", requireAuthenticated, async (req, r
   const candidateName =
     [(user as { firstName?: string }).firstName, (user as { lastName?: string }).lastName]
       .filter(Boolean)
-      .join(" ") || user.email || "Candidate";
+      .join(" ") || "Candidate";
 
   // Mask personal contact info in the parsed CV text before it reaches the AI prompt
   const jobsageEmailStream = profile.jobsageEmail ?? null;
