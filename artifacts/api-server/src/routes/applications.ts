@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, jobListingsTable, rolesTable, candidateMessagesTable } from "@workspace/db";
 import { applicationsTable, speculativeApplicationsTable } from "@workspace/db";
-import { eq, and, inArray, desc } from "drizzle-orm";
+import { eq, and, inArray, desc, or } from "drizzle-orm";
 import { requireAuthenticated } from "../middlewares/requireRole";
 import { createApplicationReceivedMessage } from "../lib/systemMessages";
 
@@ -29,7 +29,8 @@ router.get("/applications", requireAuthenticated, async (req: Request, res: Resp
       .orderBy(desc(speculativeApplicationsTable.createdAt)),
   ]);
 
-  const employerRoleIds = applications
+  const platformApps = applications.filter((a) => (a.applicationType ?? "platform") === "platform" && a.roleId > 0);
+  const employerRoleIds = platformApps
     .filter((a) => a.roleId > 1_000_000)
     .map((a) => a.roleId - 1_000_000);
 
@@ -44,19 +45,39 @@ router.get("/applications", requireAuthenticated, async (req: Request, res: Resp
     }
   }
 
-  const enrichedFormal = applications.map((a) => ({
+  const enrichedPlatform = platformApps.map((a) => ({
     ...a,
     roleTitle: jobTitleMap[a.roleId]?.title ?? null,
     roleLocation: jobTitleMap[a.roleId]?.location ?? null,
     applicationKind: "formal" as const,
-    companyName: null as string | null,
+    companyName: a.companyName ?? null,
+    jobsageEmail: null as string | null,
+    vacancyTitle: null as string | null,
+    emailSentAt: null as string | null,
+    emailRecipient: null as string | null,
   }));
+
+  const enrichedWebsite = applications
+    .filter((a) => (a.applicationType ?? "platform") === "website")
+    .map((a) => ({
+      ...a,
+      roleTitle: a.companyName ?? "Website Application",
+      roleLocation: null as string | null,
+      applicationKind: "website" as const,
+      companyName: a.companyName ?? null,
+      jobsageEmail: null as string | null,
+      vacancyTitle: null as string | null,
+      emailSentAt: null as string | null,
+      emailRecipient: null as string | null,
+    }));
 
   const enrichedSpeculative = speculativeApps.map((s) => ({
     id: s.id * -1,
     userId: s.userId,
     roleId: 0,
-    status: "cv_sent" as const,
+    applicationType: "speculative" as const,
+    applicationUrl: null as string | null,
+    status: s.status as string,
     appliedAt: s.createdAt.toISOString(),
     notes: s.notes ?? null,
     roleTitle: s.vacancyTitle ?? s.companyName,
@@ -71,16 +92,24 @@ router.get("/applications", requireAuthenticated, async (req: Request, res: Resp
     emailRecipient: s.emailRecipient ?? null,
   }));
 
-  const merged = [...enrichedFormal, ...enrichedSpeculative].sort(
+  const merged = [...enrichedPlatform, ...enrichedWebsite, ...enrichedSpeculative].sort(
     (a, b) => new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime(),
   );
 
+  // Interviews: count both "interview" (legacy) and "interview_invited" across all types
+  const interviewCount =
+    applications.filter((a) => a.status === "interview" || a.status === "interview_invited").length +
+    speculativeApps.filter((s) => s.status === "interview_invited").length;
+
   const stats = {
     total: applications.length + speculativeApps.length,
-    interviews: applications.filter((a) => a.status === "interview").length,
-    offers: applications.filter((a) => a.status === "offer").length,
+    interviews: interviewCount,
+    offers: applications.filter((a) => a.status === "offer").length + speculativeApps.filter((s) => s.status === "offer").length,
     noResponse: applications.filter((a) => a.status === "no_response").length,
     cvSent: speculativeApps.length,
+    platformCount: platformApps.length,
+    websiteCount: enrichedWebsite.length,
+    speculativeCount: speculativeApps.length,
   };
 
   res.json({ applications: merged, stats });
@@ -88,7 +117,39 @@ router.get("/applications", requireAuthenticated, async (req: Request, res: Resp
 
 router.post("/applications", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.id;
-  const { roleId, notes, smartApply } = req.body as { roleId?: number; notes?: string; smartApply?: boolean };
+  const { roleId, notes, smartApply, applicationType, applicationUrl, companyName } = req.body as {
+    roleId?: number;
+    notes?: string;
+    smartApply?: boolean;
+    applicationType?: "platform" | "website";
+    applicationUrl?: string;
+    companyName?: string;
+  };
+
+  const isWebsite = applicationType === "website";
+
+  if (isWebsite) {
+    if (!companyName || typeof companyName !== "string") {
+      res.status(400).json({ error: "companyName is required for website applications." });
+      return;
+    }
+
+    const [app] = await db
+      .insert(applicationsTable)
+      .values({
+        userId,
+        roleId: 0,
+        applicationType: "website",
+        applicationUrl: applicationUrl ?? null,
+        companyName,
+        notes: notes ?? null,
+        status: "applied",
+      })
+      .returning();
+
+    res.status(201).json(app);
+    return;
+  }
 
   if (!roleId || typeof roleId !== "number") {
     res.status(400).json({ error: "roleId is required and must be a number." });
@@ -107,7 +168,7 @@ router.post("/applications", requireAuthenticated, async (req: Request, res: Res
 
   const [application] = await db
     .insert(applicationsTable)
-    .values({ userId, roleId, notes: notes ?? null, status: "applied" })
+    .values({ userId, roleId, notes: notes ?? null, status: "applied", applicationType: "platform" })
     .returning();
 
   let roleTitle = `Role #${roleId}`;
@@ -141,6 +202,40 @@ router.post("/applications", requireAuthenticated, async (req: Request, res: Res
   }
 
   res.json(application);
+});
+
+router.patch("/applications/:id/status", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user!.id;
+  const id = parseInt(String(req.params.id), 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid application ID" });
+    return;
+  }
+
+  const { status } = req.body as { status?: string };
+  const validStatuses = ["applied", "shortlisted", "interview", "interview_invited", "under_review", "offer", "rejected", "no_response"];
+  if (!status || !validStatuses.includes(status)) {
+    res.status(400).json({ error: `status must be one of: ${validStatuses.join(", ")}` });
+    return;
+  }
+
+  const [existing] = await db
+    .select()
+    .from(applicationsTable)
+    .where(and(eq(applicationsTable.id, id), eq(applicationsTable.userId, userId)));
+
+  if (!existing) {
+    res.status(404).json({ error: "Application not found" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(applicationsTable)
+    .set({ status: status as typeof existing.status })
+    .where(eq(applicationsTable.id, id))
+    .returning();
+
+  res.json(updated);
 });
 
 router.patch("/applications/:id/interview-date", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {

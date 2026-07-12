@@ -7,7 +7,9 @@ export const speculativeApplicationsTable = pgTable(
     userId: varchar("user_id").notNull(),
     companyName: text("company_name").notNull(),
     sponsorLicenceId: integer("sponsor_licence_id"),
-    status: varchar("status", { enum: ["cv_sent", "sent", "acknowledged", "no_account"] })
+    status: varchar("status", {
+      enum: ["cv_sent", "sent", "acknowledged", "no_account", "under_review", "interview_invited", "offer", "rejected"],
+    })
       .notNull()
       .default("cv_sent"),
     notes: text("notes"),
