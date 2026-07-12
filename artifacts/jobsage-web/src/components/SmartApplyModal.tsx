@@ -6,6 +6,7 @@ import {
   useSaveSmartApplyDraft,
   useDeleteSmartApplyDraft,
   useGetSmartApplyDraft,
+  useListMyDocuments,
   getListMyApplicationsQueryKey,
   type ApplicationQuestion,
   type SmartApplyPrefill,
@@ -20,6 +21,7 @@ import {
   CheckCircle2,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
   Send,
   Loader2,
   Building2,
@@ -163,6 +165,23 @@ export function SmartApplyModal({
   const serverDraftQuery = useGetSmartApplyDraft(roleId);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const { data: documentsData } = useListMyDocuments();
+  const cvDocuments = (documentsData?.documents ?? []).filter(
+    (d) => (d as { documentType?: string | null }).documentType === "cv",
+  );
+  const [selectedCvId, setSelectedCvId] = useState<number | null>(null);
+  useEffect(() => {
+    if (!documentsData) return;
+    setSelectedCvId((prev) => {
+      if (prev !== null) return prev;
+      const cvDocs = (documentsData.documents ?? []).filter(
+        (d) => (d as { documentType?: string | null }).documentType === "cv",
+      );
+      const primary = cvDocs.find((d) => (d as { isPrimary?: boolean }).isPrimary);
+      return primary?.id ?? cvDocs[0]?.id ?? null;
+    });
+  }, [documentsData]);
+
   const updateAnswers = useCallback(
     (updater: (prev: Record<string, string>) => Record<string, string>) => {
       setAnswers((prev) => {
@@ -241,7 +260,7 @@ export function SmartApplyModal({
       });
 
       await markApplicationMutation.mutateAsync({
-        data: { roleId, notes: answersJson, smartApply: true },
+        data: { roleId, notes: answersJson, smartApply: true, cvDocumentId: selectedCvId },
       });
 
       clearDraft(roleId);
@@ -563,6 +582,28 @@ export function SmartApplyModal({
                   <Sparkles className="w-3.5 h-3.5" />
                   Accept all AI answers &amp; submit now
                 </button>
+              </div>
+            )}
+            {cvDocuments.length >= 2 && (
+              <div className="px-6 pt-3 flex items-center gap-2">
+                <span className="text-xs text-muted-foreground shrink-0">CV to record:</span>
+                <div className="relative flex-1">
+                  <select
+                    value={selectedCvId ?? ""}
+                    onChange={(e) => setSelectedCvId(e.target.value ? parseInt(e.target.value, 10) : null)}
+                    className="w-full appearance-none text-xs rounded-lg border border-border bg-muted/40 px-2 py-1.5 pr-6 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  >
+                    {cvDocuments.map((cv) => {
+                      const cvExtra = cv as typeof cv & { label?: string | null; isPrimary?: boolean };
+                      return (
+                        <option key={cv.id} value={cv.id}>
+                          {cvExtra.label ?? cv.filename}{cvExtra.isPrimary ? " ★" : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+                </div>
               </div>
             )}
             <div className="flex items-center justify-between px-6 py-4">

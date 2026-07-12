@@ -43,17 +43,17 @@ async function generateCvBackground(profileId: number, userId: string): Promise<
             "You are a senior professional CV writer specialising in UK healthcare roles (NHS, independent sector, and private healthcare). " +
             "Your output must be a complete, UK-standard CV that could be submitted directly to a UK employer. " +
             "Follow this exact section order:\n" +
-            "1. PERSONAL STATEMENT (3–4 sentences; highlight clinical background, UK ambition, and key strengths)\n" +
-            "2. KEY SKILLS (6–8 bullet points; concise, relevant to the focus area)\n" +
-            "3. PROFESSIONAL REGISTRATIONS (e.g. GMC, NMC, HCPC — or state 'In process' / 'Not yet registered')\n" +
-            "4. WORK EXPERIENCE (most recent first; each role: Job Title | Organisation | Dates | 2–3 achievement-led bullets)\n" +
-            "5. EDUCATION & QUALIFICATIONS (most recent first; Degree/Diploma | Institution | Country | Year)\n" +
+            "1. HEADER — Candidate name (use the Career Profile Name provided), JOBSAGE contact email (prominently displayed if provided), and target role/specialty\n" +
+            "2. PERSONAL STATEMENT (3–4 sentences; highlight clinical background, UK ambition, and key strengths)\n" +
+            "3. WORK EXPERIENCE (most recent first; each role: Job Title | Organisation | Dates | 2–3 achievement-led bullets)\n" +
+            "4. EDUCATION & QUALIFICATIONS (most recent first; Degree/Diploma | Institution | Country | Year)\n" +
+            "5. PROFESSIONAL REGISTRATIONS (e.g. GMC, NMC, HCPC — or state 'In process' / 'Not yet registered')\n" +
             "6. REFERENCES (end with: 'References available on request.')\n\n" +
             "Style rules:\n" +
             "- Use clean, professional UK English. No Americanisms.\n" +
             "- Write in third person implied (no 'I'). Start bullets with strong verbs.\n" +
             "- Avoid generic filler phrases like 'hard-working' or 'team player' unless substantiated.\n" +
-            "- If JOBSAGE Contact Email is provided, include it prominently at the top of the Personal Statement section as the contact email.\n" +
+            "- If JOBSAGE Contact Email is provided, it MUST appear in the HEADER section — not in the Personal Statement.\n" +
             "- Do NOT include date of birth, nationality, marital status, or photo placeholders (not appropriate on UK CVs).\n" +
             "- Keep total length to 1–2 pages worth of content (approximately 400–600 words).\n" +
             "- End with a one-line disclaimer: 'This CV was AI-assisted via JOBSAGE. Please review, personalise, and verify all details before submission.'",

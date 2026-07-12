@@ -45,6 +45,22 @@ router.get("/applications", requireAuthenticated, async (req: Request, res: Resp
     }
   }
 
+  // Fetch labels for CVs used in all application types
+  const cvDocumentIds = [
+    ...speculativeApps.map((s) => s.cvDocumentId),
+    ...applications.map((a) => a.cvDocumentId),
+  ].filter((id): id is number => id !== null && id !== undefined);
+  const cvLabelMap: Record<number, string> = {};
+  if (cvDocumentIds.length > 0) {
+    const cvDocs = await db
+      .select({ id: documentsTable.id, label: documentsTable.label, filename: documentsTable.filename })
+      .from(documentsTable)
+      .where(inArray(documentsTable.id, cvDocumentIds));
+    for (const doc of cvDocs) {
+      cvLabelMap[doc.id] = doc.label ?? doc.filename;
+    }
+  }
+
   const enrichedPlatform = platformApps.map((a) => ({
     ...a,
     roleTitle: jobTitleMap[a.roleId]?.title ?? null,
@@ -55,6 +71,7 @@ router.get("/applications", requireAuthenticated, async (req: Request, res: Resp
     vacancyTitle: null as string | null,
     emailSentAt: null as string | null,
     emailRecipient: null as string | null,
+    cvLabel: a.cvDocumentId ? (cvLabelMap[a.cvDocumentId] ?? null) : null,
   }));
 
   const enrichedWebsite = applications
@@ -69,20 +86,8 @@ router.get("/applications", requireAuthenticated, async (req: Request, res: Resp
       vacancyTitle: null as string | null,
       emailSentAt: null as string | null,
       emailRecipient: null as string | null,
+      cvLabel: a.cvDocumentId ? (cvLabelMap[a.cvDocumentId] ?? null) : null,
     }));
-
-  // Fetch labels for CVs used in speculative applications
-  const cvDocumentIds = speculativeApps.map((s) => s.cvDocumentId).filter((id): id is number => id !== null && id !== undefined);
-  const cvLabelMap: Record<number, string> = {};
-  if (cvDocumentIds.length > 0) {
-    const cvDocs = await db
-      .select({ id: documentsTable.id, label: documentsTable.label, filename: documentsTable.filename })
-      .from(documentsTable)
-      .where(inArray(documentsTable.id, cvDocumentIds));
-    for (const doc of cvDocs) {
-      cvLabelMap[doc.id] = doc.label ?? doc.filename;
-    }
-  }
 
   const enrichedSpeculative = speculativeApps.map((s) => ({
     id: s.id * -1,
@@ -131,13 +136,14 @@ router.get("/applications", requireAuthenticated, async (req: Request, res: Resp
 
 router.post("/applications", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.id;
-  const { roleId, notes, smartApply, applicationType, applicationUrl, companyName } = req.body as {
+  const { roleId, notes, smartApply, applicationType, applicationUrl, companyName, cvDocumentId } = req.body as {
     roleId?: number;
     notes?: string;
     smartApply?: boolean;
     applicationType?: "platform" | "website";
     applicationUrl?: string;
     companyName?: string;
+    cvDocumentId?: number | null;
   };
 
   const isWebsite = applicationType === "website";
@@ -158,6 +164,7 @@ router.post("/applications", requireAuthenticated, async (req: Request, res: Res
         companyName,
         notes: notes ?? null,
         status: "applied",
+        cvDocumentId: cvDocumentId ?? null,
       })
       .returning();
 
@@ -182,7 +189,7 @@ router.post("/applications", requireAuthenticated, async (req: Request, res: Res
 
   const [application] = await db
     .insert(applicationsTable)
-    .values({ userId, roleId, notes: notes ?? null, status: "applied", applicationType: "platform" })
+    .values({ userId, roleId, notes: notes ?? null, status: "applied", applicationType: "platform", cvDocumentId: cvDocumentId ?? null })
     .returning();
 
   let roleTitle = `Role #${roleId}`;

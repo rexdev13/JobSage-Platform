@@ -10,4 +10,5 @@ export interface MarkApplicationRequest {
   roleId: number;
   notes?: string;
   smartApply?: boolean | null;
+  cvDocumentId?: number | null;
 }
