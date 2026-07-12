@@ -3081,6 +3081,10 @@ components:
           type: string
           nullable: true
           description: Free-text notes the candidate wants employers to see
+        jobsageEmail:
+          type: string
+          nullable: true
+          description: Auto-assigned JOBSAGE communication alias (e.g. jane.smith.a1b2c3@mail.jobsage.app). Used in place of personal email when CVs are sent to employers.
         completionPct:
           type: integer
           description: Profile completeness score (0–100), computed server-side

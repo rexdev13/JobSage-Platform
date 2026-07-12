@@ -324,16 +324,20 @@ export async function sendSpeculativeCVToOps(opts: {
   cvFilename?: string | null;
   cvContent?: Buffer | null;
   notes?: string | null;
+  /** JOBSAGE alias assigned to this candidate — shown as the contact address instead of personal email */
+  jobsageEmail?: string | null;
 }): Promise<void> {
   const attachments =
     opts.cvContent && opts.cvFilename
       ? [{ filename: opts.cvFilename, content: opts.cvContent }]
       : [];
 
+  const contactEmail = opts.jobsageEmail ?? opts.candidateEmail;
+
   await resend.emails.send({
     from: `JOBSAGE <${FROM}>`,
     to: OPS_INBOX,
-    replyTo: opts.candidateEmail,
+    replyTo: contactEmail,
     subject: `[Speculative CV] ${opts.candidateName} → ${opts.companyName}`,
     attachments,
     html: `<!DOCTYPE html>
@@ -345,7 +349,7 @@ export async function sendSpeculativeCVToOps(opts: {
       <h2 style="color:#0f172a;margin:0 0 16px;">Speculative CV Submission</h2>
       <table width="100%" cellpadding="4" cellspacing="0" style="font-size:14px;color:#334155;">
         <tr><td style="width:160px;font-weight:600;">Application ID</td><td>#${opts.applicationId}</td></tr>
-        <tr><td style="font-weight:600;">Candidate</td><td>${opts.candidateName} &lt;${opts.candidateEmail}&gt;</td></tr>
+        <tr><td style="font-weight:600;">Candidate</td><td>${opts.candidateName} &lt;${contactEmail}&gt;</td></tr>
         <tr><td style="font-weight:600;">User ID</td><td>${opts.candidateUserId}</td></tr>
         <tr><td style="font-weight:600;">Target company</td><td>${opts.companyName}</td></tr>
         <tr><td style="font-weight:600;">CV document</td><td>${opts.cvFilename ?? "not attached"}</td></tr>

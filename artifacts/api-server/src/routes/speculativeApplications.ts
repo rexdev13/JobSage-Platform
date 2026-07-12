@@ -1,11 +1,12 @@
 import { Router, type IRouter } from "express";
 import { requireAuthenticated } from "../middlewares/requireRole";
 import { db } from "@workspace/db";
-import { speculativeApplicationsTable, employerProfilesTable, documentsTable } from "@workspace/db";
+import { speculativeApplicationsTable, employerProfilesTable, documentsTable, profilesTable } from "@workspace/db";
 import { eq, and, desc, ilike } from "drizzle-orm";
 import { writeAuditEvent } from "../lib/audit";
 import { sendSpeculativeCVNotification, sendSpeculativeCVToOps, OPS_INBOX } from "../lib/email";
 import { ObjectStorageService } from "../lib/objectStorage";
+import { maskPersonalContactInfo } from "../lib/jobsageEmailGen";
 
 const router: IRouter = Router();
 
@@ -75,6 +76,13 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
       .filter(Boolean)
       .join(" ") || "there";
 
+  // Fetch the candidate's JOBSAGE email alias (used in place of personal email in ops notifications)
+  const [candidateProfile] = await db
+    .select({ jobsageEmail: profilesTable.jobsageEmail })
+    .from(profilesTable)
+    .where(eq(profilesTable.userId, userId));
+  const jobsageEmail = candidateProfile?.jobsageEmail ?? null;
+
   // Resolve the candidate's CV document (prefer documentType = "cv", fall back to most recent)
   const allDocs = await db
     .select({ id: documentsTable.id, filename: documentsTable.filename, storageKey: documentsTable.storageKey, documentType: documentsTable.documentType })
@@ -96,14 +104,17 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
     }
   }
 
+  // Mask personal contact info in the cover note if we have a JOBSAGE alias
+  const maskedNotes = notes && jobsageEmail ? maskPersonalContactInfo(notes, jobsageEmail) : (notes ?? null);
+
   // Fire outbound emails and persist delivery metadata
   const now = new Date();
   let emailDelivered = false;
   try {
     await Promise.all([
-      // Candidate confirmation
+      // Candidate confirmation (sent to personal email — this is intentional)
       sendSpeculativeCVNotification({ candidateEmail: user.email, candidateName, companyName }),
-      // JOBSAGE ops inbox — actual CV file attached where available
+      // JOBSAGE ops inbox — contact shown as JOBSAGE alias, personal email never exposed
       sendSpeculativeCVToOps({
         candidateEmail: user.email,
         candidateName,
@@ -112,7 +123,8 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
         applicationId: app!.id,
         cvFilename: cvDocument?.filename ?? null,
         cvContent,
-        notes: notes ?? null,
+        notes: maskedNotes,
+        jobsageEmail,
       }),
     ]);
     emailDelivered = true;

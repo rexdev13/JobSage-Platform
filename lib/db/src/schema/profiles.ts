@@ -23,6 +23,7 @@ export const profilesTable = pgTable("profiles", {
   profilePhotoKey: text("profile_photo_key"),
   languages: text("languages").array(),
   additionalNotes: text("additional_notes"),
+  jobsageEmail: text("jobsage_email").unique(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
