@@ -59,12 +59,16 @@ router.get("/applications", requireAuthenticated, async (req: Request, res: Resp
     status: "cv_sent" as const,
     appliedAt: s.createdAt.toISOString(),
     notes: s.notes ?? null,
-    roleTitle: s.companyName,
+    roleTitle: s.vacancyTitle ?? s.companyName,
     roleLocation: null as string | null,
     interviewDate: null as Date | null,
     interviewNotes: null as string | null,
     applicationKind: "speculative" as const,
     companyName: s.companyName,
+    jobsageEmail: s.jobsageEmail ?? null,
+    vacancyTitle: s.vacancyTitle ?? null,
+    emailSentAt: s.emailSentAt?.toISOString() ?? null,
+    emailRecipient: s.emailRecipient ?? null,
   }));
 
   const merged = [...enrichedFormal, ...enrichedSpeculative].sort(

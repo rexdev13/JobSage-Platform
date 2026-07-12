@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { requireAuthenticated } from "../middlewares/requireRole";
 import { db } from "@workspace/db";
-import { speculativeApplicationsTable, employerProfilesTable, documentsTable, candidateMessagesTable } from "@workspace/db";
+import { speculativeApplicationsTable, employerProfilesTable, documentsTable, candidateMessagesTable, usersTable } from "@workspace/db";
 import { eq, and, desc, ilike } from "drizzle-orm";
 import { writeAuditEvent } from "../lib/audit";
 import { sendSpeculativeCVNotification, sendSpeculativeCVToOps, OPS_INBOX } from "../lib/email";
@@ -134,6 +134,27 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
   // Mask personal contact info in the cover note if we have a JOBSAGE alias
   const maskedNotes = notes && jobsageEmail ? maskPersonalContactInfo(notes, jobsageEmail) : (notes ?? null);
 
+  // Resolve employer contact email:
+  // - When the company has a JOBSAGE employer account, send directly to their registered email.
+  // - Otherwise fall back to OPS_INBOX so the ops team can forward manually.
+  let employerContactEmail: string = OPS_INBOX;
+  try {
+    const [empRow] = await db
+      .select({ empUserId: employerProfilesTable.userId })
+      .from(employerProfilesTable)
+      .where(ilike(employerProfilesTable.companyName, companyName))
+      .limit(1);
+    if (empRow?.empUserId) {
+      const [empUser] = await db
+        .select({ email: usersTable.email })
+        .from(usersTable)
+        .where(eq(usersTable.id, empRow.empUserId));
+      if (empUser?.email) employerContactEmail = empUser.email;
+    }
+  } catch {
+    // Employer resolution is best-effort; fall back to OPS_INBOX
+  }
+
   // Fire outbound emails and persist delivery metadata
   const now = new Date();
   let emailDelivered = false;
@@ -141,7 +162,7 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
     await Promise.all([
       // Candidate confirmation (sent to personal email — this is intentional)
       sendSpeculativeCVNotification({ candidateEmail: user.email, candidateName, companyName }),
-      // JOBSAGE ops inbox — contact shown as JOBSAGE alias, personal email never exposed to employer
+      // CV send — FROM candidate's JOBSAGE alias, TO employer or OPS_INBOX as fallback
       sendSpeculativeCVToOps({
         candidateEmail: user.email,
         candidateName,
@@ -152,6 +173,7 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
         cvContent,
         notes: maskedNotes,
         jobsageEmail,
+        recipientEmail: employerContactEmail,
         maskedCvTextExtract,
       }),
     ]);
@@ -160,14 +182,14 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
     console.error("[speculative] Failed to send CV emails:", err);
   }
 
-  // Persist delivery metadata on the record (including the JOBSAGE alias used)
+  // Persist delivery metadata (alias used + actual recipient)
   await db
     .update(speculativeApplicationsTable)
     .set({
       cvDocumentId: cvDocument?.id ?? null,
       emailSent: emailDelivered,
       emailSentAt: emailDelivered ? now : null,
-      emailRecipient: OPS_INBOX,
+      emailRecipient: employerContactEmail,
       jobsageEmail,
     })
     .where(eq(speculativeApplicationsTable.id, app!.id));
@@ -175,6 +197,7 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
   // Create inbox notification only when email was actually delivered —
   // guards against false "sent" confirmations on delivery failure.
   if (emailDelivered) {
+    const isDirectSend = employerContactEmail !== OPS_INBOX;
     try {
       await db.insert(candidateMessagesTable).values({
         recipientUserId: userId,
@@ -183,12 +206,15 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
         messageText: [
           `Your CV has been submitted to ${companyName}${vacancyTitle ? ` for the role "${vacancyTitle}"` : ""}.`,
           ``,
-          `Contact identity used: ${jobsageEmail}`,
-          `Sent at: ${now.toUTCString()}`,
+          `Your contact identity: ${jobsageEmail}`,
+          `Sent to: ${employerContactEmail}${isDirectSend ? " (employer direct)" : " (JOBSAGE ops — will forward)"}`,
+          `Date sent: ${now.toUTCString()}`,
           ``,
-          `The JOBSAGE team will follow up with ${companyName} on your behalf where a direct contact is available.`,
+          isDirectSend
+            ? `The employer can reply directly to your JOBSAGE alias.`
+            : `The JOBSAGE team will follow up with ${companyName} on your behalf where a direct contact is available.`,
           ``,
-          `Track this application: ${APP_URL}/applications`,
+          `Follow up or track this application: ${APP_URL}/applications`,
         ].join("\n"),
       });
     } catch (msgErr) {
