@@ -124,13 +124,13 @@ router.get("/roles", async (req, res): Promise<void> => {
   const [profile] = await db.select().from(profilesTable).where(eq(profilesTable.userId, userId));
 
   if (!profile) {
-    res.status(400).json({ error: "Profile not found. Please complete your profile first." });
+    res.json({ roles: [], appliedRoleIds: [], decisionRecordId: null, rulesetVersion: "—", eligibilityOutcome: null, message: null, noProfile: true });
     return;
   }
 
   const regulator = regulatorForProfession(profile.profession);
   if (!regulator) {
-    res.status(400).json({ error: "Could not determine regulatory body from your profession." });
+    res.json({ roles: [], appliedRoleIds: [], decisionRecordId: null, rulesetVersion: "—", eligibilityOutcome: null, message: null, noProfile: false });
     return;
   }
 
@@ -257,18 +257,18 @@ router.get("/roles", async (req, res): Promise<void> => {
     };
   });
 
-  result.sort((a, b) => {
-    if (a.isEligible !== b.isEligible) return a.isEligible ? -1 : 1;
-    return b.matchScore - a.matchScore;
-  });
+  result.sort((a, b) => b.matchScore - a.matchScore);
+
+  const rankedRoles = result.map((r, i) => ({ ...r, recommended: i < 5 }));
 
   res.json({
-    roles: result,
+    roles: rankedRoles,
     decisionRecordId,
     rulesetVersion,
     eligibilityOutcome: decision?.outcome ?? null,
     message: null,
     appliedRoleIds,
+    noProfile: false,
   });
 });
 

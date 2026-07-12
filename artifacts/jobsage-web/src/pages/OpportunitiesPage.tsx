@@ -50,6 +50,8 @@ import {
   Copy,
   Loader2,
   Zap,
+  Medal,
+  Info,
 } from "lucide-react";
 import { DisclaimerBanner } from "@/components/ui/DisclaimerBanner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -593,6 +595,7 @@ function RoleCard({
   onViewDetail,
   onCoverLetter,
   onMarkWebsite,
+  recommended,
 }: {
   item: MatchedRole;
   appliedRoleIds: number[];
@@ -601,6 +604,7 @@ function RoleCard({
   onViewDetail: (item: MatchedRole) => void;
   onCoverLetter: (role: MatchedRole["role"]) => void;
   onMarkWebsite?: (employer: string) => void;
+  recommended?: boolean;
 }) {
   const [, setLocation] = useLocation();
   const { role, isEligible, matchScore, eligibilityGaps, sponsorshipFeasibility } = item;
@@ -609,12 +613,23 @@ function RoleCard({
 
   return (
     <Card
-      className={`p-5 hover:shadow-md transition-all cursor-pointer ${isEligible ? "border-emerald-100 hover:border-emerald-200" : "hover:border-amber-100"}`}
+      className={`p-5 hover:shadow-md transition-all cursor-pointer ${
+        recommended
+          ? "border-primary/30 bg-gradient-to-r from-primary/[0.03] to-accent/[0.03] hover:border-primary/50"
+          : isEligible
+          ? "border-emerald-100 hover:border-emerald-200"
+          : "hover:border-border"
+      }`}
       onClick={() => onViewDetail(item)}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1">
+            {recommended && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary">
+                <Medal className="w-3 h-3" /> Apply First
+              </span>
+            )}
             {isEligible ? (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
                 <BadgeCheck className="w-3 h-3" /> Eligible Now
@@ -655,17 +670,39 @@ function RoleCard({
         )}
       </div>
 
-      {!isEligible && eligibilityGaps && eligibilityGaps.length > 0 && (
+      {/* Company contact row */}
+      <div className="mt-3 flex items-center gap-3 flex-wrap" onClick={(e) => e.stopPropagation()}>
+        <span className="text-xs text-muted-foreground font-medium">Contact:</span>
+        <a
+          href={`https://www.linkedin.com/search/results/companies/?keywords=${encodeURIComponent(role.employer)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-xs text-[#0077B5] hover:underline"
+        >
+          <Linkedin className="w-3 h-3" /> LinkedIn
+        </a>
+        <a
+          href={`https://www.google.com/search?q=${encodeURIComponent(role.employer + " NHS jobs apply contact")}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground hover:underline"
+        >
+          <Globe className="w-3 h-3" /> Website
+        </a>
+      </div>
+
+      {eligibilityGaps && eligibilityGaps.length > 0 && (
         <div className="mt-3">
           <button
             className="text-xs text-amber-700 hover:text-amber-900 flex items-center gap-1 transition-colors"
             onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
           >
             {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-            {expanded ? "Hide" : "See"} eligibility gaps
+            {expanded ? "Hide" : "See"} eligibility notes
           </button>
           {expanded && (
             <div className="mt-2 p-3 rounded-lg bg-amber-50 border border-amber-100">
+              <p className="text-xs text-amber-700 font-medium mb-1.5">Advisory — you can still apply and contact this employer directly:</p>
               <ul className="space-y-1">
                 {eligibilityGaps.map((gap, i) => (
                   <li key={i} className="text-xs text-amber-800 flex items-start gap-1.5">
@@ -720,14 +757,14 @@ function RoleCard({
               Applied
             </Button>
           )}
-          {!isEligible && (
+          {!isEligible && !applied && (
             <Button
               size="sm"
-              variant="ghost"
-              className="text-xs h-8 text-amber-700"
-              onClick={(e) => { e.stopPropagation(); setLocation("/path"); }}
+              variant="outline"
+              className="text-xs h-8 gap-1"
+              onClick={(e) => { e.stopPropagation(); onSmartApply(role.id, role.title); }}
             >
-              View path <ArrowRight className="w-3 h-3 ml-1" />
+              <Sparkles className="w-3 h-3" /> Apply
             </Button>
           )}
         </div>
@@ -949,13 +986,12 @@ export default function OpportunitiesPage() {
   const roles = data?.roles ?? [];
   const appliedRoleIds = data?.appliedRoleIds ?? [];
   const eligibilityOutcome = data?.eligibilityOutcome;
+  const noProfile = data?.noProfile === true;
 
-  const eligibleRoles = roles
-    .filter((r) => r.isEligible)
-    .sort((a, b) => (aiScoreMap.get(b.role.id) ?? b.matchScore) - (aiScoreMap.get(a.role.id) ?? a.matchScore));
-  const notYetEligibleRoles = roles
-    .filter((r) => !r.isEligible)
-    .sort((a, b) => (aiScoreMap.get(b.role.id) ?? b.matchScore) - (aiScoreMap.get(a.role.id) ?? a.matchScore));
+  const allRankedRoles = [...roles].sort(
+    (a, b) => (aiScoreMap.get(b.role.id) ?? b.matchScore) - (aiScoreMap.get(a.role.id) ?? a.matchScore),
+  );
+  const recommendedRoles = allRankedRoles.filter((r) => r.recommended);
 
   const employerGroups = Object.entries(
     roles.reduce<Record<string, MatchedRole[]>>((acc, r) => {
@@ -1042,9 +1078,11 @@ export default function OpportunitiesPage() {
           <div>
             <h1 className="text-2xl font-display font-bold text-foreground">Job Opportunities</h1>
             <p className="text-muted-foreground mt-1 text-sm">
-              {data
-                ? `${eligibleRoles.length} eligible now · ${notYetEligibleRoles.length} to work towards`
-                : "Roles matched to your regulatory eligibility."}
+              {noProfile
+                ? "Complete your profile to see a personalised ranked list."
+                : data
+                ? `${allRankedRoles.length} vacancies ranked by fit — highest match first`
+                : "All vacancies ranked by how well they match your profile."}
             </p>
             {(vacancyStatsData?.totalVacanciesFound ?? 0) > 0 && (
               <p className="text-xs text-primary/80 mt-0.5 font-medium">
@@ -1109,8 +1147,27 @@ export default function OpportunitiesPage() {
         {/* Job Board tab */}
         {!isLoading && !isError && activeTab === "board" && (
           <div className="space-y-8">
+            {/* No-profile nudge */}
+            {noProfile && (
+              <Card className="p-8 text-center border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5">
+                <FileText className="w-10 h-10 text-primary/40 mx-auto mb-3" />
+                <h2 className="text-lg font-semibold mb-2">Complete your profile to unlock ranked vacancies</h2>
+                <p className="text-sm text-muted-foreground mb-5 max-w-md mx-auto">
+                  Upload your CV and fill in your profile so we can rank every vacancy by how well it matches your qualifications, registration status, and sponsorship needs.
+                </p>
+                <div className="flex gap-3 justify-center flex-wrap">
+                  <Button onClick={() => setLocation("/profile")}>
+                    Complete Profile <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                  <Button variant="outline" onClick={() => setLocation("/documents")}>
+                    <FileText className="w-4 h-4 mr-2" /> Upload CV
+                  </Button>
+                </div>
+              </Card>
+            )}
+
             {/* Best Matches AI Strip */}
-            {roles.length > 0 && (
+            {!noProfile && roles.length > 0 && (
               <BestMatchesStrip
                 matchesData={aiMatchesData}
                 matchesLoading={aiMatchesLoading}
@@ -1121,85 +1178,50 @@ export default function OpportunitiesPage() {
               />
             )}
 
-            {roles.length === 0 ? (
+            {!noProfile && roles.length === 0 && (
               <Card className="p-8 text-center">
                 <Briefcase className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
                 <h2 className="text-lg font-semibold mb-2">No roles in catalogue yet</h2>
                 <p className="text-sm text-muted-foreground mb-4">
-                  {!data
-                    ? "Complete your eligibility assessment first."
-                    : "No roles have been imported for your profession yet. Check back soon."}
+                  No roles have been imported for your profession yet. Check back soon.
                 </p>
-                <Button onClick={() => setLocation("/eligibility")}>
+                <Button variant="outline" onClick={() => setLocation("/eligibility")}>
                   Run Eligibility Check <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               </Card>
-            ) : (
+            )}
+
+            {!noProfile && roles.length > 0 && (
               <>
-                {/* Eligible Now section */}
-                {eligibleRoles.length > 0 && (
-                  <section id="job-board-section">
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                      <h2 className="text-base font-semibold text-foreground">
-                        Eligible Now
-                        <span className="ml-2 text-xs font-normal text-muted-foreground">({eligibleRoles.length})</span>
-                      </h2>
-                    </div>
-                    <div className="space-y-4">
-                      {eligibleRoles.map((item) => (
-                        <motion.div
-                          key={item.role.id}
-                          initial={{ opacity: 0, y: 8 }}
-                          animate={{ opacity: 1, y: 0 }}
-                        >
-                          <RoleCard
-                            item={item}
-                            appliedRoleIds={appliedRoleIds}
-                            onApply={handleApply}
-                            onSmartApply={handleSmartApply}
-                            onViewDetail={setSelectedRole}
-                            onCoverLetter={setCoverLetterRole}
-                            onMarkWebsite={(employer) => setWebsiteAppModal({ companyName: employer })}
-                          />
-                        </motion.div>
-                      ))}
-                    </div>
-                  </section>
-                )}
+                {/* Match score info note */}
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <Info className="w-3.5 h-3.5 shrink-0 text-primary/60" />
+                  Match scores are based on your CV, profile, and regulatory eligibility. All vacancies are shown — eligibility notes are advisory only.
+                </p>
 
-                {/* Not Yet Eligible section */}
-                {notYetEligibleRoles.length > 0 && (
+                {/* Recommended — Apply First band */}
+                {recommendedRoles.length > 0 && (
                   <section>
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-                      <h2 className="text-base font-semibold text-foreground">
-                        Not Yet Eligible — Work Towards These
-                        <span className="ml-2 text-xs font-normal text-muted-foreground">({notYetEligibleRoles.length})</span>
-                      </h2>
+                    <div className="flex items-center gap-2 mb-3">
+                      <Medal className="w-4 h-4 text-primary" />
+                      <h2 className="text-base font-semibold text-foreground">Recommended — Apply First</h2>
+                      <span className="px-1.5 py-0.5 text-xs rounded bg-primary/10 text-primary font-medium">
+                        Top {recommendedRoles.length}
+                      </span>
                     </div>
-
-                    {!eligibilityOutcome && (
-                      <Card className="p-4 mb-4 border-amber-200 bg-amber-50">
-                        <p className="text-sm text-amber-800 flex items-start gap-2">
-                          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                          Run your eligibility assessment to see a personalised match score and gap analysis for each role.
-                        </p>
-                        <Button size="sm" className="mt-3" onClick={() => setLocation("/eligibility")}>
-                          Run Eligibility Check
-                        </Button>
-                      </Card>
-                    )}
-
-                    <div className="space-y-4">
-                      {notYetEligibleRoles.map((item) => (
+                    <p className="text-xs text-muted-foreground mb-4">
+                      Your highest-matching vacancies right now — these best fit your profile and eligibility status.
+                    </p>
+                    <div className="space-y-3">
+                      {recommendedRoles.map((item) => (
                         <motion.div
-                          key={item.role.id}
+                          key={`rec-${item.role.id}`}
                           initial={{ opacity: 0, y: 8 }}
                           animate={{ opacity: 1, y: 0 }}
                         >
                           <RoleCard
                             item={item}
+                            recommended
                             appliedRoleIds={appliedRoleIds}
                             onApply={handleApply}
                             onSmartApply={handleSmartApply}
@@ -1213,27 +1235,45 @@ export default function OpportunitiesPage() {
                   </section>
                 )}
 
-                {eligibleRoles.length === 0 && notYetEligibleRoles.length > 0 && (
-                  <Card className="p-5 border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50">
-                    <div className="flex items-start gap-3">
-                      <TrendingUp className="w-6 h-6 text-amber-600 shrink-0 mt-0.5" />
-                      <div>
-                        <p className="font-semibold text-amber-900 text-sm">You&apos;re on your way</p>
-                        <p className="text-xs text-amber-800 mt-0.5 leading-relaxed">
-                          Complete your remediation steps to unlock eligible roles. Your personalised action plan shows exactly what&apos;s needed.
-                        </p>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="mt-3 border-amber-300 text-amber-800 hover:bg-amber-100"
-                          onClick={() => setLocation("/path")}
-                        >
-                          View My Remediation Plan <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                )}
+                {/* Full ranked list */}
+                <section id="job-board-section">
+                  <div className="flex items-center gap-2 mb-4">
+                    <h2 className="text-base font-semibold text-foreground">
+                      All Vacancies
+                      <span className="ml-2 text-xs font-normal text-muted-foreground">
+                        {allRankedRoles.length} total · highest match first
+                      </span>
+                    </h2>
+                    {!eligibilityOutcome && (
+                      <button
+                        className="ml-auto text-xs text-primary hover:underline flex items-center gap-1"
+                        onClick={() => setLocation("/eligibility")}
+                      >
+                        <AlertCircle className="w-3 h-3" /> Run eligibility check to improve scores
+                      </button>
+                    )}
+                  </div>
+                  <div className="space-y-3">
+                    {allRankedRoles.map((item) => (
+                      <motion.div
+                        key={item.role.id}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                      >
+                        <RoleCard
+                          item={item}
+                          recommended={item.recommended}
+                          appliedRoleIds={appliedRoleIds}
+                          onApply={handleApply}
+                          onSmartApply={handleSmartApply}
+                          onViewDetail={setSelectedRole}
+                          onCoverLetter={setCoverLetterRole}
+                          onMarkWebsite={(employer) => setWebsiteAppModal({ companyName: employer })}
+                        />
+                      </motion.div>
+                    ))}
+                  </div>
+                </section>
               </>
             )}
           </div>

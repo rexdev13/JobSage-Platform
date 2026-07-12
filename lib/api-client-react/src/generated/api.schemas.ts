@@ -457,6 +457,8 @@ export interface MatchedRole {
   matchScore: number;
   /** Specific gaps preventing eligibility for this role */
   eligibilityGaps?: string[];
+  /** True for the top-5 highest-matching roles — should be highlighted as "Apply First" */
+  recommended?: boolean;
 }
 
 export interface MatchedRoleList {
@@ -467,6 +469,8 @@ export interface MatchedRoleList {
   message?: string | null;
   /** Role IDs the user has already applied to */
   appliedRoleIds?: number[];
+  /** True when the candidate has no profile/CV — show upload nudge instead of roles */
+  noProfile?: boolean;
 }
 
 export type ApplicationStatus =
