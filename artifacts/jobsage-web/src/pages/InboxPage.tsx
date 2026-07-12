@@ -8,7 +8,7 @@ import {
   getGetInboxUnreadCountQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Inbox, MailOpen, Archive, Building2, Info, ChevronRight } from "lucide-react";
+import { Inbox, MailOpen, Archive, Building2, Info, ChevronRight, Send } from "lucide-react";
 import { cn } from "@/components/ui-enhanced";
 import type { CandidateMessage } from "@workspace/api-client-react";
 
@@ -21,6 +21,7 @@ const STAGE_BADGE: Record<string, { label: string; className: string }> = {
   "Application update":                     { label: "Update",        className: "bg-muted text-muted-foreground" },
   "Application status update":              { label: "Update",        className: "bg-muted text-muted-foreground" },
   "Your profile was viewed by an employer": { label: "Profile viewed", className: "bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300" },
+  "Speculative CV sent":                    { label: "CV Sent",        className: "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300" },
 };
 
 function formatDate(iso: string) {
@@ -164,7 +165,11 @@ export default function InboxPage() {
                     >
                       <div className="flex items-start gap-2">
                         <div className="mt-0.5 shrink-0">
-                          {latest.messageType === "system" ? (
+                          {latest.messageType === "system" && latest.subject === "Speculative CV sent" ? (
+                            <div className="w-7 h-7 rounded-full bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center">
+                              <Send className="w-4 h-4 text-teal-600" />
+                            </div>
+                          ) : latest.messageType === "system" ? (
                             <div className="w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
                               <Info className="w-4 h-4 text-blue-500" />
                             </div>
@@ -245,9 +250,18 @@ export default function InboxPage() {
                           <div className="flex items-center gap-2">
                             <div className={cn(
                               "w-7 h-7 rounded-full flex items-center justify-center",
-                              isSystem ? "bg-blue-100 dark:bg-blue-900/30" : "bg-primary/10"
+                              isSystem && msg.subject === "Speculative CV sent"
+                                ? "bg-teal-100 dark:bg-teal-900/30"
+                                : isSystem
+                                ? "bg-blue-100 dark:bg-blue-900/30"
+                                : "bg-primary/10"
                             )}>
-                              {isSystem ? <Info className="w-4 h-4 text-blue-500" /> : <Building2 className="w-4 h-4 text-primary" />}
+                              {isSystem && msg.subject === "Speculative CV sent"
+                                ? <Send className="w-4 h-4 text-teal-600" />
+                                : isSystem
+                                ? <Info className="w-4 h-4 text-blue-500" />
+                                : <Building2 className="w-4 h-4 text-primary" />
+                              }
                             </div>
                             <div>
                               <p className="text-xs font-semibold text-foreground">

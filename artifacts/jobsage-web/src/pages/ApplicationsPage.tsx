@@ -16,7 +16,6 @@ import {
   Calendar,
   Send,
   Building2,
-  Tag,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Application, ApplicationStatus } from "@workspace/api-client-react";
@@ -116,6 +115,13 @@ function ApplicationCard({ application }: { application: EnrichedApplication }) 
             {cfg.label}
           </span>
         </div>
+
+        {isSpeculative && (application as { jobsageEmail?: string | null }).jobsageEmail && (
+          <div className="flex items-center gap-1.5 text-xs text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-lg px-3 py-2">
+            <Send className="w-3 h-3 shrink-0" />
+            <span>Sent via <span className="font-mono font-medium">{(application as { jobsageEmail?: string | null }).jobsageEmail}</span></span>
+          </div>
+        )}
 
         {!isSpeculative && application.notes && (
           <div className="bg-muted/50 rounded-lg p-3 text-xs text-muted-foreground leading-relaxed line-clamp-2">

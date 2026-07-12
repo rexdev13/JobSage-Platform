@@ -451,8 +451,24 @@ export default function SponsorLicencesPage() {
             toast({ title: "CV sent!", description: `Your speculative application to ${companyName} has been recorded.` });
           }
         },
-        onError: () => {
-          toast({ title: "Error", description: "Could not send CV. Please try again.", variant: "destructive" });
+        onError: (err: unknown) => {
+          const status = (err as { response?: { status?: number }; status?: number })?.response?.status
+            ?? (err as { status?: number })?.status;
+          if (status === 422) {
+            toast({
+              title: "PDF required",
+              description: "Your CV must be in PDF format to send a speculative application. Please upload a PDF CV.",
+              variant: "destructive",
+            });
+          } else if (status === 400) {
+            toast({
+              title: "Profile incomplete",
+              description: "Please visit your Profile page to set up your JOBSAGE email alias before sending a CV.",
+              variant: "destructive",
+            });
+          } else {
+            toast({ title: "Error", description: "Could not send CV. Please try again.", variant: "destructive" });
+          }
         },
       },
     );

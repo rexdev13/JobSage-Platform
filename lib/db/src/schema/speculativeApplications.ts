@@ -15,6 +15,7 @@ export const speculativeApplicationsTable = pgTable(
     emailSent: boolean("email_sent").notNull().default(false),
     emailSentAt: timestamp("email_sent_at", { withTimezone: true }),
     emailRecipient: text("email_recipient"),
+    jobsageEmail: text("jobsage_email"),
     vacancyTitle: text("vacancy_title"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
