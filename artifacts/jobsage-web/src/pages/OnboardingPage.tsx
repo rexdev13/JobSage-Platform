@@ -6,6 +6,9 @@ import { getGetMyProfileQueryKey } from "@workspace/api-client-react";
 import { Card, Button, Input, Select, Label, PageTransition } from "@/components/ui-enhanced";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, ArrowLeft, CheckCircle2, Shield } from "lucide-react";
+import { JourneyIslands } from "@/components/JourneyIslands";
+import { JOURNEY_STEPS } from "@/lib/journeySteps";
+import type { IslandState } from "@/lib/journeySteps";
 
 type Profession = "doctor" | "nurse" | "midwife" | "allied_health_professional" | "clinical_academic";
 type RegistrationStatus = "registered" | "not_registered" | "in_process";
@@ -23,12 +26,17 @@ type ProfileData = {
   requiresSponsorship: boolean;
 };
 
-const STEPS = [
+const FORM_STEPS = [
   { label: "Identity", title: "Professional Identity" },
   { label: "Qualifications", title: "Qualifications" },
   { label: "Experience", title: "Experience & Registration" },
   { label: "Immigration", title: "Immigration & Visa" },
 ];
+
+const ONBOARDING_ISLANDS: IslandState[] = JOURNEY_STEPS.map((step, i) => ({
+  step,
+  status: i === 0 ? "active" : "locked",
+}));
 
 export default function OnboardingPage() {
   const [step, setStep] = useState(1);
@@ -108,8 +116,16 @@ export default function OnboardingPage() {
         </div>
         <div className="flex flex-col items-end">
           <span className="text-xs text-muted-foreground">Step {step} of 4</span>
-          <span className="text-sm font-semibold text-foreground">{STEPS[step - 1].label}</span>
+          <span className="text-sm font-semibold text-foreground">{FORM_STEPS[step - 1].label}</span>
         </div>
+      </div>
+
+      {/* Journey islands — compact preview showing where profile setup fits */}
+      <div className="w-full max-w-2xl mb-6 px-2">
+        <p className="text-xs text-muted-foreground mb-3 text-center">
+          Your UK healthcare career journey — you're on step 1
+        </p>
+        <JourneyIslands islands={ONBOARDING_ISLANDS} activeStep={1} compact />
       </div>
 
       {/* Progress bar */}

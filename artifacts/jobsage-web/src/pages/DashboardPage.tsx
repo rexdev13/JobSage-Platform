@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@workspace/auth-web";
 import {
@@ -11,8 +11,6 @@ import {
   useGetForwardEligibility,
   useToggleProfileBoost,
   getGetMyProfileQueryKey,
-  useGetJourneyStatus,
-  getGetJourneyStatusQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -37,168 +35,18 @@ import {
   Megaphone,
   Building2,
   GraduationCap,
-  Lock,
   Briefcase,
   Activity,
   ShieldAlert,
-  Send,
 } from "lucide-react";
 import { Link } from "wouter";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { AIChatSlideover } from "@/components/AIChatSlideover";
 import { cn } from "@/components/ui-enhanced";
+import { JourneyIslands } from "@/components/JourneyIslands";
+import { deriveIslandStates, activeStepNumber } from "@/lib/journeySteps";
 
 type EligibilityOutcome = "eligible" | "not_eligible" | "ineligible";
-
-// ── Stage icon map (mirrors PathPage) ────────────────────────────────────────
-const ICON_MAP: Record<string, React.ElementType> = {
-  User,
-  Files,
-  ShieldCheck,
-  Briefcase,
-  ClipboardList,
-  Send,
-  TrendingUp,
-  Building2,
-  Sparkles,
-  BadgeCheck,
-};
-function getStageIcon(name: string): React.ElementType {
-  return ICON_MAP[name] ?? Circle;
-}
-
-// ── Milestone Journey Track ───────────────────────────────────────────────────
-function MilestoneJourneyTrack() {
-  const { data } = useGetJourneyStatus({
-    query: { queryKey: getGetJourneyStatusQueryKey(), staleTime: 30_000 },
-  });
-  const stages = data?.stages ?? [];
-  const completeCount = stages.filter((s) => s.status === "complete").length;
-
-  if (stages.length === 0) return null;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.18, duration: 0.4 }}
-      className="mb-6"
-    >
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-          <span className="w-6 h-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-            <TrendingUp className="w-3 h-3" />
-          </span>
-          UK Journey — {completeCount}/{stages.length} stages complete
-        </h2>
-        <Link href="/path">
-          <span className="text-xs text-primary font-medium hover:underline flex items-center gap-0.5">
-            Full journey <ArrowRight className="w-3 h-3" />
-          </span>
-        </Link>
-      </div>
-
-      {/* Progress bar */}
-      <div className="h-1.5 rounded-full bg-muted mb-4 overflow-hidden">
-        <motion.div
-          className="h-full rounded-full bg-primary"
-          initial={{ width: 0 }}
-          animate={{ width: `${(completeCount / stages.length) * 100}%` }}
-          transition={{ duration: 0.8, delay: 0.3, ease: "easeOut" }}
-        />
-      </div>
-
-      {/* Horizontal milestone track */}
-      <div className="relative">
-        {/* Connector line */}
-        <div className="absolute top-7 left-7 right-7 h-px bg-border hidden sm:block" />
-
-        <div className="grid grid-cols-5 sm:grid-cols-10 gap-1 relative">
-          {stages.map((stage) => {
-            const isComplete = stage.status === "complete";
-            const isInProgress = stage.status === "inProgress";
-            const isLocked = stage.locked;
-            const Icon = getStageIcon(stage.iconName);
-
-            const nodeClass = isComplete
-              ? "bg-emerald-500 border-emerald-400 text-white"
-              : isInProgress
-                ? "bg-primary border-primary text-primary-foreground"
-                : isLocked
-                  ? "bg-muted/50 border-border text-muted-foreground/30"
-                  : "bg-background border-border text-muted-foreground";
-
-            const tile = (
-              <div
-                key={stage.id}
-                className={cn(
-                  "flex flex-col items-center gap-1.5 p-1",
-                  !isLocked && "cursor-pointer group",
-                )}
-              >
-                <div
-                  className={cn(
-                    "relative w-14 h-14 rounded-2xl border-2 flex items-center justify-center transition-all z-10",
-                    nodeClass,
-                    !isLocked && "group-hover:scale-105 group-hover:shadow-md",
-                    isLocked && "opacity-50",
-                  )}
-                >
-                  {isLocked ? (
-                    <Lock className="w-4 h-4" />
-                  ) : isComplete ? (
-                    <CheckCircle2 className="w-5 h-5" />
-                  ) : (
-                    <Icon className="w-5 h-5" />
-                  )}
-                  {isInProgress && !isComplete && (
-                    <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-primary border-2 border-background animate-pulse" />
-                  )}
-                </div>
-                <span
-                  className={cn(
-                    "text-[9px] sm:text-[10px] font-semibold text-center leading-tight max-w-[56px]",
-                    isComplete
-                      ? "text-emerald-700 dark:text-emerald-400"
-                      : isInProgress
-                        ? "text-primary"
-                        : isLocked
-                          ? "text-muted-foreground/40"
-                          : "text-foreground/70",
-                  )}
-                >
-                  {stage.name}
-                </span>
-              </div>
-            );
-
-            return isLocked ? (
-              <div key={stage.id}>{tile}</div>
-            ) : (
-              <Link key={stage.id} href={stage.href ?? "/path"}>
-                {tile}
-              </Link>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Legend */}
-      <div className="flex items-center gap-4 mt-3 pl-1">
-        {[
-          { label: "Complete", cls: "bg-emerald-500" },
-          { label: "Active", cls: "bg-primary" },
-          { label: "Pending", cls: "bg-border" },
-        ].map(({ label, cls }) => (
-          <span key={label} className="flex items-center gap-1 text-[10px] text-muted-foreground">
-            <span className={cn("w-2 h-2 rounded-full", cls)} />
-            {label}
-          </span>
-        ))}
-      </div>
-    </motion.div>
-  );
-}
 
 // ── Top-3 Recommended Opportunities ─────────────────────────────────────────
 interface RecommendedRole {
@@ -499,6 +347,15 @@ export default function DashboardPage() {
   const totalVacanciesFound = vacancyStatsData?.totalVacanciesFound ?? 0;
   const companiesWithVacancies = vacancyStatsData?.companiesWithVacancies ?? 0;
 
+  // ── Island journey state derived from real data ───────────────────────────
+  const islandStates = deriveIslandStates({
+    hasProfile: !!profile?.profession,
+    hasCv: docCount > 0,
+    hasEligibilityDecision: !!latestDecision,
+    hasApplications: totalApplied > 0,
+  });
+  const currentIslandStep = activeStepNumber(islandStates);
+
   function handleBoostToggle() {
     toggleBoostMutation.mutate(
       { data: { boost: !boostProfile } },
@@ -523,12 +380,12 @@ export default function DashboardPage() {
           >
             <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
             <div className="flex-1">
-              <p className="text-sm font-semibold text-amber-800">Complete your profile to get started</p>
-              <p className="text-xs text-amber-700 mt-0.5">Your eligibility, matched roles, and remediation plan need your professional details first.</p>
+              <p className="text-sm font-semibold text-amber-800">Start your UK healthcare journey</p>
+              <p className="text-xs text-amber-700 mt-0.5">Build your profile and let JOBSAGE guide you every step — from first application to your dream NHS role.</p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <Link href="/onboarding">
-                <Button size="sm" className="text-xs h-8">Set up profile <ArrowRight className="w-3 h-3 ml-1" /></Button>
+                <Button size="sm" className="text-xs h-8">Begin journey <ArrowRight className="w-3 h-3 ml-1" /></Button>
               </Link>
               <button onClick={() => setBannerDismissed(true)} className="text-amber-500 hover:text-amber-700 p-1">×</button>
             </div>
@@ -602,8 +459,30 @@ export default function DashboardPage() {
         {/* Identity verification CTA */}
         <VerificationCTABanner />
 
-        {/* Journey milestone track */}
-        <MilestoneJourneyTrack />
+        {/* ─── Island journey pathway ────────────────────────────────────── */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.18, duration: 0.4 }}
+          className="mb-6"
+        >
+          <Card className="p-5 border-primary/10">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <span className="w-6 h-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                  <TrendingUp className="w-3 h-3" />
+                </span>
+                Your UK Career Journey
+              </h2>
+              <Link href="/path">
+                <span className="text-xs text-primary font-medium hover:underline flex items-center gap-0.5">
+                  Detailed stages <ArrowRight className="w-3 h-3" />
+                </span>
+              </Link>
+            </div>
+            <JourneyIslands islands={islandStates} activeStep={currentIslandStep} />
+          </Card>
+        </motion.div>
 
         {/* ─── ZONE 2: Recommended opportunities ───────────────────────── */}
         {profile?.profession && <RecommendedOpportunitiesWidget />}
