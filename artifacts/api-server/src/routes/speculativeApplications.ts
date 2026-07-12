@@ -58,26 +58,14 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
     return;
   }
 
-  const [app] = await db
-    .insert(speculativeApplicationsTable)
-    .values({
-      userId,
-      companyName,
-      sponsorLicenceId: sponsorLicenceId ?? null,
-      status: "cv_sent",
-      notes: notes ?? null,
-      vacancyTitle: vacancyTitle ?? null,
-    })
-    .returning();
-
   const user = req.user!;
   const candidateName =
     [(user as { firstName?: string }).firstName, (user as { lastName?: string }).lastName]
       .filter(Boolean)
       .join(" ") || "there";
 
-  // Read the candidate's JOBSAGE alias from the users table — it is assigned at registration
-  // and is therefore always stable and available regardless of profile completion status.
+  // Resolve alias and CV document BEFORE insert so we can validate and fail cleanly
+  // without leaving orphan records in the database.
   const [userRow] = await db
     .select({ jobsageEmail: usersTable.jobsageEmail })
     .from(usersTable)
@@ -110,15 +98,26 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
     .orderBy(desc(documentsTable.uploadedAt));
   const cvDocument = allDocs.find((d) => d.documentType === "cv") ?? allDocs[0] ?? null;
 
-  // When a JOBSAGE alias is active, we enforce true document redaction:
-  // - PDF CVs: extract and mask personal contact info from text; send only masked text
-  // - Non-PDF CVs (image/etc): cannot be programmatically redacted → block with 422
+  // Validate BEFORE insert: non-PDF CVs cannot be redacted when alias is active.
+  // Returning 422 here does NOT create a database record, so deduplication is unaffected.
   if (jobsageEmail && cvDocument && !cvDocument.filename?.toLowerCase().endsWith(".pdf")) {
     res.status(422).json({
       error: "Your CV must be in PDF format to send a speculative application. Please upload a PDF CV and try again.",
     });
     return;
   }
+
+  const [app] = await db
+    .insert(speculativeApplicationsTable)
+    .values({
+      userId,
+      companyName,
+      sponsorLicenceId: sponsorLicenceId ?? null,
+      status: "cv_sent",
+      notes: notes ?? null,
+      vacancyTitle: vacancyTitle ?? null,
+    })
+    .returning();
 
   let cvContent: Buffer | null = null;
   let maskedCvTextExtract: string | null = null;
