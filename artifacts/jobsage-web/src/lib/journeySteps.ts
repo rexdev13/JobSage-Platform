@@ -69,17 +69,28 @@ export function deriveIslandStates(params: {
   hasEligibilityDecision: boolean;
   hasApplications: boolean;
 }): IslandState[] {
-  const { hasProfile, hasCv, hasEligibilityDecision, hasApplications } = params;
-
-  const statuses: IslandStatus[] = [
-    hasProfile ? "complete" : "active",
-    hasProfile ? (hasCv ? "complete" : "active") : "locked",
-    hasCv ? (hasEligibilityDecision ? "complete" : "active") : "locked",
-    hasEligibilityDecision ? (hasApplications ? "complete" : "active") : "locked",
-    hasApplications ? "active" : "locked",
+  const completions = [
+    params.hasProfile,
+    params.hasCv,
+    params.hasEligibilityDecision,
+    params.hasApplications,
   ];
 
-  return JOURNEY_STEPS.map((step, i) => ({ step, status: statuses[i] }));
+  // Walk forward in strict order: the active step is the first one not yet complete.
+  // Data inconsistencies (e.g. hasCv=true but hasProfile=false) are ignored —
+  // a step cannot be active/complete unless all prior steps are complete.
+  let activeIdx = completions.length; // default: all 4 done → dream island (idx 4) is active
+  for (let i = 0; i < completions.length; i++) {
+    if (!completions[i]) {
+      activeIdx = i;
+      break;
+    }
+  }
+
+  return JOURNEY_STEPS.map((step, i) => ({
+    step,
+    status: (i < activeIdx ? "complete" : i === activeIdx ? "active" : "locked") as IslandStatus,
+  }));
 }
 
 export function activeStepNumber(islands: IslandState[]): number {
