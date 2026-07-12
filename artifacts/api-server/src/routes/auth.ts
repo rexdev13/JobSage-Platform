@@ -2,8 +2,8 @@ import bcrypt from "bcryptjs";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { GetCurrentAuthUserResponse } from "@workspace/api-zod";
 import { writeAuditEvent } from "../lib/audit";
-import { db, usersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, usersTable, profilesTable } from "@workspace/db";
+import { eq, sql } from "drizzle-orm";
 import {
   clearSession,
   createSession,
@@ -16,6 +16,29 @@ import {
   type SessionData,
 } from "../lib/auth";
 import { sendVerificationEmail, sendPasswordResetEmail } from "../lib/email";
+import { generateJobsageEmail } from "../lib/jobsageEmailGen";
+
+/**
+ * Fire-and-forget: ensure any candidate who logs in gets a JOBSAGE alias assigned
+ * even if they have never visited GET /profiles/me (retroactive backfill on next login).
+ */
+async function backfillJobsageAliasOnLogin(userId: string, firstName: string | null, lastName: string | null): Promise<void> {
+  try {
+    const [profile] = await db
+      .select({ jobsageEmail: profilesTable.jobsageEmail })
+      .from(profilesTable)
+      .where(eq(profilesTable.userId, userId));
+    if (profile && !profile.jobsageEmail) {
+      const alias = generateJobsageEmail(firstName, lastName);
+      await db
+        .update(profilesTable)
+        .set({ jobsageEmail: sql`COALESCE(${profilesTable.jobsageEmail}, ${alias})` })
+        .where(eq(profilesTable.userId, userId));
+    }
+  } catch {
+    // Non-critical — alias is also assigned on next GET /profiles/me
+  }
+}
 
 const BCRYPT_ROUNDS = 12;
 
@@ -301,6 +324,11 @@ router.post("/auth/login", async (req: Request, res: Response) => {
   setSessionCookie(res, sid);
 
   writeAuditEvent(user.id, "user_login").catch(() => {});
+
+  // Retroactive backfill: ensure candidate gets a JOBSAGE alias on every login
+  if (user.role === "candidate" || user.role == null) {
+    backfillJobsageAliasOnLogin(user.id, user.firstName, user.lastName).catch(() => {});
+  }
 
   res.json({
     ...GetCurrentAuthUserResponse.parse({
