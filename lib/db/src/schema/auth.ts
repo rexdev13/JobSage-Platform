@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, index, jsonb, pgTable, timestamp, varchar } from "drizzle-orm/pg-core";
+import { boolean, index, jsonb, pgTable, text, timestamp, varchar } from "drizzle-orm/pg-core";
 
 export const sessionsTable = pgTable(
   "user_sessions",
@@ -25,6 +25,8 @@ export const usersTable = pgTable("users", {
   passwordResetToken: varchar("password_reset_token"),
   passwordResetTokenExpires: timestamp("password_reset_token_expires", { withTimezone: true }),
   suspendedAt: timestamp("suspended_at", { withTimezone: true }),
+  /** Auto-assigned JOBSAGE communication alias — assigned at registration and stable for life */
+  jobsageEmail: text("jobsage_email").unique(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

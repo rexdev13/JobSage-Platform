@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { requireAuthenticated } from "../middlewares/requireRole";
 import { db } from "@workspace/db";
-import { speculativeApplicationsTable, employerProfilesTable, documentsTable, profilesTable } from "@workspace/db";
+import { speculativeApplicationsTable, employerProfilesTable, documentsTable, profilesTable, usersTable } from "@workspace/db";
 import { eq, and, desc, ilike, sql } from "drizzle-orm";
 import { writeAuditEvent } from "../lib/audit";
 import { sendSpeculativeCVNotification, sendSpeculativeCVToOps, OPS_INBOX } from "../lib/email";
@@ -76,33 +76,30 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
       .filter(Boolean)
       .join(" ") || "there";
 
-  // Fetch the candidate's JOBSAGE email alias (used in place of personal email in ops notifications).
-  // If the alias is missing (race with backfill or profile not yet visited), generate and persist
-  // it synchronously here so we never fall back to the personal email in the outbound ops email.
-  const [candidateProfile] = await db
-    .select({ jobsageEmail: profilesTable.jobsageEmail })
-    .from(profilesTable)
-    .where(eq(profilesTable.userId, userId));
-  let jobsageEmail = candidateProfile?.jobsageEmail ?? null;
+  // Read the candidate's JOBSAGE alias from the users table — it is assigned at registration
+  // and is therefore always stable and available regardless of profile completion status.
+  const [userRow] = await db
+    .select({ jobsageEmail: usersTable.jobsageEmail })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId));
+  let jobsageEmail = userRow?.jobsageEmail ?? null;
+
+  // Defensive backfill: if somehow the alias is missing (pre-feature registration),
+  // generate and persist it synchronously before sending so personal email is NEVER exposed.
   if (!jobsageEmail) {
-    // Alias missing (no profile row yet, or backfill not yet run) — generate synchronously
-    // so personal email is NEVER exposed in the outbound ops notification.
     const generated = generateJobsageEmail(
       (user as { firstName?: string }).firstName ?? null,
       (user as { lastName?: string }).lastName ?? null,
     );
-    jobsageEmail = generated;
-    if (candidateProfile) {
-      // Profile row exists — persist the alias for future requests
-      try {
-        await db
-          .update(profilesTable)
-          .set({ jobsageEmail: sql`COALESCE(${profilesTable.jobsageEmail}, ${generated})` })
-          .where(eq(profilesTable.userId, userId));
-      } catch {
-        // Persist failure is non-critical; alias is used in-memory for this request
-      }
+    try {
+      await db
+        .update(usersTable)
+        .set({ jobsageEmail: sql`COALESCE(${usersTable.jobsageEmail}, ${generated})` })
+        .where(eq(usersTable.id, userId));
+    } catch {
+      // Persist failure is non-critical; alias is used in-memory for this request
     }
+    jobsageEmail = generated;
   }
 
   // Resolve the candidate's CV document (prefer documentType = "cv", fall back to most recent)

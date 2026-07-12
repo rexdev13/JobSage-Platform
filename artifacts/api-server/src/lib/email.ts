@@ -332,33 +332,20 @@ export async function sendSpeculativeCVToOps(opts: {
   const contactEmail = opts.jobsageEmail;
 
   // Attachment strategy:
-  // • Alias present + masked text available  → attach redacted .txt only (no raw binary)
-  // • Alias present + no masked text         → attach a safe placeholder .txt (non-PDF or parse
-  //                                            failure); raw binary NEVER sent when alias exists
-  // • No alias (legacy fallback)             → attach original binary as before
+  // • Always attach the original CV binary (ops need the full document for review)
+  // • When a masked text extract is available, also attach it as a supplementary redacted derivative
+  // The JOBSAGE alias is used exclusively for contact identity (reply-to, email body);
+  // personal email/phone NEVER appear as the sender/contact address in employer-facing comms.
   const attachments: { filename: string; content: Buffer | string }[] = [];
-  if (opts.jobsageEmail) {
-    const baseName = opts.cvFilename?.replace(/\.[^.]+$/, "") ?? "cv";
-    if (opts.maskedCvTextExtract) {
-      // Masked text available → attach redacted derivative
-      attachments.push({
-        filename: `${baseName}_redacted_contact.txt`,
-        content: opts.maskedCvTextExtract,
-      });
-    } else {
-      // Non-PDF or parse failure → safe placeholder to guarantee delivery without PII leak
-      attachments.push({
-        filename: `${baseName}_cv_notice.txt`,
-        content:
-          `CV for candidate with JOBSAGE alias: ${opts.jobsageEmail}\n\n` +
-          `The candidate's CV could not be automatically redacted (non-PDF format or parse failure).\n` +
-          `Please request the CV directly via the JOBSAGE system using the alias above.\n` +
-          `Do NOT use any personal contact details that may appear in the original file.`,
-      });
-    }
-  } else if (opts.cvContent && opts.cvFilename) {
-    // No alias → fallback to original binary
+  if (opts.cvContent && opts.cvFilename) {
     attachments.push({ filename: opts.cvFilename, content: opts.cvContent });
+  }
+  if (opts.maskedCvTextExtract && opts.cvFilename) {
+    const baseName = opts.cvFilename.replace(/\.[^.]+$/, "");
+    attachments.push({
+      filename: `${baseName}_redacted_contact.txt`,
+      content: opts.maskedCvTextExtract,
+    });
   }
 
   const cvExtractSection = opts.maskedCvTextExtract
