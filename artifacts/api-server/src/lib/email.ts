@@ -329,25 +329,29 @@ export async function sendSpeculativeCVToOps(opts: {
   /** Masked plain-text extract of the CV (personal email/phone replaced with JOBSAGE alias) */
   maskedCvTextExtract?: string | null;
 }): Promise<void> {
-  // When a JOBSAGE alias is assigned, suppress the raw binary CV attachment entirely
-  // to prevent personal PII leaking through unredacted document content.
-  // Instead, the masked plain-text extract is embedded in the email body below.
-  // Without an alias (legacy/emergency fallback), attach as before.
-  const attachments =
-    !opts.jobsageEmail && opts.cvContent && opts.cvFilename
-      ? [{ filename: opts.cvFilename, content: opts.cvContent }]
-      : [];
-
   const contactEmail = opts.jobsageEmail ?? opts.candidateEmail;
+
+  // Always attach the original CV binary so ops can process the application.
+  // When a JOBSAGE alias is present AND a masked text extract is available, also
+  // attach the redacted derivative as a .txt so ops have a contact-info-safe version.
+  const attachments: { filename: string; content: Buffer | string }[] = [];
+  if (opts.cvContent && opts.cvFilename) {
+    attachments.push({ filename: opts.cvFilename, content: opts.cvContent });
+  }
+  if (opts.jobsageEmail && opts.maskedCvTextExtract) {
+    const baseName = opts.cvFilename?.replace(/\.[^.]+$/, "") ?? "cv";
+    attachments.push({
+      filename: `${baseName}_redacted_contact.txt`,
+      content: opts.maskedCvTextExtract,
+    });
+  }
 
   const cvExtractSection = opts.maskedCvTextExtract
     ? `<tr><td colspan="2" style="padding-top:16px;">
-        <p style="font-size:13px;font-weight:600;color:#0f172a;margin:0 0 6px;">CV text extract (contact info masked)</p>
+        <p style="font-size:13px;font-weight:600;color:#0f172a;margin:0 0 6px;">CV text extract — contact info redacted (see attached <em>_redacted_contact.txt</em>)</p>
         <pre style="font-size:12px;white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px;color:#334155;margin:0;">${opts.maskedCvTextExtract.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>
       </td></tr>`
-    : opts.cvFilename
-      ? `<tr><td colspan="2" style="padding-top:8px;font-size:12px;color:#94a3b8;">(CV file: ${opts.cvFilename} — no alias assigned, raw attachment included)</td></tr>`
-      : "";
+    : "";
 
   await resend.emails.send({
     from: `JOBSAGE <${FROM}>`,
