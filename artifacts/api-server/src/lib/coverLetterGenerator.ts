@@ -16,6 +16,8 @@ export interface CoverLetterInput {
   jobDescription: string | null;
   location: string | null;
   regulator: string | null;
+  /** JOBSAGE communication alias — used as the contact address in the letter instead of a personal email */
+  jobsageEmail?: string | null;
 }
 
 export interface CoverLetterResult {
@@ -43,9 +45,14 @@ Return ONLY the cover letter text (no JSON, no markdown fences). Begin with "Dea
     ? `\n\nJob description:\n${input.jobDescription.slice(0, 1500)}`
     : "";
 
+  const contactLine = input.jobsageEmail
+    ? `Contact email: ${input.jobsageEmail}`
+    : "";
+
   const userPrompt = `Write a cover letter for the following:
 
 Candidate: ${input.candidateName}
+${contactLine}
 Profession: ${input.profession.replace(/_/g, " ")}
 Specialty: ${input.specialty ?? "General"}
 Experience: ${input.experienceYears} years

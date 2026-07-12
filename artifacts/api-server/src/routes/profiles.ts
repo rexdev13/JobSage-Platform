@@ -53,7 +53,7 @@ router.get("/professions", requireAuthenticated, async (_req: Request, res: Resp
 });
 
 router.get("/profiles/me", requireAuthenticated, requireConsent, async (req: Request, res: Response): Promise<void> => {
-  const [profile] = await db
+  let [profile] = await db
     .select()
     .from(profilesTable)
     .where(eq(profilesTable.userId, req.user!.id));
@@ -61,6 +61,26 @@ router.get("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
   if (!profile) {
     res.status(404).json({ error: "Profile not found" });
     return;
+  }
+
+  // Backfill: assign a JOBSAGE email alias if the profile doesn't have one yet.
+  // This handles existing candidates who have never triggered PUT /profiles/me since the alias column was added.
+  if (!profile.jobsageEmail) {
+    const [userRow] = await db
+      .select({ firstName: usersTable.firstName, lastName: usersTable.lastName })
+      .from(usersTable)
+      .where(eq(usersTable.id, req.user!.id));
+    const newAlias = generateJobsageEmail(userRow?.firstName, userRow?.lastName);
+    try {
+      const [updated] = await db
+        .update(profilesTable)
+        .set({ jobsageEmail: newAlias })
+        .where(eq(profilesTable.userId, req.user!.id))
+        .returning();
+      if (updated) profile = updated;
+    } catch {
+      // Collision is vanishingly rare — serve without alias this request; it will retry next time
+    }
   }
 
   res.json(GetMyProfileResponse.parse({ ...profile, completionPct: computeCompletionPct(profile) }));

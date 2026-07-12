@@ -5,6 +5,7 @@ import { eq, and } from "drizzle-orm";
 import { generateCoverLetter } from "../lib/coverLetterGenerator";
 import { ObjectStorageService } from "../lib/objectStorage";
 import { openai } from "@workspace/integrations-openai-ai-server";
+import { maskPersonalContactInfo } from "../lib/jobsageEmailGen";
 
 const router: IRouter = Router();
 const objectStorage = new ObjectStorageService();
@@ -67,6 +68,10 @@ router.post("/cover-letter/generate", requireAuthenticated, async (req, res): Pr
       .filter(Boolean)
       .join(" ") || user.email || "Candidate";
 
+  // Mask personal contact info in the parsed CV text before it reaches the AI prompt
+  const jobsageEmail = profile.jobsageEmail ?? null;
+  const maskedCvText = cvText && jobsageEmail ? maskPersonalContactInfo(cvText, jobsageEmail) : cvText;
+
   try {
     const result = await generateCoverLetter({
       candidateName,
@@ -75,12 +80,13 @@ router.post("/cover-letter/generate", requireAuthenticated, async (req, res): Pr
       experienceYears: profile.experienceYears,
       qualificationCountry: profile.qualificationCountry,
       registrationStatus: profile.registrationStatus,
-      cvText,
+      cvText: maskedCvText,
       jobTitle,
       employer,
       jobDescription: jobDescription ?? null,
       location: location ?? null,
       regulator: regulator ?? null,
+      jobsageEmail,
     });
 
     res.json(result);
@@ -140,6 +146,12 @@ router.post("/cover-letter/generate-stream", requireAuthenticated, async (req, r
       .filter(Boolean)
       .join(" ") || user.email || "Candidate";
 
+  // Mask personal contact info in the parsed CV text before it reaches the AI prompt
+  const jobsageEmailStream = profile.jobsageEmail ?? null;
+  const maskedCvTextStream = cvText && jobsageEmailStream ? maskPersonalContactInfo(cvText, jobsageEmailStream) : cvText;
+
+  const contactLine = jobsageEmailStream ? `Contact email: ${jobsageEmailStream}` : "";
+
   const systemPrompt = `You are an expert UK healthcare career consultant helping international professionals write compelling cover letters for NHS and private healthcare positions.
 
 Write formal, concise, and professional UK-style cover letters (350–500 words). Structure:
@@ -151,12 +163,13 @@ Write formal, concise, and professional UK-style cover letters (350–500 words)
 
 Return ONLY the cover letter text (no JSON, no markdown fences). Begin with "Dear Hiring Manager," and end with "Yours sincerely,\n[Candidate Name]".`;
 
-  const cvSection = cvText ? `\n\nCandidate CV extract:\n${cvText.slice(0, 3000)}` : "";
+  const cvSection = maskedCvTextStream ? `\n\nCandidate CV extract:\n${maskedCvTextStream.slice(0, 3000)}` : "";
   const jobSection = jobDescription ? `\n\nJob description:\n${jobDescription.slice(0, 1500)}` : "";
 
   const userPrompt = `Write a cover letter for the following:
 
 Candidate: ${candidateName}
+${contactLine}
 Profession: ${profile.profession.replace(/_/g, " ")}
 Specialty: ${profile.specialty ?? "General"}
 Experience: ${profile.experienceYears} years
