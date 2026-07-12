@@ -3599,6 +3599,21 @@ components:
           items:
             type: string
           description: Specific gaps preventing eligibility for this role
+        recommended:
+          type: boolean
+          description: True for the top-5 highest-matching roles — should be highlighted as "Apply First"
+        contactEmail:
+          type: string
+          nullable: true
+          description: Company contact email from employer profile, where available
+        contactPhone:
+          type: string
+          nullable: true
+          description: Company contact phone from employer profile, where available
+        contactWebsite:
+          type: string
+          nullable: true
+          description: Company website URL from employer profile, where available
 
     MatchedRoleList:
       type: object
@@ -3623,6 +3638,9 @@ components:
           items:
             type: integer
           description: Role IDs the user has already applied to
+        noProfile:
+          type: boolean
+          description: True when the candidate has no profile — show upload nudge instead of roles
 
     ApplicationStatus:
       type: string
