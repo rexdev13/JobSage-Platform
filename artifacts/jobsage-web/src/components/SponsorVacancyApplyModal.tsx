@@ -176,12 +176,28 @@ export function SponsorVacancyApplyModal({
           // If no next matches, notify parent after a short delay
           setTimeout(() => { onSuccess(); }, 1500);
         },
-        onError: () => {
-          toast({
-            title: "Error",
-            description: "Could not submit application. Please try again.",
-            variant: "destructive",
-          });
+        onError: (err: unknown) => {
+          const status = (err as { response?: { status?: number }; status?: number })?.response?.status
+            ?? (err as { status?: number })?.status;
+          if (status === 400) {
+            toast({
+              title: "Profile incomplete",
+              description: "Please visit your Profile page to set up your JOBSAGE email alias before sending a CV.",
+              variant: "destructive",
+            });
+          } else if (status === 422) {
+            toast({
+              title: "PDF required",
+              description: "Your CV must be in PDF format to send a speculative application. Please upload a PDF CV.",
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "Error",
+              description: "Could not submit application. Please try again.",
+              variant: "destructive",
+            });
+          }
           setStep("details");
         },
       },
