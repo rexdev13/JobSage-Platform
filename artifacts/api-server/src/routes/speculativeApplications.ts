@@ -2,11 +2,11 @@ import { Router, type IRouter } from "express";
 import { requireAuthenticated } from "../middlewares/requireRole";
 import { db } from "@workspace/db";
 import { speculativeApplicationsTable, employerProfilesTable, documentsTable, profilesTable } from "@workspace/db";
-import { eq, and, desc, ilike } from "drizzle-orm";
+import { eq, and, desc, ilike, sql } from "drizzle-orm";
 import { writeAuditEvent } from "../lib/audit";
 import { sendSpeculativeCVNotification, sendSpeculativeCVToOps, OPS_INBOX } from "../lib/email";
 import { ObjectStorageService } from "../lib/objectStorage";
-import { maskPersonalContactInfo } from "../lib/jobsageEmailGen";
+import { maskPersonalContactInfo, generateJobsageEmail } from "../lib/jobsageEmailGen";
 
 const router: IRouter = Router();
 
@@ -76,12 +76,31 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
       .filter(Boolean)
       .join(" ") || "there";
 
-  // Fetch the candidate's JOBSAGE email alias (used in place of personal email in ops notifications)
+  // Fetch the candidate's JOBSAGE email alias (used in place of personal email in ops notifications).
+  // If the alias is missing (race with backfill or profile not yet visited), generate and persist
+  // it synchronously here so we never fall back to the personal email in the outbound ops email.
   const [candidateProfile] = await db
     .select({ jobsageEmail: profilesTable.jobsageEmail })
     .from(profilesTable)
     .where(eq(profilesTable.userId, userId));
-  const jobsageEmail = candidateProfile?.jobsageEmail ?? null;
+  let jobsageEmail = candidateProfile?.jobsageEmail ?? null;
+  if (!jobsageEmail && candidateProfile) {
+    // Profile exists but alias not yet assigned — generate and persist now (synchronous)
+    const generated = generateJobsageEmail(
+      (user as { firstName?: string }).firstName ?? null,
+      (user as { lastName?: string }).lastName ?? null,
+    );
+    try {
+      await db
+        .update(profilesTable)
+        .set({ jobsageEmail: sql`COALESCE(${profilesTable.jobsageEmail}, ${generated})` })
+        .where(eq(profilesTable.userId, userId));
+      jobsageEmail = generated;
+    } catch {
+      // Persist failure — we still use the generated alias in-memory for this request
+      jobsageEmail = generated;
+    }
+  }
 
   // Resolve the candidate's CV document (prefer documentType = "cv", fall back to most recent)
   const allDocs = await db
