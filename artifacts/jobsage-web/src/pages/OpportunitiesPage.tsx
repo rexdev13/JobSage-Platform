@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, Button, PageTransition } from "@/components/ui-enhanced";
+import { MarkWebsiteApplicationModal } from "@/components/MarkWebsiteApplicationModal";
 import {
   useListMatchedRoles,
   useListMyApplications,
@@ -591,6 +592,7 @@ function RoleCard({
   onSmartApply,
   onViewDetail,
   onCoverLetter,
+  onMarkWebsite,
 }: {
   item: MatchedRole;
   appliedRoleIds: number[];
@@ -598,6 +600,7 @@ function RoleCard({
   onSmartApply: (roleId: number, roleTitle: string) => void;
   onViewDetail: (item: MatchedRole) => void;
   onCoverLetter: (role: MatchedRole["role"]) => void;
+  onMarkWebsite?: (employer: string) => void;
 }) {
   const [, setLocation] = useLocation();
   const { role, isEligible, matchScore, eligibilityGaps, sponsorshipFeasibility } = item;
@@ -691,6 +694,17 @@ function RoleCard({
           >
             <FileText className="w-3 h-3" /> Cover Letter
           </Button>
+          {onMarkWebsite && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-xs h-8 gap-1 text-blue-600"
+              onClick={(e) => { e.stopPropagation(); onMarkWebsite(role.employer); }}
+              title="Log an application you submitted on this employer's own website"
+            >
+              <Globe className="w-3 h-3" /> Mark applied
+            </Button>
+          )}
           {isEligible && !applied && (
             <Button
               size="sm"
@@ -891,6 +905,8 @@ export default function OpportunitiesPage() {
   const [employerSearch, setEmployerSearch] = useState(() => new URLSearchParams(window.location.search).get("q") ?? "");
   const [smartApplyRole, setSmartApplyRole] = useState<{ id: number; title: string } | null>(null);
   const [coverLetterRole, setCoverLetterRole] = useState<MatchedRole["role"] | null>(null);
+  const [websiteAppModal, setWebsiteAppModal] = useState<{ companyName: string } | null>(null);
+  const [websiteAppPending, setWebsiteAppPending] = useState(false);
 
   const queryClient = useQueryClient();
   const { data, isLoading, isError } = useListMatchedRoles();
@@ -988,6 +1004,26 @@ export default function OpportunitiesPage() {
         },
       },
     );
+  }
+
+  async function handleWebsiteAppSubmit({ companyName, applicationUrl, notes }: { companyName: string; applicationUrl: string; notes: string }) {
+    setWebsiteAppPending(true);
+    try {
+      const res = await fetch(`${base}/api/applications`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ applicationType: "website", companyName, applicationUrl: applicationUrl || null, notes: notes || null }),
+      });
+      if (!res.ok) throw new Error("Failed to submit");
+      void queryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
+      setWebsiteAppModal(null);
+      toast({ title: "Application logged", description: `Your application to ${companyName} has been saved to your tracker.` });
+    } catch {
+      toast({ title: "Error", description: "Could not save application. Please try again.", variant: "destructive" });
+    } finally {
+      setWebsiteAppPending(false);
+    }
   }
 
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
@@ -1124,6 +1160,7 @@ export default function OpportunitiesPage() {
                             onSmartApply={handleSmartApply}
                             onViewDetail={setSelectedRole}
                             onCoverLetter={setCoverLetterRole}
+                            onMarkWebsite={(employer) => setWebsiteAppModal({ companyName: employer })}
                           />
                         </motion.div>
                       ))}
@@ -1168,6 +1205,7 @@ export default function OpportunitiesPage() {
                             onSmartApply={handleSmartApply}
                             onViewDetail={setSelectedRole}
                             onCoverLetter={setCoverLetterRole}
+                            onMarkWebsite={(employer) => setWebsiteAppModal({ companyName: employer })}
                           />
                         </motion.div>
                       ))}
@@ -1289,6 +1327,15 @@ export default function OpportunitiesPage() {
           />
         )}
       </AnimatePresence>
+
+      {websiteAppModal && (
+        <MarkWebsiteApplicationModal
+          companyName={websiteAppModal.companyName}
+          onSubmit={(data) => void handleWebsiteAppSubmit(data)}
+          onClose={() => setWebsiteAppModal(null)}
+          isPending={websiteAppPending}
+        />
+      )}
     </AppLayout>
   );
 }

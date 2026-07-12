@@ -266,4 +266,38 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
   res.status(201).json({ application: app, alreadySent: false });
 });
 
+router.patch("/speculative-applications/:id/status", requireAuthenticated, async (req, res): Promise<void> => {
+  const userId = req.user!.id;
+  const id = parseInt(String(req.params.id), 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid application ID" });
+    return;
+  }
+
+  const { status } = req.body as { status?: string };
+  const validStatuses = ["cv_sent", "sent", "acknowledged", "no_account", "under_review", "interview_invited", "offer", "rejected"];
+  if (!status || !validStatuses.includes(status)) {
+    res.status(400).json({ error: `status must be one of: ${validStatuses.join(", ")}` });
+    return;
+  }
+
+  const [existing] = await db
+    .select()
+    .from(speculativeApplicationsTable)
+    .where(and(eq(speculativeApplicationsTable.id, id), eq(speculativeApplicationsTable.userId, userId)));
+
+  if (!existing) {
+    res.status(404).json({ error: "Speculative application not found" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(speculativeApplicationsTable)
+    .set({ status: status as typeof existing.status })
+    .where(eq(speculativeApplicationsTable.id, id))
+    .returning();
+
+  res.json(updated);
+});
+
 export default router;
