@@ -1,0 +1,695 @@
+Below is a structured instruction you can paste directly into Replit. It tells Replit to inspect the existing platform first and implement only the outstanding requirements from the review document. 
+
+## JobSage Platform Updates — Implement Outstanding Items Only
+
+Please review the current JobSage codebase, database, frontend, backend, integrations and existing features before making any changes.
+
+### Important implementation rule
+
+Do not rebuild, duplicate or replace functionality that has already been completed.
+
+For every requirement below:
+
+1. Check whether the feature already exists.
+2. Test whether it works correctly from end to end.
+3. If it has already been completed and works properly, leave it unchanged.
+4. If it exists but is incomplete or not functioning correctly, fix and complete it.
+5. If it has not been implemented, build it.
+6. Ensure all updates use the existing JobSage design system, database structure and authentication system.
+7. Do not remove or break any existing working features.
+8. Record the status of each requirement as:
+
+   * Already completed
+   * Completed during this update
+   * Partially completed
+   * Requires external integration or credentials
+   * Unable to complete, with the reason clearly stated
+
+---
+
+# 1. CV Sent Confirmation and Follow-Up Tracking
+
+Whenever a candidate sends a CV:
+
+* Save the recipient company, recipient email address, vacancy, date, time and application method.
+* Display a confirmation notification inside the candidate’s JobSage inbox.
+* Clearly confirm that the CV was successfully sent and identify who received it.
+* Add the activity to Tracked Applications.
+* Allow the candidate to follow up later.
+* Include a follow-up status, follow-up reminder and last-contact date.
+* Do not create duplicate application records when the user clicks more than once.
+
+---
+
+# 2. JobSage AI Assistant
+
+The JobSage AI assistant must be available throughout the candidate journey.
+
+## General AI assistant
+
+* Provide a floating AI assistant that is accessible throughout the platform.
+* The assistant must securely use the candidate’s:
+
+  * Profile information
+  * CVs
+  * Qualifications
+  * Employment history
+  * Skills
+  * Uploaded documents
+  * Registration details
+  * Visa information
+  * Previous applications
+  * Career objectives
+
+## Application assistance
+
+When the candidate is completing an application:
+
+* The AI should suggest answers for application fields.
+* It should use the candidate’s verified profile and documents.
+* It must not invent qualifications, experience, registration or achievements.
+* It should generate context-appropriate answers based on the vacancy.
+* The candidate must review and approve every answer before submission.
+* Show a disclaimer explaining that AI-generated answers must be checked by the candidate.
+
+Where direct integration with an external company application form is technically or legally unavailable, provide a JobSage application-assistant interface that allows the candidate to copy, review or securely transfer suggested answers.
+
+Do not attempt to bypass external website security, CAPTCHA, authentication or anti-bot controls.
+
+---
+
+# 3. Accurate Document and CV Parsing
+
+All uploaded documents must be accurately parsed before being used for matching or applications.
+
+The parser must:
+
+* Identify the document type.
+* Extract qualifications accurately.
+* Extract institutions, dates and grades where available.
+* Extract employment roles, organisations and employment dates.
+* Differentiate academic qualifications from professional licences.
+* Differentiate job titles from educational titles.
+* Avoid incorrectly classifying a PhD holder as a medical doctor.
+* Store extracted data in structured fields.
+* show the candidate the extracted information for confirmation.
+* Allow the candidate to correct inaccurate information.
+* Store confidence scores and flag uncertain extractions for review.
+* Prevent unverified or low-confidence information from being presented as fact.
+
+---
+
+# 4. Check All Vacancies
+
+On the Sponsor Licence Companies page:
+
+* Place a button at the top of the page called **Check All Vacancies**.
+* Position it beside the Bookmarked control where appropriate.
+* When clicked, check vacancies for all companies within the selected sector.
+* Refresh the vacancy data.
+* Display the last checked date and time.
+* Display progress while the vacancy check is running.
+* Prevent multiple refresh jobs from running at the same time.
+* Display the total number of vacancies at the top of the page.
+* Display each company’s vacancy count beneath or beside the company information.
+* Make the vacancy count clickable so users can open the company’s vacancies.
+
+The platform should also run an automatic daily vacancy refresh in the background.
+
+Use compliant vacancy sources, authorised APIs, permitted feeds and company career pages. Do not scrape websites where scraping is prohibited.
+
+---
+
+# 5. Vacancy Fit Percentage
+
+Each vacancy should display a candidate-specific percentage showing how well the candidate matches the role.
+
+* Replace any old company-level Check Vacancies control that is no longer required with a fit percentage or best-fit action.
+* Rank vacancies from the highest fit percentage to the lowest.
+* Show the best-fitting role first.
+* Use a score from 0% to 100%.
+* The score should consider:
+
+  * Relevant experience
+  * Skills
+  * Qualifications
+  * Professional registration
+  * Location
+  * Visa and sponsorship requirements
+  * Seniority
+  * Sector
+  * Required certifications
+  * Essential job criteria
+  * Desirable job criteria
+
+The fit score must not be presented as a guarantee of employment or eligibility.
+
+For each score, show:
+
+* Overall match percentage
+* Matching criteria
+* Missing criteria
+* Important risks
+* Recommended next steps
+* Whether the role is ready to apply for now
+
+Do not allow missing optional criteria to unfairly reduce the candidate’s score.
+
+---
+
+# 6. Send CV and Apply with JobSage
+
+The Send CV function should work consistently with Apply with JobSage.
+
+When a candidate selects Send CV:
+
+* Generate a professional vacancy-specific cover letter.
+* Select or generate the correct CV for that vacancy.
+* Allow the candidate to review and edit the CV and cover letter.
+* Require final candidate approval before sending.
+* Send the email from the candidate’s JobSage-managed email identity, not their personal email.
+* Store the sent email and application record.
+* Confirm successful delivery in the candidate’s JobSage inbox.
+* Add the application to Tracked Applications.
+* Record whether it was a vacancy application or a speculative CV submission.
+
+Do not send applications automatically without the candidate’s approval.
+
+---
+
+# 7. Applications on Company Websites
+
+Candidates should be able to open and apply on company career websites.
+
+When the candidate clicks Apply on Company Website:
+
+* Create a pending tracked-application record.
+* Record the company, vacancy, date and destination URL.
+* Ask the candidate to confirm after completing the external application.
+* Allow the candidate to mark the application as:
+
+  * Started
+  * Submitted
+  * Not completed
+  * Failed
+* Store the confirmed application under Tracked Applications.
+
+Do not rely only on cookies, as browser privacy restrictions may block or delete them.
+
+Use authenticated JobSage tracking, secure session events, callback URLs, browser-extension integration or candidate confirmation where appropriate.
+
+Any employer reply received through the candidate’s JobSage email should be connected to the correct tracked application.
+
+---
+
+# 8. Sponsor Company Contact Details
+
+Every sponsor company record should display, where available:
+
+* Company name
+* Website
+* Telephone number
+* Email address
+* Registered or operating address
+* Sector
+* Sponsor licence information
+* Number of current vacancies
+* Last vacancy refresh date
+
+Clearly mark information that is unavailable or unverified.
+
+Do not invent missing company contact details.
+
+---
+
+# 9. JobSage Email for Every Candidate
+
+Each candidate should receive a unique JobSage communication identity when their account is created.
+
+Requirements:
+
+* Generate a unique JobSage email address or email alias.
+* Associate it securely with the candidate’s account.
+* Use it for applications and employer communication.
+* Route incoming employer messages to the candidate’s JobSage inbox.
+* Notify the candidate when a new message arrives.
+* Protect the candidate’s personal email address.
+* Prevent one candidate from accessing another candidate’s communication.
+* Add spam filtering, security monitoring and audit logs.
+
+If full mailbox creation is not currently available, implement secure email aliases or routing as the first phase.
+
+---
+
+# 10. Tracked Applications
+
+All applications must appear under Tracked Applications, including:
+
+* Apply with JobSage
+* Send CV
+* Speculative CV
+* Company website applications
+* Manually added applications
+
+Each record should display:
+
+* Vacancy title
+* Company
+* CV version used
+* Cover letter used
+* Application date
+* Application source
+* Current status
+* Last activity
+* Employer reply
+* Interview status
+* Follow-up date
+* Notes
+
+Suggested statuses:
+
+* Draft
+* Started
+* Submitted
+* Delivered
+* Viewed, where reliably available
+* Employer responded
+* Interview invited
+* Interview scheduled
+* Interview completed
+* Rejected
+* Offer received
+* Withdrawn
+* No response
+
+All status changes must synchronise across the dashboard, Job Opportunities, inbox and Tracked Applications.
+
+---
+
+# 11. Mask Personal Contact Details
+
+CVs sent through JobSage must not expose the candidate’s personal email address or personal telephone number unless the candidate deliberately chooses to include them.
+
+Before sending:
+
+* Detect personal contact details in the CV.
+* Replace the personal email with the candidate’s JobSage email.
+* Replace or remove the personal telephone number based on the candidate’s privacy settings.
+* Show the candidate the final version before sending.
+* Preserve the candidate’s original private CV.
+* Save the employer-facing version as a separate application CV.
+
+---
+
+# 12. Interview Tracking
+
+When an interview invitation is received through the JobSage inbox:
+
+* Identify the related company and vacancy.
+* Link the message to the correct tracked application.
+* Update the application status to Interview Invited.
+* Extract the proposed date, time, location and meeting link where possible.
+* Ask the candidate to confirm extracted information.
+* Add the interview to the dashboard interview metric.
+* Allow the candidate to record:
+
+  * Interview accepted
+  * Interview declined
+  * Reschedule requested
+  * Interview scheduled
+  * Interview completed
+* Automatically refresh the dashboard when the interview status changes.
+
+Use email parsing and application identifiers rather than depending only on cookies.
+
+---
+
+# 13. Job Opportunities Page
+
+Remove the eligibility filter from the main Job Opportunities vacancy list, unless it is currently needed elsewhere as a separate optional filter.
+
+The default vacancy order should be:
+
+1. Highest fit percentage
+2. Most recently published
+3. Nearest application deadline
+
+Each vacancy listing should include:
+
+* Job title
+* Company name
+* Fit percentage
+* Location
+* Salary, where available
+* Sponsorship information
+* Application deadline
+* Company website
+* Company email
+* Company telephone number
+* Vacancy source
+* Last verified date
+* Apply with JobSage action
+* Apply on Company Website action
+* Save or bookmark action
+
+Clearly separate job-fit scoring from regulatory eligibility.
+
+---
+
+# 14. Recommended Application Order
+
+The platform should actively recommend which vacancies the candidate should apply for first.
+
+Create sections such as:
+
+* Top 5 Recommended Roles
+* Next 5 Recommended Roles
+* Other Matching Opportunities
+* Development Opportunities
+
+The recommendation should consider:
+
+* Fit score
+* Application deadline
+* Sponsorship likelihood
+* Candidate eligibility
+* Candidate career goals
+* Location preference
+* Salary preference
+* Employer response history
+* Required application effort
+* Missing requirements
+* Vacancy recency
+
+Explain why each role is recommended.
+
+---
+
+# 15. Separate Eligibility Feature
+
+Eligibility must remain separate from vacancy fit.
+
+Create or maintain an Eligibility section that assesses:
+
+* Professional registration
+* Regulatory requirements
+* Right-to-work status
+* Visa requirements
+* Sponsorship requirements
+* Qualification recognition
+* Required examinations
+* Required memberships
+* Country-specific relocation requirements
+
+Examples may include:
+
+* PLAB and GMC pathways for doctors
+* OSCE and NMC pathways for nurses
+* QTS or relevant teaching requirements
+* Academic qualification and professional-development expectations
+
+Eligibility rules must use official and current regulatory or government sources.
+
+Every eligibility result should show:
+
+* Eligible
+* Not Yet Eligible
+* Ineligible
+* Unknown or Requires Review
+
+Also show:
+
+* Reason for the result
+* Missing requirements
+* Recommended actions
+* Source used
+* Date the rule was last reviewed
+* Whether human review is recommended
+
+Do not hard-code professional requirements without an auditable rule-management system.
+
+---
+
+# 16. Candidate Journey and Progress Visualisation
+
+Make the candidate journey more concise, engaging and action-oriented.
+
+Create clearly numbered stages such as:
+
+1. Create Profile
+2. Upload and Verify Documents
+3. Complete Eligibility Assessment
+4. Build or Improve CV
+5. Discover Matching Vacancies
+6. Apply
+7. Track Responses
+8. Prepare for Interviews
+9. Secure the Right Role
+10. Continue Career Development
+
+Requirements:
+
+* Show the candidate’s current stage.
+* Show completed and incomplete stages.
+* Make every incomplete stage clickable.
+* From the dashboard, allow candidates to go directly to the next required action.
+* Include visual progress indicators.
+* Use an engaging journey design, such as milestones, islands, a pathway or progress map.
+* End with a strong goal visual representing the candidate reaching their desired role.
+* Keep accessibility, mobile responsiveness and performance in mind.
+* Do not make the interface childish or difficult to navigate.
+
+---
+
+# 17. Platform-Wide Synchronisation
+
+All sections must use the same underlying data and remain synchronised.
+
+For example, when a candidate applies for a vacancy:
+
+* Update the vacancy listing.
+* Update the dashboard.
+* Update Tracked Applications.
+* Update application counts.
+* Update the company’s activity.
+* Update the candidate’s inbox where applicable.
+* Prevent the same vacancy from appearing as not applied elsewhere.
+
+Use a single source of truth for:
+
+* Candidates
+* CVs
+* Vacancies
+* Companies
+* Applications
+* Messages
+* Interviews
+* Eligibility records
+* Fit scores
+* Documents
+
+Use database transactions, event processing or reliable job queues to prevent inconsistent data.
+
+---
+
+# 18. Multiple CV Management
+
+Candidates may have several areas of expertise and may need different CVs.
+
+Create or improve the CV-management system so candidates can:
+
+* Store multiple CV versions.
+* Give each CV a clear name.
+* Assign a profession, sector or role type.
+* Mark one CV as the default.
+* See which CV was used for each application.
+* Generate a job-specific CV without overwriting the original.
+* Compare CV versions.
+* Archive outdated CVs.
+* Prevent accidental use of the wrong CV.
+* Display the associated JobSage email on employer-facing CVs.
+
+Each tracked application must permanently record the exact CV version that was submitted.
+
+---
+
+# 19. Professional UK-Standard CV Generation
+
+Improve the generated CV design and content so it resembles a professional UK CV.
+
+The generated CV should normally include:
+
+* Candidate name
+* JobSage email
+* Professional profile
+* Key skills
+* Employment history
+* Education
+* Professional qualifications
+* Registrations
+* Certifications
+* Relevant achievements
+* Publications or research, where appropriate
+* Technical or clinical competencies, where appropriate
+* References available on request, where appropriate
+
+Requirements:
+
+* Use a clean, professional UK layout.
+* Use consistent spacing, headings and typography.
+* Avoid decorative graphics that interfere with applicant-tracking systems.
+* Do not include unnecessary personal details.
+* Tailor the content to the vacancy without inventing experience.
+* Keep an audit trail of what the AI changed.
+* Allow the candidate to review and edit the CV.
+* Generate an employer-facing PDF and an editable version where supported.
+
+---
+
+# 20. AI Advice After Applications
+
+The JobSage AI assistant should provide personalised next-step advice based on application outcomes.
+
+Examples:
+
+* Recommend following up after an appropriate period.
+* Suggest improving a CV where several applications receive no response.
+* Recommend interview preparation when an invitation is received.
+* Identify recurring missing skills.
+* Recommend suitable training or qualifications.
+* Suggest alternative vacancies.
+* Explain patterns across applications.
+* Recommend updating a profile or document.
+* Identify whether the candidate is applying for roles that are too senior, too junior or poorly matched.
+
+The advice must use the candidate’s actual application data and must not claim certainty where the evidence is limited.
+
+---
+
+# 21. Career Development Platform Positioning
+
+JobSage must be presented as more than a job-search platform.
+
+Update relevant messaging and product areas to show that JobSage supports:
+
+* Job discovery
+* Application management
+* Career-document storage
+* CV development
+* Eligibility progression
+* Professional registration
+* Skills development
+* Interview preparation
+* Career progression
+* Promotion planning
+* Long-term career records
+* Professional-profile sharing
+
+Allow candidates to continue using their profile after securing employment.
+
+Create a long-term career profile where candidates can add:
+
+* New roles
+* Promotions
+* Qualifications
+* Certifications
+* Professional memberships
+* Training
+* Achievements
+* Publications
+* Projects
+* References
+* Updated CVs
+
+Provide a secure profile-sharing function suitable for platforms such as LinkedIn, while allowing candidates to control what information is public.
+
+---
+
+# Technical Requirements
+
+## Background jobs
+
+Use reliable scheduled background jobs for:
+
+* Daily vacancy refreshes
+* Fit-score recalculation
+* Email processing
+* Application-status updates
+* Interview detection
+* Stale-data checks
+
+Each job should have:
+
+* Retry handling
+* Failure logging
+* Last-run status
+* Duplicate prevention
+* Admin visibility
+
+## Admin controls
+
+The super-admin area should provide:
+
+* Vacancy-refresh status
+* Failed integrations
+* Parsing errors
+* Email-delivery status
+* Candidate application activity
+* Matching-score errors
+* Company records missing contact details
+* Manual reprocessing controls
+* Audit logs
+
+## Privacy and security
+
+* Encrypt sensitive information.
+* Use role-based access control.
+* Protect candidate documents.
+* Store candidate consent.
+* Maintain audit logs.
+* Do not expose personal contact information.
+* Do not permit one user to access another user’s records.
+* Follow applicable UK GDPR and data-protection requirements.
+* Do not send an application without explicit candidate approval.
+
+## Testing
+
+Test all updates across:
+
+* Desktop
+* Tablet
+* Mobile
+* Candidate accounts
+* Admin accounts
+* New accounts
+* Existing accounts
+* Accounts with one CV
+* Accounts with multiple CVs
+* Accounts with incomplete documents
+* Accounts with existing tracked applications
+
+Add automated tests for the most critical workflows.
+
+---
+
+# Completion Report Required
+
+After implementation, provide a clear completion report containing:
+
+| Requirement | Existing Before Update | Action Taken | Current Status | Testing Result | Outstanding Dependency |
+| ----------- | ---------------------- | ------------ | -------------- | -------------- | ---------------------- |
+
+Also include:
+
+* Database changes made
+* New environment variables required
+* APIs or third-party services required
+* Scheduled jobs created
+* Features that require credentials
+* Known limitations
+* Security considerations
+* Any requirements deliberately not changed because they were already completed
+
+Do not mark a feature as complete merely because the interface exists. It should only be considered complete when the frontend, backend, database and relevant integrations work together correctly.
+
+This version is designed to prevent Replit from duplicating completed work while requiring it to test and complete any partially implemented features.
