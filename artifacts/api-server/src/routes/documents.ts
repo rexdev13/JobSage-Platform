@@ -165,6 +165,47 @@ router.post("/documents/:id/parse-cv", requireAuthenticated, async (req: Request
   }
 });
 
+router.patch("/documents/:id/label", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
+  const id = parseInt(String(req.params.id), 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid document ID" });
+    return;
+  }
+
+  const { label, isPrimary } = req.body as { label?: string | null; isPrimary?: boolean };
+  const userId = req.user!.id;
+
+  const [existing] = await db
+    .select()
+    .from(documentsTable)
+    .where(and(eq(documentsTable.id, id), eq(documentsTable.userId, userId)));
+
+  if (!existing) {
+    res.status(404).json({ error: "Document not found" });
+    return;
+  }
+
+  // When marking as primary, unset all other documents for this user first
+  if (isPrimary === true) {
+    await db
+      .update(documentsTable)
+      .set({ isPrimary: false })
+      .where(eq(documentsTable.userId, userId));
+  }
+
+  const updates: { label?: string | null; isPrimary?: boolean } = {};
+  if (label !== undefined) updates.label = label ?? null;
+  if (isPrimary !== undefined) updates.isPrimary = isPrimary;
+
+  const [updated] = await db
+    .update(documentsTable)
+    .set(updates)
+    .where(and(eq(documentsTable.id, id), eq(documentsTable.userId, userId)))
+    .returning();
+
+  res.json(updated);
+});
+
 router.patch("/documents/:id/type", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
   const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) {

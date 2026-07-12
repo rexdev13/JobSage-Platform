@@ -27,6 +27,8 @@ import {
   User,
   Tag,
   ChevronDown,
+  Pencil,
+  Star,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -259,6 +261,82 @@ function CvParseDialog({
   );
 }
 
+function LabelEditor({
+  docId,
+  currentLabel,
+  onSaved,
+}: {
+  docId: number;
+  currentLabel: string | null | undefined;
+  onSaved: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(currentLabel ?? "");
+  const [saving, setSaving] = useState(false);
+  const { toast } = useToast();
+  const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+  async function save() {
+    setSaving(true);
+    try {
+      await fetch(`${base}/api/documents/${docId}/label`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: value.trim() || null }),
+      });
+      onSaved();
+      setEditing(false);
+    } catch {
+      toast({ title: "Failed to save label", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1.5 mt-1">
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") void save();
+            if (e.key === "Escape") setEditing(false);
+          }}
+          autoFocus
+          maxLength={60}
+          placeholder="e.g. Clinical CV"
+          className="flex-1 text-xs rounded-lg border border-border bg-muted/40 px-2 py-1 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+        />
+        <button
+          onClick={() => void save()}
+          disabled={saving}
+          className="p-1 rounded text-emerald-600 hover:bg-emerald-50"
+        >
+          {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+        </button>
+        <button onClick={() => setEditing(false)} className="p-1 rounded text-muted-foreground hover:bg-muted">
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => { setValue(currentLabel ?? ""); setEditing(true); }}
+      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mt-1 group"
+    >
+      <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+      <span className={currentLabel ? "font-medium text-foreground" : "italic"}>
+        {currentLabel ?? "Add a label…"}
+      </span>
+    </button>
+  );
+}
+
 export default function DocumentsPage() {
   const { data } = useListMyDocuments();
   const { data: profile } = useGetMyProfile();
@@ -269,11 +347,13 @@ export default function DocumentsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
   const [parsingDocId, setParsingDocId] = useState<number | null>(null);
   const [parsedExtracted, setParsedExtracted] = useState<CvExtractedFields | null>(null);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [updatingTypeId, setUpdatingTypeId] = useState<number | null>(null);
+  const [settingPrimaryId, setSettingPrimaryId] = useState<number | null>(null);
   const [showParseBanner, setShowParseBanner] = useState(false);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -321,7 +401,7 @@ export default function DocumentsPage() {
   const handleSetType = async (id: number, documentType: string) => {
     setUpdatingTypeId(id);
     try {
-      await fetch(`/api/documents/${id}/type`, {
+      await fetch(`${base}/api/documents/${id}/type`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -332,6 +412,24 @@ export default function DocumentsPage() {
       toast({ title: "Failed to update category", variant: "destructive" });
     } finally {
       setUpdatingTypeId(null);
+    }
+  };
+
+  const handleSetPrimary = async (id: number) => {
+    setSettingPrimaryId(id);
+    try {
+      await fetch(`${base}/api/documents/${id}/label`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isPrimary: true }),
+      });
+      queryClient.invalidateQueries({ queryKey: getListMyDocumentsQueryKey() });
+      toast({ title: "Primary CV updated", description: "This CV will be used by default when sending applications." });
+    } catch {
+      toast({ title: "Failed to set primary CV", variant: "destructive" });
+    } finally {
+      setSettingPrimaryId(null);
     }
   };
 
@@ -378,7 +476,7 @@ export default function DocumentsPage() {
 
   const grouped: Record<string, typeof documents> = {};
   for (const doc of documents) {
-    const key = doc.documentType ?? "uncategorised";
+    const key = (doc as { documentType?: string | null }).documentType ?? "uncategorised";
     if (!grouped[key]) grouped[key] = [];
     grouped[key].push(doc);
   }
@@ -387,6 +485,8 @@ export default function DocumentsPage() {
     ...CATEGORY_ORDER.filter((k) => grouped[k]),
     ...(grouped["uncategorised"] ? ["uncategorised"] : []),
   ];
+
+  const cvDocs = documents.filter((d) => (d as { documentType?: string | null }).documentType === "cv");
 
   return (
     <AppLayout>
@@ -510,6 +610,7 @@ export default function DocumentsPage() {
               const colorClass = category !== "uncategorised"
                 ? TYPE_COLORS[category as DocType] ?? TYPE_COLORS.other
                 : "bg-muted text-muted-foreground border-border";
+              const isCvCategory = category === "cv";
 
               return (
                 <div key={category}>
@@ -519,22 +620,36 @@ export default function DocumentsPage() {
                       {categoryLabel}
                     </span>
                     <span className="text-xs text-muted-foreground">{docs.length} document{docs.length !== 1 ? "s" : ""}</span>
+                    {isCvCategory && docs.length > 1 && (
+                      <span className="text-xs text-muted-foreground italic">Label your CVs and mark one as primary for faster applications</span>
+                    )}
                     <div className="flex-1 h-px bg-border" />
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {docs.map((doc) => {
+                      const docWithExtras = doc as typeof doc & { documentType?: string | null; label?: string | null; isPrimary?: boolean };
                       const isPdf = doc.mimeType === "application/pdf";
                       const isImg = doc.mimeType.startsWith("image/");
                       const canParse = isPdf || isImg;
                       const isParsing = parsingDocId === doc.id;
                       const isUpdatingType = updatingTypeId === doc.id;
+                      const isSettingPrimary = settingPrimaryId === doc.id;
+                      const isPrimaryDoc = docWithExtras.isPrimary === true;
+                      const isCvDoc = docWithExtras.documentType === "cv";
 
                       return (
-                        <Card key={doc.id} className="p-5 flex flex-col group hover:shadow-md transition-all">
+                        <Card key={doc.id} className={`p-5 flex flex-col group hover:shadow-md transition-all ${isPrimaryDoc ? "border-primary/40 ring-1 ring-primary/20" : ""}`}>
                           <div className="flex items-start justify-between mb-3">
-                            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary shrink-0">
-                              <FileText className="w-5 h-5" />
+                            <div className="relative">
+                              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary shrink-0">
+                                <FileText className="w-5 h-5" />
+                              </div>
+                              {isPrimaryDoc && (
+                                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-amber-400 rounded-full flex items-center justify-center">
+                                  <Star className="w-2.5 h-2.5 text-white fill-white" />
+                                </span>
+                              )}
                             </div>
                             <Button
                               variant="ghost"
@@ -547,16 +662,46 @@ export default function DocumentsPage() {
                           </div>
 
                           <h4
-                            className="font-semibold text-foreground truncate mb-2"
+                            className="font-semibold text-foreground truncate mb-0.5"
                             title={doc.filename}
                           >
                             {doc.filename}
                           </h4>
 
+                          {isCvDoc && (
+                            <LabelEditor
+                              docId={doc.id}
+                              currentLabel={docWithExtras.label}
+                              onSaved={() => queryClient.invalidateQueries({ queryKey: getListMyDocumentsQueryKey() })}
+                            />
+                          )}
+
+                          {isCvDoc && cvDocs.length > 1 && !isPrimaryDoc && (
+                            <button
+                              onClick={() => void handleSetPrimary(doc.id)}
+                              disabled={isSettingPrimary}
+                              className="mt-2 flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 transition-colors disabled:opacity-50"
+                            >
+                              {isSettingPrimary ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Star className="w-3 h-3" />
+                              )}
+                              Set as primary CV
+                            </button>
+                          )}
+
+                          {isPrimaryDoc && (
+                            <span className="mt-1.5 inline-flex items-center gap-1 text-xs text-amber-700 font-medium">
+                              <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                              Primary CV
+                            </span>
+                          )}
+
                           {/* Category selector */}
-                          <div className="relative mb-3">
+                          <div className="relative mt-3 mb-3">
                             <select
-                              value={doc.documentType ?? ""}
+                              value={docWithExtras.documentType ?? ""}
                               onChange={(e) => void handleSetType(doc.id, e.target.value || "other")}
                               disabled={isUpdatingType}
                               className="w-full appearance-none text-xs rounded-lg border border-border bg-muted/40 px-3 py-1.5 pr-7 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-60 cursor-pointer"

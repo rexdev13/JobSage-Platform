@@ -3197,7 +3197,7 @@ components:
 
     Document:
       type: object
-      required: [id, userId, filename, mimeType, storageKey, disclaimerText, uploadedAt]
+      required: [id, userId, filename, mimeType, storageKey, disclaimerText, uploadedAt, isPrimary]
       properties:
         id:
           type: integer
@@ -3212,6 +3212,14 @@ components:
         fileSize:
           type: integer
           nullable: true
+        documentType:
+          type: string
+          nullable: true
+        label:
+          type: string
+          nullable: true
+        isPrimary:
+          type: boolean
         disclaimerText:
           type: string
         uploadedAt:
@@ -5096,8 +5104,14 @@ components:
         sponsorLicenceId:
           type: integer
           nullable: true
+        vacancyTitle:
+          type: string
+          nullable: true
         notes:
           type: string
+          nullable: true
+        cvDocumentId:
+          type: integer
           nullable: true
 
     SpeculativeApplicationResult:

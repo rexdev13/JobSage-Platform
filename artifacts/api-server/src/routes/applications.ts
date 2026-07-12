@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, jobListingsTable, rolesTable, candidateMessagesTable } from "@workspace/db";
+import { db, jobListingsTable, rolesTable, candidateMessagesTable, documentsTable } from "@workspace/db";
 import { applicationsTable, speculativeApplicationsTable } from "@workspace/db";
 import { eq, and, inArray, desc, or } from "drizzle-orm";
 import { requireAuthenticated } from "../middlewares/requireRole";
@@ -71,6 +71,19 @@ router.get("/applications", requireAuthenticated, async (req: Request, res: Resp
       emailRecipient: null as string | null,
     }));
 
+  // Fetch labels for CVs used in speculative applications
+  const cvDocumentIds = speculativeApps.map((s) => s.cvDocumentId).filter((id): id is number => id !== null && id !== undefined);
+  const cvLabelMap: Record<number, string> = {};
+  if (cvDocumentIds.length > 0) {
+    const cvDocs = await db
+      .select({ id: documentsTable.id, label: documentsTable.label, filename: documentsTable.filename })
+      .from(documentsTable)
+      .where(inArray(documentsTable.id, cvDocumentIds));
+    for (const doc of cvDocs) {
+      cvLabelMap[doc.id] = doc.label ?? doc.filename;
+    }
+  }
+
   const enrichedSpeculative = speculativeApps.map((s) => ({
     id: s.id * -1,
     userId: s.userId,
@@ -90,6 +103,7 @@ router.get("/applications", requireAuthenticated, async (req: Request, res: Resp
     vacancyTitle: s.vacancyTitle ?? null,
     emailSentAt: s.emailSentAt?.toISOString() ?? null,
     emailRecipient: s.emailRecipient ?? null,
+    cvLabel: s.cvDocumentId ? (cvLabelMap[s.cvDocumentId] ?? null) : null,
   }));
 
   const merged = [...enrichedPlatform, ...enrichedWebsite, ...enrichedSpeculative].sort(

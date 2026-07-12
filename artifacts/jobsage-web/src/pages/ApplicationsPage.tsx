@@ -23,6 +23,7 @@ import {
   CalendarDays,
   ChevronDown,
   ExternalLink,
+  FileText,
 } from "lucide-react";
 import { format } from "date-fns";
 import { getListMyApplicationsQueryKey } from "@workspace/api-client-react";
@@ -112,6 +113,7 @@ type EnrichedApplication = {
   vacancyTitle?: string | null;
   emailSentAt?: string | null;
   emailRecipient?: string | null;
+  cvLabel?: string | null;
 };
 
 type CategoryTab = "all" | "platform" | "speculative" | "website";
@@ -279,6 +281,13 @@ function ApplicationCard({ application, onStatusUpdated }: { application: Enrich
           <div className="flex items-center gap-1.5 text-xs text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-lg px-3 py-2">
             <Send className="w-3 h-3 shrink-0" />
             <span>Sent via <span className="font-mono font-medium">{application.jobsageEmail}</span></span>
+          </div>
+        )}
+
+        {isSpeculative && application.cvLabel && (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/40 border border-border rounded-lg px-3 py-2">
+            <FileText className="w-3 h-3 shrink-0 text-primary" />
+            <span>CV sent: <span className="font-medium text-foreground">{application.cvLabel}</span></span>
           </div>
         )}
 

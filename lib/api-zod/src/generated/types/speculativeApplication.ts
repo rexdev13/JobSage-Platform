@@ -14,8 +14,5 @@ export interface SpeculativeApplication {
   sponsorLicenceId?: number | null;
   status: SpeculativeApplicationStatus;
   notes?: string | null;
-  jobsageEmail?: string | null;
-  vacancyTitle?: string | null;
-  emailSentAt?: string | null;
   createdAt: Date;
 }
