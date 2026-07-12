@@ -185,12 +185,18 @@ router.patch("/documents/:id/label", requireAuthenticated, async (req: Request, 
     return;
   }
 
-  // When marking as primary, unset all other documents for this user first
+  // isPrimary can only be set on CV documents
+  if (isPrimary === true && existing.documentType !== "cv") {
+    res.status(400).json({ error: "Only CV documents can be marked as primary." });
+    return;
+  }
+
+  // When marking as primary, unset all other CV documents for this user first
   if (isPrimary === true) {
     await db
       .update(documentsTable)
       .set({ isPrimary: false })
-      .where(eq(documentsTable.userId, userId));
+      .where(and(eq(documentsTable.userId, userId), eq(documentsTable.documentType, "cv")));
   }
 
   const updates: { label?: string | null; isPrimary?: boolean } = {};

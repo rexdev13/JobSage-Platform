@@ -86,7 +86,20 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
     .from(documentsTable)
     .where(eq(documentsTable.userId, userId))
     .orderBy(desc(documentsTable.uploadedAt));
-  let cvDocument = allDocs.find((d) => cvDocumentId ? d.id === cvDocumentId : d.isPrimary) ?? allDocs.find((d) => d.documentType === "cv") ?? allDocs[0] ?? null;
+  // Only consider documentType="cv" documents for CV resolution
+  const cvDocs = allDocs.filter((d) => d.documentType === "cv");
+  let cvDocument: (typeof cvDocs)[0] | null = null;
+  if (cvDocumentId) {
+    // Explicit pick: must be a CV document owned by this user
+    cvDocument = cvDocs.find((d) => d.id === cvDocumentId) ?? null;
+    if (!cvDocument) {
+      res.status(400).json({ error: "Selected CV document not found or is not a CV. Please choose a valid CV and try again." });
+      return;
+    }
+  } else {
+    // Fallback order: primary CV → first CV → none
+    cvDocument = cvDocs.find((d) => d.isPrimary) ?? cvDocs[0] ?? null;
+  }
 
   // Validate BEFORE insert: non-PDF CVs cannot be redacted when alias is active.
   // Returning 422 here does NOT create a database record, so deduplication is unaffected.
