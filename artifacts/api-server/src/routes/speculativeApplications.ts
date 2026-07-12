@@ -1,12 +1,14 @@
 import { Router, type IRouter } from "express";
 import { requireAuthenticated } from "../middlewares/requireRole";
 import { db } from "@workspace/db";
-import { speculativeApplicationsTable, employerProfilesTable, documentsTable, profilesTable, usersTable } from "@workspace/db";
+import { speculativeApplicationsTable, employerProfilesTable, documentsTable, usersTable, candidateMessagesTable } from "@workspace/db";
 import { eq, and, desc, ilike, sql } from "drizzle-orm";
 import { writeAuditEvent } from "../lib/audit";
 import { sendSpeculativeCVNotification, sendSpeculativeCVToOps, OPS_INBOX } from "../lib/email";
 import { ObjectStorageService } from "../lib/objectStorage";
 import { maskPersonalContactInfo, generateJobsageEmail } from "../lib/jobsageEmailGen";
+
+const APP_URL = process.env.APP_URL ?? "https://jobsage.co.uk";
 
 const router: IRouter = Router();
 
@@ -173,7 +175,7 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
     console.error("[speculative] Failed to send CV emails:", err);
   }
 
-  // Persist delivery metadata on the record
+  // Persist delivery metadata on the record (including the JOBSAGE alias used)
   await db
     .update(speculativeApplicationsTable)
     .set({
@@ -181,8 +183,31 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
       emailSent: emailDelivered,
       emailSentAt: emailDelivered ? now : null,
       emailRecipient: OPS_INBOX,
+      jobsageEmail,
     })
     .where(eq(speculativeApplicationsTable.id, app!.id));
+
+  // Create inbox notification so the candidate can see the send confirmation in their Messages tab
+  try {
+    await db.insert(candidateMessagesTable).values({
+      recipientUserId: userId,
+      messageType: "system",
+      subject: "Speculative CV sent",
+      messageText: [
+        `Your CV has been submitted to ${companyName}${vacancyTitle ? ` for the role "${vacancyTitle}"` : ""}.`,
+        ``,
+        `Contact identity used: ${jobsageEmail}`,
+        `Sent at: ${now.toUTCString()}`,
+        ``,
+        `The JOBSAGE team will follow up with ${companyName} on your behalf where a direct contact is available.`,
+        ``,
+        `Track this application: ${APP_URL}/applications`,
+      ].join("\n"),
+    });
+  } catch (msgErr) {
+    // Inbox notification is best-effort — main response must not fail
+    console.error("[speculative] Could not create inbox notification:", msgErr);
+  }
 
   // Employer notification / admin follow-up logging
   try {
