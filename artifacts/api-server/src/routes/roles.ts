@@ -170,10 +170,18 @@ router.get("/roles", async (req, res): Promise<void> => {
       active: true,
       importedAt: row.job.createdAt,
       importedBy: `employer:${row.emp.id}`,
+      contactEmail: row.emp.contactEmail ?? null,
+      contactPhone: row.emp.contactPhone ?? null,
+      contactWebsite: row.emp.contactWebsite ?? null,
     }));
 
   const regulatorRoles = [
-    ...allRoles.filter((role) => role.regulator === regulator),
+    ...allRoles.filter((role) => role.regulator === regulator).map((r) => ({
+      ...r,
+      contactEmail: null as string | null,
+      contactPhone: null as string | null,
+      contactWebsite: null as string | null,
+    })),
     ...employerJobsAsRoles,
   ];
 
@@ -254,6 +262,9 @@ router.get("/roles", async (req, res): Promise<void> => {
       isEligible,
       matchScore: computeMatchScore(role, isEligible, profile.requiresSponsorship),
       eligibilityGaps,
+      contactEmail: role.contactEmail ?? null,
+      contactPhone: role.contactPhone ?? null,
+      contactWebsite: role.contactWebsite ?? null,
     };
   });
 

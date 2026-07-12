@@ -9,6 +9,9 @@ export const employerProfilesTable = pgTable("employer_profiles", {
   }).notNull(),
   sponsorLicenceNumber: text("sponsor_licence_number"),
   region: text("region").notNull(),
+  contactEmail: text("contact_email"),
+  contactPhone: text("contact_phone"),
+  contactWebsite: text("contact_website"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

@@ -607,9 +607,10 @@ function RoleCard({
   recommended?: boolean;
 }) {
   const [, setLocation] = useLocation();
-  const { role, isEligible, matchScore, eligibilityGaps, sponsorshipFeasibility } = item;
+  const { role, isEligible, matchScore, eligibilityGaps, sponsorshipFeasibility, contactEmail, contactPhone, contactWebsite } = item;
   const [expanded, setExpanded] = useState(false);
   const applied = appliedRoleIds.includes(role.id);
+  const hasContactDetails = !!(contactEmail || contactPhone || contactWebsite);
 
   return (
     <Card
@@ -673,22 +674,52 @@ function RoleCard({
       {/* Company contact row */}
       <div className="mt-3 flex items-center gap-3 flex-wrap" onClick={(e) => e.stopPropagation()}>
         <span className="text-xs text-muted-foreground font-medium">Contact:</span>
-        <a
-          href={`https://www.linkedin.com/search/results/companies/?keywords=${encodeURIComponent(role.employer)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-xs text-[#0077B5] hover:underline"
-        >
-          <Linkedin className="w-3 h-3" /> LinkedIn
-        </a>
-        <a
-          href={`https://www.google.com/search?q=${encodeURIComponent(role.employer + " NHS jobs apply contact")}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground hover:underline"
-        >
-          <Globe className="w-3 h-3" /> Website
-        </a>
+        {contactEmail && (
+          <a
+            href={`mailto:${contactEmail}`}
+            className="inline-flex items-center gap-1 text-xs text-foreground hover:text-primary hover:underline"
+          >
+            <Globe className="w-3 h-3" /> {contactEmail}
+          </a>
+        )}
+        {contactPhone && (
+          <a
+            href={`tel:${contactPhone}`}
+            className="inline-flex items-center gap-1 text-xs text-foreground hover:text-primary hover:underline"
+          >
+            <Globe className="w-3 h-3" /> {contactPhone}
+          </a>
+        )}
+        {contactWebsite && (
+          <a
+            href={contactWebsite.startsWith("http") ? contactWebsite : `https://${contactWebsite}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-foreground hover:text-primary hover:underline"
+          >
+            <Globe className="w-3 h-3" /> Website
+          </a>
+        )}
+        {!hasContactDetails && (
+          <>
+            <a
+              href={`https://www.linkedin.com/search/results/companies/?keywords=${encodeURIComponent(role.employer)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-[#0077B5] hover:underline"
+            >
+              <Linkedin className="w-3 h-3" /> LinkedIn
+            </a>
+            <a
+              href={`https://www.google.com/search?q=${encodeURIComponent(role.employer + " NHS jobs apply contact")}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground hover:underline"
+            >
+              <Globe className="w-3 h-3" /> Web
+            </a>
+          </>
+        )}
       </div>
 
       {eligibilityGaps && eligibilityGaps.length > 0 && (
