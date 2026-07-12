@@ -88,6 +88,30 @@ export function AIChatSlideover() {
     setMessages((prev) => [...prev, userMsg, assistantMsg]);
     setStreaming(true);
 
+    // ── Next-steps fast path: structured recommendations ─────────────────────
+    if (/what\s+(should|shall)\s+i\s+do\s+next|what'?s?\s+(my\s+)?next\s+step/i.test(trimmed)) {
+      try {
+        const resp = await fetch(`${base}/api/ai/next-steps`, { credentials: "include" });
+        if (resp.ok) {
+          const data = await resp.json() as {
+            steps: Array<{ priority: number; title: string; description: string; action: string; href: string }>;
+          };
+          const steps = data.steps ?? [];
+          if (steps.length > 0) {
+            const content = `Here are your personalised next steps:\n\n${steps
+              .map((s, i) => `${i + 1}. **${s.title}**\n${s.description}`)
+              .join("\n\n")}`;
+            setMessages((prev) =>
+              prev.map((m, i) => i === prev.length - 1 ? { ...m, content, streaming: false } : m)
+            );
+            setDisclaimer("AI-generated based on your current profile. Always verify regulatory requirements directly with GMC, NMC, or HCPC.");
+            setStreaming(false);
+            return;
+          }
+        }
+      } catch { /* fall through to regular chat */ }
+    }
+
     const history = messages
       .filter((m) => !m.streaming)
       .slice(-8)

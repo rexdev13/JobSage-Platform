@@ -10,6 +10,8 @@ import {
   applicationsTable,
   speculativeApplicationsTable,
   documentsTable,
+  candidateMatchScoresTable,
+  rolesTable,
 } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { prioritiseRemediationSteps } from "../lib/aiPrioritiser";
@@ -251,6 +253,18 @@ router.get("/ai/next-steps", requireAuthenticated, async (req, res): Promise<voi
     .from(documentsTable)
     .where(eq(documentsTable.userId, userId));
 
+  const topMatches = await db
+    .select({
+      roleTitle: rolesTable.title,
+      employer: rolesTable.employer,
+      score: candidateMatchScoresTable.score,
+    })
+    .from(candidateMatchScoresTable)
+    .innerJoin(rolesTable, eq(candidateMatchScoresTable.roleId, rolesTable.id))
+    .where(eq(candidateMatchScoresTable.userId, userId))
+    .orderBy(desc(candidateMatchScoresTable.score))
+    .limit(3);
+
   const interviewCount = applications.filter(
     (a) => a.status === "interview" || a.status === "interview_invited",
   ).length;
@@ -266,6 +280,14 @@ router.get("/ai/next-steps", requireAuthenticated, async (req, res): Promise<voi
     ? `Eligibility: ${latestDecision.outcome} — ${latestDecision.explanationText?.slice(0, 200) ?? ""}`
     : "Eligibility check not yet run.";
   const identityContext = `Identity verification: ${identityRecord?.status ?? "not submitted"}`;
+
+  const hasCv = docs.some((d) => d.documentType === "cv");
+  const docsContext = `Documents uploaded: ${docs.length} total.${hasCv ? " Has a CV uploaded." : " No CV uploaded yet."}`;
+
+  const matchContext =
+    topMatches.length > 0
+      ? `Top role matches: ${topMatches.map((m) => `${m.roleTitle} at ${m.employer} (${m.score}% match)`).join(", ")}.`
+      : "No match scores computed yet.";
 
   const systemPrompt = `You are an expert advisor for international healthcare professionals seeking to work in the UK.
 Generate 3 to 5 ranked next-step recommendations for this candidate.
@@ -290,7 +312,7 @@ Rules:
 - Always include at least one application-related step if they have no applications yet.
 - Prefer /eligibility if not assessed, /profile if incomplete, /documents if no CV uploaded.`;
 
-  const userContext = `${profileContext}\n${appContext}\n${eligibilityContext}\n${identityContext}`;
+  const userContext = `${profileContext}\n${appContext}\n${eligibilityContext}\n${identityContext}\n${docsContext}\n${matchContext}`;
 
   try {
     const response = await openai.chat.completions.create({
