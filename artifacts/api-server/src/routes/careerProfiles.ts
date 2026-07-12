@@ -4,7 +4,7 @@ import { db, careerProfilesTable, profilesTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { requireConsent } from "../middlewares/consentMiddleware";
 import { openai } from "@workspace/integrations-openai-ai-server";
-import { maskPersonalContactInfo } from "../lib/jobsageEmailGen";
+import { maskPersonalContactInfo, resolveJobsageAlias } from "../lib/jobsageEmailGen";
 
 const router: IRouter = Router();
 
@@ -18,6 +18,9 @@ async function generateCvBackground(profileId: number, userId: string): Promise<
     ]);
     if (!careerProfile) return;
 
+    // Resolve JOBSAGE alias via centralized resolver (users table first → profiles fallback)
+    const resolvedAlias = await resolveJobsageAlias(userId);
+
     const profileContext = baseProfile
       ? [
           `Profession: ${baseProfile.profession}`,
@@ -27,7 +30,7 @@ async function generateCvBackground(profileId: number, userId: string): Promise<
           `Registration Status: ${baseProfile.registrationStatus}`,
           `Languages: ${(baseProfile.languages ?? []).join(", ") || "Not specified"}`,
           baseProfile.additionalNotes ? `Notes: ${baseProfile.additionalNotes}` : "",
-          baseProfile.jobsageEmail ? `JOBSAGE Contact Email: ${baseProfile.jobsageEmail}` : "",
+          resolvedAlias ? `JOBSAGE Contact Email: ${resolvedAlias}` : "",
         ].filter(Boolean).join("\n")
       : "No base profile found.";
 
@@ -59,8 +62,8 @@ async function generateCvBackground(profileId: number, userId: string): Promise<
 
     let aiCvContent = completion.choices[0]?.message?.content?.trim() ?? "";
     // Post-process: mask any personal contact info that slipped through the AI output
-    if (baseProfile?.jobsageEmail && aiCvContent) {
-      aiCvContent = maskPersonalContactInfo(aiCvContent, baseProfile.jobsageEmail);
+    if (resolvedAlias && aiCvContent) {
+      aiCvContent = maskPersonalContactInfo(aiCvContent, resolvedAlias);
     }
     await db.update(careerProfilesTable).set({ aiCvContent }).where(eq(careerProfilesTable.id, profileId));
   } catch (err) {

@@ -4,6 +4,29 @@
  * their personal email when CVs and cover letters are sent to employers.
  */
 
+import { db, usersTable, profilesTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
+
+/**
+ * Centralized alias resolver: reads the JOBSAGE alias for a given userId.
+ * Checks users.jobsageEmail first (assigned at registration), then profiles.jobsageEmail
+ * as a fallback (for accounts created before the users-table column was added).
+ * Returns null if no alias is found on either table.
+ */
+export async function resolveJobsageAlias(userId: string): Promise<string | null> {
+  const [userRow] = await db
+    .select({ jobsageEmail: usersTable.jobsageEmail })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId));
+  if (userRow?.jobsageEmail) return userRow.jobsageEmail;
+
+  const [profileRow] = await db
+    .select({ jobsageEmail: profilesTable.jobsageEmail })
+    .from(profilesTable)
+    .where(eq(profilesTable.userId, userId));
+  return profileRow?.jobsageEmail ?? null;
+}
+
 const JOBSAGE_MAIL_DOMAIN = "mail.jobsage.app";
 
 function slugify(str: string): string {

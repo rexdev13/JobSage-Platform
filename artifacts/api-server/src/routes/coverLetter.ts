@@ -5,7 +5,7 @@ import { eq, and } from "drizzle-orm";
 import { generateCoverLetter } from "../lib/coverLetterGenerator";
 import { ObjectStorageService } from "../lib/objectStorage";
 import { openai } from "@workspace/integrations-openai-ai-server";
-import { maskPersonalContactInfo } from "../lib/jobsageEmailGen";
+import { maskPersonalContactInfo, resolveJobsageAlias } from "../lib/jobsageEmailGen";
 
 const router: IRouter = Router();
 const objectStorage = new ObjectStorageService();
@@ -68,8 +68,9 @@ router.post("/cover-letter/generate", requireAuthenticated, async (req, res): Pr
       .filter(Boolean)
       .join(" ") || "Candidate";
 
-  // Mask personal contact info in the parsed CV text before it reaches the AI prompt
-  const jobsageEmail = profile.jobsageEmail ?? null;
+  // Resolve JOBSAGE alias via centralized resolver (checks users table first, then profiles)
+  // so legacy accounts that haven't hit /profiles/me yet still get masking applied.
+  const jobsageEmail = await resolveJobsageAlias(userId);
   const maskedCvText = cvText && jobsageEmail ? maskPersonalContactInfo(cvText, jobsageEmail) : cvText;
 
   try {
@@ -146,8 +147,8 @@ router.post("/cover-letter/generate-stream", requireAuthenticated, async (req, r
       .filter(Boolean)
       .join(" ") || "Candidate";
 
-  // Mask personal contact info in the parsed CV text before it reaches the AI prompt
-  const jobsageEmailStream = profile.jobsageEmail ?? null;
+  // Resolve JOBSAGE alias via centralized resolver (checks users table first, then profiles)
+  const jobsageEmailStream = await resolveJobsageAlias(userId);
   const maskedCvTextStream = cvText && jobsageEmailStream ? maskPersonalContactInfo(cvText, jobsageEmailStream) : cvText;
 
   const contactLine = jobsageEmailStream ? `Contact email: ${jobsageEmailStream}` : "";
