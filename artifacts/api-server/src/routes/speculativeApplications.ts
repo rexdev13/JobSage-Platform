@@ -110,7 +110,16 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
     .orderBy(desc(documentsTable.uploadedAt));
   const cvDocument = allDocs.find((d) => d.documentType === "cv") ?? allDocs[0] ?? null;
 
-  // Fetch CV file bytes from object storage for email attachment (best-effort)
+  // When a JOBSAGE alias is active, we enforce true document redaction:
+  // - PDF CVs: extract and mask personal contact info from text; send only masked text
+  // - Non-PDF CVs (image/etc): cannot be programmatically redacted → block with 422
+  if (jobsageEmail && cvDocument && !cvDocument.filename?.toLowerCase().endsWith(".pdf")) {
+    res.status(422).json({
+      error: "Your CV must be in PDF format to send a speculative application. Please upload a PDF CV and try again.",
+    });
+    return;
+  }
+
   let cvContent: Buffer | null = null;
   let maskedCvTextExtract: string | null = null;
   if (cvDocument?.storageKey) {
@@ -120,15 +129,15 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
       const [downloaded] = await gcsFile.download();
       cvContent = downloaded as Buffer;
 
-      // Attempt to extract and mask text from the CV (PDF only) so personal contact
-      // info in the document body is replaced with the JOBSAGE alias before ops see it.
+      // For PDF CVs with alias: extract text and mask personal contact info.
+      // The masked text becomes the sole transmitted document content.
       if (cvDocument.filename?.toLowerCase().endsWith(".pdf") && jobsageEmail) {
         try {
           const pdfParse = (await import("pdf-parse")).default;
           const parsed = await pdfParse(cvContent);
           maskedCvTextExtract = maskPersonalContactInfo(parsed.text.slice(0, 5000), jobsageEmail);
         } catch {
-          // Best-effort — proceed without the text extract
+          // Parse failure — proceed; email.ts will attach safe placeholder
         }
       }
     } catch (err: unknown) {

@@ -63,21 +63,26 @@ router.get("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
     return;
   }
 
-  // Backfill: assign a JOBSAGE email alias if the profile doesn't have one yet.
-  // This handles existing candidates who have never triggered PUT /profiles/me since the alias column was added.
+  // Backfill: mirror the JOBSAGE alias from users table → profiles table so there is
+  // exactly ONE stable alias per candidate (assigned at registration on users, reflected here).
   if (!profile.jobsageEmail) {
     const [userRow] = await db
-      .select({ firstName: usersTable.firstName, lastName: usersTable.lastName })
+      .select({ jobsageEmail: usersTable.jobsageEmail, firstName: usersTable.firstName, lastName: usersTable.lastName })
       .from(usersTable)
       .where(eq(usersTable.id, req.user!.id));
-    const newAlias = generateJobsageEmail(userRow?.firstName, userRow?.lastName);
+    // Use the users-table alias if it exists; otherwise generate one and write back to both tables
+    const alias = userRow?.jobsageEmail ?? generateJobsageEmail(userRow?.firstName, userRow?.lastName);
     try {
       const [updated] = await db
         .update(profilesTable)
-        .set({ jobsageEmail: newAlias })
+        .set({ jobsageEmail: alias })
         .where(eq(profilesTable.userId, req.user!.id))
         .returning();
       if (updated) profile = updated;
+      // Also ensure users table has the same alias (in case this is a legacy pre-registration-feature account)
+      if (!userRow?.jobsageEmail) {
+        await db.update(usersTable).set({ jobsageEmail: alias }).where(eq(usersTable.id, req.user!.id));
+      }
     } catch {
       // Collision is vanishingly rare — serve without alias this request; it will retry next time
     }
@@ -104,11 +109,13 @@ router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
 
   let jobsageEmail = existing?.jobsageEmail ?? null;
   if (!jobsageEmail) {
+    // Prefer the alias already assigned on the users table (set at registration) so a
+    // candidate always gets exactly ONE stable alias — no independent re-randomisation.
     const [userRow] = await db
-      .select({ firstName: usersTable.firstName, lastName: usersTable.lastName })
+      .select({ jobsageEmail: usersTable.jobsageEmail, firstName: usersTable.firstName, lastName: usersTable.lastName })
       .from(usersTable)
       .where(eq(usersTable.id, req.user!.id));
-    jobsageEmail = generateJobsageEmail(userRow?.firstName, userRow?.lastName);
+    jobsageEmail = userRow?.jobsageEmail ?? generateJobsageEmail(userRow?.firstName, userRow?.lastName);
   }
 
   const values = {
