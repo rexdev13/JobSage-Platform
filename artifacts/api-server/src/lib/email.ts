@@ -331,21 +331,31 @@ export async function sendSpeculativeCVToOps(opts: {
 }): Promise<void> {
   const contactEmail = opts.jobsageEmail;
 
-  // Attachment strategy:
-  // • Always attach the original CV binary (ops need the full document for review)
-  // • When a masked text extract is available, also attach it as a supplementary redacted derivative
-  // The JOBSAGE alias is used exclusively for contact identity (reply-to, email body);
-  // personal email/phone NEVER appear as the sender/contact address in employer-facing comms.
+  // Attachment strategy (true document redaction):
+  // • When alias is present: personal email/phone in the document MUST be masked before ops see it.
+  //   - masked text extract available → attach as the sole CV document (no raw binary)
+  //   - no extract (parse failure)    → attach safe placeholder notice (no raw binary)
+  // • No alias (legacy path): attach original binary as before.
   const attachments: { filename: string; content: Buffer | string }[] = [];
-  if (opts.cvContent && opts.cvFilename) {
+  const baseName = opts.cvFilename?.replace(/\.[^.]+$/, "") ?? "cv";
+  if (opts.jobsageEmail) {
+    if (opts.maskedCvTextExtract) {
+      attachments.push({
+        filename: `${baseName}_redacted_contact.txt`,
+        content: opts.maskedCvTextExtract,
+      });
+    } else {
+      attachments.push({
+        filename: `${baseName}_cv_notice.txt`,
+        content:
+          `CV for candidate with JOBSAGE alias: ${opts.jobsageEmail}\n\n` +
+          `Automatic text extraction was not available for this document.\n` +
+          `Please request the CV via the JOBSAGE system using the alias above.\n` +
+          `Do NOT contact the candidate using any personal details.`,
+      });
+    }
+  } else if (opts.cvContent && opts.cvFilename) {
     attachments.push({ filename: opts.cvFilename, content: opts.cvContent });
-  }
-  if (opts.maskedCvTextExtract && opts.cvFilename) {
-    const baseName = opts.cvFilename.replace(/\.[^.]+$/, "");
-    attachments.push({
-      filename: `${baseName}_redacted_contact.txt`,
-      content: opts.maskedCvTextExtract,
-    });
   }
 
   const cvExtractSection = opts.maskedCvTextExtract
