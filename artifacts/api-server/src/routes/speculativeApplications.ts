@@ -1,12 +1,12 @@
 import { Router, type IRouter } from "express";
 import { requireAuthenticated } from "../middlewares/requireRole";
 import { db } from "@workspace/db";
-import { speculativeApplicationsTable, employerProfilesTable, documentsTable, usersTable, candidateMessagesTable } from "@workspace/db";
-import { eq, and, desc, ilike, sql } from "drizzle-orm";
+import { speculativeApplicationsTable, employerProfilesTable, documentsTable, candidateMessagesTable } from "@workspace/db";
+import { eq, and, desc, ilike } from "drizzle-orm";
 import { writeAuditEvent } from "../lib/audit";
 import { sendSpeculativeCVNotification, sendSpeculativeCVToOps, OPS_INBOX } from "../lib/email";
 import { ObjectStorageService } from "../lib/objectStorage";
-import { maskPersonalContactInfo, generateJobsageEmail } from "../lib/jobsageEmailGen";
+import { maskPersonalContactInfo, resolveJobsageAlias } from "../lib/jobsageEmailGen";
 
 const APP_URL = process.env.APP_URL ?? "https://jobsage.co.uk";
 
@@ -66,30 +66,15 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
       .filter(Boolean)
       .join(" ") || "there";
 
-  // Resolve alias and CV document BEFORE insert so we can validate and fail cleanly
-  // without leaving orphan records in the database.
-  const [userRow] = await db
-    .select({ jobsageEmail: usersTable.jobsageEmail })
-    .from(usersTable)
-    .where(eq(usersTable.id, userId));
-  let jobsageEmail = userRow?.jobsageEmail ?? null;
-
-  // Defensive backfill: if somehow the alias is missing (pre-feature registration),
-  // generate and persist it synchronously before sending so personal email is NEVER exposed.
+  // Resolve the candidate's JOBSAGE alias (users table first, profiles table fallback).
+  // Must exist before we can send — personal email must never be exposed to employers.
+  // Alias is assigned at registration; login-time backfill covers legacy accounts.
+  const jobsageEmail = await resolveJobsageAlias(userId);
   if (!jobsageEmail) {
-    const generated = generateJobsageEmail(
-      (user as { firstName?: string }).firstName ?? null,
-      (user as { lastName?: string }).lastName ?? null,
-    );
-    try {
-      await db
-        .update(usersTable)
-        .set({ jobsageEmail: sql`COALESCE(${usersTable.jobsageEmail}, ${generated})` })
-        .where(eq(usersTable.id, userId));
-    } catch {
-      // Persist failure is non-critical; alias is used in-memory for this request
-    }
-    jobsageEmail = generated;
+    res.status(400).json({
+      error: "No JOBSAGE email alias found. Please visit your Profile page to set one up before sending a speculative application.",
+    });
+    return;
   }
 
   // Resolve the candidate's CV document (prefer documentType = "cv", fall back to most recent)
@@ -187,26 +172,29 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
     })
     .where(eq(speculativeApplicationsTable.id, app!.id));
 
-  // Create inbox notification so the candidate can see the send confirmation in their Messages tab
-  try {
-    await db.insert(candidateMessagesTable).values({
-      recipientUserId: userId,
-      messageType: "system",
-      subject: "Speculative CV sent",
-      messageText: [
-        `Your CV has been submitted to ${companyName}${vacancyTitle ? ` for the role "${vacancyTitle}"` : ""}.`,
-        ``,
-        `Contact identity used: ${jobsageEmail}`,
-        `Sent at: ${now.toUTCString()}`,
-        ``,
-        `The JOBSAGE team will follow up with ${companyName} on your behalf where a direct contact is available.`,
-        ``,
-        `Track this application: ${APP_URL}/applications`,
-      ].join("\n"),
-    });
-  } catch (msgErr) {
-    // Inbox notification is best-effort — main response must not fail
-    console.error("[speculative] Could not create inbox notification:", msgErr);
+  // Create inbox notification only when email was actually delivered —
+  // guards against false "sent" confirmations on delivery failure.
+  if (emailDelivered) {
+    try {
+      await db.insert(candidateMessagesTable).values({
+        recipientUserId: userId,
+        messageType: "system",
+        subject: "Speculative CV sent",
+        messageText: [
+          `Your CV has been submitted to ${companyName}${vacancyTitle ? ` for the role "${vacancyTitle}"` : ""}.`,
+          ``,
+          `Contact identity used: ${jobsageEmail}`,
+          `Sent at: ${now.toUTCString()}`,
+          ``,
+          `The JOBSAGE team will follow up with ${companyName} on your behalf where a direct contact is available.`,
+          ``,
+          `Track this application: ${APP_URL}/applications`,
+        ].join("\n"),
+      });
+    } catch (msgErr) {
+      // Inbox notification is best-effort — main response must not fail
+      console.error("[speculative] Could not create inbox notification:", msgErr);
+    }
   }
 
   // Employer notification / admin follow-up logging
