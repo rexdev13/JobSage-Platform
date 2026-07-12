@@ -365,10 +365,14 @@ export async function sendSpeculativeCVToOps(opts: {
       </td></tr>`
     : "";
 
+  // Send FROM the candidate's JOBSAGE alias so ops see it as coming from their identity.
+  // This requires mail.jobsage.app to be a verified Resend sending domain (DNS setup).
+  // Until DNS is verified Resend will reject this; emailDelivered stays false, which is
+  // the correct fallback — the caller gates the inbox notification on emailDelivered.
   await resend.emails.send({
-    from: `JOBSAGE <${FROM}>`,
+    from: `${opts.candidateName} <${opts.jobsageEmail}>`,
     to: OPS_INBOX,
-    replyTo: contactEmail,
+    replyTo: opts.jobsageEmail,
     subject: `[Speculative CV] ${opts.candidateName} → ${opts.companyName}`,
     attachments,
     html: `<!DOCTYPE html>
