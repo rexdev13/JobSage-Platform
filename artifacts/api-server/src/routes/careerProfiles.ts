@@ -4,6 +4,7 @@ import { db, careerProfilesTable, profilesTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { requireConsent } from "../middlewares/consentMiddleware";
 import { openai } from "@workspace/integrations-openai-ai-server";
+import { maskPersonalContactInfo } from "../lib/jobsageEmailGen";
 
 const router: IRouter = Router();
 
@@ -56,7 +57,11 @@ async function generateCvBackground(profileId: number, userId: string): Promise<
       temperature: 0.7,
     });
 
-    const aiCvContent = completion.choices[0]?.message?.content?.trim() ?? "";
+    let aiCvContent = completion.choices[0]?.message?.content?.trim() ?? "";
+    // Post-process: mask any personal contact info that slipped through the AI output
+    if (baseProfile?.jobsageEmail && aiCvContent) {
+      aiCvContent = maskPersonalContactInfo(aiCvContent, baseProfile.jobsageEmail);
+    }
     await db.update(careerProfilesTable).set({ aiCvContent }).where(eq(careerProfilesTable.id, profileId));
   } catch (err) {
     console.error("[career-profiles] Background CV generation failed:", err);
