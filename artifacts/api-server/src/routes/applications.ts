@@ -7,6 +7,12 @@ import { createApplicationReceivedMessage } from "../lib/systemMessages";
 
 const router: IRouter = Router();
 
+// Apply-workflow privacy note:
+// POST /applications records a job application in the database only.
+// No CV or cover letter is emailed to employers through this path.
+// JOBSAGE alias masking (personal email/phone redaction) is therefore not applicable here;
+// masking is enforced at the point of any outbound document delivery (speculative CV flow).
+
 router.get("/applications", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.id;
 

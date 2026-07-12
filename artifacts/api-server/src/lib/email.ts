@@ -331,22 +331,33 @@ export async function sendSpeculativeCVToOps(opts: {
 }): Promise<void> {
   const contactEmail = opts.jobsageEmail ?? opts.candidateEmail;
 
-  // Attachment strategy when a JOBSAGE alias is assigned:
-  // 1. Prefer the masked text derivative (contact info redacted) — attached when available.
-  // 2. If no text extract could be produced (non-PDF or parse failure) fall back to the
-  //    original binary so ops always receive a usable CV; the alias warning below instructs
-  //    them to use the JOBSAGE alias for all contact, not any address in the file.
-  // When no alias exists (legacy fallback), attach original binary as before.
+  // Attachment strategy:
+  // • Alias present + masked text available  → attach redacted .txt only (no raw binary)
+  // • Alias present + no masked text         → attach a safe placeholder .txt (non-PDF or parse
+  //                                            failure); raw binary NEVER sent when alias exists
+  // • No alias (legacy fallback)             → attach original binary as before
   const attachments: { filename: string; content: Buffer | string }[] = [];
-  if (opts.jobsageEmail && opts.maskedCvTextExtract) {
-    // Masked text available → attach redacted derivative
+  if (opts.jobsageEmail) {
     const baseName = opts.cvFilename?.replace(/\.[^.]+$/, "") ?? "cv";
-    attachments.push({
-      filename: `${baseName}_redacted_contact.txt`,
-      content: opts.maskedCvTextExtract,
-    });
+    if (opts.maskedCvTextExtract) {
+      // Masked text available → attach redacted derivative
+      attachments.push({
+        filename: `${baseName}_redacted_contact.txt`,
+        content: opts.maskedCvTextExtract,
+      });
+    } else {
+      // Non-PDF or parse failure → safe placeholder to guarantee delivery without PII leak
+      attachments.push({
+        filename: `${baseName}_cv_notice.txt`,
+        content:
+          `CV for candidate with JOBSAGE alias: ${opts.jobsageEmail}\n\n` +
+          `The candidate's CV could not be automatically redacted (non-PDF format or parse failure).\n` +
+          `Please request the CV directly via the JOBSAGE system using the alias above.\n` +
+          `Do NOT use any personal contact details that may appear in the original file.`,
+      });
+    }
   } else if (opts.cvContent && opts.cvFilename) {
-    // No masked extract (non-PDF / parse failure / no alias) → attach original binary
+    // No alias → fallback to original binary
     attachments.push({ filename: opts.cvFilename, content: opts.cvContent });
   }
 
