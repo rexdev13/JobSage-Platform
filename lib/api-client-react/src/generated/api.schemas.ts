@@ -231,6 +231,7 @@ export interface Document {
   isPrimary: boolean;
   disclaimerText: string;
   uploadedAt: string;
+  parsedData?: Record<string, unknown> | null;
 }
 
 export interface DocumentList {

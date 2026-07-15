@@ -18,4 +18,5 @@ export interface Document {
   isPrimary: boolean;
   disclaimerText: string;
   uploadedAt: Date;
+  parsedData?: Record<string, unknown> | null;
 }

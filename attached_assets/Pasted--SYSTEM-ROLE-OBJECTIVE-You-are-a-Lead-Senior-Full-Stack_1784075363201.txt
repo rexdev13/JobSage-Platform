@@ -1,0 +1,44 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Senior Full-Stack Engineer working inside our Next.js / TypeScript / Supabase repository for the "Jobsage" platform. 
+
+Your current objective is to implement **Multi-CV Management Support** (allowing candidates to upload, label, and manage multiple CV versions and track which CV was sent to which employer).
+
+**CRITICAL INSTRUCTION: ZERO ASSUMPTIONS**
+Do NOT assume file paths, database table names, column names, or ORM/SQL setups. You must first inspect the codebase, discover the exact current schema and type conventions, and then implement the changes according to the existing architecture.
+
+---
+
+### STEP 1: CODEBASE & SCHEMA DISCOVERY (READ-ONLY)
+Before writing or modifying any code, execute searches to understand the existing setup:
+1. **Locate Schema & Types:** Search for where database schemas, tables, and types are defined (e.g., check `artifacts/api-server/src/...`, `supabase/migrations`, SQL files, or TypeScript definition files like `database.ts`, `types.ts`, or `index.ts`).
+2. **Inspect Current CV/Document Handling:** Find out how uploaded CV documents are currently stored and referenced. Look for tables or types related to `documents`, `cv`, `profiles`, `applications`, and `speculative_applications`.
+3. **Check Auth & Security:** Observe how Row Level Security (RLS) policies or user scoping (`user_id` / `candidate_id`) are currently implemented on document tables.
+
+---
+
+### STEP 2: DATABASE SCHEMA & MIGRATION EXECUTION
+Based *strictly* on the naming conventions and database architecture discovered in Step 1, create and execute an idempotent migration (or update the schema definition) that accomplishes the following:
+1. **Create/Extend the CV Storage Entity:**
+   - We need an entity/table (e.g., `cv_versions` or similar, matching the codebase naming style) that stores multiple CVs per candidate.
+   - It must include: Unique ID, User/Candidate Reference ID, File URL/Path, File Name, Custom Label (e.g., "Clinical CV", "Tech CV"), Primary/Default Flag (`is_primary` boolean), Parsed AI Qualifications Data (JSON/Record format), and Timestamps (`created_at`, `updated_at`).
+2. **Enforce Security:**
+   - Apply appropriate Row Level Security (RLS) policies or database constraints so candidates can strictly only View, Insert, Update, and Delete their own CV versions.
+3. **Link to Applications:**
+   - Safely alter the existing `applications` and `speculative_applications` (or equivalent) tables/entities to add a nullable foreign key reference (e.g., `cv_version_id` or matching convention). This tracks exactly which CV version was used for a specific application.
+   - Add database indexes on user reference IDs for performance.
+
+---
+
+### STEP 3: TYPE SAFETY & CODE INTEGRATION
+1. **Update Shared Types:** Update the relevant TypeScript interfaces and types across the frontend and backend to include the new multi-CV entity and the updated application interfaces.
+2. **Backward Compatibility:** Ensure that existing code relying on a single/default CV does not break. If an application flow doesn't explicitly specify a CV version, fallback gracefully to the candidate's primary/default CV or the most recently uploaded document.
+3. **Verify Build & Compile:** Run a type-check or linter across the project to guarantee your changes introduced zero compilation errors or broken imports.
+
+---
+
+### EXPECTED DELIVERABLE
+Once complete, provide a summary of:
+1. The exact files discovered and modified.
+2. The schema/migration SQL applied.
+3. Confirmation that TypeScript compiles cleanly without errors.
+Start by running Step 1 (Discovery) now and proceed step-by-step.

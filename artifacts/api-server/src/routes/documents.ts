@@ -240,6 +240,40 @@ router.patch("/documents/:id/type", requireAuthenticated, async (req: Request, r
   res.json(updated);
 });
 
+router.patch("/documents/:id/save-parsed", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
+  const id = parseInt(String(req.params.id), 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid document ID" });
+    return;
+  }
+
+  const userId = req.user!.id;
+  const { parsedData } = req.body as { parsedData?: Record<string, unknown> | null };
+
+  if (parsedData === undefined) {
+    res.status(400).json({ error: "parsedData is required" });
+    return;
+  }
+
+  const [existing] = await db
+    .select({ id: documentsTable.id })
+    .from(documentsTable)
+    .where(and(eq(documentsTable.id, id), eq(documentsTable.userId, userId)));
+
+  if (!existing) {
+    res.status(404).json({ error: "Document not found" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(documentsTable)
+    .set({ parsedData } as any)
+    .where(and(eq(documentsTable.id, id), eq(documentsTable.userId, userId)))
+    .returning();
+
+  res.json(updated);
+});
+
 router.delete("/documents/:id", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
   const params = DeleteDocumentParams.safeParse(req.params);
   if (!params.success) {

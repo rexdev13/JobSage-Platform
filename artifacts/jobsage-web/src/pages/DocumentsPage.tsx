@@ -362,6 +362,7 @@ export default function DocumentsPage() {
   const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
   const [parsingDocId, setParsingDocId] = useState<number | null>(null);
+  const [parsedFromDocId, setParsedFromDocId] = useState<number | null>(null);
   const [parsedExtracted, setParsedExtracted] = useState<CvExtractedFields | null>(null);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [updatingTypeId, setUpdatingTypeId] = useState<number | null>(null);
@@ -401,6 +402,7 @@ export default function DocumentsPage() {
     setParsingDocId(id);
     try {
       const result = await parseCvMutation.mutateAsync({ id });
+      setParsedFromDocId(id);
       setParsedExtracted(result.extracted);
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : "Failed to parse CV";
@@ -469,6 +471,20 @@ export default function DocumentsPage() {
 
       await upsertProfileMutation.mutateAsync({ data: merged });
       queryClient.invalidateQueries({ queryKey: getGetMyProfileQueryKey() });
+
+      // Persist confirmed parsed fields on the document for multi-CV tracking
+      if (parsedFromDocId) {
+        try {
+          await fetch(`${base}/api/documents/${parsedFromDocId}/save-parsed`, {
+            method: "PATCH",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ parsedData: extracted }),
+          });
+          queryClient.invalidateQueries({ queryKey: getListMyDocumentsQueryKey() });
+        } catch { /* non-fatal — profile is already saved */ }
+      }
+
       toast({
         title: isBootstrap ? "Profile created from CV!" : "Profile updated!",
         description: isBootstrap
@@ -476,6 +492,7 @@ export default function DocumentsPage() {
           : "Your profile has been updated with data from your CV.",
       });
       setParsedExtracted(null);
+      setParsedFromDocId(null);
       setShowParseBanner(true);
     } catch {
       toast({ title: "Failed to save", description: "Could not update your profile. Please try again.", variant: "destructive" });
@@ -508,7 +525,7 @@ export default function DocumentsPage() {
             <CvParseDialog
               extracted={parsedExtracted}
               onConfirm={handleConfirmMerge}
-              onClose={() => setParsedExtracted(null)}
+              onClose={() => { setParsedExtracted(null); setParsedFromDocId(null); }}
               isSaving={isSavingProfile}
             />
           )}
@@ -687,6 +704,33 @@ export default function DocumentsPage() {
                               onSaved={() => queryClient.invalidateQueries({ queryKey: getListMyDocumentsQueryKey() })}
                             />
                           )}
+
+                          {isCvDoc && (() => {
+                            const pd = (docWithExtras as typeof docWithExtras & { parsedData?: Record<string, unknown> | null }).parsedData;
+                            if (!pd) return null;
+                            const prof = pd.profession as string | null | undefined;
+                            const spec = pd.specialty as string | null | undefined;
+                            const expYrs = pd.experienceYears as number | null | undefined;
+                            return (
+                              <div className="flex flex-wrap gap-1 mt-1.5">
+                                {prof && (
+                                  <span className="inline-flex items-center text-[10px] font-medium bg-primary/10 text-primary px-2 py-0.5 rounded-full capitalize">
+                                    {prof.replace(/_/g, " ")}
+                                  </span>
+                                )}
+                                {spec && (
+                                  <span className="inline-flex items-center text-[10px] font-medium bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
+                                    {spec}
+                                  </span>
+                                )}
+                                {expYrs != null && (
+                                  <span className="inline-flex items-center text-[10px] font-medium bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
+                                    {expYrs}yr{expYrs !== 1 ? "s" : ""} exp
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()}
 
                           {isCvDoc && cvDocs.length > 1 && !isPrimaryDoc && (
                             <button
