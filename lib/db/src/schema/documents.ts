@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, timestamp, varchar, boolean } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, timestamp, varchar, boolean, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -37,6 +37,7 @@ export const documentsTable = pgTable("documents", {
   label: text("label"),
   isPrimary: boolean("is_primary").notNull().default(false),
   disclaimerText: text("disclaimer_text").notNull().default(DOCUMENT_DISCLAIMER),
+  parsedData: jsonb("parsed_data"),
   uploadedAt: timestamp("uploaded_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
