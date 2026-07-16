@@ -1,0 +1,31 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Database & Systems Engineer working in our Next.js / TypeScript repository. Based on your Architectural Discovery Report, you must now execute **Step 1 of Item 8: Database Migration & Regional Backfill**.
+
+Your objective is to eliminate in-memory regional filtering by adding an indexed `region` column to the `sponsor_licences` database table via Drizzle ORM, and backfill all existing records using the application's existing county-to-region mapping logic.
+
+---
+
+### EXECUTION TASKS
+
+1. **Update Drizzle Schema (`@workspace/db`):**
+   - In `lib/db/src/schema/sponsorLicences.ts` (or equivalent Drizzle schema file), add a nullable text column named `region` to the `sponsor_licences` table definition (`sponsorLicencesTable`).
+   - Add a database index on this `region` column to ensure future regional queries execute at maximum speed without full-table scans.
+
+2. **Generate & Apply the Migration:**
+   - Use the workspace's established Drizzle migration workflow (e.g., via `drizzle-kit generate` / `drizzle-kit push` or running the appropriate npm migration script defined in `package.json` / `lib/db/drizzle.config.ts`) to apply the new `region` column and index to the database.
+
+3. **Build & Execute the Regional Backfill Script:**
+   - Locate the `COUNTY_TO_REGION` mapping dictionary and `countyToRegion()` logic inside `artifacts/api-server/src/routes/sponsorLicences.ts`.
+   - Create a startup migration utility or batch backfill function (or integrate it into an existing startup backfill file in `artifacts/api-server/src/lib/`) that runs against the database.
+   - For all rows in `sponsor_licences` where `region IS NULL`, evaluate their `county` (and/or `town_city`) against the `COUNTY_TO_REGION` dictionary and update the `region` column directly in the database.
+   - Ensure the backfill processes in safe batch sizes (e.g., 500–1000 rows per batch) to avoid memory or connection pool exhaustion.
+
+---
+
+### VERIFICATION & COMPILATION
+1. **Type & Linter Check:** Run type-checking across the repository to verify that the updated Drizzle schema (`sponsorLicencesTable`) compiles cleanly and is recognized by `@workspace/db`.
+2. **Deliverable Summary:** Provide a brief summary confirming:
+   - The Drizzle migration command executed and the schema changes applied.
+   - The file path of the backfill logic and how many records were successfully mapped to a region.
+
+Proceed with executing Step 1 now.
