@@ -1,8 +1,13 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "mcx0F0yNRYGntKqjz1gbt"
 uri = "file://artifacts/jobsage-mobile/assets/images/icon.png"
 type = "image"
 title = "generated_image"
+
+[[outputs]]
+id = "LkR3id4iUf4vRpG2yIpNQ"
+uri = "file://artifacts/jobsage-web/public/jobsage-source.zip"
+type = "unspecified"
+title = "JOBSAGE Source Code"
