@@ -41,4 +41,7 @@ else
 fi
 
 echo "[post-merge] Applying schema changes."
-pnpm --filter db push --force
+# drizzle-kit may ask "truncate table?" for unique constraint additions —
+# that prompt defaults to "No, add without truncating", so piping a newline
+# selects the safe default. --force bypasses the top-level "are you sure?" gate.
+echo "" | pnpm --filter db push --force

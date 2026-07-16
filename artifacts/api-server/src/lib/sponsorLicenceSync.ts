@@ -2,6 +2,7 @@ import { db } from "@workspace/db";
 import { sponsorLicencesTable, sponsorLicenceSyncLogTable } from "@workspace/db";
 import { sql, lt } from "drizzle-orm";
 import { classifyByKeyword } from "./industryClassifier";
+import { countyToRegion } from "./countyToRegion";
 
 export type SyncTriggeredBy = "scheduler" | "manual";
 
@@ -320,13 +321,14 @@ export async function runSponsorLicenceSync(triggeredBy: SyncTriggeredBy = "sche
                 sub_route   = d.sub_route,
                 rating      = d.rating,
                 industry    = d.industry,
+                region      = d.region,
                 synced_at   = d.synced_at
               FROM (VALUES ${sql.join(
                 withKeyword.map((r) =>
-                  sql`(${r.organisationName}::text, ${r.townCity}::text, ${r.county}::text, ${r.route}::text, ${r.subRoute}::text, ${r.rating}::text, ${r.industry}::text, ${syncedAt}::timestamptz)`
+                  sql`(${r.organisationName}::text, ${r.townCity}::text, ${r.county}::text, ${r.route}::text, ${r.subRoute}::text, ${r.rating}::text, ${r.industry}::text, ${countyToRegion(r.county)}::text, ${syncedAt}::timestamptz)`
                 ),
                 sql`, `
-              )}) AS d(organisation_name, town_city, county, route, sub_route, rating, industry, synced_at)
+              )}) AS d(organisation_name, town_city, county, route, sub_route, rating, industry, region, synced_at)
               WHERE sl.organisation_name = d.organisation_name
             `);
           }
@@ -341,13 +343,14 @@ export async function runSponsorLicenceSync(triggeredBy: SyncTriggeredBy = "sche
                 route       = d.route,
                 sub_route   = d.sub_route,
                 rating      = d.rating,
+                region      = d.region,
                 synced_at   = d.synced_at
               FROM (VALUES ${sql.join(
                 withoutKeyword.map((r) =>
-                  sql`(${r.organisationName}::text, ${r.townCity}::text, ${r.county}::text, ${r.route}::text, ${r.subRoute}::text, ${r.rating}::text, ${syncedAt}::timestamptz)`
+                  sql`(${r.organisationName}::text, ${r.townCity}::text, ${r.county}::text, ${r.route}::text, ${r.subRoute}::text, ${r.rating}::text, ${countyToRegion(r.county)}::text, ${syncedAt}::timestamptz)`
                 ),
                 sql`, `
-              )}) AS d(organisation_name, town_city, county, route, sub_route, rating, synced_at)
+              )}) AS d(organisation_name, town_city, county, route, sub_route, rating, region, synced_at)
               WHERE sl.organisation_name = d.organisation_name
             `);
           }
@@ -355,7 +358,7 @@ export async function runSponsorLicenceSync(triggeredBy: SyncTriggeredBy = "sche
 
         if (toInsert.length > 0) {
           await db.insert(sponsorLicencesTable).values(
-            toInsert.map((r) => ({ ...r, syncedAt })) as any
+            toInsert.map((r) => ({ ...r, syncedAt, region: countyToRegion(r.county) })) as any
           );
           // Track newly inserted names so later batches don't re-insert them
           for (const r of toInsert) {
