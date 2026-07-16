@@ -1,13 +1,24 @@
 ---
 name: api-client-react base URL
-description: setBaseUrl must be called at app boot in main.tsx with just the BASE_URL (no /api suffix)
+description: Do NOT call setBaseUrl — shared proxy handles routing. Port conflicts break routing.
 ---
 
 ## Rule
-Call `setBaseUrl(import.meta.env.BASE_URL.replace(/\/$/, ""))` in `artifacts/jobsage-web/src/main.tsx` before `createRoot()`.
+Do NOT call `setBaseUrl()` in the web app. Remove it if it exists.
 
-**Why:** `customFetch` only prepends `_baseUrl` to relative paths (those starting with `/`) when `setBaseUrl()` has been called. Without it, hooks fire against `/api/...` which may 404 depending on the routing environment.
+**Why:** The pnpm-workspace shared proxy at `localhost:80` routes all traffic by path without rewriting:
+- `/api/...` → API server (port 8080)
+- `/...` → Vite web server (port 18286)
 
-**Critical detail — do NOT add `/api` to the base:** The generated hook URL functions (e.g. `getGetConsentStatusUrl()`) already return paths with `/api/` included (e.g. `/api/consent`). If you set `_baseUrl` to `${BASE_URL}/api`, the result is `/api/api/consent` — doubled prefix. The base must be just `BASE_URL` (e.g. `/jobsage`) so that `/api/consent` → `/jobsage/api/consent`.
+Generated hook URL functions already return root-relative paths like `/api/profiles/me`. These work as-is. Setting a base URL causes double-prefix bugs like `/api/api/consent`.
 
-**How to apply:** Any time main.tsx is recreated or a new web artifact is set up, ensure `setBaseUrl` is called once at boot using ONLY `import.meta.env.BASE_URL.replace(/\/$/, "")`.
+**Port conflict risk:** The web artifact's `localPort` is hard-coded as `18286` in `artifacts/jobsage-web/.replit-artifact/artifact.toml`. If stale processes hold this port, Vite moves to 18287/18288 and the shared proxy can no longer route web requests. Fix by freeing stale ports (`lsof -ti:18286 | xargs kill -9`) and restarting the workflow.
+
+**How to verify routing:**
+```
+curl localhost:80/api/healthz        → 200 {"status":"ok"}
+curl localhost:80/api/profiles/me    → 401 (correct, auth required)
+curl localhost:80/                   → 200 (Vite SPA)
+```
+
+**How to apply:** Never add `setBaseUrl`, Vite proxy configs, or `VITE_API_URL` env vars for cross-artifact routing in this project.
