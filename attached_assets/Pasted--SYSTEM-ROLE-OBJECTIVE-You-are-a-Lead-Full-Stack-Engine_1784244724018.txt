@@ -1,0 +1,32 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Full-Stack Engineer working in our Next.js / TypeScript repository. Based on your exact Discovery Report, the foundational schema (`label`, `is_primary`, `document_type`) and modal wiring for **Items 5 & 6 (Multi-CV Management & Application Wiring)** are already 90% implemented.
+
+Your objective is to execute a surgical 3-part hardening and polish sprint across the backend document route and frontend application modals to make the multi-CV workflow 100% robust and visible to users.
+
+---
+
+### EXECUTION TASKS
+
+1. **Harden Backend Atomic Primary Toggling (`routes/documents.ts` or equivalent):**
+   - Locate the `PATCH /api/documents/:id/label` (or equivalent document update endpoint) where `isPrimary: true` is handled.
+   - Verify or implement an **atomic transaction/update**: When a document is set to `isPrimary: true`, the database MUST explicitly set `is_primary = false` for all other documents belonging to that same `userId` where `document_type = 'cv'`. There must never be two primary CVs for a single user.
+
+2. **Unmask Application Modal CV Pickers (`SponsorVacancyApplyModal.tsx` & `SmartApplyModal.tsx`):**
+   - In `artifacts/jobsage-web/src/components/SponsorVacancyApplyModal.tsx` (around lines 503–527), remove or adjust the conditional guard (`cvDocuments.length >= 2`). 
+   - Ensure the CV selection `<select>` dropdown (or explicit read-only confirmation card if only 1 CV exists) is **always visible** to the user so they get absolute visual certainty of which CV is being attached to their application.
+   - Repeat this exact visibility upgrade in `artifacts/jobsage-web/src/components/SmartApplyModal.tsx` (around lines 587–608).
+
+3. **Add Document View/Download Action (`DocumentsPage.tsx`):**
+   - In `artifacts/jobsage-web/src/pages/DocumentsPage.tsx`, locate the per-document card actions.
+   - Add a clean, accessible **"View / Download"** button or icon link using the document's existing file URL or storage endpoint so users can open and verify the contents of the CVs they have uploaded and labeled.
+
+---
+
+### VERIFICATION & COMPILATION
+1. **Type & Linter Check:** Run `pnpm tsc --build` (or the workspace build script) to ensure all modified components and routes compile cleanly with zero TypeScript errors.
+2. **Deliverable Summary:** Output a brief 3-bullet summary confirming:
+   - The exact backend file modified to guarantee atomic `is_primary` toggling.
+   - How the CV picker visibility was upgraded in both application modals.
+   - The confirmation that a View/Download action is now live on `DocumentsPage.tsx`.
+
+Proceed with executing Items 5 & 6 now.
