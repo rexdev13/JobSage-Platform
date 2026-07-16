@@ -64,9 +64,16 @@ function LoadingScreen() {
   );
 }
 
+function Redirect({ to }: { to: string }) {
+  const [, setLocation] = useLocation();
+  useEffect(() => {
+    setLocation(to);
+  }, [to, setLocation]);
+  return <LoadingScreen />;
+}
+
 function ProfileGate() {
   const { user } = useAuth();
-  const [, setLocation] = useLocation();
 
   const { data: consentData, isLoading: consentLoading } = useGetMyConsent({
     query: { queryKey: getGetMyConsentQueryKey(), retry: false },
@@ -84,26 +91,10 @@ function ProfileGate() {
 
   const isLoading = consentLoading || (hasConsented && profileLoading);
 
-  useEffect(() => {
-    if (isLoading) return;
-    if ((user?.role as string) === "employer") {
-      setLocation("/employer/dashboard");
-      return;
-    }
-    if (consentData && !consentData.hasConsented) {
-      setLocation("/consent");
-      return;
-    }
-    if (hasConsented && (profileError || !profile?.profession)) {
-      setLocation("/onboarding");
-    }
-  }, [isLoading, consentData, hasConsented, profileError, profile, setLocation, user]);
-
   if (isLoading) return <LoadingScreen />;
-  if ((user?.role as string) === "employer") return null;
-  if (consentData && !consentData.hasConsented) return null;
-  if (profileError) return null;
-  if (!profile?.profession) return null;
+  if ((user?.role as string) === "employer") return <Redirect to="/employer/dashboard" />;
+  if (consentData && !consentData.hasConsented) return <Redirect to="/consent" />;
+  if (hasConsented && (profileError || !profile?.profession)) return <Redirect to="/onboarding" />;
 
   return <DashboardPage />;
 }
