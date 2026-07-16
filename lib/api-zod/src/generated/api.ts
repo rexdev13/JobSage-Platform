@@ -382,6 +382,12 @@ export const ListMyDocumentsResponse = zod.object({
       isPrimary: zod.boolean(),
       disclaimerText: zod.string(),
       uploadedAt: zod.date(),
+      parsedData: zod
+        .record(zod.string(), zod.unknown())
+        .nullish()
+        .describe(
+          "Parsed CV fields stored after AI extraction and user confirmation.",
+        ),
     }),
   ),
 });
@@ -714,6 +720,8 @@ export const ParseCvResponse = zod.object({
     preferredRegion: zod.string().nullish(),
     confidence: zod.record(zod.string(), zod.string()).optional(),
     rawNotes: zod.string().optional(),
+    professionQualMismatch: zod.boolean().optional(),
+    professionQualMismatchWarning: zod.string().nullish(),
   }),
 });
 
@@ -2290,6 +2298,15 @@ export const CheckSponsorLicenceVacanciesResponse = zod.object({
 /**
  * @summary Start (or report already-running) a background scan of every sponsor licence employer for vacancies, scoring results for the current candidate
  */
+export const CheckAllSponsorLicenceVacanciesBody = zod.object({
+  regions: zod
+    .array(zod.string())
+    .nullish()
+    .describe(
+      "Optional list of regions to restrict the scan to. Omit or set null for a global scan.",
+    ),
+});
+
 export const CheckAllSponsorLicenceVacanciesResponse = zod.object({
   started: zod
     .boolean()
@@ -2310,6 +2327,12 @@ export const GetCheckAllSponsorLicenceVacanciesStatusResponse = zod.object({
   completedAt: zod.date().nullish(),
   lastError: zod.string().nullish(),
   triggeredBy: zod.enum(["scheduler", "manual"]).nullish(),
+  regions: zod
+    .array(zod.string())
+    .nullish()
+    .describe(
+      "The region filter active when the scan was started. Null means a global scan.",
+    ),
 });
 
 /**
@@ -2337,6 +2360,39 @@ export const GetSponsorLicenceVacanciesResponse = zod.object({
     }),
   ),
   lastCheckedAt: zod.date().nullish(),
+});
+
+/**
+ * @summary Get aggregate vacancy statistics across all sponsor licence employers
+ */
+export const GetSponsorLicenceVacancyStatsResponse = zod.object({
+  companiesChecked: zod
+    .number()
+    .describe(
+      "Number of distinct employers that have ever had a vacancy check run.",
+    ),
+  companiesWithVacancies: zod
+    .number()
+    .describe(
+      "Number of employers that currently have at least one stored vacancy.",
+    ),
+  totalVacanciesFound: zod
+    .number()
+    .describe("Total number of vacancies stored across all employers."),
+});
+
+/**
+ * @summary AI-powered contact detail enrichment for a sponsor licence company
+ */
+export const EnrichSponsorLicenceContactParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const EnrichSponsorLicenceContactResponse = zod.object({
+  website: zod.string().nullish(),
+  contactEmail: zod.string().nullish(),
+  contactPhone: zod.string().nullish(),
+  address: zod.string().nullish(),
 });
 
 /**
@@ -2425,6 +2481,22 @@ export const ListSponsorLicencesResponse = zod.object({
         .describe(
           "Timestamp of the most recent successful vacancy check for this employer.",
         ),
+      website: zod
+        .string()
+        .nullish()
+        .describe("Company website URL enriched via AI."),
+      contactEmail: zod
+        .string()
+        .nullish()
+        .describe("Contact email address enriched via AI."),
+      contactPhone: zod
+        .string()
+        .nullish()
+        .describe("Contact phone number enriched via AI."),
+      address: zod
+        .string()
+        .nullish()
+        .describe("Physical business address enriched via AI."),
     }),
   ),
   total: zod.number(),

@@ -1,5 +1,6 @@
 import { db } from "@workspace/db";
 import { sponsorLicencesTable, vacancySyncLogTable } from "@workspace/db";
+import { inArray } from "drizzle-orm";
 import { runVacancyCheck } from "./vacancyCheckHelper";
 import { rescoreVacanciesForUser, rescoreVacanciesForAllUsers } from "./sponsorVacancyScoring";
 import type { VacancySyncTriggeredBy } from "./vacancyCheckScheduler";
@@ -15,6 +16,7 @@ export interface CheckAllStatus {
   completedAt: string | null;
   lastError: string | null;
   triggeredBy: VacancySyncTriggeredBy | null;
+  regions: string[] | null;
 }
 
 function initialState(): CheckAllStatus {
@@ -29,6 +31,7 @@ function initialState(): CheckAllStatus {
     completedAt: null,
     lastError: null,
     triggeredBy: null,
+    regions: null,
   };
 }
 
@@ -40,8 +43,11 @@ export function getCheckAllStatus(): CheckAllStatus {
 
 const CONCURRENCY = 15;
 
-async function checkAllOrganisations(): Promise<{ checked: number; cacheHits: number; errors: number; lastError: string | null }> {
-  const orgs = await db.selectDistinct({ organisationName: sponsorLicencesTable.organisationName }).from(sponsorLicencesTable);
+async function checkAllOrganisations(regions?: string[]): Promise<{ checked: number; cacheHits: number; errors: number; lastError: string | null }> {
+  const query = db.selectDistinct({ organisationName: sponsorLicencesTable.organisationName }).from(sponsorLicencesTable);
+  const orgs = regions && regions.length > 0
+    ? await query.where(inArray(sponsorLicencesTable.region, regions))
+    : await query;
   state.total = orgs.length;
 
   let idx = 0;
@@ -81,17 +87,18 @@ async function checkAllOrganisations(): Promise<{ checked: number; cacheHits: nu
  */
 export async function runCheckAllVacanciesPass(
   triggeredBy: VacancySyncTriggeredBy,
-  opts: { rescoreUserId?: string; rescoreAllUsers?: boolean } = {},
+  opts: { rescoreUserId?: string; rescoreAllUsers?: boolean; regions?: string[] } = {},
 ): Promise<void> {
   if (state.isRunning) {
     throw new Error("A vacancy check pass is already running.");
   }
 
-  state = { ...initialState(), isRunning: true, startedAt: new Date().toISOString(), triggeredBy };
+  const regions = opts.regions && opts.regions.length > 0 ? opts.regions : null;
+  state = { ...initialState(), isRunning: true, startedAt: new Date().toISOString(), triggeredBy, regions };
   const startMs = Date.now();
 
   try {
-    const { checked, cacheHits, errors, lastError } = await checkAllOrganisations();
+    const { checked, cacheHits, errors, lastError } = await checkAllOrganisations(regions ?? undefined);
     state.newChecks = checked;
     state.cacheHits = cacheHits;
     state.errors = errors;
@@ -143,10 +150,10 @@ export async function runCheckAllVacanciesPass(
  * Fire-and-forget entry point for the manual "Check All Vacancies" button.
  * Returns immediately; progress is polled via getCheckAllStatus().
  */
-export function startCheckAllVacancies(userId: string): { started: boolean } {
+export function startCheckAllVacancies(userId: string, regions?: string[]): { started: boolean } {
   if (state.isRunning) return { started: false };
 
-  void runCheckAllVacanciesPass("manual", { rescoreUserId: userId }).catch((err) => {
+  void runCheckAllVacanciesPass("manual", { rescoreUserId: userId, regions }).catch((err) => {
     console.error("[check-all-vacancies] Unhandled error during manual pass:", err instanceof Error ? err.message : err);
   });
 

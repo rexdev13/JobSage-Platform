@@ -32,6 +32,7 @@ import type {
   CandidateMatchList,
   CandidateMessageListResponse,
   CandidateProfile,
+  CheckAllVacanciesBody,
   CheckAllVacanciesStartResponse,
   CheckAllVacanciesStatus,
   ConsentLogList,
@@ -117,6 +118,7 @@ import type {
   SpeculativeApplicationListResponse,
   SpeculativeApplicationResult,
   SponsorLicenceBookmarksResponse,
+  SponsorLicenceEnrichResponse,
   SponsorLicenceIndustriesResponse,
   SponsorLicenceIndustryCountsResponse,
   SponsorLicenceListResponse,
@@ -125,7 +127,6 @@ import type {
   SponsorLicenceSyncResult,
   SponsorLicenceVacanciesResponse,
   SponsorLicenceVacancyStatsResponse,
-  SponsorLicenceEnrichResponse,
   SponsorshipFeasibility,
   StopImpersonation200,
   SuperAdminHealth,
@@ -8177,6 +8178,7 @@ export const getCheckAllSponsorLicenceVacanciesUrl = () => {
 };
 
 export const checkAllSponsorLicenceVacancies = async (
+  checkAllVacanciesBody?: CheckAllVacanciesBody,
   options?: RequestInit,
 ): Promise<CheckAllVacanciesStartResponse> => {
   return customFetch<CheckAllVacanciesStartResponse>(
@@ -8184,6 +8186,8 @@ export const checkAllSponsorLicenceVacancies = async (
     {
       ...options,
       method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(checkAllVacanciesBody),
     },
   );
 };
@@ -8195,14 +8199,14 @@ export const getCheckAllSponsorLicenceVacanciesMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof checkAllSponsorLicenceVacancies>>,
     TError,
-    void,
+    { data: BodyType<CheckAllVacanciesBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof checkAllSponsorLicenceVacancies>>,
   TError,
-  void,
+  { data: BodyType<CheckAllVacanciesBody> },
   TContext
 > => {
   const mutationKey = ["checkAllSponsorLicenceVacancies"];
@@ -8216,9 +8220,11 @@ export const getCheckAllSponsorLicenceVacanciesMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof checkAllSponsorLicenceVacancies>>,
-    void
-  > = () => {
-    return checkAllSponsorLicenceVacancies(requestOptions);
+    { data: BodyType<CheckAllVacanciesBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return checkAllSponsorLicenceVacancies(data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -8227,7 +8233,8 @@ export const getCheckAllSponsorLicenceVacanciesMutationOptions = <
 export type CheckAllSponsorLicenceVacanciesMutationResult = NonNullable<
   Awaited<ReturnType<typeof checkAllSponsorLicenceVacancies>>
 >;
-
+export type CheckAllSponsorLicenceVacanciesMutationBody =
+  BodyType<CheckAllVacanciesBody>;
 export type CheckAllSponsorLicenceVacanciesMutationError =
   ErrorType<ErrorEnvelope>;
 
@@ -8241,14 +8248,14 @@ export const useCheckAllSponsorLicenceVacancies = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof checkAllSponsorLicenceVacancies>>,
     TError,
-    void,
+    { data: BodyType<CheckAllVacanciesBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof checkAllSponsorLicenceVacancies>>,
   TError,
-  void,
+  { data: BodyType<CheckAllVacanciesBody> },
   TContext
 > => {
   return useMutation(
@@ -8472,13 +8479,10 @@ export const getGetSponsorLicenceVacancyStatsQueryOptions = <
 
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof getSponsorLicenceVacancyStats>>
-  > = ({ signal }) => getSponsorLicenceVacancyStats({ signal, ...requestOptions });
+  > = ({ signal }) =>
+    getSponsorLicenceVacancyStats({ signal, ...requestOptions });
 
-  return {
-    queryKey,
-    queryFn,
-    ...queryOptions,
-  } as UseQueryOptions<
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof getSponsorLicenceVacancyStats>>,
     TError,
     TData
@@ -8489,6 +8493,10 @@ export type GetSponsorLicenceVacancyStatsQueryResult = NonNullable<
   Awaited<ReturnType<typeof getSponsorLicenceVacancyStats>>
 >;
 export type GetSponsorLicenceVacancyStatsQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Get aggregate vacancy statistics across all sponsor licence employers
+ */
 
 export function useGetSponsorLicenceVacancyStats<
   TData = Awaited<ReturnType<typeof getSponsorLicenceVacancyStats>>,
@@ -8547,12 +8555,21 @@ export const getEnrichSponsorLicenceContactMutationOptions = <
   { id: number },
   TContext
 > => {
-  const { mutation: mutationOptions, request: requestOptions } = options ?? {};
+  const mutationKey = ["enrichSponsorLicenceContact"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof enrichSponsorLicenceContact>>,
     { id: number }
-  > = ({ id }) => {
+  > = (props) => {
+    const { id } = props ?? {};
+
     return enrichSponsorLicenceContact(id, requestOptions);
   };
 
@@ -8562,8 +8579,12 @@ export const getEnrichSponsorLicenceContactMutationOptions = <
 export type EnrichSponsorLicenceContactMutationResult = NonNullable<
   Awaited<ReturnType<typeof enrichSponsorLicenceContact>>
 >;
+
 export type EnrichSponsorLicenceContactMutationError = ErrorType<ErrorEnvelope>;
 
+/**
+ * @summary AI-powered contact detail enrichment for a sponsor licence company
+ */
 export const useEnrichSponsorLicenceContact = <
   TError = ErrorType<ErrorEnvelope>,
   TContext = unknown,
@@ -8581,8 +8602,7 @@ export const useEnrichSponsorLicenceContact = <
   { id: number },
   TContext
 > => {
-  const mutationOptions = getEnrichSponsorLicenceContactMutationOptions(options);
-  return useMutation(mutationOptions);
+  return useMutation(getEnrichSponsorLicenceContactMutationOptions(options));
 };
 
 /**

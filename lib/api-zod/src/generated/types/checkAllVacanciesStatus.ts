@@ -18,4 +18,6 @@ export interface CheckAllVacanciesStatus {
   completedAt?: Date | null;
   lastError?: string | null;
   triggeredBy?: CheckAllVacanciesStatusTriggeredBy;
+  /** The region filter active when the scan was started. Null means a global scan. */
+  regions?: string[] | null;
 }

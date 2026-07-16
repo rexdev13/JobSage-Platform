@@ -2437,6 +2437,12 @@ paths:
       operationId: checkAllSponsorLicenceVacancies
       tags: [SponsorLicences]
       summary: Start (or report already-running) a background scan of every sponsor licence employer for vacancies, scoring results for the current candidate
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckAllVacanciesBody"
       responses:
         "200":
           description: Started status
@@ -4898,6 +4904,16 @@ components:
           items:
             $ref: "#/components/schemas/VacancyListing"
 
+    CheckAllVacanciesBody:
+      type: object
+      properties:
+        regions:
+          type: array
+          items:
+            type: string
+          nullable: true
+          description: Optional list of regions to restrict the scan to. Omit or set null for a global scan.
+
     CheckAllVacanciesStartResponse:
       type: object
       required: [started]
@@ -4937,6 +4953,12 @@ components:
           type: string
           nullable: true
           enum: [scheduler, manual]
+        regions:
+          type: array
+          items:
+            type: string
+          nullable: true
+          description: The region filter active when the scan was started. Null means a global scan.
 
     SponsorLicenceVacancyMatch:
       type: object

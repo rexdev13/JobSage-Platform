@@ -379,10 +379,17 @@ export default function SponsorLicencesPage() {
       : 0;
 
   function handleCheckAllVacancies() {
-    checkAllMutation.mutate(undefined, {
+    const regions = selectedRegions.length > 0 ? selectedRegions : undefined;
+    const regionLabel =
+      regions == null
+        ? "all employers"
+        : regions.length === 1
+          ? regions[0]
+          : `${regions.length} regions`;
+    checkAllMutation.mutate({ data: { regions } }, {
       onSuccess: (res) => {
         if (res.started) {
-          toast({ title: "Vacancy check started", description: "We're scanning all employers for new vacancies. This can take a while." });
+          toast({ title: "Vacancy check started", description: `Scanning ${regionLabel} for new vacancies. This can take a while.` });
         } else {
           toast({ title: "Already running", description: "A vacancy check is already in progress." });
         }
@@ -1044,6 +1051,11 @@ export default function SponsorLicencesPage() {
                       />
                     </div>
                     <span className="text-xs text-muted-foreground shrink-0">
+                      {checkAllStatus.regions && checkAllStatus.regions.length > 0
+                        ? checkAllStatus.regions.length === 1
+                          ? `Scanning ${checkAllStatus.regions[0]} · `
+                          : `Scanning ${checkAllStatus.regions.length} regions · `
+                        : ""}
                       {checkAllProgressPct}% · {checkAllStatus.newChecks} new · {checkAllStatus.cacheHits} cached
                       {checkAllStatus.errors > 0 ? ` · ${checkAllStatus.errors} errors` : ""}
                     </span>

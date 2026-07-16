@@ -219,6 +219,11 @@ export interface ConsentStatus {
   latestConsent?: ConsentRecord | null;
 }
 
+/**
+ * Parsed CV fields stored after AI extraction and user confirmation.
+ */
+export type DocumentParsedData = { [key: string]: unknown } | null;
+
 export interface Document {
   id: number;
   userId: string;
@@ -231,7 +236,8 @@ export interface Document {
   isPrimary: boolean;
   disclaimerText: string;
   uploadedAt: string;
-  parsedData?: Record<string, unknown> | null;
+  /** Parsed CV fields stored after AI extraction and user confirmation. */
+  parsedData?: DocumentParsedData;
 }
 
 export interface DocumentList {
@@ -1117,19 +1123,6 @@ export interface SponsorLicenceCompany {
   address?: string | null;
 }
 
-export interface SponsorLicenceVacancyStatsResponse {
-  companiesChecked: number;
-  companiesWithVacancies: number;
-  totalVacanciesFound: number;
-}
-
-export interface SponsorLicenceEnrichResponse {
-  website?: string | null;
-  contactEmail?: string | null;
-  contactPhone?: string | null;
-  address?: string | null;
-}
-
 export interface SponsorLicenceListResponse {
   companies: SponsorLicenceCompany[];
   total: number;
@@ -1140,6 +1133,22 @@ export interface SponsorLicenceListResponse {
   bookmarkedCount?: number;
   lastSyncedAt?: string | null;
   lastSyncFailed?: boolean;
+}
+
+export interface SponsorLicenceVacancyStatsResponse {
+  /** Number of distinct employers that have ever had a vacancy check run. */
+  companiesChecked: number;
+  /** Number of employers that currently have at least one stored vacancy. */
+  companiesWithVacancies: number;
+  /** Total number of vacancies stored across all employers. */
+  totalVacanciesFound: number;
+}
+
+export interface SponsorLicenceEnrichResponse {
+  website?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  address?: string | null;
 }
 
 export interface SponsorLicenceRegionsResponse {
@@ -1198,6 +1207,11 @@ export interface VacancyCheckResult {
   vacancyList?: VacancyListing[] | null;
 }
 
+export interface CheckAllVacanciesBody {
+  /** Optional list of regions to restrict the scan to. Omit or set null for a global scan. */
+  regions?: string[] | null;
+}
+
 export interface CheckAllVacanciesStartResponse {
   /** False if a check-all pass was already running. */
   started: boolean;
@@ -1223,6 +1237,8 @@ export interface CheckAllVacanciesStatus {
   completedAt?: string | null;
   lastError?: string | null;
   triggeredBy?: CheckAllVacanciesStatusTriggeredBy;
+  /** The region filter active when the scan was started. Null means a global scan. */
+  regions?: string[] | null;
 }
 
 export interface SponsorLicenceVacancyMatch {
