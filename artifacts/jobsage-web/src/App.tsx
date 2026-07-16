@@ -84,11 +84,15 @@ function Redirect({ to }: { to: string }) {
 // one /api/profiles/me fire per load, regardless of both components subscribing.
 function ProfileGate() {
   const { user } = useAuth();
+  const [location] = useLocation();
+
+  // TEMP DEBUG
+  console.log("[ProfileGate] render — location:", location, "| user.role:", user?.role);
 
   const { data: consentData, isLoading: consentLoading } = useGetMyConsent({
     query: {
       queryKey: getGetMyConsentQueryKey(),
-      staleTime: 30_000,
+      staleTime: 30000,
       retry: false,
     },
   });
@@ -99,17 +103,28 @@ function ProfileGate() {
     query: {
       queryKey: getGetMyProfileQueryKey(),
       enabled: hasConsented,
-      staleTime: 30_000,
+      staleTime: 30000,
       retry: false,
     },
   });
 
   const isLoading = consentLoading || (hasConsented && profileLoading);
 
+  console.log("[ProfileGate] state — isLoading:", isLoading, "| consentData:", consentData, "| hasConsented:", hasConsented, "| profileError:", profileError, "| profile?.profession:", profile?.profession);
+
   if (isLoading) return <LoadingScreen />;
-  if ((user?.role as string) === "employer") return <Redirect to="/employer/dashboard" />;
-  if (consentData && !consentData.hasConsented) return <Redirect to="/consent" />;
-  if (hasConsented && (profileError || !profile?.profession)) return <Redirect to="/onboarding" />;
+  if ((user?.role as string) === "employer") {
+    console.log("[ProfileGate] redirect → /employer/dashboard | reason: role=employer");
+    return <Redirect to="/employer/dashboard" />;
+  }
+  if (consentData && !consentData.hasConsented) {
+    console.log("[ProfileGate] redirect → /consent | reason: hasConsented=false");
+    return <Redirect to="/consent" />;
+  }
+  if (hasConsented && (profileError || !profile?.profession)) {
+    console.log("[ProfileGate] redirect → /onboarding | reason: profileError=" + profileError + " profession=" + profile?.profession);
+    return <Redirect to="/onboarding" />;
+  }
 
   return <DashboardPage />;
 }
