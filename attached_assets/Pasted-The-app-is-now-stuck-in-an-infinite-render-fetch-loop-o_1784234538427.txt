@@ -1,0 +1,31 @@
+The app is now stuck in an infinite render/fetch loop on ProfileGate after the AuthGuard
+!isPublic fix. Diagnostic logs show ProfileGate's query state resetting to isLoading:
+true / profileError: false on every single render cycle (never progressing to a settled
+error or success state), while /api/profiles/me fires a fresh network request every
+cycle. This pattern (state never advancing, fetch repeating) means the query is being
+torn down and recreated from scratch each render rather than being reused from cache.
+
+Please check:
+1. getGetMyProfileQueryKey() and getGetMyConsentQueryKey() in the generated
+   lib/api-client-react/src/generated/api.ts — confirm the returned key array/object is
+   fully deterministic (no Date.now(), Math.random(), or any per-call-unique value). If
+   it embeds anything non-deterministic, fix it so the same logical query always
+   produces an identical key.
+2. Whether ProfileGate or AuthGuard passes any inline object/array/function as part of
+   `query:` options that could cause TanStack Query to treat this as a new observer each
+   render (e.g. an inline `queryKey: [...]` array literal is fine value-wise, but confirm
+   nothing inside it is unstable).
+3. Whether QueryClientProvider's queryClient (the one created via `new QueryClient()` in
+   App.tsx) is genuinely a single stable instance — confirm it's not being recreated on
+   each render (e.g. it should be defined at module scope or via useState/useMemo, not
+   inline in the component body in a way that re-runs).
+4. Whether AuthGuard's own useGetMyProfile call and ProfileGate's useGetMyProfile call
+   could be fighting over the same query in a way that resets it — check if one of them
+   has `refetchOnMount: 'always'` or similar aggressive options that would explain
+   perpetual refetching when the component keeps mounting/unmounting.
+
+Do not touch the !isPublic fix from the previous change — that part is confirmed correct
+and necessary. This is a new, separate bug it exposed. After fixing, confirm in console
+logs that [ProfileGate] state eventually shows isLoading: false with either a resolved
+profile or profileError: true, and that it stops after 1-2 fetches instead of looping
+indefinitely.
