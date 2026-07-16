@@ -29,6 +29,7 @@ import {
   ChevronDown,
   Pencil,
   Star,
+  Download,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -680,14 +681,25 @@ export default function DocumentsPage() {
                                 </span>
                               )}
                             </div>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 -mr-2 -mt-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={() => handleDelete(doc.id)}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
+                            <div className="flex items-center gap-0.5 -mr-2 -mt-2">
+                              <a
+                                href={`${base}/api/storage/objects${(doc as typeof doc & { storageKey?: string }).storageKey?.replace(/^\/objects/, "") ?? ""}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center justify-center w-8 h-8 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="View / Download"
+                              >
+                                <Download className="w-4 h-4" />
+                              </a>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={() => handleDelete(doc.id)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </div>
 
                           <h4
