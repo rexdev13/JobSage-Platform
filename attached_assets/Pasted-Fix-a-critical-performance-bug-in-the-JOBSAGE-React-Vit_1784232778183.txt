@@ -1,0 +1,62 @@
+Fix a critical performance bug in the JOBSAGE React/Vite app: on a cold browser cache
+(no cached JS chunks), first-time users hang for minutes on a blank white screen before
+the app paints. This is why the bug was invisible to the team — everyone testing already
+had cached chunks from repeat logins, but brand-new users (exactly the ones who hit
+onboarding) get the full cold-load penalty.
+
+ROOT CAUSE: artifacts/jobsage-web/src/App.tsx statically imports every single page in
+the app at the top of the file (SuperAdminPage, AdminSyncPage, EmployerOnboardingPage,
+EmployerDashboardPage, DashboardPage, ProfilePage, DocumentsPage, EligibilityPage,
+OpportunitiesPage, ApplicationsPage, InboxPage, PathPage, InterviewPrepPage,
+AdminRulesetsPage, AdminRolesPage, ReviewQueuePage, AdminAuditPage, AdminUsersPage,
+SponsorLicencesPage, MyProgressReportPage, RegulatoryGuidancePage,
+InterviewCalendarPage, RecommendationLettersPage, IdentityVerificationPage,
+TalentSearchPage, CampaignsPage, EmployerJobFormPage, EmployerJobDetailPage, etc.),
+along with everything those pages transitively import (framer-motion, recharts,
+date-fns, radix components, SmartApplyModal, AIChatSlideover, etc). This means every
+visitor downloads and executes the entire app's module graph before anything renders,
+regardless of which route they're actually on.
+
+TASK 1 — Code-split every route in App.tsx:
+- Convert every page-level import in App.tsx from a static import to React.lazy(),
+  e.g.:
+    const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
+  Do this for ALL page components currently statically imported in App.tsx — do not
+  leave any of them eager. Keep small, always-needed things (layout components,
+  AuthGuard, ProfileGate, LoadingScreen, the Router/Switch/Route wiring itself) as
+  normal static imports — only the page components behind routes should be lazy.
+- Wrap the <Router /> (or each <Switch>/<Route> block, whichever is cleaner given the
+  current structure) in a single <Suspense fallback={<LoadingScreen />}> so route
+  transitions show the existing spinner instead of a blank frame while a chunk loads.
+- Double check the nested <Switch> inside the AuthGuard <Route path="*"> block gets
+  the same Suspense treatment, since most of the page list lives there.
+- Verify the build still produces separate chunks per route (check the Vite build
+  output — you should see many small chunk files instead of one giant bundle) and that
+  nothing broke for admin/employer routes specifically, since those are behind guards
+  (AdminGuard, SuperAdminGuard, EmployerGuard, ReviewerGuard) that also render children
+  synchronously.
+
+TASK 2 — Eliminate the duplicate profile fetch:
+Both AuthGuard.tsx and ProfileGate (in App.tsx) independently call useGetMyProfile()
+and useGetMyConsent() with enabled conditions gated on auth/consent state, causing the
+same /api/profiles/me and /api/consent/me requests to fire twice on every load. Refactor
+so this data is fetched once and shared — either lift the queries into a single parent
+component that both AuthGuard and ProfileGate consume via context/props, or rely on
+react-query's cache (same queryKey, both call sites) and confirm via network tab that
+it's actually deduping instead of double-firing. Pick whichever fits the existing
+component tree with the least structural change. Do not change the redirect logic in
+either AuthGuard or ProfileGate — that part is already correct and works as intended
+(new users with no profile row get redirected to /onboarding).
+
+ACCEPTANCE CRITERIA:
+1. In a fresh incognito window (no cache) on the deployed/preview URL, first paint
+   happens within ~1-2s, not minutes, and a spinner is visible immediately rather than
+   a blank screen.
+2. Network tab shows route-based JS chunks loading on-demand as you navigate, not all
+   ~30 pages loading upfront from "/".
+3. /api/profiles/me and /api/consent/me each fire exactly once per load, not twice.
+4. Existing redirect behavior for logged-out users, unconsented users, and new users
+   without a profile still works identically to before this change.
+
+Do not touch any other logic (auth, consent middleware, profile route, DB schema) —
+this is purely a bundle-splitting and duplicate-fetch fix.

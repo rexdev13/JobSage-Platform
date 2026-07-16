@@ -1,8 +1,8 @@
+import { lazy, Suspense, useEffect } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { useAuth } from "@workspace/auth-web";
-import { useEffect } from "react";
 import {
   useGetMyProfile,
   useGetMyConsent,
@@ -10,49 +10,55 @@ import {
   getGetMyProfileQueryKey,
 } from "@workspace/api-client-react";
 
-import SuperAdminPage from "@/pages/admin/SuperAdminPage";
-import AdminSyncPage from "@/pages/admin/AdminSyncPage";
-import ImpersonatePage from "@/pages/ImpersonatePage";
-import EmployerOnboardingPage from "@/pages/employer/EmployerOnboardingPage";
-import EmployerRegisterPage from "@/pages/employer/EmployerRegisterPage";
-import EmployerDashboardPage from "@/pages/employer/EmployerDashboardPage";
-import EmployerJobFormPage from "@/pages/employer/EmployerJobFormPage";
-import EmployerJobDetailPage from "@/pages/employer/EmployerJobDetailPage";
-import TalentSearchPage from "@/pages/employer/TalentSearchPage";
-import CampaignsPage from "@/pages/employer/CampaignsPage";
-
 import { AuthGuard } from "@/components/layout/AuthGuard";
 
-import LandingPage from "@/pages/LandingPage";
-import LoginPage from "@/pages/LoginPage";
-import AdminLoginPage from "@/pages/admin/AdminLoginPage";
-import RegisterPage from "@/pages/RegisterPage";
-import ForgotPasswordPage from "@/pages/ForgotPasswordPage";
-import ResetPasswordPage from "@/pages/ResetPasswordPage";
-import ConsentPage from "@/pages/ConsentPage";
-import OnboardingPage from "@/pages/OnboardingPage";
-import DashboardPage from "@/pages/DashboardPage";
-import ProfilePage from "@/pages/ProfilePage";
-import DocumentsPage from "@/pages/DocumentsPage";
-import EligibilityPage from "@/pages/EligibilityPage";
-import AdminRulesetsPage from "@/pages/AdminRulesetsPage";
-import OpportunitiesPage from "@/pages/OpportunitiesPage";
-import ApplicationsPage from "@/pages/ApplicationsPage";
-import InboxPage from "@/pages/InboxPage";
-import PathPage from "@/pages/PathPage";
-import InterviewPrepPage from "@/pages/InterviewPrepPage";
-import AdminRolesPage from "@/pages/AdminRolesPage";
-import ReviewQueuePage from "@/pages/ReviewQueuePage";
-import AdminAuditPage from "@/pages/AdminAuditPage";
-import AdminUsersPage from "@/pages/AdminUsersPage";
-import SponsorLicencesPage from "@/pages/SponsorLicencesPage";
-import MyProgressReportPage from "@/pages/MyProgressReportPage";
-import RegulatoryGuidancePage from "@/pages/RegulatoryGuidancePage";
-import InterviewCalendarPage from "@/pages/InterviewCalendarPage";
-import RecommendationLettersPage from "@/pages/RecommendationLettersPage";
-import IdentityVerificationPage from "@/pages/IdentityVerificationPage";
-import NotFound from "@/pages/not-found";
+// --- Lazy page imports (code-split per route) ---
+// Everything below is loaded on-demand when the user navigates to that route.
+// Keep AuthGuard, guards, LoadingScreen, Redirect, SmartHome as static — they
+// are always needed and are tiny.
 
+const SuperAdminPage        = lazy(() => import("@/pages/admin/SuperAdminPage"));
+const AdminSyncPage         = lazy(() => import("@/pages/admin/AdminSyncPage"));
+const AdminLoginPage        = lazy(() => import("@/pages/admin/AdminLoginPage"));
+const ImpersonatePage       = lazy(() => import("@/pages/ImpersonatePage"));
+const EmployerOnboardingPage = lazy(() => import("@/pages/employer/EmployerOnboardingPage"));
+const EmployerRegisterPage  = lazy(() => import("@/pages/employer/EmployerRegisterPage"));
+const EmployerDashboardPage = lazy(() => import("@/pages/employer/EmployerDashboardPage"));
+const EmployerJobFormPage   = lazy(() => import("@/pages/employer/EmployerJobFormPage"));
+const EmployerJobDetailPage = lazy(() => import("@/pages/employer/EmployerJobDetailPage"));
+const TalentSearchPage      = lazy(() => import("@/pages/employer/TalentSearchPage"));
+const CampaignsPage         = lazy(() => import("@/pages/employer/CampaignsPage"));
+
+const LandingPage               = lazy(() => import("@/pages/LandingPage"));
+const LoginPage                 = lazy(() => import("@/pages/LoginPage"));
+const RegisterPage              = lazy(() => import("@/pages/RegisterPage"));
+const ForgotPasswordPage        = lazy(() => import("@/pages/ForgotPasswordPage"));
+const ResetPasswordPage         = lazy(() => import("@/pages/ResetPasswordPage"));
+const ConsentPage               = lazy(() => import("@/pages/ConsentPage"));
+const OnboardingPage            = lazy(() => import("@/pages/OnboardingPage"));
+const DashboardPage             = lazy(() => import("@/pages/DashboardPage"));
+const ProfilePage               = lazy(() => import("@/pages/ProfilePage"));
+const DocumentsPage             = lazy(() => import("@/pages/DocumentsPage"));
+const EligibilityPage           = lazy(() => import("@/pages/EligibilityPage"));
+const AdminRulesetsPage         = lazy(() => import("@/pages/AdminRulesetsPage"));
+const OpportunitiesPage         = lazy(() => import("@/pages/OpportunitiesPage"));
+const ApplicationsPage          = lazy(() => import("@/pages/ApplicationsPage"));
+const InboxPage                 = lazy(() => import("@/pages/InboxPage"));
+const PathPage                  = lazy(() => import("@/pages/PathPage"));
+const InterviewPrepPage         = lazy(() => import("@/pages/InterviewPrepPage"));
+const AdminRolesPage            = lazy(() => import("@/pages/AdminRolesPage"));
+const ReviewQueuePage           = lazy(() => import("@/pages/ReviewQueuePage"));
+const AdminAuditPage            = lazy(() => import("@/pages/AdminAuditPage"));
+const AdminUsersPage            = lazy(() => import("@/pages/AdminUsersPage"));
+const SponsorLicencesPage       = lazy(() => import("@/pages/SponsorLicencesPage"));
+const MyProgressReportPage      = lazy(() => import("@/pages/MyProgressReportPage"));
+const RegulatoryGuidancePage    = lazy(() => import("@/pages/RegulatoryGuidancePage"));
+const InterviewCalendarPage     = lazy(() => import("@/pages/InterviewCalendarPage"));
+const RecommendationLettersPage = lazy(() => import("@/pages/RecommendationLettersPage"));
+const IdentityVerificationPage  = lazy(() => import("@/pages/IdentityVerificationPage"));
+const NotFound                  = lazy(() => import("@/pages/not-found"));
+
+// Shared QueryClient — single instance for the whole app.
 const queryClient = new QueryClient();
 
 function LoadingScreen() {
@@ -72,11 +78,19 @@ function Redirect({ to }: { to: string }) {
   return <LoadingScreen />;
 }
 
+// ProfileGate — decides what to show at "/" for authenticated users.
+// useGetMyConsent / useGetMyProfile here share queryKeys with AuthGuard, so
+// React Query deduplicates the network requests — only one /api/consent/me and
+// one /api/profiles/me fire per load, regardless of both components subscribing.
 function ProfileGate() {
   const { user } = useAuth();
 
   const { data: consentData, isLoading: consentLoading } = useGetMyConsent({
-    query: { queryKey: getGetMyConsentQueryKey(), retry: false },
+    query: {
+      queryKey: getGetMyConsentQueryKey(),
+      staleTime: 30_000,
+      retry: false,
+    },
   });
 
   const hasConsented = consentData?.hasConsented === true;
@@ -85,6 +99,7 @@ function ProfileGate() {
     query: {
       queryKey: getGetMyProfileQueryKey(),
       enabled: hasConsented,
+      staleTime: 30_000,
       retry: false,
     },
   });
@@ -174,121 +189,98 @@ function ReviewerGuard({ children }: { children: React.ReactNode }) {
 
 function Router() {
   return (
-    <Switch>
-      {/* Public home — LandingPage for guests, DashboardPage for signed-in users */}
-      <Route path="/" component={SmartHome} />
+    // Single Suspense boundary — shows LoadingScreen while any lazy chunk loads.
+    <Suspense fallback={<LoadingScreen />}>
+      <Switch>
+        {/* Public home — LandingPage for guests, ProfileGate for signed-in users */}
+        <Route path="/" component={SmartHome} />
 
-      {/* Public auth routes */}
-      <Route path="/login" component={LoginPage} />
-      <Route path="/admin/login" component={AdminLoginPage} />
-      <Route path="/register" component={RegisterPage} />
-      <Route path="/employer/register" component={EmployerRegisterPage} />
-      <Route path="/forgot-password" component={ForgotPasswordPage} />
-      <Route path="/reset-password" component={ResetPasswordPage} />
+        {/* Public auth routes */}
+        <Route path="/login" component={LoginPage} />
+        <Route path="/admin/login" component={AdminLoginPage} />
+        <Route path="/register" component={RegisterPage} />
+        <Route path="/employer/register" component={EmployerRegisterPage} />
+        <Route path="/forgot-password" component={ForgotPasswordPage} />
+        <Route path="/reset-password" component={ResetPasswordPage} />
 
-      {/* Protected Routes inside AuthGuard */}
-      <Route path="*">
-        <AuthGuard>
-          <Switch>
-            <Route path="/consent" component={ConsentPage} />
-            <Route path="/onboarding" component={OnboardingPage} />
-            <Route path="/profile" component={ProfilePage} />
-            <Route path="/documents" component={DocumentsPage} />
+        {/* Protected routes inside AuthGuard */}
+        <Route path="*">
+          <AuthGuard>
+            <Suspense fallback={<LoadingScreen />}>
+              <Switch>
+                <Route path="/consent" component={ConsentPage} />
+                <Route path="/onboarding" component={OnboardingPage} />
+                <Route path="/profile" component={ProfilePage} />
+                <Route path="/documents" component={DocumentsPage} />
 
-            <Route path="/eligibility" component={EligibilityPage} />
-            <Route path="/opportunities" component={OpportunitiesPage} />
-            <Route path="/applications" component={ApplicationsPage} />
-            <Route path="/inbox" component={InboxPage} />
-            <Route path="/path" component={PathPage} />
-            <Route path="/interview-prep" component={InterviewPrepPage} />
-            <Route path="/sponsor-licences" component={SponsorLicencesPage} />
-            <Route path="/my-report" component={MyProgressReportPage} />
-            <Route path="/regulatory-guidance" component={RegulatoryGuidancePage} />
-            <Route path="/calendar" component={InterviewCalendarPage} />
-            <Route path="/recommendations" component={RecommendationLettersPage} />
-            <Route path="/identity" component={IdentityVerificationPage} />
-            <Route path="/admin/rulesets">
-              <AdminGuard>
-                <AdminRulesetsPage />
-              </AdminGuard>
-            </Route>
-            <Route path="/review-queue">
-              <ReviewerGuard>
-                <ReviewQueuePage />
-              </ReviewerGuard>
-            </Route>
-            <Route path="/admin/roles">
-              <AdminGuard>
-                <AdminRolesPage />
-              </AdminGuard>
-            </Route>
-            <Route path="/admin/audit">
-              <AdminGuard>
-                <AdminAuditPage />
-              </AdminGuard>
-            </Route>
-            <Route path="/admin/users">
-              <AdminGuard>
-                <AdminUsersPage />
-              </AdminGuard>
-            </Route>
-            <Route path="/admin/super">
-              <SuperAdminGuard>
-                <SuperAdminPage />
-              </SuperAdminGuard>
-            </Route>
-            <Route path="/admin/sync">
-              <SuperAdminGuard>
-                <AdminSyncPage />
-              </SuperAdminGuard>
-            </Route>
+                <Route path="/eligibility" component={EligibilityPage} />
+                <Route path="/opportunities" component={OpportunitiesPage} />
+                <Route path="/applications" component={ApplicationsPage} />
+                <Route path="/inbox" component={InboxPage} />
+                <Route path="/path" component={PathPage} />
+                <Route path="/interview-prep" component={InterviewPrepPage} />
+                <Route path="/sponsor-licences" component={SponsorLicencesPage} />
+                <Route path="/my-report" component={MyProgressReportPage} />
+                <Route path="/regulatory-guidance" component={RegulatoryGuidancePage} />
+                <Route path="/calendar" component={InterviewCalendarPage} />
+                <Route path="/recommendations" component={RecommendationLettersPage} />
+                <Route path="/identity" component={IdentityVerificationPage} />
 
-            {/* Impersonation — opened in new tab by super admin */}
-            <Route path="/impersonate" component={ImpersonatePage} />
+                <Route path="/admin/rulesets">
+                  <AdminGuard><AdminRulesetsPage /></AdminGuard>
+                </Route>
+                <Route path="/review-queue">
+                  <ReviewerGuard><ReviewQueuePage /></ReviewerGuard>
+                </Route>
+                <Route path="/admin/roles">
+                  <AdminGuard><AdminRolesPage /></AdminGuard>
+                </Route>
+                <Route path="/admin/audit">
+                  <AdminGuard><AdminAuditPage /></AdminGuard>
+                </Route>
+                <Route path="/admin/users">
+                  <AdminGuard><AdminUsersPage /></AdminGuard>
+                </Route>
+                <Route path="/admin/super">
+                  <SuperAdminGuard><SuperAdminPage /></SuperAdminGuard>
+                </Route>
+                <Route path="/admin/sync">
+                  <SuperAdminGuard><AdminSyncPage /></SuperAdminGuard>
+                </Route>
 
-            {/* Employer Portal Routes */}
-            <Route path="/employer/onboarding" component={EmployerOnboardingPage} />
-            <Route path="/employer/dashboard">
-              <EmployerGuard>
-                <EmployerDashboardPage />
-              </EmployerGuard>
-            </Route>
-            <Route path="/employer/profile">
-              <EmployerGuard>
-                <EmployerOnboardingPage />
-              </EmployerGuard>
-            </Route>
-            <Route path="/employer/jobs/new">
-              <EmployerGuard>
-                <EmployerJobFormPage />
-              </EmployerGuard>
-            </Route>
-            <Route path="/employer/jobs/:id/edit">
-              <EmployerGuard>
-                <EmployerJobFormPage />
-              </EmployerGuard>
-            </Route>
-            <Route path="/employer/jobs/:id">
-              <EmployerGuard>
-                <EmployerJobDetailPage />
-              </EmployerGuard>
-            </Route>
-            <Route path="/employer/talent-search">
-              <EmployerGuard>
-                <TalentSearchPage />
-              </EmployerGuard>
-            </Route>
-            <Route path="/employer/campaigns">
-              <EmployerGuard>
-                <CampaignsPage />
-              </EmployerGuard>
-            </Route>
+                <Route path="/impersonate" component={ImpersonatePage} />
 
-            <Route component={NotFound} />
-          </Switch>
-        </AuthGuard>
-      </Route>
-    </Switch>
+                {/* Employer Portal */}
+                <Route path="/employer/onboarding" component={EmployerOnboardingPage} />
+                <Route path="/employer/dashboard">
+                  <EmployerGuard><EmployerDashboardPage /></EmployerGuard>
+                </Route>
+                <Route path="/employer/profile">
+                  <EmployerGuard><EmployerOnboardingPage /></EmployerGuard>
+                </Route>
+                <Route path="/employer/jobs/new">
+                  <EmployerGuard><EmployerJobFormPage /></EmployerGuard>
+                </Route>
+                <Route path="/employer/jobs/:id/edit">
+                  <EmployerGuard><EmployerJobFormPage /></EmployerGuard>
+                </Route>
+                <Route path="/employer/jobs/:id">
+                  <EmployerGuard><EmployerJobDetailPage /></EmployerGuard>
+                </Route>
+                <Route path="/employer/talent-search">
+                  <EmployerGuard><TalentSearchPage /></EmployerGuard>
+                </Route>
+                <Route path="/employer/campaigns">
+                  <EmployerGuard><CampaignsPage /></EmployerGuard>
+                </Route>
+
+                <Route component={NotFound} />
+              </Switch>
+            </Suspense>
+          </AuthGuard>
+        </Route>
+      </Switch>
+    </Suspense>
   );
 }
 
