@@ -7,7 +7,10 @@
     "dev": "NODE_ENV=development tsx ./src/index.ts",
     "build": "tsx ./build.ts",
     "start": "node dist/index.cjs",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --config vitest.config.ts",
+    "test:watch": "vitest --config vitest.config.ts",
+    "test:coverage": "vitest run --config vitest.config.ts --coverage"
   },
   "dependencies": {
     "@google-cloud/storage": "^7.19.0",
@@ -35,7 +38,11 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "catalog:",
+    "@types/supertest": "^7.2.1",
+    "@vitest/coverage-v8": "^4.1.10",
     "esbuild": "^0.27.3",
-    "tsx": "catalog:"
+    "supertest": "^7.2.2",
+    "tsx": "catalog:",
+    "vitest": "^4.1.10"
   }
 }
