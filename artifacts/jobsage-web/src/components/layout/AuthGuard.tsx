@@ -14,6 +14,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const [location, setLocation] = useLocation();
 
+  // TEMP DEBUG
+  console.log("[AuthGuard] render — location:", location, "| isAuthenticated:", isAuthenticated, "| authLoading:", authLoading);
+
   const {
     data: consentData,
     isLoading: consentLoading,
@@ -51,11 +54,15 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     if (isLoading || isPublic) return;
 
     if (!isAuthenticated) {
-      if (location !== "/login") setLocation("/login");
+      if (location !== "/login") {
+        console.log("[AuthGuard] redirect → /login | reason: not authenticated");
+        setLocation("/login");
+      }
       return;
     }
 
     if (consentData && !consentData.hasConsented && location !== "/consent") {
+      console.log("[AuthGuard] redirect → /consent | reason: hasConsented=false");
       setLocation("/consent");
       return;
     }
@@ -66,6 +73,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       location !== "/onboarding" &&
       user?.role !== "employer"
     ) {
+      console.log("[AuthGuard] redirect → /onboarding | reason: profileError=true, hasConsented=true");
       setLocation("/onboarding");
       return;
     }

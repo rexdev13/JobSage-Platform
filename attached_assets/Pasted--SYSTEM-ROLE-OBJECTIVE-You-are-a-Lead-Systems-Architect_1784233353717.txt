@@ -1,0 +1,38 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Systems Architect and Senior Backend Engineer working inside our Next.js / TypeScript repository for the "Jobsage" platform.
+
+Before we write or modify any code for **Item 7 (Background Vacancy Scraper)** and **Item 8 (Regional Query Optimization)**, you must conduct a strict, read-only architectural investigation of the existing codebase.
+
+**CRITICAL INSTRUCTION: READ-ONLY & ZERO ASSUMPTIONS**
+Do NOT assume file paths, ORM schemas, database table names, or existing API routing patterns. You are strictly forbidden from creating, editing, or deleting any files during this step. Your only job is to inspect the codebase and report the exact ground truth.
+
+---
+
+### INVESTIGATION TASKS
+Search the codebase and inspect the exact files to answer the following four architectural questions:
+
+1. **Database & ORM Layer:**
+   - How are we currently connecting to and querying the database for sponsor licenses and vacancies? (e.g., Are we using Drizzle ORM, Prisma, or the raw Supabase JS client? What are the exact import paths?)
+
+2. **Current "Check Vacancies" Button Route & Logic:**
+   - Locate the frontend component on the Sponsor License page where the "Check Vacancies" button lives.
+   - Trace its execution: What exact API route, server action, or custom hook does it trigger when clicked? Why is it currently taking so long or freezing when executed?
+
+3. **Regional Schema & Filtering:**
+   - Inspect the database schema/model for sponsor licenses (e.g., `sponsorLicences` or equivalent table).
+   - Exactly how are geographical locations stored? What exact column names represent geographical regions (e.g., `region`, `county`, `city`, `address`)? 
+   - Why is querying by region currently causing a full-table scan of all ~26,000+ employers instead of strictly subsetting?
+
+4. **Background / Cron Job Setup:**
+   - Search the project for any existing patterns for scheduled background tasks or background workers.
+   - Are there any existing cron routes (e.g., `/api/cron/...`), Vercel cron configs (`vercel.json`), or background job libraries already installed and configured in `package.json`?
+
+---
+
+### EXPECTED DELIVERABLE
+Output a structured **"Architectural Discovery Report"** answering the four questions above. For every answer, you must provide:
+- The exact file paths and relevant line numbers discovered.
+- The exact column names and types found in the schema.
+- A brief summary of how we should cleanly wire Item 7 and Item 8 based strictly on what you discovered.
+
+Begin your read-only investigation now and output the report.
