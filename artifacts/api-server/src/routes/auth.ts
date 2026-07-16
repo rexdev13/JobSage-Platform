@@ -139,7 +139,7 @@ router.post("/auth/register", async (req: Request, res: Response) => {
     .returning();
 
   try {
-    await sendVerificationEmail(normalised, token);
+    await sendVerificationEmail(normalised, token, getOrigin(req));
   } catch (err: unknown) {
     console.error(`[email] Failed to send verification email to ${normalised}: ${emailErrDetail(err)}`, err);
     // Roll back the user record so the registration can be retried
@@ -381,7 +381,7 @@ router.post("/auth/forgot-password", async (req: Request, res: Response) => {
     .where(eq(usersTable.id, user.id));
 
   try {
-    await sendPasswordResetEmail(normalised, token);
+    await sendPasswordResetEmail(normalised, token, getOrigin(req));
   } catch (err: unknown) {
     console.error(`[email] Failed to send password reset email to ${normalised}: ${emailErrDetail(err)}`, err);
   }
@@ -486,7 +486,7 @@ router.post("/auth/resend-verification", async (req: Request, res: Response) => 
     .where(eq(usersTable.id, user.id));
 
   try {
-    await sendVerificationEmail(normalised, token);
+    await sendVerificationEmail(normalised, token, getOrigin(req));
   } catch (err: unknown) {
     console.error(`[email] Failed to resend verification email to ${normalised}: ${emailErrDetail(err)}`, err);
   }

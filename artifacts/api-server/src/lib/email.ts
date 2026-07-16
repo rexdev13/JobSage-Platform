@@ -235,8 +235,8 @@ export async function sendJobAlertEmail(
   });
 }
 
-export async function sendVerificationEmail(to: string, token: string): Promise<void> {
-  const verifyUrl = `${APP_URL}/api/auth/verify-email?token=${encodeURIComponent(token)}`;
+export async function sendVerificationEmail(to: string, token: string, baseUrl: string = APP_URL): Promise<void> {
+  const verifyUrl = `${baseUrl}/api/auth/verify-email?token=${encodeURIComponent(token)}`;
   await resend.emails.send({
     from: `JOBSAGE <${FROM}>`,
     to,
@@ -447,8 +447,8 @@ export async function sendSpeculativeCVNotification(opts: {
   });
 }
 
-export async function sendPasswordResetEmail(to: string, token: string): Promise<void> {
-  const resetUrl = `${APP_URL}/reset-password?token=${encodeURIComponent(token)}`;
+export async function sendPasswordResetEmail(to: string, token: string, baseUrl: string = APP_URL): Promise<void> {
+  const resetUrl = `${baseUrl}/reset-password?token=${encodeURIComponent(token)}`;
   await resend.emails.send({
     from: `JOBSAGE <${FROM}>`,
     to,
