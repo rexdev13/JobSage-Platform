@@ -1,0 +1,33 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Frontend UI/UX Engineer working in our Next.js / TypeScript repository. Based on your exact Discovery Report, the backend scoring engine and API routes for **Item 9 ("Check Best Fit" Ranking Button)** are already 100% functional. 
+
+Your objective is to execute a surgical frontend UX refactor on `SponsorLicencesPage.tsx` to explicitly surface DRD's requested **"Check Best Fit"** CTA button and ensure the expanded vacancies clearly visualize the 100% to 0% match ranking.
+
+**CRITICAL GUARDRAIL: FRONTEND-ONLY & ZERO BACKEND MODIFICATIONS**
+- Do NOT modify any backend API routes, Drizzle schemas, or scoring algorithms.
+- Confine your modifications strictly to `artifacts/jobsage-web/src/pages/SponsorLicencesPage.tsx` (or related UI child components/styles).
+
+---
+
+### EXECUTION TASKS
+
+1. **Upgrade the Action Strip CTA Button (`SponsorLicencesPage.tsx`):**
+   - Locate the per-card action strip (around lines 1161–1241) where the existing `"Match %"` button triggers the `expandedVacancies` state.
+   - Refactor the button label and visual styling to prominently display **"Check Best Fit"** (e.g., `"⚡ Check Best Fit"` or `"Check Best Fit (85% Match)"` depending on available space and existing design tokens).
+   - Ensure the button retains a clear, primary or high-contrast UI hierarchy so users immediately recognize it as the primary matchmaking trigger for that employer.
+
+2. **Enhance the Ranked Vacancies Display (`VacancyMatchPanel`):**
+   - Locate `VacancyMatchPanel` (around line 136, rendered at line 1371).
+   - Verify that when the panel expands, the vacancies are rendered in clear order of their `matchScore` descending (from 100% down to 0%).
+   - Upgrade the visual presentation of the individual vacancy rows/cards inside this panel so that each role's percentage match score (e.g., `92% Match`) is rendered as a prominent, color-coded badge or progress indicator (e.g., green for >80%, amber for 50-79%, neutral for <50%).
+
+---
+
+### VERIFICATION & COMPILATION
+1. **Type & Linter Check:** Run `pnpm tsc --build` (or your repository's standard typecheck script) to verify your UI modifications introduced zero TypeScript errors or broken props.
+2. **Deliverable Summary:** Output a brief 3-bullet summary detailing:
+   - Exactly what line numbers/components were modified in `SponsorLicencesPage.tsx`.
+   - How the new **"Check Best Fit"** button is labeled and styled.
+   - How the percentage badges are visually formatted inside `VacancyMatchPanel`.
+
+Proceed with executing Item 9 now.
