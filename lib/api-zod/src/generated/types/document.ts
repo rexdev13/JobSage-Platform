@@ -5,6 +5,7 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { DocumentParsedData } from "./documentParsedData";
 
 export interface Document {
   id: number;
@@ -18,5 +19,6 @@ export interface Document {
   isPrimary: boolean;
   disclaimerText: string;
   uploadedAt: Date;
-  parsedData?: Record<string, unknown> | null;
+  /** Parsed CV fields stored after AI extraction and user confirmation. */
+  parsedData?: DocumentParsedData;
 }

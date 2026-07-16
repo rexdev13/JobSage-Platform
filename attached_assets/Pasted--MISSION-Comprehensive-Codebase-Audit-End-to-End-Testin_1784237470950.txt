@@ -1,0 +1,27 @@
+# MISSION: Comprehensive Codebase Audit & End-to-End Testing
+
+We need to verify the stability, correctness, and functionality of our entire application, starting from the very first foundational features we built up to the most recent implementations. Assume nothing has been tested yet.
+
+## STEP 1: Feature & Architectural Inventory
+Before running or writing any tests, scan the codebase and generate a complete, chronologically ordered inventory of every feature, component, and API endpoint implemented in this repository. Group them into:
+1. **Foundational/Early Features:** (Core setup, authentication, database schemas, initial routing, basic UI components).
+2. **Core Functionality & Business Logic:** (Primary user flows, data manipulation, CRUD operations).
+3. **Recent Additions & Integrations:** (Latest UI components, advanced features, third-party integrations).
+
+## STEP 2: Test Plan Generation
+For each grouped feature in your inventory, check if adequate tests exist. If tests are missing or incomplete, outline a structured test plan covering:
+- **Unit Tests:** Verifying utility functions, state logic, and standalone components.
+- **Integration Tests:** Ensuring database queries, API routes, and service layers communicate correctly without data loss or exceptions.
+- **End-to-End (E2E) User Flows:** Simulating real user journeys from initial onboarding/early features to complex downstream interactions.
+
+## STEP 3: Automated Test Execution & Fixes
+1. Run the existing test suite using our project's testing framework (e.g., Jest, Vitest, Playwright, Cypress, or PyTest).
+2. For any broken tests or untested foundational features, write clean, robust test cases and execute them.
+3. If a bug or regression is discovered during testing, diagnose the root cause and propose or apply a minimal, safe fix without breaking existing architecture.
+
+## STEP 4: Comprehensive QA Report
+Provide a final report with the following structure:
+- 📋 **Complete Checklist of Every Feature Audited** (from earliest to latest).
+- ✅ **Test Execution Results** (Pass/Fail counts and coverage percentage).
+- 🛠️ **Bugs Found & Resolutions Applied**.
+- ⚠️ **Remaining Risk Areas or Manual Testing Recommendations**.

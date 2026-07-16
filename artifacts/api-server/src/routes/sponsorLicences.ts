@@ -63,7 +63,12 @@ router.post("/sponsor-licences/:id/check-vacancies", requireAuthenticated, async
 router.post("/sponsor-licences/check-all-vacancies", requireAuthenticated, (req, res) => {
   try {
     const userId = req.user!.id;
-    const result = startCheckAllVacancies(userId);
+    const rawRegions = req.body?.regions;
+    const regions: string[] | undefined =
+      Array.isArray(rawRegions) && rawRegions.every((r: unknown) => typeof r === "string")
+        ? (rawRegions as string[])
+        : undefined;
+    const result = startCheckAllVacancies(userId, regions);
     res.json(result);
   } catch (err) {
     console.error("[sponsor-licences] /check-all-vacancies POST error:", err);
