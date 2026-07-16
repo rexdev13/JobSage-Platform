@@ -113,7 +113,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     consentData?.hasConsented &&
     profileError &&
     location !== "/onboarding" &&
-    user?.role !== "employer"
+    user?.role !== "employer" &&
+    !isPublic
   )
     return null;
 
