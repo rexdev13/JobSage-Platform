@@ -94,7 +94,7 @@ function ProfileGate() {
       setLocation("/consent");
       return;
     }
-    if (hasConsented && !profileError && !profile?.profession) {
+    if (hasConsented && (profileError || !profile?.profession)) {
       setLocation("/onboarding");
     }
   }, [isLoading, consentData, hasConsented, profileError, profile, setLocation, user]);
@@ -102,7 +102,7 @@ function ProfileGate() {
   if (isLoading) return <LoadingScreen />;
   if ((user?.role as string) === "employer") return null;
   if (consentData && !consentData.hasConsented) return null;
-  if (profileError) return <DashboardPage />;
+  if (profileError) return null;
   if (!profile?.profession) return null;
 
   return <DashboardPage />;
