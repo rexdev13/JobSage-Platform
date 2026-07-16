@@ -16,11 +16,13 @@ export const sponsorLicencesTable = pgTable(
     contactEmail: text("contact_email"),
     contactPhone: text("contact_phone"),
     address: text("address"),
+    region: text("region"),
   },
   (t) => [
     index("sponsor_licences_name_idx").on(t.organisationName),
     index("sponsor_licences_route_idx").on(t.route),
     index("sponsor_licences_industry_idx").on(t.industry),
+    index("sponsor_licences_region_idx").on(t.region),
   ],
 );
 

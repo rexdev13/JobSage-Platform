@@ -6,6 +6,7 @@ import { startVacancyCheckScheduler } from "./lib/vacancyCheckScheduler";
 import { startDailyVacancySyncScheduler } from "./lib/dailyVacancySync";
 import { runSponsorLicenceSync } from "./lib/sponsorLicenceSync";
 import { runIndustryBackfill } from "./lib/industryBackfill";
+import { runRegionBackfill } from "./lib/regionBackfill";
 import { db, sponsorLicenceSyncLogTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 
@@ -63,5 +64,8 @@ app.listen(port, () => {
   void triggerSyncIfStale();
   runIndustryBackfill().catch((err) => {
     console.error("[industry-backfill] Startup backfill failed:", err);
+  });
+  runRegionBackfill().catch((err) => {
+    console.error("[region-backfill] Startup backfill failed:", err);
   });
 });
