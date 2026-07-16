@@ -92,7 +92,11 @@ function ProfileGate() {
   const { data: consentData, isLoading: consentLoading } = useGetMyConsent({
     query: {
       queryKey: getGetMyConsentQueryKey(),
-      staleTime: 30000,
+      // refetchOnMount:false — AuthGuard (our parent) already fetched this.
+      // A second observer with the default refetchOnMount:true would re-fire the
+      // request, set profileLoading=true on AuthGuard too, causing AuthGuard to
+      // show its spinner and unmount us — creating an infinite abort/remount loop.
+      refetchOnMount: false,
       retry: false,
     },
   });
@@ -103,7 +107,9 @@ function ProfileGate() {
     query: {
       queryKey: getGetMyProfileQueryKey(),
       enabled: hasConsented,
-      staleTime: 30000,
+      // Same reason — read the cached error/data from AuthGuard's fetch, never
+      // trigger a fresh fetch from this observer.
+      refetchOnMount: false,
       retry: false,
     },
   });
