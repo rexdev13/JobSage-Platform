@@ -14,6 +14,8 @@ import {
   useCheckAllSponsorLicenceVacancies,
   useGetCheckAllSponsorLicenceVacanciesStatus,
   useGetSponsorLicenceVacancies,
+  useGetSponsorLicenceVacancyStats,
+  useEnrichSponsorLicenceContact,
   useGetSponsorLicenceRegions,
   useBookmarkSponsorLicence,
   useUnbookmarkSponsorLicence,
@@ -22,6 +24,7 @@ import {
   getGetSponsorLicenceIndustryCountsQueryKey,
   getGetCheckAllSponsorLicenceVacanciesStatusQueryKey,
   type SponsorLicenceVacancyMatch,
+  type SponsorLicenceEnrichResponse,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
@@ -317,6 +320,9 @@ export default function SponsorLicencesPage() {
 
   const [expandedVacancies, setExpandedVacancies] = useState<Set<number>>(new Set());
   const [expandedContact, setExpandedContact] = useState<Set<number>>(new Set());
+  const [enrichedContacts, setEnrichedContacts] = useState<Map<number, SponsorLicenceEnrichResponse>>(new Map());
+  const [enrichingIds, setEnrichingIds] = useState<Set<number>>(new Set());
+  const enrichMutation = useEnrichSponsorLicenceContact();
 
   const [selectedVacancy, setSelectedVacancy] = useState<SelectedVacancy | null>(null);
   const [applyModalVacancy, setApplyModalVacancy] = useState<SelectedVacancy | null>(null);
@@ -507,6 +513,37 @@ export default function SponsorLicencesPage() {
     return () => clearTimeout(t);
   }, [search]);
 
+  const { data: vacancyStats } = useGetSponsorLicenceVacancyStats();
+  const totalVacanciesFound = vacancyStats?.totalVacanciesFound ?? 0;
+  const vacancyCompaniesCount = vacancyStats?.companiesWithVacancies ?? 0;
+
+  function handleEnrichContact(companyId: number) {
+    setEnrichingIds((prev) => new Set(prev).add(companyId));
+    enrichMutation.mutate(
+      { id: companyId },
+      {
+        onSuccess: (data) => {
+          setEnrichedContacts((prev) => {
+            const next = new Map(prev);
+            next.set(companyId, data);
+            return next;
+          });
+          void queryClient.invalidateQueries({ queryKey: [getListSponsorLicencesQueryKey()[0]] });
+        },
+        onError: () => {
+          toast({ title: "Could not find contact details", description: "Please try again or search manually.", variant: "destructive" });
+        },
+        onSettled: () => {
+          setEnrichingIds((prev) => {
+            const next = new Set(prev);
+            next.delete(companyId);
+            return next;
+          });
+        },
+      },
+    );
+  }
+
   const { data: routesData } = useGetSponsorLicenceRoutes();
   const routes = routesData?.routes ?? [];
 
@@ -640,6 +677,17 @@ export default function SponsorLicencesPage() {
                 transition={{ duration: 0.2 }}
                 className="space-y-6"
               >
+                {/* Vacancy index banner */}
+                {totalVacanciesFound > 0 && (
+                  <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-green-500/8 border border-green-500/20 text-green-800 dark:text-green-300">
+                    <BadgeCheck className="w-4 h-4 text-green-600 shrink-0" />
+                    <span className="text-sm font-medium">
+                      <span className="font-bold">{totalVacanciesFound.toLocaleString()}</span> vacancies indexed across{" "}
+                      <span className="font-bold">{vacancyCompaniesCount.toLocaleString()}</span> sponsor companies
+                    </span>
+                  </div>
+                )}
+
                 {/* Summary stats */}
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                   <Card className="p-4 flex items-center gap-4">
@@ -778,6 +826,17 @@ export default function SponsorLicencesPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Vacancy index banner */}
+                {totalVacanciesFound > 0 && (
+                  <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-green-500/8 border border-green-500/20 text-green-800 dark:text-green-300">
+                    <BadgeCheck className="w-4 h-4 text-green-600 shrink-0" />
+                    <span className="text-sm font-medium">
+                      <span className="font-bold">{totalVacanciesFound.toLocaleString()}</span> vacancies indexed across{" "}
+                      <span className="font-bold">{vacancyCompaniesCount.toLocaleString()}</span> sponsor companies
+                    </span>
+                  </div>
+                )}
 
                 {/* Stats row */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -1172,54 +1231,127 @@ export default function SponsorLicencesPage() {
 
                           {/* ── Contact panel ── */}
                           <AnimatePresence>
-                            {expandedContact.has(c.id) && (
-                              <motion.div
-                                initial={{ opacity: 0, height: 0 }}
-                                animate={{ opacity: 1, height: "auto" }}
-                                exit={{ opacity: 0, height: 0 }}
-                                transition={{ duration: 0.2 }}
-                                className="overflow-hidden"
-                              >
-                                <div className="mt-3 ml-14 p-4 rounded-xl bg-muted/40 border border-border">
-                                  <p className="text-xs font-semibold text-foreground mb-3 flex items-center gap-1.5">
-                                    <Phone className="w-3.5 h-3.5 text-primary" />
-                                    Contact {c.organisationName}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
-                                    Contact details are not published in the official Home Office register. Use the links below to find their website, phone, and email:
-                                  </p>
-                                  <div className="flex flex-wrap gap-2">
-                                    <a
-                                      href={`https://www.google.com/search?q=${encodeURIComponent(c.organisationName + " " + (c.townCity ?? "") + " contact email phone")}`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-background border border-border text-foreground hover:bg-accent transition-colors font-medium"
-                                    >
-                                      <Globe className="w-3.5 h-3.5 text-primary" />
-                                      Search online
-                                      <ExternalLink className="w-3 h-3 opacity-50" />
-                                    </a>
-                                    <a
-                                      href={`https://find-and-update.company-information.service.gov.uk/search?q=${encodeURIComponent(c.organisationName)}`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-background border border-border text-foreground hover:bg-accent transition-colors font-medium"
-                                    >
-                                      <Building2 className="w-3.5 h-3.5 text-primary" />
-                                      Companies House
-                                      <ExternalLink className="w-3 h-3 opacity-50" />
-                                    </a>
-                                    <a
-                                      href={`mailto:?subject=Application enquiry — ${encodeURIComponent(c.organisationName)}&body=Hello%2C%0A%0AI am writing to enquire about employment opportunities at ${encodeURIComponent(c.organisationName)}.`}
-                                      className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-background border border-border text-foreground hover:bg-accent transition-colors font-medium"
-                                    >
-                                      <Mail className="w-3.5 h-3.5 text-primary" />
-                                      Draft email
-                                    </a>
+                            {expandedContact.has(c.id) && (() => {
+                              const enriched = enrichedContacts.get(c.id);
+                              const website = enriched?.website ?? c.website;
+                              const contactEmail = enriched?.contactEmail ?? c.contactEmail;
+                              const contactPhone = enriched?.contactPhone ?? c.contactPhone;
+                              const address = enriched?.address ?? c.address;
+                              const hasStoredContact = !!(website || contactEmail || contactPhone || address);
+                              const isEnriching = enrichingIds.has(c.id);
+                              return (
+                                <motion.div
+                                  initial={{ opacity: 0, height: 0 }}
+                                  animate={{ opacity: 1, height: "auto" }}
+                                  exit={{ opacity: 0, height: 0 }}
+                                  transition={{ duration: 0.2 }}
+                                  className="overflow-hidden"
+                                >
+                                  <div className="mt-3 ml-14 p-4 rounded-xl bg-muted/40 border border-border space-y-3">
+                                    <div className="flex items-center justify-between">
+                                      <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                                        <Phone className="w-3.5 h-3.5 text-primary" />
+                                        Contact {c.organisationName}
+                                      </p>
+                                      {!hasStoredContact && (
+                                        <button
+                                          onClick={() => handleEnrichContact(c.id)}
+                                          disabled={isEnriching}
+                                          className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium disabled:opacity-60"
+                                        >
+                                          {isEnriching ? (
+                                            <><Loader2 className="w-3 h-3 animate-spin" /> Finding…</>
+                                          ) : (
+                                            <><Sparkles className="w-3 h-3" /> Find Contact Details</>
+                                          )}
+                                        </button>
+                                      )}
+                                    </div>
+
+                                    {hasStoredContact ? (
+                                      <div className="space-y-2">
+                                        {website && (
+                                          <a
+                                            href={website}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center gap-2 text-xs text-primary hover:underline"
+                                          >
+                                            <Globe className="w-3.5 h-3.5 shrink-0" />
+                                            {website}
+                                            <ExternalLink className="w-3 h-3 opacity-50" />
+                                          </a>
+                                        )}
+                                        {contactEmail && (
+                                          <a
+                                            href={`mailto:${contactEmail}`}
+                                            className="flex items-center gap-2 text-xs text-foreground hover:text-primary"
+                                          >
+                                            <Mail className="w-3.5 h-3.5 text-primary shrink-0" />
+                                            {contactEmail}
+                                          </a>
+                                        )}
+                                        {contactPhone && (
+                                          <a
+                                            href={`tel:${contactPhone}`}
+                                            className="flex items-center gap-2 text-xs text-foreground hover:text-primary"
+                                          >
+                                            <Phone className="w-3.5 h-3.5 text-primary shrink-0" />
+                                            {contactPhone}
+                                          </a>
+                                        )}
+                                        {address && (
+                                          <p className="flex items-start gap-2 text-xs text-muted-foreground">
+                                            <MapPin className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+                                            {address}
+                                          </p>
+                                        )}
+                                        <div className="pt-1">
+                                          <button
+                                            onClick={() => handleEnrichContact(c.id)}
+                                            disabled={isEnriching}
+                                            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                                          >
+                                            {isEnriching ? (
+                                              <><Loader2 className="w-3 h-3 animate-spin" /> Refreshing…</>
+                                            ) : (
+                                              <><RefreshCw className="w-3 h-3" /> Refresh contact details</>
+                                            )}
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <p className="text-xs text-muted-foreground leading-relaxed">
+                                        Contact details are not in the official register. Click <strong>Find Contact Details</strong> to search automatically, or use the links below:
+                                      </p>
+                                    )}
+
+                                    <div className="flex flex-wrap gap-2 pt-1 border-t border-border/60">
+                                      <a
+                                        href={`https://www.google.com/search?q=${encodeURIComponent(c.organisationName + " " + (c.townCity ?? "") + " contact email phone")}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-background border border-border text-foreground hover:bg-accent transition-colors font-medium"
+                                      >
+                                        <Globe className="w-3.5 h-3.5 text-primary" />
+                                        Search online
+                                        <ExternalLink className="w-3 h-3 opacity-50" />
+                                      </a>
+                                      <a
+                                        href={`https://find-and-update.company-information.service.gov.uk/search?q=${encodeURIComponent(c.organisationName)}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-background border border-border text-foreground hover:bg-accent transition-colors font-medium"
+                                      >
+                                        <Building2 className="w-3.5 h-3.5 text-primary" />
+                                        Companies House
+                                        <ExternalLink className="w-3 h-3 opacity-50" />
+                                      </a>
+                                    </div>
                                   </div>
-                                </div>
-                              </motion.div>
-                            )}
+                                </motion.div>
+                              );
+                            })()}
                           </AnimatePresence>
 
                           {/* ── Vacancy match panel ── */}

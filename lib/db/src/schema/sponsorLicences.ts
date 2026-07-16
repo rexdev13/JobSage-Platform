@@ -12,6 +12,10 @@ export const sponsorLicencesTable = pgTable(
     rating: text("rating"),
     industry: text("industry"),
     syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
+    website: text("website"),
+    contactEmail: text("contact_email"),
+    contactPhone: text("contact_phone"),
+    address: text("address"),
   },
   (t) => [
     index("sponsor_licences_name_idx").on(t.organisationName),

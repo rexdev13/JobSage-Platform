@@ -364,6 +364,71 @@ router.get("/sponsor-licences/:id/vacancies", requireAuthenticated, async (req, 
   }
 });
 
+// ── Enrich Contact Details ────────────────────────────────────────────────────
+
+router.post("/sponsor-licences/:id/enrich", requireAuthenticated, async (req, res) => {
+  try {
+    const rawId = typeof req.params["id"] === "string" ? req.params["id"] : "";
+    const id = parseInt(rawId, 10);
+    if (isNaN(id)) return void res.status(400).json({ error: "Invalid company id." });
+
+    const [company] = await db
+      .select()
+      .from(sponsorLicencesTable)
+      .where(eq(sponsorLicencesTable.id, id))
+      .limit(1);
+    if (!company) return void res.status(404).json({ error: "Company not found." });
+
+    const { openai } = await import("@workspace/integrations-openai-ai-server");
+
+    const prompt = `You are a UK business researcher. Find publicly available contact details for the following UK company from their own website or reputable directories. Return ONLY a JSON object (no markdown, no commentary) with these exact keys:
+- "website": the company's main website URL (must start with https:// or http://) or null
+- "contactEmail": a contact or HR email address or null
+- "contactPhone": a UK phone number (include country code if available) or null
+- "address": the full business address including postcode or null
+
+Company name: ${company.organisationName}
+Location hint: ${[company.townCity, company.county].filter(Boolean).join(", ") || "United Kingdom"}
+
+Only include information you are confident about. Return null for any field you cannot find.`;
+
+    let website: string | null = null;
+    let contactEmail: string | null = null;
+    let contactPhone: string | null = null;
+    let address: string | null = null;
+
+    try {
+      const response = await openai.responses.create({
+        model: "gpt-4o",
+        tools: [{ type: "web_search_preview" }],
+        input: prompt,
+      });
+
+      const text = response.output_text?.trim() ?? "";
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]) as Record<string, string | null>;
+        website = typeof parsed["website"] === "string" ? parsed["website"] : null;
+        contactEmail = typeof parsed["contactEmail"] === "string" ? parsed["contactEmail"] : null;
+        contactPhone = typeof parsed["contactPhone"] === "string" ? parsed["contactPhone"] : null;
+        address = typeof parsed["address"] === "string" ? parsed["address"] : null;
+      }
+    } catch (aiErr) {
+      console.error("[sponsor-licences] enrich AI error:", aiErr);
+    }
+
+    await db
+      .update(sponsorLicencesTable)
+      .set({ website, contactEmail, contactPhone, address })
+      .where(eq(sponsorLicencesTable.id, id));
+
+    res.json({ website, contactEmail, contactPhone, address });
+  } catch (err) {
+    console.error("[sponsor-licences] /:id/enrich error:", err);
+    res.status(500).json({ error: "Failed to enrich contact details." });
+  }
+});
+
 // ── Vacancy Stats ─────────────────────────────────────────────────────────────
 
 router.get("/sponsor-licences/vacancy-stats", requireAuthenticated, async (_req, res) => {

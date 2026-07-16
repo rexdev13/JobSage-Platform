@@ -1,0 +1,50 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Senior Full-Stack Engineer working inside our Next.js / TypeScript / Drizzle ORM repository for the "Jobsage" platform. 
+
+Your objective for this sprint is to implement **Sponsor License Directory Enhancements**:
+1. Add UI elements for tracking vacancy counts (total running banner + per-company badges).
+2. Implement a "Check Best Fit" ranking action per company (evaluating candidate CV fit from 100% to 0%).
+3. Create a data enrichment mechanism/endpoint to populate missing company contact details (website, email, phone, address) for UK Sponsor License holders.
+
+**CRITICAL INSTRUCTION: ZERO ASSUMPTIONS**
+Do NOT assume schema structures, API routing patterns, or UI component props without checking first. You must inspect the existing Drizzle schemas, backend routes, and frontend page components (`SponsorLicencesPage.tsx`, etc.) before writing code.
+
+---
+
+### STEP 1: CODEBASE & ARCHITECTURE DISCOVERY (READ-ONLY)
+Before modifying any files, execute read-only searches to understand the current architecture:
+1. **Sponsor Schema & Data:** Inspect the Drizzle schema for sponsor licenses (e.g., look for `sponsorLicencesTable`, `sponsor_licences`, or similar in `lib/db/src/schema/...`). Check what contact fields currently exist (e.g., `website`, `email`, `phone`, `address`) and how they relate to the `roles` / `jobs` tables.
+2. **Vacancies & Job Matching Engine:** Find how job opportunities/roles are currently queried and how the CV matching score (0–100%) is calculated in the backend (e.g., inspect `routes/roles.ts`, `routes/opportunities.ts`, or matching utility functions).
+3. **Inspect `SponsorLicencesPage.tsx`:** Read the frontend component to see how the table is currently rendered, where the existing "Check Vacancies" sync button is located, and how rows display company data.
+
+---
+
+### STEP 2: BACKEND ENRICHMENT & MATCHMAKING ENDPOINTS
+Based strictly on the architecture discovered in Step 1, implement or update the necessary backend functionality:
+1. **Sponsor Contact Data & Enrichment:**
+   - Verify that the sponsor entity in the Drizzle schema supports columns for `website`, `contact_email`, `contact_phone`, and `address`. If missing, generate and apply the SQL/Drizzle schema update cleanly.
+   - Implement an API endpoint or lightweight enrichment utility (e.g., `POST /api/sponsor-licences/:id/enrich` or batch service) that can fetch/derive company details (e.g., via UK Companies House API integration or fallback metadata parsing) so companies no longer force users to rely solely on external Google searches.
+2. **Per-Company "Best Fit" Matchmaking Endpoint:**
+   - Ensure an endpoint exists (or create one, e.g., `GET /api/sponsor-licences/:id/best-fit`) that fetches all active job vacancies for a specific sponsor company, evaluates them against the authenticated user's primary/active CV parsed data, and returns the roles strictly ranked from **100% to 0% fit**.
+
+---
+
+### STEP 3: FRONTEND UI WIRING (`SponsorLicencesPage.tsx`)
+Update the user interface to meet the exact product requirements:
+1. **Vacancy Counts & Banner:**
+   - At the top of the Sponsor Licenses page, display a clean running total summary banner: e.g., *"Active Opportunities: X Total Vacancies across Y Sponsor Companies."*
+   - Next to each company row in the table/list, add a visual badge indicating the exact number of active vacancies currently open for that company.
+2. **"Check Best Fit" Action Button:**
+   - Add a prominent **"Check Best Fit"** button directly next to each sponsor company row.
+   - Clicking this button should trigger a clean UI view (such as a slide-over drawer, modal, or filtered transition to the Opportunities view) displaying all open roles for *that specific company*, ranked from 100% to 0% match against the candidate's CV.
+3. **Contact Info Display:**
+   - Ensure that when a user views a sponsor company, its stored Website, Email, Phone Number, and Address are clearly displayed (or provide an inline action to trigger the enrichment fetch if empty).
+
+---
+
+### STEP 4: TYPE SAFETY & VERIFICATION
+1. Rebuild any required API client/shared type packages (e.g., `@workspace/db`, `@workspace/api-client-react`, or OpenAPI specs) to ensure frontend and backend types are 100% synchronized.
+2. Run a full TypeScript compilation check across the workspace to confirm zero errors or broken imports.
+3. Summarize the exact files modified, schema changes applied, and how the new UI features operate.
+
+Start by executing Step 1 (Discovery) now and proceed step-by-step.

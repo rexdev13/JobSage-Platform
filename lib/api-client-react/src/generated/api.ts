@@ -124,6 +124,8 @@ import type {
   SponsorLicenceRoutesResponse,
   SponsorLicenceSyncResult,
   SponsorLicenceVacanciesResponse,
+  SponsorLicenceVacancyStatsResponse,
+  SponsorLicenceEnrichResponse,
   SponsorshipFeasibility,
   StopImpersonation200,
   SuperAdminHealth,
@@ -8428,6 +8430,160 @@ export function useGetSponsorLicenceVacancies<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Get aggregate vacancy statistics across all sponsor licence employers
+ */
+export const getGetSponsorLicenceVacancyStatsUrl = () => {
+  return `/api/sponsor-licences/vacancy-stats`;
+};
+
+export const getSponsorLicenceVacancyStats = async (
+  options?: RequestInit,
+): Promise<SponsorLicenceVacancyStatsResponse> => {
+  return customFetch<SponsorLicenceVacancyStatsResponse>(
+    getGetSponsorLicenceVacancyStatsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetSponsorLicenceVacancyStatsQueryKey = () => {
+  return [`/api/sponsor-licences/vacancy-stats`] as const;
+};
+
+export const getGetSponsorLicenceVacancyStatsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSponsorLicenceVacancyStats>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSponsorLicenceVacancyStats>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetSponsorLicenceVacancyStatsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSponsorLicenceVacancyStats>>
+  > = ({ signal }) => getSponsorLicenceVacancyStats({ signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSponsorLicenceVacancyStats>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSponsorLicenceVacancyStatsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSponsorLicenceVacancyStats>>
+>;
+export type GetSponsorLicenceVacancyStatsQueryError = ErrorType<ErrorEnvelope>;
+
+export function useGetSponsorLicenceVacancyStats<
+  TData = Awaited<ReturnType<typeof getSponsorLicenceVacancyStats>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSponsorLicenceVacancyStats>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSponsorLicenceVacancyStatsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary AI-powered contact detail enrichment for a sponsor licence company
+ */
+export const getEnrichSponsorLicenceContactUrl = (id: number) => {
+  return `/api/sponsor-licences/${id}/enrich`;
+};
+
+export const enrichSponsorLicenceContact = async (
+  id: number,
+  options?: RequestInit,
+): Promise<SponsorLicenceEnrichResponse> => {
+  return customFetch<SponsorLicenceEnrichResponse>(
+    getEnrichSponsorLicenceContactUrl(id),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getEnrichSponsorLicenceContactMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof enrichSponsorLicenceContact>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof enrichSponsorLicenceContact>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const { mutation: mutationOptions, request: requestOptions } = options ?? {};
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof enrichSponsorLicenceContact>>,
+    { id: number }
+  > = ({ id }) => {
+    return enrichSponsorLicenceContact(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type EnrichSponsorLicenceContactMutationResult = NonNullable<
+  Awaited<ReturnType<typeof enrichSponsorLicenceContact>>
+>;
+export type EnrichSponsorLicenceContactMutationError = ErrorType<ErrorEnvelope>;
+
+export const useEnrichSponsorLicenceContact = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof enrichSponsorLicenceContact>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof enrichSponsorLicenceContact>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationOptions = getEnrichSponsorLicenceContactMutationOptions(options);
+  return useMutation(mutationOptions);
+};
 
 /**
  * @summary Get distinct sponsorship routes present in the register
