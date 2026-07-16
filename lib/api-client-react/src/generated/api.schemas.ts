@@ -1107,6 +1107,27 @@ export interface SponsorLicenceCompany {
   matchIsEligible?: boolean | null;
   /** Timestamp of the most recent successful vacancy check for this employer. */
   lastVacancyCheckedAt?: string | null;
+  /** Company website URL enriched via AI. */
+  website?: string | null;
+  /** Contact email address enriched via AI. */
+  contactEmail?: string | null;
+  /** Contact phone number enriched via AI. */
+  contactPhone?: string | null;
+  /** Physical business address enriched via AI. */
+  address?: string | null;
+}
+
+export interface SponsorLicenceVacancyStatsResponse {
+  companiesChecked: number;
+  companiesWithVacancies: number;
+  totalVacanciesFound: number;
+}
+
+export interface SponsorLicenceEnrichResponse {
+  website?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  address?: string | null;
 }
 
 export interface SponsorLicenceListResponse {
