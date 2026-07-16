@@ -1,0 +1,32 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Systems Architect working in our Next.js / TypeScript repository. We have successfully completed Item 8 by adding an indexed `region` column to the `sponsor_licences` table. 
+
+Before we write or modify any code for **Item 7 (Background Vacancy Scraper & UI Fix)**, you must conduct a strict, read-only architectural investigation of our vacancy checking logic.
+
+**CRITICAL INSTRUCTION: READ-ONLY & ZERO ASSUMPTIONS**
+Do NOT assume file paths, function names, or existing background worker implementations. You are strictly forbidden from creating, editing, or deleting any files during this step. Your only job is to inspect the codebase and report the exact ground truth.
+
+---
+
+### INVESTIGATION TASKS
+Search the codebase and inspect the exact files to answer the following three architectural questions:
+
+1. **Vacancy Scanner Query Architecture:**
+   - Inspect `artifacts/api-server/src/lib/vacancyCheckAllRunner.ts` and `artifacts/api-server/src/lib/vacancyCheckScheduler.ts` (or equivalent files).
+   - Exactly how do these scripts currently query the database to decide which sponsor companies to scan for vacancies? 
+   - Can we now easily inject a `WHERE region = $1` SQL filter into their query logic using our new `region` column so they only scan localized subsets (~400 employers) instead of all 127,000+ records?
+
+2. **UI Vacancy Count Data Source:**
+   - When a user is on `SponsorLicencesPage.tsx` and filters by region, where do the vacancy numbers displayed on the page come from? 
+   - What exact API endpoint or Drizzle query supplies those vacancy counts to the frontend table? Are they read instantly from a database column/table, or calculated on the fly?
+
+3. **The "Check Vacancies" Button Execution Flow:**
+   - Trace what happens when a user clicks the "Check Vacancies" button on `SponsorLicencesPage.tsx` while a regional filter (e.g., "West Midlands") is active.
+   - Does the current API mutation (`POST /api/sponsor-licences/check-all-vacancies`) accept a regional filter parameter, or is it completely blind to UI filters and forcing a global scan of all 127,000+ records?
+
+---
+
+### EXPECTED DELIVERABLE
+Output a structured **"Vacancy Scraper Discovery Report"** answering the three questions above. Include exact file paths, function names, and line numbers. 
+
+Conclude your report with a brief summary of how we should refactor the button and background scheduler to utilize our new `region` index without freezing the user's browser. Begin your read-only investigation now.

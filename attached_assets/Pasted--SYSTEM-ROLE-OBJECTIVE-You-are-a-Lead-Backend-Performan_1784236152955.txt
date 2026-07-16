@@ -1,0 +1,33 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Backend Performance Engineer working in our Next.js / TypeScript repository. Based on your exact Vacancy Scraper Discovery Report, you must now execute **Item 7: Background Vacancy Scraper & Regional UI Scoping**.
+
+Your objective is to eliminate global table scans and UI freezes by making the "Check Vacancies" button regional-aware, passing the active UI filters to the backend so the scraper strictly processes regional subsets (~400 employers) instead of all 127,000+ records.
+
+---
+
+### EXECUTION TASKS
+
+1. **Update API Specification & Zod Schema (`@workspace/api-zod` / OpenAPI):**
+   - Update the schema definition for `POST /api/sponsor-licences/check-all-vacancies` to accept an optional JSON request body containing `regions?: string[]` (or equivalent matching our region filter format).
+   - Rebuild/regenerate the API specification, Zod validation schemas, and React Query client hooks (`@workspace/api-client-react`) so the frontend mutation can safely send a payload.
+
+2. **Refactor the Backend Route & Scraper Engine:**
+   - In `artifacts/api-server/src/routes/sponsorLicences.ts`, update the `POST /check-all-vacancies` handler to extract `regions` from `req.body` and pass it down to `startCheckAllVacancies(userId, regions)`.
+   - In `artifacts/api-server/src/lib/vacancyCheckAllRunner.ts`, thread the optional `regions` parameter through to `checkAllOrganisations(regions)`.
+   - Modify the `db.selectDistinct(...)` query inside `checkAllOrganisations()`. If `regions` is provided and non-empty, append a `.where(inArray(sponsorLicencesTable.region, regions))` clause (or `eq` for a single region) so the scan strictly subsets to those specific employers using our new database index.
+   - Update the status tracking object/endpoint (`CheckAllStatus`) to record the active region filter if present (e.g., so the UI can reflect that it is scanning a specific region rather than a global check).
+
+3. **Wire the Frontend Button (`SponsorLicencesPage.tsx`):**
+   - In `artifacts/jobsage-web/src/pages/SponsorLicencesPage.tsx`, locate `handleCheckAllVacancies()`.
+   - Update the mutation call to pass the active region filters as the request body: e.g., `checkAllMutation.mutate({ regions: selectedRegions })` (or matching our state variable name).
+   - Ensure the UI button feedback reflects that a localized check has started (e.g., showing a toast or status indicator indicating that regional vacancies are being refreshed).
+
+---
+
+### VERIFICATION & COMPILATION
+1. **Type & Linter Check:** Run type-checking across the repository to verify that the updated Zod schemas, API routes, and React Query hooks compile cleanly with zero errors.
+2. **Deliverable Summary:** Provide a brief summary confirming:
+   - The exact files modified across the schema, API, and frontend layers.
+   - Confirmation that calling the endpoint with a region array generates an indexed WHERE clause rather than a full-table scan.
+
+Proceed with executing Item 7 now.

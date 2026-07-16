@@ -25,6 +25,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     query: {
       queryKey: getGetMyConsentQueryKey(),
       enabled: isAuthenticated,
+      refetchOnMount: false,
+      refetchOnWindowFocus: false,
       retry: false,
     },
   });
@@ -37,6 +39,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     query: {
       queryKey: getGetMyProfileQueryKey(),
       enabled: isAuthenticated && consentData?.hasConsented === true,
+      refetchOnMount: false,
+      refetchOnWindowFocus: false,
       retry: false,
     },
   });
