@@ -2,3 +2,4 @@
 - [GCS File download pattern](gcs-file-download.md) — use storage.downloadObject(gcsFile) then response.arrayBuffer(), not gcsFile.arrayBuffer()
 - [Pre-existing TS errors](pre-existing-ts-errors.md) — do NOT fix: coverLetter.ts, employer.ts, adminAudit.ts, remediation.ts, smartApply.ts, EmployerJobFormPage.tsx, button-group.tsx, calendar.tsx
 - [api-client-react rebuild](api-client-react-rebuild.md) — any type changes require cd lib/api-client-react && npx tsc --build to regenerate dist/*.d.ts
+- [api-client-react base URL](api-client-base-url.md) — must call setBaseUrl() in main.tsx before mount; omitting it causes all hooks to hit /api/... instead of /jobsage/api/...
