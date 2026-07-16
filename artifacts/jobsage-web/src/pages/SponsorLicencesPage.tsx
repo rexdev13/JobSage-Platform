@@ -206,11 +206,15 @@ function VacancyMatchPanel({
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm font-medium text-foreground truncate">{v.title}</p>
                       {score != null && (
-                        <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
-                          eligible ? "bg-green-500/15 text-green-700" : "bg-amber-500/15 text-amber-700"
+                        <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                          score >= 80
+                            ? "bg-green-500/20 text-green-700"
+                            : score >= 50
+                            ? "bg-amber-500/20 text-amber-700"
+                            : "bg-slate-500/15 text-slate-600"
                         }`}>
                           <Gauge className="w-3 h-3" />
-                          {Math.round(score)}%
+                          {Math.round(score)}% Match
                         </span>
                       )}
                       {eligible === false && (
@@ -1174,26 +1178,24 @@ export default function SponsorLicencesPage() {
                                   )}
                                 </button>
 
-                                {/* Match % badge */}
-                                {c.matchScore != null && (
-                                  <button
-                                    onClick={() => setExpandedVacancies((prev) => {
-                                      const next = new Set(prev);
-                                      if (next.has(c.id)) next.delete(c.id); else next.add(c.id);
-                                      return next;
-                                    })}
-                                    title="View matched vacancies for this employer"
-                                    className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors font-semibold ${
-                                      c.matchIsEligible
-                                        ? "bg-green-500/10 border-green-500/20 text-green-700 hover:bg-green-500/20"
-                                        : "bg-amber-500/10 border-amber-500/20 text-amber-700 hover:bg-amber-500/20"
-                                    }`}
-                                  >
-                                    <Gauge className="w-3.5 h-3.5" />
-                                    {Math.round(c.matchScore)}% Match
-                                    {expandedVacancies.has(c.id) ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                                  </button>
-                                )}
+                                {/* Check Best Fit CTA */}
+                                <button
+                                  onClick={() => setExpandedVacancies((prev) => {
+                                    const next = new Set(prev);
+                                    if (next.has(c.id)) next.delete(c.id); else next.add(c.id);
+                                    return next;
+                                  })}
+                                  title="View matched vacancies for this employer"
+                                  className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors font-semibold ${
+                                    expandedVacancies.has(c.id)
+                                      ? "bg-primary/15 border-primary/30 text-primary hover:bg-primary/20"
+                                      : "bg-primary text-primary-foreground border-primary hover:bg-primary/90"
+                                  }`}
+                                >
+                                  <Gauge className="w-3.5 h-3.5" />
+                                  ⚡ Check Best Fit{c.matchScore != null ? ` · ${Math.round(c.matchScore)}%` : ""}
+                                  {expandedVacancies.has(c.id) ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                                </button>
 
                               {/* Contact toggle */}
                               <button
