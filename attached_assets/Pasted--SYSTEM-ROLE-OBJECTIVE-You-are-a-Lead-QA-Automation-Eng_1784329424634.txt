@@ -1,0 +1,28 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead QA Automation Engineer. Your ONLY task is to run our existing automated test suites (Vitest / Jest / HTTP integration tests) and perform rapid script-based checks to verify the operational status of our **12 Completed Features**, then output a clean QA Report.
+
+**🚨 CRITICAL KILL-SWITCH & COST GUARDRAILS (ZERO LOOPING) 🚨**
+1. **NO HEADLESS BROWSERS:** You are strictly FORBIDDEN from launching Playwright, Cypress, Puppeteer, or any headless Chromium/WebKit binary. (Do not attempt to run Playwright specs; they will fail on Replit NixOS GUI dependencies).
+2. **NO PACKAGE INSTALLS:** Do NOT install any new npm packages, do NOT modify `replit.nix`, and do NOT touch Linux system libraries.
+3. **NO SELF-HEALING LOOPS:** If a test fails or errors out, **DO NOT ATTEMPT TO FIX THE CODE.** Simply log the failure in your report and move on. You must execute your run and TERMINATE in under 3 minutes.
+
+---
+
+### EXECUTION STEPS
+1. **Run Workspace Test Suites:** Execute our existing fast unit/integration test commands (e.g., `pnpm test`, `pnpm vitest run`, or equivalent non-browser test scripts across `@workspace/db`, `api-server`, and `jobsage-web`).
+2. **Verify 12 Feature Touchpoints:** Based on test results and rapid code/schema inspection, verify the operational status of:
+   - **Sprint 1 (Multi-CV):** Atomic `is_primary` toggling transaction in `routes/documents.ts`, `<select>` CV picker visibility in `SponsorVacancyApplyModal.tsx` / `SmartApplyModal.tsx`, and the hover download icon on `DocumentsPage.tsx`.
+   - **Sprint 2 (Sponsor Scoping):** Existence of `sponsor_licences_region_idx` in DB schema, and `.where(inArray(...))` regional scoping in `vacancyCheckAllRunner.ts`.
+   - **Sprint 3 (Matchmaking UI):** Unconditional `"⚡ Check Best Fit"` button and 3-tier color badges (Green ≥80%, Amber 50-79%, Slate <50%) in `SponsorLicencesPage.tsx`.
+   - **Sprint 4 (Top 5 / Next 5 Feed):** Array slicing into Band 1 (`slice(0,5)` with `recommended={true}`), Band 2 (`slice(5,10)`), and Band 3 (`slice(10)`) in `OpportunitiesPage.tsx`.
+   - **Core Foundations:** Academic vs. Clinical AI parsing logic, custom `@mail.jobsage.app` email assignment hooks, Visa/Regulatory rulesets seeding, and React Query cross-tab state syncing.
+
+---
+
+### REQUIRED DELIVERABLE
+Output a structured **"Automated 12-Point QA Status Report"** listing each of the 12 features with a clear status:
+- ✅ **PASS (Verified via automated test / strict code proof)**
+- ⚠️ **REQUIRES MANUAL VISUAL CHECK (If an UI element cannot be tested in-memory)**
+- ❌ **FAIL (Include exact error message)**
+
+Conclude with the total test suite run count (e.g., "177/177 tests passing"). Run the checks now and TERMINATE immediately once the report is generated.
