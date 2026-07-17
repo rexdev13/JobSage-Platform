@@ -67,6 +67,16 @@ router.post(
         contentType: req.file.mimetype,
       });
 
+      // Write ACL so the owner can download their file via GET /storage/objects/*
+      try {
+        await objectStorageService.trySetObjectEntityAclPolicy(storageKey, {
+          owner: req.user!.id,
+          visibility: "private",
+        });
+      } catch (aclErr) {
+        console.error("Document ACL write failed (multipart upload):", aclErr);
+      }
+
       const [doc] = await db
         .insert(documentsTable)
         .values({
@@ -110,6 +120,16 @@ router.post("/documents", requireAuthenticated, async (req: Request, res: Respon
   if (!storageKey.startsWith("/objects/uploads/")) {
     res.status(400).json({ error: "Invalid storage key. Must be obtained from the presigned upload URL endpoint." });
     return;
+  }
+
+  // Write ACL so the owner can download their file via GET /storage/objects/*
+  try {
+    await objectStorageService.trySetObjectEntityAclPolicy(storageKey, {
+      owner: req.user!.id,
+      visibility: "private",
+    });
+  } catch (aclErr) {
+    console.error("Document ACL write failed (presigned upload):", aclErr);
   }
 
   const [doc] = await db
