@@ -1,0 +1,38 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Frontend UI/UX Engineer working in our Next.js / TypeScript repository. Based on your exact Discovery Report, the backend matching scores and sorted arrays (`allRankedRoles`) for **Item 11 (Prioritized Application Guidance: Top 5 / Next 5 Feed)** are already 100% operational on `OpportunitiesPage.tsx`.
+
+Your objective is to execute a clean, surgical UI refactor on `OpportunitiesPage.tsx` to visually partition the job board into enterprise-grade **"Top 5 Recommendations"** and **"Next 5 to Consider"** tiers, instantly guiding candidates on where to apply first.
+
+**CRITICAL GUARDRAIL: FRONTEND-ONLY & ZERO BACKEND MODIFICATIONS**
+- Do NOT modify any backend API routes, Drizzle schemas, or data-fetching hooks.
+- Confine your modifications strictly to `artifacts/jobsage-web/src/pages/OpportunitiesPage.tsx`.
+
+---
+
+### EXECUTION TASKS
+
+1. **Partition the Sorted Roles Array (`OpportunitiesPage.tsx`):**
+   - Locate where `allRankedRoles` is defined (around line 1022).
+   - Slice `allRankedRoles` into three distinct visual tiers:
+     - `const top5Roles = allRankedRoles.slice(0, 5);`
+     - `const next5Roles = allRankedRoles.slice(5, 10);`
+     - `const remainingRoles = allRankedRoles.slice(10);`
+
+2. **Refactor the Board Tab Render Block:**
+   - Locate the main render block inside the "board" tab (around lines 1270–1307) where `allRankedRoles.map(...)` is currently rendered as a single flat list.
+   - Replace that flat list with **three sequential, beautifully styled `<section>` bands**:
+     - **Band 1 (Top 5 Recommendations):** Use the `<Medal>` icon and a prominent section header (e.g., `"Top 5 Recommendations · Apply First"`). Pass `recommended={true}` (or equivalent highlighting prop) to `<RoleCard>` for these items.
+     - **Band 2 (Next 5 to Consider):** Use the `<TrendingUp>` or `<Star>` icon with a secondary header (e.g., `"Next 5 to Consider · Strong Matches"`).
+     - **Band 3 (All Remaining Vacancies):** Render `remainingRoles` under a clean standard header (e.g., `"More Opportunities"`).
+   - Ensure the existing `id="job-board-section"` anchor is preserved on the outermost wrapper so the existing `BestMatchesStrip` scroll button continues to work seamlessly.
+
+---
+
+### VERIFICATION & COMPILATION
+1. **Type & Linter Check:** Run `pnpm tsc --build` (or your repository's standard typecheck script) to verify your UI modifications introduced zero TypeScript errors or broken JSX structures.
+2. **Deliverable Summary:** Output a brief 3-bullet summary detailing:
+   - Exactly what line numbers were modified in `OpportunitiesPage.tsx`.
+   - How the visual headers and icon styles are applied to the Top 5 and Next 5 tiers.
+   - Confirmation that the scroll anchor and type checks passed cleanly.
+
+Proceed with executing Item 11 now.
