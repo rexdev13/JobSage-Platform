@@ -117,9 +117,13 @@ function ProfileGate() {
     },
   });
 
-  const isLoading = consentLoading || (hasConsented && profileLoading);
+  // Only block on consentLoading. AuthGuard already waited for the profile query
+  // before rendering ProfileGate. If profileLoading is somehow still true here
+  // (e.g. an aborted fetch left the cache empty), treat it as "no profile" and
+  // fall through to the redirect logic below rather than spinning forever.
+  const isLoading = consentLoading;
 
-  console.log("[ProfileGate] state — isLoading:", isLoading, "| consentData:", consentData, "| hasConsented:", hasConsented, "| profileError:", profileError, "| profile?.profession:", profile?.profession);
+  console.log("[ProfileGate] state — isLoading:", isLoading, "| consentData:", consentData, "| hasConsented:", hasConsented, "| profileError:", profileError, "| profileLoading:", profileLoading, "| profile?.profession:", profile?.profession);
 
   if (isLoading) return <LoadingScreen />;
   if ((user?.role as string) === "employer") {
