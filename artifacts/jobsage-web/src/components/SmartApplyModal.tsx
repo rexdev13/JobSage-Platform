@@ -584,26 +584,38 @@ export function SmartApplyModal({
                 </button>
               </div>
             )}
-            {cvDocuments.length >= 2 && (
+            {cvDocuments.length >= 1 && (
               <div className="px-6 pt-3 flex items-center gap-2">
                 <span className="text-xs text-muted-foreground shrink-0">CV to record:</span>
-                <div className="relative flex-1">
-                  <select
-                    value={selectedCvId ?? ""}
-                    onChange={(e) => setSelectedCvId(e.target.value ? parseInt(e.target.value, 10) : null)}
-                    className="w-full appearance-none text-xs rounded-lg border border-border bg-muted/40 px-2 py-1.5 pr-6 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  >
-                    {cvDocuments.map((cv) => {
-                      const cvExtra = cv as typeof cv & { label?: string | null; isPrimary?: boolean };
-                      return (
-                        <option key={cv.id} value={cv.id}>
-                          {cvExtra.label ?? cv.filename}{cvExtra.isPrimary ? " ★" : ""}
-                        </option>
-                      );
-                    })}
-                  </select>
-                  <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
-                </div>
+                {cvDocuments.length >= 2 ? (
+                  <div className="relative flex-1">
+                    <select
+                      value={selectedCvId ?? ""}
+                      onChange={(e) => setSelectedCvId(e.target.value ? parseInt(e.target.value, 10) : null)}
+                      className="w-full appearance-none text-xs rounded-lg border border-border bg-muted/40 px-2 py-1.5 pr-6 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    >
+                      {cvDocuments.map((cv) => {
+                        const cvExtra = cv as typeof cv & { label?: string | null; isPrimary?: boolean };
+                        return (
+                          <option key={cv.id} value={cv.id}>
+                            {cvExtra.label ?? cv.filename}{cvExtra.isPrimary ? " ★" : ""}
+                          </option>
+                        );
+                      })}
+                    </select>
+                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+                  </div>
+                ) : (() => {
+                  const cv = cvDocuments[0];
+                  const cvExtra = cv as typeof cv & { label?: string | null; isPrimary?: boolean };
+                  return (
+                    <div className="flex items-center gap-1.5 flex-1 px-2 py-1.5 rounded-lg border border-border bg-muted/40 text-xs text-foreground">
+                      <FileText className="w-3 h-3 text-primary shrink-0" />
+                      <span className="truncate flex-1">{cvExtra.label ?? cv.filename}</span>
+                      {cvExtra.isPrimary && <span className="text-amber-500 shrink-0">★</span>}
+                    </div>
+                  );
+                })()}
               </div>
             )}
             <div className="flex items-center justify-between px-6 py-4">

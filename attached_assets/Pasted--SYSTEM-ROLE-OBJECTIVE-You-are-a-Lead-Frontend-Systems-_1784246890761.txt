@@ -1,0 +1,32 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Frontend Systems Architect working in our Next.js / TypeScript repository. Before we write or modify any code for **Item 11 (Prioritized Application Guidance: Top 5 / Next 5 Feed)**, you must conduct a strict, read-only architectural investigation.
+
+**CRITICAL GUARDRAIL: READ-ONLY & ZERO ASSUMPTIONS**
+- Do NOT write, edit, or delete any files.
+- Do NOT execute automated test suites (no Jest, Playwright, or Vitest).
+- Do NOT install packages or touch the filesystem.
+- Execute ONLY code searches and read-only inspections to answer the questions below, output the report, and TERMINATE immediately.
+
+---
+
+### INVESTIGATION TASKS
+Search the codebase and inspect our existing files to answer these three architectural questions:
+
+1. **Main Feed Component & Data Source:**
+   - Locate the main Opportunities/Jobs feed page (e.g., `artifacts/jobsage-web/src/pages/OpportunitiesPage.tsx`, `JobsPage.tsx`, or equivalent).
+   - What exact query or hook fetches the list of jobs/opportunities displayed to the user? Does each job item in the returned array already contain a match percentage or score (e.g., `matchScore`, `aiScore`, `fitPercentage`)?
+
+2. **Current Sorting & Rendering Structure:**
+   - How are the opportunities currently rendered on the page? Is it a flat `<map>` over an array, a paginated list, or partitioned into existing sections/tabs?
+   - How is the list currently sorted (e.g., by date added, alphabetical, or by match score)?
+
+3. **Feasibility of "Top 5 / Next 5" Visual Slicing:**
+   - Inspect how job cards are componentized. Can we easily sort the fetched array descending by match score, slice out `jobs.slice(0, 5)` into a highlighted **"Top 5 Recommendations"** visual tier/container, and render `jobs.slice(5, 10)` as a **"Next 5 to Consider"** tier?
+   - What existing UI components (containers, dividers, headers, or badges) can we reuse to make this visual distinction look seamless?
+
+---
+
+### EXPECTED DELIVERABLE
+Output a structured **"Job Feed Architecture Discovery Report"** answering the three questions above with exact file paths, line numbers, and state variable names. 
+
+Conclude with a brief 2-sentence recommendation on how we should cleanly implement the Top 5 / Next 5 UI grouping without breaking any existing search or filtering functionality on that page. Begin your read-only investigation now and TERMINATE when the report is output.

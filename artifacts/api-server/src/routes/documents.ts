@@ -191,17 +191,29 @@ router.patch("/documents/:id/label", requireAuthenticated, async (req: Request, 
     return;
   }
 
-  // When marking as primary, unset all other CV documents for this user first
-  if (isPrimary === true) {
-    await db
-      .update(documentsTable)
-      .set({ isPrimary: false })
-      .where(and(eq(documentsTable.userId, userId), eq(documentsTable.documentType, "cv")));
-  }
-
   const updates: { label?: string | null; isPrimary?: boolean } = {};
   if (label !== undefined) updates.label = label ?? null;
   if (isPrimary !== undefined) updates.isPrimary = isPrimary;
+
+  // When marking as primary, wrap both updates in a transaction so we can
+  // never end up with zero or two simultaneous primary CVs for a user.
+  if (isPrimary === true) {
+    const [updated] = await db.transaction(async (tx) => {
+      await tx
+        .update(documentsTable)
+        .set({ isPrimary: false })
+        .where(and(eq(documentsTable.userId, userId), eq(documentsTable.documentType, "cv")));
+
+      return tx
+        .update(documentsTable)
+        .set(updates)
+        .where(and(eq(documentsTable.id, id), eq(documentsTable.userId, userId)))
+        .returning();
+    });
+
+    res.json(updated);
+    return;
+  }
 
   const [updated] = await db
     .update(documentsTable)

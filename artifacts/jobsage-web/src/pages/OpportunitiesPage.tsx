@@ -1024,6 +1024,10 @@ export default function OpportunitiesPage() {
   );
   const recommendedRoles = allRankedRoles.filter((r) => r.recommended);
 
+  const top5Roles = allRankedRoles.slice(0, 5);
+  const next5Roles = allRankedRoles.slice(5, 10);
+  const remainingRoles = allRankedRoles.slice(10);
+
   const employerGroups = Object.entries(
     roles.reduce<Record<string, MatchedRole[]>>((acc, r) => {
       if (!r.role.sponsorshipOffered) return acc;
@@ -1266,45 +1270,124 @@ export default function OpportunitiesPage() {
                   </section>
                 )}
 
-                {/* Full ranked list */}
-                <section id="job-board-section">
-                  <div className="flex items-center gap-2 mb-4">
-                    <h2 className="text-base font-semibold text-foreground">
-                      All Vacancies
-                      <span className="ml-2 text-xs font-normal text-muted-foreground">
-                        {allRankedRoles.length} total · highest match first
-                      </span>
-                    </h2>
-                    {!eligibilityOutcome && (
-                      <button
-                        className="ml-auto text-xs text-primary hover:underline flex items-center gap-1"
-                        onClick={() => setLocation("/eligibility")}
-                      >
-                        <AlertCircle className="w-3 h-3" /> Run eligibility check to improve scores
-                      </button>
-                    )}
-                  </div>
-                  <div className="space-y-3">
-                    {allRankedRoles.map((item) => (
-                      <motion.div
-                        key={item.role.id}
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                      >
-                        <RoleCard
-                          item={item}
-                          recommended={item.recommended}
-                          appliedRoleIds={appliedRoleIds}
-                          onApply={handleApply}
-                          onSmartApply={handleSmartApply}
-                          onViewDetail={setSelectedRole}
-                          onCoverLetter={setCoverLetterRole}
-                          onMarkWebsite={(employer) => setWebsiteAppModal({ companyName: employer })}
-                        />
-                      </motion.div>
-                    ))}
-                  </div>
-                </section>
+                {/* Tiered ranked lists */}
+                <div id="job-board-section" className="space-y-8">
+                  {/* Band 1 — Top 5 Recommendations */}
+                  {top5Roles.length > 0 && (
+                    <section>
+                      <div className="flex items-center gap-2 mb-3">
+                        <Medal className="w-4 h-4 text-primary" />
+                        <h2 className="text-base font-semibold text-foreground">Top 5 Recommendations</h2>
+                        <span className="px-1.5 py-0.5 text-xs rounded bg-primary/10 text-primary font-medium">
+                          Apply First
+                        </span>
+                        {!eligibilityOutcome && (
+                          <button
+                            className="ml-auto text-xs text-primary hover:underline flex items-center gap-1"
+                            onClick={() => setLocation("/eligibility")}
+                          >
+                            <AlertCircle className="w-3 h-3" /> Run eligibility check to improve scores
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground mb-4">
+                        Your five highest-scoring vacancies — prioritise these applications.
+                      </p>
+                      <div className="space-y-3">
+                        {top5Roles.map((item) => (
+                          <motion.div
+                            key={item.role.id}
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                          >
+                            <RoleCard
+                              item={item}
+                              recommended={true}
+                              appliedRoleIds={appliedRoleIds}
+                              onApply={handleApply}
+                              onSmartApply={handleSmartApply}
+                              onViewDetail={setSelectedRole}
+                              onCoverLetter={setCoverLetterRole}
+                              onMarkWebsite={(employer) => setWebsiteAppModal({ companyName: employer })}
+                            />
+                          </motion.div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* Band 2 — Next 5 to Consider */}
+                  {next5Roles.length > 0 && (
+                    <section>
+                      <div className="flex items-center gap-2 mb-3">
+                        <TrendingUp className="w-4 h-4 text-blue-500" />
+                        <h2 className="text-base font-semibold text-foreground">Next 5 to Consider</h2>
+                        <span className="px-1.5 py-0.5 text-xs rounded bg-blue-100 text-blue-700 font-medium">
+                          Strong Matches
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mb-4">
+                        Solid matches worth exploring once you have applied to your top picks.
+                      </p>
+                      <div className="space-y-3">
+                        {next5Roles.map((item) => (
+                          <motion.div
+                            key={item.role.id}
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                          >
+                            <RoleCard
+                              item={item}
+                              recommended={false}
+                              appliedRoleIds={appliedRoleIds}
+                              onApply={handleApply}
+                              onSmartApply={handleSmartApply}
+                              onViewDetail={setSelectedRole}
+                              onCoverLetter={setCoverLetterRole}
+                              onMarkWebsite={(employer) => setWebsiteAppModal({ companyName: employer })}
+                            />
+                          </motion.div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* Band 3 — More Opportunities */}
+                  {remainingRoles.length > 0 && (
+                    <section>
+                      <div className="flex items-center gap-2 mb-3">
+                        <Briefcase className="w-4 h-4 text-muted-foreground" />
+                        <h2 className="text-base font-semibold text-foreground">More Opportunities</h2>
+                        <span className="px-1.5 py-0.5 text-xs rounded bg-muted text-muted-foreground font-medium">
+                          {remainingRoles.length} more
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mb-4">
+                        All remaining vacancies — broaden your search or revisit after your top applications.
+                      </p>
+                      <div className="space-y-3">
+                        {remainingRoles.map((item) => (
+                          <motion.div
+                            key={item.role.id}
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                          >
+                            <RoleCard
+                              item={item}
+                              recommended={false}
+                              appliedRoleIds={appliedRoleIds}
+                              onApply={handleApply}
+                              onSmartApply={handleSmartApply}
+                              onViewDetail={setSelectedRole}
+                              onCoverLetter={setCoverLetterRole}
+                              onMarkWebsite={(employer) => setWebsiteAppModal({ companyName: employer })}
+                            />
+                          </motion.div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+                </div>
               </>
             )}
           </div>
