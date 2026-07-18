@@ -183,11 +183,8 @@ export function AppSidebar() {
             {flatNavForOtherRoles.filter(item => item.roles.includes(role)).map(renderNavItem)}
           </div>
         )}
+        {role === "candidate" && <AnalyticsMiniWidget />}
       </div>
-
-      {role === "candidate" && (
-        <AnalyticsMiniWidget />
-      )}
 
       <div className="p-4 border-t border-sidebar-border shrink-0">
         <div className="flex items-center mb-4 px-2">
