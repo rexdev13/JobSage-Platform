@@ -1,0 +1,55 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead QA & Systems Architect working in our Next.js / TypeScript repository. We have been provided with the official **24-Point Master Product Specification** from product leadership (DRD).
+
+Your ONLY objective is to conduct an exhaustive, read-only architectural audit of the entire codebase against all 24 specification items. You must classify the current completion status of every item, provide exact codebase evidence, and write a human-readable UI testing guide for each one.
+
+**CRITICAL GUARDRAIL: STRICTLY READ-ONLY & NO PACKAGE INSTALLS**
+- Do NOT modify, delete, or rewrite any existing application source code.
+- Do NOT attempt to install PDF libraries (no puppeteer, pdfkit, or reportlab). Do NOT run automated browser test suites.
+- Your ONLY allowed file modification is generating a single output report file (`DRD_24_Point_Master_Audit.html`) in the root directory.
+
+---
+
+### THE 24-POINT MASTER AUDIT ITEMS
+You must search the codebase and evaluate every single item below:
+1. **Speculative Outreach Tracking:** Speculative CVs sent must trigger an inbox notification in JobSage confirming who it was sent to for follow-up.
+2. **AI Copilot & Autofill Integration:** An AI assistant available as a floating chatbot that also integrates when applying on company websites to instantly populate/pre-fill candidate responses based on profile data (with a mandatory candidate review disclaimer).
+3. **High-Accuracy CV Parsing:** AI parsing must correctly interpret academic vs. clinical qualifications without misrepresenting candidates (e.g., distinguishing a PhD in Education from a Medical Doctor).
+4. **Sponsor Vacancy Refresher:** A "Check Vacancies" button at the top of sponsor licence lists to scrape/refresh sector roles, displaying total vacancy counts at the top and individual counts next to each company.
+5. **Per-Company "Check Best Fit" Ranking:** A button next to sponsor companies displaying vacancies ranked from 100% to 0% fit with percentage match badges based on candidate document alignment.
+6. **Unified "Send CV" & AI Cover Letters:** Speculative "Send CV" buttons must operate like "Apply with JobSage"—generating an AI cover letter and sending from the candidate's `@mail.jobsage.app` mailbox (not personal email).
+7. **External Company Website Cookie Tracking:** Cookie tracking for direct website applications that routes confirmation and employer replies directly into the JobSage inbox and Tracked Applications tab.
+8. **Comprehensive Sponsor Directory Display:** Sponsor companies must display their email address, phone number, physical address, and website.
+9. **Universal `@mail.jobsage.app` Mailbox Provisioning:** Automatic creation of an internal JobSage email upon account creation, routing all employer communications away from personal accounts.
+10. **Categorized Application Tracking:** Tracked applications must clearly separate and categorize direct job applications vs. speculative CV outreach.
+11. **CV Personal Data Masking:** Outbound CVs must automatically mask candidate personal email addresses and phone numbers, replacing them with the JobSage alias.
+12. **Cookie-Tracked Interview Pipeline:** Tracking interview invitations received in the JobSage inbox via cookies, updating tracking statuses, and rendering dashboard metrics automatically.
+13. **Unfiltered 100%-to-0% Opportunities Feed:** Job opportunities must list all vacancies sorted from 100% to 0% fit without hard eligibility filters blocking them, displaying inline employer contact details.
+14. **Sponsor Contact Data Completeness:** Explicit verification that all sponsor licence rows expose website, phone, email, and address fields.
+15. **Prioritized Application Guidance (Top 5 / Next 5):** The job feed must visually recommend where candidates should apply first (Top 5 most fitting roles, followed by the Next 5).
+16. **Standalone Regulatory & Visa Eligibility Module:** Dedicated eligibility checks based on official UK government guidance (PLAB, OSCE, QTS, Advance HE Fellowship) separating visa status from professional registration.
+17. **Engaging Visual User Journey:** A concise, visually motivating user journey culminating in a strong goal representation (e.g., trophy or candidate in a dream office).
+18. **Visual "Island" Progression Pipeline:** Numbered, actionable progression steps (Step 1, Step 2 -> Verification -> Dream Job) represented as visual islands getting closer to the goal.
+19. **Real-Time Cross-Platform State Sync:** Toggling applications, bookmarks, or profile data must stay 100% synchronized across Dashboard, Opportunities, and Tracked Applications without refreshing.
+20. **Consistent Multi-CV Management:** CV documents must be consistently managed, labeled, and aligned across all features.
+21. **Granular Multi-CV Application Mapping:** The platform must clearly display which specific CV version was applied to which specific job or employer.
+22. **UK-Standard Professional CV Generator:** Dynamically generated CVs must follow strict UK formatting standards, look highly professional, and embed the JobSage email alias.
+23. **Next-Step AI Career Advisor:** An AI advisory engine that constantly reviews candidate application results and recommends concrete next steps.
+24. **Long-Term Career Development & LinkedIn Export:** Features positioning the platform for long-term career growth, document archiving, and LinkedIn profile/milestone sharing.
+
+---
+
+### REQUIRED DELIVERABLE & FORMAT
+Generate a beautifully styled, enterprise-grade HTML document and save it to the workspace root as `DRD_24_Point_Master_Audit.html`.
+
+**HTML Styling Requirements:**
+- Use clean, modern CSS embedded directly in the `<style>` tag (professional typography, dark/light mode friendly, high-contrast tables, and print-friendly page break rules so it converts cleanly to PDF via `Cmd+P`).
+- At the top, include a **Executive Summary Dashboard** showing exact counts: Total Items (24), ✅ Complete, 🟡 Partially Built / Needs UI Wiring, and ❌ Missing / To Build.
+
+**Table Structure (One Row per Item):**
+1. **Item # & Name**
+2. **Status Badge:** `✅ COMPLETE`, `🟡 PARTIAL / WIRING NEEDED`, or `❌ MISSING / TO BUILD`
+3. **Codebase Evidence:** Exact file paths, Drizzle schema columns, API routes, or component names proving its current state.
+4. **How to Test in UI (Human Manual QA Guide):** Exact, click-by-click instructions on what page to open, what button to press, and what visual confirmation to look for in the browser preview.
+
+Once `DRD_24_Point_Master_Audit.html` is created and written to disk, output a brief summary of the dashboard counts in the chat and TERMINATE immediately.
