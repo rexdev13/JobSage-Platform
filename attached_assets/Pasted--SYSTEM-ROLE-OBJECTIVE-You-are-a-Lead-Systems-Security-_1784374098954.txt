@@ -1,0 +1,33 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Systems & Security Architect. We just discovered the existence of an admin import endpoint (`POST /api/admin/roles/import`). The product owner needs to understand the admin infrastructure before we execute any production imports or UI work.
+
+Your ONLY objective is to conduct a **read-only architectural investigation** into our admin authentication, UI routing, and CSV import pipeline.
+
+**CRITICAL GUARDRAIL: READ-ONLY & ZERO ASSUMPTIONS**
+- Do NOT write, edit, or delete any files.
+- Do NOT execute automated test suites, install packages, or touch the database.
+- Execute ONLY code searches and read-only inspections to answer the questions below, output the report, and TERMINATE immediately.
+
+---
+
+### INVESTIGATION TASKS
+
+1. **Frontend Admin UI Search (`jobsage-web`):**
+   - Search the frontend routing and page files (e.g., `App.tsx`, `routes.ts`, or anything in `src/pages/`) for terms like `admin`, `AdminPage`, `import`, or `/admin`.
+   - Does a visual Admin dashboard or CSV upload page already exist in the frontend, or is `POST /api/admin/roles/import` currently an API-only route without a user interface?
+
+2. **Admin Auth & Privilege Elevation:**
+   - Locate the backend middleware or route protection for `/api/admin/roles/import` (e.g., `requireAdmin`, `isAdmin`, or session checks in `api-server`).
+   - How does the database schema or auth system define an admin? Is it a specific column on the users table (e.g., `role: 'admin'`, `isAdmin: boolean`), an allowlisted email domain, or an environment variable? 
+   - Explain exactly how a developer can safely elevate their own existing account to admin status in both Dev and Prod.
+
+3. **CSV Import Route Inspection:**
+   - Inspect the handler for `POST /api/admin/roles/import`.
+   - What library does it use to parse the CSV? How does it handle duplicates or validation failures? Confirm the exact required column names and whether there is a file size limit.
+
+---
+
+### REQUIRED DELIVERABLE
+Output a structured **"Admin Infrastructure & Pipeline Discovery Report"** answering the three sections above with exact file paths, line numbers, and database property names. 
+
+Conclude with a clear, 2-sentence recommendation on whether we should build a simple, clean **Admin UI Upload Page** in `jobsage-web`, or if we can easily run a safe curl/Postman script using an elevated admin token to seed production immediately. Begin your read-only investigation now and TERMINATE when the report is output.
