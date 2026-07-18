@@ -7,6 +7,7 @@ import {
   useListMyDocuments,
   useListMatchedRoles,
   useGetRemediationPlan,
+  getGetRemediationPlanQueryKey,
   useListMyApplications,
   useGetForwardEligibility,
   useToggleProfileBoost,
@@ -403,7 +404,15 @@ export default function DashboardPage() {
   const { data: eligibilityHistory } = useListEligibilityHistory();
   const { data: documents } = useListMyDocuments();
   const { data: matchedRoles } = useListMatchedRoles();
-  const { data: plan } = useGetRemediationPlan();
+  const { data: plan } = useGetRemediationPlan({
+    query: {
+      queryKey: getGetRemediationPlanQueryKey(),
+      retry: false,
+      enabled:
+        !!eligibilityHistory?.decisions?.length &&
+        eligibilityHistory.decisions[0].outcome !== "eligible",
+    },
+  });
   const { data: applicationsData } = useListMyApplications();
   const { data: forwardEligibility } = useGetForwardEligibility();
   const toggleBoostMutation = useToggleProfileBoost();

@@ -5,6 +5,7 @@ import {
   useGetJourneyStatus, getGetJourneyStatusQueryKey,
   useGetRemediationPlan, getGetRemediationPlanQueryKey,
   useGetForwardEligibility, getGetForwardEligibilityQueryKey,
+  useListEligibilityHistory,
 } from "@workspace/api-client-react";
 import type { JourneyStageItem, JourneyBadge, RemediationStep, ForwardEligibilityResponse } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -465,8 +466,16 @@ export default function PathPage() {
   const { data, isLoading, isError } = useGetJourneyStatus({
     query: { queryKey: getGetJourneyStatusQueryKey(), staleTime: 30_000 },
   });
+  const { data: eligibilityHistory } = useListEligibilityHistory();
   const { data: planData } = useGetRemediationPlan({
-    query: { queryKey: getGetRemediationPlanQueryKey(), staleTime: 60_000 },
+    query: {
+      queryKey: getGetRemediationPlanQueryKey(),
+      staleTime: 60_000,
+      retry: false,
+      enabled:
+        !!eligibilityHistory?.decisions?.length &&
+        eligibilityHistory.decisions[0].outcome !== "eligible",
+    },
   });
   const { data: forwardElig } = useGetForwardEligibility({
     query: { queryKey: getGetForwardEligibilityQueryKey(), staleTime: 60_000 },
