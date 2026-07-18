@@ -9,7 +9,6 @@ import {
   useGetSponsorLicenceIndustryCounts,
   useGetSponsorLicenceIndustries,
   useListSponsorLicences,
-  useSendSpeculativeApplication,
   useListSpeculativeApplications,
   useCheckAllSponsorLicenceVacancies,
   useGetCheckAllSponsorLicenceVacanciesStatus,
@@ -316,7 +315,6 @@ export default function SponsorLicencesPage() {
   const [localBookmarks, setLocalBookmarks] = useState<Set<number>>(new Set());
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const sendCVMutation = useSendSpeculativeApplication();
   const { data: speculativeData, refetch: refetchSpeculative } = useListSpeculativeApplications();
   const { data: documentsData } = useListMyDocuments();
   const hasCvUploaded = (documentsData?.documents ?? []).some((d) => d.documentType === "cv");
@@ -330,6 +328,7 @@ export default function SponsorLicencesPage() {
 
   const [selectedVacancy, setSelectedVacancy] = useState<SelectedVacancy | null>(null);
   const [applyModalVacancy, setApplyModalVacancy] = useState<SelectedVacancy | null>(null);
+  const [speculativeModalTarget, setSpeculativeModalTarget] = useState<{ companyName: string; companyId: number } | null>(null);
   const [websiteAppModal, setWebsiteAppModal] = useState<{ companyName: string } | null>(null);
   const [websiteAppPending, setWebsiteAppPending] = useState(false);
   const base = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -473,7 +472,7 @@ export default function SponsorLicencesPage() {
 
   const showSectorGrid = !selectedIndustry;
 
-  function handleSendCV(companyName: string, companyId: number) {
+  function handleOpenSpeculativeModal(companyName: string, companyId: number) {
     if (!hasCvUploaded) {
       toast({
         title: "No CV uploaded",
@@ -482,38 +481,7 @@ export default function SponsorLicencesPage() {
       });
       return;
     }
-    sendCVMutation.mutate(
-      { data: { companyName, sponsorLicenceId: companyId } },
-      {
-        onSuccess: (res) => {
-          void refetchSpeculative();
-          if (res.alreadySent) {
-            toast({ title: "Already sent", description: `You already sent your CV to ${companyName}.` });
-          } else {
-            toast({ title: "CV sent!", description: `Your speculative application to ${companyName} has been recorded.` });
-          }
-        },
-        onError: (err: unknown) => {
-          const status = (err as { response?: { status?: number }; status?: number })?.response?.status
-            ?? (err as { status?: number })?.status;
-          if (status === 422) {
-            toast({
-              title: "PDF required",
-              description: "Your CV must be in PDF format to send a speculative application. Please upload a PDF CV.",
-              variant: "destructive",
-            });
-          } else if (status === 400) {
-            toast({
-              title: "Profile incomplete",
-              description: "Please visit your Profile page to set up your JOBSAGE email alias before sending a CV.",
-              variant: "destructive",
-            });
-          } else {
-            toast({ title: "Error", description: "Could not send CV. Please try again.", variant: "destructive" });
-          }
-        },
-      },
-    );
+    setSpeculativeModalTarget({ companyName, companyId });
   }
 
   useEffect(() => {
@@ -1220,12 +1188,9 @@ export default function SponsorLicencesPage() {
                                 size="sm"
                                 variant={sentCompanyNames.has(c.organisationName) ? "outline" : "default"}
                                 className="text-xs gap-1.5"
-                                onClick={() => handleSendCV(c.organisationName, c.id)}
-                                disabled={sendCVMutation.isPending}
+                                onClick={() => handleOpenSpeculativeModal(c.organisationName, c.id)}
                               >
-                                {sendCVMutation.isPending ? (
-                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                ) : sentCompanyNames.has(c.organisationName) ? (
+                                {sentCompanyNames.has(c.organisationName) ? (
                                   <><CheckCircle2 className="w-3.5 h-3.5" /> CV Sent</>
                                 ) : (
                                   <><Send className="w-3.5 h-3.5" /> Send my CV</>
@@ -1375,8 +1340,8 @@ export default function SponsorLicencesPage() {
                               companyName={c.organisationName}
                               hasCvUploaded={hasCvUploaded}
                               isSent={sentCompanyNames.has(c.organisationName)}
-                              sendCVPending={sendCVMutation.isPending}
-                              onSendCV={() => handleSendCV(c.organisationName, c.id)}
+                              sendCVPending={false}
+                              onSendCV={() => handleOpenSpeculativeModal(c.organisationName, c.id)}
                               onSelectVacancy={setSelectedVacancy}
                               onApply={handleOpenApplyModal}
                             />
@@ -1538,6 +1503,21 @@ export default function SponsorLicencesPage() {
             onClose={() => setApplyModalVacancy(null)}
             onSuccess={() => {
               setApplyModalVacancy(null);
+              void refetchSpeculative();
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {speculativeModalTarget && (
+          <SponsorVacancyApplyModal
+            speculative
+            companyName={speculativeModalTarget.companyName}
+            companyId={speculativeModalTarget.companyId}
+            onClose={() => setSpeculativeModalTarget(null)}
+            onSuccess={() => {
+              setSpeculativeModalTarget(null);
               void refetchSpeculative();
             }}
           />

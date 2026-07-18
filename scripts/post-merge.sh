@@ -45,3 +45,7 @@ echo "[post-merge] Applying schema changes."
 # that prompt defaults to "No, add without truncating", so piping a newline
 # selects the safe default. --force bypasses the top-level "are you sure?" gate.
 echo "" | pnpm --filter db push --force
+
+echo "[post-merge] Building web app static bundle..."
+PORT=3000 BASE_PATH=/ pnpm --filter @workspace/jobsage-web run build
+echo "[post-merge] Web app build complete — dist/public/ is ready."
