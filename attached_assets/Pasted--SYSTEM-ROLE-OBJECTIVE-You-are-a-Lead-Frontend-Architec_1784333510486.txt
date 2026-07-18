@@ -1,0 +1,32 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Frontend Architecture Inspector. We have identified that the "Send CV" and "Send CV speculatively" buttons currently bypass modal confirmation and fire API requests directly. 
+
+Your ONLY objective is to conduct an **open-ended, read-only architectural investigation** to understand the exact wiring of these buttons and evaluate the cleanest way to route them through an interactive confirmation modal (supporting Multi-CV selection and cover letter/note inclusion as per Item 15 of our roadmap).
+
+**CRITICAL GUARDRAIL: READ-ONLY & ZERO ASSUMPTIONS**
+- Do NOT make any assumptions about how the UI should be built. Do NOT write, modify, or delete any code yet.
+- Do NOT install packages, launch headless browsers, or run heavy test suites.
+- Execute strictly read-only code searches and inspections to answer the questions below, output your assessment, and TERMINATE immediately.
+
+---
+
+### INVESTIGATION TASKS
+
+1. **Trace the Exact Trigger Paths:**
+   - Search the frontend codebase (e.g., `SponsorLicencesPage.tsx`, vacancy cards, employer drawers) for the exact button labels `"Send CV"` and `"Send CV speculatively"` (or their corresponding handler functions).
+   - What exact API endpoints or mutations do these buttons currently fire when clicked? 
+
+2. **Inspect Backend Payload Requirements:**
+   - Look at the API routes or mutation functions those buttons call (e.g., in `api-client-react` or backend route handlers).
+   - What payload fields does the backend currently accept for a speculative application? Does the endpoint already support passing an optional `cvDocumentId` (to select a specific resume) and a `coverLetter` or `message` field?
+
+3. **Assess Existing Modal Reusability vs. Separation:**
+   - Inspect our existing modal components (such as `SmartApplyModal.tsx` and `SponsorVacancyApplyModal.tsx`).
+   - Open-ended evaluation: Would adapting one of these existing modals (e.g., via a mode prop) be clean and lightweight, or are they too heavily tied to specific vacancy structures? Would creating a focused, dedicated modal (e.g., `SpeculativeOutreachModal.tsx`) be cleaner and less prone to regression?
+
+---
+
+### REQUIRED DELIVERABLE
+Output a structured **"Speculative Outreach Architecture Assessment"** answering the three sections above with exact file paths, line numbers, and API payload definitions. 
+
+Conclude by presenting **2 distinct implementation options** (with the pros/cons of each based strictly on your code findings) so the human lead engineer can make an informed decision on how to proceed. Begin your read-only investigation now and TERMINATE when the assessment is output.
