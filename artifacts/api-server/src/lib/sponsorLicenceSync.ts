@@ -291,11 +291,16 @@ export async function runSponsorLicenceSync(triggeredBy: SyncTriggeredBy = "sche
     try {
       const { rows, addedCount, updatedCount, removedCount, existingNames } = await attemptSync(url);
 
-      // Process in batches of 500:
-      // - UPDATE existing orgs via a bulk VALUES clause (no unique constraint needed)
-      // - INSERT new orgs directly
-      // This preserves existing IDs (and thus user bookmarks) for continuing orgs.
+      // Outer batch: 500 rows at a time.
+      // Inner UPDATE_CHUNK: max rows per single VALUES clause.
+      // Keeping VALUES clauses small (≤150 rows × 9 params = 1350 params) avoids
+      // hitting Postgres wire-protocol message size limits on managed instances and
+      // keeps individual statement run-time well under any statement_timeout ceiling.
       const BATCH = 500;
+      const UPDATE_CHUNK = 150;
+      const syncedAtIso = syncedAt.toISOString(); // explicit ISO string — avoids any
+      // driver ambiguity when Date.toString() appears in error logs.
+
       for (let i = 0; i < rows.length; i += BATCH) {
         const batch = rows.slice(i, i + BATCH);
 
@@ -311,7 +316,9 @@ export async function runSponsorLicenceSync(triggeredBy: SyncTriggeredBy = "sche
           const withKeyword    = toUpdate.filter((r) => r.industry !== null);
           const withoutKeyword = toUpdate.filter((r) => r.industry === null);
 
-          if (withKeyword.length > 0) {
+          // Sub-chunk the withKeyword group so each VALUES clause stays ≤UPDATE_CHUNK rows
+          for (let j = 0; j < withKeyword.length; j += UPDATE_CHUNK) {
+            const chunk = withKeyword.slice(j, j + UPDATE_CHUNK);
             await db.execute(sql`
               UPDATE sponsor_licences AS sl
               SET
@@ -324,8 +331,8 @@ export async function runSponsorLicenceSync(triggeredBy: SyncTriggeredBy = "sche
                 region      = d.region,
                 synced_at   = d.synced_at
               FROM (VALUES ${sql.join(
-                withKeyword.map((r) =>
-                  sql`(${r.organisationName}::text, ${r.townCity}::text, ${r.county}::text, ${r.route}::text, ${r.subRoute}::text, ${r.rating}::text, ${r.industry}::text, ${countyToRegion(r.county)}::text, ${syncedAt}::timestamptz)`
+                chunk.map((r) =>
+                  sql`(${r.organisationName}::text, ${r.townCity}::text, ${r.county}::text, ${r.route}::text, ${r.subRoute}::text, ${r.rating}::text, ${r.industry}::text, ${countyToRegion(r.county)}::text, ${syncedAtIso}::timestamptz)`
                 ),
                 sql`, `
               )}) AS d(organisation_name, town_city, county, route, sub_route, rating, industry, region, synced_at)
@@ -333,8 +340,9 @@ export async function runSponsorLicenceSync(triggeredBy: SyncTriggeredBy = "sche
             `);
           }
 
-          if (withoutKeyword.length > 0) {
-            // No industry in SET — existing classification (AI or null) is left untouched
+          // Sub-chunk the withoutKeyword group (no industry column in SET)
+          for (let j = 0; j < withoutKeyword.length; j += UPDATE_CHUNK) {
+            const chunk = withoutKeyword.slice(j, j + UPDATE_CHUNK);
             await db.execute(sql`
               UPDATE sponsor_licences AS sl
               SET
@@ -346,8 +354,8 @@ export async function runSponsorLicenceSync(triggeredBy: SyncTriggeredBy = "sche
                 region      = d.region,
                 synced_at   = d.synced_at
               FROM (VALUES ${sql.join(
-                withoutKeyword.map((r) =>
-                  sql`(${r.organisationName}::text, ${r.townCity}::text, ${r.county}::text, ${r.route}::text, ${r.subRoute}::text, ${r.rating}::text, ${countyToRegion(r.county)}::text, ${syncedAt}::timestamptz)`
+                chunk.map((r) =>
+                  sql`(${r.organisationName}::text, ${r.townCity}::text, ${r.county}::text, ${r.route}::text, ${r.subRoute}::text, ${r.rating}::text, ${countyToRegion(r.county)}::text, ${syncedAtIso}::timestamptz)`
                 ),
                 sql`, `
               )}) AS d(organisation_name, town_city, county, route, sub_route, rating, region, synced_at)
@@ -357,12 +365,16 @@ export async function runSponsorLicenceSync(triggeredBy: SyncTriggeredBy = "sche
         }
 
         if (toInsert.length > 0) {
-          await db.insert(sponsorLicencesTable).values(
-            toInsert.map((r) => ({ ...r, syncedAt, region: countyToRegion(r.county) })) as any
-          );
-          // Track newly inserted names so later batches don't re-insert them
-          for (const r of toInsert) {
-            existingNames.add(r.organisationName.toLowerCase().trim());
+          // INSERT also chunked at UPDATE_CHUNK to keep individual statements small
+          for (let j = 0; j < toInsert.length; j += UPDATE_CHUNK) {
+            const chunk = toInsert.slice(j, j + UPDATE_CHUNK);
+            await db.insert(sponsorLicencesTable).values(
+              chunk.map((r) => ({ ...r, syncedAt, region: countyToRegion(r.county) })) as any
+            );
+            // Track newly inserted names so later batches don't re-insert them
+            for (const r of chunk) {
+              existingNames.add(r.organisationName.toLowerCase().trim());
+            }
           }
         }
       }
