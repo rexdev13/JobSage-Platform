@@ -86,9 +86,6 @@ function ProfileGate() {
   const { user } = useAuth();
   const [location] = useLocation();
 
-  // TEMP DEBUG
-  console.log("[ProfileGate] render — location:", location, "| user.role:", user?.role);
-
   const { data: consentData, isLoading: consentLoading } = useGetMyConsent({
     query: {
       queryKey: getGetMyConsentQueryKey(),
@@ -123,19 +120,14 @@ function ProfileGate() {
   // fall through to the redirect logic below rather than spinning forever.
   const isLoading = consentLoading;
 
-  console.log("[ProfileGate] state — isLoading:", isLoading, "| consentData:", consentData, "| hasConsented:", hasConsented, "| profileError:", profileError, "| profileLoading:", profileLoading, "| profile?.profession:", profile?.profession);
-
   if (isLoading) return <LoadingScreen />;
   if ((user?.role as string) === "employer") {
-    console.log("[ProfileGate] redirect → /employer/dashboard | reason: role=employer");
     return <Redirect to="/employer/dashboard" />;
   }
   if (consentData && !consentData.hasConsented) {
-    console.log("[ProfileGate] redirect → /consent | reason: hasConsented=false");
     return <Redirect to="/consent" />;
   }
   if (hasConsented && (profileError || !profile?.profession)) {
-    console.log("[ProfileGate] redirect → /onboarding | reason: profileError=" + profileError + " profession=" + profile?.profession);
     return <Redirect to="/onboarding" />;
   }
 

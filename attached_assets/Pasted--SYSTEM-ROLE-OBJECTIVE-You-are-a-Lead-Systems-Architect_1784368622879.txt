@@ -1,0 +1,23 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Systems Architect. Based on your discovery that the Opportunities feed (`roles` table) is completely empty while our automated scraper is successfully pulling jobs into `sponsor_licence_vacancies`, we need to execute a two-part architectural fix.
+
+---
+
+### PART 1: FIX THE 02:00 AM SPONSOR SYNC CRASH
+The 02:00 AM sponsor sync is failing on a bulk UPDATE of 142,478 records due to database connection/timeout limits.
+- **Task:** Locate the bulk update script for the sponsor sync (e.g., `sponsorLicenceSync.ts` or similar). Refactor the update logic to use **chunked batching** (e.g., processing and committing in batches of 500 or 1,000 rows using `Promise.all` or sequential chunks) so the Postgres transaction never times out or exceeds connection limits.
+
+---
+
+### PART 2: THE OPPORTUNITIES FEED BRIDGING ASSESSMENT
+We want our main Opportunities page (`/opportunities`) to be dynamic and self-sustaining rather than relying solely on manual CSV uploads.
+- **Task:** Inspect `artifacts/api-server/src/routes/roles.ts` (specifically `GET /api/roles` and `GET /api/roles/my-matches`).
+- **Answer this architectural question:** How much effort/code change would it take to update `GET /api/roles` so that in addition to querying the `roles` and `job_listings` tables, it **also queries active scraped vacancies from `sponsor_licence_vacancies`** (mapping them to the expected role interface)?
+- If bridging them is clean and lightweight, outline the exact Drizzle union/join query needed. If there is a schema mismatch that makes bridging difficult today, provide the exact CSV header format required for the `roles` table so we can seed 10 realistic healthcare jobs into the database right now for preview testing.
+
+---
+
+### REQUIRED DELIVERABLE
+1. Confirm the line numbers modified to implement batch chunking on the 02:00 AM sponsor sync.
+2. Output your assessment on bridging `sponsor_licence_vacancies` into the Opportunities feed vs. seeding via CSV.
+3. Run `pnpm tsc --build` to confirm zero compilation errors. Begin execution now.
