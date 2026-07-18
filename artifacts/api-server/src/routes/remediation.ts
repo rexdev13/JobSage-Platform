@@ -322,13 +322,13 @@ router.get("/remediation/forward-eligibility", requireAuthenticated, async (req,
     .where(eq(profilesTable.userId, userId));
 
   if (!profile) {
-    res.status(400).json({ error: "Profile not found." });
+    res.status(200).json({ timeToEligibilityMonths: null, timeToEligibilityLabel: null, roles: [] });
     return;
   }
 
   const regulator = regulatorForProfession(profile.profession);
   if (!regulator) {
-    res.status(400).json({ error: "Could not determine regulatory body." });
+    res.status(200).json({ timeToEligibilityMonths: null, timeToEligibilityLabel: null, roles: [] });
     return;
   }
 
