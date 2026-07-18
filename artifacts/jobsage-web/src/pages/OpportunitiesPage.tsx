@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useAuth } from "@workspace/auth-web";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, Button, PageTransition } from "@/components/ui-enhanced";
 import { MarkWebsiteApplicationModal } from "@/components/MarkWebsiteApplicationModal";
@@ -977,6 +978,7 @@ export default function OpportunitiesPage() {
   const [websiteAppPending, setWebsiteAppPending] = useState(false);
 
   const queryClient = useQueryClient();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { data, isLoading, isError } = useListMatchedRoles();
   const { data: applicationsData } = useListMyApplications();
   const { data: myProfile } = useGetMyProfile();
@@ -984,7 +986,10 @@ export default function OpportunitiesPage() {
   const { toast } = useToast();
 
   const [localDismissedIds, setLocalDismissedIds] = useState<Set<number>>(new Set());
-  const { data: aiMatchesData, isLoading: aiMatchesLoading } = useGetMyMatches({ limit: 200 });
+  const { data: aiMatchesData, isLoading: aiMatchesLoading } = useGetMyMatches(
+    { limit: 200 },
+    { query: { enabled: isAuthenticated && !authLoading, retry: false } },
+  );
   const dismissMutation = useDismissMatch();
 
   const base = import.meta.env.BASE_URL.replace(/\/$/, "");

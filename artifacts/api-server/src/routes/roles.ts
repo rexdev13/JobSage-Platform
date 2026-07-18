@@ -294,13 +294,13 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
     db.select().from(careerProfilesTable).where(and(eq(careerProfilesTable.userId, userId), eq(careerProfilesTable.isActive, true))),
   ]);
   if (!profile) {
-    res.status(400).json({ error: "Profile not found. Please complete your profile first." });
+    res.status(200).json({ matches: [], dismissedRoleIds: [], totalCount: 0, cached: false });
     return;
   }
 
   const regulator = regulatorForProfession(profile.profession);
   if (!regulator) {
-    res.status(400).json({ error: "Could not determine regulatory body from your profession." });
+    res.status(200).json({ matches: [], dismissedRoleIds: [], totalCount: 0, cached: false });
     return;
   }
 
