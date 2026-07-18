@@ -89,7 +89,7 @@ function useCoverLetterStream() {
 }
 
 export interface SponsorVacancyApplyModalProps {
-  vacancyTitle: string;
+  vacancyTitle?: string;
   companyName: string;
   companyId: number;
   location?: string | null;
@@ -97,12 +97,13 @@ export interface SponsorVacancyApplyModalProps {
   postedDate?: string | null;
   description?: string | null;
   externalUrl?: string | null;
+  speculative?: boolean;
   onClose: () => void;
   onSuccess: () => void;
 }
 
 export function SponsorVacancyApplyModal({
-  vacancyTitle,
+  vacancyTitle: vacancyTitleProp,
   companyName,
   companyId,
   location,
@@ -110,9 +111,11 @@ export function SponsorVacancyApplyModal({
   postedDate,
   description,
   externalUrl,
+  speculative = false,
   onClose,
   onSuccess,
 }: SponsorVacancyApplyModalProps) {
+  const vacancyTitle = vacancyTitleProp ?? "Speculative Application";
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const sendCVMutation = useSendSpeculativeApplication();
@@ -167,7 +170,7 @@ export function SponsorVacancyApplyModal({
         data: {
           companyName,
           sponsorLicenceId: companyId,
-          vacancyTitle,
+          vacancyTitle: speculative ? undefined : vacancyTitle,
           notes,
           cvDocumentId: selectedCvId ?? null,
         },
@@ -176,6 +179,12 @@ export function SponsorVacancyApplyModal({
         onSuccess: async () => {
           void queryClient.invalidateQueries({ queryKey: ["listSpeculativeApplications"] });
           setStep("done");
+
+          // In speculative-only mode skip the next-matches step
+          if (speculative) {
+            setTimeout(() => { onSuccess(); }, 1500);
+            return;
+          }
 
           // Fetch next 3 best unapplied role matches
           try {
@@ -306,9 +315,14 @@ export function SponsorVacancyApplyModal({
                 <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mb-4">
                   <CheckCircle2 className="w-8 h-8 text-emerald-600" />
                 </div>
-                <h3 className="text-lg font-bold text-foreground mb-1">Application submitted!</h3>
+                <h3 className="text-lg font-bold text-foreground mb-1">
+                  {speculative ? "CV sent!" : "Application submitted!"}
+                </h3>
                 <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
-                  Your application for <strong>{vacancyTitle}</strong> at <strong>{companyName}</strong> has been recorded. You can track it in your Application Tracker.
+                  {speculative
+                    ? <>Your speculative CV has been sent to <strong>{companyName}</strong>. You can track it in your Application Tracker.</>
+                    : <>Your application for <strong>{vacancyTitle}</strong> at <strong>{companyName}</strong> has been recorded. You can track it in your Application Tracker.</>
+                  }
                 </p>
                 <Button className="mt-6 gap-2" onClick={onClose}>
                   Close
@@ -593,7 +607,10 @@ export function SponsorVacancyApplyModal({
                   disabled={sendCVMutation.isPending}
                 >
                   <Send className="w-3.5 h-3.5" />
-                  {alreadySent ? "Update application" : "Apply with JOBSAGE"}
+                  {speculative
+                    ? (alreadySent ? "Resend CV" : "Send CV")
+                    : (alreadySent ? "Update application" : "Apply with JOBSAGE")
+                  }
                 </Button>
               </div>
             </div>
