@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JOBSAGE — DRD 24-Point Master Audit</title>
+  <style>
+    /* ─── Reset & Base ─────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 15px; }
+    body {
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: #f5f6fa;
+      color: #1a1d2e;
+      line-height: 1.6;
+    }
+
+    /* ─── Layout ───────────────────────────────────────────────────────── */
+    .wrapper { max-width: 1180px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+
+    /* ─── Header ──────────────────────────────────────────────────────── */
+    .report-header {
+      background: linear-gradient(135deg, #1a1d2e 0%, #2d3263 100%);
+      color: #fff;
+      border-radius: 16px;
+      padding: 2.5rem 2.5rem 2rem;
+      margin-bottom: 2rem;
+    }
+    .report-header .logo {
+      font-size: 1.1rem;
+      font-weight: 800;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: #a5b4fc;
+      margin-bottom: .5rem;
+    }
+    .report-header h1 { font-size: 2rem; font-weight: 800; line-height: 1.2; margin-bottom: .5rem; }
+    .report-header .subtitle { color: #c7d2fe; font-size: .95rem; }
+    .report-header .meta { margin-top: 1.2rem; display: flex; gap: 2rem; flex-wrap: wrap; }
+    .report-header .meta span { font-size: .82rem; color: #a5b4fc; }
+    .report-header .meta strong { color: #fff; }
+
+    /* ─── Dashboard ───────────────────────────────────────────────────── */
+    .dashboard {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.1rem;
+      margin-bottom: 2rem;
+    }
+    .dash-card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 1.4rem 1.6rem 1.2rem;
+      box-shadow: 0 2px 12px rgba(0,0,0,.06);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      border-top: 4px solid transparent;
+    }
+    .dash-card.complete  { border-top-color: #22c55e; }
+    .dash-card.partial   { border-top-color: #f59e0b; }
+    .dash-card.missing   { border-top-color: #ef4444; }
+    .dash-card .count { font-size: 3rem; font-weight: 800; line-height: 1; }
+    .dash-card.complete  .count { color: #16a34a; }
+    .dash-card.partial   .count { color: #d97706; }
+    .dash-card.missing   .count { color: #dc2626; }
+    .dash-card .label { font-size: .9rem; font-weight: 600; margin-top: .4rem; }
+    .dash-card.complete  .label { color: #166534; }
+    .dash-card.partial   .label { color: #92400e; }
+    .dash-card.missing   .label { color: #991b1b; }
+    .dash-card .desc { font-size: .78rem; color: #6b7280; margin-top: .3rem; }
+
+    /* ─── Progress Bar ────────────────────────────────────────────────── */
+    .progress-wrap { margin-bottom: 2rem; }
+    .progress-label { font-size: .82rem; color: #6b7280; margin-bottom: .4rem; }
+    .progress-bar-track {
+      height: 10px; background: #e5e7eb; border-radius: 99px; overflow: hidden;
+      display: flex;
+    }
+    .progress-bar-track .seg-complete { background: #22c55e; }
+    .progress-bar-track .seg-partial  { background: #f59e0b; }
+    .progress-bar-track .seg-missing  { background: #ef4444; }
+
+    /* ─── Section Title ───────────────────────────────────────────────── */
+    .section-title {
+      font-size: 1.15rem; font-weight: 700; color: #1a1d2e;
+      margin: 2rem 0 1rem;
+      padding-bottom: .5rem;
+      border-bottom: 2px solid #e5e7eb;
+    }
+
+    /* ─── Table ───────────────────────────────────────────────────────── */
+    .audit-table { width: 100%; border-collapse: collapse; }
+    .audit-table thead tr {
+      background: #1a1d2e;
+      color: #e0e7ff;
+    }
+    .audit-table thead th {
+      padding: .75rem 1rem;
+      text-align: left;
+      font-size: .78rem;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .audit-table tbody tr {
+      background: #fff;
+      border-bottom: 1px solid #f1f3f9;
+      transition: background .15s;
+    }
+    .audit-table tbody tr:hover { background: #f8f9ff; }
+    .audit-table td {
+      padding: .9rem 1rem;
+      vertical-align: top;
+      font-size: .87rem;
+    }
+    .audit-table td:first-child { width: 3.5rem; font-weight: 700; color: #6366f1; }
+    .audit-table td:nth-child(2) { width: 15rem; font-weight: 600; }
+    .audit-table td:nth-child(3) { width: 7rem; }
+
+    /* ─── Badges ──────────────────────────────────────────────────────── */
+    .badge {
+      display: inline-flex; align-items: center; gap: .35rem;
+      padding: .28rem .7rem;
+      border-radius: 99px;
+      font-size: .78rem; font-weight: 700;
+      white-space: nowrap;
+    }
+    .badge-complete { background: #dcfce7; color: #166534; }
+    .badge-partial  { background: #fef3c7; color: #92400e; }
+    .badge-missing  { background: #fee2e2; color: #991b1b; }
+    .badge-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+    .badge-complete .badge-dot { background: #22c55e; }
+    .badge-partial  .badge-dot { background: #f59e0b; }
+    .badge-missing  .badge-dot { background: #ef4444; }
+
+    /* ─── Evidence / Test cells ───────────────────────────────────────── */
+    .evidence { line-height: 1.55; }
+    .evidence code {
+      background: #eef2ff;
+      color: #4338ca;
+      padding: .1rem .35rem;
+      border-radius: 4px;
+      font-size: .76rem;
+      font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+      display: inline-block;
+    }
+    .evidence ul { padding-left: 1.1rem; margin: .35rem 0; }
+    .evidence li { margin-bottom: .22rem; }
+    .evidence .gap-note {
+      background: #fff7ed;
+      border-left: 3px solid #f97316;
+      padding: .3rem .6rem;
+      border-radius: 0 6px 6px 0;
+      margin-top: .4rem;
+      font-size: .8rem;
+      color: #7c2d12;
+    }
+
+    .test-guide ol { padding-left: 1.2rem; margin: .2rem 0; }
+    .test-guide li { margin-bottom: .28rem; }
+    .test-guide .url {
+      color: #4f46e5;
+      font-size: .8rem;
+      font-style: italic;
+    }
+    .test-guide .na-note {
+      color: #9ca3af;
+      font-style: italic;
+      font-size: .82rem;
+    }
+
+    /* ─── Footer ──────────────────────────────────────────────────────── */
+    .report-footer {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 2px solid #e5e7eb;
+      font-size: .78rem;
+      color: #9ca3af;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: .5rem;
+    }
+
+    /* ─── Print ───────────────────────────────────────────────────────── */
+    @media print {
+      body { background: #fff; font-size: 11pt; }
+      .wrapper { padding: 1.5cm 1cm; max-width: 100%; }
+      .report-header { border-radius: 0; background: #1a1d2e !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .dash-card, .audit-table tbody tr { box-shadow: none; }
+      .audit-table thead tr { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .badge { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .audit-table tbody tr { page-break-inside: avoid; }
+      .section-title { page-break-after: avoid; }
+    }
+
+    @media (max-width: 768px) {
+      .dashboard { grid-template-columns: 1fr; }
+      .audit-table thead { display: none; }
+      .audit-table tbody tr { display: block; margin-bottom: 1rem; border: 1px solid #e5e7eb; border-radius: 10px; }
+      .audit-table td { display: block; width: 100% !important; padding: .5rem 1rem; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- ── Header ──────────────────────────────────────────────────────────── -->
+  <div class="report-header">
+    <div class="logo">JOBSAGE</div>
+    <h1>DRD 24-Point Master Audit</h1>
+    <div class="subtitle">Architectural read-only audit against the Master Product Specification — codebase evidence &amp; manual QA guide</div>
+    <div class="meta">
+      <span><strong>Audit Date:</strong> 18 July 2026</span>
+      <span><strong>Audited Artefacts:</strong> api-server · jobsage-web · jobsage-mobile · lib/db</span>
+      <span><strong>Scope:</strong> 24 DRD items · Read-only · No source changes</span>
+    </div>
+  </div>
+
+  <!-- ── Executive Summary Dashboard ────────────────────────────────────── -->
+  <div class="dashboard">
+    <div class="dash-card complete">
+      <div class="count">16</div>
+      <div class="label">✅ Complete</div>
+      <div class="desc">Fully implemented with API, schema &amp; UI wired</div>
+    </div>
+    <div class="dash-card partial">
+      <div class="count">7</div>
+      <div class="label">🟡 Partial / Wiring Needed</div>
+      <div class="desc">Backend or schema exists; UI or integration gaps remain</div>
+    </div>
+    <div class="dash-card missing">
+      <div class="count">1</div>
+      <div class="label">❌ Missing / To Build</div>
+      <div class="desc">Feature not yet implemented in codebase</div>
+    </div>
+  </div>
+
+  <div class="progress-wrap">
+    <div class="progress-label">Overall completion — 16 complete (67%) · 7 partial (29%) · 1 missing (4%)</div>
+    <div class="progress-bar-track">
+      <div class="seg-complete" style="width:66.7%"></div>
+      <div class="seg-partial"  style="width:29.1%"></div>
+      <div class="seg-missing"  style="width:4.2%"></div>
+    </div>
+  </div>
+
+  <!-- ── Audit Table ──────────────────────────────────────────────────────── -->
+  <div class="section-title">Full 24-Point Audit Table</div>
+
+  <table class="audit-table">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Item Name</th>
+        <th>Status</th>
+        <th>Codebase Evidence</th>
+        <th>How to Test in UI</th>
+      </tr>
+    </thead>
+    <tbody>
+
+      <!-- 1 -->
+      <tr>
+        <td>1</td>
+        <td>Speculative Outreach Tracking</td>
+        <td><span class="badge badge-complete"><span class="badge-dot"></span>Complete</span></td>
+        <td class="evidence">
+          <ul>
+            <li><code>routes/speculativeApplications.ts</code> — GET / POST / PATCH CRUD endpoints</li>
+            <li><code>schema/speculativeApplications.ts</code> — table with <code>status</code> enum: <code>cv_sent</code> · <code>under_review</code> · <code>interview_invited</code> · <code>offer</code> · <code>rejected</code></li>
+            <li><code>schema/speculativeApplications.ts</code> — <code>emailSent</code>, <code>emailSentAt</code>, <code>emailRecipient</code>, <code>cvDocumentId</code>, <code>jobsageEmail</code> columns</li>
+            <li><code>pages/ApplicationsPage.tsx</code> — <code>SPECULATIVE_STATUSES</code> constant; UI renders speculative tab with status badges</li>
+            <li>Deduplication logic per company + vacancyTitle in POST handler</li>
+          </ul>
+        </td>
+        <td class="test-guide">
+          <ol>
+            <li>Log in as a candidate and navigate to <span class="url">/opportunities</span>.</li>
+            <li>On any sponsor card click <strong>"Send CV"</strong> — confirm application is created with status <em>CV Sent</em>.</li>
+            <li>Navigate to <span class="url">/applications</span> → "Speculative" tab — confirm the entry appears.</li>
+            <li>Click the status dropdown on the entry; advance to <em>Under Review</em> — confirm persists on refresh.</li>
+            <li>Attempt to send to the same company again — confirm the "already sent" response without creating a duplicate.</li>
+          </ol>
+        </td>
+      </tr>
+
+      <!-- 2 -->
+      <tr>
+        <td>2</td>
+        <td>AI Copilot / Autofill (Smart Apply)</td>
+        <td><span class="badge badge-complete"><span class="badge-dot"></span>Complete</span></td>
+        <td class="evidence">
+          <ul>
+            <li><code>routes/smartApply.ts</code> — <code>POST /roles/:id/smart-apply/prefill</code> (GPT-4o prefills application answers)</li>
+            <li><code>routes/smartApply.ts</code> — <code>POST /smart-apply/assistant</code> SSE streaming chat endpoint</li>
+            <li><code>routes/smartApply.ts</code> — <code>GET/PUT/DELETE /smart-apply/draft/:roleId</code> draft persistence</li>
+            <li><code>lib/smartApply.ts</code> — <code>getStandardQuestions()</code> + <code>prefillApplicationAnswers()</code></li>
+            <li><code>lib/profileCompleteness.ts</code> — <code>computeSmartApplyReady()</code> gate</li>
+            <li><code>components/SmartApplyModal.tsx</code> + <code>SmartApplyAssistant.tsx</code> — full UI</li>
+            <li><code>schema/smartApplyDrafts.ts</code> — <code>smartApplyDraftsTable</code></li>
+          </ul>
+        </td>
+        <td class="test-guide">
+          <ol>
+            <li>Complete candidate profile (profession, experience, registration status).</li>
+            <li>On <span class="url">/opportunities</span>, click <strong>"Smart Apply"</strong> on a role — modal opens.</li>
+            <li>Confirm questions are pre-populated with AI-generated answers from profile.</li>
+            <li>Click the <strong>SAGE assistant</strong> icon within the modal; type "Help me answer question 2" — confirm SSE streaming response.</li>
+            <li>Navigate away and re-open — confirm draft answers were saved.</li>
+          </ol>
+        </td>
+      </tr>
+
+      <!-- 3 -->
+      <tr>
+        <td>3</td>
+        <td>CV Parsing Accuracy</td>
+        <td><span class="badge badge-complete"><span class="badge-dot"></span>Complete</span></td>
+        <td class="evidence">
+          <ul>
+            <li><code>lib/cvParser.ts</code> — multi-mode pipeline: text-PDF → scanned-PDF via <code>pdftoppm</code> → raw PDF vision fallback</li>
+            <li>GPT-4o extracts: <code>profession</code>, <code>specialty</code>, <code>qualificationCountry</code>, <code>qualificationType</code>, <code>qualificationYear</code>, <code>experienceYears</code>, <code>registrationStatus</code>, <code>requiresSponsorship</code>, <code>preferredRegion</code></li>
+            <li>Per-field <code>confidence</code> map (<code>high/medium/low/none</code>) returned in response</li>
+            <li><code>professionQualMismatch</code> flag + AI + rule-based double detection (e.g. PhD Education ≠ doctor)</li>
+            <li><code>NON_CLINICAL_PATTERNS</code> + <code>CLINICAL_QUAL_PATTERNS</code> regex guards in <code>detectMismatchFromRules()</code></li>
+          </ul>
+        </td>
+        <td class="test-guide">
+          <ol>
+            <li>Navigate to <span class="url">/profile</span> → Upload CV section.</li>
+            <li>Upload a text-based PDF CV — confirm profession, specialty, experience years are auto-populated.</li>
+            <li>Upload a scanned/image CV — confirm fallback vision path still extracts data.</li>
+            <li>Upload a CV with a PhD in Education labelled as "Doctor" — confirm <em>mismatch warning</em> banner appears.</li>
+            <li>Inspect confidence indicators on each extracted field (shown in profile review step).</li>
+          </ol>
+        </td>
+      </tr>
+
+      <!-- 4 -->
+      <tr>
+        <td>4</td>
+        <td>Sponsor Vacancy Refresher ("Check Vacancies" button)</td>
+        <td><span class="badge badge-complete"><span class="badge-dot"></span>Complete</span></td>
+        <td class="evidence">
+          <ul>
+            <li><code>routes/sponsorLicences.ts</code> — <code>POST /sponsor-licences/:id/check-vacancies</code> (per-company)</li>
+            <li><code>routes/sponsorLicences.ts</code> — <code>POST /sponsor-licences/check-all-vacancies</code> + <code>GET …/status</code> (bulk background runner)</li>
+            <li><code>lib/vacancyCheckHelper.ts</code> — <code>runVacancyCheck()</code> orchestration</li>
+            <li><code>lib/vacancyCheckAllRunner.ts</code> — <code>startCheckAllVacancies()</code> async runner with status polling</li>
+            <li><code>lib/vacancyCheckScheduler.ts</code> — automated nightly scheduler</li>
+            <li><code>schema/sponsorLicences.ts</code> — <code>sponsorLicenceVacancyChecksTable</code>, <code>sponsorLicenceVacanciesTable</code></li>
+          </ul>
+        </td>
+        <td class="test-guide">
+          <ol>
+            <li>Navigate to <span class="url">/sponsors</span> and open any company card.</li>
+            <li>Click <strong>"Check Vacancies"</strong> button — confirm spinner and then vacancy results appear.</li>
+            <li>Confirm <em>Last checked</em> timestamp updates after the check.</li>
+            <li>As admin, navigate to <span class="url">/admin/sync</span> — trigger <strong>"Check All Vacancies"</strong> and monitor progress indicator.</li>
+            <li>Verify vacancy count badge on company card reflects updated data.</li>
+          </ol>
+        </td>
+      </tr>
+
+      <!-- 5 -->
+      <tr>
+        <td>5</td>
+        <td>Per-Company "Check Best Fit" Ranking</td>
+        <td><span class="badge badge-complete"><span class="badge-dot"></span>Complete</span></td>
+        <td class="evidence">
+          <ul>
+            <li><code>lib/sponsorVacancyScoring.ts</code> — vacancy-level AI scoring against candidate profile</li>
+            <li><code>lib/sponsorVacancyMatch.ts</code> — match computation + eligibility check</li>
+            <li><code>routes/sponsorLicences.ts</code> — <code>GET /sponsor-licences/:id/vacancies</code> returns <code>matchScore</code>, <code>isEligible</code>, <code>missingRequirements[]</code>, <code>matchExplanation</code> per vacancy</li>
+            <li>Vacancies sorted server-side by <code>matchScore DESC</code></li>
+            <li><code>schema/sponsorLicences.ts</code> — <code>sponsorLicenceVacancyScoresTable</code> (<code>userId</code>, <code>score</code>, <code>isEligible</code>, <code>explanation</code>)</li>
+          </ul>
+        </td>
+        <td class="test-guide">
+          <ol>
+            <li>Ensure candidate profile is complete with profession and experience.</li>
+            <li>Navigate to a sponsor company page — click <strong>"Check Vacancies"</strong>.</li>
+            <li>Confirm vacancies list is sorted by <em>match score</em> (highest first).</li>
+            <li>Each vacancy card should show a <em>% match</em> badge, an eligibility indicator, and any missing requirements listed.</li>
+            <li>Log in as a different user with different speciality — confirm ranking order differs.</li>
+          </ol>
+        </td>
+      </tr>
+
+      <!-- 6 -->
+      <tr>
+        <td>6</td>
+        <td>Unified Send CV &amp; AI Cover Letters</td>
+        <td><span class="badge badge-complete"><span class="badge-dot"></span>Complete</span></td>
+        <td class="evidence">
+          <ul>
+            <li><code>routes/coverLetter.ts</code> — <code>POST /cover-letter/generate</code> (batch) + <code>POST /cover-letter/generate-stream</code> (SSE)</li>
+            <li><code>lib/coverLetterGenerator.ts</code> — GPT-4o letter generation with UK-format prompt</li>
+            <li><code>routes/speculativeApplications.ts</code> — <code>POST /speculative-applications</code> attaches selected CV + masked cover note</li>
+            <li><code>pages/OpportunitiesPage.tsx</code> — <code>useGenerateCoverLetter</code> hook; "Generate Cover Letter" button on role cards</li>
+            <li><code>components/SponsorVacancyApplyModal.tsx</code> — unified modal combining CV selection + cover letter generation + submit</li>
+          </ul>
+        </td>
+        <td class="test-guide">
+          <ol>
+            <li>On <span class="url">/opportunities</span>, click <strong>"Generate Cover Letter"</strong> on any role.</li>
+            <li>Confirm streaming text appears token-by-token (SSE) with UK professional format.</li>
+            <li>Confirm disclaimer banner appears at end of generation.</li>
+            <li>Click <strong>"Send CV"</strong> on a sponsor vacancy — confirm modal allows choosing a CV and optionally attaching cover note.</li>
+            <li>Check candidate inbox (<span class="url">/inbox</span>) for confirmation message with JOBSAGE alias and recipient details.</li>
+          </ol>
+        </td>
+      </tr>
+
+      <!-- 7 -->
+      <tr>
+        <td>7</td>
+        <td>External Cookie Tracking</td>
+        <td><span class="badge badge-partial"><span class="badge-dot"></span>Partial / Wiring Needed</span></td>
+        <td class="evidence">
+          <ul>
+            <li><code>pages/ConsentPage.tsx</code> — consent page exists for JOBSAGE <em>data processing</em> (terms v1.0.0); shown at onboarding</li>
+            <li><code>schema/consent.ts</code> + <code>routes/consent.ts</code> — consent record persisted per user</li>
+            <li>No external analytics scripts found (no <code>gtag</code>, <code>_fbq</code>, <code>hotjar</code>, <code>mixpanel</code>, <code>amplitude</code> in codebase)</li>
+            <li><code>pages/LandingPage.tsx</code> references analytics reporting in feature list but no third-party tag injected</li>
+          </ul>
+          <div class="gap-note">⚠ Gap: No cookie consent banner for third-party tracking. No external analytics or pixel tags are wired. If external tracking is added in future (e.g. GA4), a GDPR-compliant cookie banner with accept/reject choices is required.</div>
+        </td>
+        <td class="test-guide">
+          <ol>
+            <li>Visit <span class="url">/</span> as a new (unauthenticated) visitor — confirm no cookie banner currently appears.</li>
+            <li>Log in as a new candidate — confirm the consent page (<span class="url">/consent</span>) appears for data processing agreement.</li>
+            <li>Inspect browser DevTools → Application → Cookies — confirm only <code>jobsage.sid</code> session cookie is set (no third-party tracking cookies).</li>
+            <li class="na-note">Full cookie tracking with third-party consent banner: Not yet implemented — no test path exists.</li>
+          </ol>
+        </td>
+      </tr>
+
+      <!-- 8 -->
+      <tr>
+        <td>8</td>
+        <td>Sponsor Directory Display Fields</td>
+        <td><span class="badge badge-partial"><span class="badge-dot"></span>Partial / Wiring Needed</span></td>
+        <td class="evidence">
+          <ul>
+            <li><code>schema/sponsorLicences.ts</code> — columns: <code>organisationName</code>, <code>townCity</code>, <code>county</code>, <code>route</code>, <code>subRoute</code>, <code>rating</code>, <code>industry</code>, <code>website</code>, <code>contactEmail</code>, <code>contactPhone</code>, <code>address</code>, <code>region</code></li>
+            <li><code>routes/sponsorLicences.ts</code> — <code>POST /sponsor-licences/:id/enrich</code> uses GPT-4o web search to populate contact fields</li>
+            <li><code>pages/SponsorLicencesPage.tsx</code> — searchable directory with region/industry filters</li>
+            <li>No dedicated full-page company detail page (existing project task)</li>
+          </ul>
+          <div class="gap-note">⚠ Gap: Contact fields (website, email, phone, address) are stored in schema and enrichable, but there is no dedicated company detail page exposing all fields. Directory list view may not surface all enriched fields to users.</div>
+        </td>
+        <td class="test-guide">
+          <ol>
+            <li>Navigate to <span class="url">/sponsors</span> — confirm list shows organisation name, town/city, route, and industry.</li>
+            <li>As admin, locate a company and trigger the <strong>"Enrich"</strong> action — confirm website/email/phone populate from AI lookup.</li>
+            <li>Confirm enriched <code>website</code> link is clickable on the card.</li>
+            <li class="na-note">Full company detail page (all fields in one view): Not yet available — blocked by pending "Company detail page" task.</li>
+          </ol>
+        </td>
+      </tr>
+
+      <!-- 9 -->
+      <tr>
+        <td>9</td>
+        <td>@mail.jobsage.app Mailbox Provisioning</td>
+        <td><span class="badge badge-complete"><span class="badge-dot"></span>Complete</span></td>
+        <td class="evidence">
+          <ul>
+            <li><code>lib/jobsageEmailGen.ts</code> — generates <code>firstname.lastname.&lt;hex6&gt;@mail.jobsage.app</code> alias; fallback to <code>candidate.&lt;hex8&gt;@mail.jobsage.app</code></li>
+            <li><code>resolveJobsageAlias(userId)</code> — checks <code>users.jobsageEmail</code> first, then <code>profiles.jobsageEmail</code></li>
+            <li><code>schema/auth.ts</code> — <code>jobsageEmail</code> column on <code>usersTable</code>; assigned at registration</li>
+            <li><code>schema/profiles.ts</code> — <code>jobsageEmail</code> column; login-time backfill for legacy accounts</li>
+            <li>Alias used as FROM address in <code>sendSpeculativeCVToOps()</code> in <code>lib/email.ts</code></li>
+            <li><code>maskPersonalContactInfo()</code> replaces personal email/phone with JOBSAGE alias in all outbound content</li>
+          </ul>
+        </td>
+        <td class="test-guide">
+          <ol>
+            <li>Register a new candidate account — confirm <code>@mail.jobsage.app</code> alias is shown on the profile page.</li>
+            <li>Navigate to <span class="url">/profile</span> → confirm JOBSAGE email alias is displayed.</li>
+            <li>Send a speculative CV — check outbound email FROM address is the alias (verify via admin audit log).</li>
+            <li>Upload a CV containing a personal email address; generate a cover letter — confirm personal email is masked with the alias in the output.</li>
+          </ol>
+        </td>
+      </tr>
+
+      <!-- 10 -->
+      <tr>
+        <td>10</td>
+        <td>Categorized Application Tracking</td>
+        <td><span class="badge badge-complete"><span class="badge-dot"></span>Complete</span></td>
+        <td class="evidence">
+          <ul>
+            <li><code>pages/ApplicationsPage.tsx</code> — three application kinds: <code>formal</code> (platform-submitted), <code>speculative</code> (CV-sent outreach), <code>website</code> (external apply tracked)</li>
+            <li><code>PLATFORM_STATUSES</code>: <code>applied · shortlisted · under_review · interview · interview_invited · offer · rejected · no_response</code></li>
+            <li><code>SPECULATIVE_STATUSES</code>: <code>cv_sent · under_review · interview_invited · offer · rejected</code></li>
+            <li><code>STATUS_CONFIG</code> map — icon + colour per status (Lucide icons + Tailwind classes)</li>
+            <li><code>mobile/app/(tabs)/applications.tsx</code> — mobile-optimised equivalent view</li>
+            <li>Framer Motion <code>AnimatePresence</code> for animated transitions between status tabs</li>
+          </ul>
+        </td>
+        <td class="test-guide">
+          <ol>
+            <li>Navigate to <span class="url">/applications</span> — confirm three tabs: Platform / Speculative / Website.</li>
+            <li>Confirm each application shows status badge with colour coding (e.g. green = shortlisted, amber = offer).</li>
+            <li>Update an application status via the inline dropdown — confirm new badge renders immediately.</li>
+            <li>On mobile app, navigate to <strong>Applications tab</strong> — confirm same categories and status badges are present.</li>
+          </ol>
+        </td>
+      </tr>
+
+      <!-- 11 -->
+      <tr>
+        <td>11</td>
+        <td>CV Personal Data Masking</td>
+        <td><span class="badge badge-complete"><span class="badge-dot"></span>Complete</span></td>
+        <td class="evidence">
+          <ul>
+            <li><code>lib/jobsageEmailGen.ts</code> — <code>maskPersonalContactInfo(text, jobsageEmail)</code> replaces personal emails (regex) and UK phone numbers with JOBSAGE alias</li>
+            <li>Applied in <code>routes/speculativeApplications.ts</code> — CV text extract + cover note masked before sending</li>
+            <li>Applied in <code>routes/coverLetter.ts</code> — CV text masked before AI generation</li>
+            <li>Applied in <code>routes/careerProfiles.ts</code> — AI CV output post-processed to mask leakage</li>
+            <li>Validation: non-PDF CVs blocked from speculative send (422) to ensure masking is always possible</li>
+          </ul>
+        </td>
+        <td class="test-guide">
+          <ol>
+            <li>Upload a PDF CV containing a personal email address (e.g. john@gmail.com) and a UK phone number.</li>
+            <li>Send a speculative CV — open the admin audit log; confirm the transmitted CV text shows the JOBSAGE alias, not the personal email.</li>
+            <li>Generate a cover letter — confirm personal contact details from the CV are not present in the generated text.</li>
+            <li>Attempt to send a non-PDF CV speculatively — confirm 422 error with message about PDF requirement.</li>
+          </ol>
+        </td>
+      </tr>
+
+      <!-- 12 -->
+      <tr>
+        <td>12</td>
+        <td>Cookie-Tracked Interview Pipeline</td>
+        <td><span class="badge badge-partial"><span class="badge-dot"></span>Partial / Wiring Needed</span></td>
+        <td class="evidence">
+          <ul>
+            <li><code>routes/auth.ts</code> — <code>httpOnly</code> session cookie (<code>jobsage.sid</code>) persists sessions cross-device</li>
+            <li><code>pages/InterviewCalendarPage.tsx</code> — candidates can log interview dates and notes</li>
+            <li><code>routes/applications.ts</code> — application status advances to <code>interview</code> / <code>interview_invited</code></li>
+            <li>No cross-device cookie fingerprinting of external interview interactions (e.g. tracking if candidate visited employer site post-invite)</li>
+          </ul>
+          <div class="gap-note">⚠ Gap: Interview pipeline tracking is via application status + calendar, not via cross-session cookie tracking of external employer interactions. Cookie-based behavioural tracking across devices is not implemented.</div>
+        </td>
+        <td class="test-guide">
+          <ol>
+            <li>Navigate to <span class="url">/applications</span> — advance an application to <em>Interview Invited</em>.</li>
+            <li>Navigate to <span class="url">/interview-calendar</span> — confirm the interview appears in the calendar view.</li>
+            <li>Add date and notes to the interview entry — confirm they persist.</li>
+            <li class="na-note">Cross-session cookie tracking of external interview activity: Not yet implemented.</li>
+          </ol>
+        </td>
+      </tr>
+
+      <!-- 13 -->
+      <tr>
+        <td>13</td>
+        <td>Unfiltered 100%-to-0% Opportunities Feed</td>
+        <td><span class="badge badge-complete"><span class="badge-dot"></span>Complete</span></td>
+        <td class="evidence">
+          <ul>
+            <li><code>pages/OpportunitiesPage.tsx</code> — displays matched roles with <code>AiScoreBadge</code> (score ≥ 80 green · ≥ 55 blue · below grey)</li>
+            <li><code>lib/sponsorVacancyScoring.ts</code> + <code>lib/candidateAiMatch.ts</code> — computes 0–100 match scores against candidate profile</li>
+            <li><code>schema/candidateMatchScores.ts</code> — <code>candidateMatchScoresTable</code> persists scores</li>
+            <li><code>routes/roles.ts</code> — <code>GET /roles/matched</code> returns all roles with score; no artificial filtering</li>
+            <li><code>pages/DashboardPage.tsx</code> — "Top 3 Matched Roles" widget shows highest-scored opportunities</li>
+          </ul>
+        </td>
+        <td class="test-guide">
+          <ol>
+            <li>Complete a candidate profile with profession and experience.</li>
+            <li>Navigate to <span class="url">/opportunities</span> → "Board" tab.</li>
+            <li>Confirm roles appear with percentage match badges sorted highest-first.</li>
+            <li>Confirm both high-match (80%+) and low-match (sub-50%) roles appear — feed is unfiltered.</li>
+            <li>Change profile specialty or experience — confirm scores recalculate on next page load.</li>
+          </ol>
+        </td>
+      </tr>
+
+      <!-- 14 -->
+      <tr>
+        <td>14</td>
+        <td>Sponsor Contact Data Completeness</td>
+        <td><span class="badge badge-partial"><span class="badge-dot"></span>Partial / Wiring Needed</span></td>
+        <td class="evidence">
+          <ul>
+            <li><code>schema/sponsorLicences.ts</code> — <code>website</code>, <code>contactEmail</code>, <code>contactPhone</code>, <code>address</code> columns present</li>
+            <li><code>routes/sponsorLicences.ts</code> — <code>POST /sponsor-licences/:id/enrich</code> uses GPT-4o + web_search_preview tool to populate fields on demand</li>
+            <li>Bulk enrichment not implemented — enrichment is triggered per record only</li>
+            <li>Most official UK register import rows have <code>townCity</code> + <code>county</code> but <code>NULL</code> for website/email/phone until enriched</li>
+          </ul>
+          <div class="gap-note">⚠ Gap: Contact data is enrichable but not bulk-populated. The majority of the 40,000+ sponsor licence records will have NULL contact fields until individually enriched. No batch enrichment pipeline or data completeness dashboard exists.</div>
+        </td>
+        <td class="test-guide">
+          <ol>
+            <li>Navigate to <span class="url">/sponsors</span> — select a company and click <strong>"Enrich Contact Details"</strong>.</li>
+            <li>Confirm website, email, and phone populate (where publicly available).</li>
+            <li>Confirm enriched website link is clickable and opens correctly.</li>
+            <li class="na-note">Bulk enrichment of entire register: Not yet implemented.</li>
+          </ol>
+        </td>
+      </tr>
+
+      <!-- 15 -->
+      <tr>
+        <td>15</td>
+        <td>Prioritized Application Guidance (Top 5 / Next 5)</td>
+        <td><span class="badge badge-partial"><span class="badge-dot"></span>Partial / Wiring Needed</span></td>
+        <td class="evidence">
+          <ul>
+            <li><code>lib/aiPrioritiser.ts</code> — <code>prioritiseRemediationSteps()</code> uses GPT-4o to order remediation steps by impact/prerequisites</li>
+            <li><code>routes/ai.ts</code> — <code>GET /ai/remediation-suggestions/:planId</code> returns ranked step ordering</li>
+            <li><code>routes/ai.ts</code> — next-steps endpoint generates 3–5 ranked personal recommendations</li>
+            <li><code>pages/DashboardPage.tsx</code> — <code>NextStepsCard</code> component shows AI-generated next actions</li>
+            <li>No explicit "Top 5 Sponsor Applications / Next 5 to target" list — current prioritisation focuses on remediation steps, not outbound application queue management</li>
+          </ul>
+          <div class="gap-note">⚠ Gap: AI prioritisation of remediation steps is complete. A dedicated "Top 5 companies to apply to next / Next 5 to target" application queue feature is not yet implemented as a standalone workflow.</div>
+        </td>
+        <td class="test-guide">
+          <ol>
+            <li>Complete eligibility check (if ineligible) — navigate to <span class="url">/path</span>.</li>
+            <li>Click <strong>"Optimise my plan order"</strong> — confirm AI reorders remediation steps with rationale tooltips.</li>
+            <li>Navigate to <span class="url">/</span> (dashboard) — confirm <strong>Next Steps</strong> card shows 3–5 prioritised actions.</li>
+            <li class="na-note">Dedicated "Top 5 sponsors to apply to" queue: Not yet implemented.</li>
+          </ol>
+        </td>
+      </tr>
+
+      <!-- 16 -->
+      <tr>
+        <td>16</td>
+        <td>Standalone Regulatory &amp; Visa Eligibility Module</td>
+        <td><span class="badge badge-complete"><span class="badge-dot"></span>Complete</span></td>
+        <td class="evidence">
+          <ul>
+            <li><code>routes/eligibility.ts</code> — eligibility check engine with decision record output</li>
+            <li><code>routes/remediation.ts</code> — remediation plan generation + step management; forward-eligibility projection</li>
+            <li><code>lib/rulesEngine.ts</code> — rule evaluation against candidate profile fields</li>
+            <li><code>lib/seedRulesets.ts</code> — GMC (doctor), NMC (nurse/midwife), HCPC (allied health), teacher, engineer, social worker, academic, general rulesets</li>
+            <li><code>schema/rulesets.ts</code> — <code>rulesetRulesTable</code> + <code>decisionRecordsTable</code> + <code>remediationPlansTable</code> + <code>remediationStepsTable</code></li>
+            <li><code>pages/EligibilityPage.tsx</code> + <code>pages/PathPage.tsx</code> — standalone UI flows</li>
+            <li><code>pages/RegulatoryGuidancePage.tsx</code> — guidance for dentists, pharmacists, social workers, allied health</li>
+          </ul>
+        </td>
+        <td class="test-guide">
+          <ol>
+            <li>As a candidate, navigate to <span class="url">/eligibility</span> — run eligibility check.</li>
+            <li>Confirm <em>Eligible</em> / <em>Not Eligible</em> / <em>Pending Review</em> outcome is returned with reason codes.</li>
+            <li>If ineligible, navigate to <span class="url">/path</span> — confirm a personalised remediation plan with ordered steps appears.</li>
+            <li>Navigate to <span class="url">/guidance</span> — confirm profession-specific regulatory guidance (dentist, pharmacist, social worker, allied health) is displayed.</li>
+            <li>Advance a remediation step to "Done" — confirm forward-eligibility projection updates.</li>
+          </ol>
+        </td>
+      </tr>
+
+      <!-- 17 -->
+      <tr>
+        <td>17</td>
+        <td>Engaging Visual User Journey</td>
+        <td><span class="badge badge-complete"><span class="badge-dot"></span>Complete</span></td>
+        <td class="evidence">
+          <ul>
+            <li><code>components/JourneyIslands.tsx</code> — Framer Motion animated island nodes; complete/active/locked states with distinct visual treatments</li>
+            <li><code>lib/journeySteps.ts</code> — <code>deriveIslandStates()</code> computes 10-stage journey from real user data</li>
+            <li><code>routes/journey.ts</code> — <code>GET /journey</code> returns <code>readinessScore</code> (0–100) + per-stage unlock state</li>
+            <li>Dashboard uses <code>motion.div</code> + <code>AnimatePresence</code> throughout for page transitions</li>
+            <li>Island stages: Profile → Upload CV → Eligibility → Path → Sponsors → Apply → Interview → Verification → Offer → Dream Job (trophy)</li>
+          </ul>
+        </td>
+        <td class="test-guide">
+          <ol>
+            <li>Log in as a new candidate and navigate to the dashboard <span class="url">/</span>.</li>
+            <li>Confirm the Journey Islands component shows the 10-stage progression path with animated nodes.</li>
+            <li>Confirm completed stages are green, active stage is highlighted, locked stages are greyed/padlocked.</li>
+            <li>Complete a step (e.g. upload a CV) — confirm the corresponding island unlocks with animation.</li>
+            <li>Confirm the readiness score percentage updates at the top of the journey.</li>
+          </ol>
+        </td>
+      </tr>
+
+      <!-- 18 -->
+      <tr>
+        <td>18</td>
+        <td>Visual "Island" Progression Pipeline</td>
+        <td><span class="badge badge-complete"><span class="badge-dot"></span>Complete</span></td>
+        <td class="evidence">
+          <ul>
+            <li><code>components/JourneyIslands.tsx</code> — <code>IslandNode</code> component: <code>w-16 h-16</code> rounded nodes with <code>nodeBg</code> conditional gradient styling; compact mode for dashboard sidebar</li>
+            <li>Trophy SVG (custom <code>TrophySvg</code>) renders as the final "Dream Job" island</li>
+            <li>Connected by animated path lines between nodes</li>
+            <li><code>lib/journeySteps.ts</code> — island metadata (icon, label, description, route, completionCheck function)</li>
+            <li>Mobile equivalent in <code>jobsage-mobile</code> app tabs mirrors the journey concept</li>
+          </ul>
+        </td>
+        <td class="test-guide">
+          <ol>
+            <li>Navigate to the dashboard <span class="url">/</span> — confirm vertical island chain is visible with connecting path.</li>
+            <li>Verify the final island is the gold/amber "Dream Job" trophy node.</li>
+            <li>On mobile app, confirm journey progression is represented with equivalent visual stages.</li>
+            <li>Click on an active island node — confirm it routes to the correct page (e.g. clicking "Eligibility" island → <span class="url">/eligibility</span>).</li>
+            <li>Click a locked island — confirm it does not navigate or shows a "locked" message.</li>
+          </ol>
+        </td>
+      </tr>
+
+      <!-- 19 -->
+      <tr>
+        <td>19</td>
+        <td>Real-Time Cross-Platform State Sync</td>
+        <td><span class="badge badge-partial"><span class="badge-dot"></span>Partial / Wiring Needed</span></td>
+        <td class="evidence">
+          <ul>
+            <li>React Query (<code>@tanstack/react-query</code>) used throughout web app for cache invalidation and background refetching</li>
+            <li><code>lib/api-client-react/src/sync-dashboard.ts</code> — dashboard sync utility</li>
+            <li><code>routes/ai.ts</code> + <code>routes/smartApply.ts</code> + <code>routes/coverLetter.ts</code> — SSE streaming for AI responses</li>
+            <li>Web and mobile apps share the same REST API endpoints</li>
+            <li>No WebSocket server; no push notifications for instant cross-device state propagation</li>
+          </ul>
+          <div class="gap-note">⚠ Gap: State sync is pull-based (React Query polling/invalidation), not push-based. Changes made on one device are only visible on another device after a page load or refetch interval. True real-time cross-platform push sync (e.g. WebSocket / Server-Sent Events for state changes) is not implemented.</div>
+        </td>
+        <td class="test-guide">
+          <ol>
+            <li>Log in on both web and mobile simultaneously.</li>
+            <li>Update application status on web — navigate to applications on mobile and pull-to-refresh; confirm status updates.</li>
+            <li>Confirm AI chat responses stream in real time on web (SSE).</li>
+            <li class="na-note">Instant push sync without page refresh: Not yet implemented — changes require manual refresh or polling interval to propagate.</li>
+          </ol>
+        </td>
+      </tr>
+
+      <!-- 20 -->
+      <tr>
+        <td>20</td>
+        <td>Consistent Multi-CV Management</td>
+        <td><span class="badge badge-complete"><span class="badge-dot"></span>Complete</span></td>
+        <td class="evidence">
+          <ul>
+            <li><code>schema/documents.ts</code> — <code>documentsTable</code> with <code>isPrimary</code> (boolean), <code>documentType</code> (cv / qualification / etc.), <code>label</code>, <code>parsedData</code></li>
+            <li><code>routes/documents.ts</code> — CRUD for documents; primary flag management</li>
+            <li><code>routes/speculativeApplications.ts</code> — CV resolution: explicit <code>cvDocumentId</code> pick → primary CV → any CV → none</li>
+            <li><code>routes/careerProfiles.ts</code> — up to <code>MAX_PROFILES = 3</code> career profiles with distinct <code>aiCvContent</code></li>
+            <li><code>pages/DocumentsPage.tsx</code> — UI to upload, label, set primary, and manage multiple CV documents</li>
+          </ul>
+        </td>
+        <td class="test-guide">
+          <ol>
+            <li>Navigate to <span class="url">/documents</span> — upload two CV PDFs with different labels (e.g. "Nursing CV" and "Senior Band 7 CV").</li>
+            <li>Set one as <strong>primary</strong> — confirm it is tagged with a Primary badge.</li>
+            <li>When sending a speculative CV, confirm the CV picker shows all uploaded CVs and defaults to the primary.</li>
+            <li>Select the non-primary CV explicitly — confirm it is used for that application (check audit log).</li>
+          </ol>
+        </td>
+      </tr>
+
+      <!-- 21 -->
+      <tr>
+        <td>21</td>
+        <td>Granular Multi-CV Application Mapping</td>
+        <td><span class="badge badge-partial"><span class="badge-dot"></span>Partial / Wiring Needed</span></td>
+        <td class="evidence">
+          <ul>
+            <li><code>schema/speculativeApplications.ts</code> — <code>cvDocumentId</code> column tracks which CV was used per speculative application</li>
+            <li><code>schema/applications.ts</code> — formal application table (platform-submitted roles)</li>
+            <li><code>schema/careerProfiles.ts</code> — <code>isActive</code> flag allows one active career profile at a time</li>
+            <li>Formal applications (<code>applicationsTable</code>) do not currently record <code>cvDocumentId</code> — only speculative applications do</li>
+          </ul>
+          <div class="gap-note">⚠ Gap: <code>cvDocumentId</code> is only stored on speculative applications. Formal platform applications do not record which specific CV was submitted. Full granular per-application CV tracking is incomplete.</div>
+        </td>
+        <td class="test-guide">
+          <ol>
+            <li>Send a speculative application, explicitly choosing a non-primary CV.</li>
+            <li>Navigate to <span class="url">/applications</span> → speculative tab — confirm the CV label/name is shown on the application card.</li>
+            <li>Submit a formal platform application — check if the CV used is recorded (currently not displayed).</li>
+            <li class="na-note">CV tracking on formal applications: Not yet wired — <code>cvDocumentId</code> column is absent from <code>applicationsTable</code>.</li>
+          </ol>
+        </td>
+      </tr>
+
+      <!-- 22 -->
+      <tr>
+        <td>22</td>
+        <td>UK-Standard Professional CV Generator</td>
+        <td><span class="badge badge-complete"><span class="badge-dot"></span>Complete</span></td>
+        <td class="evidence">
+          <ul>
+            <li><code>routes/careerProfiles.ts</code> — <code>generateCvBackground()</code> async GPT-4o generation triggered on profile create/update</li>
+            <li>UK-format system prompt enforces: Header → Personal Statement → Work Experience → Education → Professional Registrations → References section order</li>
+            <li>Includes GMC/NMC/HCPC registration status, JOBSAGE alias in header, UK English, no DOB/nationality</li>
+            <li><code>schema/careerProfiles.ts</code> — <code>aiCvContent</code> column stores generated CV text; up to 3 profiles (<code>MAX_PROFILES = 3</code>)</li>
+            <li>Post-processing: <code>maskPersonalContactInfo()</code> applied to AI output before storage</li>
+            <li><code>pages/ProfilePage.tsx</code> — download CV button for generated content</li>
+          </ul>
+        </td>
+        <td class="test-guide">
+          <ol>
+            <li>Complete profile with profession, specialty, qualifications, and experience.</li>
+            <li>Navigate to <span class="url">/profile</span> → Career Profiles section — create a new career profile with a focus area (e.g. "Paediatric Nursing, Band 6").</li>
+            <li>Wait for AI generation (background task) — confirm CV text appears with all required sections.</li>
+            <li>Confirm JOBSAGE email alias appears in the header, no personal email/phone is present.</li>
+            <li>Click <strong>Download CV</strong> — confirm the file downloads with the generated content.</li>
+            <li>Create a second profile with a different focus area — confirm up to 3 distinct CVs can be managed.</li>
+          </ol>
+        </td>
+      </tr>
+
+      <!-- 23 -->
+      <tr>
+        <td>23</td>
+        <td>Next-Step AI Career Advisor (SAGE)</td>
+        <td><span class="badge badge-complete"><span class="badge-dot"></span>Complete</span></td>
+        <td class="evidence">
+          <ul>
+            <li><code>routes/ai.ts</code> — <code>POST /ai/chat</code> SSE streaming SAGE advisor (GPT-4o); contextualised with full candidate profile + eligibility + applications</li>
+            <li><code>routes/ai.ts</code> — <code>GET /ai/next-steps</code> generates 3–5 ranked personalised next actions</li>
+            <li><code>components/AIChatSlideover.tsx</code> — sliding chat UI, floating SAGE button on dashboard</li>
+            <li><code>pages/DashboardPage.tsx</code> — <code>NextStepsCard</code> renders ranked recommendations with action buttons</li>
+            <li>Advisor aware of: profession, eligibility outcome, remediation steps, application count, registration status, visa requirement</li>
+            <li>Disclaimer rendered after each SAGE response: "decision support only"</li>
+          </ul>
+        </td>
+        <td class="test-guide">
+          <ol>
+            <li>Navigate to the dashboard <span class="url">/</span> — confirm <strong>Next Steps</strong> card shows 3–5 AI-ranked actions with context (e.g. "Complete your PLAB 2 preparation" or "Apply to 3 matched sponsors").</li>
+            <li>Click the <strong>SAGE</strong> floating button — confirm the chat slideover opens.</li>
+            <li>Ask "What should I do next?" — confirm a personalised, streaming response appears.</li>
+            <li>Ask "Help me with my visa options" — confirm advice references the candidate's <code>requiresSponsorship</code> status.</li>
+            <li>Confirm disclaimer text appears after each AI response.</li>
+          </ol>
+        </td>
+      </tr>
+
+      <!-- 24 -->
+      <tr>
+        <td>24</td>
+        <td>Long-Term Career Development &amp; LinkedIn Export</td>
+        <td><span class="badge badge-missing"><span class="badge-dot"></span>Missing / To Build</span></td>
+        <td class="evidence">
+          <ul>
+            <li><code>routes/journey.ts</code> — "Career Growth" stage referenced as the final journey milestone but no dedicated feature behind it</li>
+            <li><code>pages/ProfilePage.tsx</code> — download of AI-generated CV text file exists</li>
+            <li><code>pages/LandingPage.tsx</code> (line ~439) — references "export &amp; reporting" in feature copy but no implementation</li>
+            <li>No LinkedIn OAuth integration, no LinkedIn profile export, no structured career progression timeline stored in schema</li>
+            <li>No <code>linkedinExport</code>, <code>careerTimeline</code>, or <code>longTermGoals</code> columns in any schema table</li>
+          </ul>
+          <div class="gap-note">⚠ Fully missing: No LinkedIn export, no structured long-term career development tracker, no career milestone history, and no progression reporting against original goals are implemented anywhere in the codebase.</div>
+        </td>
+        <td class="test-guide">
+          <ol class="na-note">
+            <li>LinkedIn export: Not yet implemented — no test path exists.</li>
+            <li>Long-term career development tracker: Not yet implemented.</li>
+            <li>Career milestone history / progression report: Not yet implemented.</li>
+            <li>For partial coverage, navigate to <span class="url">/profile</span> → Download career profile CV as a text file (available, but not LinkedIn-format).</li>
+          </ol>
+        </td>
+      </tr>
+
+    </tbody>
+  </table>
+
+  <!-- ── Footer ────────────────────────────────────────────────────────────── -->
+  <div class="report-footer">
+    <span>JOBSAGE DRD 24-Point Master Audit · Generated 18 July 2026 · Read-only — no source files were modified</span>
+    <span>16 Complete · 7 Partial · 1 Missing · Total: 24 items</span>
+  </div>
+
+</div>
+</body>
+</html>
