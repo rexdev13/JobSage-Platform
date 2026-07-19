@@ -60,9 +60,7 @@ export default function AdminRolesPage() {
     if (!file) return;
     setImportResult(null);
     setImportError(null);
-    const formData = new FormData();
-    formData.append("file", file);
-    importCSV({ data: formData as unknown as { file: Blob } });
+    importCSV({ data: { file } });
     e.target.value = "";
   };
 
