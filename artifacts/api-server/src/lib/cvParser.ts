@@ -27,6 +27,7 @@ export interface CvExtractedFields {
   rawNotes: string;
   professionQualMismatch: boolean;
   professionQualMismatchWarning: string | null;
+  professionWarning: string | null;
 }
 
 const CANONICAL_PROFESSIONS = [
@@ -345,6 +346,7 @@ function parseAiResponse(raw: string): CvExtractedFields {
     })(),
     professionQualMismatch,
     professionQualMismatchWarning,
+    professionWarning: professionNullReason,
   };
 }
 
