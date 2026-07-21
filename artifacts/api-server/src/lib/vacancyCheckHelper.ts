@@ -8,6 +8,31 @@ import { eq, and, gt, desc } from "drizzle-orm";
 
 export const VACANCY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * Third-party aggregator domains whose vacancy URLs we do not want to store.
+ * Add new entries here as needed — hostname matching is suffix-based so
+ * subdomains (e.g. uk.indeed.com) are also caught.
+ */
+export const BLOCKED_VACANCY_DOMAINS = [
+  "indeed.com",
+  "reed.co.uk",
+  "linkedin.com",
+  "cv-library.co.uk",
+  "totaljobs.com",
+  "glassdoor.com",
+] as const;
+
+function isBlockedVacancyUrl(url: string): boolean {
+  try {
+    const { hostname } = new URL(url);
+    return BLOCKED_VACANCY_DOMAINS.some(
+      (domain) => hostname === domain || hostname.endsWith(`.${domain}`),
+    );
+  } catch {
+    return false;
+  }
+}
+
 export type VacancyListItem = {
   title: string;
   location: string | null;
@@ -91,7 +116,7 @@ export async function runVacancyCheck(organisationName: string): Promise<Vacancy
       model: "gpt-4o",
       tools: [{ type: "web_search_preview" as const }],
       input: `Search for current job openings at "${organisationName}" in the United Kingdom.
-Look on Reed, Indeed, LinkedIn, NHS Jobs, and the company's own careers page.
+Prioritise the company's own careers page and NHS Jobs (jobs.nhs.uk) first. Only use third-party aggregators such as Indeed, Reed, LinkedIn, or CV-Library as a last resort, and prefer URLs that point directly to the employer's own domain.
 After searching, reply with a JSON object ONLY — no markdown, no extra text, just raw JSON:
 {
   "vacanciesFound": true or false,
@@ -142,6 +167,15 @@ Include up to 8 specific vacancies in vacancyList if found. Use null for missing
       if (Array.isArray(parsed.vacancyList) && parsed.vacancyList.length > 0) {
         vacancyList = parsed.vacancyList
           .filter((v) => typeof v.title === "string" && v.title.trim())
+          .filter((v) => {
+            // Discard vacancies whose URL points to a blocked aggregator domain.
+            // Vacancies with null/undefined/non-http URLs pass through and are
+            // stored with url: null (existing behaviour).
+            if (typeof v.url === "string" && v.url.startsWith("http")) {
+              return !isBlockedVacancyUrl(v.url);
+            }
+            return true;
+          })
           .map((v) => ({
             title: (v.title ?? "").trim(),
             location: typeof v.location === "string" ? v.location.trim() || null : null,
