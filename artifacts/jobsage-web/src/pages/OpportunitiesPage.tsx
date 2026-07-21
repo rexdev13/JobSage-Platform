@@ -53,6 +53,10 @@ import {
   Zap,
   Medal,
   Info,
+  Send,
+  Calendar,
+  CalendarDays,
+  ExternalLink,
 } from "lucide-react";
 import { DisclaimerBanner } from "@/components/ui/DisclaimerBanner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -855,7 +859,137 @@ function EmployerCard({ employer, roles }: { employer: string; roles: MatchedRol
   );
 }
 
+type AppKind = "formal" | "speculative" | "website";
+type AppSubTab = "platform" | "website" | "speculative";
+
+type RichApplication = {
+  id: number;
+  userId: string;
+  roleId: number;
+  status: string;
+  appliedAt: string;
+  notes?: string | null;
+  roleTitle?: string | null;
+  roleLocation?: string | null;
+  interviewDate?: string | Date | null;
+  interviewNotes?: string | null;
+  applicationKind?: AppKind;
+  companyName?: string | null;
+  vacancyTitle?: string | null;
+  emailSent?: boolean | null;
+  emailSentAt?: string | null;
+  emailRecipient?: string | null;
+  jobsageEmail?: string | null;
+  applicationUrl?: string | null;
+};
+
+type RichStats = {
+  total?: number;
+  interviews?: number;
+  offers?: number;
+  noResponse?: number;
+  platformCount?: number;
+  websiteCount?: number;
+  speculativeCount?: number;
+  cvSent?: number;
+};
+
+const APP_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
+  applied: { label: "Applied", className: "bg-blue-100 text-blue-800" },
+  shortlisted: { label: "Shortlisted", className: "bg-purple-100 text-purple-800" },
+  under_review: { label: "Under Review", className: "bg-violet-100 text-violet-800" },
+  interview: { label: "Interview", className: "bg-teal-100 text-teal-800" },
+  interview_invited: { label: "Interview Invited", className: "bg-teal-100 text-teal-800" },
+  offer: { label: "Offer", className: "bg-emerald-100 text-emerald-800" },
+  rejected: { label: "Rejected", className: "bg-red-100 text-red-700" },
+  no_response: { label: "No Response", className: "bg-muted text-muted-foreground" },
+  cv_sent: { label: "CV Sent", className: "bg-sky-100 text-sky-800" },
+  sent: { label: "Sent", className: "bg-sky-100 text-sky-800" },
+  acknowledged: { label: "Acknowledged", className: "bg-emerald-100 text-emerald-800" },
+};
+
+function AppCard({ app }: { app: RichApplication }) {
+  const kind = app.applicationKind ?? "formal";
+  const isSpeculative = kind === "speculative";
+  const isWebsite = kind === "website";
+  const config = APP_STATUS_CONFIG[app.status] ?? APP_STATUS_CONFIG.applied!;
+
+  const title = isSpeculative
+    ? (app.vacancyTitle ?? app.companyName ?? "Speculative Application")
+    : isWebsite
+    ? (app.companyName ?? "Website Application")
+    : (app.roleTitle ?? app.companyName ?? "Application");
+
+  const dateLabel = isSpeculative ? "Sent" : "Applied";
+  const dateStr = new Date(app.appliedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+
+  const hasInterview = app.interviewDate != null;
+  const interviewStr = hasInterview
+    ? new Date(app.interviewDate as string).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+    : null;
+
+  return (
+    <Card className={`p-4 space-y-2 ${hasInterview ? "border-teal-200" : ""}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-sm font-medium text-foreground truncate">{title}</p>
+            {isWebsite && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold border bg-blue-50 text-blue-700 border-blue-200">
+                <ExternalLink className="w-2.5 h-2.5" /> External Application
+              </span>
+            )}
+            {isSpeculative && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold border bg-sky-50 text-sky-700 border-sky-200">
+                <Send className="w-2.5 h-2.5" /> Speculative CV
+              </span>
+            )}
+          </div>
+          {app.companyName && (
+            <p className="text-xs text-muted-foreground mt-0.5">{app.companyName}</p>
+          )}
+          <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+            <Calendar className="w-3 h-3" />
+            {dateLabel} {dateStr}
+          </p>
+        </div>
+        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 ${config.className}`}>
+          {config.label}
+        </span>
+      </div>
+
+      {isSpeculative && (
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          {app.emailSent ? (
+            <span className="flex items-center gap-1 text-teal-700">
+              <Send className="w-3 h-3" />
+              Sent{app.emailRecipient ? ` to ${app.emailRecipient}` : app.jobsageEmail ? ` via ${app.jobsageEmail}` : " via JOBSAGE ops"}
+            </span>
+          ) : (
+            <span className="flex items-center gap-1 text-muted-foreground">
+              <Send className="w-3 h-3" /> Pending delivery
+            </span>
+          )}
+        </div>
+      )}
+
+      {hasInterview && (
+        <div className="flex flex-col gap-1 bg-teal-50 border border-teal-200 rounded-lg px-3 py-2 text-xs text-teal-800">
+          <span className="flex items-center gap-1 font-semibold">
+            <CalendarDays className="w-3 h-3" /> Interview: {interviewStr}
+          </span>
+          {app.interviewNotes && (
+            <span className="text-teal-700 leading-relaxed">{app.interviewNotes}</span>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 function ApplicationsTab({ data }: { data: ApplicationList | undefined }) {
+  const [subTab, setSubTab] = useState<AppSubTab>("platform");
+
   if (!data) {
     return (
       <Card className="p-8 text-center">
@@ -866,25 +1000,29 @@ function ApplicationsTab({ data }: { data: ApplicationList | undefined }) {
     );
   }
 
-  const { applications, stats } = data;
+  const applications = (data.applications ?? []) as RichApplication[];
+  const stats = data.stats as RichStats;
 
-  const statusConfig: Record<string, { label: string; className: string }> = {
-    applied: { label: "Applied", className: "bg-blue-100 text-blue-800" },
-    shortlisted: { label: "Shortlisted", className: "bg-purple-100 text-purple-800" },
-    interview: { label: "Interview", className: "bg-violet-100 text-violet-800" },
-    offer: { label: "Offer", className: "bg-emerald-100 text-emerald-800" },
-    rejected: { label: "Rejected", className: "bg-red-100 text-red-700" },
-    no_response: { label: "No Response", className: "bg-muted text-muted-foreground" },
-  };
+  const platformApps = applications.filter((a) => (a.applicationKind ?? "formal") === "formal");
+  const websiteApps = applications.filter((a) => a.applicationKind === "website");
+  const speculativeApps = applications.filter((a) => a.applicationKind === "speculative");
+
+  const subTabs: { id: AppSubTab; label: string; icon: React.ElementType; count: number }[] = [
+    { id: "platform", label: "Platform Applications", icon: Building2, count: stats.platformCount ?? platformApps.length },
+    { id: "website", label: "Website Applications", icon: Globe, count: stats.websiteCount ?? websiteApps.length },
+    { id: "speculative", label: "Speculative CVs", icon: Send, count: stats.speculativeCount ?? speculativeApps.length },
+  ];
+
+  const visibleApps = subTab === "platform" ? platformApps : subTab === "website" ? websiteApps : speculativeApps;
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-4 gap-3">
         {[
-          { label: "Total Applied", value: stats.total, color: "text-foreground" },
-          { label: "Interviews", value: stats.interviews, color: "text-violet-700" },
-          { label: "Offers", value: stats.offers, color: "text-emerald-700" },
-          { label: "No Response", value: stats.noResponse, color: "text-muted-foreground" },
+          { label: "Platform", value: stats.platformCount ?? platformApps.length, color: "text-foreground" },
+          { label: "Website", value: stats.websiteCount ?? websiteApps.length, color: "text-blue-700" },
+          { label: "Speculative CVs", value: stats.speculativeCount ?? speculativeApps.length, color: "text-sky-700" },
+          { label: "Interviews", value: stats.interviews ?? 0, color: "text-teal-700" },
         ].map(({ label, value, color }) => (
           <Card key={label} className="p-3 text-center">
             <p className={`text-2xl font-bold ${color}`}>{value}</p>
@@ -893,30 +1031,41 @@ function ApplicationsTab({ data }: { data: ApplicationList | undefined }) {
         ))}
       </div>
 
-      {applications.length === 0 ? (
+      <div className="flex gap-1 p-1 bg-muted rounded-xl overflow-x-auto">
+        {subTabs.map(({ id, label, icon: Icon, count }) => (
+          <button
+            key={id}
+            onClick={() => setSubTab(id)}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+              subTab === id ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Icon className="w-3.5 h-3.5" />
+            {label}
+            {count > 0 && (
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${subTab === id ? "bg-primary/10 text-primary" : "bg-muted-foreground/10 text-muted-foreground"}`}>
+                {count}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {visibleApps.length === 0 ? (
         <Card className="p-8 text-center">
           <ClipboardList className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground">No applications tracked yet.</p>
-          <p className="text-xs text-muted-foreground mt-1">Use &quot;Mark Applied&quot; on eligible roles to track your journey.</p>
+          <p className="text-sm text-muted-foreground">
+            {subTab === "platform" ? "No platform applications yet." : subTab === "website" ? "No website applications logged yet." : "No speculative CVs sent yet."}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {subTab === "platform" ? "Use \"Smart Apply\" on a role to track it here." : subTab === "website" ? "Use \"Mark as applied on website\" on any sponsor company." : "Send your CV speculatively to a sponsor licence company."}
+          </p>
         </Card>
       ) : (
         <div className="space-y-3">
-          {applications.map((app) => {
-            const config = statusConfig[app.status] ?? statusConfig.applied;
-            return (
-              <Card key={app.id} className="p-4 flex items-center justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground">Role #{app.roleId}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Applied {new Date(app.appliedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-                  </p>
-                </div>
-                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${config.className}`}>
-                  {config.label}
-                </span>
-              </Card>
-            );
-          })}
+          {visibleApps.map((app) => (
+            <AppCard key={`${app.applicationKind ?? "formal"}-${app.id}`} app={app} />
+          ))}
         </div>
       )}
     </div>

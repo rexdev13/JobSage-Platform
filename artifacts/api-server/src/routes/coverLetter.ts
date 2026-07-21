@@ -1,8 +1,8 @@
 import { Router, type IRouter } from "express";
 import { requireAuthenticated } from "../middlewares/requireRole";
 import { db, profilesTable, documentsTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
-import { generateCoverLetter } from "../lib/coverLetterGenerator";
+import { eq, and, desc } from "drizzle-orm";
+import { generateCoverLetter, buildPromptMessages } from "../lib/coverLetterGenerator";
 import { ObjectStorageService } from "../lib/objectStorage";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { maskPersonalContactInfo, resolveJobsageAlias } from "../lib/jobsageEmailGen";
@@ -12,6 +12,30 @@ const objectStorage = new ObjectStorageService();
 
 const COVER_LETTER_DISCLAIMER =
   "This cover letter is AI-generated for guidance only. Review and personalise before sending to any employer.";
+
+async function fetchCvText(userId: string, objectStorageSvc: ObjectStorageService): Promise<string | null> {
+  try {
+    const docs = await db
+      .select()
+      .from(documentsTable)
+      .where(and(eq(documentsTable.userId, userId), eq(documentsTable.documentType, "cv")))
+      .orderBy(desc(documentsTable.isPrimary), desc(documentsTable.uploadedAt));
+
+    if (docs.length > 0) {
+      const doc = docs[0]!;
+      const objectFile = await objectStorageSvc.getObjectEntityFile(doc.storageKey);
+      const response = await objectStorageSvc.downloadObject(objectFile);
+      const arrayBuf = await response.arrayBuffer();
+      const buf = Buffer.from(arrayBuf);
+      const pdfParse = (await import("pdf-parse")).default;
+      const parsed = await pdfParse(buf);
+      return parsed.text.slice(0, 4000);
+    }
+  } catch {
+    // CV parsing is best-effort — proceed without it
+  }
+  return null;
+}
 
 router.post("/cover-letter/generate", requireAuthenticated, async (req, res): Promise<void> => {
   const userId = req.user!.id;
@@ -39,28 +63,7 @@ router.post("/cover-letter/generate", requireAuthenticated, async (req, res): Pr
     return;
   }
 
-  // Try to get CV text from the most recent PDF document
-  let cvText: string | null = null;
-  try {
-    const docs = await db
-      .select()
-      .from(documentsTable)
-      .where(and(eq(documentsTable.userId, userId), eq(documentsTable.mimeType, "application/pdf")))
-      .orderBy(documentsTable.createdAt);
-
-    if (docs.length > 0) {
-      const latestDoc = docs[docs.length - 1]!;
-      const objectFile = await objectStorage.getObjectEntityFile(latestDoc.storageKey);
-      const response = await objectStorage.downloadObject(objectFile);
-      const arrayBuf = await response.arrayBuffer();
-      const buf = Buffer.from(arrayBuf);
-      const pdfParse = (await import("pdf-parse")).default;
-      const parsed = await pdfParse(buf);
-      cvText = parsed.text.slice(0, 4000);
-    }
-  } catch {
-    // CV parsing is best-effort — proceed without it
-  }
+  const cvText = await fetchCvText(userId, objectStorage);
 
   const user = req.user!;
   const candidateName =
@@ -68,8 +71,6 @@ router.post("/cover-letter/generate", requireAuthenticated, async (req, res): Pr
       .filter(Boolean)
       .join(" ") || "Candidate";
 
-  // Resolve JOBSAGE alias via centralized resolver (checks users table first, then profiles)
-  // so legacy accounts that haven't hit /profiles/me yet still get masking applied.
   const jobsageEmail = await resolveJobsageAlias(userId);
   const maskedCvText = cvText && jobsageEmail ? maskPersonalContactInfo(cvText, jobsageEmail) : cvText;
 
@@ -81,6 +82,12 @@ router.post("/cover-letter/generate", requireAuthenticated, async (req, res): Pr
       experienceYears: profile.experienceYears,
       qualificationCountry: profile.qualificationCountry,
       registrationStatus: profile.registrationStatus,
+      qualificationType: profile.qualificationType,
+      qualificationYear: profile.qualificationYear,
+      residencyStatus: profile.residencyStatus,
+      requiresSponsorship: profile.requiresSponsorship,
+      languages: profile.languages as string[] | null,
+      additionalNotes: profile.additionalNotes,
       cvText: maskedCvText,
       jobTitle,
       employer,
@@ -120,26 +127,7 @@ router.post("/cover-letter/generate-stream", requireAuthenticated, async (req, r
     return;
   }
 
-  let cvText: string | null = null;
-  try {
-    const docs = await db
-      .select()
-      .from(documentsTable)
-      .where(and(eq(documentsTable.userId, userId), eq(documentsTable.mimeType, "application/pdf")))
-      .orderBy(documentsTable.createdAt);
-    if (docs.length > 0) {
-      const latestDoc = docs[docs.length - 1]!;
-      const objectFile = await objectStorage.getObjectEntityFile(latestDoc.storageKey);
-      const response = await objectStorage.downloadObject(objectFile);
-      const arrayBuf = await response.arrayBuffer();
-      const buf = Buffer.from(arrayBuf);
-      const pdfParse = (await import("pdf-parse")).default;
-      const parsed = await pdfParse(buf);
-      cvText = parsed.text.slice(0, 4000);
-    }
-  } catch {
-    // best-effort
-  }
+  const cvText = await fetchCvText(userId, objectStorage);
 
   const user = req.user!;
   const candidateName =
@@ -147,42 +135,30 @@ router.post("/cover-letter/generate-stream", requireAuthenticated, async (req, r
       .filter(Boolean)
       .join(" ") || "Candidate";
 
-  // Resolve JOBSAGE alias via centralized resolver (checks users table first, then profiles)
-  const jobsageEmailStream = await resolveJobsageAlias(userId);
-  const maskedCvTextStream = cvText && jobsageEmailStream ? maskPersonalContactInfo(cvText, jobsageEmailStream) : cvText;
+  const jobsageEmail = await resolveJobsageAlias(userId);
+  const maskedCvText = cvText && jobsageEmail ? maskPersonalContactInfo(cvText, jobsageEmail) : cvText;
 
-  const contactLine = jobsageEmailStream ? `Contact email: ${jobsageEmailStream}` : "";
-
-  const systemPrompt = `You are an expert UK healthcare career consultant helping international professionals write compelling cover letters for NHS and private healthcare positions.
-
-Write formal, concise, and professional UK-style cover letters (350–500 words). Structure:
-1. Opening — name the role and employer; express genuine motivation
-2. Relevant experience — highlight specialty, years of experience, and key achievements relevant to the role
-3. UK regulatory awareness — mention relevant regulator (${regulator ?? "GMC/NMC/HCPC"}) and registration status or pathway
-4. Fit for the organisation — show knowledge of UK healthcare context
-5. Closing — express enthusiasm, request for interview, note availability
-
-Return ONLY the cover letter text (no JSON, no markdown fences). Begin with "Dear Hiring Manager," and end with "Yours sincerely,\n[Candidate Name]".`;
-
-  const cvSection = maskedCvTextStream ? `\n\nCandidate CV extract:\n${maskedCvTextStream.slice(0, 3000)}` : "";
-  const jobSection = jobDescription ? `\n\nJob description:\n${jobDescription.slice(0, 1500)}` : "";
-
-  const userPrompt = `Write a cover letter for the following:
-
-Candidate: ${candidateName}
-${contactLine}
-Profession: ${profile.profession.replace(/_/g, " ")}
-Specialty: ${profile.specialty ?? "General"}
-Experience: ${profile.experienceYears} years
-Trained in: ${profile.qualificationCountry ?? "International"}
-Registration: ${profile.registrationStatus ?? "In process"}
-${cvSection}
-
-Target role: ${jobTitle}
-Employer: ${employer}
-Location: ${location ?? "UK"}
-Regulator: ${regulator ?? "GMC/NMC/HCPC"}
-${jobSection}`;
+  const messages = buildPromptMessages({
+    candidateName,
+    profession: profile.profession,
+    specialty: profile.specialty,
+    experienceYears: profile.experienceYears,
+    qualificationCountry: profile.qualificationCountry,
+    registrationStatus: profile.registrationStatus,
+    qualificationType: profile.qualificationType,
+    qualificationYear: profile.qualificationYear,
+    residencyStatus: profile.residencyStatus,
+    requiresSponsorship: profile.requiresSponsorship,
+    languages: profile.languages as string[] | null,
+    additionalNotes: profile.additionalNotes,
+    cvText: maskedCvText,
+    jobTitle,
+    employer,
+    jobDescription: jobDescription ?? null,
+    location: location ?? null,
+    regulator: regulator ?? null,
+    jobsageEmail,
+  });
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -194,10 +170,7 @@ ${jobSection}`;
       model: "gpt-4o",
       max_completion_tokens: 1000,
       stream: true,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
+      messages,
     });
 
     for await (const chunk of stream) {
