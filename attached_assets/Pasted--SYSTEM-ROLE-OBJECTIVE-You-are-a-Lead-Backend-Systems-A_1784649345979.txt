@@ -1,0 +1,32 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Backend Systems Architect working in our Next.js / TypeScript / Drizzle ORM repository. We need to implement three critical data pipeline fixes: chunking a massive database sync to prevent timeouts, enforcing a strict "> 0" vacancy filter, and filtering out third-party job board noise (like Indeed).
+
+Before writing any code, conduct a strict, **read-only architectural investigation** to locate the exact files and queries we need to modify.
+
+**CRITICAL GUARDRAIL: READ-ONLY & ZERO ASSUMPTIONS**
+- Do NOT write, edit, or delete any files.
+- Do NOT execute automated test suites or touch the filesystem.
+- Execute ONLY code searches and read-only inspections to answer the questions below, output the report, and TERMINATE immediately.
+
+---
+
+### INVESTIGATION TASKS
+
+1. **The 02:00 AM Sponsor Sync (Endless Loading Fix):**
+   - Locate the background scheduler or cron job responsible for the `sponsor-sync` (the one handling 142k+ rows). 
+   - What file handles this bulk `UPDATE` or `INSERT`? Verify if there is currently any chunking/batching logic in place, or if it attempts to execute the transaction all at once.
+
+2. **The "Has Vacancies" Filter Logic:**
+   - Locate the API route and frontend component powering the Sponsor Licences page (e.g., `GET /api/sponsor-licences` and `SponsorLicencesPage.tsx`).
+   - When a user clicks/toggles "Has Vacancies", how is that currently wired to the Drizzle query? Is it actively filtering `WHERE vacancy_count > 0`, or is the parameter being ignored/misapplied?
+
+3. **External Job Board & Expired Link Filtering:**
+   - Locate the logic where scraped vacancies are parsed and saved to the database (e.g., the vacancy scraper service or insertion mutation).
+   - Is there an existing validation schema (like Zod) or utility function where we can cleanly inject a rule to reject URLs containing `indeed.com` and prioritize direct employer domains?
+
+---
+
+### REQUIRED DELIVERABLE
+Output a structured **"Phase 1 Data Pipeline Discovery Report"** answering the three sections above with exact file paths, line numbers, and Drizzle schema property names. 
+
+Conclude with a brief recommendation on the exact file we should modify first to implement the 150-row chunking fix. Begin your read-only investigation now and TERMINATE when the report is output.

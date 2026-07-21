@@ -1,0 +1,31 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Security & Integration Architect working in our Next.js / TypeScript repository. We need to investigate two specific behaviors regarding our outbound application pipeline: how application emails are currently routed, and how external website applications are tracked.
+
+Before we make any architectural decisions or discuss timelines with product leadership, conduct a strict, **read-only architectural investigation** of the codebase to give us ground-truth answers.
+
+**CRITICAL GUARDRAIL: READ-ONLY & ZERO ASSUMPTIONS**
+- Do NOT write, edit, or delete any files.
+- Do NOT execute automated test suites, install packages, or touch the database.
+- Execute ONLY code searches and read-only inspections to answer the questions below, output your report, and TERMINATE immediately.
+
+---
+
+### INVESTIGATION TASKS
+
+1. **Outbound Email Routing & Sandbox Verification (PRIORITY 1):**
+   - Search the backend codebase (`api-server`) for our email dispatch logic (e.g., searching for mailer services, `sendEmail`, Resend/Nodemailer clients, or application submission handlers).
+   - When a user submits an application or sends a speculative CV, **where does the email actually go right now?**
+   - Is there a hardcoded sandbox/redirect (e.g., intercepting the recipient and sending it to an internal `@jobsage.co.uk` address or admin inbox for testing/safety)? Or is it dynamically pulling the employer's email from the database?
+   - What exact lines of code or environment variables control this routing, and what needs to be changed when we are ready to safely flip the switch to send emails directly to live UK employers?
+
+2. **External Website Application & Cookie Tracking (PRIORITY 2):**
+   - Inspect the frontend and backend logic for when a candidate chooses to "Apply on Company Website" or clicks an external job link.
+   - How does our system currently track this action? Does it drop an internal cookie or create a database record in `Tracked Applications` at the moment the outbound button is clicked?
+   - Confirm technically: Is there any code attempting to track the user's progress *after* they leave our domain and navigate to the external third-party employer site, or does our tracking strictly (and safely) record the departure click within our own ecosystem?
+
+---
+
+### REQUIRED DELIVERABLE
+Output a structured **"Email Routing & External Tracking Discovery Report"** answering both sections above with exact file paths, line numbers, function names, and environment variable references. 
+
+Conclude with a summary of exactly how easy it will be to switch the email routing from our internal sandbox to live employers once our AI cover letters are finalized. Begin your read-only investigation now and TERMINATE when the report is output.
