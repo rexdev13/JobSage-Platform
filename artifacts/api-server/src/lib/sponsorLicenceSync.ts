@@ -296,8 +296,9 @@ export async function runSponsorLicenceSync(triggeredBy: SyncTriggeredBy = "sche
       // Keeping VALUES clauses small (≤150 rows × 9 params = 1350 params) avoids
       // hitting Postgres wire-protocol message size limits on managed instances and
       // keeps individual statement run-time well under any statement_timeout ceiling.
-      const BATCH = 500;
+      const BATCH = 200;
       const UPDATE_CHUNK = 150;
+      const INTER_BATCH_SLEEP_MS = 100;
       const syncedAtIso = syncedAt.toISOString(); // explicit ISO string — avoids any
       // driver ambiguity when Date.toString() appears in error logs.
 
@@ -376,6 +377,13 @@ export async function runSponsorLicenceSync(triggeredBy: SyncTriggeredBy = "sche
               existingNames.add(r.organisationName.toLowerCase().trim());
             }
           }
+        }
+
+        // Yield between outer iterations so the connection pool can drain and the
+        // event loop stays responsive. Skip the sleep on the final batch to avoid
+        // unnecessary delay at the very end of the run.
+        if (i + BATCH < rows.length) {
+          await sleep(INTER_BATCH_SLEEP_MS);
         }
       }
 
