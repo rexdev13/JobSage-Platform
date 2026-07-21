@@ -1,0 +1,26 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Full-Stack Systems Architect. Thank you for the comprehensive Phase 3 Discovery Report. We are officially approving your architectural recommendations to resolve AI matching inaccuracies and refine the platform branding.
+
+Please execute this sequential implementation plan cleanly, ensuring type safety and zero regressions.
+
+---
+
+### EXECUTION PLAN
+
+#### STEP 1: Profile Parser Allowlist & Guardrails (`artifacts/api-server/src/lib/cvParser.ts`)
+- **Enforce Profession Allowlist:** Update `parseAiResponse` and the system prompt so that if the AI returns a freeform profession not in our target set (`doctor`, `nurse`, `midwife`, `allied_health_professional`, `clinical_academic`, `teacher`, `engineer`, `social_worker`), it is flagged or mapped to the closest valid professional tier rather than blindly saving unrelated strings like "housekeeping" or "domestic services".
+- **Confidence Gating:** Ensure that if `confidence.profession` is `"low"` or `"none"`, the system does not silently accept an anomalous profession string without validation.
+
+#### STEP 2: Inject Negative Constraints into AI Matching (`artifacts/api-server/src/lib/candidateAiMatch.ts` & Admin Import)
+- **AI Scoring Negative Constraint:** In `candidateAiMatch.ts` (around line 44), inject an explicit hard negative constraint into the scoring prompt: *"Any role whose title or description implies a non-clinical, manual labor, or unrelated discipline (e.g., housekeeping, cleaning, domestic services, catering, construction) MUST receive a match score of 0 with the explanation 'Out of professional scope'."*
+- **Admin Import Guardrail:** In the admin role import logic (`POST /admin/roles/import`), add a lightweight validation check so that manual labor or housekeeping titles cannot be mistakenly imported under clinical regulatory tags (`GMC`, `NMC`, `HCPC`).
+
+#### STEP 3: Theme & Branding Remapping (`artifacts/jobsage-web/src/index.css`)
+- **Remap Primary Palette:** In both `:root` and `.dark` blocks of `index.css`, update the four bright-orange token assignments (`--primary`, `--ring`, `--sidebar-primary`, `--sidebar-ring`). 
+- **Set Primary to Brownish-Red:** Shift `--primary` from `12 95% 52%` (vivid orange) to the muted brownish-red / crimson palette (e.g., utilizing `0 70% 38%` or a tailored brownish-red HSL value) so the main UI headers, buttons, and layouts reflect the brownish-red, black, and white brand identity.
+- **Reserve Orange for Accents:** Restrict the bright orange strictly to active states, ticks, and secondary CTA highlights.
+
+---
+
+### REQUIRED DELIVERABLE
+Output a brief confirmation of your execution strategy, then begin implementing Step 1, Step 2, and Step 3 sequentially. Provide clear changelog updates as each step is completed and verified against type-checking/linters.
