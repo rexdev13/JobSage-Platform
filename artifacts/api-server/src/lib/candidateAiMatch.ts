@@ -46,7 +46,12 @@ async function scoreSingleBatch(
 Candidate Profile:
 ${profileText}
 
-Score each vacancy 0–100 based on: specialty alignment, experience level, sponsorship fit, and registration requirement.
+HARD NEGATIVE CONSTRAINT — This is mandatory and overrides all other scoring criteria:
+Any vacancy whose title implies a non-clinical, manual-labour, or unrelated discipline MUST receive a score of exactly 0 with the explanation "Out of professional scope".
+Examples of titles that trigger this rule (not exhaustive): housekeeping, housekeep, cleaning, cleaner, domestic, catering, cook, kitchen, laundry, portering, porter, construction, groundskeeping, groundskeeper, janitor, caretaker, security guard, warehouse, driver, delivery.
+If any word in the vacancy title matches or strongly implies these categories, assign score 0 and explanation "Out of professional scope" — do not consider the candidate profile at all for those vacancies.
+
+For all other vacancies, score 0–100 based on: specialty alignment, experience level, sponsorship fit, and registration requirement.
 For each vacancy provide a short one-sentence explanation (max 90 characters) like "Strong specialty match — sponsorship available" or "Experience below senior requirement".
 
 Vacancies:

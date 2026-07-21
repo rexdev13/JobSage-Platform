@@ -80,17 +80,17 @@
   --sidebar: 30 20% 97%;              /* Warm cream sidebar */
   --sidebar-foreground: 20 10% 14%;
   --sidebar-border: 12 18% 89%;
-  --sidebar-primary: 12 95% 52%;      /* Orange-red active items */
+  --sidebar-primary: 0 62% 36%;       /* Brownish-red active items */
   --sidebar-primary-foreground: 0 0% 100%;
   --sidebar-accent: 12 30% 93%;       /* Soft red-tinted hover */
   --sidebar-accent-foreground: 20 10% 14%;
-  --sidebar-ring: 12 95% 52%;
+  --sidebar-ring: 0 62% 36%;
 
   --popover: 0 0% 100%;
   --popover-foreground: 20 10% 10%;
   --popover-border: 12 18% 89%;
 
-  --primary: 12 95% 52%;              /* Vivid orange-red — logo "JOB" */
+  --primary: 0 62% 36%;               /* Brownish-red primary — buttons, headers, focus rings */
   --primary-foreground: 0 0% 100%;
 
   --secondary: 12 30% 93%;            /* Light warm red tint */
@@ -99,14 +99,14 @@
   --muted: 30 15% 95%;
   --muted-foreground: 20 8% 48%;
 
-  --accent: 0 70% 38%;                /* Deep crimson — logo "SAGE" */
+  --accent: 0 70% 38%;                /* Deep crimson — active/tick accent states (logo "SAGE") */
   --accent-foreground: 0 0% 100%;
 
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
 
   --input: 12 18% 89%;
-  --ring: 12 95% 52%;
+  --ring: 0 62% 36%;
 
   --app-font-sans: 'Inter', sans-serif;
   --app-font-display: 'Outfit', sans-serif;
@@ -133,11 +133,14 @@
   --card-foreground: 30 20% 95%;
   --card-border: 20 10% 16%;
   --border: 20 10% 16%;
-  --primary: 12 95% 52%;
+  --primary: 0 62% 36%;
   --primary-foreground: 0 0% 100%;
   --sidebar: 20 10% 9%;
   --sidebar-foreground: 30 20% 90%;
   --sidebar-border: 20 10% 16%;
+  --sidebar-primary: 0 62% 36%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-ring: 0 62% 36%;
   --sidebar-accent: 12 20% 16%;
   --sidebar-accent-foreground: 30 20% 90%;
   --muted: 20 10% 14%;
