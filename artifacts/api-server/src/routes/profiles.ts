@@ -4,7 +4,7 @@ import { db, profilesTable, usersTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { GetMyProfileResponse, UpsertMyProfileBody, UpsertMyProfileResponse } from "@workspace/api-zod";
 import { requireConsent } from "../middlewares/consentMiddleware";
-import { computeCompletionPct } from "../lib/profileCompleteness";
+import { computeCompletionPct, computeMissingFields } from "../lib/profileCompleteness";
 import { generateJobsageEmail } from "../lib/jobsageEmailGen";
 
 const router: IRouter = Router();
@@ -88,7 +88,7 @@ router.get("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
     }
   }
 
-  res.json(GetMyProfileResponse.parse({ ...profile, completionPct: computeCompletionPct(profile) }));
+  res.json(GetMyProfileResponse.parse({ ...profile, completionPct: computeCompletionPct(profile), missingFields: computeMissingFields(profile) }));
 });
 
 router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Request, res: Response): Promise<void> => {
@@ -171,7 +171,7 @@ router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
     })
     .returning();
 
-  res.json(UpsertMyProfileResponse.parse({ ...profile, completionPct: computeCompletionPct(profile) }));
+  res.json(UpsertMyProfileResponse.parse({ ...profile, completionPct: computeCompletionPct(profile), missingFields: computeMissingFields(profile) }));
 });
 
 router.patch("/profiles/me/boost", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {

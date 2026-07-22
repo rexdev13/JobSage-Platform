@@ -490,6 +490,7 @@ export default function ProfilePage() {
     : null;
   const displayPhotoUrl = photoPreviewUrl ?? storedPhotoUrl;
   const completionPct = typeof p?.completionPct === "number" ? p.completionPct : 0;
+  const missingFields = Array.isArray(p?.missingFields) ? (p.missingFields as string[]) : [];
 
   if (!profile) return null;
 
@@ -505,7 +506,7 @@ export default function ProfilePage() {
         <header className="mb-6">
           <div className="flex items-start justify-between gap-4 mb-6">
             <div className="flex items-center gap-5">
-              <div className="relative shrink-0">
+              <div id="profile-photo-section" className="relative shrink-0">
                 <div className="w-20 h-20 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center overflow-hidden">
                   {displayPhotoUrl ? (
                     <img src={displayPhotoUrl} alt="Profile" className="w-full h-full object-cover" />
@@ -594,10 +595,29 @@ export default function ProfilePage() {
                 style={{ width: `${completionPct}%` }}
               />
             </div>
-            {completionPct < 100 && (
-              <p className="text-xs text-muted-foreground mt-1.5">
-                Fields marked <span className="text-amber-600 font-medium">Not found</span> below are still missing — fill them in to reach 100%.
-              </p>
+            {completionPct < 100 && missingFields.length > 0 && (
+              <div className="mt-2 space-y-1">
+                {missingFields.length === 1 && missingFields[0] === "Profile photo" ? (
+                  <p className="text-xs text-primary font-medium flex items-center gap-1">
+                    <Camera className="w-3 h-3 shrink-0" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const el = document.getElementById("profile-photo-section");
+                        el?.scrollIntoView({ behavior: "smooth", block: "center" });
+                      }}
+                      className="underline underline-offset-2 hover:text-primary/80"
+                    >
+                      Add a profile photo to reach 100%
+                    </button>
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-medium text-amber-600">Missing:</span>{" "}
+                    {missingFields.join(", ")}
+                  </p>
+                )}
+              </div>
             )}
           </div>
 
