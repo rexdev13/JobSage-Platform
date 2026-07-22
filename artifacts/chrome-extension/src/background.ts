@@ -21,11 +21,7 @@ interface GetTokenMessage {
   type: "GET_TOKEN";
 }
 
-interface PillClickedMessage {
-  type: "PILL_CLICKED";
-}
-
-type IncomingMessage = ApiRequestMessage | GetTokenMessage | PillClickedMessage;
+type IncomingMessage = ApiRequestMessage | GetTokenMessage;
 
 interface ApiResponseSuccess {
   data: unknown;
@@ -50,10 +46,6 @@ chrome.runtime.onMessage.addListener(
     if (message.type === "GET_TOKEN") {
       getSessionToken().then((token) => sendResponse({ token }));
       return true;
-    }
-
-    if (message.type === "PILL_CLICKED") {
-      return false;
     }
 
     if (message.type !== "API_REQUEST") {
