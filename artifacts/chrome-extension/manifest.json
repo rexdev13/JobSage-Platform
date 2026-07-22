@@ -12,7 +12,7 @@
     "https://*.myworkdayjobs.com/*"
   ],
   "background": {
-    "service_worker": "dist/background.js",
+    "service_worker": "background.js",
     "type": "module"
   },
   "content_scripts": [
@@ -23,7 +23,7 @@
         "https://*.myworkdayjobs.com/*",
         "https://jobsage.co.uk/*"
       ],
-      "js": ["dist/content.js"],
+      "js": ["content.js"],
       "run_at": "document_idle"
     }
   ]

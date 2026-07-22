@@ -4,36 +4,41 @@ import { scrapeJobContext } from "./lib/scraper";
 import { isConfirmationPage, mountConfirmationToast } from "./lib/trackerDetector";
 
 const JOBSAGE_HOST_ID = "jobsage-extension-root";
-const API_BASE = "https://jobsage.co.uk/api";
 
 async function getToken(): Promise<string | null> {
   return new Promise((resolve) => {
     chrome.runtime.sendMessage({ type: "GET_TOKEN" }, (response: { token: string | null }) => {
+      if (chrome.runtime.lastError) {
+        resolve(null);
+        return;
+      }
       resolve(response?.token ?? null);
     });
   });
 }
 
 async function logApplication(companyName: string, jobTitle: string, pageUrl: string): Promise<void> {
-  const token = await getToken();
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-
-  const response = await fetch(`${API_BASE}/applications`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      applicationType: "website",
-      companyName,
-      notes: jobTitle ? `Applied for: ${jobTitle}` : undefined,
-      applicationUrl: pageUrl,
-    }),
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(
+      {
+        type: "API_REQUEST",
+        endpoint: "/applications",
+        method: "POST",
+        body: { companyName, jobTitle, pageUrl, applicationType: "website" },
+      },
+      (response: { data?: unknown; error?: string }) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message ?? "Extension messaging error"));
+          return;
+        }
+        if (response?.error) {
+          reject(new Error(response.error));
+        } else {
+          resolve();
+        }
+      }
+    );
   });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`HTTP ${response.status}: ${text}`);
-  }
 }
 
 function mountSidebar(): ShadowRoot {
