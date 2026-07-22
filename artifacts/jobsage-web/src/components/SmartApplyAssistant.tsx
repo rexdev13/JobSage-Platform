@@ -20,6 +20,8 @@ interface SmartApplyAssistantProps {
 
 const BASE_URL = () => import.meta.env.BASE_URL.replace(/\/$/, "");
 
+const AI_PROFESSION_KEY = "jobsage_ai_profession";
+
 export function SmartApplyAssistant({
   roleId,
   roleTitle,
@@ -36,6 +38,12 @@ export function SmartApplyAssistant({
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  // Track the profession that was active when this conversation started.
+  // If the user changes their profession (saved from ProfilePage), clear the
+  // conversation so the AI context reflects the new profession.
+  const sessionProfessionRef = useRef<string | null>(
+    typeof localStorage !== "undefined" ? localStorage.getItem(AI_PROFESSION_KEY) : null
+  );
 
   const scrollToBottom = useCallback(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -58,12 +66,44 @@ export function SmartApplyAssistant({
 
   useEffect(() => {
     if (triggerQuestion) {
-      if (!isOpen) setIsOpen(true);
+      if (!isOpen) handleOpen();
       void sendMessage(`Help me answer this question: "${triggerQuestion.question}"`);
       onTriggerConsumed?.();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [triggerQuestion]);
+
+  // Reset conversation history when the user changes their profession on the profile page.
+  // ProfilePage writes "jobsage_ai_profession" to localStorage on every successful save.
+  // A storage event fires in other tabs; same-tab changes are detected on the next open.
+  useEffect(() => {
+    function handleStorageChange(e: StorageEvent) {
+      if (e.key !== AI_PROFESSION_KEY) return;
+      const newProfession = e.newValue;
+      if (newProfession !== sessionProfessionRef.current) {
+        sessionProfessionRef.current = newProfession;
+        abortRef.current?.abort();
+        setMessages([]);
+        setInput("");
+        setStreaming(false);
+      }
+    }
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
+
+  // Same-tab profession change: detect when the assistant is (re-)opened
+  const handleOpen = useCallback(() => {
+    const currentProfession = localStorage.getItem(AI_PROFESSION_KEY);
+    if (currentProfession !== sessionProfessionRef.current) {
+      sessionProfessionRef.current = currentProfession;
+      abortRef.current?.abort();
+      setMessages([]);
+      setInput("");
+      setStreaming(false);
+    }
+    setIsOpen(true);
+  }, []);
 
   async function sendMessage(text?: string) {
     const msg = (text ?? input).trim();
@@ -180,7 +220,7 @@ export function SmartApplyAssistant({
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
-            onClick={() => setIsOpen(true)}
+            onClick={handleOpen}
             className="fixed bottom-6 right-6 z-[60] w-12 h-12 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:scale-105 transition-transform"
             aria-label="Open AI Assistant"
           >

@@ -4,7 +4,7 @@ type ProfileRow = typeof profilesTable.$inferSelect;
 
 function isFilled(v: unknown): boolean {
   if (v == null) return false;
-  if (typeof v === "number") return v > 0;
+  if (typeof v === "number") return true;
   if (typeof v === "string") return v !== "";
   if (Array.isArray(v)) return v.length > 0;
   return true;

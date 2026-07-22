@@ -76,7 +76,7 @@ router.post("/roles/:id/smart-apply/prefill", requireAuthenticated, async (req: 
         experienceYears: profile.experienceYears,
         registrationStatus: profile.registrationStatus,
         requiresSponsorship: profile.requiresSponsorship,
-        preferredRegion: profile.preferredRegion,
+        preferredRegion: Array.isArray(profile.preferredRegion) ? profile.preferredRegion.join(", ") : (profile.preferredRegion ?? null),
       },
       roleContext
     );
@@ -187,7 +187,7 @@ router.post("/smart-apply/assistant", requireAuthenticated, async (req: Request,
 - Experience: ${profile.experienceYears} years
 - UK registration: ${profile.registrationStatus?.replace(/_/g, " ") ?? "unknown"}
 - Requires sponsorship: ${profile.requiresSponsorship ? "Yes" : "No"}
-${profile.preferredRegion ? `- Preferred region: ${profile.preferredRegion}` : ""}`.trim();
+${profile.preferredRegion?.length ? `- Preferred region: ${Array.isArray(profile.preferredRegion) ? profile.preferredRegion.join(", ") : profile.preferredRegion}` : ""}`.trim();
 
   const roleSummary = `Role: ${roleContext.title} | Location: ${roleContext.location} | Regulator: ${roleContext.regulator} | Sponsorship: ${roleContext.sponsorshipOffered ? "offered" : "not offered"}${roleContext.description ? `\nJob description excerpt: ${roleContext.description.slice(0, 500)}` : ""}`;
 
