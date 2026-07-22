@@ -8,6 +8,7 @@ import { runSponsorLicenceSync } from "./lib/sponsorLicenceSync";
 import { runIndustryBackfill } from "./lib/industryBackfill";
 import { runRegionBackfill } from "./lib/regionBackfill";
 import { runDocumentAclBackfill } from "./lib/documentAclBackfill";
+import { runProfilePhotoAclBackfill } from "./lib/profilePhotoAclBackfill";
 import { db, sponsorLicenceSyncLogTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 
@@ -71,5 +72,8 @@ app.listen(port, () => {
   });
   runDocumentAclBackfill().catch((err) => {
     console.error("[doc-acl-backfill] Startup backfill failed:", err);
+  });
+  runProfilePhotoAclBackfill().catch((err) => {
+    console.error("[photo-acl-backfill] Startup backfill failed:", err);
   });
 });

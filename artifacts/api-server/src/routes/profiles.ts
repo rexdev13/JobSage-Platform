@@ -6,6 +6,9 @@ import { GetMyProfileResponse, UpsertMyProfileBody, UpsertMyProfileResponse } fr
 import { requireConsent } from "../middlewares/consentMiddleware";
 import { computeCompletionPct, computeMissingFields } from "../lib/profileCompleteness";
 import { generateJobsageEmail } from "../lib/jobsageEmailGen";
+import { ObjectStorageService } from "../lib/objectStorage";
+
+const objectStorageService = new ObjectStorageService();
 
 const router: IRouter = Router();
 
@@ -170,6 +173,18 @@ router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
       },
     })
     .returning();
+
+  // Set ACL on the profile photo so the owner can access it via GET /storage/objects/*
+  if (d.profilePhotoKey) {
+    try {
+      await objectStorageService.trySetObjectEntityAclPolicy(d.profilePhotoKey, {
+        owner: req.user!.id,
+        visibility: "private",
+      });
+    } catch (aclErr) {
+      console.error("Profile photo ACL write failed:", aclErr);
+    }
+  }
 
   res.json(UpsertMyProfileResponse.parse({ ...profile, completionPct: computeCompletionPct(profile), missingFields: computeMissingFields(profile) }));
 });
