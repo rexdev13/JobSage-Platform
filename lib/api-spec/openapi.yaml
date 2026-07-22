@@ -3107,7 +3107,9 @@ components:
           type: boolean
           nullable: true
         preferredRegion:
-          type: string
+          type: array
+          items:
+            type: string
           nullable: true
         alertFrequency:
           type: string
@@ -3198,7 +3200,9 @@ components:
         requiresSponsorship:
           type: boolean
         preferredRegion:
-          type: string
+          type: array
+          items:
+            type: string
           nullable: true
         alertFrequency:
           type: string

@@ -1,0 +1,30 @@
+{
+  "name": "JOBSAGE",
+  "version": "0.1.0",
+  "manifest_version": 3,
+  "description": "JOBSAGE job application assistant for UK healthcare professionals.",
+  "permissions": ["cookies", "storage", "activeTab"],
+  "host_permissions": [
+    "https://jobsage.co.uk/*",
+    "https://*.jobsage.co.uk/*",
+    "https://*.nhs.uk/*",
+    "https://*.trac.jobs/*",
+    "https://*.myworkdayjobs.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.nhs.uk/*",
+        "https://*.trac.jobs/*",
+        "https://*.myworkdayjobs.com/*",
+        "https://jobsage.co.uk/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

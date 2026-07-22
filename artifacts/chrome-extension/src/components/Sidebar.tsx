@@ -1,0 +1,386 @@
+import { useState, useCallback, useRef } from "react";
+import type { JobContext } from "../lib/scraper";
+
+const API_BASE = "https://jobsage.co.uk/api";
+
+const COLORS = {
+  bg: "#ffffff",
+  border: "#e5e7eb",
+  primary: "#1a56db",
+  primaryHover: "#1e40af",
+  text: "#111827",
+  textMuted: "#6b7280",
+  inputBg: "#f9fafb",
+  successBg: "#f0fdf4",
+  successText: "#15803d",
+  errorBg: "#fef2f2",
+  errorText: "#dc2626",
+  pillBg: "#1a56db",
+  pillText: "#ffffff",
+};
+
+interface SidebarProps {
+  jobContext: JobContext;
+  onGetToken: () => Promise<string | null>;
+  onLogApplication: (companyName: string, jobTitle: string, pageUrl: string) => Promise<void>;
+}
+
+function useStreamAnswer(getToken: () => Promise<string | null>) {
+  const [answer, setAnswer] = useState("");
+  const [streaming, setStreaming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const generate = useCallback(
+    async (question: string, jobContext: JobContext) => {
+      if (!question.trim()) return;
+      abortRef.current?.abort();
+      const ctrl = new AbortController();
+      abortRef.current = ctrl;
+
+      setAnswer("");
+      setError(null);
+      setStreaming(true);
+
+      try {
+        const token = await getToken();
+
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+        };
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
+        const body = {
+          message: `${question.trim()}\n\nJob context: ${jobContext.jobTitle} at ${jobContext.companyName}. ${jobContext.jobDescription.slice(0, 800)}`,
+        };
+
+        const response = await fetch(`${API_BASE}/smart-apply/assistant`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(body),
+          signal: ctrl.signal,
+        });
+
+        if (!response.ok) {
+          setError(`Request failed (${response.status}). Are you logged in to JOBSAGE?`);
+          setStreaming(false);
+          return;
+        }
+
+        const reader = response.body!.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const payload = JSON.parse(line.slice(6)) as { text?: string; done?: boolean; error?: string };
+              if (payload.error) {
+                setError(payload.error);
+              } else if (payload.text) {
+                setAnswer((prev) => prev + payload.text);
+              }
+            } catch {
+              // ignore parse error on malformed chunk
+            }
+          }
+        }
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") {
+          setError("Could not reach the JOBSAGE API. Check your connection.");
+        }
+      } finally {
+        setStreaming(false);
+      }
+    },
+    [getToken]
+  );
+
+  return { answer, streaming, error, generate, setAnswer };
+}
+
+export function Sidebar({ jobContext, onGetToken, onLogApplication }: SidebarProps) {
+  const [open, setOpen] = useState(false);
+  const [question, setQuestion] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [logging, setLogging] = useState(false);
+  const [logDone, setLogDone] = useState(false);
+  const { answer, streaming, error, generate, setAnswer } = useStreamAnswer(onGetToken);
+
+  const handleGenerate = () => {
+    generate(question, jobContext);
+  };
+
+  const handleCopy = async () => {
+    if (!answer) return;
+    await navigator.clipboard.writeText(answer);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleLog = async () => {
+    setLogging(true);
+    try {
+      await onLogApplication(jobContext.companyName, jobContext.jobTitle, jobContext.pageUrl);
+      setLogDone(true);
+    } finally {
+      setLogging(false);
+    }
+  };
+
+  const pill = (
+    <button
+      onClick={() => setOpen((o) => !o)}
+      style={{
+        position: "fixed",
+        bottom: 24,
+        right: 24,
+        zIndex: 2147483646,
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "10px 18px",
+        background: COLORS.pillBg,
+        color: COLORS.pillText,
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+        fontSize: 14,
+        fontWeight: 600,
+        border: "none",
+        borderRadius: 9999,
+        cursor: "pointer",
+        boxShadow: "0 4px 14px rgba(0,0,0,0.25)",
+        userSelect: "none",
+      }}
+      aria-label={open ? "Close JOBSAGE" : "Open JOBSAGE"}
+    >
+      <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M21 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6" />
+        <polyline points="16 3 21 3 21 8" />
+        <line x1={10} y1={14} x2={21} y2={3} />
+      </svg>
+      JOBSAGE
+    </button>
+  );
+
+  if (!open) return pill;
+
+  return (
+    <>
+      {pill}
+      <div
+        role="dialog"
+        aria-label="JOBSAGE Copilot"
+        style={{
+          position: "fixed",
+          top: 0,
+          right: 0,
+          bottom: 0,
+          width: 380,
+          zIndex: 2147483645,
+          background: COLORS.bg,
+          borderLeft: `1px solid ${COLORS.border}`,
+          display: "flex",
+          flexDirection: "column",
+          fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+          boxShadow: "-4px 0 24px rgba(0,0,0,0.12)",
+          overflowY: "auto",
+        }}
+      >
+        {/* Header */}
+        <div
+          style={{
+            padding: "16px 16px 12px",
+            borderBottom: `1px solid ${COLORS.border}`,
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: 8,
+          }}
+        >
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.primary, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>
+              JOBSAGE Copilot
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: COLORS.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {jobContext.jobTitle || "Role detected"}
+            </div>
+            <div style={{ fontSize: 12, color: COLORS.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {jobContext.companyName}
+            </div>
+          </div>
+          <button
+            onClick={() => setOpen(false)}
+            aria-label="Close"
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: COLORS.textMuted,
+              padding: 4,
+              borderRadius: 4,
+              flexShrink: 0,
+            }}
+          >
+            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <line x1={18} y1={6} x2={6} y2={18} />
+              <line x1={6} y1={6} x2={18} y2={18} />
+            </svg>
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+          <div>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: COLORS.text, marginBottom: 6 }}>
+              Application question
+            </label>
+            <textarea
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              placeholder="Paste the application question here, e.g. 'Describe a time you handled a clinical crisis…'"
+              rows={4}
+              style={{
+                width: "100%",
+                boxSizing: "border-box",
+                padding: "8px 10px",
+                fontSize: 13,
+                color: COLORS.text,
+                background: COLORS.inputBg,
+                border: `1px solid ${COLORS.border}`,
+                borderRadius: 8,
+                resize: "vertical",
+                outline: "none",
+                fontFamily: "inherit",
+                lineHeight: 1.5,
+              }}
+            />
+          </div>
+
+          <button
+            onClick={handleGenerate}
+            disabled={streaming || !question.trim()}
+            style={{
+              padding: "9px 16px",
+              background: streaming || !question.trim() ? "#93c5fd" : COLORS.primary,
+              color: "#fff",
+              border: "none",
+              borderRadius: 8,
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: streaming || !question.trim() ? "not-allowed" : "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+            }}
+          >
+            {streaming ? (
+              <>
+                <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} style={{ animation: "spin 1s linear infinite" }}>
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                </svg>
+                Generating…
+              </>
+            ) : (
+              "Generate Answer"
+            )}
+          </button>
+
+          {error && (
+            <div style={{ padding: "10px 12px", background: COLORS.errorBg, color: COLORS.errorText, fontSize: 12, borderRadius: 8, lineHeight: 1.5 }}>
+              {error}
+            </div>
+          )}
+
+          {answer && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.text }}>Generated answer</div>
+              <div
+                style={{
+                  padding: "10px 12px",
+                  background: COLORS.inputBg,
+                  border: `1px solid ${COLORS.border}`,
+                  borderRadius: 8,
+                  fontSize: 13,
+                  color: COLORS.text,
+                  lineHeight: 1.6,
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                }}
+              >
+                {answer}
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={handleCopy}
+                  style={{
+                    flex: 1,
+                    padding: "8px 12px",
+                    background: copied ? COLORS.successBg : COLORS.inputBg,
+                    color: copied ? COLORS.successText : COLORS.text,
+                    border: `1px solid ${copied ? "#86efac" : COLORS.border}`,
+                    borderRadius: 8,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  {copied ? "✓ Copied!" : "Copy Answer"}
+                </button>
+                <button
+                  onClick={() => { setAnswer(""); }}
+                  style={{
+                    padding: "8px 12px",
+                    background: "none",
+                    color: COLORS.textMuted,
+                    border: `1px solid ${COLORS.border}`,
+                    borderRadius: 8,
+                    fontSize: 12,
+                    cursor: "pointer",
+                  }}
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer — log application */}
+        <div style={{ padding: "12px 16px", borderTop: `1px solid ${COLORS.border}` }}>
+          {logDone ? (
+            <div style={{ fontSize: 12, color: COLORS.successText, textAlign: "center", fontWeight: 600 }}>
+              ✓ Application logged to JOBSAGE
+            </div>
+          ) : (
+            <button
+              onClick={handleLog}
+              disabled={logging}
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                background: "none",
+                color: logging ? COLORS.textMuted : COLORS.primary,
+                border: `1px solid ${logging ? COLORS.border : COLORS.primary}`,
+                borderRadius: 8,
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: logging ? "not-allowed" : "pointer",
+              }}
+            >
+              {logging ? "Logging…" : "Log this application to JOBSAGE"}
+            </button>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}

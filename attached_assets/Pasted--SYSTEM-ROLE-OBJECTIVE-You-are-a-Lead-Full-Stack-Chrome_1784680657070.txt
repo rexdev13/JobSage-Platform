@@ -1,0 +1,31 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Full-Stack & Chrome Extension Engineer. The Manifest V3 extension scaffold and CORS backend setup are complete and compiling cleanly. We are now executing **Step 3: Building the AI Copilot Sidebar UI & Page Scraper**.
+
+Please implement the content script UI and scraper logic inside `artifacts/chrome-extension/`.
+
+---
+
+### EXECUTION PLAN
+
+#### 1. Page DOM Scraper (`src/lib/scraper.ts`)
+Create a DOM parser helper that extracts job details from our whitelisted domains (`jobs.nhs.uk`, `jobs.trac.jobs`, `*.myworkdayjobs.com`):
+- **Extractor Logic:** Extract `jobTitle`, `companyName`, and the full `jobDescription` text from the active webpage DOM.
+- Include fallback heuristics (e.g., `document.title`, `og:title`, `<h1 >`, main article containers) for unrecognised pages.
+
+#### 2. Floating Copilot Sidebar UI (`src/components/Sidebar.tsx` & `src/content.ts`)
+Build the floating sidebar rendered inside our isolated Shadow DOM:
+- **Toggle Button:** A floating JOBSAGE pill button anchored at the bottom-right of the screen that toggles the sidebar open/closed.
+- **Sidebar Interface:**
+  - Display extracted job context (Job Title & Employer) at the top.
+  - An input box/textarea for candidates to paste specific application form questions (e.g., "Describe a time you handled a clinical crisis").
+  - A **"Generate Answer"** action button that sends the question + extracted page context to the background worker to stream an answer back via our existing `/api/smart-apply/assistant` endpoint.
+  - A 1-click **"Copy Answer"** button.
+
+#### 3. Application Submission Detector (`src/lib/trackerDetector.ts`)
+- Add URL pattern and DOM node detection for successful submission confirmation pages (e.g., URLs matching `/confirmation`, `/application-submitted`, or headings containing "Application Submitted").
+- When detected, slide in a lightweight toast inside the Shadow DOM: *"Application detected — Log to JOBSAGE Tracker?"* with a **"Yes, Log It"** button that fires a `POST /api/applications` payload (`applicationType: "website"`).
+
+---
+
+### REQUIRED DELIVERABLE
+Implement the scraper, sidebar UI, and confirmation detector. Ensure the extension TypeScript build (`npm run typecheck` inside `artifacts/chrome-extension`) passes with zero errors. Output a brief changelog upon completion.

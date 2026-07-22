@@ -1,0 +1,21 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead QA & Systems Automation Engineer. We have just finalized the build for our Manifest V3 Chrome Extension (`artifacts/chrome-extension/dist`). Because we want to verify stability without manual browser GUI testing, your job is to build and execute an automated integration test suite.
+
+---
+
+### AUTOMATION TASKS
+
+#### STEP 1: Verify Extension Bundle Integrity
+- Inspect `artifacts/chrome-extension/dist/manifest.json`. Validate that it parses as clean JSON, declares Manifest V3, and that its root `"service_worker"` and `"js"` paths point to bare `background.js` and `content.js` (NOT prefixed with `dist/`).
+- Check file stats for `dist/background.js` and `dist/content.js` to confirm both compiled successfully with non-zero byte sizes.
+
+#### STEP 2: Execute Automated Endpoint & CORS Integration Tests
+- Write and immediately execute a temporary Node.js test script (using `fetch` or `axios`) against our locally running (or preview) API backend to simulate traffic coming from our Chrome Extension:
+  1. **CORS Preflight Simulation:** Send an `OPTIONS` request to `/api/smart-apply/assistant` carrying the header `Origin: chrome-extension://test-extension-id-12345` and `Access-Control-Request-Method: POST`. Assert that the server returns HTTP 200/204 with valid CORS headers allowing the origin and credentials.
+  2. **AI Copilot Endpoint Check:** Send a POST request to `/api/smart-apply/assistant` with `Origin: chrome-extension://test-extension-id-12345`. Verify that the request is successfully received by the route (asserting a valid SSE stream response if authenticated, or a clean HTTP 401 Unauthorized rather than a CORS/500 crash if unauthenticated).
+  3. **Tracker Endpoint Check:** Send a POST request to `/api/applications` carrying a sample payload with `applicationType: "website"`. Verify clean route handling without schema validation crashes.
+
+---
+
+### REQUIRED DELIVERABLE
+Execute the verification steps above and output a clean **"Automated Extension & API Test Summary"** with clear PASS/FAIL indicators for the bundle integrity, CORS boundaries, and endpoint routing. Clean up any temporary test scripts upon completion.

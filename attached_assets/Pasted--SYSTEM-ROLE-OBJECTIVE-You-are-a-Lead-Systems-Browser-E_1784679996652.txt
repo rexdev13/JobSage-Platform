@@ -1,0 +1,33 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Systems & Browser Extension Architect. Thank you for the incredible read-only architecture report. We are officially approving the **Recommended Extension MVP Roadmap**. 
+
+Let's begin by preparing the backend CORS configuration and scaffolding the Manifest V3 Chrome Extension project structure.
+
+---
+
+### EXECUTION PLAN
+
+#### STEP 1: Apply the 1-Line CORS Backend Fix
+**Target File:** `artifacts/api-server/src/app.ts`
+- Locate the existing CORS configuration (`app.use(cors({ credentials: true, origin: true }));`).
+- Update the `origin` configuration so that it dynamically allows standard requests, existing production/staging domains (`jobsage.co.uk`), AND any `chrome-extension://` scheme origin so our Background Service Worker can communicate with the API without CORS rejections.
+- Ensure type safety and verify that existing web/mobile CORS requests are not broken by this change.
+
+#### STEP 2: Scaffold the Chrome Extension Project (Manifest V3)
+Create a new dedicated directory for the extension: `artifacts/chrome-extension/` (or equivalent clean project folder in our workspace). Inside this directory, initialize the foundational Manifest V3 structure:
+1. **`manifest.json`**:
+   - Configure Manifest V3.
+   - Set permissions: `["cookies", "storage", "activeTab"]`.
+   - Set host permissions: `["https://jobsage.co.uk/*", "https://*.jobsage.co.uk/*", "https://*.nhs.uk/*", "https://*.trac.jobs/*", "https://*.myworkdayjobs.com/*"]`.
+   - Define the background service worker script (`background.ts` / `background.js`).
+   - Define content scripts (`content.ts` / `content.js`) targeted at our whitelisted job domains.
+2. **Background Service Worker (`src/background.ts`)**:
+   - Scaffold the helper function that uses `chrome.cookies.get({ url: "https://jobsage.co.uk", name: "sid" })` to retrieve the active session token.
+   - Setup a message listener to intercept requests from the content script, attach the retrieved `sid` as an `Authorization: Bearer <sid>` header, and securely forward API calls to our Next.js backend (`/api/applications`, `/api/smart-apply/assistant`).
+3. **Content Script & Shadow DOM Root (`src/content.ts`)**:
+   - Scaffold a basic Shadow DOM container injection that mounts a floating JOBSAGE pill/toggle button onto the bottom-right of the whitelisted employer webpages without CSS bleeding.
+
+---
+
+### REQUIRED DELIVERABLE
+Execute Step 1 (CORS update in `app.ts`) and Step 2 (scaffolding `artifacts/chrome-extension/`). Provide a summary of the created files and confirm when the backend TypeScript linter passes cleanly with the new CORS configuration.

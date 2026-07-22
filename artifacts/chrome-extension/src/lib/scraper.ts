@@ -1,0 +1,143 @@
+export interface JobContext {
+  jobTitle: string;
+  companyName: string;
+  jobDescription: string;
+  pageUrl: string;
+}
+
+function getMeta(name: string): string {
+  const el =
+    document.querySelector<HTMLMetaElement>(`meta[property="${name}"]`) ??
+    document.querySelector<HTMLMetaElement>(`meta[name="${name}"]`);
+  return el?.content?.trim() ?? "";
+}
+
+function getFirstText(selectors: string[]): string {
+  for (const sel of selectors) {
+    const el = document.querySelector(sel);
+    const text = el?.textContent?.trim();
+    if (text) return text;
+  }
+  return "";
+}
+
+function getDescription(): string {
+  const selectors = [
+    // NHS Jobs
+    ".nhsuk-body-m",
+    "[data-test='job-description']",
+    "#job-description",
+    // Trac
+    ".job-description",
+    ".vacancy-description",
+    // Workday
+    "[data-automation-id='jobPostingDescription']",
+    "[data-automation-id='job-posting-description']",
+    // Generic
+    "article",
+    "main .description",
+    "[class*='description']",
+    "[id*='description']",
+    "main",
+  ];
+
+  for (const sel of selectors) {
+    const el = document.querySelector(sel);
+    if (el) {
+      const text = el.textContent?.replace(/\s+/g, " ").trim() ?? "";
+      if (text.length > 100) return text.slice(0, 3000);
+    }
+  }
+  return document.body.textContent?.replace(/\s+/g, " ").trim().slice(0, 3000) ?? "";
+}
+
+function scrapeNhs(): Partial<JobContext> {
+  return {
+    jobTitle: getFirstText([
+      "h1.nhsuk-heading-xl",
+      ".nhsuk-page-heading h1",
+      "h1",
+    ]),
+    companyName: getFirstText([
+      ".nhsuk-summary-list__value",
+      "[data-test='employer-name']",
+      ".employer-name",
+    ]),
+  };
+}
+
+function scrapeTrac(): Partial<JobContext> {
+  return {
+    jobTitle: getFirstText([
+      ".vacancy-title h1",
+      ".job-title h1",
+      "h1",
+    ]),
+    companyName: getFirstText([
+      ".employer-name",
+      ".trust-name",
+      ".organisation-name",
+    ]),
+  };
+}
+
+function scrapeWorkday(): Partial<JobContext> {
+  return {
+    jobTitle: getFirstText([
+      "[data-automation-id='jobPostingHeader']",
+      "[data-automation-id='job-posting-header-title']",
+      "h1",
+    ]),
+    companyName:
+      getMeta("og:site_name") ||
+      getFirstText([
+        "[data-automation-id='legalEntityName']",
+        "[data-automation-id='company-name']",
+      ]),
+  };
+}
+
+function scrapeFallback(): Partial<JobContext> {
+  const ogTitle = getMeta("og:title");
+  const titleTag = document.title?.trim();
+
+  const jobTitle =
+    getFirstText(["h1"]) ||
+    ogTitle ||
+    titleTag.split(/[-|–]/)[0]?.trim() ||
+    titleTag;
+
+  const companyName =
+    getMeta("og:site_name") ||
+    getFirstText([
+      "[class*='company']",
+      "[class*='employer']",
+      "[class*='organisation']",
+    ]) ||
+    titleTag.split(/[-|–]/).pop()?.trim() ||
+    new URL(location.href).hostname.replace(/^www\./, "");
+
+  return { jobTitle, companyName };
+}
+
+export function scrapeJobContext(): JobContext {
+  const host = location.hostname;
+
+  let partial: Partial<JobContext> = {};
+  if (host.includes("nhs.uk")) {
+    partial = scrapeNhs();
+  } else if (host.includes("trac.jobs")) {
+    partial = scrapeTrac();
+  } else if (host.includes("myworkdayjobs.com")) {
+    partial = scrapeWorkday();
+  } else {
+    partial = scrapeFallback();
+  }
+
+  return {
+    jobTitle: partial.jobTitle || scrapeFallback().jobTitle || "Unknown role",
+    companyName: partial.companyName || scrapeFallback().companyName || location.hostname,
+    jobDescription: getDescription(),
+    pageUrl: location.href,
+  };
+}

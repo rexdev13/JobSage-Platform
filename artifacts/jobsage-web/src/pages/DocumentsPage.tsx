@@ -483,7 +483,11 @@ export default function DocumentsPage() {
         requiresSponsorship: extracted.requiresSponsorship ?? profile?.requiresSponsorship ?? false,
         licenceReady: profile?.licenceReady ?? null,
         residencyStatus: profile?.residencyStatus ?? "unknown",
-        preferredRegion: extracted.preferredRegion ?? profile?.preferredRegion ?? null,
+        preferredRegion: extracted.preferredRegion
+          ? [extracted.preferredRegion]
+          : (Array.isArray(profile?.preferredRegion)
+              ? (profile.preferredRegion as string[])
+              : (profile?.preferredRegion ? [(profile.preferredRegion as string)] : null)),
       };
 
       await upsertProfileMutation.mutateAsync({ data: merged });
@@ -569,7 +573,7 @@ export default function DocumentsPage() {
               ref={fileInputRef}
               onChange={handleFileSelect}
               className="hidden"
-              accept=".pdf,.jpg,.jpeg,.png"
+              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.txt"
             />
             <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
               <FileUp className="w-4 h-4 mr-2" />

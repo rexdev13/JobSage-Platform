@@ -160,7 +160,8 @@ router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
         licenceReady: d.licenceReady ?? null,
         residencyStatus: d.residencyStatus,
         requiresSponsorship: d.requiresSponsorship,
-        preferredRegion: d.preferredRegion ?? null,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        preferredRegion: (d.preferredRegion ?? null) as any,
         alertFrequency: d.alertFrequency ?? "daily",
         preferredStartDate: d.preferredStartDate ?? null,
         profilePhotoKey: d.profilePhotoKey ?? null,

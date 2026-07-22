@@ -108,7 +108,7 @@ type ProfileFormData = {
   residencyStatus: string;
   residencyStatusOther: string;
   requiresSponsorship: boolean;
-  preferredRegion: string;
+  preferredRegion: string[];
   alertFrequency: AlertFrequency;
   preferredStartDate: string;
   languages: string;
@@ -299,7 +299,7 @@ export default function ProfilePage() {
     residencyStatus: "",
     residencyStatusOther: "",
     requiresSponsorship: false,
-    preferredRegion: "",
+    preferredRegion: [],
     alertFrequency: "daily",
     preferredStartDate: "",
     languages: "",
@@ -342,7 +342,9 @@ export default function ProfilePage() {
         residencyStatus: isOther ? "Other" : storedResidency,
         residencyStatusOther: isOther ? storedResidency : "",
         requiresSponsorship: profile.requiresSponsorship || false,
-        preferredRegion: (p.preferredRegion as string) ?? "",
+        preferredRegion: Array.isArray(p.preferredRegion)
+          ? (p.preferredRegion as string[])
+          : (p.preferredRegion ? [(p.preferredRegion as string)] : []),
         alertFrequency: ((p.alertFrequency as AlertFrequency) ?? "daily"),
         preferredStartDate: (p.preferredStartDate as string) ?? "",
         languages: languagesStr,
@@ -375,7 +377,7 @@ export default function ProfilePage() {
       licenceReady: fd.licenceReady,
       residencyStatus: effectiveResidency,
       requiresSponsorship: fd.requiresSponsorship,
-      preferredRegion: fd.preferredRegion || undefined,
+      preferredRegion: fd.preferredRegion.length > 0 ? fd.preferredRegion : undefined,
       alertFrequency: fd.alertFrequency,
       preferredStartDate: fd.preferredStartDate || undefined,
       profilePhotoKey: fd.profilePhotoKey || undefined,
@@ -400,6 +402,7 @@ export default function ProfilePage() {
     try {
       await upsertMutation.mutateAsync({ data: buildPayload() });
       queryClient.invalidateQueries({ queryKey: getGetMyProfileQueryKey() });
+      try { localStorage.setItem("jobsage_ai_profession", fd.profession); } catch { /* ignore quota */ }
       setAutoSaveStatus("saved");
       setTimeout(() => setAutoSaveStatus("idle"), 2500);
     } catch {
@@ -468,6 +471,9 @@ export default function ProfilePage() {
     try {
       await upsertMutation.mutateAsync({ data: buildPayload() });
       queryClient.invalidateQueries({ queryKey: getGetMyProfileQueryKey() });
+      // Persist the active profession so SmartApplyAssistant can detect profession changes
+      // and clear stale conversation context.
+      try { localStorage.setItem("jobsage_ai_profession", formData.profession); } catch { /* ignore quota */ }
       toast({
         title: "Profile Updated",
         description: "Your professional details have been saved successfully.",
@@ -535,6 +541,9 @@ export default function ProfilePage() {
                   className="hidden"
                   onChange={handlePhotoSelect}
                 />
+                <p className="text-[10px] text-center text-muted-foreground mt-2 max-w-[5rem] leading-tight">
+                  Required for 100%
+                </p>
               </div>
               <div>
                 <h1 className="text-3xl font-display font-bold text-foreground">Personal & Professional Profile</h1>
@@ -650,9 +659,8 @@ export default function ProfilePage() {
               </div>
 
               <div>
-                <Label className="flex items-center gap-1">
+                <Label>
                   Specialty
-                  {!formData.specialty && <NotFoundBadge />}
                 </Label>
                 <Input
                   name="specialty"
@@ -661,6 +669,7 @@ export default function ProfilePage() {
                   onBlur={handleBlur}
                   placeholder="e.g. Cardiology, Paediatrics, Civil Engineering"
                 />
+                {!formData.specialty && <NotFoundBadge />}
                 <FieldHint>
                   Your area of focus within your main profession. Leave blank if not applicable.
                 </FieldHint>
@@ -869,26 +878,32 @@ export default function ProfilePage() {
               </div>
 
               <div className="col-span-1 md:col-span-2">
-                <Label className="flex items-center gap-1">
-                  Preferred UK Region
-                  {!formData.preferredRegion && <NotFoundBadge />}
+                <Label>
+                  Preferred UK Region(s)
                 </Label>
-                <Select
-                  name="preferredRegion"
-                  value={formData.preferredRegion}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                >
-                  <option value="">Any / Not specified</option>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 mt-2">
                   {UK_REGIONS.map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
+                    <label key={r} className="flex items-center gap-2 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={formData.preferredRegion.includes(r)}
+                        onChange={() => {
+                          const newRegions = formData.preferredRegion.includes(r)
+                            ? formData.preferredRegion.filter(x => x !== r)
+                            : [...formData.preferredRegion, r];
+                          setFormData(prev => ({ ...prev, preferredRegion: newRegions }));
+                          setTimeout(() => void doAutoSave({ ...formData, preferredRegion: newRegions }), 300);
+                        }}
+                        className="w-4 h-4 rounded border-input accent-primary"
+                      />
+                      <span className="text-sm text-foreground group-hover:text-primary transition-colors">{r}</span>
+                    </label>
                   ))}
-                </Select>
+                </div>
+                {formData.preferredRegion.length === 0 && <NotFoundBadge />}
                 <FieldHint>
-                  Employers with region-targeted job postings will find you more easily. Leave blank
-                  if you're open to any UK location.
+                  Select one or more UK regions where you'd prefer to work. Leave all unchecked if
+                  you're open to any UK location.
                 </FieldHint>
               </div>
             </div>
@@ -902,9 +917,8 @@ export default function ProfilePage() {
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <Label className="flex items-center gap-1">
+                <Label>
                   Earliest Available Start Date
-                  {!formData.preferredStartDate && <NotFoundBadge />}
                 </Label>
                 <Input
                   type="date"
@@ -914,15 +928,15 @@ export default function ProfilePage() {
                   onBlur={handleBlur}
                   min={new Date().toISOString().split("T")[0]}
                 />
+                {!formData.preferredStartDate && <NotFoundBadge />}
                 <FieldHint>
                   The earliest date you could start a new role. Helps employers plan their hiring timeline.
                 </FieldHint>
               </div>
 
               <div>
-                <Label className="flex items-center gap-1">
+                <Label>
                   Languages Spoken
-                  {!formData.languages && <NotFoundBadge />}
                 </Label>
                 <Input
                   name="languages"
@@ -931,15 +945,15 @@ export default function ProfilePage() {
                   onBlur={handleBlur}
                   placeholder="e.g. English, Hindi, Urdu"
                 />
+                {!formData.languages && <NotFoundBadge />}
                 <FieldHint>
                   List languages you can communicate in professionally, separated by commas.
                 </FieldHint>
               </div>
 
               <div className="col-span-1 md:col-span-2">
-                <Label className="flex items-center gap-1">
+                <Label>
                   Additional Notes
-                  {!formData.additionalNotes && <NotFoundBadge />}
                 </Label>
                 <textarea
                   name="additionalNotes"

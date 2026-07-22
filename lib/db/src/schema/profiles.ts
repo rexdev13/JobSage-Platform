@@ -1,4 +1,5 @@
 import { pgTable, serial, text, integer, boolean, timestamp, varchar, date } from "drizzle-orm/pg-core";
+// Note: preferredRegion is a text array to support multiple UK region selections
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -15,7 +16,7 @@ export const profilesTable = pgTable("profiles", {
   licenceReady: boolean("licence_ready"),
   residencyStatus: text("residency_status").notNull(),
   requiresSponsorship: boolean("requires_sponsorship").notNull(),
-  preferredRegion: text("preferred_region"),
+  preferredRegion: text("preferred_region").array(),
   alertFrequency: varchar("alert_frequency", { enum: ["daily", "weekly", "off"] }).notNull().default("daily"),
   lastAlertSentAt: timestamp("last_alert_sent_at", { withTimezone: true }),
   boostProfile: boolean("boost_profile").notNull().default(false),

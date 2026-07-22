@@ -493,15 +493,18 @@ export default function PathPage() {
     const nowComplete = stages.filter(s => s.status === "complete").map(s => s.id);
     const nowCompleteSet = new Set(nowComplete);
     let prevComplete: Set<string>;
+    let hasBaseline = false;
     try {
       const stored = localStorage.getItem(JOURNEY_STORAGE_KEY);
+      hasBaseline = stored !== null; // key exists = baseline was previously recorded
       prevComplete = stored ? new Set(JSON.parse(stored) as string[]) : new Set();
     } catch {
       prevComplete = new Set();
     }
     const newlyCompleteStages = nowComplete.filter(id => !prevComplete.has(id));
     const hasNewBadge = badges.some(b => b.isNew);
-    if ((newlyCompleteStages.length > 0 && prevComplete.size > 0) || hasNewBadge) {
+    // Only fire when a baseline was already recorded (not on first ever page load)
+    if (hasBaseline && (newlyCompleteStages.length > 0 || hasNewBadge)) {
       void confetti({
         particleCount: 140,
         spread: 80,

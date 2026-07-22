@@ -10,11 +10,32 @@ import { JourneyIslands } from "@/components/JourneyIslands";
 import { JOURNEY_STEPS } from "@/lib/journeySteps";
 import type { IslandState } from "@/lib/journeySteps";
 
-type Profession = "doctor" | "nurse" | "midwife" | "allied_health_professional" | "clinical_academic";
 type RegistrationStatus = "registered" | "not_registered" | "in_process";
 
+const ONBOARDING_PROFESSIONS = [
+  "Doctor",
+  "Nurse",
+  "Midwife",
+  "Allied Health Professional",
+  "Clinical Academic",
+  "Dentist",
+  "Pharmacist",
+  "Optometrist",
+  "Physiotherapist",
+  "Radiographer",
+  "Paramedic",
+  "Occupational Therapist",
+  "Social Worker",
+  "Teacher / Lecturer",
+  "Engineer",
+  "Accountant",
+  "IT Professional",
+  "Lawyer / Solicitor",
+  "Architect",
+];
+
 type ProfileData = {
-  profession: Profession | "";
+  profession: string;
   specialty: string;
   qualificationCountry: string;
   qualificationType: string;
@@ -166,11 +187,9 @@ export default function OnboardingPage() {
                     <Label htmlFor="profession">Profession <span className="text-destructive">*</span></Label>
                     <Select name="profession" value={data.profession} onChange={handleChange} required>
                       <option value="" disabled>Select profession...</option>
-                      <option value="doctor">Doctor</option>
-                      <option value="nurse">Nurse</option>
-                      <option value="midwife">Midwife</option>
-                      <option value="allied_health_professional">Allied Health Professional</option>
-                      <option value="clinical_academic">Clinical Academic</option>
+                      {ONBOARDING_PROFESSIONS.map((p) => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
                     </Select>
                   </div>
                   <div>

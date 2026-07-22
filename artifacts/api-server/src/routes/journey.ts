@@ -66,6 +66,23 @@ router.get("/journey/status", requireAuthenticated, async (req, res): Promise<vo
     toAward.forEach((k) => existingKeys.add(k));
   }
 
+  // Determine if the user has been recently active (within 30 minutes).
+  // Badges are only "new" when awarded during an active session — not on cold-load
+  // discovery (e.g. user earned criteria months ago but never loaded this page).
+  const THIRTY_MINS_MS = 30 * 60 * 1000;
+  const activityTimestamps: Date[] = [
+    profile?.updatedAt,
+    ...documents.map(d => d.uploadedAt),
+    ...applications.map(a => (a as unknown as { updatedAt?: Date }).updatedAt ?? (a as unknown as { createdAt: Date }).createdAt),
+    latestDecision?.createdAt,
+  ].filter((d): d is Date => d != null);
+  const mostRecentActivity = activityTimestamps.length > 0
+    ? new Date(Math.max(...activityTimestamps.map(d => d.getTime())))
+    : null;
+  const isActiveSession = mostRecentActivity != null
+    ? Date.now() - mostRecentActivity.getTime() < THIRTY_MINS_MS
+    : false;
+
   // Build complete badge list (earned + awarded this request)
   const allEarnedKeys = [...existingKeys];
   const badges = allEarnedKeys
@@ -79,7 +96,8 @@ router.get("/journey/status", requireAuthenticated, async (req, res): Promise<vo
         description: def.description,
         iconName: def.iconName,
         awardedAt: record?.awardedAt?.toISOString() ?? new Date().toISOString(),
-        isNew: toAward.includes(k),
+        // Only mark isNew when awarded in this request AND user is actively using the app
+        isNew: toAward.includes(k) && isActiveSession,
       };
     });
 

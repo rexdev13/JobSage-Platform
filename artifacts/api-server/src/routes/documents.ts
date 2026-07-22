@@ -12,7 +12,14 @@ import {
 import { ObjectStorageService } from "../lib/objectStorage";
 import { extractCvFields } from "../lib/cvParser";
 
-const ALLOWED_MIME_TYPES = ["application/pdf", "image/jpeg", "image/png"];
+const ALLOWED_MIME_TYPES = [
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "text/plain",
+];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 
 const router: IRouter = Router();
@@ -25,7 +32,7 @@ const upload = multer({
     if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error("File type not allowed. Accepted: PDF, JPEG, PNG."));
+      cb(new Error("File type not allowed. Accepted: PDF, JPEG, PNG, DOC, DOCX, TXT."));
     }
   },
 });
