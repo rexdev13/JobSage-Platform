@@ -1,0 +1,36 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Systems & Browser Extension Architect working in our Next.js / TypeScript repository. We are preparing to build the **JOBSAGE Chrome Extension (Manifest V3)** to solve two major user needs on external employer websites (e.g., `jobs.nhs.uk`, Workday, Greenhouse):
+1. **AI Copilot:** Answering application questions right on the employer's page using the candidate's stored profile and the job description.
+2. **Auto-Tracking:** Automatically logging to our Application Tracker when the candidate submits an application on an external site.
+
+Before we scaffold or write any extension code, conduct a strict, **read-only architectural investigation** of our existing web app codebase to determine the best integration strategy.
+
+**CRITICAL GUARDRAIL: READ-ONLY & ZERO ASSUMPTIONS**
+- Do NOT write, edit, or delete any files.
+- Do NOT execute automated test suites or install packages.
+- Execute ONLY code searches and read-only inspections to answer the questions below, output your report, and TERMINATE immediately.
+
+---
+
+### INVESTIGATION TASKS
+
+1. **Authentication & Session Bridge:**
+   - Inspect our frontend/backend authentication setup (e.g., how Supabase/NextAuth/JWT sessions and cookies are currently handled).
+   - If a user is logged into `jobsage.co.uk` in their browser, can a companion Chrome Extension easily grab that active session token using Manifest V3 `host_permissions` / cookies? Or would we need to build a standalone login flow inside the extension? What is the cleanest path based on our existing auth code?
+
+2. **API Endpoint Readiness & CORS:**
+   - Check our backend endpoints for creating applications (`POST /api/applications` or similar) and generating AI cover letters/responses.
+   - Are these endpoints structured in a way that can cleanly accept JSON payloads from a Background Service Worker or Content Script? Will we need to adjust our CORS or auth middleware to allow requests originating from a `chrome-extension://` scheme?
+
+3. **Architecture Recommendations (The Best Path Forward):**
+   Based on our existing codebase structure and standard browser extension best practices, evaluate and recommend the best MVP approach for the following 4 decisions:
+   - **Target Scope:** Should we initially whitelist/target specific job portals (e.g., NHS Jobs, Trac, Workday) for precision DOM scraping, or use generic heuristics across `<all_urls>`?
+   - **UI Presentation:** Is it better/easier to build a simple **Toolbar Popup** that communicates with the page, or inject a **Floating Sidebar Widget** directly into the employer's webpage DOM using a Shadow DOM?
+   - **Tracking Trigger:** To prevent false positives (like validation errors preventing a form submission), should we attempt 100% silent auto-submit tracking, or detect the submit/confirmation page and trigger a 1-click "Log to JOBSAGE" toast confirmation?
+
+---
+
+### REQUIRED DELIVERABLE
+Output a structured **"JOBSAGE Chrome Extension Architecture & Readiness Report"** answering the tasks above with exact file references and auth mechanisms from our repo. 
+
+Conclude with a definitive **"Recommended Extension MVP Roadmap"** telling us exactly which architectural options we should pick to get this built cleanly and securely without overcomplicating the backend. Begin your read-only investigation now and TERMINATE when the report is output.
