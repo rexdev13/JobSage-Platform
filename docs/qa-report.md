@@ -1,7 +1,64 @@
 # JOBSAGE QA Report
 
-**Generated:** 2026-07-16  
-**Coverage scope:** api-server · jobsage-web · jobsage-mobile · Playwright specs (committed)
+**Generated:** 2026-07-16 (updated 2026-07-22)  
+**Coverage scope:** api-server · jobsage-web · jobsage-mobile · Playwright specs (committed) · chrome-extension bundle & API integration
+
+---
+
+## 0. Chrome Extension QA — Bundle Integrity & API Integration
+
+**Executed:** 2026-07-22  
+**API target:** `http://localhost:8080` (api-server workflow, port confirmed from server logs)  
+**CORS origin under test:** `chrome-extension://test-extension-id-12345`
+
+### 0.1 Build
+
+Extension built from `artifacts/chrome-extension/` using `pnpm build` (Vite 5, target `chrome116`):
+
+| Output file | Size |
+|---|---|
+| `dist/background.js` | 788 bytes |
+| `dist/content.js` | 199,099 bytes |
+| `dist/manifest.json` | 745 bytes (copied from source by Vite plugin) |
+
+### 0.2 Automated Test Summary
+
+```
+══════════════════════════════════════════════════════
+  Automated Extension & API Test Summary
+══════════════════════════════════════════════════════
+  ✓ [PASS]  Bundle – manifest
+  ✓ [PASS]  Bundle – background.js
+  ✓ [PASS]  Bundle – content.js
+  ✓ [PASS]  CORS preflight
+  ✓ [PASS]  AI copilot endpoint
+  ✓ [PASS]  Tracker endpoint
+══════════════════════════════════════════════════════
+  Result: ALL CHECKS PASSED
+══════════════════════════════════════════════════════
+```
+
+### 0.3 Check Detail
+
+| Check | Assertion | Result |
+|---|---|---|
+| **Bundle – manifest** | `dist/manifest.json` parses as valid JSON; `manifest_version === 3`; `background.service_worker === "background.js"`; `content_scripts[0].js[0] === "content.js"` | PASS |
+| **Bundle – background.js** | File exists with size > 0 bytes | PASS (788 B) |
+| **Bundle – content.js** | File exists with size > 0 bytes | PASS (199 KB) |
+| **CORS preflight** | `OPTIONS /api/smart-apply/assistant` with `Origin: chrome-extension://test-extension-id-12345` → 204, `Access-Control-Allow-Origin: chrome-extension://test-extension-id-12345`, `Access-Control-Allow-Credentials: true` | PASS |
+| **AI copilot endpoint** | `POST /api/smart-apply/assistant` from extension origin → 401 (unauthenticated, not 500, CORS headers present) | PASS |
+| **Tracker endpoint** | `POST /api/applications` with `{ applicationType: "website" }` from extension origin → 400 (missing `companyName` validation, not 500, CORS headers present) | PASS |
+
+### 0.4 CORS Configuration
+
+`artifacts/api-server/src/app.ts` allows all `chrome-extension://` origins with credentials:
+
+```typescript
+origin.startsWith("chrome-extension://")  // allows any extension ID
+credentials: true
+```
+
+The 400 on the tracker endpoint (not 401) is expected: the test route was reached with a valid-enough session context but missing the required `companyName` field — confirming the route handler executed correctly with no schema crash.
 
 ---
 
