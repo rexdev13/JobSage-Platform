@@ -1,0 +1,27 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Front-End & Extension Architect. Our developer wants to visually test the Manifest V3 Chrome Extension (`artifacts/chrome-extension/dist`) in a **real-world production environment** using actual live external job portals (like `jobs.nhs.uk` and Workday), exactly as an end-user candidate would experience it.
+
+---
+
+### EXECUTION TASKS
+
+#### STEP 1: Audit Live Domain Readiness
+- Inspect `manifest.json` and `content.tsx` / `scraper.ts`. 
+- Verify that `host_permissions` and content script matches cleanly cover live production URLs (specifically `https://www.jobs.nhs.uk/*`, `https://*.trac.jobs/*`, and `https://*.myworkdayjobs.com/*`).
+- Confirm that our DOM scraper has robust fallback selectors (e.g., standard `<h1 >`, `document.title`, `meta[property="og:title"]`) so it successfully extracts job titles and descriptions even if an employer site updates its HTML classes.
+
+#### STEP 2: Generate the "Real-World Live Test Protocol"
+Output a clear, step-by-step instruction guide in the console/chat telling the developer exactly how to execute a live visual test in Google Chrome:
+1. **Extension Setup:** Exact steps to load `artifacts/chrome-extension/dist` via `chrome://extensions/` (Developer Mode -> Load Unpacked).
+2. **Session Bridging:** Instructions to log into their local (`localhost:3000`/`8080`) or staging JOBSAGE dashboard in Tab 1 so the `sid` session cookie is active and ready for the background worker.
+3. **Live Target Navigation:** Direct instructions on opening Tab 2 to a real, live job vacancy on `https://www.jobs.nhs.uk/` (e.g., searching for any active "Staff Nurse" or "Analyst" vacancy).
+4. **Visual Checkpoints:**
+   - **The Pill:** Verifying the floating JOBSAGE pill button appears in the bottom-right corner over the real NHS website.
+   - **The Scraper & Sidebar:** Clicking the pill to open the Shadow DOM sidebar and visually confirming it scraped the real Job Title and Trust Name off the live page.
+   - **The AI Copilot:** Pasting a real application question into the sidebar, hitting Generate, and confirming the streaming SSE response from our backend.
+   - **The Tracker Toast:** How to click through to an NHS confirmation screen (or trigger a simulated submission event) to see the 1-click "Log to JOBSAGE" toast appear.
+
+---
+
+### REQUIRED DELIVERABLE
+Perform the domain readiness audit and output the complete **Real-World Live Test Protocol** so our developer can load the extension and test against the real internet immediately.
