@@ -1,0 +1,23 @@
+{
+  "name": "jobsage-chrome-extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "vite build",
+    "typecheck": "tsc --build tsconfig.background.json tsconfig.content.json"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.301",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "typescript": "^5.4.5",
+    "vite": "^5.4.19"
+  },
+  "dependencies": {
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  }
+}

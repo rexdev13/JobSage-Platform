@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["chrome"],
+    "composite": true,
+    "tsBuildInfoFile": ".tsbuildinfo/content.tsbuildinfo"
+  },
+  "include": ["src/content.tsx", "src/components", "src/lib/scraper.ts", "src/lib/trackerDetector.ts"]
+}

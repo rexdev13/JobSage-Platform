@@ -7,7 +7,26 @@ import { writeAuditEvent } from "./lib/audit";
 
 const app: Express = express();
 
-app.use(cors({ credentials: true, origin: true }));
+app.use(
+  cors({
+    credentials: true,
+    origin: (origin, callback) => {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+      if (
+        origin.startsWith("chrome-extension://") ||
+        origin === "https://jobsage.co.uk" ||
+        /^https:\/\/[^.]+\.jobsage\.co\.uk$/.test(origin)
+      ) {
+        callback(null, true);
+      } else {
+        callback(null, false);
+      }
+    },
+  })
+);
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
