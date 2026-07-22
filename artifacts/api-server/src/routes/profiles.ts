@@ -4,8 +4,11 @@ import { db, profilesTable, usersTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { GetMyProfileResponse, UpsertMyProfileBody, UpsertMyProfileResponse } from "@workspace/api-zod";
 import { requireConsent } from "../middlewares/consentMiddleware";
-import { computeCompletionPct } from "../lib/profileCompleteness";
+import { computeCompletionPct, computeMissingFields } from "../lib/profileCompleteness";
 import { generateJobsageEmail } from "../lib/jobsageEmailGen";
+import { ObjectStorageService } from "../lib/objectStorage";
+
+const objectStorageService = new ObjectStorageService();
 
 const router: IRouter = Router();
 
@@ -88,7 +91,7 @@ router.get("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
     }
   }
 
-  res.json(GetMyProfileResponse.parse({ ...profile, completionPct: computeCompletionPct(profile) }));
+  res.json(GetMyProfileResponse.parse({ ...profile, completionPct: computeCompletionPct(profile), missingFields: computeMissingFields(profile) }));
 });
 
 router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Request, res: Response): Promise<void> => {
@@ -171,7 +174,19 @@ router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
     })
     .returning();
 
-  res.json(UpsertMyProfileResponse.parse({ ...profile, completionPct: computeCompletionPct(profile) }));
+  // Set ACL on the profile photo so the owner can access it via GET /storage/objects/*
+  if (d.profilePhotoKey) {
+    try {
+      await objectStorageService.trySetObjectEntityAclPolicy(d.profilePhotoKey, {
+        owner: req.user!.id,
+        visibility: "private",
+      });
+    } catch (aclErr) {
+      console.error("Profile photo ACL write failed:", aclErr);
+    }
+  }
+
+  res.json(UpsertMyProfileResponse.parse({ ...profile, completionPct: computeCompletionPct(profile), missingFields: computeMissingFields(profile) }));
 });
 
 router.patch("/profiles/me/boost", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {

@@ -27,7 +27,19 @@ export interface CvExtractedFields {
   rawNotes: string;
   professionQualMismatch: boolean;
   professionQualMismatchWarning: string | null;
+  professionWarning: string | null;
 }
+
+const CANONICAL_PROFESSIONS = [
+  "doctor",
+  "nurse",
+  "midwife",
+  "allied_health_professional",
+  "clinical_academic",
+  "teacher",
+  "engineer",
+  "social_worker",
+] as const;
 
 const SYSTEM_PROMPT = `You are a specialist at extracting structured professional profile data from CVs/resumes.
 Extract the following fields and return ONLY valid JSON.
@@ -44,7 +56,10 @@ CRITICAL DISTINCTION — Clinical profession vs Academic qualification:
   This flag catches cases where an academic credential was incorrectly mapped to a clinical profession.
 - Set "professionQualMismatchWarning" to a short plain-English explanation when professionQualMismatch is true, null otherwise.
 
-Profession values (pick the closest match): doctor, nurse, midwife, allied_health_professional, clinical_academic, teacher, engineer, social_worker, or any other profession string if none of the above fit.
+Profession values — you MUST use ONLY one of these exact strings (or null if none fit):
+  doctor, nurse, midwife, allied_health_professional, clinical_academic, teacher, engineer, social_worker
+Do NOT return any other value for "profession" (e.g. do not return "housekeeping", "domestic", "catering", "porter", etc.).
+If the candidate's work history is entirely non-professional or does not match any of the above, return null for "profession".
 Registration status values (pick exactly one): registered, not_registered, in_process
 
 For each field also assess your confidence: "high" (clearly stated), "medium" (inferred), "low" (guessed), "none" (not found).
@@ -245,21 +260,24 @@ function parseAiResponse(raw: string): CvExtractedFields {
     parsed = {};
   }
 
-  const validProfessions = [
-    "doctor",
-    "nurse",
-    "midwife",
-    "allied_health_professional",
-    "clinical_academic",
-  ];
   const validRegStatus = ["registered", "not_registered", "in_process"];
 
-  const rawProfession = typeof parsed.profession === "string" ? parsed.profession.trim() : null;
-  const profession = rawProfession
-    ? validProfessions.includes(rawProfession)
-      ? rawProfession
-      : rawProfession
-    : null;
+  const rawProfession = typeof parsed.profession === "string" ? parsed.profession.trim().toLowerCase() : null;
+  const professionConf = normaliseConf((parsed.confidence as Record<string, string>)?.profession);
+
+  let profession: string | null = null;
+  let professionNullReason: string | null = null;
+  if (rawProfession && (CANONICAL_PROFESSIONS as readonly string[]).includes(rawProfession)) {
+    if (professionConf === "low" || professionConf === "none") {
+      profession = null;
+      professionNullReason = `Low-confidence profession "${rawProfession}" was not saved; please verify.`;
+    } else {
+      profession = rawProfession;
+    }
+  } else if (rawProfession) {
+    profession = null;
+    professionNullReason = `Unrecognised profession "${rawProfession}" was not saved; please select your profession manually.`;
+  }
 
   const registrationStatus = validRegStatus.includes(
     parsed.registrationStatus as string
@@ -319,12 +337,16 @@ function parseAiResponse(raw: string): CvExtractedFields {
       requiresSponsorship: normaliseConf(confidence.requiresSponsorship),
       preferredRegion: normaliseConf(confidence.preferredRegion),
     },
-    rawNotes:
-      typeof parsed.rawNotes === "string"
-        ? parsed.rawNotes.slice(0, 200)
-        : "",
+    rawNotes: (() => {
+      const base = typeof parsed.rawNotes === "string" ? parsed.rawNotes.slice(0, 200) : "";
+      if (professionNullReason) {
+        return base ? `${base} | ${professionNullReason}`.slice(0, 400) : professionNullReason.slice(0, 400);
+      }
+      return base;
+    })(),
     professionQualMismatch,
     professionQualMismatchWarning,
+    professionWarning: professionNullReason,
   };
 }
 

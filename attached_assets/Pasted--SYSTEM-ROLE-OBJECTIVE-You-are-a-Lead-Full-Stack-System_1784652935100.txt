@@ -1,0 +1,33 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Full-Stack Systems Architect working in our Next.js / TypeScript repository. Phase 1 of our data pipeline cleanup is officially verified and complete. We are now initiating **Phase 2: The Application Tracker & AI Cover Letter Upgrade** (addressing core user feedback around application segregation and cover letter relevancy).
+
+Before writing or editing any code, conduct a strict, **read-only architectural investigation** to map out the current implementation of our cover letter generator and application tracking views.
+
+**CRITICAL GUARDRAIL: READ-ONLY & ZERO ASSUMPTIONS**
+- Do NOT write, edit, or delete any files.
+- Do NOT execute automated test suites or touch the database.
+- Execute ONLY code searches and read-only inspections to answer the questions below, output your report, and TERMINATE immediately.
+
+---
+
+### INVESTIGATION TASKS
+
+1. **AI Cover Letter Generation Pipeline (DRD Point 4 & 3):**
+   - Locate the backend service or route responsible for generating AI cover letters (e.g., searching for OpenAI/Claude prompt strings, `generateCoverLetter`, or cover letter API endpoints).
+   - What does the system prompt currently look like? Is it hardcoded to default to healthcare/clinical templates, or why is it generating generic responses that ignore the candidate's specific background?
+   - How are the candidate's profile data (work history, skills, parsed text) and the target vacancy's Job Description (JD) currently being injected into the AI prompt? What data fields are missing from the payload?
+
+2. **Application Tracker UI & Database Schema (DRD Point 2 & Item 19):**
+   - Locate the frontend page and backend route for the Application Tracker (e.g., `ApplicationTrackerPage.tsx`, `GET /api/applications`).
+   - How does the UI currently display applications? Does it lump everything together into one table, or is there any existing filtering/tab logic to cleanly separate **Direct Website Applications** from **Speculative CV Outreach**?
+   - Inspect the Drizzle schema for `applicationsTable` (and related notification/status logs). Are there existing database columns or status enums to track:
+     - Outbound email sent/received notifications?
+     - Application viewed by employer?
+     - Interview invitations?
+
+---
+
+### REQUIRED DELIVERABLE
+Output a structured **"Phase 2 Application Tracker & AI Discovery Report"** answering both sections above with exact file paths, line numbers, prompt strings, and Drizzle schema column names. 
+
+Conclude with a recommendation on whether we should upgrade the AI Cover Letter prompt first, or restructure the Application Tracker UI/schema first. Begin your read-only investigation now and TERMINATE when the report is output.

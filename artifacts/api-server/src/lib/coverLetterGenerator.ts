@@ -10,6 +10,12 @@ export interface CoverLetterInput {
   experienceYears: number;
   qualificationCountry: string | null;
   registrationStatus: string | null;
+  qualificationType?: string | null;
+  qualificationYear?: number | null;
+  residencyStatus?: string | null;
+  requiresSponsorship?: boolean | null;
+  languages?: string[] | null;
+  additionalNotes?: string | null;
   cvText: string | null;
   jobTitle: string;
   employer: string;
@@ -25,39 +31,69 @@ export interface CoverLetterResult {
   disclaimer: string;
 }
 
-export async function generateCoverLetter(input: CoverLetterInput): Promise<CoverLetterResult> {
-  const systemPrompt = `You are an expert UK healthcare career consultant helping international professionals write compelling cover letters for NHS and private healthcare positions.
+function buildSystemPrompt(regulator: string | null): string {
+  return `You are an expert UK healthcare career consultant helping international professionals write compelling cover letters for NHS and private healthcare positions.
 
 Write formal, concise, and professional UK-style cover letters (350–500 words). Structure:
 1. Opening — name the role and employer; express genuine motivation
-2. Relevant experience — highlight specialty, years of experience, and key achievements relevant to the role
-3. UK regulatory awareness — mention relevant regulator (${input.regulator ?? "GMC/NMC/HCPC"}) and registration status or pathway
-4. Fit for the organisation — show knowledge of UK healthcare context
+2. Relevant experience — highlight specialty, years of experience, and specific achievements drawn directly from the CV extract provided; do NOT invent or generalise — use the candidate's real background
+3. UK regulatory awareness — mention relevant regulator (${regulator ?? "GMC/NMC/HCPC"}) and registration status or pathway
+4. Fit for the organisation — mirror the terminology and requirements from the job description; demonstrate alignment with the employer's stated needs
 5. Closing — express enthusiasm, request for interview, note availability
 
-Return ONLY the cover letter text (no JSON, no markdown fences). Begin with "Dear Hiring Manager," and end with "Yours sincerely,\n[Candidate Name]".`;
+Grounding rules (strictly enforce):
+- Every achievement or role-specific claim MUST come from the provided CV extract. If no CV extract is provided, use only the profile facts given.
+- Mirror language and terminology from the job description wherever possible.
+- Do NOT produce generic boilerplate. The letter must be specific to this candidate and this role.
+
+Return ONLY the cover letter text (no JSON, no markdown fences). Begin with "Dear Hiring Manager," and end with "Yours sincerely,\\n[Candidate Name]".`;
+}
+
+function buildUserPrompt(input: CoverLetterInput): string {
+  const contactLine = input.jobsageEmail ? `Contact email: ${input.jobsageEmail}` : "";
+
+  const sponsorshipLine = input.requiresSponsorship != null
+    ? `Requires sponsorship: ${input.requiresSponsorship ? "Yes" : "No"}`
+    : "";
+
+  const languagesLine = input.languages && input.languages.length > 0
+    ? `Languages: ${input.languages.join(", ")}`
+    : "";
+
+  const qualLine = [
+    input.qualificationType ? `Qualification type: ${input.qualificationType}` : "",
+    input.qualificationYear ? `Qualified: ${input.qualificationYear}` : "",
+  ].filter(Boolean).join("\n");
+
+  const residencyLine = input.residencyStatus ? `Residency status: ${input.residencyStatus}` : "";
+  const notesLine = input.additionalNotes ? `Additional context: ${input.additionalNotes}` : "";
 
   const cvSection = input.cvText
-    ? `\n\nCandidate CV extract:\n${input.cvText.slice(0, 3000)}`
+    ? `\n\nCandidate CV extract (use specific achievements and roles from here):\n${input.cvText.slice(0, 3000)}`
     : "";
 
   const jobSection = input.jobDescription
-    ? `\n\nJob description:\n${input.jobDescription.slice(0, 1500)}`
+    ? `\n\nJob description (mirror terminology from here):\n${input.jobDescription.slice(0, 1500)}`
     : "";
 
-  const contactLine = input.jobsageEmail
-    ? `Contact email: ${input.jobsageEmail}`
-    : "";
+  const profileLines = [
+    `Candidate: ${input.candidateName}`,
+    contactLine,
+    `Profession: ${input.profession.replace(/_/g, " ")}`,
+    `Specialty: ${input.specialty ?? "General"}`,
+    `Experience: ${input.experienceYears} years`,
+    `Trained in: ${input.qualificationCountry ?? "International"}`,
+    qualLine,
+    `Registration: ${input.registrationStatus ?? "In process"}`,
+    residencyLine,
+    sponsorshipLine,
+    languagesLine,
+    notesLine,
+  ].filter(Boolean).join("\n");
 
-  const userPrompt = `Write a cover letter for the following:
+  return `Write a cover letter for the following:
 
-Candidate: ${input.candidateName}
-${contactLine}
-Profession: ${input.profession.replace(/_/g, " ")}
-Specialty: ${input.specialty ?? "General"}
-Experience: ${input.experienceYears} years
-Trained in: ${input.qualificationCountry ?? "International"}
-Registration: ${input.registrationStatus ?? "In process"}
+${profileLines}
 ${cvSection}
 
 Target role: ${input.jobTitle}
@@ -65,14 +101,20 @@ Employer: ${input.employer}
 Location: ${input.location ?? "UK"}
 Regulator: ${input.regulator ?? "GMC/NMC/HCPC"}
 ${jobSection}`;
+}
 
+export function buildPromptMessages(input: CoverLetterInput): Array<{ role: "system" | "user"; content: string }> {
+  return [
+    { role: "system", content: buildSystemPrompt(input.regulator) },
+    { role: "user", content: buildUserPrompt(input) },
+  ];
+}
+
+export async function generateCoverLetter(input: CoverLetterInput): Promise<CoverLetterResult> {
   const response = await openai.chat.completions.create({
     model: "gpt-4o",
     max_completion_tokens: 1000,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
+    messages: buildPromptMessages(input),
   });
 
   const text = response.choices[0]?.message?.content ?? "";

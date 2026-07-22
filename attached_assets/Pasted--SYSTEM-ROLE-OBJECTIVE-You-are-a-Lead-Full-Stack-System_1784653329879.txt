@@ -1,0 +1,30 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Full-Stack Systems Architect. Thank you for the comprehensive Phase 2 Discovery Report. We are officially approving your recommendation: we will execute the **Application Tracker UI restructure first**, followed immediately by the **AI Cover Letter Pipeline upgrade**.
+
+Please execute this sequential implementation plan cleanly, ensuring no regressions to existing UI flows or database schemas.
+
+---
+
+### EXECUTION PLAN
+
+#### STEP 1: Application Tracker UI Restructure (Frontend Only)
+**Target File:** `artifacts/jobsage-web/src/pages/OpportunitiesPage.tsx` (`ApplicationsTab` rendering logic around lines 858–924).
+- **Implement Sub-Tabs:** Restructure the flat list into three clean sub-tabs: **Platform Applications**, **Website Applications**, and **Speculative CVs**, utilizing the `applicationKind` property already returned by the API (`formal`, `website`, `speculative`).
+- **Fix "Role #0" Rendering:** Stop rendering raw `app.roleId`. Update the UI cards to display the actual `roleTitle` and `companyName` fields returned by the API. If a role title is missing (e.g., website apps), gracefully fall back to displaying just the `companyName` with an "External Application" badge.
+- **Surface Rich Metadata:** Display the existing rich metadata already coming from the backend:
+  - Show the outbound email delivery status (`emailSent`, `emailRecipient`) for Speculative CVs.
+  - Surface `interviewDate` and `interviewNotes` cleanly on the application card when an interview is scheduled.
+  - Connect the top-level stats counters (`cvSent`, `websiteCount`, `speculativeCount`) so they reflect accurately on the UI.
+
+#### STEP 2: AI Cover Letter Pipeline & Bug Fixes (Backend & Prompt Engineering)
+**Target Files:** `artifacts/api-server/src/routes/coverLetter.ts` and `artifacts/api-server/src/lib/coverLetterGenerator.ts`.
+- **Fix CV Document Selection Bug:** In `coverLetter.ts` (around lines 45–49), update the Drizzle query to explicitly filter by `eq(documentsTable.documentType, "cv")` (or respect `isPrimary = true`) so the system never accidentally parses a non-CV PDF (like a recommendation letter or certificate).
+- **Enrich the AI Prompt Context:** Inject the missing high-signal candidate fields into the prompt payload: `qualificationType`, `qualificationYear`, `residencyStatus`, `requiresSponsorship`, `languages`, and crucially, `additionalNotes` (free-text self-description).
+- **Upgrade & Consolidate System Prompt:** 
+  - Consolidate the system prompt instructions so they do not drift between `coverLetter.ts` and `coverLetterGenerator.ts`.
+  - Update the prompt instructions to explicitly command the model: *"You MUST ground your response in the provided candidate CV achievements and directly mirror the specific requirements, terminology, and values found in the Job Description. Avoid generic boilerplate."*
+
+---
+
+### REQUIRED DELIVERABLE
+Output a brief confirmation of your execution strategy, then begin implementing Step 1 and Step 2 sequentially. Provide clear changelog updates as each step is completed and verified against type-checking/linters.

@@ -517,6 +517,7 @@ export interface CvExtractedFields {
   rawNotes?: string;
   professionQualMismatch?: boolean;
   professionQualMismatchWarning?: string | null;
+  professionWarning?: string | null;
 }
 
 export interface CvParseResult {

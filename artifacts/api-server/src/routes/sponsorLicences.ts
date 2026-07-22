@@ -446,6 +446,17 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
     if (route) conditions.push(eq(sponsorLicencesTable.route, route));
     if (industry) conditions.push(eq(sponsorLicencesTable.industry, industry));
     if (regions.length > 0) conditions.push(inArray(sponsorLicencesTable.region, regions));
+    if (filterVacancies) {
+      conditions.push(
+        sql`0 < COALESCE((
+          SELECT vacancy_count
+          FROM sponsor_licence_vacancy_checks
+          WHERE organisation_name = ${sponsorLicencesTable.organisationName}
+          ORDER BY checked_at DESC
+          LIMIT 1
+        ), 0)`,
+      );
+    }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -511,7 +522,6 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
     });
 
     let filtered = annotated;
-    if (filterVacancies) filtered = filtered.filter((c) => c.hasVacancies);
     if (bookmarkedOnly) filtered = filtered.filter((c) => c.isBookmarked);
 
     const total = filtered.length;

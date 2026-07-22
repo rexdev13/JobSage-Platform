@@ -248,6 +248,10 @@ export const GetMyProfileResponse = zod.object({
     .number()
     .optional()
     .describe("Profile completeness score (0–100), computed server-side"),
+  missingFields: zod
+    .array(zod.string())
+    .optional()
+    .describe("Labels of profile fields that are not yet filled in"),
   createdAt: zod.date(),
   updatedAt: zod.date(),
 });
@@ -324,6 +328,10 @@ export const UpsertMyProfileResponse = zod.object({
     .number()
     .optional()
     .describe("Profile completeness score (0–100), computed server-side"),
+  missingFields: zod
+    .array(zod.string())
+    .optional()
+    .describe("Labels of profile fields that are not yet filled in"),
   createdAt: zod.date(),
   updatedAt: zod.date(),
 });

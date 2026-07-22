@@ -1,0 +1,34 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Full-Stack Systems Architect. Phase 1 (Data Pipeline) and Phase 2 (Application Tracker & AI Cover Letters) are officially complete and verified. We are now initiating **Phase 3: AI Profile Parsing & Job Matching Accuracy** (addressing user feedback where professional candidates are receiving irrelevant lower-tier job recommendations, such as "Housekeeping").
+
+Before writing or editing any code, conduct a strict, **read-only architectural investigation** of our profile parsing and job recommendation matching engines.
+
+**CRITICAL GUARDRAIL: READ-ONLY & ZERO ASSUMPTIONS**
+- Do NOT write, edit, or delete any files.
+- Do NOT execute automated test suites or touch the database.
+- Execute ONLY code searches and read-only inspections to answer the questions below, output your report, and TERMINATE immediately.
+
+---
+
+### INVESTIGATION TASKS
+
+1. **AI Profile Parsing Pipeline (DRD Point 10):**
+   - Locate the backend service responsible for parsing uploaded CVs or text profiles into candidate profile data (e.g., search for `parseProfile`, `cvParser`, or related OpenAI/Claude prompt strings).
+   - What does the system prompt for profile parsing look like? How does it categorize a candidate's `profession`, `specialty`, and `tier`/seniority?
+   - Are there any existing guardrails to prevent misclassification of a candidate's industry or skill level?
+
+2. **Job Matching & Recommendation Engine (DRD Point 1 & 10):**
+   - Locate the route or helper responsible for calculating job suitability/matching scores and generating recommended job lists (e.g., "Top Matches", "Best Fit", or `calculateSuitability`).
+   - How is the matching score currently computed? Is it a pure vector/keyword similarity search, a SQL query, or an LLM evaluation?
+   - Why would a qualified professional (e.g., healthcare or engineering) receive an irrelevant recommendation like "Housekeeping"? Is there a lack of negative filtering on industry/role tiering?
+
+3. **Branding & Theme Configuration (DRD Point 13):**
+   - Locate the global Tailwind styling or CSS theme configuration file (e.g., `tailwind.config.ts`, `globals.css`, or theme variables).
+   - How are primary and accent colors currently defined? Identify where bright orange is used as a primary theme color so we can restrict it to active states/ticks and set the primary theme to brownish-red, black, and white.
+
+---
+
+### REQUIRED DELIVERABLE
+Output a structured **"Phase 3 Parsing, Matching & Theme Discovery Report"** answering the sections above with exact file paths, line numbers, prompt strings, and matching algorithms. 
+
+Conclude with a specific architectural recommendation on how we should inject strict professional tiering/negative constraints into the matching engine to permanently stop irrelevant role recommendations. Begin your read-only investigation now and TERMINATE when the report is output.

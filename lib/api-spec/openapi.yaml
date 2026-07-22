@@ -3756,6 +3756,10 @@ components:
         professionQualMismatchWarning:
           type: string
           nullable: true
+        professionWarning:
+          type: string
+          nullable: true
+          description: Set when the profession could not be detected or saved; candidate should select it manually.
 
     CvParseResult:
       type: object

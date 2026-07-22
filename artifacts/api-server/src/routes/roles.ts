@@ -707,6 +707,24 @@ router.post("/admin/roles/import", requireRole("admin"), upload.single("file"), 
     });
   }
 
+  const MANUAL_LABOUR_BLOCKLIST =
+    /\b(housekeep|housework|cleaning|cleaner|domestic|catering|cook|kitchen|laundry|porter|portering|construction|groundskeep|groundskeeper|janitor|caretaker|security\s*guard|warehouse|driver|delivery|bin\s*collect|refuse|sewage|plumb|electri|carpent|bricklayer|scaffold|painter\s*decorator)\b/i;
+
+  const blockedRows: Array<{ row: number; title: string }> = [];
+  for (let i = 0; i < validRows.length; i++) {
+    if (MANUAL_LABOUR_BLOCKLIST.test(validRows[i].title)) {
+      blockedRows.push({ row: i + 2, title: validRows[i].title });
+    }
+  }
+
+  if (blockedRows.length > 0) {
+    res.status(400).json({
+      error: `Import blocked: ${blockedRows.length} row(s) contain manual-labour or non-professional titles that cannot be imported under GMC/NMC/HCPC regulators. Remove or correct the following rows before re-importing.`,
+      blockedRows: blockedRows.map((b) => ({ row: b.row, title: b.title })),
+    });
+    return;
+  }
+
   if (validRows.length > 0) {
     await db.insert(rolesTable).values(validRows);
   }

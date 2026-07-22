@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, jobListingsTable, rolesTable, candidateMessagesTable, documentsTable } from "@workspace/db";
+import { db, jobListingsTable, rolesTable, candidateMessagesTable, documentsTable, employerProfilesTable } from "@workspace/db";
 import { applicationsTable, speculativeApplicationsTable } from "@workspace/db";
 import { eq, and, inArray, desc, or } from "drizzle-orm";
 import { requireAuthenticated } from "../middlewares/requireRole";
@@ -33,16 +33,48 @@ router.get("/applications", requireAuthenticated, async (req: Request, res: Resp
   const employerRoleIds = platformApps
     .filter((a) => a.roleId > 1_000_000)
     .map((a) => a.roleId - 1_000_000);
+  const normalRoleIds = platformApps
+    .filter((a) => a.roleId > 0 && a.roleId <= 1_000_000)
+    .map((a) => a.roleId);
 
-  const jobTitleMap: Record<number, { title: string; employer?: string; location?: string }> = {};
-  if (employerRoleIds.length > 0) {
-    const jobs = await db
-      .select({ id: jobListingsTable.id, title: jobListingsTable.title, location: jobListingsTable.location })
-      .from(jobListingsTable)
-      .where(inArray(jobListingsTable.id, employerRoleIds));
-    for (const job of jobs) {
-      jobTitleMap[job.id + 1_000_000] = { title: job.title, location: job.location };
+  const jobTitleMap: Record<number, { title: string; companyName?: string; location?: string }> = {};
+  const [jobListingResults, normalRoleResults] = await Promise.all([
+    employerRoleIds.length > 0
+      ? db
+          .select({ id: jobListingsTable.id, title: jobListingsTable.title, location: jobListingsTable.location, employerProfileId: jobListingsTable.employerProfileId })
+          .from(jobListingsTable)
+          .where(inArray(jobListingsTable.id, employerRoleIds))
+      : Promise.resolve([]),
+    normalRoleIds.length > 0
+      ? db
+          .select({ id: rolesTable.id, title: rolesTable.title, employer: rolesTable.employer })
+          .from(rolesTable)
+          .where(inArray(rolesTable.id, normalRoleIds))
+      : Promise.resolve([]),
+  ]);
+
+  // Fetch employer profile company names for job listings
+  const listingEmployerProfileIds = jobListingResults.map((j) => j.employerProfileId);
+  const employerCompanyMap: Record<number, string> = {};
+  if (listingEmployerProfileIds.length > 0) {
+    const employerProfiles = await db
+      .select({ id: employerProfilesTable.id, companyName: employerProfilesTable.companyName })
+      .from(employerProfilesTable)
+      .where(inArray(employerProfilesTable.id, listingEmployerProfileIds));
+    for (const ep of employerProfiles) {
+      employerCompanyMap[ep.id] = ep.companyName;
     }
+  }
+
+  for (const job of jobListingResults) {
+    jobTitleMap[job.id + 1_000_000] = {
+      title: job.title,
+      location: job.location,
+      companyName: employerCompanyMap[job.employerProfileId],
+    };
+  }
+  for (const role of normalRoleResults) {
+    jobTitleMap[role.id] = { title: role.title, companyName: role.employer };
   }
 
   // Fetch labels for CVs used in all application types
@@ -66,7 +98,7 @@ router.get("/applications", requireAuthenticated, async (req: Request, res: Resp
     roleTitle: jobTitleMap[a.roleId]?.title ?? null,
     roleLocation: jobTitleMap[a.roleId]?.location ?? null,
     applicationKind: "formal" as const,
-    companyName: a.companyName ?? null,
+    companyName: a.companyName ?? jobTitleMap[a.roleId]?.companyName ?? null,
     jobsageEmail: null as string | null,
     vacancyTitle: null as string | null,
     emailSentAt: null as string | null,
@@ -106,6 +138,7 @@ router.get("/applications", requireAuthenticated, async (req: Request, res: Resp
     companyName: s.companyName,
     jobsageEmail: s.jobsageEmail ?? null,
     vacancyTitle: s.vacancyTitle ?? null,
+    emailSent: s.emailSent,
     emailSentAt: s.emailSentAt?.toISOString() ?? null,
     emailRecipient: s.emailRecipient ?? null,
     cvLabel: s.cvDocumentId ? (cvLabelMap[s.cvDocumentId] ?? null) : null,

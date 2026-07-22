@@ -88,6 +88,7 @@ const FIELD_LABELS: Record<keyof CvExtractedFields, string> = {
   rawNotes: "AI Notes",
   professionQualMismatch: "",
   professionQualMismatchWarning: "",
+  professionWarning: "",
 };
 
 function getTypeLabel(value: string | null | undefined): string {
@@ -157,6 +158,20 @@ function CvParseDialog({
         </div>
 
         <div className="p-6 max-h-[60vh] overflow-y-auto space-y-3">
+          {!fields.profession && extracted.professionWarning && (
+            <div className="flex items-start gap-3 p-3 rounded-xl border border-amber-300 bg-amber-50">
+              <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-amber-800">Profession could not be detected</p>
+                <p className="text-xs text-amber-700 mt-0.5 leading-snug">{extracted.professionWarning}</p>
+                <p className="text-xs text-amber-600 mt-1">
+                  Please type your profession in the <strong>Profession</strong> field below, or{" "}
+                  <a href="/profile" className="underline font-semibold hover:text-amber-800">set it on your profile</a>{" "}
+                  after saving.
+                </p>
+              </div>
+            </div>
+          )}
           {fields.professionQualMismatch && fields.professionQualMismatchWarning && (
             <div className="flex items-start gap-3 p-3 rounded-xl border border-orange-300 bg-orange-50">
               <AlertTriangle className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
@@ -369,6 +384,7 @@ export default function DocumentsPage() {
   const [updatingTypeId, setUpdatingTypeId] = useState<number | null>(null);
   const [settingPrimaryId, setSettingPrimaryId] = useState<number | null>(null);
   const [showParseBanner, setShowParseBanner] = useState(false);
+  const [professionWarningMsg, setProfessionWarningMsg] = useState<string | null>(null);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -492,6 +508,11 @@ export default function DocumentsPage() {
           ? "Your profile has been created from your CV. Please review and complete any missing details."
           : "Your profile has been updated with data from your CV.",
       });
+
+      if (!extracted.profession && extracted.professionWarning) {
+        setProfessionWarningMsg(extracted.professionWarning);
+      }
+
       setParsedExtracted(null);
       setParsedFromDocId(null);
       setShowParseBanner(true);
@@ -584,6 +605,43 @@ export default function DocumentsPage() {
                 <button
                   onClick={() => setShowParseBanner(false)}
                   className="text-emerald-500 hover:text-emerald-700 transition-colors p-1"
+                  aria-label="Dismiss"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {professionWarningMsg && (
+            <motion.div
+              key="profession-warning-banner"
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className="mb-6 flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4"
+            >
+              <AlertTriangle className="w-5 h-5 text-amber-500 mt-0.5 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-amber-800">Profession not set — action required</p>
+                <p className="text-xs text-amber-700 mt-0.5 leading-snug">{professionWarningMsg}</p>
+                <p className="text-xs text-amber-600 mt-1">
+                  Please select your profession from the dropdown on your profile.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <a
+                  href="/profile"
+                  className="inline-flex items-center gap-1 text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-white rounded-lg px-3 py-1.5 transition-colors"
+                >
+                  <User className="w-3.5 h-3.5" />
+                  Set Profession
+                </a>
+                <button
+                  onClick={() => setProfessionWarningMsg(null)}
+                  className="text-amber-400 hover:text-amber-700 transition-colors p-1"
                   aria-label="Dismiss"
                 >
                   <X className="w-4 h-4" />

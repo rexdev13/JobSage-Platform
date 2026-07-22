@@ -433,6 +433,9 @@ export default function DashboardPage() {
   const planPct = totalSteps > 0 ? Math.round((doneSteps / totalSteps) * 100) : 0;
   const nextStep = planSteps.find((s) => s.status !== "done");
   const profilePct = profileCompletionPct(profile as Record<string, unknown> | undefined);
+  const profileMissingFields = Array.isArray((profile as unknown as Record<string, unknown> | undefined)?.missingFields)
+    ? ((profile as unknown as Record<string, unknown>).missingFields as string[])
+    : [];
   const boostProfile = profile?.boostProfile ?? false;
 
   const base = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -557,6 +560,18 @@ export default function DashboardPage() {
                 </Link>
               </div>
             </div>
+            {profilePct >= 80 && profilePct < 100 && profileMissingFields.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-border/50">
+                <p className="text-xs text-muted-foreground">
+                  <span className="font-medium text-amber-600">Almost there —</span>{" "}
+                  {profileMissingFields.length === 1 && profileMissingFields[0] === "Profile photo"
+                    ? <Link href="/profile"><span className="text-primary underline underline-offset-2">Add a profile photo</span></Link>
+                    : <>Missing: {profileMissingFields.join(", ")}</>
+                  }{" "}
+                  to reach 100%.
+                </p>
+              </div>
+            )}
           </Card>
         </motion.div>
 
