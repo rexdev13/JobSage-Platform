@@ -980,6 +980,9 @@ router.get("/candidate/messages", requireAuthenticated, async (req, res): Promis
       messageType: candidateMessagesTable.messageType,
       archivedAt: candidateMessagesTable.archivedAt,
       senderEmployerProfileId: candidateMessagesTable.senderEmployerProfileId,
+      storedCompanyName: candidateMessagesTable.companyName,
+      senderEmail: candidateMessagesTable.senderEmail,
+      externalMessageId: candidateMessagesTable.externalMessageId,
     })
     .from(candidateMessagesTable)
     .where(
@@ -992,14 +995,19 @@ router.get("/candidate/messages", requireAuthenticated, async (req, res): Promis
 
   const enriched = await Promise.all(
     messages.map(async (m) => {
+      const { storedCompanyName, ...rest } = m;
+      // For employer_reply messages, companyName is stored directly on the row
+      if (m.messageType === "employer_reply") {
+        return { ...rest, companyName: storedCompanyName ?? null, industry: null };
+      }
       if (!m.senderEmployerProfileId) {
-        return { ...m, companyName: null, industry: null };
+        return { ...rest, companyName: storedCompanyName ?? null, industry: null };
       }
       const [empProfile] = await db
         .select({ companyName: employerProfilesTable.companyName, industry: employerProfilesTable.industry })
         .from(employerProfilesTable)
         .where(eq(employerProfilesTable.id, m.senderEmployerProfileId));
-      return { ...m, companyName: empProfile?.companyName ?? null, industry: empProfile?.industry ?? null };
+      return { ...rest, companyName: empProfile?.companyName ?? storedCompanyName ?? null, industry: empProfile?.industry ?? null };
     }),
   );
 

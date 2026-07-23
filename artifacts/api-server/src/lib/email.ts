@@ -447,6 +447,98 @@ export async function sendSpeculativeCVNotification(opts: {
   });
 }
 
+export async function sendEmployerReplyNotification(opts: {
+  to: string;
+  candidateFirstName: string;
+  companyName: string;
+  subject: string;
+  messageText: string;
+  category: "interview_invited" | "rejected" | "offer" | "acknowledged";
+}): Promise<void> {
+  const categoryBanners: Record<string, { emoji: string; label: string; color: string }> = {
+    interview_invited: { emoji: "🎉", label: "Interview Invitation", color: "#059669" },
+    offer: { emoji: "🏆", label: "Job Offer", color: "#d97706" },
+    rejected: { emoji: "📋", label: "Application Update", color: "#64748b" },
+    acknowledged: { emoji: "📬", label: "Employer Reply", color: "#0f172a" },
+  };
+  const banner = categoryBanners[opts.category] ?? categoryBanners.acknowledged!;
+
+  const escapedBody = opts.messageText.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${banner.label} from ${opts.companyName}</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f7fb;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f7fb;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="background:#0f172a;padding:28px 40px;text-align:center;">
+              <span style="color:#ffffff;font-size:22px;font-weight:800;letter-spacing:-0.5px;">JOBSAGE</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:${banner.color};padding:14px 40px;text-align:center;">
+              <span style="color:#ffffff;font-size:15px;font-weight:700;">${banner.emoji} ${banner.label}</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:36px 40px 24px;">
+              <h1 style="color:#0f172a;font-size:20px;font-weight:700;margin:0 0 8px;">Hi ${opts.candidateFirstName},</h1>
+              <p style="color:#475569;font-size:15px;line-height:1.6;margin:0 0 20px;">
+                <strong>${opts.companyName}</strong> has replied to your speculative CV application.
+                The message has been added to your JOBSAGE inbox.
+              </p>
+              <div style="background:#f8fafc;border-left:4px solid ${banner.color};padding:16px 20px;border-radius:0 8px 8px 0;margin:0 0 24px;">
+                <p style="color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin:0 0 8px;">Message from ${opts.companyName}</p>
+                <p style="color:#1e293b;font-size:14px;line-height:1.7;margin:0;">${escapedBody}</p>
+              </div>
+              <table cellpadding="0" cellspacing="0" style="margin:0 auto 16px;">
+                <tr>
+                  <td style="background:#0f172a;border-radius:8px;padding:14px 32px;text-align:center;">
+                    <a href="${APP_URL}/inbox" style="color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;display:inline-block;">View in Inbox</a>
+                  </td>
+                </tr>
+              </table>
+              <table cellpadding="0" cellspacing="0" style="margin:0 auto 24px;">
+                <tr>
+                  <td style="border:1px solid #e2e8f0;border-radius:8px;padding:12px 28px;text-align:center;">
+                    <a href="${APP_URL}/applications" style="color:#0f172a;font-size:14px;font-weight:500;text-decoration:none;display:inline-block;">View Application Tracker</a>
+                  </td>
+                </tr>
+              </table>
+              <p style="color:#94a3b8;font-size:12px;margin:0;text-align:center;">
+                This notification was sent because an employer replied to your JOBSAGE alias.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#f8fafc;padding:20px 40px;border-top:1px solid #e2e8f0;text-align:center;">
+              <p style="color:#94a3b8;font-size:12px;margin:0;">
+                &copy; ${new Date().getFullYear()} JOBSAGE. Decision intelligence for regulated healthcare professionals.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  await resend.emails.send({
+    from: `JOBSAGE <${FROM}>`,
+    to: opts.to,
+    subject: `JOBSAGE: ${banner.emoji} ${banner.label} from ${opts.companyName}`,
+    html,
+  });
+}
+
 export async function sendPasswordResetEmail(to: string, token: string, baseUrl: string = APP_URL): Promise<void> {
   const resetUrl = `${baseUrl}/reset-password?token=${encodeURIComponent(token)}`;
   await resend.emails.send({

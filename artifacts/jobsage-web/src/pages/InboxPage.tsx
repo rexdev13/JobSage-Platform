@@ -8,7 +8,7 @@ import {
   getGetInboxUnreadCountQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Inbox, MailOpen, Archive, Building2, Info, ChevronRight, Send } from "lucide-react";
+import { Inbox, MailOpen, Archive, Building2, Info, ChevronRight, Send, Reply, CalendarCheck, Trophy, XCircle } from "lucide-react";
 import { cn } from "@/components/ui-enhanced";
 import type { CandidateMessage } from "@workspace/api-client-react";
 
@@ -23,6 +23,27 @@ const STAGE_BADGE: Record<string, { label: string; className: string }> = {
   "Your profile was viewed by an employer": { label: "Profile viewed", className: "bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300" },
   "Speculative CV sent":                    { label: "CV Sent",        className: "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300" },
 };
+
+/** Classify an employer reply message for display purposes */
+function getEmployerReplyMeta(subject: string): { icon: React.ElementType; badge: { label: string; className: string } } {
+  const s = subject.toLowerCase();
+  if (s.includes("interview")) return {
+    icon: CalendarCheck,
+    badge: { label: "Interview", className: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300" },
+  };
+  if (s.includes("offer")) return {
+    icon: Trophy,
+    badge: { label: "Offer", className: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300" },
+  };
+  if (s.includes("update")) return {
+    icon: Reply,
+    badge: { label: "Update", className: "bg-muted text-muted-foreground" },
+  };
+  return {
+    icon: Reply,
+    badge: { label: "Employer Reply", className: "bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300" },
+  };
+}
 
 function formatDate(iso: string) {
   const d = new Date(iso);
@@ -169,7 +190,14 @@ export default function InboxPage() {
                             <div className="w-7 h-7 rounded-full bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center">
                               <Send className="w-4 h-4 text-teal-600" />
                             </div>
-                          ) : latest.messageType === "system" ? (
+                          ) : latest.messageType === "employer_reply" ? (() => {
+                            const { icon: ReplyIcon } = getEmployerReplyMeta(latest.subject);
+                            return (
+                              <div className="w-7 h-7 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
+                                <ReplyIcon className="w-4 h-4 text-violet-600" />
+                              </div>
+                            );
+                          })() : latest.messageType === "system" ? (
                             <div className="w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
                               <Info className="w-4 h-4 text-blue-500" />
                             </div>
@@ -243,20 +271,32 @@ export default function InboxPage() {
                 <div className="space-y-4">
                   {activeThread.messages.map((msg) => {
                     const isSystem = msg.messageType === "system";
+                    const isEmployerReply = msg.messageType === "employer_reply";
                     const stageBadge = isSystem ? STAGE_BADGE[msg.subject] : undefined;
+                    const replyMeta = isEmployerReply ? getEmployerReplyMeta(msg.subject) : null;
+                    const ReplyIcon = replyMeta?.icon;
                     return (
-                      <div key={msg.id} className="bg-muted/30 rounded-xl p-5 border border-border">
+                      <div key={msg.id} className={cn(
+                        "rounded-xl p-5 border",
+                        isEmployerReply
+                          ? "bg-violet-50/50 dark:bg-violet-900/10 border-violet-200 dark:border-violet-800/50"
+                          : "bg-muted/30 border-border"
+                      )}>
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2">
                             <div className={cn(
                               "w-7 h-7 rounded-full flex items-center justify-center",
-                              isSystem && msg.subject === "Speculative CV sent"
+                              isEmployerReply
+                                ? "bg-violet-100 dark:bg-violet-900/30"
+                                : isSystem && msg.subject === "Speculative CV sent"
                                 ? "bg-teal-100 dark:bg-teal-900/30"
                                 : isSystem
                                 ? "bg-blue-100 dark:bg-blue-900/30"
                                 : "bg-primary/10"
                             )}>
-                              {isSystem && msg.subject === "Speculative CV sent"
+                              {isEmployerReply && ReplyIcon
+                                ? <ReplyIcon className="w-4 h-4 text-violet-600" />
+                                : isSystem && msg.subject === "Speculative CV sent"
                                 ? <Send className="w-4 h-4 text-teal-600" />
                                 : isSystem
                                 ? <Info className="w-4 h-4 text-blue-500" />
@@ -265,12 +305,17 @@ export default function InboxPage() {
                             </div>
                             <div>
                               <p className="text-xs font-semibold text-foreground">
-                                {isSystem ? "JOBSAGE" : msg.companyName ?? "Employer"}
+                                {isSystem ? "JOBSAGE" : (msg.companyName ?? "Employer")}
                               </p>
                               <p className="text-[10px] text-muted-foreground">{formatDate(msg.createdAt)}</p>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
+                            {replyMeta?.badge && (
+                              <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide", replyMeta.badge.className)}>
+                                {replyMeta.badge.label}
+                              </span>
+                            )}
                             {stageBadge && (
                               <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide", stageBadge.className)}>
                                 {stageBadge.label}
