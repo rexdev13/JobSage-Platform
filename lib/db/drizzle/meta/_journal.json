@@ -36,6 +36,13 @@
       "when": 1753366200000,
       "tag": "0004_apply_url_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1753452600000,
+      "tag": "0005_contact_fields_on_roles",
+      "breakpoints": true
     }
   ]
 }

@@ -41,11 +41,14 @@ router.get("/employer/profile", requireEmployer(), async (req, res): Promise<voi
 
 router.post("/employer/profile", requireAuthenticated, async (req, res): Promise<void> => {
   const userId = req.user!.id;
-  const { companyName, industry, sponsorLicenceNumber, region } = req.body as {
+  const { companyName, industry, sponsorLicenceNumber, region, contactEmail, contactPhone, contactWebsite } = req.body as {
     companyName?: string;
     industry?: string;
     sponsorLicenceNumber?: string;
     region?: string;
+    contactEmail?: string;
+    contactPhone?: string;
+    contactWebsite?: string;
   };
 
   if (!companyName?.trim()) {
@@ -71,7 +74,15 @@ router.post("/employer/profile", requireAuthenticated, async (req, res): Promise
   if (existing) {
     [profile] = await db
       .update(employerProfilesTable)
-      .set({ companyName: companyName.trim(), industry: industry as "nhs_trust" | "university" | "private_healthcare" | "charity" | "other", sponsorLicenceNumber: sponsorLicenceNumber?.trim() ?? null, region: region.trim() })
+      .set({
+        companyName: companyName.trim(),
+        industry: industry as "nhs_trust" | "university" | "private_healthcare" | "charity" | "other",
+        sponsorLicenceNumber: sponsorLicenceNumber?.trim() ?? null,
+        region: region.trim(),
+        contactEmail: contactEmail?.trim() || null,
+        contactPhone: contactPhone?.trim() || null,
+        contactWebsite: contactWebsite?.trim() || null,
+      })
       .where(eq(employerProfilesTable.userId, userId))
       .returning();
   } else {
@@ -83,6 +94,9 @@ router.post("/employer/profile", requireAuthenticated, async (req, res): Promise
         industry: industry as "nhs_trust" | "university" | "private_healthcare" | "charity" | "other",
         sponsorLicenceNumber: sponsorLicenceNumber?.trim() ?? null,
         region: region.trim(),
+        contactEmail: contactEmail?.trim() || null,
+        contactPhone: contactPhone?.trim() || null,
+        contactWebsite: contactWebsite?.trim() || null,
       })
       .returning();
     await db.update(usersTable).set({ role: "employer" }).where(eq(usersTable.id, userId));

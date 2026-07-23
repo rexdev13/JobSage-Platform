@@ -26,7 +26,7 @@ const router: IRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 const REQUIRED_COLUMNS = ["title", "employer", "location", "regulator", "sponsorshipOffered", "requiredRegistration"];
-const OPTIONAL_COLUMNS = ["applyUrl"];
+const OPTIONAL_COLUMNS = ["applyUrl", "contactEmail", "contactPhone", "contactWebsite"];
 const APPLY_URL_PATTERN = /^https?:\/\/.+/i;
 const VALID_REGULATORS = ["GMC", "NMC", "HCPC"];
 
@@ -182,9 +182,9 @@ router.get("/roles", async (req, res): Promise<void> => {
   const regulatorRoles = [
     ...allRoles.filter((role) => role.regulator === regulator).map((r) => ({
       ...r,
-      contactEmail: null as string | null,
-      contactPhone: null as string | null,
-      contactWebsite: null as string | null,
+      contactEmail: r.contactEmail ?? null,
+      contactPhone: r.contactPhone ?? null,
+      contactWebsite: r.contactWebsite ?? null,
       applyUrl: r.applyUrl ?? null,
     })),
     ...employerJobsAsRoles,
@@ -347,6 +347,9 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
       sponsorshipOffered: row.job.sponsorshipOffered,
       requiredRegistration: row.job.requiredRegistration,
       applyUrl: row.job.applyUrl ?? null,
+      contactEmail: row.emp.contactEmail ?? null,
+      contactPhone: row.emp.contactPhone ?? null,
+      contactWebsite: row.emp.contactWebsite ?? null,
     }));
 
   const regulatorRoles = [
@@ -354,6 +357,9 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
       id: r.id, title: r.title, employer: r.employer, location: r.location,
       regulator: r.regulator, sponsorshipOffered: r.sponsorshipOffered,
       requiredRegistration: r.requiredRegistration, applyUrl: r.applyUrl ?? null,
+      contactEmail: r.contactEmail ?? null,
+      contactPhone: r.contactPhone ?? null,
+      contactWebsite: r.contactWebsite ?? null,
     })),
     ...employerJobsAsRoles,
   ];
@@ -463,6 +469,9 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
         sponsorshipOffered: r.sponsorshipOffered,
         requiredRegistration: r.requiredRegistration,
         applyUrl: r.applyUrl ?? null,
+        contactEmail: r.contactEmail ?? null,
+        contactPhone: r.contactPhone ?? null,
+        contactWebsite: r.contactWebsite ?? null,
         aiScore,
         aiExplanation,
         isEligible,
@@ -538,6 +547,9 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
       sponsorshipOffered: row.job.sponsorshipOffered,
       requiredRegistration: row.job.requiredRegistration,
       applyUrl: row.job.applyUrl ?? null,
+      contactEmail: row.emp.contactEmail ?? null,
+      contactPhone: row.emp.contactPhone ?? null,
+      contactWebsite: row.emp.contactWebsite ?? null,
     }));
 
   // Fetch roles already applied to via both standard and speculative paths
@@ -559,6 +571,9 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
         id: r.id, title: r.title, employer: r.employer, location: r.location,
         regulator: r.regulator, sponsorshipOffered: r.sponsorshipOffered,
         requiredRegistration: r.requiredRegistration, applyUrl: r.applyUrl ?? null,
+        contactEmail: r.contactEmail ?? null,
+        contactPhone: r.contactPhone ?? null,
+        contactWebsite: r.contactWebsite ?? null,
       })),
     ...employerJobsAsRoles.filter((r) => !appliedIds.has(r.id) && !speculativeCompanies.has(r.employer.toLowerCase())),
   ];
@@ -706,6 +721,9 @@ router.post("/admin/roles/import", requireRole("admin"), upload.single("file"), 
     requiredRegistration: string;
     importedBy: string;
     applyUrl: string | null;
+    contactEmail: string | null;
+    contactPhone: string | null;
+    contactWebsite: string | null;
   }> = [];
 
   for (let i = 0; i < records.length; i++) {
@@ -754,6 +772,9 @@ router.post("/admin/roles/import", requireRole("admin"), upload.single("file"), 
       requiredRegistration: row.requiredRegistration.trim(),
       importedBy: req.user!.id,
       applyUrl: applyUrlRaw || null,
+      contactEmail: row.contactEmail?.trim() || null,
+      contactPhone: row.contactPhone?.trim() || null,
+      contactWebsite: row.contactWebsite?.trim() || null,
     });
   }
 

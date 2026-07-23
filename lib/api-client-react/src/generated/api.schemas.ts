@@ -881,6 +881,12 @@ export interface EmployerProfile {
   industry: EmployerProfileIndustry;
   sponsorLicenceNumber?: string | null;
   region: string;
+  /** Contact email address for this employer */
+  contactEmail?: string | null;
+  /** Contact phone number for this employer */
+  contactPhone?: string | null;
+  /** Website URL for this employer */
+  contactWebsite?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -901,6 +907,12 @@ export interface UpsertEmployerProfileRequest {
   industry: UpsertEmployerProfileRequestIndustry;
   sponsorLicenceNumber?: string | null;
   region: string;
+  /** Contact email address for this employer */
+  contactEmail?: string | null;
+  /** Contact phone number for this employer */
+  contactPhone?: string | null;
+  /** Website URL for this employer */
+  contactWebsite?: string | null;
 }
 
 export type JobListingStatus =
@@ -1708,6 +1720,14 @@ export interface CandidateMatchItem {
   regulator: string;
   sponsorshipOffered: boolean;
   requiredRegistration: string;
+  /** Direct application URL for this role, if available */
+  applyUrl?: string | null;
+  /** Contact email for this role's employer */
+  contactEmail?: string | null;
+  /** Contact phone for this role's employer */
+  contactPhone?: string | null;
+  /** Contact website for this role's employer */
+  contactWebsite?: string | null;
   /** AI-generated match score 0-100 */
   aiScore: number;
   /** One-line AI explanation of the match */
