@@ -77,41 +77,56 @@ function extractOutermostJson(text: string): string | null {
   return null;
 }
 
+export interface VacancyCheckOptions {
+  /**
+   * When true, skip the 24h cache and always run a fresh AI check.
+   * Use for contact-backfill passes where existing checks predate contact extraction.
+   */
+  bypassCache?: boolean;
+}
+
 /**
  * Run a vacancy check for a named sponsor licence company.
  * Returns a cached result (within 24h TTL) if one exists, otherwise
  * calls the OpenAI web search tool, persists the result, and returns it.
  * Safe to call from both HTTP handlers and background schedulers.
+ *
+ * Pass { bypassCache: true } to force a fresh AI check regardless of cache age.
  */
-export async function runVacancyCheck(organisationName: string): Promise<VacancyCheckResult> {
-  const cutoff = new Date(Date.now() - VACANCY_CACHE_TTL_MS);
-  const [cached] = await db
-    .select()
-    .from(sponsorLicenceVacancyChecksTable)
-    .where(
-      and(
-        eq(sponsorLicenceVacancyChecksTable.organisationName, organisationName),
-        gt(sponsorLicenceVacancyChecksTable.checkedAt, cutoff),
-      ),
-    )
-    .orderBy(desc(sponsorLicenceVacancyChecksTable.checkedAt))
-    .limit(1);
+export async function runVacancyCheck(
+  organisationName: string,
+  opts: VacancyCheckOptions = {},
+): Promise<VacancyCheckResult> {
+  if (!opts.bypassCache) {
+    const cutoff = new Date(Date.now() - VACANCY_CACHE_TTL_MS);
+    const [cached] = await db
+      .select()
+      .from(sponsorLicenceVacancyChecksTable)
+      .where(
+        and(
+          eq(sponsorLicenceVacancyChecksTable.organisationName, organisationName),
+          gt(sponsorLicenceVacancyChecksTable.checkedAt, cutoff),
+        ),
+      )
+      .orderBy(desc(sponsorLicenceVacancyChecksTable.checkedAt))
+      .limit(1);
 
-  if (cached) {
-    return {
-      vacanciesFound: cached.vacanciesFound,
-      vacancyCount: cached.vacancyCount,
-      sourceUrl: cached.sourceUrl,
-      summary: cached.summary ?? "No active vacancies found.",
-      checkedAt: cached.checkedAt,
-      fromCache: true,
-      vacancyList: (cached.vacancyList as VacancyListItem[] | null) ?? null,
-      // Contact details are not stored on the check record; callers can read
-      // them from the sponsor licence row if needed.
-      discoveredContactEmail: null,
-      discoveredContactPhone: null,
-      discoveredWebsite: null,
-    };
+    if (cached) {
+      return {
+        vacanciesFound: cached.vacanciesFound,
+        vacancyCount: cached.vacancyCount,
+        sourceUrl: cached.sourceUrl,
+        summary: cached.summary ?? "No active vacancies found.",
+        checkedAt: cached.checkedAt,
+        fromCache: true,
+        vacancyList: (cached.vacancyList as VacancyListItem[] | null) ?? null,
+        // Contact details are not stored on the check record; callers can read
+        // them from the sponsor licence row if needed.
+        discoveredContactEmail: null,
+        discoveredContactPhone: null,
+        discoveredWebsite: null,
+      };
+    }
   }
 
   let vacanciesFound = false;
