@@ -10,6 +10,7 @@ import { runRegionBackfill } from "./lib/regionBackfill";
 import { runDocumentAclBackfill } from "./lib/documentAclBackfill";
 import { runProfilePhotoAclBackfill } from "./lib/profilePhotoAclBackfill";
 import { startApplyUrlBackfillScheduler } from "./lib/applyUrlBackfillScheduler";
+import { startContactBackfill } from "./lib/contactBackfillRunner";
 import { db, sponsorLicenceSyncLogTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 
@@ -65,6 +66,13 @@ app.listen(port, () => {
   startVacancyCheckScheduler();
   startDailyVacancySyncScheduler();
   startApplyUrlBackfillScheduler();
+  // Run contact backfill on startup for sponsors that have no contact info yet
+  const contactBackfillResult = startContactBackfill(500);
+  if (contactBackfillResult.started) {
+    console.log("[contact-backfill] Startup backfill triggered (up to 500 sponsors)");
+  } else {
+    console.log(`[contact-backfill] Startup backfill skipped: ${contactBackfillResult.reason}`);
+  }
   void triggerSyncIfStale();
   runIndustryBackfill().catch((err) => {
     console.error("[industry-backfill] Startup backfill failed:", err);
