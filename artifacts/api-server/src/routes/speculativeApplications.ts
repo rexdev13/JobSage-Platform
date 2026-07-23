@@ -10,6 +10,140 @@ import { maskPersonalContactInfo, resolveJobsageAlias } from "../lib/jobsageEmai
 
 const APP_URL = process.env.APP_URL ?? "https://jobsage.co.uk";
 
+export type DeliveryRoute = "employer_account" | "sponsor_contact_email" | "ai_enrichment" | "ops_fallback";
+
+interface RecipientResolution {
+  email: string;
+  route: DeliveryRoute;
+}
+
+/**
+ * Resolve the employer recipient in priority order:
+ *   1. Registered JOBSAGE employer account email
+ *   2. Stored contactEmail on the sponsor licence record
+ *   3. On-demand AI web-search enrichment (bounded timeout; result persisted for future sends)
+ *   4. Ops inbox fallback (last resort)
+ *
+ * Returns a frozen result object. All mutations are local to this function,
+ * so the Promise.race background IIFE cannot affect the returned value after resolution.
+ */
+export async function resolveEmployerRecipient(
+  companyName: string,
+  sponsorLicenceId: number | null | undefined,
+  enrichTimeoutMs = 8000,
+): Promise<RecipientResolution> {
+  // Step 1: JOBSAGE employer account
+  try {
+    const [empRow] = await db
+      .select({ empUserId: employerProfilesTable.userId })
+      .from(employerProfilesTable)
+      .where(ilike(employerProfilesTable.companyName, companyName))
+      .limit(1);
+    if (empRow?.empUserId) {
+      const [empUser] = await db
+        .select({ email: usersTable.email })
+        .from(usersTable)
+        .where(eq(usersTable.id, empRow.empUserId));
+      if (empUser?.email) return { email: empUser.email, route: "employer_account" };
+    }
+  } catch {
+    // best-effort
+  }
+
+  if (sponsorLicenceId) {
+    const { sponsorLicencesTable } = await import("@workspace/db");
+
+    // Step 2: Stored contactEmail on the licence record
+    try {
+      const [licenceRow] = await db
+        .select({ contactEmail: sponsorLicencesTable.contactEmail })
+        .from(sponsorLicencesTable)
+        .where(eq(sponsorLicencesTable.id, sponsorLicenceId))
+        .limit(1);
+      if (licenceRow?.contactEmail) {
+        return { email: licenceRow.contactEmail, route: "sponsor_contact_email" };
+      }
+    } catch {
+      // best-effort
+    }
+
+    // Step 3: On-demand AI enrichment with a bounded timeout.
+    // The IIFE result is captured locally inside this function; it is returned
+    // immediately or dropped if the timeout wins — outer send state is never mutated
+    // by background completion.
+    try {
+      const enrichedEmail = await (async (): Promise<string | null> => {
+        // Run enrichment and timeout in a race; whichever wins determines the result.
+        // The enrichment IIFE mutates nothing outside itself.
+        const enrichPromise: Promise<string | null> = (async () => {
+          try {
+            const [fullLicence] = await db
+              .select()
+              .from(sponsorLicencesTable)
+              .where(eq(sponsorLicencesTable.id, sponsorLicenceId))
+              .limit(1);
+            if (!fullLicence) return null;
+
+            const { openai } = await import("@workspace/integrations-openai-ai-server");
+            const prompt = `You are a UK business researcher. Find publicly available contact details for the following UK company from their own website or reputable directories. Return ONLY a JSON object (no markdown, no commentary) with these exact keys:
+- "website": the company's main website URL (must start with https:// or http://) or null
+- "contactEmail": a contact or HR email address or null
+- "contactPhone": a UK phone number (include country code if available) or null
+- "address": the full business address including postcode or null
+
+Company name: ${fullLicence.organisationName}
+Location hint: ${[fullLicence.townCity, fullLicence.county].filter(Boolean).join(", ") || "United Kingdom"}
+
+Only include information you are confident about. Return null for any field you cannot find.`;
+
+            const response = await openai.responses.create({
+              model: "gpt-4o",
+              tools: [{ type: "web_search_preview" }],
+              input: prompt,
+            });
+            const text = response.output_text?.trim() ?? "";
+            const jsonMatch = text.match(/\{[\s\S]*\}/);
+            if (!jsonMatch) return null;
+            const parsed = JSON.parse(jsonMatch[0]) as Record<string, string | null>;
+            const contactEmail = typeof parsed["contactEmail"] === "string" ? parsed["contactEmail"] : null;
+            if (!contactEmail) return null;
+
+            // Persist enriched details for future sends (fire-and-forget within this function)
+            db.update(sponsorLicencesTable)
+              .set({
+                website: typeof parsed["website"] === "string" ? parsed["website"] : null,
+                contactEmail,
+                contactPhone: typeof parsed["contactPhone"] === "string" ? parsed["contactPhone"] : null,
+                address: typeof parsed["address"] === "string" ? parsed["address"] : null,
+              })
+              .where(eq(sponsorLicencesTable.id, sponsorLicenceId))
+              .catch((persistErr: unknown) => {
+                console.error("[speculative] Failed to persist enriched contact:", persistErr);
+              });
+
+            return contactEmail;
+          } catch {
+            return null;
+          }
+        })();
+
+        const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), enrichTimeoutMs));
+        // Promise.race settles once; the losing promise's later resolution is discarded.
+        return Promise.race([enrichPromise, timeoutPromise]);
+      })();
+
+      if (enrichedEmail) {
+        return { email: enrichedEmail, route: "ai_enrichment" };
+      }
+    } catch (enrichErr) {
+      console.error("[speculative] AI enrichment error:", enrichErr);
+    }
+  }
+
+  // Step 4: Ops inbox fallback
+  return { email: OPS_INBOX, route: "ops_fallback" };
+}
+
 const router: IRouter = Router();
 
 router.get("/speculative-applications", requireAuthenticated, async (req, res): Promise<void> => {
@@ -150,55 +284,56 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
   // Mask personal contact info in the cover note if we have a JOBSAGE alias
   const maskedNotes = notes && jobsageEmail ? maskPersonalContactInfo(notes, jobsageEmail) : (notes ?? null);
 
-  // Resolve employer contact email:
-  // - When the company has a JOBSAGE employer account, send directly to their registered email.
-  // - Otherwise fall back to OPS_INBOX so the ops team can forward manually.
-  let employerContactEmail: string = OPS_INBOX;
-  try {
-    const [empRow] = await db
-      .select({ empUserId: employerProfilesTable.userId })
-      .from(employerProfilesTable)
-      .where(ilike(employerProfilesTable.companyName, companyName))
-      .limit(1);
-    if (empRow?.empUserId) {
-      const [empUser] = await db
-        .select({ email: usersTable.email })
-        .from(usersTable)
-        .where(eq(usersTable.id, empRow.empUserId));
-      if (empUser?.email) employerContactEmail = empUser.email;
-    }
-  } catch {
-    // Employer resolution is best-effort; fall back to OPS_INBOX
-  }
+  // Resolve the employer recipient once, immutably.
+  // resolveEmployerRecipient returns a frozen { email, route } result —
+  // the layered lookup (employer account → stored contactEmail → AI enrichment → ops fallback)
+  // is fully contained within the helper and cannot be affected by late-completing async work.
+  const { email: employerContactEmail, route: deliveryRoute } = await resolveEmployerRecipient(
+    companyName,
+    sponsorLicenceId,
+  );
 
-  // Fire outbound emails and persist delivery metadata
+  // Fire outbound emails and persist delivery metadata.
+  // Step 1: Send the CV to the employer/ops — this determines actual delivery.
+  // Step 2: Only after confirming success, send the candidate confirmation with accurate wording.
   const now = new Date();
   let emailDelivered = false;
   try {
-    await Promise.all([
-      // Candidate confirmation (sent to personal email — this is intentional)
-      sendSpeculativeCVNotification({ candidateEmail: user.email, candidateName, companyName }),
-      // CV send — FROM candidate's JOBSAGE alias, TO employer or OPS_INBOX as fallback
-      sendSpeculativeCVToOps({
-        candidateEmail: user.email,
-        candidateName,
-        candidateUserId: userId,
-        companyName,
-        applicationId: app!.id,
-        cvFilename: cvDocument?.filename ?? null,
-        cvContent,
-        notes: maskedNotes,
-        jobsageEmail,
-        recipientEmail: employerContactEmail,
-        maskedCvTextExtract,
-      }),
-    ]);
+    await sendSpeculativeCVToOps({
+      candidateEmail: user.email as string,
+      candidateName,
+      candidateUserId: userId,
+      companyName,
+      applicationId: app!.id,
+      cvFilename: cvDocument?.filename ?? null,
+      cvContent,
+      notes: maskedNotes,
+      jobsageEmail,
+      recipientEmail: employerContactEmail,
+      maskedCvTextExtract,
+    });
     emailDelivered = true;
   } catch (err: unknown) {
-    console.error("[speculative] Failed to send CV emails:", err);
+    console.error("[speculative] Failed to send CV to employer/ops:", err);
   }
 
-  // Persist delivery metadata (alias used + actual recipient)
+  // Candidate confirmation: only sent when the employer/ops email actually succeeded.
+  // If delivery failed we do not send a confirmation — the application is persisted in the
+  // tracker and the candidate can retry. Wording reflects the confirmed delivery route.
+  if (emailDelivered) {
+    try {
+      await sendSpeculativeCVNotification({
+        candidateEmail: user.email as string,
+        candidateName,
+        companyName,
+        deliveryRoute,
+      });
+    } catch (notifyErr: unknown) {
+      console.error("[speculative] Failed to send candidate confirmation:", notifyErr);
+    }
+  }
+
+  // Persist delivery metadata (alias used + actual recipient + delivery route)
   await db
     .update(speculativeApplicationsTable)
     .set({
@@ -207,13 +342,20 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
       emailSentAt: emailDelivered ? now : null,
       emailRecipient: employerContactEmail,
       jobsageEmail,
+      deliveryRoute,
     })
     .where(eq(speculativeApplicationsTable.id, app!.id));
 
   // Create inbox notification only when email was actually delivered —
   // guards against false "sent" confirmations on delivery failure.
   if (emailDelivered) {
-    const isDirectSend = employerContactEmail !== OPS_INBOX;
+    const deliveryRouteLabels: Record<DeliveryRoute, string> = {
+      employer_account: "direct to employer (JOBSAGE account)",
+      sponsor_contact_email: "direct to employer (registered contact email)",
+      ai_enrichment: "direct to employer (contact discovered automatically)",
+      ops_fallback: "JOBSAGE ops team (no direct email found — they will forward)",
+    };
+    const isDirectSend = deliveryRoute !== "ops_fallback";
     try {
       await db.insert(candidateMessagesTable).values({
         recipientUserId: userId,
@@ -223,12 +365,12 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
           `Your CV has been submitted to ${companyName}${vacancyTitle ? ` for the role "${vacancyTitle}"` : ""}.`,
           ``,
           `Your contact identity: ${jobsageEmail}`,
-          `Sent to: ${employerContactEmail}${isDirectSend ? " (employer direct)" : " (JOBSAGE ops — will forward)"}`,
+          `Delivered: ${deliveryRouteLabels[deliveryRoute]}`,
           `Date sent: ${now.toUTCString()}`,
           ``,
           isDirectSend
-            ? `The employer can reply directly to your JOBSAGE alias.`
-            : `The JOBSAGE team will follow up with ${companyName} on your behalf where a direct contact is available.`,
+            ? `Your CV was sent directly to ${companyName}. The employer can reply to your JOBSAGE alias.`
+            : `No public contact email could be found for ${companyName}. The JOBSAGE team has been notified and will follow up on your behalf.`,
           ``,
           `Follow up or track this application: ${APP_URL}/applications`,
         ].join("\n"),
@@ -239,7 +381,8 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
     }
   }
 
-  // Employer notification / admin follow-up logging
+  // Audit logging: record the delivery route taken and flag for admin action
+  // only when we truly had to fall back to the ops inbox.
   try {
     const [empProfile] = await db
       .select({ userId: employerProfilesTable.userId, id: employerProfilesTable.id })
@@ -248,7 +391,7 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
       .limit(1);
 
     if (empProfile) {
-      // Employer has an account — log so they can surface it on their dashboard in a future feature
+      // Employer has a JOBSAGE account — log for their future dashboard
       await writeAuditEvent(
         `user:${userId}`,
         "speculative_cv_sent_to_employer",
@@ -258,10 +401,11 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
           applicationId: app!.id,
           employerProfileId: empProfile.id,
           hasEmployerAccount: true,
+          deliveryRoute,
         },
       );
-    } else {
-      // No employer account — flag for admin follow-up to contact the company
+    } else if (deliveryRoute === "ops_fallback") {
+      // True fallback: no email found anywhere — ops must follow up
       await writeAuditEvent(
         `user:${userId}`,
         "speculative_cv_admin_followup",
@@ -270,8 +414,24 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
           companyName,
           applicationId: app!.id,
           hasEmployerAccount: false,
+          deliveryRoute,
           needsAdminAction: true,
-          adminNote: `Candidate sent a speculative CV to "${companyName}" which has no employer account. Admin should follow up or invite the company.`,
+          lookupStepsAttempted: ["employer_account", sponsorLicenceId ? "sponsor_contact_email" : null, sponsorLicenceId ? "ai_enrichment" : null].filter(Boolean),
+          adminNote: `Candidate sent a speculative CV to "${companyName}". No employer account or contact email found after all lookup steps. Admin should follow up or invite the company.`,
+        },
+      );
+    } else {
+      // No JOBSAGE account but we found a direct email — informational log only
+      await writeAuditEvent(
+        `user:${userId}`,
+        "speculative_cv_sent_direct",
+        undefined,
+        {
+          companyName,
+          applicationId: app!.id,
+          hasEmployerAccount: false,
+          deliveryRoute,
+          needsAdminAction: false,
         },
       );
     }

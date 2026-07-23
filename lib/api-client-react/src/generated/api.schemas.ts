@@ -436,6 +436,8 @@ export interface Role {
   active: boolean;
   importedAt: string;
   importedBy?: string | null;
+  /** Direct application URL for this specific role, if available */
+  applyUrl?: string | null;
 }
 
 export type SponsorshipFeasibilityOutcome =
@@ -475,6 +477,8 @@ export interface MatchedRole {
   contactPhone?: string | null;
   /** Company website URL from employer profile, where available */
   contactWebsite?: string | null;
+  /** Direct application URL for this specific role, if available */
+  applyUrl?: string | null;
 }
 
 export interface MatchedRoleList {
@@ -877,6 +881,12 @@ export interface EmployerProfile {
   industry: EmployerProfileIndustry;
   sponsorLicenceNumber?: string | null;
   region: string;
+  /** Contact email address for this employer */
+  contactEmail?: string | null;
+  /** Contact phone number for this employer */
+  contactPhone?: string | null;
+  /** Website URL for this employer */
+  contactWebsite?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -897,6 +907,12 @@ export interface UpsertEmployerProfileRequest {
   industry: UpsertEmployerProfileRequestIndustry;
   sponsorLicenceNumber?: string | null;
   region: string;
+  /** Contact email address for this employer */
+  contactEmail?: string | null;
+  /** Contact phone number for this employer */
+  contactPhone?: string | null;
+  /** Website URL for this employer */
+  contactWebsite?: string | null;
 }
 
 export type JobListingStatus =
@@ -968,6 +984,8 @@ export interface CreateJobListingRequest {
   requiredRegistration: string;
   targetProfessions?: string[];
   targetRegions?: string[];
+  /** Direct application URL for this role posting */
+  applyUrl?: string | null;
 }
 
 export type UpdateJobListingRequestRegulator =
@@ -991,6 +1009,8 @@ export interface UpdateJobListingRequest {
   requiredRegistration?: string;
   targetProfessions?: string[];
   targetRegions?: string[];
+  /** Direct application URL for this role posting */
+  applyUrl?: string | null;
 }
 
 export interface GenerateJobDescriptionPreviewRequest {
@@ -1700,6 +1720,14 @@ export interface CandidateMatchItem {
   regulator: string;
   sponsorshipOffered: boolean;
   requiredRegistration: string;
+  /** Direct application URL for this role, if available */
+  applyUrl?: string | null;
+  /** Contact email for this role's employer */
+  contactEmail?: string | null;
+  /** Contact phone for this role's employer */
+  contactPhone?: string | null;
+  /** Contact website for this role's employer */
+  contactWebsite?: string | null;
   /** AI-generated match score 0-100 */
   aiScore: number;
   /** One-line AI explanation of the match */

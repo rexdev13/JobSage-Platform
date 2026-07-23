@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { Card, Button } from "@/components/ui-enhanced";
 import { useUpsertEmployerProfile } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, MapPin, FileText, Award, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Building2, MapPin, FileText, Award, ArrowRight, CheckCircle2, Mail, Phone, Globe } from "lucide-react";
 import { motion } from "framer-motion";
 
 const INDUSTRY_OPTIONS = [
@@ -30,6 +30,9 @@ export default function EmployerOnboardingPage() {
     industry: "",
     sponsorLicenceNumber: "",
     region: "",
+    contactEmail: "",
+    contactPhone: "",
+    contactWebsite: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -53,6 +56,9 @@ export default function EmployerOnboardingPage() {
           industry: form.industry as "nhs_trust" | "university" | "private_healthcare" | "charity" | "other",
           sponsorLicenceNumber: form.sponsorLicenceNumber.trim() || undefined,
           region: form.region,
+          contactEmail: form.contactEmail.trim() || undefined,
+          contactPhone: form.contactPhone.trim() || undefined,
+          contactWebsite: form.contactWebsite.trim() || undefined,
         },
       },
       {
@@ -71,6 +77,7 @@ export default function EmployerOnboardingPage() {
     { icon: Building2, label: "Organisation details" },
     { icon: Award, label: "Sponsor licence" },
     { icon: MapPin, label: "Region" },
+    { icon: Mail, label: "Contact info" },
   ];
 
   return (
@@ -170,6 +177,46 @@ export default function EmployerOnboardingPage() {
                 </select>
               </div>
               {errors.region && <p className="text-xs text-destructive mt-1">{errors.region}</p>}
+            </div>
+
+            {/* Contact details section */}
+            <div className="pt-2 border-t border-border">
+              <p className="text-sm font-medium text-foreground mb-3 flex items-center gap-1.5">
+                <Mail className="w-3.5 h-3.5 text-muted-foreground" /> Contact Details
+                <span className="text-xs text-muted-foreground font-normal">(shown to candidates on job listings)</span>
+              </p>
+              <div className="space-y-3">
+                <div className="relative">
+                  <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="email"
+                    value={form.contactEmail}
+                    onChange={(e) => setForm({ ...form, contactEmail: e.target.value })}
+                    placeholder="Contact email (optional)"
+                    className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+                <div className="relative">
+                  <Phone className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="tel"
+                    value={form.contactPhone}
+                    onChange={(e) => setForm({ ...form, contactPhone: e.target.value })}
+                    placeholder="Contact phone (optional)"
+                    className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+                <div className="relative">
+                  <Globe className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="url"
+                    value={form.contactWebsite}
+                    onChange={(e) => setForm({ ...form, contactWebsite: e.target.value })}
+                    placeholder="Website URL (optional)"
+                    className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+              </div>
             </div>
 
             <Button type="submit" className="w-full" disabled={mutation.isPending}>

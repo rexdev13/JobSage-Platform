@@ -62,6 +62,7 @@ type FormState = {
   requiredRegistration: string;
   targetProfessions: string[];
   targetRegions: string[];
+  applyUrl: string;
 };
 
 const EMPTY_FORM: FormState = {
@@ -76,6 +77,7 @@ const EMPTY_FORM: FormState = {
   requiredRegistration: "",
   targetProfessions: [],
   targetRegions: [],
+  applyUrl: "",
 };
 
 export default function EmployerJobFormPage() {
@@ -112,6 +114,7 @@ export default function EmployerJobFormPage() {
         requiredRegistration: existingJob.requiredRegistration,
         targetProfessions: (existingJob.targetProfessions ?? []) as string[],
         targetRegions: (existingJob.targetRegions ?? []) as string[],
+        applyUrl: existingJob.applyUrl ?? "",
       });
     }
   }, [existingJob]);
@@ -122,6 +125,9 @@ export default function EmployerJobFormPage() {
     if (!form.location.trim()) e.location = "Location is required.";
     if (!form.regulator) e.regulator = "Regulator is required.";
     if (!form.requiredRegistration.trim()) e.requiredRegistration = "Required registration is required.";
+    if (form.applyUrl.trim() && !/^https?:\/\/.+/i.test(form.applyUrl.trim())) {
+      e.applyUrl = "Apply URL must start with http:// or https://";
+    }
     return e;
   }
 
@@ -159,6 +165,7 @@ export default function EmployerJobFormPage() {
       requiredRegistration: form.requiredRegistration.trim(),
       targetProfessions: form.targetProfessions,
       targetRegions: form.targetRegions,
+      applyUrl: form.applyUrl.trim() || null,
     };
 
     if (isEdit && jobId) {
@@ -319,6 +326,24 @@ export default function EmployerJobFormPage() {
                   <span className="font-medium">Offer Skilled Worker visa sponsorship for this role</span>
                 </span>
               </label>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1.5">
+                Apply URL
+                <span className="ml-1.5 text-xs font-normal text-muted-foreground">(optional)</span>
+              </label>
+              <input
+                type="url"
+                value={form.applyUrl}
+                onChange={(e) => setForm({ ...form, applyUrl: e.target.value })}
+                placeholder="https://jobs.yournhstrust.nhs.uk/vacancy/..."
+                className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Direct link to this role's job posting. Candidates will see an &quot;Apply on employer site&quot; button.
+              </p>
+              {errors.applyUrl && <p className="text-xs text-destructive mt-1">{errors.applyUrl}</p>}
             </div>
           </Card>
 

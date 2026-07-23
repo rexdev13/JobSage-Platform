@@ -34,6 +34,7 @@ export const jobListingsTable = pgTable("job_listings", {
   requiredRegistration: text("required_registration").notNull(),
   targetProfessions: jsonb("target_professions").$type<string[]>().default([]),
   targetRegions: jsonb("target_regions").$type<string[]>().default([]),
+  applyUrl: text("apply_url"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

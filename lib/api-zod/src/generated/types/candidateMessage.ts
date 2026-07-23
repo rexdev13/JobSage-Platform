@@ -21,4 +21,8 @@ export interface CandidateMessage {
   createdAt: Date;
   companyName?: string | null;
   industry?: string | null;
+  /** Sender's actual email address (for employer replies) */
+  senderEmail?: string | null;
+  /** External message ID from Resend (for deduplication) */
+  externalMessageId?: string | null;
 }

@@ -4375,6 +4375,18 @@ components:
           nullable: true
         region:
           type: string
+        contactEmail:
+          type: string
+          nullable: true
+          description: Contact email address for this employer
+        contactPhone:
+          type: string
+          nullable: true
+          description: Contact phone number for this employer
+        contactWebsite:
+          type: string
+          nullable: true
+          description: Website URL for this employer
         createdAt:
           type: string
           format: date-time
@@ -4396,6 +4408,18 @@ components:
           nullable: true
         region:
           type: string
+        contactEmail:
+          type: string
+          nullable: true
+          description: Contact email address for this employer
+        contactPhone:
+          type: string
+          nullable: true
+          description: Contact phone number for this employer
+        contactWebsite:
+          type: string
+          nullable: true
+          description: Website URL for this employer
 
     JobListing:
       type: object
@@ -5831,6 +5855,22 @@ components:
           type: boolean
         requiredRegistration:
           type: string
+        applyUrl:
+          type: string
+          nullable: true
+          description: Direct application URL for this role, if available
+        contactEmail:
+          type: string
+          nullable: true
+          description: Contact email for this role's employer
+        contactPhone:
+          type: string
+          nullable: true
+          description: Contact phone for this role's employer
+        contactWebsite:
+          type: string
+          nullable: true
+          description: Contact website for this role's employer
         aiScore:
           type: integer
           description: AI-generated match score 0-100

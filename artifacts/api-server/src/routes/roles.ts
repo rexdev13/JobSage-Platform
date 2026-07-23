@@ -20,11 +20,14 @@ import { requireRole, requireAuthenticated } from "../middlewares/requireRole";
 import { assessSponsorshipFeasibility } from "../lib/sponsorshipFeasibility";
 import { batchScoreRoles } from "../lib/candidateAiMatch";
 import { careerProfilesTable } from "@workspace/db";
+import { runApplyUrlBackfill, getLastBackfillSummary } from "../lib/applyUrlBackfill";
 
 const router: IRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 const REQUIRED_COLUMNS = ["title", "employer", "location", "regulator", "sponsorshipOffered", "requiredRegistration"];
+const OPTIONAL_COLUMNS = ["applyUrl", "contactEmail", "contactPhone", "contactWebsite"];
+const APPLY_URL_PATTERN = /^https?:\/\/.+/i;
 const VALID_REGULATORS = ["GMC", "NMC", "HCPC"];
 
 const REGISTERED_STATUSES = ["registered", "fully_registered", "full_registration"];
@@ -173,14 +176,16 @@ router.get("/roles", async (req, res): Promise<void> => {
       contactEmail: row.emp.contactEmail ?? null,
       contactPhone: row.emp.contactPhone ?? null,
       contactWebsite: row.emp.contactWebsite ?? null,
+      applyUrl: row.job.applyUrl ?? null,
     }));
 
   const regulatorRoles = [
     ...allRoles.filter((role) => role.regulator === regulator).map((r) => ({
       ...r,
-      contactEmail: null as string | null,
-      contactPhone: null as string | null,
-      contactWebsite: null as string | null,
+      contactEmail: r.contactEmail ?? null,
+      contactPhone: r.contactPhone ?? null,
+      contactWebsite: r.contactWebsite ?? null,
+      applyUrl: r.applyUrl ?? null,
     })),
     ...employerJobsAsRoles,
   ];
@@ -265,6 +270,7 @@ router.get("/roles", async (req, res): Promise<void> => {
       contactEmail: role.contactEmail ?? null,
       contactPhone: role.contactPhone ?? null,
       contactWebsite: role.contactWebsite ?? null,
+      applyUrl: role.applyUrl ?? null,
     };
   });
 
@@ -340,13 +346,20 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
       regulator: row.job.regulator as "GMC" | "NMC" | "HCPC",
       sponsorshipOffered: row.job.sponsorshipOffered,
       requiredRegistration: row.job.requiredRegistration,
+      applyUrl: row.job.applyUrl ?? null,
+      contactEmail: row.emp.contactEmail ?? null,
+      contactPhone: row.emp.contactPhone ?? null,
+      contactWebsite: row.emp.contactWebsite ?? null,
     }));
 
   const regulatorRoles = [
     ...allRoles.filter((r) => r.regulator === regulator).map((r) => ({
       id: r.id, title: r.title, employer: r.employer, location: r.location,
       regulator: r.regulator, sponsorshipOffered: r.sponsorshipOffered,
-      requiredRegistration: r.requiredRegistration,
+      requiredRegistration: r.requiredRegistration, applyUrl: r.applyUrl ?? null,
+      contactEmail: r.contactEmail ?? null,
+      contactPhone: r.contactPhone ?? null,
+      contactWebsite: r.contactWebsite ?? null,
     })),
     ...employerJobsAsRoles,
   ];
@@ -455,6 +468,10 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
         regulator: r.regulator,
         sponsorshipOffered: r.sponsorshipOffered,
         requiredRegistration: r.requiredRegistration,
+        applyUrl: r.applyUrl ?? null,
+        contactEmail: r.contactEmail ?? null,
+        contactPhone: r.contactPhone ?? null,
+        contactWebsite: r.contactWebsite ?? null,
         aiScore,
         aiExplanation,
         isEligible,
@@ -529,6 +546,10 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
       regulator: row.job.regulator as "GMC" | "NMC" | "HCPC",
       sponsorshipOffered: row.job.sponsorshipOffered,
       requiredRegistration: row.job.requiredRegistration,
+      applyUrl: row.job.applyUrl ?? null,
+      contactEmail: row.emp.contactEmail ?? null,
+      contactPhone: row.emp.contactPhone ?? null,
+      contactWebsite: row.emp.contactWebsite ?? null,
     }));
 
   // Fetch roles already applied to via both standard and speculative paths
@@ -549,7 +570,10 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
       .map((r) => ({
         id: r.id, title: r.title, employer: r.employer, location: r.location,
         regulator: r.regulator, sponsorshipOffered: r.sponsorshipOffered,
-        requiredRegistration: r.requiredRegistration,
+        requiredRegistration: r.requiredRegistration, applyUrl: r.applyUrl ?? null,
+        contactEmail: r.contactEmail ?? null,
+        contactPhone: r.contactPhone ?? null,
+        contactWebsite: r.contactWebsite ?? null,
       })),
     ...employerJobsAsRoles.filter((r) => !appliedIds.has(r.id) && !speculativeCompanies.has(r.employer.toLowerCase())),
   ];
@@ -622,6 +646,39 @@ router.get("/admin/roles", requireRole("admin"), async (_req, res): Promise<void
   res.json({ roles });
 });
 
+// ── GET /admin/roles/backfill-apply-urls/status ───────────────────────────────
+router.get(
+  "/admin/roles/backfill-apply-urls/status",
+  requireRole("admin"),
+  (_req, res): void => {
+    res.json({ lastRun: getLastBackfillSummary() });
+  },
+);
+
+// ── POST /admin/roles/backfill-apply-urls ─────────────────────────────────────
+router.post(
+  "/admin/roles/backfill-apply-urls",
+  requireRole("admin"),
+  (req, res): void => {
+    const adminId = req.user!.id;
+    // Fire-and-forget in background — returns 202 immediately
+    runApplyUrlBackfill({ triggeredBy: "manual", batchSize: 50 }).catch((err) => {
+      console.error("[apply-url-backfill] Manual trigger error:", err);
+    });
+
+    db.insert(auditEventsTable)
+      .values({
+        actor: adminId,
+        action: "apply_url_backfill_triggered",
+        target: undefined,
+        details: { triggeredBy: "manual" },
+      })
+      .catch(() => {});
+
+    res.status(202).json({ queued: true });
+  },
+);
+
 router.post("/admin/roles/import", requireRole("admin"), upload.single("file"), async (req, res): Promise<void> => {
   if (!req.file) {
     res.status(400).json({ error: "CSV file is required." });
@@ -663,6 +720,10 @@ router.post("/admin/roles/import", requireRole("admin"), upload.single("file"), 
     sponsorshipOffered: boolean;
     requiredRegistration: string;
     importedBy: string;
+    applyUrl: string | null;
+    contactEmail: string | null;
+    contactPhone: string | null;
+    contactWebsite: string | null;
   }> = [];
 
   for (let i = 0; i < records.length; i++) {
@@ -696,6 +757,12 @@ router.post("/admin/roles/import", requireRole("admin"), upload.single("file"), 
       continue;
     }
 
+    const applyUrlRaw = row.applyUrl?.trim() ?? null;
+    if (applyUrlRaw && !APPLY_URL_PATTERN.test(applyUrlRaw)) {
+      errors.push({ row: rowNum, message: "applyUrl must be a valid http or https URL" });
+      continue;
+    }
+
     validRows.push({
       title: row.title.trim(),
       employer: row.employer.trim(),
@@ -704,8 +771,14 @@ router.post("/admin/roles/import", requireRole("admin"), upload.single("file"), 
       sponsorshipOffered: ["true", "yes", "1"].includes(sponsorshipRaw),
       requiredRegistration: row.requiredRegistration.trim(),
       importedBy: req.user!.id,
+      applyUrl: applyUrlRaw || null,
+      contactEmail: row.contactEmail?.trim() || null,
+      contactPhone: row.contactPhone?.trim() || null,
+      contactWebsite: row.contactWebsite?.trim() || null,
     });
   }
+
+  void OPTIONAL_COLUMNS; // referenced for documentation purposes
 
   const MANUAL_LABOUR_BLOCKLIST =
     /\b(housekeep|housework|cleaning|cleaner|domestic|catering|cook|kitchen|laundry|porter|portering|construction|groundskeep|groundskeeper|janitor|caretaker|security\s*guard|warehouse|driver|delivery|bin\s*collect|refuse|sewage|plumb|electri|carpent|bricklayer|scaffold|painter\s*decorator)\b/i;

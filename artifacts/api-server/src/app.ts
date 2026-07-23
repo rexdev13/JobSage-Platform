@@ -28,7 +28,14 @@ app.use(
   })
 );
 app.use(cookieParser());
-app.use(express.json());
+app.use(
+  express.json({
+    // Capture raw body for webhook signature verification (Svix/Resend)
+    verify: (req: Request & { rawBody?: Buffer }, _res, buf) => {
+      req.rawBody = buf;
+    },
+  }),
+);
 app.use(express.urlencoded({ extended: true }));
 app.use(authMiddleware);
 

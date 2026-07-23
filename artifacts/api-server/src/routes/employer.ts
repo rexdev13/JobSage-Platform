@@ -41,11 +41,14 @@ router.get("/employer/profile", requireEmployer(), async (req, res): Promise<voi
 
 router.post("/employer/profile", requireAuthenticated, async (req, res): Promise<void> => {
   const userId = req.user!.id;
-  const { companyName, industry, sponsorLicenceNumber, region } = req.body as {
+  const { companyName, industry, sponsorLicenceNumber, region, contactEmail, contactPhone, contactWebsite } = req.body as {
     companyName?: string;
     industry?: string;
     sponsorLicenceNumber?: string;
     region?: string;
+    contactEmail?: string;
+    contactPhone?: string;
+    contactWebsite?: string;
   };
 
   if (!companyName?.trim()) {
@@ -71,7 +74,15 @@ router.post("/employer/profile", requireAuthenticated, async (req, res): Promise
   if (existing) {
     [profile] = await db
       .update(employerProfilesTable)
-      .set({ companyName: companyName.trim(), industry: industry as "nhs_trust" | "university" | "private_healthcare" | "charity" | "other", sponsorLicenceNumber: sponsorLicenceNumber?.trim() ?? null, region: region.trim() })
+      .set({
+        companyName: companyName.trim(),
+        industry: industry as "nhs_trust" | "university" | "private_healthcare" | "charity" | "other",
+        sponsorLicenceNumber: sponsorLicenceNumber?.trim() ?? null,
+        region: region.trim(),
+        contactEmail: contactEmail?.trim() || null,
+        contactPhone: contactPhone?.trim() || null,
+        contactWebsite: contactWebsite?.trim() || null,
+      })
       .where(eq(employerProfilesTable.userId, userId))
       .returning();
   } else {
@@ -83,6 +94,9 @@ router.post("/employer/profile", requireAuthenticated, async (req, res): Promise
         industry: industry as "nhs_trust" | "university" | "private_healthcare" | "charity" | "other",
         sponsorLicenceNumber: sponsorLicenceNumber?.trim() ?? null,
         region: region.trim(),
+        contactEmail: contactEmail?.trim() || null,
+        contactPhone: contactPhone?.trim() || null,
+        contactWebsite: contactWebsite?.trim() || null,
       })
       .returning();
     await db.update(usersTable).set({ role: "employer" }).where(eq(usersTable.id, userId));
@@ -136,7 +150,7 @@ router.post("/employer/jobs", requireEmployer(), async (req, res): Promise<void>
     return;
   }
 
-  const { title, specialty, location, salaryBand, sponsorshipOffered, requirements, description, regulator, requiredRegistration, targetProfessions, targetRegions } = req.body as {
+  const { title, specialty, location, salaryBand, sponsorshipOffered, requirements, description, regulator, requiredRegistration, targetProfessions, targetRegions, applyUrl } = req.body as {
     title?: string;
     specialty?: string;
     location?: string;
@@ -148,6 +162,7 @@ router.post("/employer/jobs", requireEmployer(), async (req, res): Promise<void>
     requiredRegistration?: string;
     targetProfessions?: string[];
     targetRegions?: string[];
+    applyUrl?: string | null;
   };
 
   if (!title?.trim()) { res.status(400).json({ error: "Job title is required." }); return; }
@@ -156,6 +171,9 @@ router.post("/employer/jobs", requireEmployer(), async (req, res): Promise<void>
     res.status(400).json({ error: "Regulator must be GMC, NMC, or HCPC." }); return;
   }
   if (!requiredRegistration?.trim()) { res.status(400).json({ error: "Required registration is required." }); return; }
+  if (applyUrl && !/^https?:\/\/.+/i.test(applyUrl)) {
+    res.status(400).json({ error: "applyUrl must be a valid http or https URL." }); return;
+  }
 
   const [job] = await db
     .insert(jobListingsTable)
@@ -173,6 +191,7 @@ router.post("/employer/jobs", requireEmployer(), async (req, res): Promise<void>
       requiredRegistration: requiredRegistration.trim(),
       targetProfessions: targetProfessions ?? [],
       targetRegions: targetRegions ?? [],
+      applyUrl: applyUrl?.trim() || null,
     })
     .returning();
 
@@ -204,11 +223,16 @@ router.put("/employer/jobs/:id", requireEmployer(), async (req, res): Promise<vo
   const [existing] = await db.select({ id: jobListingsTable.id, status: jobListingsTable.status }).from(jobListingsTable).where(and(eq(jobListingsTable.id, jobId), eq(jobListingsTable.employerProfileId, empProfile.id)));
   if (!existing) { res.status(404).json({ error: "Job listing not found." }); return; }
 
-  const { title, specialty, location, salaryBand, sponsorshipOffered, requirements, description, regulator, requiredRegistration, targetProfessions, targetRegions } = req.body as {
+  const { title, specialty, location, salaryBand, sponsorshipOffered, requirements, description, regulator, requiredRegistration, targetProfessions, targetRegions, applyUrl } = req.body as {
     title?: string; specialty?: string; location?: string; salaryBand?: string;
     sponsorshipOffered?: boolean; requirements?: string; description?: string;
     regulator?: string; requiredRegistration?: string; targetProfessions?: string[]; targetRegions?: string[];
+    applyUrl?: string | null;
   };
+
+  if (applyUrl && !/^https?:\/\/.+/i.test(applyUrl)) {
+    res.status(400).json({ error: "applyUrl must be a valid http or https URL." }); return;
+  }
 
   const updates: Partial<typeof jobListingsTable.$inferInsert> = {};
   if (title !== undefined) updates.title = title.trim();
@@ -222,6 +246,7 @@ router.put("/employer/jobs/:id", requireEmployer(), async (req, res): Promise<vo
   if (requiredRegistration !== undefined) updates.requiredRegistration = requiredRegistration.trim();
   if (targetProfessions !== undefined) updates.targetProfessions = targetProfessions;
   if (targetRegions !== undefined) updates.targetRegions = targetRegions;
+  if (applyUrl !== undefined) updates.applyUrl = applyUrl?.trim() || null;
 
   const [updated] = await db.update(jobListingsTable).set(updates).where(eq(jobListingsTable.id, jobId)).returning();
   res.json(updated);
@@ -980,6 +1005,9 @@ router.get("/candidate/messages", requireAuthenticated, async (req, res): Promis
       messageType: candidateMessagesTable.messageType,
       archivedAt: candidateMessagesTable.archivedAt,
       senderEmployerProfileId: candidateMessagesTable.senderEmployerProfileId,
+      storedCompanyName: candidateMessagesTable.companyName,
+      senderEmail: candidateMessagesTable.senderEmail,
+      externalMessageId: candidateMessagesTable.externalMessageId,
     })
     .from(candidateMessagesTable)
     .where(
@@ -992,14 +1020,19 @@ router.get("/candidate/messages", requireAuthenticated, async (req, res): Promis
 
   const enriched = await Promise.all(
     messages.map(async (m) => {
+      const { storedCompanyName, ...rest } = m;
+      // For employer_reply messages, companyName is stored directly on the row
+      if (m.messageType === "employer_reply") {
+        return { ...rest, companyName: storedCompanyName ?? null, industry: null };
+      }
       if (!m.senderEmployerProfileId) {
-        return { ...m, companyName: null, industry: null };
+        return { ...rest, companyName: storedCompanyName ?? null, industry: null };
       }
       const [empProfile] = await db
         .select({ companyName: employerProfilesTable.companyName, industry: employerProfilesTable.industry })
         .from(employerProfilesTable)
         .where(eq(employerProfilesTable.id, m.senderEmployerProfileId));
-      return { ...m, companyName: empProfile?.companyName ?? null, industry: empProfile?.industry ?? null };
+      return { ...rest, companyName: empProfile?.companyName ?? storedCompanyName ?? null, industry: empProfile?.industry ?? null };
     }),
   );
 
