@@ -1,7 +1,12 @@
 import { useState, useRef } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, PageTransition, Button } from "@/components/ui-enhanced";
-import { useAdminListRoles, useImportRolesCSV } from "@workspace/api-client-react";
+import {
+  useAdminListRoles,
+  useImportRolesCSV,
+  useGetApplyUrlBackfillStatus,
+  useTriggerApplyUrlBackfill,
+} from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getAdminListRolesQueryKey } from "@workspace/api-client-react";
 import {
@@ -13,6 +18,8 @@ import {
   Building2,
   MapPin,
   RefreshCw,
+  Sparkles,
+  Clock,
 } from "lucide-react";
 
 const CSV_TEMPLATE = `title,employer,location,regulator,sponsorshipOffered,requiredRegistration,applyUrl
@@ -28,6 +35,94 @@ function downloadTemplate() {
   a.download = "roles-import-template.csv";
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const rem = s % 60;
+  return rem > 0 ? `${m}m ${rem}s` : `${m}m`;
+}
+
+function BackfillPanel() {
+  const { data: statusData } = useGetApplyUrlBackfillStatus();
+  const { mutate: triggerBackfill, isPending: triggering } = useTriggerApplyUrlBackfill();
+  const [triggered, setTriggered] = useState(false);
+
+  const lastRun = statusData?.lastRun ?? null;
+
+  const handleTrigger = () => {
+    setTriggered(true);
+    triggerBackfill();
+  };
+
+  return (
+    <Card className="p-6 border-primary/20">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h2 className="text-base font-semibold text-foreground flex items-center gap-2 mb-1">
+            <Sparkles className="w-4 h-4 text-primary" />
+            AI Apply URL Backfill
+          </h2>
+          <p className="text-sm text-muted-foreground max-w-xl">
+            Automatically finds direct apply URLs for roles that don't have one yet using AI web
+            search. Only employer-site URLs are saved — aggregator sites like Indeed or LinkedIn are
+            rejected. Runs automatically every night; trigger manually to process a batch now.
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleTrigger}
+          disabled={triggering || triggered}
+          className="shrink-0"
+        >
+          {triggering || triggered ? (
+            <>
+              <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" /> Running…
+            </>
+          ) : (
+            <>
+              <Sparkles className="w-4 h-4 mr-1.5" /> Run Now
+            </>
+          )}
+        </Button>
+      </div>
+
+      {triggered && !lastRun && (
+        <div className="mt-4 p-3 rounded-lg bg-blue-50 border border-blue-200 text-sm text-blue-700">
+          Backfill queued — this runs in the background and may take a few minutes depending on batch
+          size. Refresh this page or wait for the summary below to update.
+        </div>
+      )}
+
+      {lastRun && (
+        <div className="mt-4 p-4 rounded-lg bg-muted/40 border border-border space-y-2">
+          <div className="flex flex-wrap gap-4 text-sm">
+            <span className="flex items-center gap-1.5 text-green-700 font-semibold">
+              <CheckCircle2 className="w-4 h-4" /> {lastRun.found} URLs found &amp; saved
+            </span>
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+              <XCircle className="w-4 h-4" /> {lastRun.skipped} skipped
+            </span>
+            {lastRun.failed > 0 && (
+              <span className="flex items-center gap-1.5 text-red-600">
+                <AlertCircle className="w-4 h-4" /> {lastRun.failed} failed
+              </span>
+            )}
+            <span className="flex items-center gap-1.5 text-muted-foreground text-xs">
+              <Clock className="w-3.5 h-3.5" />
+              {new Date(lastRun.ranAt).toLocaleString()} · {formatDuration(lastRun.durationMs)} ·{" "}
+              {lastRun.triggeredBy === "manual" ? "Manual run" : "Scheduled run"} ·{" "}
+              {lastRun.total} roles processed
+            </span>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
 }
 
 export default function AdminRolesPage() {
@@ -158,6 +253,8 @@ export default function AdminRolesPage() {
             </div>
           )}
         </Card>
+
+        <BackfillPanel />
 
         <div>
           <h2 className="text-base font-semibold text-foreground mb-3">

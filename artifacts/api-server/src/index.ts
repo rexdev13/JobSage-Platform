@@ -9,6 +9,7 @@ import { runIndustryBackfill } from "./lib/industryBackfill";
 import { runRegionBackfill } from "./lib/regionBackfill";
 import { runDocumentAclBackfill } from "./lib/documentAclBackfill";
 import { runProfilePhotoAclBackfill } from "./lib/profilePhotoAclBackfill";
+import { startApplyUrlBackfillScheduler } from "./lib/applyUrlBackfillScheduler";
 import { db, sponsorLicenceSyncLogTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 
@@ -63,6 +64,7 @@ app.listen(port, () => {
   startSponsorLicenceScheduler();
   startVacancyCheckScheduler();
   startDailyVacancySyncScheduler();
+  startApplyUrlBackfillScheduler();
   void triggerSyncIfStale();
   runIndustryBackfill().catch((err) => {
     console.error("[industry-backfill] Startup backfill failed:", err);
