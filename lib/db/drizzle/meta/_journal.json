@@ -8,6 +8,27 @@
       "when": 1784234514455,
       "tag": "0000_add_region_to_sponsor_licences",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1784320914455,
+      "tag": "0001_preferred_region_to_array",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784407314455,
+      "tag": "0002_inbound_email_support",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1753279800000,
+      "tag": "0003_speculative_delivery_route",
+      "breakpoints": true
     }
   ]
 }

@@ -19,6 +19,16 @@ export const speculativeApplicationsTable = pgTable(
     emailRecipient: text("email_recipient"),
     jobsageEmail: text("jobsage_email"),
     vacancyTitle: text("vacancy_title"),
+    /**
+     * Which lookup step resolved the employer recipient:
+     * "employer_account"      – registered JOBSAGE employer
+     * "sponsor_contact_email" – stored contactEmail on the sponsor licence record
+     * "ai_enrichment"         – discovered on-demand via AI web search
+     * "ops_fallback"          – no email found; routed to ops inbox
+     */
+    deliveryRoute: varchar("delivery_route", {
+      enum: ["employer_account", "sponsor_contact_email", "ai_enrichment", "ops_fallback"],
+    }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("speculative_apps_user_idx").on(t.userId)],

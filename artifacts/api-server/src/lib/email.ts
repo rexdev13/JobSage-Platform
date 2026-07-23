@@ -412,11 +412,18 @@ export async function sendSpeculativeCVNotification(opts: {
   candidateEmail: string;
   candidateName: string;
   companyName: string;
+  /** Required: only called after confirmed delivery, so route is always known */
+  deliveryRoute: "employer_account" | "sponsor_contact_email" | "ai_enrichment" | "ops_fallback";
 }): Promise<void> {
+  const isDirectSend = opts.deliveryRoute !== "ops_fallback";
+  const deliveryLine = isDirectSend
+    ? `Your CV was <strong>delivered directly to ${opts.companyName}</strong>. They can reply to your JOBSAGE alias.`
+    : `Your CV has been sent to the <strong>JOBSAGE team</strong>, who will forward it to ${opts.companyName} on your behalf.`;
+
   await resend.emails.send({
     from: `JOBSAGE <${FROM}>`,
     to: opts.candidateEmail,
-    subject: `JOBSAGE: Your speculative CV to ${opts.companyName} has been recorded`,
+    subject: `JOBSAGE: Your speculative CV to ${opts.companyName} has been ${isDirectSend ? "delivered" : "sent"}`,
     html: `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
@@ -430,8 +437,11 @@ export async function sendSpeculativeCVNotification(opts: {
         <tr><td style="padding:36px 40px 24px;">
           <h1 style="color:#0f172a;font-size:20px;font-weight:700;margin:0 0 8px;">Hi ${opts.candidateName},</h1>
           <p style="color:#475569;font-size:15px;line-height:1.6;margin:0 0 16px;">
-            Your speculative CV has been recorded for <strong>${opts.companyName}</strong>. The JOBSAGE team has been notified and will follow up if a direct contact is available.
+            Your speculative CV has been submitted for <strong>${opts.companyName}</strong>.
           </p>
+          <div style="background:${isDirectSend ? "#f0fdf4" : "#fffbeb"};border-left:4px solid ${isDirectSend ? "#16a34a" : "#d97706"};border-radius:0 8px 8px 0;padding:14px 18px;margin:0 0 20px;">
+            <p style="color:#1e293b;font-size:14px;line-height:1.6;margin:0;">${deliveryLine}</p>
+          </div>
           <p style="color:#475569;font-size:15px;line-height:1.6;margin:0 0 24px;">
             You can track this outreach in your <a href="${APP_URL}/applications" style="color:#3b82f6;font-weight:600;">Application Tracker</a>.
           </p>

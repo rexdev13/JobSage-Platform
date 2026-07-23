@@ -141,6 +141,7 @@ router.get("/applications", requireAuthenticated, async (req: Request, res: Resp
     emailSent: s.emailSent,
     emailSentAt: s.emailSentAt?.toISOString() ?? null,
     emailRecipient: s.emailRecipient ?? null,
+    deliveryRoute: s.deliveryRoute ?? null,
     cvLabel: s.cvDocumentId ? (cvLabelMap[s.cvDocumentId] ?? null) : null,
   }));
 

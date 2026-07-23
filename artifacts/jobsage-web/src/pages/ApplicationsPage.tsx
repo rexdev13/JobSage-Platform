@@ -94,6 +94,8 @@ const SPECULATIVE_STATUSES = ["cv_sent", "under_review", "interview_invited", "o
 
 type ApplicationKind = "formal" | "speculative" | "website";
 
+type DeliveryRoute = "employer_account" | "sponsor_contact_email" | "ai_enrichment" | "ops_fallback";
+
 type EnrichedApplication = {
   id: number;
   userId: string;
@@ -111,9 +113,11 @@ type EnrichedApplication = {
   companyName?: string | null;
   jobsageEmail?: string | null;
   vacancyTitle?: string | null;
+  emailSent?: boolean | null;
   emailSentAt?: string | null;
   emailRecipient?: string | null;
   cvLabel?: string | null;
+  deliveryRoute?: DeliveryRoute | null;
 };
 
 type CategoryTab = "all" | "platform" | "speculative" | "website";
@@ -283,6 +287,42 @@ function ApplicationCard({ application, onStatusUpdated }: { application: Enrich
             <span>Sent via <span className="font-mono font-medium">{application.jobsageEmail}</span></span>
           </div>
         )}
+
+        {isSpeculative && (() => {
+          const route = application.deliveryRoute;
+          // Only show delivery route when the email was confirmed as sent — avoids
+          // showing misleading "Delivered directly" on failed sends
+          if (!route || !application.emailSent) return null;
+          const routeConfig: Record<DeliveryRoute, { label: string; description: string; className: string }> = {
+            employer_account: {
+              label: "Delivered directly",
+              description: "Sent to the employer's registered JOBSAGE account",
+              className: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800",
+            },
+            sponsor_contact_email: {
+              label: "Delivered directly",
+              description: "Sent to the employer's registered contact email",
+              className: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800",
+            },
+            ai_enrichment: {
+              label: "Delivered directly",
+              description: "Contact email found automatically and saved for future sends",
+              className: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800",
+            },
+            ops_fallback: {
+              label: "Via JOBSAGE team",
+              description: "No direct email found — the JOBSAGE team will follow up on your behalf",
+              className: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800",
+            },
+          };
+          const cfg = routeConfig[route];
+          return (
+            <div className={`flex items-start gap-1.5 text-xs border rounded-lg px-3 py-2 ${cfg.className}`}>
+              <CheckCircle2 className="w-3 h-3 shrink-0 mt-0.5" />
+              <span><span className="font-semibold">{cfg.label}:</span> {cfg.description}</span>
+            </div>
+          );
+        })()}
 
         {application.cvLabel && (
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/40 border border-border rounded-lg px-3 py-2">
