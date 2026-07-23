@@ -13,6 +13,7 @@ export const rolesTable = pgTable("roles", {
   active: boolean("active").notNull().default(true),
   importedAt: timestamp("imported_at", { withTimezone: true }).notNull().defaultNow(),
   importedBy: varchar("imported_by"),
+  applyUrl: text("apply_url"),
 });
 
 export const insertRoleSchema = createInsertSchema(rolesTable).omit({ id: true, importedAt: true });

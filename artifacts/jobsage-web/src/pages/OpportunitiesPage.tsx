@@ -612,7 +612,7 @@ function RoleCard({
   recommended?: boolean;
 }) {
   const [, setLocation] = useLocation();
-  const { role, isEligible, matchScore, eligibilityGaps, sponsorshipFeasibility, contactEmail, contactPhone, contactWebsite } = item;
+  const { role, isEligible, matchScore, eligibilityGaps, sponsorshipFeasibility, contactEmail, contactPhone, contactWebsite, applyUrl } = item;
   const [expanded, setExpanded] = useState(false);
   const applied = appliedRoleIds.includes(role.id);
   const hasContactDetails = !!(contactEmail || contactPhone || contactWebsite);
@@ -706,24 +706,7 @@ function RoleCard({
           </a>
         )}
         {!hasContactDetails && (
-          <>
-            <a
-              href={`https://www.linkedin.com/search/results/companies/?keywords=${encodeURIComponent(role.employer)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-[#0077B5] hover:underline"
-            >
-              <Linkedin className="w-3 h-3" /> LinkedIn
-            </a>
-            <a
-              href={`https://www.google.com/search?q=${encodeURIComponent(role.employer + " NHS jobs apply contact")}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground hover:underline"
-            >
-              <Globe className="w-3 h-3" /> Web
-            </a>
-          </>
+          <span className="text-xs text-muted-foreground italic">Contact details not yet available</span>
         )}
       </div>
 
@@ -748,6 +731,19 @@ function RoleCard({
               </ul>
             </div>
           )}
+        </div>
+      )}
+
+      {applyUrl && (
+        <div className="mt-3" onClick={(e) => e.stopPropagation()}>
+          <a
+            href={applyUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors"
+          >
+            <ExternalLink className="w-3.5 h-3.5" /> Apply on employer site
+          </a>
         </div>
       )}
 

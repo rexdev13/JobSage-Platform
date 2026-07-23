@@ -15,10 +15,10 @@ import {
   RefreshCw,
 } from "lucide-react";
 
-const CSV_TEMPLATE = `title,employer,location,regulator,sponsorshipOffered,requiredRegistration
-Consultant Cardiologist,NHS Trust London,London,GMC,true,Full GMC Registration
-Staff Nurse (Adult),Barts Health NHS Trust,London,NMC,true,Full NMC Registration
-Senior Physiotherapist,Kings College Hospital,London,HCPC,false,Full HCPC Registration`;
+const CSV_TEMPLATE = `title,employer,location,regulator,sponsorshipOffered,requiredRegistration,applyUrl
+Consultant Cardiologist,NHS Trust London,London,GMC,true,Full GMC Registration,https://jobs.nhstrustlondon.nhs.uk/consultant-cardiologist
+Staff Nurse (Adult),Barts Health NHS Trust,London,NMC,true,Full NMC Registration,
+Senior Physiotherapist,Kings College Hospital,London,HCPC,false,Full HCPC Registration,`;
 
 function downloadTemplate() {
   const blob = new Blob([CSV_TEMPLATE], { type: "text/csv" });
@@ -90,6 +90,9 @@ export default function AdminRolesPage() {
             <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">
               title, employer, location, regulator, sponsorshipOffered, requiredRegistration
             </code>
+            <span className="text-muted-foreground"> and optional </span>
+            <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">applyUrl</code>
+            <span className="text-muted-foreground"> (http/https link to the actual job posting).</span>
           </p>
 
           <div className="flex gap-3 flex-wrap">
@@ -193,6 +196,7 @@ export default function AdminRolesPage() {
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Location</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Reg.</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Sponsorship</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Apply URL</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
                   </tr>
                 </thead>
@@ -222,6 +226,21 @@ export default function AdminRolesPage() {
                           <span className="flex items-center gap-1 text-muted-foreground text-xs">
                             <XCircle className="w-3.5 h-3.5" /> No
                           </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {role.applyUrl ? (
+                          <a
+                            href={role.applyUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-primary hover:underline max-w-[180px] truncate"
+                            title={role.applyUrl}
+                          >
+                            {role.applyUrl.replace(/^https?:\/\//, "").substring(0, 30)}…
+                          </a>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
                         )}
                       </td>
                       <td className="px-4 py-3">
