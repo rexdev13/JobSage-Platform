@@ -2,9 +2,10 @@ import { db } from "@workspace/db";
 import {
   sponsorLicenceVacancyChecksTable,
   sponsorLicenceVacanciesTable,
+  sponsorLicencesTable,
 } from "@workspace/db";
 import { openai } from "@workspace/integrations-openai-ai-server";
-import { eq, and, gt, desc } from "drizzle-orm";
+import { eq, and, gt, desc, sql } from "drizzle-orm";
 
 export const VACANCY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -50,6 +51,9 @@ export type VacancyCheckResult = {
   checkedAt: Date;
   fromCache: boolean;
   vacancyList: VacancyListItem[] | null;
+  discoveredContactEmail: string | null;
+  discoveredContactPhone: string | null;
+  discoveredWebsite: string | null;
 };
 
 function extractOutermostJson(text: string): string | null {
@@ -102,6 +106,11 @@ export async function runVacancyCheck(organisationName: string): Promise<Vacancy
       checkedAt: cached.checkedAt,
       fromCache: true,
       vacancyList: (cached.vacancyList as VacancyListItem[] | null) ?? null,
+      // Contact details are not stored on the check record; callers can read
+      // them from the sponsor licence row if needed.
+      discoveredContactEmail: null,
+      discoveredContactPhone: null,
+      discoveredWebsite: null,
     };
   }
 
@@ -110,6 +119,9 @@ export async function runVacancyCheck(organisationName: string): Promise<Vacancy
   let sourceUrl: string | null = `https://www.reed.co.uk/jobs?keywords=${encodeURIComponent(organisationName)}&locationName=United+Kingdom`;
   let summary = "No active vacancies found.";
   let vacancyList: VacancyListItem[] | null = null;
+  let discoveredContactEmail: string | null = null;
+  let discoveredContactPhone: string | null = null;
+  let discoveredWebsite: string | null = null;
 
   try {
     const response = await openai.responses.create({
@@ -117,12 +129,16 @@ export async function runVacancyCheck(organisationName: string): Promise<Vacancy
       tools: [{ type: "web_search_preview" as const }],
       input: `Search for current job openings at "${organisationName}" in the United Kingdom.
 Prioritise the company's own careers page and NHS Jobs (jobs.nhs.uk) first. Only use third-party aggregators such as Indeed, Reed, LinkedIn, or CV-Library as a last resort, and prefer URLs that point directly to the employer's own domain.
+While visiting the company's own site, also look for their public contact details (email address, phone number, and website URL). Only capture details from the company's own website — do not use aggregator or directory sites for contact information.
 After searching, reply with a JSON object ONLY — no markdown, no extra text, just raw JSON:
 {
   "vacanciesFound": true or false,
   "vacancyCount": number or null,
   "sourceUrl": "URL to search results or careers page",
   "summary": "1-2 sentence summary of what you found",
+  "contactEmail": "contact or HR email from the company's own site, or null",
+  "contactPhone": "UK phone number from the company's own site (include country code if shown), or null",
+  "website": "company's main website URL (must start with https:// or http://), or null",
   "vacancyList": [
     {
       "title": "Job title",
@@ -145,6 +161,9 @@ Include up to 8 specific vacancies in vacancyList if found. Use null for missing
         vacancyCount?: number | null;
         sourceUrl?: string | null;
         summary?: string;
+        contactEmail?: string | null;
+        contactPhone?: string | null;
+        website?: string | null;
         vacancyList?: Array<{
           title?: string;
           location?: string | null;
@@ -164,6 +183,16 @@ Include up to 8 specific vacancies in vacancyList if found. Use null for missing
         : (vacanciesFound
           ? `Vacancies found for ${organisationName}.`
           : `No active vacancies found for ${organisationName}.`);
+      // Extract contact details discovered from the company's own site
+      if (typeof parsed.contactEmail === "string" && parsed.contactEmail.trim()) {
+        discoveredContactEmail = parsed.contactEmail.trim();
+      }
+      if (typeof parsed.contactPhone === "string" && parsed.contactPhone.trim()) {
+        discoveredContactPhone = parsed.contactPhone.trim();
+      }
+      if (typeof parsed.website === "string" && parsed.website.trim().startsWith("http")) {
+        discoveredWebsite = parsed.website.trim();
+      }
       if (Array.isArray(parsed.vacancyList) && parsed.vacancyList.length > 0) {
         vacancyList = parsed.vacancyList
           .filter((v) => typeof v.title === "string" && v.title.trim())
@@ -224,6 +253,45 @@ Include up to 8 specific vacancies in vacancyList if found. Use null for missing
     );
   }
 
+  // Persist discovered contact details to the sponsor licence record.
+  // Only fill empty fields — never overwrite admin-set or previously enriched values.
+  // Uses COALESCE so existing non-null values are preserved unconditionally.
+  if (discoveredContactEmail || discoveredContactPhone || discoveredWebsite) {
+    try {
+      const updateResult = await db
+        .update(sponsorLicencesTable)
+        .set({
+          contactEmail: sql`COALESCE(${sponsorLicencesTable.contactEmail}, ${discoveredContactEmail})`,
+          contactPhone: sql`COALESCE(${sponsorLicencesTable.contactPhone}, ${discoveredContactPhone})`,
+          website: sql`COALESCE(${sponsorLicencesTable.website}, ${discoveredWebsite})`,
+        })
+        .where(eq(sponsorLicencesTable.organisationName, organisationName))
+        .returning({
+          id: sponsorLicencesTable.id,
+          contactEmail: sponsorLicencesTable.contactEmail,
+          contactPhone: sponsorLicencesTable.contactPhone,
+          website: sponsorLicencesTable.website,
+        });
+
+      if (updateResult.length > 0) {
+        console.info(
+          `[vacancy-check] Contact details populated for "${organisationName}":`,
+          {
+            contactEmail: discoveredContactEmail ?? "(none)",
+            contactPhone: discoveredContactPhone ?? "(none)",
+            website: discoveredWebsite ?? "(none)",
+            affectedRows: updateResult.length,
+          },
+        );
+      }
+    } catch (contactErr) {
+      console.warn(
+        `[vacancy-check] Failed to persist contact details for "${organisationName}":`,
+        contactErr instanceof Error ? contactErr.message : contactErr,
+      );
+    }
+  }
+
   return {
     vacanciesFound,
     vacancyCount,
@@ -232,5 +300,8 @@ Include up to 8 specific vacancies in vacancyList if found. Use null for missing
     checkedAt: saved?.checkedAt ?? new Date(),
     fromCache: false,
     vacancyList,
+    discoveredContactEmail,
+    discoveredContactPhone,
+    discoveredWebsite,
   };
 }
