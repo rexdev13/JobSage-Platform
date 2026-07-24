@@ -1,0 +1,37 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Principal Systems Architect. Our developer is experiencing a critical issue: when clicking "Apply Now" on job cards in the UI, they are STILL being redirected to generic employer landing pages (or careers homepages) instead of direct job vacancy advert pages.
+
+We need an immediate, aggressive end-to-end trace to discover WHERE the generic link is originating and WHY our safety guards did not block or purge it.
+
+---
+
+### DEBUGGING & TRACING TASKS
+
+#### TASK 1: Trace the Active Bad Data in the DB
+1. Run a read-only query against `sponsor_licence_vacancies` (and `jobListings`) to find 5 active records currently displayed on the frontend UI where the `url` points to a generic domain, homepage, or careers root (e.g., URLs ending in `/`, `/careers`, `/jobs`, or short pathname lengths).
+2. Print these 5 records (`id`, `title`, `organisation`, `url`, `created_at`, `updated_at`).
+3. **Answer:** Are these OLD rows that survived our previous cleanup script, or were they explicitly created/updated AFTER our recent scraper modifications?
+
+#### TASK 2: Stress-Test the Validator Guard (`isValidVacancyDeepLink`)
+1. Locate our implementation of `isValidVacancyDeepLink()` in `artifacts/api-server/src/lib/vacancyCheckHelper.ts`.
+2. Take the exact generic URLs found in Task 1 and evaluate them against `isValidVacancyDeepLink()` in a test console log.
+3. **Answer:** Does the validator return `true` (meaning our regex/heuristic logic is flawed and leaking homepages), OR does it return `false` (meaning the validator is accurate, but it is NOT actually being enforced before saving or during outbound redirection)?
+
+#### TASK 3: Audit Ingestion & Redirect Enforcement
+1. Inspect the exact database insertion/updating block in `vacancyCheckHelper.ts`. 
+2. **Answer:** Is `isValidVacancyDeepLink(url)` physically wrapping the DB save operation? If a URL evaluates to `false`, is the code actually aborting the save or setting `url = null`, or is it falling through and saving the dirty URL anyway?
+3. Inspect `GET /api/applications/track-outbound` in `artifacts/api-server/src/routes/applications.ts`. 
+4. **Answer:** Is the outbound route actively calling `isValidVacancyDeepLink(destinationUrl)` and rejecting invalid links with a 400 error, or is it blindly issuing a 302 redirect to whatever URL was passed to it?
+
+#### TASK 4: Audit the Frontend Button Wiring (`artifacts/jobsage-web/src/pages/OpportunitiesPage.tsx`)
+1. Inspect the code rendering the "Apply" button on the job cards.
+2. **Answer:** Is the button actually routing through `/api/applications/track-outbound?vacancyId=...&destinationUrl=...`, or is it bypassing our backend endpoint entirely and using a direct `<a href>` to the external URL?
+
+---
+
+### REQUIRED DELIVERABLE
+Provide a direct, no-fluff root-cause diagnosis answering:
+1. Why are generic URLs currently sitting in the active database?
+2. Why did `isValidVacancyDeepLink()` not catch or stop them?
+3. Why did the frontend/backend allow the redirect to occur?
+Do NOT modify any code yet. Show us the exact point of failure first.
