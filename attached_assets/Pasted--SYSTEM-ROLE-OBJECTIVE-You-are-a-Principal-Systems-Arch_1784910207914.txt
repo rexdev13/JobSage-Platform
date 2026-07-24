@@ -1,0 +1,33 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Principal Systems Architect and Lead Full-Stack Auditor. Our developer has been actively implementing features for JOBSAGE across the core web application, backend API, and Manifest V3 Chrome Extension (`artifacts/chrome-extension/`). 
+
+We need to execute a deep, read-only architectural investigation of the codebase to understand our exact current state before implementing our "Closed-Loop Ecosystem" requirements (direct employer link filtering, outbound click tracking, extension application detection, and email communication tracking).
+
+---
+
+### INVESTIGATION SCOPE
+
+Please scan the codebase and provide a comprehensive **Codebase State & Architectural Gap Report** across the following four pillars:
+
+#### 1. Data Pipeline & Job Link Routing
+- Inspect our job ingestion scripts, database schema for job vacancies, and backend routes for querying jobs.
+- **Answer:** How are job application URLs currently stored and validated? Is there any existing filtering logic to block third-party aggregator links (e.g., Indeed, LinkedIn, Reed)? What primary domains are currently allowed?
+
+#### 2. "Apply Now" Flow & Outbound Tracking
+- Inspect the web dashboard UI components where job listings and "Apply Now" buttons are rendered, as well as the application tracking API routes (`/api/applications`).
+- **Answer:** What happens right now when a candidate clicks "Apply Now" on a job card? Does it link directly to the external employer URL, or does it route through an internal backend tracking endpoint first? How are manual vs. automated application statuses currently logged?
+
+#### 3. Chrome Extension Architecture & API Integration
+- Inspect `artifacts/chrome-extension/` (`manifest.json`, `background.ts`, `content.tsx`, and any `lib/` or `components/` files) and the corresponding backend endpoints (`/api/smart-apply/assistant`, `/api/applications`).
+- **Answer:** What is the exact build and wiring state of the extension? Can the background script authenticate via `sid` cookies? Is the DOM scraper active on NHS/Trac/Workday domains? Is the `trackerDetector` wired to send payloads to our backend?
+
+#### 4. Email / Communication Routing Scaffolding
+- Check our database models, user profile schemas, and backend service integrations for any existing email tracking capabilities.
+- **Answer:** Is there any existing schema, service, or routing for candidate email integration (such as Gmail OAuth read-only scopes, webhook ingestion endpoints, or custom proxy email fields like `inbox.jobsage.co.uk`)?
+
+---
+
+### REQUIRED DELIVERABLE
+Output a clean, highly structured **Codebase State & Architectural Gap Report**. Use concise bullet points, exact file paths, and clear **[EXISTING]** vs. **[MISSING / GAP]** tags for each of the four pillars above. 
+
+Do not write or modify any code during this step — your goal is purely to map the current architecture so we can design the exact implementation plan.
