@@ -1,0 +1,43 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Full-Stack Architect. Based on our read-only diagnostic investigation, we are executing a surgical fix to eliminate aggregator leaks and generic homepage URLs across our ingestion pipeline and existing database records. 
+
+We must scope this strictly to avoid overlapping with existing tasks (#304, #306, #312).
+
+---
+
+### EXECUTION TASKS
+
+#### TASK 1: Unify Blocklists & Build Deep-Link Validator (`artifacts/api-server/src/lib/vacancyCheckHelper.ts`)
+1. **Unify the Blocklist:** 
+   - Export `BLOCKED_APPLY_DOMAINS` (the strict 20+ domain list) from `artifacts/api-server/src/lib/applyUrlBackfill.ts` (or move it to a shared `lib/constants/domains.ts` file).
+   - Update `isBlockedVacancyUrl()` in `vacancyCheckHelper.ts` to use this comprehensive 20+ domain list so aggregators like `adzuna.co.uk`, `jobijoba.co.uk`, `simplyhired.co.uk`, and `bebee.com` are blocked everywhere.
+2. **Add Programmatic Deep-Link Validator:**
+   - Create and export `isValidVacancyDeepLink(urlString: string | null | undefined): boolean`.
+   - It must return `false` if the URL is null, malformed, matches `isBlockedVacancyUrl()`, or if the URL's pathname is empty, `"/"`, `"/careers"`, `"/jobs"`, `"/vacancies"`, `"/search"`, or has a length under 8 characters (e.g., `https://aki.co.uk/careers` or `https://afhaulage.co.uk/career/`).
+   - It must require a specific requisition slug, query param, or job ID path to return `true`.
+
+#### TASK 2: Harden the AI Ingestion Prompt (`artifacts/api-server/src/lib/vacancyCheckHelper.ts`)
+1. Locate the JSON template prompt instructions around lines 145–168.
+2. Replace the weak `"url"` instruction with a strict, unambiguous directive:
+   - `"url"`: `"EXACT direct deep-link to this specific job advert page (e.g., https://employer.co.uk/jobs/req-12345). Do NOT return generic careers landing pages, company homepages, or search result pages (e.g., https://employer.co.uk/careers). If a specific deep-link directly to the individual role is NOT available, you MUST return null."`
+3. In the saving logic (lines ~218–268), run `isValidVacancyDeepLink(url)` before saving. If it returns `false`, store `null` instead of saving a generic homepage or aggregator.
+
+#### TASK 3: Wire Validator into Outbound Redirects (`artifacts/api-server/src/routes/applications.ts`)
+1. In `GET /api/applications/track-outbound`, import and run `isValidVacancyDeepLink(destinationUrl)`.
+2. If `destinationUrl` fails this check, immediately reject the request with `400 Bad Request` (`{"error": "INVALID_DEEP_LINK", "message": "This job listing does not have a valid direct employer deep-link."}`) so candidates are never redirected to homepages or middlemen.
+
+#### TASK 4: Execute Database Purge Script (One-Off Cleanup)
+1. Write and execute a migration/cleanup script against `sponsor_licence_vacancies` (and `jobListings` if applicable):
+   - Scan all rows where `url IS NOT NULL`.
+   - Test each URL against our new `isValidVacancyDeepLink(url)`.
+   - For all rows failing the check (the ~1,393 generic homepages + all newly caught aggregators like Adzuna/Jobijoba), update the row to set `status = 'expired'` (or `url = null` so they leave the active frontend outbound queue).
+2. Print a clean console log showing:
+   - Total rows scanned.
+   - Total aggregator URLs purged/expired.
+   - Total generic homepage URLs purged/expired.
+   - Remaining count of verified, true deep-links in the database.
+
+---
+
+### REQUIRED DELIVERABLE
+Run `npm run typecheck` to verify zero build errors. Execute Task 4 and output the exact console counts from the database purge script showing how many invalid URLs were removed from active circulation.

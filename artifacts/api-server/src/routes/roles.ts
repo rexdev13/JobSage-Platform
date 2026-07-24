@@ -15,7 +15,7 @@ import {
   candidateMatchScoresTable,
   matchDismissalsTable,
 } from "@workspace/db";
-import { eq, desc, and, inArray, gte } from "drizzle-orm";
+import { eq, desc, and, inArray, gte, or, isNotNull, ne } from "drizzle-orm";
 import { requireRole, requireAuthenticated } from "../middlewares/requireRole";
 import { assessSponsorshipFeasibility } from "../lib/sponsorshipFeasibility";
 import { batchScoreRoles } from "../lib/candidateAiMatch";
@@ -26,6 +26,31 @@ const router: IRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 const REQUIRED_COLUMNS = ["title", "employer", "location", "regulator", "sponsorshipOffered", "requiredRegistration"];
+
+/**
+ * Drizzle WHERE clause that restricts to roles that have at least one real
+ * contact detail (apply URL, email, phone, or website).
+ * Treats both NULL and empty-string values as "no contact info".
+ * Applied to all candidate-facing queries — admin queries use unfiltered access.
+ */
+const HAS_CONTACT_INFO = or(
+  and(isNotNull(rolesTable.applyUrl), ne(rolesTable.applyUrl, "")),
+  and(isNotNull(rolesTable.contactEmail), ne(rolesTable.contactEmail, "")),
+  and(isNotNull(rolesTable.contactPhone), ne(rolesTable.contactPhone, "")),
+  and(isNotNull(rolesTable.contactWebsite), ne(rolesTable.contactWebsite, "")),
+);
+
+/**
+ * In-memory predicate equivalent to HAS_CONTACT_INFO, used to filter
+ * employer-posted job listings merged into the candidate-facing results.
+ */
+function employerJobHasContactInfo(row: {
+  job: { applyUrl?: string | null };
+  emp: { contactEmail?: string | null; contactPhone?: string | null; contactWebsite?: string | null };
+}): boolean {
+  const vals = [row.job.applyUrl, row.emp.contactEmail, row.emp.contactPhone, row.emp.contactWebsite];
+  return vals.some((v) => v != null && v.trim() !== "");
+}
 const OPTIONAL_COLUMNS = ["applyUrl", "contactEmail", "contactPhone", "contactWebsite"];
 const APPLY_URL_PATTERN = /^https?:\/\/.+/i;
 const VALID_REGULATORS = ["GMC", "NMC", "HCPC"];
@@ -144,7 +169,7 @@ router.get("/roles", async (req, res): Promise<void> => {
     .orderBy(desc(decisionRecordsTable.createdAt))
     .limit(1);
 
-  const allRoles = await db.select().from(rolesTable).where(eq(rolesTable.active, true));
+  const allRoles = await db.select().from(rolesTable).where(and(eq(rolesTable.active, true), HAS_CONTACT_INFO));
 
   const publishedJobListings = await db
     .select({ job: jobListingsTable, emp: employerProfilesTable })
@@ -160,6 +185,7 @@ router.get("/roles", async (req, res): Promise<void> => {
       if (tp.length > 0 && !tp.includes(profile.profession)) return false;
       const tr = (job.targetRegions ?? []) as string[];
       if (tr.length > 0 && (!profile.preferredRegion || !tr.includes(profile.preferredRegion))) return false;
+      if (!employerJobHasContactInfo(row)) return false;
       return true;
     })
     .map((row) => ({
@@ -323,7 +349,7 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
   const isLicenceReady = profile.licenceReady === true;
   const userIsEligible = decision?.outcome === "eligible";
 
-  const allRoles = await db.select().from(rolesTable).where(eq(rolesTable.active, true));
+  const allRoles = await db.select().from(rolesTable).where(and(eq(rolesTable.active, true), HAS_CONTACT_INFO));
   const publishedJobListings = await db
     .select({ job: jobListingsTable, emp: employerProfilesTable })
     .from(jobListingsTable)
@@ -336,6 +362,7 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
       if (job.regulator !== regulator) return false;
       const tp = (job.targetProfessions ?? []) as string[];
       if (tp.length > 0 && !tp.includes(profile.profession)) return false;
+      if (!employerJobHasContactInfo(row)) return false;
       return true;
     })
     .map((row) => ({
@@ -524,7 +551,7 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
   const isLicenceReady = profile.licenceReady === true;
   const userIsEligible = decision?.outcome === "eligible";
 
-  const allRoles = await db.select().from(rolesTable).where(eq(rolesTable.active, true));
+  const allRoles = await db.select().from(rolesTable).where(and(eq(rolesTable.active, true), HAS_CONTACT_INFO));
   const publishedJobListings = await db
     .select({ job: jobListingsTable, emp: employerProfilesTable })
     .from(jobListingsTable)
@@ -536,6 +563,7 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
       if (row.job.regulator !== regulator) return false;
       const tp = (row.job.targetProfessions ?? []) as string[];
       if (tp.length > 0 && !tp.includes(profile.profession)) return false;
+      if (!employerJobHasContactInfo(row)) return false;
       return true;
     })
     .map((row) => ({

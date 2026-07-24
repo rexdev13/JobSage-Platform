@@ -863,6 +863,45 @@ router.post(
 );
 
 /**
+ * POST /admin/super/contact-backfill
+ * Trigger a contact-extraction backfill for sponsors that have no contact info.
+ * Bypasses the 24h vacancy-check cache so pre-feature checked sponsors get re-processed.
+ * Pass { limit: N } in the request body to control batch size (default 200, max 2000).
+ */
+router.post(
+  "/admin/super/contact-backfill",
+  requireRole("super_admin"),
+  async (req: Request, res: Response): Promise<void> => {
+    writeAuditEvent(req.user!.id, "super_admin_trigger_contact_backfill", undefined, {}).catch(() => {});
+    const rawLimit = typeof req.body?.limit === "number" ? req.body.limit : 200;
+    const limit = Math.max(1, Math.min(2000, rawLimit));
+    res.status(202).json({ queued: true, limit });
+
+    setImmediate(async () => {
+      try {
+        const { startContactBackfill } = await import("../lib/contactBackfillRunner");
+        startContactBackfill(limit);
+      } catch (err) {
+        console.error("[admin] Contact backfill failed:", err instanceof Error ? err.message : err);
+      }
+    });
+  },
+);
+
+/**
+ * GET /admin/super/contact-backfill/status
+ * Poll the progress of an in-flight (or completed) contact backfill run.
+ */
+router.get(
+  "/admin/super/contact-backfill/status",
+  requireRole("super_admin"),
+  async (_req: Request, res: Response): Promise<void> => {
+    const { getContactBackfillStatus } = await import("../lib/contactBackfillRunner");
+    res.json(getContactBackfillStatus());
+  },
+);
+
+/**
  * POST /admin/super/dedup-sponsor-licences
  * One-time utility: removes duplicate organisation_name rows from sponsor_licences,
  * keeping the highest id per name. Checks FK safety first (no bookmarks on

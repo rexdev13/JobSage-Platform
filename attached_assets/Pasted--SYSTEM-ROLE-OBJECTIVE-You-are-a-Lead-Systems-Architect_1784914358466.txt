@@ -1,0 +1,33 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Systems Architect executing a READ-ONLY diagnostic investigation. Our developer noticed that clicking "Apply Now" on some job cards lands on generic employer homepages instead of direct vacancy deep-links. 
+
+Do NOT delete, modify, or update any database records or source code. We want to inspect the raw data and the code logic first to understand the root cause without making assumptions.
+
+---
+
+### INVESTIGATION TASKS
+
+#### TASK 1: Database URL Inspection (Read-Only)
+1. Write and execute a read-only query against `sponsor_licence_vacancies` (and `jobListings` if applicable) to fetch the 15 most recently added vacancies.
+2. Print a clean table or list in the console showing:
+   - `id`
+   - `title`
+   - `company_name` (or sponsor name)
+   - `url` (the exact URL currently stored)
+   - `created_at` (to see if these are old rows or freshly scraped ones)
+3. Count and report how many total active vacancies in the database currently have generic homepage URLs (e.g., ending in `.co.uk/`, `.com/`, `/careers`, `/jobs`, or having a pathname length under 8 characters) versus true deep-links.
+
+#### TASK 2: Scraper Logic Audit (`artifacts/api-server/src/lib/vacancyCheckHelper.ts`)
+1. Read and inspect `vacancyCheckHelper.ts` and `dailyVacancySync.ts`.
+2. Trace exactly how the `url` field is assigned when saving a vacancy:
+   - Is there a fallback behavior where if a specific job link isn't found, it defaults to the sponsor's primary website or careers page?
+   - How does the AI prompt explicitly instruct the model to return URLs? Does it strictly demand deep-links, or does it allow generic portal URLs?
+   - Does `isBlockedVacancyUrl()` currently check for generic homepages, or only aggregator domains (like Indeed/LinkedIn)?
+
+---
+
+### REQUIRED DELIVERABLE
+Provide a clear diagnostic summary containing:
+1. A sample of the actual URLs currently stored in our DB (from Task 1).
+2. The exact code snippets or logic paths in `vacancyCheckHelper.ts` that explain WHY generic URLs are ending up in the database (from Task 2).
+3. Confirm that NO data or code was modified during this investigation.

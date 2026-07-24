@@ -7,32 +7,16 @@ import {
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { eq, and, gt, desc, sql } from "drizzle-orm";
 
+import {
+  BLOCKED_VACANCY_DOMAINS,
+  isBlockedVacancyUrl,
+  isValidVacancyDeepLink,
+} from "./vacancyUrlPolicy";
+
 export const VACANCY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
-/**
- * Third-party aggregator domains whose vacancy URLs we do not want to store.
- * Add new entries here as needed — hostname matching is suffix-based so
- * subdomains (e.g. uk.indeed.com) are also caught.
- */
-export const BLOCKED_VACANCY_DOMAINS = [
-  "indeed.com",
-  "reed.co.uk",
-  "linkedin.com",
-  "cv-library.co.uk",
-  "totaljobs.com",
-  "glassdoor.com",
-] as const;
-
-function isBlockedVacancyUrl(url: string): boolean {
-  try {
-    const { hostname } = new URL(url);
-    return BLOCKED_VACANCY_DOMAINS.some(
-      (domain) => hostname === domain || hostname.endsWith(`.${domain}`),
-    );
-  } catch {
-    return false;
-  }
-}
+// Re-export shared URL policy so existing imports keep working.
+export { BLOCKED_VACANCY_DOMAINS, isBlockedVacancyUrl, isValidVacancyDeepLink };
 
 export type VacancyListItem = {
   title: string;
@@ -77,41 +61,56 @@ function extractOutermostJson(text: string): string | null {
   return null;
 }
 
+export interface VacancyCheckOptions {
+  /**
+   * When true, skip the 24h cache and always run a fresh AI check.
+   * Use for contact-backfill passes where existing checks predate contact extraction.
+   */
+  bypassCache?: boolean;
+}
+
 /**
  * Run a vacancy check for a named sponsor licence company.
  * Returns a cached result (within 24h TTL) if one exists, otherwise
  * calls the OpenAI web search tool, persists the result, and returns it.
  * Safe to call from both HTTP handlers and background schedulers.
+ *
+ * Pass { bypassCache: true } to force a fresh AI check regardless of cache age.
  */
-export async function runVacancyCheck(organisationName: string): Promise<VacancyCheckResult> {
-  const cutoff = new Date(Date.now() - VACANCY_CACHE_TTL_MS);
-  const [cached] = await db
-    .select()
-    .from(sponsorLicenceVacancyChecksTable)
-    .where(
-      and(
-        eq(sponsorLicenceVacancyChecksTable.organisationName, organisationName),
-        gt(sponsorLicenceVacancyChecksTable.checkedAt, cutoff),
-      ),
-    )
-    .orderBy(desc(sponsorLicenceVacancyChecksTable.checkedAt))
-    .limit(1);
+export async function runVacancyCheck(
+  organisationName: string,
+  opts: VacancyCheckOptions = {},
+): Promise<VacancyCheckResult> {
+  if (!opts.bypassCache) {
+    const cutoff = new Date(Date.now() - VACANCY_CACHE_TTL_MS);
+    const [cached] = await db
+      .select()
+      .from(sponsorLicenceVacancyChecksTable)
+      .where(
+        and(
+          eq(sponsorLicenceVacancyChecksTable.organisationName, organisationName),
+          gt(sponsorLicenceVacancyChecksTable.checkedAt, cutoff),
+        ),
+      )
+      .orderBy(desc(sponsorLicenceVacancyChecksTable.checkedAt))
+      .limit(1);
 
-  if (cached) {
-    return {
-      vacanciesFound: cached.vacanciesFound,
-      vacancyCount: cached.vacancyCount,
-      sourceUrl: cached.sourceUrl,
-      summary: cached.summary ?? "No active vacancies found.",
-      checkedAt: cached.checkedAt,
-      fromCache: true,
-      vacancyList: (cached.vacancyList as VacancyListItem[] | null) ?? null,
-      // Contact details are not stored on the check record; callers can read
-      // them from the sponsor licence row if needed.
-      discoveredContactEmail: null,
-      discoveredContactPhone: null,
-      discoveredWebsite: null,
-    };
+    if (cached) {
+      return {
+        vacanciesFound: cached.vacanciesFound,
+        vacancyCount: cached.vacancyCount,
+        sourceUrl: cached.sourceUrl,
+        summary: cached.summary ?? "No active vacancies found.",
+        checkedAt: cached.checkedAt,
+        fromCache: true,
+        vacancyList: (cached.vacancyList as VacancyListItem[] | null) ?? null,
+        // Contact details are not stored on the check record; callers can read
+        // them from the sponsor licence row if needed.
+        discoveredContactEmail: null,
+        discoveredContactPhone: null,
+        discoveredWebsite: null,
+      };
+    }
   }
 
   let vacanciesFound = false;
@@ -144,7 +143,7 @@ After searching, reply with a JSON object ONLY — no markdown, no extra text, j
       "title": "Job title",
       "location": "City, County or null",
       "salary": "£XX,XXX - £XX,XXX or null",
-      "url": "direct link to job posting or null",
+      "url": "EXACT deep-link URL to this specific job advert's own page, or null. STRICT: the URL must open the individual job posting itself (e.g. https://employer.com/careers/vacancy/12345-staff-nurse). NEVER use a generic careers page, homepage, jobs listing page, or search results page. NEVER use aggregator sites (Indeed, Reed, LinkedIn, CV-Library, TotalJobs, Glassdoor, Adzuna, Jobijoba, SimplyHired, Bebee, etc.). If you do not have an exact deep-link to the specific advert, you MUST use null.",
       "description": "2-3 sentence description of the role or null",
       "postedDate": "YYYY-MM-DD or relative like '3 days ago' or null"
     }
@@ -196,20 +195,17 @@ Include up to 8 specific vacancies in vacancyList if found. Use null for missing
       if (Array.isArray(parsed.vacancyList) && parsed.vacancyList.length > 0) {
         vacancyList = parsed.vacancyList
           .filter((v) => typeof v.title === "string" && v.title.trim())
-          .filter((v) => {
-            // Discard vacancies whose URL points to a blocked aggregator domain.
-            // Vacancies with null/undefined/non-http URLs pass through and are
-            // stored with url: null (existing behaviour).
-            if (typeof v.url === "string" && v.url.startsWith("http")) {
-              return !isBlockedVacancyUrl(v.url);
-            }
-            return true;
-          })
           .map((v) => ({
             title: (v.title ?? "").trim(),
             location: typeof v.location === "string" ? v.location.trim() || null : null,
             salary: typeof v.salary === "string" ? v.salary.trim() || null : null,
-            url: typeof v.url === "string" && v.url.startsWith("http") ? v.url.trim() : null,
+            // Only persist URLs that are valid deep-links to a specific job
+            // advert. Aggregator, generic careers/homepage, and malformed URLs
+            // are stored as null instead.
+            url:
+              typeof v.url === "string" && isValidVacancyDeepLink(v.url.trim())
+                ? v.url.trim()
+                : null,
             description: typeof v.description === "string" ? v.description.trim() || null : null,
             postedDate: typeof v.postedDate === "string" ? v.postedDate.trim() || null : null,
           }))
