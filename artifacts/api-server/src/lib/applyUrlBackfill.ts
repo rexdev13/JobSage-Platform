@@ -6,32 +6,10 @@ import { writeAuditEvent } from "./audit";
 
 export const APPLY_URL_BACKFILL_ACTION = "apply_url_backfill";
 
-/**
- * Aggregator/search domains that are never acceptable as an apply URL.
- * Suffix-based matching catches subdomains (e.g. uk.indeed.com).
- */
-export const BLOCKED_APPLY_DOMAINS = [
-  "indeed.com",
-  "reed.co.uk",
-  "linkedin.com",
-  "cv-library.co.uk",
-  "totaljobs.com",
-  "glassdoor.com",
-  "monster.co.uk",
-  "monster.com",
-  "jobsite.co.uk",
-  "fish4.co.uk",
-  "cwjobs.co.uk",
-  "adzuna.co.uk",
-  "adzuna.com",
-  "google.com",
-  "bing.com",
-  "yahoo.com",
-  "seek.com",
-  "jora.com",
-  "careerjet.co.uk",
-  "jobs.nhs.uk", // aggregator for NHS — allow only direct employer domains
-] as const;
+import { BLOCKED_VACANCY_DOMAINS } from "./vacancyUrlPolicy";
+
+// Shared aggregator blocklist — single source of truth in vacancyUrlPolicy.
+export const BLOCKED_APPLY_DOMAINS = BLOCKED_VACANCY_DOMAINS;
 
 export interface BackfillRunSummary {
   found: number;

@@ -4,21 +4,13 @@ import { applicationsTable, speculativeApplicationsTable } from "@workspace/db";
 import { eq, and, inArray, desc, or } from "drizzle-orm";
 import { requireAuthenticated } from "../middlewares/requireRole";
 import { createApplicationReceivedMessage } from "../lib/systemMessages";
-import { isBlockedVacancyUrl } from "../lib/vacancyCheckHelper";
+import { isBlockedVacancyUrl, isValidVacancyDeepLink } from "../lib/vacancyUrlPolicy";
 import net from "node:net";
 import { lookup as dnsLookup } from "node:dns/promises";
 
 const router: IRouter = Router();
 
 // --- Real-time outbound link verification helpers ---
-
-// Homepage-style destinations that are not deep-links to a specific vacancy.
-const GENERIC_PATHS = new Set(["", "/", "/careers", "/careers/", "/search", "/search/"]);
-
-export function isHomepageStyleUrl(parsed: URL): boolean {
-  const path = parsed.pathname.toLowerCase();
-  return GENERIC_PATHS.has(path) || parsed.pathname.length < 8;
-}
 
 const EXPIRATION_PHRASES = [
   "vacancy has closed",
@@ -184,7 +176,7 @@ router.get("/applications/track-outbound", requireAuthenticated, async (req: Req
     return;
   }
   // Reject homepage-style destinations that are not deep-links to a specific vacancy.
-  if (isHomepageStyleUrl(parsed)) {
+  if (!isValidVacancyDeepLink(destinationUrl)) {
     res.status(400).json({
       error: "This apply link points to a generic page rather than a specific vacancy.",
       code: "INVALID_DEEP_LINK",
