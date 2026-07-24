@@ -23,7 +23,7 @@ export const BLOCKED_VACANCY_DOMAINS = [
   "glassdoor.com",
 ] as const;
 
-function isBlockedVacancyUrl(url: string): boolean {
+export function isBlockedVacancyUrl(url: string): boolean {
   try {
     const { hostname } = new URL(url);
     return BLOCKED_VACANCY_DOMAINS.some(

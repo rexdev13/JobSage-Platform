@@ -4,6 +4,7 @@ import { applicationsTable, speculativeApplicationsTable } from "@workspace/db";
 import { eq, and, inArray, desc, or } from "drizzle-orm";
 import { requireAuthenticated } from "../middlewares/requireRole";
 import { createApplicationReceivedMessage } from "../lib/systemMessages";
+import { isBlockedVacancyUrl } from "../lib/vacancyCheckHelper";
 
 const router: IRouter = Router();
 
@@ -12,6 +13,88 @@ const router: IRouter = Router();
 // No CV or cover letter is emailed to employers through this path.
 // JOBSAGE alias masking (personal email/phone redaction) is therefore not applicable here;
 // masking is enforced at the point of any outbound document delivery (speculative CV flow).
+
+// Outbound apply click tracking: records the click as a "website" application,
+// then 302-redirects the candidate to the employer's page. Must be a same-origin
+// navigation (plain <a href>) so the session cookie flows.
+router.get("/applications/track-outbound", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user!.id;
+  const vacancyId = parseInt(String(req.query.vacancyId ?? ""), 10);
+  const destinationUrl = typeof req.query.destinationUrl === "string" ? req.query.destinationUrl : "";
+
+  if (isNaN(vacancyId) || vacancyId <= 0) {
+    res.status(400).json({ error: "vacancyId is required and must be a positive number." });
+    return;
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(destinationUrl);
+  } catch {
+    res.status(400).json({ error: "destinationUrl must be a valid absolute URL." });
+    return;
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    res.status(400).json({ error: "destinationUrl must use http or https." });
+    return;
+  }
+  if (isBlockedVacancyUrl(destinationUrl)) {
+    res.status(400).json({ error: "This destination is a third-party job aggregator and cannot be tracked. Please use the employer's own site." });
+    return;
+  }
+
+  // Look up the role for the company name (best-effort; the redirect must not fail on this)
+  let companyName: string | null = null;
+  if (vacancyId > 1_000_000) {
+    const [job] = await db
+      .select({ employerProfileId: jobListingsTable.employerProfileId })
+      .from(jobListingsTable)
+      .where(eq(jobListingsTable.id, vacancyId - 1_000_000));
+    if (job) {
+      const [ep] = await db
+        .select({ companyName: employerProfilesTable.companyName })
+        .from(employerProfilesTable)
+        .where(eq(employerProfilesTable.id, job.employerProfileId));
+      companyName = ep?.companyName ?? null;
+    }
+  } else {
+    const [role] = await db
+      .select({ employer: rolesTable.employer })
+      .from(rolesTable)
+      .where(eq(rolesTable.id, vacancyId));
+    companyName = role?.employer ?? null;
+  }
+
+  // Upsert: repeat clicks on the same vacancy update the existing record instead of duplicating it
+  const [existing] = await db
+    .select({ id: applicationsTable.id })
+    .from(applicationsTable)
+    .where(
+      and(
+        eq(applicationsTable.userId, userId),
+        eq(applicationsTable.roleId, vacancyId),
+        eq(applicationsTable.applicationType, "website"),
+      ),
+    );
+
+  if (existing) {
+    await db
+      .update(applicationsTable)
+      .set({ applicationUrl: destinationUrl, appliedAt: new Date(), ...(companyName ? { companyName } : {}) })
+      .where(eq(applicationsTable.id, existing.id));
+  } else {
+    await db.insert(applicationsTable).values({
+      userId,
+      roleId: vacancyId,
+      applicationType: "website",
+      applicationUrl: destinationUrl,
+      companyName,
+      status: "applied",
+    });
+  }
+
+  res.redirect(302, destinationUrl);
+});
 
 router.get("/applications", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.id;

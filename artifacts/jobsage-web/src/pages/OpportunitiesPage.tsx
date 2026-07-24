@@ -737,7 +737,7 @@ function RoleCard({
       {applyUrl && (
         <div className="mt-3" onClick={(e) => e.stopPropagation()}>
           <a
-            href={applyUrl}
+            href={`${import.meta.env.BASE_URL.replace(/\/$/, "")}/api/applications/track-outbound?vacancyId=${role.id}&destinationUrl=${encodeURIComponent(applyUrl)}`}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors"
