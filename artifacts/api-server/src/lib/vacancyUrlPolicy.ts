@@ -72,6 +72,40 @@ const GENERIC_PATHS = new Set([
   "/jobs",
   "/vacancies",
   "/search",
+  "/work-for-us",
+  "/work-with-us",
+  "/join-us",
+  "/apply",
+  "/recruitment",
+  "/all-jobs",
+  "/open-positions",
+  "/current-vacancies",
+  "/job-vacancies",
+]);
+
+/**
+ * Generic path slugs that indicate a careers-section landing page even when
+ * nested under other path segments (e.g. /about-us/careers, /pages/jobs,
+ * /fr/careers, /careers.html). Compared against the final path segment with
+ * any file extension stripped.
+ */
+const GENERIC_TERMINAL_SLUGS = new Set([
+  "careers",
+  "career",
+  "jobs",
+  "vacancies",
+  "recruitment",
+  "apply",
+  "work-for-us",
+  "join-us",
+  "work-with-us",
+  "all-jobs",
+  "open-positions",
+  "current-vacancies",
+  "job-vacancies",
+  "job-portal",
+  "search-jobs",
+  "search_jobs",
 ]);
 
 /**
@@ -79,6 +113,7 @@ const GENERIC_PATHS = new Set([
  * - parses as http(s)
  * - hostname is not a blocked aggregator domain
  * - pathname is not a generic careers/homepage path and is at least 8 chars
+ * - final path segment is not a known generic landing-page slug
  */
 export function isValidVacancyDeepLink(url: string | null | undefined): boolean {
   if (!url) return false;
@@ -97,5 +132,14 @@ export function isValidVacancyDeepLink(url: string | null | undefined): boolean 
     return false;
   }
   if (rawPath.length < 8) return false;
+
+  // Reject if the terminal path segment (minus any file extension) is a
+  // known generic slug — catches /about-us/careers, /pages/jobs, careers.html
+  const segments = normalised.split("/");
+  const lastSegment = (segments[segments.length - 1] ?? "").replace(/\.[a-z0-9]+$/i, "");
+  if (GENERIC_TERMINAL_SLUGS.has(lastSegment)) {
+    return false;
+  }
+
   return true;
 }
