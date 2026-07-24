@@ -153,15 +153,20 @@ router.put("/smart-apply/draft/:roleId", requireAuthenticated, async (req: Reque
 // Streaming AI assistant — answers candidate questions using their profile + role context
 router.post("/smart-apply/assistant", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.id;
-  const { roleId, message, questionId, questionText } = req.body as {
+  const { roleId, message, question, questionId, questionText, jobTitle, employer, jobDescription } = req.body as {
     roleId?: number;
     message?: string;
+    question?: string;
     questionId?: string;
     questionText?: string;
+    jobTitle?: string;
+    employer?: string;
+    jobDescription?: string;
   };
 
-  if (!message?.trim()) {
-    res.status(400).json({ error: "message is required" });
+  const userMessage = (message ?? question)?.trim();
+  if (!userMessage) {
+    res.status(400).json({ error: "message or question is required" });
     return;
   }
 
@@ -172,6 +177,14 @@ router.post("/smart-apply/assistant", requireAuthenticated, async (req: Request,
   }
 
   let roleContext = { title: "UK Healthcare Role", location: "UK", regulator: "GMC/NMC/HCPC", description: null as string | null, sponsorshipOffered: false };
+  let scrapedSummary: string | null = null;
+  if (!roleId && (jobTitle?.trim() || employer?.trim() || jobDescription?.trim())) {
+    scrapedSummary = [
+      `Role: ${jobTitle?.trim() || "Unknown role"}`,
+      employer?.trim() ? `Employer: ${employer.trim()}` : null,
+      jobDescription?.trim() ? `Job description excerpt: ${jobDescription.trim().slice(0, 1500)}` : null,
+    ].filter(Boolean).join("\n");
+  }
   if (roleId && roleId > 1_000_000) {
     const jobId = roleId - 1_000_000;
     const [job] = await db.select().from(jobListingsTable).where(eq(jobListingsTable.id, jobId));
@@ -189,7 +202,7 @@ router.post("/smart-apply/assistant", requireAuthenticated, async (req: Request,
 - Requires sponsorship: ${profile.requiresSponsorship ? "Yes" : "No"}
 ${profile.preferredRegion?.length ? `- Preferred region: ${Array.isArray(profile.preferredRegion) ? profile.preferredRegion.join(", ") : profile.preferredRegion}` : ""}`.trim();
 
-  const roleSummary = `Role: ${roleContext.title} | Location: ${roleContext.location} | Regulator: ${roleContext.regulator} | Sponsorship: ${roleContext.sponsorshipOffered ? "offered" : "not offered"}${roleContext.description ? `\nJob description excerpt: ${roleContext.description.slice(0, 500)}` : ""}`;
+  const roleSummary = scrapedSummary ?? `Role: ${roleContext.title} | Location: ${roleContext.location} | Regulator: ${roleContext.regulator} | Sponsorship: ${roleContext.sponsorshipOffered ? "offered" : "not offered"}${roleContext.description ? `\nJob description excerpt: ${roleContext.description.slice(0, 500)}` : ""}`;
 
   const currentQCtx = questionId && questionText
     ? `\nThe candidate is currently answering this application question: "${questionText}" (id: ${questionId}). When asked to help with this question, give a concise, professional answer they can use directly.`
@@ -220,7 +233,7 @@ Guidelines:
       stream: true,
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: message.trim() },
+        { role: "user", content: userMessage },
       ],
     });
 
