@@ -1,6 +1,7 @@
 - [Drizzle array column inserts](drizzle-array-column.md) — text("col").array() columns require `as any` cast in .values()/.set() due to drizzle TypeScript type narrowing gap.
 - [GCS File download pattern](gcs-file-download.md) — use storage.downloadObject(gcsFile) then response.arrayBuffer(), not gcsFile.arrayBuffer()
 - [Pre-existing TS errors](pre-existing-ts-errors.md) — do NOT fix: coverLetter.ts, employer.ts, adminAudit.ts, remediation.ts, smartApply.ts, EmployerJobFormPage.tsx, button-group.tsx, calendar.tsx
+- [Stale @workspace/db dist types](db-dist-stale-types.md) — phantom TS2339 on schema columns means lib/db dist is stale; `cd lib/db && npx tsc --build --force`.
 - [api-client-react rebuild](api-client-react-rebuild.md) — any type changes require cd lib/api-client-react && npx tsc --build to regenerate dist/*.d.ts
 - [api-client-react base URL](api-client-base-url.md) — must call setBaseUrl() in main.tsx before mount; omitting it causes all hooks to hit /api/... instead of /jobsage/api/...
 - [drizzle-kit push prompts](drizzle-push-interactive.md) — push blocks on raw-TTY prompts; apply DDL manually via SQL then re-run push to confirm zero drift.

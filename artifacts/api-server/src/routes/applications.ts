@@ -5,8 +5,149 @@ import { eq, and, inArray, desc, or } from "drizzle-orm";
 import { requireAuthenticated } from "../middlewares/requireRole";
 import { createApplicationReceivedMessage } from "../lib/systemMessages";
 import { isBlockedVacancyUrl } from "../lib/vacancyCheckHelper";
+import net from "node:net";
+import { lookup as dnsLookup } from "node:dns/promises";
 
 const router: IRouter = Router();
+
+// --- Real-time outbound link verification helpers ---
+
+// Homepage-style destinations that are not deep-links to a specific vacancy.
+const GENERIC_PATHS = new Set(["", "/", "/careers", "/careers/", "/search", "/search/"]);
+
+export function isHomepageStyleUrl(parsed: URL): boolean {
+  const path = parsed.pathname.toLowerCase();
+  return GENERIC_PATHS.has(path) || parsed.pathname.length < 8;
+}
+
+const EXPIRATION_PHRASES = [
+  "vacancy has closed",
+  "this vacancy is closed",
+  "no longer accepting applications",
+  "no longer available",
+  "deadline has passed",
+  "position has been filled",
+  "job has expired",
+  "this job posting has expired",
+  "applications are now closed",
+] as const;
+
+// SSRF guard: the health check fetches a user-influenced URL server-side, so
+// only publicly routable hosts are ever fetched. Private, loopback, link-local,
+// CGNAT, and unresolvable hosts are rejected outright — no legitimate employer
+// apply link points at them.
+export function isPrivateIp(ip: string): boolean {
+  if (net.isIPv4(ip)) {
+    const parts = ip.split(".").map(Number);
+    const [a, b] = [parts[0]!, parts[1]!];
+    return (
+      a === 0 || a === 10 || a === 127 ||
+      (a === 100 && b >= 64 && b <= 127) || // CGNAT
+      (a === 169 && b === 254) || // link-local / cloud metadata
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168)
+    );
+  }
+  const lower = ip.toLowerCase();
+  return (
+    lower === "::" || lower === "::1" ||
+    lower.startsWith("fe80") || lower.startsWith("fc") || lower.startsWith("fd") ||
+    (lower.startsWith("::ffff:") && isPrivateIp(lower.slice(7)))
+  );
+}
+
+export async function isPubliclyRoutableHost(hostname: string): Promise<boolean> {
+  const host = hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".internal")) {
+    return false;
+  }
+  if (net.isIP(host)) return !isPrivateIp(host);
+  if (!host.includes(".")) return false; // bare intranet hostnames
+  try {
+    const addrs = await dnsLookup(host, { all: true });
+    return addrs.length > 0 && addrs.every((a) => !isPrivateIp(a.address));
+  } catch {
+    return false; // unresolvable — dead for the candidate anyway
+  }
+}
+
+const HEALTH_CHECK_TIMEOUT_MS = 2500;
+const BODY_SNIFF_BYTES = 15 * 1024;
+const BROWSER_USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+
+const MAX_REDIRECT_HOPS = 5;
+
+type HealthVerdict = { verdict: "alive" | "dead" | "unsafe"; reason: string };
+
+/**
+ * Fetch the destination and decide if it is dead (404/410/5xx, or an
+ * expiration banner in the first 15KB of body text). Redirects are followed
+ * manually with a per-hop SSRF check so a public host cannot bounce the
+ * server-side fetch into a private/internal target ("unsafe" verdict).
+ * Throws on timeout or network/bot-block failure — callers treat throws as
+ * "inconclusive" and allow the redirect to proceed.
+ */
+async function checkDestinationDead(url: string): Promise<HealthVerdict> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), HEALTH_CHECK_TIMEOUT_MS);
+  try {
+    let currentUrl = url;
+    for (let hop = 0; hop <= MAX_REDIRECT_HOPS; hop++) {
+      // Per-hop SSRF check (the first hop is pre-validated by the caller, but
+      // re-checking here keeps this function safe on its own).
+      const target = new URL(currentUrl);
+      if (!(await isPubliclyRoutableHost(target.hostname))) {
+        return { verdict: "unsafe", reason: `redirect to non-public host ${target.hostname}` };
+      }
+      const resp = await fetch(currentUrl, {
+        signal: controller.signal,
+        redirect: "manual",
+        headers: {
+          "User-Agent": BROWSER_USER_AGENT,
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en-GB,en;q=0.9",
+        },
+      });
+      if (resp.status >= 300 && resp.status < 400) {
+        const location = resp.headers.get("location");
+        resp.body?.cancel().catch(() => {});
+        if (!location) return { verdict: "alive", reason: "" }; // 3xx without Location — inconclusive
+        currentUrl = new URL(location, currentUrl).toString();
+        continue;
+      }
+      if (resp.status === 404 || resp.status === 410 || resp.status >= 500) {
+        resp.body?.cancel().catch(() => {});
+        return { verdict: "dead", reason: `HTTP ${resp.status}` };
+      }
+      const contentType = resp.headers.get("content-type") ?? "";
+      if (contentType.includes("html") || contentType.includes("text")) {
+        let text = "";
+        let bytesRead = 0;
+        const reader = resp.body?.getReader();
+        if (reader) {
+          const decoder = new TextDecoder();
+          while (bytesRead < BODY_SNIFF_BYTES) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            bytesRead += value.byteLength;
+            text += decoder.decode(value, { stream: true });
+          }
+          reader.cancel().catch(() => {});
+        }
+        const lower = text.toLowerCase();
+        const phrase = EXPIRATION_PHRASES.find((p) => lower.includes(p));
+        if (phrase) return { verdict: "dead", reason: `expiration phrase: "${phrase}"` };
+      } else {
+        resp.body?.cancel().catch(() => {});
+      }
+      return { verdict: "alive", reason: "" };
+    }
+    return { verdict: "dead", reason: "too many redirects" };
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 // Apply-workflow privacy note:
 // POST /applications records a job application in the database only.
@@ -42,15 +183,36 @@ router.get("/applications/track-outbound", requireAuthenticated, async (req: Req
     res.status(400).json({ error: "This destination is a third-party job aggregator and cannot be tracked. Please use the employer's own site." });
     return;
   }
+  // Reject homepage-style destinations that are not deep-links to a specific vacancy.
+  if (isHomepageStyleUrl(parsed)) {
+    res.status(400).json({
+      error: "This apply link points to a generic page rather than a specific vacancy.",
+      code: "INVALID_DEEP_LINK",
+    });
+    return;
+  }
 
-  // Look up the role for the company name (best-effort; the redirect must not fail on this)
+  // SSRF guard: never health-check (or redirect to) private, loopback,
+  // link-local, or unresolvable hosts.
+  if (!(await isPubliclyRoutableHost(parsed.hostname))) {
+    res.status(400).json({
+      error: "This apply link does not point to a publicly reachable employer site.",
+      code: "INVALID_DEEP_LINK",
+    });
+    return;
+  }
+
+  // Look up the role for the company name and its canonical stored apply URL
+  // (handles both id ranges: >1M = employer job listings, otherwise imported roles).
   let companyName: string | null = null;
+  let storedApplyUrl: string | null = null;
   if (vacancyId > 1_000_000) {
     const [job] = await db
-      .select({ employerProfileId: jobListingsTable.employerProfileId })
+      .select({ employerProfileId: jobListingsTable.employerProfileId, applyUrl: jobListingsTable.applyUrl })
       .from(jobListingsTable)
       .where(eq(jobListingsTable.id, vacancyId - 1_000_000));
     if (job) {
+      storedApplyUrl = job.applyUrl ?? null;
       const [ep] = await db
         .select({ companyName: employerProfilesTable.companyName })
         .from(employerProfilesTable)
@@ -59,10 +221,73 @@ router.get("/applications/track-outbound", requireAuthenticated, async (req: Req
     }
   } else {
     const [role] = await db
-      .select({ employer: rolesTable.employer })
+      .select({ employer: rolesTable.employer, applyUrl: rolesTable.applyUrl })
       .from(rolesTable)
       .where(eq(rolesTable.id, vacancyId));
     companyName = role?.employer ?? null;
+    storedApplyUrl = role?.applyUrl ?? null;
+  }
+
+  // Strict binding: the destination must exactly equal the vacancy's canonical
+  // stored apply URL. Missing vacancy, missing/non-http stored URL, or any
+  // mismatch is rejected — the query param must never be able to point the
+  // server (or the candidate) somewhere the vacancy record does not.
+  const canonical = storedApplyUrl?.trim() ?? "";
+  if (!/^https?:\/\//i.test(canonical) || canonical !== destinationUrl) {
+    res.status(400).json({
+      error: "This apply link does not match the vacancy's registered apply URL.",
+      code: "INVALID_DEEP_LINK",
+    });
+    return;
+  }
+
+  // Real-time health & expiration check. Timeouts and network/bot-block
+  // failures are inconclusive: log a warning and let the redirect proceed.
+  let dead = false;
+  let deadReason = "";
+  try {
+    const result = await checkDestinationDead(destinationUrl);
+    if (result.verdict === "unsafe") {
+      console.warn(`[track-outbound] blocked unsafe redirect chain for ${destinationUrl}: ${result.reason}`);
+      res.status(400).json({
+        error: "This apply link does not point to a publicly reachable employer site.",
+        code: "INVALID_DEEP_LINK",
+      });
+      return;
+    }
+    dead = result.verdict === "dead";
+    deadReason = result.reason;
+  } catch (err) {
+    console.warn(
+      `[track-outbound] health check inconclusive for ${destinationUrl}, allowing redirect:`,
+      err instanceof Error ? err.message : err,
+    );
+  }
+  if (dead) {
+    try {
+      if (vacancyId > 1_000_000) {
+        await db
+          .update(jobListingsTable)
+          .set({ status: "closed" })
+          .where(eq(jobListingsTable.id, vacancyId - 1_000_000));
+      } else {
+        await db
+          .update(rolesTable)
+          .set({ active: false })
+          .where(eq(rolesTable.id, vacancyId));
+      }
+      console.info(`[track-outbound] vacancy ${vacancyId} marked expired (${deadReason}) — ${destinationUrl}`);
+    } catch (expireErr) {
+      console.warn(
+        `[track-outbound] failed to mark vacancy ${vacancyId} expired:`,
+        expireErr instanceof Error ? expireErr.message : expireErr,
+      );
+    }
+    res.status(410).json({
+      error: "This vacancy is no longer accepting applications (closed by employer).",
+      code: "JOB_EXPIRED",
+    });
+    return;
   }
 
   // Upsert: repeat clicks on the same vacancy update the existing record instead of duplicating it
