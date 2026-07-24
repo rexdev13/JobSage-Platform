@@ -11,6 +11,7 @@ import { runDocumentAclBackfill } from "./lib/documentAclBackfill";
 import { runProfilePhotoAclBackfill } from "./lib/profilePhotoAclBackfill";
 import { startApplyUrlBackfillScheduler } from "./lib/applyUrlBackfillScheduler";
 import { startContactBackfill } from "./lib/contactBackfillRunner";
+import { runStartupSchemaDriftCheck } from "./lib/schemaDriftCheck";
 import { db, sponsorLicenceSyncLogTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 
@@ -58,6 +59,7 @@ async function triggerSyncIfStale(): Promise<void> {
 
 app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
+  void runStartupSchemaDriftCheck();
   seedRulesets().catch((err) => {
     console.error("[seed] Failed to seed rulesets:", err);
   });

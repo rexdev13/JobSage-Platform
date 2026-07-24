@@ -3,4 +3,5 @@
 - [Pre-existing TS errors](pre-existing-ts-errors.md) — do NOT fix: coverLetter.ts, employer.ts, adminAudit.ts, remediation.ts, smartApply.ts, EmployerJobFormPage.tsx, button-group.tsx, calendar.tsx
 - [api-client-react rebuild](api-client-react-rebuild.md) — any type changes require cd lib/api-client-react && npx tsc --build to regenerate dist/*.d.ts
 - [api-client-react base URL](api-client-base-url.md) — must call setBaseUrl() in main.tsx before mount; omitting it causes all hooks to hit /api/... instead of /jobsage/api/...
+- [drizzle-kit push prompts](drizzle-push-interactive.md) — push blocks on raw-TTY prompts; apply DDL manually via SQL then re-run push to confirm zero drift.
 - [api-server test patterns](api-server-test-patterns.md) — Auth via `Authorization: Bearer` (not cookie); db.execute must be mocked; employer/profile response shapes; Zod schema needs Date fields.
