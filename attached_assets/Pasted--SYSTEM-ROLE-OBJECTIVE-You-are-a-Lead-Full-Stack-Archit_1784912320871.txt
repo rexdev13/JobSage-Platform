@@ -1,0 +1,31 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Full-Stack Architect. We need to upgrade our newly created outbound tracking endpoint (`GET /api/applications/track-outbound` in `artifacts/api-server/src/routes/applications.ts`) to guarantee that candidates ONLY land on active, valid, direct vacancy deep-links. We must actively trap broken links, generic homepages, and expired job listings in real-time before redirecting.
+
+---
+
+### EXECUTION TASKS
+
+#### TASK 1: Upgrade `GET /api/applications/track-outbound` with Real-Time Link Verification
+In `artifacts/api-server/src/routes/applications.ts`, modify the `/api/applications/track-outbound` handler to execute three strict validation checks before issuing the HTTP 302 redirect:
+
+1. **Deep-Link Validation (No Homepages):**
+   - Parse `destinationUrl` using `new URL()`.
+   - If `pathname` is empty, `"/"`, `"/careers"`, `"/search"`, or has a pathname length under 8 characters (indicating a generic landing page rather than a specific job advert), reject with `400 Bad Request` and JSON `{ error: 'INVALID_DEEP_LINK', message: 'Job link does not point to a direct vacancy.' }`.
+
+2. **Real-Time Health & Expiration Check (2500ms Timeout):**
+   - Execute a fast lightweight `fetch(destinationUrl, { method: 'GET', signal: AbortSignal.timeout(2500), headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) JOBSAGE-Bot/1.0' } })`.
+   - **Check A (HTTP Status):** If response status is `404`, `410`, or `>= 500`, flag as dead.
+   - **Check B (Soft Expiration Banners):** Read the first 15KB of text from the response body. Run a regex test against common employer expiration phrases: `/vacancy has closed|no longer accepting applications|job is closed|deadline has passed|position is closed|expired vacancy/i`.
+   - If Check A or Check B triggers: 
+     - **Auto-Kill in DB:** Asynchronously update the corresponding vacancy record in `sponsor_licence_vacancies` (or `jobListings` if applicable) setting `status = 'expired'` (or `is_active = false`).
+     - Abort the redirect and respond with `410 Gone` and JSON `{ error: 'JOB_EXPIRED', message: 'This employer has closed this vacancy.' }`.
+   - *Fallback Note:* If the `fetch` hits the 2500ms timeout or fails due to strict employer bot-blocking/Cloudflare, catch the error, log a warning, and gracefully allow the 302 redirect to proceed so we don't block legitimate users due to network latency.
+
+#### TASK 2: Frontend Error Handling (`artifacts/jobsage-web/src/pages/OpportunitiesPage.tsx`)
+1. Ensure the "Apply" button handler gracefully intercepts `410 Gone` or `400 Bad Request` responses from `/api/applications/track-outbound`.
+2. If an error is returned, prevent opening the broken window/tab and display an alert or toast notification telling the candidate: *"This vacancy is no longer accepting applications (closed by employer)."* and visually grey out or remove the job card from their active queue.
+
+---
+
+### REQUIRED DELIVERABLE
+Run `npm run typecheck` across both `api-server` and `jobsage-web` to verify zero TypeScript errors. Output the updated code snippets for the `/api/applications/track-outbound` verification logic and confirm that homepage URLs and expired text banners are successfully trapped.

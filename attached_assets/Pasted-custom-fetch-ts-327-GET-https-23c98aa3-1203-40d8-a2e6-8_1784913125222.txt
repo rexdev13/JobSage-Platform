@@ -1,0 +1,45 @@
+custom-fetch.ts:327 
+ GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/applications 500 (Internal Server Error)
+custom-fetch.ts:327 
+ GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/my-progress-report 500 (Internal Server Error)
+custom-fetch.ts:327 
+ GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/my-analytics 500 (Internal Server Error)
+DashboardPage.tsx:69 
+ GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/opportunities/recommended?limit=3 500 (Internal Server Error)
+custom-fetch.ts:327 
+ GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/roles 500 (Internal Server Error)
+custom-fetch.ts:327 
+ GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/remediation/forward-eligibility 500 (Internal Server Error)
+custom-fetch.ts:327 
+ GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/applications 500 (Internal Server Error)
+custom-fetch.ts:327 
+ GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/my-progress-report 500 (Internal Server Error)
+custom-fetch.ts:327 
+ GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/my-analytics 500 (Internal Server Error)
+DashboardPage.tsx:69 
+ GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/opportunities/recommended?limit=3 500 (Internal Server Error)
+custom-fetch.ts:327 
+ GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/roles 500 (Internal Server Error)
+custom-fetch.ts:327 
+ GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/remediation/forward-eligibility 500 (Internal Server Error)
+custom-fetch.ts:327 
+ GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/applications 500 (Internal Server Error)
+custom-fetch.ts:327 
+ GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/my-progress-report 500 (Internal Server Error)
+custom-fetch.ts:327 
+ GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/my-analytics 500 (Internal Server Error)
+DashboardPage.tsx:69 
+ GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/opportunities/recommended?limit=3 500 (Internal Server Error)
+custom-fetch.ts:327 
+ GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/roles 500 (Internal Server Error)
+custom-fetch.ts:327 
+ GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/remediation/forward-eligibility 500 (Internal Server Error)
+custom-fetch.ts:327 
+ GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/applications 500 (Internal Server Error)
+﻿
+
+Press ctrl i to turn on code suggestions. Press ctrl x to disable code suggestions.
+ctrl
+i
+ to turn on code suggestions. Don't show again
+
