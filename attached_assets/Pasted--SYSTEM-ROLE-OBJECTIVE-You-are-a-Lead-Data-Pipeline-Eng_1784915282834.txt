@@ -1,0 +1,32 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Data Pipeline Engineer. Now that we have hardened our ingestion prompt, unified the 20+ domain blocklist (`BLOCKED_APPLY_DOMAINS`), and implemented `isValidVacancyDeepLink()`, we need to trigger a manual test scrape and verify that newly ingested vacancies are strictly 100% direct employer deep-links.
+
+---
+
+### EXECUTION TASKS
+
+#### TASK 1: Trigger a Manual Test Scrape
+1. Locate and execute our vacancy discovery runner (e.g., run `artifacts/api-server/src/lib/vacancyCheckAllRunner.ts` or trigger the manual sync function via terminal/script for a small batch of 10–15 sponsor companies to test).
+2. Monitor the console execution logs as the AI discovers and processes URLs. Verify that the newly hardened AI prompt instructions are active and that any fallback or lazy attempts to return generic `/careers` homepages or aggregator domains are programmatically caught and rejected by `isValidVacancyDeepLink()` before saving.
+
+#### TASK 2: Verification Query on Fresh Data (Read-Only)
+1. Once the manual scrape batch completes, run a query against `sponsor_licence_vacancies` to fetch the **10 most recently inserted vacancies** (ordered by `created_at DESC`).
+2. Print a clean summary table in the console showing:
+   - `id`
+   - `title`
+   - `company_name`
+   - `url` (the exact string stored)
+   - `created_at`
+3. Verify and explicitly confirm in your report:
+   - Did any generic homepages (`/`, `/careers`, `/jobs`, or short pathnames) make it through?
+   - Did any third-party aggregators (Adzuna, Jobijoba, SimplyHired, Indeed, LinkedIn, etc.) bypass the filter?
+   - Are 100% of the newly saved rows true, verifiable requisition deep-links?
+
+#### TASK 3: Test the Outbound Redirect Route on Fresh Data
+1. Take one of the newly scraped `id` values and execute a local test request against `GET /api/applications/track-outbound?vacancyId=<ID>&destinationUrl=<URL>`.
+2. Confirm that the server returns a clean `HTTP 302 Found` redirect straight to the employer's advert page without throwing any deep-link or aggregator validation errors.
+
+---
+
+### REQUIRED DELIVERABLE
+Output the execution logs from the manual scrape and the verification table of the 10 newest database rows. Confirm that zero generic landing pages or aggregators were inserted during this run.
