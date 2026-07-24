@@ -103,10 +103,17 @@ router.get("/sponsor-licences/:id/vacancies", requireAuthenticated, async (req, 
       return;
     }
 
+    // Candidates only see live or not-yet-verified vacancies; dead ones are
+    // hidden pending an admin review/restore flow.
     const vacancyRows = await db
       .select()
       .from(sponsorLicenceVacanciesTable)
-      .where(eq(sponsorLicenceVacanciesTable.organisationName, company.organisationName));
+      .where(
+        and(
+          eq(sponsorLicenceVacanciesTable.organisationName, company.organisationName),
+          sql`${sponsorLicenceVacanciesTable.liveness} <> 'dead'`,
+        ),
+      );
 
     const scoreRows = await db
       .select()
@@ -225,13 +232,15 @@ Only include information you are confident about. Return null for any field you 
 
 router.get("/sponsor-licences/vacancy-stats", requireAuthenticated, async (_req, res) => {
   try {
-    // Aggregate from all persisted sponsor_licence_vacancies rows (no TTL — all stored records)
+    // Aggregate from persisted sponsor_licence_vacancies rows (no TTL — all
+    // stored records), excluding vacancies the liveness sweep marked dead.
     const countRows = await db
       .select({
         organisationName: sponsorLicenceVacanciesTable.organisationName,
         vacancyCount: sql<number>`cast(count(*) as integer)`,
       })
       .from(sponsorLicenceVacanciesTable)
+      .where(sql`${sponsorLicenceVacanciesTable.liveness} <> 'dead'`)
       .groupBy(sponsorLicenceVacanciesTable.organisationName);
 
     const companiesWithVacancies = countRows.length;
@@ -447,6 +456,7 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
     if (industry) conditions.push(eq(sponsorLicencesTable.industry, industry));
     if (regions.length > 0) conditions.push(inArray(sponsorLicencesTable.region, regions));
     if (filterVacancies) {
+      // Latest AI-reported count, minus vacancies the liveness sweep marked dead.
       conditions.push(
         sql`0 < COALESCE((
           SELECT vacancy_count
@@ -454,7 +464,12 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
           WHERE organisation_name = ${sponsorLicencesTable.organisationName}
           ORDER BY checked_at DESC
           LIMIT 1
-        ), 0)`,
+        ), 0) - (
+          SELECT COUNT(*)
+          FROM sponsor_licence_vacancies
+          WHERE organisation_name = ${sponsorLicencesTable.organisationName}
+            AND liveness = 'dead'
+        )`,
       );
     }
 
@@ -485,10 +500,24 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
           FROM sponsor_licence_vacancy_checks
           ORDER BY organisation_name, checked_at DESC`,
     );
+    // Vacancies the liveness sweep marked dead per org — subtracted from the
+    // AI-reported count so badges only reflect live (or not-yet-verified) roles.
+    const deadVacancyRows = await db.execute<{ organisation_name: string; dead_count: number }>(
+      sql`SELECT organisation_name, cast(count(*) as integer) AS dead_count
+          FROM sponsor_licence_vacancies
+          WHERE liveness = 'dead'
+          GROUP BY organisation_name`,
+    );
+    const deadCounts = new Map<string, number>(
+      deadVacancyRows.rows.map((r) => [r.organisation_name.toLowerCase().trim(), r.dead_count]),
+    );
     const storedVacancyCounts = new Map<string, number>(
       storedVacancyRows.rows
         .filter((r) => r.vacancy_count !== null && r.vacancy_count > 0)
-        .map((r) => [r.organisation_name.toLowerCase().trim(), r.vacancy_count!]),
+        .map((r) => {
+          const key = r.organisation_name.toLowerCase().trim();
+          return [key, Math.max(0, r.vacancy_count! - (deadCounts.get(key) ?? 0))];
+        }),
     );
     const lastVacancyCheckedAtByOrg = new Map<string, string>(
       storedVacancyRows.rows.map((r) => [r.organisation_name.toLowerCase().trim(), r.checked_at]),

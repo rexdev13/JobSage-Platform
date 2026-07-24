@@ -229,6 +229,28 @@ Include up to 8 specific vacancies in vacancyList if found. Use null for missing
 
   // Persist individual vacancy rows — delete stale snapshot first, then insert current one.
   // Keeps sponsor_licence_vacancies as a point-in-time snapshot (not accumulating history).
+  // Liveness carry-over: rows in the new snapshot whose URL was already
+  // verified by the liveness sweep keep that verdict (live or dead) and its
+  // timestamp/reason instead of resetting to "unverified" on every refresh.
+  const priorLiveness = new Map<
+    string,
+    { liveness: "unverified" | "live" | "dead"; lastVerifiedAt: Date | null; livenessReason: string | null }
+  >();
+  const priorRows = await db
+    .select({
+      url: sponsorLicenceVacanciesTable.url,
+      liveness: sponsorLicenceVacanciesTable.liveness,
+      lastVerifiedAt: sponsorLicenceVacanciesTable.lastVerifiedAt,
+      livenessReason: sponsorLicenceVacanciesTable.livenessReason,
+    })
+    .from(sponsorLicenceVacanciesTable)
+    .where(eq(sponsorLicenceVacanciesTable.organisationName, organisationName));
+  for (const r of priorRows) {
+    if (r.url && r.liveness !== "unverified") {
+      priorLiveness.set(r.url, { liveness: r.liveness, lastVerifiedAt: r.lastVerifiedAt, livenessReason: r.livenessReason });
+    }
+  }
+
   await db
     .delete(sponsorLicenceVacanciesTable)
     .where(eq(sponsorLicenceVacanciesTable.organisationName, organisationName));
@@ -236,16 +258,22 @@ Include up to 8 specific vacancies in vacancyList if found. Use null for missing
   if (vacancyList && vacancyList.length > 0) {
     const checkDate = new Date().toISOString().split("T")[0]!;
     await db.insert(sponsorLicenceVacanciesTable).values(
-      vacancyList.map((v) => ({
-        organisationName,
-        checkDate,
-        title: v.title,
-        location: v.location ?? null,
-        salary: v.salary ?? null,
-        url: v.url ?? null,
-        description: v.description ?? null,
-        postedDate: v.postedDate ?? null,
-      })),
+      vacancyList.map((v) => {
+        const prior = v.url ? priorLiveness.get(v.url) : undefined;
+        return {
+          organisationName,
+          checkDate,
+          title: v.title,
+          location: v.location ?? null,
+          salary: v.salary ?? null,
+          url: v.url ?? null,
+          description: v.description ?? null,
+          postedDate: v.postedDate ?? null,
+          liveness: prior?.liveness ?? ("unverified" as const),
+          lastVerifiedAt: prior?.lastVerifiedAt ?? null,
+          livenessReason: prior?.livenessReason ?? null,
+        };
+      }),
     );
   }
 

@@ -4,6 +4,7 @@ import { startAlertScheduler } from "./lib/alertScheduler";
 import { startSponsorLicenceScheduler } from "./lib/sponsorLicenceScheduler";
 import { startVacancyCheckScheduler } from "./lib/vacancyCheckScheduler";
 import { startDailyVacancySyncScheduler } from "./lib/dailyVacancySync";
+import { startVacancyLivenessSweepScheduler } from "./lib/vacancyLivenessSweep";
 import { runSponsorLicenceSync } from "./lib/sponsorLicenceSync";
 import { runIndustryBackfill } from "./lib/industryBackfill";
 import { runRegionBackfill } from "./lib/regionBackfill";
@@ -67,6 +68,7 @@ app.listen(port, () => {
   startSponsorLicenceScheduler();
   startVacancyCheckScheduler();
   startDailyVacancySyncScheduler();
+  startVacancyLivenessSweepScheduler();
   startApplyUrlBackfillScheduler();
   // Run contact backfill on startup for sponsors that have no contact info yet
   const contactBackfillResult = startContactBackfill(500);
