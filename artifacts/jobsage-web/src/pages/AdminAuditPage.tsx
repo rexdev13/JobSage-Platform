@@ -136,7 +136,7 @@ function ConsentLogTab() {
 
   const { data, isLoading, isError } = useListConsentLog({ page, pageSize });
 
-  const totalPages = data ? Math.ceil(data.total / pageSize) : 1;
+  const totalPages = data && typeof data !== "string" ? Math.ceil(data.total / pageSize) : 1;
 
   return (
     <div className="space-y-4">
@@ -225,7 +225,7 @@ function AdminActionsTab() {
 
   const { data, isLoading, isError } = useListAdminAuditEvents({ page, pageSize });
 
-  const totalPages = data ? Math.ceil(data.total / pageSize) : 1;
+  const totalPages = data && typeof data !== "string" ? Math.ceil(data.total / pageSize) : 1;
 
   const handleCsvDownload = () => {
     const baseUrl = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -254,7 +254,7 @@ function AdminActionsTab() {
           <p className="text-sm text-muted-foreground">Could not load admin actions.</p>
         </Card>
       )}
-      {!isLoading && !isError && data && (
+      {!isLoading && !isError && data && typeof data !== "string" && (
         <>
           <p className="text-xs text-muted-foreground">{data.total} admin action records total</p>
           <div className="rounded-lg border border-border overflow-hidden">

@@ -1182,7 +1182,7 @@ export default function OpportunitiesPage() {
   const [localDismissedIds, setLocalDismissedIds] = useState<Set<number>>(new Set());
   const { data: aiMatchesData, isLoading: aiMatchesLoading } = useGetMyMatches(
     { limit: 200 },
-    { query: { enabled: isAuthenticated && !authLoading, retry: false } },
+    { query: { queryKey: getGetMyMatchesQueryKey({ limit: 200 }), enabled: isAuthenticated && !authLoading, retry: false } },
   );
   const dismissMutation = useDismissMatch();
 

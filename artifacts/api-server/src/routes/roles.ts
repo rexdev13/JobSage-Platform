@@ -184,7 +184,7 @@ router.get("/roles", async (req, res): Promise<void> => {
       const tp = (job.targetProfessions ?? []) as string[];
       if (tp.length > 0 && !tp.includes(profile.profession)) return false;
       const tr = (job.targetRegions ?? []) as string[];
-      if (tr.length > 0 && (!profile.preferredRegion || !tr.includes(profile.preferredRegion))) return false;
+      if (tr.length > 0 && (!profile.preferredRegion || !(profile.preferredRegion as string[]).some((r) => tr.includes(r)))) return false;
       if (!employerJobHasContactInfo(row)) return false;
       return true;
     })

@@ -545,7 +545,8 @@ router.put("/employer/jobs/:jobId/applicants/:applicationId/stage", requireEmplo
 
   const [updated] = await db
     .update(applicationsTable)
-    .set(updateData)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .set(updateData as any)
     .where(and(eq(applicationsTable.id, applicationId), eq(applicationsTable.roleId, jobId + 1_000_000)))
     .returning();
 
@@ -819,7 +820,12 @@ router.get("/employer/talent-search", requireEmployer(), async (req, res): Promi
       if (eligibilityStatus === "not_eligible" && isEligible) return null;
       if (requiresSponsorship === "true" && !p.requiresSponsorship) return null;
       if (requiresSponsorship === "false" && p.requiresSponsorship) return null;
-      if (preferredRegion && p.preferredRegion && !p.preferredRegion.toLowerCase().includes(preferredRegion.toLowerCase())) return null;
+      if (preferredRegion && p.preferredRegion) {
+        const regionStr = Array.isArray(p.preferredRegion)
+          ? p.preferredRegion.join(" ")
+          : (p.preferredRegion as string);
+        if (!regionStr.toLowerCase().includes(preferredRegion.toLowerCase())) return null;
+      }
 
       const { score, rationale } = await getAiMatchScore(
         { profession: p.profession, specialty: p.specialty, experienceYears: p.experienceYears, qualificationCountry: p.qualificationCountry, registrationStatus: p.registrationStatus, requiresSponsorship: p.requiresSponsorship, isEligible },
