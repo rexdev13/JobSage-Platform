@@ -1,0 +1,30 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Database Administrator and Systems Architect. Our developer has mandated a strict ZERO-TOLERANCE policy for job vacancies: we only want to see fresh, correct, direct employer deep-links. Anything else must be completely purged and blocked from entering our system.
+
+---
+
+### EXECUTION TASKS
+
+#### TASK 1: Execute the Zero-Tolerance Database Purge
+1. Create and execute a temporary purge script (`artifacts/api-server/src/scripts/zeroTolerancePurge.ts`) that imports `isValidVacancyDeepLink` from `lib/vacancyCheckHelper.ts`.
+2. Query all records from `sponsor_licence_vacancies` (and `jobListings` if applicable).
+3. Evaluate every single row. If `url IS NULL` OR `isValidVacancyDeepLink(url) === false`:
+   - **PURGE IT:** Either physically DELETE the row from the database OR set `status = 'purged'` (or `'expired'`) so it is permanently stripped from active circulation. Do NOT leave rows sitting around with `url = null`.
+4. Print a clean summary table showing:
+   - Total rows evaluated.
+   - Total invalid/null rows completely purged.
+   - Total clean, 100% verified deep-links surviving in the database.
+
+#### TASK 2: Enforce "Drop on Ingestion" (`artifacts/api-server/src/lib/vacancyCheckHelper.ts`)
+1. In the saving/upsert logic where new AI-checked vacancies are written to the database:
+   - Modify the code so that if `v.url` is missing, null, or fails `isValidVacancyDeepLink(v.url.trim())`, the scraper **completely discards the vacancy object**. 
+   - Do NOT insert or update database records with `url = null`. Only write records to the database if they possess a valid, direct employer deep-link.
+
+#### TASK 3: Hard-Gate the Serving API (`artifacts/api-server/src/routes/sponsorLicences.ts`)
+1. Inspect the backend routes that serve vacancies to the frontend UI (e.g., `GET /sponsor-licences/:id/vacancies` and related listing endpoints).
+2. Ensure the database query explicitly filters: `WHERE url IS NOT NULL` (and strictly only returns active, unexpired roles) so the frontend physically cannot receive or render a vacancy without a direct link.
+
+---
+
+### REQUIRED DELIVERABLE
+Run the zero-tolerance purge script and output the exact console counts showing how many invalid/null rows were destroyed and how many pure, verified deep-links remain. Confirm that Task 2 and Task 3 code modifications are type-checked and compiled cleanly.

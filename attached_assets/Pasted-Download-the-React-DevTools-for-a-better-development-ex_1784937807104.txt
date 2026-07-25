@@ -1,0 +1,554 @@
+Download the React DevTools for a better development experience: https://react.dev/link/react-devtools
+api/my-analytics:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api/my-progress-report:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api/roles:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api/applications:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api/opportunities/recommended?limit=3:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api/remediation/forward-eligibility:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api/my-analytics:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api/my-progress-report:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api/roles:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api/opportunities/recommended?limit=3:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api/applications:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api/remediation/forward-eligibility:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api/my-analytics:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api/my-progress-report:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api/roles:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api/opportunities/recommended?limit=3:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api/applications:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api/remediation/forward-eligibility:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api/my-progress-report:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api/my-analytics:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api/roles:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api/applications:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api/roles/my-matches?limit=200:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api/my-progress-report:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api/my-analytics:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api/roles:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api/applications:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api/my-progress-report:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api/my-analytics:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api/roles:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api/applications:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+custom-fetch.ts:327  GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/my-analytics 500 (Internal Server Error)
+(anonymous) @ custom-fetch.ts:327
+(anonymous) @ api.ts:7360
+(anonymous) @ api.ts:7387
+fetchFn @ @tanstack_react-query.js?v=6f1daf62:1088
+run @ @tanstack_react-query.js?v=6f1daf62:798
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:822
+custom-fetch.ts:327  GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/my-progress-report 500 (Internal Server Error)
+(anonymous) @ custom-fetch.ts:327
+(anonymous) @ api.ts:7210
+(anonymous) @ api.ts:7237
+fetchFn @ @tanstack_react-query.js?v=6f1daf62:1088
+run @ @tanstack_react-query.js?v=6f1daf62:798
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:822
+custom-fetch.ts:327  GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/applications 500 (Internal Server Error)
+(anonymous) @ custom-fetch.ts:327
+(anonymous) @ api.ts:3725
+(anonymous) @ api.ts:3752
+fetchFn @ @tanstack_react-query.js?v=6f1daf62:1088
+run @ @tanstack_react-query.js?v=6f1daf62:798
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:822
+custom-fetch.ts:327  GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/roles 500 (Internal Server Error)
+(anonymous) @ custom-fetch.ts:327
+(anonymous) @ api.ts:3212
+(anonymous) @ api.ts:3239
+fetchFn @ @tanstack_react-query.js?v=6f1daf62:1088
+run @ @tanstack_react-query.js?v=6f1daf62:798
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:822
+custom-fetch.ts:327  GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/roles 500 (Internal Server Error)
+(anonymous) @ custom-fetch.ts:327
+(anonymous) @ api.ts:3212
+(anonymous) @ api.ts:3239
+fetchFn @ @tanstack_react-query.js?v=6f1daf62:1088
+run @ @tanstack_react-query.js?v=6f1daf62:798
+start @ @tanstack_react-query.js?v=6f1daf62:840
+fetch @ @tanstack_react-query.js?v=6f1daf62:1135
+#executeFetch @ @tanstack_react-query.js?v=6f1daf62:1457
+fetch @ @tanstack_react-query.js?v=6f1daf62:1447
+refetch @ @tanstack_react-query.js?v=6f1daf62:1437
+onFocus @ @tanstack_react-query.js?v=6f1daf62:991
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2725
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2724
+batch @ @tanstack_react-query.js?v=6f1daf62:633
+onFocus @ @tanstack_react-query.js?v=6f1daf62:2723
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2762
+await in (anonymous)
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:401
+onFocus @ @tanstack_react-query.js?v=6f1daf62:400
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:387
+listener @ @tanstack_react-query.js?v=6f1daf62:360
+custom-fetch.ts:327  GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/applications 500 (Internal Server Error)
+(anonymous) @ custom-fetch.ts:327
+(anonymous) @ api.ts:3725
+(anonymous) @ api.ts:3752
+fetchFn @ @tanstack_react-query.js?v=6f1daf62:1088
+run @ @tanstack_react-query.js?v=6f1daf62:798
+start @ @tanstack_react-query.js?v=6f1daf62:840
+fetch @ @tanstack_react-query.js?v=6f1daf62:1135
+#executeFetch @ @tanstack_react-query.js?v=6f1daf62:1457
+fetch @ @tanstack_react-query.js?v=6f1daf62:1447
+refetch @ @tanstack_react-query.js?v=6f1daf62:1437
+onFocus @ @tanstack_react-query.js?v=6f1daf62:991
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2725
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2724
+batch @ @tanstack_react-query.js?v=6f1daf62:633
+onFocus @ @tanstack_react-query.js?v=6f1daf62:2723
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2762
+await in (anonymous)
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:401
+onFocus @ @tanstack_react-query.js?v=6f1daf62:400
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:387
+listener @ @tanstack_react-query.js?v=6f1daf62:360
+custom-fetch.ts:327  GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/my-analytics 500 (Internal Server Error)
+(anonymous) @ custom-fetch.ts:327
+(anonymous) @ api.ts:7360
+(anonymous) @ api.ts:7387
+fetchFn @ @tanstack_react-query.js?v=6f1daf62:1088
+run @ @tanstack_react-query.js?v=6f1daf62:798
+start @ @tanstack_react-query.js?v=6f1daf62:840
+fetch @ @tanstack_react-query.js?v=6f1daf62:1135
+#executeFetch @ @tanstack_react-query.js?v=6f1daf62:1457
+fetch @ @tanstack_react-query.js?v=6f1daf62:1447
+refetch @ @tanstack_react-query.js?v=6f1daf62:1437
+onFocus @ @tanstack_react-query.js?v=6f1daf62:991
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2725
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2724
+batch @ @tanstack_react-query.js?v=6f1daf62:633
+onFocus @ @tanstack_react-query.js?v=6f1daf62:2723
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2762
+await in (anonymous)
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:401
+onFocus @ @tanstack_react-query.js?v=6f1daf62:400
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:387
+listener @ @tanstack_react-query.js?v=6f1daf62:360
+custom-fetch.ts:327  GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/my-progress-report 500 (Internal Server Error)
+(anonymous) @ custom-fetch.ts:327
+(anonymous) @ api.ts:7210
+(anonymous) @ api.ts:7237
+fetchFn @ @tanstack_react-query.js?v=6f1daf62:1088
+run @ @tanstack_react-query.js?v=6f1daf62:798
+start @ @tanstack_react-query.js?v=6f1daf62:840
+fetch @ @tanstack_react-query.js?v=6f1daf62:1135
+#executeFetch @ @tanstack_react-query.js?v=6f1daf62:1457
+fetch @ @tanstack_react-query.js?v=6f1daf62:1447
+refetch @ @tanstack_react-query.js?v=6f1daf62:1437
+onFocus @ @tanstack_react-query.js?v=6f1daf62:991
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2725
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2724
+batch @ @tanstack_react-query.js?v=6f1daf62:633
+onFocus @ @tanstack_react-query.js?v=6f1daf62:2723
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2762
+await in (anonymous)
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:401
+onFocus @ @tanstack_react-query.js?v=6f1daf62:400
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:387
+listener @ @tanstack_react-query.js?v=6f1daf62:360
+custom-fetch.ts:327  GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/roles/my-matches?limit=200 500 (Internal Server Error)
+(anonymous) @ custom-fetch.ts:327
+(anonymous) @ api.ts:3300
+(anonymous) @ api.ts:3330
+fetchFn @ @tanstack_react-query.js?v=6f1daf62:1088
+run @ @tanstack_react-query.js?v=6f1daf62:798
+start @ @tanstack_react-query.js?v=6f1daf62:840
+fetch @ @tanstack_react-query.js?v=6f1daf62:1135
+#executeFetch @ @tanstack_react-query.js?v=6f1daf62:1457
+fetch @ @tanstack_react-query.js?v=6f1daf62:1447
+refetch @ @tanstack_react-query.js?v=6f1daf62:1437
+onFocus @ @tanstack_react-query.js?v=6f1daf62:991
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2725
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2724
+batch @ @tanstack_react-query.js?v=6f1daf62:633
+onFocus @ @tanstack_react-query.js?v=6f1daf62:2723
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2762
+await in (anonymous)
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:401
+onFocus @ @tanstack_react-query.js?v=6f1daf62:400
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:387
+listener @ @tanstack_react-query.js?v=6f1daf62:360
+custom-fetch.ts:327  GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/roles 500 (Internal Server Error)
+(anonymous) @ custom-fetch.ts:327
+(anonymous) @ api.ts:3212
+(anonymous) @ api.ts:3239
+fetchFn @ @tanstack_react-query.js?v=6f1daf62:1088
+run @ @tanstack_react-query.js?v=6f1daf62:798
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:822
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:818
+Promise.catch
+run @ @tanstack_react-query.js?v=6f1daf62:802
+start @ @tanstack_react-query.js?v=6f1daf62:840
+fetch @ @tanstack_react-query.js?v=6f1daf62:1135
+#executeFetch @ @tanstack_react-query.js?v=6f1daf62:1457
+fetch @ @tanstack_react-query.js?v=6f1daf62:1447
+refetch @ @tanstack_react-query.js?v=6f1daf62:1437
+onFocus @ @tanstack_react-query.js?v=6f1daf62:991
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2725
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2724
+batch @ @tanstack_react-query.js?v=6f1daf62:633
+onFocus @ @tanstack_react-query.js?v=6f1daf62:2723
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2762
+await in (anonymous)
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:401
+onFocus @ @tanstack_react-query.js?v=6f1daf62:400
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:387
+listener @ @tanstack_react-query.js?v=6f1daf62:360
+custom-fetch.ts:327  GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/my-analytics 500 (Internal Server Error)
+(anonymous) @ custom-fetch.ts:327
+(anonymous) @ api.ts:7360
+(anonymous) @ api.ts:7387
+fetchFn @ @tanstack_react-query.js?v=6f1daf62:1088
+run @ @tanstack_react-query.js?v=6f1daf62:798
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:822
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:818
+Promise.catch
+run @ @tanstack_react-query.js?v=6f1daf62:802
+start @ @tanstack_react-query.js?v=6f1daf62:840
+fetch @ @tanstack_react-query.js?v=6f1daf62:1135
+#executeFetch @ @tanstack_react-query.js?v=6f1daf62:1457
+fetch @ @tanstack_react-query.js?v=6f1daf62:1447
+refetch @ @tanstack_react-query.js?v=6f1daf62:1437
+onFocus @ @tanstack_react-query.js?v=6f1daf62:991
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2725
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2724
+batch @ @tanstack_react-query.js?v=6f1daf62:633
+onFocus @ @tanstack_react-query.js?v=6f1daf62:2723
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2762
+await in (anonymous)
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:401
+onFocus @ @tanstack_react-query.js?v=6f1daf62:400
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:387
+listener @ @tanstack_react-query.js?v=6f1daf62:360
+custom-fetch.ts:327  GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/my-progress-report 500 (Internal Server Error)
+(anonymous) @ custom-fetch.ts:327
+(anonymous) @ api.ts:7210
+(anonymous) @ api.ts:7237
+fetchFn @ @tanstack_react-query.js?v=6f1daf62:1088
+run @ @tanstack_react-query.js?v=6f1daf62:798
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:822
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:818
+Promise.catch
+run @ @tanstack_react-query.js?v=6f1daf62:802
+start @ @tanstack_react-query.js?v=6f1daf62:840
+fetch @ @tanstack_react-query.js?v=6f1daf62:1135
+#executeFetch @ @tanstack_react-query.js?v=6f1daf62:1457
+fetch @ @tanstack_react-query.js?v=6f1daf62:1447
+refetch @ @tanstack_react-query.js?v=6f1daf62:1437
+onFocus @ @tanstack_react-query.js?v=6f1daf62:991
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2725
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2724
+batch @ @tanstack_react-query.js?v=6f1daf62:633
+onFocus @ @tanstack_react-query.js?v=6f1daf62:2723
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2762
+await in (anonymous)
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:401
+onFocus @ @tanstack_react-query.js?v=6f1daf62:400
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:387
+listener @ @tanstack_react-query.js?v=6f1daf62:360
+custom-fetch.ts:327  GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/applications 500 (Internal Server Error)
+(anonymous) @ custom-fetch.ts:327
+(anonymous) @ api.ts:3725
+(anonymous) @ api.ts:3752
+fetchFn @ @tanstack_react-query.js?v=6f1daf62:1088
+run @ @tanstack_react-query.js?v=6f1daf62:798
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:822
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:818
+Promise.catch
+run @ @tanstack_react-query.js?v=6f1daf62:802
+start @ @tanstack_react-query.js?v=6f1daf62:840
+fetch @ @tanstack_react-query.js?v=6f1daf62:1135
+#executeFetch @ @tanstack_react-query.js?v=6f1daf62:1457
+fetch @ @tanstack_react-query.js?v=6f1daf62:1447
+refetch @ @tanstack_react-query.js?v=6f1daf62:1437
+onFocus @ @tanstack_react-query.js?v=6f1daf62:991
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2725
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2724
+batch @ @tanstack_react-query.js?v=6f1daf62:633
+onFocus @ @tanstack_react-query.js?v=6f1daf62:2723
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2762
+await in (anonymous)
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:401
+onFocus @ @tanstack_react-query.js?v=6f1daf62:400
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:387
+listener @ @tanstack_react-query.js?v=6f1daf62:360
+custom-fetch.ts:327  GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/my-progress-report 500 (Internal Server Error)
+(anonymous) @ custom-fetch.ts:327
+(anonymous) @ api.ts:7210
+(anonymous) @ api.ts:7237
+fetchFn @ @tanstack_react-query.js?v=6f1daf62:1088
+run @ @tanstack_react-query.js?v=6f1daf62:798
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:822
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:818
+Promise.catch
+run @ @tanstack_react-query.js?v=6f1daf62:802
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:822
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:818
+Promise.catch
+run @ @tanstack_react-query.js?v=6f1daf62:802
+start @ @tanstack_react-query.js?v=6f1daf62:840
+fetch @ @tanstack_react-query.js?v=6f1daf62:1135
+#executeFetch @ @tanstack_react-query.js?v=6f1daf62:1457
+fetch @ @tanstack_react-query.js?v=6f1daf62:1447
+refetch @ @tanstack_react-query.js?v=6f1daf62:1437
+onFocus @ @tanstack_react-query.js?v=6f1daf62:991
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2725
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2724
+batch @ @tanstack_react-query.js?v=6f1daf62:633
+onFocus @ @tanstack_react-query.js?v=6f1daf62:2723
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2762
+await in (anonymous)
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:401
+onFocus @ @tanstack_react-query.js?v=6f1daf62:400
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:387
+listener @ @tanstack_react-query.js?v=6f1daf62:360
+custom-fetch.ts:327  GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/my-analytics 500 (Internal Server Error)
+(anonymous) @ custom-fetch.ts:327
+(anonymous) @ api.ts:7360
+(anonymous) @ api.ts:7387
+fetchFn @ @tanstack_react-query.js?v=6f1daf62:1088
+run @ @tanstack_react-query.js?v=6f1daf62:798
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:822
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:818
+Promise.catch
+run @ @tanstack_react-query.js?v=6f1daf62:802
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:822
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:818
+Promise.catch
+run @ @tanstack_react-query.js?v=6f1daf62:802
+start @ @tanstack_react-query.js?v=6f1daf62:840
+fetch @ @tanstack_react-query.js?v=6f1daf62:1135
+#executeFetch @ @tanstack_react-query.js?v=6f1daf62:1457
+fetch @ @tanstack_react-query.js?v=6f1daf62:1447
+refetch @ @tanstack_react-query.js?v=6f1daf62:1437
+onFocus @ @tanstack_react-query.js?v=6f1daf62:991
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2725
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2724
+batch @ @tanstack_react-query.js?v=6f1daf62:633
+onFocus @ @tanstack_react-query.js?v=6f1daf62:2723
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2762
+await in (anonymous)
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:401
+onFocus @ @tanstack_react-query.js?v=6f1daf62:400
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:387
+listener @ @tanstack_react-query.js?v=6f1daf62:360
+custom-fetch.ts:327  GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/roles 500 (Internal Server Error)
+(anonymous) @ custom-fetch.ts:327
+(anonymous) @ api.ts:3212
+(anonymous) @ api.ts:3239
+fetchFn @ @tanstack_react-query.js?v=6f1daf62:1088
+run @ @tanstack_react-query.js?v=6f1daf62:798
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:822
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:818
+Promise.catch
+run @ @tanstack_react-query.js?v=6f1daf62:802
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:822
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:818
+Promise.catch
+run @ @tanstack_react-query.js?v=6f1daf62:802
+start @ @tanstack_react-query.js?v=6f1daf62:840
+fetch @ @tanstack_react-query.js?v=6f1daf62:1135
+#executeFetch @ @tanstack_react-query.js?v=6f1daf62:1457
+fetch @ @tanstack_react-query.js?v=6f1daf62:1447
+refetch @ @tanstack_react-query.js?v=6f1daf62:1437
+onFocus @ @tanstack_react-query.js?v=6f1daf62:991
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2725
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2724
+batch @ @tanstack_react-query.js?v=6f1daf62:633
+onFocus @ @tanstack_react-query.js?v=6f1daf62:2723
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2762
+await in (anonymous)
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:401
+onFocus @ @tanstack_react-query.js?v=6f1daf62:400
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:387
+listener @ @tanstack_react-query.js?v=6f1daf62:360
+custom-fetch.ts:327  GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/applications 500 (Internal Server Error)
+(anonymous) @ custom-fetch.ts:327
+(anonymous) @ api.ts:3725
+(anonymous) @ api.ts:3752
+fetchFn @ @tanstack_react-query.js?v=6f1daf62:1088
+run @ @tanstack_react-query.js?v=6f1daf62:798
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:822
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:818
+Promise.catch
+run @ @tanstack_react-query.js?v=6f1daf62:802
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:822
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:818
+Promise.catch
+run @ @tanstack_react-query.js?v=6f1daf62:802
+start @ @tanstack_react-query.js?v=6f1daf62:840
+fetch @ @tanstack_react-query.js?v=6f1daf62:1135
+#executeFetch @ @tanstack_react-query.js?v=6f1daf62:1457
+fetch @ @tanstack_react-query.js?v=6f1daf62:1447
+refetch @ @tanstack_react-query.js?v=6f1daf62:1437
+onFocus @ @tanstack_react-query.js?v=6f1daf62:991
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2725
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2724
+batch @ @tanstack_react-query.js?v=6f1daf62:633
+onFocus @ @tanstack_react-query.js?v=6f1daf62:2723
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2762
+await in (anonymous)
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:401
+onFocus @ @tanstack_react-query.js?v=6f1daf62:400
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:387
+listener @ @tanstack_react-query.js?v=6f1daf62:360
+custom-fetch.ts:327  GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/my-progress-report 500 (Internal Server Error)
+(anonymous) @ custom-fetch.ts:327
+(anonymous) @ api.ts:7210
+(anonymous) @ api.ts:7237
+fetchFn @ @tanstack_react-query.js?v=6f1daf62:1088
+run @ @tanstack_react-query.js?v=6f1daf62:798
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:822
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:818
+Promise.catch
+run @ @tanstack_react-query.js?v=6f1daf62:802
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:822
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:818
+Promise.catch
+run @ @tanstack_react-query.js?v=6f1daf62:802
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:822
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:818
+Promise.catch
+run @ @tanstack_react-query.js?v=6f1daf62:802
+start @ @tanstack_react-query.js?v=6f1daf62:840
+fetch @ @tanstack_react-query.js?v=6f1daf62:1135
+#executeFetch @ @tanstack_react-query.js?v=6f1daf62:1457
+fetch @ @tanstack_react-query.js?v=6f1daf62:1447
+refetch @ @tanstack_react-query.js?v=6f1daf62:1437
+onFocus @ @tanstack_react-query.js?v=6f1daf62:991
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2725
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2724
+batch @ @tanstack_react-query.js?v=6f1daf62:633
+onFocus @ @tanstack_react-query.js?v=6f1daf62:2723
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2762
+await in (anonymous)
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:401
+onFocus @ @tanstack_react-query.js?v=6f1daf62:400
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:387
+listener @ @tanstack_react-query.js?v=6f1daf62:360
+custom-fetch.ts:327  GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/my-analytics 500 (Internal Server Error)
+(anonymous) @ custom-fetch.ts:327
+(anonymous) @ api.ts:7360
+(anonymous) @ api.ts:7387
+fetchFn @ @tanstack_react-query.js?v=6f1daf62:1088
+run @ @tanstack_react-query.js?v=6f1daf62:798
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:822
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:818
+Promise.catch
+run @ @tanstack_react-query.js?v=6f1daf62:802
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:822
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:818
+Promise.catch
+run @ @tanstack_react-query.js?v=6f1daf62:802
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:822
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:818
+Promise.catch
+run @ @tanstack_react-query.js?v=6f1daf62:802
+start @ @tanstack_react-query.js?v=6f1daf62:840
+fetch @ @tanstack_react-query.js?v=6f1daf62:1135
+#executeFetch @ @tanstack_react-query.js?v=6f1daf62:1457
+fetch @ @tanstack_react-query.js?v=6f1daf62:1447
+refetch @ @tanstack_react-query.js?v=6f1daf62:1437
+onFocus @ @tanstack_react-query.js?v=6f1daf62:991
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2725
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2724
+batch @ @tanstack_react-query.js?v=6f1daf62:633
+onFocus @ @tanstack_react-query.js?v=6f1daf62:2723
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2762
+await in (anonymous)
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:401
+onFocus @ @tanstack_react-query.js?v=6f1daf62:400
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:387
+listener @ @tanstack_react-query.js?v=6f1daf62:360
+custom-fetch.ts:327  GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/roles 500 (Internal Server Error)
+(anonymous) @ custom-fetch.ts:327
+(anonymous) @ api.ts:3212
+(anonymous) @ api.ts:3239
+fetchFn @ @tanstack_react-query.js?v=6f1daf62:1088
+run @ @tanstack_react-query.js?v=6f1daf62:798
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:822
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:818
+Promise.catch
+run @ @tanstack_react-query.js?v=6f1daf62:802
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:822
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:818
+Promise.catch
+run @ @tanstack_react-query.js?v=6f1daf62:802
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:822
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:818
+Promise.catch
+run @ @tanstack_react-query.js?v=6f1daf62:802
+start @ @tanstack_react-query.js?v=6f1daf62:840
+fetch @ @tanstack_react-query.js?v=6f1daf62:1135
+#executeFetch @ @tanstack_react-query.js?v=6f1daf62:1457
+fetch @ @tanstack_react-query.js?v=6f1daf62:1447
+refetch @ @tanstack_react-query.js?v=6f1daf62:1437
+onFocus @ @tanstack_react-query.js?v=6f1daf62:991
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2725
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2724
+batch @ @tanstack_react-query.js?v=6f1daf62:633
+onFocus @ @tanstack_react-query.js?v=6f1daf62:2723
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2762
+await in (anonymous)
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:401
+onFocus @ @tanstack_react-query.js?v=6f1daf62:400
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:387
+listener @ @tanstack_react-query.js?v=6f1daf62:360
+custom-fetch.ts:327  GET https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/api/applications 500 (Internal Server Error)
+(anonymous) @ custom-fetch.ts:327
+(anonymous) @ api.ts:3725
+(anonymous) @ api.ts:3752
+fetchFn @ @tanstack_react-query.js?v=6f1daf62:1088
+run @ @tanstack_react-query.js?v=6f1daf62:798
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:822
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:818
+Promise.catch
+run @ @tanstack_react-query.js?v=6f1daf62:802
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:822
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:818
+Promise.catch
+run @ @tanstack_react-query.js?v=6f1daf62:802
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:822
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:818
+Promise.catch
+run @ @tanstack_react-query.js?v=6f1daf62:802
+start @ @tanstack_react-query.js?v=6f1daf62:840
+fetch @ @tanstack_react-query.js?v=6f1daf62:1135
+#executeFetch @ @tanstack_react-query.js?v=6f1daf62:1457
+fetch @ @tanstack_react-query.js?v=6f1daf62:1447
+refetch @ @tanstack_react-query.js?v=6f1daf62:1437
+onFocus @ @tanstack_react-query.js?v=6f1daf62:991
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2725
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2724
+batch @ @tanstack_react-query.js?v=6f1daf62:633
+onFocus @ @tanstack_react-query.js?v=6f1daf62:2723
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:2762
+await in (anonymous)
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:401
+onFocus @ @tanstack_react-query.js?v=6f1daf62:400
+(anonymous) @ @tanstack_react-query.js?v=6f1daf62:387
+listener @ @tanstack_react-query.js?v=6f1daf62:360

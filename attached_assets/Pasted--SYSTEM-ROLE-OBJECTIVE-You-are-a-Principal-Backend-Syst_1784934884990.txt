@@ -1,0 +1,40 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Principal Backend Systems Architect and Lead Debugger. Our frontend application (`/opportunities` page) is experiencing cascading `500 Internal Server Error` responses across multiple core API endpoints:
+- `GET /api/applications`
+- `GET /api/roles`
+- `GET /api/roles/my-matches`
+- `GET /api/my-analytics`
+- `GET /api/my-progress-report`
+- `GET /api/speculative-applications`
+
+This occurred immediately after our zero-tolerance database purge and URL validation updates. We need to locate the exact unhandled exception throwing these 500 errors and surgically fix it.
+
+---
+
+### EXECUTION TASKS
+
+#### TASK 1: Inspect Server Stack Traces & Logs (Read-Only Diagnose)
+1. Inspect the recent backend terminal execution logs, error output streams, or server crash logs in `artifacts/api-server/` to find the exact stack trace for the `500 Internal Server Error` throwing on `/api/applications` and `/api/roles`.
+2. Identify the root cause. Specifically check for:
+   - **Null Pointer / Type Errors:** Are any route handlers, Drizzle ORM queries, or Zod serialization schemas attempting to call string methods (like `.trim()`, `.toLowerCase()`, or `.startsWith()`) on a `url` or `status` field that is now `null` or undefined following our database purge?
+   - **Shared Middleware / Profile Hydration Crashes:** Is an authentication middleware, user profile query, or role-matching calculation failing due to unexpected `null` values or missing foreign keys from purged vacancy records?
+
+#### TASK 2: Execute Surgical Exception Fix
+1. Once the exact failing line or middleware is identified from the stack trace, apply a defensive, null-safe fix:
+   - If Zod or Drizzle schemas are rejecting `null` URLs, update the schema definitions to gracefully handle `z.string().nullable().optional()` or ensure the DB query filters with `WHERE url IS NOT NULL` before serialization.
+   - If string operations are causing Uncaught TypeErrors, wrap them in optional chaining (e.g., `url?.trim()`) or null-checks.
+   - If foreign key joins in `/api/applications` or `/api/roles/my-matches` are failing because a referenced vacancy was purged, ensure the join is a `LEFT JOIN` with graceful fallback handling, or clean up orphaned application records that reference non-existent roles.
+
+#### TASK 3: Verify Endpoints Cleanly
+1. Re-run or restart the backend server.
+2. Execute programmatic test requests (or curl commands) against:
+   - `GET /api/applications`
+   - `GET /api/roles`
+3. Confirm that all targeted endpoints now return `200 OK` (with valid JSON arrays/objects) instead of `500 Internal Server Error`.
+
+---
+
+### REQUIRED DELIVERABLE
+1. Output the exact error message and stack trace that caused the 500 crash from Task 1.
+2. Explain the surgical fix applied in Task 2.
+3. Run `npm run typecheck` across `api-server` and confirm that all endpoints return 200 OK without errors.

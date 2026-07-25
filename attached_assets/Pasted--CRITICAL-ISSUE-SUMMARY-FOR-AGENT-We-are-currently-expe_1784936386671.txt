@@ -1,0 +1,22 @@
+### CRITICAL ISSUE SUMMARY FOR AGENT
+We are currently experiencing a system-wide frontend rendering crash on the `/opportunities` page due to cascading `500 Internal Server Error` responses across all core authenticated API endpoints:
+- `GET /api/applications`
+- `GET /api/roles`
+- `GET /api/roles/my-matches?limit=200`
+- `GET /api/my-analytics`
+- `GET /api/my-progress-report`
+
+#### THE TRIGGER
+This crash occurred immediately following our recent "Zero-Tolerance Database Purge" and URL validation script execution, where we nulled out or deleted over 1,115 legacy job vacancy records that lacked valid direct employer deep-links.
+
+#### THE SUSPECTED TECHNICAL ROOT CAUSE
+Because this crash hits multiple independent domains (applications, role matching, analytics, and progress reports) simultaneously, the unhandled 500 exception is likely stemming from one of two specific architectural regressions:
+
+1. **Null-Pointer / Schema Hydration Failure:** 
+   Our data sweep modified DB rows (setting fields like `url` to `null` or deleting rows entirely). It is highly likely that a Drizzle ORM query, a Zod response serialization schema, or a string-processing utility (e.g., `.trim()`, `.toLowerCase()`, `.slice()`, or URL parsing) is attempting to execute on a field that is now `null` or undefined, throwing an Uncaught TypeError that crashes the endpoint handler.
+
+2. **Orphaned Relational References / Shared Service Crash:**
+   The `/api/roles/my-matches` and `/api/applications` endpoints perform relational joins against vacancies and roles. If an application record, analytical counter, or matching algorithm is referencing a `roleId` or `vacancyId` that was deleted or modified during our purge, the query or its subsequent formatting loop is throwing an unhandled exception due to missing joined data.
+
+#### YOUR OBJECTIVE
+Do NOT attempt to guess the fix by blindly editing frontend components or reverting our deep-link validation logic. You must inspect the actual server terminal logs in `artifacts/api-server/` to read the exact 500 stack trace, identify the specific line and file choking on the null/orphaned data, and implement a defensive, null-safe patch (such as optional chaining, nullable schema definitions, or safe SQL `LEFT JOIN` fallbacks).
