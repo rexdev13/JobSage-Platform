@@ -6,7 +6,7 @@ import { writeAuditEvent } from "./audit";
 
 export const APPLY_URL_BACKFILL_ACTION = "apply_url_backfill";
 
-import { BLOCKED_VACANCY_DOMAINS } from "./vacancyUrlPolicy";
+import { BLOCKED_VACANCY_DOMAINS, isValidVacancyDeepLink } from "./vacancyUrlPolicy";
 
 // Shared aggregator blocklist — single source of truth in vacancyUrlPolicy.
 export const BLOCKED_APPLY_DOMAINS = BLOCKED_VACANCY_DOMAINS;
@@ -107,6 +107,8 @@ Reply with ONLY a JSON object — no markdown, no explanation, just raw JSON:
 
   const url = parsed.url.trim();
   if (!isValidApplyUrl(url)) return null;
+  // Reject careers homepages and generic landing pages — must be a direct vacancy deep-link.
+  if (!isValidVacancyDeepLink(url)) return null;
 
   return url;
 }

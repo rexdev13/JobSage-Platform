@@ -647,9 +647,8 @@ function RoleCard({
         if (resp.status === 400 || resp.status === 410) setVacancyClosed(true);
       }
     } catch {
-      // Our own API was unreachable — never block the candidate on that.
-      if (win) win.location.href = applyUrl;
-      else window.open(applyUrl, "_blank", "noopener,noreferrer");
+      win?.close();
+      toast({ title: "Vacancy unavailable", description: "This vacancy link is invalid or no longer available.", variant: "destructive" });
     } finally {
       setApplyChecking(false);
     }
