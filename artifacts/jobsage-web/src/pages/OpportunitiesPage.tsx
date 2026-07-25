@@ -41,6 +41,8 @@ import {
   ClipboardList,
   Linkedin,
   Globe,
+  Mail,
+  Phone,
   TrendingUp,
   Search,
   BadgeCheck,
@@ -614,50 +616,14 @@ function RoleCard({
   const [, setLocation] = useLocation();
   const { role, isEligible, matchScore, eligibilityGaps, sponsorshipFeasibility, contactEmail, contactPhone, contactWebsite, applyUrl } = item;
   const [expanded, setExpanded] = useState(false);
-  const [vacancyClosed, setVacancyClosed] = useState(false);
-  const [applyChecking, setApplyChecking] = useState(false);
   const { toast } = useToast();
 
-  const handleApplyClick = async () => {
-    if (!applyUrl || applyChecking) return;
-    setApplyChecking(true);
-    // Open the tab synchronously so popup blockers don't interfere; we point
-    // it at the employer page only after the tracking endpoint approves.
-    const win = window.open("", "_blank");
-    if (win) win.opener = null;
-    const trackUrl = `${import.meta.env.BASE_URL.replace(/\/$/, "")}/api/applications/track-outbound?vacancyId=${role.id}&destinationUrl=${encodeURIComponent(applyUrl)}`;
-    try {
-      const resp = await fetch(trackUrl, { credentials: "include", redirect: "manual" });
-      if (resp.type === "opaqueredirect" || resp.ok) {
-        // Click recorded server-side; open the employer page.
-        if (win) win.location.href = applyUrl;
-        else window.open(applyUrl, "_blank", "noopener,noreferrer");
-      } else {
-        win?.close();
-        let message = "This vacancy is no longer accepting applications (closed by employer).";
-        try {
-          const data = await resp.json();
-          if (typeof data?.error === "string" && data.error) message = data.error;
-        } catch {
-          // non-JSON error body — keep default message
-        }
-        toast({ title: "Vacancy unavailable", description: message, variant: "destructive" });
-        if (resp.status === 400 || resp.status === 410) setVacancyClosed(true);
-      }
-    } catch {
-      // Our own API was unreachable — never block the candidate on that.
-      if (win) win.location.href = applyUrl;
-      else window.open(applyUrl, "_blank", "noopener,noreferrer");
-    } finally {
-      setApplyChecking(false);
-    }
-  };
   const applied = appliedRoleIds.includes(role.id);
   const hasContactDetails = !!(contactEmail || contactPhone || contactWebsite);
 
   return (
     <Card
-      className={`p-5 hover:shadow-md transition-all cursor-pointer ${vacancyClosed ? "opacity-50 grayscale " : ""}${
+      className={`p-5 hover:shadow-md transition-all cursor-pointer ${
         recommended
           ? "border-primary/30 bg-gradient-to-r from-primary/[0.03] to-accent/[0.03] hover:border-primary/50"
           : isEligible
@@ -715,32 +681,35 @@ function RoleCard({
       </div>
 
       {/* Company contact row */}
-      <div className="mt-3 flex items-center gap-3 flex-wrap" onClick={(e) => e.stopPropagation()}>
-        <span className="text-xs text-muted-foreground font-medium">Contact:</span>
-        {contactEmail && (
-          <a
-            href={`mailto:${contactEmail}`}
-            className="inline-flex items-center gap-1 text-xs text-foreground hover:text-primary hover:underline"
-          >
-            <Globe className="w-3 h-3" /> {contactEmail}
-          </a>
-        )}
-        {contactPhone && (
-          <a
-            href={`tel:${contactPhone}`}
-            className="inline-flex items-center gap-1 text-xs text-foreground hover:text-primary hover:underline"
-          >
-            <Globe className="w-3 h-3" /> {contactPhone}
-          </a>
-        )}
+      <div className="mt-3 space-y-2" onClick={(e) => e.stopPropagation()}>
         {contactWebsite && (
           <a
             href={contactWebsite.startsWith("http") ? contactWebsite : `https://${contactWebsite}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-xs text-foreground hover:text-primary hover:underline"
+            className="flex items-center gap-2 text-xs text-primary hover:underline"
           >
-            <Globe className="w-3 h-3" /> Website
+            <Globe className="w-3.5 h-3.5 shrink-0" />
+            {contactWebsite.startsWith("http") ? contactWebsite : `https://${contactWebsite}`}
+            <ExternalLink className="w-3 h-3 opacity-50" />
+          </a>
+        )}
+        {contactEmail && (
+          <a
+            href={`mailto:${contactEmail}`}
+            className="flex items-center gap-2 text-xs text-foreground hover:text-primary"
+          >
+            <Mail className="w-3.5 h-3.5 text-primary shrink-0" />
+            {contactEmail}
+          </a>
+        )}
+        {contactPhone && (
+          <a
+            href={`tel:${contactPhone}`}
+            className="flex items-center gap-2 text-xs text-foreground hover:text-primary"
+          >
+            <Phone className="w-3.5 h-3.5 text-primary shrink-0" />
+            {contactPhone}
           </a>
         )}
         {!hasContactDetails && (
@@ -774,20 +743,15 @@ function RoleCard({
 
       {applyUrl && (
         <div className="mt-3" onClick={(e) => e.stopPropagation()}>
-          {vacancyClosed ? (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted text-muted-foreground text-xs font-semibold cursor-not-allowed">
-              <ExternalLink className="w-3.5 h-3.5" /> Vacancy closed
-            </span>
-          ) : (
-            <button
-              type="button"
-              onClick={handleApplyClick}
-              disabled={applyChecking}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-wait"
-            >
-              <ExternalLink className="w-3.5 h-3.5" /> {applyChecking ? "Checking link…" : "Apply on employer site"}
-            </button>
-          )}
+          <a
+            href={applyUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors"
+          >
+            <ExternalLink className="w-3.5 h-3.5" /> Apply on employer site
+          </a>
         </div>
       )}
 
