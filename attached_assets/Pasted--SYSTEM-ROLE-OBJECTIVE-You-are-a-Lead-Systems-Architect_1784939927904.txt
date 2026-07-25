@@ -1,0 +1,40 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Systems Architect. Based on our read-only diagnostic report, we have identified why `OpportunitiesPage` dumps candidates on generic homepages:
+1. `handleApplyClick` contains a silent fallback in its `catch` block (`win.location.href = applyUrl`) that opens invalid URLs when the backend rejects them or fails.
+2. The `roles.apply_url` database column contains legacy generic homepages because `isValidVacancyDeepLink` was never enforced during AI backfills (`applyUrlBackfill.ts`) or admin imports.
+
+We must seal the frontend fallback, enforce strict write-time validation on `roles`, and purge existing generic URLs from the `roles` table.
+
+---
+
+### EXECUTION TASKS
+
+#### TASK 1: Seal the Frontend Catch-Block Backdoor (`artifacts/jobsage-web/src/pages/OpportunitiesPage.tsx`)
+1. Locate `handleApplyClick` (around lines 628–653).
+2. Remove the silent fail-open fallback in the error/catch path (`if (win) win.location.href = applyUrl;`).
+3. Ensure that if `/api/applications/track-outbound` returns any error (400, 410, 500) OR if the `fetch` throws a network exception:
+   - Immediately close the pre-opened blank window (`win?.close()`).
+   - Trigger a clean UI toast notification informing the user: *"This vacancy link is invalid or no longer available."*
+   - Do NOT allow the browser to navigate directly to an unvalidated `applyUrl`.
+
+#### TASK 2: Enforce Write-Time Validation on Curated Roles (`artifacts/api-server/src/lib/applyUrlBackfill.ts`)
+1. Import `isValidVacancyDeepLink` into `applyUrlBackfill.ts` (and any related role import/saving utilities).
+2. Modify the AI backfill saving logic: before writing an AI-inferred URL to `roles.apply_url` (or `job_listings.apply_url`), pass it through `isValidVacancyDeepLink(url)`.
+3. If `isValidVacancyDeepLink` returns `false`, discard the URL and store `null`. Never save generic careers homepages or aggregators into `roles.apply_url`.
+
+#### TASK 3: Purge Legacy Generic Links from `roles` Table (Data Sweep)
+1. Write and execute a temporary sweep script (`artifacts/api-server/src/scripts/purgeRolesApplyUrls.ts`) that imports `isValidVacancyDeepLink`.
+2. Query all records from `roles` (and `job_listings` if applicable) where `apply_url IS NOT NULL`.
+3. Evaluate each row: if `isValidVacancyDeepLink(apply_url) === false`:
+   - Set `apply_url = null` (or update the role's status so it does not render an invalid apply action on the UI).
+4. Output a console summary showing:
+   - Total `roles` rows scanned.
+   - Total generic/aggregator URLs nulled out.
+   - Total verified, direct deep-links remaining in `roles.apply_url`.
+
+---
+
+### REQUIRED DELIVERABLE
+1. Run `npm run typecheck` across web and server to verify zero compilation errors.
+2. Execute the Task 3 purge script and provide the exact console output counts showing how many generic URLs were cleaned out of `roles`.
+3. Confirm that clicking Apply on an invalid link now cleanly triggers an error toast instead of dumping the user on a homepage.
