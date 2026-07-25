@@ -616,14 +616,51 @@ function RoleCard({
   const [, setLocation] = useLocation();
   const { role, isEligible, matchScore, eligibilityGaps, sponsorshipFeasibility, contactEmail, contactPhone, contactWebsite, applyUrl } = item;
   const [expanded, setExpanded] = useState(false);
+  const [vacancyClosed, setVacancyClosed] = useState(false);
+  const [applyChecking, setApplyChecking] = useState(false);
   const { toast } = useToast();
+
+  const handleApplyClick = async () => {
+    if (!applyUrl || applyChecking) return;
+    setApplyChecking(true);
+    // Open the tab synchronously so popup blockers don't interfere; we point
+    // it at the employer page only after the tracking endpoint approves.
+    const win = window.open("", "_blank");
+    if (win) win.opener = null;
+    const trackUrl = `${import.meta.env.BASE_URL.replace(/\/$/, "")}/api/applications/track-outbound?vacancyId=${role.id}&destinationUrl=${encodeURIComponent(applyUrl)}`;
+    try {
+      const resp = await fetch(trackUrl, { credentials: "include", redirect: "manual" });
+      if (resp.type === "opaqueredirect" || resp.ok) {
+        // Click recorded server-side; open the employer page.
+        if (win) win.location.href = applyUrl;
+        else window.open(applyUrl, "_blank", "noopener,noreferrer");
+      } else {
+        win?.close();
+        let message = "This vacancy is no longer accepting applications (closed by employer).";
+        try {
+          const data = await resp.json();
+          if (typeof data?.error === "string" && data.error) message = data.error;
+        } catch {
+          // non-JSON error body — keep default message
+        }
+        toast({ title: "Vacancy unavailable", description: message, variant: "destructive" });
+        if (resp.status === 400 || resp.status === 410) setVacancyClosed(true);
+      }
+    } catch {
+      // Our own API was unreachable — never block the candidate on that.
+      if (win) win.location.href = applyUrl;
+      else window.open(applyUrl, "_blank", "noopener,noreferrer");
+    } finally {
+      setApplyChecking(false);
+    }
+  };
 
   const applied = appliedRoleIds.includes(role.id);
   const hasContactDetails = !!(contactEmail || contactPhone || contactWebsite);
 
   return (
     <Card
-      className={`p-5 hover:shadow-md transition-all cursor-pointer ${
+      className={`p-5 hover:shadow-md transition-all cursor-pointer ${vacancyClosed ? "opacity-50 grayscale " : ""}${
         recommended
           ? "border-primary/30 bg-gradient-to-r from-primary/[0.03] to-accent/[0.03] hover:border-primary/50"
           : isEligible
@@ -743,15 +780,20 @@ function RoleCard({
 
       {applyUrl && (
         <div className="mt-3" onClick={(e) => e.stopPropagation()}>
-          <a
-            href={applyUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors"
-          >
-            <ExternalLink className="w-3.5 h-3.5" /> Apply on employer site
-          </a>
+          {vacancyClosed ? (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted text-muted-foreground text-xs font-semibold cursor-not-allowed">
+              <ExternalLink className="w-3.5 h-3.5" /> Vacancy closed
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={handleApplyClick}
+              disabled={applyChecking}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-wait"
+            >
+              <ExternalLink className="w-3.5 h-3.5" /> {applyChecking ? "Checking link…" : "Apply on employer site"}
+            </button>
+          )}
         </div>
       )}
 

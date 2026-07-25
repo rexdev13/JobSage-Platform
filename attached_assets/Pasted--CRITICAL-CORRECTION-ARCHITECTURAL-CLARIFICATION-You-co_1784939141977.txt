@@ -1,0 +1,28 @@
+### CRITICAL CORRECTION & ARCHITECTURAL CLARIFICATION
+You completely misunderstood the developer's directive in the last commit. 
+
+When the developer said *"check how I did the visa employee part, do something like that,"* they were referring strictly to the **ACCURACY AND DIRECTNESS OF THE DESTINATION URL** (landing directly on the exact job advert page without dumping the user on a generic careers homepage). 
+
+They did NOT mean to strip out our backend tracking loop and replace the button with a basic HTML `<a target="_blank">` tag! By removing the fetch loop through `/api/applications/track-outbound`, you broke Task #327: candidates are no longer being logged into the Application Tracker, and our server-side aggregator blocklist is no longer being enforced!
+
+---
+
+### EXECUTION TASKS
+
+#### TASK 1: Restore Closed-Loop Outbound Tracking (`artifacts/jobsage-web/src/pages/OpportunitiesPage.tsx`)
+1. **REVERT** the change that replaced the Apply button with a plain, untracked `<a href="..." target="_blank">` tag.
+2. **RESTORE** the button handler (`handleApplyClick`) so that every apply click routes through our backend endpoint first:
+   `/api/applications/track-outbound?vacancyId=${role.id}&destinationUrl=${encodeURIComponent(applyUrl)}`
+3. Why? Because the business mandates that clicking "Apply" MUST silently log or update an application tracker card (`status = 'applied'`) in the database before the user leaves JOBSAGE. We cannot bypass the backend.
+
+#### TASK 2: Guarantee "Visa-Section" Direct Deep-Link Accuracy
+1. The developer wants the user experience to feel just as fast, direct, and accurate as the Visa Sponsoring Employers section.
+2. Ensure that when `handleApplyClick` fires, it opens the new tab/window cleanly and lets our `/api/applications/track-outbound` route issue its HTTP 302 redirect straight to the **exact vacancy deep-link** (e.g., the specific NHS or Workday job advert page).
+3. Confirm that no intermediate delays or broken loading states trap the user, and that the final destination in the browser tab is 100% identical to the direct vacancy link pattern seen in the Visa section.
+
+---
+
+### REQUIRED DELIVERABLE
+1. Restore the `handleApplyClick` tracking loop through `/api/applications/track-outbound` in `OpportunitiesPage.tsx`.
+2. Confirm that external clicks are once again logging to the candidate's application tracker while seamlessly opening the direct vacancy page in a new tab.
+3. Run `npm run typecheck` to verify clean compilation.
