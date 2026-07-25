@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Request, Response, NextFunction } from "express";
 import { requireAuthenticated, requireRole } from "../middlewares/requireRole";
 
-function makeReq(overrides: Partial<Request> = {}): Request {
+function makeReq(overrides: Record<string, unknown> = {}): Request {
   const req = {
     isAuthenticated: () => false,
     isImpersonating: false,

@@ -13,7 +13,7 @@ router.get("/smart-apply/questions", requireAuthenticated, (_req: Request, res: 
 });
 
 router.post("/roles/:id/smart-apply/prefill", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
-  const roleId = parseInt(req.params.id, 10);
+  const roleId = parseInt(req.params.id as string, 10);
   if (isNaN(roleId)) {
     res.status(400).json({ error: "Invalid role ID" });
     return;
@@ -98,7 +98,7 @@ router.post("/roles/:id/smart-apply/prefill", requireAuthenticated, async (req: 
 });
 
 router.get("/smart-apply/draft/:roleId", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
-  const roleId = parseInt(req.params.roleId, 10);
+  const roleId = parseInt(req.params.roleId as string, 10);
   if (isNaN(roleId)) {
     res.status(400).json({ error: "Invalid role ID" });
     return;
@@ -123,7 +123,7 @@ router.get("/smart-apply/draft/:roleId", requireAuthenticated, async (req: Reque
 });
 
 router.put("/smart-apply/draft/:roleId", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
-  const roleId = parseInt(req.params.roleId, 10);
+  const roleId = parseInt(req.params.roleId as string, 10);
   if (isNaN(roleId)) {
     res.status(400).json({ error: "Invalid role ID" });
     return;
@@ -251,7 +251,7 @@ Guidelines:
 });
 
 router.delete("/smart-apply/draft/:roleId", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
-  const roleId = parseInt(req.params.roleId, 10);
+  const roleId = parseInt(req.params.roleId as string, 10);
   if (isNaN(roleId)) {
     res.status(400).json({ error: "Invalid role ID" });
     return;

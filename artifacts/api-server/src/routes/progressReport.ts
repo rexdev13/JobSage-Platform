@@ -107,7 +107,9 @@ router.get("/my-progress-report", requireAuthenticated, async (req, res): Promis
         planStepsTotal,
         boostProfile: profile.boostProfile,
         documentCount: documents.length,
-        preferredRegion: profile.preferredRegion ?? null,
+        preferredRegion: Array.isArray(profile.preferredRegion)
+          ? (profile.preferredRegion as string[]).join(", ") || null
+          : (profile.preferredRegion as string | null) ?? null,
       });
     } catch (err) {
       console.error("[progress-report] AI error:", err);

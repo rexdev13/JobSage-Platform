@@ -9,6 +9,7 @@ import {
   useGenerateJobDescriptionPreview,
   useSubmitDescriptionFeedback,
   getListEmployerJobsQueryKey,
+  getGetJobListingQueryKey,
   type CreateJobListingRequest,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -94,7 +95,7 @@ export default function EmployerJobFormPage() {
   const [isAiGenerated, setIsAiGenerated] = useState(false);
   const [feedbackGiven, setFeedbackGiven] = useState<"up" | "down" | null>(null);
 
-  const { data: existingJob } = useGetJobListing(jobId!, { query: { enabled: isEdit && !!jobId } });
+  const { data: existingJob } = useGetJobListing(jobId!, { query: { queryKey: getGetJobListingQueryKey(jobId!), enabled: isEdit && !!jobId } });
   const createMutation = useCreateJobListing();
   const updateMutation = useUpdateJobListing();
   const generatePreviewMutation = useGenerateJobDescriptionPreview();

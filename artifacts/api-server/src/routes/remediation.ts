@@ -375,7 +375,7 @@ router.get("/remediation/forward-eligibility", requireAuthenticated, async (req,
       s.title?.toLowerCase().includes("plab") ||
       s.title?.toLowerCase().includes("osce") ||
       s.title?.toLowerCase().includes("licence") ||
-      s.stepSource === "registration"
+      (s.stepSource as string) === "registration"
   );
 
   // After completing the plan the candidate would be considered registration-ready if:

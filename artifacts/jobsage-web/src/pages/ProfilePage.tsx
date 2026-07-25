@@ -495,7 +495,7 @@ export default function ProfilePage() {
     ? `/api/storage/objects/${storedPhotoKey.replace(/^\/objects\//, "")}`
     : null;
   const displayPhotoUrl = photoPreviewUrl ?? storedPhotoUrl;
-  const completionPct = typeof p?.completionPct === "number" ? p.completionPct : 0;
+  const completionPct = typeof p?.completionPct === "number" ? (p.completionPct as number) : 0;
   const missingFields = Array.isArray(p?.missingFields) ? (p.missingFields as string[]) : [];
 
   if (!profile) return null;
@@ -631,8 +631,8 @@ export default function ProfilePage() {
           </div>
 
           {/* JOBSAGE communication alias */}
-          {p?.jobsageEmail && (
-            <JobsageEmailBanner email={p.jobsageEmail} />
+          {!!p?.jobsageEmail && (
+            <JobsageEmailBanner email={p.jobsageEmail as string} />
           )}
         </header>
 
@@ -892,7 +892,7 @@ export default function ProfilePage() {
                             ? formData.preferredRegion.filter(x => x !== r)
                             : [...formData.preferredRegion, r];
                           setFormData(prev => ({ ...prev, preferredRegion: newRegions }));
-                          setTimeout(() => void doAutoSave({ ...formData, preferredRegion: newRegions }), 300);
+                          setTimeout(() => void doAutoSave(), 300);
                         }}
                         className="w-4 h-4 rounded border-input accent-primary"
                       />

@@ -3,7 +3,7 @@ import { evaluate } from "../lib/rulesEngine";
 import type { RulesetRule } from "@workspace/db";
 import type { Profile } from "@workspace/db";
 
-function makeProfile(overrides: Partial<Profile> = {}): Profile {
+function makeProfile(overrides: Record<string, unknown> = {}): Profile {
   return {
     id: 1,
     userId: "user-1",

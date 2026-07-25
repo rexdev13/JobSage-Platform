@@ -591,6 +591,11 @@ export interface Application {
   notes?: string | null;
   roleTitle?: string | null;
   roleLocation?: string | null;
+  applicationType?: string | null;
+  applicationUrl?: string | null;
+  companyName?: string | null;
+  interviewDate?: string | null;
+  interviewNotes?: string | null;
 }
 
 export type ApplicationListStats = {
@@ -634,6 +639,7 @@ export const RemediationStepStepSource = {
   rule: "rule",
   sponsorship: "sponsorship",
   manual: "manual",
+  registration: "registration",
 } as const;
 
 export type RemediationStepStatus =
@@ -863,6 +869,36 @@ export interface AdminAuditEventList {
   pageSize: number;
 }
 
+export type IdentityVerificationStatus = "pending" | "verified" | "rejected";
+export type IdentityVerificationAiConfidence = "high" | "medium" | "low" | "none";
+
+export interface IdentityVerification {
+  id: number;
+  userId: string;
+  passportKey?: string | null;
+  selfieKey?: string | null;
+  status: IdentityVerificationStatus;
+  aiConfidence?: IdentityVerificationAiConfidence | null;
+  aiNotes?: string | null;
+  adminNotes?: string | null;
+  verifiedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RecommendationLetter {
+  id: number;
+  candidateUserId: string;
+  employerUserId?: string | null;
+  authorName: string;
+  authorTitle: string;
+  organisation: string;
+  relationship: string;
+  content: string;
+  isEmployerVerified: boolean;
+  createdAt: string;
+}
+
 export type EmployerProfileIndustry =
   (typeof EmployerProfileIndustry)[keyof typeof EmployerProfileIndustry];
 
@@ -948,6 +984,7 @@ export interface JobListing {
   requiredRegistration: string;
   targetProfessions?: string[];
   targetRegions?: string[];
+  applyUrl?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -1377,6 +1414,14 @@ export interface ProgressReportResponse {
   boostProfile: boolean;
   recommendations?: string | null;
   disclaimer?: string | null;
+  topCompanies?: Array<{
+    name: string;
+    count: number;
+    type?: string | null;
+    location?: string | null;
+    matchPct: number;
+    reason?: string | null;
+  }>;
 }
 
 export type SpeculativeApplicationStatus =
@@ -1529,6 +1574,7 @@ export type CandidateMessageMessageType =
 export const CandidateMessageMessageType = {
   system: "system",
   employer: "employer",
+  employer_reply: "employer_reply",
 } as const;
 
 export interface CandidateMessage {
