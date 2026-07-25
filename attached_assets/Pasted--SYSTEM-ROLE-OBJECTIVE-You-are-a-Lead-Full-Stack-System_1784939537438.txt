@@ -1,0 +1,37 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Full-Stack Systems Architect executing a READ-ONLY comparative investigation. Our developer noticed a critical behavioral discrepancy between two core pages in our frontend (`artifacts/jobsage-web/src/pages/`):
+1. **Visa Sponsoring Employers (`SponsorLicencesPage.tsx`):** Outbound links work flawlessly, taking users directly to exact vacancy deep-links.
+2. **Opportunities / Job Feed (`OpportunitiesPage.tsx`):** Outbound links fail to reach specific job adverts and instead dump candidates onto generic employer homepages.
+
+Do NOT modify, delete, or rewrite any code yet. You must investigate the entire data and execution flow for both pages to explain why one works and the other fails.
+
+---
+
+### INVESTIGATION TASKS
+
+#### TASK 1: Compare Frontend Data mapping & Link Architecture
+Read and compare `SponsorLicencesPage.tsx` and `OpportunitiesPage.tsx`. Answer the following in your report:
+1. **Data Properties:** What exact database field/property is mapped to the destination link in `SponsorLicencesPage` (e.g., `.url`, `.applyUrl`, `.vacancyUrl`) versus `OpportunitiesPage`? Are they pulling from different database tables or APIs?
+2. **Click Execution:** How is the click physically handled in both files? Does `SponsorLicencesPage` use a plain HTML `<a target="_blank">` tag while `OpportunitiesPage` routes through an asynchronous `fetch()` to `/api/applications/track-outbound`? 
+3. **Payload Encoding:** In `OpportunitiesPage.tsx`, trace the exact value being passed into `encodeURIComponent(applyUrl)` inside `handleApplyClick`. What is the exact source of `applyUrl` in that component's scope?
+
+#### TASK 2: Audit Backend Redirect Route (`artifacts/api-server/src/routes/applications.ts`)
+Inspect the handler for `GET /api/applications/track-outbound`:
+1. **URL Sanitization & Mutation:** When `destinationUrl` is received from the query string, trace how it is parsed or validated before `res.redirect()` or `res.json()` is called. Is `new URL()` or a URL-formatting function stripping the `.pathname` or `.search` query parameters?
+2. **Fallback Behavior:** Is there any conditional logic or fallback catch-block where if a validation check fails or times out, the server defaults to redirecting to `role.company_website`, a root domain, or a generic URL instead of returning an error or the true deep-link?
+
+#### TASK 3: Trace Data Source Differences
+1. Trace the backend API endpoints feeding `SponsorLicencesPage` vs. `OpportunitiesPage`. 
+2. Are the URLs being served to `OpportunitiesPage` already truncated to root domains in the database/API response before the UI even renders them? Why do the records in `SponsorLicencesPage` retain their full deep-link paths while `OpportunitiesPage` records do not?
+
+---
+
+### REQUIRED DELIVERABLE
+Provide a detailed read-only diagnostic report featuring:
+1. A **Side-by-Side Comparison Table** mapping out:
+   - Source Database Table / API Endpoint
+   - URL Property Name used in UI
+   - Link Architecture (HTML Tag vs. API Redirect)
+   - Behavior on Click
+2. The exact root cause explaining WHY `OpportunitiesPage` links lose their specific vacancy paths and end up as homepages while `SponsorLicencesPage` succeeds.
+3. Confirm that zero files or database records were altered during this audit.
