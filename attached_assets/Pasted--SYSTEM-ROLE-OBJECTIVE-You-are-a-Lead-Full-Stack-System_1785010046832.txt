@@ -1,0 +1,39 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Full-Stack Systems Architect executing a READ-ONLY feasibility audit. Our developer needs to solve a severe latency bottleneck on the "Check Vacancies" button on `SponsorLicencesPage.tsx`. Before modifying any code, we need exact data volumes and architectural answers to 4 specific feasibility questions.
+
+Do NOT modify, delete, or rewrite any files or database rows during this audit.
+
+---
+
+### INVESTIGATION TASKS
+
+#### TASK 1: Database Slice & Region Volume Analysis
+1. Write and execute a read-only SQL query against `sponsor_licences` to calculate:
+   - The total count of active sponsor employers in the database.
+   - The average, minimum, and maximum number of employers returned when filtering by a single `region` or `industry`.
+2. Print the top 5 largest regions/industries by employer count so we know the worst-case payload size if a client triggers a check on a selected filter.
+
+#### TASK 2: Pagination & Visible Page Feasibility (`artifacts/jobsage-web/src/pages/SponsorLicencesPage.tsx`)
+1. Inspect how `SponsorLicencesPage.tsx` renders the list of sponsor cards. Does it use server-side pagination, client-side pagination, or infinite scrolling? What is the default page size (e.g., 15, 20, 50 cards per view)?
+2. Check if we can easily extract just the `id` values of the **currently rendered/visible employers** on the screen.
+3. Check our backend routes (`artifacts/api-server/src/routes/sponsorLicences.ts`): do we currently have an endpoint that accepts an array of specific employer IDs (e.g., `POST /sponsor-licences/check-batch` with `{ ids: [...] }`), or would we need to adapt the single-card `/check-vacancies` route to accept an array?
+
+#### TASK 3: Rate Limits & Role Permissions Audit (`artifacts/api-server/src/routes/sponsorLicences.ts`)
+1. Inspect the handler for `POST /sponsor-licences/check-all-vacancies` and `POST /sponsor-licences/check-vacancies`.
+2. Answer the following:
+   - Are there currently any role-based access controls (e.g., `requireAdmin` middleware) protecting the bulk check button, or can any authenticated client trigger it?
+   - Are there any user-level rate limits, concurrency caps, or cooldown timers implemented to prevent a user from spamming the scrape endpoint?
+
+#### TASK 4: Cache TTL & UI Timestamp Visibility Audit
+1. In `vacancyCheckAllRunner.ts` / `vacancyCheckHelper.ts`, verify the exact cache TTL duration (is it strictly 24 hours?).
+2. Check the API response payload feeding `SponsorLicencesPage.tsx`: does the backend return a `last_checked`, `check_date`, or `updated_at` timestamp for each sponsor employer?
+3. Inspect the UI code in `SponsorLicencesPage.tsx`: is the frontend currently rendering a badge or label showing clients when the vacancies were last checked (e.g., *"Checked 3 hours ago"* or an *"Up to date"* badge), or is this information hidden from the user?
+
+---
+
+### REQUIRED DELIVERABLE
+Provide a clean, no-fluff Feasibility Report answering our 4 core questions:
+1. **Region Volume:** How many employers sit in a typical region/filter slice? Can 15 workers handle a region slice in under 15 seconds?
+2. **Visible Page Slicing:** How easy is it to scope the refresh button strictly to the currently rendered cards (Page 1 view)?
+3. **Permissions/Limits:** What limits or admin guards currently exist versus what we need to build?
+4. **Timestamp Visibility:** Are clients spam-clicking because they can't see the last-checked timestamp on the UI?

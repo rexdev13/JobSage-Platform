@@ -1,0 +1,49 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Backend Systems Architect and Senior Full-Stack Engineer. Based on our feasibility audit, region-wide vacancy checking is infeasible due to 118,306 total sponsor rows and a 73% NULL-region distribution. Additionally, our automated background scraper is underperforming (only ~542 orgs checked in the last 24h).
+
+We are implementing a 4-pillar architectural upgrade:
+1. Build a fast, visible-page batch check endpoint (`POST /api/sponsor-licences/check-batch`) capped at 20 IDs.
+2. Admin-gate the global bulk scrape trigger (`POST /api/sponsor-licences/check-all-vacancies`).
+3. Wire the frontend `SponsorLicencesPage.tsx` to refresh only the 20 visible cards on screen and display visual cache-freshness badges.
+4. Audit and optimize the automated background scheduler (`vacancyCheckScheduler` / `dailyVacancySync.ts`) so it reliably and aggressively scrapes vacancies without relying on manual button clicks.
+
+---
+
+### EXECUTION TASKS
+
+#### TASK 1: Implement Batch Check Route (`artifacts/api-server/src/routes/sponsorLicences.ts`)
+1. Create a new endpoint: `POST /sponsor-licences/check-batch` wrapped in `requireAuthenticated`.
+2. Validate the request body: require an array of `ids` (`number[]` or `string[]`), strictly capped at a maximum of **20 IDs** (return `400 Bad Request` if `ids.length > 20` or empty).
+3. Resolve the provided `ids` to distinct organisation names from `sponsor_licences`.
+4. Process these organisations using our existing `runVacancyCheck()` logic with a concurrency pool of 15 workers.
+5. Return a synchronous JSON response containing the updated vacancy summary/counts for those specific IDs so the UI can update immediately.
+6. Implement a lightweight per-user throttle/cooldown (e.g., 30-60 seconds between batch checks) to prevent spamming.
+
+#### TASK 2: Admin-Gate the Bulk Trigger (`artifacts/api-server/src/routes/sponsorLicences.ts`)
+1. Locate `POST /sponsor-licences/check-all-vacancies` (the global/region fire-and-forget trigger).
+2. Replace `requireAuthenticated` with `requireAdmin` (or your equivalent admin-enforcement middleware). 
+3. Ensure that non-admin authenticated users attempting to trigger a global bulk check receive a `403 Forbidden` error.
+
+#### TASK 3: Upgrade Frontend Button & Cache UI (`artifacts/jobsage-web/src/pages/SponsorLicencesPage.tsx`)
+1. Locate the UI controls for refreshing/checking vacancies on the main list view.
+2. Replace the region/global "Check All Vacancies" trigger with a clean **"Refresh Visible Page (20)"** button.
+3. Wire this button's `onClick` handler to extract the exact `id` values of the **currently rendered array of 20 sponsor cards** and send them to `POST /api/sponsor-licences/check-batch`.
+4. Add a visual loading state to the button while the batch check runs (~5–15s runtime), then invalidate/refetch the active query so the UI updates cleanly without a full page reload.
+5. **Cache Affordance:** In the individual sponsor cards or vacancy panels, if `lastVacancyCheckedAt` (or `lastCheckedAt`) is within the last 24 hours (`VACANCY_CACHE_TTL_MS`), render a subtle green badge or label: `"⚡ Up to date (Cached)"` so users know the data is fresh without needing to manually re-trigger.
+
+#### TASK 4: Audit & Supercharge the Automated Background Scraper (`artifacts/api-server/src/lib/vacancyCheckScheduler.ts` & `dailyVacancySync.ts`)
+1. Locate our automated background scraping jobs (`vacancyCheckScheduler`, `dailyVacancySync.ts`, or any cron-like runners).
+2. Diagnose why only ~542 organisations were checked in the last 24 hours out of 118,306 total rows. Specifically check:
+   - Is the background job crashing silently on unhandled errors without resuming?
+   - Is the batch size or cron interval configured too conservatively (e.g., only running once a day for a tiny slice)?
+   - Is the single-flight in-memory lock (`isRunning`) getting stuck or aborting scheduled runs?
+3. Optimize the background scheduler:
+   - Ensure the automated loop processes unchecked or expired companies in continuous, chunked background batches (using our 15-worker pool) so the database aggressively refills its cache 24/7.
+   - Ensure unhandled errors on a single company are logged and skipped without killing the entire background cron process.
+
+---
+
+### REQUIRED DELIVERABLE
+1. Run `npm run typecheck` across both `api-server` and `jobsage-web` to confirm zero compilation or TypeScript errors.
+2. Confirm in your output report that `POST /check-all-vacancies` now returns 403 for non-admins, and that `POST /check-batch` successfully processes a test array of 5–10 IDs and returns clean data.
+3. Detail exactly what configuration or logic was changed in Task 4 to ensure the automated background scheduler aggressively scrapes companies moving forward.
