@@ -25,4 +25,5 @@ export interface JobListing {
   targetRegions?: string[];
   createdAt: Date;
   updatedAt: Date;
+  applyUrl?: string | null;
 }

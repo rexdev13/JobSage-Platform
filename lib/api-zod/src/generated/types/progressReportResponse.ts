@@ -8,9 +8,11 @@
 import type { ProgressReportResponseEligibility } from "./progressReportResponseEligibility";
 import type { ProgressReportResponsePeriod } from "./progressReportResponsePeriod";
 import type { ProgressReportResponsePlan } from "./progressReportResponsePlan";
+import type { ProgressReportResponseTopCompaniesItem } from "./progressReportResponseTopCompaniesItem";
 import type { ProgressReportStats } from "./progressReportStats";
 
 export interface ProgressReportResponse {
+  topCompanies?: ProgressReportResponseTopCompaniesItem[];
   period: ProgressReportResponsePeriod;
   stats: ProgressReportStats;
   eligibility: ProgressReportResponseEligibility;

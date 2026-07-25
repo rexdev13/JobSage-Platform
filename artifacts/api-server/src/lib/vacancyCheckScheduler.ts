@@ -6,7 +6,11 @@ import { runVacancyCheck } from "./vacancyCheckHelper";
 
 export type VacancySyncTriggeredBy = "scheduler" | "manual";
 
-const DEFAULT_BATCH_SIZE = 50;
+const DEFAULT_BATCH_SIZE = 150;
+const BATCH_CONCURRENCY = 15;
+
+// Overlap guard — released in a finally block so it can never stay stuck.
+let batchInProgress = false;
 
 function getBatchSize(): number {
   const raw = process.env["VACANCY_CHECK_BATCH_SIZE"];
@@ -58,61 +62,84 @@ async function selectBatch(batchSize: number): Promise<{ id: number; organisatio
 }
 
 export async function runVacancyCheckBatch(triggeredBy: VacancySyncTriggeredBy = "scheduler"): Promise<void> {
-  const batchSize = getBatchSize();
-  const startMs = Date.now();
-  console.log(`[vacancy-scheduler] Starting batch (size: ${batchSize}, triggered by: ${triggeredBy})`);
-
-  const rows = await selectBatch(batchSize);
-  console.log(`[vacancy-scheduler] ${rows.length} companies selected`);
-
-  let checked = 0;
-  let fromCache = 0;
-  let errors = 0;
-  let lastErrorMsg: string | null = null;
-
-  for (const row of rows) {
-    try {
-      const result = await runVacancyCheck(row.organisation_name);
-      if (result.fromCache) {
-        fromCache++;
-      } else {
-        checked++;
-      }
-    } catch (err) {
-      errors++;
-      lastErrorMsg = err instanceof Error ? err.message : String(err);
-      console.error(
-        `[vacancy-scheduler] Failed for "${row.organisation_name}":`,
-        lastErrorMsg,
-      );
-    }
+  if (batchInProgress) {
+    console.log("[vacancy-scheduler] Previous batch still running — skipping this tick");
+    return;
   }
+  batchInProgress = true;
 
-  const durationMs = Date.now() - startMs;
-  const status = errors > 0 && checked === 0 && fromCache === 0 ? "error" : "success";
+  try {
+    const batchSize = getBatchSize();
+    const startMs = Date.now();
+    console.log(`[vacancy-scheduler] Starting batch (size: ${batchSize}, concurrency: ${BATCH_CONCURRENCY}, triggered by: ${triggeredBy})`);
 
-  await db.insert(vacancySyncLogTable).values({
-    status,
-    batchSize: rows.length,
-    checkedCount: checked,
-    cacheHitCount: fromCache,
-    errorCount: errors,
-    errorMessage: lastErrorMsg ? lastErrorMsg.slice(0, 2000) : null,
-    triggeredBy,
-    durationMs,
-  }).catch((err) => {
-    console.error("[vacancy-scheduler] Failed to write sync log:", err);
-  });
+    const rows = await selectBatch(batchSize);
+    console.log(`[vacancy-scheduler] ${rows.length} companies selected`);
+    if (rows.length === 0) return;
 
-  console.log(
-    `[vacancy-scheduler] Batch complete — new checks: ${checked}, cache hits: ${fromCache}, errors: ${errors}, ${durationMs}ms`,
-  );
+    let checked = 0;
+    let fromCache = 0;
+    let errors = 0;
+    let lastErrorMsg: string | null = null;
+
+    // Bounded worker pool — per-company failures are logged and skipped so a
+    // single bad org can never kill the batch.
+    let idx = 0;
+    async function worker(): Promise<void> {
+      while (idx < rows.length) {
+        const row = rows[idx++];
+        if (!row) continue;
+        try {
+          const result = await runVacancyCheck(row.organisation_name);
+          if (result.fromCache) {
+            fromCache++;
+          } else {
+            checked++;
+          }
+        } catch (err) {
+          errors++;
+          lastErrorMsg = err instanceof Error ? err.message : String(err);
+          console.error(
+            `[vacancy-scheduler] Failed for "${row.organisation_name}":`,
+            lastErrorMsg,
+          );
+        }
+      }
+    }
+    await Promise.all(
+      Array.from({ length: Math.min(BATCH_CONCURRENCY, rows.length) }, () => worker()),
+    );
+
+    const durationMs = Date.now() - startMs;
+    const status = errors > 0 && checked === 0 && fromCache === 0 ? "error" : "success";
+
+    await db.insert(vacancySyncLogTable).values({
+      status,
+      batchSize: rows.length,
+      checkedCount: checked,
+      cacheHitCount: fromCache,
+      errorCount: errors,
+      errorMessage: lastErrorMsg ? (lastErrorMsg as string).slice(0, 2000) : null,
+      triggeredBy,
+      durationMs,
+    }).catch((err) => {
+      console.error("[vacancy-scheduler] Failed to write sync log:", err);
+    });
+
+    console.log(
+      `[vacancy-scheduler] Batch complete — new checks: ${checked}, cache hits: ${fromCache}, errors: ${errors}, ${durationMs}ms`,
+    );
+  } finally {
+    batchInProgress = false;
+  }
 }
 
 export function startVacancyCheckScheduler(): void {
-  // Run every 8 hours: 06:00, 14:00, 22:00 Europe/London
+  // Aggressive continuous refill: a chunked batch every 20 minutes with a
+  // 15-worker pool. At the default batch size of 150 that is up to ~10,800
+  // organisations/day, honouring the tiered prioritisation in selectBatch.
   cron.schedule(
-    "0 6,14,22 * * *",
+    "*/20 * * * *",
     () => {
       runVacancyCheckBatch("scheduler").catch((err) => {
         console.error("[vacancy-scheduler] Unhandled scheduler error:", err);
@@ -121,5 +148,7 @@ export function startVacancyCheckScheduler(): void {
     { timezone: "Europe/London" },
   );
 
-  console.log("[vacancy-scheduler] Scheduler registered: every 8 hours at 06:00, 14:00, 22:00 Europe/London");
+  console.log(
+    `[vacancy-scheduler] Scheduler registered: every 20 minutes, batch size ${getBatchSize()}, concurrency ${BATCH_CONCURRENCY}`,
+  );
 }

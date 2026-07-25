@@ -11,6 +11,7 @@ import {
   useListSponsorLicences,
   useListSpeculativeApplications,
   useCheckAllSponsorLicenceVacancies,
+  useCheckSponsorLicenceVacancyBatch,
   useGetCheckAllSponsorLicenceVacanciesStatus,
   useGetSponsorLicenceVacancies,
   useGetSponsorLicenceVacancyStats,
@@ -74,8 +75,18 @@ import {
   Clock,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@workspace/auth-web";
 
 const LIMIT = 20;
+
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+function isWithinCacheTtl(dt: string | null | undefined): boolean {
+  if (!dt) return false;
+  const then = new Date(dt).getTime();
+  if (Number.isNaN(then)) return false;
+  return Date.now() - then < CACHE_TTL_MS;
+}
 
 function formatSyncDate(dt: string | null | undefined): string {
   if (!dt) return "Never";
@@ -425,7 +436,11 @@ export default function SponsorLicencesPage() {
   const bookmarkMutation = useBookmarkSponsorLicence();
   const unbookmarkMutation = useUnbookmarkSponsorLicence();
 
+  const { user } = useAuth();
+  const isAdmin = (user?.role as string) === "admin" || (user?.role as string) === "super_admin";
+
   const checkAllMutation = useCheckAllSponsorLicenceVacancies();
+  const batchCheckMutation = useCheckSponsorLicenceVacancyBatch();
   const { data: checkAllStatus } = useGetCheckAllSponsorLicenceVacanciesStatus({
     query: {
       queryKey: getGetCheckAllSponsorLicenceVacanciesStatusQueryKey(),
@@ -457,6 +472,34 @@ export default function SponsorLicencesPage() {
       },
       onError: () => {
         toast({ title: "Error", description: "Could not start the vacancy check. Please try again.", variant: "destructive" });
+      },
+    });
+  }
+
+  function handleRefreshVisible(visibleIds: number[]) {
+    if (visibleIds.length === 0) {
+      toast({ title: "Nothing to refresh", description: "No sponsor cards are currently visible." });
+      return;
+    }
+    batchCheckMutation.mutate({ data: { ids: visibleIds.slice(0, LIMIT) } }, {
+      onSuccess: (res) => {
+        toast({
+          title: "Page refreshed",
+          description: `${res.newChecks} freshly checked · ${res.cacheHits} up to date${res.errors > 0 ? ` · ${res.errors} failed` : ""}.`,
+        });
+        void queryClient.invalidateQueries({ queryKey: [getListSponsorLicencesQueryKey()[0]] });
+        void queryClient.invalidateQueries({ queryKey: getGetSponsorLicenceIndustryCountsQueryKey() });
+      },
+      onError: (err) => {
+        const e = err as { status?: number; data?: { error?: string; retryAfterSeconds?: number } | null };
+        if (e.status === 429) {
+          toast({
+            title: "Please wait",
+            description: e.data?.error ?? "You refreshed recently — please wait a moment before trying again.",
+          });
+        } else {
+          toast({ title: "Error", description: "Could not refresh this page. Please try again.", variant: "destructive" });
+        }
       },
     });
   }
@@ -1046,27 +1089,52 @@ export default function SponsorLicencesPage() {
                   </button>
 
                   <button
-                    onClick={handleCheckAllVacancies}
-                    disabled={isCheckingAll}
-                    title={isCheckingAll ? "A vacancy check is already running" : "Scan every employer for new vacancies and rescore matches"}
+                    onClick={() => handleRefreshVisible(companies.map((c) => c.id))}
+                    disabled={batchCheckMutation.isPending || companies.length === 0}
+                    title="Check vacancies for the sponsor cards currently on this page (takes ~5–15 seconds)"
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
-                      isCheckingAll
+                      batchCheckMutation.isPending
                         ? "bg-primary/10 border-primary/20 text-primary cursor-not-allowed"
-                        : "bg-primary text-primary-foreground border-primary hover:bg-primary/90"
+                        : "bg-primary text-primary-foreground border-primary hover:bg-primary/90 disabled:opacity-50"
                     }`}
                   >
-                    {isCheckingAll ? (
+                    {batchCheckMutation.isPending ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        Checking… {checkAllStatus ? `${checkAllStatus.processed}/${checkAllStatus.total}` : ""}
+                        Refreshing this page…
                       </>
                     ) : (
                       <>
-                        <PlayCircle className="w-4 h-4" />
-                        Check All Vacancies
+                        <RefreshCw className="w-4 h-4" />
+                        Refresh Visible Page ({Math.min(companies.length, LIMIT)})
                       </>
                     )}
                   </button>
+
+                  {isAdmin && (
+                    <button
+                      onClick={handleCheckAllVacancies}
+                      disabled={isCheckingAll}
+                      title={isCheckingAll ? "A vacancy check is already running" : "Admin: scan every employer for new vacancies and rescore matches"}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
+                        isCheckingAll
+                          ? "bg-primary/10 border-primary/20 text-primary cursor-not-allowed"
+                          : "border-border text-foreground hover:bg-accent"
+                      }`}
+                    >
+                      {isCheckingAll ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Checking… {checkAllStatus ? `${checkAllStatus.processed}/${checkAllStatus.total}` : ""}
+                        </>
+                      ) : (
+                        <>
+                          <PlayCircle className="w-4 h-4" />
+                          Check All Vacancies
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
 
                 {isCheckingAll && checkAllStatus && checkAllStatus.total > 0 && (
@@ -1198,6 +1266,14 @@ export default function SponsorLicencesPage() {
                                     <span className="flex items-center gap-1" title="Last checked for vacancies">
                                       <Clock className="w-3 h-3" />
                                       Checked {formatCheckedAt(c.lastVacancyCheckedAt)}
+                                    </span>
+                                  )}
+                                  {isWithinCacheTtl(c.lastVacancyCheckedAt) && (
+                                    <span
+                                      className="inline-flex items-center gap-1 text-[11px] font-medium bg-green-500/10 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full"
+                                      title="Checked within the last 24 hours — results are served from cache"
+                                    >
+                                      ⚡ Up to date (Cached)
                                     </span>
                                   )}
                                 </div>

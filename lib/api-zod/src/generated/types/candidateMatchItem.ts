@@ -14,6 +14,14 @@ export interface CandidateMatchItem {
   regulator: string;
   sponsorshipOffered: boolean;
   requiredRegistration: string;
+  /** Direct application URL for this role, if available */
+  applyUrl?: string | null;
+  /** Contact email for this role's employer */
+  contactEmail?: string | null;
+  /** Contact phone for this role's employer */
+  contactPhone?: string | null;
+  /** Contact website for this role's employer */
+  contactWebsite?: string | null;
   /** AI-generated match score 0-100 */
   aiScore: number;
   /** One-line AI explanation of the match */

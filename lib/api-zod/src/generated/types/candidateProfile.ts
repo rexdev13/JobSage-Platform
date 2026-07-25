@@ -22,7 +22,7 @@ export interface CandidateProfile {
   licenceReady?: boolean | null;
   residencyStatus?: string | null;
   requiresSponsorship?: boolean | null;
-  preferredRegion?: string | null;
+  preferredRegion?: string[] | null;
   alertFrequency?: CandidateProfileAlertFrequency;
   lastAlertSentAt?: Date | null;
   boostProfile?: boolean;

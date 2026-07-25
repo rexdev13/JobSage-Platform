@@ -3,7 +3,7 @@ import { db } from "@workspace/db";
 import { sponsorLicencesTable, sponsorLicenceSyncLogTable, sponsorLicenceVacancyChecksTable, sponsorLicenceBookmarksTable, sponsorLicenceVacanciesTable, sponsorLicenceVacancyScoresTable } from "@workspace/db";
 import { eq, ilike, and, desc, sql, isNotNull, inArray } from "drizzle-orm";
 import { countyToRegion } from "../lib/countyToRegion";
-import { requireAuthenticated } from "../middlewares/requireRole";
+import { requireAuthenticated, requireRole } from "../middlewares/requireRole";
 import { runVacancyCheck } from "../lib/vacancyCheckHelper";
 import { startCheckAllVacancies, getCheckAllStatus } from "../lib/vacancyCheckAllRunner";
 
@@ -58,9 +58,115 @@ router.post("/sponsor-licences/:id/check-vacancies", requireAuthenticated, async
   }
 });
 
-// ── Check All Vacancies ──────────────────────────────────────────────────────
+// ── Batch Check (visible page) ───────────────────────────────────────────────
 
-router.post("/sponsor-licences/check-all-vacancies", requireAuthenticated, (req, res) => {
+const BATCH_MAX_IDS = 20;
+const BATCH_CONCURRENCY = 15;
+const BATCH_COOLDOWN_MS = 45_000;
+const batchCooldowns = new Map<string, number>();
+
+router.post("/sponsor-licences/check-batch", requireAuthenticated, async (req, res) => {
+  try {
+    const userId = req.user!.id;
+    const rawIds: unknown = req.body?.ids;
+    if (!Array.isArray(rawIds) || rawIds.length === 0) {
+      res.status(400).json({ error: "ids must be a non-empty array of company IDs." });
+      return;
+    }
+    if (rawIds.length > BATCH_MAX_IDS) {
+      res.status(400).json({ error: `A maximum of ${BATCH_MAX_IDS} ids may be checked per batch.` });
+      return;
+    }
+    const ids = [...new Set(rawIds.filter((n): n is number => Number.isInteger(n) && (n as number) > 0))];
+    if (ids.length === 0) {
+      res.status(400).json({ error: "ids must contain valid numeric company IDs." });
+      return;
+    }
+
+    const now = Date.now();
+    const cooldownUntil = batchCooldowns.get(userId) ?? 0;
+    if (cooldownUntil > now) {
+      const retryAfterSeconds = Math.ceil((cooldownUntil - now) / 1000);
+      res.status(429).json({
+        error: `Please wait ${retryAfterSeconds}s before refreshing again.`,
+        retryAfterSeconds,
+      });
+      return;
+    }
+    batchCooldowns.set(userId, now + BATCH_COOLDOWN_MS);
+
+    const companies = await db
+      .select({ id: sponsorLicencesTable.id, organisationName: sponsorLicencesTable.organisationName })
+      .from(sponsorLicencesTable)
+      .where(inArray(sponsorLicencesTable.id, ids));
+
+    // Distinct organisation names → one AI check per org, shared across ids.
+    const orgNames = [...new Set(companies.map((c) => c.organisationName))];
+    const orgResults = new Map<
+      string,
+      { vacanciesFound: boolean; vacancyCount: number | null; checkedAt: string; fromCache: boolean; error: string | null }
+    >();
+
+    let orgIdx = 0;
+    async function worker(): Promise<void> {
+      while (orgIdx < orgNames.length) {
+        const name = orgNames[orgIdx++];
+        if (!name) continue;
+        try {
+          const r = await runVacancyCheck(name);
+          orgResults.set(name, {
+            vacanciesFound: r.vacanciesFound,
+            vacancyCount: r.vacancyCount,
+            checkedAt: r.checkedAt.toISOString(),
+            fromCache: r.fromCache,
+            error: null,
+          });
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.error(`[check-batch] Failed for "${name}":`, msg);
+          orgResults.set(name, {
+            vacanciesFound: false,
+            vacancyCount: null,
+            checkedAt: new Date().toISOString(),
+            fromCache: false,
+            error: msg.slice(0, 500),
+          });
+        }
+      }
+    }
+    await Promise.all(
+      Array.from({ length: Math.min(BATCH_CONCURRENCY, orgNames.length || 1) }, () => worker()),
+    );
+
+    const results = companies.map((c) => {
+      const r = orgResults.get(c.organisationName);
+      return {
+        id: c.id,
+        organisationName: c.organisationName,
+        vacanciesFound: r?.vacanciesFound ?? false,
+        vacancyCount: r?.vacancyCount ?? null,
+        checkedAt: r?.checkedAt ?? null,
+        fromCache: r?.fromCache ?? false,
+        error: r?.error ?? null,
+      };
+    });
+
+    res.json({
+      results,
+      checkedOrganisations: orgNames.length,
+      newChecks: results.filter((r) => r.error === null && !r.fromCache).length,
+      cacheHits: results.filter((r) => r.fromCache).length,
+      errors: results.filter((r) => r.error !== null).length,
+    });
+  } catch (err) {
+    console.error("[sponsor-licences] /check-batch error:", err);
+    res.status(500).json({ error: "Batch vacancy check failed. Please try again." });
+  }
+});
+
+// ── Check All Vacancies (admin only) ─────────────────────────────────────────
+
+router.post("/sponsor-licences/check-all-vacancies", requireRole("admin", "super_admin"), (req, res) => {
   try {
     const userId = req.user!.id;
     const rawRegions = req.body?.regions;

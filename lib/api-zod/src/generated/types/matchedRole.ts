@@ -22,6 +22,8 @@ export interface MatchedRole {
   eligibilityGaps?: string[];
   /** True for the top-5 highest-matching roles — should be highlighted as "Apply First" */
   recommended?: boolean;
+  /** Direct application URL for this specific role, if available */
+  applyUrl?: string | null;
   /** Company contact email from employer profile, where available */
   contactEmail?: string | null;
   /** Company contact phone from employer profile, where available */

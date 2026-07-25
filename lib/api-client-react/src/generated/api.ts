@@ -117,6 +117,9 @@ import type {
   SmartApplyQuestionsResponse,
   SpeculativeApplicationListResponse,
   SpeculativeApplicationResult,
+  SponsorLicenceBatchCheckRequest,
+  SponsorLicenceBatchCheckResponse,
+  SponsorLicenceBatchCooldownError,
   SponsorLicenceBookmarksResponse,
   SponsorLicenceEnrichResponse,
   SponsorLicenceIndustriesResponse,
@@ -8171,7 +8174,101 @@ export const useCheckSponsorLicenceVacancies = <
 };
 
 /**
- * @summary Start (or report already-running) a background scan of every sponsor licence employer for vacancies, scoring results for the current candidate
+ * @summary Synchronously check vacancies for up to 20 sponsor licence companies (the currently visible page)
+ */
+export const getCheckSponsorLicenceVacancyBatchUrl = () => {
+  return `/api/sponsor-licences/check-batch`;
+};
+
+export const checkSponsorLicenceVacancyBatch = async (
+  sponsorLicenceBatchCheckRequest: SponsorLicenceBatchCheckRequest,
+  options?: RequestInit,
+): Promise<SponsorLicenceBatchCheckResponse> => {
+  return customFetch<SponsorLicenceBatchCheckResponse>(
+    getCheckSponsorLicenceVacancyBatchUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(sponsorLicenceBatchCheckRequest),
+    },
+  );
+};
+
+export const getCheckSponsorLicenceVacancyBatchMutationOptions = <
+  TError = ErrorType<ErrorEnvelope | SponsorLicenceBatchCooldownError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof checkSponsorLicenceVacancyBatch>>,
+    TError,
+    { data: BodyType<SponsorLicenceBatchCheckRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof checkSponsorLicenceVacancyBatch>>,
+  TError,
+  { data: BodyType<SponsorLicenceBatchCheckRequest> },
+  TContext
+> => {
+  const mutationKey = ["checkSponsorLicenceVacancyBatch"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof checkSponsorLicenceVacancyBatch>>,
+    { data: BodyType<SponsorLicenceBatchCheckRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return checkSponsorLicenceVacancyBatch(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CheckSponsorLicenceVacancyBatchMutationResult = NonNullable<
+  Awaited<ReturnType<typeof checkSponsorLicenceVacancyBatch>>
+>;
+export type CheckSponsorLicenceVacancyBatchMutationBody =
+  BodyType<SponsorLicenceBatchCheckRequest>;
+export type CheckSponsorLicenceVacancyBatchMutationError = ErrorType<
+  ErrorEnvelope | SponsorLicenceBatchCooldownError
+>;
+
+/**
+ * @summary Synchronously check vacancies for up to 20 sponsor licence companies (the currently visible page)
+ */
+export const useCheckSponsorLicenceVacancyBatch = <
+  TError = ErrorType<ErrorEnvelope | SponsorLicenceBatchCooldownError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof checkSponsorLicenceVacancyBatch>>,
+    TError,
+    { data: BodyType<SponsorLicenceBatchCheckRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof checkSponsorLicenceVacancyBatch>>,
+  TError,
+  { data: BodyType<SponsorLicenceBatchCheckRequest> },
+  TContext
+> => {
+  return useMutation(
+    getCheckSponsorLicenceVacancyBatchMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Start (or report already-running) a background scan of every sponsor licence employer for vacancies, scoring results for the current candidate (admin only)
  */
 export const getCheckAllSponsorLicenceVacanciesUrl = () => {
   return `/api/sponsor-licences/check-all-vacancies`;
@@ -8239,7 +8336,7 @@ export type CheckAllSponsorLicenceVacanciesMutationError =
   ErrorType<ErrorEnvelope>;
 
 /**
- * @summary Start (or report already-running) a background scan of every sponsor licence employer for vacancies, scoring results for the current candidate
+ * @summary Start (or report already-running) a background scan of every sponsor licence employer for vacancies, scoring results for the current candidate (admin only)
  */
 export const useCheckAllSponsorLicenceVacancies = <
   TError = ErrorType<ErrorEnvelope>,

@@ -20,7 +20,7 @@ export interface UpsertProfileRequest {
   licenceReady?: boolean | null;
   residencyStatus: string;
   requiresSponsorship: boolean;
-  preferredRegion?: string | null;
+  preferredRegion?: string[] | null;
   alertFrequency?: UpsertProfileRequestAlertFrequency;
   preferredStartDate?: string | null;
   profilePhotoKey?: string | null;

@@ -248,10 +248,6 @@ export const GetMyProfileResponse = zod.object({
     .number()
     .optional()
     .describe("Profile completeness score (0–100), computed server-side"),
-  missingFields: zod
-    .array(zod.string())
-    .optional()
-    .describe("Labels of profile fields that are not yet filled in"),
   createdAt: zod.date(),
   updatedAt: zod.date(),
 });
@@ -328,10 +324,6 @@ export const UpsertMyProfileResponse = zod.object({
     .number()
     .optional()
     .describe("Profile completeness score (0–100), computed server-side"),
-  missingFields: zod
-    .array(zod.string())
-    .optional()
-    .describe("Labels of profile fields that are not yet filled in"),
   createdAt: zod.date(),
   updatedAt: zod.date(),
 });
@@ -730,6 +722,12 @@ export const ParseCvResponse = zod.object({
     rawNotes: zod.string().optional(),
     professionQualMismatch: zod.boolean().optional(),
     professionQualMismatchWarning: zod.string().nullish(),
+    professionWarning: zod
+      .string()
+      .nullish()
+      .describe(
+        "Set when the profession could not be detected or saved; candidate should select it manually.",
+      ),
   }),
 });
 
@@ -830,6 +828,12 @@ export const ListMatchedRolesResponse = zod.object({
         active: zod.boolean(),
         importedAt: zod.date(),
         importedBy: zod.string().nullish(),
+        applyUrl: zod
+          .string()
+          .nullish()
+          .describe(
+            "Direct application URL for this specific role, if available",
+          ),
       }),
       explanation: zod.string(),
       rulesetVersion: zod.string(),
@@ -855,6 +859,12 @@ export const ListMatchedRolesResponse = zod.object({
         .optional()
         .describe(
           'True for the top-5 highest-matching roles — should be highlighted as \"Apply First\"',
+        ),
+      applyUrl: zod
+        .string()
+        .nullish()
+        .describe(
+          "Direct application URL for this specific role, if available",
         ),
       contactEmail: zod
         .string()
@@ -911,6 +921,22 @@ export const GetMyMatchesResponse = zod.object({
       regulator: zod.string(),
       sponsorshipOffered: zod.boolean(),
       requiredRegistration: zod.string(),
+      applyUrl: zod
+        .string()
+        .nullish()
+        .describe("Direct application URL for this role, if available"),
+      contactEmail: zod
+        .string()
+        .nullish()
+        .describe("Contact email for this role's employer"),
+      contactPhone: zod
+        .string()
+        .nullish()
+        .describe("Contact phone for this role's employer"),
+      contactWebsite: zod
+        .string()
+        .nullish()
+        .describe("Contact website for this role's employer"),
       aiScore: zod.number().describe("AI-generated match score 0-100"),
       aiExplanation: zod
         .string()
@@ -951,6 +977,12 @@ export const AdminListRolesResponse = zod.object({
       active: zod.boolean(),
       importedAt: zod.date(),
       importedBy: zod.string().nullish(),
+      applyUrl: zod
+        .string()
+        .nullish()
+        .describe(
+          "Direct application URL for this specific role, if available",
+        ),
     }),
   ),
 });
@@ -1009,6 +1041,11 @@ export const ListMyApplicationsResponse = zod.object({
       notes: zod.string().nullish(),
       roleTitle: zod.string().nullish(),
       roleLocation: zod.string().nullish(),
+      applicationType: zod.string().nullish(),
+      applicationUrl: zod.string().nullish(),
+      companyName: zod.string().nullish(),
+      interviewDate: zod.string().nullish(),
+      interviewNotes: zod.string().nullish(),
     }),
   ),
   stats: zod.object({
@@ -1045,6 +1082,11 @@ export const MarkApplicationResponse = zod.object({
   notes: zod.string().nullish(),
   roleTitle: zod.string().nullish(),
   roleLocation: zod.string().nullish(),
+  applicationType: zod.string().nullish(),
+  applicationUrl: zod.string().nullish(),
+  companyName: zod.string().nullish(),
+  interviewDate: zod.string().nullish(),
+  interviewNotes: zod.string().nullish(),
 });
 
 /**
@@ -1077,7 +1119,7 @@ export const GetRemediationPlanResponse = zod.object({
       timelineRange: zod.string().nullish(),
       costRange: zod.string().nullish(),
       pathway: zod.string().nullish(),
-      stepSource: zod.enum(["rule", "sponsorship", "manual"]),
+      stepSource: zod.enum(["rule", "sponsorship", "manual", "registration"]),
       ruleId: zod.number().nullish(),
       rulesetVersion: zod.string(),
       status: zod.enum(["planned", "in_progress", "done"]),
@@ -1107,7 +1149,7 @@ export const UpdateRemediationStepResponse = zod.object({
   timelineRange: zod.string().nullish(),
   costRange: zod.string().nullish(),
   pathway: zod.string().nullish(),
-  stepSource: zod.enum(["rule", "sponsorship", "manual"]),
+  stepSource: zod.enum(["rule", "sponsorship", "manual", "registration"]),
   ruleId: zod.number().nullish(),
   rulesetVersion: zod.string(),
   status: zod.enum(["planned", "in_progress", "done"]),
@@ -1156,7 +1198,7 @@ export const UpdateRemediationPlanOrderingResponse = zod.object({
       timelineRange: zod.string().nullish(),
       costRange: zod.string().nullish(),
       pathway: zod.string().nullish(),
-      stepSource: zod.enum(["rule", "sponsorship", "manual"]),
+      stepSource: zod.enum(["rule", "sponsorship", "manual", "registration"]),
       ruleId: zod.number().nullish(),
       rulesetVersion: zod.string(),
       status: zod.enum(["planned", "in_progress", "done"]),
@@ -1335,7 +1377,7 @@ export const GetReviewCaseResponse = zod.object({
       licenceReady: zod.boolean().nullish(),
       residencyStatus: zod.string().nullish(),
       requiresSponsorship: zod.boolean().nullish(),
-      preferredRegion: zod.string().nullish(),
+      preferredRegion: zod.array(zod.string()).nullish(),
       alertFrequency: zod.enum(["daily", "weekly", "off"]).nullish(),
       lastAlertSentAt: zod.date().nullish(),
       boostProfile: zod.boolean().optional(),
@@ -1499,6 +1541,18 @@ export const GetEmployerProfileResponse = zod.object({
   ]),
   sponsorLicenceNumber: zod.string().nullish(),
   region: zod.string(),
+  contactEmail: zod
+    .string()
+    .nullish()
+    .describe("Contact email address for this employer"),
+  contactPhone: zod
+    .string()
+    .nullish()
+    .describe("Contact phone number for this employer"),
+  contactWebsite: zod
+    .string()
+    .nullish()
+    .describe("Website URL for this employer"),
   createdAt: zod.date(),
   updatedAt: zod.date(),
 });
@@ -1517,6 +1571,18 @@ export const UpsertEmployerProfileBody = zod.object({
   ]),
   sponsorLicenceNumber: zod.string().nullish(),
   region: zod.string(),
+  contactEmail: zod
+    .string()
+    .nullish()
+    .describe("Contact email address for this employer"),
+  contactPhone: zod
+    .string()
+    .nullish()
+    .describe("Contact phone number for this employer"),
+  contactWebsite: zod
+    .string()
+    .nullish()
+    .describe("Website URL for this employer"),
 });
 
 export const UpsertEmployerProfileResponse = zod.object({
@@ -1532,6 +1598,18 @@ export const UpsertEmployerProfileResponse = zod.object({
   ]),
   sponsorLicenceNumber: zod.string().nullish(),
   region: zod.string(),
+  contactEmail: zod
+    .string()
+    .nullish()
+    .describe("Contact email address for this employer"),
+  contactPhone: zod
+    .string()
+    .nullish()
+    .describe("Contact phone number for this employer"),
+  contactWebsite: zod
+    .string()
+    .nullish()
+    .describe("Website URL for this employer"),
   createdAt: zod.date(),
   updatedAt: zod.date(),
 });
@@ -1559,6 +1637,7 @@ export const ListEmployerJobsResponse = zod.object({
         targetRegions: zod.array(zod.string()).optional(),
         createdAt: zod.date(),
         updatedAt: zod.date(),
+        applyUrl: zod.string().nullish(),
       })
       .and(
         zod.object({
@@ -1582,6 +1661,18 @@ export const ListEmployerJobsResponse = zod.object({
       ]),
       sponsorLicenceNumber: zod.string().nullish(),
       region: zod.string(),
+      contactEmail: zod
+        .string()
+        .nullish()
+        .describe("Contact email address for this employer"),
+      contactPhone: zod
+        .string()
+        .nullish()
+        .describe("Contact phone number for this employer"),
+      contactWebsite: zod
+        .string()
+        .nullish()
+        .describe("Website URL for this employer"),
       createdAt: zod.date(),
       updatedAt: zod.date(),
     })
@@ -1603,6 +1694,10 @@ export const CreateJobListingBody = zod.object({
   requiredRegistration: zod.string(),
   targetProfessions: zod.array(zod.string()).optional(),
   targetRegions: zod.array(zod.string()).optional(),
+  applyUrl: zod
+    .string()
+    .nullish()
+    .describe("Direct application URL for this role posting"),
 });
 
 /**
@@ -1629,6 +1724,7 @@ export const GetJobListingResponse = zod.object({
   targetRegions: zod.array(zod.string()).optional(),
   createdAt: zod.date(),
   updatedAt: zod.date(),
+  applyUrl: zod.string().nullish(),
 });
 
 /**
@@ -1650,6 +1746,10 @@ export const UpdateJobListingBody = zod.object({
   requiredRegistration: zod.string().optional(),
   targetProfessions: zod.array(zod.string()).optional(),
   targetRegions: zod.array(zod.string()).optional(),
+  applyUrl: zod
+    .string()
+    .nullish()
+    .describe("Direct application URL for this role posting"),
 });
 
 export const UpdateJobListingResponse = zod.object({
@@ -1669,6 +1769,7 @@ export const UpdateJobListingResponse = zod.object({
   targetRegions: zod.array(zod.string()).optional(),
   createdAt: zod.date(),
   updatedAt: zod.date(),
+  applyUrl: zod.string().nullish(),
 });
 
 /**
@@ -1706,6 +1807,7 @@ export const PublishJobListingResponse = zod.object({
   targetRegions: zod.array(zod.string()).optional(),
   createdAt: zod.date(),
   updatedAt: zod.date(),
+  applyUrl: zod.string().nullish(),
 });
 
 /**
@@ -1732,6 +1834,7 @@ export const CloseJobListingResponse = zod.object({
   targetRegions: zod.array(zod.string()).optional(),
   createdAt: zod.date(),
   updatedAt: zod.date(),
+  applyUrl: zod.string().nullish(),
 });
 
 /**
@@ -1858,8 +1961,6 @@ export const GetCandidateMessagesResponse = zod.object({
       createdAt: zod.date(),
       companyName: zod.string().nullish(),
       industry: zod.string().nullish(),
-      senderEmail: zod.string().nullish(),
-      externalMessageId: zod.string().nullish(),
     }),
   ),
   unreadCount: zod.number(),
@@ -1895,8 +1996,6 @@ export const MarkMessageReadResponse = zod.object({
       createdAt: zod.date(),
       companyName: zod.string().nullish(),
       industry: zod.string().nullish(),
-      senderEmail: zod.string().nullish(),
-      externalMessageId: zod.string().nullish(),
     })
     .optional(),
 });
@@ -2007,6 +2106,7 @@ export const ListJobApplicantsResponse = zod.object({
     targetRegions: zod.array(zod.string()).optional(),
     createdAt: zod.date(),
     updatedAt: zod.date(),
+    applyUrl: zod.string().nullish(),
   }),
 });
 
@@ -2068,6 +2168,18 @@ export const GenerateCoverLetterResponse = zod.object({
  * @summary Get the candidate's monthly progress report with AI recommendations
  */
 export const GetMyProgressReportResponse = zod.object({
+  topCompanies: zod
+    .array(
+      zod.object({
+        name: zod.string(),
+        count: zod.number(),
+        type: zod.string().nullish(),
+        location: zod.string().nullish(),
+        matchPct: zod.number(),
+        reason: zod.string().nullish(),
+      }),
+    )
+    .optional(),
   period: zod.object({
     month: zod.string(),
     year: zod.number(),
@@ -2308,7 +2420,43 @@ export const CheckSponsorLicenceVacanciesResponse = zod.object({
 });
 
 /**
- * @summary Start (or report already-running) a background scan of every sponsor licence employer for vacancies, scoring results for the current candidate
+ * @summary Synchronously check vacancies for up to 20 sponsor licence companies (the currently visible page)
+ */
+export const checkSponsorLicenceVacancyBatchBodyIdsMax = 20;
+
+export const CheckSponsorLicenceVacancyBatchBody = zod.object({
+  ids: zod
+    .array(zod.number())
+    .min(1)
+    .max(checkSponsorLicenceVacancyBatchBodyIdsMax)
+    .describe("IDs of the sponsor licence companies to check (max 20)."),
+});
+
+export const CheckSponsorLicenceVacancyBatchResponse = zod.object({
+  results: zod.array(
+    zod.object({
+      id: zod.number(),
+      organisationName: zod.string(),
+      vacanciesFound: zod.boolean(),
+      vacancyCount: zod.number().nullish(),
+      checkedAt: zod.date().nullish(),
+      fromCache: zod.boolean(),
+      error: zod
+        .string()
+        .nullish()
+        .describe(
+          "Per-company failure message; null when the check succeeded.",
+        ),
+    }),
+  ),
+  checkedOrganisations: zod.number(),
+  newChecks: zod.number(),
+  cacheHits: zod.number(),
+  errors: zod.number(),
+});
+
+/**
+ * @summary Start (or report already-running) a background scan of every sponsor licence employer for vacancies, scoring results for the current candidate (admin only)
  */
 export const CheckAllSponsorLicenceVacanciesBody = zod.object({
   regions: zod

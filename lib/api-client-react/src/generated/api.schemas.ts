@@ -471,14 +471,14 @@ export interface MatchedRole {
   eligibilityGaps?: string[];
   /** True for the top-5 highest-matching roles — should be highlighted as "Apply First" */
   recommended?: boolean;
+  /** Direct application URL for this specific role, if available */
+  applyUrl?: string | null;
   /** Company contact email from employer profile, where available */
   contactEmail?: string | null;
   /** Company contact phone from employer profile, where available */
   contactPhone?: string | null;
   /** Company website URL from employer profile, where available */
   contactWebsite?: string | null;
-  /** Direct application URL for this specific role, if available */
-  applyUrl?: string | null;
 }
 
 export interface MatchedRoleList {
@@ -521,6 +521,7 @@ export interface CvExtractedFields {
   rawNotes?: string;
   professionQualMismatch?: boolean;
   professionQualMismatchWarning?: string | null;
+  /** Set when the profession could not be detected or saved; candidate should select it manually. */
   professionWarning?: string | null;
 }
 
@@ -869,36 +870,6 @@ export interface AdminAuditEventList {
   pageSize: number;
 }
 
-export type IdentityVerificationStatus = "pending" | "verified" | "rejected";
-export type IdentityVerificationAiConfidence = "high" | "medium" | "low" | "none";
-
-export interface IdentityVerification {
-  id: number;
-  userId: string;
-  passportKey?: string | null;
-  selfieKey?: string | null;
-  status: IdentityVerificationStatus;
-  aiConfidence?: IdentityVerificationAiConfidence | null;
-  aiNotes?: string | null;
-  adminNotes?: string | null;
-  verifiedAt?: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface RecommendationLetter {
-  id: number;
-  candidateUserId: string;
-  employerUserId?: string | null;
-  authorName: string;
-  authorTitle: string;
-  organisation: string;
-  relationship: string;
-  content: string;
-  isEmployerVerified: boolean;
-  createdAt: string;
-}
-
 export type EmployerProfileIndustry =
   (typeof EmployerProfileIndustry)[keyof typeof EmployerProfileIndustry];
 
@@ -925,6 +896,53 @@ export interface EmployerProfile {
   contactWebsite?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export type IdentityVerificationStatus =
+  (typeof IdentityVerificationStatus)[keyof typeof IdentityVerificationStatus];
+
+export const IdentityVerificationStatus = {
+  pending: "pending",
+  verified: "verified",
+  rejected: "rejected",
+} as const;
+
+export type IdentityVerificationAiConfidence =
+  | (typeof IdentityVerificationAiConfidence)[keyof typeof IdentityVerificationAiConfidence]
+  | null;
+
+export const IdentityVerificationAiConfidence = {
+  high: "high",
+  medium: "medium",
+  low: "low",
+  none: "none",
+} as const;
+
+export interface IdentityVerification {
+  id: number;
+  userId: string;
+  passportKey?: string | null;
+  selfieKey?: string | null;
+  status: IdentityVerificationStatus;
+  aiConfidence?: IdentityVerificationAiConfidence;
+  aiNotes?: string | null;
+  adminNotes?: string | null;
+  verifiedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RecommendationLetter {
+  id: number;
+  candidateUserId: string;
+  employerUserId?: string | null;
+  authorName: string;
+  authorTitle: string;
+  organisation: string;
+  relationship: string;
+  content: string;
+  isEmployerVerified: boolean;
+  createdAt: string;
 }
 
 export type UpsertEmployerProfileRequestIndustry =
@@ -984,9 +1002,9 @@ export interface JobListing {
   requiredRegistration: string;
   targetProfessions?: string[];
   targetRegions?: string[];
-  applyUrl?: string | null;
   createdAt: string;
   updatedAt: string;
+  applyUrl?: string | null;
 }
 
 export type JobListingWithCount = JobListing & {
@@ -1265,6 +1283,39 @@ export interface VacancyCheckResult {
   vacancyList?: VacancyListing[] | null;
 }
 
+export interface SponsorLicenceBatchCheckRequest {
+  /**
+   * IDs of the sponsor licence companies to check (max 20).
+   * @minItems 1
+   * @maxItems 20
+   */
+  ids: number[];
+}
+
+export interface SponsorLicenceBatchCheckItem {
+  id: number;
+  organisationName: string;
+  vacanciesFound: boolean;
+  vacancyCount?: number | null;
+  checkedAt?: string | null;
+  fromCache: boolean;
+  /** Per-company failure message; null when the check succeeded. */
+  error?: string | null;
+}
+
+export interface SponsorLicenceBatchCheckResponse {
+  results: SponsorLicenceBatchCheckItem[];
+  checkedOrganisations: number;
+  newChecks: number;
+  cacheHits: number;
+  errors: number;
+}
+
+export interface SponsorLicenceBatchCooldownError {
+  error: string;
+  retryAfterSeconds?: number;
+}
+
 export interface CheckAllVacanciesBody {
   /** Optional list of regions to restrict the scan to. Omit or set null for a global scan. */
   regions?: string[] | null;
@@ -1389,6 +1440,15 @@ export interface CandidateAnalytics {
   disclaimer: string;
 }
 
+export type ProgressReportResponseTopCompaniesItem = {
+  name: string;
+  count: number;
+  type?: string | null;
+  location?: string | null;
+  matchPct: number;
+  reason?: string | null;
+};
+
 export type ProgressReportResponsePeriod = {
   month: string;
   year: number;
@@ -1406,6 +1466,7 @@ export type ProgressReportResponsePlan = {
 };
 
 export interface ProgressReportResponse {
+  topCompanies?: ProgressReportResponseTopCompaniesItem[];
   period: ProgressReportResponsePeriod;
   stats: ProgressReportStats;
   eligibility: ProgressReportResponseEligibility;
@@ -1414,14 +1475,6 @@ export interface ProgressReportResponse {
   boostProfile: boolean;
   recommendations?: string | null;
   disclaimer?: string | null;
-  topCompanies?: Array<{
-    name: string;
-    count: number;
-    type?: string | null;
-    location?: string | null;
-    matchPct: number;
-    reason?: string | null;
-  }>;
 }
 
 export type SpeculativeApplicationStatus =
