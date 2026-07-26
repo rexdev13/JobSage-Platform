@@ -407,9 +407,9 @@ export default function ApplicationsPage() {
 
   const tabs: { id: CategoryTab; label: string; icon: React.ElementType; count: number }[] = [
     { id: "all", label: "All", icon: ClipboardList, count: applications.length },
+    { id: "website", label: "Company Website", icon: Globe, count: stats?.websiteCount ?? applications.filter((a) => a.applicationKind === "website").length },
     { id: "platform", label: "Via JOBSAGE", icon: Building2, count: stats?.platformCount ?? applications.filter((a) => a.applicationKind === "formal").length },
     { id: "speculative", label: "Speculative CV", icon: Send, count: stats?.speculativeCount ?? applications.filter((a) => a.applicationKind === "speculative").length },
-    { id: "website", label: "Company Website", icon: Globe, count: stats?.websiteCount ?? applications.filter((a) => a.applicationKind === "website").length },
   ];
 
   return (
