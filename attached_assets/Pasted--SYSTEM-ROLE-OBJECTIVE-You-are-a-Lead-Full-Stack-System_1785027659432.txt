@@ -1,0 +1,32 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Full-Stack Systems Architect. Based on our read-only diagnostic report, we must implement three surgical UX and tracking fixes across the frontend and routing layers to close the feedback loop for our users.
+
+---
+
+### EXECUTION TASKS
+
+#### TASK 1: Close the Tracking & Cache Loop on OpportunitiesPage (`artifacts/jobsage-web/src/pages/OpportunitiesPage.tsx`)
+1. Locate `handleApplyClick` (around lines 623–655).
+2. In the success path (after the outbound click is registered), explicitly invalidate the React Query caches for the candidate's tracker and matched roles:
+   `queryClient.invalidateQueries({ queryKey: ['listMyApplications'] });`
+   `queryClient.invalidateQueries({ queryKey: ['listMatchedRoles'] });`
+3. Add a clear UI Toast notification upon clicking Apply: 
+   *"Application logged! Track your progress under the 'Company Website' tab in your Tracker."*
+
+#### TASK 2: Route Sponsor Vacancy Links Through Outbound Tracking (`artifacts/jobsage-web/src/components/SponsorVacancyApplyModal.tsx` & Sponsor Cards)
+1. Locate the "View posting" link or any raw external vacancy links in `SponsorVacancyApplyModal.tsx` (around lines 588–596) and related sponsor card components.
+2. Replace plain `<a target="_blank">` tags with our closed-loop tracking architecture. Wire the clicks to route through `/api/applications/track-outbound?vacancyId=...&destinationUrl=...`.
+3. Ensure these clicks also invalidate `listMyApplications` so sponsor vacancy applications appear in the Tracker.
+
+#### TASK 3: Upgrade "Refresh Visible Page" UI Feedback (`artifacts/jobsage-web/src/pages/SponsorLicencesPage.tsx`)
+1. In `handleRefreshVisible` (lines 479–505), upgrade the `onSuccess` toast notification.
+2. If `newChecks === 0` and `cacheHits > 0`, display a distinct, reassuring message: 
+   *"⚡ All 20 visible employers were checked within the last 24 hours. Job listings are completely up to date!"*
+3. Ensure card timestamps (e.g., "Checked Xm ago") visually pulse or highlight briefly after a refresh so the user has visual confirmation that the UI state re-rendered.
+
+---
+
+### REQUIRED DELIVERABLE
+1. Run `npm run typecheck` across web and server to confirm zero compilation errors.
+2. Verify in your report that clicking Apply on both `OpportunitiesPage` and `SponsorVacancyApplyModal` now triggers cache invalidation for `listMyApplications`.
+3. Confirm that refreshing a fully cached page displays the new reassuring "up to date" UI feedback.

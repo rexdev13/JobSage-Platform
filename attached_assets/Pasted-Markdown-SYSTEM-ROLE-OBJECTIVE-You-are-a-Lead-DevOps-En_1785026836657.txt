@@ -1,0 +1,36 @@
+Markdown
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead DevOps Engineer and Principal QA Architect. We need to execute a formal verification audit on **Pillar 4 (The Automated Background Scheduler)** from Task #358. We must prove that the upgraded scheduler (`vacancyCheckScheduler` / `dailyVacancySync.ts`) is aggressively running on its new cadence, utilizing the worker pool, and logging throughput without deadlocks.
+
+---
+
+### EXECUTION & VERIFICATION TASKS
+
+#### TASK 1: Trigger & Inspect the Scheduler Execution
+1. Inspect the scheduler configuration in `artifacts/api-server/src/lib/vacancyCheckScheduler.ts` (or `dailyVacancySync.ts`) to verify that the cron interval / timeout is strictly set to the new high-frequency cadence (e.g., every 15–30 minutes) and using a larger, chunked batch size.
+2. Programmatically trigger a single execution tick of the background sync process right now (or locate the console output of the most recently automated run from the active server logs).
+3. Confirm that the background process initiates cleanly without throwing unhandled exceptions or crashing the server instance.
+
+#### TASK 2: Database Sync Log Audit (`vacancy_sync_log`)
+1. Execute a read-only SQL query against the database to retrieve the **5 most recent entries** from `vacancy_sync_log` (or whatever table tracks background scrape runs):
+   ```sql
+   SELECT id, status, orgs_checked, errors_count, duration_ms, created_at 
+   FROM vacancy_sync_log 
+   ORDER BY created_at DESC 
+   LIMIT 5;
+Analyze the log results and verify:
+
+Throughput: Are batches actively processing higher volumes of companies compared to our old 50-company sequential ceiling?
+
+Resilience: If an error occurs on a specific employer, does errors_count log it while allowing the rest of the batch to finish (status = 'completed'), proving the cron no longer dies silently?
+
+No Lockouts: Confirm that the in-memory isRunning lock cleanly releases after the batch completes so subsequent scheduled runs can execute.
+
+REQUIRED DELIVERABLE
+Provide a formal Pillar 4 QA Verification Report in your console output:
+
+Print the exact SQL output table of the 5 most recent vacancy_sync_log entries (showing timestamps, orgs checked, and execution duration).
+
+Confirm the exact cron cadence and concurrency worker count currently active in the codebase.
+
+State definitively whether the automated background scheduler is actively refilling the 24-hour vacancy cache as expected.
