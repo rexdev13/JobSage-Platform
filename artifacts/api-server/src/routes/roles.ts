@@ -21,6 +21,8 @@ import { assessSponsorshipFeasibility } from "../lib/sponsorshipFeasibility";
 import { batchScoreRoles } from "../lib/candidateAiMatch";
 import { careerProfilesTable } from "@workspace/db";
 import { runApplyUrlBackfill, getLastBackfillSummary } from "../lib/applyUrlBackfill";
+import { queueLinkVerificationBatch } from "../lib/linkVerification";
+import { runFullLivenessScan, getFullScanStatus } from "../lib/vacancyLivenessSweep";
 
 const router: IRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -34,7 +36,7 @@ const REQUIRED_COLUMNS = ["title", "employer", "location", "regulator", "sponsor
  * Applied to all candidate-facing queries — admin queries use unfiltered access.
  */
 const HAS_CONTACT_INFO = or(
-  and(isNotNull(rolesTable.applyUrl), ne(rolesTable.applyUrl, "")),
+  and(isNotNull(rolesTable.applyUrl), ne(rolesTable.applyUrl, ""), ne(rolesTable.liveness, "dead")),
   and(isNotNull(rolesTable.contactEmail), ne(rolesTable.contactEmail, "")),
   and(isNotNull(rolesTable.contactPhone), ne(rolesTable.contactPhone, "")),
   and(isNotNull(rolesTable.contactWebsite), ne(rolesTable.contactWebsite, "")),
@@ -45,11 +47,33 @@ const HAS_CONTACT_INFO = or(
  * employer-posted job listings merged into the candidate-facing results.
  */
 function employerJobHasContactInfo(row: {
-  job: { applyUrl?: string | null };
+  job: { applyUrl?: string | null; liveness?: string };
   emp: { contactEmail?: string | null; contactPhone?: string | null; contactWebsite?: string | null };
 }): boolean {
-  const vals = [row.job.applyUrl, row.emp.contactEmail, row.emp.contactPhone, row.emp.contactWebsite];
+  const effectiveApply = row.job.liveness === "dead" ? null : row.job.applyUrl;
+  const vals = [effectiveApply, row.emp.contactEmail, row.emp.contactPhone, row.emp.contactWebsite];
   return vals.some((v) => v != null && v.trim() !== "");
+}
+
+/**
+ * Candidate-facing apply-link presentation: dead links are never surfaced
+ * (the record may still appear if it has other contact info), and each link
+ * carries a verification status the UI badges consistently.
+ */
+function presentApplyLink(
+  applyUrl: string | null | undefined,
+  liveness: string | null | undefined,
+  lastVerifiedAt: Date | null | undefined,
+): { applyUrl: string | null; linkVerified: boolean; linkCheckedAt: string | null } {
+  const url = applyUrl?.trim() || null;
+  if (!url || liveness === "dead") {
+    return { applyUrl: null, linkVerified: false, linkCheckedAt: null };
+  }
+  return {
+    applyUrl: url,
+    linkVerified: liveness === "live",
+    linkCheckedAt: lastVerifiedAt ? new Date(lastVerifiedAt).toISOString() : null,
+  };
 }
 const OPTIONAL_COLUMNS = ["applyUrl", "contactEmail", "contactPhone", "contactWebsite"];
 const APPLY_URL_PATTERN = /^https?:\/\/.+/i;
@@ -188,31 +212,44 @@ router.get("/roles", async (req, res): Promise<void> => {
       if (!employerJobHasContactInfo(row)) return false;
       return true;
     })
-    .map((row) => ({
-      id: row.job.id + 1_000_000,
-      title: row.job.title,
-      employer: row.emp.companyName,
-      location: row.job.location,
-      regulator: row.job.regulator,
-      sponsorshipOffered: row.job.sponsorshipOffered,
-      requiredRegistration: row.job.requiredRegistration,
-      active: true,
-      importedAt: row.job.createdAt,
-      importedBy: `employer:${row.emp.id}`,
-      contactEmail: row.emp.contactEmail ?? null,
-      contactPhone: row.emp.contactPhone ?? null,
-      contactWebsite: row.emp.contactWebsite ?? null,
-      applyUrl: row.job.applyUrl ?? null,
-    }));
+    .map((row) => {
+      const link = presentApplyLink(row.job.applyUrl, row.job.liveness, row.job.lastVerifiedAt);
+      return {
+        id: row.job.id + 1_000_000,
+        title: row.job.title,
+        employer: row.emp.companyName,
+        location: row.job.location,
+        regulator: row.job.regulator,
+        sponsorshipOffered: row.job.sponsorshipOffered,
+        requiredRegistration: row.job.requiredRegistration,
+        active: true,
+        importedAt: row.job.createdAt,
+        importedBy: `employer:${row.emp.id}`,
+        liveness: row.job.liveness,
+        lastVerifiedAt: row.job.lastVerifiedAt,
+        livenessReason: row.job.livenessReason,
+        contactEmail: row.emp.contactEmail ?? null,
+        contactPhone: row.emp.contactPhone ?? null,
+        contactWebsite: row.emp.contactWebsite ?? null,
+        applyUrl: link.applyUrl,
+        linkVerified: link.linkVerified,
+        linkCheckedAt: link.linkCheckedAt,
+      };
+    });
 
   const regulatorRoles = [
-    ...allRoles.filter((role) => role.regulator === regulator).map((r) => ({
-      ...r,
-      contactEmail: r.contactEmail ?? null,
-      contactPhone: r.contactPhone ?? null,
-      contactWebsite: r.contactWebsite ?? null,
-      applyUrl: r.applyUrl ?? null,
-    })),
+    ...allRoles.filter((role) => role.regulator === regulator).map((r) => {
+      const link = presentApplyLink(r.applyUrl, r.liveness, r.lastVerifiedAt);
+      return {
+        ...r,
+        contactEmail: r.contactEmail ?? null,
+        contactPhone: r.contactPhone ?? null,
+        contactWebsite: r.contactWebsite ?? null,
+        applyUrl: link.applyUrl,
+        linkVerified: link.linkVerified,
+        linkCheckedAt: link.linkCheckedAt,
+      };
+    }),
     ...employerJobsAsRoles,
   ];
 
@@ -297,6 +334,8 @@ router.get("/roles", async (req, res): Promise<void> => {
       contactPhone: role.contactPhone ?? null,
       contactWebsite: role.contactWebsite ?? null,
       applyUrl: role.applyUrl ?? null,
+      linkVerified: role.linkVerified ?? false,
+      linkCheckedAt: role.linkCheckedAt ?? null,
     };
   });
 
@@ -365,29 +404,39 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
       if (!employerJobHasContactInfo(row)) return false;
       return true;
     })
-    .map((row) => ({
-      id: row.job.id + 1_000_000,
-      title: row.job.title,
-      employer: row.emp.companyName,
-      location: row.job.location,
-      regulator: row.job.regulator as "GMC" | "NMC" | "HCPC",
-      sponsorshipOffered: row.job.sponsorshipOffered,
-      requiredRegistration: row.job.requiredRegistration,
-      applyUrl: row.job.applyUrl ?? null,
-      contactEmail: row.emp.contactEmail ?? null,
-      contactPhone: row.emp.contactPhone ?? null,
-      contactWebsite: row.emp.contactWebsite ?? null,
-    }));
+    .map((row) => {
+      const link = presentApplyLink(row.job.applyUrl, row.job.liveness, row.job.lastVerifiedAt);
+      return {
+        id: row.job.id + 1_000_000,
+        title: row.job.title,
+        employer: row.emp.companyName,
+        location: row.job.location,
+        regulator: row.job.regulator as "GMC" | "NMC" | "HCPC",
+        sponsorshipOffered: row.job.sponsorshipOffered,
+        requiredRegistration: row.job.requiredRegistration,
+        applyUrl: link.applyUrl,
+        linkVerified: link.linkVerified,
+        linkCheckedAt: link.linkCheckedAt,
+        contactEmail: row.emp.contactEmail ?? null,
+        contactPhone: row.emp.contactPhone ?? null,
+        contactWebsite: row.emp.contactWebsite ?? null,
+      };
+    });
 
   const regulatorRoles = [
-    ...allRoles.filter((r) => r.regulator === regulator).map((r) => ({
-      id: r.id, title: r.title, employer: r.employer, location: r.location,
-      regulator: r.regulator, sponsorshipOffered: r.sponsorshipOffered,
-      requiredRegistration: r.requiredRegistration, applyUrl: r.applyUrl ?? null,
-      contactEmail: r.contactEmail ?? null,
-      contactPhone: r.contactPhone ?? null,
-      contactWebsite: r.contactWebsite ?? null,
-    })),
+    ...allRoles.filter((r) => r.regulator === regulator).map((r) => {
+      const link = presentApplyLink(r.applyUrl, r.liveness, r.lastVerifiedAt);
+      return {
+        id: r.id, title: r.title, employer: r.employer, location: r.location,
+        regulator: r.regulator, sponsorshipOffered: r.sponsorshipOffered,
+        requiredRegistration: r.requiredRegistration, applyUrl: link.applyUrl,
+        linkVerified: link.linkVerified,
+        linkCheckedAt: link.linkCheckedAt,
+        contactEmail: r.contactEmail ?? null,
+        contactPhone: r.contactPhone ?? null,
+        contactWebsite: r.contactWebsite ?? null,
+      };
+    }),
     ...employerJobsAsRoles,
   ];
 
@@ -496,6 +545,8 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
         sponsorshipOffered: r.sponsorshipOffered,
         requiredRegistration: r.requiredRegistration,
         applyUrl: r.applyUrl ?? null,
+        linkVerified: r.linkVerified ?? false,
+        linkCheckedAt: r.linkCheckedAt ?? null,
         contactEmail: r.contactEmail ?? null,
         contactPhone: r.contactPhone ?? null,
         contactWebsite: r.contactWebsite ?? null,
@@ -566,19 +617,24 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
       if (!employerJobHasContactInfo(row)) return false;
       return true;
     })
-    .map((row) => ({
-      id: row.job.id + 1_000_000,
-      title: row.job.title,
-      employer: row.emp.companyName,
-      location: row.job.location,
-      regulator: row.job.regulator as "GMC" | "NMC" | "HCPC",
-      sponsorshipOffered: row.job.sponsorshipOffered,
-      requiredRegistration: row.job.requiredRegistration,
-      applyUrl: row.job.applyUrl ?? null,
-      contactEmail: row.emp.contactEmail ?? null,
-      contactPhone: row.emp.contactPhone ?? null,
-      contactWebsite: row.emp.contactWebsite ?? null,
-    }));
+    .map((row) => {
+      const link = presentApplyLink(row.job.applyUrl, row.job.liveness, row.job.lastVerifiedAt);
+      return {
+        id: row.job.id + 1_000_000,
+        title: row.job.title,
+        employer: row.emp.companyName,
+        location: row.job.location,
+        regulator: row.job.regulator as "GMC" | "NMC" | "HCPC",
+        sponsorshipOffered: row.job.sponsorshipOffered,
+        requiredRegistration: row.job.requiredRegistration,
+        applyUrl: link.applyUrl,
+        linkVerified: link.linkVerified,
+        linkCheckedAt: link.linkCheckedAt,
+        contactEmail: row.emp.contactEmail ?? null,
+        contactPhone: row.emp.contactPhone ?? null,
+        contactWebsite: row.emp.contactWebsite ?? null,
+      };
+    });
 
   // Fetch roles already applied to via both standard and speculative paths
   const [appliedRows, speculativeRows] = await Promise.all([
@@ -595,14 +651,19 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
   const regulatorRoles = [
     ...allRoles
       .filter((r) => r.regulator === regulator && !appliedIds.has(r.id) && !speculativeCompanies.has(r.employer.toLowerCase()))
-      .map((r) => ({
-        id: r.id, title: r.title, employer: r.employer, location: r.location,
-        regulator: r.regulator, sponsorshipOffered: r.sponsorshipOffered,
-        requiredRegistration: r.requiredRegistration, applyUrl: r.applyUrl ?? null,
-        contactEmail: r.contactEmail ?? null,
-        contactPhone: r.contactPhone ?? null,
-        contactWebsite: r.contactWebsite ?? null,
-      })),
+      .map((r) => {
+        const link = presentApplyLink(r.applyUrl, r.liveness, r.lastVerifiedAt);
+        return {
+          id: r.id, title: r.title, employer: r.employer, location: r.location,
+          regulator: r.regulator, sponsorshipOffered: r.sponsorshipOffered,
+          requiredRegistration: r.requiredRegistration, applyUrl: link.applyUrl,
+          linkVerified: link.linkVerified,
+          linkCheckedAt: link.linkCheckedAt,
+          contactEmail: r.contactEmail ?? null,
+          contactPhone: r.contactPhone ?? null,
+          contactWebsite: r.contactWebsite ?? null,
+        };
+      }),
     ...employerJobsAsRoles.filter((r) => !appliedIds.has(r.id) && !speculativeCompanies.has(r.employer.toLowerCase())),
   ];
 
@@ -628,7 +689,7 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
     const isEligible = userIsEligible && meetsRegistration;
     // AI score if cached, else heuristic
     let matchScore = scoreMap.get(r.id) ?? computeMatchScore(
-      { ...r, id: r.id, regulator: r.regulator, active: true, importedAt: new Date(), importedBy: "" },
+      { ...r, id: r.id, regulator: r.regulator, active: true, importedAt: new Date(), importedBy: "", liveness: "unverified" as const, lastVerifiedAt: null, livenessReason: null },
       isEligible,
       profile.requiresSponsorship,
     );
@@ -672,6 +733,26 @@ router.post("/roles/dismiss-match", requireAuthenticated, async (req, res): Prom
 router.get("/admin/roles", requireRole("admin"), async (_req, res): Promise<void> => {
   const roles = await db.select().from(rolesTable).orderBy(desc(rolesTable.importedAt));
   res.json({ roles });
+});
+
+// ── POST /admin/link-scan — full fresh scan of ALL stored apply links ────────
+router.post("/admin/link-scan", requireRole("admin", "super_admin"), (req, res): void => {
+  const adminId = req.user!.id;
+  if (getFullScanStatus().isRunning) {
+    res.json({ started: false, status: getFullScanStatus() });
+    return;
+  }
+  runFullLivenessScan().catch((err) => {
+    console.error("[link-scan] Full scan error:", err);
+  });
+  db.insert(auditEventsTable)
+    .values({ actor: adminId, action: "full_link_scan_triggered", target: undefined, details: {} })
+    .catch(() => {});
+  res.status(202).json({ started: true, status: getFullScanStatus() });
+});
+
+router.get("/admin/link-scan/status", requireRole("admin", "super_admin"), (_req, res): void => {
+  res.json(getFullScanStatus());
 });
 
 // ── GET /admin/roles/backfill-apply-urls/status ───────────────────────────────
@@ -827,7 +908,15 @@ router.post("/admin/roles/import", requireRole("admin"), upload.single("file"), 
   }
 
   if (validRows.length > 0) {
-    await db.insert(rolesTable).values(validRows);
+    const inserted = await db
+      .insert(rolesTable)
+      .values(validRows)
+      .returning({ id: rolesTable.id, applyUrl: rolesTable.applyUrl });
+    // Verify imported apply links right away (fire-and-forget) so freshly
+    // imported roles don't sit unverified until the next background sweep.
+    queueLinkVerificationBatch(
+      inserted.filter((r) => r.applyUrl).map((r) => ({ source: "role" as const, id: r.id, url: r.applyUrl })),
+    );
   }
 
   db.insert(auditEventsTable)

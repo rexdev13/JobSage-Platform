@@ -17,6 +17,12 @@ export const rolesTable = pgTable("roles", {
   contactEmail: text("contact_email"),
   contactPhone: text("contact_phone"),
   contactWebsite: text("contact_website"),
+  // Apply-link liveness tracking (mirrors sponsor_licence_vacancies):
+  // "unverified" = never checked, "live" = last check passed,
+  // "dead" = 404/410/5xx or expiration phrase (see livenessReason).
+  liveness: varchar("liveness", { enum: ["unverified", "live", "dead"] }).notNull().default("unverified"),
+  lastVerifiedAt: timestamp("last_verified_at", { withTimezone: true }),
+  livenessReason: text("liveness_reason"),
 });
 
 export const insertRoleSchema = createInsertSchema(rolesTable).omit({ id: true, importedAt: true });

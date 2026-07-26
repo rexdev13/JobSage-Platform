@@ -1,16 +1,22 @@
 import cron from "node-cron";
-import { db, sponsorLicenceVacanciesTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { db, sponsorLicenceVacanciesTable, rolesTable, jobListingsTable } from "@workspace/db";
+import { eq, inArray, sql } from "drizzle-orm";
 import { checkDestinationDead } from "./linkHealth";
 import { isBlockedVacancyUrl } from "./vacancyUrlPolicy";
 
 /**
- * Background liveness sweep over stored AI-discovered sponsor vacancies.
+ * Unified background liveness sweep over ALL stored job-application links:
+ * - AI-discovered sponsor vacancies (sponsor_licence_vacancies.url)
+ * - imported/standard roles (roles.apply_url)
+ * - employer-posted job listings (job_listings.apply_url)
  *
- * Re-checks stored vacancy URLs using the same dead-link detection as the
+ * Re-checks stored apply URLs using the same dead-link detection as the
  * click-time checker (HTTP 404/410/5xx + expiration-phrase scan), marks
  * failures dead with a recorded reason, and stamps last_verified_at so the
  * click-time check can skip recently verified URLs.
+ *
+ * Never-verified links are prioritised so newly ingested vacancies drain
+ * out of the "unverified" backlog quickly.
  *
  * Politeness: URLs are grouped per hostname and each domain's URLs are
  * checked sequentially with a delay between requests; only a modest number
@@ -23,68 +29,89 @@ const DOMAIN_CONCURRENCY = 4;
 const PER_DOMAIN_DELAY_MS = 1500;
 const SWEEP_TIMEOUT_MS = 8000; // background sweep can afford a longer fetch than click-time
 
-type SweepRow = { id: number; organisation_name: string; url: string };
+type SweepSource = "sponsor_vacancy" | "role" | "job_listing";
+type SweepRow = { source: SweepSource; id: number; url: string };
+
+export type SweepCounters = { checked: number; live: number; dead: number; inconclusive: number };
 
 let sweepRunning = false;
 
 /**
- * Select stored vacancies due for a liveness check:
+ * Select stored links due for a liveness check across all sources:
  * - has a URL, not already dead
- * - never verified, or verified longer than the stale threshold ago
- * - bookmarked employers first, then oldest-verified first
+ * - never verified, or verified longer than the threshold ago
+ * - never-verified first, then oldest-verified first
  */
-async function selectSweepBatch(limit: number): Promise<SweepRow[]> {
+async function selectSweepBatch(limit: number, staleThresholdMs: number): Promise<SweepRow[]> {
+  const staleSecs = staleThresholdMs / 1000;
   const result = await db.execute<SweepRow>(sql`
-    SELECT v.id, v.organisation_name, v.url
-    FROM sponsor_licence_vacancies v
-    LEFT JOIN sponsor_licences sl ON sl.organisation_name = v.organisation_name
-    LEFT JOIN (
-      SELECT DISTINCT sponsor_licence_id FROM sponsor_licence_bookmarks
-    ) b ON b.sponsor_licence_id = sl.id
-    WHERE v.url IS NOT NULL
-      AND v.liveness <> 'dead'
-      AND (v.last_verified_at IS NULL OR v.last_verified_at < NOW() - make_interval(secs => ${STALE_THRESHOLD_MS / 1000}))
-    ORDER BY
-      CASE WHEN b.sponsor_licence_id IS NOT NULL THEN 0 ELSE 1 END ASC,
-      v.last_verified_at ASC NULLS FIRST,
-      v.id ASC
+    SELECT * FROM (
+      SELECT 'sponsor_vacancy' AS source, v.id, v.url, v.last_verified_at
+      FROM sponsor_licence_vacancies v
+      WHERE v.url IS NOT NULL AND v.liveness <> 'dead'
+        AND (v.last_verified_at IS NULL OR v.last_verified_at < NOW() - make_interval(secs => ${staleSecs}))
+      UNION ALL
+      SELECT 'role' AS source, r.id, r.apply_url AS url, r.last_verified_at
+      FROM roles r
+      WHERE r.apply_url IS NOT NULL AND r.apply_url <> '' AND r.active = true AND r.liveness <> 'dead'
+        AND (r.last_verified_at IS NULL OR r.last_verified_at < NOW() - make_interval(secs => ${staleSecs}))
+      UNION ALL
+      SELECT 'job_listing' AS source, j.id, j.apply_url AS url, j.last_verified_at
+      FROM job_listings j
+      WHERE j.apply_url IS NOT NULL AND j.apply_url <> '' AND j.status = 'published' AND j.liveness <> 'dead'
+        AND (j.last_verified_at IS NULL OR j.last_verified_at < NOW() - make_interval(secs => ${staleSecs}))
+    ) all_links
+    ORDER BY last_verified_at ASC NULLS FIRST, id ASC
     LIMIT ${limit}
   `);
-  return result.rows;
+  return result.rows.map((r) => ({ source: r.source, id: Number(r.id), url: r.url }));
+}
+
+function tableFor(source: SweepSource) {
+  return source === "sponsor_vacancy" ? sponsorLicenceVacanciesTable : source === "role" ? rolesTable : jobListingsTable;
+}
+
+async function markResult(
+  row: SweepRow,
+  liveness: "live" | "dead",
+  reason: string | null,
+): Promise<void> {
+  const table = tableFor(row.source);
+  await db
+    .update(table)
+    .set({ liveness, lastVerifiedAt: new Date(), livenessReason: reason ? reason.slice(0, 500) : null })
+    .where(
+      // Sponsor vacancy snapshots repeat the same URL across check dates —
+      // one verdict applies to every row sharing the URL.
+      row.source === "sponsor_vacancy"
+        ? eq(sponsorLicenceVacanciesTable.url, row.url)
+        : eq(table.id, row.id),
+    );
 }
 
 async function verifyOne(row: SweepRow): Promise<"live" | "dead" | "inconclusive"> {
-  // Aggregator/blocked URLs shouldn't be stored, but never sweep them if present.
-  if (isBlockedVacancyUrl(row.url)) return "inconclusive";
   try {
     const result = await checkDestinationDead(row.url, { timeoutMs: SWEEP_TIMEOUT_MS });
-    if (result.verdict === "dead") {
-      await db
-        .update(sponsorLicenceVacanciesTable)
-        .set({ liveness: "dead", lastVerifiedAt: new Date(), livenessReason: result.reason.slice(0, 500) })
-        .where(eq(sponsorLicenceVacanciesTable.id, row.id));
+    if (result.verdict === "dead" || result.verdict === "unsafe") {
+      // "unsafe" = not a legitimate employer destination — treat as dead so
+      // candidates never see it.
+      await markResult(row, "dead", result.reason);
       return "dead";
     }
-    if (result.verdict === "unsafe") {
-      // Not a legitimate employer destination — treat as dead so candidates never see it.
-      await db
-        .update(sponsorLicenceVacanciesTable)
-        .set({ liveness: "dead", lastVerifiedAt: new Date(), livenessReason: result.reason.slice(0, 500) })
-        .where(eq(sponsorLicenceVacanciesTable.id, row.id));
-      return "dead";
-    }
-    await db
-      .update(sponsorLicenceVacanciesTable)
-      .set({ liveness: "live", lastVerifiedAt: new Date(), livenessReason: null })
-      .where(eq(sponsorLicenceVacanciesTable.id, row.id));
+    await markResult(row, "live", null);
     return "live";
   } catch {
     // Timeout / network / bot-block — inconclusive. Stamp last_verified_at so
     // the sweep doesn't hot-loop on the same unreachable URL, but keep status.
+    const table = tableFor(row.source);
     await db
-      .update(sponsorLicenceVacanciesTable)
+      .update(table)
       .set({ lastVerifiedAt: new Date() })
-      .where(eq(sponsorLicenceVacanciesTable.id, row.id))
+      .where(
+        row.source === "sponsor_vacancy"
+          ? eq(sponsorLicenceVacanciesTable.url, row.url)
+          : eq(table.id, row.id),
+      )
       .catch(() => {});
     return "inconclusive";
   }
@@ -94,7 +121,9 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-export async function runVacancyLivenessSweep(): Promise<{ checked: number; live: number; dead: number; inconclusive: number } | null> {
+export async function runVacancyLivenessSweep(
+  options: { staleThresholdMs?: number; batchLimit?: number; domainConcurrency?: number } = {},
+): Promise<SweepCounters | null> {
   if (sweepRunning) {
     console.log("[vacancy-liveness] Sweep already running — skipping");
     return null;
@@ -102,8 +131,47 @@ export async function runVacancyLivenessSweep(): Promise<{ checked: number; live
   sweepRunning = true;
   const startMs = Date.now();
   try {
-    const rows = await selectSweepBatch(BATCH_LIMIT);
-    if (rows.length === 0) {
+    const rawRows = await selectSweepBatch(options.batchLimit ?? BATCH_LIMIT, options.staleThresholdMs ?? STALE_THRESHOLD_MS);
+    // Dedupe within the batch: one check per (source, url) — markResult
+    // propagates sponsor verdicts to every snapshot row sharing the URL.
+    const seen = new Set<string>();
+    const deduped = rawRows.filter((r) => {
+      const key = `${r.source}\u0000${r.url}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    // Aggregator/blocked URLs (LinkedIn, Indeed, Reed, …) cannot be verified —
+    // they bot-block automated checks. Bulk-stamp last_verified_at so the
+    // sweep doesn't re-select them, keeping their liveness unchanged, and
+    // skip the per-domain politeness delay entirely.
+    const blocked = deduped.filter((r) => isBlockedVacancyUrl(r.url));
+    const rows = deduped.filter((r) => !isBlockedVacancyUrl(r.url));
+    if (blocked.length > 0) {
+      const now = new Date();
+      const bySource = new Map<SweepSource, SweepRow[]>();
+      for (const b of blocked) {
+        const list = bySource.get(b.source) ?? [];
+        list.push(b);
+        bySource.set(b.source, list);
+      }
+      for (const [source, group] of bySource) {
+        const table = tableFor(source);
+        await db
+          .update(table)
+          .set({ lastVerifiedAt: now, livenessReason: "aggregator domain — not verifiable" })
+          .where(
+            source === "sponsor_vacancy"
+              ? inArray(sponsorLicenceVacanciesTable.url, group.map((g) => g.url))
+              : inArray(table.id, group.map((g) => g.id)),
+          )
+          .catch(() => {});
+      }
+      console.log(`[vacancy-liveness] Bulk-stamped ${blocked.length} unverifiable aggregator links`);
+    }
+
+    if (rows.length === 0 && blocked.length === 0) {
       console.log("[vacancy-liveness] Nothing stale to verify");
       return { checked: 0, live: 0, dead: 0, inconclusive: 0 };
     }
@@ -116,11 +184,7 @@ export async function runVacancyLivenessSweep(): Promise<{ checked: number; live
         host = new URL(row.url).hostname.toLowerCase();
       } catch {
         // Malformed stored URL — mark dead with a reason.
-        await db
-          .update(sponsorLicenceVacanciesTable)
-          .set({ liveness: "dead", lastVerifiedAt: new Date(), livenessReason: "malformed URL" })
-          .where(eq(sponsorLicenceVacanciesTable.id, row.id))
-          .catch(() => {});
+        await markResult(row, "dead", "malformed URL").catch(() => {});
         continue;
       }
       const list = byDomain.get(host) ?? [];
@@ -128,7 +192,7 @@ export async function runVacancyLivenessSweep(): Promise<{ checked: number; live
       byDomain.set(host, list);
     }
 
-    const counters = { checked: 0, live: 0, dead: 0, inconclusive: 0 };
+    const counters: SweepCounters = { checked: blocked.length, live: 0, dead: 0, inconclusive: blocked.length };
     const domainQueues = [...byDomain.values()];
     let nextIdx = 0;
 
@@ -147,7 +211,10 @@ export async function runVacancyLivenessSweep(): Promise<{ checked: number; live
     }
 
     await Promise.all(
-      Array.from({ length: Math.min(DOMAIN_CONCURRENCY, domainQueues.length) }, () => worker()),
+      Array.from(
+        { length: Math.min(options.domainConcurrency ?? DOMAIN_CONCURRENCY, domainQueues.length) },
+        () => worker(),
+      ),
     );
 
     console.log(
@@ -156,6 +223,80 @@ export async function runVacancyLivenessSweep(): Promise<{ checked: number; live
     return counters;
   } finally {
     sweepRunning = false;
+  }
+}
+
+// ── One-time full scan ────────────────────────────────────────────────────────
+
+export type FullScanStatus = {
+  isRunning: boolean;
+  startedAt: string | null;
+  finishedAt: string | null;
+  totals: SweepCounters;
+  batches: number;
+  error: string | null;
+};
+
+const fullScanStatus: FullScanStatus = {
+  isRunning: false,
+  startedAt: null,
+  finishedAt: null,
+  totals: { checked: 0, live: 0, dead: 0, inconclusive: 0 },
+  batches: 0,
+  error: null,
+};
+
+export function getFullScanStatus(): FullScanStatus {
+  return { ...fullScanStatus, totals: { ...fullScanStatus.totals } };
+}
+
+/**
+ * Run repeated sweep batches until every non-dead link with a URL has been
+ * checked in this scan (staleThreshold=0 forces re-verification of
+ * everything, including recently verified and never-verified links).
+ * Inconclusive links get their timestamp stamped, so the backlog always
+ * drains and the loop terminates.
+ */
+export async function runFullLivenessScan(): Promise<SweepCounters> {
+  if (fullScanStatus.isRunning) {
+    throw new Error("A full link scan is already running.");
+  }
+  fullScanStatus.isRunning = true;
+  fullScanStatus.startedAt = new Date().toISOString();
+  fullScanStatus.finishedAt = null;
+  fullScanStatus.error = null;
+  fullScanStatus.batches = 0;
+  fullScanStatus.totals = { checked: 0, live: 0, dead: 0, inconclusive: 0 };
+  const scanStart = new Date();
+  try {
+    // staleThreshold measured against scan start: anything not yet touched in
+    // this scan is due; anything the scan already stamped is skipped.
+    while (true) {
+      const elapsedMs = Date.now() - scanStart.getTime();
+      const counters = await runVacancyLivenessSweep({
+        staleThresholdMs: elapsedMs,
+        batchLimit: 1000,
+        domainConcurrency: 24,
+      });
+      if (!counters) {
+        // periodic sweep grabbed the lock — wait and retry
+        await sleep(5000);
+        continue;
+      }
+      fullScanStatus.batches++;
+      fullScanStatus.totals.checked += counters.checked;
+      fullScanStatus.totals.live += counters.live;
+      fullScanStatus.totals.dead += counters.dead;
+      fullScanStatus.totals.inconclusive += counters.inconclusive;
+      if (counters.checked === 0) break;
+    }
+    return { ...fullScanStatus.totals };
+  } catch (err) {
+    fullScanStatus.error = err instanceof Error ? err.message : String(err);
+    throw err;
+  } finally {
+    fullScanStatus.isRunning = false;
+    fullScanStatus.finishedAt = new Date().toISOString();
   }
 }
 

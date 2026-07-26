@@ -864,8 +864,18 @@ export const ListMatchedRolesResponse = zod.object({
         .string()
         .nullish()
         .describe(
-          "Direct application URL for this specific role, if available",
+          "Direct application URL for this specific role, if available. Dead links are never returned.",
         ),
+      linkVerified: zod
+        .boolean()
+        .optional()
+        .describe(
+          "True when the apply link was health-checked and confirmed live",
+        ),
+      linkCheckedAt: zod
+        .date()
+        .nullish()
+        .describe("When the apply link was last health-checked"),
       contactEmail: zod
         .string()
         .nullish()
@@ -924,7 +934,19 @@ export const GetMyMatchesResponse = zod.object({
       applyUrl: zod
         .string()
         .nullish()
-        .describe("Direct application URL for this role, if available"),
+        .describe(
+          "Direct application URL for this role, if available. Dead links are never returned.",
+        ),
+      linkVerified: zod
+        .boolean()
+        .optional()
+        .describe(
+          "True when the apply link was health-checked and confirmed live",
+        ),
+      linkCheckedAt: zod
+        .date()
+        .nullish()
+        .describe("When the apply link was last health-checked"),
       contactEmail: zod
         .string()
         .nullish()
@@ -2515,6 +2537,16 @@ export const GetSponsorLicenceVacanciesResponse = zod.object({
       location: zod.string().nullish(),
       salary: zod.string().nullish(),
       url: zod.string().nullish(),
+      linkVerified: zod
+        .boolean()
+        .optional()
+        .describe(
+          "True when the apply link was health-checked and confirmed live",
+        ),
+      linkCheckedAt: zod
+        .date()
+        .nullish()
+        .describe("When the apply link was last health-checked"),
       description: zod.string().nullish(),
       postedDate: zod.string().nullish(),
       matchScore: zod.number().nullish(),

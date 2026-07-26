@@ -35,6 +35,10 @@ export const jobListingsTable = pgTable("job_listings", {
   targetProfessions: jsonb("target_professions").$type<string[]>().default([]),
   targetRegions: jsonb("target_regions").$type<string[]>().default([]),
   applyUrl: text("apply_url"),
+  // Apply-link liveness tracking (mirrors sponsor_licence_vacancies).
+  liveness: varchar("liveness", { enum: ["unverified", "live", "dead"] }).notNull().default("unverified"),
+  lastVerifiedAt: timestamp("last_verified_at", { withTimezone: true }),
+  livenessReason: text("liveness_reason"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

@@ -253,6 +253,23 @@ function VacancyMatchPanel({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm font-medium text-foreground truncate">{v.title}</p>
+                      {v.url && (v.linkVerified ? (
+                        <span
+                          className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 shrink-0"
+                          title={v.linkCheckedAt ? `Link checked ${new Date(v.linkCheckedAt).toLocaleString("en-GB")}` : "Apply link confirmed live"}
+                        >
+                          <BadgeCheck className="w-3 h-3" />
+                          Link verified
+                        </span>
+                      ) : (
+                        <span
+                          className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-700 shrink-0"
+                          title="This apply link has not been health-checked yet — it will be verified shortly"
+                        >
+                          <Clock className="w-3 h-3" />
+                          Link unverified
+                        </span>
+                      ))}
                       {score != null && (
                         <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${
                           score >= 80

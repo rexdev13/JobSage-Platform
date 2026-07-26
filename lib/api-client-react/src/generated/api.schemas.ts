@@ -471,8 +471,12 @@ export interface MatchedRole {
   eligibilityGaps?: string[];
   /** True for the top-5 highest-matching roles — should be highlighted as "Apply First" */
   recommended?: boolean;
-  /** Direct application URL for this specific role, if available */
+  /** Direct application URL for this specific role, if available. Dead links are never returned. */
   applyUrl?: string | null;
+  /** True when the apply link was health-checked and confirmed live */
+  linkVerified?: boolean;
+  /** When the apply link was last health-checked */
+  linkCheckedAt?: string | null;
   /** Company contact email from employer profile, where available */
   contactEmail?: string | null;
   /** Company contact phone from employer profile, where available */
@@ -1357,6 +1361,10 @@ export interface SponsorLicenceVacancyMatch {
   location?: string | null;
   salary?: string | null;
   url?: string | null;
+  /** True when the apply link was health-checked and confirmed live */
+  linkVerified?: boolean;
+  /** When the apply link was last health-checked */
+  linkCheckedAt?: string | null;
   description?: string | null;
   postedDate?: string | null;
   matchScore?: number | null;
@@ -1822,8 +1830,12 @@ export interface CandidateMatchItem {
   regulator: string;
   sponsorshipOffered: boolean;
   requiredRegistration: string;
-  /** Direct application URL for this role, if available */
+  /** Direct application URL for this role, if available. Dead links are never returned. */
   applyUrl?: string | null;
+  /** True when the apply link was health-checked and confirmed live */
+  linkVerified?: boolean;
+  /** When the apply link was last health-checked */
+  linkCheckedAt?: string | null;
   /** Contact email for this role's employer */
   contactEmail?: string | null;
   /** Contact phone for this role's employer */
