@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, jobListingsTable, rolesTable, candidateMessagesTable, documentsTable, employerProfilesTable } from "@workspace/db";
+import { db, jobListingsTable, rolesTable, candidateMessagesTable, documentsTable, employerProfilesTable, sponsorLicenceVacanciesTable } from "@workspace/db";
 import { applicationsTable, speculativeApplicationsTable } from "@workspace/db";
 import { eq, and, inArray, desc, or } from "drizzle-orm";
 import { requireAuthenticated } from "../middlewares/requireRole";
@@ -35,6 +35,9 @@ router.get("/applications/track-outbound", requireAuthenticated, async (req: Req
   const userId = req.user!.id;
   const vacancyId = parseInt(String(req.query.vacancyId ?? ""), 10);
   const destinationUrl = typeof req.query.destinationUrl === "string" ? req.query.destinationUrl : "";
+  // source=sponsor → vacancyId refers to the sponsor_licence_vacancies table
+  // (AI-discovered sponsor vacancies) instead of the roles/job-listings id space.
+  const isSponsorSource = req.query.source === "sponsor";
 
   if (isNaN(vacancyId) || vacancyId <= 0) {
     res.status(400).json({ error: "vacancyId is required and must be a positive number." });
@@ -79,7 +82,14 @@ router.get("/applications/track-outbound", requireAuthenticated, async (req: Req
   // (handles both id ranges: >1M = employer job listings, otherwise imported roles).
   let companyName: string | null = null;
   let storedApplyUrl: string | null = null;
-  if (vacancyId > 1_000_000) {
+  if (isSponsorSource) {
+    const [sv] = await db
+      .select({ organisationName: sponsorLicenceVacanciesTable.organisationName, url: sponsorLicenceVacanciesTable.url })
+      .from(sponsorLicenceVacanciesTable)
+      .where(eq(sponsorLicenceVacanciesTable.id, vacancyId));
+    companyName = sv?.organisationName ?? null;
+    storedApplyUrl = sv?.url ?? null;
+  } else if (vacancyId > 1_000_000) {
     const [job] = await db
       .select({ employerProfileId: jobListingsTable.employerProfileId, applyUrl: jobListingsTable.applyUrl })
       .from(jobListingsTable)
@@ -145,6 +155,17 @@ router.get("/applications/track-outbound", requireAuthenticated, async (req: Req
   }
   if (dead) {
     try {
+      if (isSponsorSource) {
+        // Sponsor vacancies live in their own table; mark all rows sharing
+        // this URL dead so cards stop offering the link.
+        await markSponsorVacanciesDeadByUrl(destinationUrl, deadReason).catch(() => {});
+        console.info(`[track-outbound] sponsor vacancy ${vacancyId} marked dead (${deadReason}) — ${destinationUrl}`);
+        res.status(410).json({
+          error: "This vacancy is no longer accepting applications (closed by employer).",
+          code: "JOB_EXPIRED",
+        });
+        return;
+      }
       if (vacancyId > 1_000_000) {
         await db
           .update(jobListingsTable)
@@ -172,16 +193,25 @@ router.get("/applications/track-outbound", requireAuthenticated, async (req: Req
     return;
   }
 
-  // Upsert: repeat clicks on the same vacancy update the existing record instead of duplicating it
+  // Upsert: repeat clicks on the same vacancy update the existing record instead of duplicating it.
+  // Sponsor vacancies have their own id space (sponsor_licence_vacancies), which would collide
+  // with roles ids — store roleId 0 for those and dedupe on the destination URL instead.
   const [existing] = await db
     .select({ id: applicationsTable.id })
     .from(applicationsTable)
     .where(
-      and(
-        eq(applicationsTable.userId, userId),
-        eq(applicationsTable.roleId, vacancyId),
-        eq(applicationsTable.applicationType, "website"),
-      ),
+      isSponsorSource
+        ? and(
+            eq(applicationsTable.userId, userId),
+            eq(applicationsTable.roleId, 0),
+            eq(applicationsTable.applicationType, "website"),
+            eq(applicationsTable.applicationUrl, destinationUrl),
+          )
+        : and(
+            eq(applicationsTable.userId, userId),
+            eq(applicationsTable.roleId, vacancyId),
+            eq(applicationsTable.applicationType, "website"),
+          ),
     );
 
   if (existing) {
@@ -192,7 +222,7 @@ router.get("/applications/track-outbound", requireAuthenticated, async (req: Req
   } else {
     await db.insert(applicationsTable).values({
       userId,
-      roleId: vacancyId,
+      roleId: isSponsorSource ? 0 : vacancyId,
       applicationType: "website",
       applicationUrl: destinationUrl,
       companyName,

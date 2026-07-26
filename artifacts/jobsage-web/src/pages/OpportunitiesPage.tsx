@@ -619,6 +619,7 @@ function RoleCard({
   const [vacancyClosed, setVacancyClosed] = useState(false);
   const [applyChecking, setApplyChecking] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const handleApplyClick = async () => {
     if (!applyUrl || applyChecking) return;
@@ -634,6 +635,13 @@ function RoleCard({
         // Click recorded server-side; open the employer page.
         if (win) win.location.href = applyUrl;
         else window.open(applyUrl, "_blank", "noopener,noreferrer");
+        // Refresh the tracker caches so the entry appears without a manual reload.
+        void queryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
+        void queryClient.invalidateQueries({ queryKey: getListMatchedRolesQueryKey() });
+        toast({
+          title: "Application logged!",
+          description: "Track your progress under the 'Company Website' tab in your Tracker.",
+        });
       } else {
         win?.close();
         let message = "This vacancy is no longer accepting applications (closed by employer).";

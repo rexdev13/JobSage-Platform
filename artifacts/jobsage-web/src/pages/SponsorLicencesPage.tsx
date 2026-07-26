@@ -4,6 +4,7 @@ import { Card, PageTransition, Button } from "@/components/ui-enhanced";
 import { SponsorVacancyApplyModal } from "@/components/SponsorVacancyApplyModal";
 import { MarkWebsiteApplicationModal } from "@/components/MarkWebsiteApplicationModal";
 import { getListMyApplicationsQueryKey } from "@workspace/api-client-react";
+import { openTrackedSponsorVacancy } from "@/lib/trackedOutbound";
 import {
   useGetSponsorLicenceRoutes,
   useGetSponsorLicenceIndustryCounts,
@@ -167,6 +168,8 @@ function VacancyMatchPanel({
   onApply: (v: SelectedVacancy) => void;
 }) {
   const { data, isLoading } = useGetSponsorLicenceVacancies(companyId);
+  const { toast: panelToast } = useToast();
+  const panelQueryClient = useQueryClient();
   const vacancies = data?.vacancies ?? [];
   const noApplyLinks = vacancies.length > 0 && vacancies.every((v) => !v.url);
 
@@ -300,16 +303,24 @@ function VacancyMatchPanel({
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     {v.url && (
-                      <a
-                        href={v.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void openTrackedSponsorVacancy({
+                            vacancyId: v.id,
+                            url: v.url!,
+                            toast: panelToast,
+                            onTracked: () => {
+                              void panelQueryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
+                            },
+                          });
+                        }}
                         className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                         title="View on job board"
                       >
                         <ExternalLink className="w-3 h-3" />
-                      </a>
+                      </button>
                     )}
                     <button
                       onClick={(e) => { e.stopPropagation(); onApply({ ...v, companyName, companyId }); }}
@@ -476,6 +487,10 @@ export default function SponsorLicencesPage() {
     });
   }
 
+  // Briefly highlights the "Checked Xm ago" badges after a page refresh so
+  // users can see the results actually re-rendered.
+  const [timestampPulse, setTimestampPulse] = useState(false);
+
   function handleRefreshVisible(visibleIds: number[]) {
     if (visibleIds.length === 0) {
       toast({ title: "Nothing to refresh", description: "No sponsor cards are currently visible." });
@@ -483,12 +498,22 @@ export default function SponsorLicencesPage() {
     }
     batchCheckMutation.mutate({ data: { ids: visibleIds.slice(0, LIMIT) } }, {
       onSuccess: (res) => {
-        toast({
-          title: "Page refreshed",
-          description: `${res.newChecks} freshly checked · ${res.cacheHits} up to date${res.errors > 0 ? ` · ${res.errors} failed` : ""}.`,
-        });
+        if (res.newChecks === 0 && res.cacheHits > 0) {
+          toast({
+            title: "Already up to date",
+            description: `⚡ All ${res.cacheHits} visible employers were checked within the last 24 hours — job listings are completely up to date!`,
+          });
+        } else {
+          toast({
+            title: "Page refreshed",
+            description: `${res.newChecks} freshly checked · ${res.cacheHits} up to date${res.errors > 0 ? ` · ${res.errors} failed` : ""}.`,
+          });
+        }
         void queryClient.invalidateQueries({ queryKey: [getListSponsorLicencesQueryKey()[0]] });
         void queryClient.invalidateQueries({ queryKey: getGetSponsorLicenceIndustryCountsQueryKey() });
+        // Briefly pulse the "Checked Xm ago" badges so the re-render is visible.
+        setTimestampPulse(true);
+        window.setTimeout(() => setTimestampPulse(false), 2500);
       },
       onError: (err) => {
         const e = err as { status?: number; data?: { error?: string; retryAfterSeconds?: number } | null };
@@ -1263,7 +1288,10 @@ export default function SponsorLicencesPage() {
                                     </span>
                                   )}
                                   {formatCheckedAt(c.lastVacancyCheckedAt) && (
-                                    <span className="flex items-center gap-1" title="Last checked for vacancies">
+                                    <span
+                                      className={`flex items-center gap-1 rounded-full px-1 transition-colors duration-500 ${timestampPulse ? "animate-pulse bg-primary/15 text-primary" : ""}`}
+                                      title="Last checked for vacancies"
+                                    >
                                       <Clock className="w-3 h-3" />
                                       Checked {formatCheckedAt(c.lastVacancyCheckedAt)}
                                     </span>
@@ -1620,15 +1648,23 @@ export default function SponsorLicencesPage() {
 
               <div className="flex items-center gap-3 flex-wrap">
                 {selectedVacancy.url && (
-                  <a
-                    href={selectedVacancy.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void openTrackedSponsorVacancy({
+                        vacancyId: selectedVacancy.id,
+                        url: selectedVacancy.url!,
+                        toast,
+                        onTracked: () => {
+                          void queryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
+                        },
+                      })
+                    }
                     className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-medium text-foreground hover:bg-accent transition-colors"
                   >
                     <ExternalLink className="w-4 h-4" />
                     View original posting
-                  </a>
+                  </button>
                 )}
                 <Button
                   className="gap-2"
@@ -1645,6 +1681,7 @@ export default function SponsorLicencesPage() {
       <AnimatePresence>
         {applyModalVacancy && (
           <SponsorVacancyApplyModal
+            vacancyId={applyModalVacancy.id}
             vacancyTitle={applyModalVacancy.title}
             companyName={applyModalVacancy.companyName}
             companyId={applyModalVacancy.companyId}
