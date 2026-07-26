@@ -2,6 +2,7 @@ import { pgTable, serial, text, integer, timestamp, varchar } from "drizzle-orm/
 import { z } from "zod/v4";
 
 export const ApplicationStatus = {
+  link_clicked: "link_clicked",
   applied: "applied",
   shortlisted: "shortlisted",
   interview: "interview",
@@ -26,7 +27,7 @@ export const applicationsTable = pgTable("applications", {
   applicationUrl: text("application_url"),
   companyName: text("company_name"),
   status: varchar("status", {
-    enum: ["applied", "shortlisted", "interview", "interview_invited", "under_review", "offer", "rejected", "no_response"],
+    enum: ["link_clicked", "applied", "shortlisted", "interview", "interview_invited", "under_review", "offer", "rejected", "no_response"],
   })
     .notNull()
     .default("applied"),
@@ -37,5 +38,5 @@ export const applicationsTable = pgTable("applications", {
   cvDocumentId: integer("cv_document_id"),
 });
 
-export const applicationStatusValues = z.enum(["applied", "shortlisted", "interview", "interview_invited", "under_review", "offer", "rejected", "no_response"]);
+export const applicationStatusValues = z.enum(["link_clicked", "applied", "shortlisted", "interview", "interview_invited", "under_review", "offer", "rejected", "no_response"]);
 export type Application = typeof applicationsTable.$inferSelect;

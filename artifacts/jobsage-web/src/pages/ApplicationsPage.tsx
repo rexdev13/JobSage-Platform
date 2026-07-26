@@ -32,6 +32,11 @@ const STATUS_CONFIG: Record<
   string,
   { label: string; icon: React.ElementType; className: string }
 > = {
+  link_clicked: {
+    label: "Link Clicked",
+    icon: ExternalLink,
+    className: "bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-300",
+  },
   applied: {
     label: "Applied",
     icon: ClipboardList,
@@ -89,7 +94,7 @@ const STATUS_CONFIG: Record<
   },
 };
 
-const PLATFORM_STATUSES = ["applied", "shortlisted", "under_review", "interview", "interview_invited", "offer", "rejected", "no_response"] as const;
+const PLATFORM_STATUSES = ["link_clicked", "applied", "shortlisted", "under_review", "interview", "interview_invited", "offer", "rejected", "no_response"] as const;
 const SPECULATIVE_STATUSES = ["cv_sent", "under_review", "interview_invited", "offer", "rejected"] as const;
 
 type ApplicationKind = "formal" | "speculative" | "website";

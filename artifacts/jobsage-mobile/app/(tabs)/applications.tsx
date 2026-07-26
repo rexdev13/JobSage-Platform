@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 
 type ApplicationStatus =
+  | "link_clicked"
   | "applied"
   | "shortlisted"
   | "interview"
@@ -39,6 +40,7 @@ const STATUS_CONFIG: Record<
   string,
   { label: string; color: string; bg: string; icon: keyof typeof Ionicons.glyphMap }
 > = {
+  link_clicked: { label: "Link Clicked", color: "#64748b", bg: "#f1f5f9", icon: "open-outline" },
   applied: { label: "Applied", color: "#0ea5e9", bg: "#e0f2fe", icon: "paper-plane-outline" },
   shortlisted: { label: "Shortlisted", color: "#8b5cf6", bg: "#ede9fe", icon: "star-outline" },
   interview: { label: "Interview", color: "#f59e0b", bg: "#fef3c7", icon: "people-outline" },

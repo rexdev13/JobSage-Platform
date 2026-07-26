@@ -62,6 +62,7 @@ Applications: ${params.totalApplications} total (${params.interviews} reached in
 type MonthEntry = {
   month: string;
   total: number;
+  link_clicked: number;
   applied: number;
   shortlisted: number;
   interview: number;
@@ -84,6 +85,7 @@ function buildMonthlyBreakdown(apps: Application[], now: Date): MonthEntry[] {
     months.push({
       month: label,
       total: slice.length,
+      link_clicked: slice.filter((a) => a.status === "link_clicked").length,
       applied: slice.filter((a) => a.status === "applied").length,
       shortlisted: slice.filter((a) => a.status === "shortlisted").length,
       interview: slice.filter((a) => a.status === "interview").length,
@@ -174,6 +176,7 @@ router.get("/my-analytics", requireAuthenticated, async (req, res): Promise<void
   }
 
   const statusBreakdown = {
+    link_clicked: allApplications.filter((a) => a.status === "link_clicked").length,
     applied: allApplications.filter((a) => a.status === "applied").length,
     shortlisted: allApplications.filter((a) => a.status === "shortlisted").length,
     interview: allApplications.filter((a) => a.status === "interview").length,

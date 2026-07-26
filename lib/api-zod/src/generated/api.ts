@@ -1030,6 +1030,7 @@ export const ListMyApplicationsResponse = zod.object({
       userId: zod.string(),
       roleId: zod.number(),
       status: zod.enum([
+        "link_clicked",
         "applied",
         "shortlisted",
         "interview",
@@ -1071,6 +1072,7 @@ export const MarkApplicationResponse = zod.object({
   userId: zod.string(),
   roleId: zod.number(),
   status: zod.enum([
+    "link_clicked",
     "applied",
     "shortlisted",
     "interview",
@@ -2264,6 +2266,7 @@ export const GetMyAnalyticsResponse = zod.object({
     zod.object({
       month: zod.string(),
       total: zod.number(),
+      link_clicked: zod.number(),
       applied: zod.number(),
       shortlisted: zod.number(),
       interview: zod.number(),
@@ -2273,6 +2276,7 @@ export const GetMyAnalyticsResponse = zod.object({
     }),
   ),
   statusBreakdown: zod.object({
+    link_clicked: zod.number(),
     applied: zod.number(),
     shortlisted: zod.number(),
     interview: zod.number(),

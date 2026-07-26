@@ -3768,7 +3768,7 @@ components:
 
     ApplicationStatus:
       type: string
-      enum: [applied, shortlisted, interview, offer, rejected, no_response]
+      enum: [link_clicked, applied, shortlisted, interview, offer, rejected, no_response]
 
     CvExtractedFields:
       type: object
@@ -5336,11 +5336,13 @@ components:
           type: array
           items:
             type: object
-            required: [month, total, applied, shortlisted, interview, offer, rejected, no_response]
+            required: [month, total, link_clicked, applied, shortlisted, interview, offer, rejected, no_response]
             properties:
               month:
                 type: string
               total:
+                type: integer
+              link_clicked:
                 type: integer
               applied:
                 type: integer
@@ -5356,8 +5358,10 @@ components:
                 type: integer
         statusBreakdown:
           type: object
-          required: [applied, shortlisted, interview, offer, rejected, no_response]
+          required: [link_clicked, applied, shortlisted, interview, offer, rejected, no_response]
           properties:
+            link_clicked:
+              type: integer
             applied:
               type: integer
             shortlisted:

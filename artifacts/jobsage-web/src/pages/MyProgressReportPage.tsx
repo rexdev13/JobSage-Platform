@@ -81,6 +81,7 @@ const BREAKDOWN_MAX: Record<string, number> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
+  link_clicked: "#94a3b8",
   applied: "hsl(var(--primary))",
   shortlisted: "#0ea5e9",
   interview: "#8b5cf6",
@@ -90,6 +91,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const STATUS_LABELS: Record<string, string> = {
+  link_clicked: "Link Clicked",
   applied: "Applied",
   shortlisted: "Shortlisted",
   interview: "Interview",
@@ -180,8 +182,8 @@ export default function MyProgressReportPage() {
     fullMark: BREAKDOWN_MAX[key] ?? 10,
   }));
 
-  // Funnel data — ordered applied → shortlisted → interview → offer
-  const funnelKeys = ["applied", "shortlisted", "interview", "offer", "rejected", "no_response"] as const;
+  // Funnel data — ordered link_clicked → applied → shortlisted → interview → offer
+  const funnelKeys = ["link_clicked", "applied", "shortlisted", "interview", "offer", "rejected", "no_response"] as const;
   const funnelData = funnelKeys
     .map((k) => ({ status: STATUS_LABELS[k], count: (statusBreakdown as Record<string, number>)[k] ?? 0, key: k }))
     .filter((d) => d.count > 0);

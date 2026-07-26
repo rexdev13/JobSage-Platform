@@ -497,6 +497,7 @@ export type ApplicationStatus =
   (typeof ApplicationStatus)[keyof typeof ApplicationStatus];
 
 export const ApplicationStatus = {
+  link_clicked: "link_clicked",
   applied: "applied",
   shortlisted: "shortlisted",
   interview: "interview",
@@ -1412,6 +1413,7 @@ export type CandidateAnalyticsReadinessBreakdown = {
 export type CandidateAnalyticsMonthlyApplicationsItem = {
   month: string;
   total: number;
+  link_clicked: number;
   applied: number;
   shortlisted: number;
   interview: number;
@@ -1421,6 +1423,7 @@ export type CandidateAnalyticsMonthlyApplicationsItem = {
 };
 
 export type CandidateAnalyticsStatusBreakdown = {
+  link_clicked: number;
   applied: number;
   shortlisted: number;
   interview: number;

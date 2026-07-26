@@ -233,7 +233,10 @@ router.get("/applications/track-outbound", requireAuthenticated, async (req: Req
       applicationType: "website",
       applicationUrl: destinationUrl,
       companyName,
-      status: "applied",
+      // Clicking through to the employer site does not mean the candidate
+      // completed the application — record "link_clicked"; they (or a future
+      // browser extension) can upgrade it to "applied" later.
+      status: "link_clicked",
     });
   }
 
@@ -507,7 +510,7 @@ router.patch("/applications/:id/status", requireAuthenticated, async (req: Reque
   }
 
   const { status } = req.body as { status?: string };
-  const validStatuses = ["applied", "shortlisted", "interview", "interview_invited", "under_review", "offer", "rejected", "no_response"];
+  const validStatuses = ["link_clicked", "applied", "shortlisted", "interview", "interview_invited", "under_review", "offer", "rejected", "no_response"];
   if (!status || !validStatuses.includes(status)) {
     res.status(400).json({ error: `status must be one of: ${validStatuses.join(", ")}` });
     return;
