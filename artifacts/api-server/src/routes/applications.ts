@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, jobListingsTable, rolesTable, candidateMessagesTable, documentsTable, employerProfilesTable, sponsorLicenceVacanciesTable } from "@workspace/db";
-import { applicationsTable, speculativeApplicationsTable } from "@workspace/db";
+import { applicationsTable, speculativeApplicationsTable, ApplicationStatus } from "@workspace/db";
 import { eq, and, inArray, desc, or } from "drizzle-orm";
 import { requireAuthenticated } from "../middlewares/requireRole";
 import { createApplicationReceivedMessage } from "../lib/systemMessages";
@@ -510,7 +510,7 @@ router.patch("/applications/:id/status", requireAuthenticated, async (req: Reque
   }
 
   const { status } = req.body as { status?: string };
-  const validStatuses = ["link_clicked", "applied", "shortlisted", "interview", "interview_invited", "under_review", "offer", "rejected", "no_response"];
+  const validStatuses: string[] = Object.values(ApplicationStatus);
   if (!status || !validStatuses.includes(status)) {
     res.status(400).json({ error: `status must be one of: ${validStatuses.join(", ")}` });
     return;
