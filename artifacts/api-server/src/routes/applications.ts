@@ -55,17 +55,24 @@ router.get("/applications/track-outbound", requireAuthenticated, async (req: Req
     res.status(400).json({ error: "destinationUrl must use http or https." });
     return;
   }
-  if (isBlockedVacancyUrl(destinationUrl)) {
-    res.status(400).json({ error: "This destination is a third-party job aggregator and cannot be tracked. Please use the employer's own site." });
-    return;
-  }
-  // Reject homepage-style destinations that are not deep-links to a specific vacancy.
-  if (!isValidVacancyDeepLink(destinationUrl)) {
-    res.status(400).json({
-      error: "This apply link points to a generic page rather than a specific vacancy.",
-      code: "INVALID_DEEP_LINK",
-    });
-    return;
+  // Sponsor vacancy leads are AI-discovered and may legitimately point at
+  // aggregator/search-page URLs, so the aggregator blocklist and deep-link
+  // heuristics are skipped for source=sponsor. The SSRF guard and the strict
+  // canonical-URL exact-match check below still apply, so this cannot become
+  // an open redirect.
+  if (!isSponsorSource) {
+    if (isBlockedVacancyUrl(destinationUrl)) {
+      res.status(400).json({ error: "This destination is a third-party job aggregator and cannot be tracked. Please use the employer's own site." });
+      return;
+    }
+    // Reject homepage-style destinations that are not deep-links to a specific vacancy.
+    if (!isValidVacancyDeepLink(destinationUrl)) {
+      res.status(400).json({
+        error: "This apply link points to a generic page rather than a specific vacancy.",
+        code: "INVALID_DEEP_LINK",
+      });
+      return;
+    }
   }
 
   // SSRF guard: never health-check (or redirect to) private, loopback,

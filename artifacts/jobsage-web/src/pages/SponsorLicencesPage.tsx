@@ -1643,7 +1643,7 @@ export default function SponsorLicencesPage() {
               )}
 
               <p className="text-xs text-muted-foreground mb-5 bg-muted/40 rounded-lg px-3 py-2 border border-border leading-relaxed">
-                This vacancy was sourced from a public job board. Sending your CV creates a speculative application record in JOBSAGE so you can track it.
+                This vacancy lead was discovered via web scraping. Sending your CV creates a speculative application record in JOBSAGE so you can track your outreach.
               </p>
 
               <div className="flex items-center gap-3 flex-wrap">

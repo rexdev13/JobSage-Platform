@@ -35,6 +35,8 @@ vi.mock("@workspace/db", () => {
     documentsTable: {},
     rolesTable: {},
     candidateMessagesTable: {},
+    employerProfilesTable: {},
+    sponsorLicenceVacanciesTable: {},
   };
 });
 
@@ -279,6 +281,65 @@ describe("GET /applications/track-outbound", () => {
       .redirects(0);
     expect(res.status).toBe(302);
     expect(res.headers.location).toBe("https://acme.com/jobs/nurse-12345");
+  });
+
+  it("redirects 302 for sponsor source even when the destination is an aggregator URL", async () => {
+    const aggregatorUrl = "https://www.reed.co.uk/jobs/registered-nurse/54321";
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
+      new Response("<html><body>Apply now for this great role</body></html>", {
+        status: 200,
+        headers: { "content-type": "text/html" },
+      }),
+    ));
+    appResults.push(
+      [{ organisationName: "Acme Care Ltd", url: aggregatorUrl }], // sponsor vacancy lookup
+      [], // recently-verified-live lookup
+      [], // no existing application → insert
+    );
+    const app = buildApp();
+    const res = await request(app)
+      .get(`${base}?vacancyId=7&source=sponsor&destinationUrl=${encodeURIComponent(aggregatorUrl)}`)
+      .set("Authorization", `Bearer ${SESS}`)
+      .redirects(0);
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe(aggregatorUrl);
+  });
+
+  it("still rejects aggregator URLs with 400 for non-sponsor sources", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    const app = buildApp();
+    const res = await request(app)
+      .get(`${base}?vacancyId=7&destinationUrl=${encodeURIComponent("https://www.reed.co.uk/jobs/registered-nurse/54321")}`)
+      .set("Authorization", `Bearer ${SESS}`);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain("aggregator");
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("sponsor source still enforces the canonical stored URL match (no open redirect)", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    appResults.push([{ organisationName: "Acme Care Ltd", url: "https://www.reed.co.uk/jobs/registered-nurse/54321" }]);
+    const app = buildApp();
+    const res = await request(app)
+      .get(`${base}?vacancyId=7&source=sponsor&destinationUrl=${encodeURIComponent("https://evil.example.com/anywhere")}`)
+      .set("Authorization", `Bearer ${SESS}`);
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe("INVALID_DEEP_LINK");
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("sponsor source still enforces the SSRF guard", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    const app = buildApp();
+    const res = await request(app)
+      .get(`${base}?vacancyId=7&source=sponsor&destinationUrl=${encodeURIComponent("https://private.corp-intranet.com/jobs/nurse-12345")}`)
+      .set("Authorization", `Bearer ${SESS}`);
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe("INVALID_DEEP_LINK");
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it("still redirects when the health check throws (network/bot-block)", async () => {
