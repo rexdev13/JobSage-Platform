@@ -19,4 +19,6 @@ export interface UpdateJobListingRequest {
   requiredRegistration?: string;
   targetProfessions?: string[];
   targetRegions?: string[];
+  /** Direct application URL for this role posting */
+  applyUrl?: string | null;
 }

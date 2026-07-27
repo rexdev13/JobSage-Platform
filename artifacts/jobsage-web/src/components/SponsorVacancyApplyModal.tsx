@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui-enhanced";
-import { useSendSpeculativeApplication, useListSpeculativeApplications, useListMyDocuments } from "@workspace/api-client-react";
+import { useSendSpeculativeApplication, useListSpeculativeApplications, useListMyDocuments, getListMyApplicationsQueryKey } from "@workspace/api-client-react";
+import { openTrackedSponsorVacancy } from "@/lib/trackedOutbound";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -89,6 +90,8 @@ function useCoverLetterStream() {
 }
 
 export interface SponsorVacancyApplyModalProps {
+  /** sponsor_licence_vacancies id — enables outbound-click tracking for "View posting". */
+  vacancyId?: number | null;
   vacancyTitle?: string;
   companyName: string;
   companyId: number;
@@ -103,6 +106,7 @@ export interface SponsorVacancyApplyModalProps {
 }
 
 export function SponsorVacancyApplyModal({
+  vacancyId,
   vacancyTitle: vacancyTitleProp,
   companyName,
   companyId,
@@ -585,15 +589,23 @@ export function SponsorVacancyApplyModal({
             <div className="flex items-center justify-between px-5 py-4 border-t border-border bg-muted/30 gap-3 flex-wrap">
               <div className="flex items-center gap-2">
                 {externalUrl && (
-                  <a
-                    href={externalUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void openTrackedSponsorVacancy({
+                        vacancyId,
+                        url: externalUrl,
+                        toast,
+                        onTracked: () => {
+                          void queryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
+                        },
+                      })
+                    }
                     className="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors font-medium"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
                     View posting
-                  </a>
+                  </button>
                 )}
               </div>
               <div className="flex items-center gap-2">

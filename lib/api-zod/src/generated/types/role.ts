@@ -18,4 +18,6 @@ export interface Role {
   active: boolean;
   importedAt: Date;
   importedBy?: string | null;
+  /** Direct application URL for this specific role, if available */
+  applyUrl?: string | null;
 }

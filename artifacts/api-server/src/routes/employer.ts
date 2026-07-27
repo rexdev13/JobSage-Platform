@@ -15,6 +15,7 @@ import { eq, and, asc, desc, ilike, gte, isNotNull, isNull, count } from "drizzl
 import { requireRole, requireAuthenticated } from "../middlewares/requireRole";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { sendCandidateContactEmail } from "../lib/email";
+import { queueLinkVerification } from "../lib/linkVerification";
 import { createSystemMessage } from "../lib/systemMessages";
 
 const router: IRouter = Router();
@@ -195,6 +196,10 @@ router.post("/employer/jobs", requireEmployer(), async (req, res): Promise<void>
     })
     .returning();
 
+  // Verify the apply link immediately so candidates never rely on an
+  // unchecked URL once the listing is published.
+  if (job?.applyUrl) queueLinkVerification("job_listing", job.id, job.applyUrl);
+
   res.status(201).json(job);
 });
 
@@ -246,9 +251,18 @@ router.put("/employer/jobs/:id", requireEmployer(), async (req, res): Promise<vo
   if (requiredRegistration !== undefined) updates.requiredRegistration = requiredRegistration.trim();
   if (targetProfessions !== undefined) updates.targetProfessions = targetProfessions;
   if (targetRegions !== undefined) updates.targetRegions = targetRegions;
-  if (applyUrl !== undefined) updates.applyUrl = applyUrl?.trim() || null;
+  if (applyUrl !== undefined) {
+    updates.applyUrl = applyUrl?.trim() || null;
+    // Apply URL changed — previous verdict no longer applies; re-verify.
+    updates.liveness = "unverified";
+    updates.lastVerifiedAt = null;
+    updates.livenessReason = null;
+  }
 
   const [updated] = await db.update(jobListingsTable).set(updates).where(eq(jobListingsTable.id, jobId)).returning();
+  if (applyUrl !== undefined && updated?.applyUrl) {
+    queueLinkVerification("job_listing", updated.id, updated.applyUrl);
+  }
   res.json(updated);
 });
 

@@ -2432,11 +2432,48 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /sponsor-licences/check-batch:
+    post:
+      operationId: checkSponsorLicenceVacancyBatch
+      tags: [SponsorLicences]
+      summary: Synchronously check vacancies for up to 20 sponsor licence companies (the currently visible page)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SponsorLicenceBatchCheckRequest"
+      responses:
+        "200":
+          description: Per-company vacancy check summaries.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SponsorLicenceBatchCheckResponse"
+        "400":
+          description: Missing, empty, invalid, or oversized ids array.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Per-user cooldown active — retry after the indicated delay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SponsorLicenceBatchCooldownError"
+
   /sponsor-licences/check-all-vacancies:
     post:
       operationId: checkAllSponsorLicenceVacancies
       tags: [SponsorLicences]
-      summary: Start (or report already-running) a background scan of every sponsor licence employer for vacancies, scoring results for the current candidate
+      summary: Start (or report already-running) a background scan of every sponsor licence employer for vacancies, scoring results for the current candidate (admin only)
       requestBody:
         required: false
         content:
@@ -2452,6 +2489,12 @@ paths:
                 $ref: "#/components/schemas/CheckAllVacanciesStartResponse"
         "401":
           description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Admin role required.
           content:
             application/json:
               schema:
@@ -3643,6 +3686,10 @@ components:
         importedBy:
           type: string
           nullable: true
+        applyUrl:
+          type: string
+          nullable: true
+          description: Direct application URL for this specific role, if available
 
     MatchedRole:
       type: object
@@ -3675,6 +3722,18 @@ components:
         recommended:
           type: boolean
           description: True for the top-5 highest-matching roles — should be highlighted as "Apply First"
+        applyUrl:
+          type: string
+          nullable: true
+          description: Direct application URL for this specific role, if available. Dead links are never returned.
+        linkVerified:
+          type: boolean
+          description: True when the apply link was health-checked and confirmed live
+        linkCheckedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the apply link was last health-checked
         contactEmail:
           type: string
           nullable: true
@@ -3717,7 +3776,7 @@ components:
 
     ApplicationStatus:
       type: string
-      enum: [applied, shortlisted, interview, offer, rejected, no_response]
+      enum: [link_clicked, applied, shortlisted, interview, offer, rejected, no_response]
 
     CvExtractedFields:
       type: object
@@ -3883,6 +3942,21 @@ components:
         roleLocation:
           type: string
           nullable: true
+        applicationType:
+          type: string
+          nullable: true
+        applicationUrl:
+          type: string
+          nullable: true
+        companyName:
+          type: string
+          nullable: true
+        interviewDate:
+          type: string
+          nullable: true
+        interviewNotes:
+          type: string
+          nullable: true
 
     ApplicationList:
       type: object
@@ -3994,7 +4068,7 @@ components:
           nullable: true
         stepSource:
           type: string
-          enum: [rule, sponsorship, manual]
+          enum: [rule, sponsorship, manual, registration]
         ruleId:
           type: integer
           nullable: true
@@ -4394,6 +4468,67 @@ components:
           type: string
           format: date-time
 
+    IdentityVerification:
+      type: object
+      required: [id, userId, status, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: string
+        passportKey:
+          type: string
+          nullable: true
+        selfieKey:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [pending, verified, rejected]
+        aiConfidence:
+          type: string
+          enum: [high, medium, low, none]
+          nullable: true
+        aiNotes:
+          type: string
+          nullable: true
+        adminNotes:
+          type: string
+          nullable: true
+        verifiedAt:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    RecommendationLetter:
+      type: object
+      required: [id, candidateUserId, authorName, authorTitle, organisation, relationship, content, isEmployerVerified, createdAt]
+      properties:
+        id:
+          type: integer
+        candidateUserId:
+          type: string
+        employerUserId:
+          type: string
+          nullable: true
+        authorName:
+          type: string
+        authorTitle:
+          type: string
+        organisation:
+          type: string
+        relationship:
+          type: string
+        content:
+          type: string
+        isEmployerVerified:
+          type: boolean
+        createdAt:
+          type: string
+
     UpsertEmployerProfileRequest:
       type: object
       required: [companyName, industry, region]
@@ -4469,6 +4604,9 @@ components:
         updatedAt:
           type: string
           format: date-time
+        applyUrl:
+          type: string
+          nullable: true
 
     JobListingWithCount:
       allOf:
@@ -4525,6 +4663,10 @@ components:
           type: array
           items:
             type: string
+        applyUrl:
+          type: string
+          nullable: true
+          description: Direct application URL for this role posting
 
     UpdateJobListingRequest:
       type: object
@@ -4556,6 +4698,10 @@ components:
           type: array
           items:
             type: string
+        applyUrl:
+          type: string
+          nullable: true
+          description: Direct application URL for this role posting
 
     GenerateJobDescriptionPreviewRequest:
       type: object
@@ -4936,6 +5082,68 @@ components:
           items:
             $ref: "#/components/schemas/VacancyListing"
 
+    SponsorLicenceBatchCheckRequest:
+      type: object
+      required: [ids]
+      properties:
+        ids:
+          type: array
+          items:
+            type: integer
+          minItems: 1
+          maxItems: 20
+          description: IDs of the sponsor licence companies to check (max 20).
+
+    SponsorLicenceBatchCheckItem:
+      type: object
+      required: [id, organisationName, vacanciesFound, fromCache]
+      properties:
+        id:
+          type: integer
+        organisationName:
+          type: string
+        vacanciesFound:
+          type: boolean
+        vacancyCount:
+          type: integer
+          nullable: true
+        checkedAt:
+          type: string
+          format: date-time
+          nullable: true
+        fromCache:
+          type: boolean
+        error:
+          type: string
+          nullable: true
+          description: Per-company failure message; null when the check succeeded.
+
+    SponsorLicenceBatchCheckResponse:
+      type: object
+      required: [results, checkedOrganisations, newChecks, cacheHits, errors]
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/SponsorLicenceBatchCheckItem"
+        checkedOrganisations:
+          type: integer
+        newChecks:
+          type: integer
+        cacheHits:
+          type: integer
+        errors:
+          type: integer
+
+    SponsorLicenceBatchCooldownError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+        retryAfterSeconds:
+          type: integer
+
     CheckAllVacanciesBody:
       type: object
       properties:
@@ -5009,6 +5217,14 @@ components:
         url:
           type: string
           nullable: true
+        linkVerified:
+          type: boolean
+          description: True when the apply link was health-checked and confirmed live
+        linkCheckedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the apply link was last health-checked
         description:
           type: string
           nullable: true
@@ -5136,11 +5352,13 @@ components:
           type: array
           items:
             type: object
-            required: [month, total, applied, shortlisted, interview, offer, rejected, no_response]
+            required: [month, total, link_clicked, applied, shortlisted, interview, offer, rejected, no_response]
             properties:
               month:
                 type: string
               total:
+                type: integer
+              link_clicked:
                 type: integer
               applied:
                 type: integer
@@ -5156,8 +5374,10 @@ components:
                 type: integer
         statusBreakdown:
           type: object
-          required: [applied, shortlisted, interview, offer, rejected, no_response]
+          required: [link_clicked, applied, shortlisted, interview, offer, rejected, no_response]
           properties:
+            link_clicked:
+              type: integer
             applied:
               type: integer
             shortlisted:
@@ -5184,6 +5404,27 @@ components:
       type: object
       required: [period, stats, eligibility, plan, documentCount, boostProfile]
       properties:
+        topCompanies:
+          type: array
+          items:
+            type: object
+            required: [name, count, matchPct]
+            properties:
+              name:
+                type: string
+              count:
+                type: integer
+              type:
+                type: string
+                nullable: true
+              location:
+                type: string
+                nullable: true
+              matchPct:
+                type: number
+              reason:
+                type: string
+                nullable: true
         period:
           type: object
           required: [month, year]
@@ -5516,7 +5757,7 @@ components:
           nullable: true
         messageType:
           type: string
-          enum: [system, employer]
+          enum: [system, employer, employer_reply]
         messageText:
           type: string
         subject:
@@ -5858,7 +6099,15 @@ components:
         applyUrl:
           type: string
           nullable: true
-          description: Direct application URL for this role, if available
+          description: Direct application URL for this role, if available. Dead links are never returned.
+        linkVerified:
+          type: boolean
+          description: True when the apply link was health-checked and confirmed live
+        linkCheckedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the apply link was last health-checked
         contactEmail:
           type: string
           nullable: true

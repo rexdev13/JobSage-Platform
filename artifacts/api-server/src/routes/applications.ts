@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, jobListingsTable, rolesTable, candidateMessagesTable, documentsTable, employerProfilesTable } from "@workspace/db";
-import { applicationsTable, speculativeApplicationsTable } from "@workspace/db";
+import { db, jobListingsTable, rolesTable, candidateMessagesTable, documentsTable, employerProfilesTable, sponsorLicenceVacanciesTable } from "@workspace/db";
+import { applicationsTable, speculativeApplicationsTable, ApplicationStatus } from "@workspace/db";
 import { eq, and, inArray, desc, or } from "drizzle-orm";
 import { requireAuthenticated } from "../middlewares/requireRole";
 import { createApplicationReceivedMessage } from "../lib/systemMessages";
@@ -35,6 +35,9 @@ router.get("/applications/track-outbound", requireAuthenticated, async (req: Req
   const userId = req.user!.id;
   const vacancyId = parseInt(String(req.query.vacancyId ?? ""), 10);
   const destinationUrl = typeof req.query.destinationUrl === "string" ? req.query.destinationUrl : "";
+  // source=sponsor → vacancyId refers to the sponsor_licence_vacancies table
+  // (AI-discovered sponsor vacancies) instead of the roles/job-listings id space.
+  const isSponsorSource = req.query.source === "sponsor";
 
   if (isNaN(vacancyId) || vacancyId <= 0) {
     res.status(400).json({ error: "vacancyId is required and must be a positive number." });
@@ -52,17 +55,24 @@ router.get("/applications/track-outbound", requireAuthenticated, async (req: Req
     res.status(400).json({ error: "destinationUrl must use http or https." });
     return;
   }
-  if (isBlockedVacancyUrl(destinationUrl)) {
-    res.status(400).json({ error: "This destination is a third-party job aggregator and cannot be tracked. Please use the employer's own site." });
-    return;
-  }
-  // Reject homepage-style destinations that are not deep-links to a specific vacancy.
-  if (!isValidVacancyDeepLink(destinationUrl)) {
-    res.status(400).json({
-      error: "This apply link points to a generic page rather than a specific vacancy.",
-      code: "INVALID_DEEP_LINK",
-    });
-    return;
+  // Sponsor vacancy leads are AI-discovered and may legitimately point at
+  // aggregator/search-page URLs, so the aggregator blocklist and deep-link
+  // heuristics are skipped for source=sponsor. The SSRF guard and the strict
+  // canonical-URL exact-match check below still apply, so this cannot become
+  // an open redirect.
+  if (!isSponsorSource) {
+    if (isBlockedVacancyUrl(destinationUrl)) {
+      res.status(400).json({ error: "This destination is a third-party job aggregator and cannot be tracked. Please use the employer's own site." });
+      return;
+    }
+    // Reject homepage-style destinations that are not deep-links to a specific vacancy.
+    if (!isValidVacancyDeepLink(destinationUrl)) {
+      res.status(400).json({
+        error: "This apply link points to a generic page rather than a specific vacancy.",
+        code: "INVALID_DEEP_LINK",
+      });
+      return;
+    }
   }
 
   // SSRF guard: never health-check (or redirect to) private, loopback,
@@ -79,7 +89,14 @@ router.get("/applications/track-outbound", requireAuthenticated, async (req: Req
   // (handles both id ranges: >1M = employer job listings, otherwise imported roles).
   let companyName: string | null = null;
   let storedApplyUrl: string | null = null;
-  if (vacancyId > 1_000_000) {
+  if (isSponsorSource) {
+    const [sv] = await db
+      .select({ organisationName: sponsorLicenceVacanciesTable.organisationName, url: sponsorLicenceVacanciesTable.url })
+      .from(sponsorLicenceVacanciesTable)
+      .where(eq(sponsorLicenceVacanciesTable.id, vacancyId));
+    companyName = sv?.organisationName ?? null;
+    storedApplyUrl = sv?.url ?? null;
+  } else if (vacancyId > 1_000_000) {
     const [job] = await db
       .select({ employerProfileId: jobListingsTable.employerProfileId, applyUrl: jobListingsTable.applyUrl })
       .from(jobListingsTable)
@@ -145,6 +162,17 @@ router.get("/applications/track-outbound", requireAuthenticated, async (req: Req
   }
   if (dead) {
     try {
+      if (isSponsorSource) {
+        // Sponsor vacancies live in their own table; mark all rows sharing
+        // this URL dead so cards stop offering the link.
+        await markSponsorVacanciesDeadByUrl(destinationUrl, deadReason).catch(() => {});
+        console.info(`[track-outbound] sponsor vacancy ${vacancyId} marked dead (${deadReason}) — ${destinationUrl}`);
+        res.status(410).json({
+          error: "This vacancy is no longer accepting applications (closed by employer).",
+          code: "JOB_EXPIRED",
+        });
+        return;
+      }
       if (vacancyId > 1_000_000) {
         await db
           .update(jobListingsTable)
@@ -172,16 +200,25 @@ router.get("/applications/track-outbound", requireAuthenticated, async (req: Req
     return;
   }
 
-  // Upsert: repeat clicks on the same vacancy update the existing record instead of duplicating it
+  // Upsert: repeat clicks on the same vacancy update the existing record instead of duplicating it.
+  // Sponsor vacancies have their own id space (sponsor_licence_vacancies), which would collide
+  // with roles ids — store roleId 0 for those and dedupe on the destination URL instead.
   const [existing] = await db
     .select({ id: applicationsTable.id })
     .from(applicationsTable)
     .where(
-      and(
-        eq(applicationsTable.userId, userId),
-        eq(applicationsTable.roleId, vacancyId),
-        eq(applicationsTable.applicationType, "website"),
-      ),
+      isSponsorSource
+        ? and(
+            eq(applicationsTable.userId, userId),
+            eq(applicationsTable.roleId, 0),
+            eq(applicationsTable.applicationType, "website"),
+            eq(applicationsTable.applicationUrl, destinationUrl),
+          )
+        : and(
+            eq(applicationsTable.userId, userId),
+            eq(applicationsTable.roleId, vacancyId),
+            eq(applicationsTable.applicationType, "website"),
+          ),
     );
 
   if (existing) {
@@ -192,11 +229,14 @@ router.get("/applications/track-outbound", requireAuthenticated, async (req: Req
   } else {
     await db.insert(applicationsTable).values({
       userId,
-      roleId: vacancyId,
+      roleId: isSponsorSource ? 0 : vacancyId,
       applicationType: "website",
       applicationUrl: destinationUrl,
       companyName,
-      status: "applied",
+      // Clicking through to the employer site does not mean the candidate
+      // completed the application — record "link_clicked"; they (or a future
+      // browser extension) can upgrade it to "applied" later.
+      status: "link_clicked",
     });
   }
 
@@ -470,7 +510,7 @@ router.patch("/applications/:id/status", requireAuthenticated, async (req: Reque
   }
 
   const { status } = req.body as { status?: string };
-  const validStatuses = ["applied", "shortlisted", "interview", "interview_invited", "under_review", "offer", "rejected", "no_response"];
+  const validStatuses: string[] = Object.values(ApplicationStatus);
   if (!status || !validStatuses.includes(status)) {
     res.status(400).json({ error: `status must be one of: ${validStatuses.join(", ")}` });
     return;

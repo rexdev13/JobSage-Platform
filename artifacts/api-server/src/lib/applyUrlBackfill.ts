@@ -3,6 +3,7 @@ import { rolesTable } from "@workspace/db";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { eq, isNull, and } from "drizzle-orm";
 import { writeAuditEvent } from "./audit";
+import { queueLinkVerification } from "./linkVerification";
 
 export const APPLY_URL_BACKFILL_ACTION = "apply_url_backfill";
 
@@ -163,8 +164,11 @@ export async function runApplyUrlBackfill(
         // Save to DB
         await db
           .update(rolesTable)
-          .set({ applyUrl: url })
+          .set({ applyUrl: url, liveness: "unverified", lastVerifiedAt: null, livenessReason: null })
           .where(eq(rolesTable.id, role.id));
+
+        // Verify the discovered URL right away so it never sits unchecked.
+        queueLinkVerification("role", role.id, url);
 
         // Audit log — URL was found and saved
         await writeAuditEvent(

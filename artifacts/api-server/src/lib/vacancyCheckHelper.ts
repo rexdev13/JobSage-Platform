@@ -17,6 +17,7 @@ export const VACANCY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 // Re-export shared URL policy so existing imports keep working.
 export { BLOCKED_VACANCY_DOMAINS, isBlockedVacancyUrl, isValidVacancyDeepLink };
+import { queueLinkVerificationBatch } from "./linkVerification";
 
 export type VacancyListItem = {
   title: string;
@@ -257,23 +258,38 @@ Include up to 8 specific vacancies in vacancyList if found. Use null for missing
 
   if (vacancyList && vacancyList.length > 0) {
     const checkDate = new Date().toISOString().split("T")[0]!;
-    await db.insert(sponsorLicenceVacanciesTable).values(
-      vacancyList.map((v) => {
-        const prior = v.url ? priorLiveness.get(v.url) : undefined;
-        return {
-          organisationName,
-          checkDate,
-          title: v.title,
-          location: v.location ?? null,
-          salary: v.salary ?? null,
-          url: v.url ?? null,
-          description: v.description ?? null,
-          postedDate: v.postedDate ?? null,
-          liveness: prior?.liveness ?? ("unverified" as const),
-          lastVerifiedAt: prior?.lastVerifiedAt ?? null,
-          livenessReason: prior?.livenessReason ?? null,
-        };
-      }),
+    const inserted = await db
+      .insert(sponsorLicenceVacanciesTable)
+      .values(
+        vacancyList.map((v) => {
+          const prior = v.url ? priorLiveness.get(v.url) : undefined;
+          return {
+            organisationName,
+            checkDate,
+            title: v.title,
+            location: v.location ?? null,
+            salary: v.salary ?? null,
+            url: v.url ?? null,
+            description: v.description ?? null,
+            postedDate: v.postedDate ?? null,
+            liveness: prior?.liveness ?? ("unverified" as const),
+            lastVerifiedAt: prior?.lastVerifiedAt ?? null,
+            livenessReason: prior?.livenessReason ?? null,
+          };
+        }),
+      )
+      .returning({
+        id: sponsorLicenceVacanciesTable.id,
+        url: sponsorLicenceVacanciesTable.url,
+        liveness: sponsorLicenceVacanciesTable.liveness,
+      });
+
+    // Verify newly discovered links right away (fire-and-forget) so fresh
+    // snapshots don't sit unverified until the next background sweep.
+    queueLinkVerificationBatch(
+      inserted
+        .filter((r) => r.liveness === "unverified" && r.url)
+        .map((r) => ({ source: "sponsor_vacancy" as const, id: r.id, url: r.url })),
     );
   }
 

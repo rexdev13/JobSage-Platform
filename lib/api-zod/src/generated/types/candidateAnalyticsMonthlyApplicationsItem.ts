@@ -9,6 +9,7 @@
 export type CandidateAnalyticsMonthlyApplicationsItem = {
   month: string;
   total: number;
+  link_clicked: number;
   applied: number;
   shortlisted: number;
   interview: number;

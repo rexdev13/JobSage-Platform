@@ -614,11 +614,12 @@ function RoleCard({
   recommended?: boolean;
 }) {
   const [, setLocation] = useLocation();
-  const { role, isEligible, matchScore, eligibilityGaps, sponsorshipFeasibility, contactEmail, contactPhone, contactWebsite, applyUrl } = item;
+  const { role, isEligible, matchScore, eligibilityGaps, sponsorshipFeasibility, contactEmail, contactPhone, contactWebsite, applyUrl, linkVerified, linkCheckedAt } = item;
   const [expanded, setExpanded] = useState(false);
   const [vacancyClosed, setVacancyClosed] = useState(false);
   const [applyChecking, setApplyChecking] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const handleApplyClick = async () => {
     if (!applyUrl || applyChecking) return;
@@ -634,6 +635,13 @@ function RoleCard({
         // Click recorded server-side; open the employer page.
         if (win) win.location.href = applyUrl;
         else window.open(applyUrl, "_blank", "noopener,noreferrer");
+        // Refresh the tracker caches so the entry appears without a manual reload.
+        void queryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
+        void queryClient.invalidateQueries({ queryKey: getListMatchedRolesQueryKey() });
+        toast({
+          title: "Application logged!",
+          description: "Track your progress under the 'Company Website' tab in your Tracker.",
+        });
       } else {
         win?.close();
         let message = "This vacancy is no longer accepting applications (closed by employer).";
@@ -778,20 +786,37 @@ function RoleCard({
       )}
 
       {applyUrl && (
-        <div className="mt-3" onClick={(e) => e.stopPropagation()}>
+        <div className="mt-3 flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
           {vacancyClosed ? (
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted text-muted-foreground text-xs font-semibold cursor-not-allowed">
               <ExternalLink className="w-3.5 h-3.5" /> Vacancy closed
             </span>
           ) : (
-            <button
-              type="button"
-              onClick={handleApplyClick}
-              disabled={applyChecking}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-wait"
-            >
-              <ExternalLink className="w-3.5 h-3.5" /> {applyChecking ? "Checking link…" : "Apply on employer site"}
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={handleApplyClick}
+                disabled={applyChecking}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-wait"
+              >
+                <ExternalLink className="w-3.5 h-3.5" /> {applyChecking ? "Checking link…" : "Apply on employer site"}
+              </button>
+              {linkVerified ? (
+                <span
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200"
+                  title={linkCheckedAt ? `Link checked ${new Date(linkCheckedAt).toLocaleString("en-GB")}` : undefined}
+                >
+                  <BadgeCheck className="w-3 h-3" /> Link verified
+                </span>
+              ) : (
+                <span
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200"
+                  title="This apply link has not been health-checked yet — it will be verified shortly"
+                >
+                  <Clock className="w-3 h-3" /> Link not yet verified
+                </span>
+              )}
+            </>
           )}
         </div>
       )}

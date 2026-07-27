@@ -21,5 +21,6 @@ export interface CvExtractedFields {
   rawNotes?: string;
   professionQualMismatch?: boolean;
   professionQualMismatchWarning?: string | null;
+  /** Set when the profession could not be detected or saved; candidate should select it manually. */
   professionWarning?: string | null;
 }

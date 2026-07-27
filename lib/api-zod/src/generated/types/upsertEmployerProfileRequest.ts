@@ -12,4 +12,10 @@ export interface UpsertEmployerProfileRequest {
   industry: UpsertEmployerProfileRequestIndustry;
   sponsorLicenceNumber?: string | null;
   region: string;
+  /** Contact email address for this employer */
+  contactEmail?: string | null;
+  /** Contact phone number for this employer */
+  contactPhone?: string | null;
+  /** Website URL for this employer */
+  contactWebsite?: string | null;
 }

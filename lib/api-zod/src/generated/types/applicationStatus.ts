@@ -10,6 +10,7 @@ export type ApplicationStatus =
   (typeof ApplicationStatus)[keyof typeof ApplicationStatus];
 
 export const ApplicationStatus = {
+  link_clicked: "link_clicked",
   applied: "applied",
   shortlisted: "shortlisted",
   interview: "interview",

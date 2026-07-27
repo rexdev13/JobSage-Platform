@@ -13,4 +13,5 @@ export const RemediationStepStepSource = {
   rule: "rule",
   sponsorship: "sponsorship",
   manual: "manual",
+  registration: "registration",
 } as const;

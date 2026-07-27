@@ -1,0 +1,29 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Full-Stack Systems Architect. Based on our read-only diagnostic audit, we have decided to implement **Option A**: allow pass-through tracking of job aggregator URLs strictly when `source=sponsor` is present. 
+
+Currently, `GET /api/applications/track-outbound` executes `isBlockedVacancyUrl()` and `isValidVacancyDeepLink()` unconditionally before evaluating `source`. Because AI ingestion for Tier 2 sponsor leads occasionally falls back to search-page URLs (like Reed) when direct deep-links are unavailable, clicking "View original posting" on these cards trips the aggregator guard and throws a `400 Bad Request`.
+
+We must relax this guard strictly for sponsor-sourced links so candidates can view external job board postings while still logging their application activity, and clean up misleading hardcoded UI copy.
+
+---
+
+### EXECUTION TASKS
+
+#### TASK 1: Implement Sponsor Exception in Outbound Tracking (`artifacts/api-server/src/routes/applications.ts`)
+1. Locate the validation gates in `GET /api/applications/track-outbound` (specifically around lines 58–63 where `isBlockedVacancyUrl` and `isValidVacancyDeepLink` are called).
+2. Modify the conditional logic so that if `req.query.source === "sponsor"` (or `isSponsorSource` is true):
+   - **BYPASS** the `isBlockedVacancyUrl(destinationUrl)` check. Do NOT return a 400 error for job board aggregators (e.g., Reed, Indeed, LinkedIn) on sponsor clicks.
+   - **BYPASS or RELAX** the `isValidVacancyDeepLink(destinationUrl)` check so generic or search-page fallback URLs stored in `sponsor_licence_vacancies` can still be opened.
+3. Keep all SSRF guards (`isPubliclyRoutableHost`) active to prevent internal network routing attacks.
+4. Ensure the route still cleanly upserts the application record into the `applications` table before issuing the `res.redirect(302, destinationUrl)`.
+
+#### TASK 2: Clean Up Misleading UI Copy (`artifacts/jobsage-web/src/pages/SponsorLicencesPage.tsx` & Related Modals)
+1. Locate the hardcoded UI banner copy stating: *"This vacancy was sourced from a public job board..."* (in `SponsorLicencesPage.tsx` around line 1645, or inside `SponsorVacancyApplyModal.tsx`).
+2. Replace or refine this hardcoded text so it accurately reflects our data policy. For example, change it to a cleaner, conditional note: 
+   *"This vacancy lead was discovered via web scraping. Sending your CV creates a speculative application record in JOBSAGE so you can track your outreach."*
+
+---
+
+### REQUIRED DELIVERABLE
+1. Run `npm run typecheck` across both `api-server` and `jobsage-web` to verify zero compilation errors.
+2. Test the exact failure case: confirm that clicking "View original posting" on a sponsor vacancy containing an aggregator URL (e.g., Reed or Indeed) now successfully logs the activity and redirects with an HTTP 302, instead of returning a 400 Bad Request error toast.

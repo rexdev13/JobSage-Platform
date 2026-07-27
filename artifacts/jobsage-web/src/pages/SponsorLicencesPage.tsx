@@ -4,6 +4,7 @@ import { Card, PageTransition, Button } from "@/components/ui-enhanced";
 import { SponsorVacancyApplyModal } from "@/components/SponsorVacancyApplyModal";
 import { MarkWebsiteApplicationModal } from "@/components/MarkWebsiteApplicationModal";
 import { getListMyApplicationsQueryKey } from "@workspace/api-client-react";
+import { openTrackedSponsorVacancy } from "@/lib/trackedOutbound";
 import {
   useGetSponsorLicenceRoutes,
   useGetSponsorLicenceIndustryCounts,
@@ -11,6 +12,7 @@ import {
   useListSponsorLicences,
   useListSpeculativeApplications,
   useCheckAllSponsorLicenceVacancies,
+  useCheckSponsorLicenceVacancyBatch,
   useGetCheckAllSponsorLicenceVacanciesStatus,
   useGetSponsorLicenceVacancies,
   useGetSponsorLicenceVacancyStats,
@@ -74,8 +76,18 @@ import {
   Clock,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@workspace/auth-web";
 
 const LIMIT = 20;
+
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+function isWithinCacheTtl(dt: string | null | undefined): boolean {
+  if (!dt) return false;
+  const then = new Date(dt).getTime();
+  if (Number.isNaN(then)) return false;
+  return Date.now() - then < CACHE_TTL_MS;
+}
 
 function formatSyncDate(dt: string | null | undefined): string {
   if (!dt) return "Never";
@@ -156,6 +168,8 @@ function VacancyMatchPanel({
   onApply: (v: SelectedVacancy) => void;
 }) {
   const { data, isLoading } = useGetSponsorLicenceVacancies(companyId);
+  const { toast: panelToast } = useToast();
+  const panelQueryClient = useQueryClient();
   const vacancies = data?.vacancies ?? [];
   const noApplyLinks = vacancies.length > 0 && vacancies.every((v) => !v.url);
 
@@ -239,6 +253,23 @@ function VacancyMatchPanel({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm font-medium text-foreground truncate">{v.title}</p>
+                      {v.url && (v.linkVerified ? (
+                        <span
+                          className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 shrink-0"
+                          title={v.linkCheckedAt ? `Link checked ${new Date(v.linkCheckedAt).toLocaleString("en-GB")}` : "Apply link confirmed live"}
+                        >
+                          <BadgeCheck className="w-3 h-3" />
+                          Link verified
+                        </span>
+                      ) : (
+                        <span
+                          className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-700 shrink-0"
+                          title="This apply link has not been health-checked yet — it will be verified shortly"
+                        >
+                          <Clock className="w-3 h-3" />
+                          Link unverified
+                        </span>
+                      ))}
                       {score != null && (
                         <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${
                           score >= 80
@@ -289,16 +320,24 @@ function VacancyMatchPanel({
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     {v.url && (
-                      <a
-                        href={v.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void openTrackedSponsorVacancy({
+                            vacancyId: v.id,
+                            url: v.url!,
+                            toast: panelToast,
+                            onTracked: () => {
+                              void panelQueryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
+                            },
+                          });
+                        }}
                         className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                         title="View on job board"
                       >
                         <ExternalLink className="w-3 h-3" />
-                      </a>
+                      </button>
                     )}
                     <button
                       onClick={(e) => { e.stopPropagation(); onApply({ ...v, companyName, companyId }); }}
@@ -425,7 +464,11 @@ export default function SponsorLicencesPage() {
   const bookmarkMutation = useBookmarkSponsorLicence();
   const unbookmarkMutation = useUnbookmarkSponsorLicence();
 
+  const { user } = useAuth();
+  const isAdmin = (user?.role as string) === "admin" || (user?.role as string) === "super_admin";
+
   const checkAllMutation = useCheckAllSponsorLicenceVacancies();
+  const batchCheckMutation = useCheckSponsorLicenceVacancyBatch();
   const { data: checkAllStatus } = useGetCheckAllSponsorLicenceVacanciesStatus({
     query: {
       queryKey: getGetCheckAllSponsorLicenceVacanciesStatusQueryKey(),
@@ -457,6 +500,48 @@ export default function SponsorLicencesPage() {
       },
       onError: () => {
         toast({ title: "Error", description: "Could not start the vacancy check. Please try again.", variant: "destructive" });
+      },
+    });
+  }
+
+  // Briefly highlights the "Checked Xm ago" badges after a page refresh so
+  // users can see the results actually re-rendered.
+  const [timestampPulse, setTimestampPulse] = useState(false);
+
+  function handleRefreshVisible(visibleIds: number[]) {
+    if (visibleIds.length === 0) {
+      toast({ title: "Nothing to refresh", description: "No sponsor cards are currently visible." });
+      return;
+    }
+    batchCheckMutation.mutate({ data: { ids: visibleIds.slice(0, LIMIT) } }, {
+      onSuccess: (res) => {
+        if (res.newChecks === 0 && res.cacheHits > 0) {
+          toast({
+            title: "Already up to date",
+            description: `⚡ All ${res.cacheHits} visible employers were checked within the last 24 hours — job listings are completely up to date!`,
+          });
+        } else {
+          toast({
+            title: "Page refreshed",
+            description: `${res.newChecks} freshly checked · ${res.cacheHits} up to date${res.errors > 0 ? ` · ${res.errors} failed` : ""}.`,
+          });
+        }
+        void queryClient.invalidateQueries({ queryKey: [getListSponsorLicencesQueryKey()[0]] });
+        void queryClient.invalidateQueries({ queryKey: getGetSponsorLicenceIndustryCountsQueryKey() });
+        // Briefly pulse the "Checked Xm ago" badges so the re-render is visible.
+        setTimestampPulse(true);
+        window.setTimeout(() => setTimestampPulse(false), 2500);
+      },
+      onError: (err) => {
+        const e = err as { status?: number; data?: { error?: string; retryAfterSeconds?: number } | null };
+        if (e.status === 429) {
+          toast({
+            title: "Please wait",
+            description: e.data?.error ?? "You refreshed recently — please wait a moment before trying again.",
+          });
+        } else {
+          toast({ title: "Error", description: "Could not refresh this page. Please try again.", variant: "destructive" });
+        }
       },
     });
   }
@@ -1046,27 +1131,52 @@ export default function SponsorLicencesPage() {
                   </button>
 
                   <button
-                    onClick={handleCheckAllVacancies}
-                    disabled={isCheckingAll}
-                    title={isCheckingAll ? "A vacancy check is already running" : "Scan every employer for new vacancies and rescore matches"}
+                    onClick={() => handleRefreshVisible(companies.map((c) => c.id))}
+                    disabled={batchCheckMutation.isPending || companies.length === 0}
+                    title="Check vacancies for the sponsor cards currently on this page (takes ~5–15 seconds)"
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
-                      isCheckingAll
+                      batchCheckMutation.isPending
                         ? "bg-primary/10 border-primary/20 text-primary cursor-not-allowed"
-                        : "bg-primary text-primary-foreground border-primary hover:bg-primary/90"
+                        : "bg-primary text-primary-foreground border-primary hover:bg-primary/90 disabled:opacity-50"
                     }`}
                   >
-                    {isCheckingAll ? (
+                    {batchCheckMutation.isPending ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        Checking… {checkAllStatus ? `${checkAllStatus.processed}/${checkAllStatus.total}` : ""}
+                        Refreshing this page…
                       </>
                     ) : (
                       <>
-                        <PlayCircle className="w-4 h-4" />
-                        Check All Vacancies
+                        <RefreshCw className="w-4 h-4" />
+                        Refresh Visible Page ({Math.min(companies.length, LIMIT)})
                       </>
                     )}
                   </button>
+
+                  {isAdmin && (
+                    <button
+                      onClick={handleCheckAllVacancies}
+                      disabled={isCheckingAll}
+                      title={isCheckingAll ? "A vacancy check is already running" : "Admin: scan every employer for new vacancies and rescore matches"}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
+                        isCheckingAll
+                          ? "bg-primary/10 border-primary/20 text-primary cursor-not-allowed"
+                          : "border-border text-foreground hover:bg-accent"
+                      }`}
+                    >
+                      {isCheckingAll ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Checking… {checkAllStatus ? `${checkAllStatus.processed}/${checkAllStatus.total}` : ""}
+                        </>
+                      ) : (
+                        <>
+                          <PlayCircle className="w-4 h-4" />
+                          Check All Vacancies
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
 
                 {isCheckingAll && checkAllStatus && checkAllStatus.total > 0 && (
@@ -1195,9 +1305,20 @@ export default function SponsorLicencesPage() {
                                     </span>
                                   )}
                                   {formatCheckedAt(c.lastVacancyCheckedAt) && (
-                                    <span className="flex items-center gap-1" title="Last checked for vacancies">
+                                    <span
+                                      className={`flex items-center gap-1 rounded-full px-1 transition-colors duration-500 ${timestampPulse ? "animate-pulse bg-primary/15 text-primary" : ""}`}
+                                      title="Last checked for vacancies"
+                                    >
                                       <Clock className="w-3 h-3" />
                                       Checked {formatCheckedAt(c.lastVacancyCheckedAt)}
+                                    </span>
+                                  )}
+                                  {isWithinCacheTtl(c.lastVacancyCheckedAt) && (
+                                    <span
+                                      className="inline-flex items-center gap-1 text-[11px] font-medium bg-green-500/10 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full"
+                                      title="Checked within the last 24 hours — results are served from cache"
+                                    >
+                                      ⚡ Up to date (Cached)
                                     </span>
                                   )}
                                 </div>
@@ -1539,20 +1660,28 @@ export default function SponsorLicencesPage() {
               )}
 
               <p className="text-xs text-muted-foreground mb-5 bg-muted/40 rounded-lg px-3 py-2 border border-border leading-relaxed">
-                This vacancy was sourced from a public job board. Sending your CV creates a speculative application record in JOBSAGE so you can track it.
+                This vacancy lead was discovered via web scraping. Sending your CV creates a speculative application record in JOBSAGE so you can track your outreach.
               </p>
 
               <div className="flex items-center gap-3 flex-wrap">
                 {selectedVacancy.url && (
-                  <a
-                    href={selectedVacancy.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void openTrackedSponsorVacancy({
+                        vacancyId: selectedVacancy.id,
+                        url: selectedVacancy.url!,
+                        toast,
+                        onTracked: () => {
+                          void queryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
+                        },
+                      })
+                    }
                     className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-medium text-foreground hover:bg-accent transition-colors"
                   >
                     <ExternalLink className="w-4 h-4" />
                     View original posting
-                  </a>
+                  </button>
                 )}
                 <Button
                   className="gap-2"
@@ -1569,6 +1698,7 @@ export default function SponsorLicencesPage() {
       <AnimatePresence>
         {applyModalVacancy && (
           <SponsorVacancyApplyModal
+            vacancyId={applyModalVacancy.id}
             vacancyTitle={applyModalVacancy.title}
             companyName={applyModalVacancy.companyName}
             companyId={applyModalVacancy.companyId}

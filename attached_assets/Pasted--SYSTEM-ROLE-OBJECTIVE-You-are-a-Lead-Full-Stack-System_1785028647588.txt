@@ -1,0 +1,32 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Full-Stack Systems Architect executing a strictly **READ-ONLY DIAGNOSTIC AUDIT**. 
+During testing on the Sponsor Licences page, when clicking "View original posting" on a Sponsor Vacancy modal (specifically for "Pharmacist / Independent Prescribing Pharmacist"), the browser console logged multiple `400 (Bad Request)` errors to `/api/applications/track-outbound`, and the UI displayed a red toast error:
+> *"Vacancy unavailable: This destination is a third-party job aggregator and cannot be tracked. Please use the employer's own site."*
+
+Do NOT modify, delete, or rewrite any files or database records during this session. You must inspect the existing codebase, trace the exact request path, and answer the specific investigative questions below so we understand what currently exists.
+
+---
+
+### INVESTIGATION TASKS & QUESTIONS FOR THE AGENT
+
+#### TASK 1: Trace the Sponsor Modal Click Wiring (`SponsorVacancyApplyModal.tsx`)
+Inspect `artifacts/jobsage-web/src/components/SponsorVacancyApplyModal.tsx` (and any related sponsor vacancy components). Answer:
+1. **How is the button currently wired?** When the user clicks "View original posting" or "Apply with JOBSAGE" on this modal, what exact function or HTTP request fires? Is it calling `/api/applications/track-outbound`?
+2. **What payload is being sent?** Trace the exact parameters being passed into the tracking route (e.g., what are `vacancyId` and `destinationUrl` mapped to from the sponsor vacancy object?).
+
+#### TASK 2: Audit the Backend Aggregator Guard (`artifacts/api-server/src/routes/applications.ts`)
+Inspect `GET /api/applications/track-outbound` and the validation helper that handles job aggregator detection (e.g., `isBlockedVacancyUrl` or `vacancyUrlPolicy.ts`). Answer:
+1. **Which exact validation gate triggered the 400?** Trace the exact line of code that produces the error text: *"This destination is a third-party job aggregator and cannot be tracked."*
+2. **Why was a sponsor vacancy evaluated against this rule?** Is the aggregator blocklist currently applied universally to *all* outbound links, regardless of whether they come from standard curated roles (`roles` table) versus sponsor-scraped leads (`sponsor_licence_vacancies` table)?
+3. **Does an exception mechanism already exist?** Check if there is currently any query parameter, flag (e.g., `?source=sponsor`), or conditional logic in `track-outbound` designed to allow public job board links for speculative or sponsor-based vacancies. If not, confirm that it is missing.
+
+#### TASK 3: Database & Data Policy Audit
+1. Check how vacancies in `sponsor_licence_vacancies` are populated. Since the UI modal explicitly displays a banner stating *"This vacancy was sourced from a public job board"*, does our system architecture intentionally scrape and store third-party job board links (like Indeed, Reed, or NHS Jobs) for Tier 2 sponsor leads?
+2. Why is there a contradiction between our scraping pipeline (which stores job board links for sponsors) and our outbound tracking route (which blocks job board links with a 400 error)?
+
+---
+
+### REQUIRED DELIVERABLE
+Provide a structured **Read-Only Diagnostic Report** answering all the numbered questions in Tasks 1, 2, and 3. 
+At the end of your report, provide a clean summary explaining the exact architectural mismatch that caused the `400 Bad Request`, along with your bulleted **"Recommended Next Steps"** so we can decide how to resolve it cleanly.
+Confirm that zero files and zero database records were modified during this investigation.

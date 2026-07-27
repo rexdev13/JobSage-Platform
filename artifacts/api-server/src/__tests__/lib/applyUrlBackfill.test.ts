@@ -66,6 +66,11 @@ vi.mock("@workspace/db", async () => {
 
 // ── audit mock ───────────────────────────────────────────────────────────────
 const mockWriteAuditEvent = vi.fn().mockResolvedValue(undefined);
+vi.mock("../../lib/linkVerification", () => ({
+  queueLinkVerification: vi.fn(),
+  queueLinkVerificationBatch: vi.fn(),
+}));
+
 vi.mock("../../lib/audit", () => ({
   writeAuditEvent: (...args: any[]) => mockWriteAuditEvent(...args),
 }));

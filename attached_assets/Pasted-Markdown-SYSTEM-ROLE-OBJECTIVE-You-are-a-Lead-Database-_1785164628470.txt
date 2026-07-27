@@ -1,0 +1,35 @@
+Markdown
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Database Administrator. We need to apply our idempotent data-type migration script directly to the production PostgreSQL database so our pending deployment can succeed without data loss.
+
+---
+
+### EXECUTION TASKS
+
+#### TASK 1: Execute the Safe Migration Script on Production
+Using our project's database client, production environment variables (e.g., `DATABASE_URL` or the production DB connection string), or Replit's database tool integrations, safely execute the following idempotent SQL transaction against the **PRODUCTION** database:
+
+```sql
+BEGIN;
+
+-- 1) profiles.preferred_region: text -> text[]
+DO $$ BEGIN   IF EXISTS (     SELECT 1 FROM information_schema.columns     WHERE table_schema = 'public' AND table_name = 'profiles'       AND column_name = 'preferred_region' AND data_type = 'text'   ) THEN     ALTER TABLE profiles       ALTER COLUMN preferred_region TYPE text[]       USING CASE         WHEN preferred_region IS NULL OR preferred_region = '' THEN NULL         ELSE ARRAY[preferred_region]       END;   END IF; END $$;
+
+-- 2) profiles.languages: text -> text[] (or add if missing)
+DO $$ BEGIN   IF EXISTS (     SELECT 1 FROM information_schema.columns     WHERE table_schema = 'public' AND table_name = 'profiles'       AND column_name = 'languages' AND data_type = 'text'   ) THEN     ALTER TABLE profiles       ALTER COLUMN languages TYPE text[]       USING CASE         WHEN languages IS NULL OR languages = '' THEN NULL         ELSE ARRAY[languages]       END;   ELSIF NOT EXISTS (     SELECT 1 FROM information_schema.columns     WHERE table_schema = 'public' AND table_name = 'profiles'       AND column_name = 'languages'   ) THEN     ALTER TABLE profiles ADD COLUMN languages text[];   END IF; END $$;
+
+COMMIT;
+TASK 2: Verify and Report
+After executing the transaction, run the following read-only verification query against the production database:
+
+SQL
+SELECT column_name, data_type, udt_name
+FROM information_schema.columns
+WHERE table_schema = 'public' AND table_name = 'profiles'
+  AND column_name IN ('preferred_region', 'languages');
+REQUIRED DELIVERABLE
+Confirm that the script executed successfully against the production environment without errors.
+
+Print the exact tabular output of the verification query. Both preferred_region and languages MUST show udt_name = _text (PostgreSQL's internal name for text array).
+
+Confirm that the database schema is now aligned and ready for us to manually hit "Republish" in the UI.

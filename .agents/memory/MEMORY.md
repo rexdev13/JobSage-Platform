@@ -6,4 +6,7 @@
 - [api-client-react rebuild](api-client-react-rebuild.md) — any type changes require cd lib/api-client-react && npx tsc --build to regenerate dist/*.d.ts
 - [api-client-react base URL](api-client-base-url.md) — must call setBaseUrl() in main.tsx before mount; omitting it causes all hooks to hit /api/... instead of /jobsage/api/...
 - [drizzle-kit push prompts](drizzle-push-interactive.md) — push blocks on raw-TTY prompts; apply DDL manually via SQL then re-run push to confirm zero drift.
+- [OpenAPI generated-client drift](openapi-generated-drift.md) — regen can drop hand-added members missing from openapi.yaml; diff generated files after codegen and restore via the spec.
+- [Link liveness scans](link-liveness-scans.md) — aggregator links must be bulk-stamped or scans loop forever; verdicts per URL not per row; run long jobs via admin endpoint, not shell background.
+- [Prod DB read-only; array migration](prod-db-readonly-array-migration.md) — agent can't run DDL on prod; scalar→array needs user-run USING cast before republish.
 - [api-server test patterns](api-server-test-patterns.md) — Auth via `Authorization: Bearer` (not cookie); db.execute must be mocked; employer/profile response shapes; Zod schema needs Date fields.

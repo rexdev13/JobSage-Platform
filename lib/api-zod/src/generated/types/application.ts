@@ -16,4 +16,9 @@ export interface Application {
   notes?: string | null;
   roleTitle?: string | null;
   roleLocation?: string | null;
+  applicationType?: string | null;
+  applicationUrl?: string | null;
+  companyName?: string | null;
+  interviewDate?: string | null;
+  interviewNotes?: string | null;
 }

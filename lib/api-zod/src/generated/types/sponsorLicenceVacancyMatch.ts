@@ -12,6 +12,10 @@ export interface SponsorLicenceVacancyMatch {
   location?: string | null;
   salary?: string | null;
   url?: string | null;
+  /** True when the apply link was health-checked and confirmed live */
+  linkVerified?: boolean;
+  /** When the apply link was last health-checked */
+  linkCheckedAt?: Date | null;
   description?: string | null;
   postedDate?: string | null;
   matchScore?: number | null;

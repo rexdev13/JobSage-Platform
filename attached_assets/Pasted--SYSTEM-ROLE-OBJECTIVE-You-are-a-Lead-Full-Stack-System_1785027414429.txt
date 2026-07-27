@@ -1,0 +1,35 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Full-Stack Systems Architect executing a strictly **READ-ONLY DIAGNOSTIC AUDIT**. Our developer is testing the live application and noticed two confusing behaviors:
+1. **Refresh Button Feels Dead:** When clicking "Refresh Visible Page (20)", the request finishes, but the exact same job listings remain on screen with zero visual feedback that a scrape or update occurred.
+2. **Missing Activity Logs / Tracker Data:** When clicking an apply link on a job card, the user is redirected cleanly to the external website, but this activity is NOT showing up anywhere in their Application Tracker or Activity logs.
+
+Do NOT modify, delete, or rewrite any code or database records during this session. You must inspect the existing codebase and answer specific questions to explain what currently exists and why these disconnects are happening.
+
+---
+
+### INVESTIGATION TASKS & QUESTIONS FOR THE AGENT
+
+#### TASK 1: Audit the "Refresh Visible Page" Execution Flow (`SponsorLicencesPage.tsx` & API)
+Inspect `SponsorLicencesPage.tsx` and the handler for `POST /api/sponsor-licences/check-batch`. Answer these exact questions in your report:
+1. **The Backend Return:** When `check-batch` finishes scraping 20 employers, what exact payload structure does it return to the frontend? 
+2. **The Frontend Handler:** In `SponsorLicencesPage.tsx`, trace the `onClick` or `onSuccess` execution for the refresh button. What does the code currently do when the backend responds? Does it invalidate a React Query cache, update local React state, or show a toast notification?
+3. **The Root Cause:** If the live vacancy data on the employer's site hasn't changed (meaning the jobs are identical to yesterday), why does the UI feel completely dead to the user? What visual feedback (toasts, timestamp badges, or state updates) currently exists or is missing?
+
+#### TASK 2: Audit Outbound Click Logging & The Application Tracker
+Inspect `GET /api/applications/track-outbound`, `OpportunitiesPage.tsx`, and the Application Tracker/Dashboard UI components:
+1. **The Write Operation:** In `track-outbound`, trace the database insertion/upsert logic. 
+   - What exact database table is it writing to (e.g., `applications`, `user_activity`, `tracker_items`)? 
+   - Is the database insert being `await`ed before `res.redirect(302)` fires, or is it running fire-and-forget?
+   - Is there any `try/catch` block silently swallowing errors (e.g., RLS policy failures, missing user session IDs, or nullable constraint violations)?
+2. **The Read Operation:** Where in the frontend code is the "Application Tracker" or "Activity Log" page located? 
+   - What API endpoint and database table does that UI component fetch from? 
+   - Is there a table/schema mismatch between where `track-outbound` *writes* and where the Tracker UI *reads*?
+3. **Cache Invalidation:** In `OpportunitiesPage.tsx`, when `handleApplyClick` is triggered, does it tell React Query to invalidate/refetch the candidate's tracker data (e.g., `queryClient.invalidateQueries`)?
+4. **The Root Cause:** Explain definitively why a successful click through `track-outbound` fails to appear when the user looks at their UI tracker.
+
+---
+
+### REQUIRED DELIVERABLE
+Provide a structured **Read-Only Diagnostic Report** answering all the numbered questions in Task 1 and Task 2. 
+At the end of your report, provide a clear, bulleted **"Recommended Next Steps"** summary so the developer can decide how to proceed.
+Confirm that zero files and zero database records were modified during this investigation.

@@ -75,6 +75,11 @@ vi.mock("../../lib/objectStorage", () => ({
   deleteObject: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock("../../lib/linkVerification", () => ({
+  queueLinkVerification: vi.fn(),
+  queueLinkVerificationBatch: vi.fn(),
+}));
+
 vi.mock("../../lib/ai", () => ({
   generateText: vi.fn().mockResolvedValue("Generated description"),
 }));

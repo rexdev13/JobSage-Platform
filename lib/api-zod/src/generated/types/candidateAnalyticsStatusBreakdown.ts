@@ -7,6 +7,7 @@
  */
 
 export type CandidateAnalyticsStatusBreakdown = {
+  link_clicked: number;
   applied: number;
   shortlisted: number;
   interview: number;
