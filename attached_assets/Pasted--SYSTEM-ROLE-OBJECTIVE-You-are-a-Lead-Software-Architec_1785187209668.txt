@@ -1,0 +1,45 @@
+### SYSTEM ROLE & OBJECTIVE
+You are a Lead Software Architect and Technical Writer. I need you to analyze our entire project history, git commits, and merged tasks from Wednesday, July 22, 2026, to right now (Monday, July 27, 2026), and generate a comprehensive, executive-ready Sprint Report and QA Testing Guide. 
+
+Once you write and format the report, you must compile it into a clean, downloadable PDF document for our stakeholders and QA testers.
+
+---
+
+### EXECUTION TASKS
+
+#### TASK 1: Analyze the Recent Engineering Work
+1. Inspect our git logs, commit messages, and merged tasks (specifically tasks #267 through #381, covering ~58 commits and 36 tasks) from July 22 to July 27, 2026.
+2. Review the relevant codebase files (frontend components, backend routes, database schema changes) to understand exactly how the new features work and how a user interacts with them.
+
+#### TASK 2: Write the Content (Sprint Summary & QA Guide)
+Write a highly detailed, professional document structured into three main sections:
+
+1. **Executive Summary & High-Level Impact:**
+   - Write an impressive summary of the sprint velocity and platform improvements.
+   - Highlight key technical wins: the 8,632-link platform liveness audit, the upgraded 20-minute automated vacancy scraper loop, the Chrome extension scaffold, the Resend two-way email ingestion, and zero-downtime database schema drift repairs.
+
+2. **Detailed Breakdown of What Was Built:**
+   - Group the work logically into 4 clear categories:
+     - **Frontend & UI/UX:** (Opportunities page refactors, live/dead job badges, sponsor vacancy cards, tracker tab reordering to put Company Website second, mobile tracker icons).
+     - **Backend & API Pipelines:** (The link-verification engine, SSRF guards, aggregator bulk-stamping, Resend webhook integration, speculative CV email resolution, new `link_clicked` application status).
+     - **Database & DevOps:** (`preferred_region` scalar to array production migration, liveness tracking columns, automated schema drift checks, scheduler upgrades).
+     - **Chrome Extension (Smart Apply):** (Manifest V3 scaffold, sidebar injection, pill toggle, SSE real-time context sync).
+
+3. **Step-by-Step QA Testing Guide (Crucial Section):**
+   - Based on our actual frontend routes and UI components, write simple, clear, numbered testing instructions for our stakeholders and QA team.
+   - Tell them **exactly where to navigate, what button to click, and what expected behavior or UI change to look for**.
+   - Cover at least these 6 test cases:
+     1. Verifying active jobs show "Live" badges and dead links are hidden.
+     2. Clicking "Refresh Visible Page" on sponsor vacancies and testing the 45-second cooldown.
+     3. Clicking an external "Apply" link and verifying it immediately adds to the Tracker under the new "Link Clicked" status with a confirmation toast.
+     4. Testing sponsor apply links that route to job boards (Indeed/NHS) to confirm they bypass old blocking gates.
+     5. Navigating to the reordered "Company Website" tab in the Tracker and updating a status.
+     6. Selecting multiple preferred regions in profile settings and testing job search matching.
+
+#### TASK 3: Generate and Export to PDF
+1. Design a clean, modern HTML layout for this report (use professional typography, a sleek slate/navy color palette, clean section headers, and a structured table or styled boxes for the QA Testing Guide).
+2. Write and execute a Node.js script (using `puppeteer`, `html-pdf-node`, or `pdfkit` depending on what is installed/lightweight) to convert this HTML report into a high-resolution PDF file named `JOBSAGE_Sprint_Report_July2026.pdf`.
+3. Provide me with the direct download link or file path so I can grab the PDF and share it with the team immediately.
+
+### REQUIRED DELIVERABLE
+Do not ask for further instructions. Analyze the repo history, write the complete report and QA guide, run the PDF generation script, and output the final PDF file.
