@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>JOBSAGE Sprint Report — July 2026</title>
+<style>
+  /* ─── Reset & Base ─── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy:      #0f172a;
+    --slate-900: #1e293b;
+    --slate-800: #334155;
+    --slate-700: #475569;
+    --slate-600: #64748b;
+    --slate-400: #94a3b8;
+    --slate-200: #e2e8f0;
+    --slate-100: #f1f5f9;
+    --slate-50:  #f8fafc;
+    --blue-600:  #2563eb;
+    --blue-100:  #dbeafe;
+    --blue-50:   #eff6ff;
+    --emerald-600: #059669;
+    --emerald-100: #d1fae5;
+    --emerald-50:  #ecfdf5;
+    --violet-600:  #7c3aed;
+    --violet-100:  #ede9fe;
+    --amber-600:   #d97706;
+    --amber-100:   #fef3c7;
+    --amber-50:    #fffbeb;
+    --rose-600:    #e11d48;
+    --rose-100:    #ffe4e6;
+    --teal-600:    #0d9488;
+    --teal-100:    #ccfbf1;
+    --primary:     #2563eb;
+    --accent:      #7c3aed;
+    --white: #ffffff;
+    --radius: 10px;
+    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.06);
+    --shadow-lg: 0 4px 24px rgba(0,0,0,.12), 0 1px 4px rgba(0,0,0,.08);
+  }
+
+  html { font-size: 15px; scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--slate-50);
+    color: var(--slate-900);
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ─── Page wrapper ─── */
+  .page { max-width: 960px; margin: 0 auto; padding: 48px 32px 80px; }
+
+  /* ─── Hero / Cover ─── */
+  .hero {
+    background: linear-gradient(135deg, var(--navy) 0%, #1e3a5f 55%, #1d4ed8 100%);
+    border-radius: 18px;
+    padding: 52px 48px;
+    color: var(--white);
+    margin-bottom: 48px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 80% 60% at 70% 40%, rgba(99,102,241,.25) 0%, transparent 70%);
+  }
+  .hero-inner { position: relative; z-index: 1; }
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255,255,255,.12);
+    border: 1px solid rgba(255,255,255,.2);
+    border-radius: 100px;
+    padding: 5px 14px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,.9);
+    margin-bottom: 20px;
+  }
+  .hero-badge-dot { width: 7px; height: 7px; border-radius: 50%; background: #34d399; flex-shrink: 0; }
+  .hero h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    letter-spacing: -.02em;
+    line-height: 1.15;
+    margin-bottom: 12px;
+  }
+  .hero-sub { font-size: 1.05rem; opacity: .8; max-width: 560px; margin-bottom: 36px; }
+  .hero-meta {
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+  }
+  .hero-metric { display: flex; flex-direction: column; }
+  .hero-metric-val { font-size: 2.2rem; font-weight: 800; line-height: 1; }
+  .hero-metric-label { font-size: 0.75rem; opacity: .7; margin-top: 4px; letter-spacing: .02em; }
+  .hero-divider { width: 1px; background: rgba(255,255,255,.2); }
+
+  /* ─── Section layout ─── */
+  .section { margin-bottom: 52px; }
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+    padding-bottom: 14px;
+    border-bottom: 2px solid var(--slate-200);
+  }
+  .section-icon {
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+  }
+  .icon-blue   { background: var(--blue-100);    color: var(--blue-600); }
+  .icon-violet { background: var(--violet-100);  color: var(--violet-600); }
+  .icon-emerald{ background: var(--emerald-100); color: var(--emerald-600); }
+  .icon-amber  { background: var(--amber-100);   color: var(--amber-600); }
+  .icon-teal   { background: var(--teal-100);    color: var(--teal-600); }
+  .icon-rose   { background: var(--rose-100);    color: var(--rose-600); }
+  .icon-navy   { background: #dde4f5;            color: var(--navy); }
+
+  h2 {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--navy);
+    line-height: 1.25;
+  }
+  h3 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--slate-900);
+    margin-bottom: 10px;
+  }
+
+  p { margin-bottom: 0.85em; color: var(--slate-700); }
+  p:last-child { margin-bottom: 0; }
+
+  /* ─── Impact Cards (exec summary) ─── */
+  .impact-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .impact-card {
+    background: var(--white);
+    border: 1px solid var(--slate-200);
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: var(--shadow);
+  }
+  .impact-card-val {
+    font-size: 1.9rem;
+    font-weight: 800;
+    color: var(--navy);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .impact-card-label { font-size: 0.8rem; color: var(--slate-600); }
+  .impact-card-icon {
+    font-size: 1.4rem;
+    margin-bottom: 10px;
+  }
+
+  /* ─── Highlight box ─── */
+  .highlight-box {
+    background: var(--blue-50);
+    border: 1px solid var(--blue-100);
+    border-left: 4px solid var(--blue-600);
+    border-radius: var(--radius);
+    padding: 18px 22px;
+    margin-bottom: 20px;
+  }
+  .highlight-box p { color: var(--slate-800); }
+
+  /* ─── Category blocks ─── */
+  .category-block {
+    background: var(--white);
+    border: 1px solid var(--slate-200);
+    border-radius: var(--radius);
+    padding: 24px 26px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow);
+  }
+  .category-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .cat-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 100px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+  .pill-blue    { background: var(--blue-100);    color: var(--blue-600); }
+  .pill-violet  { background: var(--violet-100);  color: var(--violet-600); }
+  .pill-emerald { background: var(--emerald-100); color: var(--emerald-600); }
+  .pill-amber   { background: var(--amber-100);   color: var(--amber-600); }
+  .pill-teal    { background: var(--teal-100);    color: var(--teal-600); }
+
+  ul.feature-list { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  ul.feature-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 0.9rem;
+    color: var(--slate-700);
+    line-height: 1.5;
+  }
+  ul.feature-list li::before {
+    content: '›';
+    color: var(--primary);
+    font-weight: 800;
+    font-size: 1rem;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .feature-tag {
+    display: inline-block;
+    background: var(--slate-100);
+    color: var(--slate-700);
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 1px 7px;
+    border-radius: 4px;
+    white-space: nowrap;
+    margin-right: 2px;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+  }
+
+  /* ─── QA Test Cases ─── */
+  .qa-intro {
+    background: linear-gradient(120deg, #f0f4ff 0%, #f5f0ff 100%);
+    border: 1px solid #c7d2fe;
+    border-radius: var(--radius);
+    padding: 18px 22px;
+    margin-bottom: 28px;
+  }
+  .qa-intro p { color: var(--slate-700); font-size: 0.9rem; }
+
+  .tc-block {
+    background: var(--white);
+    border: 1px solid var(--slate-200);
+    border-radius: 12px;
+    margin-bottom: 22px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .tc-header {
+    padding: 16px 22px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    border-bottom: 1px solid var(--slate-200);
+  }
+  .tc-number {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: var(--navy);
+    color: var(--white);
+    font-weight: 800;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .tc-title { font-size: 1rem; font-weight: 700; color: var(--navy); }
+  .tc-badge {
+    margin-left: auto;
+    padding: 3px 10px;
+    border-radius: 100px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    white-space: nowrap;
+  }
+  .tc-badge-critical { background: #fef2f2; color: #b91c1c; }
+  .tc-badge-high     { background: var(--amber-100); color: #92400e; }
+  .tc-badge-medium   { background: var(--blue-100);  color: #1d4ed8; }
+
+  .tc-body { padding: 20px 22px; }
+
+  .tc-meta {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 6px 16px;
+    margin-bottom: 18px;
+    font-size: 0.82rem;
+  }
+  .tc-meta-key { color: var(--slate-600); font-weight: 600; white-space: nowrap; }
+  .tc-meta-val { color: var(--slate-800); }
+
+  .steps-list { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .steps-list li {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    font-size: 0.88rem;
+    color: var(--slate-700);
+    line-height: 1.55;
+  }
+  .step-num {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: var(--slate-100);
+    border: 1.5px solid var(--slate-300);
+    color: var(--slate-800);
+    font-size: 0.72rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .expected-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    background: var(--emerald-50);
+    border: 1px solid var(--emerald-100);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-top: 14px;
+    font-size: 0.85rem;
+    color: var(--slate-800);
+  }
+  .expected-icon { font-size: 1rem; flex-shrink: 0; }
+  .expected-label { font-weight: 700; color: var(--emerald-600); }
+
+  .note-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    background: var(--amber-50);
+    border: 1px solid #fde68a;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-top: 10px;
+    font-size: 0.82rem;
+    color: var(--slate-700);
+  }
+  .note-icon { flex-shrink: 0; }
+
+  code {
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 0.82em;
+    background: var(--slate-100);
+    color: var(--slate-800);
+    padding: 1px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--slate-200);
+  }
+
+  /* ─── Table ─── */
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    margin-top: 8px;
+  }
+  .data-table th {
+    background: var(--slate-900);
+    color: var(--white);
+    font-weight: 600;
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 0.78rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+  .data-table th:first-child { border-radius: 8px 0 0 0; }
+  .data-table th:last-child  { border-radius: 0 8px 0 0; }
+  .data-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--slate-200);
+    color: var(--slate-700);
+    vertical-align: top;
+  }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:nth-child(even) td { background: var(--slate-50); }
+
+  /* ─── Footer ─── */
+  .footer {
+    text-align: center;
+    padding: 32px 0 0;
+    border-top: 1px solid var(--slate-200);
+    color: var(--slate-400);
+    font-size: 0.8rem;
+  }
+  .footer strong { color: var(--slate-600); }
+
+  /* ─── TOC / Sidebar-like nav chips ─── */
+  .toc {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 48px;
+  }
+  .toc-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: var(--white);
+    border: 1px solid var(--slate-200);
+    border-radius: 100px;
+    padding: 7px 16px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--slate-700);
+    text-decoration: none;
+    box-shadow: var(--shadow);
+    transition: border-color .15s, color .15s;
+  }
+  .toc-item:hover { border-color: var(--primary); color: var(--primary); }
+  .toc-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* ─── Responsive ─── */
+  @media (max-width: 700px) {
+    .page { padding: 24px 16px 60px; }
+    .hero { padding: 36px 28px; }
+    .hero h1 { font-size: 1.9rem; }
+    .impact-grid { grid-template-columns: repeat(2, 1fr); }
+    .hero-meta { gap: 20px; }
+    .hero-divider { display: none; }
+  }
+  @media print {
+    body { background: #fff; }
+    .page { max-width: 100%; padding: 20px; }
+    .hero { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .tc-block { break-inside: avoid; }
+    .category-block { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ══════════════════════════════════════════════
+       HERO COVER
+  ══════════════════════════════════════════════ -->
+  <div class="hero">
+    <div class="hero-inner">
+      <div class="hero-badge">
+        <span class="hero-badge-dot"></span>
+        Sprint Report · July 22–27, 2026
+      </div>
+      <h1>JOBSAGE<br>Platform Sprint</h1>
+      <p class="hero-sub">
+        Executive Summary, Detailed Feature Breakdown &amp; Step-by-Step QA Testing Guide
+        for the July 2026 release cycle covering tasks #267–#381.
+      </p>
+      <div class="hero-meta">
+        <div class="hero-metric">
+          <span class="hero-metric-val">36</span>
+          <span class="hero-metric-label">Merged Tasks</span>
+        </div>
+        <div class="hero-divider"></div>
+        <div class="hero-metric">
+          <span class="hero-metric-val">~58</span>
+          <span class="hero-metric-label">Commits</span>
+        </div>
+        <div class="hero-divider"></div>
+        <div class="hero-metric">
+          <span class="hero-metric-val">6</span>
+          <span class="hero-metric-label">Working Days</span>
+        </div>
+        <div class="hero-divider"></div>
+        <div class="hero-metric">
+          <span class="hero-metric-val">8,632</span>
+          <span class="hero-metric-label">Links Audited</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Table of Contents -->
+  <div class="toc">
+    <a href="#exec-summary" class="toc-item"><span class="toc-dot" style="background:#2563eb;"></span>Executive Summary</a>
+    <a href="#frontend"     class="toc-item"><span class="toc-dot" style="background:#7c3aed;"></span>Frontend &amp; UI/UX</a>
+    <a href="#backend"      class="toc-item"><span class="toc-dot" style="background:#059669;"></span>Backend &amp; API</a>
+    <a href="#devops"       class="toc-item"><span class="toc-dot" style="background:#d97706;"></span>Database &amp; DevOps</a>
+    <a href="#chrome"       class="toc-item"><span class="toc-dot" style="background:#0d9488;"></span>Chrome Extension</a>
+    <a href="#qa-guide"     class="toc-item"><span class="toc-dot" style="background:#e11d48;"></span>QA Testing Guide</a>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SECTION 1 — EXECUTIVE SUMMARY
+  ══════════════════════════════════════════════ -->
+  <div class="section" id="exec-summary">
+    <div class="section-header">
+      <div class="section-icon icon-blue">📋</div>
+      <h2>Executive Summary &amp; High-Level Impact</h2>
+    </div>
+
+    <div class="impact-grid">
+      <div class="impact-card">
+        <div class="impact-card-icon">🔗</div>
+        <div class="impact-card-val">8,632</div>
+        <div class="impact-card-label">Job links platform-wide liveness audit</div>
+      </div>
+      <div class="impact-card">
+        <div class="impact-card-icon">✅</div>
+        <div class="impact-card-val">2,131</div>
+        <div class="impact-card-label">Links confirmed live &amp; verified</div>
+      </div>
+      <div class="impact-card">
+        <div class="impact-card-icon">🚫</div>
+        <div class="impact-card-val">481</div>
+        <div class="impact-card-label">Dead links auto-hidden from candidates</div>
+      </div>
+      <div class="impact-card">
+        <div class="impact-card-icon">⚡</div>
+        <div class="impact-card-val">20 min</div>
+        <div class="impact-card-label">Vacancy scraper cycle (was 6-hourly)</div>
+      </div>
+      <div class="impact-card">
+        <div class="impact-card-icon">🧹</div>
+        <div class="impact-card-val">7,776</div>
+        <div class="impact-card-label">Aggregator &amp; generic URLs purged</div>
+      </div>
+      <div class="impact-card">
+        <div class="impact-card-icon">📧</div>
+        <div class="impact-card-val">2-way</div>
+        <div class="impact-card-label">Resend email inbound + outbound pipeline</div>
+      </div>
+    </div>
+
+    <div class="highlight-box">
+      <p>
+        This sprint represents the largest infrastructure overhaul in the JOBSAGE platform's history. In six working days
+        the team delivered a real-time link-liveness subsystem that continuously verifies every job posting before
+        candidates see it, a Chrome Extension scaffold enabling Smart Apply from any employer's site, and a fully
+        bidirectional email pipeline so employer replies automatically update application status — all while shipping
+        zero-downtime database migrations and closing critical schema drift on the production database.
+      </p>
+    </div>
+
+    <div class="category-block">
+      <h3>Sprint at a Glance</h3>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Domain</th>
+            <th>Key Outcome</th>
+            <th>Scale</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Link Liveness Audit</strong></td>
+            <td>Platform-wide health sweep; dead links auto-hidden</td>
+            <td>8,632 links scanned</td>
+          </tr>
+          <tr>
+            <td><strong>Vacancy Scraper</strong></td>
+            <td>Upgraded from 6 h cycle to every 20 min (batch 150, 20 workers)</td>
+            <td>18× fresher data</td>
+          </tr>
+          <tr>
+            <td><strong>Chrome Extension</strong></td>
+            <td>Manifest V3 scaffold + Smart Apply SSE context sync</td>
+            <td>Full dist build pipeline</td>
+          </tr>
+          <tr>
+            <td><strong>Email Ingestion</strong></td>
+            <td>Resend inbound webhook; employer replies update application status</td>
+            <td>Fully automated</td>
+          </tr>
+          <tr>
+            <td><strong>Schema &amp; Migrations</strong></td>
+            <td>Migrations 0006/0007 (drift repair); production <code>preferred_region</code> scalar→array</td>
+            <td>Zero downtime</td>
+          </tr>
+          <tr>
+            <td><strong>Outbound Apply Tracking</strong></td>
+            <td>SSRF guard, deep-link validation, sponsor bypass, 302 redirect + DB upsert</td>
+            <td>Real-time per click</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SECTION 2 — FRONTEND & UI/UX
+  ══════════════════════════════════════════════ -->
+  <div class="section" id="frontend">
+    <div class="section-header">
+      <div class="section-icon icon-violet">🎨</div>
+      <h2>Frontend &amp; UI/UX</h2>
+    </div>
+
+    <div class="category-block">
+      <div class="category-header">
+        <span class="cat-pill pill-violet">🔍 Opportunities Page</span>
+      </div>
+      <ul class="feature-list">
+        <li>Full page refactor: apply links now routed through <code>/api/applications/track-outbound</code> for real-time liveness validation before the browser navigates.</li>
+        <li>Dead-link detection: if a link is invalid or expired, a <strong>"Vacancy unavailable"</strong> destructive toast appears and the card is greyed out (opacity + grayscale) — the vacancy cannot be re-clicked.</li>
+        <li><strong>"Link verified"</strong> badge (emerald, <code>BadgeCheck</code> icon) shown beside each "Apply on employer site" button when the link has passed a liveness check. Unverified links show an amber <strong>"Link not yet verified"</strong> badge with a clock icon.</li>
+        <li>Sponsor vacancy cards show clickable vacancy count badges; careers-site fallback and honest empty states ("Contact details not yet available") displayed when no contact info is available.</li>
+        <li>Apply button labels updated to <strong>"Apply on employer site"</strong> (with a live link check spinner: "Checking link…") for clarity.</li>
+        <li>Cover Letter Generator accessible from any role card; AI-streams a personalised letter with Regenerate, Download .txt, and Copy actions.</li>
+      </ul>
+    </div>
+
+    <div class="category-block">
+      <div class="category-header">
+        <span class="cat-pill pill-blue">🏢 Sponsor Licences Page</span>
+      </div>
+      <ul class="feature-list">
+        <li><strong>"Refresh Visible Page"</strong> button triggers a batch liveness check for all currently visible sponsor cards (up to 20 at a time).</li>
+        <li>45-second per-user cooldown enforced server-side (HTTP 429); UI displays <strong>"Please wait — You refreshed recently"</strong> toast when triggered too soon.</li>
+        <li>On success: <strong>"Page refreshed"</strong> toast with breakdown: <em>"N freshly checked · N up to date · N failed"</em>. If all cards were already fresh: <strong>"Already up to date — ⚡ All N visible employers were checked within the last 24 hours — job listings are completely up to date!"</strong></li>
+        <li>Cached-24 h badge (<code>"Checked Xm ago"</code>) briefly pulses (2.5 s highlight) after a refresh so candidates can see results re-rendered.</li>
+        <li>"All up-to-date" refresh message with animated timestamp pulse on the sponsor licences page confirming freshness.</li>
+      </ul>
+    </div>
+
+    <div class="category-block">
+      <div class="category-header">
+        <span class="cat-pill pill-teal">📋 Application Tracker</span>
+      </div>
+      <ul class="feature-list">
+        <li>New <strong>"Link Clicked"</strong> application status created automatically when a candidate clicks an external apply link. Badge: slate/grey background with <code>ExternalLink</code> icon.</li>
+        <li>Confirmation toast on apply click: <strong>"Application logged! — Track your progress under the 'Company Website' tab in your Tracker."</strong></li>
+        <li>Tracker tab order (left → right): <strong>All · Company Website · Via JOBSAGE · Speculative CV</strong> — "Company Website" is now the second tab (immediately after "All"), surfacing external applications prominently.</li>
+        <li>Inline status dropdown on every application card allows candidates to update status without leaving the Tracker. Platform applications cycle through: Link Clicked → Applied → Shortlisted → Under Review → Interview → Interview Invited → Offer → Rejected → No Response.</li>
+        <li>Funnel and analytics breakdown (Total / Interviews / Offers / CV Sends) rendered as summary cards above the tab bar.</li>
+        <li>Mobile tracker also shows "Link Clicked" badge and icon, keeping both web and mobile in sync.</li>
+      </ul>
+    </div>
+
+    <div class="category-block">
+      <div class="category-header">
+        <span class="cat-pill pill-blue">🔧 Profile &amp; Registration Fixes (July 22)</span>
+      </div>
+      <ul class="feature-list">
+        <li>Missing-field callout now surfaces correctly in the profile completion banner.</li>
+        <li>Profile photo 403 error fixed — images now served with correct signed URL permissions.</li>
+        <li>Registration flow and career-path navigation bugs resolved.</li>
+        <li><strong>Preferred UK Region(s)</strong>: profile settings now render as a multi-select checkbox grid (2–3 columns). Multiple regions can be checked simultaneously; auto-saves on each tick. A "not set" badge prompts completion if none are selected. Job search matching respects all selected regions.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SECTION 3 — BACKEND & API PIPELINES
+  ══════════════════════════════════════════════ -->
+  <div class="section" id="backend">
+    <div class="section-header">
+      <div class="section-icon icon-emerald">⚙️</div>
+      <h2>Backend &amp; API Pipelines</h2>
+    </div>
+
+    <div class="category-block">
+      <div class="category-header">
+        <span class="cat-pill pill-emerald">🔗 Link Liveness &amp; Outbound Tracking</span>
+      </div>
+      <ul class="feature-list">
+        <li><code>GET /api/applications/track-outbound?vacancyId=&amp;destinationUrl=</code>: real-time liveness check on every outbound apply click. Returns <code>INVALID_DEEP_LINK</code> (HTTP 400) for aggregator/deep-link violations, <code>JOB_EXPIRED</code> (HTTP 410) for confirmed dead pages. Fail-open on timeouts so transient network errors don't block legitimate applications.</li>
+        <li>SSRF guard with per-redirect-hop private-host blocking — prevents server-side requests being weaponised to hit internal services during link checks.</li>
+        <li>Shared <code>linkHealth</code> checker + <code>vacancyUrlPolicy</code> blocklist: 6,647 aggregator URLs and 1,129 generic job-board landing pages purged — only direct employer URLs remain.</li>
+        <li>Sponsor links (<code>source=sponsor</code>): the aggregator blocklist and deep-link heuristics are explicitly bypassed, so NHS Jobs, Indeed, and other major job-board listings hosted by sponsor employers route correctly without triggering the aggregator gate.</li>
+        <li>Unified background liveness sweep with aggregator bulk-stamping — aggregator-domain URLs are bulk-stamped instead of checked individually, preventing infinite re-scan loops.</li>
+        <li>Admin full-scan endpoint available for manually triggered platform-wide sweeps.</li>
+      </ul>
+    </div>
+
+    <div class="category-block">
+      <div class="category-header">
+        <span class="cat-pill pill-blue">🔄 Batch Check &amp; Cooldown</span>
+      </div>
+      <ul class="feature-list">
+        <li>Batch vacancy check endpoint: accepts up to 20 IDs per request; processes with a 15-worker concurrency pool.</li>
+        <li>45-second per-user cooldown enforced server-side to prevent rate-limit abuse and protect external employer sites from excessive check traffic.</li>
+        <li>Cache-hit logic: vacancies verified within the last 24 hours are returned immediately from cache — no re-check triggered.</li>
+      </ul>
+    </div>
+
+    <div class="category-block">
+      <div class="category-header">
+        <span class="cat-pill pill-emerald">📬 Resend Email Ingestion</span>
+      </div>
+      <ul class="feature-list">
+        <li>Resend inbound-email webhook: employer reply emails addressed to a JOBSAGE <code>reply-to</code> address are received, parsed, and mapped back to the originating application record.</li>
+        <li>Employer reply content automatically updates application status — e.g. a positive reply can trigger a transition to <strong>"Acknowledged"</strong> or further statuses.</li>
+        <li>Real employer email resolution for speculative CVs: AI enrichment discovers the correct employer contact email during vacancy checks and saves it for future sends, eliminating ops-fallback routing where possible.</li>
+      </ul>
+    </div>
+
+    <div class="category-block">
+      <div class="category-header">
+        <span class="cat-pill pill-blue">🤖 AI URL Backfill &amp; Contact Extraction</span>
+      </div>
+      <ul class="feature-list">
+        <li>AI apply-URL backfill: vacancies missing an apply link are queued for AI discovery; results are logged to an admin review table before going live.</li>
+        <li>Contact extraction runs during vacancy checks — employer phone, email, and website are automatically saved to the role record and surfaced in the UI contact row.</li>
+        <li><code>PATCH /api/applications/:id/status</code> validation now derived from the shared <code>ApplicationStatus</code> enum, preventing invalid status transitions at the API boundary.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SECTION 4 — DATABASE & DEVOPS
+  ══════════════════════════════════════════════ -->
+  <div class="section" id="devops">
+    <div class="section-header">
+      <div class="section-icon icon-amber">🗄️</div>
+      <h2>Database &amp; DevOps</h2>
+    </div>
+
+    <div class="category-block">
+      <div class="category-header">
+        <span class="cat-pill pill-amber">📐 Schema Changes &amp; Migrations</span>
+      </div>
+      <ul class="feature-list">
+        <li>New columns on <strong>roles</strong> table: <code>contactEmail</code>, <code>contactPhone</code>, <code>contactWebsite</code>, <code>applyUrl</code> — enabling direct employer contact and tracked apply links from role listings.</li>
+        <li>New columns on <strong>sponsor_licence_vacancies</strong> and <strong>job_listings</strong>: <code>livenessStatus</code>, <code>lastVerifiedAt</code>, <code>livenessReason</code> — along with database indexes for efficient querying.</li>
+        <li><strong>Migration 0006</strong>: idempotent DDL sync repairing pre-existing schema drift between the ORM model and the live database — applied without downtime.</li>
+        <li><strong>Migration 0007</strong>: constraint rename pass ensuring all foreign-key and unique constraints match Drizzle-generated names, eliminating push-drift warnings.</li>
+        <li>Startup schema-drift check: the API server now logs loud warnings on boot if the live DB schema diverges from the ORM model, providing an early warning system before any deploy.</li>
+      </ul>
+    </div>
+
+    <div class="category-block">
+      <div class="category-header">
+        <span class="cat-pill pill-amber">🚀 Production Migration</span>
+      </div>
+      <ul class="feature-list">
+        <li>Production <code>preferred_region</code> scalar <code>text</code> → <code>text[]</code> (array) migration executed with a <code>USING ARRAY[col]::text[]</code> cast — preserving existing single-region values as single-element arrays while enabling multi-region selection going forward.</li>
+        <li>Platform republished post-migration with zero reported downtime.</li>
+        <li>Vitest regression suite for the liveness-sweep logic added — prevents future regressions in bulk-stamping and dead-link detection.</li>
+        <li>OpenAPI contract updated to reflect all new endpoints and request/response shapes.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SECTION 5 — CHROME EXTENSION
+  ══════════════════════════════════════════════ -->
+  <div class="section" id="chrome">
+    <div class="section-header">
+      <div class="section-icon icon-teal">🧩</div>
+      <h2>Chrome Extension — Smart Apply</h2>
+    </div>
+
+    <div class="category-block">
+      <div class="category-header">
+        <span class="cat-pill pill-teal">🔌 Manifest V3 Scaffold</span>
+      </div>
+      <ul class="feature-list">
+        <li>Full Chrome Extension Manifest V3 scaffold built from scratch: service worker background script, content script, and sidebar injection.</li>
+        <li>CORS issue resolved — extension background script can now make authenticated requests to the JOBSAGE API without cross-origin errors.</li>
+        <li>Pill toggle injected into employer job pages via content script — candidates can activate the JOBSAGE sidebar overlay directly on the employer's site.</li>
+        <li>Complete <code>dist/</code> build pipeline configured; bundle-integrity QA tests verify the extension package is well-formed before release.</li>
+      </ul>
+    </div>
+
+    <div class="category-block">
+      <div class="category-header">
+        <span class="cat-pill pill-teal">🤖 Smart Apply SSE Integration</span>
+      </div>
+      <ul class="feature-list">
+        <li>Smart Apply assistant accepts extension-scraped job context over a Server-Sent Events (SSE) stream, authenticated with a Bearer token.</li>
+        <li>Context payload includes: <code>question</code>, <code>jobTitle</code>, <code>employer</code>, and <code>jobDescription</code> — allowing the AI to generate role-specific answers without the candidate re-entering job details.</li>
+        <li>Real-time streaming responses delivered token-by-token to the sidebar UI, providing immediate feedback even for long AI responses.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SECTION 6 — QA TESTING GUIDE
+  ══════════════════════════════════════════════ -->
+  <div class="section" id="qa-guide">
+    <div class="section-header">
+      <div class="section-icon icon-rose">🧪</div>
+      <h2>Step-by-Step QA Testing Guide</h2>
+    </div>
+
+    <div class="qa-intro">
+      <p>
+        <strong>Audience:</strong> QA testers and non-technical stakeholders. All test cases target the live JOBSAGE web application.
+        Sign in as a candidate account before running tests TC-01 through TC-06.
+        Estimated total time: <strong>~30 minutes</strong>.
+      </p>
+      <p style="margin-top:8px;">
+        <strong>Environment:</strong> JOBSAGE web app (<code>/</code> — the candidate-facing interface).
+        An active candidate account with at least one Preferred UK Region set in Profile is recommended.
+      </p>
+    </div>
+
+    <!-- TC-01 -->
+    <div class="tc-block">
+      <div class="tc-header">
+        <div class="tc-number">1</div>
+        <div class="tc-title">Active jobs show "Link verified" badge; dead links are hidden &amp; greyed</div>
+        <span class="tc-badge tc-badge-critical">CRITICAL</span>
+      </div>
+      <div class="tc-body">
+        <div class="tc-meta">
+          <span class="tc-meta-key">Route</span>
+          <span class="tc-meta-val"><code>/opportunities</code></span>
+          <span class="tc-meta-key">Feature</span>
+          <span class="tc-meta-val">Link liveness badges &amp; dead-link suppression</span>
+        </div>
+        <ol class="steps-list">
+          <li><span class="step-num">1</span> Sign in as a candidate and navigate to <strong>Opportunities</strong> in the sidebar.</li>
+          <li><span class="step-num">2</span> Scroll through the job board (the "Board" tab is active by default). Look for role cards that display an <strong>"Apply on employer site"</strong> button.</li>
+          <li><span class="step-num">3</span> Locate a card showing the emerald <strong>"Link verified"</strong> badge (✓ BadgeCheck icon, green pill) beside the apply button. This confirms the link passed a recent health check.</li>
+          <li><span class="step-num">4</span> Locate a card showing the amber <strong>"Link not yet verified"</strong> badge (clock icon, amber pill). These links will be checked shortly by the background sweep.</li>
+          <li><span class="step-num">5</span> Attempt to find or simulate a dead link: click any "Apply on employer site" button and observe the response.
+            <br>— If the URL is dead/expired: a red destructive toast appears: <em>"Vacancy unavailable — This vacancy is no longer accepting applications (closed by employer)."</em>
+            <br>— The card should become greyed-out (opacity + grayscale) and the button replaced with <strong>"Vacancy closed"</strong> (non-clickable).</li>
+          <li><span class="step-num">6</span> Confirm that no dead-link cards appear in the primary list without the visual greyed state — they should not be shown as active to candidates.</li>
+        </ol>
+        <div class="expected-row">
+          <span class="expected-icon">✅</span>
+          <span><span class="expected-label">Expected:</span> Verified badges are emerald green. Dead links trigger a toast and grey the card immediately. No dead vacancy appears as fully active in the job list.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- TC-02 -->
+    <div class="tc-block">
+      <div class="tc-header">
+        <div class="tc-number">2</div>
+        <div class="tc-title">"Refresh Visible Page" on Sponsor Vacancies + 45-second cooldown</div>
+        <span class="tc-badge tc-badge-high">HIGH</span>
+      </div>
+      <div class="tc-body">
+        <div class="tc-meta">
+          <span class="tc-meta-key">Route</span>
+          <span class="tc-meta-val"><code>/sponsor-licences</code></span>
+          <span class="tc-meta-key">Feature</span>
+          <span class="tc-meta-val">Batch liveness refresh &amp; per-user rate limiting</span>
+        </div>
+        <ol class="steps-list">
+          <li><span class="step-num">1</span> Navigate to <strong>Sponsor Licences</strong> in the sidebar.</li>
+          <li><span class="step-num">2</span> Wait for the employer cards to load. Locate the <strong>"Refresh Visible Page (N)"</strong> button near the top of the list area — where N is the count of currently visible employer cards.</li>
+          <li><span class="step-num">3</span> Click the button. It should immediately enter a loading state labeled <strong>"Refreshing this page…"</strong></li>
+          <li><span class="step-num">4</span> After a few seconds, a success toast appears: <em>"Page refreshed — N freshly checked · N up to date"</em>. The <code>"Checked Xm ago"</code> timestamps on sponsor cards briefly pulse/highlight.</li>
+          <li><span class="step-num">5</span> If all cards were already checked within the last 24 hours, the toast instead reads: <em>"Already up to date — ⚡ All N visible employers were checked within the last 24 hours — job listings are completely up to date!"</em></li>
+          <li><span class="step-num">6</span> <strong>Cooldown test:</strong> Immediately click <strong>"Refresh Visible Page"</strong> again within 45 seconds. A warning toast should appear: <em>"Please wait — You refreshed recently — please wait a moment before trying again."</em> The button should not re-trigger a check.</li>
+          <li><span class="step-num">7</span> Wait at least 45 seconds and click the button once more. It should succeed without a cooldown warning.</li>
+        </ol>
+        <div class="expected-row">
+          <span class="expected-icon">✅</span>
+          <span><span class="expected-label">Expected:</span> First click refreshes visible cards and shows results toast. Second click within 45 s shows "Please wait" toast only. Timestamp badges animate after a successful refresh.</span>
+        </div>
+        <div class="note-row">
+          <span class="note-icon">⚠️</span>
+          The button label includes the count in parentheses, e.g. <strong>"Refresh Visible Page (20)"</strong> — the max batch size is 20 employers per request regardless of how many are visible.
+        </div>
+      </div>
+    </div>
+
+    <!-- TC-03 -->
+    <div class="tc-block">
+      <div class="tc-header">
+        <div class="tc-number">3</div>
+        <div class="tc-title">External "Apply" click creates a Tracker entry with "Link Clicked" status</div>
+        <span class="tc-badge tc-badge-critical">CRITICAL</span>
+      </div>
+      <div class="tc-body">
+        <div class="tc-meta">
+          <span class="tc-meta-key">Routes</span>
+          <span class="tc-meta-val"><code>/opportunities</code> → <code>/applications</code></span>
+          <span class="tc-meta-key">Feature</span>
+          <span class="tc-meta-val">Outbound apply tracking + tracker "Link Clicked" status</span>
+        </div>
+        <ol class="steps-list">
+          <li><span class="step-num">1</span> Navigate to <strong>Opportunities</strong> and find a role card that has an <strong>"Apply on employer site"</strong> button (indicating a direct employer apply URL).</li>
+          <li><span class="step-num">2</span> Click <strong>"Apply on employer site"</strong>. The button briefly shows <strong>"Checking link…"</strong> while the server validates the URL.</li>
+          <li><span class="step-num">3</span> If the link is valid: a new browser tab opens to the employer's site, and a success toast appears: <em>"Application logged! — Track your progress under the 'Company Website' tab in your Tracker."</em></li>
+          <li><span class="step-num">4</span> Navigate to <strong>Applications</strong> (Application Tracker) in the sidebar.</li>
+          <li><span class="step-num">5</span> Click the <strong>"Company Website"</strong> tab (the second tab, after "All").</li>
+          <li><span class="step-num">6</span> Confirm that a new entry is visible for the employer/role just applied to, with the status badge showing <strong>"Link Clicked"</strong> (slate/grey badge with an <code>ExternalLink</code> icon) and the type badge showing <strong>"Company Website"</strong> (blue outline, Globe icon).</li>
+          <li><span class="step-num">7</span> Click the <strong>"Link Clicked"</strong> status badge on the card to open the status dropdown. Confirm the available statuses include: Link Clicked, Applied, Shortlisted, Under Review, Interview, Interview Invited, Offer, Rejected, No Response.</li>
+        </ol>
+        <div class="expected-row">
+          <span class="expected-icon">✅</span>
+          <span><span class="expected-label">Expected:</span> Toast confirms the click. Application appears in Tracker → "Company Website" tab with "Link Clicked" status. Status is updatable via the inline dropdown.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- TC-04 -->
+    <div class="tc-block">
+      <div class="tc-header">
+        <div class="tc-number">4</div>
+        <div class="tc-title">Sponsor apply links to job boards (Indeed / NHS) are not blocked by aggregator gates</div>
+        <span class="tc-badge tc-badge-high">HIGH</span>
+      </div>
+      <div class="tc-body">
+        <div class="tc-meta">
+          <span class="tc-meta-key">Route</span>
+          <span class="tc-meta-val"><code>/sponsor-licences</code> (vacancy cards)</span>
+          <span class="tc-meta-key">Feature</span>
+          <span class="tc-meta-val"><code>source=sponsor</code> bypass of aggregator blocklist</span>
+        </div>
+        <ol class="steps-list">
+          <li><span class="step-num">1</span> Navigate to <strong>Sponsor Licences</strong> and browse to a sponsor company card that lists open vacancies (a badge showing a vacancy count — e.g. "3 vacancies").</li>
+          <li><span class="step-num">2</span> Expand or click the sponsor card to view its vacancy list. Look for a vacancy whose apply link points to a job board (e.g. NHS Jobs at <code>jobs.nhs.uk</code>, or Indeed at <code>indeed.co.uk</code>).</li>
+          <li><span class="step-num">3</span> Click the apply / link button for that vacancy.</li>
+          <li><span class="step-num">4</span> Verify that the action succeeds — the external tab opens and a success toast is shown. <strong>No</strong> error toast saying <em>"This destination is a third-party job aggregator and cannot be tracked"</em> should appear.</li>
+          <li><span class="step-num">5</span> As a contrast check: attempt the same click from a non-sponsor vacancy whose apply URL is a generic aggregator search-results page (e.g. a search URL, not a direct job listing). This should fail with the aggregator error toast.</li>
+        </ol>
+        <div class="expected-row">
+          <span class="expected-icon">✅</span>
+          <span><span class="expected-label">Expected:</span> Sponsor vacancy links to NHS Jobs / Indeed open successfully without triggering the aggregator block. Generic aggregator search-page URLs from non-sponsor roles are still blocked with an appropriate error.</span>
+        </div>
+        <div class="note-row">
+          <span class="note-icon">ℹ️</span>
+          The <code>source=sponsor</code> query parameter on the tracking endpoint is what bypasses the aggregator gate. This is automatic when the apply button is on a sponsor vacancy card.
+        </div>
+      </div>
+    </div>
+
+    <!-- TC-05 -->
+    <div class="tc-block">
+      <div class="tc-header">
+        <div class="tc-number">5</div>
+        <div class="tc-title">"Company Website" tab is second in the Tracker; status update works there</div>
+        <span class="tc-badge tc-badge-medium">MEDIUM</span>
+      </div>
+      <div class="tc-body">
+        <div class="tc-meta">
+          <span class="tc-meta-key">Route</span>
+          <span class="tc-meta-val"><code>/applications</code></span>
+          <span class="tc-meta-key">Feature</span>
+          <span class="tc-meta-val">Tracker tab order &amp; inline status dropdown</span>
+        </div>
+        <ol class="steps-list">
+          <li><span class="step-num">1</span> Navigate to <strong>Applications</strong> in the sidebar. The page title is <strong>"Application Tracker"</strong>.</li>
+          <li><span class="step-num">2</span> Observe the four tabs in the tab bar. Confirm the left-to-right order is exactly: <strong>All · Company Website · Via JOBSAGE · Speculative CV</strong>.</li>
+          <li><span class="step-num">3</span> "Company Website" must be in position 2 (second from left, after "All"). If it appears in another position, this is a regression.</li>
+          <li><span class="step-num">4</span> Click <strong>"Company Website"</strong>. Confirm that applications of kind <em>website</em> are shown — cards will carry a blue <strong>"Company Website"</strong> type badge (Globe icon).</li>
+          <li><span class="step-num">5</span> On any application card in the "Company Website" tab, click the status badge (e.g. <strong>"Link Clicked"</strong>) to open the status dropdown.</li>
+          <li><span class="step-num">6</span> Select <strong>"Applied"</strong> from the dropdown. The badge should animate to show a spinner, then update to <strong>"Applied"</strong> (blue badge, ClipboardList icon).</li>
+          <li><span class="step-num">7</span> Refresh the page and confirm the status change persisted.</li>
+        </ol>
+        <div class="expected-row">
+          <span class="expected-icon">✅</span>
+          <span><span class="expected-label">Expected:</span> Tab order is All → Company Website → Via JOBSAGE → Speculative CV. Status update saves correctly and persists after page refresh.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- TC-06 -->
+    <div class="tc-block">
+      <div class="tc-header">
+        <div class="tc-number">6</div>
+        <div class="tc-title">Multiple preferred regions selectable in Profile; job matching respects them</div>
+        <span class="tc-badge tc-badge-high">HIGH</span>
+      </div>
+      <div class="tc-body">
+        <div class="tc-meta">
+          <span class="tc-meta-key">Routes</span>
+          <span class="tc-meta-val"><code>/profile</code> → <code>/opportunities</code></span>
+          <span class="tc-meta-key">Feature</span>
+          <span class="tc-meta-val">Multi-select preferred region + job match filtering</span>
+        </div>
+        <ol class="steps-list">
+          <li><span class="step-num">1</span> Navigate to <strong>Profile</strong> in the sidebar.</li>
+          <li><span class="step-num">2</span> Scroll to the <strong>"Preferred UK Region(s)"</strong> label. It renders a grid of checkboxes (2–3 columns) listing all UK regions.</li>
+          <li><span class="step-num">3</span> If all checkboxes are currently unchecked, a "not set" indicator (red/amber badge) is shown below the grid — confirm this is visible.</li>
+          <li><span class="step-num">4</span> Check <strong>two or more regions</strong> (e.g. "London" and "South East England"). Each tick auto-saves — no separate Save button click is required.</li>
+          <li><span class="step-num">5</span> Confirm both selected regions are visually checked after the auto-save completes (the checkboxes should remain ticked after ~300 ms).</li>
+          <li><span class="step-num">6</span> Navigate to <strong>Opportunities</strong>. The AI match strip ("Your Best Matches Right Now") and the job board results should now include roles from both selected regions.</li>
+          <li><span class="step-num">7</span> Return to Profile and uncheck one region. Navigate back to Opportunities and confirm the results adjust (roles from the unchecked region are no longer prioritised in matches).</li>
+          <li><span class="step-num">8</span> Optional: Check all boxes then uncheck all — the "not set / open to any UK location" helper text should appear below the grid.</li>
+        </ol>
+        <div class="expected-row">
+          <span class="expected-icon">✅</span>
+          <span><span class="expected-label">Expected:</span> Multiple regions can be simultaneously checked. Auto-save works without a separate Save action. Opportunities page reflects the updated preferences in match scoring.</span>
+        </div>
+        <div class="note-row">
+          <span class="note-icon">ℹ️</span>
+          The helper text reads: <em>"Select one or more UK regions where you'd prefer to work. Leave all unchecked if you're open to any UK location."</em>
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary table -->
+    <div class="category-block" style="margin-top:32px;">
+      <h3 style="margin-bottom:16px;">Test Case Summary</h3>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Test Case</th>
+            <th>Route</th>
+            <th>Priority</th>
+            <th>Est. Time</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>TC-01</strong></td>
+            <td>Link verified badges &amp; dead-link suppression</td>
+            <td><code>/opportunities</code></td>
+            <td><span style="color:#b91c1c;font-weight:700;">Critical</span></td>
+            <td>5 min</td>
+          </tr>
+          <tr>
+            <td><strong>TC-02</strong></td>
+            <td>Refresh Visible Page + 45 s cooldown</td>
+            <td><code>/sponsor-licences</code></td>
+            <td><span style="color:#92400e;font-weight:700;">High</span></td>
+            <td>6 min</td>
+          </tr>
+          <tr>
+            <td><strong>TC-03</strong></td>
+            <td>External apply → Tracker "Link Clicked" entry + toast</td>
+            <td><code>/opportunities</code>, <code>/applications</code></td>
+            <td><span style="color:#b91c1c;font-weight:700;">Critical</span></td>
+            <td>5 min</td>
+          </tr>
+          <tr>
+            <td><strong>TC-04</strong></td>
+            <td>Sponsor NHS / Indeed links bypass aggregator gate</td>
+            <td><code>/sponsor-licences</code></td>
+            <td><span style="color:#92400e;font-weight:700;">High</span></td>
+            <td>5 min</td>
+          </tr>
+          <tr>
+            <td><strong>TC-05</strong></td>
+            <td>"Company Website" tab second; inline status update</td>
+            <td><code>/applications</code></td>
+            <td><span style="color:#1d4ed8;font-weight:700;">Medium</span></td>
+            <td>4 min</td>
+          </tr>
+          <tr>
+            <td><strong>TC-06</strong></td>
+            <td>Multi-region profile selection + job match reflection</td>
+            <td><code>/profile</code>, <code>/opportunities</code></td>
+            <td><span style="color:#92400e;font-weight:700;">High</span></td>
+            <td>6 min</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       FOOTER
+  ══════════════════════════════════════════════ -->
+  <div class="footer">
+    <p><strong>JOBSAGE Sprint Report</strong> &nbsp;·&nbsp; July 22–27, 2026 &nbsp;·&nbsp; Tasks #267–#381 &nbsp;·&nbsp; 36 merged tasks &nbsp;·&nbsp; ~58 commits</p>
+    <p style="margin-top:6px;">Generated July 27, 2026 &nbsp;·&nbsp; Confidential — for internal distribution and QA team use only</p>
+  </div>
+
+</div>
+</body>
+</html>
