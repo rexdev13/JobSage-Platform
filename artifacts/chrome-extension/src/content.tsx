@@ -5,18 +5,6 @@ import { isConfirmationPage, mountConfirmationToast } from "./lib/trackerDetecto
 
 const JOBSAGE_HOST_ID = "jobsage-extension-root";
 
-async function getToken(): Promise<string | null> {
-  return new Promise((resolve) => {
-    chrome.runtime.sendMessage({ type: "GET_TOKEN" }, (response: { token: string | null }) => {
-      if (chrome.runtime.lastError) {
-        resolve(null);
-        return;
-      }
-      resolve(response?.token ?? null);
-    });
-  });
-}
-
 async function logApplication(companyName: string, jobTitle: string, pageUrl: string): Promise<void> {
   return new Promise((resolve, reject) => {
     chrome.runtime.sendMessage(
@@ -62,7 +50,6 @@ function mountSidebar(): ShadowRoot {
     <Sidebar
       jobContext={jobContext}
       minimal={!isRecognizedJobBoard()}
-      onGetToken={getToken}
       onLogApplication={logApplication}
     />
   );

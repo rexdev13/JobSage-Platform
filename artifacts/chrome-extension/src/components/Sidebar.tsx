@@ -1,8 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import type { JobContext } from "../lib/scraper";
 
-const API_BASE = "https://jobsage.co.uk/api";
-
 const COLORS = {
   bg: "#ffffff",
   border: "#e5e7eb",
@@ -27,99 +25,99 @@ interface SidebarProps {
    * unobtrusive during normal browsing.
    */
   minimal?: boolean;
-  onGetToken: () => Promise<string | null>;
   onLogApplication: (companyName: string, jobTitle: string, pageUrl: string) => Promise<void>;
 }
 
-function useStreamAnswer(getToken: () => Promise<string | null>) {
+type AssistantStreamEvent =
+  | { type: "chunk"; text: string }
+  | { type: "error"; kind: "auth" | "server" | "network"; status?: number; message?: string }
+  | { type: "done" };
+
+function errorMessageFor(event: Extract<AssistantStreamEvent, { type: "error" }>): string {
+  if (event.kind === "auth") {
+    return "Please sign in to JOBSAGE (jobsage.co.uk) in another tab, then try again.";
+  }
+  if (event.kind === "server") {
+    return event.message
+      ? `JOBSAGE couldn't generate an answer: ${event.message}`
+      : `JOBSAGE couldn't generate an answer right now (error ${event.status ?? "unknown"}). Please try again in a moment.`;
+  }
+  return "Could not reach the JOBSAGE API. Check your internet connection and try again.";
+}
+
+function useStreamAnswer() {
   const [answer, setAnswer] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
+  const portRef = useRef<chrome.runtime.Port | null>(null);
 
   const generate = useCallback(
-    async (question: string, jobContext: JobContext) => {
+    (question: string, jobContext: JobContext) => {
       if (!question.trim()) return;
-      abortRef.current?.abort();
-      const ctrl = new AbortController();
-      abortRef.current = ctrl;
+      portRef.current?.disconnect();
 
       setAnswer("");
       setError(null);
       setStreaming(true);
 
+      let port: chrome.runtime.Port;
       try {
-        const token = await getToken();
-
-        const headers: Record<string, string> = {
-          "Content-Type": "application/json",
-        };
-        if (token) headers["Authorization"] = `Bearer ${token}`;
-
-        const body = {
-          message: `${question.trim()}\n\nJob context: ${jobContext.jobTitle} at ${jobContext.companyName}. ${jobContext.jobDescription.slice(0, 800)}`,
-        };
-
-        const response = await fetch(`${API_BASE}/smart-apply/assistant`, {
-          method: "POST",
-          headers,
-          body: JSON.stringify(body),
-          signal: ctrl.signal,
-        });
-
-        if (!response.ok) {
-          setError(`Request failed (${response.status}). Are you logged in to JOBSAGE?`);
-          setStreaming(false);
-          return;
-        }
-
-        const reader = response.body!.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-
-          const lines = buffer.split("\n");
-          buffer = lines.pop() ?? "";
-
-          for (const line of lines) {
-            if (!line.startsWith("data: ")) continue;
-            try {
-              const payload = JSON.parse(line.slice(6)) as { text?: string; done?: boolean; error?: string };
-              if (payload.error) {
-                setError(payload.error);
-              } else if (payload.text) {
-                setAnswer((prev) => prev + payload.text);
-              }
-            } catch {
-              // ignore parse error on malformed chunk
-            }
-          }
-        }
-      } catch (err) {
-        if ((err as Error).name !== "AbortError") {
-          setError("Could not reach the JOBSAGE API. Check your connection.");
-        }
-      } finally {
+        port = chrome.runtime.connect({ name: "assistant-stream" });
+      } catch {
+        setError("The JOBSAGE extension was updated or reloaded. Please refresh this page and try again.");
         setStreaming(false);
+        return;
       }
+      portRef.current = port;
+      let finished = false;
+
+      const finish = () => {
+        if (finished) return;
+        finished = true;
+        setStreaming(false);
+        if (portRef.current === port) portRef.current = null;
+        port.disconnect();
+      };
+
+      port.onMessage.addListener((event: AssistantStreamEvent) => {
+        if (event.type === "chunk") {
+          setAnswer((prev) => prev + event.text);
+        } else if (event.type === "error") {
+          setError(errorMessageFor(event));
+          finish();
+        } else if (event.type === "done") {
+          finish();
+        }
+      });
+
+      // If the service worker goes away before the stream completes, surface
+      // a network-style error rather than spinning forever.
+      port.onDisconnect.addListener(() => {
+        if (!finished) {
+          finished = true;
+          setStreaming(false);
+          if (portRef.current === port) portRef.current = null;
+          setError("Could not reach the JOBSAGE API. Check your internet connection and try again.");
+        }
+      });
+
+      port.postMessage({
+        message: `${question.trim()}\n\nJob context: ${jobContext.jobTitle} at ${jobContext.companyName}. ${jobContext.jobDescription.slice(0, 800)}`,
+      });
     },
-    [getToken]
+    []
   );
 
   return { answer, streaming, error, generate, setAnswer };
 }
 
-export function Sidebar({ jobContext, minimal = false, onGetToken, onLogApplication }: SidebarProps) {
+export function Sidebar({ jobContext, minimal = false, onLogApplication }: SidebarProps) {
   const [open, setOpen] = useState(false);
   const [question, setQuestion] = useState("");
   const [copied, setCopied] = useState(false);
   const [logging, setLogging] = useState(false);
   const [logDone, setLogDone] = useState(false);
-  const { answer, streaming, error, generate, setAnswer } = useStreamAnswer(onGetToken);
+  const { answer, streaming, error, generate, setAnswer } = useStreamAnswer();
 
   const handleGenerate = () => {
     generate(question, jobContext);
