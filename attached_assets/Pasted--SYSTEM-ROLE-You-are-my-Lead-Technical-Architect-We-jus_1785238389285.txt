@@ -1,0 +1,33 @@
+### SYSTEM ROLE
+You are my Lead Technical Architect. We just received stakeholder feedback on our latest release. I need you to audit our current codebase to determine what is currently implemented, what might be bugged, and what the stakeholder is simply misunderstanding. 
+
+Please review the relevant files for the 6 points below and give me a clear, technical status report for each: "Working as Intended", "Bugged/Missing", or "Needs UI Clarification".
+
+---
+
+### FEEDBACK TO AUDIT:
+
+**1. "Job opportunities section is still not showing the opportunities in order with sorting percentage."**
+*   **Action for Agent:** Check the query and UI component for the Candidate Job Opportunities page. Is the default sort order correctly utilizing the candidate-to-job `match_percentage`? 
+
+**2. "Application tracker: I don’t see the difference between speculative CV and via jobsage... Keep company website. Shall also have a place for replied on top."**
+*   **Action for Agent:** Check our `ApplicationTracker` UI components and the tab structure (especially the "Company Website" tab we just moved to the 2nd position). Check the `ApplicationStatus` enum. Do we currently have a distinct "Replied" status? How are "Speculative CV" and standard outbound applications differentiated in the UI?
+
+**3. "On sponsoring companies: need to see percentage when you press check best fit. Refresh should only affect filtered items. Companies with no vacancies shall not show on top."**
+*   **Action for Agent:** Check the Sponsor listings page/component. 
+    1. Is `match_percentage` wired up and visible on the UI when filtering for best fit?
+    2. Does our recently built "Refresh Visible Page" (Task #358) respect the active filters, or does it blindly refresh the whole default list?
+    3. What is the default sorting logic for Sponsors? Are we pushing companies with `vacancies = 0` to the bottom?
+
+**4. "We shall remove marked as applied. The system shall do this automatically."**
+*   **Action for Agent:** Check the frontend application cards and tracker. Do we still have a manual "Mark as Applied" button? Note: In Task #368 we built the automated `link_clicked` status when outbound links are clicked. Is the manual button still lingering in the UI and causing confusion?
+
+**5. "The system still do not provide an AI assistant to assist in application on companies site."**
+*   **Action for Agent:** Confirm the status of the Smart Apply Chrome Extension (Tasks #273, #277, #328). Where is the UI prompt/download link that tells the user to install the extension to get this AI assistant? The stakeholder likely doesn't realize this exists as a browser extension.
+
+**6. "There is also not yet way to apply on company site like it was before. This shall stay."**
+*   **Action for Agent:** Check the `GET /api/applications/track-outbound` endpoint and the frontend job cards. Ensure that clicking "Apply" successfully 302-redirects the user to the external employer site after logging the `link_clicked` status. Is the redirect failing or being blocked?
+
+---
+**DELIVERABLE:**
+Provide a brief, code-backed summary for each of the 6 points so I know exactly what to fix and what to explain to the stakeholder.

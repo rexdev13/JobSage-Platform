@@ -658,6 +658,12 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
       };
     });
 
+    // Companies with live vacancies first, alphabetical within each group.
+    annotated.sort((a, b) => {
+      if (a.hasVacancies !== b.hasVacancies) return a.hasVacancies ? -1 : 1;
+      return a.organisationName.localeCompare(b.organisationName, "en", { sensitivity: "base" });
+    });
+
     let filtered = annotated;
     if (bookmarkedOnly) filtered = filtered.filter((c) => c.isBookmarked);
 

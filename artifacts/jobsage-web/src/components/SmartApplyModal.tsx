@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { SmartApplyAssistant } from "./SmartApplyAssistant";
+import { isExtensionInstalled, ExtensionRequiredModal } from "./SmartApplyExtensionPrompt";
 
 function useCoverLetterStream() {
   const [text, setText] = useState("");
@@ -144,6 +145,10 @@ export function SmartApplyModal({
 }: SmartApplyModalProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  // Applying requires the Smart Apply extension so every outbound application
+  // is tracked. Pages gate before opening this modal, but guard here too in
+  // case the modal is opened directly.
+  const [extensionOk, setExtensionOk] = useState(isExtensionInstalled);
   const [step, setStep] = useState<"loading" | "error" | "review" | "submitting" | "coverLetter" | "nextMatches">("loading");
   const [nextMatchRoles, setNextMatchRoles] = useState<NextMatchRole[]>([]);
   const coverLetter = useCoverLetterStream();
@@ -201,6 +206,7 @@ export function SmartApplyModal({
   const [hasDraft, setHasDraft] = useState(false);
 
   useEffect(() => {
+    if (!extensionOk) return;
     prefillMutation.mutate(
       { id: roleId },
       {
@@ -235,7 +241,7 @@ export function SmartApplyModal({
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roleId]);
+  }, [roleId, extensionOk]);
 
   const questions: ApplicationQuestion[] = prefillData?.questions ?? [];
   const prefills: SmartApplyPrefill[] = prefillData?.prefills ?? [];
@@ -297,6 +303,16 @@ export function SmartApplyModal({
       });
       setStep("review");
     }
+  }
+
+  if (!extensionOk) {
+    return (
+      <ExtensionRequiredModal
+        open
+        onClose={onClose}
+        onProceed={() => setExtensionOk(true)}
+      />
+    );
   }
 
   return (

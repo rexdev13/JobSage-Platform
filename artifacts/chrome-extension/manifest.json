@@ -1,28 +1,23 @@
 {
-  "name": "JOBSAGE",
-  "version": "0.1.0",
+  "name": "JOBSAGE Smart Apply",
+  "version": "0.2.0",
   "manifest_version": 3,
-  "description": "JOBSAGE job application assistant for UK healthcare professionals.",
-  "permissions": ["cookies", "storage", "activeTab"],
-  "host_permissions": [
-    "https://jobsage.co.uk/*",
-    "https://*.jobsage.co.uk/*",
-    "https://*.nhs.uk/*",
-    "https://*.trac.jobs/*",
-    "https://*.myworkdayjobs.com/*"
-  ],
+  "description": "Fill in job applications on NHS Jobs, Trac and employer sites with your JOBSAGE profile — and track every application.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": ["cookies", "storage"],
+  "host_permissions": ["https://jobsage.co.uk/*"],
   "background": {
     "service_worker": "background.js",
     "type": "module"
   },
   "content_scripts": [
     {
-      "matches": [
-        "https://*.nhs.uk/*",
-        "https://*.trac.jobs/*",
-        "https://*.myworkdayjobs.com/*",
-        "https://jobsage.co.uk/*"
-      ],
+      "matches": ["https://*/*"],
       "js": ["content.js"],
       "run_at": "document_idle"
     }

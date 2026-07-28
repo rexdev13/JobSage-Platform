@@ -1,6 +1,6 @@
 import { createRoot } from "react-dom/client";
 import { Sidebar } from "./components/Sidebar";
-import { scrapeJobContext } from "./lib/scraper";
+import { scrapeJobContext, isRecognizedJobBoard } from "./lib/scraper";
 import { isConfirmationPage, mountConfirmationToast } from "./lib/trackerDetector";
 
 const JOBSAGE_HOST_ID = "jobsage-extension-root";
@@ -61,6 +61,7 @@ function mountSidebar(): ShadowRoot {
   createRoot(container).render(
     <Sidebar
       jobContext={jobContext}
+      minimal={!isRecognizedJobBoard()}
       onGetToken={getToken}
       onLogApplication={logApplication}
     />

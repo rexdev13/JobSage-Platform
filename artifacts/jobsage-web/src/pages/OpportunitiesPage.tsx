@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useAuth } from "@workspace/auth-web";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, Button, PageTransition } from "@/components/ui-enhanced";
-import { MarkWebsiteApplicationModal } from "@/components/MarkWebsiteApplicationModal";
 import {
   useListMatchedRoles,
   useListMyApplications,
@@ -61,6 +60,12 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { DisclaimerBanner } from "@/components/ui/DisclaimerBanner";
+import {
+  SmartApplyExtensionBanner,
+  SmartApplyExtensionNudge,
+  shouldShowExtensionNudge,
+  useExtensionGate,
+} from "@/components/SmartApplyExtensionPrompt";
 import { motion, AnimatePresence } from "framer-motion";
 
 type Tab = "board" | "employers" | "applications";
@@ -257,11 +262,12 @@ function MatchScoreBadge({ score }: { score: number }) {
   );
 }
 
-function RoleDetailModal({ item, appliedRoleIds, onClose, onApply }: {
+function RoleDetailModal({ item, appliedRoleIds, onClose, onApply, aiScore }: {
   item: MatchedRole;
   appliedRoleIds: number[];
   onClose: () => void;
   onApply: (roleId: number) => void;
+  aiScore?: number;
 }) {
   const [, setLocation] = useLocation();
   const { role, isEligible, matchScore, eligibilityGaps, sponsorshipFeasibility } = item;
@@ -301,7 +307,7 @@ function RoleDetailModal({ item, appliedRoleIds, onClose, onApply }: {
                 <Clock className="w-3.5 h-3.5" /> Not Yet Eligible
               </span>
             )}
-            <MatchScoreBadge score={matchScore} />
+            {aiScore != null ? <AiScoreBadge score={aiScore} /> : <MatchScoreBadge score={matchScore} />}
             <SponsorshipBadge outcome={sponsorshipFeasibility?.outcome} />
           </div>
 
@@ -601,8 +607,11 @@ function RoleCard({
   onSmartApply,
   onViewDetail,
   onCoverLetter,
-  onMarkWebsite,
+  onExternalApply,
+  requireExtension,
   recommended,
+  aiScore,
+  aiScoring,
 }: {
   item: MatchedRole;
   appliedRoleIds: number[];
@@ -610,8 +619,11 @@ function RoleCard({
   onSmartApply: (roleId: number, roleTitle: string) => void;
   onViewDetail: (item: MatchedRole) => void;
   onCoverLetter: (role: MatchedRole["role"]) => void;
-  onMarkWebsite?: (employer: string) => void;
+  onExternalApply?: () => void;
+  requireExtension: (action: () => void) => void;
   recommended?: boolean;
+  aiScore?: number;
+  aiScoring?: boolean;
 }) {
   const [, setLocation] = useLocation();
   const { role, isEligible, matchScore, eligibilityGaps, sponsorshipFeasibility, contactEmail, contactPhone, contactWebsite, applyUrl, linkVerified, linkCheckedAt } = item;
@@ -642,6 +654,7 @@ function RoleCard({
           title: "Application logged!",
           description: "Track your progress under the 'Company Website' tab in your Tracker.",
         });
+        onExternalApply?.();
       } else {
         win?.close();
         let message = "This vacancy is no longer accepting applications (closed by employer).";
@@ -693,7 +706,12 @@ function RoleCard({
                 <Clock className="w-3 h-3" /> Not Yet Eligible
               </span>
             )}
-            <MatchScoreBadge score={matchScore} />
+            {aiScore != null ? <AiScoreBadge score={aiScore} /> : <MatchScoreBadge score={matchScore} />}
+            {aiScore == null && aiScoring && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
+                <Zap className="w-3 h-3 animate-pulse" /> AI scoring…
+              </span>
+            )}
           </div>
           <h3 className="text-base font-semibold text-foreground">{role.title}</h3>
           <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground flex-wrap">
@@ -795,7 +813,7 @@ function RoleCard({
             <>
               <button
                 type="button"
-                onClick={handleApplyClick}
+                onClick={() => requireExtension(() => void handleApplyClick())}
                 disabled={applyChecking}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-wait"
               >
@@ -837,17 +855,6 @@ function RoleCard({
           >
             <FileText className="w-3 h-3" /> Cover Letter
           </Button>
-          {onMarkWebsite && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="text-xs h-8 gap-1 text-blue-600"
-              onClick={(e) => { e.stopPropagation(); onMarkWebsite(role.employer); }}
-              title="Log an application you submitted on this employer's own website"
-            >
-              <Globe className="w-3 h-3" /> Mark applied
-            </Button>
-          )}
           {isEligible && !applied && (
             <Button
               size="sm"
@@ -1128,7 +1135,7 @@ function ApplicationsTab({ data }: { data: ApplicationList | undefined }) {
             {subTab === "platform" ? "No platform applications yet." : subTab === "website" ? "No website applications logged yet." : "No speculative CVs sent yet."}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            {subTab === "platform" ? "Use \"Smart Apply\" on a role to track it here." : subTab === "website" ? "Use \"Mark as applied on website\" on any sponsor company." : "Send your CV speculatively to a sponsor licence company."}
+            {subTab === "platform" ? "Use \"Smart Apply\" on a role to track it here." : subTab === "website" ? "Click Apply on any role — external applications are tracked automatically. You can also log one made elsewhere from the Applications page." : "Send your CV speculatively to a sponsor licence company."}
           </p>
         </Card>
       ) : (
@@ -1193,8 +1200,13 @@ export default function OpportunitiesPage() {
   const [employerSearch, setEmployerSearch] = useState(() => new URLSearchParams(window.location.search).get("q") ?? "");
   const [smartApplyRole, setSmartApplyRole] = useState<{ id: number; title: string } | null>(null);
   const [coverLetterRole, setCoverLetterRole] = useState<MatchedRole["role"] | null>(null);
-  const [websiteAppModal, setWebsiteAppModal] = useState<{ companyName: string } | null>(null);
-  const [websiteAppPending, setWebsiteAppPending] = useState(false);
+  const [showExtensionNudge, setShowExtensionNudge] = useState(false);
+  // Applying requires the Smart Apply extension so outbound applications are tracked.
+  const { requireExtension, gateModal } = useExtensionGate();
+
+  function handleExternalApply() {
+    if (shouldShowExtensionNudge()) setShowExtensionNudge(true);
+  }
 
   const queryClient = useQueryClient();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
@@ -1243,10 +1255,24 @@ export default function OpportunitiesPage() {
   const eligibilityOutcome = data?.eligibilityOutcome;
   const noProfile = data?.noProfile === true;
 
-  const allRankedRoles = [...roles].sort(
-    (a, b) => (aiScoreMap.get(b.role.id) ?? b.matchScore) - (aiScoreMap.get(a.role.id) ?? a.matchScore),
-  );
-  const recommendedRoles = allRankedRoles.filter((r) => r.recommended);
+  // Unified sort: roles with an AI score (the "% match" badge value) rank first
+  // by that score; roles still awaiting AI scoring rank below them by the
+  // heuristic matchScore. The two scales are never interleaved, so the list
+  // is always ordered by the same percentage shown on each card.
+  const allRankedRoles = [...roles].sort((a, b) => {
+    const aAi = aiScoreMap.get(a.role.id);
+    const bAi = aiScoreMap.get(b.role.id);
+    const aHasAi = aAi !== undefined;
+    const bHasAi = bAi !== undefined;
+    if (aHasAi !== bHasAi) return aHasAi ? -1 : 1;
+    if (aHasAi && bHasAi && bAi !== aAi) return bAi - aAi;
+    if (b.matchScore !== a.matchScore) return b.matchScore - a.matchScore;
+    return a.role.id - b.role.id;
+  });
+  // "Recommended — Apply First" mirrors the unified top 5 so the badge and the
+  // Top 5 band always agree (the server-side `recommended` flag is based on the
+  // heuristic order only).
+  const recommendedRoles = allRankedRoles.slice(0, 5);
 
   const top5Roles = allRankedRoles.slice(0, 5);
   const next5Roles = allRankedRoles.slice(5, 10);
@@ -1281,11 +1307,15 @@ export default function OpportunitiesPage() {
       });
       return;
     }
-    setSmartApplyRole({ id: roleId, title: roleTitle });
+    requireExtension(() => setSmartApplyRole({ id: roleId, title: roleTitle }));
   }
 
   function handleApply(roleId: number) {
     if (appliedRoleIds.includes(roleId)) return;
+    requireExtension(() => doMarkApplication(roleId));
+  }
+
+  function doMarkApplication(roleId: number) {
     markApplicationMutation.mutate(
       { data: { roleId } },
       {
@@ -1299,26 +1329,6 @@ export default function OpportunitiesPage() {
         },
       },
     );
-  }
-
-  async function handleWebsiteAppSubmit({ companyName, applicationUrl, notes, cvDocumentId }: { companyName: string; applicationUrl: string; notes: string; cvDocumentId?: number | null }) {
-    setWebsiteAppPending(true);
-    try {
-      const res = await fetch(`${base}/api/applications`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ applicationType: "website", companyName, applicationUrl: applicationUrl || null, notes: notes || null, cvDocumentId: cvDocumentId ?? null }),
-      });
-      if (!res.ok) throw new Error("Failed to submit");
-      void queryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
-      setWebsiteAppModal(null);
-      toast({ title: "Application logged", description: `Your application to ${companyName} has been saved to your tracker.` });
-    } catch {
-      toast({ title: "Error", description: "Could not save application. Please try again.", variant: "destructive" });
-    } finally {
-      setWebsiteAppPending(false);
-    }
   }
 
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
@@ -1437,6 +1447,9 @@ export default function OpportunitiesPage() {
               />
             )}
 
+            {/* Smart Apply extension banner */}
+            {!noProfile && roles.length > 0 && <SmartApplyExtensionBanner />}
+
             {!noProfile && roles.length === 0 && (
               <Card className="p-8 text-center">
                 <Briefcase className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
@@ -1481,12 +1494,15 @@ export default function OpportunitiesPage() {
                           <RoleCard
                             item={item}
                             recommended
+                            aiScore={aiScoreMap.get(item.role.id)}
+                            aiScoring={aiMatchesLoading}
                             appliedRoleIds={appliedRoleIds}
                             onApply={handleApply}
                             onSmartApply={handleSmartApply}
                             onViewDetail={setSelectedRole}
                             onCoverLetter={setCoverLetterRole}
-                            onMarkWebsite={(employer) => setWebsiteAppModal({ companyName: employer })}
+                            requireExtension={requireExtension}
+                            onExternalApply={handleExternalApply}
                           />
                         </motion.div>
                       ))}
@@ -1527,12 +1543,15 @@ export default function OpportunitiesPage() {
                             <RoleCard
                               item={item}
                               recommended={true}
+                              aiScore={aiScoreMap.get(item.role.id)}
+                              aiScoring={aiMatchesLoading}
                               appliedRoleIds={appliedRoleIds}
                               onApply={handleApply}
                               onSmartApply={handleSmartApply}
                               onViewDetail={setSelectedRole}
                               onCoverLetter={setCoverLetterRole}
-                              onMarkWebsite={(employer) => setWebsiteAppModal({ companyName: employer })}
+                            requireExtension={requireExtension}
+                              onExternalApply={handleExternalApply}
                             />
                           </motion.div>
                         ))}
@@ -1563,12 +1582,15 @@ export default function OpportunitiesPage() {
                             <RoleCard
                               item={item}
                               recommended={false}
+                              aiScore={aiScoreMap.get(item.role.id)}
+                              aiScoring={aiMatchesLoading}
                               appliedRoleIds={appliedRoleIds}
                               onApply={handleApply}
                               onSmartApply={handleSmartApply}
                               onViewDetail={setSelectedRole}
                               onCoverLetter={setCoverLetterRole}
-                              onMarkWebsite={(employer) => setWebsiteAppModal({ companyName: employer })}
+                            requireExtension={requireExtension}
+                              onExternalApply={handleExternalApply}
                             />
                           </motion.div>
                         ))}
@@ -1599,12 +1621,15 @@ export default function OpportunitiesPage() {
                             <RoleCard
                               item={item}
                               recommended={false}
+                              aiScore={aiScoreMap.get(item.role.id)}
+                              aiScoring={aiMatchesLoading}
                               appliedRoleIds={appliedRoleIds}
                               onApply={handleApply}
                               onSmartApply={handleSmartApply}
                               onViewDetail={setSelectedRole}
                               onCoverLetter={setCoverLetterRole}
-                              onMarkWebsite={(employer) => setWebsiteAppModal({ companyName: employer })}
+                            requireExtension={requireExtension}
+                              onExternalApply={handleExternalApply}
                             />
                           </motion.div>
                         ))}
@@ -1673,6 +1698,7 @@ export default function OpportunitiesPage() {
         {selectedRole && (
           <RoleDetailModal
             item={selectedRole}
+            aiScore={aiScoreMap.get(selectedRole.role.id)}
             appliedRoleIds={appliedRoleIds}
             onClose={() => setSelectedRole(null)}
             onApply={(roleId) => { handleApply(roleId); setSelectedRole(null); }}
@@ -1706,14 +1732,10 @@ export default function OpportunitiesPage() {
         )}
       </AnimatePresence>
 
-      {websiteAppModal && (
-        <MarkWebsiteApplicationModal
-          companyName={websiteAppModal.companyName}
-          onSubmit={(data) => void handleWebsiteAppSubmit(data)}
-          onClose={() => setWebsiteAppModal(null)}
-          isPending={websiteAppPending}
-        />
-      )}
+      {/* Smart Apply extension nudge (after clicking through to an employer site) */}
+      <SmartApplyExtensionNudge open={showExtensionNudge} onClose={() => setShowExtensionNudge(false)} />
+      {gateModal}
+
     </AppLayout>
   );
 }

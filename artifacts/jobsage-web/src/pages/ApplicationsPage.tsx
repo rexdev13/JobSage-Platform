@@ -2,6 +2,7 @@ import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, Button, PageTransition } from "@/components/ui-enhanced";
 import { useListMyApplications } from "@workspace/api-client-react";
+import { MarkWebsiteApplicationModal } from "@/components/MarkWebsiteApplicationModal";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -96,6 +97,19 @@ const STATUS_CONFIG: Record<
 
 const PLATFORM_STATUSES = ["link_clicked", "applied", "shortlisted", "under_review", "interview", "interview_invited", "offer", "rejected", "no_response"] as const;
 const SPECULATIVE_STATUSES = ["cv_sent", "under_review", "interview_invited", "offer", "rejected"] as const;
+
+// Statuses (standard + speculative) that indicate the employer has responded.
+const REPLIED_STATUSES = new Set([
+  "acknowledged",
+  "under_review",
+  "shortlisted",
+  "interview",
+  "interview_invited",
+  "offer",
+  "rejected",
+]);
+
+const isReplied = (a: { status: string }) => REPLIED_STATUSES.has(a.status);
 
 type ApplicationKind = "formal" | "speculative" | "website";
 
@@ -384,6 +398,31 @@ export default function ApplicationsPage() {
   const { data, isLoading, refetch } = useListMyApplications();
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState<CategoryTab>("all");
+  const [logExternalOpen, setLogExternalOpen] = useState(false);
+  const [logExternalPending, setLogExternalPending] = useState(false);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+  async function handleLogExternalSubmit({ companyName, applicationUrl, notes, cvDocumentId }: { companyName: string; applicationUrl: string; notes: string; cvDocumentId?: number | null }) {
+    setLogExternalPending(true);
+    try {
+      const res = await fetch(`${base}/api/applications`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ applicationType: "website", companyName, applicationUrl: applicationUrl || null, notes: notes || null, cvDocumentId: cvDocumentId ?? null }),
+      });
+      if (!res.ok) throw new Error("Failed to submit");
+      void queryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
+      setLogExternalOpen(false);
+      toast({ title: "Application logged", description: `Your application to ${companyName} has been saved to your tracker.` });
+    } catch {
+      toast({ title: "Error", description: "Could not save application. Please try again.", variant: "destructive" });
+    } finally {
+      setLogExternalPending(false);
+    }
+  }
 
   const applications = (data?.applications ?? []) as EnrichedApplication[];
   const stats = data?.stats as {
@@ -405,6 +444,9 @@ export default function ApplicationsPage() {
     ? applications.filter((a) => a.applicationKind === "speculative")
     : applications.filter((a) => a.applicationKind === "website");
 
+  const repliedApps = filtered.filter(isReplied);
+  const otherApps = filtered.filter((a) => !isReplied(a));
+
   const tabs: { id: CategoryTab; label: string; icon: React.ElementType; count: number }[] = [
     { id: "all", label: "All", icon: ClipboardList, count: applications.length },
     { id: "website", label: "Company Website", icon: Globe, count: stats?.websiteCount ?? applications.filter((a) => a.applicationKind === "website").length },
@@ -425,9 +467,18 @@ export default function ApplicationsPage() {
               Track all your job applications, speculative CVs, and direct website submissions.
             </p>
           </div>
-          <Button onClick={() => setLocation("/opportunities")}>
-            <Briefcase className="w-4 h-4 mr-1.5" /> Browse Jobs
-          </Button>
+          <div className="flex flex-col items-end gap-1.5">
+            <Button onClick={() => setLocation("/opportunities")}>
+              <Briefcase className="w-4 h-4 mr-1.5" /> Browse Jobs
+            </Button>
+            <button
+              onClick={() => setLogExternalOpen(true)}
+              className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+              title="Applications made via Apply buttons are tracked automatically — use this only for applications made entirely outside JOBSAGE"
+            >
+              Log an application made elsewhere
+            </button>
+          </div>
         </div>
 
         {stats && applications.length > 0 && (
@@ -490,27 +541,67 @@ export default function ApplicationsPage() {
             </h3>
             <p className="text-muted-foreground mb-6 max-w-sm mx-auto text-sm">
               {activeTab === "website"
-                ? "Use the 'Mark as applied on website' button on any sponsor company or job opportunity to log an external application."
+                ? "Click Apply on any role — when you follow the link to an employer's website, it's tracked here automatically. Applied somewhere entirely outside JOBSAGE? Use 'Log an application made elsewhere' above."
                 : activeTab === "speculative"
                 ? "Send your CV speculatively to a sponsor licence company to create a record here."
-                : "Use Smart Apply on any role or send your CV directly to sponsor licence companies."}
+                : "Click Apply on any role — applications are tracked automatically. You can also use Smart Apply or send your CV directly to sponsor licence companies."}
             </p>
             <Button variant="outline" onClick={() => setLocation(activeTab === "speculative" || activeTab === "website" ? "/sponsor-licences" : "/opportunities")}>
               {activeTab === "speculative" || activeTab === "website" ? "Browse Sponsors" : "Browse Jobs"}
             </Button>
           </Card>
         ) : (
-          <div className="flex flex-col gap-4">
-            {filtered.map((app) => (
-              <ApplicationCard
-                key={`${app.applicationKind ?? "formal"}-${app.id}`}
-                application={app}
-                onStatusUpdated={() => void refetch()}
-              />
-            ))}
+          <div className="flex flex-col gap-6">
+            {repliedApps.length > 0 && (
+              <section className="flex flex-col gap-4">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4 text-emerald-600" />
+                  <h2 className="text-sm font-semibold text-foreground">Replied</h2>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
+                    {repliedApps.length}
+                  </span>
+                  <span className="text-xs text-muted-foreground">Employer has responded</span>
+                </div>
+                {repliedApps.map((app) => (
+                  <ApplicationCard
+                    key={`${app.applicationKind ?? "formal"}-${app.id}`}
+                    application={app}
+                    onStatusUpdated={() => void refetch()}
+                  />
+                ))}
+              </section>
+            )}
+            {otherApps.length > 0 && (
+              <section className="flex flex-col gap-4">
+                {repliedApps.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-muted-foreground" />
+                    <h2 className="text-sm font-semibold text-foreground">Awaiting Response</h2>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-muted-foreground/10 text-muted-foreground">
+                      {otherApps.length}
+                    </span>
+                  </div>
+                )}
+                {otherApps.map((app) => (
+                  <ApplicationCard
+                    key={`${app.applicationKind ?? "formal"}-${app.id}`}
+                    application={app}
+                    onStatusUpdated={() => void refetch()}
+                  />
+                ))}
+              </section>
+            )}
           </div>
         )}
       </PageTransition>
+
+      {logExternalOpen && (
+        <MarkWebsiteApplicationModal
+          onSubmit={(data) => void handleLogExternalSubmit(data)}
+          onClose={() => setLogExternalOpen(false)}
+          isPending={logExternalPending}
+        />
+      )}
     </AppLayout>
   );
 }
