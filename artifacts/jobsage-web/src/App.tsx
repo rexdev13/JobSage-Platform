@@ -57,6 +57,7 @@ const InterviewCalendarPage     = lazy(() => import("@/pages/InterviewCalendarPa
 const RecommendationLettersPage = lazy(() => import("@/pages/RecommendationLettersPage"));
 const IdentityVerificationPage  = lazy(() => import("@/pages/IdentityVerificationPage"));
 const NotFound                  = lazy(() => import("@/pages/not-found"));
+const ExtensionPrivacyPage      = lazy(() => import("@/pages/ExtensionPrivacyPage"));
 
 // Shared QueryClient — single instance for the whole app.
 const queryClient = new QueryClient();
@@ -222,6 +223,9 @@ function Router() {
         <Route path="/employer/register" component={EmployerRegisterPage} />
         <Route path="/forgot-password" component={ForgotPasswordPage} />
         <Route path="/reset-password" component={ResetPasswordPage} />
+
+        {/* Public privacy policy for the Smart Apply Chrome extension (required by the Chrome Web Store) */}
+        <Route path="/extension-privacy" component={ExtensionPrivacyPage} />
 
         {/* Protected routes inside AuthGuard */}
         <Route path="*">
