@@ -257,11 +257,12 @@ function MatchScoreBadge({ score }: { score: number }) {
   );
 }
 
-function RoleDetailModal({ item, appliedRoleIds, onClose, onApply }: {
+function RoleDetailModal({ item, appliedRoleIds, onClose, onApply, aiScore }: {
   item: MatchedRole;
   appliedRoleIds: number[];
   onClose: () => void;
   onApply: (roleId: number) => void;
+  aiScore?: number;
 }) {
   const [, setLocation] = useLocation();
   const { role, isEligible, matchScore, eligibilityGaps, sponsorshipFeasibility } = item;
@@ -301,7 +302,7 @@ function RoleDetailModal({ item, appliedRoleIds, onClose, onApply }: {
                 <Clock className="w-3.5 h-3.5" /> Not Yet Eligible
               </span>
             )}
-            <MatchScoreBadge score={matchScore} />
+            {aiScore != null ? <AiScoreBadge score={aiScore} /> : <MatchScoreBadge score={matchScore} />}
             <SponsorshipBadge outcome={sponsorshipFeasibility?.outcome} />
           </div>
 
@@ -603,6 +604,8 @@ function RoleCard({
   onCoverLetter,
   onMarkWebsite,
   recommended,
+  aiScore,
+  aiScoring,
 }: {
   item: MatchedRole;
   appliedRoleIds: number[];
@@ -612,6 +615,8 @@ function RoleCard({
   onCoverLetter: (role: MatchedRole["role"]) => void;
   onMarkWebsite?: (employer: string) => void;
   recommended?: boolean;
+  aiScore?: number;
+  aiScoring?: boolean;
 }) {
   const [, setLocation] = useLocation();
   const { role, isEligible, matchScore, eligibilityGaps, sponsorshipFeasibility, contactEmail, contactPhone, contactWebsite, applyUrl, linkVerified, linkCheckedAt } = item;
@@ -693,7 +698,12 @@ function RoleCard({
                 <Clock className="w-3 h-3" /> Not Yet Eligible
               </span>
             )}
-            <MatchScoreBadge score={matchScore} />
+            {aiScore != null ? <AiScoreBadge score={aiScore} /> : <MatchScoreBadge score={matchScore} />}
+            {aiScore == null && aiScoring && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
+                <Zap className="w-3 h-3 animate-pulse" /> AI scoring…
+              </span>
+            )}
           </div>
           <h3 className="text-base font-semibold text-foreground">{role.title}</h3>
           <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground flex-wrap">
@@ -1243,10 +1253,24 @@ export default function OpportunitiesPage() {
   const eligibilityOutcome = data?.eligibilityOutcome;
   const noProfile = data?.noProfile === true;
 
-  const allRankedRoles = [...roles].sort(
-    (a, b) => (aiScoreMap.get(b.role.id) ?? b.matchScore) - (aiScoreMap.get(a.role.id) ?? a.matchScore),
-  );
-  const recommendedRoles = allRankedRoles.filter((r) => r.recommended);
+  // Unified sort: roles with an AI score (the "% match" badge value) rank first
+  // by that score; roles still awaiting AI scoring rank below them by the
+  // heuristic matchScore. The two scales are never interleaved, so the list
+  // is always ordered by the same percentage shown on each card.
+  const allRankedRoles = [...roles].sort((a, b) => {
+    const aAi = aiScoreMap.get(a.role.id);
+    const bAi = aiScoreMap.get(b.role.id);
+    const aHasAi = aAi !== undefined;
+    const bHasAi = bAi !== undefined;
+    if (aHasAi !== bHasAi) return aHasAi ? -1 : 1;
+    if (aHasAi && bHasAi && bAi !== aAi) return bAi - aAi;
+    if (b.matchScore !== a.matchScore) return b.matchScore - a.matchScore;
+    return a.role.id - b.role.id;
+  });
+  // "Recommended — Apply First" mirrors the unified top 5 so the badge and the
+  // Top 5 band always agree (the server-side `recommended` flag is based on the
+  // heuristic order only).
+  const recommendedRoles = allRankedRoles.slice(0, 5);
 
   const top5Roles = allRankedRoles.slice(0, 5);
   const next5Roles = allRankedRoles.slice(5, 10);
@@ -1481,6 +1505,8 @@ export default function OpportunitiesPage() {
                           <RoleCard
                             item={item}
                             recommended
+                            aiScore={aiScoreMap.get(item.role.id)}
+                            aiScoring={aiMatchesLoading}
                             appliedRoleIds={appliedRoleIds}
                             onApply={handleApply}
                             onSmartApply={handleSmartApply}
@@ -1527,6 +1553,8 @@ export default function OpportunitiesPage() {
                             <RoleCard
                               item={item}
                               recommended={true}
+                              aiScore={aiScoreMap.get(item.role.id)}
+                              aiScoring={aiMatchesLoading}
                               appliedRoleIds={appliedRoleIds}
                               onApply={handleApply}
                               onSmartApply={handleSmartApply}
@@ -1563,6 +1591,8 @@ export default function OpportunitiesPage() {
                             <RoleCard
                               item={item}
                               recommended={false}
+                              aiScore={aiScoreMap.get(item.role.id)}
+                              aiScoring={aiMatchesLoading}
                               appliedRoleIds={appliedRoleIds}
                               onApply={handleApply}
                               onSmartApply={handleSmartApply}
@@ -1599,6 +1629,8 @@ export default function OpportunitiesPage() {
                             <RoleCard
                               item={item}
                               recommended={false}
+                              aiScore={aiScoreMap.get(item.role.id)}
+                              aiScoring={aiMatchesLoading}
                               appliedRoleIds={appliedRoleIds}
                               onApply={handleApply}
                               onSmartApply={handleSmartApply}
@@ -1673,6 +1705,7 @@ export default function OpportunitiesPage() {
         {selectedRole && (
           <RoleDetailModal
             item={selectedRole}
+            aiScore={aiScoreMap.get(selectedRole.role.id)}
             appliedRoleIds={appliedRoleIds}
             onClose={() => setSelectedRole(null)}
             onApply={(roleId) => { handleApply(roleId); setSelectedRole(null); }}
