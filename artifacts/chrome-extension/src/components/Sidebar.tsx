@@ -21,6 +21,12 @@ const COLORS = {
 
 interface SidebarProps {
   jobContext: JobContext;
+  /**
+   * When true (unrecognized sites), the collapsed launcher renders as a small
+   * icon-only badge instead of the labelled pill, so the extension stays
+   * unobtrusive during normal browsing.
+   */
+  minimal?: boolean;
   onGetToken: () => Promise<string | null>;
   onLogApplication: (companyName: string, jobTitle: string, pageUrl: string) => Promise<void>;
 }
@@ -107,7 +113,7 @@ function useStreamAnswer(getToken: () => Promise<string | null>) {
   return { answer, streaming, error, generate, setAnswer };
 }
 
-export function Sidebar({ jobContext, onGetToken, onLogApplication }: SidebarProps) {
+export function Sidebar({ jobContext, minimal = false, onGetToken, onLogApplication }: SidebarProps) {
   const [open, setOpen] = useState(false);
   const [question, setQuestion] = useState("");
   const [copied, setCopied] = useState(false);
@@ -136,9 +142,13 @@ export function Sidebar({ jobContext, onGetToken, onLogApplication }: SidebarPro
     }
   };
 
+  // On unrecognized sites the collapsed launcher is a small icon-only badge;
+  // on known job boards it's the full labelled pill.
+  const compact = minimal && !open;
   const pill = (
     <button
       onClick={() => setOpen((o) => !o)}
+      title="JOBSAGE assistant"
       style={{
         position: "fixed",
         bottom: 24,
@@ -146,8 +156,12 @@ export function Sidebar({ jobContext, onGetToken, onLogApplication }: SidebarPro
         zIndex: 2147483646,
         display: "flex",
         alignItems: "center",
-        gap: 8,
-        padding: "10px 18px",
+        justifyContent: "center",
+        gap: compact ? 0 : 8,
+        padding: compact ? 0 : "10px 18px",
+        width: compact ? 36 : undefined,
+        height: compact ? 36 : undefined,
+        opacity: compact ? 0.75 : 1,
         background: COLORS.pillBg,
         color: COLORS.pillText,
         fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
@@ -156,17 +170,17 @@ export function Sidebar({ jobContext, onGetToken, onLogApplication }: SidebarPro
         border: "none",
         borderRadius: 9999,
         cursor: "pointer",
-        boxShadow: "0 4px 14px rgba(0,0,0,0.25)",
+        boxShadow: compact ? "0 2px 8px rgba(0,0,0,0.2)" : "0 4px 14px rgba(0,0,0,0.25)",
         userSelect: "none",
       }}
       aria-label={open ? "Close JOBSAGE" : "Open JOBSAGE"}
     >
-      <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <svg width={compact ? 16 : 18} height={compact ? 16 : 18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <path d="M21 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6" />
         <polyline points="16 3 21 3 21 8" />
         <line x1={10} y1={14} x2={21} y2={3} />
       </svg>
-      JOBSAGE
+      {!compact && "JOBSAGE"}
     </button>
   );
 

@@ -55,6 +55,11 @@ export function useSmartApplyExtension() {
   return { installed, dismissed, dismiss };
 }
 
+/** Synchronous check for the extension's content-script marker element. */
+export function isExtensionInstalled(): boolean {
+  return !!document.getElementById(EXTENSION_MARKER_ID);
+}
+
 function downloadUrl(): string {
   return `${import.meta.env.BASE_URL}jobsage-smart-apply-extension.zip`;
 }
@@ -207,6 +212,128 @@ export function SmartApplyExtensionNudge({ open, onClose }: { open: boolean; onC
       </motion.div>
     </AnimatePresence>
   );
+}
+
+/**
+ * Blocking modal shown when a user tries to apply without the Smart Apply
+ * extension installed. Applying requires the extension so every outbound
+ * application is tracked in the user's JOBSAGE tracker.
+ *
+ * `onProceed` is called after a successful re-check (extension detected) so
+ * the caller can resume the apply action the user originally intended.
+ */
+export function ExtensionRequiredModal({
+  open,
+  onClose,
+  onProceed,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onProceed?: () => void;
+}) {
+  const [checking, setChecking] = useState(false);
+  const [notFound, setNotFound] = useState(false);
+
+  if (!open) return null;
+
+  function handleRecheck() {
+    setChecking(true);
+    setNotFound(false);
+    // Give the content script a brief moment in case it was just installed.
+    setTimeout(() => {
+      setChecking(false);
+      if (isExtensionInstalled()) {
+        onClose();
+        onProceed?.();
+      } else {
+        setNotFound(true);
+      }
+    }, 600);
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        className="relative z-10 w-full max-w-md bg-background border border-border rounded-2xl shadow-2xl p-6"
+      >
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+              <Chrome className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-foreground">Install the Smart Apply extension to apply</h3>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
+            title="Close"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <p className="text-sm text-muted-foreground mb-4">
+          JOBSAGE uses the free Smart Apply Chrome extension to track every application you make — on employer sites,
+          job boards, and here on JOBSAGE — so nothing gets lost from your tracker. Applying requires it to be
+          installed.
+        </p>
+        <div className="p-3 rounded-xl bg-muted/40 border border-border mb-4">
+          <p className="text-xs font-semibold text-foreground mb-2">Install in under a minute:</p>
+          <InstallInstructions />
+        </div>
+        {notFound && (
+          <p className="text-xs text-destructive mb-3">
+            We still can&apos;t detect the extension. After installing, refresh this page and try again.
+          </p>
+        )}
+        <div className="flex items-center gap-3">
+          <Button className="flex-1 gap-2" onClick={handleRecheck} disabled={checking}>
+            <CheckCircle2 className="w-4 h-4" />
+            {checking ? "Checking…" : "I've installed it — re-check"}
+          </Button>
+          <button className="text-xs text-muted-foreground hover:text-foreground transition-colors" onClick={onClose}>
+            Not now
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+/**
+ * Gate hook for apply flows: `requireExtension(action)` runs `action` only if
+ * the extension is detected; otherwise it opens the install-required modal and
+ * resumes `action` after a successful re-check. Render `gateModal` once.
+ */
+export function useExtensionGate() {
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+  const [gateOpen, setGateOpen] = useState(false);
+
+  const requireExtension = useCallback((action: () => void) => {
+    if (isExtensionInstalled()) {
+      action();
+    } else {
+      setPendingAction(() => action);
+      setGateOpen(true);
+    }
+  }, []);
+
+  const gateModal = (
+    <ExtensionRequiredModal
+      open={gateOpen}
+      onClose={() => setGateOpen(false)}
+      onProceed={() => {
+        pendingAction?.();
+        setPendingAction(null);
+      }}
+    />
+  );
+
+  return { requireExtension, gateModal };
 }
 
 /** Returns true if the one-time post-apply nudge should show, marking it as shown. */

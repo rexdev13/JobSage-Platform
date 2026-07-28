@@ -120,6 +120,21 @@ function scrapeFallback(): Partial<JobContext> {
   return { jobTitle, companyName };
 }
 
+/**
+ * True when the current host is one of the job boards we have a dedicated
+ * scraper for (or JOBSAGE itself). On unrecognized sites the extension stays
+ * unobtrusive: the sidebar collapses to a small badge by default.
+ */
+export function isRecognizedJobBoard(): boolean {
+  const host = location.hostname;
+  return (
+    host.includes("nhs.uk") ||
+    host.includes("trac.jobs") ||
+    host.includes("myworkdayjobs.com") ||
+    host.includes("jobsage.co.uk")
+  );
+}
+
 export function scrapeJobContext(): JobContext {
   const host = location.hostname;
 

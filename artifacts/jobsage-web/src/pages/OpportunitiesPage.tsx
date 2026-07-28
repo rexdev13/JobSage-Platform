@@ -64,6 +64,7 @@ import {
   SmartApplyExtensionBanner,
   SmartApplyExtensionNudge,
   shouldShowExtensionNudge,
+  useExtensionGate,
 } from "@/components/SmartApplyExtensionPrompt";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -607,6 +608,7 @@ function RoleCard({
   onViewDetail,
   onCoverLetter,
   onExternalApply,
+  requireExtension,
   recommended,
   aiScore,
   aiScoring,
@@ -618,6 +620,7 @@ function RoleCard({
   onViewDetail: (item: MatchedRole) => void;
   onCoverLetter: (role: MatchedRole["role"]) => void;
   onExternalApply?: () => void;
+  requireExtension: (action: () => void) => void;
   recommended?: boolean;
   aiScore?: number;
   aiScoring?: boolean;
@@ -810,7 +813,7 @@ function RoleCard({
             <>
               <button
                 type="button"
-                onClick={handleApplyClick}
+                onClick={() => requireExtension(() => void handleApplyClick())}
                 disabled={applyChecking}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-wait"
               >
@@ -1198,6 +1201,8 @@ export default function OpportunitiesPage() {
   const [smartApplyRole, setSmartApplyRole] = useState<{ id: number; title: string } | null>(null);
   const [coverLetterRole, setCoverLetterRole] = useState<MatchedRole["role"] | null>(null);
   const [showExtensionNudge, setShowExtensionNudge] = useState(false);
+  // Applying requires the Smart Apply extension so outbound applications are tracked.
+  const { requireExtension, gateModal } = useExtensionGate();
 
   function handleExternalApply() {
     if (shouldShowExtensionNudge()) setShowExtensionNudge(true);
@@ -1302,11 +1307,15 @@ export default function OpportunitiesPage() {
       });
       return;
     }
-    setSmartApplyRole({ id: roleId, title: roleTitle });
+    requireExtension(() => setSmartApplyRole({ id: roleId, title: roleTitle }));
   }
 
   function handleApply(roleId: number) {
     if (appliedRoleIds.includes(roleId)) return;
+    requireExtension(() => doMarkApplication(roleId));
+  }
+
+  function doMarkApplication(roleId: number) {
     markApplicationMutation.mutate(
       { data: { roleId } },
       {
@@ -1492,6 +1501,7 @@ export default function OpportunitiesPage() {
                             onSmartApply={handleSmartApply}
                             onViewDetail={setSelectedRole}
                             onCoverLetter={setCoverLetterRole}
+                            requireExtension={requireExtension}
                             onExternalApply={handleExternalApply}
                           />
                         </motion.div>
@@ -1540,6 +1550,7 @@ export default function OpportunitiesPage() {
                               onSmartApply={handleSmartApply}
                               onViewDetail={setSelectedRole}
                               onCoverLetter={setCoverLetterRole}
+                            requireExtension={requireExtension}
                               onExternalApply={handleExternalApply}
                             />
                           </motion.div>
@@ -1578,6 +1589,7 @@ export default function OpportunitiesPage() {
                               onSmartApply={handleSmartApply}
                               onViewDetail={setSelectedRole}
                               onCoverLetter={setCoverLetterRole}
+                            requireExtension={requireExtension}
                               onExternalApply={handleExternalApply}
                             />
                           </motion.div>
@@ -1616,6 +1628,7 @@ export default function OpportunitiesPage() {
                               onSmartApply={handleSmartApply}
                               onViewDetail={setSelectedRole}
                               onCoverLetter={setCoverLetterRole}
+                            requireExtension={requireExtension}
                               onExternalApply={handleExternalApply}
                             />
                           </motion.div>
@@ -1721,6 +1734,7 @@ export default function OpportunitiesPage() {
 
       {/* Smart Apply extension nudge (after clicking through to an employer site) */}
       <SmartApplyExtensionNudge open={showExtensionNudge} onClose={() => setShowExtensionNudge(false)} />
+      {gateModal}
 
     </AppLayout>
   );
