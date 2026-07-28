@@ -97,6 +97,19 @@ const STATUS_CONFIG: Record<
 const PLATFORM_STATUSES = ["link_clicked", "applied", "shortlisted", "under_review", "interview", "interview_invited", "offer", "rejected", "no_response"] as const;
 const SPECULATIVE_STATUSES = ["cv_sent", "under_review", "interview_invited", "offer", "rejected"] as const;
 
+// Statuses (standard + speculative) that indicate the employer has responded.
+const REPLIED_STATUSES = new Set([
+  "acknowledged",
+  "under_review",
+  "shortlisted",
+  "interview",
+  "interview_invited",
+  "offer",
+  "rejected",
+]);
+
+const isReplied = (a: { status: string }) => REPLIED_STATUSES.has(a.status);
+
 type ApplicationKind = "formal" | "speculative" | "website";
 
 type DeliveryRoute = "employer_account" | "sponsor_contact_email" | "ai_enrichment" | "ops_fallback";
@@ -405,6 +418,9 @@ export default function ApplicationsPage() {
     ? applications.filter((a) => a.applicationKind === "speculative")
     : applications.filter((a) => a.applicationKind === "website");
 
+  const repliedApps = filtered.filter(isReplied);
+  const otherApps = filtered.filter((a) => !isReplied(a));
+
   const tabs: { id: CategoryTab; label: string; icon: React.ElementType; count: number }[] = [
     { id: "all", label: "All", icon: ClipboardList, count: applications.length },
     { id: "website", label: "Company Website", icon: Globe, count: stats?.websiteCount ?? applications.filter((a) => a.applicationKind === "website").length },
@@ -500,14 +516,46 @@ export default function ApplicationsPage() {
             </Button>
           </Card>
         ) : (
-          <div className="flex flex-col gap-4">
-            {filtered.map((app) => (
-              <ApplicationCard
-                key={`${app.applicationKind ?? "formal"}-${app.id}`}
-                application={app}
-                onStatusUpdated={() => void refetch()}
-              />
-            ))}
+          <div className="flex flex-col gap-6">
+            {repliedApps.length > 0 && (
+              <section className="flex flex-col gap-4">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4 text-emerald-600" />
+                  <h2 className="text-sm font-semibold text-foreground">Replied</h2>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
+                    {repliedApps.length}
+                  </span>
+                  <span className="text-xs text-muted-foreground">Employer has responded</span>
+                </div>
+                {repliedApps.map((app) => (
+                  <ApplicationCard
+                    key={`${app.applicationKind ?? "formal"}-${app.id}`}
+                    application={app}
+                    onStatusUpdated={() => void refetch()}
+                  />
+                ))}
+              </section>
+            )}
+            {otherApps.length > 0 && (
+              <section className="flex flex-col gap-4">
+                {repliedApps.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-muted-foreground" />
+                    <h2 className="text-sm font-semibold text-foreground">Awaiting Response</h2>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-muted-foreground/10 text-muted-foreground">
+                      {otherApps.length}
+                    </span>
+                  </div>
+                )}
+                {otherApps.map((app) => (
+                  <ApplicationCard
+                    key={`${app.applicationKind ?? "formal"}-${app.id}`}
+                    application={app}
+                    onStatusUpdated={() => void refetch()}
+                  />
+                ))}
+              </section>
+            )}
           </div>
         )}
       </PageTransition>
