@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, PageTransition, Button } from "@/components/ui-enhanced";
 import { SponsorVacancyApplyModal } from "@/components/SponsorVacancyApplyModal";
-import { MarkWebsiteApplicationModal } from "@/components/MarkWebsiteApplicationModal";
 import { getListMyApplicationsQueryKey } from "@workspace/api-client-react";
 import { openTrackedSponsorVacancy } from "@/lib/trackedOutbound";
 import {
@@ -425,29 +424,7 @@ export default function SponsorLicencesPage() {
   const [selectedVacancy, setSelectedVacancy] = useState<SelectedVacancy | null>(null);
   const [applyModalVacancy, setApplyModalVacancy] = useState<SelectedVacancy | null>(null);
   const [speculativeModalTarget, setSpeculativeModalTarget] = useState<{ companyName: string; companyId: number } | null>(null);
-  const [websiteAppModal, setWebsiteAppModal] = useState<{ companyName: string } | null>(null);
-  const [websiteAppPending, setWebsiteAppPending] = useState(false);
   const base = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-  async function handleWebsiteAppSubmit({ companyName, applicationUrl, notes }: { companyName: string; applicationUrl: string; notes: string }) {
-    setWebsiteAppPending(true);
-    try {
-      const res = await fetch(`${base}/api/applications`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ applicationType: "website", companyName, applicationUrl: applicationUrl || null, notes: notes || null }),
-      });
-      if (!res.ok) throw new Error("Failed to submit");
-      void queryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
-      setWebsiteAppModal(null);
-      toast({ title: "Application logged", description: `Your application to ${companyName} has been saved to your tracker.` });
-    } catch {
-      toast({ title: "Error", description: "Could not save application. Please try again.", variant: "destructive" });
-    } finally {
-      setWebsiteAppPending(false);
-    }
-  }
 
   function handleOpenApplyModal(vacancy: SelectedVacancy) {
     if (!hasCvUploaded) {
@@ -1392,15 +1369,6 @@ export default function SponsorLicencesPage() {
                                   <><Send className="w-3.5 h-3.5" /> Send my CV</>
                                 )}
                               </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-xs gap-1.5"
-                                onClick={() => setWebsiteAppModal({ companyName: c.organisationName })}
-                                title="Log an application you submitted on this company's own website"
-                              >
-                                <Globe className="w-3.5 h-3.5" /> Mark as applied
-                              </Button>
                             </div>
                           </div>
 
@@ -1731,14 +1699,6 @@ export default function SponsorLicencesPage() {
         )}
       </AnimatePresence>
 
-      {websiteAppModal && (
-        <MarkWebsiteApplicationModal
-          companyName={websiteAppModal.companyName}
-          onSubmit={(data) => void handleWebsiteAppSubmit(data)}
-          onClose={() => setWebsiteAppModal(null)}
-          isPending={websiteAppPending}
-        />
-      )}
     </AppLayout>
   );
 }
