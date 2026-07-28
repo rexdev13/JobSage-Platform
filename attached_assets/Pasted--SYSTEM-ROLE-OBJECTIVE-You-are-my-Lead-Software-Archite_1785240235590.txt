@@ -1,0 +1,18 @@
+### SYSTEM ROLE & OBJECTIVE
+You are my Lead Software Architect. I need you to run a strict verification audit on our recent refinement sprint (Tasks #387 through #391) to confirm that all required code changes have been successfully implemented, merged, and deployed without regressions.
+
+---
+
+### EXECUTION TASKS
+Please check the current codebase and git status for the following 5 tasks and provide a verification report:
+
+1. **Task #387 (Opportunities Sorting):** Inspect `OpportunitiesPage.tsx` and the backend `/api/roles` route. Confirm that sorting strictly respects `match_percentage` / AI score without interleaving heuristic fallbacks in a way that breaks the visual top-to-bottom percentage order.
+2. **Task #388 (Tracker Polish & "Replied" Status):** Check our `ApplicationTracker` components and `ApplicationStatus` enum. Confirm that a distinct **"Replied" status/section** is now implemented at the top of the tracker, and verify that the visual contrast between "Speculative CV" and "Applied via JOBSAGE" badges has been improved.
+3. **Task #389 (Sponsor Zero-Vacancy Sorting):** Inspect `sponsorLicences.ts` and related UI. Confirm that the default database query or frontend sort now explicitly pushes companies with `vacancies = 0` to the very bottom of the list.
+4. **Task #390 (Scrubbing Manual "Mark as Applied"):** Check `SponsorLicencesPage.tsx`, `OpportunitiesPage.tsx`, and `ApplicationsPage.tsx`. Confirm that the prominent manual "Mark as Applied" buttons have been removed in favor of our automated `link_clicked` tracking, leaving only our intended low-prominence fallback.
+5. **Task #391 (AI Copilot Discoverability):** Inspect our dashboard/web UI components. Confirm that an onboarding banner, card, or prominent download link for the **"JOBSAGE Copilot" Chrome Extension** has been added so candidates can easily discover it.
+
+---
+
+### REQUIRED DELIVERABLE
+Provide a clean, bulleted status report for Tasks #387 to #391 stating clearly whether each task is **"✅ Verified & Live"** or **"⚠️ Needs Attention"**, along with the exact file names where the changes were made.
