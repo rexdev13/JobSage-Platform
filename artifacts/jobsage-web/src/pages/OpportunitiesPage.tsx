@@ -60,6 +60,11 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { DisclaimerBanner } from "@/components/ui/DisclaimerBanner";
+import {
+  SmartApplyExtensionBanner,
+  SmartApplyExtensionNudge,
+  shouldShowExtensionNudge,
+} from "@/components/SmartApplyExtensionPrompt";
 import { motion, AnimatePresence } from "framer-motion";
 
 type Tab = "board" | "employers" | "applications";
@@ -601,6 +606,7 @@ function RoleCard({
   onSmartApply,
   onViewDetail,
   onCoverLetter,
+  onExternalApply,
   recommended,
   aiScore,
   aiScoring,
@@ -611,6 +617,7 @@ function RoleCard({
   onSmartApply: (roleId: number, roleTitle: string) => void;
   onViewDetail: (item: MatchedRole) => void;
   onCoverLetter: (role: MatchedRole["role"]) => void;
+  onExternalApply?: () => void;
   recommended?: boolean;
   aiScore?: number;
   aiScoring?: boolean;
@@ -644,6 +651,7 @@ function RoleCard({
           title: "Application logged!",
           description: "Track your progress under the 'Company Website' tab in your Tracker.",
         });
+        onExternalApply?.();
       } else {
         win?.close();
         let message = "This vacancy is no longer accepting applications (closed by employer).";
@@ -1189,6 +1197,11 @@ export default function OpportunitiesPage() {
   const [employerSearch, setEmployerSearch] = useState(() => new URLSearchParams(window.location.search).get("q") ?? "");
   const [smartApplyRole, setSmartApplyRole] = useState<{ id: number; title: string } | null>(null);
   const [coverLetterRole, setCoverLetterRole] = useState<MatchedRole["role"] | null>(null);
+  const [showExtensionNudge, setShowExtensionNudge] = useState(false);
+
+  function handleExternalApply() {
+    if (shouldShowExtensionNudge()) setShowExtensionNudge(true);
+  }
 
   const queryClient = useQueryClient();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
@@ -1425,6 +1438,9 @@ export default function OpportunitiesPage() {
               />
             )}
 
+            {/* Smart Apply extension banner */}
+            {!noProfile && roles.length > 0 && <SmartApplyExtensionBanner />}
+
             {!noProfile && roles.length === 0 && (
               <Card className="p-8 text-center">
                 <Briefcase className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
@@ -1476,6 +1492,7 @@ export default function OpportunitiesPage() {
                             onSmartApply={handleSmartApply}
                             onViewDetail={setSelectedRole}
                             onCoverLetter={setCoverLetterRole}
+                            onExternalApply={handleExternalApply}
                           />
                         </motion.div>
                       ))}
@@ -1523,6 +1540,7 @@ export default function OpportunitiesPage() {
                               onSmartApply={handleSmartApply}
                               onViewDetail={setSelectedRole}
                               onCoverLetter={setCoverLetterRole}
+                              onExternalApply={handleExternalApply}
                             />
                           </motion.div>
                         ))}
@@ -1560,6 +1578,7 @@ export default function OpportunitiesPage() {
                               onSmartApply={handleSmartApply}
                               onViewDetail={setSelectedRole}
                               onCoverLetter={setCoverLetterRole}
+                              onExternalApply={handleExternalApply}
                             />
                           </motion.div>
                         ))}
@@ -1597,6 +1616,7 @@ export default function OpportunitiesPage() {
                               onSmartApply={handleSmartApply}
                               onViewDetail={setSelectedRole}
                               onCoverLetter={setCoverLetterRole}
+                              onExternalApply={handleExternalApply}
                             />
                           </motion.div>
                         ))}
@@ -1698,6 +1718,9 @@ export default function OpportunitiesPage() {
           />
         )}
       </AnimatePresence>
+
+      {/* Smart Apply extension nudge (after clicking through to an employer site) */}
+      <SmartApplyExtensionNudge open={showExtensionNudge} onClose={() => setShowExtensionNudge(false)} />
 
     </AppLayout>
   );
