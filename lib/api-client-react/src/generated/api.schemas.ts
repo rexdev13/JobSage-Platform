@@ -467,6 +467,10 @@ export interface MatchedRole {
   isEligible: boolean;
   /** Match score from 0-100 */
   matchScore: number;
+  /** AI match score from 0-100, when a cached score is available */
+  aiScore?: number | null;
+  /** AI-generated explanation of this match, when a cached score is available */
+  aiExplanation?: string | null;
   /** Specific gaps preventing eligibility for this role */
   eligibilityGaps?: string[];
   /** True for the top-5 highest-matching roles — should be highlighted as "Apply First" */

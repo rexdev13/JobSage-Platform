@@ -280,11 +280,25 @@ router.get("/roles", async (req, res): Promise<void> => {
     }
   }
 
-  const appliedApps = await db
-    .select({ roleId: applicationsTable.roleId })
-    .from(applicationsTable)
-    .where(eq(applicationsTable.userId, userId));
+  const [appliedApps, cachedAiScores] = await Promise.all([
+    db.select({ roleId: applicationsTable.roleId }).from(applicationsTable).where(eq(applicationsTable.userId, userId)),
+    db
+      .select()
+      .from(candidateMatchScoresTable)
+      .where(
+        and(
+          eq(candidateMatchScoresTable.userId, userId),
+          gte(candidateMatchScoresTable.scoredAt, new Date(Date.now() - SCORE_CACHE_TTL_MS)),
+        ),
+      ),
+  ]);
   const appliedRoleIds = appliedApps.map((a) => a.roleId);
+
+  // Build a lookup from the persisted AI scores so the roles response can
+  // sort and badge each card with the same value the /my-matches strip uses.
+  const aiScoreMap = new Map(
+    cachedAiScores.map((s) => [s.roleId, { score: s.score, explanation: s.aiExplanation }]),
+  );
 
   const rulesetVersion = decision?.rulesetVersion ?? "—";
   const decisionRecordId = decision?.id ?? null;
@@ -320,6 +334,8 @@ router.get("/roles", async (req, res): Promise<void> => {
         ? `Not yet eligible for this role. Complete your remediation steps to qualify.`
         : `Run your eligibility assessment to see your match status for this role.`;
 
+    const cached = aiScoreMap.get(role.id);
+
     return {
       role,
       explanation,
@@ -329,6 +345,8 @@ router.get("/roles", async (req, res): Promise<void> => {
       sponsorshipFeasibility,
       isEligible,
       matchScore: computeMatchScore(role, isEligible, profile.requiresSponsorship),
+      aiScore: cached?.score ?? null,
+      aiExplanation: cached?.explanation ?? null,
       eligibilityGaps,
       contactEmail: role.contactEmail ?? null,
       contactPhone: role.contactPhone ?? null,
@@ -339,7 +357,17 @@ router.get("/roles", async (req, res): Promise<void> => {
     };
   });
 
-  result.sort((a, b) => b.matchScore - a.matchScore);
+  // Unified sort: roles with an AI score rank first (by that score); roles
+  // still awaiting AI scoring rank below them by the heuristic matchScore.
+  // This mirrors the sort the client previously applied after merging two queries.
+  result.sort((a, b) => {
+    const aHasAi = a.aiScore !== null;
+    const bHasAi = b.aiScore !== null;
+    if (aHasAi !== bHasAi) return aHasAi ? -1 : 1;
+    if (aHasAi && bHasAi && b.aiScore !== a.aiScore) return (b.aiScore ?? 0) - (a.aiScore ?? 0);
+    if (b.matchScore !== a.matchScore) return b.matchScore - a.matchScore;
+    return a.role.id - b.role.id;
+  });
 
   const rankedRoles = result.map((r, i) => ({ ...r, recommended: i < 5 }));
 

@@ -1246,37 +1246,18 @@ export default function OpportunitiesPage() {
     );
   }
 
-  const aiScoreMap = new Map(
-    (aiMatchesData?.matches ?? []).map((m) => [m.roleId, m.aiScore]),
-  );
-
   const roles = data?.roles ?? [];
   const appliedRoleIds = data?.appliedRoleIds ?? [];
   const eligibilityOutcome = data?.eligibilityOutcome;
   const noProfile = data?.noProfile === true;
 
-  // Unified sort: roles with an AI score (the "% match" badge value) rank first
-  // by that score; roles still awaiting AI scoring rank below them by the
-  // heuristic matchScore. The two scales are never interleaved, so the list
-  // is always ordered by the same percentage shown on each card.
-  const allRankedRoles = [...roles].sort((a, b) => {
-    const aAi = aiScoreMap.get(a.role.id);
-    const bAi = aiScoreMap.get(b.role.id);
-    const aHasAi = aAi !== undefined;
-    const bHasAi = bAi !== undefined;
-    if (aHasAi !== bHasAi) return aHasAi ? -1 : 1;
-    if (aHasAi && bHasAi && bAi !== aAi) return bAi - aAi;
-    if (b.matchScore !== a.matchScore) return b.matchScore - a.matchScore;
-    return a.role.id - b.role.id;
-  });
-  // "Recommended — Apply First" mirrors the unified top 5 so the badge and the
-  // Top 5 band always agree (the server-side `recommended` flag is based on the
-  // heuristic order only).
-  const recommendedRoles = allRankedRoles.slice(0, 5);
-
-  const top5Roles = allRankedRoles.slice(0, 5);
-  const next5Roles = allRankedRoles.slice(5, 10);
-  const remainingRoles = allRankedRoles.slice(10);
+  // The server now embeds AI scores and sorts by the same unified key the UI
+  // previously computed client-side (AI score when cached, heuristic otherwise).
+  // Use the server's order directly — no client-side re-sort needed.
+  const recommendedRoles = roles.slice(0, 5);
+  const top5Roles = roles.slice(0, 5);
+  const next5Roles = roles.slice(5, 10);
+  const remainingRoles = roles.slice(10);
 
   const employerGroups = Object.entries(
     roles.reduce<Record<string, MatchedRole[]>>((acc, r) => {
@@ -1350,7 +1331,7 @@ export default function OpportunitiesPage() {
               {noProfile
                 ? "Complete your profile to see a personalised ranked list."
                 : data
-                ? `${allRankedRoles.length} vacancies ranked by fit — highest match first`
+                ? `${roles.length} vacancies ranked by fit — highest match first`
                 : "All vacancies ranked by how well they match your profile."}
             </p>
             {(vacancyStatsData?.totalVacanciesFound ?? 0) > 0 && (
@@ -1494,7 +1475,7 @@ export default function OpportunitiesPage() {
                           <RoleCard
                             item={item}
                             recommended
-                            aiScore={aiScoreMap.get(item.role.id)}
+                            aiScore={item.aiScore ?? undefined}
                             aiScoring={aiMatchesLoading}
                             appliedRoleIds={appliedRoleIds}
                             onApply={handleApply}
@@ -1543,7 +1524,7 @@ export default function OpportunitiesPage() {
                             <RoleCard
                               item={item}
                               recommended={true}
-                              aiScore={aiScoreMap.get(item.role.id)}
+                              aiScore={item.aiScore ?? undefined}
                               aiScoring={aiMatchesLoading}
                               appliedRoleIds={appliedRoleIds}
                               onApply={handleApply}
@@ -1582,7 +1563,7 @@ export default function OpportunitiesPage() {
                             <RoleCard
                               item={item}
                               recommended={false}
-                              aiScore={aiScoreMap.get(item.role.id)}
+                              aiScore={item.aiScore ?? undefined}
                               aiScoring={aiMatchesLoading}
                               appliedRoleIds={appliedRoleIds}
                               onApply={handleApply}
@@ -1621,7 +1602,7 @@ export default function OpportunitiesPage() {
                             <RoleCard
                               item={item}
                               recommended={false}
-                              aiScore={aiScoreMap.get(item.role.id)}
+                              aiScore={item.aiScore ?? undefined}
                               aiScoring={aiMatchesLoading}
                               appliedRoleIds={appliedRoleIds}
                               onApply={handleApply}
@@ -1698,7 +1679,7 @@ export default function OpportunitiesPage() {
         {selectedRole && (
           <RoleDetailModal
             item={selectedRole}
-            aiScore={aiScoreMap.get(selectedRole.role.id)}
+            aiScore={selectedRole.aiScore ?? undefined}
             appliedRoleIds={appliedRoleIds}
             onClose={() => setSelectedRole(null)}
             onApply={(roleId) => { handleApply(roleId); setSelectedRole(null); }}
