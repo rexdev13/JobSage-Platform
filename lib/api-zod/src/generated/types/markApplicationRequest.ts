@@ -5,10 +5,17 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { MarkApplicationRequestApplicationType } from "./markApplicationRequestApplicationType";
 
 export interface MarkApplicationRequest {
-  roleId: number;
+  /** Required for platform applications; omitted for website applications. */
+  roleId?: number;
   notes?: string;
   smartApply?: boolean | null;
   cvDocumentId?: number | null;
+  /** Defaults to platform. Use website to log an application made on the company's own site. */
+  applicationType?: MarkApplicationRequestApplicationType;
+  applicationUrl?: string | null;
+  /** Required when applicationType is website. */
+  companyName?: string;
 }

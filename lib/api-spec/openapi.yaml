@@ -3714,6 +3714,14 @@ components:
         matchScore:
           type: number
           description: Match score from 0-100
+        aiScore:
+          type: number
+          nullable: true
+          description: AI match score from 0-100, when a cached score is available
+        aiExplanation:
+          type: string
+          nullable: true
+          description: AI-generated explanation of this match, when a cached score is available
         eligibilityGaps:
           type: array
           items:
@@ -3981,10 +3989,10 @@ components:
 
     MarkApplicationRequest:
       type: object
-      required: [roleId]
       properties:
         roleId:
           type: integer
+          description: Required for platform applications; omitted for website applications.
         notes:
           type: string
         smartApply:
@@ -3993,6 +4001,16 @@ components:
         cvDocumentId:
           type: integer
           nullable: true
+        applicationType:
+          type: string
+          enum: [platform, website]
+          description: Defaults to platform. Use website to log an application made on the company's own site.
+        applicationUrl:
+          type: string
+          nullable: true
+        companyName:
+          type: string
+          description: Required when applicationType is website.
 
     RoleList:
       type: object

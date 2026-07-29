@@ -12,7 +12,10 @@ import {
   useListSponsorLicences,
   useListSpeculativeApplications,
   useCheckAllSponsorLicenceVacancies,
+  useCheckSponsorLicenceVacancies,
   useCheckSponsorLicenceVacancyBatch,
+  useMarkApplication,
+  getGetSponsorLicenceVacanciesQueryKey,
   useGetCheckAllSponsorLicenceVacanciesStatus,
   useGetSponsorLicenceVacancies,
   useGetSponsorLicenceVacancyStats,
@@ -27,7 +30,7 @@ import {
   type SponsorLicenceVacancyMatch,
   type SponsorLicenceEnrichResponse,
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Building2,
@@ -155,6 +158,8 @@ function VacancyMatchPanel({
   onSendCV,
   onSelectVacancy,
   onApply,
+  onWebsiteApply,
+  onScoresReady,
   requireExtension,
 }: {
   companyId: number;
@@ -167,6 +172,8 @@ function VacancyMatchPanel({
   onSendCV: () => void;
   onSelectVacancy: (v: SelectedVacancy) => void;
   onApply: (v: SelectedVacancy) => void;
+  onWebsiteApply: () => void;
+  onScoresReady: (score: number | null) => void;
   requireExtension: (action: () => void) => void;
 }) {
   const { data, isLoading } = useGetSponsorLicenceVacancies(companyId);
@@ -175,16 +182,49 @@ function VacancyMatchPanel({
   const vacancies = data?.vacancies ?? [];
   const noApplyLinks = vacancies.length > 0 && vacancies.every((v) => !v.url);
 
+  // On-demand vacancy check: if this employer has never been checked, kick
+  // off a fresh check so "Check Best Fit" always produces a result.
+  const checkMutation = useCheckSponsorLicenceVacancies();
+  const triggeredCheckRef = useRef(false);
+  const neverChecked = !isLoading && vacancies.length === 0 && data?.lastCheckedAt == null;
+  useEffect(() => {
+    if (neverChecked && !triggeredCheckRef.current) {
+      triggeredCheckRef.current = true;
+      checkMutation.mutate(
+        { id: companyId },
+        {
+          onSuccess: () => {
+            void panelQueryClient.invalidateQueries({ queryKey: getGetSponsorLicenceVacanciesQueryKey(companyId) });
+          },
+        },
+      );
+    }
+  }, [neverChecked, companyId]);
+
+  // Surface the company-level best-fit % (top vacancy score) to the parent so
+  // the "Check Best Fit" button can show it immediately.
+  useEffect(() => {
+    if (!data) return;
+    const scores = (data.vacancies ?? [])
+      .map((v) => v.matchScore)
+      .filter((s): s is number => s != null);
+    onScoresReady(scores.length > 0 ? Math.max(...scores) : null);
+  }, [data]);
+
+  const checkInProgress = isLoading || checkMutation.isPending;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: -4 }}
       animate={{ opacity: 1, y: 0 }}
       className="mt-3 ml-14"
     >
-      {isLoading ? (
+      {checkInProgress ? (
         <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="w-4 h-4 animate-spin" />
-          Loading matched vacancies…
+          {checkMutation.isPending
+            ? "Checking live vacancies and scoring your best fit — this can take a moment…"
+            : "Loading matched vacancies and scoring your best fit…"}
         </div>
       ) : vacancies.length === 0 && storedVacancyCount != null && storedVacancyCount > 0 ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50/60 dark:bg-amber-950/20 dark:border-amber-800/40 px-4 py-3 space-y-2">
@@ -217,12 +257,19 @@ function VacancyMatchPanel({
           </div>
         </div>
       ) : vacancies.length === 0 ? (
-        <div className="rounded-xl border border-border bg-muted/30 px-4 py-2.5 flex items-center gap-2">
+        <div className="rounded-xl border border-border bg-muted/30 px-4 py-2.5 flex items-center gap-2 flex-wrap">
           <span className="text-xs text-muted-foreground">No current vacancies found on job boards.</span>
+          <button
+            onClick={onWebsiteApply}
+            className="ml-auto text-xs text-primary font-medium hover:underline flex items-center gap-1"
+          >
+            <Globe className="w-3 h-3" />
+            Apply on company website
+          </button>
           <button
             onClick={onSendCV}
             disabled={isSent || sendCVPending}
-            className="ml-auto text-xs text-primary font-medium hover:underline disabled:opacity-50 flex items-center gap-1"
+            className="text-xs text-primary font-medium hover:underline disabled:opacity-50 flex items-center gap-1"
           >
             {isSent ? "CV Sent ✓" : "Send CV speculatively"}
           </button>
@@ -381,6 +428,14 @@ function VacancyMatchPanel({
           <div className="px-4 pb-3 flex flex-wrap gap-2 items-center">
             <Button
               size="sm"
+              variant="outline"
+              className="text-xs gap-1.5 h-7"
+              onClick={onWebsiteApply}
+            >
+              <Globe className="w-3.5 h-3.5" /> Apply on company website
+            </Button>
+            <Button
+              size="sm"
               variant={isSent ? "outline" : "default"}
               className="text-xs gap-1.5 h-7"
               onClick={onSendCV}
@@ -429,6 +484,9 @@ export default function SponsorLicencesPage() {
   const [selectedVacancy, setSelectedVacancy] = useState<SelectedVacancy | null>(null);
   const [applyModalVacancy, setApplyModalVacancy] = useState<SelectedVacancy | null>(null);
   const [speculativeModalTarget, setSpeculativeModalTarget] = useState<{ companyName: string; companyId: number } | null>(null);
+  // Tracks live best-fit score per company once the VacancyMatchPanel scores vacancies
+  const [liveMatchScores, setLiveMatchScores] = useState<Map<number, number | null>>(new Map());
+  const markApplicationMutation = useMarkApplication();
   const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
   // Applying requires the Smart Apply extension so outbound applications are tracked.
@@ -447,6 +505,44 @@ export default function SponsorLicencesPage() {
       setSelectedVacancy(null);
       setApplyModalVacancy(vacancy);
     });
+  }
+
+  function handleWebsiteApply(companyName: string, companyId: number, careersUrl: string | null) {
+    if (careersUrl) {
+      // Open the careers site and log a Company Website application.
+      const win = window.open(careersUrl, "_blank", "noopener,noreferrer");
+      if (win) win.opener = null;
+      markApplicationMutation.mutate(
+        {
+          data: {
+            applicationType: "website",
+            applicationUrl: careersUrl,
+            companyName,
+          } as Parameters<typeof markApplicationMutation.mutate>[0]["data"],
+        },
+        {
+          onSuccess: () => {
+            toast({
+              title: "Application logged!",
+              description: "Track your progress under the 'Company Website' tab in your Tracker.",
+            });
+            void queryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
+          },
+        },
+      );
+    } else {
+      // No careers URL yet — open the Contact panel for this company so the
+      // candidate can use "Find Contact Details" to discover the careers site.
+      setExpandedContact((prev) => {
+        const next = new Set(prev);
+        next.add(companyId);
+        return next;
+      });
+      toast({
+        title: "No careers site found yet",
+        description: "Expand the Contact panel to find or discover the employer's website.",
+      });
+    }
   }
   const bookmarkMutation = useBookmarkSponsorLicence();
   const unbookmarkMutation = useUnbookmarkSponsorLicence();
@@ -665,7 +761,7 @@ export default function SponsorLicencesPage() {
   const sectorCounts = countsData?.counts ?? [];
   const totalSponsors = sectorCounts.reduce((acc, s) => acc + s.count, 0);
 
-  const { data, isLoading, isError } = useListSponsorLicences({
+  const sponsorListParams = {
     search: debouncedSearch || undefined,
     route: selectedRoute || undefined,
     industry: selectedIndustry || undefined,
@@ -674,6 +770,14 @@ export default function SponsorLicencesPage() {
     bookmarkedOnly: bookmarkedOnly || undefined,
     page,
     limit: LIMIT,
+  };
+  const { data, isLoading, isError } = useListSponsorLicences(sponsorListParams, {
+    query: {
+      // Keep the previous company list visible while the next page/filter
+      // loads so there's no full-page flash on every filter change.
+      queryKey: getListSponsorLicencesQueryKey(sponsorListParams),
+      placeholderData: keepPreviousData,
+    },
   });
 
   const companies = data?.companies ?? [];
@@ -1329,24 +1433,30 @@ export default function SponsorLicencesPage() {
                                   )}
                                 </button>
 
-                                {/* Check Best Fit CTA */}
-                                <button
-                                  onClick={() => setExpandedVacancies((prev) => {
-                                    const next = new Set(prev);
-                                    if (next.has(c.id)) next.delete(c.id); else next.add(c.id);
-                                    return next;
-                                  })}
-                                  title="View matched vacancies for this employer"
-                                  className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors font-semibold ${
-                                    expandedVacancies.has(c.id)
-                                      ? "bg-primary/15 border-primary/30 text-primary hover:bg-primary/20"
-                                      : "bg-primary text-primary-foreground border-primary hover:bg-primary/90"
-                                  }`}
-                                >
-                                  <Gauge className="w-3.5 h-3.5" />
-                                  ⚡ Check Best Fit{c.matchScore != null ? ` · ${Math.round(c.matchScore)}%` : ""}
-                                  {expandedVacancies.has(c.id) ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                                </button>
+                                {/* Check Best Fit CTA — live score overrides cached matchScore once panel scores on-demand */}
+                                {(() => {
+                                  const liveScore = liveMatchScores.has(c.id) ? liveMatchScores.get(c.id) : undefined;
+                                  const displayScore = liveScore !== undefined ? liveScore : (c.matchScore ?? null);
+                                  return (
+                                    <button
+                                      onClick={() => setExpandedVacancies((prev) => {
+                                        const next = new Set(prev);
+                                        if (next.has(c.id)) next.delete(c.id); else next.add(c.id);
+                                        return next;
+                                      })}
+                                      title="View matched vacancies for this employer"
+                                      className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors font-semibold ${
+                                        expandedVacancies.has(c.id)
+                                          ? "bg-primary/15 border-primary/30 text-primary hover:bg-primary/20"
+                                          : "bg-primary text-primary-foreground border-primary hover:bg-primary/90"
+                                      }`}
+                                    >
+                                      <Gauge className="w-3.5 h-3.5" />
+                                      ⚡ Check Best Fit{displayScore != null ? ` · ${Math.round(displayScore)}%` : ""}
+                                      {expandedVacancies.has(c.id) ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                                    </button>
+                                  );
+                                })()}
 
                               {/* Contact toggle */}
                               <button
@@ -1520,6 +1630,20 @@ export default function SponsorLicencesPage() {
                               onSendCV={() => handleOpenSpeculativeModal(c.organisationName, c.id)}
                               onSelectVacancy={setSelectedVacancy}
                               onApply={handleOpenApplyModal}
+                              onWebsiteApply={() =>
+                                handleWebsiteApply(
+                                  c.organisationName,
+                                  c.id,
+                                  enrichedContacts.get(c.id)?.website ?? c.website ?? null,
+                                )
+                              }
+                              onScoresReady={(score) =>
+                                setLiveMatchScores((prev) => {
+                                  const next = new Map(prev);
+                                  next.set(c.id, score);
+                                  return next;
+                                })
+                              }
                               requireExtension={requireExtension}
                             />
                           )}

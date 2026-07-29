@@ -6,6 +6,7 @@ import { countyToRegion } from "../lib/countyToRegion";
 import { requireAuthenticated, requireRole } from "../middlewares/requireRole";
 import { runVacancyCheck } from "../lib/vacancyCheckHelper";
 import { startCheckAllVacancies, getCheckAllStatus } from "../lib/vacancyCheckAllRunner";
+import { scoreVacanciesForCompany } from "../lib/sponsorVacancyScoring";
 
 const router: IRouter = Router();
 
@@ -221,7 +222,7 @@ router.get("/sponsor-licences/:id/vacancies", requireAuthenticated, async (req, 
         ),
       );
 
-    const scoreRows = await db
+    let scoreRows = await db
       .select()
       .from(sponsorLicenceVacancyScoresTable)
       .where(
@@ -230,7 +231,30 @@ router.get("/sponsor-licences/:id/vacancies", requireAuthenticated, async (req, 
           eq(sponsorLicenceVacancyScoresTable.organisationName, company.organisationName),
         ),
       );
-    const scoreMap = new Map(scoreRows.map((s) => [s.vacancyId, s]));
+    let scoreMap = new Map(scoreRows.map((s) => [s.vacancyId, s]));
+
+    // On-demand best-fit scoring: if any of this employer's vacancies have no
+    // cached score for this candidate, score them now so "Check Best Fit"
+    // always returns a numeric match percentage.
+    const hasUnscored = vacancyRows.some((v) => !scoreMap.has(v.id));
+    if (hasUnscored) {
+      try {
+        await scoreVacanciesForCompany(userId, company.organisationName);
+        scoreRows = await db
+          .select()
+          .from(sponsorLicenceVacancyScoresTable)
+          .where(
+            and(
+              eq(sponsorLicenceVacancyScoresTable.userId, userId),
+              eq(sponsorLicenceVacancyScoresTable.organisationName, company.organisationName),
+            ),
+          );
+        scoreMap = new Map(scoreRows.map((s) => [s.vacancyId, s]));
+      } catch (scoreErr) {
+        // Scoring failure should not block the vacancy list — scores stay null.
+        console.error("[sponsor-licences] on-demand scoring failed:", scoreErr);
+      }
+    }
 
     const [lastCheck] = await db
       .select({ checkedAt: sponsorLicenceVacancyChecksTable.checkedAt })
@@ -658,9 +682,23 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
       };
     });
 
-    // Companies with live vacancies first, alphabetical within each group.
+    // Ordering: confirmed live vacancies first (best match % first within the
+    // group), then companies never checked, then companies confirmed to have
+    // no vacancies. Alphabetical as a stable tie-break within each group.
+    const sortGroup = (c: (typeof annotated)[number]): number => {
+      if (c.hasVacancies) return 0;
+      const checked = lastVacancyCheckedAtByOrg.has(c.organisationName.toLowerCase().trim());
+      return checked ? 2 : 1;
+    };
     annotated.sort((a, b) => {
-      if (a.hasVacancies !== b.hasVacancies) return a.hasVacancies ? -1 : 1;
+      const ga = sortGroup(a);
+      const gb = sortGroup(b);
+      if (ga !== gb) return ga - gb;
+      if (ga === 0) {
+        const sa = a.matchScore ?? -1;
+        const sb = b.matchScore ?? -1;
+        if (sa !== sb) return sb - sa;
+      }
       return a.organisationName.localeCompare(b.organisationName, "en", { sensitivity: "base" });
     });
 

@@ -84,6 +84,74 @@ export async function rescoreVacanciesForUser(userId: string): Promise<{ scored:
 }
 
 /**
+ * Score only this employer's vacancies for a single candidate, on demand.
+ * Used when a candidate presses "Check Best Fit" on a company whose vacancies
+ * have not been scored against their profile yet. Only unscored vacancies are
+ * sent to the AI, so repeat calls are cheap no-ops.
+ */
+export async function scoreVacanciesForCompany(
+  userId: string,
+  organisationName: string,
+): Promise<{ scored: number }> {
+  const [profile] = await db.select().from(profilesTable).where(eq(profilesTable.userId, userId)).limit(1);
+  if (!profile) return { scored: 0 };
+
+  const unscored = await db.execute<UnscoredVacancyRow>(sql`
+    SELECT v.id, v.organisation_name, v.title, v.location, v.description
+    FROM sponsor_licence_vacancies v
+    WHERE v.organisation_name = ${organisationName}
+      AND v.liveness <> 'dead'
+      AND NOT EXISTS (
+        SELECT 1 FROM sponsor_licence_vacancy_scores s
+        WHERE s.vacancy_id = v.id AND s.user_id = ${userId}
+      )
+  `);
+
+  if (unscored.rows.length === 0) return { scored: 0 };
+
+  const vacanciesForScoring: VacancyForScoring[] = unscored.rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    organisationName: r.organisation_name,
+    location: r.location,
+    description: r.description,
+  }));
+
+  const scoreMap = await batchScoreVacancies(toProfileForScoring(profile), vacanciesForScoring);
+
+  await db
+    .insert(sponsorLicenceVacancyScoresTable)
+    .values(
+      unscored.rows.map((r) => {
+        const s = scoreMap.get(r.id);
+        return {
+          userId,
+          vacancyId: r.id,
+          organisationName: r.organisation_name,
+          score: s?.score ?? 50,
+          isEligible: s?.isEligible ?? false,
+          missingRequirements: s?.missingRequirements ?? [],
+          explanation: s?.explanation ?? "Match based on your profile and vacancy details.",
+          scoredAt: new Date(),
+        };
+      }),
+    )
+    .onConflictDoUpdate({
+      target: [sponsorLicenceVacancyScoresTable.userId, sponsorLicenceVacancyScoresTable.vacancyId],
+      set: {
+        organisationName: sql`excluded.organisation_name`,
+        score: sql`excluded.score`,
+        isEligible: sql`excluded.is_eligible`,
+        missingRequirements: sql`excluded.missing_requirements`,
+        explanation: sql`excluded.explanation`,
+        scoredAt: sql`excluded.scored_at`,
+      },
+    });
+
+  return { scored: unscored.rows.length };
+}
+
+/**
  * Rescore vacancies for every candidate with a profile.
  * Used by the daily scheduled job after a full vacancy check pass.
  */

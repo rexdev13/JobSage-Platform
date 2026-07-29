@@ -130,6 +130,7 @@ export * from "./listSponsorLicencesParams";
 export * from "./loginRequest";
 export * from "./logoutSuccess";
 export * from "./markApplicationRequest";
+export * from "./markApplicationRequestApplicationType";
 export * from "./markMessageRead200";
 export * from "./matchedRole";
 export * from "./matchedRoleList";

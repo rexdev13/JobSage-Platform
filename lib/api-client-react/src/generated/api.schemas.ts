@@ -620,11 +620,28 @@ export interface ApplicationList {
   stats: ApplicationListStats;
 }
 
+/**
+ * Defaults to platform. Use website to log an application made on the company's own site.
+ */
+export type MarkApplicationRequestApplicationType =
+  (typeof MarkApplicationRequestApplicationType)[keyof typeof MarkApplicationRequestApplicationType];
+
+export const MarkApplicationRequestApplicationType = {
+  platform: "platform",
+  website: "website",
+} as const;
+
 export interface MarkApplicationRequest {
-  roleId: number;
+  /** Required for platform applications; omitted for website applications. */
+  roleId?: number;
   notes?: string;
   smartApply?: boolean | null;
   cvDocumentId?: number | null;
+  /** Defaults to platform. Use website to log an application made on the company's own site. */
+  applicationType?: MarkApplicationRequestApplicationType;
+  applicationUrl?: string | null;
+  /** Required when applicationType is website. */
+  companyName?: string;
 }
 
 export interface RoleList {
