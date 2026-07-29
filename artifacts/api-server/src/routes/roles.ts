@@ -165,6 +165,8 @@ function getRoleEligibilityGaps(
   return gaps;
 }
 
+const SCORE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
 router.get("/roles", async (req, res): Promise<void> => {
   if (!req.isAuthenticated()) {
     res.status(401).json({ error: "Not authenticated." });
@@ -382,7 +384,6 @@ router.get("/roles", async (req, res): Promise<void> => {
   });
 });
 
-const SCORE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<void> => {
   const userId = req.user!.id;
   const limit = Math.min(200, parseInt(String(req.query.limit ?? "10"), 10) || 10);
