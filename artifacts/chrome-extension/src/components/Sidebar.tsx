@@ -1,5 +1,7 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useSyncExternalStore } from "react";
 import type { JobContext } from "../lib/scraper";
+import type { DetectedQuestion, QuestionWatcher } from "../lib/questionDetector";
+import { insertAnswer, highlightField } from "../lib/questionDetector";
 
 const COLORS = {
   bg: "#ffffff",
@@ -25,8 +27,12 @@ interface SidebarProps {
    * unobtrusive during normal browsing.
    */
   minimal?: boolean;
+  /** Live watcher over free-text application questions detected on the page. */
+  questionWatcher?: QuestionWatcher;
   onLogApplication: (companyName: string, jobTitle: string, pageUrl: string) => Promise<void>;
 }
+
+const EMPTY_QUESTIONS: DetectedQuestion[] = [];
 
 type AssistantStreamEvent =
   | { type: "chunk"; text: string }
@@ -111,16 +117,63 @@ function useStreamAnswer() {
   return { answer, streaming, error, generate, setAnswer };
 }
 
-export function Sidebar({ jobContext, minimal = false, onLogApplication }: SidebarProps) {
+function limitHint(q: DetectedQuestion): string | null {
+  if (q.wordLimit) return `${q.wordLimit} word limit`;
+  if (q.maxLength) return `${q.maxLength} character limit`;
+  return null;
+}
+
+export function Sidebar({ jobContext, minimal = false, questionWatcher, onLogApplication }: SidebarProps) {
   const [open, setOpen] = useState(false);
   const [question, setQuestion] = useState("");
   const [copied, setCopied] = useState(false);
+  const [inserted, setInserted] = useState(false);
+  const [insertFailed, setInsertFailed] = useState(false);
   const [logging, setLogging] = useState(false);
   const [logDone, setLogDone] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const { answer, streaming, error, generate, setAnswer } = useStreamAnswer();
 
+  const subscribe = useCallback(
+    (listener: () => void) => (questionWatcher ? questionWatcher.subscribe(listener) : () => {}),
+    [questionWatcher]
+  );
+  const getSnapshot = useCallback(
+    () => (questionWatcher ? questionWatcher.getSnapshot() : EMPTY_QUESTIONS),
+    [questionWatcher]
+  );
+  const detected = useSyncExternalStore(subscribe, getSnapshot);
+  const selectedQuestion = selectedId ? detected.find((q) => q.id === selectedId) ?? null : null;
+
+  const buildPrompt = (q: string, dq: DetectedQuestion | null) => {
+    const hint = dq ? limitHint(dq) : null;
+    return hint ? `${q.trim()}\n\n(Keep the answer within the ${hint}.)` : q.trim();
+  };
+
   const handleGenerate = () => {
-    generate(question, jobContext);
+    setInserted(false);
+    setInsertFailed(false);
+    generate(buildPrompt(question, selectedQuestion), jobContext);
+  };
+
+  const handleSelectDetected = (dq: DetectedQuestion) => {
+    setSelectedId(dq.id);
+    setQuestion(dq.question);
+    setInserted(false);
+    setInsertFailed(false);
+    highlightField(dq.id);
+    generate(buildPrompt(dq.question, dq), jobContext);
+  };
+
+  const handleInsert = () => {
+    if (!answer || !selectedId) return;
+    const ok = insertAnswer(selectedId, answer);
+    setInserted(ok);
+    setInsertFailed(!ok);
+    if (ok) {
+      highlightField(selectedId);
+      setTimeout(() => setInserted(false), 2500);
+    }
   };
 
   const handleCopy = async () => {
@@ -250,13 +303,55 @@ export function Sidebar({ jobContext, minimal = false, onLogApplication }: Sideb
 
         {/* Body */}
         <div style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+          {detected.length > 0 && (
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.text, marginBottom: 6 }}>
+                Detected questions
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {detected.map((dq) => {
+                  const active = dq.id === selectedId;
+                  const hint = limitHint(dq);
+                  return (
+                    <button
+                      key={dq.id}
+                      onClick={() => handleSelectDetected(dq)}
+                      disabled={streaming}
+                      style={{
+                        textAlign: "left",
+                        padding: "8px 10px",
+                        background: active ? "#eff6ff" : COLORS.inputBg,
+                        border: `1px solid ${active ? COLORS.primary : COLORS.border}`,
+                        borderRadius: 8,
+                        fontSize: 12,
+                        color: COLORS.text,
+                        cursor: streaming ? "not-allowed" : "pointer",
+                        lineHeight: 1.4,
+                        fontFamily: "inherit",
+                      }}
+                    >
+                      {dq.question}
+                      {hint && (
+                        <span style={{ display: "block", marginTop: 2, fontSize: 11, color: COLORS.textMuted }}>
+                          {hint}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           <div>
             <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: COLORS.text, marginBottom: 6 }}>
-              Application question
+              {detected.length > 0 ? "Or paste a question manually" : "Application question"}
             </label>
             <textarea
               value={question}
-              onChange={(e) => setQuestion(e.target.value)}
+              onChange={(e) => {
+                setQuestion(e.target.value);
+                setSelectedId(null);
+              }}
               placeholder="Paste the application question here, e.g. 'Describe a time you handled a clinical crisis…'"
               rows={4}
               style={{
@@ -330,7 +425,30 @@ export function Sidebar({ jobContext, minimal = false, onLogApplication }: Sideb
               >
                 {answer}
               </div>
+              {insertFailed && (
+                <div style={{ padding: "8px 10px", background: COLORS.errorBg, color: COLORS.errorText, fontSize: 12, borderRadius: 8, lineHeight: 1.5 }}>
+                  Couldn't find the form field anymore — it may have changed. Use Copy Answer instead.
+                </div>
+              )}
               <div style={{ display: "flex", gap: 8 }}>
+                {selectedId && !streaming && (
+                  <button
+                    onClick={handleInsert}
+                    style={{
+                      flex: 1,
+                      padding: "8px 12px",
+                      background: inserted ? COLORS.successBg : COLORS.primary,
+                      color: inserted ? COLORS.successText : "#fff",
+                      border: `1px solid ${inserted ? "#86efac" : COLORS.primary}`,
+                      borderRadius: 8,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {inserted ? "✓ Inserted!" : "Insert into form"}
+                  </button>
+                )}
                 <button
                   onClick={handleCopy}
                   style={{

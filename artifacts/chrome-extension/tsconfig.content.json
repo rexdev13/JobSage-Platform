@@ -12,5 +12,5 @@
     "composite": true,
     "tsBuildInfoFile": ".tsbuildinfo/content.tsbuildinfo"
   },
-  "include": ["src/content.tsx", "src/components", "src/lib/scraper.ts", "src/lib/trackerDetector.ts"]
+  "include": ["src/content.tsx", "src/components", "src/lib/scraper.ts", "src/lib/trackerDetector.ts", "src/lib/questionDetector.ts"]
 }
