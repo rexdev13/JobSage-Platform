@@ -282,8 +282,19 @@ router.get("/roles", async (req, res): Promise<void> => {
     }
   }
 
-  const [appliedApps, cachedAiScores] = await Promise.all([
+  const [appliedApps, vacancySpecificSpeculative, cachedAiScores] = await Promise.all([
     db.select({ roleId: applicationsTable.roleId }).from(applicationsTable).where(eq(applicationsTable.userId, userId)),
+    // Speculative CVs sent against a specific vacancy count as applied for the
+    // matching role (badge, disabled buttons, Best Matches exclusion) without
+    // creating an applications row — the tracker already lists them under
+    // Speculative CVs, so no double-counting occurs.
+    db
+      .select({
+        companyName: speculativeApplicationsTable.companyName,
+        vacancyTitle: speculativeApplicationsTable.vacancyTitle,
+      })
+      .from(speculativeApplicationsTable)
+      .where(and(eq(speculativeApplicationsTable.userId, userId), isNotNull(speculativeApplicationsTable.vacancyTitle))),
     db
       .select()
       .from(candidateMatchScoresTable)
@@ -294,7 +305,18 @@ router.get("/roles", async (req, res): Promise<void> => {
         ),
       ),
   ]);
-  const appliedRoleIds = appliedApps.map((a) => a.roleId);
+  const speculativeVacancyKeys = new Set(
+    vacancySpecificSpeculative
+      .filter((s) => (s.vacancyTitle ?? "").trim() !== "")
+      .map((s) => `${s.companyName.trim().toLowerCase()}|${s.vacancyTitle!.trim().toLowerCase()}`),
+  );
+  const speculativeAppliedRoleIds =
+    speculativeVacancyKeys.size > 0
+      ? regulatorRoles
+          .filter((r) => speculativeVacancyKeys.has(`${r.employer.trim().toLowerCase()}|${r.title.trim().toLowerCase()}`))
+          .map((r) => r.id)
+      : [];
+  const appliedRoleIds = [...new Set([...appliedApps.map((a) => a.roleId), ...speculativeAppliedRoleIds])];
 
   // Build a lookup from the persisted AI scores so the roles response can
   // sort and badge each card with the same value the /my-matches strip uses.

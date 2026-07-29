@@ -5,7 +5,6 @@ import { Card, Button, PageTransition } from "@/components/ui-enhanced";
 import {
   useListMatchedRoles,
   useListMyApplications,
-  useMarkApplication,
   useGenerateCoverLetter,
   useGetMyProfile,
   useGetMyMatches,
@@ -262,11 +261,10 @@ function MatchScoreBadge({ score }: { score: number }) {
   );
 }
 
-function RoleDetailModal({ item, appliedRoleIds, onClose, onApply, aiScore }: {
+function RoleDetailModal({ item, appliedRoleIds, onClose, aiScore }: {
   item: MatchedRole;
   appliedRoleIds: number[];
   onClose: () => void;
-  onApply: (roleId: number) => void;
   aiScore?: number;
 }) {
   const [, setLocation] = useLocation();
@@ -351,16 +349,18 @@ function RoleDetailModal({ item, appliedRoleIds, onClose, onApply, aiScore }: {
             </div>
           )}
 
-          <div className="flex gap-3">
-            {isEligible ? (
-              <Button
-                className="flex-1"
-                onClick={() => { onApply(role.id); onClose(); }}
-                disabled={applied}
-              >
-                {applied ? <><CheckCircle2 className="w-4 h-4 mr-2" /> Applied</> : <><ClipboardList className="w-4 h-4 mr-2" /> Start Application</>}
-              </Button>
-            ) : (
+          {applied && (
+            <div className="mb-3 flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200 text-sm font-semibold text-emerald-800">
+              <CheckCircle2 className="w-4 h-4" /> Applied
+            </div>
+          )}
+          {!applied && (
+            <p className="mb-3 text-xs text-muted-foreground">
+              Applications are tracked automatically when you apply on the employer&apos;s site or send your CV for this role.
+            </p>
+          )}
+          {!isEligible && (
+            <div className="flex gap-3">
               <Button
                 variant="outline"
                 className="flex-1"
@@ -368,8 +368,8 @@ function RoleDetailModal({ item, appliedRoleIds, onClose, onApply, aiScore }: {
               >
                 View Remediation Path <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </motion.div>
     </div>
@@ -603,7 +603,6 @@ function CoverLetterModal({
 function RoleCard({
   item,
   appliedRoleIds,
-  onApply,
   onSmartApply,
   onViewDetail,
   onCoverLetter,
@@ -615,7 +614,6 @@ function RoleCard({
 }: {
   item: MatchedRole;
   appliedRoleIds: number[];
-  onApply: (roleId: number) => void;
   onSmartApply: (roleId: number, roleTitle: string) => void;
   onViewDetail: (item: MatchedRole) => void;
   onCoverLetter: (role: MatchedRole["role"]) => void;
@@ -633,20 +631,22 @@ function RoleCard({
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const handleApplyClick = async () => {
-    if (!applyUrl || applyChecking) return;
+  const handleApplyClick = async (destinationUrl?: string, source?: string) => {
+    const targetUrl = destinationUrl ?? applyUrl;
+    if (!targetUrl || applyChecking) return;
     setApplyChecking(true);
     // Open the tab synchronously so popup blockers don't interfere; we point
     // it at the employer page only after the tracking endpoint approves.
     const win = window.open("", "_blank");
     if (win) win.opener = null;
-    const trackUrl = `${import.meta.env.BASE_URL.replace(/\/$/, "")}/api/applications/track-outbound?vacancyId=${role.id}&destinationUrl=${encodeURIComponent(applyUrl)}`;
+    const sourceParam = source ? `&source=${source}` : "";
+    const trackUrl = `${import.meta.env.BASE_URL.replace(/\/$/, "")}/api/applications/track-outbound?vacancyId=${role.id}${sourceParam}&destinationUrl=${encodeURIComponent(targetUrl)}`;
     try {
       const resp = await fetch(trackUrl, { credentials: "include", redirect: "manual" });
       if (resp.type === "opaqueredirect" || resp.ok) {
         // Click recorded server-side; open the employer page.
-        if (win) win.location.href = applyUrl;
-        else window.open(applyUrl, "_blank", "noopener,noreferrer");
+        if (win) win.location.href = targetUrl;
+        else window.open(targetUrl, "_blank", "noopener,noreferrer");
         // Refresh the tracker caches so the entry appears without a manual reload.
         void queryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
         void queryClient.invalidateQueries({ queryKey: getListMatchedRolesQueryKey() });
@@ -665,7 +665,8 @@ function RoleCard({
           // non-JSON error body — keep default message
         }
         toast({ title: "Vacancy unavailable", description: message, variant: "destructive" });
-        if (resp.status === 400 || resp.status === 410) setVacancyClosed(true);
+        // A dead careers homepage says nothing about the vacancy itself.
+        if ((resp.status === 400 || resp.status === 410) && source !== "role-website") setVacancyClosed(true);
       }
     } catch {
       win?.close();
@@ -803,6 +804,29 @@ function RoleCard({
         </div>
       )}
 
+      {!applyUrl && contactWebsite && !applied && (
+        <div className="mt-3 flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            onClick={() =>
+              requireExtension(() =>
+                void handleApplyClick(
+                  contactWebsite.startsWith("http") ? contactWebsite : `https://${contactWebsite}`,
+                  "role-website",
+                ),
+              )
+            }
+            disabled={applyChecking}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-wait"
+          >
+            <Globe className="w-3.5 h-3.5" /> {applyChecking ? "Checking link…" : "Apply via company website"}
+          </button>
+          <span className="text-[11px] text-muted-foreground">
+            No verified apply link yet — this opens the employer&apos;s site and is tracked automatically.
+          </span>
+        </div>
+      )}
+
       {applyUrl && (
         <div className="mt-3 flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
           {vacancyClosed ? (
@@ -814,10 +838,10 @@ function RoleCard({
               <button
                 type="button"
                 onClick={() => requireExtension(() => void handleApplyClick())}
-                disabled={applyChecking}
+                disabled={applyChecking || applied}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-wait"
               >
-                <ExternalLink className="w-3.5 h-3.5" /> {applyChecking ? "Checking link…" : "Apply on employer site"}
+                <ExternalLink className="w-3.5 h-3.5" /> {applied ? "Applied" : applyChecking ? "Checking link…" : "Apply on employer site"}
               </button>
               {linkVerified ? (
                 <span
@@ -1072,7 +1096,7 @@ function ApplicationsTab({ data }: { data: ApplicationList | undefined }) {
       <Card className="p-8 text-center">
         <ClipboardList className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
         <p className="text-sm text-muted-foreground">No applications tracked yet.</p>
-        <p className="text-xs text-muted-foreground mt-1">Use &quot;Mark Applied&quot; on eligible roles to track your journey.</p>
+        <p className="text-xs text-muted-foreground mt-1">Applications are tracked automatically when you apply on an employer&apos;s site or send your CV for a vacancy.</p>
       </Card>
     );
   }
@@ -1213,7 +1237,6 @@ export default function OpportunitiesPage() {
   const { data, isLoading, isError } = useListMatchedRoles();
   const { data: applicationsData } = useListMyApplications();
   const { data: myProfile } = useGetMyProfile();
-  const markApplicationMutation = useMarkApplication();
   const { toast } = useToast();
 
   const [localDismissedIds, setLocalDismissedIds] = useState<Set<number>>(new Set());
@@ -1289,27 +1312,6 @@ export default function OpportunitiesPage() {
       return;
     }
     requireExtension(() => setSmartApplyRole({ id: roleId, title: roleTitle }));
-  }
-
-  function handleApply(roleId: number) {
-    if (appliedRoleIds.includes(roleId)) return;
-    requireExtension(() => doMarkApplication(roleId));
-  }
-
-  function doMarkApplication(roleId: number) {
-    markApplicationMutation.mutate(
-      { data: { roleId } },
-      {
-        onSuccess: () => {
-          void queryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
-          void queryClient.invalidateQueries({ queryKey: getListMatchedRolesQueryKey() });
-          toast({ title: "Application tracked", description: "Role marked as applied. Check 'Application Tracker' for tracking." });
-        },
-        onError: () => {
-          toast({ title: "Error", description: "Could not track application. Please try again.", variant: "destructive" });
-        },
-      },
-    );
   }
 
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
@@ -1478,7 +1480,6 @@ export default function OpportunitiesPage() {
                             aiScore={item.aiScore ?? undefined}
                             aiScoring={aiMatchesLoading}
                             appliedRoleIds={appliedRoleIds}
-                            onApply={handleApply}
                             onSmartApply={handleSmartApply}
                             onViewDetail={setSelectedRole}
                             onCoverLetter={setCoverLetterRole}
@@ -1527,7 +1528,6 @@ export default function OpportunitiesPage() {
                               aiScore={item.aiScore ?? undefined}
                               aiScoring={aiMatchesLoading}
                               appliedRoleIds={appliedRoleIds}
-                              onApply={handleApply}
                               onSmartApply={handleSmartApply}
                               onViewDetail={setSelectedRole}
                               onCoverLetter={setCoverLetterRole}
@@ -1566,7 +1566,6 @@ export default function OpportunitiesPage() {
                               aiScore={item.aiScore ?? undefined}
                               aiScoring={aiMatchesLoading}
                               appliedRoleIds={appliedRoleIds}
-                              onApply={handleApply}
                               onSmartApply={handleSmartApply}
                               onViewDetail={setSelectedRole}
                               onCoverLetter={setCoverLetterRole}
@@ -1605,7 +1604,6 @@ export default function OpportunitiesPage() {
                               aiScore={item.aiScore ?? undefined}
                               aiScoring={aiMatchesLoading}
                               appliedRoleIds={appliedRoleIds}
-                              onApply={handleApply}
                               onSmartApply={handleSmartApply}
                               onViewDetail={setSelectedRole}
                               onCoverLetter={setCoverLetterRole}
@@ -1682,7 +1680,6 @@ export default function OpportunitiesPage() {
             aiScore={selectedRole.aiScore ?? undefined}
             appliedRoleIds={appliedRoleIds}
             onClose={() => setSelectedRole(null)}
-            onApply={(roleId) => { handleApply(roleId); setSelectedRole(null); }}
           />
         )}
       </AnimatePresence>

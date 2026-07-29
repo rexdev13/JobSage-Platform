@@ -3,7 +3,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, PageTransition, Button } from "@/components/ui-enhanced";
 import { SponsorVacancyApplyModal } from "@/components/SponsorVacancyApplyModal";
 import { getListMyApplicationsQueryKey } from "@workspace/api-client-react";
-import { openTrackedSponsorVacancy } from "@/lib/trackedOutbound";
+import { openTrackedSponsorVacancy, openTrackedOutbound, normalizeWebsiteUrl } from "@/lib/trackedOutbound";
 import { useExtensionGate } from "@/components/SmartApplyExtensionPrompt";
 import {
   useGetSponsorLicenceRoutes,
@@ -14,7 +14,6 @@ import {
   useCheckAllSponsorLicenceVacancies,
   useCheckSponsorLicenceVacancies,
   useCheckSponsorLicenceVacancyBatch,
-  useMarkApplication,
   getGetSponsorLicenceVacanciesQueryKey,
   useGetCheckAllSponsorLicenceVacanciesStatus,
   useGetSponsorLicenceVacancies,
@@ -236,16 +235,15 @@ function VacancyMatchPanel({
           </div>
           <div className="flex flex-wrap items-center gap-3 pl-6">
             {careersUrl && (
-              <a
-                href={careersUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                type="button"
+                onClick={onWebsiteApply}
                 className="inline-flex items-center gap-1 text-xs text-primary font-medium hover:underline"
               >
                 <Globe className="w-3 h-3" />
                 Visit careers site
                 <ExternalLink className="w-3 h-3 opacity-60" />
-              </a>
+              </button>
             )}
             <button
               onClick={onSendCV}
@@ -409,15 +407,14 @@ function VacancyMatchPanel({
               <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
                 No direct apply links are available for these openings.{" "}
                 {careersUrl ? (
-                  <a
-                    href={careersUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
+                    onClick={onWebsiteApply}
                     className="text-primary font-medium hover:underline inline-flex items-center gap-1"
                   >
                     Visit the careers site
                     <ExternalLink className="w-3 h-3 opacity-60" />
-                  </a>
+                  </button>
                 ) : (
                   "Visit the employer's careers site to apply directly"
                 )}
@@ -486,7 +483,6 @@ export default function SponsorLicencesPage() {
   const [speculativeModalTarget, setSpeculativeModalTarget] = useState<{ companyName: string; companyId: number } | null>(null);
   // Tracks live best-fit score per company once the VacancyMatchPanel scores vacancies
   const [liveMatchScores, setLiveMatchScores] = useState<Map<number, number | null>>(new Map());
-  const markApplicationMutation = useMarkApplication();
   const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
   // Applying requires the Smart Apply extension so outbound applications are tracked.
@@ -509,27 +505,20 @@ export default function SponsorLicencesPage() {
 
   function handleWebsiteApply(companyName: string, companyId: number, careersUrl: string | null) {
     if (careersUrl) {
-      // Open the careers site and log a Company Website application.
-      const win = window.open(careersUrl, "_blank", "noopener,noreferrer");
-      if (win) win.opener = null;
-      markApplicationMutation.mutate(
-        {
-          data: {
-            applicationType: "website",
-            applicationUrl: careersUrl,
-            companyName,
-          } as Parameters<typeof markApplicationMutation.mutate>[0]["data"],
-        },
-        {
-          onSuccess: () => {
-            toast({
-              title: "Application logged!",
-              description: "Track your progress under the 'Company Website' tab in your Tracker.",
-            });
+      // Route through the same outbound tracking as the job board: the server
+      // validates the URL against the sponsor's stored website, runs a
+      // liveness check, and logs the application automatically.
+      requireExtension(() => {
+        void openTrackedOutbound({
+          id: companyId,
+          source: "careers",
+          url: normalizeWebsiteUrl(careersUrl),
+          toast,
+          onTracked: () => {
             void queryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
           },
-        },
-      );
+        });
+      });
     } else {
       // No careers URL yet — open the Contact panel for this company so the
       // candidate can use "Find Contact Details" to discover the careers site.

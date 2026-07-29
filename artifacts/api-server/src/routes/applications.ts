@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, jobListingsTable, rolesTable, candidateMessagesTable, documentsTable, employerProfilesTable, sponsorLicenceVacanciesTable } from "@workspace/db";
+import { db, jobListingsTable, rolesTable, candidateMessagesTable, documentsTable, employerProfilesTable, sponsorLicenceVacanciesTable, sponsorLicencesTable } from "@workspace/db";
 import { applicationsTable, speculativeApplicationsTable, ApplicationStatus } from "@workspace/db";
 import { eq, and, inArray, desc, or } from "drizzle-orm";
 import { requireAuthenticated } from "../middlewares/requireRole";
@@ -37,7 +37,22 @@ router.get("/applications/track-outbound", requireAuthenticated, async (req: Req
   const destinationUrl = typeof req.query.destinationUrl === "string" ? req.query.destinationUrl : "";
   // source=sponsor → vacancyId refers to the sponsor_licence_vacancies table
   // (AI-discovered sponsor vacancies) instead of the roles/job-listings id space.
+  // source=careers → vacancyId refers to the sponsor_licences table; destination
+  // must match that company's stored careers/website URL.
+  // source=role-website → vacancyId is a roles/job-listings id, but the role has
+  // no verified apply URL; destination must match its stored contact website.
   const isSponsorSource = req.query.source === "sponsor";
+  const isCareersSource = req.query.source === "careers";
+  const isRoleWebsiteSource = req.query.source === "role-website";
+  // Careers/company-website destinations are homepages by nature, so the
+  // vacancy deep-link heuristics don't apply to them either.
+  const skipDeepLinkChecks = isSponsorSource || isCareersSource || isRoleWebsiteSource;
+  // Stored websites are sometimes saved without a protocol ("www.x.com").
+  const normalizeStoredUrl = (u: string | null | undefined): string | null => {
+    const t = u?.trim();
+    if (!t) return null;
+    return /^https?:\/\//i.test(t) ? t : `https://${t}`;
+  };
 
   if (isNaN(vacancyId) || vacancyId <= 0) {
     res.status(400).json({ error: "vacancyId is required and must be a positive number." });
@@ -60,7 +75,7 @@ router.get("/applications/track-outbound", requireAuthenticated, async (req: Req
   // heuristics are skipped for source=sponsor. The SSRF guard and the strict
   // canonical-URL exact-match check below still apply, so this cannot become
   // an open redirect.
-  if (!isSponsorSource) {
+  if (!skipDeepLinkChecks) {
     if (isBlockedVacancyUrl(destinationUrl)) {
       res.status(400).json({ error: "This destination is a third-party job aggregator and cannot be tracked. Please use the employer's own site." });
       return;
@@ -96,6 +111,13 @@ router.get("/applications/track-outbound", requireAuthenticated, async (req: Req
       .where(eq(sponsorLicenceVacanciesTable.id, vacancyId));
     companyName = sv?.organisationName ?? null;
     storedApplyUrl = sv?.url ?? null;
+  } else if (isCareersSource) {
+    const [sl] = await db
+      .select({ organisationName: sponsorLicencesTable.organisationName, website: sponsorLicencesTable.website })
+      .from(sponsorLicencesTable)
+      .where(eq(sponsorLicencesTable.id, vacancyId));
+    companyName = sl?.organisationName ?? null;
+    storedApplyUrl = normalizeStoredUrl(sl?.website);
   } else if (vacancyId > 1_000_000) {
     const [job] = await db
       .select({ employerProfileId: jobListingsTable.employerProfileId, applyUrl: jobListingsTable.applyUrl })
@@ -104,18 +126,19 @@ router.get("/applications/track-outbound", requireAuthenticated, async (req: Req
     if (job) {
       storedApplyUrl = job.applyUrl ?? null;
       const [ep] = await db
-        .select({ companyName: employerProfilesTable.companyName })
+        .select({ companyName: employerProfilesTable.companyName, contactWebsite: employerProfilesTable.contactWebsite })
         .from(employerProfilesTable)
         .where(eq(employerProfilesTable.id, job.employerProfileId));
       companyName = ep?.companyName ?? null;
+      if (isRoleWebsiteSource) storedApplyUrl = normalizeStoredUrl(ep?.contactWebsite);
     }
   } else {
     const [role] = await db
-      .select({ employer: rolesTable.employer, applyUrl: rolesTable.applyUrl })
+      .select({ employer: rolesTable.employer, applyUrl: rolesTable.applyUrl, contactWebsite: rolesTable.contactWebsite })
       .from(rolesTable)
       .where(eq(rolesTable.id, vacancyId));
     companyName = role?.employer ?? null;
-    storedApplyUrl = role?.applyUrl ?? null;
+    storedApplyUrl = isRoleWebsiteSource ? normalizeStoredUrl(role?.contactWebsite) : (role?.applyUrl ?? null);
   }
 
   // Strict binding: the destination must exactly equal the vacancy's canonical
@@ -161,6 +184,16 @@ router.get("/applications/track-outbound", requireAuthenticated, async (req: Req
     );
   }
   if (dead) {
+    if (isCareersSource || isRoleWebsiteSource) {
+      // A dead careers/company homepage says nothing about a specific vacancy —
+      // reject the redirect but do not mark anything closed.
+      console.info(`[track-outbound] careers/website destination unreachable (${deadReason}) — ${destinationUrl}`);
+      res.status(410).json({
+        error: "The employer's website appears to be unreachable right now. Please try again later.",
+        code: "SITE_UNREACHABLE",
+      });
+      return;
+    }
     try {
       if (isSponsorSource) {
         // Sponsor vacancies live in their own table; mark all rows sharing
@@ -201,13 +234,14 @@ router.get("/applications/track-outbound", requireAuthenticated, async (req: Req
   }
 
   // Upsert: repeat clicks on the same vacancy update the existing record instead of duplicating it.
-  // Sponsor vacancies have their own id space (sponsor_licence_vacancies), which would collide
+  // Sponsor vacancies and sponsor licences have their own id spaces, which would collide
   // with roles ids — store roleId 0 for those and dedupe on the destination URL instead.
+  const usesUrlDedupe = isSponsorSource || isCareersSource;
   const [existing] = await db
     .select({ id: applicationsTable.id })
     .from(applicationsTable)
     .where(
-      isSponsorSource
+      usesUrlDedupe
         ? and(
             eq(applicationsTable.userId, userId),
             eq(applicationsTable.roleId, 0),
@@ -229,7 +263,7 @@ router.get("/applications/track-outbound", requireAuthenticated, async (req: Req
   } else {
     await db.insert(applicationsTable).values({
       userId,
-      roleId: isSponsorSource ? 0 : vacancyId,
+      roleId: usesUrlDedupe ? 0 : vacancyId,
       applicationType: "website",
       applicationUrl: destinationUrl,
       companyName,
