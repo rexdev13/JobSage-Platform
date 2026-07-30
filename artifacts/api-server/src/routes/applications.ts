@@ -41,7 +41,11 @@ router.get("/applications/track-outbound", requireAuthenticated, async (req: Req
   // must match that company's stored careers/website URL.
   // source=role-website → vacancyId is a roles/job-listings id, but the role has
   // no verified apply URL; destination must match its stored contact website.
-  const isSponsorSource = req.query.source === "sponsor";
+  // Opportunities-page cards for AI-discovered sponsor vacancies carry ids of
+  // sponsor_licence_vacancies.id + 2,000,000 — detect and unwrap that id space.
+  const isDiscoveredSponsorVacancy = vacancyId > 2_000_000;
+  const sponsorVacancyRowId = isDiscoveredSponsorVacancy ? vacancyId - 2_000_000 : vacancyId;
+  const isSponsorSource = req.query.source === "sponsor" || (isDiscoveredSponsorVacancy && req.query.source !== "role-website");
   const isCareersSource = req.query.source === "careers";
   const isRoleWebsiteSource = req.query.source === "role-website";
   // Careers/company-website destinations are homepages by nature, so the
@@ -108,9 +112,24 @@ router.get("/applications/track-outbound", requireAuthenticated, async (req: Req
     const [sv] = await db
       .select({ organisationName: sponsorLicenceVacanciesTable.organisationName, url: sponsorLicenceVacanciesTable.url })
       .from(sponsorLicenceVacanciesTable)
-      .where(eq(sponsorLicenceVacanciesTable.id, vacancyId));
+      .where(eq(sponsorLicenceVacanciesTable.id, sponsorVacancyRowId));
     companyName = sv?.organisationName ?? null;
     storedApplyUrl = sv?.url ?? null;
+  } else if (isDiscoveredSponsorVacancy && isRoleWebsiteSource) {
+    // "Apply via company website" fallback on a discovered sponsor vacancy card:
+    // the website comes from the sponsor licence record, not a roles row.
+    const [sv] = await db
+      .select({ organisationName: sponsorLicenceVacanciesTable.organisationName })
+      .from(sponsorLicenceVacanciesTable)
+      .where(eq(sponsorLicenceVacanciesTable.id, sponsorVacancyRowId));
+    companyName = sv?.organisationName ?? null;
+    if (companyName) {
+      const [sl] = await db
+        .select({ website: sponsorLicencesTable.website })
+        .from(sponsorLicencesTable)
+        .where(eq(sponsorLicencesTable.organisationName, companyName));
+      storedApplyUrl = normalizeStoredUrl(sl?.website);
+    }
   } else if (isCareersSource) {
     const [sl] = await db
       .select({ organisationName: sponsorLicencesTable.organisationName, website: sponsorLicencesTable.website })

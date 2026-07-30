@@ -24,10 +24,11 @@ function toProfileForScoring(profile: typeof profilesTable.$inferSelect): Candid
 }
 
 /**
- * Fully recalculate suitability scores for every vacancy against this candidate's
- * current profile and persist the results (upserting existing score rows). Called
- * after every check-all pass and by the daily sync, so scores stay in sync with
- * profile changes and re-runs of the AI scoring model — not just newly-seen vacancies.
+ * Incrementally score suitability for this candidate: only vacancies that do
+ * not yet have a score row for this user are sent to the AI, and results are
+ * upserted per vacancy. Called after every check-all pass and by the daily
+ * sync — a handful of newly-discovered vacancies therefore costs one small AI
+ * batch, never a full re-score of the whole catalogue.
  */
 export async function rescoreVacanciesForUser(userId: string): Promise<{ scored: number }> {
   const [profile] = await db.select().from(profilesTable).where(eq(profilesTable.userId, userId)).limit(1);
@@ -36,6 +37,10 @@ export async function rescoreVacanciesForUser(userId: string): Promise<{ scored:
   const allVacancies = await db.execute<UnscoredVacancyRow>(sql`
     SELECT v.id, v.organisation_name, v.title, v.location, v.description
     FROM sponsor_licence_vacancies v
+    WHERE NOT EXISTS (
+      SELECT 1 FROM sponsor_licence_vacancy_scores s
+      WHERE s.vacancy_id = v.id AND s.user_id = ${userId}
+    )
   `);
 
   if (allVacancies.rows.length === 0) return { scored: 0 };

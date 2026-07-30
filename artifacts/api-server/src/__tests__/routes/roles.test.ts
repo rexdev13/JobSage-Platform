@@ -11,6 +11,7 @@ vi.mock("@workspace/db", () => {
     const chain: any = {
       from() { return chain; },
       innerJoin() { return chain; },
+      leftJoin() { return chain; },
       where() { return chain; },
       orderBy() { return chain; },
       limit() { return chain; },
@@ -46,6 +47,9 @@ vi.mock("@workspace/db", () => {
     matchDismissalsTable: {},
     careerProfilesTable: {},
     auditEventsTable: {},
+    sponsorLicenceVacanciesTable: {},
+    sponsorLicencesTable: {},
+    sponsorLicenceVacancyScoresTable: {},
   };
 });
 
@@ -191,14 +195,17 @@ describe("GET /roles — vacancy-specific speculative CV matching (appliedRoleId
    *   2. decisionRecordsTable  (empty → no eligibleRuleId sub-query)
    *   3. rolesTable            (all active roles)
    *   4. jobListingsTable      (published employer jobs — empty)
-   *   5. Promise.all[0] applicationsTable
-   *   6. Promise.all[1] speculativeApplicationsTable
-   *   7. Promise.all[2] candidateMatchScoresTable
+   *   5. sponsorLicenceVacanciesTable ⋈ sponsorLicencesTable (discovered vacancies)
+   *   6. Promise.all[0] applicationsTable
+   *   7. Promise.all[1] speculativeApplicationsTable
+   *   8. Promise.all[2] candidateMatchScoresTable
+   *   9. Promise.all[3] sponsorLicenceVacancyScoresTable
    */
-  function pushRolesDbResults(roles: any[], specApps: any[]) {
+  function pushRolesDbResults(roles: any[], specApps: any[], opts: { sponsorVacancies?: any[]; sponsorScores?: any[]; specialty?: string } = {}) {
     dbResults.push([{
       userId: "admin-1",
       profession: "doctor",
+      specialty: opts.specialty ?? "cardiology",
       registrationStatus: "full_registration",
       licenceReady: null,
       requiresSponsorship: false,
@@ -207,9 +214,11 @@ describe("GET /roles — vacancy-specific speculative CV matching (appliedRoleId
     dbResults.push([]);      // decisionRecordsTable — no decision
     dbResults.push(roles);   // rolesTable
     dbResults.push([]);      // jobListingsTable — no employer jobs
+    dbResults.push(opts.sponsorVacancies ?? []); // sponsor vacancies join
     dbResults.push([]);      // applicationsTable
     dbResults.push(specApps); // speculativeApplicationsTable
     dbResults.push([]);      // candidateMatchScoresTable
+    dbResults.push(opts.sponsorScores ?? []);    // sponsorLicenceVacancyScoresTable
   }
 
   function makeRole(id: number, employer: string, title: string) {
@@ -314,6 +323,7 @@ describe("GET /roles — vacancy-specific speculative CV matching (appliedRoleId
     dbResults.push([{
       userId: "admin-1",
       profession: "doctor",
+      specialty: "cardiology",
       registrationStatus: "full_registration",
       licenceReady: null,
       requiresSponsorship: false,
@@ -322,15 +332,246 @@ describe("GET /roles — vacancy-specific speculative CV matching (appliedRoleId
     dbResults.push([]);      // decisionRecordsTable
     dbResults.push([role]);  // rolesTable
     dbResults.push([]);      // jobListingsTable
+    dbResults.push([]);      // sponsor vacancies join
     dbResults.push([{ roleId: 10 }]); // applicationsTable — a formal application to role 10
     dbResults.push([specApp]);        // speculativeApplicationsTable
     dbResults.push([]);               // candidateMatchScoresTable
+    dbResults.push([]);               // sponsorLicenceVacancyScoresTable
 
     const app = buildApp();
     const res = await request(app).get("/roles").set("Authorization", AUTH);
     expect(res.status).toBe(200);
     expect(res.body.appliedRoleIds).toContain(10);  // formal application
     expect(res.body.appliedRoleIds).toContain(42);  // speculative vacancy match
+  });
+});
+
+describe("GET /roles — AI-discovered sponsor vacancy merging", () => {
+  beforeEach(() => { dbResults.length = 0; });
+
+  function makeSponsorVacancyRow(id: number, org: string, title: string, extra: Record<string, any> = {}) {
+    return {
+      vac: {
+        id,
+        organisationName: org,
+        checkDate: "2026-07-29",
+        title,
+        location: "Manchester",
+        salary: null,
+        url: `https://employer.example/vacancy/${id}`,
+        description: null,
+        postedDate: null,
+        createdAt: new Date(),
+        liveness: "live",
+        lastVerifiedAt: new Date(),
+        livenessReason: null,
+        ...extra,
+      },
+      lic: { contactEmail: "hr@org.example", contactPhone: null, website: "https://org.example", industry: "Hospital activities" },
+    };
+  }
+
+  function makeRole(id: number, employer: string, title: string) {
+    return {
+      id, title, employer, location: "London", regulator: "GMC",
+      sponsorshipOffered: true, requiredRegistration: "Full GMC Registration",
+      active: true, importedAt: new Date(), importedBy: "admin",
+      applyUrl: "https://jobs.nhs.uk/vacancy/" + id, liveness: "live",
+      lastVerifiedAt: null, livenessReason: null,
+      contactEmail: null, contactPhone: null, contactWebsite: null,
+    };
+  }
+
+  function pushDb(roles: any[], sponsorVacancies: any[], sponsorScores: any[]) {
+    dbResults.push([{
+      userId: "admin-1", profession: "doctor", specialty: "cardiology",
+      registrationStatus: "full_registration", licenceReady: null,
+      requiresSponsorship: false, preferredRegion: null,
+    }]);
+    dbResults.push([]);               // decision
+    dbResults.push(roles);            // rolesTable
+    dbResults.push([]);               // jobListingsTable
+    dbResults.push(sponsorVacancies); // sponsor vacancies join
+    dbResults.push([]);               // applicationsTable
+    dbResults.push([]);               // speculativeApplicationsTable
+    dbResults.push([]);               // candidateMatchScoresTable
+    dbResults.push(sponsorScores);    // sponsorLicenceVacancyScoresTable
+  }
+
+  it("merges discovered sponsor vacancies with offset ids and pipeline fit scores", async () => {
+    const sv = makeSponsorVacancyRow(7, "Northern Care Trust", "Consultant Cardiologist");
+    pushDb([], [sv], [{ vacancyId: 7, score: 88, explanation: "Strong cardiology match" }]);
+
+    const app = buildApp();
+    const res = await request(app).get("/roles").set("Authorization", AUTH);
+    expect(res.status).toBe(200);
+    const merged = res.body.roles.find((r: any) => r.role.id === 2_000_007);
+    expect(merged).toBeTruthy();
+    expect(merged.role.employer).toBe("Northern Care Trust");
+    expect(merged.aiScore).toBe(88);
+    expect(merged.aiExplanation).toBe("Strong cardiology match");
+    expect(merged.applyUrl).toBe("https://employer.example/vacancy/7");
+    expect(merged.linkVerified).toBe(true);
+    expect(merged.contactEmail).toBe("hr@org.example");
+    expect(merged.contactWebsite).toBe("https://org.example");
+  });
+
+  it("appears without a pipeline score yet (score-pending) with null aiScore", async () => {
+    const sv = makeSponsorVacancyRow(9, "City Hospital", "Staff Physician");
+    pushDb([], [sv], []);
+
+    const app = buildApp();
+    const res = await request(app).get("/roles").set("Authorization", AUTH);
+    expect(res.status).toBe(200);
+    const merged = res.body.roles.find((r: any) => r.role.id === 2_000_009);
+    expect(merged).toBeTruthy();
+    expect(merged.aiScore).toBeNull();
+    expect(typeof merged.matchScore).toBe("number");
+  });
+
+  it("dedupes: sponsor vacancy with same employer+title as a CSV role is dropped", async () => {
+    const role = makeRole(3, "NHS Trust", "Consultant Cardiologist");
+    const sv = makeSponsorVacancyRow(11, "nhs trust", "consultant cardiologist");
+    pushDb([role], [sv], []);
+
+    const app = buildApp();
+    const res = await request(app).get("/roles").set("Authorization", AUTH);
+    expect(res.status).toBe(200);
+    const ids = res.body.roles.map((r: any) => r.role.id);
+    expect(ids).toContain(3);
+    expect(ids).not.toContain(2_000_011);
+  });
+
+  it("bottom-ranks unclassified vacancies below regulator-relevant ones", async () => {
+    const relevant = makeSponsorVacancyRow(1, "Trust A", "Consultant Cardiologist");
+    const unclassified = makeSponsorVacancyRow(2, "Trust B", "Team Lead");
+    pushDb([], [relevant, unclassified], []);
+
+    const app = buildApp();
+    const res = await request(app).get("/roles").set("Authorization", AUTH);
+    expect(res.status).toBe(200);
+    const ids = res.body.roles.map((r: any) => r.role.id);
+    expect(ids.indexOf(2_000_001)).toBeLessThan(ids.indexOf(2_000_002));
+    const unclassifiedItem = res.body.roles.find((r: any) => r.role.id === 2_000_002);
+    expect(unclassifiedItem.matchScore).toBeLessThanOrEqual(25);
+  });
+
+  it("excludes vacancies classified to a different regulator and manual-labour titles", async () => {
+    const nmc = makeSponsorVacancyRow(21, "Trust C", "Staff Nurse");
+    const cleaner = makeSponsorVacancyRow(22, "Trust D", "Hospital Cleaner");
+    pushDb([], [nmc, cleaner], []);
+
+    const app = buildApp();
+    const res = await request(app).get("/roles").set("Authorization", AUTH);
+    expect(res.status).toBe(200);
+    const ids = res.body.roles.map((r: any) => r.role.id);
+    expect(ids).not.toContain(2_000_021);
+    expect(ids).not.toContain(2_000_022);
+  });
+
+  it("returns an empty list when no roles and no discovered vacancies exist", async () => {
+    pushDb([], [], []);
+
+    const app = buildApp();
+    const res = await request(app).get("/roles").set("Authorization", AUTH);
+    expect(res.status).toBe(200);
+    expect(res.body.roles).toEqual([]);
+  });
+});
+
+describe("GET /roles/my-matches — incremental scoring with sponsor vacancies", () => {
+  beforeEach(() => { dbResults.length = 0; vi.clearAllMocks(); });
+
+  /**
+   * Query order for /roles/my-matches:
+   *   1-2. Promise.all: profilesTable, careerProfilesTable
+   *   3.   decisionRecordsTable
+   *   4.   rolesTable
+   *   5.   jobListingsTable
+   *   6.   sponsor vacancies join
+   *   7-8. Promise.all: candidateMatchScoresTable, sponsorLicenceVacancyScoresTable
+   *   9.   matchDismissalsTable
+   */
+  function pushMyMatchesDb(roles: any[], sponsorVacancies: any[], cachedScores: any[], sponsorScores: any[]) {
+    dbResults.push([{
+      userId: "admin-1", profession: "doctor", specialty: "cardiology",
+      experienceYears: 5, qualificationCountry: "India",
+      registrationStatus: "full_registration", licenceReady: null,
+      requiresSponsorship: false, preferredRegion: null,
+    }]);
+    dbResults.push([]);               // careerProfilesTable
+    dbResults.push([]);               // decisionRecordsTable
+    dbResults.push(roles);            // rolesTable
+    dbResults.push([]);               // jobListingsTable
+    dbResults.push(sponsorVacancies); // sponsor vacancies join
+    dbResults.push(cachedScores);     // candidateMatchScoresTable
+    dbResults.push(sponsorScores);    // sponsorLicenceVacancyScoresTable
+    dbResults.push([]);               // matchDismissalsTable
+  }
+
+  function makeRole(id: number) {
+    return {
+      id, title: "Consultant Cardiologist", employer: "NHS Trust", location: "London",
+      regulator: "GMC", sponsorshipOffered: true, requiredRegistration: "Full GMC Registration",
+      active: true, importedAt: new Date(), importedBy: "admin",
+      applyUrl: "https://jobs.nhs.uk/vacancy/" + id, liveness: "live",
+      lastVerifiedAt: null, livenessReason: null,
+      contactEmail: null, contactPhone: null, contactWebsite: null,
+    };
+  }
+
+  function makeSponsorVacancyRow(id: number, title: string) {
+    return {
+      vac: {
+        id, organisationName: "Care Group", checkDate: "2026-07-29", title,
+        location: "Leeds", salary: null, url: `https://employer.example/v/${id}`,
+        description: null, postedDate: null, createdAt: new Date(),
+        liveness: "live", lastVerifiedAt: new Date(), livenessReason: null,
+      },
+      lic: { contactEmail: null, contactPhone: null, website: "https://care.example", industry: "Human health activities" },
+    };
+  }
+
+  it("a new sponsor vacancy does NOT trigger a full AI re-score when curated roles are covered", async () => {
+    const { batchScoreRoles } = await import("../../lib/candidateAiMatch");
+    const role = makeRole(1);
+    const newVacancy = makeSponsorVacancyRow(50, "Consultant Physician");
+    // Curated role 1 has a fresh cached score; the sponsor vacancy has none.
+    pushMyMatchesDb([role], [newVacancy], [{ roleId: 1, score: 70, aiExplanation: "Good fit", scoredAt: new Date() }], []);
+
+    const app = buildApp();
+    const res = await request(app).get("/roles/my-matches").set("Authorization", AUTH);
+    expect(res.status).toBe(200);
+    expect(batchScoreRoles).not.toHaveBeenCalled();
+    expect(res.body.cached).toBe(true);
+    const ids = res.body.matches.map((m: any) => m.roleId);
+    expect(ids).toContain(1);
+    expect(ids).toContain(2_000_050);
+  });
+
+  it("uses the pre-computed pipeline score for sponsor vacancies", async () => {
+    const vac = makeSponsorVacancyRow(60, "Consultant Cardiologist");
+    pushMyMatchesDb([], [vac], [], [{ vacancyId: 60, score: 91, explanation: "Excellent specialty fit" }]);
+
+    const app = buildApp();
+    const res = await request(app).get("/roles/my-matches").set("Authorization", AUTH);
+    expect(res.status).toBe(200);
+    const m = res.body.matches.find((x: any) => x.roleId === 2_000_060);
+    expect(m).toBeTruthy();
+    // 91 + specialty boost (title contains "cardiologist"? boost applies on focus words) — at least the base score
+    expect(m.aiScore).toBeGreaterThanOrEqual(91);
+    expect(m.aiExplanation).toContain("Excellent specialty fit");
+  });
+
+  it("paginates the merged list", async () => {
+    const vacs = Array.from({ length: 5 }, (_, i) => makeSponsorVacancyRow(100 + i, "Consultant Physician " + i));
+    pushMyMatchesDb([], vacs, [], []);
+
+    const app = buildApp();
+    const res = await request(app).get("/roles/my-matches?limit=2&offset=0").set("Authorization", AUTH);
+    expect(res.status).toBe(200);
+    expect(res.body.matches.length).toBe(2);
+    expect(res.body.totalCount).toBe(5);
   });
 });
 
