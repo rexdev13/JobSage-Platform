@@ -30,6 +30,16 @@ Consultant Cardiologist,NHS Trust London,London,GMC,true,Full GMC Registration,h
 Staff Nurse (Adult),Barts Health NHS Trust,London,NMC,true,Full NMC Registration,
 Senior Physiotherapist,Kings College Hospital,London,HCPC,false,Full HCPC Registration,`;
 
+function friendlyErrorMessage(err: unknown, fallback: string): string {
+  const message = err instanceof Error ? err.message : "";
+  if (!message) return fallback;
+  // If the server returned raw HTML (e.g. an Express 404 page), don't dump markup into the banner.
+  if (/<[a-z!][\s\S]*>/i.test(message)) {
+    return "Server returned an unexpected error. Please try again.";
+  }
+  return message;
+}
+
 function downloadTemplate() {
   const blob = new Blob([CSV_TEMPLATE], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
@@ -152,7 +162,7 @@ export default function AdminRolesPage() {
       },
       onError: (err) => {
         setShowDeleteAllConfirm(false);
-        setDeleteFeedback({ kind: "error", message: err instanceof Error ? err.message : "Failed to delete roles." });
+        setDeleteFeedback({ kind: "error", message: friendlyErrorMessage(err, "Failed to delete roles.") });
       },
     },
   });
@@ -165,7 +175,7 @@ export default function AdminRolesPage() {
       },
       onError: (err) => {
         setPendingDeleteId(null);
-        setDeleteFeedback({ kind: "error", message: err instanceof Error ? err.message : "Failed to delete role." });
+        setDeleteFeedback({ kind: "error", message: friendlyErrorMessage(err, "Failed to delete role.") });
       },
     },
   });
