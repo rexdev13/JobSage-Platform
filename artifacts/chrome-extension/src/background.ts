@@ -1,10 +1,10 @@
-const JOBSAGE_API_BASE = "https://jobsage.co.uk/api";
-const JOBSAGE_COOKIE_URL = "https://jobsage.co.uk";
+import { getEnvSettings, activeOrigin, apiBase } from "./lib/env";
+
 const SESSION_COOKIE_NAME = "sid";
 
-async function getSessionToken(): Promise<string | null> {
+async function getSessionToken(cookieUrl: string): Promise<string | null> {
   const cookie = await chrome.cookies.get({
-    url: JOBSAGE_COOKIE_URL,
+    url: cookieUrl,
     name: SESSION_COOKIE_NAME,
   });
   return cookie?.value ?? null;
@@ -72,7 +72,8 @@ chrome.runtime.onConnect.addListener((port) => {
 
   port.onMessage.addListener((request: AssistantStreamRequest) => {
     (async () => {
-      const token = await getSessionToken();
+      const settings = await getEnvSettings();
+      const token = await getSessionToken(activeOrigin(settings));
       if (!token) {
         post({ type: "error", kind: "auth" });
         return;
@@ -80,7 +81,7 @@ chrome.runtime.onConnect.addListener((port) => {
 
       let response: Response;
       try {
-        response = await fetch(`${JOBSAGE_API_BASE}/smart-apply/assistant`, {
+        response = await fetch(`${apiBase(settings)}/smart-apply/assistant`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -153,7 +154,9 @@ chrome.runtime.onMessage.addListener(
     sendResponse: (response: ApiResponse) => void
   ) => {
     if (message.type === "GET_TOKEN") {
-      getSessionToken().then((token) => sendResponse({ token }));
+      getEnvSettings()
+        .then((settings) => getSessionToken(activeOrigin(settings)))
+        .then((token) => sendResponse({ token }));
       return true;
     }
 
@@ -165,7 +168,8 @@ chrome.runtime.onMessage.addListener(
 
     (async () => {
       try {
-        const token = await getSessionToken();
+        const settings = await getEnvSettings();
+        const token = await getSessionToken(activeOrigin(settings));
 
         const headers: Record<string, string> = {
           "Content-Type": "application/json",
@@ -184,7 +188,7 @@ chrome.runtime.onMessage.addListener(
           fetchOptions.body = JSON.stringify(body);
         }
 
-        const url = `${JOBSAGE_API_BASE}${endpoint}`;
+        const url = `${apiBase(settings)}${endpoint}`;
         const response = await fetch(url, fetchOptions);
 
         if (!response.ok) {

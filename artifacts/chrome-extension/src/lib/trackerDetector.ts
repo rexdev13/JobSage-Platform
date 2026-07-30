@@ -1,3 +1,5 @@
+import { BRAND } from "./brand";
+
 const CONFIRMATION_URL_PATTERNS = [
   /\/confirmation/i,
   /\/application[-_]submitted/i,
@@ -46,13 +48,13 @@ export function mountConfirmationToast(
     bottom: "90px",
     right: "24px",
     zIndex: "2147483647",
-    background: "#ffffff",
-    border: "1px solid #e5e7eb",
-    borderRadius: "12px",
+    background: BRAND.surface,
+    border: `1px solid ${BRAND.border}`,
+    borderRadius: `${BRAND.radius}px`,
     boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
     padding: "14px 16px",
     width: "300px",
-    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    fontFamily: BRAND.fontSans,
     display: "flex",
     flexDirection: "column",
     gap: "10px",
@@ -80,11 +82,11 @@ export function mountConfirmationToast(
   textBlock.style.flex = "1";
 
   const title = document.createElement("div");
-  Object.assign(title.style, { fontSize: "13px", fontWeight: "600", color: "#111827", lineHeight: "1.4" });
+  Object.assign(title.style, { fontSize: "13px", fontWeight: "600", color: BRAND.text, lineHeight: "1.4" });
   title.textContent = "Application detected";
 
   const body = document.createElement("div");
-  Object.assign(body.style, { fontSize: "12px", color: "#6b7280", marginTop: "2px", lineHeight: "1.4" });
+  Object.assign(body.style, { fontSize: "12px", color: BRAND.textMuted, marginTop: "2px", lineHeight: "1.4" });
   body.textContent = "Log this application to JOBSAGE Tracker?";
 
   textBlock.appendChild(title);
@@ -97,7 +99,7 @@ export function mountConfirmationToast(
     background: "none",
     border: "none",
     cursor: "pointer",
-    color: "#9ca3af",
+    color: BRAND.textMuted,
     padding: "0",
     flexShrink: "0",
     fontSize: "16px",
@@ -115,10 +117,10 @@ export function mountConfirmationToast(
   Object.assign(logBtn.style, {
     flex: "1",
     padding: "7px 12px",
-    background: "#1a56db",
+    background: BRAND.primary,
     color: "#ffffff",
     border: "none",
-    borderRadius: "8px",
+    borderRadius: `${BRAND.radiusSm}px`,
     fontSize: "12px",
     fontWeight: "600",
     cursor: "pointer",
@@ -145,10 +147,10 @@ export function mountConfirmationToast(
   const dismissBtn = document.createElement("button");
   Object.assign(dismissBtn.style, {
     padding: "7px 12px",
-    background: "#f9fafb",
-    color: "#374151",
-    border: "1px solid #e5e7eb",
-    borderRadius: "8px",
+    background: BRAND.inputBg,
+    color: BRAND.text,
+    border: `1px solid ${BRAND.border}`,
+    borderRadius: `${BRAND.radiusSm}px`,
     fontSize: "12px",
     fontWeight: "600",
     cursor: "pointer",

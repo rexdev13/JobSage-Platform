@@ -23,8 +23,15 @@ function copyManifest() {
   };
 }
 
+// Dev-server origin baked in at build time; editable in the popup at runtime.
+const devDomain = process.env.REPLIT_DEV_DOMAIN;
+const devOrigin = devDomain ? `https://${devDomain}` : "";
+
 export default defineConfig({
   plugins: [react(), copyManifest()],
+  define: {
+    __DEV_ORIGIN__: JSON.stringify(devOrigin),
+  },
   build: {
     outDir: "dist",
     target: "chrome116",
@@ -33,6 +40,7 @@ export default defineConfig({
       input: {
         background: resolve(__dirname, "src/background.ts"),
         content: resolve(__dirname, "src/content.tsx"),
+        popup: resolve(__dirname, "popup.html"),
       },
       output: {
         entryFileNames: "[name].js",

@@ -3,13 +3,21 @@
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "lib": ["ES2022", "WebWorker"],
+    "lib": [
+      "ES2022",
+      "WebWorker"
+    ],
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "types": ["chrome"],
+    "types": [
+      "chrome"
+    ],
     "composite": true,
     "tsBuildInfoFile": ".tsbuildinfo/background.tsbuildinfo"
   },
-  "include": ["src/background.ts"]
+  "include": [
+    "src/background.ts",
+    "src/lib/env.ts"
+  ]
 }

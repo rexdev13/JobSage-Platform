@@ -2,22 +2,25 @@ import { useState, useCallback, useRef, useSyncExternalStore } from "react";
 import type { JobContext } from "../lib/scraper";
 import type { DetectedQuestion, QuestionWatcher } from "../lib/questionDetector";
 import { insertAnswer, highlightField } from "../lib/questionDetector";
+import { BRAND } from "../lib/brand";
 
 const COLORS = {
-  bg: "#ffffff",
-  border: "#e5e7eb",
-  primary: "#1a56db",
-  primaryHover: "#1e40af",
-  text: "#111827",
-  textMuted: "#6b7280",
-  inputBg: "#f9fafb",
-  successBg: "#f0fdf4",
-  successText: "#15803d",
-  errorBg: "#fef2f2",
-  errorText: "#dc2626",
-  pillBg: "#1a56db",
+  bg: BRAND.bg,
+  border: BRAND.border,
+  primary: BRAND.primary,
+  primaryHover: BRAND.primaryHover,
+  text: BRAND.text,
+  textMuted: BRAND.textMuted,
+  inputBg: BRAND.inputBg,
+  successBg: BRAND.successBg,
+  successText: BRAND.successText,
+  errorBg: BRAND.errorBg,
+  errorText: BRAND.errorText,
+  pillBg: BRAND.primary,
   pillText: "#ffffff",
 };
+
+const RADIUS = BRAND.radiusSm;
 
 interface SidebarProps {
   jobContext: JobContext;
@@ -215,7 +218,7 @@ export function Sidebar({ jobContext, minimal = false, questionWatcher, onLogApp
         opacity: compact ? 0.75 : 1,
         background: COLORS.pillBg,
         color: COLORS.pillText,
-        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+        fontFamily: BRAND.fontSans,
         fontSize: 14,
         fontWeight: 600,
         border: "none",
@@ -254,7 +257,7 @@ export function Sidebar({ jobContext, minimal = false, questionWatcher, onLogApp
           borderLeft: `1px solid ${COLORS.border}`,
           display: "flex",
           flexDirection: "column",
-          fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+          fontFamily: BRAND.fontSans,
           boxShadow: "-4px 0 24px rgba(0,0,0,0.12)",
           overflowY: "auto",
         }}
@@ -320,9 +323,9 @@ export function Sidebar({ jobContext, minimal = false, questionWatcher, onLogApp
                       style={{
                         textAlign: "left",
                         padding: "8px 10px",
-                        background: active ? "#eff6ff" : COLORS.inputBg,
+                        background: active ? BRAND.primarySoftActive : COLORS.inputBg,
                         border: `1px solid ${active ? COLORS.primary : COLORS.border}`,
-                        borderRadius: 8,
+                        borderRadius: RADIUS,
                         fontSize: 12,
                         color: COLORS.text,
                         cursor: streaming ? "not-allowed" : "pointer",
@@ -362,7 +365,7 @@ export function Sidebar({ jobContext, minimal = false, questionWatcher, onLogApp
                 color: COLORS.text,
                 background: COLORS.inputBg,
                 border: `1px solid ${COLORS.border}`,
-                borderRadius: 8,
+                borderRadius: RADIUS,
                 resize: "vertical",
                 outline: "none",
                 fontFamily: "inherit",
@@ -376,10 +379,10 @@ export function Sidebar({ jobContext, minimal = false, questionWatcher, onLogApp
             disabled={streaming || !question.trim()}
             style={{
               padding: "9px 16px",
-              background: streaming || !question.trim() ? "#93c5fd" : COLORS.primary,
+              background: streaming || !question.trim() ? BRAND.primaryDisabled : COLORS.primary,
               color: "#fff",
               border: "none",
-              borderRadius: 8,
+              borderRadius: RADIUS,
               fontSize: 13,
               fontWeight: 600,
               cursor: streaming || !question.trim() ? "not-allowed" : "pointer",
@@ -402,7 +405,7 @@ export function Sidebar({ jobContext, minimal = false, questionWatcher, onLogApp
           </button>
 
           {error && (
-            <div style={{ padding: "10px 12px", background: COLORS.errorBg, color: COLORS.errorText, fontSize: 12, borderRadius: 8, lineHeight: 1.5 }}>
+            <div style={{ padding: "10px 12px", background: COLORS.errorBg, color: COLORS.errorText, fontSize: 12, borderRadius: RADIUS, lineHeight: 1.5 }}>
               {error}
             </div>
           )}
@@ -415,7 +418,7 @@ export function Sidebar({ jobContext, minimal = false, questionWatcher, onLogApp
                   padding: "10px 12px",
                   background: COLORS.inputBg,
                   border: `1px solid ${COLORS.border}`,
-                  borderRadius: 8,
+                  borderRadius: RADIUS,
                   fontSize: 13,
                   color: COLORS.text,
                   lineHeight: 1.6,
@@ -426,7 +429,7 @@ export function Sidebar({ jobContext, minimal = false, questionWatcher, onLogApp
                 {answer}
               </div>
               {insertFailed && (
-                <div style={{ padding: "8px 10px", background: COLORS.errorBg, color: COLORS.errorText, fontSize: 12, borderRadius: 8, lineHeight: 1.5 }}>
+                <div style={{ padding: "8px 10px", background: COLORS.errorBg, color: COLORS.errorText, fontSize: 12, borderRadius: RADIUS, lineHeight: 1.5 }}>
                   Couldn't find the form field anymore — it may have changed. Use Copy Answer instead.
                 </div>
               )}
@@ -439,8 +442,8 @@ export function Sidebar({ jobContext, minimal = false, questionWatcher, onLogApp
                       padding: "8px 12px",
                       background: inserted ? COLORS.successBg : COLORS.primary,
                       color: inserted ? COLORS.successText : "#fff",
-                      border: `1px solid ${inserted ? "#86efac" : COLORS.primary}`,
-                      borderRadius: 8,
+                      border: `1px solid ${inserted ? BRAND.successBorder : COLORS.primary}`,
+                      borderRadius: RADIUS,
                       fontSize: 12,
                       fontWeight: 600,
                       cursor: "pointer",
@@ -456,8 +459,8 @@ export function Sidebar({ jobContext, minimal = false, questionWatcher, onLogApp
                     padding: "8px 12px",
                     background: copied ? COLORS.successBg : COLORS.inputBg,
                     color: copied ? COLORS.successText : COLORS.text,
-                    border: `1px solid ${copied ? "#86efac" : COLORS.border}`,
-                    borderRadius: 8,
+                    border: `1px solid ${copied ? BRAND.successBorder : COLORS.border}`,
+                    borderRadius: RADIUS,
                     fontSize: 12,
                     fontWeight: 600,
                     cursor: "pointer",
@@ -472,7 +475,7 @@ export function Sidebar({ jobContext, minimal = false, questionWatcher, onLogApp
                     background: "none",
                     color: COLORS.textMuted,
                     border: `1px solid ${COLORS.border}`,
-                    borderRadius: 8,
+                    borderRadius: RADIUS,
                     fontSize: 12,
                     cursor: "pointer",
                   }}
@@ -500,7 +503,7 @@ export function Sidebar({ jobContext, minimal = false, questionWatcher, onLogApp
                 background: "none",
                 color: logging ? COLORS.textMuted : COLORS.primary,
                 border: `1px solid ${logging ? COLORS.border : COLORS.primary}`,
-                borderRadius: 8,
+                borderRadius: RADIUS,
                 fontSize: 12,
                 fontWeight: 600,
                 cursor: logging ? "not-allowed" : "pointer",
