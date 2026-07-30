@@ -22,10 +22,11 @@ function parseMonthsFromRange(range: string | null): number {
   return values.reduce((a, b) => a + b, 0) / values.length;
 }
 
-function regulatorForProfession(profession: string): "GMC" | "NMC" | "HCPC" | null {
-  if (profession === "doctor" || profession === "clinical_academic") return "GMC";
-  if (profession === "nurse" || profession === "midwife") return "NMC";
-  if (profession === "allied_health_professional") return "HCPC";
+function regulatorForProfession(profession: string | null | undefined): "GMC" | "NMC" | "HCPC" | null {
+  const p = profession?.toLowerCase().trim() ?? "";
+  if (p === "doctor" || p === "clinical_academic") return "GMC";
+  if (p === "nurse" || p === "midwife") return "NMC";
+  if (p === "allied_health_professional") return "HCPC";
   return null;
 }
 
