@@ -71,10 +71,11 @@ const VALID_REGULATORS = ["GMC", "NMC", "HCPC"];
 
 const REGISTERED_STATUSES = ["registered", "fully_registered", "full_registration"];
 
-function regulatorForProfession(profession: string): "GMC" | "NMC" | "HCPC" | null {
-  if (profession === "doctor" || profession === "clinical_academic") return "GMC";
-  if (profession === "nurse" || profession === "midwife") return "NMC";
-  if (profession === "allied_health_professional") return "HCPC";
+function regulatorForProfession(profession: string | null | undefined): "GMC" | "NMC" | "HCPC" | null {
+  const p = profession?.toLowerCase().trim() ?? "";
+  if (p === "doctor" || p === "clinical_academic") return "GMC";
+  if (p === "nurse" || p === "midwife") return "NMC";
+  if (p === "allied_health_professional") return "HCPC";
   return null;
 }
 
