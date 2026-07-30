@@ -850,6 +850,18 @@ export const ListMatchedRolesResponse = zod.object({
         .nullish(),
       isEligible: zod.boolean(),
       matchScore: zod.number().describe("Match score from 0-100"),
+      aiScore: zod
+        .number()
+        .nullish()
+        .describe(
+          "AI match score from 0-100, when a cached score is available",
+        ),
+      aiExplanation: zod
+        .string()
+        .nullish()
+        .describe(
+          "AI-generated explanation of this match, when a cached score is available",
+        ),
       eligibilityGaps: zod
         .array(zod.string())
         .optional()
@@ -1010,6 +1022,24 @@ export const AdminListRolesResponse = zod.object({
 });
 
 /**
+ * @summary Delete all roles and their dependent records (admin only)
+ */
+export const DeleteAllRolesResponse = zod.object({
+  deleted: zod.number(),
+});
+
+/**
+ * @summary Delete a single role and its dependent records (admin only)
+ */
+export const DeleteRoleParams = zod.object({
+  roleId: zod.coerce.number(),
+});
+
+export const DeleteRoleResponse = zod.object({
+  deleted: zod.number(),
+});
+
+/**
  * @summary Import roles from a CSV file (admin only)
  */
 export const ImportRolesCSVBody = zod.object({
@@ -1083,10 +1113,26 @@ export const ListMyApplicationsResponse = zod.object({
  * @summary Mark a role as applied (or update application status)
  */
 export const MarkApplicationBody = zod.object({
-  roleId: zod.number(),
+  roleId: zod
+    .number()
+    .optional()
+    .describe(
+      "Required for platform applications; omitted for website applications.",
+    ),
   notes: zod.string().optional(),
   smartApply: zod.boolean().nullish(),
   cvDocumentId: zod.number().nullish(),
+  applicationType: zod
+    .enum(["platform", "website"])
+    .optional()
+    .describe(
+      "Defaults to platform. Use website to log an application made on the company's own site.",
+    ),
+  applicationUrl: zod.string().nullish(),
+  companyName: zod
+    .string()
+    .optional()
+    .describe("Required when applicationType is website."),
 });
 
 export const MarkApplicationResponse = zod.object({

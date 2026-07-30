@@ -244,10 +244,10 @@ function ApplicationCard({ application, onStatusUpdated }: { application: Enrich
   const isWebsite = kind === "website";
 
   const kindBadge = isSpeculative
-    ? { label: "Speculative CV", icon: Send, className: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-900/20 dark:text-sky-400" }
+    ? { label: "Send CV", icon: Send, className: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-900/20 dark:text-sky-400" }
     : isWebsite
     ? { label: "Company Website", icon: Globe, className: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400" }
-    : { label: "Applied via JOBSAGE", icon: Building2, className: "bg-primary/5 text-primary border-primary/20" };
+    : { label: "Job Boards", icon: Building2, className: "bg-primary/5 text-primary border-primary/20" };
 
   const KindIcon = kindBadge.icon;
   const isInterviewInvited = application.status === "interview_invited" || application.status === "interview";
@@ -264,7 +264,7 @@ function ApplicationCard({ application, onStatusUpdated }: { application: Enrich
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="font-semibold text-foreground truncate">
                 {isSpeculative
-                  ? application.companyName ?? application.roleTitle ?? "Speculative Application"
+                  ? application.companyName ?? application.roleTitle ?? "CV Send"
                   : isWebsite
                   ? application.companyName ?? "Website Application"
                   : application.roleTitle ?? `Role #${application.roleId}`}
@@ -449,9 +449,9 @@ export default function ApplicationsPage() {
 
   const tabs: { id: CategoryTab; label: string; icon: React.ElementType; count: number }[] = [
     { id: "all", label: "All", icon: ClipboardList, count: applications.length },
+    { id: "platform", label: "Job Boards", icon: Building2, count: stats?.platformCount ?? applications.filter((a) => a.applicationKind === "formal").length },
+    { id: "speculative", label: "Send CV", icon: Send, count: stats?.speculativeCount ?? applications.filter((a) => a.applicationKind === "speculative").length },
     { id: "website", label: "Company Website", icon: Globe, count: stats?.websiteCount ?? applications.filter((a) => a.applicationKind === "website").length },
-    { id: "platform", label: "Via JOBSAGE", icon: Building2, count: stats?.platformCount ?? applications.filter((a) => a.applicationKind === "formal").length },
-    { id: "speculative", label: "Speculative CV", icon: Send, count: stats?.speculativeCount ?? applications.filter((a) => a.applicationKind === "speculative").length },
   ];
 
   return (
@@ -464,7 +464,7 @@ export default function ApplicationsPage() {
               Application Tracker
             </h1>
             <p className="text-muted-foreground text-sm mt-1">
-              Track all your job applications, speculative CVs, and direct website submissions.
+              Track all your job board applications, CV sends, and company website submissions.
             </p>
           </div>
           <div className="flex flex-col items-end gap-1.5">
@@ -543,7 +543,7 @@ export default function ApplicationsPage() {
               {activeTab === "website"
                 ? "Click Apply on any role — when you follow the link to an employer's website, it's tracked here automatically. Applied somewhere entirely outside JOBSAGE? Use 'Log an application made elsewhere' above."
                 : activeTab === "speculative"
-                ? "Send your CV speculatively to a sponsor licence company to create a record here."
+                ? "Send your CV directly to a sponsor licence company to create a record here."
                 : "Click Apply on any role — applications are tracked automatically. You can also use Smart Apply or send your CV directly to sponsor licence companies."}
             </p>
             <Button variant="outline" onClick={() => setLocation(activeTab === "speculative" || activeTab === "website" ? "/sponsor-licences" : "/opportunities")}>

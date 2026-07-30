@@ -31,6 +31,16 @@ if (forbidden.length > 0) {
   process.exit(1);
 }
 
+// Content scripts are injected as classic scripts — a top-level import/export
+// in content.js crashes immediately on every page. Refuse to package one.
+const contentJs = readFileSync(resolve(dist, "content.js"), "utf8");
+if (/^\s*(import|export)[\s{"']/m.test(contentJs)) {
+  console.error(
+    "dist/content.js contains top-level import/export statements — it must be a classic-script IIFE bundle (see vite.config.content.ts)."
+  );
+  process.exit(1);
+}
+
 const { version } = JSON.parse(readFileSync(resolve(root, "manifest.json"), "utf8"));
 
 const releaseDir = resolve(root, "release");

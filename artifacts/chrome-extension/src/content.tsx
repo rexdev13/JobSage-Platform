@@ -2,20 +2,10 @@ import { createRoot } from "react-dom/client";
 import { Sidebar } from "./components/Sidebar";
 import { scrapeJobContext, isRecognizedJobBoard } from "./lib/scraper";
 import { isConfirmationPage, mountConfirmationToast } from "./lib/trackerDetector";
+import { createQuestionWatcher } from "./lib/questionDetector";
+import { ensureBrandFonts } from "./lib/brand";
 
 const JOBSAGE_HOST_ID = "jobsage-extension-root";
-
-async function getToken(): Promise<string | null> {
-  return new Promise((resolve) => {
-    chrome.runtime.sendMessage({ type: "GET_TOKEN" }, (response: { token: string | null }) => {
-      if (chrome.runtime.lastError) {
-        resolve(null);
-        return;
-      }
-      resolve(response?.token ?? null);
-    });
-  });
-}
 
 async function logApplication(companyName: string, jobTitle: string, pageUrl: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -51,18 +41,30 @@ function mountSidebar(): ShadowRoot {
 
   const shadowRoot = host.attachShadow({ mode: "open" });
 
+  // @font-face is document-scoped, so load the brand fonts into the host
+  // document; text inside the shadow root can then use them. Falls back to
+  // system fonts if the host page's CSP blocks the stylesheet.
+  ensureBrandFonts();
+
+  // Keyframes used by the sidebar's spinner live inside the shadow root so
+  // they neither leak out nor depend on host-page styles.
+  const style = document.createElement("style");
+  style.textContent = "@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }";
+  shadowRoot.appendChild(style);
+
   const container = document.createElement("div");
   shadowRoot.appendChild(container);
 
   document.body.appendChild(host);
 
   const jobContext = scrapeJobContext();
+  const questionWatcher = createQuestionWatcher();
 
   createRoot(container).render(
     <Sidebar
       jobContext={jobContext}
       minimal={!isRecognizedJobBoard()}
-      onGetToken={getToken}
+      questionWatcher={questionWatcher}
       onLogApplication={logApplication}
     />
   );

@@ -1,10 +1,10 @@
-const JOBSAGE_API_BASE = "https://jobsage.co.uk/api";
-const JOBSAGE_COOKIE_URL = "https://jobsage.co.uk";
+import { getEnvSettings, activeOrigin, apiBase } from "./lib/env";
+
 const SESSION_COOKIE_NAME = "sid";
 
-async function getSessionToken(): Promise<string | null> {
+async function getSessionToken(cookieUrl: string): Promise<string | null> {
   const cookie = await chrome.cookies.get({
-    url: JOBSAGE_COOKIE_URL,
+    url: cookieUrl,
     name: SESSION_COOKIE_NAME,
   });
   return cookie?.value ?? null;
@@ -37,6 +37,116 @@ interface TokenResponse {
 
 type ApiResponse = ApiResponseSuccess | ApiResponseError | TokenResponse;
 
+// Long-lived port relay for the streaming assistant endpoint. The content
+// script cannot fetch the API directly (its requests carry the host page's
+// origin and are blocked by CORS), so the sidebar connects a port and the
+// service worker performs the SSE fetch, relaying chunks back.
+interface AssistantStreamRequest {
+  message: string;
+}
+
+type AssistantStreamEvent =
+  | { type: "chunk"; text: string }
+  | { type: "error"; kind: "auth" | "server" | "network"; status?: number; message?: string }
+  | { type: "done" };
+
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== "assistant-stream") return;
+
+  let aborted = false;
+  const controller = new AbortController();
+  port.onDisconnect.addListener(() => {
+    aborted = true;
+    controller.abort();
+  });
+
+  const post = (event: AssistantStreamEvent) => {
+    if (!aborted) {
+      try {
+        port.postMessage(event);
+      } catch {
+        aborted = true;
+      }
+    }
+  };
+
+  port.onMessage.addListener((request: AssistantStreamRequest) => {
+    (async () => {
+      const settings = await getEnvSettings();
+      const token = await getSessionToken(activeOrigin(settings));
+      if (!token) {
+        post({ type: "error", kind: "auth" });
+        return;
+      }
+
+      let response: Response;
+      try {
+        response = await fetch(`${apiBase(settings)}/smart-apply/assistant`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ message: request.message }),
+          signal: controller.signal,
+        });
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") {
+          post({ type: "error", kind: "network", message: (err as Error).message });
+        }
+        return;
+      }
+
+      if (response.status === 401 || response.status === 403) {
+        post({ type: "error", kind: "auth", status: response.status });
+        return;
+      }
+      if (!response.ok || !response.body) {
+        let message: string | undefined;
+        try {
+          const parsed = (await response.json()) as { error?: string };
+          message = parsed.error;
+        } catch {
+          // non-JSON error body
+        }
+        post({ type: "error", kind: "server", status: response.status, message });
+        return;
+      }
+
+      try {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const payload = JSON.parse(line.slice(6)) as { text?: string; error?: string };
+              if (payload.error) {
+                post({ type: "error", kind: "server", message: payload.error });
+              } else if (payload.text) {
+                post({ type: "chunk", text: payload.text });
+              }
+            } catch {
+              // ignore malformed chunk
+            }
+          }
+        }
+        post({ type: "done" });
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") {
+          post({ type: "error", kind: "network", message: (err as Error).message });
+        }
+      }
+    })();
+  });
+});
+
 chrome.runtime.onMessage.addListener(
   (
     message: IncomingMessage,
@@ -44,7 +154,9 @@ chrome.runtime.onMessage.addListener(
     sendResponse: (response: ApiResponse) => void
   ) => {
     if (message.type === "GET_TOKEN") {
-      getSessionToken().then((token) => sendResponse({ token }));
+      getEnvSettings()
+        .then((settings) => getSessionToken(activeOrigin(settings)))
+        .then((token) => sendResponse({ token }));
       return true;
     }
 
@@ -56,7 +168,8 @@ chrome.runtime.onMessage.addListener(
 
     (async () => {
       try {
-        const token = await getSessionToken();
+        const settings = await getEnvSettings();
+        const token = await getSessionToken(activeOrigin(settings));
 
         const headers: Record<string, string> = {
           "Content-Type": "application/json",
@@ -75,7 +188,7 @@ chrome.runtime.onMessage.addListener(
           fetchOptions.body = JSON.stringify(body);
         }
 
-        const url = `${JOBSAGE_API_BASE}${endpoint}`;
+        const url = `${apiBase(settings)}${endpoint}`;
         const response = await fetch(url, fetchOptions);
 
         if (!response.ok) {

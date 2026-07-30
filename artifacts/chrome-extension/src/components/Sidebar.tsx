@@ -1,23 +1,26 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useSyncExternalStore } from "react";
 import type { JobContext } from "../lib/scraper";
-
-const API_BASE = "https://jobsage.co.uk/api";
+import type { DetectedQuestion, QuestionWatcher } from "../lib/questionDetector";
+import { insertAnswer, highlightField } from "../lib/questionDetector";
+import { BRAND } from "../lib/brand";
 
 const COLORS = {
-  bg: "#ffffff",
-  border: "#e5e7eb",
-  primary: "#1a56db",
-  primaryHover: "#1e40af",
-  text: "#111827",
-  textMuted: "#6b7280",
-  inputBg: "#f9fafb",
-  successBg: "#f0fdf4",
-  successText: "#15803d",
-  errorBg: "#fef2f2",
-  errorText: "#dc2626",
-  pillBg: "#1a56db",
+  bg: BRAND.bg,
+  border: BRAND.border,
+  primary: BRAND.primary,
+  primaryHover: BRAND.primaryHover,
+  text: BRAND.text,
+  textMuted: BRAND.textMuted,
+  inputBg: BRAND.inputBg,
+  successBg: BRAND.successBg,
+  successText: BRAND.successText,
+  errorBg: BRAND.errorBg,
+  errorText: BRAND.errorText,
+  pillBg: BRAND.primary,
   pillText: "#ffffff",
 };
+
+const RADIUS = BRAND.radiusSm;
 
 interface SidebarProps {
   jobContext: JobContext;
@@ -27,102 +30,153 @@ interface SidebarProps {
    * unobtrusive during normal browsing.
    */
   minimal?: boolean;
-  onGetToken: () => Promise<string | null>;
+  /** Live watcher over free-text application questions detected on the page. */
+  questionWatcher?: QuestionWatcher;
   onLogApplication: (companyName: string, jobTitle: string, pageUrl: string) => Promise<void>;
 }
 
-function useStreamAnswer(getToken: () => Promise<string | null>) {
+const EMPTY_QUESTIONS: DetectedQuestion[] = [];
+
+type AssistantStreamEvent =
+  | { type: "chunk"; text: string }
+  | { type: "error"; kind: "auth" | "server" | "network"; status?: number; message?: string }
+  | { type: "done" };
+
+function errorMessageFor(event: Extract<AssistantStreamEvent, { type: "error" }>): string {
+  if (event.kind === "auth") {
+    return "Please sign in to JOBSAGE (jobsage.co.uk) in another tab, then try again.";
+  }
+  if (event.kind === "server") {
+    return event.message
+      ? `JOBSAGE couldn't generate an answer: ${event.message}`
+      : `JOBSAGE couldn't generate an answer right now (error ${event.status ?? "unknown"}). Please try again in a moment.`;
+  }
+  return "Could not reach the JOBSAGE API. Check your internet connection and try again.";
+}
+
+function useStreamAnswer() {
   const [answer, setAnswer] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
+  const portRef = useRef<chrome.runtime.Port | null>(null);
 
   const generate = useCallback(
-    async (question: string, jobContext: JobContext) => {
+    (question: string, jobContext: JobContext) => {
       if (!question.trim()) return;
-      abortRef.current?.abort();
-      const ctrl = new AbortController();
-      abortRef.current = ctrl;
+      portRef.current?.disconnect();
 
       setAnswer("");
       setError(null);
       setStreaming(true);
 
+      let port: chrome.runtime.Port;
       try {
-        const token = await getToken();
-
-        const headers: Record<string, string> = {
-          "Content-Type": "application/json",
-        };
-        if (token) headers["Authorization"] = `Bearer ${token}`;
-
-        const body = {
-          message: `${question.trim()}\n\nJob context: ${jobContext.jobTitle} at ${jobContext.companyName}. ${jobContext.jobDescription.slice(0, 800)}`,
-        };
-
-        const response = await fetch(`${API_BASE}/smart-apply/assistant`, {
-          method: "POST",
-          headers,
-          body: JSON.stringify(body),
-          signal: ctrl.signal,
-        });
-
-        if (!response.ok) {
-          setError(`Request failed (${response.status}). Are you logged in to JOBSAGE?`);
-          setStreaming(false);
-          return;
-        }
-
-        const reader = response.body!.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-
-          const lines = buffer.split("\n");
-          buffer = lines.pop() ?? "";
-
-          for (const line of lines) {
-            if (!line.startsWith("data: ")) continue;
-            try {
-              const payload = JSON.parse(line.slice(6)) as { text?: string; done?: boolean; error?: string };
-              if (payload.error) {
-                setError(payload.error);
-              } else if (payload.text) {
-                setAnswer((prev) => prev + payload.text);
-              }
-            } catch {
-              // ignore parse error on malformed chunk
-            }
-          }
-        }
-      } catch (err) {
-        if ((err as Error).name !== "AbortError") {
-          setError("Could not reach the JOBSAGE API. Check your connection.");
-        }
-      } finally {
+        port = chrome.runtime.connect({ name: "assistant-stream" });
+      } catch {
+        setError("The JOBSAGE extension was updated or reloaded. Please refresh this page and try again.");
         setStreaming(false);
+        return;
       }
+      portRef.current = port;
+      let finished = false;
+
+      const finish = () => {
+        if (finished) return;
+        finished = true;
+        setStreaming(false);
+        if (portRef.current === port) portRef.current = null;
+        port.disconnect();
+      };
+
+      port.onMessage.addListener((event: AssistantStreamEvent) => {
+        if (event.type === "chunk") {
+          setAnswer((prev) => prev + event.text);
+        } else if (event.type === "error") {
+          setError(errorMessageFor(event));
+          finish();
+        } else if (event.type === "done") {
+          finish();
+        }
+      });
+
+      // If the service worker goes away before the stream completes, surface
+      // a network-style error rather than spinning forever.
+      port.onDisconnect.addListener(() => {
+        if (!finished) {
+          finished = true;
+          setStreaming(false);
+          if (portRef.current === port) portRef.current = null;
+          setError("Could not reach the JOBSAGE API. Check your internet connection and try again.");
+        }
+      });
+
+      port.postMessage({
+        message: `${question.trim()}\n\nJob context: ${jobContext.jobTitle} at ${jobContext.companyName}. ${jobContext.jobDescription.slice(0, 800)}`,
+      });
     },
-    [getToken]
+    []
   );
 
   return { answer, streaming, error, generate, setAnswer };
 }
 
-export function Sidebar({ jobContext, minimal = false, onGetToken, onLogApplication }: SidebarProps) {
+function limitHint(q: DetectedQuestion): string | null {
+  if (q.wordLimit) return `${q.wordLimit} word limit`;
+  if (q.maxLength) return `${q.maxLength} character limit`;
+  return null;
+}
+
+export function Sidebar({ jobContext, minimal = false, questionWatcher, onLogApplication }: SidebarProps) {
   const [open, setOpen] = useState(false);
   const [question, setQuestion] = useState("");
   const [copied, setCopied] = useState(false);
+  const [inserted, setInserted] = useState(false);
+  const [insertFailed, setInsertFailed] = useState(false);
   const [logging, setLogging] = useState(false);
   const [logDone, setLogDone] = useState(false);
-  const { answer, streaming, error, generate, setAnswer } = useStreamAnswer(onGetToken);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const { answer, streaming, error, generate, setAnswer } = useStreamAnswer();
+
+  const subscribe = useCallback(
+    (listener: () => void) => (questionWatcher ? questionWatcher.subscribe(listener) : () => {}),
+    [questionWatcher]
+  );
+  const getSnapshot = useCallback(
+    () => (questionWatcher ? questionWatcher.getSnapshot() : EMPTY_QUESTIONS),
+    [questionWatcher]
+  );
+  const detected = useSyncExternalStore(subscribe, getSnapshot);
+  const selectedQuestion = selectedId ? detected.find((q) => q.id === selectedId) ?? null : null;
+
+  const buildPrompt = (q: string, dq: DetectedQuestion | null) => {
+    const hint = dq ? limitHint(dq) : null;
+    return hint ? `${q.trim()}\n\n(Keep the answer within the ${hint}.)` : q.trim();
+  };
 
   const handleGenerate = () => {
-    generate(question, jobContext);
+    setInserted(false);
+    setInsertFailed(false);
+    generate(buildPrompt(question, selectedQuestion), jobContext);
+  };
+
+  const handleSelectDetected = (dq: DetectedQuestion) => {
+    setSelectedId(dq.id);
+    setQuestion(dq.question);
+    setInserted(false);
+    setInsertFailed(false);
+    highlightField(dq.id);
+    generate(buildPrompt(dq.question, dq), jobContext);
+  };
+
+  const handleInsert = () => {
+    if (!answer || !selectedId) return;
+    const ok = insertAnswer(selectedId, answer);
+    setInserted(ok);
+    setInsertFailed(!ok);
+    if (ok) {
+      highlightField(selectedId);
+      setTimeout(() => setInserted(false), 2500);
+    }
   };
 
   const handleCopy = async () => {
@@ -164,7 +218,7 @@ export function Sidebar({ jobContext, minimal = false, onGetToken, onLogApplicat
         opacity: compact ? 0.75 : 1,
         background: COLORS.pillBg,
         color: COLORS.pillText,
-        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+        fontFamily: BRAND.fontSans,
         fontSize: 14,
         fontWeight: 600,
         border: "none",
@@ -203,7 +257,7 @@ export function Sidebar({ jobContext, minimal = false, onGetToken, onLogApplicat
           borderLeft: `1px solid ${COLORS.border}`,
           display: "flex",
           flexDirection: "column",
-          fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+          fontFamily: BRAND.fontSans,
           boxShadow: "-4px 0 24px rgba(0,0,0,0.12)",
           overflowY: "auto",
         }}
@@ -252,13 +306,55 @@ export function Sidebar({ jobContext, minimal = false, onGetToken, onLogApplicat
 
         {/* Body */}
         <div style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+          {detected.length > 0 && (
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.text, marginBottom: 6 }}>
+                Detected questions
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {detected.map((dq) => {
+                  const active = dq.id === selectedId;
+                  const hint = limitHint(dq);
+                  return (
+                    <button
+                      key={dq.id}
+                      onClick={() => handleSelectDetected(dq)}
+                      disabled={streaming}
+                      style={{
+                        textAlign: "left",
+                        padding: "8px 10px",
+                        background: active ? BRAND.primarySoftActive : COLORS.inputBg,
+                        border: `1px solid ${active ? COLORS.primary : COLORS.border}`,
+                        borderRadius: RADIUS,
+                        fontSize: 12,
+                        color: COLORS.text,
+                        cursor: streaming ? "not-allowed" : "pointer",
+                        lineHeight: 1.4,
+                        fontFamily: "inherit",
+                      }}
+                    >
+                      {dq.question}
+                      {hint && (
+                        <span style={{ display: "block", marginTop: 2, fontSize: 11, color: COLORS.textMuted }}>
+                          {hint}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           <div>
             <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: COLORS.text, marginBottom: 6 }}>
-              Application question
+              {detected.length > 0 ? "Or paste a question manually" : "Application question"}
             </label>
             <textarea
               value={question}
-              onChange={(e) => setQuestion(e.target.value)}
+              onChange={(e) => {
+                setQuestion(e.target.value);
+                setSelectedId(null);
+              }}
               placeholder="Paste the application question here, e.g. 'Describe a time you handled a clinical crisis…'"
               rows={4}
               style={{
@@ -269,7 +365,7 @@ export function Sidebar({ jobContext, minimal = false, onGetToken, onLogApplicat
                 color: COLORS.text,
                 background: COLORS.inputBg,
                 border: `1px solid ${COLORS.border}`,
-                borderRadius: 8,
+                borderRadius: RADIUS,
                 resize: "vertical",
                 outline: "none",
                 fontFamily: "inherit",
@@ -283,10 +379,10 @@ export function Sidebar({ jobContext, minimal = false, onGetToken, onLogApplicat
             disabled={streaming || !question.trim()}
             style={{
               padding: "9px 16px",
-              background: streaming || !question.trim() ? "#93c5fd" : COLORS.primary,
+              background: streaming || !question.trim() ? BRAND.primaryDisabled : COLORS.primary,
               color: "#fff",
               border: "none",
-              borderRadius: 8,
+              borderRadius: RADIUS,
               fontSize: 13,
               fontWeight: 600,
               cursor: streaming || !question.trim() ? "not-allowed" : "pointer",
@@ -309,7 +405,7 @@ export function Sidebar({ jobContext, minimal = false, onGetToken, onLogApplicat
           </button>
 
           {error && (
-            <div style={{ padding: "10px 12px", background: COLORS.errorBg, color: COLORS.errorText, fontSize: 12, borderRadius: 8, lineHeight: 1.5 }}>
+            <div style={{ padding: "10px 12px", background: COLORS.errorBg, color: COLORS.errorText, fontSize: 12, borderRadius: RADIUS, lineHeight: 1.5 }}>
               {error}
             </div>
           )}
@@ -322,7 +418,7 @@ export function Sidebar({ jobContext, minimal = false, onGetToken, onLogApplicat
                   padding: "10px 12px",
                   background: COLORS.inputBg,
                   border: `1px solid ${COLORS.border}`,
-                  borderRadius: 8,
+                  borderRadius: RADIUS,
                   fontSize: 13,
                   color: COLORS.text,
                   lineHeight: 1.6,
@@ -332,7 +428,30 @@ export function Sidebar({ jobContext, minimal = false, onGetToken, onLogApplicat
               >
                 {answer}
               </div>
+              {insertFailed && (
+                <div style={{ padding: "8px 10px", background: COLORS.errorBg, color: COLORS.errorText, fontSize: 12, borderRadius: RADIUS, lineHeight: 1.5 }}>
+                  Couldn't find the form field anymore — it may have changed. Use Copy Answer instead.
+                </div>
+              )}
               <div style={{ display: "flex", gap: 8 }}>
+                {selectedId && !streaming && (
+                  <button
+                    onClick={handleInsert}
+                    style={{
+                      flex: 1,
+                      padding: "8px 12px",
+                      background: inserted ? COLORS.successBg : COLORS.primary,
+                      color: inserted ? COLORS.successText : "#fff",
+                      border: `1px solid ${inserted ? BRAND.successBorder : COLORS.primary}`,
+                      borderRadius: RADIUS,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {inserted ? "✓ Inserted!" : "Insert into form"}
+                  </button>
+                )}
                 <button
                   onClick={handleCopy}
                   style={{
@@ -340,8 +459,8 @@ export function Sidebar({ jobContext, minimal = false, onGetToken, onLogApplicat
                     padding: "8px 12px",
                     background: copied ? COLORS.successBg : COLORS.inputBg,
                     color: copied ? COLORS.successText : COLORS.text,
-                    border: `1px solid ${copied ? "#86efac" : COLORS.border}`,
-                    borderRadius: 8,
+                    border: `1px solid ${copied ? BRAND.successBorder : COLORS.border}`,
+                    borderRadius: RADIUS,
                     fontSize: 12,
                     fontWeight: 600,
                     cursor: "pointer",
@@ -356,7 +475,7 @@ export function Sidebar({ jobContext, minimal = false, onGetToken, onLogApplicat
                     background: "none",
                     color: COLORS.textMuted,
                     border: `1px solid ${COLORS.border}`,
-                    borderRadius: 8,
+                    borderRadius: RADIUS,
                     fontSize: 12,
                     cursor: "pointer",
                   }}
@@ -384,7 +503,7 @@ export function Sidebar({ jobContext, minimal = false, onGetToken, onLogApplicat
                 background: "none",
                 color: logging ? COLORS.textMuted : COLORS.primary,
                 border: `1px solid ${logging ? COLORS.border : COLORS.primary}`,
-                borderRadius: 8,
+                borderRadius: RADIUS,
                 fontSize: 12,
                 fontWeight: 600,
                 cursor: logging ? "not-allowed" : "pointer",

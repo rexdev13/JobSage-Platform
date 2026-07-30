@@ -26,6 +26,10 @@ author = "agent"
 task = "workflow.run"
 args = "web-build"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "web-bundle-fresh"
+
 [[workflows.workflow]]
 name = "web-build"
 author = "agent"
@@ -33,6 +37,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "PORT=3000 BASE_PATH=/ pnpm --filter @workspace/jobsage-web run build"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "web-bundle-fresh"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash scripts/check-web-bundle-freshness.sh"
 
 [workflows.workflow.metadata]
 isValidation = true

@@ -14,6 +14,8 @@ import {
   employerProfilesTable,
   candidateMatchScoresTable,
   matchDismissalsTable,
+  smartApplyDraftsTable,
+  sponsorLicenceVacancyScoresTable,
 } from "@workspace/db";
 import { eq, desc, and, inArray, gte, or, isNotNull, ne } from "drizzle-orm";
 import { requireRole, requireAuthenticated } from "../middlewares/requireRole";
@@ -23,6 +25,13 @@ import { careerProfilesTable } from "@workspace/db";
 import { runApplyUrlBackfill, getLastBackfillSummary } from "../lib/applyUrlBackfill";
 import { queueLinkVerificationBatch } from "../lib/linkVerification";
 import { runFullLivenessScan, getFullScanStatus } from "../lib/vacancyLivenessSweep";
+import {
+  fetchSponsorVacanciesAsRoles,
+  presentApplyLink,
+  roleDedupKey,
+  specialtyBoost,
+  SPONSOR_VACANCY_ID_OFFSET,
+} from "../lib/sponsorVacancyRoles";
 
 const router: IRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -55,26 +64,6 @@ function employerJobHasContactInfo(row: {
   return vals.some((v) => v != null && v.trim() !== "");
 }
 
-/**
- * Candidate-facing apply-link presentation: dead links are never surfaced
- * (the record may still appear if it has other contact info), and each link
- * carries a verification status the UI badges consistently.
- */
-function presentApplyLink(
-  applyUrl: string | null | undefined,
-  liveness: string | null | undefined,
-  lastVerifiedAt: Date | null | undefined,
-): { applyUrl: string | null; linkVerified: boolean; linkCheckedAt: string | null } {
-  const url = applyUrl?.trim() || null;
-  if (!url || liveness === "dead") {
-    return { applyUrl: null, linkVerified: false, linkCheckedAt: null };
-  }
-  return {
-    applyUrl: url,
-    linkVerified: liveness === "live",
-    linkCheckedAt: lastVerifiedAt ? new Date(lastVerifiedAt).toISOString() : null,
-  };
-}
 const OPTIONAL_COLUMNS = ["applyUrl", "contactEmail", "contactPhone", "contactWebsite"];
 const APPLY_URL_PATTERN = /^https?:\/\/.+/i;
 const VALID_REGULATORS = ["GMC", "NMC", "HCPC"];
@@ -165,6 +154,8 @@ function getRoleEligibilityGaps(
   return gaps;
 }
 
+const SCORE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
 router.get("/roles", async (req, res): Promise<void> => {
   if (!req.isAuthenticated()) {
     res.status(401).json({ error: "Not authenticated." });
@@ -237,7 +228,12 @@ router.get("/roles", async (req, res): Promise<void> => {
       };
     });
 
-  const regulatorRoles = [
+  // AI-discovered sponsor-licence vacancies (daily pipeline) — merged in so the
+  // page self-populates without any admin CSV upload. Deduped below against
+  // CSV roles and employer jobs by employer+title.
+  const sponsorVacancyRoles = await fetchSponsorVacanciesAsRoles(regulator);
+
+  const curatedRoles = [
     ...allRoles.filter((role) => role.regulator === regulator).map((r) => {
       const link = presentApplyLink(r.applyUrl, r.liveness, r.lastVerifiedAt);
       return {
@@ -252,6 +248,16 @@ router.get("/roles", async (req, res): Promise<void> => {
     }),
     ...employerJobsAsRoles,
   ];
+  const curatedKeys = new Set(curatedRoles.map((r) => roleDedupKey(r.employer, r.title)));
+  const sponsorRelevance = new Map<number, boolean>();
+  const dedupedSponsorRoles = sponsorVacancyRoles
+    .filter((v) => !curatedKeys.has(roleDedupKey(v.employer, v.title)))
+    .map((v) => {
+      sponsorRelevance.set(v.id, v.classifiedRelevant);
+      const { classifiedRelevant: _cr, description: _d, ...roleShape } = v;
+      return roleShape;
+    });
+  const regulatorRoles = [...curatedRoles, ...dedupedSponsorRoles];
 
   const isRegistered =
     profile.registrationStatus != null &&
@@ -280,14 +286,72 @@ router.get("/roles", async (req, res): Promise<void> => {
     }
   }
 
-  const appliedApps = await db
-    .select({ roleId: applicationsTable.roleId })
-    .from(applicationsTable)
-    .where(eq(applicationsTable.userId, userId));
-  const appliedRoleIds = appliedApps.map((a) => a.roleId);
+  const [appliedApps, vacancySpecificSpeculative, cachedAiScores, sponsorVacancyScores] = await Promise.all([
+    db.select({ roleId: applicationsTable.roleId }).from(applicationsTable).where(eq(applicationsTable.userId, userId)),
+    // Speculative CVs sent against a specific vacancy count as applied for the
+    // matching role (badge, disabled buttons, Best Matches exclusion) without
+    // creating an applications row — the tracker already lists them under
+    // Speculative CVs, so no double-counting occurs.
+    db
+      .select({
+        companyName: speculativeApplicationsTable.companyName,
+        vacancyTitle: speculativeApplicationsTable.vacancyTitle,
+      })
+      .from(speculativeApplicationsTable)
+      .where(and(eq(speculativeApplicationsTable.userId, userId), isNotNull(speculativeApplicationsTable.vacancyTitle))),
+    db
+      .select()
+      .from(candidateMatchScoresTable)
+      .where(
+        and(
+          eq(candidateMatchScoresTable.userId, userId),
+          gte(candidateMatchScoresTable.scoredAt, new Date(Date.now() - SCORE_CACHE_TTL_MS)),
+        ),
+      ),
+    // Pre-computed per-candidate sponsor-vacancy fit scores (nightly pipeline).
+    // No TTL cutoff: the pipeline owns freshness, and a stale score beats none.
+    db
+      .select({
+        vacancyId: sponsorLicenceVacancyScoresTable.vacancyId,
+        score: sponsorLicenceVacancyScoresTable.score,
+        explanation: sponsorLicenceVacancyScoresTable.explanation,
+      })
+      .from(sponsorLicenceVacancyScoresTable)
+      .where(eq(sponsorLicenceVacancyScoresTable.userId, userId)),
+  ]);
+  const speculativeVacancyKeys = new Set(
+    vacancySpecificSpeculative
+      .filter((s) => (s.vacancyTitle ?? "").trim() !== "")
+      .map((s) => `${s.companyName.trim().toLowerCase()}|${s.vacancyTitle!.trim().toLowerCase()}`),
+  );
+  const speculativeAppliedRoleIds =
+    speculativeVacancyKeys.size > 0
+      ? regulatorRoles
+          .filter((r) => speculativeVacancyKeys.has(`${r.employer.trim().toLowerCase()}|${r.title.trim().toLowerCase()}`))
+          .map((r) => r.id)
+      : [];
+  const appliedRoleIds = [...new Set([...appliedApps.map((a) => a.roleId), ...speculativeAppliedRoleIds])];
+
+  // Build a lookup from the persisted AI scores so the roles response can
+  // sort and badge each card with the same value the /my-matches strip uses.
+  const aiScoreMap = new Map<number, { score: number; explanation: string | null }>(
+    cachedAiScores.map((s) => [s.roleId, { score: s.score, explanation: s.aiExplanation }]),
+  );
+  // Sponsor vacancies use their pre-computed pipeline scores as the AI score.
+  for (const s of sponsorVacancyScores) {
+    aiScoreMap.set(s.vacancyId + SPONSOR_VACANCY_ID_OFFSET, {
+      score: s.score,
+      explanation: s.explanation ?? "Match based on your profile and vacancy details.",
+    });
+  }
 
   const rulesetVersion = decision?.rulesetVersion ?? "—";
   const decisionRecordId = decision?.id ?? null;
+
+  const specialtyWords = (profile.specialty ?? "")
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean);
 
   const result = regulatorRoles.map((role) => {
     const reqReg = role.requiredRegistration.toLowerCase();
@@ -320,6 +384,17 @@ router.get("/roles", async (req, res): Promise<void> => {
         ? `Not yet eligible for this role. Complete your remediation steps to qualify.`
         : `Run your eligibility assessment to see your match status for this role.`;
 
+    const cached = aiScoreMap.get(role.id);
+
+    // Relevance: specialty/focus keywords boost the heuristic score, and
+    // sponsor vacancies whose title never mapped to the candidate's regulator
+    // are bottom-ranked instead of competing with clearly relevant roles.
+    let matchScore = computeMatchScore(role as typeof rolesTable.$inferSelect, isEligible, profile.requiresSponsorship);
+    matchScore = Math.min(100, matchScore + specialtyBoost(role.title, specialtyWords));
+    if (sponsorRelevance.get(role.id) === false) {
+      matchScore = Math.min(matchScore, 25);
+    }
+
     return {
       role,
       explanation,
@@ -328,7 +403,9 @@ router.get("/roles", async (req, res): Promise<void> => {
       ruleId: eligibleRuleId,
       sponsorshipFeasibility,
       isEligible,
-      matchScore: computeMatchScore(role, isEligible, profile.requiresSponsorship),
+      matchScore,
+      aiScore: cached?.score ?? null,
+      aiExplanation: cached?.explanation ?? null,
       eligibilityGaps,
       contactEmail: role.contactEmail ?? null,
       contactPhone: role.contactPhone ?? null,
@@ -339,7 +416,17 @@ router.get("/roles", async (req, res): Promise<void> => {
     };
   });
 
-  result.sort((a, b) => b.matchScore - a.matchScore);
+  // Unified sort: roles with an AI score rank first (by that score); roles
+  // still awaiting AI scoring rank below them by the heuristic matchScore.
+  // This mirrors the sort the client previously applied after merging two queries.
+  result.sort((a, b) => {
+    const aHasAi = a.aiScore !== null;
+    const bHasAi = b.aiScore !== null;
+    if (aHasAi !== bHasAi) return aHasAi ? -1 : 1;
+    if (aHasAi && bHasAi && b.aiScore !== a.aiScore) return (b.aiScore ?? 0) - (a.aiScore ?? 0);
+    if (b.matchScore !== a.matchScore) return b.matchScore - a.matchScore;
+    return a.role.id - b.role.id;
+  });
 
   const rankedRoles = result.map((r, i) => ({ ...r, recommended: i < 5 }));
 
@@ -354,7 +441,6 @@ router.get("/roles", async (req, res): Promise<void> => {
   });
 });
 
-const SCORE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<void> => {
   const userId = req.user!.id;
   const limit = Math.min(200, parseInt(String(req.query.limit ?? "10"), 10) || 10);
@@ -423,7 +509,12 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
       };
     });
 
-  const regulatorRoles = [
+  // AI-discovered sponsor-licence vacancies. Only vacancies clearly classified
+  // to the candidate's regulator qualify for the Best Matches strip; ambiguous
+  // ones stay on the main board (bottom-ranked) instead.
+  const sponsorVacancyRoles = await fetchSponsorVacanciesAsRoles(regulator);
+
+  const curatedRoles = [
     ...allRoles.filter((r) => r.regulator === regulator).map((r) => {
       const link = presentApplyLink(r.applyUrl, r.liveness, r.lastVerifiedAt);
       return {
@@ -439,6 +530,20 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
     }),
     ...employerJobsAsRoles,
   ];
+  const curatedKeys = new Set(curatedRoles.map((r) => roleDedupKey(r.employer, r.title)));
+  const sponsorRoles = sponsorVacancyRoles
+    .filter((v) => v.classifiedRelevant && !curatedKeys.has(roleDedupKey(v.employer, v.title)))
+    .map((v) => ({
+      id: v.id, title: v.title, employer: v.employer, location: v.location,
+      regulator: v.regulator, sponsorshipOffered: v.sponsorshipOffered,
+      requiredRegistration: v.requiredRegistration, applyUrl: v.applyUrl,
+      linkVerified: v.linkVerified,
+      linkCheckedAt: v.linkCheckedAt,
+      contactEmail: v.contactEmail,
+      contactPhone: v.contactPhone,
+      contactWebsite: v.contactWebsite,
+    }));
+  const regulatorRoles = [...curatedRoles, ...sponsorRoles];
 
   if (regulatorRoles.length === 0) {
     res.json({ matches: [], dismissedRoleIds: [], totalCount: 0, cached: false });
@@ -446,23 +551,37 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
   }
 
   const cutoff = new Date(Date.now() - SCORE_CACHE_TTL_MS);
-  const cachedScores = await db
-    .select()
-    .from(candidateMatchScoresTable)
-    .where(
-      and(
-        eq(candidateMatchScoresTable.userId, userId),
-        gte(candidateMatchScoresTable.scoredAt, cutoff),
+  const [cachedScores, sponsorVacancyScores] = await Promise.all([
+    db
+      .select()
+      .from(candidateMatchScoresTable)
+      .where(
+        and(
+          eq(candidateMatchScoresTable.userId, userId),
+          gte(candidateMatchScoresTable.scoredAt, cutoff),
+        ),
       ),
-    );
+    // Pre-computed pipeline scores for sponsor vacancies — never re-scored here.
+    db
+      .select({
+        vacancyId: sponsorLicenceVacancyScoresTable.vacancyId,
+        score: sponsorLicenceVacancyScoresTable.score,
+        explanation: sponsorLicenceVacancyScoresTable.explanation,
+      })
+      .from(sponsorLicenceVacancyScoresTable)
+      .where(eq(sponsorLicenceVacancyScoresTable.userId, userId)),
+  ]);
 
   let scoreMap: Map<number, { score: number; explanation: string }>;
   let cached = false;
 
   const cachedRoleIds = new Set(cachedScores.map((s) => s.roleId));
-  const allCovered = regulatorRoles.every((r) => cachedRoleIds.has(r.id));
+  // Coverage is judged over curated roles only: sponsor vacancies are scored
+  // by the nightly pipeline, so a new sponsor vacancy must never trigger a
+  // full AI re-score of the whole catalogue here.
+  const allCovered = curatedRoles.every((r) => cachedRoleIds.has(r.id));
 
-  if (allCovered && cachedScores.length > 0) {
+  if (curatedRoles.length === 0 || (allCovered && cachedScores.length > 0)) {
     scoreMap = new Map(cachedScores.map((s) => [s.roleId, { score: s.score, explanation: s.aiExplanation }]));
     cached = true;
   } else {
@@ -475,13 +594,13 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
         registrationStatus: profile.registrationStatus,
         requiresSponsorship: profile.requiresSponsorship,
       },
-      regulatorRoles,
+      curatedRoles,
     );
 
     await db.delete(candidateMatchScoresTable).where(eq(candidateMatchScoresTable.userId, userId));
-    if (regulatorRoles.length > 0) {
+    if (curatedRoles.length > 0) {
       await db.insert(candidateMatchScoresTable).values(
-        regulatorRoles.map((r) => ({
+        curatedRoles.map((r) => ({
           userId,
           roleId: r.id,
           score: scoreMap.get(r.id)?.score ?? 50,
@@ -489,6 +608,16 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
         })),
       );
     }
+  }
+
+  // Merge sponsor-vacancy pipeline scores into the same lookup. Unscored
+  // sponsor vacancies (discovered since the last pipeline pass) fall back to
+  // the neutral default below rather than triggering any request-time scoring.
+  for (const s of sponsorVacancyScores) {
+    scoreMap.set(s.vacancyId + SPONSOR_VACANCY_ID_OFFSET, {
+      score: s.score,
+      explanation: s.explanation ?? "Match based on your profile and vacancy details.",
+    });
   }
 
   const dismissals = await db
@@ -733,6 +862,63 @@ router.post("/roles/dismiss-match", requireAuthenticated, async (req, res): Prom
 router.get("/admin/roles", requireRole("admin"), async (_req, res): Promise<void> => {
   const roles = await db.select().from(rolesTable).orderBy(desc(rolesTable.importedAt));
   res.json({ roles });
+});
+
+// ── DELETE /admin/roles/all — bulk-delete every role and dependent rows ─────
+// Registered before /admin/roles/:id so "all" isn't parsed as an id.
+router.delete("/admin/roles/all", requireRole("admin"), async (req, res): Promise<void> => {
+  const adminId = req.user!.id;
+  const allRoles = await db.select({ id: rolesTable.id }).from(rolesTable);
+  const ids = allRoles.map((r) => r.id);
+
+  if (ids.length === 0) {
+    res.json({ deleted: 0 });
+    return;
+  }
+
+  await db.transaction(async (tx) => {
+    await tx.delete(applicationsTable).where(inArray(applicationsTable.roleId, ids));
+    await tx.delete(candidateMatchScoresTable).where(inArray(candidateMatchScoresTable.roleId, ids));
+    await tx.delete(matchDismissalsTable).where(inArray(matchDismissalsTable.roleId, ids));
+    await tx.delete(smartApplyDraftsTable).where(inArray(smartApplyDraftsTable.roleId, ids));
+    await tx.delete(rolesTable);
+  });
+
+  db.insert(auditEventsTable)
+    .values({ actor: adminId, action: "roles_bulk_deleted", target: undefined, details: { deleted: ids.length } })
+    .catch(() => {});
+
+  res.json({ deleted: ids.length });
+});
+
+// ── DELETE /admin/roles/:id — delete a single role and dependent rows ───────
+router.delete("/admin/roles/:id", requireRole("admin"), async (req, res): Promise<void> => {
+  const adminId = req.user!.id;
+  const roleId = parseInt(String(req.params.id), 10);
+  if (!Number.isInteger(roleId) || roleId <= 0) {
+    res.status(400).json({ error: "Invalid role id." });
+    return;
+  }
+
+  const [existing] = await db.select({ id: rolesTable.id }).from(rolesTable).where(eq(rolesTable.id, roleId));
+  if (!existing) {
+    res.status(404).json({ error: "Role not found." });
+    return;
+  }
+
+  await db.transaction(async (tx) => {
+    await tx.delete(applicationsTable).where(eq(applicationsTable.roleId, roleId));
+    await tx.delete(candidateMatchScoresTable).where(eq(candidateMatchScoresTable.roleId, roleId));
+    await tx.delete(matchDismissalsTable).where(eq(matchDismissalsTable.roleId, roleId));
+    await tx.delete(smartApplyDraftsTable).where(eq(smartApplyDraftsTable.roleId, roleId));
+    await tx.delete(rolesTable).where(eq(rolesTable.id, roleId));
+  });
+
+  db.insert(auditEventsTable)
+    .values({ actor: adminId, action: "role_deleted", target: String(roleId), details: {} })
+    .catch(() => {});
+
+  res.json({ deleted: 1 });
 });
 
 // ── POST /admin/link-scan — full fresh scan of ALL stored apply links ────────

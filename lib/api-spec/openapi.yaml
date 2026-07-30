@@ -1123,6 +1123,56 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
 
+  /admin/roles/all:
+    delete:
+      tags: [Roles]
+      operationId: deleteAllRoles
+      summary: Delete all roles and their dependent records (admin only)
+      responses:
+        '200':
+          description: Deletion result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleDeleteResult'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /admin/roles/{roleId}:
+    delete:
+      tags: [Roles]
+      operationId: deleteRole
+      summary: Delete a single role and its dependent records (admin only)
+      parameters:
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Deletion result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleDeleteResult'
+        '404':
+          description: Role not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
   /admin/roles/import:
     post:
       tags: [Roles]
@@ -3714,6 +3764,14 @@ components:
         matchScore:
           type: number
           description: Match score from 0-100
+        aiScore:
+          type: number
+          nullable: true
+          description: AI match score from 0-100, when a cached score is available
+        aiExplanation:
+          type: string
+          nullable: true
+          description: AI-generated explanation of this match, when a cached score is available
         eligibilityGaps:
           type: array
           items:
@@ -3981,10 +4039,10 @@ components:
 
     MarkApplicationRequest:
       type: object
-      required: [roleId]
       properties:
         roleId:
           type: integer
+          description: Required for platform applications; omitted for website applications.
         notes:
           type: string
         smartApply:
@@ -3993,6 +4051,16 @@ components:
         cvDocumentId:
           type: integer
           nullable: true
+        applicationType:
+          type: string
+          enum: [platform, website]
+          description: Defaults to platform. Use website to log an application made on the company's own site.
+        applicationUrl:
+          type: string
+          nullable: true
+        companyName:
+          type: string
+          description: Required when applicationType is website.
 
     RoleList:
       type: object
@@ -4021,6 +4089,13 @@ components:
                 type: integer
               message:
                 type: string
+
+    RoleDeleteResult:
+      type: object
+      required: [deleted]
+      properties:
+        deleted:
+          type: integer
 
     SponsorshipFeasibilityOutcome:
       type: string

@@ -21,6 +21,53 @@ function getFirstText(selectors: string[]): string {
   return "";
 }
 
+/**
+ * Extract readable text from an element while skipping page chrome that
+ * pollutes the AI context — form controls ("Choose File", "No file chosen",
+ * "APPLY NOW"), navigation, cookie banners, scripts, etc.
+ */
+function extractCleanText(root: Element): string {
+  const clone = root.cloneNode(true) as Element;
+  const noiseSelectors = [
+    "script",
+    "style",
+    "noscript",
+    "template",
+    "iframe",
+    "svg",
+    "nav",
+    "header",
+    "footer",
+    "aside",
+    "form",
+    "button",
+    "input",
+    "select",
+    "textarea",
+    "label",
+    "[role='navigation']",
+    "[role='banner']",
+    "[role='contentinfo']",
+    "[aria-hidden='true']",
+    "[class*='cookie' i]",
+    "[id*='cookie' i]",
+    "[class*='banner' i]",
+    "[class*='breadcrumb' i]",
+    "[class*='menu' i]",
+    "[class*='nav' i]",
+    "[class*='sidebar' i]",
+    "[class*='skip-link' i]",
+  ];
+  clone.querySelectorAll(noiseSelectors.join(",")).forEach((el) => el.remove());
+
+  const text = clone.textContent?.replace(/\s+/g, " ").trim() ?? "";
+  // Strip leftover boilerplate phrases that survive element removal.
+  return text
+    .replace(/\b(No file chosen|Choose File|Choose file|APPLY NOW|Apply now|Apply Now|Accept all cookies|Accept cookies|Cookie settings|Skip to (main )?content)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function getDescription(): string {
   const selectors = [
     // NHS Jobs
@@ -48,7 +95,7 @@ function getDescription(): string {
       if (text.length > 100) return text.slice(0, 3000);
     }
   }
-  return document.body.textContent?.replace(/\s+/g, " ").trim().slice(0, 3000) ?? "";
+  return extractCleanText(document.body).slice(0, 3000);
 }
 
 function scrapeNhs(): Partial<JobContext> {

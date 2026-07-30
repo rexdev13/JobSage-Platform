@@ -6,6 +6,8 @@ import {
   useImportRolesCSV,
   useGetApplyUrlBackfillStatus,
   useTriggerApplyUrlBackfill,
+  useDeleteAllRoles,
+  useDeleteRole,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getAdminListRolesQueryKey } from "@workspace/api-client-react";
@@ -20,12 +22,23 @@ import {
   RefreshCw,
   Sparkles,
   Clock,
+  Trash2,
 } from "lucide-react";
 
 const CSV_TEMPLATE = `title,employer,location,regulator,sponsorshipOffered,requiredRegistration,applyUrl
 Consultant Cardiologist,NHS Trust London,London,GMC,true,Full GMC Registration,https://jobs.nhstrustlondon.nhs.uk/consultant-cardiologist
 Staff Nurse (Adult),Barts Health NHS Trust,London,NMC,true,Full NMC Registration,
 Senior Physiotherapist,Kings College Hospital,London,HCPC,false,Full HCPC Registration,`;
+
+function friendlyErrorMessage(err: unknown, fallback: string): string {
+  const message = err instanceof Error ? err.message : "";
+  if (!message) return fallback;
+  // If the server returned raw HTML (e.g. an Express 404 page), don't dump markup into the banner.
+  if (/<[a-z!][\s\S]*>/i.test(message)) {
+    return "Server returned an unexpected error. Please try again.";
+  }
+  return message;
+}
 
 function downloadTemplate() {
   const blob = new Blob([CSV_TEMPLATE], { type: "text/csv" });
@@ -135,7 +148,37 @@ export default function AdminRolesPage() {
   } | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
 
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
+  const [deleteFeedback, setDeleteFeedback] = useState<{ kind: "success" | "error"; message: string } | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
+
   const { data, isLoading, isError, refetch } = useAdminListRoles();
+  const { mutate: deleteAllRoles, isPending: deletingAll } = useDeleteAllRoles({
+    mutation: {
+      onSuccess: (result) => {
+        setShowDeleteAllConfirm(false);
+        setDeleteFeedback({ kind: "success", message: `Deleted ${result.deleted} role${result.deleted === 1 ? "" : "s"} and their related records.` });
+        queryClient.invalidateQueries({ queryKey: getAdminListRolesQueryKey() });
+      },
+      onError: (err) => {
+        setShowDeleteAllConfirm(false);
+        setDeleteFeedback({ kind: "error", message: friendlyErrorMessage(err, "Failed to delete roles.") });
+      },
+    },
+  });
+  const { mutate: deleteRole } = useDeleteRole({
+    mutation: {
+      onSuccess: () => {
+        setPendingDeleteId(null);
+        setDeleteFeedback({ kind: "success", message: "Role deleted." });
+        queryClient.invalidateQueries({ queryKey: getAdminListRolesQueryKey() });
+      },
+      onError: (err) => {
+        setPendingDeleteId(null);
+        setDeleteFeedback({ kind: "error", message: friendlyErrorMessage(err, "Failed to delete role.") });
+      },
+    },
+  });
   const { mutate: importCSV, isPending: importing } = useImportRolesCSV({
     mutation: {
       onSuccess: (result) => {
@@ -175,8 +218,77 @@ export default function AdminRolesPage() {
             <Button variant="outline" size="sm" onClick={() => refetch()}>
               <RefreshCw className="w-4 h-4 mr-1.5" /> Refresh
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowDeleteAllConfirm(true)}
+              disabled={roles.length === 0 || deletingAll}
+              className="text-red-600 border-red-200 hover:bg-red-50"
+              data-testid="button-delete-all-roles"
+            >
+              <Trash2 className="w-4 h-4 mr-1.5" /> Delete all
+            </Button>
           </div>
         </div>
+
+        {showDeleteAllConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+            <div className="bg-background rounded-xl border border-border shadow-xl max-w-md w-full p-6 space-y-4">
+              <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-red-600" /> Delete all roles?
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                This will permanently remove <strong>{roles.length} role{roles.length === 1 ? "" : "s"}</strong> from
+                the catalogue, along with their applications, match scores, dismissals, and smart-apply drafts. This
+                cannot be undone.
+              </p>
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowDeleteAllConfirm(false)}
+                  disabled={deletingAll}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => deleteAllRoles()}
+                  disabled={deletingAll}
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                  data-testid="button-confirm-delete-all"
+                >
+                  {deletingAll ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" /> Deleting…
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4 mr-1.5" /> Delete {roles.length} role{roles.length === 1 ? "" : "s"}
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {deleteFeedback && (
+          <div
+            className={`p-3 rounded-lg border text-sm flex items-start gap-2 ${
+              deleteFeedback.kind === "success"
+                ? "bg-green-50 border-green-200 text-green-700"
+                : "bg-red-50 border-red-200 text-red-700"
+            }`}
+          >
+            {deleteFeedback.kind === "success" ? (
+              <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
+            ) : (
+              <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+            )}
+            {deleteFeedback.message}
+          </div>
+        )}
 
         <Card className="p-6 border-primary/20">
           <h2 className="text-base font-semibold text-foreground mb-1">Import Roles via CSV</h2>
@@ -295,6 +407,7 @@ export default function AdminRolesPage() {
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Sponsorship</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Apply URL</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
+                    <th className="px-4 py-3" />
                   </tr>
                 </thead>
                 <tbody>
@@ -346,6 +459,24 @@ export default function AdminRolesPage() {
                         ) : (
                           <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">Inactive</span>
                         )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => {
+                            setPendingDeleteId(role.id);
+                            deleteRole({ roleId: role.id });
+                          }}
+                          disabled={pendingDeleteId === role.id}
+                          className="p-1.5 rounded-md text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                          title="Delete role"
+                          data-testid={`button-delete-role-${role.id}`}
+                        >
+                          {pendingDeleteId === role.id ? (
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
+                        </button>
                       </td>
                     </tr>
                   ))}
