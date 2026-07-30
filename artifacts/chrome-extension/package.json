@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite build --watch",
-    "build": "vite build",
-    "package": "vite build && node scripts/package.mjs",
+    "build": "vite build && vite build --config vite.config.content.ts",
+    "package": "pnpm run build && node scripts/package.mjs",
     "typecheck": "tsc --build tsconfig.background.json tsconfig.content.json",
     "test": "vitest run --config vitest.config.ts"
   },

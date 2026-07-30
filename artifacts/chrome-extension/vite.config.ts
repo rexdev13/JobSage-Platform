@@ -37,9 +37,11 @@ export default defineConfig({
     target: "chrome116",
     emptyOutDir: true,
     rollupOptions: {
+      // content.tsx is built separately as a classic-script IIFE bundle
+      // (vite.config.content.ts) because Chrome injects content scripts as
+      // non-module scripts — ESM imports would crash at injection time.
       input: {
         background: resolve(__dirname, "src/background.ts"),
-        content: resolve(__dirname, "src/content.tsx"),
         popup: resolve(__dirname, "popup.html"),
       },
       output: {
