@@ -79,6 +79,46 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@workspace/auth-web";
+import { Link } from "wouter";
+
+/**
+ * Why the "Apply with JOBSAGE" button is disabled for a vacancy, if it is.
+ * Missing CV takes priority since the candidate can fix it themselves.
+ */
+function getApplyDisabledReason(
+  hasCvUploaded: boolean,
+  isEligible: boolean | null | undefined,
+): "no-cv" | "not-eligible" | null {
+  if (!hasCvUploaded) return "no-cv";
+  if (isEligible === false) return "not-eligible";
+  return null;
+}
+
+const APPLY_DISABLED_TITLES: Record<"no-cv" | "not-eligible", string> = {
+  "no-cv": "Upload a CV to apply — go to CV & Supporting Documents",
+  "not-eligible": "Not yet eligible for this role, so JOBSAGE applications are disabled",
+};
+
+function ApplyDisabledHint({ reason }: { reason: "no-cv" | "not-eligible" }) {
+  if (reason === "no-cv") {
+    return (
+      <Link
+        href="/documents"
+        onClick={(e) => e.stopPropagation()}
+        className="inline-flex items-center gap-1 text-[11px] text-primary font-medium hover:underline"
+      >
+        Upload a CV to apply
+        <ChevronRight className="w-3 h-3" />
+      </Link>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-[11px] text-amber-700 font-medium">
+      <AlertTriangle className="w-3 h-3" />
+      Not yet eligible
+    </span>
+  );
+}
 
 const LIMIT = 20;
 
@@ -365,7 +405,8 @@ function VacancyMatchPanel({
                       <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{v.matchExplanation}</p>
                     )}
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <div className="flex items-center gap-1.5">
                     {v.url && (
                       <button
                         type="button"
@@ -388,14 +429,29 @@ function VacancyMatchPanel({
                         <ExternalLink className="w-3 h-3" />
                       </button>
                     )}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onApply({ ...v, companyName, companyId }); }}
-                      disabled={!hasCvUploaded || eligible === false}
-                      className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      <Sparkles className="w-3 h-3" />
-                      Apply with JOBSAGE
-                    </button>
+                    {(() => {
+                      const disabledReason = getApplyDisabledReason(hasCvUploaded, eligible);
+                      return (
+                        <span
+                          title={disabledReason ? APPLY_DISABLED_TITLES[disabledReason] : undefined}
+                          onClick={(e) => { if (disabledReason) e.stopPropagation(); }}
+                        >
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onApply({ ...v, companyName, companyId }); }}
+                            disabled={disabledReason != null}
+                            className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            <Sparkles className="w-3 h-3" />
+                            Apply with JOBSAGE
+                          </button>
+                        </span>
+                      );
+                    })()}
+                    </div>
+                    {(() => {
+                      const disabledReason = getApplyDisabledReason(hasCvUploaded, eligible);
+                      return disabledReason ? <ApplyDisabledHint reason={disabledReason} /> : null;
+                    })()}
                   </div>
                 </div>
               );
@@ -1777,14 +1833,44 @@ export default function SponsorLicencesPage() {
                     View original posting
                   </button>
                 )}
-                <Button
-                  className="gap-2"
-                  onClick={() => handleOpenApplyModal(selectedVacancy)}
-                >
-                  <Sparkles className="w-4 h-4" />
-                  Apply with JOBSAGE
-                </Button>
+                {(() => {
+                  const disabledReason = getApplyDisabledReason(hasCvUploaded, selectedVacancy.isEligible);
+                  return (
+                    <span title={disabledReason ? APPLY_DISABLED_TITLES[disabledReason] : undefined}>
+                      <Button
+                        className="gap-2"
+                        disabled={disabledReason != null}
+                        onClick={() => handleOpenApplyModal(selectedVacancy)}
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        Apply with JOBSAGE
+                      </Button>
+                    </span>
+                  );
+                })()}
               </div>
+              {(() => {
+                const disabledReason = getApplyDisabledReason(hasCvUploaded, selectedVacancy.isEligible);
+                if (!disabledReason) return null;
+                return disabledReason === "no-cv" ? (
+                  <p className="mt-3 text-xs text-muted-foreground flex items-center gap-1.5 flex-wrap">
+                    <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    You need a CV on file before applying with JOBSAGE.
+                    <Link
+                      href="/documents"
+                      className="text-primary font-medium hover:underline inline-flex items-center gap-0.5"
+                    >
+                      Upload a CV
+                      <ChevronRight className="w-3 h-3" />
+                    </Link>
+                  </p>
+                ) : (
+                  <p className="mt-3 text-xs text-amber-700 flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                    Not yet eligible for this role — JOBSAGE applications are disabled until your eligibility improves.
+                  </p>
+                );
+              })()}
             </motion.div>
           </>
         )}
