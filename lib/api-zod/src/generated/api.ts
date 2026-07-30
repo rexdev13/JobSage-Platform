@@ -1022,6 +1022,24 @@ export const AdminListRolesResponse = zod.object({
 });
 
 /**
+ * @summary Delete all roles and their dependent records (admin only)
+ */
+export const DeleteAllRolesResponse = zod.object({
+  deleted: zod.number(),
+});
+
+/**
+ * @summary Delete a single role and its dependent records (admin only)
+ */
+export const DeleteRoleParams = zod.object({
+  roleId: zod.coerce.number(),
+});
+
+export const DeleteRoleResponse = zod.object({
+  deleted: zod.number(),
+});
+
+/**
  * @summary Import roles from a CSV file (admin only)
  */
 export const ImportRolesCSVBody = zod.object({

@@ -104,6 +104,7 @@ import type {
   ReviewAnnotation,
   ReviewCaseDetail,
   ReviewQueueList,
+  RoleDeleteResult,
   RoleImportResult,
   RoleList,
   Ruleset,
@@ -3531,6 +3532,171 @@ export function useAdminListRoles<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Delete all roles and their dependent records (admin only)
+ */
+export const getDeleteAllRolesUrl = () => {
+  return `/api/admin/roles/all`;
+};
+
+export const deleteAllRoles = async (
+  options?: RequestInit,
+): Promise<RoleDeleteResult> => {
+  return customFetch<RoleDeleteResult>(getDeleteAllRolesUrl(), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteAllRolesMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAllRoles>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteAllRoles>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["deleteAllRoles"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteAllRoles>>,
+    void
+  > = () => {
+    return deleteAllRoles(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteAllRolesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteAllRoles>>
+>;
+
+export type DeleteAllRolesMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Delete all roles and their dependent records (admin only)
+ */
+export const useDeleteAllRoles = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAllRoles>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteAllRoles>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getDeleteAllRolesMutationOptions(options));
+};
+
+/**
+ * @summary Delete a single role and its dependent records (admin only)
+ */
+export const getDeleteRoleUrl = (roleId: number) => {
+  return `/api/admin/roles/${roleId}`;
+};
+
+export const deleteRole = async (
+  roleId: number,
+  options?: RequestInit,
+): Promise<RoleDeleteResult> => {
+  return customFetch<RoleDeleteResult>(getDeleteRoleUrl(roleId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteRoleMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteRole>>,
+    TError,
+    { roleId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteRole>>,
+  TError,
+  { roleId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteRole"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteRole>>,
+    { roleId: number }
+  > = (props) => {
+    const { roleId } = props ?? {};
+
+    return deleteRole(roleId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteRoleMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteRole>>
+>;
+
+export type DeleteRoleMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Delete a single role and its dependent records (admin only)
+ */
+export const useDeleteRole = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteRole>>,
+    TError,
+    { roleId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteRole>>,
+  TError,
+  { roleId: number },
+  TContext
+> => {
+  return useMutation(getDeleteRoleMutationOptions(options));
+};
 
 /**
  * @summary Import roles from a CSV file (admin only)

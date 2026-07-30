@@ -163,6 +163,7 @@ export * from "./reviewCaseDetail";
 export * from "./reviewCaseStatus";
 export * from "./reviewQueueList";
 export * from "./role";
+export * from "./roleDeleteResult";
 export * from "./roleImportResult";
 export * from "./roleImportResultErrorsItem";
 export * from "./roleList";

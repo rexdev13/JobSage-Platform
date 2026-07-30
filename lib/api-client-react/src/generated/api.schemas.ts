@@ -659,6 +659,10 @@ export interface RoleImportResult {
   errors: RoleImportResultErrorsItem[];
 }
 
+export interface RoleDeleteResult {
+  deleted: number;
+}
+
 export type RemediationStepStepSource =
   (typeof RemediationStepStepSource)[keyof typeof RemediationStepStepSource];
 

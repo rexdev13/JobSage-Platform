@@ -14,6 +14,7 @@ import {
   employerProfilesTable,
   candidateMatchScoresTable,
   matchDismissalsTable,
+  smartApplyDraftsTable,
   sponsorLicenceVacancyScoresTable,
 } from "@workspace/db";
 import { eq, desc, and, inArray, gte, or, isNotNull, ne } from "drizzle-orm";
@@ -861,6 +862,63 @@ router.post("/roles/dismiss-match", requireAuthenticated, async (req, res): Prom
 router.get("/admin/roles", requireRole("admin"), async (_req, res): Promise<void> => {
   const roles = await db.select().from(rolesTable).orderBy(desc(rolesTable.importedAt));
   res.json({ roles });
+});
+
+// ── DELETE /admin/roles/all — bulk-delete every role and dependent rows ─────
+// Registered before /admin/roles/:id so "all" isn't parsed as an id.
+router.delete("/admin/roles/all", requireRole("admin"), async (req, res): Promise<void> => {
+  const adminId = req.user!.id;
+  const allRoles = await db.select({ id: rolesTable.id }).from(rolesTable);
+  const ids = allRoles.map((r) => r.id);
+
+  if (ids.length === 0) {
+    res.json({ deleted: 0 });
+    return;
+  }
+
+  await db.transaction(async (tx) => {
+    await tx.delete(applicationsTable).where(inArray(applicationsTable.roleId, ids));
+    await tx.delete(candidateMatchScoresTable).where(inArray(candidateMatchScoresTable.roleId, ids));
+    await tx.delete(matchDismissalsTable).where(inArray(matchDismissalsTable.roleId, ids));
+    await tx.delete(smartApplyDraftsTable).where(inArray(smartApplyDraftsTable.roleId, ids));
+    await tx.delete(rolesTable);
+  });
+
+  db.insert(auditEventsTable)
+    .values({ actor: adminId, action: "roles_bulk_deleted", target: undefined, details: { deleted: ids.length } })
+    .catch(() => {});
+
+  res.json({ deleted: ids.length });
+});
+
+// ── DELETE /admin/roles/:id — delete a single role and dependent rows ───────
+router.delete("/admin/roles/:id", requireRole("admin"), async (req, res): Promise<void> => {
+  const adminId = req.user!.id;
+  const roleId = parseInt(String(req.params.id), 10);
+  if (!Number.isInteger(roleId) || roleId <= 0) {
+    res.status(400).json({ error: "Invalid role id." });
+    return;
+  }
+
+  const [existing] = await db.select({ id: rolesTable.id }).from(rolesTable).where(eq(rolesTable.id, roleId));
+  if (!existing) {
+    res.status(404).json({ error: "Role not found." });
+    return;
+  }
+
+  await db.transaction(async (tx) => {
+    await tx.delete(applicationsTable).where(eq(applicationsTable.roleId, roleId));
+    await tx.delete(candidateMatchScoresTable).where(eq(candidateMatchScoresTable.roleId, roleId));
+    await tx.delete(matchDismissalsTable).where(eq(matchDismissalsTable.roleId, roleId));
+    await tx.delete(smartApplyDraftsTable).where(eq(smartApplyDraftsTable.roleId, roleId));
+    await tx.delete(rolesTable).where(eq(rolesTable.id, roleId));
+  });
+
+  db.insert(auditEventsTable)
+    .values({ actor: adminId, action: "role_deleted", target: String(roleId), details: {} })
+    .catch(() => {});
+
+  res.json({ deleted: 1 });
 });
 
 // ── POST /admin/link-scan — full fresh scan of ALL stored apply links ────────

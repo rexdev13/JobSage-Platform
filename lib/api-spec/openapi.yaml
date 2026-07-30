@@ -1123,6 +1123,56 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
 
+  /admin/roles/all:
+    delete:
+      tags: [Roles]
+      operationId: deleteAllRoles
+      summary: Delete all roles and their dependent records (admin only)
+      responses:
+        '200':
+          description: Deletion result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleDeleteResult'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /admin/roles/{roleId}:
+    delete:
+      tags: [Roles]
+      operationId: deleteRole
+      summary: Delete a single role and its dependent records (admin only)
+      parameters:
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Deletion result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleDeleteResult'
+        '404':
+          description: Role not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
   /admin/roles/import:
     post:
       tags: [Roles]
@@ -4039,6 +4089,13 @@ components:
                 type: integer
               message:
                 type: string
+
+    RoleDeleteResult:
+      type: object
+      required: [deleted]
+      properties:
+        deleted:
+          type: integer
 
     SponsorshipFeasibilityOutcome:
       type: string
