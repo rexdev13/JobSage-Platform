@@ -6,6 +6,8 @@ import {
   useImportRolesCSV,
   useGetApplyUrlBackfillStatus,
   useTriggerApplyUrlBackfill,
+  useGetSponsorVacancyBackfillStatus,
+  useTriggerSponsorVacancyBackfill,
   useDeleteAllRoles,
   useDeleteRole,
 } from "@workspace/api-client-react";
@@ -57,6 +59,86 @@ function formatDuration(ms: number): string {
   const m = Math.floor(s / 60);
   const rem = s % 60;
   return rem > 0 ? `${m}m ${rem}s` : `${m}m`;
+}
+
+function SponsorVacancyBackfillPanel() {
+  const { data: statusData } = useGetSponsorVacancyBackfillStatus();
+  const { mutate: triggerBackfill, isPending: triggering } = useTriggerSponsorVacancyBackfill();
+  const [triggered, setTriggered] = useState(false);
+
+  const lastRun = statusData?.lastRun ?? null;
+
+  const handleTrigger = () => {
+    setTriggered(true);
+    triggerBackfill();
+  };
+
+  return (
+    <Card className="p-6 border-primary/20">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h2 className="text-base font-semibold text-foreground flex items-center gap-2 mb-1">
+            <Sparkles className="w-4 h-4 text-primary" />
+            AI Apply URL Backfill — Sponsor Vacancies
+          </h2>
+          <p className="text-sm text-muted-foreground max-w-xl">
+            Finds direct apply links for AI-discovered sponsor vacancies that don't have one yet.
+            Uses the same employer-site-only policy as the roles backfill — aggregator URLs are
+            rejected. New links are immediately queued for liveness verification. Runs automatically
+            every night alongside the roles pass; trigger manually to process a batch now.
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleTrigger}
+          disabled={triggering || triggered}
+          className="shrink-0"
+        >
+          {triggering || triggered ? (
+            <>
+              <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" /> Running…
+            </>
+          ) : (
+            <>
+              <Sparkles className="w-4 h-4 mr-1.5" /> Run Now
+            </>
+          )}
+        </Button>
+      </div>
+
+      {triggered && !lastRun && (
+        <div className="mt-4 p-3 rounded-lg bg-blue-50 border border-blue-200 text-sm text-blue-700">
+          Backfill queued — this runs in the background. Refresh this page or wait for the summary
+          below to update.
+        </div>
+      )}
+
+      {lastRun && (
+        <div className="mt-4 p-4 rounded-lg bg-muted/40 border border-border space-y-2">
+          <div className="flex flex-wrap gap-4 text-sm">
+            <span className="flex items-center gap-1.5 text-green-700 font-semibold">
+              <CheckCircle2 className="w-4 h-4" /> {lastRun.found} URLs found &amp; saved
+            </span>
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+              <XCircle className="w-4 h-4" /> {lastRun.skipped} skipped
+            </span>
+            {lastRun.failed > 0 && (
+              <span className="flex items-center gap-1.5 text-red-600">
+                <AlertCircle className="w-4 h-4" /> {lastRun.failed} failed
+              </span>
+            )}
+            <span className="flex items-center gap-1.5 text-muted-foreground text-xs">
+              <Clock className="w-3.5 h-3.5" />
+              {new Date(lastRun.ranAt).toLocaleString()} · {formatDuration(lastRun.durationMs)} ·{" "}
+              {lastRun.triggeredBy === "manual" ? "Manual run" : "Scheduled run"} ·{" "}
+              {lastRun.total} vacancies processed
+            </span>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
 }
 
 function BackfillPanel() {
@@ -367,6 +449,7 @@ export default function AdminRolesPage() {
         </Card>
 
         <BackfillPanel />
+        <SponsorVacancyBackfillPanel />
 
         <div>
           <h2 className="text-base font-semibold text-foreground mb-3">

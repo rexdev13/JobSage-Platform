@@ -64,7 +64,7 @@ export function isValidApplyUrl(url: string): boolean {
  * Use AI web search to find the direct job posting URL for a role on the employer's own website.
  * Returns a URL string if one is found and valid, or null otherwise.
  */
-async function findApplyUrlWithAI(
+export async function findApplyUrlWithAI(
   roleTitle: string,
   employer: string,
   location: string,

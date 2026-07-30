@@ -1,0 +1,27 @@
+#445 - Backfill exact apply links for sponsor vacancies
+What & Why
+Roughly a fifth of non-dead AI-discovered sponsor vacancies (and ~a third of clinical-titled ones) have no apply URL, so the Opportunities page falls back to a generic "Apply via company website" button instead of linking to the exact vacancy. The daily apply-URL backfill job already solves this problem with AI lookup + deep-link validation, but it only targets the (currently empty) admin roles table — it never touches sponsor_licence_vacancies, which is what actually populates the page. Extend the backfill to cover sponsor vacancies so candidates get direct links to the specific advert.
+
+Done looks like
+Sponsor vacancies that were missing a URL progressively gain exact deep-link apply URLs (validated against the aggregator/careers-page policy) after the nightly backfill runs
+Newly found URLs are queued for link verification so they get the verified badge like other links
+The Opportunities page shows a direct "Apply" button for these roles instead of the website fallback; the company vacancy page shows the same link
+Admins can trigger the sponsor-vacancy backfill manually and see a run summary (found / skipped / failed), matching the existing roles backfill behaviour
+Vacancies where no valid deep link can be found keep the website fallback unchanged
+Out of scope
+Changing the vacancy-discovery prompt or the deep-link validation policy itself
+Ranking/sorting changes on the Opportunities page
+Restoring or reprocessing dead-flagged vacancies (separate admin-review task exists)
+Steps
+Extend the backfill runner to sponsor vacancies — Add a pass over non-dead sponsor_licence_vacancies rows with a null URL that asks the AI for the exact advert deep link (organisation + title + location as context), validates it with the existing shared URL policy, and stores it only when valid. Reuse batching, rate-limit handling, and audit logging from the existing roles backfill.
+Verify and badge new links — Queue each newly stored URL through the existing link-verification flow so liveness and the verified badge update, and ensure a URL later found dead falls back to the website button as today.
+Scheduler and manual trigger — Run the sponsor-vacancy pass in the nightly backfill schedule, and expose it via the existing admin backfill trigger/status surface with counts for found/skipped/failed.
+Confirm end-to-end — Verify a backfilled vacancy shows the direct Apply button (not the website fallback) on the Opportunities page and the matching link on its company vacancy page.
+Relevant files
+artifacts/api-server/src/lib/applyUrlBackfill.ts
+artifacts/api-server/src/lib/applyUrlBackfillScheduler.ts
+artifacts/api-server/src/lib/vacancyUrlPolicy.ts
+artifacts/api-server/src/lib/vacancyCheckHelper.ts
+artifacts/api-server/src/lib/sponsorVacancyRoles.ts
+artifacts/api-server/src/lib/linkVerification.ts
+artifacts/jobsage-web/src/pages/OpportunitiesPage.tsx:807-830

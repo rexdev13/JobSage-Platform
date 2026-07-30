@@ -23,6 +23,7 @@ import { assessSponsorshipFeasibility } from "../lib/sponsorshipFeasibility";
 import { batchScoreRoles } from "../lib/candidateAiMatch";
 import { careerProfilesTable } from "@workspace/db";
 import { runApplyUrlBackfill, getLastBackfillSummary } from "../lib/applyUrlBackfill";
+import { runSponsorVacancyApplyUrlBackfill, getLastSponsorVacancyBackfillSummary } from "../lib/sponsorVacancyApplyUrlBackfill";
 import { queueLinkVerificationBatch } from "../lib/linkVerification";
 import { runFullLivenessScan, getFullScanStatus } from "../lib/vacancyLivenessSweep";
 import {
@@ -965,6 +966,39 @@ router.post(
       .values({
         actor: adminId,
         action: "apply_url_backfill_triggered",
+        target: undefined,
+        details: { triggeredBy: "manual" },
+      })
+      .catch(() => {});
+
+    res.status(202).json({ queued: true });
+  },
+);
+
+// ── GET /admin/sponsor-vacancies/backfill-apply-urls/status ───────────────────
+router.get(
+  "/admin/sponsor-vacancies/backfill-apply-urls/status",
+  requireRole("admin"),
+  (_req, res): void => {
+    res.json({ lastRun: getLastSponsorVacancyBackfillSummary() });
+  },
+);
+
+// ── POST /admin/sponsor-vacancies/backfill-apply-urls ─────────────────────────
+router.post(
+  "/admin/sponsor-vacancies/backfill-apply-urls",
+  requireRole("admin"),
+  (req, res): void => {
+    const adminId = req.user!.id;
+    // Fire-and-forget — returns 202 immediately
+    runSponsorVacancyApplyUrlBackfill({ triggeredBy: "manual", batchSize: 50 }).catch((err) => {
+      console.error("[sponsor-vacancy-backfill] Manual trigger error:", err);
+    });
+
+    db.insert(auditEventsTable)
+      .values({
+        actor: adminId,
+        action: "sponsor_vacancy_apply_url_backfill_triggered",
         target: undefined,
         details: { triggeredBy: "manual" },
       })

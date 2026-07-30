@@ -1,5 +1,6 @@
 import cron from "node-cron";
 import { runApplyUrlBackfill } from "./applyUrlBackfill";
+import { runSponsorVacancyApplyUrlBackfill } from "./sponsorVacancyApplyUrlBackfill";
 
 /**
  * Start the apply-URL backfill scheduler.
@@ -13,6 +14,12 @@ export function startApplyUrlBackfillScheduler(): void {
       runApplyUrlBackfill({ triggeredBy: "scheduler", batchSize: 50 }).catch(
         (err) => {
           console.error("[apply-url-backfill-scheduler] Unhandled error:", err);
+        },
+      );
+      // Run sponsor-vacancy pass immediately after the roles pass in the same window.
+      runSponsorVacancyApplyUrlBackfill({ triggeredBy: "scheduler", batchSize: 50 }).catch(
+        (err) => {
+          console.error("[sponsor-vacancy-backfill-scheduler] Unhandled error:", err);
         },
       );
     },
