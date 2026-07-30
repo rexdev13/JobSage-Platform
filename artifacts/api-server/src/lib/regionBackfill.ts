@@ -1,5 +1,5 @@
 import { db, sponsorLicencesTable } from "@workspace/db";
-import { isNull, count, gt, and, asc } from "drizzle-orm";
+import { isNull, isNotNull, count, gt, and, asc } from "drizzle-orm";
 import { countyToRegion } from "./countyToRegion";
 import { sql } from "drizzle-orm";
 
@@ -9,7 +9,7 @@ export async function runRegionBackfill(): Promise<void> {
   const [countRow] = await db
     .select({ cnt: count(sponsorLicencesTable.id) })
     .from(sponsorLicencesTable)
-    .where(isNull(sponsorLicencesTable.region));
+    .where(and(isNull(sponsorLicencesTable.region), isNotNull(sponsorLicencesTable.county)));
   const total = Number(countRow?.cnt ?? 0);
 
   if (total === 0) {
@@ -28,7 +28,7 @@ export async function runRegionBackfill(): Promise<void> {
     const rows = await db
       .select({ id: sponsorLicencesTable.id, county: sponsorLicencesTable.county })
       .from(sponsorLicencesTable)
-      .where(and(isNull(sponsorLicencesTable.region), gt(sponsorLicencesTable.id, lastId)))
+      .where(and(isNull(sponsorLicencesTable.region), isNotNull(sponsorLicencesTable.county), gt(sponsorLicencesTable.id, lastId)))
       .orderBy(asc(sponsorLicencesTable.id))
       .limit(BATCH_SIZE);
 
