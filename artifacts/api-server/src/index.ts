@@ -66,25 +66,20 @@ app.listen(port, () => {
   });
   startAlertScheduler();
   startSponsorLicenceScheduler();
-  // AI_DISABLED: startVacancyCheckScheduler() — uses OpenAI web_search_preview per company
-  // startVacancyCheckScheduler();
-  // AI_DISABLED: startDailyVacancySyncScheduler() — runs industry classifier (OpenAI) on new sponsors
-  // startDailyVacancySyncScheduler();
+  startVacancyCheckScheduler();
+  startDailyVacancySyncScheduler();
   startVacancyLivenessSweepScheduler();
-  // AI_DISABLED: startApplyUrlBackfillScheduler() — uses OpenAI web_search_preview to find apply URLs
-  // startApplyUrlBackfillScheduler();
-  // AI_DISABLED: startContactBackfill() — scrapes contact details (no direct AI, but feeds AI pipeline)
-  // const contactBackfillResult = startContactBackfill(500);
-  // if (contactBackfillResult.started) {
-  //   console.log("[contact-backfill] Startup backfill triggered (up to 500 sponsors)");
-  // } else {
-  //   console.log(`[contact-backfill] Startup backfill skipped: ${contactBackfillResult.reason}`);
-  // }
+  startApplyUrlBackfillScheduler();
+  const contactBackfillResult = startContactBackfill(500);
+  if (contactBackfillResult.started) {
+    console.log("[contact-backfill] Startup backfill triggered (up to 500 sponsors)");
+  } else {
+    console.log(`[contact-backfill] Startup backfill skipped: ${contactBackfillResult.reason}`);
+  }
   void triggerSyncIfStale();
-  // AI_DISABLED: runIndustryBackfill() — classifies sponsor companies via OpenAI
-  // runIndustryBackfill().catch((err) => {
-  //   console.error("[industry-backfill] Startup backfill failed:", err);
-  // });
+  runIndustryBackfill().catch((err) => {
+    console.error("[industry-backfill] Startup backfill failed:", err);
+  });
   runRegionBackfill().catch((err) => {
     console.error("[region-backfill] Startup backfill failed:", err);
   });
