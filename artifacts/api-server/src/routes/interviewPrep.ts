@@ -122,7 +122,7 @@ router.get("/interview-prep/questions", requireAuthenticated, async (req, res): 
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4o-mini",
       max_completion_tokens: 2000,
       messages: [
         {

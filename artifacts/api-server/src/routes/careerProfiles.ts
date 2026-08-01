@@ -35,7 +35,7 @@ async function generateCvBackground(profileId: number, userId: string): Promise<
       : "No base profile found.";
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
