@@ -221,6 +221,22 @@ Include up to 8 specific vacancies in vacancyList if found. Use null for missing
       `[vacancy-check] AI check failed for "${organisationName}":`,
       aiErr instanceof Error ? aiErr.message : aiErr,
     );
+    // Do NOT write to sponsor_licence_vacancy_checks on failure — writing here
+    // would stamp a fresh checked_at and suppress this org from the batch for
+    // 24 hours as if the check had succeeded. Return early so the org remains
+    // stale and is picked up again on the next batch.
+    return {
+      vacanciesFound: false,
+      vacancyCount: null,
+      sourceUrl,
+      summary: "AI check failed — will retry on next batch.",
+      checkedAt: new Date(),
+      fromCache: false,
+      vacancyList: null,
+      discoveredContactEmail: null,
+      discoveredContactPhone: null,
+      discoveredWebsite: null,
+    };
   }
 
   const [saved] = await db
