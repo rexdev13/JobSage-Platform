@@ -12,19 +12,7 @@ if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
   );
 }
 
-const _client = new OpenAI({
+export const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
-
-// Emergency kill-switch: set AI_DISABLED=true to block every outbound AI call.
-// Remove this env var (or set it to anything other than "true") to re-enable.
-export const openai = process.env.AI_DISABLED === "true"
-  ? new Proxy(_client, {
-      get(_target, prop) {
-        return () => {
-          throw new Error(`[AI_DISABLED] All AI calls are disabled. Blocked call to openai.${String(prop)}`);
-        };
-      },
-    })
-  : _client;
