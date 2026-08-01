@@ -6,7 +6,7 @@ import { runVacancyCheck } from "./vacancyCheckHelper";
 
 export type VacancySyncTriggeredBy = "scheduler" | "manual";
 
-const DEFAULT_BATCH_SIZE = 150;
+const DEFAULT_BATCH_SIZE = 20;
 const BATCH_CONCURRENCY = 15;
 
 // Overlap guard — released in a finally block so it can never stay stuck.
