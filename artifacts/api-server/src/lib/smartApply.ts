@@ -121,7 +121,7 @@ ${roleContext.description ? `Description: ${roleContext.description.slice(0, 600
   const userMessage = `Candidate profile:\n${profileText}\n\nRole:\n${roleText}\n\nQuestions to answer:\n${questionsText}`;
 
   const response = await openai.chat.completions.create({
-    model: "gpt-4o",
+    model: "gpt-4o-mini",
     max_completion_tokens: 2000,
     messages: [
       { role: "system", content: SYSTEM_PROMPT },

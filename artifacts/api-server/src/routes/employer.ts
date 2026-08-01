@@ -395,7 +395,7 @@ router.post("/employer/jobs/generate-description", requireEmployer(), async (req
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4o-mini",
       messages: [
         { role: "system", content: "You are an expert NHS and UK healthcare HR writer. Write clear, inclusive, structured job descriptions using the exact format requested." },
         { role: "user", content: prompt },
@@ -445,7 +445,7 @@ router.post("/employer/jobs/:id/generate-description", requireEmployer(), async 
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4o-mini",
       messages: [
         { role: "system", content: "You are an expert NHS and UK healthcare HR writer. Write clear, inclusive, structured job descriptions using the exact format requested." },
         { role: "user", content: prompt },
@@ -733,7 +733,7 @@ Candidate Profile:
 Respond with ONLY valid JSON: {"score": <0-100>, "rationale": "<one sentence, max 100 chars>"}`;
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4o-mini",
       messages: [{ role: "user", content: prompt }],
       max_tokens: 80,
       temperature: 0.3,
