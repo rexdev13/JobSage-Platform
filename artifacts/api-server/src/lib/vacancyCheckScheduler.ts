@@ -6,7 +6,7 @@ import { runVacancyCheck } from "./vacancyCheckHelper";
 
 export type VacancySyncTriggeredBy = "scheduler" | "manual";
 
-const DEFAULT_BATCH_SIZE = 20;
+const DEFAULT_BATCH_SIZE = 80;
 const BATCH_CONCURRENCY = 15;
 
 // Overlap guard — released in a finally block so it can never stay stuck.
@@ -138,7 +138,7 @@ export function startVacancyCheckScheduler(): void {
   // Batch every 6 hours with a 15-worker pool, honouring the tiered
   // prioritisation in selectBatch.
   cron.schedule(
-    "0 2,8,14,20 * * *",
+    "0 8 * * *",
     () => {
       runVacancyCheckBatch("scheduler").catch((err) => {
         console.error("[vacancy-scheduler] Unhandled scheduler error:", err);
@@ -148,6 +148,6 @@ export function startVacancyCheckScheduler(): void {
   );
 
   console.log(
-    `[vacancy-scheduler] Scheduler registered: every 6 hours, batch size ${getBatchSize()}, concurrency ${BATCH_CONCURRENCY}`,
+    `[vacancy-scheduler] Scheduler registered: daily at 08:00 Europe/London, batch size ${getBatchSize()}, concurrency ${BATCH_CONCURRENCY}`,
   );
 }
