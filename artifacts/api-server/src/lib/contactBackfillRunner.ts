@@ -13,7 +13,7 @@
 
 import { db } from "@workspace/db";
 import { sponsorLicencesTable } from "@workspace/db";
-import { isNull, or, eq } from "drizzle-orm";
+import { isNull, or, eq, and } from "drizzle-orm";
 import { runVacancyCheck } from "./vacancyCheckHelper";
 
 export interface ContactBackfillStatus {
@@ -70,25 +70,17 @@ export async function runContactBackfill(limit = 200): Promise<void> {
   state = { ...initialState(), isRunning: true, startedAt: new Date().toISOString() };
 
   try {
-    // Select sponsors that have no contact info at all
-    const orgs = await db
-      .select({ organisationName: sponsorLicencesTable.organisationName })
-      .from(sponsorLicencesTable)
-      .where(
-        or(
-          isNull(sponsorLicencesTable.contactEmail),
-          eq(sponsorLicencesTable.contactEmail, ""),
-        ),
-      )
-      .limit(limit);
-
-    // Further filter to those where website AND phone are also null
-    // (already in the WHERE for email, but we only want those missing everything)
+    // Select sponsors that have no contact email AND have never been attempted
+    // by this backfill (success or failure). The attempted marker is set on
+    // every attempt below, so restarts never re-process the same orgs.
     const targets = await db
       .selectDistinct({ organisationName: sponsorLicencesTable.organisationName })
       .from(sponsorLicencesTable)
       .where(
-        isNull(sponsorLicencesTable.contactEmail),
+        and(
+          isNull(sponsorLicencesTable.contactEmail),
+          isNull(sponsorLicencesTable.contactBackfillAttemptedAt),
+        ),
       )
       .limit(limit);
 
@@ -122,6 +114,16 @@ export async function runContactBackfill(limit = 200): Promise<void> {
           state.errors++;
           state.lastError = err instanceof Error ? err.message : String(err);
           console.error(`[contact-backfill] Failed for "${org.organisationName}":`, state.lastError);
+        } finally {
+          // Mark as attempted regardless of outcome so this org is excluded
+          // from future runs on restart.
+          await db
+            .update(sponsorLicencesTable)
+            .set({ contactBackfillAttemptedAt: new Date() })
+            .where(eq(sponsorLicencesTable.organisationName, org.organisationName))
+            .catch((err) => {
+              console.error(`[contact-backfill] Failed to write attempted marker for "${org.organisationName}":`, err);
+            });
         }
 
         state.processed++;
