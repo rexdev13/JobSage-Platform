@@ -1,0 +1,36 @@
+I need one isolated fix in the api-server package: prevent
+startContactBackfill(500) from re-running its full pool on every server
+restart. Do NOT touch any other scheduler, do NOT touch vacancyCheckHelper.ts,
+applyUrlBackfill.ts, industryBackfill, or index.ts scheduling for anything
+else — only this one function's re-run behavior.
+
+Context: startContactBackfill(500) is called once at server startup (not a
+cron) in index.ts. It finds sponsor orgs with no contact email and runs an
+AI web-search check (bypassCache: true) on up to 500 of them, at cost per
+call similar to vacancyCheckHelper. The problem: every server restart
+re-triggers this against whatever pool still matches "no contact email" —
+so multiple deploys in a short window each cost up to ~500 AI calls again,
+not just once.
+
+Fix: add a persistent marker so an org that has already been ATTEMPTED by
+contact backfill (success OR failure) is excluded from future runs, not
+just orgs that already have a contact email. Specifically:
+
+1. Find where startContactBackfill selects its candidate orgs (the query
+   for "no contact email").
+2. Add a way to record that an org was attempted — e.g. a
+   contact_backfill_attempted_at timestamp column on the relevant table,
+   or reuse an existing checked-at style column if one already fits this
+   purpose. Show me what's available before adding a new column.
+3. Update the candidate-selection query to also exclude orgs where this
+   marker is already set, regardless of whether the attempt found an email.
+4. On each attempt (success or failure), write the marker.
+
+This means: an org that was tried and failed to find contact info will NOT
+be retried on the next restart — it's now excluded like a completed org.
+If you want retry-with-backoff behavior instead of permanent exclusion,
+stop and ask me before implementing — don't assume which behavior I want.
+
+After the change: show me the exact query diff for candidate selection and
+the write path for the new marker. Do not run a full-repo lint/format pass.
+Do not change the batch size (500) or concurrency (5).

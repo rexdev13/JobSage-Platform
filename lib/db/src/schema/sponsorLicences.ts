@@ -17,6 +17,7 @@ export const sponsorLicencesTable = pgTable(
     contactPhone: text("contact_phone"),
     address: text("address"),
     region: text("region"),
+    contactBackfillAttemptedAt: timestamp("contact_backfill_attempted_at", { withTimezone: true }),
   },
   (t) => [
     index("sponsor_licences_name_idx").on(t.organisationName),
