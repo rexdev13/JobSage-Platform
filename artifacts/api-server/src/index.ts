@@ -70,16 +70,24 @@ app.listen(port, () => {
   startDailyVacancySyncScheduler();
   startVacancyLivenessSweepScheduler();
   startApplyUrlBackfillScheduler();
-  const contactBackfillResult = startContactBackfill(500);
-  if (contactBackfillResult.started) {
-    console.log("[contact-backfill] Startup backfill triggered (up to 500 sponsors)");
+  if (process.env.ENABLE_CONTACT_BACKFILL === "true") {
+    const contactBackfillResult = startContactBackfill(500);
+    if (contactBackfillResult.started) {
+      console.log("[contact-backfill] Startup backfill triggered (up to 500 sponsors)");
+    } else {
+      console.log(`[contact-backfill] Startup backfill skipped: ${contactBackfillResult.reason}`);
+    }
   } else {
-    console.log(`[contact-backfill] Startup backfill skipped: ${contactBackfillResult.reason}`);
+    console.log("[contact-backfill] Skipped — set ENABLE_CONTACT_BACKFILL=true to run on startup");
   }
   void triggerSyncIfStale();
-  runIndustryBackfill().catch((err) => {
-    console.error("[industry-backfill] Startup backfill failed:", err);
-  });
+  if (process.env.ENABLE_INDUSTRY_BACKFILL === "true") {
+    runIndustryBackfill().catch((err) => {
+      console.error("[industry-backfill] Startup backfill failed:", err);
+    });
+  } else {
+    console.log("[industry-backfill] Skipped — set ENABLE_INDUSTRY_BACKFILL=true to run on startup");
+  }
   runRegionBackfill().catch((err) => {
     console.error("[region-backfill] Startup backfill failed:", err);
   });
