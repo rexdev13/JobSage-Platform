@@ -135,11 +135,10 @@ export async function runVacancyCheckBatch(triggeredBy: VacancySyncTriggeredBy =
 }
 
 export function startVacancyCheckScheduler(): void {
-  // Aggressive continuous refill: a chunked batch every 20 minutes with a
-  // 15-worker pool. At the default batch size of 150 that is up to ~10,800
-  // organisations/day, honouring the tiered prioritisation in selectBatch.
+  // Batch every 6 hours with a 15-worker pool, honouring the tiered
+  // prioritisation in selectBatch.
   cron.schedule(
-    "*/20 * * * *",
+    "0 */6 * * *",
     () => {
       runVacancyCheckBatch("scheduler").catch((err) => {
         console.error("[vacancy-scheduler] Unhandled scheduler error:", err);
@@ -149,6 +148,6 @@ export function startVacancyCheckScheduler(): void {
   );
 
   console.log(
-    `[vacancy-scheduler] Scheduler registered: every 20 minutes, batch size ${getBatchSize()}, concurrency ${BATCH_CONCURRENCY}`,
+    `[vacancy-scheduler] Scheduler registered: every 6 hours, batch size ${getBatchSize()}, concurrency ${BATCH_CONCURRENCY}`,
   );
 }
