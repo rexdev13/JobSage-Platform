@@ -1,0 +1,38 @@
+I need a cost estimate for all AI usage in the api-server package, based on
+current (post-fix) configuration — not historical spend. Do NOT change any
+code, this is read-only analysis.
+
+For each of these call sites, tell me: model used, whether it uses
+web_search_preview, typical input/output token count per call (estimate
+from the actual prompt/response code if you can, or a reasonable range if
+not), and how often it's triggered (batch size × schedule):
+
+Schedulers/backfills:
+- vacancyCheckHelper.ts (every 6h, batch 20, concurrency 15)
+- applyUrlBackfill.ts (daily 03:00, batch 50 roles + 50 sponsor vacancies)
+- contactBackfillRunner.ts (startup one-shot, up to 500, now capped by
+  attempted_at marker)
+- industryClassifier.ts backfill (startup one-shot, 123k pool, keyword-match
+  first then AI fallback in batches of 100)
+- runRegionBackfill, runDocumentAclBackfill, runProfilePhotoAclBackfill
+  (startup one-shots — confirm whether these call AI at all, or are pure
+  data/DB operations)
+
+On-demand (user-triggered) features:
+- cvParser.ts, coverLetterGenerator.ts/routes/coverLetter.ts,
+  smartApply.ts/routes/smartApply.ts, routes/identity.ts,
+  routes/interviewPrep.ts, routes/careerProfiles.ts, routes/employer.ts,
+  routes/ai.ts (both call sites), speculativeApplications.ts,
+  sponsorLicences.ts enrichment
+
+For each, give me: estimated cost per call (using current OpenAI pricing
+for the model + web_search_preview fee where applicable), and estimated
+daily/monthly cost — for schedulers, based on actual configured frequency
+and batch size; for on-demand features, ask me for typical daily call
+volume if you don't have a way to derive it from logs, don't guess a number
+silently.
+
+Output as a table: file | model | calls/day (est.) | cost/call | cost/day |
+cost/month. Add a total row at the bottom. Flag anywhere your estimate has
+low confidence (e.g. token counts you're guessing at) versus high
+confidence (e.g. schedule/batch size read directly from code).
