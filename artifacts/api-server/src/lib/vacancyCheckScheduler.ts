@@ -138,7 +138,7 @@ export function startVacancyCheckScheduler(): void {
   // Batch every 6 hours with a 15-worker pool, honouring the tiered
   // prioritisation in selectBatch.
   cron.schedule(
-    "0 */6 * * *",
+    "0 2,8,14,20 * * *",
     () => {
       runVacancyCheckBatch("scheduler").catch((err) => {
         console.error("[vacancy-scheduler] Unhandled scheduler error:", err);
