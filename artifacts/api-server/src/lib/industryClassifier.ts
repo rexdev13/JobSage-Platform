@@ -221,7 +221,7 @@ Return ONLY a JSON array of strings (same length, same order), e.g. ["Healthcare
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4o-mini",
       max_completion_tokens: names.length * 12 + 50,
       temperature: 0,
       messages: [{ role: "user", content: prompt }],

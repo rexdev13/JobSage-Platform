@@ -49,7 +49,7 @@ Remediation plan: ${params.planProgress}% complete
 Applications: ${params.totalApplications} total (${params.interviews} reached interview stage)`;
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4o-mini",
       max_completion_tokens: 80,
       messages: [{ role: "user", content: prompt }],
     });

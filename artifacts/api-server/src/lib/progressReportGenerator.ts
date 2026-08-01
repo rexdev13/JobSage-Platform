@@ -43,7 +43,7 @@ export async function generateProgressRecommendations(
   const regionHint = data.preferredRegion ? `, preferred region: ${data.preferredRegion}` : "";
 
   const nextStepsPromise = openai.chat.completions.create({
-    model: "gpt-4o",
+    model: "gpt-4o-mini",
     max_completion_tokens: 500,
     messages: [
       {
@@ -68,7 +68,7 @@ Write 3–5 specific, actionable recommended next steps for this candidate. Be w
   });
 
   const topCompaniesPromise = openai.chat.completions.create({
-    model: "gpt-4o",
+    model: "gpt-4o-mini",
     max_completion_tokens: 1200,
     messages: [
       {
