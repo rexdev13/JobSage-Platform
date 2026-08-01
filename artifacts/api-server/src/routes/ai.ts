@@ -316,7 +316,7 @@ Rules:
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4o-mini",
       max_completion_tokens: 600,
       messages: [
         { role: "system", content: systemPrompt },

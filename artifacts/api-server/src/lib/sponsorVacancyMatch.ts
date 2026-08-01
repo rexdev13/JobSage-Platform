@@ -73,7 +73,7 @@ Return ONLY valid JSON:
 {"scores":[{"vacancyId":<integer>,"score":<0-100>,"isEligible":<boolean>,"missingRequirements":["<string>"],"explanation":"<string>"}]}`;
 
   const response = await openai.chat.completions.create({
-    model: "gpt-4o",
+    model: "gpt-4o-mini",
     messages: [{ role: "user", content: prompt }],
     max_tokens: Math.min(8000, vacancies.length * 120 + 300),
     temperature: 0.2,

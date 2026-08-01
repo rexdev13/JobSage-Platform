@@ -1,0 +1,35 @@
+I need one isolated change to the api-server package: downgrade specific
+OpenAI calls from gpt-4o to gpt-4o-mini. Do NOT touch any other files, do NOT
+explore the rest of the codebase, and do NOT change any file or call site not
+listed below.
+
+Change the model string from "gpt-4o" to "gpt-4o-mini" ONLY in these exact
+locations:
+- src/lib/industryClassifier.ts (the one gpt-4o call in this file)
+- src/lib/candidateAiMatch.ts (the one gpt-4o call in this file)
+- src/lib/sponsorVacancyMatch.ts (the one gpt-4o call in this file)
+- src/lib/aiPrioritiser.ts (the one gpt-4o call in this file)
+- src/lib/progressReportGenerator.ts (both gpt-4o calls in this file)
+- src/routes/nudge.ts (the one gpt-4o call in this file)
+- src/routes/analyticsReport.ts (the one gpt-4o call in this file, inside
+  generatePredictiveInsight)
+
+IMPORTANT — src/routes/ai.ts has TWO gpt-4o calls. Only change ONE of them:
+- DO change the call inside the function that generates a JSON "steps" array
+  (fields like priority, title, description, action, href, category) — this
+  is the one to downgrade to gpt-4o-mini.
+- DO NOT change the call that streams a conversational chat response to the
+  candidate (the one with response streaming and a system prompt about
+  "respond in clear, plain English, 2-4 short paragraphs"). Leave that one on
+  gpt-4o exactly as is.
+If you are not fully certain which of the two calls is which, stop and show
+me both call sites with surrounding context instead of guessing.
+
+Do NOT touch any file that calls gpt-4o for identity verification, cover
+letter generation, CV parsing, smart apply, or any call that uses the
+web_search_preview tool — those must stay on gpt-4o.
+
+After the change: run any existing tests for the affected files if they
+exist, then give me a git diff showing exactly which lines changed in which
+files — I expect changes in 7 files total, with routes/ai.ts showing only
+one changed model string, not two. Do not run a full-repo lint/format pass.
