@@ -74,3 +74,6 @@ AI_DISABLED = "Jobsage001"
 INTERNAL_SYNC_KEY = "dd1e3f9cbdc1ddb63409835bad58e09de58c0b73f5f0dd461cada94a6b4ae03e"
 
 [userenv.development]
+
+[objectStorage]
+defaultBucketID = "replit-objstore-3694d154-80c4-44e1-a65d-b87607e9f95e"
