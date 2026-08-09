@@ -282,7 +282,16 @@ router.get("/sponsor-licences/:id/vacancies", requireAuthenticated, async (req, 
           matchExplanation: s?.explanation ?? null,
         };
       })
-      .sort((a, b) => (b.matchScore ?? -1) - (a.matchScore ?? -1));
+      .sort((a, b) => {
+        // 1. matchScore DESC — unscored items (null) treated as -1, pushed to bottom
+        const sa = a.matchScore ?? -1;
+        const sb = b.matchScore ?? -1;
+        if (sb !== sa) return sb - sa;
+        // 2. id DESC — higher (newer) DB row first
+        if (b.id !== a.id) return b.id - a.id;
+        // 3. title ASC — alphabetical as final stable tie-break
+        return (a.title ?? "").localeCompare(b.title ?? "", "en", { sensitivity: "base" });
+      });
 
     res.json({
       organisationName: company.organisationName,
@@ -695,10 +704,16 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
       const gb = sortGroup(b);
       if (ga !== gb) return ga - gb;
       if (ga === 0) {
+        // 1. bestFitScore DESC
         const sa = a.matchScore ?? -1;
         const sb = b.matchScore ?? -1;
         if (sa !== sb) return sb - sa;
+        // 2. storedVacancyCount DESC — more live vacancies ranked higher on equal scores
+        const va = a.storedVacancyCount ?? 0;
+        const vb = b.storedVacancyCount ?? 0;
+        if (va !== vb) return vb - va;
       }
+      // 3. organisationName ASC — stable alphabetical tie-break for all groups
       return a.organisationName.localeCompare(b.organisationName, "en", { sensitivity: "base" });
     });
 
