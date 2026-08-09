@@ -2444,6 +2444,46 @@ export const UnbookmarkSponsorLicenceResponse = zod.object({
 });
 
 /**
+ * @summary List the current candidate's favorited vacancies with role details
+ */
+export const ListVacancyFavoritesResponse = zod.object({
+  favorites: zod.array(
+    zod.object({
+      vacancyId: zod.number(),
+      createdAt: zod.date(),
+      title: zod.string().nullish(),
+      company: zod.string().nullish(),
+      location: zod.string().nullish(),
+      applyUrl: zod.string().nullish(),
+    }),
+  ),
+});
+
+/**
+ * @summary Favorite a vacancy
+ */
+export const FavoriteVacancyParams = zod.object({
+  vacancyId: zod.coerce.number(),
+});
+
+export const FavoriteVacancyResponse = zod.object({
+  favorited: zod.boolean(),
+  vacancyId: zod.number(),
+});
+
+/**
+ * @summary Remove a vacancy from favorites
+ */
+export const UnfavoriteVacancyParams = zod.object({
+  vacancyId: zod.coerce.number(),
+});
+
+export const UnfavoriteVacancyResponse = zod.object({
+  favorited: zod.boolean(),
+  vacancyId: zod.number(),
+});
+
+/**
  * @summary Get industry sector counts for the sector browser grid
  */
 export const GetSponsorLicenceIndustryCountsResponse = zod.object({

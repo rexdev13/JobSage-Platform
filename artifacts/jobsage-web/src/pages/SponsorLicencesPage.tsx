@@ -4,6 +4,7 @@ import { Card, PageTransition, Button } from "@/components/ui-enhanced";
 import { SponsorVacancyApplyModal } from "@/components/SponsorVacancyApplyModal";
 import { getListMyApplicationsQueryKey } from "@workspace/api-client-react";
 import { openTrackedSponsorVacancy, openTrackedOutbound, normalizeWebsiteUrl } from "@/lib/trackedOutbound";
+import { FavoriteButton } from "@/components/FavoriteButton";
 import { useExtensionGate } from "@/components/SmartApplyExtensionPrompt";
 import {
   useGetSponsorLicenceRoutes,
@@ -407,21 +408,13 @@ function VacancyMatchPanel({
                   </div>
                   <div className="flex flex-col items-end gap-1 shrink-0">
                     <div className="flex items-center gap-1.5">
+                    <FavoriteButton vacancyId={v.id + 2_000_000} className="p-1" />
                     {v.url && (
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          requireExtension(() => {
-                            void openTrackedSponsorVacancy({
-                              vacancyId: v.id,
-                              url: v.url!,
-                              toast: panelToast,
-                              onTracked: () => {
-                                void panelQueryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
-                              },
-                            });
-                          });
+                          void openTrackedSponsorVacancy({ vacancyId: v.id, url: v.url! });
                         }}
                         className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                         title="View on job board"
@@ -561,20 +554,9 @@ export default function SponsorLicencesPage() {
 
   function handleWebsiteApply(companyName: string, companyId: number, careersUrl: string | null) {
     if (careersUrl) {
-      // Route through the same outbound tracking as the job board: the server
-      // validates the URL against the sponsor's stored website, runs a
-      // liveness check, and logs the application automatically.
-      requireExtension(() => {
-        void openTrackedOutbound({
-          id: companyId,
-          source: "careers",
-          url: normalizeWebsiteUrl(careersUrl),
-          toast,
-          onTracked: () => {
-            void queryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
-          },
-        });
-      });
+      // Opens the sponsor's careers site in a new tab. Click-logging was
+      // retired — no application record is created here.
+      void openTrackedOutbound({ id: companyId, source: "careers", url: normalizeWebsiteUrl(careersUrl) });
     } else {
       // No careers URL yet — open the Contact panel for this company so the
       // candidate can use "Find Contact Details" to discover the careers site.
@@ -1768,7 +1750,10 @@ export default function SponsorLicencesPage() {
                     <Briefcase className="w-5 h-5 text-green-600" />
                   </div>
                   <div>
-                    <h2 className="text-base font-bold text-foreground">{selectedVacancy.title}</h2>
+                    <div className="flex items-center gap-1.5">
+                      <h2 className="text-base font-bold text-foreground">{selectedVacancy.title}</h2>
+                      <FavoriteButton vacancyId={selectedVacancy.id + 2_000_000} />
+                    </div>
                     <p className="text-sm text-muted-foreground">{selectedVacancy.companyName}</p>
                   </div>
                 </div>
@@ -1816,16 +1801,7 @@ export default function SponsorLicencesPage() {
                   <button
                     type="button"
                     onClick={() =>
-                      requireExtension(() => {
-                        void openTrackedSponsorVacancy({
-                          vacancyId: selectedVacancy.id,
-                          url: selectedVacancy.url!,
-                          toast,
-                          onTracked: () => {
-                            void queryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
-                          },
-                        });
-                      })
+                      void openTrackedSponsorVacancy({ vacancyId: selectedVacancy.id, url: selectedVacancy.url! })
                     }
                     className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-medium text-foreground hover:bg-accent transition-colors"
                   >

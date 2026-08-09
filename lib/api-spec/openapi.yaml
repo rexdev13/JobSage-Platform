@@ -2407,6 +2407,85 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /vacancy-favorites:
+    get:
+      operationId: listVacancyFavorites
+      tags: [Applications]
+      summary: List the current candidate's favorited vacancies with role details
+      responses:
+        "200":
+          description: List of favorited vacancies
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VacancyFavoritesResponse"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /vacancy-favorites/{vacancyId}:
+    post:
+      operationId: favoriteVacancy
+      tags: [Applications]
+      summary: Favorite a vacancy
+      parameters:
+        - name: vacancyId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Vacancy favorited
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VacancyFavoriteToggleResponse"
+        "400":
+          description: Invalid vacancy id.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    delete:
+      operationId: unfavoriteVacancy
+      tags: [Applications]
+      summary: Remove a vacancy from favorites
+      parameters:
+        - name: vacancyId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Favorite removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VacancyFavoriteToggleResponse"
+        "400":
+          description: Invalid vacancy id.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
   /sponsor-licences/industry-counts:
     get:
       operationId: getSponsorLicenceIndustryCounts
@@ -5052,6 +5131,46 @@ components:
         createdAt:
           type: string
           format: date-time
+
+    VacancyFavorite:
+      type: object
+      required: [vacancyId, createdAt]
+      properties:
+        vacancyId:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        title:
+          type: string
+          nullable: true
+        company:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        applyUrl:
+          type: string
+          nullable: true
+
+    VacancyFavoritesResponse:
+      type: object
+      required: [favorites]
+      properties:
+        favorites:
+          type: array
+          items:
+            $ref: "#/components/schemas/VacancyFavorite"
+
+    VacancyFavoriteToggleResponse:
+      type: object
+      required: [favorited, vacancyId]
+      properties:
+        favorited:
+          type: boolean
+        vacancyId:
+          type: integer
 
     SponsorLicenceBookmarksResponse:
       type: object

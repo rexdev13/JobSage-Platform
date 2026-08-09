@@ -43,6 +43,34 @@
       "when": 1753452600000,
       "tag": "0005_contact_fields_on_roles",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1753539000000,
+      "tag": "0006_sync_live_db_drift",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1753625400000,
+      "tag": "0007_rename_legacy_unique_constraints",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1753711800000,
+      "tag": "0008_link_liveness_everywhere",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1786607400000,
+      "tag": "0009_vacancy_favorites",
+      "breakpoints": true
     }
   ]
 }

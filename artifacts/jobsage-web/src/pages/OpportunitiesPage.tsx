@@ -19,6 +19,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
 import { SmartApplyModal } from "@/components/SmartApplyModal";
+import { FavoriteButton } from "@/components/FavoriteButton";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -168,15 +169,18 @@ function BestMatchesStrip({
               exit={{ opacity: 0, scale: 0.95 }}
               className="relative bg-background rounded-xl border border-border p-4 flex flex-col gap-2 shadow-sm"
             >
-              <button
-                className="absolute top-2 right-2 text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-muted transition-colors"
-                onClick={() => onDismiss(match.roleId)}
-                title="Dismiss"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
+              <div className="absolute top-2 right-2 flex items-center gap-0.5">
+                <FavoriteButton vacancyId={match.roleId} className="p-1" />
+                <button
+                  className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-muted transition-colors"
+                  onClick={() => onDismiss(match.roleId)}
+                  title="Dismiss"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
 
-              <div className="flex items-start gap-2 pr-6">
+              <div className="flex items-start gap-2 pr-14">
                 <AiScoreBadge score={match.aiScore} />
               </div>
 
@@ -356,7 +360,7 @@ function RoleDetailModal({ item, appliedRoleIds, onClose, aiScore }: {
           )}
           {!applied && (
             <p className="mb-3 text-xs text-muted-foreground">
-              Applications are tracked automatically when you apply on the employer&apos;s site or send your CV for this role.
+              Use Smart Apply or send your CV to track this role — clicking through to the employer&apos;s site just opens it in a new tab.
             </p>
           )}
           {!isEligible && (
@@ -626,54 +630,14 @@ function RoleCard({
   const [, setLocation] = useLocation();
   const { role, isEligible, matchScore, eligibilityGaps, sponsorshipFeasibility, contactEmail, contactPhone, contactWebsite, applyUrl, linkVerified, linkCheckedAt } = item;
   const [expanded, setExpanded] = useState(false);
-  const [vacancyClosed, setVacancyClosed] = useState(false);
-  const [applyChecking, setApplyChecking] = useState(false);
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
 
-  const handleApplyClick = async (destinationUrl?: string, source?: string) => {
+  // Click-logging retired: apply/company-website clicks simply open the
+  // destination in a new tab — no application record, no toast.
+  const handleApplyClick = (destinationUrl?: string) => {
     const targetUrl = destinationUrl ?? applyUrl;
-    if (!targetUrl || applyChecking) return;
-    setApplyChecking(true);
-    // Open the tab synchronously so popup blockers don't interfere; we point
-    // it at the employer page only after the tracking endpoint approves.
-    const win = window.open("", "_blank");
-    if (win) win.opener = null;
-    const sourceParam = source ? `&source=${source}` : "";
-    const trackUrl = `${import.meta.env.BASE_URL.replace(/\/$/, "")}/api/applications/track-outbound?vacancyId=${role.id}${sourceParam}&destinationUrl=${encodeURIComponent(targetUrl)}`;
-    try {
-      const resp = await fetch(trackUrl, { credentials: "include", redirect: "manual" });
-      if (resp.type === "opaqueredirect" || resp.ok) {
-        // Click recorded server-side; open the employer page.
-        if (win) win.location.href = targetUrl;
-        else window.open(targetUrl, "_blank", "noopener,noreferrer");
-        // Refresh the tracker caches so the entry appears without a manual reload.
-        void queryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
-        void queryClient.invalidateQueries({ queryKey: getListMatchedRolesQueryKey() });
-        toast({
-          title: "Application logged!",
-          description: "Track your progress under the 'Company Website' tab in your Tracker.",
-        });
-        onExternalApply?.();
-      } else {
-        win?.close();
-        let message = "This vacancy is no longer accepting applications (closed by employer).";
-        try {
-          const data = await resp.json();
-          if (typeof data?.error === "string" && data.error) message = data.error;
-        } catch {
-          // non-JSON error body — keep default message
-        }
-        toast({ title: "Vacancy unavailable", description: message, variant: "destructive" });
-        // A dead careers homepage says nothing about the vacancy itself.
-        if ((resp.status === 400 || resp.status === 410) && source !== "role-website") setVacancyClosed(true);
-      }
-    } catch {
-      win?.close();
-      toast({ title: "Vacancy unavailable", description: "This vacancy link is invalid or no longer available.", variant: "destructive" });
-    } finally {
-      setApplyChecking(false);
-    }
+    if (!targetUrl) return;
+    window.open(targetUrl, "_blank", "noopener,noreferrer");
+    onExternalApply?.();
   };
 
   const applied = appliedRoleIds.includes(role.id);
@@ -681,7 +645,7 @@ function RoleCard({
 
   return (
     <Card
-      className={`p-5 hover:shadow-md transition-all cursor-pointer ${vacancyClosed ? "opacity-50 grayscale " : ""}${
+      className={`p-5 hover:shadow-md transition-all cursor-pointer ${
         recommended
           ? "border-primary/30 bg-gradient-to-r from-primary/[0.03] to-accent/[0.03] hover:border-primary/50"
           : isEligible
@@ -727,11 +691,14 @@ function RoleCard({
             </span>
           </div>
         </div>
-        {applied && (
-          <span className="shrink-0 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
-            <CheckCircle2 className="w-3 h-3" /> Applied
-          </span>
-        )}
+        <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+          {applied && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+              <CheckCircle2 className="w-3 h-3" /> Applied
+            </span>
+          )}
+          <FavoriteButton vacancyId={role.id} />
+        </div>
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2">
@@ -809,39 +776,30 @@ function RoleCard({
           <button
             type="button"
             onClick={() =>
-              requireExtension(() =>
-                void handleApplyClick(
-                  contactWebsite.startsWith("http") ? contactWebsite : `https://${contactWebsite}`,
-                  "role-website",
-                ),
+              handleApplyClick(
+                contactWebsite.startsWith("http") ? contactWebsite : `https://${contactWebsite}`,
               )
             }
-            disabled={applyChecking}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-wait"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors"
           >
-            <Globe className="w-3.5 h-3.5" /> {applyChecking ? "Checking link…" : "Apply via company website"}
+            <Globe className="w-3.5 h-3.5" /> Apply via company website
           </button>
           <span className="text-[11px] text-muted-foreground">
-            No verified apply link yet — this opens the employer&apos;s site and is tracked automatically.
+            No verified apply link yet — this opens the employer&apos;s site in a new tab.
           </span>
         </div>
       )}
 
       {applyUrl && (
         <div className="mt-3 flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
-          {vacancyClosed ? (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted text-muted-foreground text-xs font-semibold cursor-not-allowed">
-              <ExternalLink className="w-3.5 h-3.5" /> Vacancy closed
-            </span>
-          ) : (
-            <>
+          <>
               <button
                 type="button"
-                onClick={() => requireExtension(() => void handleApplyClick())}
-                disabled={applyChecking || applied}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-wait"
+                onClick={() => handleApplyClick()}
+                disabled={applied}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60"
               >
-                <ExternalLink className="w-3.5 h-3.5" /> {applied ? "Applied" : applyChecking ? "Checking link…" : "Apply on employer site"}
+                <ExternalLink className="w-3.5 h-3.5" /> {applied ? "Applied" : "Apply on employer site"}
               </button>
               {linkVerified ? (
                 <span
@@ -858,8 +816,7 @@ function RoleCard({
                   <Clock className="w-3 h-3" /> Link not yet verified
                 </span>
               )}
-            </>
-          )}
+          </>
         </div>
       )}
 
@@ -1096,7 +1053,7 @@ function ApplicationsTab({ data }: { data: ApplicationList | undefined }) {
       <Card className="p-8 text-center">
         <ClipboardList className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
         <p className="text-sm text-muted-foreground">No applications tracked yet.</p>
-        <p className="text-xs text-muted-foreground mt-1">Applications are tracked automatically when you apply on an employer&apos;s site or send your CV for a vacancy.</p>
+        <p className="text-xs text-muted-foreground mt-1">Use Smart Apply or send your CV for a vacancy to track applications here.</p>
       </Card>
     );
   }
@@ -1159,7 +1116,7 @@ function ApplicationsTab({ data }: { data: ApplicationList | undefined }) {
             {subTab === "platform" ? "No platform applications yet." : subTab === "website" ? "No website applications logged yet." : "No speculative CVs sent yet."}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            {subTab === "platform" ? "Use \"Smart Apply\" on a role to track it here." : subTab === "website" ? "Click Apply on any role — external applications are tracked automatically. You can also log one made elsewhere from the Applications page." : "Send your CV speculatively to a sponsor licence company."}
+            {subTab === "platform" ? "Use \"Smart Apply\" on a role to track it here." : subTab === "website" ? "Log an application made on an employer's website from the Applications page." : "Send your CV speculatively to a sponsor licence company."}
           </p>
         </Card>
       ) : (

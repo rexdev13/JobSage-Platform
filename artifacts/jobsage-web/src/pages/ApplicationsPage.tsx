@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, Button, PageTransition } from "@/components/ui-enhanced";
-import { useListMyApplications } from "@workspace/api-client-react";
+import {
+  useListMyApplications,
+  useListVacancyFavorites,
+  useUnfavoriteVacancy,
+  getListVacancyFavoritesQueryKey,
+  type VacancyFavorite,
+} from "@workspace/api-client-react";
 import { MarkWebsiteApplicationModal } from "@/components/MarkWebsiteApplicationModal";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
@@ -25,6 +31,7 @@ import {
   ChevronDown,
   ExternalLink,
   FileText,
+  Heart,
 } from "lucide-react";
 import { format } from "date-fns";
 import { getListMyApplicationsQueryKey } from "@workspace/api-client-react";
@@ -95,7 +102,7 @@ const STATUS_CONFIG: Record<
   },
 };
 
-const PLATFORM_STATUSES = ["link_clicked", "applied", "shortlisted", "under_review", "interview", "interview_invited", "offer", "rejected", "no_response"] as const;
+const PLATFORM_STATUSES = ["applied", "shortlisted", "under_review", "interview", "interview_invited", "offer", "rejected", "no_response"] as const;
 const SPECULATIVE_STATUSES = ["cv_sent", "under_review", "interview_invited", "offer", "rejected"] as const;
 
 // Statuses (standard + speculative) that indicate the employer has responded.
@@ -139,7 +146,7 @@ type EnrichedApplication = {
   deliveryRoute?: DeliveryRoute | null;
 };
 
-type CategoryTab = "all" | "platform" | "speculative" | "website";
+type CategoryTab = "all" | "platform" | "speculative" | "website" | "favorites";
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -171,7 +178,11 @@ function StatusDropdown({
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
-  const options = kind === "speculative" ? SPECULATIVE_STATUSES : PLATFORM_STATUSES;
+  const baseOptions = kind === "speculative" ? SPECULATIVE_STATUSES : PLATFORM_STATUSES;
+  // Legacy display-only status: click-logging was retired, so "link_clicked"
+  // is never offered as a new choice, but rows already in that status keep it
+  // selectable so opening the dropdown doesn't force a conversion.
+  const options: readonly string[] = current === "link_clicked" ? ["link_clicked", ...baseOptions] : baseOptions;
   const cfg = STATUS_CONFIG[current] ?? STATUS_CONFIG.applied!;
   const Icon = cfg.icon;
 
@@ -394,6 +405,114 @@ function ApplicationCard({ application, onStatusUpdated }: { application: Enrich
   );
 }
 
+function FavoriteCard({ favorite }: { favorite: VacancyFavorite }) {
+  const queryClient = useQueryClient();
+  const unfavoriteMutation = useUnfavoriteVacancy();
+  const [, setLocation] = useLocation();
+
+  function handleUnfavorite() {
+    unfavoriteMutation.mutate(
+      { vacancyId: favorite.vacancyId },
+      {
+        onSettled: () => {
+          void queryClient.invalidateQueries({ queryKey: getListVacancyFavoritesQueryKey() });
+        },
+      },
+    );
+  }
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="w-full">
+      <Card className="p-5 flex flex-col gap-3 hover:shadow-md transition-all">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-foreground truncate">
+              {favorite.title ?? "Vacancy no longer listed"}
+            </h3>
+            <div className="flex items-center flex-wrap gap-3 mt-1 text-xs text-muted-foreground">
+              {favorite.company && (
+                <span className="flex items-center gap-1">
+                  <Building2 className="w-3 h-3" />
+                  {favorite.company}
+                </span>
+              )}
+              {favorite.location && (
+                <span className="flex items-center gap-1">
+                  <MapPin className="w-3 h-3" />
+                  {favorite.location}
+                </span>
+              )}
+              <span className="flex items-center gap-1">
+                <Calendar className="w-3 h-3" />
+                Favorited {format(new Date(favorite.createdAt), "MMM d, yyyy")}
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={handleUnfavorite}
+            disabled={unfavoriteMutation.isPending}
+            title="Remove from favorites"
+            aria-label="Remove from favorites"
+            className="shrink-0 p-1.5 rounded-lg text-rose-500 hover:text-rose-600 hover:bg-muted transition-colors disabled:opacity-50"
+          >
+            <Heart className="w-4 h-4 fill-current" />
+          </button>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-xs h-7 text-primary"
+            onClick={() => setLocation("/opportunities")}
+          >
+            View Role <ArrowRight className="w-3 h-3 ml-1" />
+          </Button>
+          {favorite.applyUrl && (
+            <a
+              href={favorite.applyUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs text-blue-700 dark:text-blue-400 hover:underline"
+            >
+              <ExternalLink className="w-3 h-3" />
+              Apply / view posting
+            </a>
+          )}
+        </div>
+      </Card>
+    </motion.div>
+  );
+}
+
+function FavoritesList({ favorites }: { favorites: VacancyFavorite[] }) {
+  const [, setLocation] = useLocation();
+
+  if (favorites.length === 0) {
+    return (
+      <Card className="p-12 text-center border-dashed border-2">
+        <div className="w-16 h-16 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <Heart className="w-8 h-8 text-muted-foreground" />
+        </div>
+        <h3 className="text-lg font-semibold text-foreground mb-2">No favorites yet</h3>
+        <p className="text-muted-foreground mb-6 max-w-sm mx-auto text-sm">
+          Tap the heart on any vacancy card on the Opportunities page to save it here for later.
+        </p>
+        <Button variant="outline" onClick={() => setLocation("/opportunities")}>
+          Browse Jobs
+        </Button>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {favorites.map((f) => (
+        <FavoriteCard key={f.vacancyId} favorite={f} />
+      ))}
+    </div>
+  );
+}
+
 export default function ApplicationsPage() {
   const { data, isLoading, refetch } = useListMyApplications();
   const [, setLocation] = useLocation();
@@ -424,6 +543,9 @@ export default function ApplicationsPage() {
     }
   }
 
+  const { data: favoritesData } = useListVacancyFavorites();
+  const favorites = favoritesData?.favorites ?? [];
+
   const applications = (data?.applications ?? []) as EnrichedApplication[];
   const stats = data?.stats as {
     total?: number;
@@ -452,6 +574,7 @@ export default function ApplicationsPage() {
     { id: "platform", label: "Job Boards", icon: Building2, count: stats?.platformCount ?? applications.filter((a) => a.applicationKind === "formal").length },
     { id: "speculative", label: "Send CV", icon: Send, count: stats?.speculativeCount ?? applications.filter((a) => a.applicationKind === "speculative").length },
     { id: "website", label: "Company Website", icon: Globe, count: stats?.websiteCount ?? applications.filter((a) => a.applicationKind === "website").length },
+    { id: "favorites", label: "Favorites", icon: Heart, count: favorites.length },
   ];
 
   return (
@@ -474,7 +597,7 @@ export default function ApplicationsPage() {
             <button
               onClick={() => setLogExternalOpen(true)}
               className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
-              title="Applications made via Apply buttons are tracked automatically — use this only for applications made entirely outside JOBSAGE"
+              title="Use this to record an application you made on an employer's website or anywhere outside JOBSAGE"
             >
               Log an application made elsewhere
             </button>
@@ -520,7 +643,9 @@ export default function ApplicationsPage() {
           ))}
         </div>
 
-        {isLoading ? (
+        {activeTab === "favorites" ? (
+          <FavoritesList favorites={favorites} />
+        ) : isLoading ? (
           <div className="flex flex-col items-center justify-center py-20">
             <div className="w-10 h-10 rounded-full border-4 border-primary/20 border-t-primary animate-spin mb-4" />
             <p className="text-muted-foreground text-sm">Loading applications…</p>
@@ -541,10 +666,10 @@ export default function ApplicationsPage() {
             </h3>
             <p className="text-muted-foreground mb-6 max-w-sm mx-auto text-sm">
               {activeTab === "website"
-                ? "Click Apply on any role — when you follow the link to an employer's website, it's tracked here automatically. Applied somewhere entirely outside JOBSAGE? Use 'Log an application made elsewhere' above."
+                ? "Applied on an employer's website? Use 'Log an application made elsewhere' above to record it here."
                 : activeTab === "speculative"
                 ? "Send your CV directly to a sponsor licence company to create a record here."
-                : "Click Apply on any role — applications are tracked automatically. You can also use Smart Apply or send your CV directly to sponsor licence companies."}
+                : "Use Smart Apply, send your CV directly to sponsor licence companies, or log an application you made elsewhere."}
             </p>
             <Button variant="outline" onClick={() => setLocation(activeTab === "speculative" || activeTab === "website" ? "/sponsor-licences" : "/opportunities")}>
               {activeTab === "speculative" || activeTab === "website" ? "Browse Sponsors" : "Browse Jobs"}
