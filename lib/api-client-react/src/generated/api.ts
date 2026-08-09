@@ -151,6 +151,8 @@ import type {
   UpsertEmployerProfileRequest,
   UpsertProfileRequest,
   VacancyCheckResult,
+  VacancyFavoriteToggleResponse,
+  VacancyFavoritesResponse,
   VerifyEmailParams,
 } from "./api.schemas";
 
@@ -8088,6 +8090,255 @@ export const useUnbookmarkSponsorLicence = <
   TContext
 > => {
   return useMutation(getUnbookmarkSponsorLicenceMutationOptions(options));
+};
+
+/**
+ * @summary List the current candidate's favorited vacancies with role details
+ */
+export const getListVacancyFavoritesUrl = () => {
+  return `/api/vacancy-favorites`;
+};
+
+export const listVacancyFavorites = async (
+  options?: RequestInit,
+): Promise<VacancyFavoritesResponse> => {
+  return customFetch<VacancyFavoritesResponse>(getListVacancyFavoritesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListVacancyFavoritesQueryKey = () => {
+  return [`/api/vacancy-favorites`] as const;
+};
+
+export const getListVacancyFavoritesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listVacancyFavorites>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listVacancyFavorites>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListVacancyFavoritesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listVacancyFavorites>>
+  > = ({ signal }) => listVacancyFavorites({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listVacancyFavorites>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListVacancyFavoritesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listVacancyFavorites>>
+>;
+export type ListVacancyFavoritesQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary List the current candidate's favorited vacancies with role details
+ */
+
+export function useListVacancyFavorites<
+  TData = Awaited<ReturnType<typeof listVacancyFavorites>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listVacancyFavorites>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListVacancyFavoritesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Favorite a vacancy
+ */
+export const getFavoriteVacancyUrl = (vacancyId: number) => {
+  return `/api/vacancy-favorites/${vacancyId}`;
+};
+
+export const favoriteVacancy = async (
+  vacancyId: number,
+  options?: RequestInit,
+): Promise<VacancyFavoriteToggleResponse> => {
+  return customFetch<VacancyFavoriteToggleResponse>(
+    getFavoriteVacancyUrl(vacancyId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getFavoriteVacancyMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof favoriteVacancy>>,
+    TError,
+    { vacancyId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof favoriteVacancy>>,
+  TError,
+  { vacancyId: number },
+  TContext
+> => {
+  const mutationKey = ["favoriteVacancy"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof favoriteVacancy>>,
+    { vacancyId: number }
+  > = (props) => {
+    const { vacancyId } = props ?? {};
+
+    return favoriteVacancy(vacancyId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type FavoriteVacancyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof favoriteVacancy>>
+>;
+
+export type FavoriteVacancyMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Favorite a vacancy
+ */
+export const useFavoriteVacancy = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof favoriteVacancy>>,
+    TError,
+    { vacancyId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof favoriteVacancy>>,
+  TError,
+  { vacancyId: number },
+  TContext
+> => {
+  return useMutation(getFavoriteVacancyMutationOptions(options));
+};
+
+/**
+ * @summary Remove a vacancy from favorites
+ */
+export const getUnfavoriteVacancyUrl = (vacancyId: number) => {
+  return `/api/vacancy-favorites/${vacancyId}`;
+};
+
+export const unfavoriteVacancy = async (
+  vacancyId: number,
+  options?: RequestInit,
+): Promise<VacancyFavoriteToggleResponse> => {
+  return customFetch<VacancyFavoriteToggleResponse>(
+    getUnfavoriteVacancyUrl(vacancyId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getUnfavoriteVacancyMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unfavoriteVacancy>>,
+    TError,
+    { vacancyId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof unfavoriteVacancy>>,
+  TError,
+  { vacancyId: number },
+  TContext
+> => {
+  const mutationKey = ["unfavoriteVacancy"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof unfavoriteVacancy>>,
+    { vacancyId: number }
+  > = (props) => {
+    const { vacancyId } = props ?? {};
+
+    return unfavoriteVacancy(vacancyId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UnfavoriteVacancyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof unfavoriteVacancy>>
+>;
+
+export type UnfavoriteVacancyMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Remove a vacancy from favorites
+ */
+export const useUnfavoriteVacancy = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unfavoriteVacancy>>,
+    TError,
+    { vacancyId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof unfavoriteVacancy>>,
+  TError,
+  { vacancyId: number },
+  TContext
+> => {
+  return useMutation(getUnfavoriteVacancyMutationOptions(options));
 };
 
 /**

@@ -1267,6 +1267,24 @@ export interface SponsorLicenceBookmark {
   createdAt: string;
 }
 
+export interface VacancyFavorite {
+  vacancyId: number;
+  createdAt: string;
+  title?: string | null;
+  company?: string | null;
+  location?: string | null;
+  applyUrl?: string | null;
+}
+
+export interface VacancyFavoritesResponse {
+  favorites: VacancyFavorite[];
+}
+
+export interface VacancyFavoriteToggleResponse {
+  favorited: boolean;
+  vacancyId: number;
+}
+
 export interface SponsorLicenceBookmarksResponse {
   bookmarks: SponsorLicenceBookmark[];
 }

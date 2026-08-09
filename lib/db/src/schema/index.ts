@@ -19,3 +19,4 @@ export * from "./badges";
 export * from "./recommendationLetters";
 export * from "./identityVerifications";
 export * from "./careerProfiles";
+export * from "./vacancyFavorites";

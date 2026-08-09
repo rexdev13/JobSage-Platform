@@ -31,6 +31,7 @@ import identityRouter from "./identity";
 import careerProfilesRouter from "./careerProfiles";
 import internalSyncRouter from "./internalSync";
 import inboundEmailRouter from "./inboundEmail";
+import vacancyFavoritesRouter from "./vacancyFavorites";
 
 const router: IRouter = Router();
 
@@ -66,5 +67,6 @@ router.use(identityRouter);
 router.use(careerProfilesRouter);
 router.use(internalSyncRouter);
 router.use(inboundEmailRouter);
+router.use(vacancyFavoritesRouter);
 
 export default router;

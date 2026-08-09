@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui-enhanced";
 import { useSendSpeculativeApplication, useListSpeculativeApplications, useListMyDocuments, getListMyApplicationsQueryKey } from "@workspace/api-client-react";
 import { openTrackedSponsorVacancy } from "@/lib/trackedOutbound";
+import { FavoriteButton } from "@/components/FavoriteButton";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -90,7 +91,7 @@ function useCoverLetterStream() {
 }
 
 export interface SponsorVacancyApplyModalProps {
-  /** sponsor_licence_vacancies id — enables outbound-click tracking for "View posting". */
+  /** sponsor_licence_vacancies id — used for the favorite toggle (unified id = id + 2,000,000). */
   vacancyId?: number | null;
   vacancyTitle?: string;
   companyName: string;
@@ -588,18 +589,12 @@ export function SponsorVacancyApplyModal({
           {(step === "details" || step === "coverletter") && (
             <div className="flex items-center justify-between px-5 py-4 border-t border-border bg-muted/30 gap-3 flex-wrap">
               <div className="flex items-center gap-2">
+                {vacancyId != null && <FavoriteButton vacancyId={vacancyId + 2_000_000} />}
                 {externalUrl && (
                   <button
                     type="button"
                     onClick={() =>
-                      void openTrackedSponsorVacancy({
-                        vacancyId,
-                        url: externalUrl,
-                        toast,
-                        onTracked: () => {
-                          void queryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
-                        },
-                      })
+                      void openTrackedSponsorVacancy({ vacancyId, url: externalUrl })
                     }
                     className="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors font-medium"
                   >

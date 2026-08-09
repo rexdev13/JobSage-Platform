@@ -254,5 +254,8 @@ export * from "./upsertProfileRequest";
 export * from "./upsertProfileRequestAlertFrequency";
 export * from "./upsertProfileRequestRegistrationStatus";
 export * from "./vacancyCheckResult";
+export * from "./vacancyFavorite";
+export * from "./vacancyFavoritesResponse";
+export * from "./vacancyFavoriteToggleResponse";
 export * from "./vacancyListing";
 export * from "./verifyEmailParams";
