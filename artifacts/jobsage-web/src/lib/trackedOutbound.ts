@@ -12,6 +12,23 @@ export function normalizeWebsiteUrl(url: string): string {
   return /^https?:\/\//i.test(t) ? t : `https://${t}`;
 }
 
+/**
+ * Appends `?ref=jobsage` to an outbound URL so the JOBSAGE Chrome extension
+ * knows to activate when the candidate lands on the external job board.
+ * Uses the URL constructor for safe parameter handling (won't double-append).
+ */
+function appendJobSageRef(raw: string): string {
+  try {
+    const parsed = new URL(raw);
+    parsed.searchParams.set("ref", "jobsage");
+    return parsed.toString();
+  } catch {
+    // Malformed URL (e.g. a bare domain without protocol) — open as-is rather
+    // than silently swallowing the navigation.
+    return raw;
+  }
+}
+
 export async function openTrackedOutbound({
   url,
 }: {
@@ -22,7 +39,7 @@ export async function openTrackedOutbound({
   toast?: ToastFn;
   onTracked?: () => void;
 }): Promise<void> {
-  window.open(url, "_blank", "noopener,noreferrer");
+  window.open(appendJobSageRef(url), "_blank", "noopener,noreferrer");
 }
 
 export async function openTrackedSponsorVacancy({
