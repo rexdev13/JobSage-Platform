@@ -7,6 +7,27 @@ import { ensureBrandFonts } from "./lib/brand";
 
 const JOBSAGE_HOST_ID = "jobsage-extension-root";
 
+// ---------------------------------------------------------------------------
+// Guard: only activate on JOBSAGE-owned pages OR external pages the user
+// arrived at via a JOBSAGE outbound link (identified by ?ref=jobsage).
+// This prevents the sidebar from injecting on every website the user visits.
+// ---------------------------------------------------------------------------
+
+/** Hostnames that are part of the JOBSAGE platform itself. */
+const JOBSAGE_HOSTNAMES = new Set(["jobsage.co.uk", "www.jobsage.co.uk", "localhost"]);
+
+function isJobSageHost(): boolean {
+  const { hostname } = window.location;
+  if (JOBSAGE_HOSTNAMES.has(hostname)) return true;
+  // Replit preview domains used during development
+  if (hostname.endsWith(".replit.dev") || hostname.endsWith(".repl.co")) return true;
+  return false;
+}
+
+function hasJobSageRef(): boolean {
+  return new URLSearchParams(window.location.search).get("ref") === "jobsage";
+}
+
 async function logApplication(companyName: string, jobTitle: string, pageUrl: string): Promise<void> {
   return new Promise((resolve, reject) => {
     chrome.runtime.sendMessage(
@@ -73,6 +94,10 @@ function mountSidebar(): ShadowRoot {
 }
 
 function init(): void {
+  // Do not activate on sites the user navigated to independently — only on
+  // JOBSAGE-owned pages or external pages reached via a JOBSAGE outbound link.
+  if (!isJobSageHost() && !hasJobSageRef()) return;
+
   const shadowRoot = mountSidebar();
 
   if (isConfirmationPage()) {
