@@ -1,0 +1,28 @@
+#455 - Reliable extension activation and dismissable launcher
+What & Why
+The JOBSAGE Smart Apply extension should reliably follow candidates onto external job sites and stay out of their way when unwanted. Today activation depends on ?ref=jobsage surviving in the URL at page load (redirects and in-site navigation kill it), and the floating launcher is fixed in the bottom-right corner with no way to move or dismiss it.
+
+Done looks like
+Clicking an apply link from JOBSAGE activates the sidebar on the employer's site even when the job board strips the ?ref= parameter during redirect, and activation persists as the candidate navigates through multi-page application flows in the same tab.
+The sidebar does NOT appear on sites the candidate visited independently (no false activations).
+The launcher icon can be dragged to any screen edge/position, and its position is remembered.
+The candidate can fully dismiss the launcher (an explicit close/hide affordance), with sensible scope — e.g. hide for this site or this session — and a way to bring it back from the extension popup.
+On pages where the extension has nothing useful to offer (unrecognized site, no application form detected), the launcher stays hidden or minimal instead of showing the badge.
+Behavior is verified in a real Chrome install against at least NHS Jobs and Trac, including a redirect that drops query parameters.
+Out of scope
+Adding SAGE chat to the extension sidebar (separate future work).
+Rich-text ATS question detection (covered by Task #408).
+Automating the downloadable zip refresh (covered by Task #399).
+Firefox/Edge support.
+Steps
+Persist activation across redirects and navigation — Track outbound apply clicks so activation survives ?ref= stripping: mark the tab as JOBSAGE-activated in the background service worker (or session storage keyed to the tab) when the candidate leaves via a tagged link, and let the content script consult that mark instead of relying only on the URL parameter. Expire the mark when the tab moves to a clearly unrelated domain so independent browsing never triggers the sidebar.
+Movable launcher — Make the floating pill/badge draggable within the viewport and persist its chosen position (per device via extension storage), restoring it on subsequent pages.
+Dismissal and suppression — Add an explicit dismiss affordance on the launcher with a hide-for-this-site and/or hide-for-this-session choice, persisted in extension storage; surface a re-enable control in the extension popup. Tighten the "minimal" behavior so the launcher is hidden (not just faded) on pages with no recognized job board and no detected application form.
+Manifest/permission updates — Add whatever permissions the tab-tracking approach needs (e.g. tabs/webNavigation) and bump the extension version.
+Real-browser verification — Load the built extension unpacked in Chrome and verify: activation via a param-stripping redirect, persistence across a multi-page Trac/NHS Jobs application, drag + position persistence, dismissal and re-enable from the popup, and no activation on an independently visited site.
+Relevant files
+artifacts/chrome-extension/src/content.tsx
+artifacts/chrome-extension/src/background.ts
+artifacts/chrome-extension/src/components/Sidebar.tsx
+artifacts/chrome-extension/src/lib/scraper.ts
+artifacts/chrome-extension/manifest.json

@@ -1,6 +1,6 @@
 {
   "name": "JOBSAGE Smart Apply",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "manifest_version": 3,
   "description": "Fill in job applications on NHS Jobs, Trac and employer sites with your JOBSAGE profile — and track every application.",
   "icons": {
@@ -9,7 +9,7 @@
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-  "permissions": ["cookies", "storage"],
+  "permissions": ["cookies", "storage", "webNavigation", "tabs"],
   "host_permissions": ["https://jobsage.co.uk/*", "https://*.replit.dev/*"],
   "action": {
     "default_popup": "popup.html",
