@@ -25,13 +25,9 @@ interface FormState {
   lastName: string;
   email: string;
   phone: string;
-  profession: string;
-  qualificationCountry: string;
-  registrationStatus: string;
-  requiresSponsorship: string;
-  specialty: string;
-  timeline: string;
-  biggestChallenge: string[];
+  industrySector: string;
+  desiredRole: string;
+  additionalMessage: string;
   gdprConsent: boolean;
 }
 
@@ -43,68 +39,18 @@ interface ChatMessage {
 
 // Qualifying data the API extracts from the conversation history
 interface ExtractedQualifiers {
-  profession?: string | null;
-  qualificationCountry?: string | null;
-  registrationStatus?: string | null;
-  requiresSponsorship?: string | null;
-  specialty?: string | null;
-  timeline?: string | null;
+  name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  industrySector?: string | null;
+  desiredRole?: string | null;
 }
-
-// ---------------------------------------------------------------------------
-// Static option lists
-// ---------------------------------------------------------------------------
-
-const PROFESSIONS = [
-  "Doctor / Physician",
-  "Nurse",
-  "Midwife",
-  "Physiotherapist",
-  "Occupational Therapist",
-  "Radiographer",
-  "Pharmacist",
-  "Paramedic",
-  "Dentist",
-  "Other Allied Health Professional",
-  "Other healthcare worker",
-  "I'm not in healthcare",
-];
-
-const REGISTRATION_OPTIONS = [
-  { value: "registered",   label: "Yes — I already hold GMC / NMC / HCPC registration" },
-  { value: "in_progress",  label: "No — I'm actively working towards UK registration" },
-  { value: "not_started",  label: "No — I'm not sure how to start" },
-  { value: "unsure",       label: "I'm not sure what's required" },
-];
-
-const SPONSORSHIP_OPTIONS = [
-  { value: "yes",    label: "Yes — I'll need an employer to sponsor my visa" },
-  { value: "no",     label: "No — I already have the right to work in the UK" },
-  { value: "unsure", label: "Not sure — I need help understanding my options" },
-];
-
-const TIMELINE_OPTIONS = [
-  { value: "asap",      label: "As soon as possible" },
-  { value: "6m",        label: "Within 6 months" },
-  { value: "12m",       label: "6–12 months" },
-  { value: "2yr",       label: "1–2 years" },
-  { value: "exploring", label: "Just exploring for now" },
-];
-
-const CHALLENGE_OPTIONS = [
-  "Understanding if I'm eligible for UK registration",
-  "Getting my UK registration (GMC / NMC / HCPC)",
-  "Finding an employer who will sponsor my visa",
-  "Understanding the visa / immigration process",
-  "All of the above",
-  "Something else",
-];
 
 const INITIAL_MESSAGES: ChatMessage[] = [
   {
     role: "assistant",
     content:
-      "Hi there! 👋 I'm the JOBSAGE AI. I help internationally trained healthcare professionals understand their pathway to working in the UK — from eligibility and registration through to visa sponsorship and job matching.\n\nTo get started, what is your healthcare profession?",
+      "Hi there! 👋 I'm JOBSAGE AI — your guide to building a career in the UK.\n\nWhether you're looking for a new role, exploring visa and sponsorship options, or just starting to plan your UK move, I'm here to help.\n\nTo get started — what's your name, and which sector or type of role are you interested in?",
   },
 ];
 
@@ -129,9 +75,6 @@ function getUtmParams(): Record<string, string | undefined> {
 const fieldClass =
   "w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition";
 
-const selectClass =
-  "w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition appearance-none cursor-pointer";
-
 // ---------------------------------------------------------------------------
 // Sub-components (form helpers)
 // ---------------------------------------------------------------------------
@@ -142,67 +85,6 @@ function SectionHeading({ children, sub }: { children: React.ReactNode; sub?: st
       <h3 className="font-display font-semibold text-foreground text-base">{children}</h3>
       {sub && <p className="text-muted-foreground text-xs mt-0.5">{sub}</p>}
     </div>
-  );
-}
-
-function RadioCard({
-  options,
-  value,
-  onChange,
-}: {
-  options: { value: string; label: string }[];
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div className="space-y-2">
-      {options.map((opt) => (
-        <button
-          key={opt.value}
-          type="button"
-          onClick={() => onChange(opt.value)}
-          className={`w-full text-left rounded-lg border px-4 py-3 text-sm transition-all ${
-            value === opt.value
-              ? "border-primary bg-primary/5 text-foreground font-medium"
-              : "border-input bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
-          }`}
-        >
-          <span
-            className={`inline-block w-3.5 h-3.5 rounded-full border-2 mr-2 align-middle ${
-              value === opt.value ? "border-primary bg-primary" : "border-muted-foreground/40"
-            }`}
-          />
-          {opt.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function CheckCard({ label, checked, onChange }: { label: string; checked: boolean; onChange: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onChange}
-      className={`w-full text-left rounded-lg border px-4 py-3 text-sm transition-all ${
-        checked
-          ? "border-primary bg-primary/5 text-foreground font-medium"
-          : "border-input bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
-      }`}
-    >
-      <span
-        className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded mr-2 align-middle border-2 flex-shrink-0 ${
-          checked ? "border-primary bg-primary" : "border-muted-foreground/40"
-        }`}
-      >
-        {checked && (
-          <svg className="w-2 h-2 text-white" viewBox="0 0 8 8" fill="none">
-            <path d="M1 4l2 2 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        )}
-      </span>
-      {label}
-    </button>
   );
 }
 
@@ -248,14 +130,12 @@ function SuccessState() {
 function LeadForm({
   form,
   setField,
-  toggleChallenge,
   onSubmit,
   submitting,
   error,
 }: {
   form: FormState;
   setField: <K extends keyof FormState>(k: K, v: FormState[K]) => void;
-  toggleChallenge: (c: string) => void;
   onSubmit: (e: React.FormEvent) => void;
   submitting: boolean;
   error: string | null;
@@ -264,7 +144,7 @@ function LeadForm({
     <form onSubmit={onSubmit} className="space-y-8">
       {/* ── Contact ── */}
       <section>
-        <SectionHeading sub="We'll use this to send you your pathway assessment.">
+        <SectionHeading sub="We'll pass these to the team so they can reach you.">
           Your contact details
         </SectionHeading>
         <div className="space-y-4">
@@ -277,7 +157,7 @@ function LeadForm({
             </div>
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">Last name</label>
-              <input value={form.lastName} onChange={(e) => setField("lastName", e.target.value)} placeholder="Okonkwo" className={fieldClass} />
+              <input value={form.lastName} onChange={(e) => setField("lastName", e.target.value)} placeholder="Smith" className={fieldClass} />
             </div>
           </div>
           <div>
@@ -290,77 +170,51 @@ function LeadForm({
             <label className="block text-sm font-medium text-foreground mb-1.5">
               Phone number <span className="text-muted-foreground font-normal">(optional)</span>
             </label>
-            <input type="tel" value={form.phone} onChange={(e) => setField("phone", e.target.value)} placeholder="+1 555 000 0000" className={fieldClass} />
+            <input type="tel" value={form.phone} onChange={(e) => setField("phone", e.target.value)} placeholder="+44 7700 000000" className={fieldClass} />
           </div>
         </div>
       </section>
 
-      {/* ── Q1 + Q5 + Q2 — Background ── */}
+      {/* ── Career interests ── */}
       <section>
-        <SectionHeading sub="Helps us match you to the right UK regulatory pathway.">
-          About your healthcare background
+        <SectionHeading sub="Helps us match you with the right UK opportunities.">
+          Your career interests
         </SectionHeading>
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              What is your healthcare profession? <span className="text-muted-foreground font-normal">(Q1)</span>
+              Sector / Industry <span className="text-muted-foreground font-normal">(optional)</span>
             </label>
-            <select value={form.profession} onChange={(e) => setField("profession", e.target.value)} className={selectClass}>
-              <option value="">Select your profession…</option>
-              {PROFESSIONS.map((p) => (<option key={p} value={p}>{p}</option>))}
-            </select>
+            <input
+              value={form.industrySector}
+              onChange={(e) => setField("industrySector", e.target.value)}
+              placeholder="e.g. Technology, Finance, Engineering, Healthcare…"
+              className={fieldClass}
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              What is your main specialty or clinical area? <span className="text-muted-foreground font-normal">(Q5 · optional)</span>
+              Desired Role <span className="text-muted-foreground font-normal">(optional)</span>
             </label>
-            <input value={form.specialty} onChange={(e) => setField("specialty", e.target.value)} placeholder="e.g. Emergency Medicine, ICU Nursing, Cardiology…" className={fieldClass} />
+            <input
+              value={form.desiredRole}
+              onChange={(e) => setField("desiredRole", e.target.value)}
+              placeholder="e.g. Software Engineer, Project Manager, Nurse…"
+              className={fieldClass}
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              Which country did you qualify or train in? <span className="text-muted-foreground font-normal">(Q2)</span>
+              Anything else we should know? <span className="text-muted-foreground font-normal">(optional)</span>
             </label>
-            <input value={form.qualificationCountry} onChange={(e) => setField("qualificationCountry", e.target.value)} placeholder="e.g. Nigeria, India, Philippines…" className={fieldClass} />
+            <textarea
+              value={form.additionalMessage}
+              onChange={(e) => setField("additionalMessage", e.target.value)}
+              placeholder="Tell us more about your situation or what you're looking for…"
+              rows={3}
+              className={`${fieldClass} resize-none`}
+            />
           </div>
-        </div>
-      </section>
-
-      {/* ── Q3 — Registration ── */}
-      <section>
-        <SectionHeading sub="Do you currently hold registration with the GMC, NMC, or HCPC? (Q3)">
-          Your UK registration status
-        </SectionHeading>
-        <RadioCard options={REGISTRATION_OPTIONS} value={form.registrationStatus} onChange={(v) => setField("registrationStatus", v)} />
-      </section>
-
-      {/* ── Q4 — Sponsorship ── */}
-      <section>
-        <SectionHeading sub="Will you need a UK employer to sponsor your visa? (Q4)">
-          Visa sponsorship
-        </SectionHeading>
-        <RadioCard options={SPONSORSHIP_OPTIONS} value={form.requiresSponsorship} onChange={(v) => setField("requiresSponsorship", v)} />
-      </section>
-
-      {/* ── Q6 — Timeline ── */}
-      <section>
-        <SectionHeading sub="How soon are you looking to start working in the UK? (Q6)">
-          Your timeline
-        </SectionHeading>
-        <select value={form.timeline} onChange={(e) => setField("timeline", e.target.value)} className={selectClass}>
-          <option value="">Select a timeframe…</option>
-          {TIMELINE_OPTIONS.map((t) => (<option key={t.value} value={t.value}>{t.label}</option>))}
-        </select>
-      </section>
-
-      {/* ── Q7 — Biggest challenge ── */}
-      <section>
-        <SectionHeading sub="Select all that apply. (Q7)">
-          What is your biggest challenge right now?
-        </SectionHeading>
-        <div className="space-y-2">
-          {CHALLENGE_OPTIONS.map((c) => (
-            <CheckCard key={c} label={c} checked={form.biggestChallenge.includes(c)} onChange={() => toggleChallenge(c)} />
-          ))}
         </div>
       </section>
 
@@ -374,7 +228,7 @@ function LeadForm({
             className="mt-0.5 h-4 w-4 rounded border-input accent-primary cursor-pointer"
           />
           <span className="text-sm text-muted-foreground leading-relaxed">
-            I agree to JOBSAGE storing and processing my information to assess my UK career pathway and send me relevant updates. I understand I can withdraw consent at any time.{" "}
+            I agree to JOBSAGE storing and processing my information to assess my UK career options and send me relevant updates. I understand I can withdraw consent at any time.{" "}
             <Link href="/extension-privacy">
               <span className="underline underline-offset-2 text-foreground cursor-pointer">Privacy Policy</span>
             </Link>
@@ -390,7 +244,7 @@ function LeadForm({
         {submitting ? (
           <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Submitting…</>
         ) : (
-          <>Get my free pathway assessment<ChevronRight className="ml-1 h-4 w-4" /></>
+          <>Get in touch<ChevronRight className="ml-1 h-4 w-4" /></>
         )}
       </Button>
     </form>
@@ -438,7 +292,7 @@ function ChatUI({
         </div>
         <div>
           <p className="text-sm font-semibold text-foreground">JOBSAGE AI</p>
-          <p className="text-xs text-muted-foreground">UK healthcare career advisor</p>
+          <p className="text-xs text-muted-foreground">UK career &amp; relocation advisor</p>
         </div>
         <span className="ml-auto flex items-center gap-1.5 text-xs text-green-600 font-medium">
           <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
@@ -520,9 +374,9 @@ function RegisterCta({ onSwitchToForm }: { onSwitchToForm: () => void }) {
         <UserPlus className="h-5 w-5 text-primary" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-foreground">Ready to see your full UK pathway?</p>
+        <p className="text-sm font-semibold text-foreground">Ready to explore your UK career options?</p>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Create a free account for your personalised eligibility assessment, step-by-step plan, and matched sponsor employers.
+          Create a free account to see matched opportunities, sponsor-licensed employers, and your personalised UK pathway.
         </p>
       </div>
       <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0 w-full sm:w-auto">
@@ -553,13 +407,9 @@ export default function GetStartedPage() {
     lastName: "",
     email: "",
     phone: "",
-    profession: "",
-    qualificationCountry: "",
-    registrationStatus: "",
-    requiresSponsorship: "",
-    specialty: "",
-    timeline: "",
-    biggestChallenge: [],
+    industrySector: "",
+    desiredRole: "",
+    additionalMessage: "",
     gdprConsent: false,
   });
   const [submitting, setSubmitting] = useState(false);
@@ -579,23 +429,17 @@ export default function GetStartedPage() {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  function toggleChallenge(challenge: string) {
-    setForm((prev) => ({
-      ...prev,
-      biggestChallenge: prev.biggestChallenge.includes(challenge)
-        ? prev.biggestChallenge.filter((c) => c !== challenge)
-        : [...prev.biggestChallenge, challenge],
-    }));
-  }
-
   // Apply extracted qualifying data from the AI into the form (pre-fill)
   function applyExtracted(extracted: ExtractedQualifiers) {
-    if (extracted.profession)           setField("profession",           extracted.profession);
-    if (extracted.qualificationCountry) setField("qualificationCountry", extracted.qualificationCountry);
-    if (extracted.registrationStatus)   setField("registrationStatus",   extracted.registrationStatus);
-    if (extracted.requiresSponsorship)  setField("requiresSponsorship",  extracted.requiresSponsorship);
-    if (extracted.specialty)            setField("specialty",             extracted.specialty);
-    if (extracted.timeline)             setField("timeline",              extracted.timeline);
+    if (extracted.name) {
+      const parts = extracted.name.trim().split(/\s+/);
+      if (parts[0]) setField("firstName", parts[0]);
+      if (parts.length > 1) setField("lastName", parts.slice(1).join(" "));
+    }
+    if (extracted.email)         setField("email",          extracted.email);
+    if (extracted.phone)         setField("phone",          extracted.phone);
+    if (extracted.industrySector) setField("industrySector", extracted.industrySector);
+    if (extracted.desiredRole)   setField("desiredRole",    extracted.desiredRole);
   }
 
   async function handleChatSend() {
@@ -713,7 +557,14 @@ export default function GetStartedPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...form,
+          firstName: form.firstName,
+          lastName: form.lastName || undefined,
+          email: form.email,
+          phone: form.phone || undefined,
+          industrySector: form.industrySector || undefined,
+          desiredRole: form.desiredRole || undefined,
+          additionalMessage: form.additionalMessage || undefined,
+          gdprConsent: form.gdprConsent,
           ...utm,
           landingPath: window.location.pathname,
           referrerUrl: document.referrer || undefined,
@@ -762,16 +613,16 @@ export default function GetStartedPage() {
         >
           <div className="inline-flex items-center gap-2 bg-primary/10 text-primary rounded-full px-3.5 py-1 text-xs font-semibold uppercase tracking-wide mb-5">
             <Globe className="h-3.5 w-3.5" />
-            For internationally trained healthcare professionals
+            Open to professionals from all sectors
           </div>
           <h1 className="font-display text-4xl sm:text-5xl font-bold text-foreground tracking-tight leading-tight mb-4">
-            Start your <span className="text-primary">UK career</span> journey
+            Land your next role <span className="text-primary">in the UK</span>
           </h1>
           <p className="text-muted-foreground text-base sm:text-lg leading-relaxed">
-            Find out if you qualify to work in the UK, which steps to take, and which sponsor-licensed employers can hire you — in minutes.
+            Tell us what you're looking for and we'll match you with UK employers who can hire and sponsor you — across any industry.
           </p>
           <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 mt-6 text-xs text-muted-foreground">
-            {["GMC · NMC · HCPC eligible", "Free assessment", "No commitment"].map((t) => (
+            {["All sectors welcome", "Free to use", "No commitment"].map((t) => (
               <span key={t} className="flex items-center gap-1.5">
                 <CheckCircle2 className="h-3.5 w-3.5 text-primary flex-shrink-0" />
                 {t}
@@ -833,7 +684,6 @@ export default function GetStartedPage() {
                 <LeadForm
                   form={form}
                   setField={setField}
-                  toggleChallenge={toggleChallenge}
                   onSubmit={handleFormSubmit}
                   submitting={submitting}
                   error={formError}

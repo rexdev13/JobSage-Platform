@@ -16,14 +16,10 @@ const SubmitLeadSchema = z.object({
   email: z.string().email("A valid email address is required"),
   phone: z.string().optional(),
 
-  // Qualifying questions
-  profession: z.string().optional(),
-  qualificationCountry: z.string().optional(),
-  registrationStatus: z.string().optional(),
-  requiresSponsorship: z.string().optional(),
-  specialty: z.string().optional(),
-  timeline: z.string().optional(),
-  biggestChallenge: z.array(z.string()).optional(),
+  // Qualifying questions (generic — all sectors)
+  industrySector: z.string().optional(),
+  desiredRole: z.string().optional(),
+  additionalMessage: z.string().optional(),
 
   // UTM / attribution — client sends these from its own URL bar
   utmSource: z.string().optional(),
@@ -75,14 +71,9 @@ router.post(
         email: d.email,
         phone: d.phone ?? null,
 
-        profession: d.profession ?? null,
-        qualificationCountry: d.qualificationCountry ?? null,
-        registrationStatus: d.registrationStatus ?? null,
-        requiresSponsorship: d.requiresSponsorship ?? null,
-        specialty: d.specialty ?? null,
-        timeline: d.timeline ?? null,
-        // text[].array() columns require `as any` — see Drizzle array column note
-        biggestChallenge: (d.biggestChallenge ?? []) as any,
+        industrySector: d.industrySector ?? null,
+        desiredRole: d.desiredRole ?? null,
+        additionalMessage: d.additionalMessage ?? null,
 
         utmSource: d.utmSource ?? null,
         utmMedium: d.utmMedium ?? null,
@@ -111,21 +102,23 @@ router.post(
 // Uses gpt-4o-mini. No auth required (pre-registration lead capture).
 // ---------------------------------------------------------------------------
 
-const LEAD_CHAT_SYSTEM_PROMPT = `You are SAGE, an AI advisor embedded on the JOBSAGE platform. JOBSAGE helps internationally trained healthcare professionals understand their pathway to working in the UK.
+const LEAD_CHAT_SYSTEM_PROMPT = `You are SAGE, an AI advisor embedded on the JOBSAGE platform. JOBSAGE helps ambitious professionals from around the world find great jobs and relocation pathways in the UK — across all industries and sectors.
 
 Your goal in this conversation is to:
-1. Ask natural qualifying questions one at a time — profession, country of training, UK registration status (GMC/NMC/HCPC), need for visa sponsorship, specialty, and how soon they want to move
-2. Give short, accurate, encouraging answers about UK registration requirements and visa sponsorship
-3. After gathering enough context (3–5 exchanges), warmly invite the user to create their free JOBSAGE account for a full personalised pathway assessment
+1. Warmly greet the user and learn their name
+2. Ask natural qualifying questions one at a time — what sector or industry they work in, what type of role they are looking for, whether they will need UK visa sponsorship, and when they are hoping to make a move
+3. Give short, practical, encouraging answers about working in the UK and what the process looks like
+4. After 3–5 exchanges, invite the user to leave their contact details (name, email, phone) so the JOBSAGE team can follow up with tailored opportunities
 
 Rules:
 - Ask only ONE question per message — never stack multiple questions
 - Keep responses concise: 2–3 sentences maximum
-- Be warm, professional, and encouraging — you are a trusted career advisor, not a form
-- For UK registration: GMC for doctors, NMC for nurses and midwives, HCPC for allied health professionals (physios, OTs, radiographers, pharmacists, paramedics, etc.)
-- For visa sponsorship: most internationally trained professionals need a Skilled Worker visa sponsored by a UK employer who holds a sponsor licence
+- Be warm, professional, and encouraging — you are a trusted career guide, not a form
+- You support ALL sectors: technology, finance, healthcare, engineering, education, hospitality, construction, law, retail, and more
+- For visa and immigration: most skilled workers from overseas need a Skilled Worker visa sponsored by a UK employer who holds a sponsor licence; points-based system applies
 - Never give definitive immigration or legal advice — always recommend they seek professional advice for their specific situation
-- Do not mention creating an account until you have asked at least 3 qualifying questions`;
+- Collect the user's name and email naturally if they volunteer it — do not demand it early
+- Do not ask the user to leave their details until you have asked at least 3 qualifying questions`;
 
 router.post(
   "/leads/chat",
@@ -192,15 +185,14 @@ router.post(
             messages: [
               {
                 role: "system",
-                content: `Extract qualifying data from this conversation. Return ONLY valid JSON. Only include fields the user has clearly stated — omit fields that are uncertain or not mentioned. Use null for omitted fields.
+                content: `Extract contact and qualifying data from this conversation. Return ONLY valid JSON. Only include fields the user has clearly stated — omit fields that are uncertain or not mentioned. Use null for omitted fields.
 
 {
-  "profession": "<their healthcare profession or null>",
-  "qualificationCountry": "<country they trained in or null>",
-  "registrationStatus": "<one of: registered | in_progress | not_started | unsure — or null>",
-  "requiresSponsorship": "<one of: yes | no | unsure — or null>",
-  "specialty": "<clinical specialty or null>",
-  "timeline": "<one of: asap | 6m | 12m | 2yr | exploring — or null>"
+  "name": "<user's full name or null>",
+  "email": "<user's email address or null>",
+  "phone": "<user's phone number or null>",
+  "industrySector": "<sector or industry they work in or are interested in, or null>",
+  "desiredRole": "<specific role or job title they are targeting or null>"
 }`,
               },
               { role: "user", content: fullConversation },
