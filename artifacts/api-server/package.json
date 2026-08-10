@@ -31,7 +31,8 @@
     "pdf-parse": "^2.4.5",
     "resend": "^6.9.4",
     "svix": "^1.98.0",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",
