@@ -11,16 +11,55 @@ import {
   type ExtensionEnv,
 } from "./lib/env";
 
+// ---------------------------------------------------------------------------
+// Messaging helpers
+// ---------------------------------------------------------------------------
+
+function sendMessage<T>(msg: unknown): Promise<T> {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage(msg, (response: T) => {
+      if (chrome.runtime.lastError) {
+        resolve({} as T);
+        return;
+      }
+      resolve(response);
+    });
+  });
+}
+
+async function loadSuppressedHostnames(): Promise<string[]> {
+  try {
+    const resp = await sendMessage<{ hostnames?: string[] }>({ type: "GET_ALL_SUPPRESSIONS" });
+    return resp.hostnames ?? [];
+  } catch {
+    return [];
+  }
+}
+
+async function clearSuppression(hostname: string): Promise<void> {
+  try {
+    await sendMessage({ type: "CLEAR_SUPPRESSION", hostname });
+  } catch {
+    // non-critical
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Popup
+// ---------------------------------------------------------------------------
+
 function Popup() {
   const [env, setEnv] = useState<ExtensionEnv>("production");
   const [devOrigin, setDevOrigin] = useState(DEFAULT_DEV_ORIGIN);
   const [loaded, setLoaded] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [suppressedHostnames, setSuppressedHostnames] = useState<string[]>([]);
 
   useEffect(() => {
-    getEnvSettings().then((s) => {
+    Promise.all([getEnvSettings(), loadSuppressedHostnames()]).then(([s, hostnames]) => {
       setEnv(s.env);
       setDevOrigin(s.devOrigin);
+      setSuppressedHostnames(hostnames);
       setLoaded(true);
     });
   }, []);
@@ -41,6 +80,11 @@ function Popup() {
     setDevOrigin(normalized);
     await saveEnvSettings({ devOrigin: normalized });
     flashSaved();
+  };
+
+  const handleReEnable = async (hostname: string) => {
+    await clearSuppression(hostname);
+    setSuppressedHostnames((prev) => prev.filter((h) => h !== hostname));
   };
 
   const target = activeOrigin({ env, devOrigin });
@@ -80,6 +124,7 @@ function Popup() {
         boxSizing: "border-box",
       }}
     >
+      {/* Header */}
       <div
         style={{
           fontFamily: BRAND.fontDisplay,
@@ -95,6 +140,7 @@ function Popup() {
         Choose which JOBSAGE environment the extension talks to.
       </div>
 
+      {/* Environment selector */}
       <div
         style={{
           display: "flex",
@@ -129,7 +175,7 @@ function Popup() {
             onChange={(e) => setDevOrigin(e.target.value)}
             onBlur={commitDevOrigin}
             onKeyDown={(e) => {
-              if (e.key === "Enter") commitDevOrigin();
+              if (e.key === "Enter") void commitDevOrigin();
             }}
             placeholder="https://your-app.replit.dev"
             spellCheck={false}
@@ -149,6 +195,7 @@ function Popup() {
         </div>
       )}
 
+      {/* Active environment badge */}
       <div
         style={{
           padding: "8px 10px",
@@ -171,7 +218,80 @@ function Popup() {
         )}
       </div>
 
-      <div style={{ fontSize: 10.5, color: BRAND.textMuted, marginTop: 10, lineHeight: 1.5 }}>
+      {/* Suppressed sites */}
+      {loaded && suppressedHostnames.length > 0 && (
+        <div style={{ marginTop: 16 }}>
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              color: BRAND.text,
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+              marginBottom: 6,
+            }}
+          >
+            Hidden on these sites
+          </div>
+          <div
+            style={{
+              border: `1px solid ${BRAND.border}`,
+              borderRadius: BRAND.radiusSm,
+              overflow: "hidden",
+            }}
+          >
+            {suppressedHostnames.map((hostname, i) => (
+              <div
+                key={hostname}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "7px 10px",
+                  borderTop: i > 0 ? `1px solid ${BRAND.border}` : "none",
+                  background: BRAND.inputBg,
+                  gap: 8,
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 12,
+                    color: BRAND.text,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    flex: 1,
+                  }}
+                >
+                  {hostname}
+                </span>
+                <button
+                  onClick={() => void handleReEnable(hostname)}
+                  style={{
+                    flexShrink: 0,
+                    padding: "3px 8px",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: BRAND.primary,
+                    background: BRAND.primarySoft,
+                    border: `1px solid ${BRAND.primary}`,
+                    borderRadius: BRAND.radiusSm - 2,
+                    cursor: "pointer",
+                    fontFamily: BRAND.fontSans,
+                  }}
+                >
+                  Re-enable
+                </button>
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize: 10.5, color: BRAND.textMuted, marginTop: 6, lineHeight: 1.5 }}>
+            Re-enabling takes effect on the next page load.
+          </div>
+        </div>
+      )}
+
+      <div style={{ fontSize: 10.5, color: BRAND.textMuted, marginTop: 12, lineHeight: 1.5 }}>
         Changes apply instantly — no reinstall needed. Make sure you're signed in to JOBSAGE on the
         selected environment.
       </div>

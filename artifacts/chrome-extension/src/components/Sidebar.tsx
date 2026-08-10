@@ -3,6 +3,7 @@ import type { JobContext } from "../lib/scraper";
 import type { DetectedQuestion, QuestionWatcher } from "../lib/questionDetector";
 import { insertAnswer, highlightField } from "../lib/questionDetector";
 import { BRAND } from "../lib/brand";
+import type { PillPos } from "../lib/types";
 
 const COLORS = {
   bg: BRAND.bg,
@@ -21,21 +22,33 @@ const COLORS = {
 };
 
 const RADIUS = BRAND.radiusSm;
+const PILL_POSITION_KEY = "jobsage_pill_position";
+
+// ---------------------------------------------------------------------------
+// Props
+// ---------------------------------------------------------------------------
 
 interface SidebarProps {
   jobContext: JobContext;
   /**
    * When true (unrecognized sites), the collapsed launcher renders as a small
-   * icon-only badge instead of the labelled pill, so the extension stays
-   * unobtrusive during normal browsing.
+   * icon-only badge instead of the labelled pill. It is fully hidden when
+   * minimal AND no questions are detected AND the sidebar is closed.
    */
   minimal?: boolean;
-  /** Live watcher over free-text application questions detected on the page. */
   questionWatcher?: QuestionWatcher;
   onLogApplication: (companyName: string, jobTitle: string, pageUrl: string) => Promise<void>;
+  /** Pill position loaded from storage on startup. null = default bottom-right. */
+  initialPosition?: PillPos | null;
+  /** Called when the candidate dismisses the launcher for this site or session. */
+  onDismiss: (scope: "site" | "session") => void;
 }
 
 const EMPTY_QUESTIONS: DetectedQuestion[] = [];
+
+// ---------------------------------------------------------------------------
+// Streaming assistant hook
+// ---------------------------------------------------------------------------
 
 type AssistantStreamEvent =
   | { type: "chunk"; text: string }
@@ -60,62 +73,57 @@ function useStreamAnswer() {
   const [error, setError] = useState<string | null>(null);
   const portRef = useRef<chrome.runtime.Port | null>(null);
 
-  const generate = useCallback(
-    (question: string, jobContext: JobContext) => {
-      if (!question.trim()) return;
-      portRef.current?.disconnect();
+  const generate = useCallback((question: string, jobContext: JobContext) => {
+    if (!question.trim()) return;
+    portRef.current?.disconnect();
 
-      setAnswer("");
-      setError(null);
-      setStreaming(true);
+    setAnswer("");
+    setError(null);
+    setStreaming(true);
 
-      let port: chrome.runtime.Port;
-      try {
-        port = chrome.runtime.connect({ name: "assistant-stream" });
-      } catch {
-        setError("The JOBSAGE extension was updated or reloaded. Please refresh this page and try again.");
-        setStreaming(false);
-        return;
+    let port: chrome.runtime.Port;
+    try {
+      port = chrome.runtime.connect({ name: "assistant-stream" });
+    } catch {
+      setError("The JOBSAGE extension was updated or reloaded. Please refresh this page and try again.");
+      setStreaming(false);
+      return;
+    }
+    portRef.current = port;
+    let finished = false;
+
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      setStreaming(false);
+      if (portRef.current === port) portRef.current = null;
+      port.disconnect();
+    };
+
+    port.onMessage.addListener((event: AssistantStreamEvent) => {
+      if (event.type === "chunk") {
+        setAnswer((prev) => prev + event.text);
+      } else if (event.type === "error") {
+        setError(errorMessageFor(event));
+        finish();
+      } else if (event.type === "done") {
+        finish();
       }
-      portRef.current = port;
-      let finished = false;
+    });
 
-      const finish = () => {
-        if (finished) return;
+    port.onDisconnect.addListener(() => {
+      if (!finished) {
         finished = true;
         setStreaming(false);
         if (portRef.current === port) portRef.current = null;
-        port.disconnect();
-      };
+        setError("Could not reach the JOBSAGE API. Check your internet connection and try again.");
+      }
+    });
 
-      port.onMessage.addListener((event: AssistantStreamEvent) => {
-        if (event.type === "chunk") {
-          setAnswer((prev) => prev + event.text);
-        } else if (event.type === "error") {
-          setError(errorMessageFor(event));
-          finish();
-        } else if (event.type === "done") {
-          finish();
-        }
-      });
-
-      // If the service worker goes away before the stream completes, surface
-      // a network-style error rather than spinning forever.
-      port.onDisconnect.addListener(() => {
-        if (!finished) {
-          finished = true;
-          setStreaming(false);
-          if (portRef.current === port) portRef.current = null;
-          setError("Could not reach the JOBSAGE API. Check your internet connection and try again.");
-        }
-      });
-
-      port.postMessage({
-        message: `${question.trim()}\n\nJob context: ${jobContext.jobTitle} at ${jobContext.companyName}. ${jobContext.jobDescription.slice(0, 800)}`,
-      });
-    },
-    []
-  );
+    port.postMessage({
+      message: `${question.trim()}\n\nJob context: ${jobContext.jobTitle} at ${jobContext.companyName}. ${jobContext.jobDescription.slice(0, 800)}`,
+    });
+  }, []);
 
   return { answer, streaming, error, generate, setAnswer };
 }
@@ -126,7 +134,39 @@ function limitHint(q: DetectedQuestion): string | null {
   return null;
 }
 
-export function Sidebar({ jobContext, minimal = false, questionWatcher, onLogApplication }: SidebarProps) {
+// ---------------------------------------------------------------------------
+// Draggable pill helpers
+// ---------------------------------------------------------------------------
+
+const PILL_H = 42;
+const PILL_W_COMPACT = 36;
+const PILL_H_COMPACT = 36;
+
+function clamp(val: number, lo: number, hi: number) {
+  return Math.max(lo, Math.min(hi, val));
+}
+
+function defaultPos(compact: boolean): PillPos {
+  const w = compact ? PILL_W_COMPACT : 148; // approximate full pill width
+  const h = compact ? PILL_H_COMPACT : PILL_H;
+  return {
+    left: window.innerWidth - w - 24,
+    top: window.innerHeight - h - 24,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Sidebar component
+// ---------------------------------------------------------------------------
+
+export function Sidebar({
+  jobContext,
+  minimal = false,
+  questionWatcher,
+  onLogApplication,
+  initialPosition = null,
+  onDismiss,
+}: SidebarProps) {
   const [open, setOpen] = useState(false);
   const [question, setQuestion] = useState("");
   const [copied, setCopied] = useState(false);
@@ -137,16 +177,100 @@ export function Sidebar({ jobContext, minimal = false, questionWatcher, onLogApp
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { answer, streaming, error, generate, setAnswer } = useStreamAnswer();
 
+  // Question detection
   const subscribe = useCallback(
     (listener: () => void) => (questionWatcher ? questionWatcher.subscribe(listener) : () => {}),
-    [questionWatcher]
+    [questionWatcher],
   );
   const getSnapshot = useCallback(
     () => (questionWatcher ? questionWatcher.getSnapshot() : EMPTY_QUESTIONS),
-    [questionWatcher]
+    [questionWatcher],
   );
   const detected = useSyncExternalStore(subscribe, getSnapshot);
   const selectedQuestion = selectedId ? detected.find((q) => q.id === selectedId) ?? null : null;
+
+  // ---------------------------------------------------------------------------
+  // Draggable pill state
+  // ---------------------------------------------------------------------------
+  const compact = minimal && !open;
+  const [pos, setPos] = useState<PillPos | null>(initialPosition);
+  const [isDragging, setIsDragging] = useState(false);
+  const hasDraggedRef = useRef(false);
+  const dragStartRef = useRef<{
+    pointerX: number;
+    pointerY: number;
+    pillLeft: number;
+    pillTop: number;
+  } | null>(null);
+  const pillContainerRef = useRef<HTMLDivElement>(null);
+  const dismissBtnRef = useRef<HTMLButtonElement>(null);
+
+  // Dismiss menu
+  const [showDismissMenu, setShowDismissMenu] = useState(false);
+
+  // Effective pill position (use stored pos, else compute default)
+  const effPos = pos ?? defaultPos(compact);
+  const pillLeft = effPos.left;
+  const pillTop = effPos.top;
+
+  function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    // Don't initiate drag when clicking the dismiss button
+    if (dismissBtnRef.current && dismissBtnRef.current.contains(e.target as Node)) return;
+    hasDraggedRef.current = false;
+    const current = pos ?? defaultPos(compact);
+    dragStartRef.current = {
+      pointerX: e.clientX,
+      pointerY: e.clientY,
+      pillLeft: current.left,
+      pillTop: current.top,
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  function handlePointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (!dragStartRef.current) return;
+    const dx = e.clientX - dragStartRef.current.pointerX;
+    const dy = e.clientY - dragStartRef.current.pointerY;
+    if (!hasDraggedRef.current && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
+      hasDraggedRef.current = true;
+      setIsDragging(true);
+      setShowDismissMenu(false); // close menu if open during drag
+    }
+    if (!hasDraggedRef.current) return;
+    const pillW = compact ? PILL_W_COMPACT : 148;
+    const pillH = compact ? PILL_H_COMPACT : PILL_H;
+    const newLeft = clamp(dragStartRef.current.pillLeft + dx, 0, window.innerWidth - pillW);
+    const newTop = clamp(dragStartRef.current.pillTop + dy, 0, window.innerHeight - pillH);
+    setPos({ left: newLeft, top: newTop });
+  }
+
+  function handlePointerUp() {
+    if (!dragStartRef.current) return;
+    dragStartRef.current = null;
+    setIsDragging(false);
+    if (hasDraggedRef.current && pos) {
+      // Persist position to extension storage
+      try {
+        void chrome.storage.local.set({ [PILL_POSITION_KEY]: pos });
+      } catch {
+        // storage unavailable (e.g. extension context invalidated)
+      }
+    }
+    // hasDraggedRef.current intentionally left true — checked in click handler below
+  }
+
+  function handlePillClick() {
+    if (hasDraggedRef.current) {
+      hasDraggedRef.current = false; // reset so next click works normally
+      return; // was a drag, not a tap — don't toggle sidebar
+    }
+    setShowDismissMenu(false);
+    setOpen((o) => !o);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Application question handlers
+  // ---------------------------------------------------------------------------
 
   const buildPrompt = (q: string, dq: DetectedQuestion | null) => {
     const hint = dq ? limitHint(dq) : null;
@@ -196,49 +320,192 @@ export function Sidebar({ jobContext, minimal = false, questionWatcher, onLogApp
     }
   };
 
-  // On unrecognized sites the collapsed launcher is a small icon-only badge;
-  // on known job boards it's the full labelled pill.
-  const compact = minimal && !open;
+  // ---------------------------------------------------------------------------
+  // Render — fully hidden when minimal + closed + no detected questions
+  // ---------------------------------------------------------------------------
+
+  if (minimal && !open && detected.length === 0) {
+    return null;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Pill (launcher)
+  // ---------------------------------------------------------------------------
+
   const pill = (
-    <button
-      onClick={() => setOpen((o) => !o)}
-      title="JOBSAGE assistant"
+    <div
+      ref={pillContainerRef}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
       style={{
         position: "fixed",
-        bottom: 24,
-        right: 24,
+        left: pillLeft,
+        top: pillTop,
         zIndex: 2147483646,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: compact ? 0 : 8,
-        padding: compact ? 0 : "10px 18px",
-        width: compact ? 36 : undefined,
-        height: compact ? 36 : undefined,
-        opacity: compact ? 0.75 : 1,
-        background: COLORS.pillBg,
-        color: COLORS.pillText,
-        fontFamily: BRAND.fontSans,
-        fontSize: 14,
-        fontWeight: 600,
-        border: "none",
-        borderRadius: 9999,
-        cursor: "pointer",
-        boxShadow: compact ? "0 2px 8px rgba(0,0,0,0.2)" : "0 4px 14px rgba(0,0,0,0.25)",
         userSelect: "none",
+        touchAction: "none",
+        cursor: isDragging ? "grabbing" : "grab",
+        display: "inline-flex",
+        alignItems: "stretch",
+        borderRadius: 9999,
+        boxShadow: compact
+          ? "0 2px 8px rgba(0,0,0,0.2)"
+          : "0 4px 14px rgba(0,0,0,0.25)",
       }}
-      aria-label={open ? "Close JOBSAGE" : "Open JOBSAGE"}
     >
-      <svg width={compact ? 16 : 18} height={compact ? 16 : 18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <path d="M21 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6" />
-        <polyline points="16 3 21 3 21 8" />
-        <line x1={10} y1={14} x2={21} y2={3} />
-      </svg>
-      {!compact && "JOBSAGE"}
-    </button>
+      {/* Main toggle button */}
+      <button
+        onClick={handlePillClick}
+        title={open ? "Close JOBSAGE" : "Open JOBSAGE"}
+        aria-label={open ? "Close JOBSAGE" : "Open JOBSAGE"}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: compact ? 0 : 8,
+          padding: compact ? 0 : "0 14px",
+          width: compact ? PILL_W_COMPACT : undefined,
+          height: compact ? PILL_H_COMPACT : PILL_H,
+          opacity: compact ? 0.8 : 1,
+          background: COLORS.pillBg,
+          color: COLORS.pillText,
+          fontFamily: BRAND.fontSans,
+          fontSize: 14,
+          fontWeight: 600,
+          border: "none",
+          // Left side is always rounded; right side is only rounded when there
+          // is no dismiss button (compact or sidebar is open)
+          borderRadius: !compact && !open ? "9999px 0 0 9999px" : 9999,
+          cursor: isDragging ? "grabbing" : "pointer",
+          pointerEvents: isDragging ? "none" : "auto",
+        }}
+      >
+        <svg
+          width={compact ? 16 : 18}
+          height={compact ? 16 : 18}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+        >
+          <path d="M21 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6" />
+          <polyline points="16 3 21 3 21 8" />
+          <line x1={10} y1={14} x2={21} y2={3} />
+        </svg>
+        {!compact && "JOBSAGE"}
+      </button>
+
+      {/* Dismiss separator + button — visible only on full pill when sidebar is closed */}
+      {!compact && !open && (
+        <>
+          {/* 1 px hairline divider */}
+          <div
+            style={{
+              width: 1,
+              background: "rgba(255,255,255,0.25)",
+              flexShrink: 0,
+            }}
+          />
+          <button
+            ref={dismissBtnRef}
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowDismissMenu((s) => !s);
+            }}
+            aria-label="Dismiss JOBSAGE launcher"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 30,
+              height: PILL_H,
+              background: COLORS.pillBg,
+              color: "rgba(255,255,255,0.85)",
+              border: "none",
+              borderRadius: "0 9999px 9999px 0",
+              cursor: isDragging ? "grabbing" : "pointer",
+              fontSize: 17,
+              lineHeight: 1,
+              padding: 0,
+              pointerEvents: isDragging ? "none" : "auto",
+            }}
+          >
+            ×
+          </button>
+        </>
+      )}
+
+      {/* Dismiss menu popover */}
+      {showDismissMenu && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: "calc(100% + 8px)",
+            right: 0,
+            background: BRAND.bg,
+            border: `1px solid ${BRAND.border}`,
+            borderRadius: RADIUS,
+            boxShadow: "0 4px 16px rgba(0,0,0,0.16)",
+            zIndex: 2147483647,
+            overflow: "hidden",
+            minWidth: 220,
+          }}
+        >
+          <div
+            style={{
+              padding: "8px 12px 4px",
+              fontSize: 11,
+              fontWeight: 600,
+              color: BRAND.textMuted,
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+              fontFamily: BRAND.fontSans,
+            }}
+          >
+            Hide JOBSAGE launcher
+          </div>
+          {(["site", "session"] as const).map((scope) => (
+            <button
+              key={scope}
+              onClick={() => {
+                setShowDismissMenu(false);
+                onDismiss(scope);
+              }}
+              style={{
+                display: "block",
+                width: "100%",
+                textAlign: "left",
+                padding: "9px 12px",
+                background: "none",
+                border: "none",
+                borderTop: `1px solid ${BRAND.border}`,
+                fontSize: 12,
+                color: BRAND.text,
+                cursor: "pointer",
+                fontFamily: BRAND.fontSans,
+                lineHeight: 1.4,
+              }}
+            >
+              {scope === "site"
+                ? `On ${location.hostname}`
+                : "For this session"}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 
   if (!open) return pill;
+
+  // ---------------------------------------------------------------------------
+  // Full sidebar panel
+  // ---------------------------------------------------------------------------
 
   return (
     <>
@@ -274,13 +541,39 @@ export function Sidebar({ jobContext, minimal = false, questionWatcher, onLogApp
           }}
         >
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.primary, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: COLORS.primary,
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                marginBottom: 2,
+              }}
+            >
               JOBSAGE Copilot
             </div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: COLORS.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <div
+              style={{
+                fontSize: 14,
+                fontWeight: 600,
+                color: COLORS.text,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
               {jobContext.jobTitle || "Role detected"}
             </div>
-            <div style={{ fontSize: 12, color: COLORS.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <div
+              style={{
+                fontSize: 12,
+                color: COLORS.textMuted,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
               {jobContext.companyName}
             </div>
           </div>
@@ -345,8 +638,11 @@ export function Sidebar({ jobContext, minimal = false, questionWatcher, onLogApp
               </div>
             </div>
           )}
+
           <div>
-            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: COLORS.text, marginBottom: 6 }}>
+            <label
+              style={{ display: "block", fontSize: 12, fontWeight: 600, color: COLORS.text, marginBottom: 6 }}
+            >
               {detected.length > 0 ? "Or paste a question manually" : "Application question"}
             </label>
             <textarea
@@ -394,7 +690,15 @@ export function Sidebar({ jobContext, minimal = false, questionWatcher, onLogApp
           >
             {streaming ? (
               <>
-                <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} style={{ animation: "spin 1s linear infinite" }}>
+                <svg
+                  width={14}
+                  height={14}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  style={{ animation: "spin 1s linear infinite" }}
+                >
                   <path d="M21 12a9 9 0 1 1-6.219-8.56" />
                 </svg>
                 Generating…
@@ -405,7 +709,16 @@ export function Sidebar({ jobContext, minimal = false, questionWatcher, onLogApp
           </button>
 
           {error && (
-            <div style={{ padding: "10px 12px", background: COLORS.errorBg, color: COLORS.errorText, fontSize: 12, borderRadius: RADIUS, lineHeight: 1.5 }}>
+            <div
+              style={{
+                padding: "10px 12px",
+                background: COLORS.errorBg,
+                color: COLORS.errorText,
+                fontSize: 12,
+                borderRadius: RADIUS,
+                lineHeight: 1.5,
+              }}
+            >
               {error}
             </div>
           )}
@@ -429,7 +742,16 @@ export function Sidebar({ jobContext, minimal = false, questionWatcher, onLogApp
                 {answer}
               </div>
               {insertFailed && (
-                <div style={{ padding: "8px 10px", background: COLORS.errorBg, color: COLORS.errorText, fontSize: 12, borderRadius: RADIUS, lineHeight: 1.5 }}>
+                <div
+                  style={{
+                    padding: "8px 10px",
+                    background: COLORS.errorBg,
+                    color: COLORS.errorText,
+                    fontSize: 12,
+                    borderRadius: RADIUS,
+                    lineHeight: 1.5,
+                  }}
+                >
                   Couldn't find the form field anymore — it may have changed. Use Copy Answer instead.
                 </div>
               )}
@@ -469,7 +791,7 @@ export function Sidebar({ jobContext, minimal = false, questionWatcher, onLogApp
                   {copied ? "✓ Copied!" : "Copy Answer"}
                 </button>
                 <button
-                  onClick={() => { setAnswer(""); }}
+                  onClick={() => setAnswer("")}
                   style={{
                     padding: "8px 12px",
                     background: "none",

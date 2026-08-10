@@ -4,14 +4,10 @@ import { scrapeJobContext, isRecognizedJobBoard } from "./lib/scraper";
 import { isConfirmationPage, mountConfirmationToast } from "./lib/trackerDetector";
 import { createQuestionWatcher } from "./lib/questionDetector";
 import { ensureBrandFonts } from "./lib/brand";
+import type { PillPos } from "./lib/types";
 
 const JOBSAGE_HOST_ID = "jobsage-extension-root";
-
-// ---------------------------------------------------------------------------
-// Guard: only activate on JOBSAGE-owned pages OR external pages the user
-// arrived at via a JOBSAGE outbound link (identified by ?ref=jobsage).
-// This prevents the sidebar from injecting on every website the user visits.
-// ---------------------------------------------------------------------------
+const PILL_POSITION_KEY = "jobsage_pill_position";
 
 /** Hostnames that are part of the JOBSAGE platform itself. */
 const JOBSAGE_HOSTNAMES = new Set(["jobsage.co.uk", "www.jobsage.co.uk", "localhost"]);
@@ -19,7 +15,6 @@ const JOBSAGE_HOSTNAMES = new Set(["jobsage.co.uk", "www.jobsage.co.uk", "localh
 function isJobSageHost(): boolean {
   const { hostname } = window.location;
   if (JOBSAGE_HOSTNAMES.has(hostname)) return true;
-  // Replit preview domains used during development
   if (hostname.endsWith(".replit.dev") || hostname.endsWith(".repl.co")) return true;
   return false;
 }
@@ -27,6 +22,59 @@ function isJobSageHost(): boolean {
 function hasJobSageRef(): boolean {
   return new URLSearchParams(window.location.search).get("ref") === "jobsage";
 }
+
+// ---------------------------------------------------------------------------
+// Background messaging helpers
+// ---------------------------------------------------------------------------
+
+function sendMessage<T>(msg: unknown): Promise<T> {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage(msg, (response: T) => {
+      if (chrome.runtime.lastError) {
+        // Service worker woke up but errored — return a safe default
+        resolve({} as T);
+        return;
+      }
+      resolve(response);
+    });
+  });
+}
+
+async function checkTabActivation(): Promise<boolean> {
+  try {
+    const resp = await sendMessage<{ activated?: boolean }>({ type: "CHECK_ACTIVATION" });
+    return resp.activated === true;
+  } catch {
+    return false;
+  }
+}
+
+async function checkSuppression(): Promise<"site" | "session" | null> {
+  try {
+    const resp = await sendMessage<{ suppressed?: "site" | "session" | null }>({
+      type: "GET_SUPPRESSION",
+      hostname: location.hostname,
+    });
+    return resp.suppressed ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function loadPillPosition(): Promise<PillPos | null> {
+  try {
+    const stored = await chrome.storage.local.get(PILL_POSITION_KEY);
+    const p = stored[PILL_POSITION_KEY] as PillPos | undefined;
+    if (p && typeof p.left === "number" && typeof p.top === "number") return p;
+  } catch {
+    // storage unavailable
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Application logging (proxied through background)
+// ---------------------------------------------------------------------------
 
 async function logApplication(companyName: string, jobTitle: string, pageUrl: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -47,12 +95,16 @@ async function logApplication(companyName: string, jobTitle: string, pageUrl: st
         } else {
           resolve();
         }
-      }
+      },
     );
   });
 }
 
-function mountSidebar(): ShadowRoot {
+// ---------------------------------------------------------------------------
+// Mount
+// ---------------------------------------------------------------------------
+
+function mountSidebar(initialPosition: PillPos | null, onDismiss: (scope: "site" | "session") => void): ShadowRoot {
   const existing = document.getElementById(JOBSAGE_HOST_ID);
   if (existing) return existing.shadowRoot!;
 
@@ -62,13 +114,8 @@ function mountSidebar(): ShadowRoot {
 
   const shadowRoot = host.attachShadow({ mode: "open" });
 
-  // @font-face is document-scoped, so load the brand fonts into the host
-  // document; text inside the shadow root can then use them. Falls back to
-  // system fonts if the host page's CSP blocks the stylesheet.
   ensureBrandFonts();
 
-  // Keyframes used by the sidebar's spinner live inside the shadow root so
-  // they neither leak out nor depend on host-page styles.
   const style = document.createElement("style");
   style.textContent = "@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }";
   shadowRoot.appendChild(style);
@@ -87,18 +134,41 @@ function mountSidebar(): ShadowRoot {
       minimal={!isRecognizedJobBoard()}
       questionWatcher={questionWatcher}
       onLogApplication={logApplication}
-    />
+      initialPosition={initialPosition}
+      onDismiss={onDismiss}
+    />,
   );
 
   return shadowRoot;
 }
 
-function init(): void {
-  // Do not activate on sites the user navigated to independently — only on
-  // JOBSAGE-owned pages or external pages reached via a JOBSAGE outbound link.
-  if (!isJobSageHost() && !hasJobSageRef()) return;
+// ---------------------------------------------------------------------------
+// Init
+// ---------------------------------------------------------------------------
 
-  const shadowRoot = mountSidebar();
+async function init(): Promise<void> {
+  const [activated, suppression, pillPosition] = await Promise.all([
+    checkTabActivation(),
+    checkSuppression(),
+    loadPillPosition(),
+  ]);
+
+  // Only activate if: JOBSAGE host, or URL carries ?ref=jobsage, or tab was
+  // previously marked by the background worker (survives redirect stripping).
+  if (!isJobSageHost() && !hasJobSageRef() && !activated) return;
+
+  // Respect the candidate's suppression choice.
+  if (suppression === "site" || suppression === "session") return;
+
+  const onDismiss = (scope: "site" | "session") => {
+    // Notify background to persist the suppression choice.
+    void sendMessage({ type: "SET_SUPPRESSION", hostname: location.hostname, scope });
+    // Remove the host element from the page — no React unmount needed.
+    const host = document.getElementById(JOBSAGE_HOST_ID);
+    if (host) host.style.display = "none";
+  };
+
+  const shadowRoot = mountSidebar(pillPosition, onDismiss);
 
   if (isConfirmationPage()) {
     const jobContext = scrapeJobContext();
@@ -109,7 +179,7 @@ function init(): void {
 }
 
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", init);
+  document.addEventListener("DOMContentLoaded", () => void init());
 } else {
-  init();
+  void init();
 }
