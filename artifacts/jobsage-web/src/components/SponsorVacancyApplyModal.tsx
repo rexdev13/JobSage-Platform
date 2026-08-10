@@ -616,7 +616,7 @@ export function SponsorVacancyApplyModal({
                   <Send className="w-3.5 h-3.5" />
                   {speculative
                     ? (alreadySent ? "Resend CV" : "Send CV")
-                    : (alreadySent ? "Update application" : "Apply with JOBSAGE")
+                    : (alreadySent ? "Resend CV" : "Send CV")
                   }
                 </Button>
               </div>

@@ -435,7 +435,7 @@ function VacancyMatchPanel({
                             className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed"
                           >
                             <Sparkles className="w-3 h-3" />
-                            Apply with JOBSAGE
+                            Send CV
                           </button>
                         </span>
                       );
@@ -1819,7 +1819,7 @@ export default function SponsorLicencesPage() {
                         onClick={() => handleOpenApplyModal(selectedVacancy)}
                       >
                         <Sparkles className="w-4 h-4" />
-                        Apply with JOBSAGE
+                        Send CV
                       </Button>
                     </span>
                   );
