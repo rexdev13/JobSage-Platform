@@ -110,18 +110,20 @@ function computeMatchScore(
   isEligible: boolean,
   requiresSponsorship: boolean,
 ): number {
-  let score = isEligible ? 60 : 20;
+  // Base: eligibility is a meaningful signal but not a guarantee of quality fit.
+  // Starting at 45 (not 60+) leaves room for real differentiators to separate roles.
+  let score = isEligible ? 45 : 15;
 
   if (role.sponsorshipOffered && requiresSponsorship) {
-    score += 25;
+    score += 20; // sponsorship match is the strongest positive signal
   } else if (!requiresSponsorship) {
-    score += 15;
+    score += 10; // no visa barrier — modest boost
   }
 
   if (isEligible) {
     const reqReg = role.requiredRegistration.toLowerCase();
     if (!reqReg.includes("full") && !reqReg.includes("senior")) {
-      score += 10;
+      score += 8; // less strict registration requirement — easier to qualify
     }
   }
 
@@ -418,10 +420,12 @@ router.get("/roles", async (req, res): Promise<void> => {
     };
   });
 
-  // Unified sort: roles with an AI score rank first (by that score); roles
-  // still awaiting AI scoring rank below them by the heuristic matchScore.
-  // This mirrors the sort the client previously applied after merging two queries.
+  // Sort: verified apply links first (actionable roles surface above unverified
+  // ones), then by AI score when available, then by heuristic match score.
   result.sort((a, b) => {
+    const aVerified = a.linkVerified ? 1 : 0;
+    const bVerified = b.linkVerified ? 1 : 0;
+    if (aVerified !== bVerified) return bVerified - aVerified;
     const aHasAi = a.aiScore !== null;
     const bHasAi = b.aiScore !== null;
     if (aHasAi !== bHasAi) return aHasAi ? -1 : 1;
@@ -600,13 +604,16 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
     );
 
     await db.delete(candidateMatchScoresTable).where(eq(candidateMatchScoresTable.userId, userId));
-    if (curatedRoles.length > 0) {
+    // Only persist rows the AI actually scored — never store the placeholder
+    // fallback (50) as if it were a real match score, which inflates the strip.
+    const actuallyScored = curatedRoles.filter((r) => scoreMap.has(r.id));
+    if (actuallyScored.length > 0) {
       await db.insert(candidateMatchScoresTable).values(
-        curatedRoles.map((r) => ({
+        actuallyScored.map((r) => ({
           userId,
           roleId: r.id,
-          score: scoreMap.get(r.id)?.score ?? 50,
-          aiExplanation: scoreMap.get(r.id)?.explanation ?? "Profile matched to role requirements.",
+          score: scoreMap.get(r.id)!.score,
+          aiExplanation: scoreMap.get(r.id)!.explanation,
         })),
       );
     }
@@ -636,7 +643,9 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
   const effectiveSpecialty = activeCareerProfile?.focusArea ?? profile.specialty ?? "";
 
   const allSortedMatches = regulatorRoles
-    .filter((r) => !dismissedSet.has(r.id))
+    // Only surface roles that have a real AI score — exclude ones where the
+    // scoreMap has no entry (unscored roles have no place in the AI strip).
+    .filter((r) => !dismissedSet.has(r.id) && scoreMap.has(r.id))
     .map((r) => {
       const reqReg = r.requiredRegistration.toLowerCase();
       const roleRequiresFull = reqReg.includes("full") || reqReg.includes("registered");
@@ -655,8 +664,8 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
         }
       }
 
-      const baseScore = scoreMap.get(r.id)?.score ?? 50;
-      const baseExplanation = scoreMap.get(r.id)?.explanation ?? "Profile matched to role requirements.";
+      const baseScore = scoreMap.get(r.id)!.score;
+      const baseExplanation = scoreMap.get(r.id)!.explanation;
 
       // Boost score if the role title matches career profile focus-area keywords
       const titleLower = r.title.toLowerCase();
@@ -689,7 +698,13 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
       };
     })
     .sort((a, b) => {
+      // Verified apply links first — actionable roles surface above unverified ones
+      const aVerified = a.linkVerified ? 1 : 0;
+      const bVerified = b.linkVerified ? 1 : 0;
+      if (aVerified !== bVerified) return bVerified - aVerified;
+      // Then eligible before not-yet-eligible
       if (a.isEligible !== b.isEligible) return a.isEligible ? -1 : 1;
+      // Then by AI score descending
       return b.aiScore - a.aiScore;
     });
 
