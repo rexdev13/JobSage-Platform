@@ -1,0 +1,25 @@
+Task: JobSage — Refocus job sourcing, fix broken links, rein in AI costs
+Ground rule
+
+This is a discovery/audit pass first. Explore the codebase and report back what you find before changing anything. Don't assume how it currently works — verify by reading the actual code.
+
+Background
+Existing job application platform, partially built before I joined.
+The client now wants job listings sourced only from company websites where companies post vacancies directly — not from job boards (LinkedIn, Indeed, etc.). Her main reason: job boards usually require the job seeker to sign up/create an account, which she wants to avoid for users. (This scope isn't 100% confirmed with her yet, so flag anything ambiguous.)
+The current implementation is messy: there are leftover links/references/routes tied to job boards, and some job listing links are broken.
+AI API usage/cost spiked unexpectedly at some point. Best guess is it's coming from AI-based scraping/parsing of job pages, but this needs confirming, not assuming.
+Budget is tight — this project has already cost the client over $1000. Any eventual fix needs to avoid burning more AI credits than necessary.
+What to do
+Map current job sourcing. Find everywhere the app pulls job listings from — job board APIs/integrations vs. any existing direct-from-company-website scraping or sourcing logic. List each source and how it's wired in.
+Audit job-board remnants. Find all leftover links, routes, UI elements, config, or backend calls referencing job boards. List with file paths / line numbers.
+Find the broken links. Identify what's causing broken job listing links (dead URLs, bad routing, stale scraped data, etc.) and the likely root cause for each.
+Audit AI usage. Find every place the app calls an AI/LLM API related to job scraping or parsing. For each call site report:
+what triggers it
+how often it runs / on what volume of data
+whether there's caching or deduplication to avoid reprocessing the same job page
+roughly how expensive it looks (model used, frequency, payload size) This is the most important part — confirm or rule out that this is the source of the cost spike.
+Summarize findings in a clear report (sources found, remnants found, broken-link causes, AI cost culprits) before touching any code or proposing a refactor.
+Constraints
+No major refactors or deletions yet — this is audit-only for now.
+Flag anything that looks like it's silently burning API credits, even if unrelated to the above.
+Flag anywhere the "websites only" scope is ambiguous in the code (e.g. is it clear what counts as a company's own site vs. a board?).

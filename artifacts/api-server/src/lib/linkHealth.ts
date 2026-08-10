@@ -17,6 +17,69 @@ export const EXPIRATION_PHRASES = [
   "applications are now closed",
 ] as const;
 
+/**
+ * Path segments that indicate the candidate was redirected to a login/account
+ * wall rather than the actual job page. Checked against the lowercased pathname
+ * of the final URL after following all redirects.
+ *
+ * NHS Jobs is an accepted exception — it requires login but is the only route
+ * for NHS Trust vacancies, so it is exempt from login-wall detection.
+ */
+const LOGIN_WALL_PATHS = [
+  "/login",
+  "/signin",
+  "/sign-in",
+  "/log-in",
+  "/logon",
+  "/log-on",
+  "/account/create",
+  "/account/register",
+  "/register",
+  "/signup",
+  "/sign-up",
+  "/auth/login",
+  "/auth/signin",
+  "/users/sign_in",
+  "/users/login",
+  "/sso/login",
+] as const;
+
+/**
+ * Phrases in page body that indicate a login/registration wall.
+ * Only checked for HTML/text responses and not for NHS Jobs URLs.
+ */
+const LOGIN_WALL_PHRASES = [
+  "sign in to apply",
+  "log in to apply",
+  "login to apply",
+  "create an account to apply",
+  "register to apply",
+  "sign in to continue",
+  "log in to continue",
+  "login to continue",
+  "please sign in to",
+  "please log in to",
+  "you must be logged in",
+  "you must be signed in",
+  "create a free account to",
+  "sign up to apply",
+] as const;
+
+/** True when the URL is on the NHS Jobs platform (expected login requirement). */
+export function isNhsJobsUrl(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host === "jobs.nhs.uk" || host.endsWith(".jobs.nhs.uk");
+  } catch {
+    return false;
+  }
+}
+
+function isLoginWallPath(pathname: string): boolean {
+  const p = pathname.toLowerCase().replace(/\/+$/, "");
+  return LOGIN_WALL_PATHS.some((lp) => p === lp || p.startsWith(lp + "/") || p.startsWith(lp + "?"));
+}
+
 // SSRF guard: the health check fetches a user-influenced URL server-side, so
 // only publicly routable hosts are ever fetched. Private, loopback, link-local,
 // CGNAT, and unresolvable hosts are rejected outright — no legitimate employer
@@ -57,7 +120,9 @@ export async function isPubliclyRoutableHost(hostname: string): Promise<boolean>
 }
 
 const DEFAULT_HEALTH_CHECK_TIMEOUT_MS = 2500;
-const BODY_SNIFF_BYTES = 15 * 1024;
+// Increased from 15KB: catching soft-404s and "position no longer available"
+// banners that appear further down a page body.
+const BODY_SNIFF_BYTES = 40 * 1024;
 const BROWSER_USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 
@@ -108,6 +173,18 @@ export async function checkDestinationDead(
         resp.body?.cancel().catch(() => {});
         return { verdict: "dead", reason: `HTTP ${resp.status}` };
       }
+
+      // NHS Jobs requires a login but is the only channel for NHS Trust
+      // vacancies — skip login-wall detection for it.
+      const nhsJobs = isNhsJobsUrl(currentUrl);
+
+      // Path-based login-wall check: catches redirects to /login, /signin, etc.
+      // without needing to read the body.
+      if (!nhsJobs && isLoginWallPath(new URL(currentUrl).pathname)) {
+        resp.body?.cancel().catch(() => {});
+        return { verdict: "dead", reason: "login wall: redirected to sign-in page" };
+      }
+
       const contentType = resp.headers.get("content-type") ?? "";
       if (contentType.includes("html") || contentType.includes("text")) {
         let text = "";
@@ -126,6 +203,11 @@ export async function checkDestinationDead(
         const lower = text.toLowerCase();
         const phrase = EXPIRATION_PHRASES.find((p) => lower.includes(p));
         if (phrase) return { verdict: "dead", reason: `expiration phrase: "${phrase}"` };
+        // Content-based login-wall check (NHS Jobs exempt).
+        if (!nhsJobs) {
+          const loginPhrase = LOGIN_WALL_PHRASES.find((p) => lower.includes(p));
+          if (loginPhrase) return { verdict: "dead", reason: `login wall: "${loginPhrase}"` };
+        }
       } else {
         resp.body?.cancel().catch(() => {});
       }

@@ -630,12 +630,44 @@ function RoleCard({
   const [, setLocation] = useLocation();
   const { role, isEligible, matchScore, eligibilityGaps, sponsorshipFeasibility, contactEmail, contactPhone, contactWebsite, applyUrl, linkVerified, linkCheckedAt } = item;
   const [expanded, setExpanded] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [deadLink, setDeadLink] = useState(false);
 
-  // Click-logging retired: apply/company-website clicks simply open the
-  // destination in a new tab — no application record, no toast.
-  const handleApplyClick = (destinationUrl?: string) => {
+  // Click-time live check: for unverified apply links, ping the server before
+  // opening so dead/login-walled links never open a broken tab.
+  // Verified links and company-website fallbacks open immediately (no check).
+  const handleApplyClick = async (destinationUrl?: string): Promise<void> => {
     const targetUrl = destinationUrl ?? applyUrl;
     if (!targetUrl) return;
+
+    // Skip live check for: company-website fallback (destinationUrl provided)
+    // or links already confirmed live by the sweep.
+    if (destinationUrl !== undefined || linkVerified) {
+      window.open(targetUrl, "_blank", "noopener,noreferrer");
+      onExternalApply?.();
+      return;
+    }
+
+    // Unverified apply URL — do a fast click-time check (cached server-side).
+    setChecking(true);
+    setDeadLink(false);
+    try {
+      const resp = await fetch(`/api/vacancy-link-check?url=${encodeURIComponent(targetUrl)}`, {
+        credentials: "include",
+      });
+      if (resp.ok) {
+        const data = (await resp.json()) as { verdict: string };
+        if (data.verdict === "dead") {
+          setDeadLink(true);
+          return;
+        }
+      }
+    } catch {
+      // Network error or API down — open anyway (benefit of the doubt)
+    } finally {
+      setChecking(false);
+    }
+
     window.open(targetUrl, "_blank", "noopener,noreferrer");
     onExternalApply?.();
   };
@@ -791,32 +823,71 @@ function RoleCard({
       )}
 
       {applyUrl && (
-        <div className="mt-3 flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
-          <>
-              <button
-                type="button"
-                onClick={() => handleApplyClick()}
-                disabled={applied}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60"
-              >
-                <ExternalLink className="w-3.5 h-3.5" /> {applied ? "Applied" : "Apply on employer site"}
-              </button>
-              {linkVerified ? (
-                <span
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200"
-                  title={linkCheckedAt ? `Link checked ${new Date(linkCheckedAt).toLocaleString("en-GB")}` : undefined}
-                >
-                  <BadgeCheck className="w-3 h-3" /> Link verified
-                </span>
+        <div className="mt-3 flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => void handleApplyClick()}
+              disabled={applied || checking}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60"
+            >
+              {checking ? (
+                <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Checking…</>
               ) : (
-                <span
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200"
-                  title="This apply link has not been health-checked yet — it will be verified shortly"
-                >
-                  <Clock className="w-3 h-3" /> Link not yet verified
-                </span>
+                <><ExternalLink className="w-3.5 h-3.5" /> {applied ? "Applied" : "Apply on employer site"}</>
               )}
-          </>
+            </button>
+            {linkVerified ? (
+              <span
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200"
+                title={linkCheckedAt ? `Link checked ${new Date(linkCheckedAt).toLocaleString("en-GB")}` : undefined}
+              >
+                <BadgeCheck className="w-3 h-3" /> Link verified
+              </span>
+            ) : linkCheckedAt ? (
+              <span
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200"
+                title="This link was checked but could not be fully verified — it may no longer be active"
+              >
+                <AlertCircle className="w-3 h-3" /> May not be active
+              </span>
+            ) : (
+              <span
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200"
+                title="This apply link has not been health-checked yet — it will be verified shortly"
+              >
+                <Clock className="w-3 h-3" /> Link not yet verified
+              </span>
+            )}
+          </div>
+          {deadLink && (
+            <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-800">
+              <p className="font-semibold mb-1">This listing appears to no longer be available.</p>
+              {hasContactDetails ? (
+                <p className="text-red-700 mb-1">Try contacting the employer directly:</p>
+              ) : contactWebsite ? (
+                <p className="text-red-700 mb-1">The employer&apos;s website may have more information.</p>
+              ) : null}
+              <div className="flex flex-col gap-0.5">
+                {contactEmail && (
+                  <a href={`mailto:${contactEmail}`} className="text-red-700 hover:underline">
+                    {contactEmail}
+                  </a>
+                )}
+                {contactWebsite && (
+                  <button
+                    type="button"
+                    onClick={() => void handleApplyClick(
+                      contactWebsite.startsWith("http") ? contactWebsite : `https://${contactWebsite}`
+                    )}
+                    className="text-left text-red-700 hover:underline"
+                  >
+                    Visit company website →
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
