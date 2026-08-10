@@ -26,21 +26,13 @@ export const socialLeadsTable = pgTable(
     email: text("email").notNull(),
     phone: text("phone"),
 
-    // ── Qualifying questions ─────────────────────────────────────────────
-    /** Q1 — e.g. "Doctor / Physician", "Nurse", "Allied Health Professional" */
-    profession: text("profession"),
-    /** Q2 — country where the candidate trained/qualified */
-    qualificationCountry: text("qualification_country"),
-    /** Q3 — "registered" | "in_progress" | "not_started" | "unsure" */
-    registrationStatus: text("registration_status"),
-    /** Q4 — "yes" | "no" | "unsure" (text not boolean to capture the unsure state) */
-    requiresSponsorship: text("requires_sponsorship"),
-    /** Q5 — free-text specialty or clinical area */
-    specialty: text("specialty"),
-    /** Q6 — "asap" | "6m" | "12m" | "2yr" | "exploring" */
-    timeline: text("timeline"),
-    /** Q7 — multi-select challenges (stored as text array) */
-    biggestChallenge: text("biggest_challenge").array(),
+    // ── Qualifying questions (generic — all sectors) ─────────────────────
+    /** Industry or sector the candidate works in / is interested in */
+    industrySector: text("industry_sector"),
+    /** The specific role or job title the candidate is targeting */
+    desiredRole: text("desired_role"),
+    /** Free-text message — anything additional the candidate wants to share */
+    additionalMessage: text("additional_message"),
 
     // ── Attribution / UTM ────────────────────────────────────────────────
     utmSource: text("utm_source"),
