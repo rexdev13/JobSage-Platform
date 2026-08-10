@@ -33,6 +33,7 @@ import internalSyncRouter from "./internalSync";
 import inboundEmailRouter from "./inboundEmail";
 import vacancyFavoritesRouter from "./vacancyFavorites";
 import leadsRouter from "./leads";
+import vacancyLinkCheckRouter from "./vacancyLinkCheck";
 
 const router: IRouter = Router();
 
@@ -70,5 +71,6 @@ router.use(internalSyncRouter);
 router.use(inboundEmailRouter);
 router.use(vacancyFavoritesRouter);
 router.use(leadsRouter);
+router.use(vacancyLinkCheckRouter);
 
 export default router;

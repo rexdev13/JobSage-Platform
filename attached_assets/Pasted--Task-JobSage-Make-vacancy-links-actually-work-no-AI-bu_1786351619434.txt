@@ -1,0 +1,42 @@
+# Task: JobSage — Make vacancy links actually work (no AI budget impact)
+
+## Cost constraint — read first
+None of this should add AI/LLM API calls. Link checks are plain HTTP requests (fetch a URL, read status code / page content) — not model calls. If any part of this seems to require an AI call to implement, stop and flag it before proceeding; there should be a non-AI way to do it.
+
+## The problem
+Candidates click a vacancy in Opportunities and hit: the position is closed, the link is dead, it redirects to a login wall, or the page simply doesn't exist. This is the #1 complaint right now and undermines the whole product.
+
+## Fixes, in priority order
+
+### 1. Click-time revalidation
+Currently clicking a vacancy just does `window.open` with no check (`OpportunitiesPage.tsx:634-641`). Add a quick live check before opening:
+- HEAD/GET request to the URL, check status code and basic content signals (not full page load).
+- If it's dead/closed/404: don't open a broken tab — show a clear in-app message ("this listing appears to no longer be available") and offer the fallback (contact info / company website) instead.
+- Keep this fast — don't make the user wait long for a click. Cache the result briefly (e.g. a few hours) so repeat clicks on the same vacancy don't re-check every time.
+
+### 2. Detect and reject login-wall redirects
+A link that redirects to a sign-in/account-creation page should never be presented as a valid "apply" link — it directly contradicts the client's no-signup rule and is currently slipping through.
+- Add detection for common patterns (redirect to a `/login`, `/signin`, `/account/create` path; page content matching "sign in to continue" / "create an account to apply" type phrasing).
+- Treat a detected login wall the same as a broken link: don't show it as clickable, fall back to contact info.
+- Run this check both at ingestion (when the link is first captured) and as part of the periodic sweep, so links that get login-gated later also get caught.
+
+### 3. NHS Jobs toggle — turn it ON
+If the `ALLOW_NHS_JOBS_LINKS` toggle from the previous session isn't implemented yet, do it now (see prior prompt for spec) — but this time **default it to true / enabled**, not false. Decision made: NHS Jobs links should show and be clickable, even though NHS Jobs requires an account to apply (there's no alternative — NHS trusts only accept applications through NHS Jobs or TRAC, both of which require signup; this is a constraint of the NHS system itself, not something to route around).
+
+Before finalizing, report:
+- How many currently-nulled NHS Jobs links exist right now (the impact number).
+- Confirm the flip: pull `jobs.nhs.uk` out of the generic aggregator blocklist so those links resolve instead of getting nulled.
+- Since NHS Jobs requires an account, make sure rule #2 above (login-wall detection) does NOT flag NHS Jobs links as broken — they should be treated as a valid, expected exception to the no-signup rule, clearly still clickable.
+
+### 4. Broaden the liveness sweep
+Currently `vacancyLivenessSweep.ts` only scans the first 15KB of a page and marks unscannable/blocked-domain links as "not verifiable" without further action.
+- Increase scan depth enough to catch soft-404s and "position no longer available" text further down the page (balance against request cost/time — no need to load huge pages fully, just enough to catch common patterns).
+- For "not verifiable" results, don't leave them as silently clickable — decide on a consistent fallback treatment (e.g. show with a "may no longer be active" flag rather than presenting as fully valid).
+
+### 5. Tighten ingestion-time URL validation
+Some breakage comes from the AI returning invented or stale deep links. Add a validation step when a vacancy URL is first captured: it must actually resolve (real status code, plausible job-page content) before being stored as the vacancy's link. This is a validation rule applied to AI output, not a new AI call — don't add a model call to do this check.
+
+## Report back with
+- Before/after count: how many currently-stored vacancy links are actually broken/dead/login-walled right now (baseline), so we can measure improvement.
+- Confirmation none of the above added AI API calls.
+- NHS Jobs affected-link count (if not already reported).

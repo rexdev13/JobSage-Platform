@@ -32,7 +32,9 @@ export const BLOCKED_VACANCY_DOMAINS = [
   "seek.com",
   "jora.com",
   "careerjet.co.uk",
-  "jobs.nhs.uk", // aggregator for NHS — allow only direct employer domains
+  // jobs.nhs.uk removed — NHS Jobs links are expected and clickable (NHS trusts
+  // only accept applications via NHS Jobs or Trac; login is an accepted constraint
+  // of the UK NHS system, not a reason to null the link).
   "jobijoba.com",
   "jobijoba.co.uk",
   "simplyhired.com",
