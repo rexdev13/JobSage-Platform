@@ -77,8 +77,8 @@ export function GapAnalysisSheet({
       if (res.status === 429) {
         setLimitReached(true);
         toast({
-          title: "Analysis limit reached",
-          description: "You have used all 10 of your detailed gap analyses.",
+          title: "Readiness Check limit reached",
+          description: "You have used all 10 of your Readiness Checks.",
           variant: "destructive",
         });
         throw new Error("LIMIT_REACHED");
@@ -101,7 +101,7 @@ export function GapAnalysisSheet({
             <div className="flex-1 min-w-0">
               <SheetTitle className="text-base leading-tight">{vacancyTitle}</SheetTitle>
               <SheetDescription className="text-sm text-muted-foreground mt-0.5">
-                {companyName} · AI Gap Analysis
+                {companyName} · Readiness Check
               </SheetDescription>
             </div>
             {usage && (
@@ -136,10 +136,10 @@ export function GapAnalysisSheet({
               <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
               <div>
                 <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
-                  Analysis limit reached
+                  Readiness Check limit reached
                 </p>
                 <p className="text-xs text-amber-700/80 dark:text-amber-400/70 mt-1">
-                  You have used all 10 of your detailed gap analyses. Your existing analyses remain accessible below.
+                  You have used all 10 of your Readiness Checks. Your existing results remain accessible below.
                 </p>
               </div>
             </div>

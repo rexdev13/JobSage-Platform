@@ -909,7 +909,7 @@ function RoleCard({
               className="text-xs h-8 gap-1 text-primary/80 hover:text-primary hover:bg-primary/5"
               onClick={(e) => { e.stopPropagation(); onViewAnalysis(item); }}
             >
-              <Sparkles className="w-3 h-3" /> AI Analysis
+              <Sparkles className="w-3 h-3" /> Readiness Check
             </Button>
           )}
           <Button
