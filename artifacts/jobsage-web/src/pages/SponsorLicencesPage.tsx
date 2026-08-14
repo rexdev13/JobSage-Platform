@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, PageTransition, Button } from "@/components/ui-enhanced";
 import { SponsorVacancyApplyModal } from "@/components/SponsorVacancyApplyModal";
+import { GapAnalysisSheet } from "@/components/GapAnalysisSheet";
 import { getListMyApplicationsQueryKey } from "@workspace/api-client-react";
 import { openTrackedSponsorVacancy, openTrackedOutbound, normalizeWebsiteUrl } from "@/lib/trackedOutbound";
 import { FavoriteButton } from "@/components/FavoriteButton";
@@ -200,6 +201,7 @@ function VacancyMatchPanel({
   onApply,
   onWebsiteApply,
   onScoresReady,
+  onViewAnalysis,
   requireExtension,
 }: {
   companyId: number;
@@ -214,6 +216,7 @@ function VacancyMatchPanel({
   onApply: (v: SelectedVacancy) => void;
   onWebsiteApply: () => void;
   onScoresReady: (score: number | null) => void;
+  onViewAnalysis: (v: SelectedVacancy) => void;
   requireExtension: (action: () => void) => void;
 }) {
   const { data, isLoading } = useGetSponsorLicenceVacancies(companyId);
@@ -405,6 +408,16 @@ function VacancyMatchPanel({
                     {v.matchExplanation && (
                       <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{v.matchExplanation}</p>
                     )}
+                    {score != null && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onViewAnalysis({ ...v, companyName, companyId }); }}
+                        className="mt-1.5 inline-flex items-center gap-1 text-xs text-primary font-medium hover:underline"
+                      >
+                        <Sparkles className="w-3 h-3" />
+                        View Full AI Analysis →
+                      </button>
+                    )}
                   </div>
                   <div className="flex flex-col items-end gap-1 shrink-0">
                     <div className="flex items-center gap-1.5">
@@ -529,6 +542,7 @@ export default function SponsorLicencesPage() {
   const [selectedVacancy, setSelectedVacancy] = useState<SelectedVacancy | null>(null);
   const [applyModalVacancy, setApplyModalVacancy] = useState<SelectedVacancy | null>(null);
   const [speculativeModalTarget, setSpeculativeModalTarget] = useState<{ companyName: string; companyId: number } | null>(null);
+  const [gapAnalysisVacancy, setGapAnalysisVacancy] = useState<SelectedVacancy | null>(null);
   // Tracks live best-fit score per company once the VacancyMatchPanel scores vacancies
   const [liveMatchScores, setLiveMatchScores] = useState<Map<number, number | null>>(new Map());
   const base = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -1658,6 +1672,7 @@ export default function SponsorLicencesPage() {
                                   return next;
                                 })
                               }
+                              onViewAnalysis={setGapAnalysisVacancy}
                               requireExtension={requireExtension}
                             />
                           )}
@@ -1873,6 +1888,27 @@ export default function SponsorLicencesPage() {
           />
         )}
       </AnimatePresence>
+
+      {/* ── AI Gap Analysis Sheet ── */}
+      {gapAnalysisVacancy && (
+        <GapAnalysisSheet
+          open={gapAnalysisVacancy != null}
+          onOpenChange={(open) => { if (!open) setGapAnalysisVacancy(null); }}
+          vacancyId={gapAnalysisVacancy.id}
+          vacancyTitle={gapAnalysisVacancy.title}
+          companyName={gapAnalysisVacancy.companyName}
+          vacancyUrl={gapAnalysisVacancy.url}
+          hasCvUploaded={hasCvUploaded}
+          onApply={() => handleOpenApplyModal(gapAnalysisVacancy)}
+          onWebsiteApply={() =>
+            handleWebsiteApply(
+              gapAnalysisVacancy.companyName,
+              gapAnalysisVacancy.companyId,
+              gapAnalysisVacancy.url ?? null,
+            )
+          }
+        />
+      )}
 
       {gateModal}
     </AppLayout>
