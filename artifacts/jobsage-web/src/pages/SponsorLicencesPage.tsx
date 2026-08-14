@@ -416,10 +416,10 @@ function VacancyMatchPanel({
                           e.stopPropagation();
                           void openTrackedSponsorVacancy({ vacancyId: v.id, url: v.url! });
                         }}
-                        className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                        title="View on job board"
+                        className="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg border border-border text-foreground hover:bg-accent transition-colors font-medium"
                       >
-                        <ExternalLink className="w-3 h-3" />
+                        Apply on company's website
+                        <ExternalLink className="w-3.5 h-3.5 opacity-60" />
                       </button>
                     )}
                     {(() => {
