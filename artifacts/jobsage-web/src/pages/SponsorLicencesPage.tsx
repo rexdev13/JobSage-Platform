@@ -410,17 +410,17 @@ function VacancyMatchPanel({
                     <div className="flex items-center gap-1.5">
                     <FavoriteButton vacancyId={v.id + 2_000_000} className="p-1" />
                     {v.url && (
-                      <button
-                        type="button"
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
                           void openTrackedSponsorVacancy({ vacancyId: v.id, url: v.url! });
                         }}
-                        className="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg border border-border text-foreground hover:bg-accent transition-colors font-medium"
                       >
                         Apply on company's website
                         <ExternalLink className="w-3.5 h-3.5 opacity-60" />
-                      </button>
+                      </Button>
                     )}
                     {(() => {
                       const disabledReason = getApplyDisabledReason(hasCvUploaded, eligible);
@@ -429,14 +429,14 @@ function VacancyMatchPanel({
                           title={disabledReason ? APPLY_DISABLED_TITLES[disabledReason] : undefined}
                           onClick={(e) => { if (disabledReason) e.stopPropagation(); }}
                         >
-                          <button
+                          <Button
+                            size="sm"
                             onClick={(e) => { e.stopPropagation(); onApply({ ...v, companyName, companyId }); }}
                             disabled={disabledReason != null}
-                            className="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-semibold shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
                           >
                             <Send className="w-3.5 h-3.5" />
                             Send my CV
-                          </button>
+                          </Button>
                         </span>
                       );
                     })()}
