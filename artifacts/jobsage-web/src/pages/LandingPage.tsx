@@ -66,7 +66,7 @@ function Navbar({ onLogin }: { onLogin: () => void }) {
           <img
             src={`${import.meta.env.BASE_URL}logo.png`}
             alt="JOBSAGE"
-            className="h-9 w-auto object-contain"
+            className="h-11 md:h-12 w-auto object-contain"
           />
         </button>
 
