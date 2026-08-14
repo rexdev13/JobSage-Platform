@@ -415,7 +415,7 @@ function VacancyMatchPanel({
                         className="mt-1.5 inline-flex items-center gap-1 text-xs text-primary font-medium hover:underline"
                       >
                         <Sparkles className="w-3 h-3" />
-                        View Full AI Analysis →
+                        View Readiness Check →
                       </button>
                     )}
                   </div>
@@ -1817,7 +1817,7 @@ export default function SponsorLicencesPage() {
                   className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-primary/30 bg-primary/5 text-sm font-medium text-primary hover:bg-primary/10 transition-colors"
                 >
                   <Sparkles className="w-4 h-4" />
-                  View AI Analysis
+                  View Readiness Check
                 </button>
                 {(() => {
                   const disabledReason = getApplyDisabledReason(hasCvUploaded, selectedVacancy.isEligible);

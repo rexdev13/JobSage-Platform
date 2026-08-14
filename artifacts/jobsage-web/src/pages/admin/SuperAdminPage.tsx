@@ -262,7 +262,7 @@ function UserDetailPanel({ userId, apiBase, onImpersonate, onAction }: { userId:
   }
 
   async function handleResetGapAnalysis() {
-    if (!confirm("Reset this candidate's gap analysis quota? They will get a fresh 10 analyses.")) return;
+    if (!confirm("Reset this candidate's Readiness Check quota? They will get a fresh 10 checks.")) return;
     if (await doAction(`/sponsor-licences/gap-analyses/${userId}`, "DELETE")) {
       setGapAnalysisUsage({ used: 0, limit: 10 });
       toast({ title: "Quota reset", description: "Gap analysis quota reset to 0 / 10." });
@@ -405,7 +405,7 @@ function UserDetailPanel({ userId, apiBase, onImpersonate, onAction }: { userId:
 
       {gapAnalysisUsage && (
         <div>
-          <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-2">AI Gap Analysis Quota</h4>
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-2">Readiness Check Quota</h4>
           <div className="flex items-center gap-3 p-3 bg-background rounded-lg border border-border">
             <div className="flex-1 text-sm">
               <span className="font-semibold">{gapAnalysisUsage.used}</span>
