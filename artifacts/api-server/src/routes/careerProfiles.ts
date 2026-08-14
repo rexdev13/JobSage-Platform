@@ -142,13 +142,21 @@ router.patch("/career-profiles/:id", requireAuthenticated, requireConsent, async
 
   if (!profile) { res.status(404).json({ error: "Career profile not found." }); return; }
 
-  const { name, focusArea } = req.body as { name?: string; focusArea?: string };
+  const { name, focusArea, aiCvContent } = req.body as {
+    name?: string;
+    focusArea?: string;
+    aiCvContent?: string | null;
+  };
   const updates: Partial<{ name: string; focusArea: string; aiCvContent: string | null }> = {};
   if (name?.trim()) updates.name = name.trim();
   const focusAreaChanged = !!focusArea?.trim() && focusArea.trim() !== profile.focusArea;
   if (focusAreaChanged) {
     updates.focusArea = focusArea!.trim();
     updates.aiCvContent = null;
+  }
+  // Allow direct aiCvContent update (used by CV Enhancement "Accept & Save" flow)
+  if (aiCvContent !== undefined && !focusAreaChanged) {
+    updates.aiCvContent = typeof aiCvContent === "string" ? aiCvContent : null;
   }
 
   if (Object.keys(updates).length === 0) {

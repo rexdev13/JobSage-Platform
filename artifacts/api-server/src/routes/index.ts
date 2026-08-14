@@ -34,6 +34,7 @@ import inboundEmailRouter from "./inboundEmail";
 import vacancyFavoritesRouter from "./vacancyFavorites";
 import leadsRouter from "./leads";
 import vacancyLinkCheckRouter from "./vacancyLinkCheck";
+import cvEnhancementRouter from "./cvEnhancement";
 
 const router: IRouter = Router();
 
@@ -72,5 +73,6 @@ router.use(inboundEmailRouter);
 router.use(vacancyFavoritesRouter);
 router.use(leadsRouter);
 router.use(vacancyLinkCheckRouter);
+router.use(cvEnhancementRouter);
 
 export default router;
