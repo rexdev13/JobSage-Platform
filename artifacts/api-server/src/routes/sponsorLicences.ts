@@ -7,6 +7,7 @@ import { requireAuthenticated, requireRole } from "../middlewares/requireRole";
 import { runVacancyCheck } from "../lib/vacancyCheckHelper";
 import { startCheckAllVacancies, getCheckAllStatus } from "../lib/vacancyCheckAllRunner";
 import { scoreVacanciesForCompany } from "../lib/sponsorVacancyScoring";
+import { getOrGenerateGapAnalysis, LimitReachedError } from "../lib/vacancyGapAnalysis";
 
 const router: IRouter = Router();
 
@@ -754,6 +755,32 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
   } catch (err) {
     console.error("[sponsor-licences] list error:", err);
     res.status(500).json({ error: "Failed to fetch sponsor licence companies." });
+  }
+});
+
+// ── Gap Analysis ──────────────────────────────────────────────────────────────
+// Deep per-vacancy AI gap analysis. Cached for 7 days per user+vacancy.
+// Lifetime limit: 10 analyses per candidate (enforced in vacancyGapAnalysis.ts).
+
+router.get("/sponsor-licences/vacancies/:vacancyId/gap-analysis", requireAuthenticated, async (req, res) => {
+  try {
+    const userId = req.user!.id;
+    const rawId = typeof req.params["vacancyId"] === "string" ? req.params["vacancyId"] : "";
+    const vacancyId = parseInt(rawId, 10);
+    if (!vacancyId || isNaN(vacancyId)) {
+      res.status(400).json({ error: "Invalid vacancy ID." });
+      return;
+    }
+
+    const result = await getOrGenerateGapAnalysis(userId, vacancyId);
+    res.json(result);
+  } catch (err) {
+    if (err instanceof LimitReachedError) {
+      res.status(429).json({ error: "You have used all 10 of your detailed gap analyses." });
+      return;
+    }
+    console.error("[sponsor-licences] /gap-analysis error:", err);
+    res.status(500).json({ error: "Failed to generate gap analysis." });
   }
 });
 

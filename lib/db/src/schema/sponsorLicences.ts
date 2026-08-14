@@ -159,3 +159,34 @@ export const sponsorLicenceVacancyScoresTable = pgTable(
 
 export type SponsorLicenceVacancyScore = typeof sponsorLicenceVacancyScoresTable.$inferSelect;
 export type InsertSponsorLicenceVacancyScore = typeof sponsorLicenceVacancyScoresTable.$inferInsert;
+
+// ── Gap Analysis Results ───────────────────────────────────────────────────────
+// Stores the detailed per-candidate per-vacancy AI gap analysis. Keyed by
+// (userId, vacancyId) — each candidate can only generate one analysis per
+// vacancy. A 7-day TTL is enforced in application code (not the DB).
+// Total analyses per user is capped at 10, also enforced in application code.
+
+export const sponsorLicenceGapAnalysesTable = pgTable(
+  "sponsor_licence_gap_analyses",
+  {
+    id: serial("id").primaryKey(),
+    userId: varchar("user_id").notNull(),
+    vacancyId: integer("vacancy_id").notNull(),
+    matchedRequirements: jsonb("matched_requirements").$type<string[]>().notNull(),
+    gaps: jsonb("gaps").$type<string[]>().notNull(),
+    optimizationSteps: jsonb("optimization_steps").$type<string[]>().notNull(),
+    generatedAt: timestamp("generated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      name: "sl_gap_analyses_vacancy_id_fk",
+      columns: [t.vacancyId],
+      foreignColumns: [sponsorLicenceVacanciesTable.id],
+    }).onDelete("cascade"),
+    uniqueIndex("sl_gap_analyses_user_vacancy_idx").on(t.userId, t.vacancyId),
+    index("sl_gap_analyses_user_idx").on(t.userId),
+  ],
+);
+
+export type SponsorLicenceGapAnalysis = typeof sponsorLicenceGapAnalysesTable.$inferSelect;
+export type InsertSponsorLicenceGapAnalysis = typeof sponsorLicenceGapAnalysesTable.$inferInsert;

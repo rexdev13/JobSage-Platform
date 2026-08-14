@@ -1,0 +1,26 @@
+The proposed plan for the "AI CV Gap Analysis" is approved, with two major additions from the client:
+1. You must use the `gpt-4o-mini` model for the LLM call to ensure cost-efficiency.
+2. We must enforce a hard limit: a candidate can only generate a Gap Analysis for a maximum of 10 vacancies across the entire platform. 
+
+Please execute the implementation exactly as you outlined, incorporating these constraints:
+
+Task 1: Database Setup
+- Create the new `sponsor_licence_gap_analyses` table (userId, vacancyId, matchedRequirements, gaps, optimizationSteps, generatedAt).
+- Create the Drizzle migration and apply it.
+
+Task 2: AI Logic & Limit Enforcement
+- File: `artifacts/api-server/src/lib/vacancyGapAnalysis.ts`
+- Write the function to construct the rich payload (candidate CV data + full vacancy description) and call the LLM. 
+- STRICT REQUIREMENT: You must use `gpt-4o-mini` with JSON mode.
+- STRICT REQUIREMENT: Before calling the LLM, query the database to count how many records exist for this `userId` in `sponsor_licence_gap_analyses`. If the count is >= 10, throw a specific error (e.g., "Limit Reached") and do not call the LLM.
+
+Task 3: Build the API Endpoint
+- File: `artifacts/api-server/src/routes/sponsorLicences.ts`
+- Create the protected endpoint `GET /api/sponsor-licences/vacancies/:vacancyId/gap-analysis`.
+- Route logic: Check if a cached analysis exists. If yes, return it. If no, check the 10-use limit, call the AI logic, persist it, and return it.
+
+Task 4: Frontend UI (Shadcn Sheet)
+- Create the UI component for the slide-out Gap Analysis Sheet based on your proposed 3-section layout (What Matches, Gaps, Optimization Steps).
+- Add the "View Analysis →" trigger link on the vacancy rows inside `VacancyMatchPanel`. 
+- Ensure the UI handles the "Limit Reached" error gracefully (e.g., show a toast notification saying "You have used all 10 of your detailed gap analyses" if the API rejects it).
+- Ensure the "Send my CV" and "Apply on company's website" buttons are accessible inside the Sheet.
