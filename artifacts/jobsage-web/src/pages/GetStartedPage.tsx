@@ -53,7 +53,7 @@ const INITIAL_MESSAGES: ChatMessage[] = [
   {
     role: "assistant",
     content:
-      "Hi there! 👋 I'm JOBSAGE AI — your guide to building a career in the UK.\n\nWhether you're looking for a new role, exploring visa and sponsorship options, or just starting to plan your UK move, I'm here to help.\n\nTo get started — what's your name, and which sector or type of role are you interested in?",
+      "Hi there! 👋 I am JOBSAGE AI, your guide to building a career in the UK.\n\nWhether you are looking for a new role, exploring visa and sponsorship options, or just starting to plan your UK move, I am here to help.\n\nTo get started, what is your name?",
   },
 ];
 
@@ -243,31 +243,6 @@ function LeadForm({
             )}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
-              Desired Role{" "}
-              <span className="text-muted-foreground font-normal">(optional)</span>
-            </label>
-            <input
-              value={form.desiredRole}
-              onChange={(e) => setField("desiredRole", e.target.value)}
-              placeholder="e.g. Software Engineer, Project Manager, Nurse…"
-              className={fieldClass}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
-              Anything else we should know?{" "}
-              <span className="text-muted-foreground font-normal">(optional)</span>
-            </label>
-            <textarea
-              value={form.additionalMessage}
-              onChange={(e) => setField("additionalMessage", e.target.value)}
-              placeholder="Tell us more about your situation or what you're looking for…"
-              rows={3}
-              className={`${fieldClass} resize-none`}
-            />
-          </div>
         </div>
       </section>
 
