@@ -16,8 +16,10 @@ import {
   matchDismissalsTable,
   smartApplyDraftsTable,
   sponsorLicenceVacancyScoresTable,
+  roleGapAnalysesTable,
+  sponsorLicenceGapAnalysesTable,
 } from "@workspace/db";
-import { eq, desc, and, inArray, gte, or, isNotNull, ne } from "drizzle-orm";
+import { eq, desc, and, inArray, gte, or, isNotNull, ne, sql } from "drizzle-orm";
 import { requireRole, requireAuthenticated } from "../middlewares/requireRole";
 import { assessSponsorshipFeasibility } from "../lib/sponsorshipFeasibility";
 import { batchScoreRoles } from "../lib/candidateAiMatch";
@@ -37,8 +39,6 @@ import { openai } from "@workspace/integrations-openai-ai-server";
 
 const router: IRouter = Router();
 
-// ── In-memory cache for matched-role gap analyses (no DB table needed) ─────────
-const roleGapCache = new Map<string, { data: RoleGapResult; expiresAt: number }>();
 interface RoleGapResult {
   matchedRequirements: string[];
   gaps: string[];
@@ -46,6 +46,9 @@ interface RoleGapResult {
   generatedAt: string;
   fromCache: boolean;
 }
+
+const READINESS_CHECK_LIMIT = 10;
+const READINESS_CHECK_TTL_DAYS = 7;
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 const REQUIRED_COLUMNS = ["title", "employer", "location", "regulator", "sponsorshipOffered", "requiredRegistration"];
@@ -1188,14 +1191,46 @@ router.get("/opportunities/roles/:roleId/gap-analysis", requireAuthenticated, as
   const roleId = parseInt(typeof req.params["roleId"] === "string" ? req.params["roleId"] : "", 10);
   if (isNaN(roleId)) { res.status(400).json({ error: "Invalid role ID." }); return; }
 
-  const cacheKey = `${userId}:${roleId}`;
-  const cached = roleGapCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) {
-    res.json({ ...cached.data, fromCache: true });
-    return;
-  }
-
   try {
+    // 1. Check DB cache (7-day TTL, same as sponsor vacancy checks)
+    const ttlCutoff = new Date(Date.now() - READINESS_CHECK_TTL_DAYS * 24 * 60 * 60 * 1000);
+    const [existing] = await db
+      .select()
+      .from(roleGapAnalysesTable)
+      .where(and(
+        eq(roleGapAnalysesTable.userId, userId),
+        eq(roleGapAnalysesTable.roleId, roleId),
+        sql`${roleGapAnalysesTable.generatedAt} > ${ttlCutoff}`,
+      ))
+      .limit(1);
+
+    if (existing) {
+      res.json({
+        matchedRequirements: existing.matchedRequirements,
+        gaps: existing.gaps,
+        optimizationSteps: existing.optimizationSteps,
+        generatedAt: existing.generatedAt.toISOString(),
+        fromCache: true,
+      });
+      return;
+    }
+
+    // 2. Combined lifetime limit: count across both tables
+    const [[sponsorCount], [roleCount]] = await Promise.all([
+      db.select({ count: sql<number>`cast(count(*) as integer)` })
+        .from(sponsorLicenceGapAnalysesTable)
+        .where(eq(sponsorLicenceGapAnalysesTable.userId, userId)),
+      db.select({ count: sql<number>`cast(count(*) as integer)` })
+        .from(roleGapAnalysesTable)
+        .where(eq(roleGapAnalysesTable.userId, userId)),
+    ]);
+    const totalUsed = (sponsorCount?.count ?? 0) + (roleCount?.count ?? 0);
+    if (totalUsed >= READINESS_CHECK_LIMIT) {
+      res.status(429).json({ error: "Readiness Check limit reached. You have used all 10 checks." });
+      return;
+    }
+
+    // 3. Fetch role + profile in parallel
     const [[role], [profile]] = await Promise.all([
       db.select().from(rolesTable).where(eq(rolesTable.id, roleId)).limit(1),
       db.select().from(profilesTable).where(eq(profilesTable.userId, userId)).limit(1),
@@ -1222,6 +1257,7 @@ router.get("/opportunities/roles/:roleId/gap-analysis", requireAuthenticated, as
       profile.residencyStatus ? `Residency/visa status: ${profile.residencyStatus}` : null,
     ].filter(Boolean).join("\n");
 
+    // 4. Call gpt-4o-mini
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       response_format: { type: "json_object" },
@@ -1253,20 +1289,31 @@ Be specific to this role and profile. Do not be generic. Do not repeat the same 
       gaps?: unknown;
       optimizationSteps?: unknown;
     };
-
     const toStringArray = (v: unknown): string[] =>
       Array.isArray(v) ? v.filter((x): x is string => typeof x === "string").slice(0, 6) : [];
 
-    const result: RoleGapResult = {
-      matchedRequirements: toStringArray(raw.matchedRequirements),
-      gaps: toStringArray(raw.gaps),
-      optimizationSteps: toStringArray(raw.optimizationSteps),
-      generatedAt: new Date().toISOString(),
-      fromCache: false,
-    };
+    const matchedRequirements = toStringArray(raw.matchedRequirements);
+    const gaps = toStringArray(raw.gaps);
+    const optimizationSteps = toStringArray(raw.optimizationSteps);
 
-    roleGapCache.set(cacheKey, { data: result, expiresAt: Date.now() + 6 * 60 * 60 * 1000 });
-    res.json(result);
+    // 5. Upsert to DB
+    await db.insert(roleGapAnalysesTable).values({
+      userId,
+      roleId,
+      matchedRequirements: matchedRequirements as unknown as string[],
+      gaps: gaps as unknown as string[],
+      optimizationSteps: optimizationSteps as unknown as string[],
+    }).onConflictDoUpdate({
+      target: [roleGapAnalysesTable.userId, roleGapAnalysesTable.roleId],
+      set: {
+        matchedRequirements: matchedRequirements as unknown as string[],
+        gaps: gaps as unknown as string[],
+        optimizationSteps: optimizationSteps as unknown as string[],
+        generatedAt: new Date(),
+      },
+    });
+
+    res.json({ matchedRequirements, gaps, optimizationSteps, generatedAt: new Date().toISOString(), fromCache: false });
   } catch (err) {
     console.error("[opportunities] role gap analysis error:", err);
     res.status(500).json({ error: "Failed to generate gap analysis." });
