@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Sheet,
   SheetContent,
@@ -51,6 +51,7 @@ export function GapAnalysisSheet({
   analysisEndpoint,
 }: GapAnalysisSheetProps) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [limitReached, setLimitReached] = useState(false);
 
   const { data: usage } = useQuery<UsageData>({
@@ -89,6 +90,14 @@ export function GapAnalysisSheet({
       return res.json() as Promise<GapAnalysisData>;
     },
   });
+
+  // When a fresh (non-cached) result arrives, invalidate the usage counter so
+  // the X/10 badge reflects the new count without waiting for the 60s stale time.
+  useEffect(() => {
+    if (data && !data.fromCache) {
+      void queryClient.invalidateQueries({ queryKey: ["gap-analysis-usage"] });
+    }
+  }, [data, queryClient]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
