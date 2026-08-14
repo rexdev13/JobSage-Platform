@@ -33,8 +33,19 @@ import {
   specialtyBoost,
   SPONSOR_VACANCY_ID_OFFSET,
 } from "../lib/sponsorVacancyRoles";
+import { openai } from "@workspace/integrations-openai-ai-server";
 
 const router: IRouter = Router();
+
+// ── In-memory cache for matched-role gap analyses (no DB table needed) ─────────
+const roleGapCache = new Map<string, { data: RoleGapResult; expiresAt: number }>();
+interface RoleGapResult {
+  matchedRequirements: string[];
+  gaps: string[];
+  optimizationSteps: string[];
+  generatedAt: string;
+  fromCache: boolean;
+}
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 const REQUIRED_COLUMNS = ["title", "employer", "location", "regulator", "sponsorshipOffered", "requiredRegistration"];
@@ -1169,6 +1180,97 @@ router.post("/admin/roles/import", requireRole("admin"), upload.single("file"), 
     skipped: errors.length,
     errors,
   });
+});
+
+// ── GET /opportunities/roles/:roleId/gap-analysis ─────────────────────────────
+router.get("/opportunities/roles/:roleId/gap-analysis", requireAuthenticated, async (req, res): Promise<void> => {
+  const userId = req.user!.id;
+  const roleId = parseInt(typeof req.params["roleId"] === "string" ? req.params["roleId"] : "", 10);
+  if (isNaN(roleId)) { res.status(400).json({ error: "Invalid role ID." }); return; }
+
+  const cacheKey = `${userId}:${roleId}`;
+  const cached = roleGapCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    res.json({ ...cached.data, fromCache: true });
+    return;
+  }
+
+  try {
+    const [[role], [profile]] = await Promise.all([
+      db.select().from(rolesTable).where(eq(rolesTable.id, roleId)).limit(1),
+      db.select().from(profilesTable).where(eq(profilesTable.userId, userId)).limit(1),
+    ]);
+    if (!role) { res.status(404).json({ error: "Role not found." }); return; }
+    if (!profile) { res.status(400).json({ error: "No profile found. Complete your profile first." }); return; }
+
+    const roleDescription = [
+      `Job Title: ${role.title}`,
+      `Employer: ${role.employer}`,
+      `Location: ${role.location}`,
+      `Regulator: ${role.regulator}`,
+      `Required Registration / Qualification: ${role.requiredRegistration}`,
+      role.sponsorshipOffered ? "UK visa sponsorship is offered for this role." : "Visa sponsorship status unknown.",
+    ].join("\n");
+
+    const profileText = [
+      profile.profession ? `Profession: ${profile.profession}` : null,
+      profile.specialty ? `Specialty: ${profile.specialty}` : null,
+      profile.experienceYears != null ? `Years of experience: ${profile.experienceYears}` : null,
+      profile.qualificationType ? `Qualification type: ${profile.qualificationType}` : null,
+      profile.qualificationCountry ? `Qualification country: ${profile.qualificationCountry}` : null,
+      profile.registrationStatus ? `Registration status: ${profile.registrationStatus}` : null,
+      profile.residencyStatus ? `Residency/visa status: ${profile.residencyStatus}` : null,
+    ].filter(Boolean).join("\n");
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content: `You are a UK recruitment expert helping healthcare and skilled-worker candidates understand how well their profile fits a specific job role. Respond only with valid JSON in this exact shape:
+{
+  "matchedRequirements": ["string", ...],
+  "gaps": ["string", ...],
+  "optimizationSteps": ["string", ...]
+}
+matchedRequirements: 2–5 specific strengths from the candidate's profile that match this role.
+gaps: 1–4 honest gaps or missing information that may weaken the application.
+optimizationSteps: 2–4 concrete, actionable steps to improve their chances for this specific role.
+Be specific to this role and profile. Do not be generic. Do not repeat the same point across sections.`,
+        },
+        {
+          role: "user",
+          content: `ROLE:\n${roleDescription}\n\nCANDIDATE PROFILE:\n${profileText}`,
+        },
+      ],
+      max_tokens: 800,
+      temperature: 0.4,
+    });
+
+    const raw = JSON.parse(completion.choices[0]?.message?.content ?? "{}") as {
+      matchedRequirements?: unknown;
+      gaps?: unknown;
+      optimizationSteps?: unknown;
+    };
+
+    const toStringArray = (v: unknown): string[] =>
+      Array.isArray(v) ? v.filter((x): x is string => typeof x === "string").slice(0, 6) : [];
+
+    const result: RoleGapResult = {
+      matchedRequirements: toStringArray(raw.matchedRequirements),
+      gaps: toStringArray(raw.gaps),
+      optimizationSteps: toStringArray(raw.optimizationSteps),
+      generatedAt: new Date().toISOString(),
+      fromCache: false,
+    };
+
+    roleGapCache.set(cacheKey, { data: result, expiresAt: Date.now() + 6 * 60 * 60 * 1000 });
+    res.json(result);
+  } catch (err) {
+    console.error("[opportunities] role gap analysis error:", err);
+    res.status(500).json({ error: "Failed to generate gap analysis." });
+  }
 });
 
 export default router;

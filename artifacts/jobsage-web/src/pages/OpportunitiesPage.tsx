@@ -19,6 +19,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
 import { SmartApplyModal } from "@/components/SmartApplyModal";
+import { GapAnalysisSheet } from "@/components/GapAnalysisSheet";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -611,6 +612,7 @@ function RoleCard({
   onViewDetail,
   onCoverLetter,
   onExternalApply,
+  onViewAnalysis,
   requireExtension,
   recommended,
   aiScore,
@@ -622,6 +624,7 @@ function RoleCard({
   onViewDetail: (item: MatchedRole) => void;
   onCoverLetter: (role: MatchedRole["role"]) => void;
   onExternalApply?: () => void;
+  onViewAnalysis?: (item: MatchedRole) => void;
   requireExtension: (action: () => void) => void;
   recommended?: boolean;
   aiScore?: number;
@@ -899,6 +902,16 @@ function RoleCard({
           Required: <span className="font-medium text-foreground">{role.requiredRegistration}</span>
         </span>
         <div className="flex gap-2">
+          {onViewAnalysis && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-xs h-8 gap-1 text-primary/80 hover:text-primary hover:bg-primary/5"
+              onClick={(e) => { e.stopPropagation(); onViewAnalysis(item); }}
+            >
+              <Sparkles className="w-3 h-3" /> AI Analysis
+            </Button>
+          )}
           <Button
             size="sm"
             variant="ghost"
@@ -1252,6 +1265,7 @@ export default function OpportunitiesPage() {
   const [employerSearch, setEmployerSearch] = useState(() => new URLSearchParams(window.location.search).get("q") ?? "");
   const [smartApplyRole, setSmartApplyRole] = useState<{ id: number; title: string } | null>(null);
   const [coverLetterRole, setCoverLetterRole] = useState<MatchedRole["role"] | null>(null);
+  const [gapAnalysisRole, setGapAnalysisRole] = useState<MatchedRole | null>(null);
   const [showExtensionNudge, setShowExtensionNudge] = useState(false);
   // Applying requires the Smart Apply extension so outbound applications are tracked.
   const { requireExtension, gateModal } = useExtensionGate();
@@ -1511,6 +1525,7 @@ export default function OpportunitiesPage() {
                             onSmartApply={handleSmartApply}
                             onViewDetail={setSelectedRole}
                             onCoverLetter={setCoverLetterRole}
+                            onViewAnalysis={setGapAnalysisRole}
                             requireExtension={requireExtension}
                             onExternalApply={handleExternalApply}
                           />
@@ -1559,7 +1574,8 @@ export default function OpportunitiesPage() {
                               onSmartApply={handleSmartApply}
                               onViewDetail={setSelectedRole}
                               onCoverLetter={setCoverLetterRole}
-                            requireExtension={requireExtension}
+                              onViewAnalysis={setGapAnalysisRole}
+                              requireExtension={requireExtension}
                               onExternalApply={handleExternalApply}
                             />
                           </motion.div>
@@ -1597,7 +1613,8 @@ export default function OpportunitiesPage() {
                               onSmartApply={handleSmartApply}
                               onViewDetail={setSelectedRole}
                               onCoverLetter={setCoverLetterRole}
-                            requireExtension={requireExtension}
+                              onViewAnalysis={setGapAnalysisRole}
+                              requireExtension={requireExtension}
                               onExternalApply={handleExternalApply}
                             />
                           </motion.div>
@@ -1635,7 +1652,8 @@ export default function OpportunitiesPage() {
                               onSmartApply={handleSmartApply}
                               onViewDetail={setSelectedRole}
                               onCoverLetter={setCoverLetterRole}
-                            requireExtension={requireExtension}
+                              onViewAnalysis={setGapAnalysisRole}
+                              requireExtension={requireExtension}
                               onExternalApply={handleExternalApply}
                             />
                           </motion.div>
@@ -1740,6 +1758,26 @@ export default function OpportunitiesPage() {
 
       {/* Smart Apply extension nudge (after clicking through to an employer site) */}
       <SmartApplyExtensionNudge open={showExtensionNudge} onClose={() => setShowExtensionNudge(false)} />
+
+      {/* AI Gap Analysis Sheet */}
+      {gapAnalysisRole && (
+        <GapAnalysisSheet
+          open={gapAnalysisRole != null}
+          onOpenChange={(open) => { if (!open) setGapAnalysisRole(null); }}
+          vacancyId={gapAnalysisRole.role.id}
+          vacancyTitle={gapAnalysisRole.role.title}
+          companyName={gapAnalysisRole.role.employer}
+          vacancyUrl={gapAnalysisRole.applyUrl ?? gapAnalysisRole.contactWebsite ?? null}
+          hasCvUploaded={!!myProfile}
+          analysisEndpoint={`/opportunities/roles/${gapAnalysisRole.role.id}/gap-analysis`}
+          onApply={() => handleSmartApply(gapAnalysisRole.role.id, gapAnalysisRole.role.title)}
+          onWebsiteApply={() => {
+            const url = gapAnalysisRole.applyUrl ?? gapAnalysisRole.contactWebsite;
+            if (url) window.open(url.startsWith("http") ? url : `https://${url}`, "_blank", "noopener,noreferrer");
+          }}
+        />
+      )}
+
       {gateModal}
 
     </AppLayout>

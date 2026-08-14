@@ -32,6 +32,8 @@ interface GapAnalysisSheetProps {
   hasCvUploaded: boolean;
   onApply: () => void;
   onWebsiteApply: () => void;
+  /** Override the API path (relative to /api). Defaults to /sponsor-licences/vacancies/:vacancyId/gap-analysis */
+  analysisEndpoint?: string;
 }
 
 interface UsageData { used: number; limit: number; }
@@ -46,6 +48,7 @@ export function GapAnalysisSheet({
   hasCvUploaded,
   onApply,
   onWebsiteApply,
+  analysisEndpoint,
 }: GapAnalysisSheetProps) {
   const { toast } = useToast();
   const [limitReached, setLimitReached] = useState(false);
@@ -67,10 +70,10 @@ export function GapAnalysisSheet({
     staleTime: 7 * 24 * 60 * 60 * 1000, // 7 days — matches server TTL
     retry: false,
     queryFn: async () => {
-      const res = await fetch(
-        `${API_BASE}/sponsor-licences/vacancies/${vacancyId}/gap-analysis`,
-        { credentials: "include" },
-      );
+      const endpoint = analysisEndpoint
+        ? `${API_BASE}${analysisEndpoint}`
+        : `${API_BASE}/sponsor-licences/vacancies/${vacancyId}/gap-analysis`;
+      const res = await fetch(endpoint, { credentials: "include" });
       if (res.status === 429) {
         setLimitReached(true);
         toast({
