@@ -34,6 +34,8 @@ interface GapAnalysisSheetProps {
   onWebsiteApply: () => void;
 }
 
+interface UsageData { used: number; limit: number; }
+
 export function GapAnalysisSheet({
   open,
   onOpenChange,
@@ -47,6 +49,17 @@ export function GapAnalysisSheet({
 }: GapAnalysisSheetProps) {
   const { toast } = useToast();
   const [limitReached, setLimitReached] = useState(false);
+
+  const { data: usage } = useQuery<UsageData>({
+    queryKey: ["gap-analysis-usage"],
+    enabled: open,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/sponsor-licences/gap-analyses/usage`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch usage.");
+      return res.json() as Promise<UsageData>;
+    },
+  });
 
   const { data, isLoading, isError, error } = useQuery<GapAnalysisData>({
     queryKey: ["gap-analysis", vacancyId],
@@ -82,12 +95,23 @@ export function GapAnalysisSheet({
             <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
               <Sparkles className="w-5 h-5 text-primary" />
             </div>
-            <div>
+            <div className="flex-1 min-w-0">
               <SheetTitle className="text-base leading-tight">{vacancyTitle}</SheetTitle>
               <SheetDescription className="text-sm text-muted-foreground mt-0.5">
                 {companyName} · AI Gap Analysis
               </SheetDescription>
             </div>
+            {usage && (
+              <span className={`shrink-0 text-[11px] font-semibold px-2 py-1 rounded-full border ${
+                usage.used >= usage.limit
+                  ? "bg-red-50 text-red-600 border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-800/40"
+                  : usage.used >= usage.limit - 2
+                  ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800/40"
+                  : "bg-muted text-muted-foreground border-border"
+              }`}>
+                {usage.used}/{usage.limit} used
+              </span>
+            )}
           </div>
         </SheetHeader>
 

@@ -192,6 +192,7 @@ function UserDetailPanel({ userId, apiBase, onImpersonate, onAction }: { userId:
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [newRole, setNewRole] = useState("");
+  const [gapAnalysisUsage, setGapAnalysisUsage] = useState<{ used: number; limit: number } | null>(null);
   const { toast } = useToast();
 
   const loadDetail = useCallback(() => {
@@ -201,6 +202,11 @@ function UserDetailPanel({ userId, apiBase, onImpersonate, onAction }: { userId:
       .then(setDetail)
       .catch(console.error)
       .finally(() => setLoading(false));
+    // Load gap analysis quota separately (candidate-only feature)
+    fetch(`${apiBase}/sponsor-licences/gap-analyses/usage/${userId}`, { credentials: "include" })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d) setGapAnalysisUsage(d as { used: number; limit: number }); })
+      .catch(() => null);
   }, [userId, apiBase]);
 
   useEffect(() => { loadDetail(); }, [loadDetail]);
@@ -253,6 +259,14 @@ function UserDetailPanel({ userId, apiBase, onImpersonate, onAction }: { userId:
     if (!confirm(`Change role to "${newRole}"?`)) return;
     if (await doAction(`/admin/super/users/${userId}/role`, "PATCH", { role: newRole }))
       toast({ title: "Role updated", description: `Role changed to ${newRole}.` });
+  }
+
+  async function handleResetGapAnalysis() {
+    if (!confirm("Reset this candidate's gap analysis quota? They will get a fresh 10 analyses.")) return;
+    if (await doAction(`/sponsor-licences/gap-analyses/${userId}`, "DELETE")) {
+      setGapAnalysisUsage({ used: 0, limit: 10 });
+      toast({ title: "Quota reset", description: "Gap analysis quota reset to 0 / 10." });
+    }
   }
 
   if (loading) return <div className="py-6 flex justify-center"><div className="w-6 h-6 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>;
@@ -385,6 +399,33 @@ function UserDetailPanel({ userId, apiBase, onImpersonate, onAction }: { userId:
                 <span className="text-muted-foreground text-xs">{new Date(e.createdAt).toLocaleDateString("en-GB")}</span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {gapAnalysisUsage && (
+        <div>
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-2">AI Gap Analysis Quota</h4>
+          <div className="flex items-center gap-3 p-3 bg-background rounded-lg border border-border">
+            <div className="flex-1 text-sm">
+              <span className="font-semibold">{gapAnalysisUsage.used}</span>
+              <span className="text-muted-foreground"> / {gapAnalysisUsage.limit} analyses used</span>
+            </div>
+            <div className="w-32 h-2 bg-muted rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${gapAnalysisUsage.used >= gapAnalysisUsage.limit ? "bg-red-500" : gapAnalysisUsage.used >= gapAnalysisUsage.limit - 2 ? "bg-amber-500" : "bg-primary"}`}
+                style={{ width: `${Math.min(100, (gapAnalysisUsage.used / gapAnalysisUsage.limit) * 100)}%` }}
+              />
+            </div>
+            {gapAnalysisUsage.used > 0 && (
+              <button
+                onClick={() => void handleResetGapAnalysis()}
+                disabled={!!actionLoading}
+                className="text-xs px-2.5 py-1 rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50 transition-colors disabled:opacity-50"
+              >
+                Reset
+              </button>
+            )}
           </div>
         </div>
       )}
