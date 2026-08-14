@@ -28,12 +28,15 @@ import { useQueryClient } from "@tanstack/react-query";
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 const DAILY_LIMIT = 5;
 
+type Mode  = "general" | "focused";
 type Phase = "input" | "review" | "success";
 
 interface EnhancementResult {
   enhancedContent: string;
   originalText:    string;
   documentId:      number;
+  mode:            Mode;
+  focus:           string | null;
   remaining?:      number;
 }
 
@@ -45,11 +48,10 @@ interface FinalizeResult {
 }
 
 interface CvDocument {
-  id:           number;
-  filename:     string;
-  label:        string | null;
-  isPrimary:    boolean;
-  documentType: string | null;
+  id:        number;
+  filename:  string;
+  label:     string | null;
+  isPrimary: boolean;
 }
 
 interface CvEnhancementSheetProps {
@@ -58,11 +60,13 @@ interface CvEnhancementSheetProps {
 }
 
 export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetProps) {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
+  const { toast }       = useToast();
+  const queryClient     = useQueryClient();
 
   const [phase, setPhase]                     = useState<Phase>("input");
   const [selectedCvId, setSelectedCvId]       = useState<number | null>(null);
+  const [mode, setMode]                       = useState<Mode>("general");
+  const [focus, setFocus]                     = useState("");
   const [isGenerating, setIsGenerating]       = useState(false);
   const [result, setResult]                   = useState<EnhancementResult | null>(null);
   const [editedContent, setEditedContent]     = useState("");
@@ -76,17 +80,16 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
   const cvDocuments: CvDocument[] = (documentsData?.documents ?? [])
     .filter((d) => (d as { documentType?: string | null }).documentType === "cv")
     .map((d) => ({
-      id:           d.id,
-      filename:     (d as { filename?: string }).filename ?? "CV",
-      label:        (d as { label?: string | null }).label ?? null,
-      isPrimary:    (d as { isPrimary?: boolean }).isPrimary ?? false,
-      documentType: (d as { documentType?: string | null }).documentType ?? null,
+      id:        d.id,
+      filename:  (d as { filename?: string }).filename ?? "CV",
+      label:     (d as { label?: string | null }).label ?? null,
+      isPrimary: (d as { isPrimary?: boolean }).isPrimary ?? false,
     }));
 
-  // Auto-select primary CV (or first) when the document list loads
+  // Auto-select primary (or first) when list loads
   useEffect(() => {
     if (!documentsData || selectedCvId !== null) return;
-    const primary = cvDocuments.find((d) => d.isPrimary);
+    const primary  = cvDocuments.find((d) => d.isPrimary);
     const fallback = cvDocuments[0];
     setSelectedCvId(primary?.id ?? fallback?.id ?? null);
   }, [documentsData]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -106,16 +109,24 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
 
   async function handleEnhance() {
     if (!selectedCvId) return;
+    if (mode === "focused" && !focus.trim()) return;
     setIsGenerating(true);
     try {
       const res = await fetch(`${API_BASE}/profiles/cv-enhancement`, {
         method:      "POST",
         credentials: "include",
         headers:     { "Content-Type": "application/json" },
-        body:        JSON.stringify({ documentId: selectedCvId }),
+        body:        JSON.stringify({
+          documentId: selectedCvId,
+          mode,
+          focus: mode === "focused" ? focus.trim() : undefined,
+        }),
       });
       if (!res.ok) {
-        const err = (await res.json().catch(() => ({}))) as { error?: string; limitReached?: boolean };
+        const err = (await res.json().catch(() => ({}))) as {
+          error?: string;
+          limitReached?: boolean;
+        };
         if (err.limitReached) setGenerationsLeft(0);
         throw new Error(err.error ?? "Failed to enhance CV.");
       }
@@ -139,7 +150,6 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
   async function handleAccept() {
     const content = editedContent.trim();
     if (!content || !result) return;
-
     setIsSaving(true);
     try {
       const res = await fetch(`${API_BASE}/profiles/cv-enhancement/finalize`, {
@@ -166,7 +176,7 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
     } catch (err) {
       toast({
         title:       "Save failed",
-        description: err instanceof Error ? err.message : "Could not save your enhanced CV. Please try again.",
+        description: err instanceof Error ? err.message : "Could not save. Please try again.",
         variant:     "destructive",
       });
     } finally {
@@ -191,9 +201,9 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
               <SheetTitle className="text-base font-semibold leading-tight">AI CV Enhancement</SheetTitle>
               <SheetDescription className="text-xs text-muted-foreground mt-0.5">
                 {phase === "input"
-                  ? "Select a CV and AI will rewrite it — same facts, significantly better."
+                  ? "Select a CV — AI rewrites it better, all facts kept exactly as-is."
                   : phase === "review"
-                  ? "Review and edit the rewritten CV before saving."
+                  ? "Review and edit before saving."
                   : "Your enhanced CV has been saved."}
               </SheetDescription>
             </div>
@@ -202,21 +212,21 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
 
         <div className="flex-1 pt-5">
 
-          {/* ── Phase 1: Select a CV ────────────────────────────────────── */}
+          {/* ── Phase 1: Select CV + mode ───────────────────────────────── */}
           {phase === "input" && (
             <div className="space-y-5">
 
-              {/* No CVs at all */}
+              {/* No CVs uploaded yet */}
               {documentsData !== undefined && cvDocuments.length === 0 && (
                 <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3.5">
                   <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                   <p className="text-xs text-amber-800">
-                    You haven't uploaded a CV yet. Upload one from your Documents page first.
+                    Upload a CV from your Documents page first.
                   </p>
                 </div>
               )}
 
-              {/* CV picker — only show if more than one */}
+              {/* CV picker */}
               {cvDocuments.length > 0 && (
                 <div className="space-y-2">
                   {cvDocuments.length > 1 && (
@@ -264,27 +274,55 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
                 </div>
               )}
 
-              {/* What the AI does */}
+              {/* Enhancement mode */}
               {cvDocuments.length > 0 && (
-                <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-2">
-                  <p className="text-xs font-medium text-foreground">What gets improved</p>
-                  <ul className="space-y-1.5 text-xs text-muted-foreground">
-                    <li className="flex items-start gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 mt-0.5 shrink-0" />Grammar, language, and professional tone</li>
-                    <li className="flex items-start gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 mt-0.5 shrink-0" />Weak verbs replaced with strong action verbs</li>
-                    <li className="flex items-start gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 mt-0.5 shrink-0" />Structure and section ordering</li>
-                    <li className="flex items-start gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 mt-0.5 shrink-0" />All facts kept exactly as-is — dates, qualifications, employers</li>
-                  </ul>
+                <fieldset className="space-y-2">
+                  <legend className="text-sm font-medium text-foreground">Enhancement mode</legend>
+                  <label className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-colors ${mode === "general" ? "border-primary/50 bg-primary/5" : "border-border hover:border-primary/30"}`}>
+                    <input type="radio" name="enh-mode" value="general" checked={mode === "general"} onChange={() => setMode("general")} className="mt-0.5 accent-primary shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-foreground">General rewrite</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Stronger language, clearer structure, more professional tone across the whole CV.</p>
+                    </div>
+                  </label>
+                  <label className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-colors ${mode === "focused" ? "border-primary/50 bg-primary/5" : "border-border hover:border-primary/30"}`}>
+                    <input type="radio" name="enh-mode" value="focused" checked={mode === "focused"} onChange={() => setMode("focused")} className="mt-0.5 accent-primary shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground">Focused rewrite</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Tailor the rewrite toward a specific role, specialty, or employer type.</p>
+                    </div>
+                  </label>
+                </fieldset>
+              )}
+
+              {/* Focus text field */}
+              {mode === "focused" && cvDocuments.length > 0 && (
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground" htmlFor="cv-focus">
+                    What should the rewrite focus on?
+                  </label>
+                  <textarea
+                    id="cv-focus"
+                    value={focus}
+                    onChange={(e) => setFocus(e.target.value)}
+                    placeholder={`e.g. "Paediatric ICU nursing role in an NHS trust"`}
+                    rows={3}
+                    maxLength={500}
+                    className="w-full rounded-xl border border-border bg-muted/40 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
+                  />
+                  <p className="text-xs text-muted-foreground text-right">{focus.length}/500</p>
                 </div>
               )}
 
-              {/* Daily limit state */}
+              {/* Daily limit warnings */}
               {dailyLimitReached && (
                 <div className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-3.5">
                   <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                  <p className="text-xs text-rose-800">You've used all {DAILY_LIMIT} enhancements for today. Come back tomorrow.</p>
+                  <p className="text-xs text-rose-800">
+                    You've used all {DAILY_LIMIT} enhancements for today. Come back tomorrow.
+                  </p>
                 </div>
               )}
-
               {generationsLeft !== null && generationsLeft > 0 && (
                 <p className="text-xs text-muted-foreground text-center">
                   {generationsLeft} of {DAILY_LIMIT} enhancements remaining today
@@ -294,7 +332,13 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
               <Button
                 className="w-full gap-2"
                 onClick={() => void handleEnhance()}
-                disabled={isGenerating || dailyLimitReached || !selectedCvId || cvDocuments.length === 0}
+                disabled={
+                  isGenerating ||
+                  dailyLimitReached ||
+                  !selectedCvId ||
+                  cvDocuments.length === 0 ||
+                  (mode === "focused" && !focus.trim())
+                }
               >
                 {isGenerating
                   ? <><Loader2 className="w-4 h-4 animate-spin" />Enhancing CV…</>
@@ -314,7 +358,7 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
                       ? "bg-muted text-foreground"
                       : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
                   }`}
-                >Before</button>
+                >Original</button>
                 <button
                   onClick={() => setReviewTab("after")}
                   className={`flex-1 py-2 transition-colors flex items-center justify-center gap-1.5 ${
@@ -344,9 +388,20 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
 
               {reviewTab === "after" && (
                 <p className="text-xs text-muted-foreground -mt-2">
-                  You can edit the enhanced text above before saving.
+                  You can edit the text above before saving.
                 </p>
               )}
+
+              {/* Mode badge */}
+              <div className="flex items-center gap-2 text-xs text-muted-foreground -mt-1">
+                <span className="inline-flex items-center gap-1 bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
+                  <Sparkles className="w-3 h-3" />
+                  {result.mode === "focused" ? "Focused rewrite" : "General rewrite"}
+                </span>
+                {result.focus && (
+                  <span className="truncate italic">"{result.focus}"</span>
+                )}
+              </div>
 
               {/* Set as primary toggle */}
               <label className="flex items-center gap-3 rounded-xl border border-border bg-muted/30 p-3.5 cursor-pointer hover:bg-muted/50 transition-colors">
@@ -407,8 +462,8 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
                 <h3 className="text-base font-semibold text-foreground">CV Enhanced &amp; Saved</h3>
                 <p className="text-sm text-muted-foreground max-w-xs mx-auto">
                   {finalizeResult.isPrimary
-                    ? "Your enhanced CV has been saved as a PDF and set as your primary CV."
-                    : "Your enhanced CV has been saved as a PDF and added to your documents."}
+                    ? "Saved as a PDF and set as your primary CV."
+                    : "Saved as a PDF and added to your documents."}
                 </p>
               </div>
 

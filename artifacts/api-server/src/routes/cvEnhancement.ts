@@ -54,12 +54,13 @@ async function extractCvText(storageKey: string): Promise<string> {
   const objectFile = await objectStorageSvc.getObjectEntityFile(storageKey);
   const response   = await objectStorageSvc.downloadObject(objectFile);
   const buf        = Buffer.from(await response.arrayBuffer());
-  const pdfParse   = (
-    (await import("pdf-parse")) as unknown as {
-      default: (buf: Buffer) => Promise<{ text: string }>;
-    }
-  ).default;
-  const parsed = await pdfParse(buf);
+  // pdf-parse v2.x exports PDFParse as a named class (no .default in any runtime)
+  const { PDFParse } = (await import("pdf-parse")) as unknown as {
+    PDFParse: new (opts: { data: Buffer | Uint8Array }) => {
+      getText(): Promise<{ text: string }>;
+    };
+  };
+  const parsed = await new PDFParse({ data: buf }).getText();
   return parsed.text.trim();
 }
 
@@ -152,18 +153,30 @@ export function buildRewrittenCvPdf(params: {
 }
 
 // ── POST /profiles/cv-enhancement ─────────────────────────────────────────────
-// Body: { documentId: number }
-// Downloads the selected CV PDF, parses the text, and rewrites it with AI.
+// Body: { documentId: number, mode?: "general"|"focused", focus?: string }
+// Downloads the selected CV PDF, parses it, and rewrites with AI.
 router.post("/profiles/cv-enhancement", requireAuthenticated, async (req, res): Promise<void> => {
   const userId = req.user!.id;
-  const { documentId } = req.body as { documentId?: unknown };
+  const { documentId, mode, focus } = req.body as {
+    documentId?: unknown;
+    mode?:       unknown;
+    focus?:      unknown;
+  };
 
   if (!documentId || typeof documentId !== "number") {
     res.status(400).json({ error: "documentId (number) is required." });
     return;
   }
 
-  // Check rate limit first
+  const enhMode  = mode === "focused" ? "focused" : "general";
+  const focusStr = typeof focus === "string" ? focus.trim() : "";
+
+  if (enhMode === "focused" && !focusStr) {
+    res.status(400).json({ error: "A focus prompt is required for focused enhancement." });
+    return;
+  }
+
+  // Check rate limit
   const { allowed, remaining } = await checkAndIncrementLimit(userId);
   if (!allowed) {
     res.status(429).json({
@@ -200,11 +213,13 @@ router.post("/profiles/cv-enhancement", requireAuthenticated, async (req, res): 
     // Extract text from the PDF
     const originalText = await extractCvText(doc.storageKey);
     if (!originalText) {
-      res.status(400).json({ error: "Could not extract text from this CV. Make sure it is a searchable PDF." });
+      res.status(400).json({
+        error: "Could not extract text from this CV. Make sure it is a searchable (not scanned) PDF.",
+      });
       return;
     }
 
-    // Rewrite the CV with AI
+    // Build AI prompt
     const systemPrompt =
       "You are a professional CV writer specialising in UK healthcare and skilled-worker immigration. " +
       "Your job is to rewrite a candidate's CV to make it significantly more impactful and professional — " +
@@ -216,13 +231,20 @@ router.post("/profiles/cv-enhancement", requireAuthenticated, async (req, res): 
       "Return the complete rewritten CV — nothing else, no preamble, no explanations.";
 
     const userPrompt =
-      "Here is the candidate's current CV. Rewrite it to be significantly better:\n\n" + originalText;
+      enhMode === "focused"
+        ? `Here is the candidate's current CV. Rewrite it to be significantly better, ` +
+          `specifically tailored toward: "${focusStr}". ` +
+          `Emphasise the skills and experience most relevant to this focus. ` +
+          `Keep all factual details exactly as-is.\n\nCV:\n\n${originalText}`
+        : `Here is the candidate's current CV. Rewrite it to be significantly better — ` +
+          `stronger language, clearer structure, more professional tone. ` +
+          `Keep all factual details exactly as-is.\n\nCV:\n\n${originalText}`;
 
     const completion = await openai.chat.completions.create({
       model:       "gpt-4o-mini",
       messages: [
-        { role: "system",  content: systemPrompt },
-        { role: "user",    content: userPrompt },
+        { role: "system", content: systemPrompt },
+        { role: "user",   content: userPrompt },
       ],
       max_tokens:  2000,
       temperature: 0.4,
@@ -238,6 +260,8 @@ router.post("/profiles/cv-enhancement", requireAuthenticated, async (req, res): 
       enhancedContent,
       originalText,
       documentId,
+      mode: enhMode,
+      focus: focusStr || null,
       remaining,
     });
   } catch (err) {

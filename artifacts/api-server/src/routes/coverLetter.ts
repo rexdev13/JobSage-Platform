@@ -27,8 +27,12 @@ async function fetchCvText(userId: string, objectStorageSvc: ObjectStorageServic
       const response = await objectStorageSvc.downloadObject(objectFile);
       const arrayBuf = await response.arrayBuffer();
       const buf = Buffer.from(arrayBuf);
-      const pdfParse = ((await import("pdf-parse")) as unknown as { default: (buf: Buffer) => Promise<{ text: string }> }).default;
-      const parsed = await pdfParse(buf);
+      const { PDFParse } = (await import("pdf-parse")) as unknown as {
+        PDFParse: new (opts: { data: Buffer | Uint8Array }) => {
+          getText(): Promise<{ text: string }>;
+        };
+      };
+      const parsed = await new PDFParse({ data: buf }).getText();
       return parsed.text.slice(0, 4000);
     }
   } catch {
