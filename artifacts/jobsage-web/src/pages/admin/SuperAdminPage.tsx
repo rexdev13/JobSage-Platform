@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { Link } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -150,6 +151,35 @@ function OverviewTab() {
                 <span className="text-sm font-semibold">{cnt}</span>
               </div>
             ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Quick Access */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold">Quick Access</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-3">
+            <Link href="/admin/leads">
+              <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-input bg-background text-sm font-medium hover:bg-muted transition-colors">
+                <Users className="w-4 h-4 text-primary" />
+                View Waitlist Leads
+              </button>
+            </Link>
+            <Link href="/admin/users">
+              <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-input bg-background text-sm font-medium hover:bg-muted transition-colors">
+                <UserCog className="w-4 h-4 text-muted-foreground" />
+                User Management
+              </button>
+            </Link>
+            <Link href="/admin/audit">
+              <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-input bg-background text-sm font-medium hover:bg-muted transition-colors">
+                <Shield className="w-4 h-4 text-muted-foreground" />
+                Audit Logs
+              </button>
+            </Link>
           </div>
         </CardContent>
       </Card>

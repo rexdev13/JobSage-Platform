@@ -106,6 +106,7 @@ export function AppSidebar() {
         { name: "Role Management", href: "/admin/roles", icon: Users, roles: ["admin"] },
         { name: "Audit Logs", href: "/admin/audit", icon: Shield, roles: ["admin"] },
         { name: "User Management", href: "/admin/users", icon: UserCog, roles: ["admin"] },
+        { name: "Waitlist Leads", href: "/admin/leads", icon: Inbox, roles: ["admin"] },
       ],
     },
   ];
@@ -121,6 +122,7 @@ export function AppSidebar() {
     { name: "Role Management", href: "/admin/roles", icon: Users, roles: ["admin", "super_admin"] },
     { name: "Audit Logs", href: "/admin/audit", icon: Shield, roles: ["admin", "super_admin"] },
     { name: "User Management", href: "/admin/users", icon: UserCog, roles: ["admin", "super_admin"] },
+    { name: "Waitlist Leads", href: "/admin/leads", icon: Inbox, roles: ["admin", "super_admin"] },
     { name: "Super Admin", href: "/admin/super", icon: ShieldAlert, roles: ["super_admin"] },
     { name: "Sync Management", href: "/admin/sync", icon: RefreshCw, roles: ["super_admin"] },
   ];
