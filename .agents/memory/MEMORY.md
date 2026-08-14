@@ -1,6 +1,6 @@
 - [Drizzle array column inserts](drizzle-array-column.md) — text("col").array() columns require `as any` cast in .values()/.set() due to drizzle TypeScript type narrowing gap.
 - [GCS File download pattern](gcs-file-download.md) — use storage.downloadObject(gcsFile) then response.arrayBuffer(), not gcsFile.arrayBuffer()
-- [Pre-existing TS errors](pre-existing-ts-errors.md) — do NOT fix: coverLetter.ts, employer.ts, adminAudit.ts, remediation.ts, smartApply.ts, EmployerJobFormPage.tsx, button-group.tsx, calendar.tsx; also speculativeApplications.ts pdf-parse type issue
+- [pdf-parse ESM type fix](pdf-parse-esm-type.md) — import("pdf-parse").default errors fixed via unknown cast; calendar.tsx ref fixed with React.Ref<HTMLDivElement> cast. Both projects now at zero TS errors.
 - [Unknown-type JSX patterns](unknown-jsx-patterns.md) — Record<string,unknown> property access in JSX needs explicit casts; `{p?.x && <C />}` returns `unknown` not ReactNode — use `{!!p?.x && <C />}`.
 - [Stale @workspace/db dist types](db-dist-stale-types.md) — phantom TS2339 on schema columns means lib/db dist is stale; `cd lib/db && npx tsc --build --force`.
 - [api-client-react rebuild](api-client-react-rebuild.md) — any type changes require cd lib/api-client-react && npx tsc --build to regenerate dist/*.d.ts
