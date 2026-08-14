@@ -1,8 +1,9 @@
 import crypto from "crypto";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { z } from "zod";
-import { db, socialLeadsTable } from "@workspace/db";
+import { db, socialLeadsTable, sponsorLicencesTable } from "@workspace/db";
 import { openai } from "@workspace/integrations-openai-ai-server";
+import { sql } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -12,9 +13,9 @@ const router: IRouter = Router();
 
 const SubmitLeadSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
-  lastName: z.string().optional(),
+  lastName: z.string().min(1, "Last name is required"),
   email: z.string().email("A valid email address is required"),
-  phone: z.string().optional(),
+  phone: z.string().min(1, "Phone number is required"),
 
   // Qualifying questions (generic — all sectors)
   industrySector: z.string().optional(),
@@ -34,6 +35,37 @@ const SubmitLeadSchema = z.object({
     errorMap: () => ({ message: "GDPR consent is required to submit this form" }),
   }),
 });
+
+// ---------------------------------------------------------------------------
+// GET /api/leads/sectors — distinct sponsor-licence industries for the dropdown
+// Public, no auth required. Results are stable enough to cache for 1 hour.
+// ---------------------------------------------------------------------------
+
+router.get(
+  "/leads/sectors",
+  async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const rows = await db
+        .selectDistinct({ industry: sponsorLicencesTable.industry })
+        .from(sponsorLicencesTable)
+        .where(sql`${sponsorLicencesTable.industry} IS NOT NULL AND ${sponsorLicencesTable.industry} != 'Other'`)
+        .orderBy(sponsorLicencesTable.industry);
+
+      const sectors = rows
+        .map((r) => r.industry)
+        .filter((v): v is string => typeof v === "string" && v.trim() !== "");
+
+      // Always append "Other" as the last option
+      sectors.push("Other");
+
+      res.setHeader("Cache-Control", "public, max-age=3600");
+      res.json({ sectors });
+    } catch (err) {
+      console.error("[leads] GET /leads/sectors error:", err);
+      res.status(500).json({ error: "Could not load sector list." });
+    }
+  },
+);
 
 // ---------------------------------------------------------------------------
 // POST /api/leads/submit — public, no auth required
@@ -67,9 +99,9 @@ router.post(
 
       await db.insert(socialLeadsTable).values({
         firstName: d.firstName,
-        lastName: d.lastName ?? null,
+        lastName: d.lastName,
         email: d.email,
-        phone: d.phone ?? null,
+        phone: d.phone,
 
         industrySector: d.industrySector ?? null,
         desiredRole: d.desiredRole ?? null,
@@ -102,23 +134,27 @@ router.post(
 // Uses gpt-4o-mini. No auth required (pre-registration lead capture).
 // ---------------------------------------------------------------------------
 
-const LEAD_CHAT_SYSTEM_PROMPT = `You are SAGE, an AI advisor embedded on the JOBSAGE platform. JOBSAGE helps ambitious professionals from around the world find great jobs and relocation pathways in the UK — across all industries and sectors.
+const LEAD_CHAT_SYSTEM_PROMPT = `You are SAGE, a friendly advisor on the JOBSAGE platform. JOBSAGE helps professionals from around the world find jobs and UK relocation pathways across all industries.
 
-Your goal in this conversation is to:
-1. Warmly greet the user and learn their name
-2. Ask natural qualifying questions one at a time — what sector or industry they work in, what type of role they are looking for, whether they will need UK visa sponsorship, and when they are hoping to make a move
-3. Give short, practical, encouraging answers about working in the UK and what the process looks like
-4. After 3–5 exchanges, invite the user to leave their contact details (name, email, phone) so the JOBSAGE team can follow up with tailored opportunities
+Your primary goal is to collect the user's first name, last name, email address, and phone number. You can also ask what sector they work in. That is it.
 
-Rules:
-- Ask only ONE question per message — never stack multiple questions
-- Keep responses concise: 2–3 sentences maximum
-- Be warm, professional, and encouraging — you are a trusted career guide, not a form
-- You support ALL sectors: technology, finance, healthcare, engineering, education, hospitality, construction, law, retail, and more
-- For visa and immigration: most skilled workers from overseas need a Skilled Worker visa sponsored by a UK employer who holds a sponsor licence; points-based system applies
-- Never give definitive immigration or legal advice — always recommend they seek professional advice for their specific situation
-- Collect the user's name and email naturally if they volunteer it — do not demand it early
-- Do not ask the user to leave their details until you have asked at least 3 qualifying questions`;
+STRICT FORMATTING RULES — follow these without exception:
+No markdown of any kind. No dashes, no bullet points, no bold text, no asterisks, no numbered lists, no headers. Plain sentences only.
+Write exactly like a real person texting on WhatsApp. Short sentences. Casual and warm. Natural transitions between topics.
+Never ask for all information at once. Gather it one or two pieces at a time through natural conversation.
+Never use a list to present options or steps. Just talk.
+
+How to run the conversation:
+Start by asking for their first name. Once you have it use it naturally.
+After their name, ask for their last name.
+Then get their email. Then their phone number.
+You can weave in a casual question about their sector somewhere along the way if it feels natural.
+Keep each message to one or two short sentences max.
+Be warm and encouraging. Sound human not robotic.
+
+If the user asks about UK jobs, sponsorship, or visas give a brief honest answer in plain conversational language then gently steer back to collecting their details.
+Never give legal or immigration advice. If they need specifics suggest they speak to an immigration advisor.`;
+
 
 router.post(
   "/leads/chat",
