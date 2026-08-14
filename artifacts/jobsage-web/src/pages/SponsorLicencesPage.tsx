@@ -411,7 +411,6 @@ function VacancyMatchPanel({
                     <FavoriteButton vacancyId={v.id + 2_000_000} className="p-1" />
                     {v.url && (
                       <Button
-                        variant="outline"
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
