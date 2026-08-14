@@ -1760,23 +1760,37 @@ export default function OpportunitiesPage() {
       <SmartApplyExtensionNudge open={showExtensionNudge} onClose={() => setShowExtensionNudge(false)} />
 
       {/* AI Gap Analysis Sheet */}
-      {gapAnalysisRole && (
-        <GapAnalysisSheet
-          open={gapAnalysisRole != null}
-          onOpenChange={(open) => { if (!open) setGapAnalysisRole(null); }}
-          vacancyId={gapAnalysisRole.role.id}
-          vacancyTitle={gapAnalysisRole.role.title}
-          companyName={gapAnalysisRole.role.employer}
-          vacancyUrl={gapAnalysisRole.applyUrl ?? gapAnalysisRole.contactWebsite ?? null}
-          hasCvUploaded={!!myProfile}
-          analysisEndpoint={`/opportunities/roles/${gapAnalysisRole.role.id}/gap-analysis`}
-          onApply={() => handleSmartApply(gapAnalysisRole.role.id, gapAnalysisRole.role.title)}
-          onWebsiteApply={() => {
-            const url = gapAnalysisRole.applyUrl ?? gapAnalysisRole.contactWebsite;
-            if (url) window.open(url.startsWith("http") ? url : `https://${url}`, "_blank", "noopener,noreferrer");
-          }}
-        />
-      )}
+      {gapAnalysisRole && (() => {
+        // Sponsor vacancies are surfaced on the Opportunities page with
+        // id = vacancyId + SPONSOR_VACANCY_ID_OFFSET (2_000_000).
+        // Route to the sponsor-licences endpoint for those; fall back to the
+        // matched-roles endpoint for any real catalogue roles (future-proof).
+        const SPONSOR_OFFSET = 2_000_000;
+        const isSponsorVacancy = gapAnalysisRole.role.id >= SPONSOR_OFFSET;
+        const vacancyId = isSponsorVacancy
+          ? gapAnalysisRole.role.id - SPONSOR_OFFSET
+          : gapAnalysisRole.role.id;
+        const endpoint = isSponsorVacancy
+          ? `/sponsor-licences/vacancies/${vacancyId}/gap-analysis`
+          : `/opportunities/roles/${gapAnalysisRole.role.id}/gap-analysis`;
+        return (
+          <GapAnalysisSheet
+            open={gapAnalysisRole != null}
+            onOpenChange={(open) => { if (!open) setGapAnalysisRole(null); }}
+            vacancyId={vacancyId}
+            vacancyTitle={gapAnalysisRole.role.title}
+            companyName={gapAnalysisRole.role.employer}
+            vacancyUrl={gapAnalysisRole.applyUrl ?? gapAnalysisRole.contactWebsite ?? null}
+            hasCvUploaded={!!myProfile}
+            analysisEndpoint={endpoint}
+            onApply={() => handleSmartApply(gapAnalysisRole.role.id, gapAnalysisRole.role.title)}
+            onWebsiteApply={() => {
+              const url = gapAnalysisRole.applyUrl ?? gapAnalysisRole.contactWebsite;
+              if (url) window.open(url.startsWith("http") ? url : `https://${url}`, "_blank", "noopener,noreferrer");
+            }}
+          />
+        );
+      })()}
 
       {gateModal}
 
