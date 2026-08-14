@@ -432,10 +432,10 @@ function VacancyMatchPanel({
                           <button
                             onClick={(e) => { e.stopPropagation(); onApply({ ...v, companyName, companyId }); }}
                             disabled={disabledReason != null}
-                            className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-semibold shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
                           >
-                            <Sparkles className="w-3 h-3" />
-                            Send CV
+                            <Send className="w-3.5 h-3.5" />
+                            Send my CV
                           </button>
                         </span>
                       );
@@ -1504,18 +1504,6 @@ export default function SponsorLicencesPage() {
                                 {expandedContact.has(c.id) ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                               </button>
 
-                              <Button
-                                size="sm"
-                                variant={sentCompanyNames.has(c.organisationName) ? "outline" : "default"}
-                                className="text-xs gap-1.5"
-                                onClick={() => handleOpenSpeculativeModal(c.organisationName, c.id)}
-                              >
-                                {sentCompanyNames.has(c.organisationName) ? (
-                                  <><CheckCircle2 className="w-3.5 h-3.5" /> CV Sent</>
-                                ) : (
-                                  <><Send className="w-3.5 h-3.5" /> Send my CV</>
-                                )}
-                              </Button>
                             </div>
                           </div>
 
