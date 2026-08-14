@@ -1,0 +1,24 @@
+We need to refine the Waitlist / Lead Capture form and the AI system prompt based on new client feedback. Please execute the following updates:
+
+Task 1: Form Validation & Compulsory Fields
+- Make the following four fields strictly compulsory (required): First Name, Last Name, Email Address, and Phone Number. Add appropriate form validation to ensure these cannot be skipped.
+
+Task 2: Refactor the 'Sector / Industry' Field
+- Keep the 'Sector / Industry' field, but make it optional.
+- Change the UI component from a standard text input to a Select/Dropdown menu.
+- Populate the options for this dropdown dynamically by extracting the unique sectors/industries from our existing "sponsors and license" data/table. 
+- Append an "Other" option to the bottom of the dropdown list.
+- Implement conditional rendering: If the user selects "Other", display a new text input field immediately below it so they can manually type in their custom sector.
+- Leave 'Desired Role' and 'Anything else we should know?' as optional text/textarea inputs.
+
+Task 3: Update the Database Schema (Supabase)
+- Ensure the waitlist/leads table reflects these rules: `first_name`, `last_name`, `email`, and `phone` must be NOT NULL. 
+- `sector_industry`, `desired_role`, and `additional_message` should remain nullable. 
+- Ensure the database can handle the custom string passed if the user selects "Other" and types their own sector.
+
+Task 4: Overhaul the AI System Prompt
+Update the system prompt for the AI Chat interface with these strict behavioral rules:
+1. The AI's primary goal is to collect the user's First Name, Last Name, Email Address, and Phone Number. It can also optionally ask what sector they are in.
+2. ALL MARKDOWN IS STRICTLY FORBIDDEN. The AI must never use dashes (-), bullet points, bolding (**), asterisks, or numbered lists.
+3. The AI must write exactly like a real human texting on a messaging app like WhatsApp. Use short, conversational sentences and natural transitions.
+4. Do not demand all the information at once. Ask conversationally, one or two pieces at a time.

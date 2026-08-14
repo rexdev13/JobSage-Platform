@@ -25,7 +25,10 @@ interface FormState {
   lastName: string;
   email: string;
   phone: string;
+  /** The value chosen in the sector dropdown (may be "Other") */
   industrySector: string;
+  /** Free-text custom sector — only relevant when industrySector === "Other" */
+  sectorOther: string;
   desiredRole: string;
   additionalMessage: string;
   gdprConsent: boolean;
@@ -133,12 +136,14 @@ function LeadForm({
   onSubmit,
   submitting,
   error,
+  sectors,
 }: {
   form: FormState;
   setField: <K extends keyof FormState>(k: K, v: FormState[K]) => void;
   onSubmit: (e: React.FormEvent) => void;
   submitting: boolean;
   error: string | null;
+  sectors: string[];
 }) {
   return (
     <form onSubmit={onSubmit} className="space-y-8">
@@ -153,24 +158,52 @@ function LeadForm({
               <label className="block text-sm font-medium text-foreground mb-1.5">
                 First name <span className="text-destructive">*</span>
               </label>
-              <input required value={form.firstName} onChange={(e) => setField("firstName", e.target.value)} placeholder="Jane" className={fieldClass} />
+              <input
+                required
+                value={form.firstName}
+                onChange={(e) => setField("firstName", e.target.value)}
+                placeholder="Jane"
+                className={fieldClass}
+              />
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">Last name</label>
-              <input value={form.lastName} onChange={(e) => setField("lastName", e.target.value)} placeholder="Smith" className={fieldClass} />
+              <label className="block text-sm font-medium text-foreground mb-1.5">
+                Last name <span className="text-destructive">*</span>
+              </label>
+              <input
+                required
+                value={form.lastName}
+                onChange={(e) => setField("lastName", e.target.value)}
+                placeholder="Smith"
+                className={fieldClass}
+              />
             </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
               Email address <span className="text-destructive">*</span>
             </label>
-            <input required type="email" value={form.email} onChange={(e) => setField("email", e.target.value)} placeholder="jane@example.com" className={fieldClass} />
+            <input
+              required
+              type="email"
+              value={form.email}
+              onChange={(e) => setField("email", e.target.value)}
+              placeholder="jane@example.com"
+              className={fieldClass}
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              Phone number <span className="text-muted-foreground font-normal">(optional)</span>
+              Phone number <span className="text-destructive">*</span>
             </label>
-            <input type="tel" value={form.phone} onChange={(e) => setField("phone", e.target.value)} placeholder="+44 7700 000000" className={fieldClass} />
+            <input
+              required
+              type="tel"
+              value={form.phone}
+              onChange={(e) => setField("phone", e.target.value)}
+              placeholder="+44 7700 000000"
+              className={fieldClass}
+            />
           </div>
         </div>
       </section>
@@ -181,20 +214,39 @@ function LeadForm({
           Your career interests
         </SectionHeading>
         <div className="space-y-4">
+          {/* Sector dropdown */}
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              Sector / Industry <span className="text-muted-foreground font-normal">(optional)</span>
+              Sector / Industry{" "}
+              <span className="text-muted-foreground font-normal">(optional)</span>
             </label>
-            <input
+            <select
               value={form.industrySector}
               onChange={(e) => setField("industrySector", e.target.value)}
-              placeholder="e.g. Technology, Finance, Engineering, Healthcare…"
-              className={fieldClass}
-            />
+              className={`${fieldClass} bg-background`}
+            >
+              <option value="">Select a sector…</option>
+              {sectors.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+            {/* Conditional free-text for "Other" */}
+            {form.industrySector === "Other" && (
+              <input
+                value={form.sectorOther}
+                onChange={(e) => setField("sectorOther", e.target.value)}
+                placeholder="Please describe your sector…"
+                className={`${fieldClass} mt-2`}
+              />
+            )}
           </div>
+
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              Desired Role <span className="text-muted-foreground font-normal">(optional)</span>
+              Desired Role{" "}
+              <span className="text-muted-foreground font-normal">(optional)</span>
             </label>
             <input
               value={form.desiredRole}
@@ -205,7 +257,8 @@ function LeadForm({
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              Anything else we should know? <span className="text-muted-foreground font-normal">(optional)</span>
+              Anything else we should know?{" "}
+              <span className="text-muted-foreground font-normal">(optional)</span>
             </label>
             <textarea
               value={form.additionalMessage}
@@ -230,7 +283,9 @@ function LeadForm({
           <span className="text-sm text-muted-foreground leading-relaxed">
             I agree to JOBSAGE storing and processing my information to assess my UK career options and send me relevant updates. I understand I can withdraw consent at any time.{" "}
             <Link href="/extension-privacy">
-              <span className="underline underline-offset-2 text-foreground cursor-pointer">Privacy Policy</span>
+              <span className="underline underline-offset-2 text-foreground cursor-pointer">
+                Privacy Policy
+              </span>
             </Link>
           </span>
         </label>
@@ -242,9 +297,15 @@ function LeadForm({
 
       <Button type="submit" size="lg" disabled={submitting} className="w-full">
         {submitting ? (
-          <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Submitting…</>
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Submitting…
+          </>
         ) : (
-          <>Get in touch<ChevronRight className="ml-1 h-4 w-4" /></>
+          <>
+            Get in touch
+            <ChevronRight className="ml-1 h-4 w-4" />
+          </>
         )}
       </Button>
     </form>
@@ -408,6 +469,7 @@ export default function GetStartedPage() {
     email: "",
     phone: "",
     industrySector: "",
+    sectorOther: "",
     desiredRole: "",
     additionalMessage: "",
     gdprConsent: false,
@@ -415,6 +477,17 @@ export default function GetStartedPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Sector list fetched from the server (populated from sponsor_licences)
+  const [sectors, setSectors] = useState<string[]>([]);
+  useEffect(() => {
+    fetch("/api/leads/sectors")
+      .then((r) => r.json())
+      .then((data: { sectors?: string[] }) => {
+        if (Array.isArray(data.sectors)) setSectors(data.sectors);
+      })
+      .catch(() => {/* non-critical — dropdown just stays empty */});
+  }, []);
 
   // Chat state
   const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_MESSAGES);
@@ -436,10 +509,22 @@ export default function GetStartedPage() {
       if (parts[0]) setField("firstName", parts[0]);
       if (parts.length > 1) setField("lastName", parts.slice(1).join(" "));
     }
-    if (extracted.email)         setField("email",          extracted.email);
-    if (extracted.phone)         setField("phone",          extracted.phone);
-    if (extracted.industrySector) setField("industrySector", extracted.industrySector);
-    if (extracted.desiredRole)   setField("desiredRole",    extracted.desiredRole);
+    if (extracted.email)       setField("email", extracted.email);
+    if (extracted.phone)       setField("phone", extracted.phone);
+    if (extracted.industrySector) {
+      // If the extracted sector exactly matches a known dropdown option, select it.
+      // Otherwise, choose "Other" and populate the free-text field.
+      const match = sectors.find(
+        (s) => s.toLowerCase() === extracted.industrySector!.toLowerCase(),
+      );
+      if (match) {
+        setField("industrySector", match);
+      } else {
+        setField("industrySector", "Other");
+        setField("sectorOther", extracted.industrySector!);
+      }
+    }
+    if (extracted.desiredRole) setField("desiredRole", extracted.desiredRole);
   }
 
   async function handleChatSend() {
@@ -558,10 +643,14 @@ export default function GetStartedPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           firstName: form.firstName,
-          lastName: form.lastName || undefined,
+          lastName: form.lastName,
           email: form.email,
-          phone: form.phone || undefined,
-          industrySector: form.industrySector || undefined,
+          phone: form.phone,
+          // When "Other" is selected, submit the free-text value instead
+          industrySector:
+            form.industrySector === "Other"
+              ? form.sectorOther || undefined
+              : form.industrySector || undefined,
           desiredRole: form.desiredRole || undefined,
           additionalMessage: form.additionalMessage || undefined,
           gdprConsent: form.gdprConsent,
@@ -687,6 +776,7 @@ export default function GetStartedPage() {
                   onSubmit={handleFormSubmit}
                   submitting={submitting}
                   error={formError}
+                  sectors={sectors}
                 />
               )}
             </motion.div>
