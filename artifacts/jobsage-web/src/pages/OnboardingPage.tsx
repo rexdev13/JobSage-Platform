@@ -129,12 +129,7 @@ export default function OnboardingPage() {
     <div className="min-h-screen bg-background py-10 px-4 flex flex-col items-center">
       {/* Brand header */}
       <div className="w-full max-w-2xl mb-8 flex justify-between items-center px-2">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shadow">
-            <Shield className="w-5 h-5 text-primary-foreground" />
-          </div>
-          <span className="text-xl font-display font-extrabold text-primary tracking-tight">JOBSAGE</span>
-        </div>
+        <img src="/logo.png" alt="JOBSAGE" className="h-8 w-auto" />
         <div className="flex flex-col items-end">
           <span className="text-xs text-muted-foreground">Step {step} of 4</span>
           <span className="text-sm font-semibold text-foreground">{FORM_STEPS[step - 1].label}</span>
