@@ -21,3 +21,4 @@ export * from "./identityVerifications";
 export * from "./careerProfiles";
 export * from "./vacancyFavorites";
 export * from "./socialLeads";
+export * from "./cvEnhancementUsage";
