@@ -2,24 +2,23 @@
  * #476 — Confirm the AI-generated CV PDF can be attached to job applications.
  *
  * Tests the full pipeline:
- *   buildCvPdf (pdfkit) → Buffer → pdf-parse → extracted text
+ *   buildRewrittenCvPdf (pdfkit) → Buffer → pdf-parse → extracted text
  *
  * Verifies that:
- * 1. buildCvPdf produces a non-empty Buffer with a valid PDF header.
+ * 1. buildRewrittenCvPdf produces a non-empty Buffer with a valid PDF header.
  * 2. pdf-parse can extract readable text from the pdfkit output.
- * 3. Key candidate fields (name, profession, narrative) appear in the extracted text.
- * 4. The filename pattern matches what speculativeApplications validates (.pdf extension).
- * 5. The document field values satisfy the primary-CV selection logic in both
+ * 3. Key candidate fields (name, section headers, narrative) appear in extracted text.
+ * 4. Section header detection works correctly (ALL CAPS lines).
+ * 5. The filename pattern matches what speculativeApplications validates (.pdf extension).
+ * 6. The document field values satisfy the primary-CV selection logic in both
  *    speculativeApplications.ts and coverLetter.ts.
  */
 
 import { describe, it, expect } from "vitest";
-import { buildCvPdf } from "../routes/cvEnhancement";
+import { buildRewrittenCvPdf } from "../routes/cvEnhancement";
 
-// pdf-parse v2.x ESM exports PDFParse as a class (not a bare function).
-// We wrap it so tests use the same simple (buf) => { text, numpages } interface.
+// pdf-parse v2.x ESM exports PDFParse as a class — see memory: pdf-parse-v2-esm.md
 async function parsePdf(buf: Buffer): Promise<{ text: string; numpages: number }> {
-  // pdf-parse v2.x ESM: PDFParse is a class; getText() calls load() internally.
   const { PDFParse } = await import("pdf-parse") as unknown as {
     PDFParse: new (opts: { data: Buffer | Uint8Array }) => {
       getText(params?: Record<string, unknown>): Promise<{ text: string; total: number }>;
@@ -30,102 +29,90 @@ async function parsePdf(buf: Buffer): Promise<{ text: string; numpages: number }
   return { text: result.text, numpages: result.total };
 }
 
-const SAMPLE_PROFILE = {
-  profession:           "Registered Nurse",
-  specialty:            "Critical Care",
-  qualificationType:    "BSc Nursing",
-  qualificationCountry: "Nigeria",
-  qualificationYear:    2018,
-  experienceYears:      7,
-  registrationStatus:   "in_process",
-  residencyStatus:      "Tier 2 Skilled Worker",
-  requiresSponsorship:  true,
-  languages:            ["English", "Yoruba"],
-  additionalNotes:      "IELTS 7.5. Available from January 2025.",
-  preferredRegion:      ["London", "South East"],
-};
+const SAMPLE_CONTENT = `PROFESSIONAL SUMMARY
 
-const SAMPLE_NARRATIVE =
-  "A dedicated and skilled Registered Nurse with seven years of extensive experience in acute and " +
-  "critical care settings. Demonstrates commitment to delivering exceptional patient care in line " +
-  "with NHS standards. Seeking a Skilled Worker sponsored position in London or the South East.";
+A dedicated and highly skilled Registered Nurse with seven years of extensive experience
+in acute and critical care settings. Demonstrates a consistent commitment to delivering
+exceptional patient-centred care in line with NHS standards and best practices.
 
-describe("buildCvPdf → pdf-parse pipeline", () => {
+WORK EXPERIENCE
+
+Senior Staff Nurse — City General Hospital (2019–present)
+- Led a team of 6 nurses across a 20-bed ICU
+- Implemented new patient handover protocols reducing errors by 30%
+- Mentored junior staff and student nurses
+
+EDUCATION
+
+BSc Nursing (First Class) — University of Lagos, 2018
+
+KEY SKILLS
+
+- Advanced life support (ALS) certified
+- Critical care and ventilator management
+- Multidisciplinary team collaboration
+
+LANGUAGES
+
+English (fluent), Yoruba (native)`;
+
+describe("buildRewrittenCvPdf → pdf-parse pipeline", () => {
   it("produces a non-empty Buffer with a valid PDF header", async () => {
-    const buf = await buildCvPdf({
-      firstName: "Amara",
-      lastName:  "Okafor",
-      profile:   SAMPLE_PROFILE,
-      aiContent: SAMPLE_NARRATIVE,
-    });
+    const buf = await buildRewrittenCvPdf({ name: "Amara Okafor", content: SAMPLE_CONTENT });
 
     expect(buf).toBeInstanceOf(Buffer);
-    expect(buf.length).toBeGreaterThan(1000); // a real PDF is never trivially small
-    // Every PDF file starts with %PDF-
+    expect(buf.length).toBeGreaterThan(1000);
     expect(buf.slice(0, 5).toString("ascii")).toBe("%PDF-");
   });
 
   it("pdf-parse can extract text from the pdfkit output", async () => {
-    const buf = await buildCvPdf({
-      firstName: "Amara",
-      lastName:  "Okafor",
-      profile:   SAMPLE_PROFILE,
-      aiContent: SAMPLE_NARRATIVE,
-    });
-
+    const buf = await buildRewrittenCvPdf({ name: "Amara Okafor", content: SAMPLE_CONTENT });
     const result = await parsePdf(buf);
 
     expect(result.text).toBeTruthy();
     expect(result.numpages).toBeGreaterThanOrEqual(1);
   });
 
-  it("extracted text contains the candidate name and profession", async () => {
-    const buf = await buildCvPdf({
-      firstName: "Amara",
-      lastName:  "Okafor",
-      profile:   SAMPLE_PROFILE,
-      aiContent: SAMPLE_NARRATIVE,
-    });
-
+  it("extracted text contains the candidate name", async () => {
+    const buf = await buildRewrittenCvPdf({ name: "Amara Okafor", content: SAMPLE_CONTENT });
     const { text } = await parsePdf(buf);
-    const normalised = text.replace(/\s+/g, " ");
 
-    expect(normalised).toContain("Amara");
-    expect(normalised).toContain("Okafor");
-    expect(normalised).toContain("Registered Nurse");
-    expect(normalised).toContain("Critical Care");
+    expect(text).toContain("Amara");
+    expect(text).toContain("Okafor");
   });
 
-  it("extracted text contains the AI narrative", async () => {
-    const buf = await buildCvPdf({
-      firstName: "Amara",
-      lastName:  "Okafor",
-      profile:   SAMPLE_PROFILE,
-      aiContent: SAMPLE_NARRATIVE,
-    });
+  it("extracted text contains section headers from the rewritten CV", async () => {
+    const buf = await buildRewrittenCvPdf({ name: "Amara Okafor", content: SAMPLE_CONTENT });
+    const { text } = await parsePdf(buf);
 
+    expect(text).toContain("PROFESSIONAL SUMMARY");
+    expect(text).toContain("WORK EXPERIENCE");
+    expect(text).toContain("EDUCATION");
+  });
+
+  it("extracted text contains key narrative content", async () => {
+    const buf = await buildRewrittenCvPdf({ name: "Amara Okafor", content: SAMPLE_CONTENT });
     const { text } = await parsePdf(buf);
 
     // The narrative must survive the PDF round-trip so speculativeApplications
     // can send meaningful CV text to employers
-    expect(text).toContain("exceptional patient care");
-    expect(text).toContain("Skilled Worker");
+    expect(text).toContain("exceptional patient");
+    expect(text).toContain("NHS");
   });
 
   it("filename pattern satisfies speculativeApplications .pdf validation", () => {
     const dateStr = new Date().toISOString().slice(0, 10);
-    const filename = `AI_Enhanced_CV_${dateStr}.pdf`;
-    // speculativeApplications.ts line 240: filename.toLowerCase().endsWith(".pdf")
+    const filename = `Enhanced_CV_${dateStr}.pdf`;
+    // speculativeApplications.ts: filename.toLowerCase().endsWith(".pdf")
     expect(filename.toLowerCase().endsWith(".pdf")).toBe(true);
   });
 
   it("document field values satisfy primary-CV selection logic", () => {
     // speculativeApplications.ts selects: documentType === "cv" AND isPrimary === true
     // coverLetter.ts orders by: isPrimary DESC, uploadedAt DESC
-    // Both select the first match — confirmed by our insert values:
     const documentFields = {
       documentType: "cv",
-      isPrimary:    true,            // set by the transaction in finalize endpoint
+      isPrimary:    true,
       mimeType:     "application/pdf",
       label:        "AI Enhanced CV",
     };
@@ -134,19 +121,13 @@ describe("buildCvPdf → pdf-parse pipeline", () => {
     expect(documentFields.mimeType).toBe("application/pdf");
   });
 
-  it("works without a candidate name (graceful fallback)", async () => {
-    const buf = await buildCvPdf({
-      firstName: null,
-      lastName:  undefined,
-      profile:   SAMPLE_PROFILE,
-      aiContent: SAMPLE_NARRATIVE,
-    });
+  it("works without content bullet points (plain prose only)", async () => {
+    const plainContent = `PROFESSIONAL SUMMARY\n\nAn experienced nurse with strong clinical skills.\n\nEDUCATION\n\nBSc Nursing, University of Lagos, 2018`;
+    const buf = await buildRewrittenCvPdf({ name: "Jane Doe", content: plainContent });
 
     expect(buf).toBeInstanceOf(Buffer);
-    expect(buf.slice(0, 5).toString("ascii")).toBe("%PDF-");
-
     const { text } = await parsePdf(buf);
-    // Should fall back to "Candidate" as the header name
-    expect(text).toContain("Candidate");
+    expect(text).toContain("Jane");
+    expect(text).toContain("EDUCATION");
   });
 });
