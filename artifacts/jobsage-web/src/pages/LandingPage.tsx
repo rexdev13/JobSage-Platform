@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui-enhanced";
-import JobsageLogo from "@/components/JobsageLogo";
 import {
   Shield,
   ChevronRight,
@@ -1308,7 +1307,10 @@ export default function LandingPage() {
           <div className="flex flex-col md:flex-row justify-between gap-8 mb-10">
             <div className="max-w-xs">
               <div className="flex items-center gap-3 mb-4">
-                <JobsageLogo className="h-8" variant="inverted" />
+                <div className="w-8 h-8 bg-background/15 rounded-lg flex items-center justify-center">
+                  <Shield className="w-5 h-5 text-background" />
+                </div>
+                <span className="text-lg font-display font-extrabold text-background">JOBSAGE</span>
               </div>
               <p className="text-sm leading-relaxed">
                 Connecting exceptional global talent with UK opportunity through representation, compliance, and intelligence.
