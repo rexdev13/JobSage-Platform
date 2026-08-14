@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { sponsorLicencesTable, sponsorLicenceSyncLogTable, sponsorLicenceVacancyChecksTable, sponsorLicenceBookmarksTable, sponsorLicenceVacanciesTable, sponsorLicenceVacancyScoresTable } from "@workspace/db";
+import { sponsorLicencesTable, sponsorLicenceSyncLogTable, sponsorLicenceVacancyChecksTable, sponsorLicenceBookmarksTable, sponsorLicenceVacanciesTable, sponsorLicenceVacancyScoresTable, sponsorLicenceGapAnalysesTable } from "@workspace/db";
 import { eq, ilike, and, desc, sql, isNotNull, inArray } from "drizzle-orm";
 import { countyToRegion } from "../lib/countyToRegion";
 import { requireAuthenticated, requireRole } from "../middlewares/requireRole";
@@ -755,6 +755,53 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
   } catch (err) {
     console.error("[sponsor-licences] list error:", err);
     res.status(500).json({ error: "Failed to fetch sponsor licence companies." });
+  }
+});
+
+// ── Gap Analysis Usage (candidate's own) ─────────────────────────────────────
+
+router.get("/sponsor-licences/gap-analyses/usage", requireAuthenticated, async (req, res) => {
+  try {
+    const userId = req.user!.id;
+    const [row] = await db
+      .select({ count: sql<number>`cast(count(*) as integer)` })
+      .from(sponsorLicenceGapAnalysesTable)
+      .where(eq(sponsorLicenceGapAnalysesTable.userId, userId));
+    res.json({ used: row?.count ?? 0, limit: 10 });
+  } catch (err) {
+    console.error("[sponsor-licences] /gap-analyses/usage error:", err);
+    res.status(500).json({ error: "Failed to fetch usage." });
+  }
+});
+
+// ── Gap Analysis Admin: view and reset a candidate's quota ────────────────────
+
+router.get("/sponsor-licences/gap-analyses/usage/:userId", requireRole("admin"), async (req, res) => {
+  try {
+    const targetUserId = typeof req.params["userId"] === "string" ? req.params["userId"] : "";
+    if (!targetUserId) return void res.status(400).json({ error: "Invalid user ID." });
+    const [row] = await db
+      .select({ count: sql<number>`cast(count(*) as integer)` })
+      .from(sponsorLicenceGapAnalysesTable)
+      .where(eq(sponsorLicenceGapAnalysesTable.userId, targetUserId));
+    res.json({ used: row?.count ?? 0, limit: 10 });
+  } catch (err) {
+    console.error("[sponsor-licences] /gap-analyses/usage/:userId error:", err);
+    res.status(500).json({ error: "Failed to fetch usage." });
+  }
+});
+
+router.delete("/sponsor-licences/gap-analyses/:userId", requireRole("admin"), async (req, res) => {
+  try {
+    const targetUserId = typeof req.params["userId"] === "string" ? req.params["userId"] : "";
+    if (!targetUserId) return void res.status(400).json({ error: "Invalid user ID." });
+    await db
+      .delete(sponsorLicenceGapAnalysesTable)
+      .where(eq(sponsorLicenceGapAnalysesTable.userId, targetUserId));
+    res.json({ reset: true });
+  } catch (err) {
+    console.error("[sponsor-licences] /gap-analyses/:userId DELETE error:", err);
+    res.status(500).json({ error: "Failed to reset quota." });
   }
 });
 

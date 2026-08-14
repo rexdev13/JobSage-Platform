@@ -1811,6 +1811,14 @@ export default function SponsorLicencesPage() {
                     View original posting
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={() => { setSelectedVacancy(null); setGapAnalysisVacancy(selectedVacancy); }}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-primary/30 bg-primary/5 text-sm font-medium text-primary hover:bg-primary/10 transition-colors"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  View AI Analysis
+                </button>
                 {(() => {
                   const disabledReason = getApplyDisabledReason(hasCvUploaded, selectedVacancy.isEligible);
                   return (
