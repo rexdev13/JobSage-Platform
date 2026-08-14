@@ -5,7 +5,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getGetMyProfileQueryKey } from "@workspace/api-client-react";
 import { Card, Button, Input, Select, Label, PageTransition } from "@/components/ui-enhanced";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, ArrowLeft, CheckCircle2, Shield } from "lucide-react";
+import { ArrowRight, ArrowLeft, CheckCircle2 } from "lucide-react";
+import JobsageLogo from "@/components/JobsageLogo";
 import { JourneyIslands } from "@/components/JourneyIslands";
 import { JOURNEY_STEPS } from "@/lib/journeySteps";
 import type { IslandState } from "@/lib/journeySteps";
@@ -130,10 +131,7 @@ export default function OnboardingPage() {
       {/* Brand header */}
       <div className="w-full max-w-2xl mb-8 flex justify-between items-center px-2">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shadow">
-            <Shield className="w-5 h-5 text-primary-foreground" />
-          </div>
-          <span className="text-xl font-display font-extrabold text-primary tracking-tight">JOBSAGE</span>
+          <JobsageLogo className="h-9" />
         </div>
         <div className="flex flex-col items-end">
           <span className="text-xs text-muted-foreground">Step {step} of 4</span>

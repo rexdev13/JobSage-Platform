@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Shield, Eye, EyeOff, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Eye, EyeOff, AlertCircle, CheckCircle2 } from "lucide-react";
+import JobsageLogo from "@/components/JobsageLogo";
 import { Button } from "@/components/ui-enhanced";
 import { motion } from "framer-motion";
 
@@ -68,10 +69,7 @@ export default function ResetPasswordPage() {
 
       <header className="relative z-10 p-6 md:p-10 flex items-center max-w-7xl mx-auto w-full">
         <button onClick={() => setLocation("/")} className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
-          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg">
-            <Shield className="w-6 h-6 text-primary-foreground" />
-          </div>
-          <h1 className="text-2xl font-display font-extrabold text-primary tracking-tight">JOBSAGE</h1>
+          <JobsageLogo className="h-9" />
         </button>
       </header>
 
