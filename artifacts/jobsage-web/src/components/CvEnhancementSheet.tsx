@@ -25,6 +25,8 @@ import { useQueryClient } from "@tanstack/react-query";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
+const DAILY_LIMIT = 5;
+
 type Mode = "general" | "focused";
 type Phase = "input" | "review";
 
@@ -32,6 +34,7 @@ interface EnhancementResult {
   enhancedContent: string;
   mode: Mode;
   focus: string | null;
+  remaining?: number;
 }
 
 interface CvEnhancementSheetProps {
@@ -49,8 +52,11 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
   const [focus, setFocus] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<EnhancementResult | null>(null);
+  // editedContent tracks user edits to the AI output before saving
+  const [editedContent, setEditedContent] = useState("");
   const [reviewTab, setReviewTab] = useState<"before" | "after">("after");
   const [isSaving, setIsSaving] = useState(false);
+  const [generationsLeft, setGenerationsLeft] = useState<number | null>(null);
 
   // Career profiles — to know which one to save to
   const { data: cpData } = useListCareerProfiles();
@@ -65,6 +71,7 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
     setTimeout(() => {
       setPhase("input");
       setResult(null);
+      setEditedContent("");
       setReviewTab("after");
       setIsGenerating(false);
     }, 300);
@@ -83,14 +90,21 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
       });
 
       if (!res.ok) {
-        const err = (await res.json().catch(() => ({}))) as { error?: string };
+        const err = (await res.json().catch(() => ({}))) as { error?: string; limitReached?: boolean };
+        if (err.limitReached) {
+          setGenerationsLeft(0);
+        }
         throw new Error(err.error ?? "Failed to generate enhancement.");
       }
 
       const data = (await res.json()) as EnhancementResult;
       setResult(data);
+      setEditedContent(data.enhancedContent);
       setReviewTab("after");
       setPhase("review");
+      if (data.remaining !== undefined) {
+        setGenerationsLeft(data.remaining);
+      }
     } catch (err) {
       toast({
         title: "Enhancement failed",
@@ -103,7 +117,8 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
   }
 
   async function handleAccept() {
-    if (!result?.enhancedContent) return;
+    const contentToSave = editedContent.trim();
+    if (!contentToSave) return;
 
     if (!activeProfile) {
       toast({
@@ -118,7 +133,7 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
     try {
       await updateCareerProfile.mutateAsync({
         id: activeProfile.id,
-        data: { aiCvContent: result.enhancedContent },
+        data: { aiCvContent: contentToSave },
       });
       await queryClient.invalidateQueries({ queryKey: getCareerProfilesQueryKey() });
       toast({
@@ -138,6 +153,7 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
   }
 
   const existingContent = activeProfile?.aiCvContent ?? null;
+  const dailyLimitReached = generationsLeft === 0;
 
   return (
     <Sheet open={open} onOpenChange={handleClose}>
@@ -154,7 +170,7 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
               <SheetDescription className="text-xs text-muted-foreground mt-0.5">
                 {phase === "input"
                   ? "AI-polishes your profile data into a professional UK CV narrative."
-                  : "Review the enhanced version before saving."}
+                  : "Review and edit the enhanced version before saving."}
               </SheetDescription>
             </div>
           </div>
@@ -232,10 +248,27 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
                 </div>
               )}
 
+              {/* Daily limit warning */}
+              {dailyLimitReached && (
+                <div className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 dark:border-rose-800/40 dark:bg-rose-900/20 p-3.5">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                  <p className="text-xs text-rose-800 dark:text-rose-300">
+                    You've used all {DAILY_LIMIT} enhancements for today. Come back tomorrow to generate more.
+                  </p>
+                </div>
+              )}
+
+              {/* Remaining uses indicator */}
+              {generationsLeft !== null && generationsLeft > 0 && (
+                <p className="text-xs text-muted-foreground text-center">
+                  {generationsLeft} of {DAILY_LIMIT} enhancements remaining today
+                </p>
+              )}
+
               <Button
                 className="w-full gap-2"
                 onClick={() => void handleGenerate()}
-                disabled={isGenerating || (mode === "focused" && !focus.trim())}
+                disabled={isGenerating || dailyLimitReached || (mode === "focused" && !focus.trim())}
               >
                 {isGenerating ? (
                   <>
@@ -273,23 +306,35 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
               </div>
 
               {/* Content area */}
-              <div className="rounded-xl border border-border bg-muted/30 p-4 min-h-[220px] max-h-[380px] overflow-y-auto">
+              <div className="rounded-xl border border-border bg-muted/30 overflow-hidden">
                 {reviewTab === "before" ? (
-                  existingContent ? (
-                    <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
-                      {existingContent}
-                    </p>
-                  ) : (
-                    <p className="text-sm text-muted-foreground italic">
-                      No existing CV narrative — this would be your first one.
-                    </p>
-                  )
+                  <div className="p-4 min-h-[220px] max-h-[380px] overflow-y-auto">
+                    {existingContent ? (
+                      <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                        {existingContent}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic">
+                        No existing CV narrative — this would be your first one.
+                      </p>
+                    )}
+                  </div>
                 ) : (
-                  <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
-                    {result.enhancedContent}
-                  </p>
+                  <textarea
+                    value={editedContent}
+                    onChange={(e) => setEditedContent(e.target.value)}
+                    className="w-full min-h-[220px] max-h-[380px] p-4 text-sm text-foreground leading-relaxed bg-transparent resize-y focus:outline-none focus:ring-2 focus:ring-primary/40 rounded-xl"
+                    placeholder="AI-generated content will appear here…"
+                    aria-label="Edit enhanced CV content"
+                  />
                 )}
               </div>
+
+              {reviewTab === "after" && (
+                <p className="text-xs text-muted-foreground -mt-2">
+                  You can edit the text above before saving.
+                </p>
+              )}
 
               {/* Mode badge */}
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -317,6 +362,7 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
                   onClick={() => {
                     setPhase("input");
                     setResult(null);
+                    setEditedContent("");
                   }}
                 >
                   <RotateCcw className="w-4 h-4" />
@@ -333,7 +379,7 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
                 <Button
                   className="flex-1 gap-2"
                   onClick={() => void handleAccept()}
-                  disabled={isSaving || !activeProfile}
+                  disabled={isSaving || !activeProfile || !editedContent.trim()}
                 >
                   {isSaving ? (
                     <>

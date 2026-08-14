@@ -6,6 +6,29 @@ import { openai } from "@workspace/integrations-openai-ai-server";
 
 const router: IRouter = Router();
 
+// ── Daily rate limit ───────────────────────────────────────────────────────────
+// 5 generations per user per UTC calendar day (resets on server restart too,
+// which is fine — this is a cost-control guard, not an audit trail).
+const DAILY_LIMIT = 5;
+const dailyUsage = new Map<string, { date: string; count: number }>();
+
+function checkAndIncrementLimit(userId: string): { allowed: boolean; remaining: number } {
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD UTC
+  const entry = dailyUsage.get(userId);
+
+  if (!entry || entry.date !== today) {
+    dailyUsage.set(userId, { date: today, count: 1 });
+    return { allowed: true, remaining: DAILY_LIMIT - 1 };
+  }
+
+  if (entry.count >= DAILY_LIMIT) {
+    return { allowed: false, remaining: 0 };
+  }
+
+  entry.count += 1;
+  return { allowed: true, remaining: DAILY_LIMIT - entry.count };
+}
+
 // ── POST /profiles/cv-enhancement ─────────────────────────────────────────────
 // Generates an enhanced CV personal statement & skills summary from the
 // candidate's structured profile data. Does NOT save — returns text for review.
@@ -23,6 +46,16 @@ router.post("/profiles/cv-enhancement", requireAuthenticated, async (req, res): 
     return;
   }
   const focusText = typeof focus === "string" ? focus.trim() : undefined;
+
+  // ── Rate limit check ──────────────────────────────────────────────────────
+  const { allowed, remaining } = checkAndIncrementLimit(userId);
+  if (!allowed) {
+    res.status(429).json({
+      error: `Daily limit reached. You can generate up to ${DAILY_LIMIT} CV enhancements per day. Try again tomorrow.`,
+      limitReached: true,
+    });
+    return;
+  }
 
   try {
     // Fetch profile + primary CV parsedData in parallel
@@ -100,7 +133,7 @@ router.post("/profiles/cv-enhancement", requireAuthenticated, async (req, res): 
     });
 
     const enhancedContent = completion.choices[0]?.message?.content?.trim() ?? "";
-    res.json({ enhancedContent, mode, focus: focusText ?? null });
+    res.json({ enhancedContent, mode, focus: focusText ?? null, remaining });
   } catch (err) {
     console.error("[cv-enhancement] Generation error:", err);
     res.status(500).json({ error: "Failed to generate CV enhancement." });
