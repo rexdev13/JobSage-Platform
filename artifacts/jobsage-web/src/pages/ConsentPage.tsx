@@ -6,7 +6,6 @@ import { useAuth } from "@workspace/auth-web";
 import { getGetMyConsentQueryKey } from "@workspace/api-client-react";
 import { Button, PageTransition } from "@/components/ui-enhanced";
 import { Shield, Check, Lock, FileText, AlertCircle } from "lucide-react";
-import JobsageLogo from "@/components/JobsageLogo";
 import { motion } from "framer-motion";
 
 const COMMITMENTS = [
@@ -51,7 +50,10 @@ export default function ConsentPage() {
       <PageTransition className="w-full max-w-lg relative z-10">
         {/* Logo */}
         <div className="flex items-center justify-center gap-2.5 mb-8">
-          <JobsageLogo className="h-10" />
+          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg">
+            <Shield className="w-6 h-6 text-primary-foreground" />
+          </div>
+          <span className="text-2xl font-display font-extrabold text-primary tracking-tight">JOBSAGE</span>
         </div>
 
         <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-border/50 p-8">
