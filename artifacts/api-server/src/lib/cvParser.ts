@@ -8,8 +8,12 @@ import { randomUUID } from "crypto";
 import { openai } from "@workspace/integrations-openai-ai-server";
 
 const require = createRequire(import.meta.url);
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-const pdfParse: (buf: Buffer) => Promise<{ text: string }> = require("pdf-parse");
+// pdf-parse v2.x exports PDFParse as a named class in all runtimes (no .default function)
+const { PDFParse } = require("pdf-parse") as {
+  PDFParse: new (opts: { data: Buffer | Uint8Array }) => {
+    getText(): Promise<{ text: string }>;
+  };
+};
 
 const execFileAsync = promisify(execFile);
 
@@ -206,7 +210,7 @@ export async function extractCvFields(
   if (mimeType === "application/pdf") {
     let textContent = "";
     try {
-      const parsed = await pdfParse(buffer);
+      const parsed = await new PDFParse({ data: buffer }).getText();
       textContent = parsed.text?.trim() ?? "";
     } catch {
       textContent = "";
