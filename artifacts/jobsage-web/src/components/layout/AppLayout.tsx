@@ -2,6 +2,7 @@ import * as React from "react";
 import { AppSidebar } from "./AppSidebar";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui-enhanced";
+import JobsageLogo from "@/components/JobsageLogo";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
@@ -93,7 +94,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Main Content */}
       <div className={`flex flex-col flex-1 w-full overflow-hidden ${impersonation ? "mt-10" : ""}`}>
         <header className="h-16 flex items-center justify-between px-4 border-b border-border bg-background/80 backdrop-blur-md md:hidden shrink-0 z-30">
-          <h1 className="text-xl font-display font-bold text-primary tracking-tight">JOBSAGE</h1>
+          <JobsageLogo className="h-8" />
           <Button variant="ghost" size="icon" onClick={() => setMobileMenuOpen(true)}>
             <Menu className="w-6 h-6" />
           </Button>
