@@ -27,7 +27,7 @@ async function fetchCvText(userId: string, objectStorageSvc: ObjectStorageServic
       const response = await objectStorageSvc.downloadObject(objectFile);
       const arrayBuf = await response.arrayBuffer();
       const buf = Buffer.from(arrayBuf);
-      const pdfParse = (await import("pdf-parse")).default;
+      const pdfParse = ((await import("pdf-parse")) as unknown as { default: (buf: Buffer) => Promise<{ text: string }> }).default;
       const parsed = await pdfParse(buf);
       return parsed.text.slice(0, 4000);
     }

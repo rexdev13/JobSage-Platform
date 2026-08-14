@@ -269,7 +269,7 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
       // The masked text becomes the sole transmitted document content.
       if (cvDocument.filename?.toLowerCase().endsWith(".pdf") && jobsageEmail) {
         try {
-          const pdfParse = (await import("pdf-parse")).default;
+          const pdfParse = ((await import("pdf-parse")) as unknown as { default: (buf: Buffer) => Promise<{ text: string }> }).default;
           const parsed = await pdfParse(cvContent);
           maskedCvTextExtract = maskPersonalContactInfo(parsed.text.slice(0, 5000), jobsageEmail);
         } catch {
