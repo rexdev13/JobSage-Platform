@@ -19,6 +19,7 @@ import { AuthGuard } from "@/components/layout/AuthGuard";
 
 const SuperAdminPage        = lazy(() => import("@/pages/admin/SuperAdminPage"));
 const AdminSyncPage         = lazy(() => import("@/pages/admin/AdminSyncPage"));
+const AdminLeadsPage        = lazy(() => import("@/pages/admin/AdminLeadsPage"));
 const AdminLoginPage        = lazy(() => import("@/pages/admin/AdminLoginPage"));
 const ImpersonatePage       = lazy(() => import("@/pages/ImpersonatePage"));
 const EmployerOnboardingPage = lazy(() => import("@/pages/employer/EmployerOnboardingPage"));
@@ -268,6 +269,9 @@ function Router() {
                 </Route>
                 <Route path="/admin/users">
                   <AdminGuard><AdminUsersPage /></AdminGuard>
+                </Route>
+                <Route path="/admin/leads">
+                  <AdminGuard><AdminLeadsPage /></AdminGuard>
                 </Route>
                 <Route path="/admin/super">
                   <SuperAdminGuard><SuperAdminPage /></SuperAdminGuard>

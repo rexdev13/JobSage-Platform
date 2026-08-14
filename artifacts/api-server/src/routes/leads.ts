@@ -3,7 +3,8 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { z } from "zod";
 import { db, socialLeadsTable, sponsorLicencesTable } from "@workspace/db";
 import { openai } from "@workspace/integrations-openai-ai-server";
-import { sql } from "drizzle-orm";
+import { sql, ilike, or, desc, count } from "drizzle-orm";
+import { requireRole } from "../middlewares/requireRole";
 
 const router: IRouter = Router();
 
@@ -35,6 +36,42 @@ const SubmitLeadSchema = z.object({
     errorMap: () => ({ message: "GDPR consent is required to submit this form" }),
   }),
 });
+
+// ---------------------------------------------------------------------------
+// GET /api/leads — paginated list of waitlist submissions (admin only)
+// ---------------------------------------------------------------------------
+
+router.get(
+  "/leads",
+  requireRole("admin"),
+  async (req: Request, res: Response): Promise<void> => {
+    const page  = Math.max(1, parseInt(String(req.query.page  ?? "1"),  10));
+    const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "25"), 10)));
+    const search = String(req.query.search ?? "").trim();
+    const offset = (page - 1) * limit;
+
+    const where = search
+      ? or(
+          ilike(socialLeadsTable.email,     `%${search}%`),
+          ilike(socialLeadsTable.firstName, `%${search}%`),
+          ilike(socialLeadsTable.lastName,  `%${search}%`),
+        )
+      : undefined;
+
+    const [[{ total }], leads] = await Promise.all([
+      db.select({ total: count() }).from(socialLeadsTable).where(where),
+      db
+        .select()
+        .from(socialLeadsTable)
+        .where(where)
+        .orderBy(desc(socialLeadsTable.createdAt))
+        .limit(limit)
+        .offset(offset),
+    ]);
+
+    res.json({ leads, total, page, limit });
+  },
+);
 
 // ---------------------------------------------------------------------------
 // GET /api/leads/sectors — distinct sponsor-licence industries for the dropdown
