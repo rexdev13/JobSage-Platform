@@ -113,7 +113,7 @@ export default function LoginPage() {
           onClick={() => setLocation("/")}
           className="hover:opacity-80 transition-opacity"
         >
-          <img src="/logo.png" alt="JOBSAGE" className="h-9 w-auto" />
+          <img src="/logo.png" alt="JOBSAGE" className="h-11 md:h-12 w-auto object-contain" />
         </button>
       </header>
 

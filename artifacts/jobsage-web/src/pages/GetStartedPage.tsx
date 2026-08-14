@@ -657,7 +657,7 @@ export default function GetStartedPage() {
       <header className="sticky top-0 z-20 border-b border-border/50 bg-background/90 backdrop-blur">
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
           <Link href="/">
-            <img src="/logo.png" alt="JOBSAGE" className="h-8 w-auto cursor-pointer" />
+            <img src="/logo.png" alt="JOBSAGE" className="h-10 md:h-12 w-auto object-contain cursor-pointer" />
           </Link>
           <Link href="/login">
             <Button variant="outline" size="sm">Sign in</Button>

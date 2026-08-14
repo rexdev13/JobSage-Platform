@@ -67,7 +67,7 @@ export default function AdminLoginPage() {
           onClick={() => setLocation("/")}
           className="hover:opacity-80 transition-opacity"
         >
-          <img src="/logo.png" alt="JOBSAGE" className="h-9 w-auto brightness-150" />
+          <img src="/logo.png" alt="JOBSAGE" className="h-11 md:h-12 w-auto object-contain brightness-150" />
         </button>
         <div className="flex items-center gap-1.5 text-slate-400 text-xs">
           <Lock className="w-3 h-3" />

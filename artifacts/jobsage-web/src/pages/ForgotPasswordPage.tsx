@@ -50,7 +50,7 @@ export default function ForgotPasswordPage() {
 
       <header className="relative z-10 p-6 md:p-10 flex items-center max-w-7xl mx-auto w-full">
         <button onClick={() => setLocation("/")} className="hover:opacity-80 transition-opacity">
-          <img src="/logo.png" alt="JOBSAGE" className="h-9 w-auto" />
+          <img src="/logo.png" alt="JOBSAGE" className="h-11 md:h-12 w-auto object-contain" />
         </button>
       </header>
 
