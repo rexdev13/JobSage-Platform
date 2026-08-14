@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { CvEnhancementSheet } from "@/components/CvEnhancementSheet";
 import {
   useListMyDocuments,
   useDeleteDocument,
@@ -384,6 +385,7 @@ export default function DocumentsPage() {
   const [updatingTypeId, setUpdatingTypeId] = useState<number | null>(null);
   const [settingPrimaryId, setSettingPrimaryId] = useState<number | null>(null);
   const [showParseBanner, setShowParseBanner] = useState(false);
+  const [enhanceSheetOpen, setEnhanceSheetOpen] = useState(false);
   const [professionWarningMsg, setProfessionWarningMsg] = useState<string | null>(null);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -716,6 +718,15 @@ export default function DocumentsPage() {
                       <span className="text-xs text-muted-foreground italic">Label your CVs and mark one as primary for faster applications</span>
                     )}
                     <div className="flex-1 h-px bg-border" />
+                    {isCvCategory && (
+                      <button
+                        onClick={() => setEnhanceSheetOpen(true)}
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors shrink-0"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        Enhance CV
+                      </button>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -884,6 +895,11 @@ export default function DocumentsPage() {
           </div>
         )}
       </PageTransition>
+
+      <CvEnhancementSheet
+        open={enhanceSheetOpen}
+        onOpenChange={setEnhanceSheetOpen}
+      />
     </AppLayout>
   );
 }

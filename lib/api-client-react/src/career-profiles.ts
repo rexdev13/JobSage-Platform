@@ -24,6 +24,7 @@ export interface CreateCareerProfileBody {
 export interface UpdateCareerProfileBody {
   name?: string;
   focusArea?: string;
+  aiCvContent?: string | null;
 }
 
 const CAREER_PROFILES_KEY = ["career-profiles"] as const;
