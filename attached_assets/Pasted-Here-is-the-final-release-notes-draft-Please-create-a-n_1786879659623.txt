@@ -1,0 +1,155 @@
+Here is the final release notes draft. Please create a new public route at `/release-notes` to serve this content as a beautiful, print-ready page.
+
+Requirements:
+1. Replace the Replit Base URL (`https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev`) with the production URL (`https://jobsage.co.uk`) anywhere it appears, and ensure all relative links (like `/get-started`) append to the production URL.
+2. Use Tailwind Typography (`prose`, `prose-slate` or `prose-gray`, `max-w-3xl`, `mx-auto`, `p-8`) to give it excellent, highly readable, professional fonts.
+3. Ensure it is optimized for the browser's "Print to PDF" function. Add `@media print` CSS to hide any main site navigation/footers on this specific page, ensure crisp text, and prevent awkward page breaks inside the "How to Test" sections.
+4. Format the "Table of Contents", "Links", and "How to Test" sections with distinct UI treatments (e.g., small shaded boxes or clean list styling).
+
+Here is the exact content to render on the page:
+
+JOBSAGE — Release Notes
+Version: Internal Build · Sprint Week
+Period: Wednesday 12 August – Sunday 16 August 2026
+Environment: Development Preview
+Base URL: https://jobsage.co.uk
+
+Table of Contents
+- New Features
+- AI & Automation
+- UI Improvements
+
+New Features
+
+1. Waitlist Lead Capture System
+Candidates can join the JOBSAGE waitlist via two routes: a structured waitlist form or an AI onboarding chat. Every submission is stored, tagged by source, and visible to admins in real time.
+- Dual-source capture — leads arrive from the waitlist form (/get-started) or from conversational AI chat on the same page. Each record is tagged chat or form so origin is always clear.
+- AI chat progressive saving — the chat endpoint saves partial data on every exchange turn. If a user drops off mid-conversation, whatever was collected (name, email, phone, sector) is already persisted.
+- Smart deduplication — if someone chats first and then fills in the form, the form submission upgrades the existing chat record rather than creating a duplicate entry.
+- Automatic conversion tracking — when a waitlisted lead creates a full account at /register, their lead record is automatically promoted to Registered status and linked to their new user ID.
+
+🔗 Links
+Waitlist page: /get-started
+Admin leads table: /admin/leads
+
+🧪 How to Test
+Form flow:
+1. Open /get-started in an incognito window and click the Form tab.
+2. Fill in a name, email, phone, and sector, then submit.
+3. Log in to /admin/leads — the submission should appear with source badge Form.
+Chat flow:
+1. On the same page, switch to the Chat tab.
+2. Converse with the AI through a few turns without completing the full flow.
+3. Check the admin leads table — a partial record should already be saved with source badge AI Chat.
+Conversion tracking:
+1. Use the email from a waitlist lead to register a new account at /register.
+2. Return to the admin leads table — the lead's status should have automatically changed to Registered.
+
+2. Admin Leads Dashboard
+A full CRM-style leads management table accessible to admin and super_admin accounts.
+- Searchable, paginated table — search by name or email across all leads; results are paged at 25 per page.
+- Inline status control — every row has a labelled status dropdown (with a chevron arrow to indicate interactivity). Options: New, Contacted, Registered, Unqualified. Changes save instantly without a page reload.
+- Multi-select with bulk actions — tick individual rows or use the header checkbox to select all leads on the page. The bulk action bar then appears with:
+  - Bulk status update — pick a status and press Apply to update all selected leads at once.
+  - Bulk delete — removes all selected leads after confirming in an in-app modal (not a browser popup).
+- Source badges — each row displays a coloured badge indicating whether the lead came from the AI Chat or the Form.
+
+🔗 Links
+Admin login: /admin/login
+Leads table: /admin/leads
+
+🧪 How to Test
+Inline status change:
+1. Log in at /admin/login using admin@jobsage.co.uk.
+2. Navigate to /admin/leads.
+3. Click the status dropdown on any row and change it — confirm the badge colour updates immediately.
+Bulk status change:
+1. Tick two or more checkboxes.
+2. Choose a status from the Set status… dropdown and click Apply.
+3. Confirm all selected rows now show the new status.
+Bulk delete:
+1. Select one or more leads via their checkboxes.
+2. Click Delete — an in-app modal should appear showing the count.
+3. Confirm — the leads should be removed.
+Search:
+1. Type a partial name or email into the search box.
+2. Confirm the table filters live; clearing the box restores all results.
+
+AI & Automation
+
+3. AI CV Gap Analysis
+A candidate-facing tool that scores a candidate's profile against a specific job vacancy and returns structured feedback — all within a slide-out panel.
+- Triggered from any vacancy row on the Opportunities page.
+- Powered by gpt-4o-mini, results are structured into three sections: Matches, Gaps, and Optimisation Steps.
+- Hard-capped at 10 analyses per user — enforced server-side. 
+
+🔗 Links
+Opportunities page: /opportunities
+
+🧪 How to Test
+1. Log in as a candidate and go to /opportunities.
+2. Find any vacancy and click the CV Gap Analysis trigger button.
+3. A slide-out sheet should open and the AI analysis should load.
+4. Repeat up to 10 times with different vacancies — on the 11th attempt, confirm the button is disabled.
+
+4. AI CV Enhancement — Professional Summary Generator
+Candidates can generate a polished, UK-standard professional summary directly from their profile data using AI.
+- Accessible from the CV section of the candidate profile page.
+- Two modes: General (role-agnostic summary) and Focused (tailors the output to a specified target job title).
+- The generated text is shown in an editable preview.
+
+🔗 Links
+Profile page: /profile
+
+🧪 How to Test
+1. Log in as a candidate and navigate to /profile.
+2. Find the ✨ Enhance CV button in the CV section.
+3. Select General mode and generate — confirm a professional summary appears.
+4. Clear the result, select Focused mode, enter a job title, and generate again.
+5. Edit the text in the preview, then save.
+
+5. AI CV Enhancement — PDF Export & Primary CV Integration
+The CV Enhancement feature now generates a download-ready PDF that is saved as the candidate's active CV and flows directly into job applications.
+- Built with pdfkit server-side, the PDF follows UK CV formatting conventions.
+- On confirmation, the generated PDF replaces the candidate's primary CV in their document library.
+- The saved record is flagged to prevent the AI extraction pipeline from re-processing a document it generated.
+
+🔗 Links
+Profile page: /profile
+Documents page: /documents
+Applications page: /applications
+
+🧪 How to Test
+1. Complete the CV Enhancement flow and confirm the generated summary.
+2. After saving, navigate to /documents — a new PDF should appear as the primary CV.
+3. Download the PDF and verify it is formatted correctly.
+4. Apply for any vacancy on /opportunities — confirm the AI-generated CV is attached to the application on /applications.
+
+UI Improvements
+
+6. Global Logo — Increased Size & Consistency
+The JOBSAGE logo was standardised to use the official brand image asset (logo.png) across all pages.
+- Main app sidebar: h-12
+- Mobile header: h-9
+- Login/Register/Get Started: h-10 to h-12 based on breakpoint.
+
+🔗 Links to verify
+/login, /register, /forgot-password, /admin/login, /get-started
+
+🧪 How to Test
+1. Visit each link above — confirm the JOBSAGE logo image appears in place of any text or icon placeholder.
+2. Resize the browser window to a mobile viewport — confirm the logo scales correctly.
+
+7. External Apply Button — Improved Visibility
+The small external-link icon previously shown on vacancy rows was replaced with a clearly labelled "Apply on company's website" button.
+
+🔗 Links
+Opportunities page: /opportunities
+
+🧪 How to Test
+1. Log in and navigate to /opportunities.
+2. Find a vacancy that has an external apply URL.
+3. Confirm the row shows a full "Apply on company's website" button rather than a small icon.
+4. Click the button — confirm it opens the correct external URL in a new tab.
+
+Prepared by JOBSAGE Engineering · August 2026
