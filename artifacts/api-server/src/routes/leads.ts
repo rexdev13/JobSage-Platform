@@ -206,6 +206,37 @@ router.post(
 );
 
 // ---------------------------------------------------------------------------
+// DELETE /api/leads — bulk delete leads by ID (admin only)
+// ---------------------------------------------------------------------------
+
+router.delete(
+  "/leads",
+  requireRole("admin", "super_admin"),
+  async (req: Request, res: Response): Promise<void> => {
+    const { ids } = req.body as { ids?: unknown };
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      res.status(400).json({ error: "ids must be a non-empty array." });
+      return;
+    }
+
+    const parsed = ids.map(Number).filter((n) => !isNaN(n) && n > 0);
+    if (parsed.length === 0) {
+      res.status(400).json({ error: "No valid IDs provided." });
+      return;
+    }
+
+    const { inArray } = await import("drizzle-orm");
+    const deleted = await db
+      .delete(socialLeadsTable)
+      .where(inArray(socialLeadsTable.id, parsed))
+      .returning({ id: socialLeadsTable.id });
+
+    res.json({ deleted: deleted.length });
+  },
+);
+
+// ---------------------------------------------------------------------------
 // PATCH /api/leads/:id/status — manually update a lead's CRM status (admin only)
 // ---------------------------------------------------------------------------
 
