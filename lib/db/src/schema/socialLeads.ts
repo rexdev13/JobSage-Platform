@@ -8,6 +8,7 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 
+
 /**
  * Social media lead capture — stores incoming leads from Facebook, Instagram,
  * LinkedIn and other paid/organic social campaigns before they register.
@@ -56,6 +57,8 @@ export const socialLeadsTable = pgTable(
     })
       .notNull()
       .default("new"),
+    /** 'chat' = captured mid-conversation before form submit; 'form' = full form submission */
+    source: varchar("source", { enum: ["chat", "form"] }).notNull().default("form"),
     /** Set when the lead completes /register — closes the attribution loop */
     convertedUserId: varchar("converted_user_id"),
 

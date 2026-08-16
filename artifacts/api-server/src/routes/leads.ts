@@ -3,7 +3,7 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { z } from "zod";
 import { db, socialLeadsTable, sponsorLicencesTable } from "@workspace/db";
 import { openai } from "@workspace/integrations-openai-ai-server";
-import { sql, ilike, or, desc, count } from "drizzle-orm";
+import { sql, ilike, or, desc, count, eq, and } from "drizzle-orm";
 import { requireRole } from "../middlewares/requireRole";
 
 const router: IRouter = Router();
@@ -134,29 +134,68 @@ router.post(
 
       const now = new Date();
 
-      await db.insert(socialLeadsTable).values({
-        firstName: d.firstName,
-        lastName: d.lastName,
-        email: d.email,
-        phone: d.phone,
+      // If a partial chat lead already exists for this email, upgrade it to a
+      // full form submission rather than creating a duplicate record.
+      const [existingChatLead] = await db
+        .select({ id: socialLeadsTable.id })
+        .from(socialLeadsTable)
+        .where(
+          and(
+            eq(socialLeadsTable.email, d.email.toLowerCase()),
+            eq(socialLeadsTable.source, "chat"),
+          ),
+        )
+        .limit(1);
 
-        industrySector: d.industrySector ?? null,
-        desiredRole: d.desiredRole ?? null,
-        additionalMessage: d.additionalMessage ?? null,
+      if (existingChatLead) {
+        await db
+          .update(socialLeadsTable)
+          .set({
+            firstName: d.firstName,
+            lastName: d.lastName,
+            phone: d.phone,
+            industrySector: d.industrySector ?? null,
+            desiredRole: d.desiredRole ?? null,
+            additionalMessage: d.additionalMessage ?? null,
+            utmSource: d.utmSource ?? null,
+            utmMedium: d.utmMedium ?? null,
+            utmCampaign: d.utmCampaign ?? null,
+            utmContent: d.utmContent ?? null,
+            landingPath: d.landingPath ?? null,
+            referrerUrl: d.referrerUrl ?? null,
+            ipHash,
+            gdprConsent: d.gdprConsent,
+            gdprConsentedAt: now,
+            source: "form",
+            status: "new",
+          })
+          .where(eq(socialLeadsTable.id, existingChatLead.id));
+      } else {
+        await db.insert(socialLeadsTable).values({
+          firstName: d.firstName,
+          lastName: d.lastName,
+          email: d.email.toLowerCase(),
+          phone: d.phone,
 
-        utmSource: d.utmSource ?? null,
-        utmMedium: d.utmMedium ?? null,
-        utmCampaign: d.utmCampaign ?? null,
-        utmContent: d.utmContent ?? null,
-        landingPath: d.landingPath ?? null,
-        referrerUrl: d.referrerUrl ?? null,
+          industrySector: d.industrySector ?? null,
+          desiredRole: d.desiredRole ?? null,
+          additionalMessage: d.additionalMessage ?? null,
 
-        ipHash,
-        gdprConsent: d.gdprConsent,
-        gdprConsentedAt: now,
+          utmSource: d.utmSource ?? null,
+          utmMedium: d.utmMedium ?? null,
+          utmCampaign: d.utmCampaign ?? null,
+          utmContent: d.utmContent ?? null,
+          landingPath: d.landingPath ?? null,
+          referrerUrl: d.referrerUrl ?? null,
 
-        status: "new",
-      });
+          ipHash,
+          gdprConsent: d.gdprConsent,
+          gdprConsentedAt: now,
+
+          source: "form",
+          status: "new",
+        });
+      }
 
       res.status(201).json({ success: true });
     } catch (err) {
@@ -282,6 +321,43 @@ router.post(
           );
         } catch {
           // extraction failure is non-critical — continue without it
+        }
+      }
+
+      // Persist a partial chat lead when we have at least a name + email.
+      // This ensures candidates who chat but never submit the form are still captured.
+      // If they later submit the full form, /leads/submit will upgrade this record.
+      if (extracted.name && extracted.email) {
+        try {
+          const nameParts = String(extracted.name).trim().split(/\s+/);
+          const firstName = nameParts[0] ?? "";
+          const lastName = nameParts.slice(1).join(" ") || "";
+          const email = String(extracted.email).toLowerCase();
+
+          // Only create a chat lead if no record already exists for this email
+          const [existing] = await db
+            .select({ id: socialLeadsTable.id })
+            .from(socialLeadsTable)
+            .where(eq(socialLeadsTable.email, email))
+            .limit(1);
+
+          if (!existing) {
+            await db.insert(socialLeadsTable).values({
+              firstName,
+              lastName,
+              email,
+              phone: extracted.phone ? String(extracted.phone) : "",
+              industrySector: extracted.industrySector ? String(extracted.industrySector) : null,
+              desiredRole: extracted.desiredRole ? String(extracted.desiredRole) : null,
+              gdprConsent: false,
+              gdprConsentedAt: new Date(),
+              source: "chat",
+              status: "new",
+            });
+          }
+        } catch (saveErr) {
+          // Non-critical — don't let a DB error break the chat stream
+          console.error("[leads/chat] partial lead save error:", saveErr);
         }
       }
 

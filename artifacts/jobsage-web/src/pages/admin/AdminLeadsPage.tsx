@@ -17,6 +17,7 @@ interface Lead {
   phone: string;
   industrySector: string | null;
   status: "new" | "contacted" | "registered" | "unqualified";
+  source: "chat" | "form";
   createdAt: string;
   utmSource: string | null;
   utmMedium: string | null;
@@ -118,8 +119,9 @@ export default function AdminLeadsPage() {
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">Email</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">Phone</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">Sector</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">Source</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">Status</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">Date Submitted</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">Date</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -134,6 +136,17 @@ export default function AdminLeadsPage() {
                       {lead.industrySector ?? (
                         <span className="text-muted-foreground/40 italic">Not provided</span>
                       )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                          lead.source === "chat"
+                            ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                            : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                        }`}
+                      >
+                        {lead.source === "chat" ? "AI Chat" : "Form"}
+                      </span>
                     </td>
                     <td className="px-4 py-3">
                       <span
