@@ -3,6 +3,16 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Loader2, Search, Users, Trash2, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -109,8 +119,9 @@ export default function AdminLeadsPage() {
   const [search, setSearch]           = useState("");
   const [page, setPage]               = useState(1);
   const [selected, setSelected]       = useState<Set<number>>(new Set());
-  const [deleting, setDeleting]       = useState(false);
-  const [bulkStatus, setBulkStatus]   = useState<LeadStatus | "">("");
+  const [deleting, setDeleting]         = useState(false);
+  const [confirmOpen, setConfirmOpen]   = useState(false);
+  const [bulkStatus, setBulkStatus]     = useState<LeadStatus | "">("");
   const [applyingBulk, setApplyingBulk] = useState(false);
   const LIMIT = 25;
 
@@ -155,11 +166,9 @@ export default function AdminLeadsPage() {
     }
   }
 
-  async function handleDelete() {
-    if (!someSelected) return;
-    if (!confirm(`Delete ${selected.size} lead${selected.size === 1 ? "" : "s"}? This cannot be undone.`)) return;
-
+  async function confirmDelete() {
     setDeleting(true);
+    setConfirmOpen(false);
     try {
       const res = await fetch(`${BASE}/api/leads`, {
         method: "DELETE",
@@ -172,7 +181,7 @@ export default function AdminLeadsPage() {
       setBulkStatus("");
       await queryClient.invalidateQueries({ queryKey: ["admin-leads"] });
     } catch {
-      alert("Failed to delete leads. Please try again.");
+      // silent — user stays on the page
     } finally {
       setDeleting(false);
     }
@@ -249,7 +258,7 @@ export default function AdminLeadsPage() {
               <Button
                 variant="destructive"
                 size="sm"
-                onClick={handleDelete}
+                onClick={() => setConfirmOpen(true)}
                 disabled={deleting}
                 className="flex items-center gap-1.5 h-7 text-xs px-2.5"
               >
@@ -396,6 +405,28 @@ export default function AdminLeadsPage() {
         )}
 
       </div>
+
+      {/* ── Delete confirmation dialog ── */}
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selected.size} lead{selected.size === 1 ? "" : "s"}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove {selected.size === 1 ? "this lead" : `these ${selected.size} leads`} from the system. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </AppLayout>
   );
 }
