@@ -11,3 +11,10 @@ id = "LkR3id4iUf4vRpG2yIpNQ"
 uri = "file://artifacts/jobsage-web/public/jobsage-source.zip"
 type = "unspecified"
 title = "JOBSAGE Source Code"
+
+[[outputs]]
+id = "wEXwOBmXCNHQjPhjTl9nG"
+uri = "file://RELEASE_NOTES.md"
+type = "text"
+title = "Release Notes — 12–16 August 2026"
+description = "Full sprint release notes covering new features, AI tools, backend changes, admin operations, UI improvements, and bug fixes."
