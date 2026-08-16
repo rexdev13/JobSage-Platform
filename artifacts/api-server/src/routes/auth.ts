@@ -2,7 +2,7 @@ import bcrypt from "bcryptjs";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { GetCurrentAuthUserResponse } from "@workspace/api-zod";
 import { writeAuditEvent } from "../lib/audit";
-import { db, usersTable } from "@workspace/db";
+import { db, usersTable, socialLeadsTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import {
   clearSession,
@@ -148,6 +148,17 @@ router.post("/auth/register", async (req: Request, res: Response) => {
       error: "We were unable to send your verification email. Please try again shortly.",
     });
     return;
+  }
+
+  // Close the attribution loop — if this email was a waitlist lead, mark them registered.
+  try {
+    await db
+      .update(socialLeadsTable)
+      .set({ status: "registered", convertedUserId: user.id })
+      .where(eq(socialLeadsTable.email, normalised));
+  } catch (err) {
+    console.error("[leads] Failed to update lead status on registration:", err);
+    // Non-critical — don't fail the registration if this update errors
   }
 
   res.status(201).json({
