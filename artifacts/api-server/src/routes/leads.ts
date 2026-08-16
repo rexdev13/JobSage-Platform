@@ -206,6 +206,42 @@ router.post(
 );
 
 // ---------------------------------------------------------------------------
+// PATCH /api/leads/:id/status — manually update a lead's CRM status (admin only)
+// ---------------------------------------------------------------------------
+
+router.patch(
+  "/leads/:id/status",
+  requireRole("admin", "super_admin"),
+  async (req: Request, res: Response): Promise<void> => {
+    const id = parseInt(String(req.params.id), 10);
+    if (isNaN(id)) {
+      res.status(400).json({ error: "Invalid lead ID." });
+      return;
+    }
+
+    const { status } = req.body as { status?: string };
+    const VALID = ["new", "contacted", "registered", "unqualified"] as const;
+    if (!status || !VALID.includes(status as (typeof VALID)[number])) {
+      res.status(400).json({ error: `status must be one of: ${VALID.join(", ")}` });
+      return;
+    }
+
+    const [updated] = await db
+      .update(socialLeadsTable)
+      .set({ status: status as (typeof VALID)[number] })
+      .where(eq(socialLeadsTable.id, id))
+      .returning({ id: socialLeadsTable.id, status: socialLeadsTable.status });
+
+    if (!updated) {
+      res.status(404).json({ error: "Lead not found." });
+      return;
+    }
+
+    res.json({ id: updated.id, status: updated.status });
+  },
+);
+
+// ---------------------------------------------------------------------------
 // POST /api/leads/chat — public SSE streaming chat for /get-started
 // Uses gpt-4o-mini. No auth required (pre-registration lead capture).
 // ---------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Loader2, Search, Users } from "lucide-react";
 
@@ -9,14 +9,16 @@ const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 // Types
 // ---------------------------------------------------------------------------
 
+type LeadStatus = "new" | "contacted" | "registered" | "unqualified";
+
 interface Lead {
   id: number;
   firstName: string;
   lastName: string;
   email: string;
-  phone: string;
+  phone: string | null;
   industrySector: string | null;
-  status: "new" | "contacted" | "registered" | "unqualified";
+  status: LeadStatus;
   source: "chat" | "form";
   createdAt: string;
   utmSource: string | null;
@@ -35,12 +37,66 @@ interface LeadsResponse {
 // Status badge styles
 // ---------------------------------------------------------------------------
 
-const STATUS_CLASSES: Record<string, string> = {
-  new:          "bg-primary/10 text-primary",
-  contacted:    "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-  registered:   "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  unqualified:  "bg-muted text-muted-foreground",
+const STATUS_CLASSES: Record<LeadStatus, string> = {
+  new:         "bg-primary/10 text-primary",
+  contacted:   "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+  registered:  "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+  unqualified: "bg-muted text-muted-foreground",
 };
+
+const STATUS_OPTIONS: { value: LeadStatus; label: string }[] = [
+  { value: "new",         label: "New" },
+  { value: "contacted",   label: "Contacted" },
+  { value: "registered",  label: "Registered" },
+  { value: "unqualified", label: "Unqualified" },
+];
+
+// ---------------------------------------------------------------------------
+// Inline status selector
+// ---------------------------------------------------------------------------
+
+function StatusSelect({ lead }: { lead: Lead }) {
+  const queryClient = useQueryClient();
+  const [saving, setSaving] = useState(false);
+
+  const mutation = useMutation({
+    mutationFn: async (newStatus: LeadStatus) => {
+      const res = await fetch(`${BASE}/api/leads/${lead.id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!res.ok) throw new Error("Failed to update status");
+      return res.json() as Promise<{ id: number; status: LeadStatus }>;
+    },
+    onMutate: () => setSaving(true),
+    onSettled: () => setSaving(false),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-leads"] }),
+  });
+
+  return (
+    <div className="relative">
+      <select
+        value={lead.status}
+        disabled={saving}
+        onChange={(e) => mutation.mutate(e.target.value as LeadStatus)}
+        className={`text-xs font-medium rounded-full px-2 py-0.5 border-0 cursor-pointer appearance-none pr-5 focus:outline-none focus:ring-2 focus:ring-primary/30 transition disabled:opacity-60 ${
+          STATUS_CLASSES[lead.status]
+        }`}
+      >
+        {STATUS_OPTIONS.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+      {saving && (
+        <Loader2 className="absolute right-1 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin opacity-60" />
+      )}
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Page
@@ -78,7 +134,7 @@ export default function AdminLeadsPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground font-display">Waitlist Leads</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Contacts who submitted the /get-started form
+            Contacts from the waitlist page
             {data ? ` · ${data.total.toLocaleString()} total` : ""}
           </p>
         </div>
@@ -107,7 +163,7 @@ export default function AdminLeadsPage() {
           <div className="text-center py-16 text-muted-foreground">
             <Users className="h-10 w-10 mx-auto mb-3 opacity-30" />
             <p className="text-sm">
-              {search ? "No leads match your search." : "No leads submitted yet."}
+              {search ? "No leads match your search." : "No leads yet."}
             </p>
           </div>
         ) : (
@@ -131,7 +187,9 @@ export default function AdminLeadsPage() {
                       {lead.firstName} {lead.lastName}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{lead.email}</td>
-                    <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{lead.phone}</td>
+                    <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                      {lead.phone || <span className="text-muted-foreground/40 italic">—</span>}
+                    </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {lead.industrySector ?? (
                         <span className="text-muted-foreground/40 italic">Not provided</span>
@@ -149,13 +207,7 @@ export default function AdminLeadsPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${
-                          STATUS_CLASSES[lead.status] ?? STATUS_CLASSES.new
-                        }`}
-                      >
-                        {lead.status}
-                      </span>
+                      <StatusSelect lead={lead} />
                     </td>
                     <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
                       {new Date(lead.createdAt).toLocaleDateString("en-GB", {
