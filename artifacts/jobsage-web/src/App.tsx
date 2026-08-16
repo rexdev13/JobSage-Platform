@@ -17,6 +17,7 @@ import { AuthGuard } from "@/components/layout/AuthGuard";
 // Keep AuthGuard, guards, LoadingScreen, Redirect, SmartHome as static — they
 // are always needed and are tiny.
 
+const ReleaseNotesPage      = lazy(() => import("@/pages/ReleaseNotesPage"));
 const SuperAdminPage        = lazy(() => import("@/pages/admin/SuperAdminPage"));
 const AdminSyncPage         = lazy(() => import("@/pages/admin/AdminSyncPage"));
 const AdminLeadsPage        = lazy(() => import("@/pages/admin/AdminLeadsPage"));
@@ -228,6 +229,9 @@ function Router() {
 
         {/* Public privacy policy for the Smart Apply Chrome extension (required by the Chrome Web Store) */}
         <Route path="/extension-privacy" component={ExtensionPrivacyPage} />
+
+        {/* Sprint release notes — public, print-ready */}
+        <Route path="/release-notes" component={ReleaseNotesPage} />
 
         {/* Social media lead capture — traffic from Facebook, Instagram, LinkedIn */}
         <Route path="/get-started" component={GetStartedPage} />
