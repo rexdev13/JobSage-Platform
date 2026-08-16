@@ -25,7 +25,7 @@ export const socialLeadsTable = pgTable(
     firstName: text("first_name").notNull(),
     lastName: text("last_name").notNull(),
     email: text("email").notNull(),
-    phone: text("phone").notNull(),
+    phone: text("phone"),
 
     // ── Qualifying questions (generic — all sectors) ─────────────────────
     /** Industry or sector the candidate works in / is interested in */
