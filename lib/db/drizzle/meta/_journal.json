@@ -71,6 +71,13 @@
       "when": 1786607400000,
       "tag": "0009_vacancy_favorites",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1786746695000,
+      "tag": "0010_social_leads",
+      "breakpoints": true
     }
   ]
 }
