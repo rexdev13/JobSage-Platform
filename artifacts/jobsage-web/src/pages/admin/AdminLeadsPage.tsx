@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Loader2, Search, Users } from "lucide-react";
+import { Loader2, Search, Users, Trash2, ChevronDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -34,7 +35,7 @@ interface LeadsResponse {
 }
 
 // ---------------------------------------------------------------------------
-// Status badge styles
+// Status config
 // ---------------------------------------------------------------------------
 
 const STATUS_CLASSES: Record<LeadStatus, string> = {
@@ -76,23 +77,25 @@ function StatusSelect({ lead }: { lead: Lead }) {
   });
 
   return (
-    <div className="relative">
+    <div className="relative inline-flex items-center">
       <select
         value={lead.status}
         disabled={saving}
         onChange={(e) => mutation.mutate(e.target.value as LeadStatus)}
-        className={`text-xs font-medium rounded-full px-2 py-0.5 border-0 cursor-pointer appearance-none pr-5 focus:outline-none focus:ring-2 focus:ring-primary/30 transition disabled:opacity-60 ${
+        className={`text-xs font-medium rounded-full pl-2.5 pr-6 py-0.5 border-0 cursor-pointer appearance-none focus:outline-none focus:ring-2 focus:ring-primary/30 transition disabled:opacity-60 ${
           STATUS_CLASSES[lead.status]
         }`}
       >
         {STATUS_OPTIONS.map((opt) => (
-          <option key={opt.value} value={opt.value}>
+          <option key={opt.value} value={opt.value} className="bg-background text-foreground">
             {opt.label}
           </option>
         ))}
       </select>
-      {saving && (
-        <Loader2 className="absolute right-1 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin opacity-60" />
+      {saving ? (
+        <Loader2 className="absolute right-1.5 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin pointer-events-none opacity-60" />
+      ) : (
+        <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 h-3 w-3 pointer-events-none opacity-50" />
       )}
     </div>
   );
@@ -103,9 +106,13 @@ function StatusSelect({ lead }: { lead: Lead }) {
 // ---------------------------------------------------------------------------
 
 export default function AdminLeadsPage() {
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
+  const [search, setSearch]       = useState("");
+  const [page, setPage]           = useState(1);
+  const [selected, setSelected]   = useState<Set<number>>(new Set());
+  const [deleting, setDeleting]   = useState(false);
   const LIMIT = 25;
+
+  const queryClient = useQueryClient();
 
   const { data, isLoading, isError } = useQuery<LeadsResponse>({
     queryKey: ["admin-leads", page, search],
@@ -120,10 +127,52 @@ export default function AdminLeadsPage() {
   });
 
   const totalPages = data ? Math.ceil(data.total / LIMIT) : 0;
+  const leads = data?.leads ?? [];
+  const allSelected = leads.length > 0 && leads.every((l) => selected.has(l.id));
+  const someSelected = selected.size > 0;
 
   function handleSearch(e: React.ChangeEvent<HTMLInputElement>) {
     setSearch(e.target.value);
     setPage(1);
+    setSelected(new Set());
+  }
+
+  function toggleOne(id: number) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    if (allSelected) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(leads.map((l) => l.id)));
+    }
+  }
+
+  async function handleDelete() {
+    if (!someSelected) return;
+    if (!confirm(`Delete ${selected.size} lead${selected.size === 1 ? "" : "s"}? This cannot be undone.`)) return;
+
+    setDeleting(true);
+    try {
+      const res = await fetch(`${BASE}/api/leads`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ ids: Array.from(selected) }),
+      });
+      if (!res.ok) throw new Error("Delete failed");
+      setSelected(new Set());
+      await queryClient.invalidateQueries({ queryKey: ["admin-leads"] });
+    } catch {
+      alert("Failed to delete leads. Please try again.");
+    } finally {
+      setDeleting(false);
+    }
   }
 
   return (
@@ -131,12 +180,31 @@ export default function AdminLeadsPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
 
         {/* ── Header ── */}
-        <div>
-          <h1 className="text-2xl font-bold text-foreground font-display">Waitlist Leads</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Contacts from the waitlist page
-            {data ? ` · ${data.total.toLocaleString()} total` : ""}
-          </p>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground font-display">Waitlist Leads</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Contacts from the waitlist page
+              {data ? ` · ${data.total.toLocaleString()} total` : ""}
+            </p>
+          </div>
+
+          {someSelected && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleDelete}
+              disabled={deleting}
+              className="flex items-center gap-1.5"
+            >
+              {deleting ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Trash2 className="h-3.5 w-3.5" />
+              )}
+              Delete {selected.size} selected
+            </Button>
+          )}
         </div>
 
         {/* ── Search ── */}
@@ -159,7 +227,7 @@ export default function AdminLeadsPage() {
           <p className="text-sm text-destructive text-center py-12">
             Failed to load leads. Please refresh.
           </p>
-        ) : !data?.leads.length ? (
+        ) : !leads.length ? (
           <div className="text-center py-16 text-muted-foreground">
             <Users className="h-10 w-10 mx-auto mb-3 opacity-30" />
             <p className="text-sm">
@@ -171,6 +239,15 @@ export default function AdminLeadsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/50">
+                  {/* Select-all checkbox */}
+                  <th className="px-4 py-3 w-10">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={toggleAll}
+                      className="rounded border-input accent-primary cursor-pointer"
+                    />
+                  </th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">Name</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">Email</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">Phone</th>
@@ -181,8 +258,21 @@ export default function AdminLeadsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {data.leads.map((lead) => (
-                  <tr key={lead.id} className="hover:bg-muted/30 transition-colors">
+                {leads.map((lead) => (
+                  <tr
+                    key={lead.id}
+                    className={`transition-colors ${
+                      selected.has(lead.id) ? "bg-primary/5" : "hover:bg-muted/30"
+                    }`}
+                  >
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selected.has(lead.id)}
+                        onChange={() => toggleOne(lead.id)}
+                        className="rounded border-input accent-primary cursor-pointer"
+                      />
+                    </td>
                     <td className="px-4 py-3 font-medium text-foreground whitespace-nowrap">
                       {lead.firstName} {lead.lastName}
                     </td>
