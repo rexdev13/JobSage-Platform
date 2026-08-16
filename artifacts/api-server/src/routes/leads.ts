@@ -324,40 +324,59 @@ router.post(
         }
       }
 
-      // Persist a partial chat lead when we have at least a name + email.
-      // This ensures candidates who chat but never submit the form are still captured.
-      // If they later submit the full form, /leads/submit will upgrade this record.
+      // Save ALL information the AI has collected so far.
+      // The chat is a full alternative to the form — every extracted field is logged.
+      // We upsert by email: create on first contact, then update progressively
+      // as more details come in across turns.
       if (extracted.name && extracted.email) {
         try {
           const nameParts = String(extracted.name).trim().split(/\s+/);
           const firstName = nameParts[0] ?? "";
           const lastName = nameParts.slice(1).join(" ") || "";
           const email = String(extracted.email).toLowerCase();
+          const phone = extracted.phone ? String(extracted.phone) : null;
+          const industrySector = extracted.industrySector ? String(extracted.industrySector) : null;
+          const desiredRole = extracted.desiredRole ? String(extracted.desiredRole) : null;
+          const now = new Date();
 
-          // Only create a chat lead if no record already exists for this email
+          // Check for an existing chat lead for this email
           const [existing] = await db
-            .select({ id: socialLeadsTable.id })
+            .select({ id: socialLeadsTable.id, source: socialLeadsTable.source })
             .from(socialLeadsTable)
             .where(eq(socialLeadsTable.email, email))
             .limit(1);
 
           if (!existing) {
+            // First time we've seen this email — create the record
             await db.insert(socialLeadsTable).values({
               firstName,
               lastName,
               email,
-              phone: extracted.phone ? String(extracted.phone) : "",
-              industrySector: extracted.industrySector ? String(extracted.industrySector) : null,
-              desiredRole: extracted.desiredRole ? String(extracted.desiredRole) : null,
+              phone,
+              industrySector,
+              desiredRole,
               gdprConsent: false,
-              gdprConsentedAt: new Date(),
+              gdprConsentedAt: now,
               source: "chat",
               status: "new",
             });
+          } else if (existing.source === "chat") {
+            // Update the chat record as more info is collected
+            await db
+              .update(socialLeadsTable)
+              .set({
+                firstName,
+                lastName,
+                ...(phone          ? { phone }          : {}),
+                ...(industrySector ? { industrySector } : {}),
+                ...(desiredRole    ? { desiredRole }    : {}),
+              })
+              .where(eq(socialLeadsTable.id, existing.id));
           }
+          // If existing.source === "form", the user already submitted fully — leave it alone.
         } catch (saveErr) {
-          // Non-critical — don't let a DB error break the chat stream
-          console.error("[leads/chat] partial lead save error:", saveErr);
+          // Non-critical — never let a DB error break the chat stream
+          console.error("[leads/chat] lead save error:", saveErr);
         }
       }
 
