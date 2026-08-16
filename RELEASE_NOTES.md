@@ -1,138 +1,200 @@
 # JOBSAGE — Release Notes
 **Version:** Internal Build · Sprint Week  
 **Period:** Wednesday 12 August – Sunday 16 August 2026  
-**Status:** Deployed to Development · Pending Production Publish
+**Environment:** Development Preview  
+**Base URL:** https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev
 
 ---
 
 ## Table of Contents
 1. [New Features](#new-features)
 2. [AI & Automation](#ai--automation)
-3. [Backend & Data](#backend--data)
-4. [Admin & Operations](#admin--operations)
-5. [UI Improvements](#ui-improvements)
-6. [Bug Fixes](#bug-fixes)
+3. [UI Improvements](#ui-improvements)
 
 ---
 
 ## New Features
 
-### Waitlist Lead Capture System
-A fully end-to-end lead capture pipeline was built from the ground up.
+---
 
-- **Dual-source capture:** Leads can now be collected from two distinct entry points — the **waitlist form** (manual, structured submission) and the **AI onboarding chat** (conversational, progressive collection). Every lead is tagged with a `source` field (`chat` or `form`) so their origin is always traceable.
-- **AI chat progressive upsert:** Each turn of the AI onboarding conversation now upserts any extracted fields (name, email, phone, industry sector) in real time. If the same email later completes the form, the form submission upgrades the existing chat record rather than creating a duplicate entry.
-- **Seamless form-to-chat handoff:** Candidates who start via chat and finish via the form are deduped correctly at the email level, ensuring a clean CRM view with no phantom entries.
-- **Automatic status promotion:** When a lead with a known email completes full registration (`POST /auth/register`), their lead record is automatically updated to `status = registered` and linked to their new user account via `converted_user_id`. No manual step is required.
+### 1. Waitlist Lead Capture System
 
-### Admin Leads Dashboard
-A dedicated lead management table was added to the admin panel.
+Candidates can join the JOBSAGE waitlist via two routes: a structured **waitlist form** or an **AI onboarding chat**. Every submission is stored, tagged by source, and visible to admins in real time.
 
-- **Full CRM table:** Displays all waitlist leads with name, email, phone, industry sector, source badge (AI Chat / Form), status, and date.
-- **Inline status control:** Each row has a labelled dropdown (with chevron indicator) to change a lead's CRM status (`New → Contacted → Registered → Unqualified`) without leaving the table. Changes save immediately.
-- **Bulk selection:** Checkboxes on every row and a select-all toggle in the column header allow multi-lead selection.
-- **Bulk status update:** With leads selected, admins can set a single status across all of them in one action using the bulk status picker and Apply button.
-- **Bulk delete with in-app confirmation:** Selected leads can be deleted with a single click. A purpose-built in-app confirmation dialog (using the Shadcn `AlertDialog` component) replaces the browser's native `confirm()` popup, showing a clear count and consequence before committing.
-- **Search & pagination:** A live search box filters leads by name or email. Results are paginated at 25 per page with Previous / Next controls and a total count indicator.
+- **Dual-source capture** — leads arrive from the waitlist form (`/get-started`) or from conversational AI chat on the same page. Each record is tagged `chat` or `form` so origin is always clear.
+- **AI chat progressive saving** — the chat endpoint saves partial data on every exchange turn. If a user drops off mid-conversation, whatever was collected (name, email, phone, sector) is already persisted.
+- **Smart deduplication** — if someone chats first and then fills in the form, the form submission upgrades the existing chat record rather than creating a duplicate entry.
+- **Automatic conversion tracking** — when a waitlisted lead creates a full account at `/register`, their lead record is automatically promoted to `Registered` status and linked to their new user ID.
+
+**🔗 Links**
+- Waitlist page: [`/get-started`](https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/get-started)
+- Admin leads table: [`/admin/leads`](https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/admin/leads)
+
+**🧪 How to Test**
+
+*Form flow:*
+1. Open [`/get-started`](https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/get-started) in an incognito window and click the **Form** tab.
+2. Fill in a name, email, phone, and sector, then submit.
+3. Log in to [`/admin/leads`](https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/admin/leads) — the submission should appear with source badge **Form**.
+
+*Chat flow:*
+1. On the same page, switch to the **Chat** tab.
+2. Converse with the AI through a few turns without completing the full flow.
+3. Check the admin leads table — a partial record should already be saved with source badge **AI Chat**.
+
+*Conversion tracking:*
+1. Use the email from a waitlist lead to register a new account at [`/register`](https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/register).
+2. Return to the admin leads table — the lead's status should have automatically changed to **Registered**.
+
+---
+
+### 2. Admin Leads Dashboard
+
+A full CRM-style leads management table accessible to admin and super_admin accounts.
+
+- **Searchable, paginated table** — search by name or email across all leads; results are paged at 25 per page.
+- **Inline status control** — every row has a labelled status dropdown (with a chevron arrow to indicate interactivity). Options: New, Contacted, Registered, Unqualified. Changes save instantly without a page reload.
+- **Multi-select with bulk actions** — tick individual rows or use the header checkbox to select all leads on the page. The bulk action bar then appears with:
+  - **Bulk status update** — pick a status and press Apply to update all selected leads at once.
+  - **Bulk delete** — removes all selected leads after confirming in an in-app modal (not a browser popup).
+- **Source badges** — each row displays a coloured badge indicating whether the lead came from the AI Chat or the Form.
+
+**🔗 Links**
+- Admin login: [`/admin/login`](https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/admin/login)
+- Leads table: [`/admin/leads`](https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/admin/leads)
+
+**🧪 How to Test**
+
+*Inline status change:*
+1. Log in at [`/admin/login`](https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/admin/login) using `admin@jobsage.co.uk`.
+2. Navigate to [`/admin/leads`](https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/admin/leads).
+3. Click the status dropdown on any row and change it — confirm the badge colour updates immediately.
+
+*Bulk status change:*
+1. Tick two or more checkboxes — the bulk action bar should appear above the table.
+2. Choose a status from the **Set status…** dropdown and click **Apply**.
+3. Confirm all selected rows now show the new status.
+
+*Bulk delete:*
+1. Select one or more leads via their checkboxes.
+2. Click **Delete** — an in-app modal should appear (not a browser alert) showing the count.
+3. Confirm — the leads should be removed and the count in the page header should decrease.
+
+*Search:*
+1. Type a partial name or email into the search box.
+2. Confirm the table filters live; clearing the box restores all results.
 
 ---
 
 ## AI & Automation
 
-### AI CV Gap Analysis
-A candidate-facing tool that compares a candidate's profile against a specific vacancy.
+---
 
-- Implemented as a **slide-out Shadcn Sheet** triggered from any vacancy row — no page navigation required.
-- Powered by `gpt-4o-mini`, the analysis categorises findings into three structured sections: **Matches** (strengths the candidate already has), **Gaps** (areas missing from the JD), and **Optimisation Steps** (concrete actions to improve fit before applying).
-- **Usage cap enforced at 10 analyses per user** — a hard server-side counter prevents runaway API costs while keeping the feature accessible for normal use. Once exhausted, the trigger button is disabled with a clear message.
+### 3. AI CV Gap Analysis
 
-### AI CV Enhancement — Professional Summary Generator
-Candidates can now generate a polished, UK-standard professional summary directly from their profile.
+A candidate-facing tool that scores a candidate's profile against a specific job vacancy and returns structured feedback — all within a slide-out panel, no page navigation required.
 
-- A **"✨ Enhance CV"** action was added to the CV section of the candidate profile.
-- Supports two modes: **General** (a broad, role-agnostic summary) and **Focused** (the candidate supplies a specific job title or direction, and the AI tailors the summary accordingly).
-- Output is drafted in a clean editor before the candidate confirms, giving full review control before anything is saved.
+- Triggered from any vacancy row on the Opportunities page.
+- Powered by `gpt-4o-mini`, results are structured into three sections: **Matches** (existing strengths), **Gaps** (missing criteria from the JD), and **Optimisation Steps** (concrete actions to take before applying).
+- **Hard-capped at 10 analyses per user** — enforced server-side. The trigger button is disabled with a clear message once the limit is reached.
 
-### AI CV Enhancement — PDF Export & Primary CV Integration
-The CV Enhancement feature was extended to produce a download-ready, fully formatted PDF.
+**🔗 Links**
+- Opportunities page: [`/opportunities`](https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/opportunities)
 
-- Built on **`pdfkit`** (server-side), the generated document follows UK CV formatting conventions: section headers, bullet points, contact block, and proper typographic hierarchy.
-- On confirmation, the PDF is **saved as the candidate's primary CV**, replacing any previously uploaded file in the standard object storage pipeline.
-- The saved record is explicitly flagged `isParsed: true` so the AI extraction pipeline does not re-process a document it generated — preventing redundant API calls and avoiding data overwrite.
-- The PDF integrates transparently into the existing job application flow: when a candidate applies for a role, the AI-generated CV is attached automatically, exactly as a manually uploaded CV would be.
+**🧪 How to Test**
+1. Log in as a candidate and go to [`/opportunities`](https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/opportunities).
+2. Find any vacancy and click the **CV Gap Analysis** trigger button on that row.
+3. A slide-out sheet should open and the AI analysis should load — confirm it shows Matches, Gaps, and Optimisation Steps sections.
+4. Repeat up to 10 times with different vacancies — on the 11th attempt, confirm the button is disabled and a usage-limit message is shown.
 
 ---
 
-## Backend & Data
+### 4. AI CV Enhancement — Professional Summary Generator
 
-### `social_leads` Database Table
-A new schema and migration were introduced to persist all waitlist leads.
+Candidates can generate a polished, UK-standard professional summary directly from their profile data using AI.
 
-- **Migration `0010_social_leads.sql`:** Creates the `social_leads` table with columns for `first_name`, `last_name`, `email`, `phone`, `industry_sector`, `status` (enum: `new | contacted | registered | unqualified`), `source` (enum: `chat | form`), `converted_user_id` (FK to users), UTM tracking fields (`utm_source`, `utm_medium`, `utm_campaign`), and `created_at`.
-- **Migration `0011_social_leads_phone_nullable.sql`:** Relaxed the `phone` column to `NULL`-able so that AI chat leads captured before phone is collected are valid and saveable immediately.
-- The schema is now committed to the migration history (`meta/_journal.json`) so it is reproducible on fresh database provisioning.
+- Accessible from the CV section of the candidate profile page.
+- Two modes: **General** (a broad, role-agnostic summary) and **Focused** (the candidate specifies a target job title or direction and the AI tailors the output accordingly).
+- The generated text is shown in an editable preview — the candidate can review and adjust before saving.
 
-### Leads API Endpoints
-Full REST surface for lead management was added to the API server:
+**🔗 Links**
+- Profile page: [`/profile`](https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/profile)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/leads` | List all leads (paginated, searchable) |
-| `POST` | `/api/leads/chat` | AI chat SSE endpoint — upserts extracted fields per turn |
-| `POST` | `/api/leads/submit` | Form submission — upserts or upgrades an existing chat lead |
-| `PATCH` | `/api/leads/:id/status` | Update a single lead's status |
-| `PATCH` | `/api/leads/bulk-status` | Update status on multiple leads in one request |
-| `DELETE` | `/api/leads` | Bulk delete leads by ID array |
-
-All write and read endpoints require `admin` or `super_admin` role. The public `chat` and `submit` endpoints are rate-controlled separately.
+**🧪 How to Test**
+1. Log in as a candidate and navigate to [`/profile`](https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/profile).
+2. Find the **✨ Enhance CV** button in the CV section.
+3. Select **General** mode and generate — confirm a professional summary appears in the preview editor.
+4. Clear the result, select **Focused** mode, enter a job title (e.g. "Senior Software Engineer"), and generate again — confirm the output references the specified role.
+5. Edit the text in the preview, then save — confirm the updated summary is reflected on the profile.
 
 ---
 
-## Admin & Operations
+### 5. AI CV Enhancement — PDF Export & Primary CV Integration
 
-### Admin Account Provisioning Script
-A one-time Supabase Admin API script was written to bootstrap the two official JOBSAGE operator accounts:
+The CV Enhancement feature now generates a download-ready PDF that is saved as the candidate's active CV and flows directly into job applications.
 
-- `admin@jobsage.co.uk` — role: `super_admin`
-- `support@jobsage.co.uk` — role: `super_admin`
+- Built with `pdfkit` server-side, the PDF follows UK CV formatting conventions: contact block, section headers, bullet points, and consistent typographic hierarchy.
+- On confirmation, the generated PDF **replaces** the candidate's primary CV in their document library.
+- The saved record is flagged to prevent the AI extraction pipeline from re-processing a document it generated — avoiding redundant calls and data overwrite.
+- When the candidate next applies for a role, the AI-generated CV is attached automatically, exactly as an uploaded CV would be.
 
-The script creates each user via the Supabase Admin SDK (bypassing email verification), sets their hashed password, and writes the corresponding row in the `users` table with the correct `role` field. This avoids the need for the accounts to go through the public registration flow and ensures they are immediately active.
+**🔗 Links**
+- Profile page: [`/profile`](https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/profile)
+- Documents page: [`/documents`](https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/documents)
+- Applications page: [`/applications`](https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/applications)
 
-### Super Admin — Leads Access Fix
-`GET /api/leads` was previously restricted to the `admin` role only, causing `super_admin` accounts to receive a `403 Forbidden` response when navigating to the Waitlist Leads page. The middleware guard was updated to accept both `admin` and `super_admin`, consistent with all other admin-only endpoints.
+**🧪 How to Test**
+1. Complete the CV Enhancement flow (Feature 4 above) and confirm the generated summary.
+2. After saving, navigate to [`/documents`](https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/documents) — a new PDF should appear as the primary CV with today's date.
+3. Download the PDF and verify it is formatted correctly (contact details, professional summary, sections).
+4. Apply for any vacancy on [`/opportunities`](https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/opportunities) — confirm the AI-generated CV is attached to the application on [`/applications`](https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/applications).
 
 ---
 
 ## UI Improvements
 
-### Global Logo — Increased Prominence
-The JOBSAGE logo was replaced with the official brand image asset (`logo.png`) and resized upward across all surfaces for stronger visual identity:
+---
 
-| Surface | Size |
-|---------|------|
+### 6. Global Logo — Increased Size & Consistency
+
+The JOBSAGE logo was standardised to use the official brand image asset (`logo.png`) across all pages, replacing the previous text + shield-icon placeholder that appeared on several screens.
+
+| Surface | Size Applied |
+|---------|-------------|
 | Main app sidebar | `h-12` |
 | Mobile header | `h-9` |
-| Auth pages (Login, Register, Forgot/Reset Password) | `h-11 md:h-12` |
-| Get Started / Onboarding pages | `h-10 md:h-12` |
-| Admin login (dark background variant) | `h-11 md:h-12` with `brightness-150` filter |
+| Login & Register pages | `h-11 md:h-12` |
+| Forgot / Reset Password | `h-11 md:h-12` |
+| Get Started & Onboarding | `h-10 md:h-12` |
+| Admin login (dark background) | `h-11 md:h-12` + brightness filter |
 | Consent page | `h-11 md:h-12` |
 
-Previously, several pages still rendered a text + shield-icon placeholder. All instances now render the logo image.
+**🔗 Links to verify**
+- [`/login`](https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/login)
+- [`/register`](https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/register)
+- [`/forgot-password`](https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/forgot-password)
+- [`/admin/login`](https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/admin/login)
+- [`/get-started`](https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/get-started)
 
-### External Apply Button — Improved Visibility
-The small external-link icon previously shown on vacancy rows to redirect candidates to the employer's website was replaced with a clearly labelled **"Apply on company's website"** button. The change improves discoverability and reduces confusion for candidates who missed the icon.
+**🧪 How to Test**
+1. Visit each link above — confirm the JOBSAGE logo image appears in place of any text or icon placeholder.
+2. Resize the browser window to a mobile viewport — confirm the logo scales correctly and remains legible.
+3. On [`/admin/login`](https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/admin/login) (dark background) — confirm the logo is visible and bright against the dark header.
 
 ---
 
-## Bug Fixes
+### 7. External Apply Button — Improved Visibility
 
-| Area | Fix |
-|------|-----|
-| **Leads — 403 on /admin/leads** | `GET /api/leads` now accepts `super_admin` role in addition to `admin`. |
-| **Chat leads — incomplete records** | The AI chat endpoint previously only triggered a save on name + email extraction. It now upserts all available fields on every turn, so no collected data is lost if the user exits mid-conversation. |
-| **Lead deduplication** | Form submissions from a user who previously chatted no longer create a second lead row. The submit endpoint matches on normalised email and upgrades the existing record. |
-| **CV PDF — redundant AI extraction** | AI-generated CVs are now saved with `isParsed: true`, preventing the background extraction job from processing a document the system itself produced. |
-| **Status dropdown — no affordance** | The inline status badge on the leads table had no visual indicator that it was interactive. A `ChevronDown` icon is now pinned to the right of the dropdown, toggling to a spinner during a save. |
+The small external-link icon previously shown on vacancy rows was replaced with a clearly labelled **"Apply on company's website"** button.
+
+**🔗 Links**
+- Opportunities page: [`/opportunities`](https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/opportunities)
+
+**🧪 How to Test**
+1. Log in and navigate to [`/opportunities`](https://23c98aa3-1203-40d8-a2e6-823a6b5f7f9b-00-1tujigjox0n0r.kirk.replit.dev/opportunities).
+2. Find a vacancy that has an external apply URL.
+3. Confirm the row shows a full **"Apply on company's website"** button rather than a small icon.
+4. Click the button — confirm it opens the correct external URL in a new tab.
 
 ---
 
