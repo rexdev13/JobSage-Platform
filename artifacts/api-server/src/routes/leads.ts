@@ -43,7 +43,7 @@ const SubmitLeadSchema = z.object({
 
 router.get(
   "/leads",
-  requireRole("admin"),
+  requireRole("admin", "super_admin"),
   async (req: Request, res: Response): Promise<void> => {
     const page  = Math.max(1, parseInt(String(req.query.page  ?? "1"),  10));
     const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "25"), 10)));
