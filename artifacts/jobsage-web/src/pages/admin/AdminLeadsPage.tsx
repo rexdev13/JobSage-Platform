@@ -106,10 +106,12 @@ function StatusSelect({ lead }: { lead: Lead }) {
 // ---------------------------------------------------------------------------
 
 export default function AdminLeadsPage() {
-  const [search, setSearch]       = useState("");
-  const [page, setPage]           = useState(1);
-  const [selected, setSelected]   = useState<Set<number>>(new Set());
-  const [deleting, setDeleting]   = useState(false);
+  const [search, setSearch]           = useState("");
+  const [page, setPage]               = useState(1);
+  const [selected, setSelected]       = useState<Set<number>>(new Set());
+  const [deleting, setDeleting]       = useState(false);
+  const [bulkStatus, setBulkStatus]   = useState<LeadStatus | "">("");
+  const [applyingBulk, setApplyingBulk] = useState(false);
   const LIMIT = 25;
 
   const queryClient = useQueryClient();
@@ -167,11 +169,33 @@ export default function AdminLeadsPage() {
       });
       if (!res.ok) throw new Error("Delete failed");
       setSelected(new Set());
+      setBulkStatus("");
       await queryClient.invalidateQueries({ queryKey: ["admin-leads"] });
     } catch {
       alert("Failed to delete leads. Please try again.");
     } finally {
       setDeleting(false);
+    }
+  }
+
+  async function handleBulkStatus() {
+    if (!someSelected || !bulkStatus) return;
+    setApplyingBulk(true);
+    try {
+      const res = await fetch(`${BASE}/api/leads/bulk-status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ ids: Array.from(selected), status: bulkStatus }),
+      });
+      if (!res.ok) throw new Error("Bulk update failed");
+      setSelected(new Set());
+      setBulkStatus("");
+      await queryClient.invalidateQueries({ queryKey: ["admin-leads"] });
+    } catch {
+      alert("Failed to update statuses. Please try again.");
+    } finally {
+      setApplyingBulk(false);
     }
   }
 
@@ -190,20 +214,53 @@ export default function AdminLeadsPage() {
           </div>
 
           {someSelected && (
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={handleDelete}
-              disabled={deleting}
-              className="flex items-center gap-1.5"
-            >
-              {deleting ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Trash2 className="h-3.5 w-3.5" />
-              )}
-              Delete {selected.size} selected
-            </Button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-muted-foreground font-medium">
+                {selected.size} selected
+              </span>
+
+              {/* Bulk status change */}
+              <div className="flex items-center gap-1.5">
+                <div className="relative inline-flex items-center">
+                  <select
+                    value={bulkStatus}
+                    onChange={(e) => setBulkStatus(e.target.value as LeadStatus | "")}
+                    className="text-xs rounded-lg border border-input bg-background pl-2.5 pr-7 py-1.5 appearance-none focus:outline-none focus:ring-2 focus:ring-primary/30 cursor-pointer"
+                  >
+                    <option value="">Set status…</option>
+                    {STATUS_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 pointer-events-none opacity-50" />
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleBulkStatus}
+                  disabled={!bulkStatus || applyingBulk}
+                  className="h-7 text-xs px-2.5"
+                >
+                  {applyingBulk ? <Loader2 className="h-3 w-3 animate-spin" /> : "Apply"}
+                </Button>
+              </div>
+
+              {/* Bulk delete */}
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex items-center gap-1.5 h-7 text-xs px-2.5"
+              >
+                {deleting ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Trash2 className="h-3 w-3" />
+                )}
+                Delete
+              </Button>
+            </div>
           )}
         </div>
 

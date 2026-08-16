@@ -237,6 +237,43 @@ router.delete(
 );
 
 // ---------------------------------------------------------------------------
+// PATCH /api/leads/bulk-status — set the same status on multiple leads (admin only)
+// ---------------------------------------------------------------------------
+
+router.patch(
+  "/leads/bulk-status",
+  requireRole("admin", "super_admin"),
+  async (req: Request, res: Response): Promise<void> => {
+    const { ids, status } = req.body as { ids?: unknown; status?: string };
+
+    const VALID = ["new", "contacted", "registered", "unqualified"] as const;
+    if (!status || !VALID.includes(status as (typeof VALID)[number])) {
+      res.status(400).json({ error: `status must be one of: ${VALID.join(", ")}` });
+      return;
+    }
+    if (!Array.isArray(ids) || ids.length === 0) {
+      res.status(400).json({ error: "ids must be a non-empty array." });
+      return;
+    }
+
+    const parsed = ids.map(Number).filter((n) => !isNaN(n) && n > 0);
+    if (parsed.length === 0) {
+      res.status(400).json({ error: "No valid IDs provided." });
+      return;
+    }
+
+    const { inArray } = await import("drizzle-orm");
+    const updated = await db
+      .update(socialLeadsTable)
+      .set({ status: status as (typeof VALID)[number] })
+      .where(inArray(socialLeadsTable.id, parsed))
+      .returning({ id: socialLeadsTable.id });
+
+    res.json({ updated: updated.length });
+  },
+);
+
+// ---------------------------------------------------------------------------
 // PATCH /api/leads/:id/status — manually update a lead's CRM status (admin only)
 // ---------------------------------------------------------------------------
 
