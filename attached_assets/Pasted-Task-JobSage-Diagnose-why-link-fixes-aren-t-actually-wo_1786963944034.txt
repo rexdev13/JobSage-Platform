@@ -1,0 +1,22 @@
+Task: JobSage — Diagnose why link fixes aren't actually working
+Do not write new fixes yet
+
+The previous session reported click-time revalidation, login-wall detection, and NHS Jobs unblocking as complete and working. In real use, none of this is holding up: vacancies marked as open turn out closed, "live" links lead to login pages, and status doesn't look accurate. Before changing anything else, find out why the shipped fix isn't doing what it reported.
+
+Questions to answer, with evidence (not assumptions)
+Is the click-time check actually running in production right now?
+Confirm the /api/vacancy-link-check endpoint is deployed and reachable, not just present in code.
+Pick 5 real vacancies from the Opportunities page right now (mix of "live", "unverified", and NHS Jobs) and manually trigger a click. Log exactly what happens: does the spinner show, does it call the endpoint, what does the endpoint return, what does the UI do with that response?
+Is the login-wall detection actually catching login pages?
+Take 3 real vacancy URLs that a user reported leading to a login page. Run them manually through the login-wall detection logic and report what it returns. If it says "not a login wall" for a page that clearly is one, find out why — is the redirect pattern different from what's coded, is the page content check missing this site's phrasing, is it checking the wrong URL (e.g. pre-redirect instead of post-redirect)?
+Is "closed" status actually accurate, or stale/wrong?
+Take 3 vacancies a user reported as inaccurately marked (says open, is actually closed — or vice versa). Check: when was this vacancy last checked by the sweep? What did the sweep find? Is the frontend displaying the latest check result, or a cached/stale value?
+Check the 4-hour in-memory cache from the click-time check — could it be serving a stale "alive" result for a link that's since died, or is the cache keyed/invalidated correctly?
+Is the in-memory cache even reliable across requests?
+Confirm what "in-memory" means here — single server instance? If the app runs multiple instances/processes, an in-memory cache could be inconsistent or not shared, giving different answers depending on which instance serves the request. Report the actual deployment setup and whether this is a factor.
+NHS Jobs specifically — are the 85 unblocked links actually resolving correctly?
+Spot-check 5 of the 85 now-unblocked NHS Jobs links directly (open them, or fetch them). Do they land on real vacancy pages, or on NHS Jobs' own login/landing page regardless of the specific job? (NHS Jobs URLs sometimes don't deep-link to a specific posting — confirm whether these URLs are true deep links or generic search/landing URLs that always ask to sign in.)
+Report back with
+Concrete findings for each question above — actual URLs, actual responses, actual logs. Not "should be working."
+A clear diagnosis of the root cause(s) — is this a deployment issue, a caching issue, a detection-logic gap, a data-quality issue (bad URLs from earlier ingestion), or something else.
+Do NOT propose or write a fix yet. Report findings only — we'll decide the fix together once we know what's actually broken.
