@@ -1,0 +1,27 @@
+Task: JobSage — Fix the two confirmed root causes of broken/inaccurate links
+
+The diagnostic pass found the real bugs. Fix these two first — they're the reason closed vacancies still show as clickable and "live" status can't be trusted.
+
+1. "Live" links currently skip the freshness check entirely — fix this first
+
+OpportunitiesPage.tsx (~line 648) exits early and calls window.open directly whenever linkVerified is true, before /api/vacancy-link-check is ever called. That means every vacancy flagged "live" (3,188 of them) opens with zero freshness check — the click-time revalidation built last session only ever applied to the "unverified" subset.
+
+Fix: route ALL vacancy clicks — live and unverified — through the same /api/vacancy-link-check flow. Keep it fast (short timeout, show the spinner briefly) but don't let linkVerified === true skip the check. If the cached/last-known result is very recent (e.g. checked in the last few hours), it's fine to trust it and skip a redundant live call — but "flagged live at some point" should never be treated as "verified live right now."
+
+2. Sweep reliability — get it actually running
+
+The liveness sweep hasn't produced a DB update in ~28 hours. Diagnosis pointed to tsx watch restarting the process on every file save, which interrupts the scheduled cron before it fires.
+
+Fix:
+
+Confirm how the sweep is scheduled in the actual deployed/production process (not tsx watch) — if production runs a compiled, stable process, verify the cron fires correctly there and isn't affected by this dev-only issue. Report back what you find.
+Regardless, run the sweep manually once right now to clear the current staleness backlog on the "live" records specifically (all 3,188 are stale) so we have accurate data to test against immediately, rather than waiting on the schedule.
+If there's any risk the same restart issue could affect the deployed environment (e.g. if deploys trigger restarts too), add a safeguard: on process start, check how long it's been since the last successful sweep, and if it's overdue, kick one off immediately rather than waiting for the next scheduled time.
+Do not do yet (noted for later, not blocking)
+JS-redirect login-wall detection (server-side fetch doesn't follow client-side redirects) — real gap, lower impact, separate task.
+Expanding LOGIN_WALL_PATHS for non-standard auth URLs — same, later.
+Sweep batch size (200/run vs ~5,654 backlog) — once the sweep is running reliably again, this will catch up over time; only worth revisiting if it's still not clearing after a few days of it running properly.
+Report back with
+Confirmation that clicking a "live" vacancy now actually triggers a freshness check (test it, don't just describe the code change).
+The manual sweep run results — how many of the 3,188 "live" records changed status.
+What you found about the production scheduling setup and whether the restart issue is dev-only or a real production risk.

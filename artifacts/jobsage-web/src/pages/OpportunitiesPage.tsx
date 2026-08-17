@@ -636,26 +636,38 @@ function RoleCard({
   const [checking, setChecking] = useState(false);
   const [deadLink, setDeadLink] = useState(false);
 
-  // Click-time live check: for unverified apply links, ping the server before
-  // opening so dead/login-walled links never open a broken tab.
-  // Verified links and company-website fallbacks open immediately (no check).
+  // Click-time live check: ping the server before opening any apply link so
+  // dead/login-walled links never open a broken tab.
+  // Company-website fallbacks (destinationUrl arg) open immediately — those are
+  // the user's own contact pages, not ATS apply links.
+  // Links verified within the last 2 hours are trusted from cache; everything
+  // else (stale "live", or "unverified") goes through a fresh check.
+  const RECENT_VERIFIED_MS = 2 * 60 * 60 * 1000; // 2 hours
   const handleApplyClick = async (destinationUrl?: string): Promise<void> => {
     const targetUrl = destinationUrl ?? applyUrl;
     if (!targetUrl) return;
 
-    // Skip live check for: company-website fallback (destinationUrl provided)
-    // or links already confirmed live by the sweep.
-    if (destinationUrl !== undefined || linkVerified) {
+    // Company-website fallback — open immediately, no check.
+    if (destinationUrl !== undefined) {
       window.open(targetUrl, "_blank", "noopener,noreferrer");
       onExternalApply?.();
       return;
     }
 
-    // Unverified apply URL — do a fast click-time check (cached server-side).
+    // Recently verified (within 2 h) — trust the cached result, skip re-check.
+    const checkedMs = linkCheckedAt ? new Date(linkCheckedAt).getTime() : 0;
+    if (linkVerified && checkedMs > 0 && Date.now() - checkedMs < RECENT_VERIFIED_MS) {
+      window.open(targetUrl, "_blank", "noopener,noreferrer");
+      onExternalApply?.();
+      return;
+    }
+
+    // Stale "live", unverified, or never-checked — do a fast click-time check.
     setChecking(true);
     setDeadLink(false);
+    const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     try {
-      const resp = await fetch(`/api/vacancy-link-check?url=${encodeURIComponent(targetUrl)}`, {
+      const resp = await fetch(`${base}/api/vacancy-link-check?url=${encodeURIComponent(targetUrl)}`, {
         credentials: "include",
       });
       if (resp.ok) {
