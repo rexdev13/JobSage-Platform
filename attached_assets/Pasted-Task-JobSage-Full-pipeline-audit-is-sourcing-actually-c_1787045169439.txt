@@ -1,0 +1,25 @@
+Task: JobSage — Full pipeline audit: is sourcing actually company-websites-only, end to end?
+Purpose
+
+Multiple previous sessions have reported fixes as "done" that turned out to be incomplete or not working in practice. This is a verification pass — report the actual current state with evidence, don't describe what the code is supposed to do. Do not fix anything yet.
+
+Questions to answer
+1. Where do vacancies actually come from right now?
+List every active source currently feeding the sponsor_licence_vacancies / job_listings tables (or whatever the current schema is) — AI web-search, any ATS feeds, manual entry, admin import, anything else.
+For each source, report real counts from the DB: how many current vacancies came from each source, not an estimate.
+2. Of the AI-sourced vacancies, how many actually resolve to a company's own site?
+Pull a real sample (50-100) of AI-discovered vacancy URLs and check: does the domain belong to the employer itself, or does it belong to a third party (job board, ATS-hosted subdomain like boards.greenhouse.io/company, etc.)?
+Note: ATS-hosted pages (Greenhouse/Lever-branded URLs) are a gray area — technically the employer's official application page, but not on the employer's own domain. Report how many fall into this category specifically, since it affects how "company website only" gets defined.
+3. Is the job-board blocklist actually catching everything, or are there gaps?
+Pull a sample of currently-live vacancy URLs and check domains against the blocklist. Are there any board/aggregator domains not on the list that are currently slipping through?
+When was the blocklist last updated, and does it need any new entries based on what's actually in the data now?
+4. What share of vacancies require login to apply, and why?
+Of the current live vacancies, how many lead to a login-gated application flow? Break down by domain/employer type (e.g. "X out of Y are NHS Jobs", "X are other ATS platforms that require signup", "X are unexplained/other").
+This is the number needed to answer the client's actual question honestly — not an estimate, a real count.
+5. What's the current success rate, plainly stated?
+Of all vacancies with a URL right now: how many are (a) live, verified, no login required, (b) live, verified, login required, (c) dead/broken, (d) unverified/unknown.
+This is the single number to bring back to the client and the previous developer — the real state of "does this work."
+Report back with
+Real numbers for every question above, pulled from the database and actual URL checks — not descriptions of intended behavior.
+A plain-language summary: as of right now, what percentage of vacancies are genuinely "found on and applied to via the company's own site, no login" — the actual current answer to the question being asked.
+Do not propose fixes in this pass. Just the current, true state.
