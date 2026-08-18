@@ -27,6 +27,15 @@ function sendMessage<T>(msg: unknown): Promise<T> {
   });
 }
 
+async function activateCurrentTab(): Promise<boolean> {
+  try {
+    const resp = await sendMessage<{ ok?: boolean }>({ type: "ACTIVATE_CURRENT_TAB" });
+    return resp.ok === true;
+  } catch {
+    return false;
+  }
+}
+
 async function loadSuppressedHostnames(): Promise<string[]> {
   try {
     const resp = await sendMessage<{ hostnames?: string[] }>({ type: "GET_ALL_SUPPRESSIONS" });
@@ -54,6 +63,8 @@ function Popup() {
   const [loaded, setLoaded] = useState(false);
   const [saved, setSaved] = useState(false);
   const [suppressedHostnames, setSuppressedHostnames] = useState<string[]>([]);
+  const [activating, setActivating] = useState(false);
+  const [activateResult, setActivateResult] = useState<"ok" | "fail" | null>(null);
 
   useEffect(() => {
     Promise.all([getEnvSettings(), loadSuppressedHostnames()]).then(([s, hostnames]) => {
@@ -63,6 +74,16 @@ function Popup() {
       setLoaded(true);
     });
   }, []);
+
+  const handleActivate = async () => {
+    setActivating(true);
+    setActivateResult(null);
+    const ok = await activateCurrentTab();
+    setActivateResult(ok ? "ok" : "fail");
+    setActivating(false);
+    // Close the popup after a brief success flash so the sidebar is visible.
+    if (ok) setTimeout(() => window.close(), 800);
+  };
 
   const flashSaved = () => {
     setSaved(true);
@@ -137,7 +158,67 @@ function Popup() {
         JOB<span style={{ color: BRAND.primary }}>SAGE</span> Smart Apply
       </div>
       <div style={{ fontSize: 12, color: BRAND.textMuted, marginBottom: 14 }}>
-        Choose which JOBSAGE environment the extension talks to.
+        Open the JOBSAGE sidebar on the current page, or configure settings below.
+      </div>
+
+      {/* Primary action — activate sidebar on current tab */}
+      <button
+        onClick={() => void handleActivate()}
+        disabled={activating}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+          width: "100%",
+          padding: "10px 16px",
+          marginBottom: 14,
+          background: activateResult === "ok"
+            ? BRAND.successBg
+            : activateResult === "fail"
+            ? BRAND.errorBg
+            : activating
+            ? BRAND.primaryDisabled
+            : BRAND.primary,
+          color: activateResult === "ok"
+            ? BRAND.successText
+            : activateResult === "fail"
+            ? BRAND.errorText
+            : "#fff",
+          border: activateResult === "ok"
+            ? `1px solid ${BRAND.successBorder}`
+            : activateResult === "fail"
+            ? `1px solid ${BRAND.errorText}`
+            : "none",
+          borderRadius: BRAND.radiusSm,
+          fontSize: 13,
+          fontWeight: 700,
+          fontFamily: BRAND.fontSans,
+          cursor: activating ? "not-allowed" : "pointer",
+          transition: "background 0.15s",
+        }}
+      >
+        {activateResult === "ok" ? (
+          "✓ Sidebar opened!"
+        ) : activateResult === "fail" ? (
+          "Couldn't open — try refreshing the page"
+        ) : activating ? (
+          "Opening…"
+        ) : (
+          <>
+            {/* Arrow-up-right icon */}
+            <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M21 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6" />
+              <polyline points="16 3 21 3 21 8" />
+              <line x1={10} y1={14} x2={21} y2={3} />
+            </svg>
+            Use JOBSAGE on this page
+          </>
+        )}
+      </button>
+
+      <div style={{ fontSize: 11, color: BRAND.textMuted, marginBottom: 14, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+        Settings
       </div>
 
       {/* Environment selector */}

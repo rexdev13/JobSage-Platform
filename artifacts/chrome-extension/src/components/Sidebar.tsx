@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useSyncExternalStore } from "react";
+import { useState, useCallback, useRef, useEffect, useSyncExternalStore } from "react";
 import type { JobContext } from "../lib/scraper";
 import type { DetectedQuestion, QuestionWatcher } from "../lib/questionDetector";
 import { insertAnswer, highlightField } from "../lib/questionDetector";
@@ -42,6 +42,10 @@ interface SidebarProps {
   initialPosition?: PillPos | null;
   /** Called when the candidate dismisses the launcher for this site or session. */
   onDismiss: (scope: "site" | "session") => void;
+  /** When true the sidebar panel starts open (used when activated via popup button). */
+  startOpen?: boolean;
+  /** Receives a callback that external code can call to imperatively open the sidebar. */
+  onOpen?: (openFn: () => void) => void;
 }
 
 const EMPTY_QUESTIONS: DetectedQuestion[] = [];
@@ -166,8 +170,20 @@ export function Sidebar({
   onLogApplication,
   initialPosition = null,
   onDismiss,
+  startOpen = false,
+  onOpen,
 }: SidebarProps) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(startOpen);
+
+  // Expose an imperative open handle so the content script can open the
+  // sidebar when the user clicks "Use JOBSAGE on this page" in the popup.
+  // useEffect keeps the callback fresh without re-registering on every render.
+  const setOpenRef = useRef(setOpen);
+  setOpenRef.current = setOpen;
+  useEffect(() => {
+    onOpen?.(() => setOpenRef.current(true));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onOpen]);
   const [question, setQuestion] = useState("");
   const [copied, setCopied] = useState(false);
   const [inserted, setInserted] = useState(false);

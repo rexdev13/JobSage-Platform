@@ -9,6 +9,11 @@ import type { PillPos } from "./lib/types";
 const JOBSAGE_HOST_ID = "jobsage-extension-root";
 const PILL_POSITION_KEY = "jobsage_pill_position";
 
+// Module-level: track whether the sidebar is already mounted and provide a
+// handle to open it from outside React (used by the SHOW_SIDEBAR message).
+let sidebarMounted = false;
+let openSidebarFn: (() => void) | null = null;
+
 /** Hostnames that are part of the JOBSAGE platform itself. */
 const JOBSAGE_HOSTNAMES = new Set(["jobsage.co.uk", "www.jobsage.co.uk", "localhost"]);
 
@@ -104,9 +109,17 @@ async function logApplication(companyName: string, jobTitle: string, pageUrl: st
 // Mount
 // ---------------------------------------------------------------------------
 
-function mountSidebar(initialPosition: PillPos | null, onDismiss: (scope: "site" | "session") => void): ShadowRoot {
+function mountSidebar(
+  initialPosition: PillPos | null,
+  onDismiss: (scope: "site" | "session") => void,
+  startOpen = false,
+): ShadowRoot {
   const existing = document.getElementById(JOBSAGE_HOST_ID);
-  if (existing) return existing.shadowRoot!;
+  if (existing) {
+    // Already mounted — just open it.
+    openSidebarFn?.();
+    return existing.shadowRoot!;
+  }
 
   const host = document.createElement("div");
   host.id = JOBSAGE_HOST_ID;
@@ -136,15 +149,27 @@ function mountSidebar(initialPosition: PillPos | null, onDismiss: (scope: "site"
       onLogApplication={logApplication}
       initialPosition={initialPosition}
       onDismiss={onDismiss}
+      startOpen={startOpen}
+      onOpen={(fn) => { openSidebarFn = fn; }}
     />,
   );
 
+  sidebarMounted = true;
   return shadowRoot;
 }
 
 // ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
+
+// Shared dismiss handler — used by both init() and the SHOW_SIDEBAR path.
+function makeDismissHandler(): (scope: "site" | "session") => void {
+  return (scope) => {
+    void sendMessage({ type: "SET_SUPPRESSION", hostname: location.hostname, scope });
+    const host = document.getElementById(JOBSAGE_HOST_ID);
+    if (host) host.style.display = "none";
+  };
+}
 
 async function init(): Promise<void> {
   const [activated, suppression, pillPosition] = await Promise.all([
@@ -160,15 +185,7 @@ async function init(): Promise<void> {
   // Respect the candidate's suppression choice.
   if (suppression === "site" || suppression === "session") return;
 
-  const onDismiss = (scope: "site" | "session") => {
-    // Notify background to persist the suppression choice.
-    void sendMessage({ type: "SET_SUPPRESSION", hostname: location.hostname, scope });
-    // Remove the host element from the page — no React unmount needed.
-    const host = document.getElementById(JOBSAGE_HOST_ID);
-    if (host) host.style.display = "none";
-  };
-
-  const shadowRoot = mountSidebar(pillPosition, onDismiss);
+  const shadowRoot = mountSidebar(pillPosition, makeDismissHandler());
 
   if (isConfirmationPage()) {
     const jobContext = scrapeJobContext();
@@ -177,6 +194,26 @@ async function init(): Promise<void> {
     });
   }
 }
+
+// Listen for explicit activation from the popup "Use JOBSAGE on this page"
+// button. This fires even when init() returned early (unrecognised host),
+// letting the user opt-in on any job application page without a page reload.
+chrome.runtime.onMessage.addListener((msg: unknown, _sender, sendResponse) => {
+  if (typeof msg !== "object" || !msg || (msg as Record<string, unknown>)["type"] !== "SHOW_SIDEBAR") {
+    return false;
+  }
+  (async () => {
+    const suppression = await checkSuppression();
+    if (suppression === "site" || suppression === "session") {
+      sendResponse({ ok: false, reason: "suppressed" });
+      return;
+    }
+    const pillPosition = await loadPillPosition();
+    mountSidebar(pillPosition, makeDismissHandler(), /* startOpen */ true);
+    sendResponse({ ok: true });
+  })();
+  return true; // keep channel open for async sendResponse
+});
 
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", () => void init());
