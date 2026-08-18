@@ -1,0 +1,32 @@
+Task: JobSage — Retroactive cleanup of job-board URLs + blocklist expansion (no AI calls)
+Cost constraint — read first
+
+Nothing in this task should call the AI/LLM API. This is domain matching against existing stored URLs (string comparison) and database updates — not re-searching or re-discovering anything. If any part seems to require an AI call, stop and flag it before proceeding.
+
+The problem (confirmed by audit)
+
+48,480 vacancies in sponsor_licence_vacancies. ~29,065 (60%) are on job-board domains (LinkedIn, Indeed, Reed, etc.) that predate solid blocklist enforcement — they're sitting in the DB as unverified instead of being cleaned up, because the only cleanup path currently is "wait for that org's next AI recheck," which at 126,967 orgs and infrequent per-org checks takes weeks. Additionally, ~1,400 rows are on aggregator/board domains that aren't on the blocklist at all yet (TES, Gumtree, StudySmarter, Teaching Vacancies, JobLeads, and others — full list in the audit report).
+
+What to do
+1. Expand the blocklist
+
+Add the missing domains found in the audit to vacancyUrlPolicy.ts's blocklist: talents.studysmarter.co.uk, teaching-vacancies.service.gov.uk, www.tes.com, www.jobleads.com, jobtoday.com, builtin.com, grabjobs.co, harri.com, www.careers-page.com, employmenthero.com, www.gumtree.com, startup.jobs, jobs.weekday.works, www.itjobboard.co.uk, www.eteach.com, mynewterm.com, and any others matching the audit's list. Check bit.ly and other link shorteners separately — flag rows with shortened URLs for manual review rather than blocklisting the shortener domain itself (the destination is unknown, could be legitimate).
+
+2. Retroactively reclassify the existing backlog (this is the main fix — don't wait for the sweep)
+
+Write a one-time script that:
+
+Scans all 48,480 rows in sponsor_licence_vacancies (plus any other vacancy tables).
+Matches each row's URL domain against the full (now-expanded) blocklist.
+For every match: apply the same treatment the ingestion-time policy already applies to new blocked URLs (null the URL / mark it appropriately) rather than leaving it as unverified with no reason.
+This should clear the ~29,000+1,400 backlog in one run instead of waiting weeks for the per-org recheck cycle to reach them.
+Log a before/after count so we can confirm how many rows were reclassified.
+3. Don't touch the ~14,700-16,281 direct-employer-domain rows in this pass
+
+Leave those as-is — they're a separate problem (verification, not sourcing) and already covered by the existing liveness sweep. This task is scoped to removing job-board noise, not re-verifying legitimate URLs.
+
+Report back with
+Confirmation zero AI calls were made.
+Before/after counts: how many rows were reclassified as blocked, broken down by which domain caught them.
+The new percentage breakdown (job board / direct employer / NHS Jobs / ATS-hosted / other) after cleanup, so we have an updated true number to replace the 4-5% audit finding.
+Any domains you found in the backlog that looked like boards/aggregators but weren't confident enough to blocklist — list them for a manual decision rather than guessing.

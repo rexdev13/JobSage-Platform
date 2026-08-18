@@ -954,4 +954,29 @@ router.post(
   },
 );
 
+/**
+ * POST /admin/vacancy-url-cleanup
+ *
+ * Retroactively null out any vacancy URL in sponsor_licence_vacancies that
+ * matches the (now-expanded) aggregator/job-board blocklist or fails the
+ * deep-link policy.  Returns per-domain purge counts.
+ *
+ * No AI/LLM calls — pure domain matching against the in-memory blocklist.
+ * Safe to run multiple times (idempotent on rows already nulled).
+ */
+router.post(
+  "/admin/vacancy-url-cleanup",
+  requireRole("super_admin"),
+  async (req: Request, res: Response): Promise<void> => {
+    writeAuditEvent(req.user!.id, "admin_vacancy_url_cleanup_started").catch(() => {});
+
+    const { runVacancyUrlCleanup } = await import("../lib/vacancyUrlCleanup");
+    const summary = await runVacancyUrlCleanup(`admin:${req.user!.id}`);
+
+    writeAuditEvent(req.user!.id, "admin_vacancy_url_cleanup_done").catch(() => {});
+
+    res.json({ success: true, ...summary });
+  },
+);
+
 export default router;

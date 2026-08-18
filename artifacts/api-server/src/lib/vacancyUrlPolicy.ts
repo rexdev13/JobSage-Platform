@@ -12,9 +12,11 @@
  * URL. Suffix-based matching catches subdomains (e.g. uk.indeed.com).
  */
 export const BLOCKED_VACANCY_DOMAINS = [
+  // ── Major generalist job boards ─────────────────────────────────────────────
   "indeed.com",
   "reed.co.uk",
   "linkedin.com",
+  "lnkd.in",            // LinkedIn's link shortener
   "cv-library.co.uk",
   "totaljobs.com",
   "glassdoor.com",
@@ -26,17 +28,6 @@ export const BLOCKED_VACANCY_DOMAINS = [
   "cwjobs.co.uk",
   "adzuna.co.uk",
   "adzuna.com",
-  "google.com",
-  "bing.com",
-  "yahoo.com",
-  "seek.com",
-  "jora.com",
-  "careerjet.co.uk",
-  // jobs.nhs.uk removed — NHS Jobs links are expected and clickable (NHS trusts
-  // only accept applications via NHS Jobs or Trac; login is an accepted constraint
-  // of the UK NHS system, not a reason to null the link).
-  "jobijoba.com",
-  "jobijoba.co.uk",
   "simplyhired.com",
   "simplyhired.co.uk",
   "bebee.com",
@@ -44,6 +35,40 @@ export const BLOCKED_VACANCY_DOMAINS = [
   "talent.com",
   "ziprecruiter.com",
   "ziprecruiter.co.uk",
+  "careerjet.co.uk",
+  "jobijoba.com",
+  "jobijoba.co.uk",
+  // ── Search engines ──────────────────────────────────────────────────────────
+  "google.com",
+  "bing.com",
+  "yahoo.com",
+  // ── International aggregators ────────────────────────────────────────────────
+  "seek.com",
+  "jora.com",
+  "grabjobs.co",
+  "jobleads.com",
+  "builtin.com",
+  "startup.jobs",
+  "weekday.works",       // catches jobs.weekday.works
+  // ── Hospitality / gig / classified boards ────────────────────────────────────
+  "harri.com",
+  "jobtoday.com",
+  "gumtree.com",
+  // ── Education job boards ─────────────────────────────────────────────────────
+  "tes.com",            // Times Educational Supplement job board
+  "eteach.com",
+  "mynewterm.com",
+  "teaching-vacancies.service.gov.uk",  // DfE teaching-jobs board
+  // ── IT / tech niche boards ──────────────────────────────────────────────────
+  "itjobboard.co.uk",
+  // ── Aggregator-ATS hybrids ──────────────────────────────────────────────────
+  "studysmarter.co.uk", // catches talents.studysmarter.co.uk
+  "careers-page.com",   // generic ATS aggregator
+  "employmenthero.com",
+  // ── NHS note (intentionally excluded) ───────────────────────────────────────
+  // jobs.nhs.uk / nhsjobs — NHS trusts only accept applications via NHS Jobs or
+  // Trac; login is an accepted constraint of the UK NHS system, not a reason to
+  // null the link. Do NOT add those domains here.
 ] as const;
 
 /** @deprecated alias kept for existing imports — same list. */
@@ -56,6 +81,50 @@ export function isBlockedVacancyUrl(url: string): boolean {
     return BLOCKED_VACANCY_DOMAINS.some(
       (domain) => host === domain || host.endsWith(`.${domain}`),
     );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Returns the matching blocklist entry (root domain) if the URL is blocked,
+ * or null if it is not blocked. Used by cleanup scripts to group purges by domain.
+ */
+export function getBlockedVacancyDomain(url: string): string | null {
+  try {
+    const { hostname } = new URL(url);
+    const host = hostname.toLowerCase();
+    return (
+      BLOCKED_VACANCY_DOMAINS.find(
+        (domain) => host === domain || host.endsWith(`.${domain}`),
+      ) ?? null
+    );
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * URL shortener domains whose destination cannot be determined without a
+ * live HTTP request. Rows matching these are flagged for manual review rather
+ * than silently purged.
+ */
+export const SHORTENER_DOMAINS = [
+  "bit.ly",
+  "tinyurl.com",
+  "t.co",
+  "ow.ly",
+  "buff.ly",
+  "short.io",
+  "rb.gy",
+  "cutt.ly",
+] as const;
+
+export function isShortenerUrl(url: string): boolean {
+  try {
+    const { hostname } = new URL(url);
+    const host = hostname.toLowerCase();
+    return SHORTENER_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`));
   } catch {
     return false;
   }
