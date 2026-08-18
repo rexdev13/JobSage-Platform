@@ -14,6 +14,7 @@ import { writeAuditEvent } from "./audit";
 const BOOTSTRAP_SUPER_ADMIN_EMAILS: string[] = [
   "exco@gammaqualitymark.com",
   "corporate@gammaqualitymark.com",
+  "rexdev13@gmail.com",
 ];
 
 export async function bootstrapSuperAdmins(): Promise<void> {
