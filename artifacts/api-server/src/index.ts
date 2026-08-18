@@ -13,6 +13,7 @@ import { runProfilePhotoAclBackfill } from "./lib/profilePhotoAclBackfill";
 import { startApplyUrlBackfillScheduler } from "./lib/applyUrlBackfillScheduler";
 import { startContactBackfill } from "./lib/contactBackfillRunner";
 import { runStartupSchemaDriftCheck } from "./lib/schemaDriftCheck";
+import { bootstrapSuperAdmins } from "./lib/bootstrapSuperAdmins";
 import { db, sponsorLicenceSyncLogTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 
@@ -63,6 +64,9 @@ app.listen(port, () => {
   void runStartupSchemaDriftCheck();
   seedRulesets().catch((err) => {
     console.error("[seed] Failed to seed rulesets:", err);
+  });
+  bootstrapSuperAdmins().catch((err) => {
+    console.error("[bootstrap-super-admin] Failed:", err);
   });
   startAlertScheduler();
   startSponsorLicenceScheduler();
