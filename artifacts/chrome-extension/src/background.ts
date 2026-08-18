@@ -149,6 +149,10 @@ interface GetAllSuppressionsMessage {
   type: "GET_ALL_SUPPRESSIONS";
 }
 
+interface ActivateCurrentTabMessage {
+  type: "ACTIVATE_CURRENT_TAB";
+}
+
 type IncomingMessage =
   | ApiRequestMessage
   | GetTokenMessage
@@ -156,7 +160,8 @@ type IncomingMessage =
   | GetSuppressionMessage
   | SetSuppressionMessage
   | ClearSuppressionMessage
-  | GetAllSuppressionsMessage;
+  | GetAllSuppressionsMessage
+  | ActivateCurrentTabMessage;
 
 interface ApiResponseSuccess { data: unknown }
 interface ApiResponseError { error: string }
@@ -382,6 +387,45 @@ chrome.runtime.onMessage.addListener(
           sendResponse({ hostnames: all });
         })
         .catch(() => sendResponse({ hostnames: [] }));
+      return true;
+    }
+
+    // --- ACTIVATE_CURRENT_TAB ---
+    // Called by the popup "Use JOBSAGE on this page" button. Marks the active
+    // tab as activated (so the sidebar persists across soft navigations) and
+    // sends SHOW_SIDEBAR to the content script already injected on that tab.
+    if (message.type === "ACTIVATE_CURRENT_TAB") {
+      (async () => {
+        try {
+          const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+          const tab = tabs[0];
+          if (!tab?.id || !tab.url) {
+            sendResponse({ error: "no active tab" });
+            return;
+          }
+          const tabId = tab.id;
+          // Mark the tab as activated so it persists through same-domain
+          // navigations (e.g. redirect after form submit).
+          try {
+            const etld1 = getEtld1(new URL(tab.url).hostname);
+            const map = await getActivations();
+            map[tabId] = { etld1, activatedAt: Date.now() };
+            await setActivations(map);
+          } catch {
+            // Storage write failure is non-fatal — sidebar will still show now.
+          }
+          // Signal the content script already injected on the page.
+          try {
+            await chrome.tabs.sendMessage(tabId, { type: "SHOW_SIDEBAR" });
+          } catch {
+            // Content script not yet ready (e.g. page still loading). Activation
+            // is persisted above so the sidebar will mount on DOMContentLoaded.
+          }
+          sendResponse({ ok: true });
+        } catch {
+          sendResponse({ error: "unexpected error" });
+        }
+      })();
       return true;
     }
 
