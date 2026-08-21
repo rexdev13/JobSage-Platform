@@ -95,11 +95,23 @@ export function buildRewrittenCvPdf(params: {
     doc.moveDown(1.2);
 
     // ── Parse and render the AI content ──────────────────────────────────
-    // Split into lines; detect section headers (ALL CAPS, ≤ 60 chars, non-empty)
+    // 2-page overflow guard: track pages via the 'pageAdded' event and stop
+    // rendering the moment content would spill onto a third page.
+    const PAGE_H   = 841.89; // A4 height in points
+    const SAFE_END = PAGE_H - MARGIN - 20; // stop 20 pt before the page bottom
+
+    let pageCount = 1;
+    let contentTruncated = false;
+    doc.on("pageAdded", () => { pageCount++; });
+
+    // True once we are past the safe zone on page 2 or have gone beyond page 2.
+    const overLimit = (): boolean =>
+      pageCount > 2 || (pageCount === 2 && doc.y > SAFE_END);
+
+    // Detect section headers: ALL CAPS, ≤ 70 chars, ≥ 85 % uppercase letters.
     const isSectionHeader = (line: string): boolean => {
       const t = line.trim();
       if (!t || t.length > 70) return false;
-      // Must be mostly uppercase letters (allow spaces, punctuation, digits)
       const letters = t.replace(/[^A-Za-z]/g, "");
       if (!letters.length) return false;
       const upperRatio = (t.replace(/[^A-Z]/g, "").length) / letters.length;
@@ -109,6 +121,8 @@ export function buildRewrittenCvPdf(params: {
     const lines = content.split("\n");
     let i = 0;
     while (i < lines.length) {
+      if (overLimit()) { contentTruncated = true; break; }
+
       const raw = lines[i];
       const line = raw.trim();
       i++;
@@ -136,17 +150,16 @@ export function buildRewrittenCvPdf(params: {
         continue;
       }
 
-      // Bold inline (lines that end with a colon, e.g. "Job Title, Company — 2020-2023:")
+      // Body text
       doc.font("Helvetica").fontSize(10).fillColor(DARK)
         .text(line, { width: CONTENT, lineGap: 2 });
     }
 
-    // ── Footer ────────────────────────────────────────────────────────────
-    const footerY = doc.page.height - MARGIN + 10;
-    doc.font("Helvetica").fontSize(7.5).fillColor(MUTED).text(
-      `Enhanced by JOBSAGE AI CV Enhancement  ·  ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}`,
-      MARGIN, footerY, { width: CONTENT, align: "center" },
-    );
+    if (contentTruncated) {
+      console.log("[cv-pdf] Content exceeded 2 pages and was truncated to comply with UK CV standards.");
+    }
+
+    // ── No footer — removed to meet UK professional CV presentation standards ──
 
     doc.end();
   });
@@ -221,13 +234,28 @@ router.post("/profiles/cv-enhancement", requireAuthenticated, async (req, res): 
 
     // Build AI prompt
     const systemPrompt =
-      "You are a professional CV writer specialising in UK healthcare and skilled-worker immigration. " +
-      "Your job is to rewrite a candidate's CV to make it significantly more impactful and professional — " +
+      "You are a senior professional CV writer specialising in UK healthcare and skilled-worker immigration.\n" +
+      "Rewrite the candidate's CV to be significantly more impactful using strong UK-standard professional language — " +
       "while keeping every factual detail exactly as-is: employer names, job titles, dates, qualifications, " +
-      "certifications, contact details, and any numbers or statistics. " +
-      "Write in UK English. Use strong, active language. Do not invent anything. " +
-      "Format the output with clear ALL-CAPS section headers (e.g. PROFESSIONAL SUMMARY, WORK EXPERIENCE, " +
-      "EDUCATION, KEY SKILLS, CERTIFICATIONS, LANGUAGES, REFERENCES). " +
+      "certifications, and any numbers or statistics. Write in UK English. Do not invent anything.\n\n" +
+      "MANDATORY SECTION ORDER — use these exact ALL-CAPS headings, in this order:\n" +
+      "1. PERSONAL STATEMENT  — 3–4 sentences: current level + specialism + key strengths + career direction. " +
+      "No first-person 'I'. Do NOT use the heading 'Professional Summary', 'Objective', or any variant.\n" +
+      "2. WORK EXPERIENCE     — reverse chronological. Format each role exactly as:\n" +
+      "   Job Title | Organisation | City/Region | Mon YYYY – Mon YYYY\n" +
+      "   Each role: 2–3 bullet points. Bullets MUST be achievement-led and quantified wherever possible " +
+      "(e.g. 'Reduced waiting times by 30%', 'Managed a caseload of 40+ patients'). " +
+      "Start every bullet with a strong action verb (e.g. Led, Delivered, Implemented, Achieved).\n" +
+      "3. EDUCATION & QUALIFICATIONS — reverse chronological. Degree/Diploma | Institution | Country | Year\n" +
+      "4. PROFESSIONAL REGISTRATIONS — e.g. NMC, GMC, HCPC, SRA. Include registration number and current status, " +
+      "or state 'In process' / 'Not yet registered' as appropriate.\n" +
+      "5. KEY SKILLS          — concise bullet list of 6–10 relevant skills.\n\n" +
+      "STRICT RULES:\n" +
+      "- Do NOT include: date of birth, age, photograph, nationality, marital status, religion, National Insurance number, " +
+      "or full home address. Use city and region only (e.g. 'Manchester, Greater Manchester').\n" +
+      "- All dates MUST follow the format Mon YYYY – Mon YYYY (e.g. 'Jan 2021 – Mar 2024'). No year-only ranges.\n" +
+      "- End the CV with the heading REFERENCES on its own line, followed by exactly: " +
+      "'References: Available upon request.' — never list actual referee names or contact details.\n" +
       "Return the complete rewritten CV — nothing else, no preamble, no explanations.";
 
     const userPrompt =
