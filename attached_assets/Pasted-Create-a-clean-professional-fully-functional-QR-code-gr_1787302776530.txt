@@ -1,0 +1,58 @@
+Create a clean, professional, fully functional QR code graphic for JOBSAGE.
+
+Critical requirement
+
+DO NOT use an image-generation model to draw or recreate the QR code.
+
+The QR code must be generated programmatically using a real QR-code library so that it reliably scans.
+
+The QR code must encode exactly:
+
+"https://jobsage.co.uk/get-started"
+
+Design
+
+- Use a pure black QR code on a clean white background.
+- Keep the standard three QR finder patterns completely intact.
+- Maintain a generous white quiet zone around the entire QR code.
+- Use high error correction (preferably QR error correction level H).
+- Make the QR code large, sharp, and suitable for both phone screens and printing.
+- Do not distort, stretch, blur, rotate, or apply effects to the QR modules.
+- Keep every QR module perfectly square and aligned.
+
+JOBSAGE branding
+
+Place the JOBSAGE logo/wordmark in the center of the QR code.
+
+The current logo treatment looks poor, so make it much cleaner:
+
+- Use the text "JOBSAGE"
+- Uppercase
+- Bold, modern sans-serif typography
+- Dark red/maroon text
+- Center it precisely
+- Put it on a clean white rectangular or subtly rounded white panel
+- The panel should be visually balanced rather than oversized
+- Do not let the logo obscure an excessive amount of QR data
+
+Because the QR uses high error correction, the center logo can cover a modest portion of the modules, but preserve enough surrounding QR information for reliable scanning.
+
+Important implementation approach
+
+1. Generate the QR code programmatically from the exact URL.
+2. Render it at high resolution.
+3. Apply the JOBSAGE center branding as a separate compositing layer.
+4. Validate the resulting image by actually scanning/decoding the final generated PNG.
+5. If decoding fails, reduce the logo/panel size and regenerate until it successfully decodes.
+6. Only deliver the final image after confirming that it decodes to exactly:
+   "https://jobsage.co.uk/get-started"
+
+Output
+
+Produce a high-resolution PNG with clean edges and no unnecessary decorative elements.
+
+The priority order is:
+
+1. QR functionality → 2. Clean visual design → 3. JOBSAGE branding.
+
+Do not sacrifice QR scan reliability for aesthetics.
