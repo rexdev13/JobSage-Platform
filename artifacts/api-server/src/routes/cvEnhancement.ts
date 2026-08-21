@@ -70,7 +70,7 @@ async function extractCvText(storageKey: string): Promise<string> {
 export function buildRewrittenCvPdf(params: {
   name: string;
   content: string;
-}): Promise<Buffer> {
+}): Promise<{ buffer: Buffer; contentTruncated: boolean }> {
   return new Promise((resolve, reject) => {
     const { name, content } = params;
 
@@ -85,7 +85,7 @@ export function buildRewrittenCvPdf(params: {
     const doc = new PDFDocument({ size: "A4", margin: MARGIN, autoFirstPage: true });
     const chunks: Buffer[] = [];
     doc.on("data", (c: Buffer) => chunks.push(c));
-    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("end", () => resolve({ buffer: Buffer.concat(chunks), contentTruncated }));
     doc.on("error", reject);
 
     // ── Name header ───────────────────────────────────────────────────────
@@ -358,7 +358,7 @@ router.post(
         [firstName, lastName].filter(Boolean).join(" ").trim() || "Candidate";
 
       // Generate improved PDF
-      const pdfBuffer = await buildRewrittenCvPdf({ name: candidateName, content });
+      const { buffer: pdfBuffer, contentTruncated } = await buildRewrittenCvPdf({ name: candidateName, content });
 
       // Upload to object storage
       const storageKey = await objectStorageSvc.saveFileBuffer({
@@ -420,10 +420,11 @@ router.post(
       if (!newDoc) throw new Error("Transaction did not return the new document.");
 
       res.json({
-        documentId: newDoc.id,
-        storageKey:  newDoc.storageKey,
-        filename:    newDoc.filename,
-        isPrimary:   newDoc.isPrimary,
+        documentId:       newDoc.id,
+        storageKey:       newDoc.storageKey,
+        filename:         newDoc.filename,
+        isPrimary:        newDoc.isPrimary,
+        contentTruncated: contentTruncated,
       });
     } catch (err) {
       console.error("[cv-enhancement/finalize] Error:", err);
