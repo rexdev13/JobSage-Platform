@@ -4,10 +4,14 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>JOBSAGE Smart Apply</title>
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap"
-    />
+    <!--
+      Google Fonts is intentionally omitted here. Chrome MV3 extension popup
+      pages block external stylesheets under stricter CSPs in newer Chrome
+      versions. The popup uses inline styles with system-font fallbacks
+      (BRAND.fontSans / fontDisplay) so the UI renders correctly without the
+      webfonts. The content-script sidebar loads fonts via ensureBrandFonts()
+      which injects them into the host document where the page CSP applies.
+    -->
   </head>
   <body style="margin: 0">
     <div id="root"></div>
