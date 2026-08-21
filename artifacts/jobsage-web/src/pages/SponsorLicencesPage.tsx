@@ -567,9 +567,11 @@ export default function SponsorLicencesPage() {
 
   function handleWebsiteApply(companyName: string, companyId: number, careersUrl: string | null) {
     if (careersUrl) {
-      // Opens the sponsor's careers site in a new tab. Click-logging was
-      // retired — no application record is created here.
-      void openTrackedOutbound({ id: companyId, source: "careers", url: normalizeWebsiteUrl(careersUrl) });
+      // Opening the sponsor's careers site counts as an outbound application
+      // step — gate it behind the extension so the visit is tracked.
+      requireExtension(() => {
+        void openTrackedOutbound({ id: companyId, source: "careers", url: normalizeWebsiteUrl(careersUrl) });
+      });
     } else {
       // No careers URL yet — open the Contact panel for this company so the
       // candidate can use "Find Contact Details" to discover the careers site.
