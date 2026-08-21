@@ -2,6 +2,13 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Loader2, Search, Users, Trash2, ChevronDown } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -117,6 +124,7 @@ function StatusSelect({ lead }: { lead: Lead }) {
 
 export default function AdminLeadsPage() {
   const [search, setSearch]           = useState("");
+  const [sector, setSector]           = useState("");
   const [page, setPage]               = useState(1);
   const [selected, setSelected]       = useState<Set<number>>(new Set());
   const [deleting, setDeleting]         = useState(false);
@@ -128,10 +136,11 @@ export default function AdminLeadsPage() {
   const queryClient = useQueryClient();
 
   const { data, isLoading, isError } = useQuery<LeadsResponse>({
-    queryKey: ["admin-leads", page, search],
+    queryKey: ["admin-leads", page, search, sector],
     queryFn: async () => {
       const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
       if (search.trim()) params.set("search", search.trim());
+      if (sector)        params.set("sector", sector);
       const res = await fetch(`${BASE}/api/leads?${params}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load leads");
       return res.json() as Promise<LeadsResponse>;
@@ -273,15 +282,41 @@ export default function AdminLeadsPage() {
           )}
         </div>
 
-        {/* ── Search ── */}
-        <div className="relative max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-          <input
-            value={search}
-            onChange={handleSearch}
-            placeholder="Search by name or email…"
-            className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
-          />
+        {/* ── Search + Sector filter ── */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <input
+              value={search}
+              onChange={handleSearch}
+              placeholder="Search by name or email…"
+              className="w-64 pl-9 pr-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
+            />
+          </div>
+          <Select
+            value={sector || "__all__"}
+            onValueChange={(val) => {
+              setSector(val === "__all__" ? "" : val);
+              setPage(1);
+              setSelected(new Set());
+            }}
+          >
+            <SelectTrigger className="w-48 text-sm h-[38px]">
+              <SelectValue placeholder="Filter by Sector" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All Industries</SelectItem>
+              <SelectItem value="Healthcare">Healthcare</SelectItem>
+              <SelectItem value="Technology">Technology</SelectItem>
+              <SelectItem value="Engineering">Engineering</SelectItem>
+              <SelectItem value="Finance">Finance</SelectItem>
+              <SelectItem value="Marketing">Marketing</SelectItem>
+              <SelectItem value="Education">Education</SelectItem>
+              <SelectItem value="Construction">Construction</SelectItem>
+              <SelectItem value="Retail">Retail</SelectItem>
+              <SelectItem value="Other">Other</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {/* ── Body ── */}
