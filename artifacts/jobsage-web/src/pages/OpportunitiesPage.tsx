@@ -638,16 +638,17 @@ function RoleCard({
 
   // Click-time live check: ping the server before opening any apply link so
   // dead/login-walled links never open a broken tab.
-  // Company-website fallbacks (destinationUrl arg) open immediately — those are
-  // the user's own contact pages, not ATS apply links.
   // Links verified within the last 2 hours are trusted from cache; everything
   // else (stale "live", or "unverified") goes through a fresh check.
+  // All outbound clicks (apply links AND company-website fallbacks) are gated
+  // behind the Smart Apply extension so every application is tracked.
   const RECENT_VERIFIED_MS = 2 * 60 * 60 * 1000; // 2 hours
-  const handleApplyClick = async (destinationUrl?: string): Promise<void> => {
+
+  const doApplyClick = async (destinationUrl?: string): Promise<void> => {
     const targetUrl = destinationUrl ?? applyUrl;
     if (!targetUrl) return;
 
-    // Company-website fallback — open immediately, no check.
+    // Company-website fallback — open immediately, no ATS check needed.
     if (destinationUrl !== undefined) {
       window.open(targetUrl, "_blank", "noopener,noreferrer");
       onExternalApply?.();
@@ -685,6 +686,11 @@ function RoleCard({
 
     window.open(targetUrl, "_blank", "noopener,noreferrer");
     onExternalApply?.();
+  };
+
+  // Gate every outbound click behind the extension check.
+  const handleApplyClick = (destinationUrl?: string): void => {
+    requireExtension(() => void doApplyClick(destinationUrl));
   };
 
   const applied = appliedRoleIds.includes(role.id);
@@ -760,16 +766,15 @@ function RoleCard({
       {/* Company contact row */}
       <div className="mt-3 space-y-2" onClick={(e) => e.stopPropagation()}>
         {contactWebsite && (
-          <a
-            href={contactWebsite.startsWith("http") ? contactWebsite : `https://${contactWebsite}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 text-xs text-primary hover:underline"
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); handleApplyClick(contactWebsite.startsWith("http") ? contactWebsite : `https://${contactWebsite}`); }}
+            className="flex items-center gap-2 text-xs text-primary hover:underline text-left"
           >
             <Globe className="w-3.5 h-3.5 shrink-0" />
             {contactWebsite.startsWith("http") ? contactWebsite : `https://${contactWebsite}`}
             <ExternalLink className="w-3 h-3 opacity-50" />
-          </a>
+          </button>
         )}
         {contactEmail && (
           <a
