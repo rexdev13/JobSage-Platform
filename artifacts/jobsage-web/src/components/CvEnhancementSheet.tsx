@@ -41,10 +41,11 @@ interface EnhancementResult {
 }
 
 interface FinalizeResult {
-  documentId: number;
-  storageKey: string;
-  filename:   string;
-  isPrimary:  boolean;
+  documentId:       number;
+  storageKey:       string;
+  filename:         string;
+  isPrimary:        boolean;
+  contentTruncated?: boolean;
 }
 
 interface CvDocument {
@@ -466,6 +467,15 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
                     : "Saved as a PDF and added to your documents."}
                 </p>
               </div>
+
+              {finalizeResult.contentTruncated && (
+                <div className="w-full rounded-xl border border-amber-200 bg-amber-50 p-3 flex items-start gap-2.5 text-left">
+                  <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-800">
+                    <span className="font-semibold">CV shortened to 2 pages.</span> Some content near the end was removed to comply with UK CV standards. Edit and tighten your content if you'd like everything included.
+                  </p>
+                </div>
+              )}
 
               <div className="w-full rounded-xl border border-border bg-muted/30 p-4 flex items-center gap-3 text-left">
                 <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center shrink-0">

@@ -74,7 +74,7 @@ async function generateCvBackground(profileId: number, userId: string): Promise<
             `Please write a full, submission-ready CV following the UK healthcare standard format described. Include all sections even if some details are approximate — note where the candidate should personalise.`,
         },
       ],
-      max_tokens: 900,
+      max_tokens: 1400,
       temperature: 0.65,
     });
 

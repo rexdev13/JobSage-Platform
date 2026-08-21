@@ -58,7 +58,7 @@ English (fluent), Yoruba (native)`;
 
 describe("buildRewrittenCvPdf → pdf-parse pipeline", () => {
   it("produces a non-empty Buffer with a valid PDF header", async () => {
-    const buf = await buildRewrittenCvPdf({ name: "Amara Okafor", content: SAMPLE_CONTENT });
+    const { buffer: buf } = await buildRewrittenCvPdf({ name: "Amara Okafor", content: SAMPLE_CONTENT });
 
     expect(buf).toBeInstanceOf(Buffer);
     expect(buf.length).toBeGreaterThan(1000);
@@ -66,7 +66,7 @@ describe("buildRewrittenCvPdf → pdf-parse pipeline", () => {
   });
 
   it("pdf-parse can extract text from the pdfkit output", async () => {
-    const buf = await buildRewrittenCvPdf({ name: "Amara Okafor", content: SAMPLE_CONTENT });
+    const { buffer: buf } = await buildRewrittenCvPdf({ name: "Amara Okafor", content: SAMPLE_CONTENT });
     const result = await parsePdf(buf);
 
     expect(result.text).toBeTruthy();
@@ -74,7 +74,7 @@ describe("buildRewrittenCvPdf → pdf-parse pipeline", () => {
   });
 
   it("extracted text contains the candidate name", async () => {
-    const buf = await buildRewrittenCvPdf({ name: "Amara Okafor", content: SAMPLE_CONTENT });
+    const { buffer: buf } = await buildRewrittenCvPdf({ name: "Amara Okafor", content: SAMPLE_CONTENT });
     const { text } = await parsePdf(buf);
 
     expect(text).toContain("Amara");
@@ -82,7 +82,7 @@ describe("buildRewrittenCvPdf → pdf-parse pipeline", () => {
   });
 
   it("extracted text contains section headers from the rewritten CV", async () => {
-    const buf = await buildRewrittenCvPdf({ name: "Amara Okafor", content: SAMPLE_CONTENT });
+    const { buffer: buf } = await buildRewrittenCvPdf({ name: "Amara Okafor", content: SAMPLE_CONTENT });
     const { text } = await parsePdf(buf);
 
     expect(text).toContain("PROFESSIONAL SUMMARY");
@@ -91,7 +91,7 @@ describe("buildRewrittenCvPdf → pdf-parse pipeline", () => {
   });
 
   it("extracted text contains key narrative content", async () => {
-    const buf = await buildRewrittenCvPdf({ name: "Amara Okafor", content: SAMPLE_CONTENT });
+    const { buffer: buf } = await buildRewrittenCvPdf({ name: "Amara Okafor", content: SAMPLE_CONTENT });
     const { text } = await parsePdf(buf);
 
     // The narrative must survive the PDF round-trip so speculativeApplications
@@ -123,7 +123,7 @@ describe("buildRewrittenCvPdf → pdf-parse pipeline", () => {
 
   it("works without content bullet points (plain prose only)", async () => {
     const plainContent = `PROFESSIONAL SUMMARY\n\nAn experienced nurse with strong clinical skills.\n\nEDUCATION\n\nBSc Nursing, University of Lagos, 2018`;
-    const buf = await buildRewrittenCvPdf({ name: "Jane Doe", content: plainContent });
+    const { buffer: buf } = await buildRewrittenCvPdf({ name: "Jane Doe", content: plainContent });
 
     expect(buf).toBeInstanceOf(Buffer);
     const { text } = await parsePdf(buf);
