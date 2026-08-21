@@ -45,18 +45,27 @@ router.get(
   "/leads",
   requireRole("admin", "super_admin"),
   async (req: Request, res: Response): Promise<void> => {
-    const page  = Math.max(1, parseInt(String(req.query.page  ?? "1"),  10));
-    const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "25"), 10)));
+    const page   = Math.max(1, parseInt(String(req.query.page  ?? "1"),  10));
+    const limit  = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "25"), 10)));
     const search = String(req.query.search ?? "").trim();
+    const sector = String(req.query.sector ?? "").trim();
     const offset = (page - 1) * limit;
 
-    const where = search
+    const searchCondition = search
       ? or(
           ilike(socialLeadsTable.email,     `%${search}%`),
           ilike(socialLeadsTable.firstName, `%${search}%`),
           ilike(socialLeadsTable.lastName,  `%${search}%`),
         )
       : undefined;
+
+    const sectorCondition = sector
+      ? ilike(socialLeadsTable.industrySector, `%${sector}%`)
+      : undefined;
+
+    const where =
+      searchCondition && sectorCondition ? and(searchCondition, sectorCondition)
+      : searchCondition ?? sectorCondition;
 
     const [[{ total }], leads] = await Promise.all([
       db.select({ total: count() }).from(socialLeadsTable).where(where),
