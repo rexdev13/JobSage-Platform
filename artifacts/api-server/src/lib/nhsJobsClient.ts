@@ -5,6 +5,8 @@ const NHS_JOBS_ORIGIN = "https://www.jobs.nhs.uk";
 const REQUEST_TIMEOUT_MS = 8_000;
 const USER_AGENT = "JOBSAGE vacancy discovery/1.0 (+https://jobsage.co.uk)";
 const MAX_VACANCIES_PER_EMPLOYER = 8;
+const MAX_EXTRA_HTML_PAGES = 3;
+export const NHS_HTML_PAGE_DELAY_MS = 250;
 
 export type NhsJobsVacancy = {
   title: string;
@@ -21,6 +23,8 @@ export type NhsJobsSearchResult = {
   structuredFeedWorked: boolean;
   /** False only when the public HTML results request did not complete. */
   resultsRequestSucceeded: boolean;
+  /** True when a timeout, 429, or HTTP error interrupted discovery. */
+  transientFailure?: boolean;
 };
 
 function decodeHtml(value: string): string {
@@ -81,9 +85,33 @@ const GENERIC_ORGANISATION_WORDS = new Set([
   "health", "healthcare", "university", "limited", "ltd", "plc", "services", "service",
 ]);
 
+const EMPLOYER_ALIASES: Array<{ canonical: string[]; patterns: RegExp[] }> = [
+  {
+    canonical: ["guy", "thomas"],
+    patterns: [/^gstt(?:nhs|foundation|trust)*$/, /guysandstthomas/, /guysstthomas/],
+  },
+  {
+    canonical: ["south", "london", "maudsley"],
+    patterns: [/^slam(?:nhs|foundation|trust)*$/, /southlondonandmaudsley/],
+  },
+  {
+    canonical: ["central", "london", "community"],
+    patterns: [/^clch(?:nhs|foundation|trust)*$/, /centrallondoncommunityhealthcare/],
+  },
+];
+
+function compactEmployerName(value: string): string {
+  return textFromHtml(value).toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]/g, "");
+}
+
 function meaningfulWords(value: string): string[] {
+  const compact = compactEmployerName(value);
+  const alias = EMPLOYER_ALIASES.find((candidate) => candidate.patterns.some((pattern) => pattern.test(compact)));
+  if (alias) return alias.canonical;
+
   return textFromHtml(value)
     .toLowerCase()
+    .replace(/&/g, " and ")
     .replace(/[^a-z0-9\s]/g, " ")
     .split(/\s+/)
     .filter((word) => word.length >= 3 && !GENERIC_ORGANISATION_WORDS.has(word));
@@ -156,7 +184,11 @@ export function parseNhsJobsHtml(html: string, organisationName: string): NhsJob
   return vacancies;
 }
 
-async function fetchText(url: string): Promise<{ text: string; contentType: string } | null> {
+type FetchTextResult =
+  | { text: string; contentType: string; status: number }
+  | { text: null; status: number | null; failure: true };
+
+async function fetchText(url: string): Promise<FetchTextResult> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
@@ -168,17 +200,21 @@ async function fetchText(url: string): Promise<{ text: string; contentType: stri
         "Accept-Language": "en-GB,en;q=0.9",
       },
     });
-    if (!response.ok) return null;
+    if (!response.ok) return { text: null, status: response.status, failure: true };
     return {
       text: await response.text(),
       contentType: response.headers.get("content-type") ?? "",
+      status: response.status,
     };
   } catch (error) {
-    console.info(`[nhs-jobs] HTTP search request failed: ${error instanceof Error ? error.message : String(error)}`);
-    return null;
+    return { text: null, status: null, failure: true };
   } finally {
     clearTimeout(timeout);
   }
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function parseStructuredFeed(text: string, organisationName: string): NhsJobsVacancy[] {
@@ -220,7 +256,7 @@ export async function searchNhsJobs(organisationName: string): Promise<NhsJobsSe
   const resultsUrl = `${NHS_JOBS_ORIGIN}/candidate/search/results?${resultsParams.toString()}`;
 
   const structured = await fetchText(structuredUrl);
-  if (structured) {
+  if (structured.text !== null) {
     const vacancies = parseStructuredFeed(structured.text, organisationName);
     if (vacancies.length > 0) {
       return {
@@ -228,15 +264,51 @@ export async function searchNhsJobs(organisationName: string): Promise<NhsJobsSe
         vacancies,
         structuredFeedWorked: true,
         resultsRequestSucceeded: true,
+        transientFailure: false,
       };
     }
   }
 
   const html = await fetchText(resultsUrl);
+  if (html.text === null) {
+    return {
+      sourceUrl: resultsUrl,
+      vacancies: [],
+      structuredFeedWorked: false,
+      resultsRequestSucceeded: false,
+      transientFailure: true,
+    };
+  }
+
+  const vacancies = parseNhsJobsHtml(html.text, organisationName);
+  const urls = new Set(vacancies.map((vacancy) => vacancy.url));
+  let interrupted = false;
+  let page = 1;
+
+  while (vacancies.length < MAX_VACANCIES_PER_EMPLOYER && page <= MAX_EXTRA_HTML_PAGES) {
+    await wait(NHS_HTML_PAGE_DELAY_MS);
+    page += 1;
+    const pageParams = new URLSearchParams(resultsParams);
+    pageParams.set("page", String(page));
+    const nextPage = await fetchText(`${NHS_JOBS_ORIGIN}/candidate/search/results?${pageParams.toString()}`);
+    if (nextPage.text === null) {
+      interrupted = true;
+      break;
+    }
+
+    for (const vacancy of parseNhsJobsHtml(nextPage.text, organisationName)) {
+      if (urls.has(vacancy.url)) continue;
+      urls.add(vacancy.url);
+      vacancies.push(vacancy);
+      if (vacancies.length >= MAX_VACANCIES_PER_EMPLOYER) break;
+    }
+  }
+
   return {
     sourceUrl: resultsUrl,
-    vacancies: html ? parseNhsJobsHtml(html.text, organisationName) : [],
+    vacancies,
     structuredFeedWorked: false,
-    resultsRequestSucceeded: html !== null,
+    resultsRequestSucceeded: !interrupted,
+    transientFailure: interrupted,
   };
 }

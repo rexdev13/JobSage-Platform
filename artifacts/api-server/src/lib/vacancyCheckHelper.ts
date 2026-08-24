@@ -14,6 +14,11 @@ import {
 } from "./vacancyUrlPolicy";
 import { searchNhsJobs } from "./nhsJobsClient";
 import { reserveVacancyAiWebSearch } from "./vacancyAiBudget";
+import {
+  completeNhsVacancyProbe,
+  failNhsVacancyProbe,
+  reserveNhsVacancyProbe,
+} from "./nhsOutageBackoff";
 
 export const VACANCY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -72,6 +77,26 @@ export interface VacancyCheckOptions {
   bypassCache?: boolean;
 }
 
+function unavailableResult(
+  sourceUrl: string | null,
+  retryAt?: Date,
+): VacancyCheckResult {
+  return {
+    vacanciesFound: false,
+    vacancyCount: null,
+    sourceUrl,
+    summary: retryAt
+      ? `NHS Jobs HTTP search is temporarily unavailable; retry after ${retryAt.toISOString()}.`
+      : "NHS Jobs HTTP search was unavailable; no vacancies found.",
+    checkedAt: new Date(),
+    fromCache: false,
+    vacancyList: null,
+    discoveredContactEmail: null,
+    discoveredContactPhone: null,
+    discoveredWebsite: null,
+  };
+}
+
 /**
  * Run a vacancy check for a named sponsor licence company.
  * Returns a cached result (within 24h TTL) if one exists, otherwise
@@ -118,6 +143,14 @@ export async function runVacancyCheck(
     }
   }
 
+  const nhsProbe = await reserveNhsVacancyProbe(organisationName);
+  if (!nhsProbe.allowed) {
+    return unavailableResult(
+      `https://www.jobs.nhs.uk/candidate/search/results?employer=${encodeURIComponent(organisationName)}&language=en`,
+      nhsProbe.retryAt,
+    );
+  }
+
   let vacanciesFound = false;
   let vacancyCount: number | null = null;
   let sourceUrl: string | null = null;
@@ -127,17 +160,21 @@ export async function runVacancyCheck(
   let discoveredContactPhone: string | null = null;
   let discoveredWebsite: string | null = null;
   let nhsResultsRequestSucceeded = false;
+  let nhsTransientFailure = false;
 
   // Primary discovery path: NHS Jobs is searched over HTTP without using AI.
   try {
     const nhs = await searchNhsJobs(organisationName);
     sourceUrl = nhs.sourceUrl;
     nhsResultsRequestSucceeded = nhs.resultsRequestSucceeded;
+    nhsTransientFailure = nhs.transientFailure ?? !nhs.resultsRequestSucceeded;
     vacancyList = nhs.vacancies;
     vacanciesFound = vacancyList.length > 0;
     vacancyCount = vacancyList.length || null;
-    summary = !nhsResultsRequestSucceeded
+    summary = !nhsResultsRequestSucceeded && !vacanciesFound
       ? "NHS Jobs HTTP search was unavailable; no vacancies found."
+      : !nhsResultsRequestSucceeded
+        ? `${vacancyList.length} matching ${vacancyList.length === 1 ? "vacancy" : "vacancies"} found before NHS Jobs became unavailable.`
       : vacanciesFound
         ? `${vacancyList.length} matching ${vacancyList.length === 1 ? "vacancy" : "vacancies"} found on NHS Jobs.`
         : "No closely matched current NHS Jobs vacancies found.";
@@ -145,39 +182,36 @@ export async function runVacancyCheck(
       `[vacancy-check] used_http organisation="${organisationName}" vacancies=${vacancyList.length} structured_feed=${nhs.structuredFeedWorked} results_success=${nhs.resultsRequestSucceeded}`,
     );
   } catch (httpErr) {
-    sourceUrl = `https://www.jobs.nhs.uk/candidate/search/results?search=${encodeURIComponent(organisationName)}&language=en`;
+    sourceUrl = `https://www.jobs.nhs.uk/candidate/search/results?employer=${encodeURIComponent(organisationName)}&language=en`;
     summary = "NHS Jobs HTTP search was unavailable; no vacancies found.";
     vacancyList = [];
-    console.warn(
-      `[vacancy-check] NHS Jobs HTTP search failed for "${organisationName}":`,
-      httpErr instanceof Error ? httpErr.message : httpErr,
-    );
+    nhsTransientFailure = true;
+  }
+
+  if (nhsTransientFailure) {
+    const retryAt = await failNhsVacancyProbe(nhsProbe);
+    if (retryAt) {
+      console.warn(
+        `[vacancy-check] NHS Jobs unavailable organisation="${organisationName}" retry_after=${retryAt.toISOString()}`,
+      );
+    }
+    // Do not convert an NHS outage into a cached empty result. A partial
+    // first-page result may still be retained, but neither path calls AI.
+    if (!vacanciesFound) {
+      return unavailableResult(sourceUrl, retryAt ?? new Date(Date.now() + 45 * 60 * 1000));
+    }
+  } else {
+    await completeNhsVacancyProbe(nhsProbe);
   }
 
   // Only spend an AI call after NHS HTTP found no suitable result and a slot was
   // reserved for the current London day. The default cap is zero.
   if (!vacanciesFound) {
-    const reservation = reserveVacancyAiWebSearch();
+    const reservation = await reserveVacancyAiWebSearch();
     if (!reservation.allowed) {
       console.info(
         `[vacancy-check] skipped_ai_cap organisation="${organisationName}" cap=${reservation.cap} used=${reservation.used} day=${reservation.day}`,
       );
-      // A failed NHS request is not a completed zero-result search. Do not cache
-      // it for 24 hours; leave the sponsor stale so a later batch can retry.
-      if (!nhsResultsRequestSucceeded) {
-        return {
-          vacanciesFound: false,
-          vacancyCount: null,
-          sourceUrl,
-          summary,
-          checkedAt: new Date(),
-          fromCache: false,
-          vacancyList: null,
-          discoveredContactEmail: null,
-          discoveredContactPhone: null,
-          discoveredWebsite: null,
-        };
-      }
     } else {
       console.info(
         `[vacancy-check] used_ai organisation="${organisationName}" cap=${reservation.cap} used=${reservation.used} day=${reservation.day}`,
