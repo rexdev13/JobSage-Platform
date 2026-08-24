@@ -1,0 +1,66 @@
+BUILD PHASE 1. Make vacancy discovery work without OpenAI web search. Do not re-enable the commented-out runCheckAllVacanciesPass in dailyVacancySync.ts. Do not set ENABLE_CONTACT_BACKFILL. Do not add Indeed/Reed/LinkedIn feeds.
+
+## Goal
+Primary discovery = HTTP fetch from NHS Jobs.
+AI web_search = optional fallback behind a daily cap that defaults to 0.
+
+## 1. Cost lock
+In vacancyCheckHelper.ts / vacancyCheckScheduler.ts:
+- Add env VACANCY_AI_WEB_SEARCH_DAILY_CAP, default 0.
+- Count openai.responses.create / web_search_preview calls per London day in memory or DB.
+- If cap is 0 or reached, never call OpenAI in runVacancyCheck.
+- Log: skipped_ai_cap / used_http / used_ai.
+- Keep the 24h cache. Do not add bypassCache except existing contact-backfill (leave that gated).
+
+## 2. Only check relevant sponsors
+In selectBatch():
+- Do not spend the 80-slot batch on random sponsors from 142k.
+- Prefer: bookmarked; industry/name looks NHS, hospital, health, medical, social care, care home; already has website.
+- Exclude obvious non-health industries when the industry field allows it.
+- Show me the industry values you used to filter.
+
+## 3. NHS Jobs HTTP discovery (this is the new engine)
+Create something like lib/nhsJobsClient.ts.
+
+For organisationName:
+- Query NHS Jobs without AI. Try structured XML/RSS first if it still works, e.g. legacy search_xml or Self-Serve-style feeds. If not, fetch the public HTML search results.
+- Useful patterns to try:
+  - https://www.jobs.nhs.uk/search_xml?keyword=ORGANISATION&field=employer
+  - https://www.jobs.nhs.uk/candidate/search/results?search=ORGANISATION
+  - employerCode URLs only if we already have a code; do not invent codes.
+- Parse title, location, salary, posted date, EXACT vacancy URL.
+- Keep a vacancy only if:
+  - URL is a specific advert on jobs.nhs.uk, trac.jobs, healthjobsuk.com, or the employer’s own domain
+  - vacancyUrlPolicy would accept it
+  - title is not on MANUAL_LABOUR_BLOCKLIST
+- Match the listed employer to organisationName closely enough to avoid random other trusts. If unsure, drop it.
+- Cap 8 vacancies per employer, same as now.
+- Polite fetch: timeout, User-Agent, no more than a few requests per employer.
+
+Prove this works BEFORE wiring the scheduler: run a dry search for 3 real trusts (e.g. a London acute trust, a mental health trust, a community trust) and paste titles + URLs in your reply.
+
+## 4. Wire it as the first path in runVacancyCheck
+Order:
+1) 24h cache hit → return
+2) NHS Jobs HTTP search → if 1+ valid vacancies, save to sponsor_licence_vacancy_checks + sponsor_licence_vacancies exactly as today, sourceUrl = the NHS Jobs search/results URL
+3) Else if AI cap remaining → existing GPT-4o web_search path
+4) Else save a successful “vacanciesFound: false” HTTP result so we do not retry every hour
+
+Do not change the table shape unless required. Opportunities already reads sponsor_licence_vacancies.
+
+## 5. Do not do yet
+- No all-user AI rescoring
+- No contact backfill
+- No extension work
+- No full rewrite of Opportunities UI
+- No raising batch size
+
+## When done, reply with
+- files changed
+- whether search_xml still works
+- the 3 trust dry-run results
+- confirmation VACANCY_AI_WEB_SEARCH_DAILY_CAP defaults to 0
+- confirmation runCheckAllVacanciesPass is still commented out
+- how selectBatch now filters sponsors
+
+Stop after Phase 1.
