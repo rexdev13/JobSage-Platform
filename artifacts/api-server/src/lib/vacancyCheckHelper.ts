@@ -13,6 +13,7 @@ import {
   isValidVacancyDeepLink,
 } from "./vacancyUrlPolicy";
 import { searchNhsJobs } from "./nhsJobsClient";
+import { normalizeRegionList } from "./regionMatching";
 import { reserveVacancyAiWebSearch } from "./vacancyAiBudget";
 import {
   completeNhsVacancyProbe,
@@ -33,6 +34,8 @@ export type VacancyListItem = {
   url: string | null;
   description: string | null;
   postedDate: string | null;
+  /** Explicitly stated, normalized regions; null/empty means unknown or unrestricted. */
+  targetRegions: string[] | null;
 };
 
 export type VacancyCheckResult = {
@@ -239,11 +242,12 @@ After searching, reply with a JSON object ONLY — no markdown, no extra text, j
       "salary": "£XX,XXX - £XX,XXX or null",
       "url": "EXACT deep-link URL to this specific job advert's own page, or null. STRICT: the URL must open the individual job posting itself (e.g. https://employer.com/careers/vacancy/12345-staff-nurse). NEVER use a generic careers page, homepage, jobs listing page, or search results page. NEVER use aggregator sites (Indeed, Reed, LinkedIn, CV-Library, TotalJobs, Glassdoor, Adzuna, Jobijoba, SimplyHired, Bebee, etc.). If you do not have an exact deep-link to the specific advert, you MUST use null.",
       "description": "2-3 sentence description of the role or null",
-      "postedDate": "YYYY-MM-DD or relative like '3 days ago' or null"
+       "postedDate": "YYYY-MM-DD or relative like '3 days ago' or null",
+       "targetRegions": ["Only UK regions explicitly stated by the advert, using the app's canonical region names, or an empty array"]
     }
   ]
 }
-Include up to 8 specific vacancies in vacancyList if found. Use null for missing fields. vacancyList must be an empty array if no vacancies found.`,
+Include up to 8 specific vacancies in vacancyList if found. Do not guess targetRegions from a vague location; use an empty array when the region is not explicit. Use null for missing fields. vacancyList must be an empty array if no vacancies found.`,
         });
 
         const text = response.output_text ?? "";
@@ -264,6 +268,7 @@ Include up to 8 specific vacancies in vacancyList if found. Use null for missing
               url?: string | null;
               description?: string | null;
               postedDate?: string | null;
+               targetRegions?: unknown;
             }>;
           };
           vacanciesFound = parsed.vacanciesFound === true;
@@ -298,6 +303,9 @@ Include up to 8 specific vacancies in vacancyList if found. Use null for missing
                     : null,
                 description: typeof v.description === "string" ? v.description.trim() || null : null,
                 postedDate: typeof v.postedDate === "string" ? v.postedDate.trim() || null : null,
+                targetRegions: Array.isArray(v.targetRegions)
+                  ? normalizeRegionList(v.targetRegions.filter((value): value is string => typeof value === "string"))
+                  : null,
               }))
               .slice(0, 8);
             if (vacancyList.length > 0 && !vacancyCount) {
@@ -377,6 +385,7 @@ Include up to 8 specific vacancies in vacancyList if found. Use null for missing
             url: v.url ?? null,
             description: v.description ?? null,
             postedDate: v.postedDate ?? null,
+            targetRegions: v.targetRegions ?? [],
             liveness: prior?.liveness ?? ("unverified" as const),
             lastVerifiedAt: prior?.lastVerifiedAt ?? null,
             livenessReason: prior?.livenessReason ?? null,

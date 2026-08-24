@@ -18,6 +18,7 @@ export interface SponsorLicenceVacancyMatch {
   linkCheckedAt?: Date | null;
   description?: string | null;
   postedDate?: string | null;
+  targetRegions?: string[] | null;
   matchScore?: number | null;
   isEligible?: boolean | null;
   missingRequirements?: string[];

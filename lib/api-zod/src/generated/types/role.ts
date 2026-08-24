@@ -16,6 +16,7 @@ export interface Role {
   location: string;
   regulator: RoleRegulator;
   sponsorshipOffered: boolean;
+  targetRegions?: string[] | null;
   requiredRegistration: string;
   requiredDbsClearanceLevel?: DbsClearanceLevel | null;
   requiredSafeguardingLevel?: SafeguardingTrainingLevel | null;

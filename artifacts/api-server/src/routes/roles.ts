@@ -42,6 +42,7 @@ import {
   safeguardingGapText,
   type SafeguardingAssessment,
 } from "../lib/safeguarding";
+import { normalizeRegion, normalizeRegionList, regionsOverlap } from "../lib/regionMatching";
 
 const router: IRouter = Router();
 
@@ -85,11 +86,27 @@ function employerJobHasContactInfo(row: {
   return vals.some((v) => v != null && v.trim() !== "");
 }
 
-const OPTIONAL_COLUMNS = ["applyUrl", "contactEmail", "contactPhone", "contactWebsite"];
+const OPTIONAL_COLUMNS = ["applyUrl", "contactEmail", "contactPhone", "contactWebsite", "targetRegions"];
 const VALID_DBS_LEVELS = ["none", "basic", "standard", "enhanced"] as const;
 const VALID_SAFEGUARDING_LEVELS = ["none", "level_1", "level_2"] as const;
 const APPLY_URL_PATTERN = /^https?:\/\/.+/i;
 const VALID_REGULATORS = ["GMC", "NMC", "HCPC"];
+
+function roleMatchesPreferredRegions(
+  targetRegions: readonly (string | null | undefined)[] | null | undefined,
+  preferredRegion: readonly (string | null | undefined)[] | string | null | undefined,
+): boolean {
+  const preferred = Array.isArray(preferredRegion) ? preferredRegion : preferredRegion ? [preferredRegion] : [];
+  return regionsOverlap(targetRegions, preferred);
+}
+
+function parseImportedRegions(raw: string | undefined): string[] | null {
+  if (!raw?.trim()) return null;
+  const values = raw.split(/[|;,]/).map((value) => value.trim()).filter(Boolean);
+  const normalized = values.map(normalizeRegion);
+  if (normalized.some((region) => region === null)) return null;
+  return normalizeRegionList(normalized);
+}
 
 const REGISTERED_STATUSES = ["registered", "fully_registered", "full_registration"];
 
@@ -244,7 +261,7 @@ router.get("/roles", async (req, res): Promise<void> => {
       const tp = (job.targetProfessions ?? []) as string[];
       if (tp.length > 0 && !tp.includes(profile.profession)) return false;
       const tr = (job.targetRegions ?? []) as string[];
-      if (tr.length > 0 && (!profile.preferredRegion || !(profile.preferredRegion as string[]).some((r) => tr.includes(r)))) return false;
+      if (!roleMatchesPreferredRegions(tr, profile.preferredRegion)) return false;
       if (!employerJobHasContactInfo(row)) return false;
       return true;
     })
@@ -260,6 +277,7 @@ router.get("/roles", async (req, res): Promise<void> => {
         requiredRegistration: row.job.requiredRegistration,
         requiredDbsClearanceLevel: row.job.requiredDbsClearanceLevel,
         requiredSafeguardingLevel: row.job.requiredSafeguardingLevel,
+         targetRegions: row.job.targetRegions ?? [],
         active: true,
         importedAt: row.job.createdAt,
         importedBy: `employer:${row.emp.id}`,
@@ -278,10 +296,13 @@ router.get("/roles", async (req, res): Promise<void> => {
   // AI-discovered sponsor-licence vacancies (daily pipeline) — merged in so the
   // page self-populates without any admin CSV upload. Deduped below against
   // CSV roles and employer jobs by employer+title.
-  const sponsorVacancyRoles = await fetchSponsorVacanciesAsRoles(regulator);
+  const sponsorVacancyRoles = (await fetchSponsorVacanciesAsRoles(regulator))
+    .filter((role) => roleMatchesPreferredRegions(role.targetRegions, profile.preferredRegion));
 
   const curatedRoles = [
-    ...allRoles.filter((role) => role.regulator === regulator).map((r) => {
+     ...allRoles
+       .filter((role) => role.regulator === regulator && roleMatchesPreferredRegions(role.targetRegions, profile.preferredRegion))
+       .map((r) => {
       const link = presentApplyLink(r.applyUrl, r.liveness, r.lastVerifiedAt);
       return {
         ...r,
@@ -541,11 +562,12 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
     .where(eq(jobListingsTable.status, "published"));
 
   const employerJobsAsRoles = publishedJobListings
-    .filter((row) => {
+      .filter((row) => {
       const job = row.job;
       if (job.regulator !== regulator) return false;
       const tp = (job.targetProfessions ?? []) as string[];
       if (tp.length > 0 && !tp.includes(profile.profession)) return false;
+        if (!roleMatchesPreferredRegions(job.targetRegions, profile.preferredRegion)) return false;
       if (!employerJobHasContactInfo(row)) return false;
       return true;
     })
@@ -561,6 +583,7 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
         requiredRegistration: row.job.requiredRegistration,
         requiredDbsClearanceLevel: row.job.requiredDbsClearanceLevel,
         requiredSafeguardingLevel: row.job.requiredSafeguardingLevel,
+        targetRegions: row.job.targetRegions ?? [],
         applyUrl: link.applyUrl,
         linkVerified: link.linkVerified,
         linkCheckedAt: link.linkCheckedAt,
@@ -573,10 +596,13 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
   // AI-discovered sponsor-licence vacancies. Only vacancies clearly classified
   // to the candidate's regulator qualify for the Best Matches strip; ambiguous
   // ones stay on the main board (bottom-ranked) instead.
-  const sponsorVacancyRoles = await fetchSponsorVacanciesAsRoles(regulator);
+  const sponsorVacancyRoles = (await fetchSponsorVacanciesAsRoles(regulator))
+    .filter((role) => roleMatchesPreferredRegions(role.targetRegions, profile.preferredRegion));
 
   const curatedRoles = [
-    ...allRoles.filter((r) => r.regulator === regulator).map((r) => {
+     ...allRoles
+       .filter((r) => r.regulator === regulator && roleMatchesPreferredRegions(r.targetRegions, profile.preferredRegion))
+       .map((r) => {
       const link = presentApplyLink(r.applyUrl, r.liveness, r.lastVerifiedAt);
       return {
         id: r.id, title: r.title, employer: r.employer, location: r.location,
@@ -584,6 +610,7 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
         requiredRegistration: r.requiredRegistration,
         requiredDbsClearanceLevel: r.requiredDbsClearanceLevel,
         requiredSafeguardingLevel: r.requiredSafeguardingLevel,
+         targetRegions: r.targetRegions ?? [],
         applyUrl: link.applyUrl,
         linkVerified: link.linkVerified,
         linkCheckedAt: link.linkCheckedAt,
@@ -603,6 +630,7 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
       requiredRegistration: v.requiredRegistration,
       requiredDbsClearanceLevel: v.requiredDbsClearanceLevel,
       requiredSafeguardingLevel: v.requiredSafeguardingLevel,
+       targetRegions: v.targetRegions ?? [],
       applyUrl: v.applyUrl,
       linkVerified: v.linkVerified,
       linkCheckedAt: v.linkCheckedAt,
@@ -858,6 +886,7 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
         requiredRegistration: row.job.requiredRegistration,
         requiredDbsClearanceLevel: row.job.requiredDbsClearanceLevel,
         requiredSafeguardingLevel: row.job.requiredSafeguardingLevel,
+        targetRegions: row.job.targetRegions ?? [],
         applyUrl: link.applyUrl,
         linkVerified: link.linkVerified,
         linkCheckedAt: link.linkCheckedAt,
@@ -895,6 +924,7 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
           requiredRegistration: r.requiredRegistration,
           requiredDbsClearanceLevel: r.requiredDbsClearanceLevel,
           requiredSafeguardingLevel: r.requiredSafeguardingLevel,
+        targetRegions: r.targetRegions ?? [],
           applyUrl: link.applyUrl,
           linkVerified: link.linkVerified,
           linkCheckedAt: link.linkCheckedAt,
@@ -929,7 +959,7 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
     const isEligible = userIsEligible && meetsRegistration && !safeguardingBlocksEligibility(safeguarding);
     // AI score if cached, else heuristic
     let matchScore = scoreMap.get(r.id) ?? computeMatchScore(
-      { ...r, id: r.id, regulator: r.regulator, active: true, importedAt: new Date(), importedBy: "", liveness: "unverified" as const, lastVerifiedAt: null, livenessReason: null },
+      { ...r, id: r.id, regulator: r.regulator, active: true, importedAt: new Date(), importedBy: "", liveness: "unverified" as const, lastVerifiedAt: null, livenessReason: null, targetRegions: r.targetRegions ?? [] },
       isEligible,
       profile.requiresSponsorship,
     );
@@ -1163,6 +1193,7 @@ router.post("/admin/roles/import", requireRole("admin"), upload.single("file"), 
     contactEmail: string | null;
     contactPhone: string | null;
     contactWebsite: string | null;
+    targetRegions: string[] | null;
     requiredDbsClearanceLevel: (typeof VALID_DBS_LEVELS)[number] | null;
     requiredSafeguardingLevel: (typeof VALID_SAFEGUARDING_LEVELS)[number] | null;
   }> = [];
@@ -1216,6 +1247,14 @@ router.post("/admin/roles/import", requireRole("admin"), upload.single("file"), 
       errors.push({ row: rowNum, message: `requiredSafeguardingLevel must be one of: ${VALID_SAFEGUARDING_LEVELS.join(", ")}` });
       continue;
     }
+    const targetRegions = parseImportedRegions(row.targetRegions);
+    if (row.targetRegions?.trim() && targetRegions === null) {
+      errors.push({
+        row: rowNum,
+        message: "targetRegions must contain only known UK regions, separated by commas or |",
+      });
+      continue;
+    }
 
     validRows.push({
       title: row.title.trim(),
@@ -1229,6 +1268,7 @@ router.post("/admin/roles/import", requireRole("admin"), upload.single("file"), 
       contactEmail: row.contactEmail?.trim() || null,
       contactPhone: row.contactPhone?.trim() || null,
       contactWebsite: row.contactWebsite?.trim() || null,
+      targetRegions,
       requiredDbsClearanceLevel: dbsRequirement as (typeof VALID_DBS_LEVELS)[number] | null,
       requiredSafeguardingLevel: safeguardingRequirement as (typeof VALID_SAFEGUARDING_LEVELS)[number] | null,
     });

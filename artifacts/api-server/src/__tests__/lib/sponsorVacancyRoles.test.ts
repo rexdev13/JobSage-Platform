@@ -91,4 +91,18 @@ describe("fetchSponsorVacanciesAsRoles alert options", () => {
       linkVerified: true,
     });
   });
+
+  it("uses explicit target regions first, then location text, while leaving unknown locations unrestricted", async () => {
+    rows = [
+      vacancyRow({ id: 20, targetRegions: ["North West"], location: "London" }),
+      vacancyRow({ id: 21, targetRegions: [], location: "London" }),
+      vacancyRow({ id: 22, targetRegions: [], location: "Remote in the UK" }),
+    ];
+
+    const result = await fetchSponsorVacanciesAsRoles("NMC");
+
+    expect(result.find((role) => role.id === 2_000_020)?.targetRegions).toEqual(["North West"]);
+    expect(result.find((role) => role.id === 2_000_021)?.targetRegions).toEqual(["London"]);
+    expect(result.find((role) => role.id === 2_000_022)?.targetRegions).toEqual([]);
+  });
 });

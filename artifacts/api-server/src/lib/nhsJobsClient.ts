@@ -15,6 +15,7 @@ export type NhsJobsVacancy = {
   url: string;
   description: null;
   postedDate: string | null;
+  targetRegions: null;
 };
 
 export type NhsJobsSearchResult = {
@@ -177,6 +178,7 @@ export function parseNhsJobsHtml(html: string, organisationName: string): NhsJob
       url: titleAndUrl.url,
       description: null,
       postedDate: stripFieldLabel(extractTagText(block, "search-result-publicationDate"), "Date posted"),
+      targetRegions: null,
     });
     if (vacancies.length >= MAX_VACANCIES_PER_EMPLOYER) break;
   }
@@ -239,6 +241,7 @@ function parseStructuredFeed(text: string, organisationName: string): NhsJobsVac
       url,
       description: null,
       postedDate: read("pubDate") ?? read("postedDate"),
+      targetRegions: null,
     });
     if (vacancies.length >= MAX_VACANCIES_PER_EMPLOYER) break;
   }

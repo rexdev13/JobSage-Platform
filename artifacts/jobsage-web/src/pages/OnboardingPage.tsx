@@ -13,6 +13,11 @@ import type { IslandState } from "@/lib/journeySteps";
 type RegistrationStatus = "registered" | "not_registered" | "in_process";
 type DbsClearanceLevel = "unknown" | "none" | "basic" | "standard" | "enhanced";
 type SafeguardingTrainingLevel = "unknown" | "none" | "level_1" | "level_2";
+const UK_REGIONS = [
+  "East of England", "East Midlands", "London", "North East", "North West", "South East",
+  "South West", "West Midlands", "Yorkshire and the Humber", "Northern Ireland", "Scotland",
+  "Wales", "National / Multiple Regions",
+];
 
 const ONBOARDING_PROFESSIONS = [
   "Doctor",
@@ -49,6 +54,7 @@ type ProfileData = {
   safeguardingTrainingLevel: SafeguardingTrainingLevel;
   residencyStatus: string;
   requiresSponsorship: boolean;
+  preferredRegion: string[];
 };
 
 const FORM_STEPS = [
@@ -83,6 +89,7 @@ export default function OnboardingPage() {
     safeguardingTrainingLevel: "unknown",
     residencyStatus: "",
     requiresSponsorship: false,
+    preferredRegion: [],
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -118,6 +125,7 @@ export default function OnboardingPage() {
           safeguardingTrainingLevel: data.safeguardingTrainingLevel,
           residencyStatus: data.residencyStatus,
           requiresSponsorship: data.requiresSponsorship,
+          preferredRegion: data.preferredRegion.length > 0 ? data.preferredRegion : undefined,
         },
       });
       queryClient.invalidateQueries({ queryKey: getGetMyProfileQueryKey() });
@@ -324,6 +332,30 @@ export default function OnboardingPage() {
                       <div className="text-xs text-muted-foreground mt-0.5">Check this if you need an employer to sponsor your work visa.</div>
                     </div>
                   </label>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Preferred UK region(s)</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 mb-3">
+                      Select where you would prefer to work. Leave all unchecked if you are open to any UK location.
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2">
+                      {UK_REGIONS.map((region) => (
+                        <label key={region} className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={data.preferredRegion.includes(region)}
+                            onChange={() => setData((prev) => ({
+                              ...prev,
+                              preferredRegion: prev.preferredRegion.includes(region)
+                                ? prev.preferredRegion.filter((value) => value !== region)
+                                : [...prev.preferredRegion, region],
+                            }))}
+                            className="w-4 h-4 rounded border-primary/30 text-primary focus:ring-primary accent-primary"
+                          />
+                          {region}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                   {submitError && (
                     <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
                       {submitError}

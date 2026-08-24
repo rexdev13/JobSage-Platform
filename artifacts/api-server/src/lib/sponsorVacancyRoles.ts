@@ -4,6 +4,7 @@ import { and, eq, gt, ne } from "drizzle-orm";
 import { isManualLabourTitle } from "./vacancyTitlePolicy";
 import { isValidVacancyDeepLink } from "./vacancyUrlPolicy";
 import type { DbsClearanceLevel, SafeguardingTrainingLevel } from "./safeguarding";
+import { regionsFromLocationText } from "./regionMatching";
 
 /**
  * ID offset for AI-discovered sponsor-licence vacancies when merged into the
@@ -96,6 +97,7 @@ export interface SponsorVacancyAsRole {
   description: string | null;
   requiredDbsClearanceLevel: DbsClearanceLevel | null;
   requiredSafeguardingLevel: SafeguardingTrainingLevel | null;
+  targetRegions: string[] | null;
 }
 
 /**
@@ -226,6 +228,13 @@ export async function fetchSponsorVacanciesAsRoles(
         (vac.requiredSafeguardingLevel as SafeguardingTrainingLevel | null) ??
         inferredRequirements?.requiredSafeguardingLevel ??
         null,
+      // Prefer an explicitly stored target-region list. When it is absent,
+      // derive only from known location phrases; [] means unknown and remains
+      // eligible for every candidate region.
+      targetRegions:
+        Array.isArray(vac.targetRegions) && vac.targetRegions.length > 0
+          ? vac.targetRegions
+          : regionsFromLocationText(vac.location),
     });
   }
 

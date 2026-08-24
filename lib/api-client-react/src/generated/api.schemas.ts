@@ -475,6 +475,7 @@ export interface Role {
   location: string;
   regulator: RoleRegulator;
   sponsorshipOffered: boolean;
+  targetRegions?: string[] | null;
   requiredRegistration: string;
   requiredDbsClearanceLevel?: DbsClearanceLevel | null;
   requiredSafeguardingLevel?: SafeguardingTrainingLevel | null;
@@ -1404,6 +1405,7 @@ export interface VacancyListing {
   url?: string | null;
   description?: string | null;
   postedDate?: string | null;
+  targetRegions?: string[] | null;
 }
 
 export interface VacancyCheckResult {
@@ -1495,6 +1497,7 @@ export interface SponsorLicenceVacancyMatch {
   linkCheckedAt?: string | null;
   description?: string | null;
   postedDate?: string | null;
+  targetRegions?: string[] | null;
   matchScore?: number | null;
   isEligible?: boolean | null;
   missingRequirements?: string[];
@@ -1957,6 +1960,7 @@ export interface CandidateMatchItem {
   location: string;
   regulator: string;
   sponsorshipOffered: boolean;
+  targetRegions?: string[] | null;
   requiredRegistration: string;
   requiredDbsClearanceLevel?: DbsClearanceLevel | null;
   requiredSafeguardingLevel?: SafeguardingTrainingLevel | null;

@@ -877,6 +877,7 @@ export const ListMatchedRolesResponse = zod.object({
         location: zod.string(),
         regulator: zod.enum(["GMC", "NMC", "HCPC"]),
         sponsorshipOffered: zod.boolean(),
+        targetRegions: zod.array(zod.string()).nullish(),
         requiredRegistration: zod.string(),
         requiredDbsClearanceLevel: zod
           .enum(["unknown", "none", "basic", "standard", "enhanced"])
@@ -1021,6 +1022,7 @@ export const GetMyMatchesResponse = zod.object({
       location: zod.string(),
       regulator: zod.string(),
       sponsorshipOffered: zod.boolean(),
+      targetRegions: zod.array(zod.string()).nullish(),
       requiredRegistration: zod.string(),
       requiredDbsClearanceLevel: zod
         .enum(["unknown", "none", "basic", "standard", "enhanced"])
@@ -1112,6 +1114,7 @@ export const AdminListRolesResponse = zod.object({
       location: zod.string(),
       regulator: zod.enum(["GMC", "NMC", "HCPC"]),
       sponsorshipOffered: zod.boolean(),
+      targetRegions: zod.array(zod.string()).nullish(),
       requiredRegistration: zod.string(),
       requiredDbsClearanceLevel: zod
         .enum(["unknown", "none", "basic", "standard", "enhanced"])
@@ -2713,6 +2716,7 @@ export const CheckSponsorLicenceVacanciesResponse = zod.object({
         url: zod.string().nullish(),
         description: zod.string().nullish(),
         postedDate: zod.string().nullish(),
+        targetRegions: zod.array(zod.string()).nullish(),
       }),
     )
     .nullish(),
@@ -2822,6 +2826,7 @@ export const GetSponsorLicenceVacanciesResponse = zod.object({
         .describe("When the apply link was last health-checked"),
       description: zod.string().nullish(),
       postedDate: zod.string().nullish(),
+      targetRegions: zod.array(zod.string()).nullish(),
       matchScore: zod.number().nullish(),
       isEligible: zod.boolean().nullish(),
       missingRequirements: zod.array(zod.string()).optional(),
