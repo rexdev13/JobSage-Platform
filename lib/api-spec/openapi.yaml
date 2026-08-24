@@ -2320,6 +2320,48 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /leads:
+    get:
+      operationId: listLeads
+      tags: [AdminPortal]
+      summary: List waitlist leads and lead-only aggregates
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: sector
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated leads and aggregate counts for the active leads filter.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadListResponse"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Not authorised for leads management.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
   /speculative-applications:
     get:
       operationId: listSpeculativeApplications
@@ -5697,6 +5739,7 @@ components:
         - readinessBreakdown
         - monthlyApplications
         - statusBreakdown
+        - applicationsLast7Days
         - profileCompleteness
         - predictiveInsight
         - disclaimer
@@ -5759,6 +5802,20 @@ components:
               type: integer
             no_response:
               type: integer
+        applicationsLast7Days:
+          type: object
+          required: [total, link_clicked, applied, interview, offer]
+          properties:
+            total:
+              type: integer
+            link_clicked:
+              type: integer
+            applied:
+              type: integer
+            interview:
+              type: integer
+            offer:
+              type: integer
         profileCompleteness:
           type: integer
         streakDays:
@@ -5768,6 +5825,44 @@ components:
           type: string
         disclaimer:
           type: string
+
+    LeadListResponse:
+      type: object
+      required: [leads, total, page, limit, stats]
+      properties:
+        leads:
+          type: array
+          description: Lead records projected for the caller's existing leads-management permissions.
+          items:
+            type: object
+            additionalProperties: true
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        stats:
+          $ref: "#/components/schemas/LeadListStats"
+
+    LeadListStats:
+      type: object
+      required: [statusTotals, createdLast7Days]
+      properties:
+        statusTotals:
+          type: object
+          required: [new, contacted, registered, unqualified]
+          properties:
+            new:
+              type: integer
+            contacted:
+              type: integer
+            registered:
+              type: integer
+            unqualified:
+              type: integer
+        createdLast7Days:
+          type: integer
 
     ProgressReportResponse:
       type: object

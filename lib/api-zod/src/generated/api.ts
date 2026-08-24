@@ -2548,10 +2548,47 @@ export const GetMyAnalyticsResponse = zod.object({
     rejected: zod.number(),
     no_response: zod.number(),
   }),
+  applicationsLast7Days: zod.object({
+    total: zod.number(),
+    link_clicked: zod.number(),
+    applied: zod.number(),
+    interview: zod.number(),
+    offer: zod.number(),
+  }),
   profileCompleteness: zod.number(),
   streakDays: zod.number().nullish(),
   predictiveInsight: zod.string(),
   disclaimer: zod.string(),
+});
+
+/**
+ * @summary List waitlist leads and lead-only aggregates
+ */
+export const ListLeadsQueryParams = zod.object({
+  page: zod.coerce.number().optional(),
+  limit: zod.coerce.number().optional(),
+  search: zod.coerce.string().optional(),
+  sector: zod.coerce.string().optional(),
+});
+
+export const ListLeadsResponse = zod.object({
+  leads: zod
+    .array(zod.record(zod.string(), zod.unknown()))
+    .describe(
+      "Lead records projected for the caller's existing leads-management permissions.",
+    ),
+  total: zod.number(),
+  page: zod.number(),
+  limit: zod.number(),
+  stats: zod.object({
+    statusTotals: zod.object({
+      new: zod.number(),
+      contacted: zod.number(),
+      registered: zod.number(),
+      unqualified: zod.number(),
+    }),
+    createdLast7Days: zod.number(),
+  }),
 });
 
 /**

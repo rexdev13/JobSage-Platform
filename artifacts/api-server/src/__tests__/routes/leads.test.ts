@@ -11,6 +11,7 @@ vi.mock("@workspace/db", () => {
       from: () => chain,
       where: () => chain,
       orderBy: () => chain,
+      groupBy: () => chain,
       limit: () => chain,
       offset: () => chain,
       set: () => chain,
@@ -99,6 +100,13 @@ describe("marketing lead access", () => {
         desiredRole: "Product manager",
         additionalMessage: "Interested in relocation",
       }],
+      [
+        { status: "new", total: 1 },
+        { status: "contacted", total: 1 },
+        { status: "registered", total: 1 },
+        { status: "unqualified", total: 1 },
+      ],
+      [{ total: 2 }],
     );
 
     const response = await request(buildApp())
@@ -117,6 +125,13 @@ describe("marketing lead access", () => {
     ]);
     expect(response.body.leads[0]).not.toHaveProperty("ipHash");
     expect(response.body.leads[0]).not.toHaveProperty("utmCampaign");
+    expect(response.body.stats.statusTotals).toEqual({
+      new: 1,
+      contacted: 1,
+      registered: 1,
+      unqualified: 1,
+    });
+    expect(response.body.stats.createdLast7Days).toBe(2);
   });
 
   it("allows marketing to update one lead status", async () => {

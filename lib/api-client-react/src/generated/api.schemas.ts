@@ -1571,15 +1571,47 @@ export type CandidateAnalyticsStatusBreakdown = {
   no_response: number;
 };
 
+export type CandidateAnalyticsApplicationsLast7Days = {
+  total: number;
+  link_clicked: number;
+  applied: number;
+  interview: number;
+  offer: number;
+};
+
 export interface CandidateAnalytics {
   readinessScore: number;
   readinessBreakdown: CandidateAnalyticsReadinessBreakdown;
   monthlyApplications: CandidateAnalyticsMonthlyApplicationsItem[];
   statusBreakdown: CandidateAnalyticsStatusBreakdown;
+  applicationsLast7Days: CandidateAnalyticsApplicationsLast7Days;
   profileCompleteness: number;
   streakDays?: number | null;
   predictiveInsight: string;
   disclaimer: string;
+}
+
+export type LeadListResponseLeadsItem = { [key: string]: unknown };
+
+export type LeadListStatsStatusTotals = {
+  new: number;
+  contacted: number;
+  registered: number;
+  unqualified: number;
+};
+
+export interface LeadListStats {
+  statusTotals: LeadListStatsStatusTotals;
+  createdLast7Days: number;
+}
+
+export interface LeadListResponse {
+  /** Lead records projected for the caller's existing leads-management permissions. */
+  leads: LeadListResponseLeadsItem[];
+  total: number;
+  page: number;
+  limit: number;
+  stats: LeadListStats;
 }
 
 export type ProgressReportResponseTopCompaniesItem = {
@@ -2148,6 +2180,13 @@ export const TalentSearchRequiresSponsorship = {
 
 export type MarkMessageRead200 = {
   message?: CandidateMessage;
+};
+
+export type ListLeadsParams = {
+  page?: number;
+  limit?: number;
+  search?: string;
+  sector?: string;
 };
 
 export type ListSponsorLicencesParams = {

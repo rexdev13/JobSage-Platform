@@ -12,6 +12,7 @@ import {
   useGetForwardEligibility,
   useToggleProfileBoost,
   getGetMyProfileQueryKey,
+  useGetMyAnalytics,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -46,6 +47,7 @@ import { AIChatSlideover } from "@/components/AIChatSlideover";
 import { cn } from "@/components/ui-enhanced";
 import { JourneyIslands } from "@/components/JourneyIslands";
 import { deriveIslandStates, activeStepNumber } from "@/lib/journeySteps";
+import { WeeklyApplicationStats } from "@/components/WeeklyApplicationStats";
 
 type EligibilityOutcome = "eligible" | "not_eligible" | "ineligible";
 
@@ -414,6 +416,7 @@ export default function DashboardPage() {
     },
   });
   const { data: applicationsData } = useListMyApplications();
+  const { data: analyticsData, isLoading: analyticsLoading } = useGetMyAnalytics();
   const { data: forwardEligibility } = useGetForwardEligibility();
   const toggleBoostMutation = useToggleProfileBoost();
 
@@ -623,6 +626,11 @@ export default function DashboardPage() {
             delay={0.14}
           />
         </div>
+
+        <WeeklyApplicationStats
+          stats={analyticsData?.applicationsLast7Days}
+          isLoading={analyticsLoading}
+        />
 
         {/* ─── AI Next Steps ────────────────────────────────────────────── */}
         {(totalApplied > 0 || allRoles.length > 0) && <NextStepsCard />}

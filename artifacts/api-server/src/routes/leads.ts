@@ -3,8 +3,9 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { z } from "zod";
 import { db, socialLeadsTable, sponsorLicencesTable } from "@workspace/db";
 import { openai } from "@workspace/integrations-openai-ai-server";
-import { sql, ilike, or, desc, count, eq, and } from "drizzle-orm";
+import { sql, ilike, or, desc, count, eq, and, gte } from "drizzle-orm";
 import { requireRole } from "../middlewares/requireRole";
+import { buildLeadStats, getRollingWeekStart } from "../lib/weeklyStats";
 
 const router: IRouter = Router();
 
@@ -81,9 +82,13 @@ router.get(
     const where =
       searchCondition && sectorCondition ? and(searchCondition, sectorCondition)
       : searchCondition ?? sectorCondition;
+    const now = new Date();
+    const recentWhere = where
+      ? and(where, gte(socialLeadsTable.createdAt, getRollingWeekStart(now)))
+      : gte(socialLeadsTable.createdAt, getRollingWeekStart(now));
 
     const isMarketing = req.user?.role === "marketing";
-    const [[{ total }], leads] = await Promise.all([
+    const [[{ total }], leads, statusRows, [recentLeadCount]] = await Promise.all([
       db.select({ total: count() }).from(socialLeadsTable).where(where),
       (isMarketing
         ? db.select(marketingLeadFields)
@@ -93,9 +98,20 @@ router.get(
         .orderBy(desc(socialLeadsTable.createdAt))
         .limit(limit)
         .offset(offset),
+      db.select({ status: socialLeadsTable.status, total: count() })
+        .from(socialLeadsTable)
+        .where(where)
+        .groupBy(socialLeadsTable.status),
+      db.select({ total: count() }).from(socialLeadsTable).where(recentWhere),
     ]);
 
-    res.json({ leads, total, page, limit });
+    res.json({
+      leads,
+      total,
+      page,
+      limit,
+      stats: buildLeadStats(statusRows, recentLeadCount?.total ?? 0),
+    });
   },
 );
 

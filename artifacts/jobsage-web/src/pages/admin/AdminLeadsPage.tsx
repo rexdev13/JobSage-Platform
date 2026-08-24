@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@workspace/auth-web";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { canDeleteLeads } from "@/lib/roleAccess";
-import { Loader2, Search, Users, Trash2, ChevronDown } from "lucide-react";
+import { Loader2, Search, Users, Trash2, ChevronDown, UserPlus, UserCheck, UserX } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -53,6 +53,15 @@ interface LeadsResponse {
   total: number;
   page: number;
   limit: number;
+  stats?: {
+    statusTotals: {
+      new: number;
+      contacted: number;
+      registered: number;
+      unqualified: number;
+    };
+    createdLast7Days: number;
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -326,6 +335,26 @@ export default function AdminLeadsPage() {
             </SelectContent>
           </Select>
         </div>
+
+        {data?.stats && (
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            {[
+              { label: "New", value: data.stats.statusTotals.new, icon: UserPlus, color: "text-primary" },
+              { label: "Contacted", value: data.stats.statusTotals.contacted, icon: Users, color: "text-amber-600" },
+              { label: "Registered", value: data.stats.statusTotals.registered, icon: UserCheck, color: "text-green-600" },
+              { label: "Unqualified", value: data.stats.statusTotals.unqualified, icon: UserX, color: "text-muted-foreground" },
+              { label: "New in 7 days", value: data.stats.createdLast7Days, icon: UserPlus, color: "text-blue-600" },
+            ].map(({ label, value, icon: Icon, color }) => (
+              <div key={label} className="rounded-xl border border-border bg-card p-3 flex items-center gap-2.5">
+                <Icon className={`h-4 w-4 shrink-0 ${color}`} />
+                <div className="min-w-0">
+                  <p className="text-lg font-bold text-foreground leading-none">{value}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1 truncate">{label}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* ── Body ── */}
         {isLoading ? (

@@ -5,6 +5,7 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { CandidateAnalyticsApplicationsLast7Days } from "./candidateAnalyticsApplicationsLast7Days";
 import type { CandidateAnalyticsMonthlyApplicationsItem } from "./candidateAnalyticsMonthlyApplicationsItem";
 import type { CandidateAnalyticsReadinessBreakdown } from "./candidateAnalyticsReadinessBreakdown";
 import type { CandidateAnalyticsStatusBreakdown } from "./candidateAnalyticsStatusBreakdown";
@@ -14,6 +15,7 @@ export interface CandidateAnalytics {
   readinessBreakdown: CandidateAnalyticsReadinessBreakdown;
   monthlyApplications: CandidateAnalyticsMonthlyApplicationsItem[];
   statusBreakdown: CandidateAnalyticsStatusBreakdown;
+  applicationsLast7Days: CandidateAnalyticsApplicationsLast7Days;
   profileCompleteness: number;
   streakDays?: number | null;
   predictiveInsight: string;
