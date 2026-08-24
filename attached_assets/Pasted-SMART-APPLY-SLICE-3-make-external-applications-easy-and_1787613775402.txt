@@ -1,0 +1,96 @@
+SMART APPLY SLICE 3 — make external applications easy and accurate, and prefill the JOBSAGE account email.
+
+Do not auto-submit employer forms.
+Do not fill passwords, usernames, NI numbers, passport, date of birth, criminal-conviction answers, or declaration/agree/payroll checkboxes.
+Do not touch vacancy discovery, NHS HTTP crawler, AI vacancy cap, alerts scheduler, or the marketing role.
+
+The 1st Med test showed: email prefilled; address/phone skipped because the API only returns name+email; CV downloaded not attached; only 3 duties/achievements boxes detected; AI answers did not use CV text.
+
+## 1. Profile + prefill API
+Add to the candidate profile (and onboarding/profile UI) if missing:
+- phone
+- streetAddress
+- city
+- postcode
+- country (default United Kingdom)
+
+GET /smart-apply/candidate-prefill MUST return these when present, plus firstName, lastName, fullName.
+
+EMAIL RULE: the email in that payload and on the external form MUST be the logged-in JOBSAGE account email (users.email). Never a different CV email, parsed email, or secondary address.
+
+Extension: fill matching empty visible inputs (name, email, phone, street, city, postcode, country). Country may set a <select> only if an option clearly matches (United Kingdom / UK / GB). Never overwrite typed values.
+
+## 2. JOBSAGE email + inbox
+Investigate first, then implement only what is real.
+
+READ:
+- Is there already a candidate inbox / messages table / in-app messaging UI?
+- Is there already a per-user JOBSAGE application email alias?
+- Do we receive inbound email today (Mailgun/SendGrid inbound, webhook)? Resend outbound for job alerts is NOT inbound.
+
+IF inbox or inbound already exists:
+- Prefill that JOBSAGE application address on external forms (still a JOBSAGE-owned address, not a random Gmail from the CV)
+- Surface employer replies in the existing inbox
+- Document the flow
+
+IF inbound receiving is NOT FOUND:
+- Do NOT fake an inbox that cannot receive employer email
+- Still prefill users.email
+- In the extension sidebar show: “Replies go to your JOBSAGE email: {users.email}. JOBSAGE cannot show employer replies in-app until inbound email is set up.”
+- Optionally list JOBSAGE-sent alerts in a clearly labelled “JOBSAGE messages” area (not employer replies)
+
+IF adding a receive webhook is a small existing pattern in this repo:
+- Per-candidate alias, prefill it, store inbound bodies, candidate UI to read them
+- Never put passwords or NI in that pipeline
+
+Do not block the rest of Slice 3 on building a full mail server.
+
+## 3. CV attach
+If the file input or its associated label contains CV, resume, or curriculum vitae, attach the JOBSAGE CV even if the same label also mentions awards/certificates.
+Still refuse: photo, passport, identity, NI, headshot-only.
+If the browser blocks attach, keep the download fallback.
+
+## 4. Detect more real application questions
+Keep skipping identity/password/salary/social fields.
+
+DO detect visible writable textareas and long text inputs for:
+- skills
+- qualifications / subjects & grades / education
+- supporting / additional / other information
+- duties, achievements, reasons for leaving (text, not salary)
+- “tell us / describe / outline / list any skills”
+
+Detect ALL matching fields on the page (including a second Achievements), not only the first three.
+Keep dedicated NHS Jobs / Trac / Workday selectors. Generic sites like 1st Med must still work.
+
+## 5. Accurate Generate Answer
+When generating, send:
+- profile: profession, specialty, quals, experience, registration, sponsorship, region
+- languages and profile notes if present
+- CV text excerpt (parsed or extracted, about 4k–8k characters)
+- job title, employer, description excerpt
+- the exact question and any word/character limit on that field
+
+Write UK English, first person, 2–4 sentences unless the field is clearly a longer statement. Use only facts from profile/CV. Do not invent. Respect word limits.
+Do not send passwords or ID numbers.
+Do not auto-answer criminal-record or “I agree” questions.
+
+## 6. Tests
+- Prefill email === users.email
+- Prefill fills empty phone/address when the profile has them; still skips password/NI
+- CV attaches when label is “CV / Awards / Certificates”
+- Skills + additional-info textareas are detected
+- Two Achievements fields both appear in the sidebar
+- Generate request includes a CV excerpt
+- Existing click-tracking tests still pass
+
+Bump the extension version, rebuild the ZIP, update the website download.
+
+## Reply with
+- files changed
+- new extension version
+- FOUND/NOT FOUND for inbox + inbound email
+- whether employer replies can appear inside JOBSAGE today
+- what a tester must add on their JOBSAGE profile before 1st Med will prefill address/phone
+
+Stop.
