@@ -8,6 +8,9 @@ const {
   deleteWhereMock,
   cacheLimitMock,
   priorWhereMock,
+  reserveNhsVacancyProbeMock,
+  completeNhsVacancyProbeMock,
+  failNhsVacancyProbeMock,
 } = vi.hoisted(() => ({
   openaiCreateMock: vi.fn(),
   searchNhsJobsMock: vi.fn(),
@@ -16,6 +19,9 @@ const {
   deleteWhereMock: vi.fn(),
   cacheLimitMock: vi.fn(),
   priorWhereMock: vi.fn(),
+  reserveNhsVacancyProbeMock: vi.fn(),
+  completeNhsVacancyProbeMock: vi.fn(),
+  failNhsVacancyProbeMock: vi.fn(),
 }));
 
 vi.mock("@workspace/integrations-openai-ai-server", () => ({
@@ -51,6 +57,11 @@ vi.mock("drizzle-orm", () => ({
 
 vi.mock("../../lib/nhsJobsClient", () => ({ searchNhsJobs: searchNhsJobsMock }));
 vi.mock("../../lib/linkVerification", () => ({ queueLinkVerificationBatch: vi.fn() }));
+vi.mock("../../lib/nhsOutageBackoff", () => ({
+  reserveNhsVacancyProbe: reserveNhsVacancyProbeMock,
+  completeNhsVacancyProbe: completeNhsVacancyProbeMock,
+  failNhsVacancyProbe: failNhsVacancyProbeMock,
+}));
 
 const { runVacancyCheck } = await import("../../lib/vacancyCheckHelper");
 
@@ -65,6 +76,9 @@ describe("runVacancyCheck HTTP-first discovery", () => {
     deleteWhereMock.mockReset();
     cacheLimitMock.mockReset();
     priorWhereMock.mockReset();
+    reserveNhsVacancyProbeMock.mockReset();
+    completeNhsVacancyProbeMock.mockReset();
+    failNhsVacancyProbeMock.mockReset();
 
     selectMock
       .mockReturnValueOnce({
@@ -77,6 +91,13 @@ describe("runVacancyCheck HTTP-first discovery", () => {
     priorWhereMock.mockResolvedValue([]);
     insertValuesMock.mockReturnValue({ returning: () => Promise.resolve([{ checkedAt: new Date("2026-08-24T08:00:00.000Z") }]) });
     deleteWhereMock.mockResolvedValue(undefined);
+    reserveNhsVacancyProbeMock.mockResolvedValue({
+      allowed: true,
+      organisationKey: "example nhs trust",
+      probeToken: "probe-1",
+    });
+    completeNhsVacancyProbeMock.mockResolvedValue(undefined);
+    failNhsVacancyProbeMock.mockResolvedValue(new Date("2026-08-24T08:45:00.000Z"));
   });
 
   afterEach(() => {
@@ -110,13 +131,14 @@ describe("runVacancyCheck HTTP-first discovery", () => {
     );
   });
 
-  it("does not cache a failed NHS request when AI fallback is capped", async () => {
+  it("does not cache an NHS 5xx as an empty result when AI fallback is capped", async () => {
     process.env["VACANCY_AI_WEB_SEARCH_DAILY_CAP"] = "0";
     searchNhsJobsMock.mockResolvedValue({
       sourceUrl: "https://www.jobs.nhs.uk/candidate/search/results?employer=Example",
       vacancies: [],
       structuredFeedWorked: false,
       resultsRequestSucceeded: false,
+      transientFailure: true,
     });
 
     const result = await runVacancyCheck("Example NHS Trust");
@@ -124,5 +146,53 @@ describe("runVacancyCheck HTTP-first discovery", () => {
     expect(openaiCreateMock).not.toHaveBeenCalled();
     expect(insertValuesMock).not.toHaveBeenCalled();
     expect(result.summary).toContain("unavailable");
+  });
+
+  it("allows one concurrent NHS outage probe and logs the resulting cooldown once", async () => {
+    process.env["VACANCY_AI_WEB_SEARCH_DAILY_CAP"] = "0";
+    // Both concurrent calls make the initial successful-cache lookup before
+    // competing for the shared NHS probe lease.
+    selectMock
+      .mockReset()
+      .mockReturnValueOnce({
+        from: () => ({ where: () => ({ orderBy: () => ({ limit: cacheLimitMock }) }) }),
+      })
+      .mockReturnValueOnce({
+        from: () => ({ where: () => ({ orderBy: () => ({ limit: cacheLimitMock }) }) }),
+      });
+    cacheLimitMock.mockResolvedValue([]);
+    searchNhsJobsMock.mockResolvedValue({
+      sourceUrl: "https://www.jobs.nhs.uk/candidate/search/results?employer=Example",
+      vacancies: [],
+      structuredFeedWorked: false,
+      resultsRequestSucceeded: false,
+      transientFailure: true,
+    });
+    reserveNhsVacancyProbeMock
+      .mockResolvedValueOnce({
+        allowed: true,
+        organisationKey: "example nhs trust",
+        probeToken: "probe-1",
+      })
+      .mockResolvedValueOnce({
+        allowed: false,
+        retryAt: new Date("2026-08-24T08:45:00.000Z"),
+      });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    try {
+      const [first, cooledDown] = await Promise.all([
+        runVacancyCheck("Example NHS Trust"),
+        runVacancyCheck("Example NHS Trust"),
+      ]);
+
+      expect(searchNhsJobsMock).toHaveBeenCalledTimes(1);
+      expect(insertValuesMock).not.toHaveBeenCalled();
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(first.summary).toContain("retry after");
+      expect(cooledDown.summary).toContain("retry after");
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 });
