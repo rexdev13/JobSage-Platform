@@ -193,6 +193,9 @@ function BestMatchesStrip({
               </div>
 
               <p className="text-xs text-muted-foreground italic leading-snug">&ldquo;{match.aiExplanation}&rdquo;</p>
+              {match.matchReason && (
+                <p className="text-xs text-primary/80 font-medium leading-snug">{match.matchReason}</p>
+              )}
 
               <div className="flex-1">
                 <p className="text-sm font-semibold text-foreground leading-tight line-clamp-2">{match.title}</p>

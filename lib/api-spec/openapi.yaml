@@ -6508,6 +6508,10 @@ components:
         aiExplanation:
           type: string
           description: One-line AI explanation of the match
+        matchReason:
+          type: string
+          nullable: true
+          description: Short explanation when recent candidate behaviour affected the ranking
         isEligible:
           type: boolean
         safeguarding:

@@ -1062,6 +1062,12 @@ export const GetMyMatchesResponse = zod.object({
       aiExplanation: zod
         .string()
         .describe("One-line AI explanation of the match"),
+      matchReason: zod
+        .string()
+        .nullish()
+        .describe(
+          "Short explanation when recent candidate behaviour affected the ranking",
+        ),
       isEligible: zod.boolean(),
       safeguarding: zod.object({
         requiredDbsClearanceLevel: zod
