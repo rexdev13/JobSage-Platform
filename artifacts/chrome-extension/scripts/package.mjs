@@ -41,7 +41,14 @@ if (/^\s*(import|export)[\s{"']/m.test(contentJs)) {
   process.exit(1);
 }
 
-const { version } = JSON.parse(readFileSync(resolve(root, "manifest.json"), "utf8"));
+const manifest = JSON.parse(readFileSync(resolve(dist, "manifest.json"), "utf8"));
+const { version, permissions = [], host_permissions: hostPermissions = [] } = manifest;
+if (!permissions.includes("webNavigation") || !hostPermissions.includes("https://*/*")) {
+  console.error(
+    "Refusing to package: manifest must include webNavigation and https://*/* host access for redirect-safe application tracking.",
+  );
+  process.exit(1);
+}
 
 const releaseDir = resolve(root, "release");
 mkdirSync(releaseDir, { recursive: true });

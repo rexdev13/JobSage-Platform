@@ -4,11 +4,11 @@ Everything is prepared; only the steps below require your Google account.
 
 ## What's already prepared
 
-- **Submission zip:** `artifacts/chrome-extension/release/jobsage-smart-apply-extension-v0.2.0.zip`
+- **Submission zip:** `artifacts/chrome-extension/release/jobsage-smart-apply-extension-v0.4.2.zip`
   (regenerate any time with `pnpm --filter jobsage-chrome-extension run package` — this also refreshes the direct-download zip on the website)
 - **Privacy policy (live page):** `https://jobsage.co.uk/extension-privacy`
 - **All listing text and permission justifications:** `store/LISTING.md` (copy-paste ready)
-- Manifest V3 with icons at 16/32/48/128 and minimal permissions (`cookies`, `storage`, host access to jobsage.co.uk only, plus a content script on https pages for form detection)
+- Manifest V3 with icons at 16/32/48/128 and the permissions needed for JOBSAGE tracking (`cookies`, `storage`, all-HTTPS host access for employer-site form detection and redirect tracking)
 
 ## Step 1 — Developer account (one-time, ~10 minutes)
 
@@ -19,7 +19,7 @@ Everything is prepared; only the steps below require your Google account.
 
 ## Step 2 — Upload
 
-1. In the dashboard, click **+ New item** and upload `release/jobsage-smart-apply-extension-v0.2.0.zip`.
+1. In the dashboard, click **+ New item** and upload `release/jobsage-smart-apply-extension-v0.4.2.zip`.
 2. The dashboard parses the manifest and opens the draft listing.
 
 ## Step 3 — Fill in the listing
@@ -42,7 +42,7 @@ Open `store/LISTING.md` and paste each field:
 Common prompts and the answers:
 
 - **"Why do you need access to all websites?"** → paste the broad-match justification from LISTING.md (employer application forms live on unenumerable domains; detection is local; data only goes to the user's own JOBSAGE account).
-- **"Narrow your permissions"** → the API-facing host permission is already narrowed to `https://jobsage.co.uk/*`; only the content script is broad, and it is required for the extension's single purpose. If reviewers insist, a fallback is to enumerate the top domains (nhs.jobs, trac.jobs, etc.) in `content_scripts.matches` and ship broader support later — but try the justification first.
+- **"Narrow your permissions"** → all-HTTPS host access is required because applicants move between unenumerable employer domains and ATS confirmation pages. The extension uses it only for local form detection and to retain a JOBSAGE-originated click through that application flow; it only communicates with JOBSAGE. If reviewers insist, a fallback is to enumerate the top domains (nhs.jobs, trac.jobs, etc.) and ship broader support later — but try the justification first.
 - **"Where is your privacy policy?"** → https://jobsage.co.uk/extension-privacy
 
 Reply via the dashboard's review thread; resubmission after edits restarts the review.
