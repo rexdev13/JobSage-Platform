@@ -40,7 +40,7 @@ Sign in to your free JOBSAGE account at jobsage.co.uk, install the extension, an
 
 PRIVACY
 
-Smart Apply only talks to JOBSAGE. It reads your JOBSAGE sign-in cookie (for jobsage.co.uk only) to act on your behalf, and reads form fields on job application pages to help fill them in. It contains no analytics, no ads, and sends nothing to third parties. Full privacy policy: https://jobsage.co.uk/extension-privacy
+Smart Apply only talks to JOBSAGE. It reads your JOBSAGE sign-in cookie (for jobsage.co.uk only) to act on your behalf, and reads form fields and the current page URL on job application pages to help fill them in and connect a submitted application to the role you opened from JOBSAGE. It contains no analytics, no ads, and sends nothing to third parties. Full privacy policy: https://jobsage.co.uk/extension-privacy
 
 A free JOBSAGE account is required.
 ```
@@ -73,13 +73,13 @@ The extension reads the user's existing JOBSAGE session cookie (jobsage.co.uk on
 Stores small local UI preferences (such as sidebar open/closed state) in the browser. No browsing data or personal data is stored.
 ```
 
-- Host permission `https://jobsage.co.uk/*`:
+- Host permission `https://*/*`:
 
 ```
-Required to read the JOBSAGE session cookie and to call the JOBSAGE API (fetch the user's profile, save applications to their tracker). This is the only origin the extension communicates with.
+Candidates apply on hundreds of employer career sites whose domains cannot be enumerated in advance. This permission lets the extension run its local application-form assistant and retain a JOBSAGE-originated application link through an employer-site redirect or confirmation page. The extension only communicates with JOBSAGE: it reads the JOBSAGE session cookie only on jobsage.co.uk and sends no data to employer sites or third parties.
 ```
 
-- Broad content-script match `https://*/*` (declare as host permission use if asked):
+- All-HTTPS content-script use:
 
 ```
 Candidates apply on hundreds of different employer career sites (NHS Jobs, Trac, individual hospital and care-provider sites) whose domains cannot be enumerated in advance. The content script runs a lightweight local check on each page to detect whether it is a supported job application form; it only activates the assistant and reads form fields on recognised application pages. No page data leaves the browser except application details the user chooses to save to their own JOBSAGE tracker.

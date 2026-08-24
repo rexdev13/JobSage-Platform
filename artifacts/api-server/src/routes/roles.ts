@@ -305,8 +305,8 @@ router.get("/roles", async (req, res): Promise<void> => {
   }
 
   const [appliedApps, vacancySpecificSpeculative, cachedAiScores, sponsorVacancyScores] = await Promise.all([
-    db.select({ roleId: applicationsTable.roleId }).from(applicationsTable).where(
-      and(eq(applicationsTable.userId, userId), eq(applicationsTable.status, "applied")),
+    db.select({ roleId: applicationsTable.roleId, status: applicationsTable.status }).from(applicationsTable).where(
+      and(eq(applicationsTable.userId, userId), ne(applicationsTable.status, "link_clicked")),
     ),
     // Speculative CVs sent against a specific vacancy count as applied for the
     // matching role (badge, disabled buttons, Best Matches exclusion) without
@@ -350,7 +350,12 @@ router.get("/roles", async (req, res): Promise<void> => {
           .filter((r) => speculativeVacancyKeys.has(`${r.employer.trim().toLowerCase()}|${r.title.trim().toLowerCase()}`))
           .map((r) => r.id)
       : [];
-  const appliedRoleIds = [...new Set([...appliedApps.map((a) => a.roleId), ...speculativeAppliedRoleIds])];
+  const appliedRoleIds = [...new Set([
+    ...appliedApps
+      .filter((application) => application.status !== "link_clicked")
+      .map((application) => application.roleId),
+    ...speculativeAppliedRoleIds,
+  ])];
 
   // Build a lookup from the persisted AI scores so the roles response can
   // sort and badge each card with the same value the /my-matches strip uses.
@@ -573,7 +578,11 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
   }
 
   const cutoff = new Date(Date.now() - SCORE_CACHE_TTL_MS);
-  const [cachedScores, sponsorVacancyScores] = await Promise.all([
+  const [completedApplications, cachedScores, sponsorVacancyScores] = await Promise.all([
+    db
+      .select({ roleId: applicationsTable.roleId, status: applicationsTable.status })
+      .from(applicationsTable)
+      .where(and(eq(applicationsTable.userId, userId), ne(applicationsTable.status, "link_clicked"))),
     db
       .select()
       .from(candidateMatchScoresTable)
@@ -593,6 +602,11 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
       .from(sponsorLicenceVacancyScoresTable)
       .where(eq(sponsorLicenceVacancyScoresTable.userId, userId)),
   ]);
+  const completedApplicationRoleIds = new Set(
+    completedApplications
+      .filter((application) => application.status !== "link_clicked")
+      .map((application) => application.roleId),
+  );
 
   let scoreMap: Map<number, { score: number; explanation: string }>;
   let cached = false;
@@ -644,6 +658,14 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
       explanation: s.explanation ?? "Match based on your profile and vacancy details.",
     });
   }
+  for (const sponsorRole of sponsorRoles) {
+    if (!scoreMap.has(sponsorRole.id)) {
+      scoreMap.set(sponsorRole.id, {
+        score: 50,
+        explanation: "Match score pending the next sponsor-vacancy scoring run.",
+      });
+    }
+  }
 
   const dismissals = await db
     .select({ roleId: matchDismissalsTable.roleId })
@@ -659,9 +681,9 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
   const effectiveSpecialty = activeCareerProfile?.focusArea ?? profile.specialty ?? "";
 
   const allSortedMatches = regulatorRoles
-    // Only surface roles that have a real AI score — exclude ones where the
-    // scoreMap has no entry (unscored roles have no place in the AI strip).
-    .filter((r) => !dismissedSet.has(r.id) && scoreMap.has(r.id))
+    // Sponsor vacancies without a pipeline score use the transient neutral
+    // fallback above; no placeholder score is persisted or triggers AI work.
+    .filter((r) => !dismissedSet.has(r.id) && !completedApplicationRoleIds.has(r.id) && scoreMap.has(r.id))
     .map((r) => {
       const reqReg = r.requiredRegistration.toLowerCase();
       const roleRequiresFull = reqReg.includes("full") || reqReg.includes("registered");
@@ -800,14 +822,19 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
 
   // Fetch roles already applied to via both standard and speculative paths
   const [appliedRows, speculativeRows] = await Promise.all([
-    db.select({ roleId: applicationsTable.roleId })
+    db.select({ roleId: applicationsTable.roleId, status: applicationsTable.status })
       .from(applicationsTable)
-      .where(and(eq(applicationsTable.userId, userId), eq(applicationsTable.status, "applied"))),
+      .where(and(eq(applicationsTable.userId, userId), ne(applicationsTable.status, "link_clicked"))),
     db.select({ companyName: speculativeApplicationsTable.companyName })
       .from(speculativeApplicationsTable)
       .where(eq(speculativeApplicationsTable.userId, userId)),
   ]);
-  const appliedIds = new Set(appliedRows.map((a) => a.roleId).filter(Boolean) as number[]);
+  const appliedIds = new Set(
+    appliedRows
+      .filter((application) => application.status !== "link_clicked")
+      .map((application) => application.roleId)
+      .filter(Boolean) as number[],
+  );
   const speculativeCompanies = new Set(speculativeRows.map((s) => s.companyName.toLowerCase()));
 
   const regulatorRoles = [

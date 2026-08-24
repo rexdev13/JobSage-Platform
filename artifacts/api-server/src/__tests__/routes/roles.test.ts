@@ -201,7 +201,11 @@ describe("GET /roles — vacancy-specific speculative CV matching (appliedRoleId
    *   8. Promise.all[2] candidateMatchScoresTable
    *   9. Promise.all[3] sponsorLicenceVacancyScoresTable
    */
-  function pushRolesDbResults(roles: any[], specApps: any[], opts: { sponsorVacancies?: any[]; sponsorScores?: any[]; specialty?: string } = {}) {
+  function pushRolesDbResults(
+    roles: any[],
+    specApps: any[],
+    opts: { applications?: any[]; sponsorVacancies?: any[]; sponsorScores?: any[]; specialty?: string } = {},
+  ) {
     dbResults.push([{
       userId: "admin-1",
       profession: "doctor",
@@ -215,7 +219,7 @@ describe("GET /roles — vacancy-specific speculative CV matching (appliedRoleId
     dbResults.push(roles);   // rolesTable
     dbResults.push([]);      // jobListingsTable — no employer jobs
     dbResults.push(opts.sponsorVacancies ?? []); // sponsor vacancies join
-    dbResults.push([]);      // applicationsTable
+    dbResults.push(opts.applications ?? []); // applicationsTable
     dbResults.push(specApps); // speculativeApplicationsTable
     dbResults.push([]);      // candidateMatchScoresTable
     dbResults.push(opts.sponsorScores ?? []);    // sponsorLicenceVacancyScoresTable
@@ -278,6 +282,27 @@ describe("GET /roles — vacancy-specific speculative CV matching (appliedRoleId
     const res = await request(app).get("/roles").set("Authorization", AUTH);
     expect(res.status).toBe(200);
     expect(res.body.appliedRoleIds).toContain(77);
+  });
+
+  it("excludes completed application statuses but leaves a bare outbound click eligible", async () => {
+    const interviewRole = makeRole(201, "North Trust", "Consultant");
+    const offerRole = makeRole(202, "South Trust", "Registrar");
+    const clickOnlyRole = makeRole(203, "East Trust", "Clinical Fellow");
+
+    pushRolesDbResults([interviewRole, offerRole, clickOnlyRole], [], {
+      applications: [
+        { roleId: 201, status: "interview" },
+        { roleId: 202, status: "offer" },
+        { roleId: 203, status: "link_clicked" },
+      ],
+    });
+
+    const app = buildApp();
+    const res = await request(app).get("/roles").set("Authorization", AUTH);
+
+    expect(res.status).toBe(200);
+    expect(res.body.appliedRoleIds).toEqual(expect.arrayContaining([201, 202]));
+    expect(res.body.appliedRoleIds).not.toContain(203);
   });
 
   it("does not include roleId when company name mismatches", async () => {
@@ -489,10 +514,16 @@ describe("GET /roles/my-matches — incremental scoring with sponsor vacancies",
    *   4.   rolesTable
    *   5.   jobListingsTable
    *   6.   sponsor vacancies join
-   *   7-8. Promise.all: candidateMatchScoresTable, sponsorLicenceVacancyScoresTable
-   *   9.   matchDismissalsTable
+   *   7-9. Promise.all: applicationsTable, candidateMatchScoresTable, sponsorLicenceVacancyScoresTable
+   *   10.  matchDismissalsTable
    */
-  function pushMyMatchesDb(roles: any[], sponsorVacancies: any[], cachedScores: any[], sponsorScores: any[]) {
+  function pushMyMatchesDb(
+    roles: any[],
+    sponsorVacancies: any[],
+    cachedScores: any[],
+    sponsorScores: any[],
+    completedApplications: any[] = [],
+  ) {
     dbResults.push([{
       userId: "admin-1", profession: "doctor", specialty: "cardiology",
       experienceYears: 5, qualificationCountry: "India",
@@ -504,6 +535,7 @@ describe("GET /roles/my-matches — incremental scoring with sponsor vacancies",
     dbResults.push(roles);            // rolesTable
     dbResults.push([]);               // jobListingsTable
     dbResults.push(sponsorVacancies); // sponsor vacancies join
+    dbResults.push(completedApplications); // applicationsTable
     dbResults.push(cachedScores);     // candidateMatchScoresTable
     dbResults.push(sponsorScores);    // sponsorLicenceVacancyScoresTable
     dbResults.push([]);               // matchDismissalsTable
@@ -561,6 +593,33 @@ describe("GET /roles/my-matches — incremental scoring with sponsor vacancies",
     // 91 + specialty boost (title contains "cardiologist"? boost applies on focus words) — at least the base score
     expect(m.aiScore).toBeGreaterThanOrEqual(91);
     expect(m.aiExplanation).toContain("Excellent specialty fit");
+  });
+
+  it("removes completed roles from matches while retaining link-clicked roles", async () => {
+    const interviewRole = makeRole(71);
+    const offerRole = makeRole(72);
+    const clickOnlyRole = makeRole(73);
+    pushMyMatchesDb(
+      [interviewRole, offerRole, clickOnlyRole],
+      [],
+      [
+        { roleId: 71, score: 90, aiExplanation: "Strong fit", scoredAt: new Date() },
+        { roleId: 72, score: 85, aiExplanation: "Strong fit", scoredAt: new Date() },
+        { roleId: 73, score: 80, aiExplanation: "Strong fit", scoredAt: new Date() },
+      ],
+      [],
+      [
+        { roleId: 71, status: "interview" },
+        { roleId: 72, status: "offer" },
+        { roleId: 73, status: "link_clicked" },
+      ],
+    );
+
+    const app = buildApp();
+    const res = await request(app).get("/roles/my-matches").set("Authorization", AUTH);
+
+    expect(res.status).toBe(200);
+    expect(res.body.matches.map((match: any) => match.roleId)).toEqual([73]);
   });
 
   it("paginates the merged list", async () => {
