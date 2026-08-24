@@ -35,6 +35,8 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { getListMyApplicationsQueryKey } from "@workspace/api-client-react";
+import { useGetMyAnalytics } from "@workspace/api-client-react";
+import { WeeklyApplicationStats } from "@/components/WeeklyApplicationStats";
 
 const STATUS_CONFIG: Record<
   string,
@@ -523,6 +525,7 @@ function FavoritesList({ favorites }: { favorites: VacancyFavorite[] }) {
 
 export default function ApplicationsPage() {
   const { data, isLoading, refetch } = useListMyApplications();
+  const { data: analyticsData, isLoading: analyticsLoading } = useGetMyAnalytics();
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState<CategoryTab>("all");
   const [logExternalOpen, setLogExternalOpen] = useState(false);
@@ -627,6 +630,11 @@ export default function ApplicationsPage() {
             ))}
           </div>
         )}
+
+        <WeeklyApplicationStats
+          stats={analyticsData?.applicationsLast7Days}
+          isLoading={analyticsLoading}
+        />
 
         {/* Category tabs */}
         <div className="flex gap-1 p-1 bg-muted rounded-xl overflow-x-auto">

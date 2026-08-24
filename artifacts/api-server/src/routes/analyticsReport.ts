@@ -13,6 +13,7 @@ import {
 import { eq, desc } from "drizzle-orm";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import type { Application } from "@workspace/db";
+import { buildWeeklyApplicationStats } from "../lib/weeklyStats";
 
 const router: IRouter = Router();
 
@@ -160,6 +161,7 @@ router.get("/my-analytics", requireAuthenticated, async (req, res): Promise<void
 
   const now = new Date();
   const monthlyApplications = buildMonthlyBreakdown(allApplications, now);
+  const applicationsLast7Days = buildWeeklyApplicationStats(allApplications, now);
 
   // Add speculative CV sends into monthly totals as "cv_sent" activity
   for (const spec of speculativeApps) {
@@ -231,6 +233,7 @@ router.get("/my-analytics", requireAuthenticated, async (req, res): Promise<void
     },
     monthlyApplications,
     statusBreakdown,
+    applicationsLast7Days,
     profileCompleteness,
     streakDays,
     predictiveInsight,
