@@ -644,22 +644,56 @@ function RoleCard({
   // behind the Smart Apply extension so every application is tracked.
   const RECENT_VERIFIED_MS = 2 * 60 * 60 * 1000; // 2 hours
 
+  const trackAndOpen = (targetUrl: string): void => {
+    let outboundUrl = targetUrl;
+    try {
+      const url = new URL(targetUrl);
+      // The reference lets the extension retain this exact first-party click
+      // through employer-site redirects, so confirmation upgrades this row.
+      url.searchParams.set("ref", "jobsage");
+      outboundUrl = url.toString();
+    } catch {
+      // The existing apply action can still open a malformed legacy URL; the
+      // click-time link check is responsible for deciding whether it is usable.
+    }
+    const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+    // Tracking is deliberately independent from the extension sidebar. A
+    // candidate may hide the sidebar on the employer site, but the JOBSAGE
+    // outbound click remains part of their tracker.
+    void fetch(`${base}/api/applications`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        applicationType: "website",
+        status: "link_clicked",
+        roleId: role.id,
+        companyName: role.employer,
+        jobTitle: role.title,
+        applicationUrl: outboundUrl,
+      }),
+    }).catch((error: unknown) => {
+      console.warn("[applications] Could not track outbound apply click", error);
+    });
+
+    window.open(outboundUrl, "_blank", "noopener,noreferrer");
+    onExternalApply?.();
+  };
+
   const doApplyClick = async (destinationUrl?: string): Promise<void> => {
     const targetUrl = destinationUrl ?? applyUrl;
     if (!targetUrl) return;
 
     // Company-website fallback — open immediately, no ATS check needed.
     if (destinationUrl !== undefined) {
-      window.open(targetUrl, "_blank", "noopener,noreferrer");
-      onExternalApply?.();
+      trackAndOpen(targetUrl);
       return;
     }
 
     // Recently verified (within 2 h) — trust the cached result, skip re-check.
     const checkedMs = linkCheckedAt ? new Date(linkCheckedAt).getTime() : 0;
     if (linkVerified && checkedMs > 0 && Date.now() - checkedMs < RECENT_VERIFIED_MS) {
-      window.open(targetUrl, "_blank", "noopener,noreferrer");
-      onExternalApply?.();
+      trackAndOpen(targetUrl);
       return;
     }
 
@@ -684,8 +718,7 @@ function RoleCard({
       setChecking(false);
     }
 
-    window.open(targetUrl, "_blank", "noopener,noreferrer");
-    onExternalApply?.();
+    trackAndOpen(targetUrl);
   };
 
   // Gate every outbound click behind the extension check.
@@ -1291,6 +1324,42 @@ export default function OpportunitiesPage() {
     if (shouldShowExtensionNudge()) setShowExtensionNudge(true);
   }
 
+  function trackGapAnalysisWebsiteClick(item: MatchedRole) {
+    const rawUrl = item.applyUrl ?? item.contactWebsite;
+    if (!rawUrl) return;
+
+    const targetUrl = rawUrl.startsWith("http") ? rawUrl : `https://${rawUrl}`;
+    let outboundUrl = targetUrl;
+    try {
+      const url = new URL(targetUrl);
+      url.searchParams.set("ref", "jobsage");
+      outboundUrl = url.toString();
+    } catch {
+      // Keep the existing destination for a legacy malformed URL. The role-card
+      // link validation flow remains responsible for rejecting unusable links.
+    }
+
+    const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+    void fetch(`${base}/api/applications`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        applicationType: "website",
+        status: "link_clicked",
+        roleId: item.role.id,
+        companyName: item.role.employer,
+        jobTitle: item.role.title,
+        applicationUrl: outboundUrl,
+      }),
+    }).catch((error: unknown) => {
+      console.warn("[applications] Could not track Gap Analysis apply click", error);
+    });
+
+    window.open(outboundUrl, "_blank", "noopener,noreferrer");
+    handleExternalApply();
+  }
+
   const queryClient = useQueryClient();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { data, isLoading, isError } = useListMatchedRoles();
@@ -1801,10 +1870,7 @@ export default function OpportunitiesPage() {
             hasCvUploaded={!!myProfile}
             analysisEndpoint={endpoint}
             onApply={() => handleSmartApply(gapAnalysisRole.role.id, gapAnalysisRole.role.title)}
-            onWebsiteApply={() => {
-              const url = gapAnalysisRole.applyUrl ?? gapAnalysisRole.contactWebsite;
-              if (url) window.open(url.startsWith("http") ? url : `https://${url}`, "_blank", "noopener,noreferrer");
-            }}
+            onWebsiteApply={() => trackGapAnalysisWebsiteClick(gapAnalysisRole)}
           />
         );
       })()}

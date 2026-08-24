@@ -604,6 +604,7 @@ export interface Application {
   applicationType?: string | null;
   applicationUrl?: string | null;
   companyName?: string | null;
+  jobTitle?: string | null;
   interviewDate?: string | null;
   interviewNotes?: string | null;
 }
@@ -631,6 +632,17 @@ export const MarkApplicationRequestApplicationType = {
   website: "website",
 } as const;
 
+/**
+ * Website clicks use link_clicked; extension confirmation upgrades the same URL to applied.
+ */
+export type MarkApplicationRequestStatus =
+  (typeof MarkApplicationRequestStatus)[keyof typeof MarkApplicationRequestStatus];
+
+export const MarkApplicationRequestStatus = {
+  link_clicked: "link_clicked",
+  applied: "applied",
+} as const;
+
 export interface MarkApplicationRequest {
   /** Required for platform applications; omitted for website applications. */
   roleId?: number;
@@ -642,6 +654,12 @@ export interface MarkApplicationRequest {
   applicationUrl?: string | null;
   /** Required when applicationType is website. */
   companyName?: string;
+  /** Vacancy title for website applications. */
+  jobTitle?: string;
+  /** Extension compatibility alias for applicationUrl. */
+  pageUrl?: string;
+  /** Website clicks use link_clicked; extension confirmation upgrades the same URL to applied. */
+  status?: MarkApplicationRequestStatus;
 }
 
 export interface RoleList {

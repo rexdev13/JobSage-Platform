@@ -54,6 +54,15 @@ async function checkTabActivation(): Promise<boolean> {
   }
 }
 
+async function getTrackingApplicationUrl(): Promise<string | null> {
+  try {
+    const resp = await sendMessage<{ applicationUrl?: string | null }>({ type: "GET_TRACKING_CONTEXT" });
+    return resp.applicationUrl ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function checkSuppression(): Promise<"site" | "session" | null> {
   try {
     const resp = await sendMessage<{ suppressed?: "site" | "session" | null }>({
@@ -82,13 +91,24 @@ async function loadPillPosition(): Promise<PillPos | null> {
 // ---------------------------------------------------------------------------
 
 async function logApplication(companyName: string, jobTitle: string, pageUrl: string): Promise<void> {
+  const originalApplicationUrl = await getTrackingApplicationUrl();
   return new Promise((resolve, reject) => {
     chrome.runtime.sendMessage(
       {
         type: "API_REQUEST",
         endpoint: "/applications",
         method: "POST",
-        body: { companyName, jobTitle, pageUrl, applicationType: "website" },
+        // A JOBSAGE-originated application retains the original outbound URL
+        // through redirect/confirmation pages. Standalone extension use falls
+        // back to mapping pageUrl server-side.
+        body: {
+          companyName,
+          jobTitle,
+          applicationUrl: originalApplicationUrl ?? undefined,
+          pageUrl,
+          applicationType: "website",
+          status: "applied",
+        },
       },
       (response: { data?: unknown; error?: string }) => {
         if (chrome.runtime.lastError) {

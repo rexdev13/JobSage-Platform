@@ -26,6 +26,7 @@ export const applicationsTable = pgTable("applications", {
     .default("platform"),
   applicationUrl: text("application_url"),
   companyName: text("company_name"),
+  jobTitle: text("job_title"),
   status: varchar("status", {
     enum: ["link_clicked", "applied", "shortlisted", "interview", "interview_invited", "under_review", "offer", "rejected", "no_response"],
   })

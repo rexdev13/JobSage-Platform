@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { MarkApplicationRequestApplicationType } from "./markApplicationRequestApplicationType";
+import type { MarkApplicationRequestStatus } from "./markApplicationRequestStatus";
 
 export interface MarkApplicationRequest {
   /** Required for platform applications; omitted for website applications. */
@@ -18,4 +19,10 @@ export interface MarkApplicationRequest {
   applicationUrl?: string | null;
   /** Required when applicationType is website. */
   companyName?: string;
+  /** Vacancy title for website applications. */
+  jobTitle?: string;
+  /** Extension compatibility alias for applicationUrl. */
+  pageUrl?: string;
+  /** Website clicks use link_clicked; extension confirmation upgrades the same URL to applied. */
+  status?: MarkApplicationRequestStatus;
 }

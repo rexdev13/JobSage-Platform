@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, jobListingsTable, rolesTable, candidateMessagesTable, documentsTable, employerProfilesTable } from "@workspace/db";
 import { applicationsTable, speculativeApplicationsTable, ApplicationStatus } from "@workspace/db";
-import { eq, and, inArray, desc, or } from "drizzle-orm";
+import { eq, and, inArray, desc, sql } from "drizzle-orm";
 import { requireAuthenticated } from "../middlewares/requireRole";
 import { createApplicationReceivedMessage } from "../lib/systemMessages";
 
@@ -12,12 +12,6 @@ const router: IRouter = Router();
 // No CV or cover letter is emailed to employers through this path.
 // JOBSAGE alias masking (personal email/phone redaction) is therefore not applicable here;
 // masking is enforced at the point of any outbound document delivery (speculative CV flow).
-
-// Note: the former GET /applications/track-outbound click-logging endpoint has
-// been retired — apply/company-website clicks now simply open the destination
-// in a new tab without creating an application record. Existing "website"
-// application rows (including legacy "link_clicked" statuses) still render in
-// the tracker via GET /applications below.
 
 router.get("/applications", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.id;
@@ -116,7 +110,7 @@ router.get("/applications", requireAuthenticated, async (req: Request, res: Resp
     .filter((a) => (a.applicationType ?? "platform") === "website")
     .map((a) => ({
       ...a,
-      roleTitle: a.companyName ?? "Website Application",
+      roleTitle: a.jobTitle ?? a.companyName ?? "Website Application",
       roleLocation: null as string | null,
       applicationKind: "website" as const,
       companyName: a.companyName ?? null,
@@ -176,13 +170,16 @@ router.get("/applications", requireAuthenticated, async (req: Request, res: Resp
 
 router.post("/applications", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.id;
-  const { roleId, notes, smartApply, applicationType, applicationUrl, companyName, cvDocumentId } = req.body as {
+  const { roleId, notes, smartApply, applicationType, applicationUrl, pageUrl, companyName, jobTitle, status, cvDocumentId } = req.body as {
     roleId?: number;
     notes?: string;
     smartApply?: boolean;
     applicationType?: "platform" | "website";
     applicationUrl?: string;
+    pageUrl?: string;
     companyName?: string;
+    jobTitle?: string;
+    status?: "link_clicked" | "applied";
     cvDocumentId?: number | null;
   };
 
@@ -206,21 +203,86 @@ router.post("/applications", requireAuthenticated, async (req: Request, res: Res
       return;
     }
 
-    const [app] = await db
-      .insert(applicationsTable)
-      .values({
-        userId,
-        roleId: 0,
-        applicationType: "website",
-        applicationUrl: applicationUrl ?? null,
-        companyName,
-        notes: notes ?? null,
-        status: "applied",
-        cvDocumentId: cvDocumentId ?? null,
-      })
-      .returning();
+    // Extension confirmation logging sends pageUrl; first-party click tracking
+    // sends applicationUrl. Both must converge on the same exact URL.
+    const resolvedApplicationUrl =
+      typeof applicationUrl === "string" && applicationUrl.length > 0
+        ? applicationUrl
+        : typeof pageUrl === "string" && pageUrl.length > 0
+          ? pageUrl
+          : null;
+    const requestedStatus = status === "link_clicked" ? "link_clicked" : "applied";
 
-    res.status(201).json(app);
+    const websiteApplication = await db.transaction(async (tx) => {
+      // Serialise concurrent retries for the same candidate and exact outbound
+      // URL. This avoids duplicate tracker rows without requiring a destructive
+      // cleanup of any pre-existing manual website-application entries.
+      if (resolvedApplicationUrl) {
+        await tx.execute(
+          sql`SELECT pg_advisory_xact_lock(hashtext(${`website:${userId}:${resolvedApplicationUrl}`}))`,
+        );
+        const [existing] = await tx
+          .select()
+          .from(applicationsTable)
+          .where(
+            and(
+              eq(applicationsTable.userId, userId),
+              eq(applicationsTable.applicationType, "website"),
+              eq(applicationsTable.applicationUrl, resolvedApplicationUrl),
+            ),
+          );
+
+        if (existing) {
+          const shouldUpgrade = requestedStatus === "applied" && existing.status === "link_clicked";
+          const isFirstPartyClick = requestedStatus === "link_clicked";
+          const [updated] = await tx
+            .update(applicationsTable)
+            .set({
+              // First-party Opportunities metadata is authoritative. Extension
+              // confirmation pages often expose generic success copy instead of
+              // the original vacancy title and employer.
+              roleId: isFirstPartyClick && typeof roleId === "number" && roleId > 0
+                ? roleId
+                : existing.roleId > 0
+                ? existing.roleId
+                : typeof roleId === "number" && roleId > 0
+                  ? roleId
+                  : 0,
+              companyName: isFirstPartyClick ? companyName : existing.companyName || companyName,
+              jobTitle: isFirstPartyClick
+                ? typeof jobTitle === "string" && jobTitle.length > 0 ? jobTitle : existing.jobTitle
+                : existing.jobTitle || (typeof jobTitle === "string" && jobTitle.length > 0 ? jobTitle : null),
+              applicationUrl: resolvedApplicationUrl,
+              notes: typeof notes === "string" ? notes : existing.notes,
+              status: shouldUpgrade ? "applied" : existing.status,
+              cvDocumentId: cvDocumentId ?? existing.cvDocumentId,
+            })
+            .where(eq(applicationsTable.id, existing.id))
+            .returning();
+
+          return { application: updated, created: false };
+        }
+      }
+
+      const [application] = await tx
+        .insert(applicationsTable)
+        .values({
+          userId,
+          roleId: typeof roleId === "number" && roleId > 0 ? roleId : 0,
+          applicationType: "website",
+          applicationUrl: resolvedApplicationUrl,
+          companyName,
+          jobTitle: typeof jobTitle === "string" && jobTitle.length > 0 ? jobTitle : null,
+          notes: notes ?? null,
+          status: requestedStatus,
+          cvDocumentId: cvDocumentId ?? null,
+        })
+        .returning();
+
+      return { application, created: true };
+    });
+
+    res.status(websiteApplication.created ? 201 : 200).json(websiteApplication.application);
     return;
   }
 

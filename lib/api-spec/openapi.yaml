@@ -1261,7 +1261,7 @@ paths:
     post:
       tags: [Applications]
       operationId: markApplication
-      summary: Mark a role as applied (or update application status)
+      summary: Record or update a candidate application
       requestBody:
         required: true
         content:
@@ -4088,6 +4088,9 @@ components:
         companyName:
           type: string
           nullable: true
+        jobTitle:
+          type: string
+          nullable: true
         interviewDate:
           type: string
           nullable: true
@@ -4140,6 +4143,16 @@ components:
         companyName:
           type: string
           description: Required when applicationType is website.
+        jobTitle:
+          type: string
+          description: Vacancy title for website applications.
+        pageUrl:
+          type: string
+          description: Extension compatibility alias for applicationUrl.
+        status:
+          type: string
+          enum: [link_clicked, applied]
+          description: Website clicks use link_clicked; extension confirmation upgrades the same URL to applied.
 
     RoleList:
       type: object

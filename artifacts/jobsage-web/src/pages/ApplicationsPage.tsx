@@ -41,7 +41,7 @@ const STATUS_CONFIG: Record<
   { label: string; icon: React.ElementType; className: string }
 > = {
   link_clicked: {
-    label: "Link Clicked",
+    label: "Started",
     icon: ExternalLink,
     className: "bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-300",
   },
@@ -103,6 +103,7 @@ const STATUS_CONFIG: Record<
 };
 
 const PLATFORM_STATUSES = ["applied", "shortlisted", "under_review", "interview", "interview_invited", "offer", "rejected", "no_response"] as const;
+const WEBSITE_STATUSES = ["link_clicked", ...PLATFORM_STATUSES] as const;
 const SPECULATIVE_STATUSES = ["cv_sent", "under_review", "interview_invited", "offer", "rejected"] as const;
 
 // Statuses (standard + speculative) that indicate the employer has responded.
@@ -178,11 +179,12 @@ function StatusDropdown({
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
-  const baseOptions = kind === "speculative" ? SPECULATIVE_STATUSES : PLATFORM_STATUSES;
-  // Legacy display-only status: click-logging was retired, so "link_clicked"
-  // is never offered as a new choice, but rows already in that status keep it
-  // selectable so opening the dropdown doesn't force a conversion.
-  const options: readonly string[] = current === "link_clicked" ? ["link_clicked", ...baseOptions] : baseOptions;
+  const baseOptions = kind === "speculative"
+    ? SPECULATIVE_STATUSES
+    : kind === "website"
+      ? WEBSITE_STATUSES
+      : PLATFORM_STATUSES;
+  const options: readonly string[] = baseOptions;
   const cfg = STATUS_CONFIG[current] ?? STATUS_CONFIG.applied!;
   const Icon = cfg.icon;
 
@@ -277,7 +279,7 @@ function ApplicationCard({ application, onStatusUpdated }: { application: Enrich
                 {isSpeculative
                   ? application.companyName ?? application.roleTitle ?? "CV Send"
                   : isWebsite
-                  ? application.companyName ?? "Website Application"
+                  ? application.roleTitle ?? application.companyName ?? "Website Application"
                   : application.roleTitle ?? `Role #${application.roleId}`}
               </h3>
               {isInterviewInvited && (
@@ -293,9 +295,15 @@ function ApplicationCard({ application, onStatusUpdated }: { application: Enrich
                   {application.roleLocation}
                 </span>
               )}
+              {isWebsite && application.companyName && application.roleTitle && application.companyName !== application.roleTitle && (
+                <span className="flex items-center gap-1">
+                  <Building2 className="w-3 h-3" />
+                  {application.companyName}
+                </span>
+              )}
               <span className="flex items-center gap-1">
                 <Calendar className="w-3 h-3" />
-                {isSpeculative ? "Sent" : "Applied"} {format(new Date(application.appliedAt), "MMM d, yyyy")}
+                {isSpeculative ? "Sent" : isWebsite && application.status === "link_clicked" ? "Started" : "Applied"} {format(new Date(application.appliedAt), "MMM d, yyyy")}
               </span>
               <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold border ${kindBadge.className}`}>
                 <KindIcon className="w-2.5 h-2.5" />
