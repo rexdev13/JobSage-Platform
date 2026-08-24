@@ -13,3 +13,4 @@
 - [api-server test patterns](api-server-test-patterns.md) — Auth via `Authorization: Bearer` (not cookie); db.execute must be mocked; employer/profile response shapes; Zod schema needs Date fields.
 - [pdf-parse v2 ESM class API](pdf-parse-v2-esm.md) — pdf-parse v2.x ESM exports `PDFParse` class (not a bare function); use `new PDFParse({ data: buf })` then `.getText()` — no separate `init()` call needed.
 - [NHS Jobs employer search](nhs-jobs-employer-search.md) — the legacy XML endpoint currently returns HTML; use the public results form’s `employer` parameter and retain only close employer matches.
+- [Smart Apply redirect tracking](smart-apply-redirect-tracking.md) — confirmation URLs differ from outbound URLs; retain the JOBSAGE-originated URL as the tracker identity.

@@ -305,7 +305,9 @@ router.get("/roles", async (req, res): Promise<void> => {
   }
 
   const [appliedApps, vacancySpecificSpeculative, cachedAiScores, sponsorVacancyScores] = await Promise.all([
-    db.select({ roleId: applicationsTable.roleId }).from(applicationsTable).where(eq(applicationsTable.userId, userId)),
+    db.select({ roleId: applicationsTable.roleId }).from(applicationsTable).where(
+      and(eq(applicationsTable.userId, userId), eq(applicationsTable.status, "applied")),
+    ),
     // Speculative CVs sent against a specific vacancy count as applied for the
     // matching role (badge, disabled buttons, Best Matches exclusion) without
     // creating an applications row — the tracker already lists them under
@@ -800,7 +802,7 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
   const [appliedRows, speculativeRows] = await Promise.all([
     db.select({ roleId: applicationsTable.roleId })
       .from(applicationsTable)
-      .where(eq(applicationsTable.userId, userId)),
+      .where(and(eq(applicationsTable.userId, userId), eq(applicationsTable.status, "applied"))),
     db.select({ companyName: speculativeApplicationsTable.companyName })
       .from(speculativeApplicationsTable)
       .where(eq(speculativeApplicationsTable.userId, userId)),

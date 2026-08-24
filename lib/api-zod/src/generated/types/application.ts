@@ -19,6 +19,7 @@ export interface Application {
   applicationType?: string | null;
   applicationUrl?: string | null;
   companyName?: string | null;
+  jobTitle?: string | null;
   interviewDate?: string | null;
   interviewNotes?: string | null;
 }

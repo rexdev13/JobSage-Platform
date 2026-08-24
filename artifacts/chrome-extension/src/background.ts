@@ -1,4 +1,9 @@
 import { getEnvSettings, activeOrigin, apiBase } from "./lib/env";
+import {
+  isTrackingContextFresh,
+  nextTrackingContext,
+  type TabTrackingContext,
+} from "./lib/trackingContext";
 
 const SESSION_COOKIE_NAME = "sid";
 
@@ -34,10 +39,7 @@ function getEtld1(hostname: string): string {
   return parts.slice(-2).join(".");
 }
 
-interface TabActivation {
-  etld1: string;
-  activatedAt: number;
-}
+type TabActivation = TabTrackingContext;
 
 async function getActivations(): Promise<Record<string, TabActivation>> {
   const stored = await chrome.storage.session.get(ACTIVATION_SESSION_KEY);
@@ -72,7 +74,7 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
     if (url.searchParams.get("ref") !== "jobsage") return;
     const etld1 = getEtld1(url.hostname);
     const map = await getActivations();
-    map[details.tabId] = { etld1, activatedAt: Date.now() };
+    map[details.tabId] = { etld1, activatedAt: Date.now(), applicationUrl: url.toString() };
     await setActivations(map);
   } catch {
     // invalid URL — ignore
@@ -91,9 +93,13 @@ chrome.webNavigation.onCommitted.addListener(async (details) => {
     const entry = map[details.tabId];
     if (!entry) return;
 
-    const newEtld1 = getEtld1(url.hostname);
-    if (newEtld1 !== entry.etld1) {
-      delete map[details.tabId];
+    const next = nextTrackingContext(entry, getEtld1(url.hostname), details);
+    if (next !== entry) {
+      if (next) {
+        map[details.tabId] = next;
+      } else {
+        delete map[details.tabId];
+      }
       await setActivations(map);
     }
   } catch {
@@ -129,6 +135,10 @@ interface CheckActivationMessage {
   tabId?: number; // optional; background resolves from sender when omitted
 }
 
+interface GetTrackingContextMessage {
+  type: "GET_TRACKING_CONTEXT";
+}
+
 interface GetSuppressionMessage {
   type: "GET_SUPPRESSION";
   hostname: string;
@@ -157,6 +167,7 @@ type IncomingMessage =
   | ApiRequestMessage
   | GetTokenMessage
   | CheckActivationMessage
+  | GetTrackingContextMessage
   | GetSuppressionMessage
   | SetSuppressionMessage
   | ClearSuppressionMessage
@@ -167,6 +178,7 @@ interface ApiResponseSuccess { data: unknown }
 interface ApiResponseError { error: string }
 interface TokenResponse { token: string | null }
 interface ActivationResponse { activated: boolean }
+interface TrackingContextResponse { applicationUrl: string | null }
 interface SuppressionResponse { suppressed: "site" | "session" | null }
 interface SuppressionListResponse { hostnames: string[] }
 interface OkResponse { ok: true }
@@ -176,6 +188,7 @@ type AnyResponse =
   | ApiResponseError
   | TokenResponse
   | ActivationResponse
+  | TrackingContextResponse
   | SuppressionResponse
   | SuppressionListResponse
   | OkResponse;
@@ -316,8 +329,39 @@ chrome.runtime.onMessage.addListener(
         return false;
       }
       getActivations()
-        .then((map) => sendResponse({ activated: !!map[tabId] }))
+        .then(async (map) => {
+          const activation = map[tabId];
+          if (activation && !isTrackingContextFresh(activation)) {
+            delete map[tabId];
+            await setActivations(map);
+            sendResponse({ activated: false });
+            return;
+          }
+          sendResponse({ activated: !!activation });
+        })
         .catch(() => sendResponse({ activated: false }));
+      return true;
+    }
+
+    // --- GET_TRACKING_CONTEXT ---
+    if (message.type === "GET_TRACKING_CONTEXT") {
+      const tabId = sender.tab?.id;
+      if (tabId === undefined) {
+        sendResponse({ applicationUrl: null });
+        return false;
+      }
+      getActivations()
+        .then(async (map) => {
+          const activation = map[tabId];
+          if (activation && !isTrackingContextFresh(activation)) {
+            delete map[tabId];
+            await setActivations(map);
+            sendResponse({ applicationUrl: null });
+            return;
+          }
+          sendResponse({ applicationUrl: activation?.applicationUrl ?? null });
+        })
+        .catch(() => sendResponse({ applicationUrl: null }));
       return true;
     }
 

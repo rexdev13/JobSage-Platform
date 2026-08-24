@@ -1097,6 +1097,7 @@ export const ListMyApplicationsResponse = zod.object({
       applicationType: zod.string().nullish(),
       applicationUrl: zod.string().nullish(),
       companyName: zod.string().nullish(),
+      jobTitle: zod.string().nullish(),
       interviewDate: zod.string().nullish(),
       interviewNotes: zod.string().nullish(),
     }),
@@ -1110,7 +1111,7 @@ export const ListMyApplicationsResponse = zod.object({
 });
 
 /**
- * @summary Mark a role as applied (or update application status)
+ * @summary Record or update a candidate application
  */
 export const MarkApplicationBody = zod.object({
   roleId: zod
@@ -1133,6 +1134,20 @@ export const MarkApplicationBody = zod.object({
     .string()
     .optional()
     .describe("Required when applicationType is website."),
+  jobTitle: zod
+    .string()
+    .optional()
+    .describe("Vacancy title for website applications."),
+  pageUrl: zod
+    .string()
+    .optional()
+    .describe("Extension compatibility alias for applicationUrl."),
+  status: zod
+    .enum(["link_clicked", "applied"])
+    .optional()
+    .describe(
+      "Website clicks use link_clicked; extension confirmation upgrades the same URL to applied.",
+    ),
 });
 
 export const MarkApplicationResponse = zod.object({
@@ -1155,6 +1170,7 @@ export const MarkApplicationResponse = zod.object({
   applicationType: zod.string().nullish(),
   applicationUrl: zod.string().nullish(),
   companyName: zod.string().nullish(),
+  jobTitle: zod.string().nullish(),
   interviewDate: zod.string().nullish(),
   interviewNotes: zod.string().nullish(),
 });

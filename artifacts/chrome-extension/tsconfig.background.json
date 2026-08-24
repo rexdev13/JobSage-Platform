@@ -18,6 +18,7 @@
   },
   "include": [
     "src/background.ts",
-    "src/lib/env.ts"
+    "src/lib/env.ts",
+    "src/lib/trackingContext.ts"
   ]
 }

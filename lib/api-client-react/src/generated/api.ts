@@ -3959,7 +3959,7 @@ export function useListMyApplications<
 }
 
 /**
- * @summary Mark a role as applied (or update application status)
+ * @summary Record or update a candidate application
  */
 export const getMarkApplicationUrl = () => {
   return `/api/applications`;
@@ -4022,7 +4022,7 @@ export type MarkApplicationMutationBody = BodyType<MarkApplicationRequest>;
 export type MarkApplicationMutationError = ErrorType<ErrorEnvelope>;
 
 /**
- * @summary Mark a role as applied (or update application status)
+ * @summary Record or update a candidate application
  */
 export const useMarkApplication = <
   TError = ErrorType<ErrorEnvelope>,
