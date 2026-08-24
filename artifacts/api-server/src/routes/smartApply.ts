@@ -1,15 +1,85 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, profilesTable, jobListingsTable, smartApplyDraftsTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { Readable } from "stream";
+import { db, profilesTable, jobListingsTable, smartApplyDraftsTable, documentsTable } from "@workspace/db";
+import { eq, and, desc } from "drizzle-orm";
 import { requireAuthenticated } from "../middlewares/requireRole";
 import { getStandardQuestions, prefillApplicationAnswers } from "../lib/smartApply";
 import { computeSmartApplyReady } from "../lib/profileCompleteness";
 import { openai } from "@workspace/integrations-openai-ai-server";
+import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
+import { ObjectPermission } from "../lib/objectAcl";
 
 const router: IRouter = Router();
+const objectStorageService = new ObjectStorageService();
 
 router.get("/smart-apply/questions", requireAuthenticated, (_req: Request, res: Response): void => {
   res.json({ questions: getStandardQuestions() });
+});
+
+/**
+ * Safe identity/contact fields for browser-based application forms.
+ * Keep this allowlist deliberately small: do not return an entire user or profile row.
+ */
+router.get("/smart-apply/candidate-prefill", requireAuthenticated, (req: Request, res: Response): void => {
+  const user = req.user!;
+  const firstName = user.firstName ?? null;
+  const lastName = user.lastName ?? null;
+  const fullName = [firstName, lastName].filter((name): name is string => Boolean(name)).join(" ");
+
+  res.json({
+    firstName,
+    lastName,
+    fullName,
+    email: user.email ?? null,
+  });
+});
+
+/**
+ * Downloads the authenticated candidate's current CV without disclosing its storage path.
+ */
+router.get("/smart-apply/cv", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
+  const [cv] = await db
+    .select()
+    .from(documentsTable)
+    .where(and(eq(documentsTable.userId, req.user!.id), eq(documentsTable.documentType, "cv")))
+    .orderBy(desc(documentsTable.isPrimary), desc(documentsTable.uploadedAt));
+
+  if (!cv) {
+    res.status(404).json({ error: "Current CV not found" });
+    return;
+  }
+
+  try {
+    const objectFile = await objectStorageService.getObjectEntityFile(cv.storageKey);
+    const canAccess = await objectStorageService.canAccessObjectEntity({
+      userId: req.user!.id,
+      objectFile,
+      requestedPermission: ObjectPermission.READ,
+    });
+    if (!canAccess) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+
+    const response = await objectStorageService.downloadObject(objectFile);
+    res.status(response.status);
+    response.headers.forEach((value, key) => res.setHeader(key, value));
+    // The database filename is safe to expose to the file owner; never expose the storage key.
+    const filename = cv.filename.replace(/[\r\n"]/g, "_");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+
+    if (response.body) {
+      Readable.fromWeb(response.body as ReadableStream<Uint8Array>).pipe(res);
+    } else {
+      res.end();
+    }
+  } catch (error) {
+    if (error instanceof ObjectNotFoundError) {
+      res.status(404).json({ error: "Current CV not found" });
+      return;
+    }
+    res.status(500).json({ error: "Failed to download current CV" });
+  }
 });
 
 router.post("/roles/:id/smart-apply/prefill", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {

@@ -566,6 +566,19 @@ export interface SmartApplyQuestionsResponse {
   questions: ApplicationQuestion[];
 }
 
+/**
+ * Allowlisted candidate contact fields for application-form prefill. Additional contact fields are omitted unless supported by the candidate record.
+ */
+export interface SmartApplyCandidatePrefill {
+  /** @nullable */
+  firstName: string | null;
+  /** @nullable */
+  lastName: string | null;
+  fullName: string;
+  /** @nullable */
+  email: string | null;
+}
+
 export interface SmartApplyRoleContext {
   title: string;
   location: string;

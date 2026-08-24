@@ -904,6 +904,59 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
 
+  /smart-apply/candidate-prefill:
+    get:
+      tags: [Applications]
+      operationId: getSmartApplyCandidatePrefill
+      summary: Get safe candidate contact fields for browser application form prefilling
+      description: Returns an allowlisted subset of the authenticated candidate's contact details. Sensitive identity data and credentials are never returned.
+      responses:
+        '200':
+          description: Safe candidate prefill fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmartApplyCandidatePrefill'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /smart-apply/cv:
+    get:
+      tags: [Applications]
+      operationId: downloadSmartApplyCurrentCv
+      summary: Download the authenticated candidate's current CV
+      description: Downloads the primary CV when one is selected, otherwise the newest CV document. The storage key is not exposed.
+      responses:
+        '200':
+          description: CV file content.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: The candidate does not have read access to the CV object.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: No current CV is available.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
   /roles/{id}/smart-apply/prefill:
     post:
       tags: [Applications]
@@ -4003,6 +4056,21 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ApplicationQuestion'
+
+    SmartApplyCandidatePrefill:
+      type: object
+      description: Allowlisted candidate contact fields for application-form prefill. Additional contact fields are omitted unless supported by the candidate record.
+      required: [firstName, lastName, fullName, email]
+      properties:
+        firstName:
+          type: [string, "null"]
+        lastName:
+          type: [string, "null"]
+        fullName:
+          type: string
+        email:
+          type: [string, "null"]
+          format: email
 
     SmartApplyRoleContext:
       type: object

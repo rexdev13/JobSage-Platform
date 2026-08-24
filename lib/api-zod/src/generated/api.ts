@@ -746,6 +746,21 @@ export const GetSmartApplyQuestionsResponse = zod.object({
 });
 
 /**
+ * Returns an allowlisted subset of the authenticated candidate's contact details. Sensitive identity data and credentials are never returned.
+ * @summary Get safe candidate contact fields for browser application form prefilling
+ */
+export const GetSmartApplyCandidatePrefillResponse = zod
+  .object({
+    firstName: zod.string().nullable(),
+    lastName: zod.string().nullable(),
+    fullName: zod.string(),
+    email: zod.string().email().nullable(),
+  })
+  .describe(
+    "Allowlisted candidate contact fields for application-form prefill. Additional contact fields are omitted unless supported by the candidate record.",
+  );
+
+/**
  * @summary AI pre-fills application answers for a role based on the candidate's profile
  */
 export const SmartApplyPrefillParams = zod.object({

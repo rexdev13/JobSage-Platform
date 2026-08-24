@@ -73,6 +73,12 @@ The extension reads the user's existing JOBSAGE session cookie (jobsage.co.uk on
 Stores small local UI preferences (such as sidebar open/closed state) in the browser. No browsing data or personal data is stored.
 ```
 
+- `downloads`:
+
+```
+Lets the candidate save their own current JOBSAGE CV only when an employer form does not expose a compatible CV upload field. The download is initiated from the visible JOBSAGE helper and is never used to download browsing data.
+```
+
 - Host permission `https://*/*`:
 
 ```

@@ -4,6 +4,8 @@ import type { DetectedQuestion, QuestionWatcher } from "../lib/questionDetector"
 import { insertAnswer, highlightField } from "../lib/questionDetector";
 import { BRAND } from "../lib/brand";
 import type { PillPos } from "../lib/types";
+import type { PrefillResult } from "../lib/prefill";
+import type { CvAttachResult } from "../lib/cvAttachment";
 
 const COLORS = {
   bg: BRAND.bg,
@@ -46,6 +48,10 @@ interface SidebarProps {
   startOpen?: boolean;
   /** Receives a callback that external code can call to imperatively open the sidebar. */
   onOpen?: (openFn: () => void) => void;
+  /** This tab originated from a JOBSAGE opportunity. */
+  tracked?: boolean;
+  onPrefill?: () => Promise<PrefillResult>;
+  onAttachCv?: () => Promise<CvAttachResult & { downloaded?: boolean }>;
 }
 
 const EMPTY_QUESTIONS: DetectedQuestion[] = [];
@@ -172,8 +178,16 @@ export function Sidebar({
   onDismiss,
   startOpen = false,
   onOpen,
+  tracked = false,
+  onPrefill,
+  onAttachCv,
 }: SidebarProps) {
   const [open, setOpen] = useState(startOpen);
+  const [prefilling, setPrefilling] = useState(false);
+  const [prefillResult, setPrefillResult] = useState<PrefillResult | null>(null);
+  const [attachingCv, setAttachingCv] = useState(false);
+  const [cvResult, setCvResult] = useState<(CvAttachResult & { downloaded?: boolean }) | null>(null);
+  const autoPrefilledRef = useRef(false);
 
   // Expose an imperative open handle so the content script can open the
   // sidebar when the user clicks "Use JOBSAGE on this page" in the popup.
@@ -184,6 +198,35 @@ export function Sidebar({
     onOpen?.(() => setOpenRef.current(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onOpen]);
+
+  const handlePrefill = useCallback(async () => {
+    if (!onPrefill || prefilling) return;
+    setPrefilling(true);
+    setPrefillResult(null);
+    try {
+      setPrefillResult(await onPrefill());
+    } finally {
+      setPrefilling(false);
+    }
+  }, [onPrefill, prefilling]);
+
+  const handleAttachCv = useCallback(async () => {
+    if (!onAttachCv || attachingCv) return;
+    setAttachingCv(true);
+    setCvResult(null);
+    try {
+      setCvResult(await onAttachCv());
+    } finally {
+      setAttachingCv(false);
+    }
+  }, [onAttachCv, attachingCv]);
+
+  useEffect(() => {
+    if (tracked && onPrefill && !autoPrefilledRef.current) {
+      autoPrefilledRef.current = true;
+      void handlePrefill();
+    }
+  }, [tracked, onPrefill, handlePrefill]);
   const [question, setQuestion] = useState("");
   const [copied, setCopied] = useState(false);
   const [inserted, setInserted] = useState(false);
@@ -417,7 +460,7 @@ export function Sidebar({
       </button>
 
       {/* Dismiss separator + button — visible only on full pill when sidebar is closed */}
-      {!compact && !open && (
+       {!compact && !open && !tracked && (
         <>
           {/* 1 px hairline divider */}
           <div
@@ -457,7 +500,7 @@ export function Sidebar({
       )}
 
       {/* Dismiss menu popover */}
-      {showDismissMenu && (
+       {showDismissMenu && !tracked && (
         <div
           style={{
             position: "absolute",
@@ -615,6 +658,72 @@ export function Sidebar({
 
         {/* Body */}
         <div style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+           <section
+             style={{
+               padding: "10px 12px",
+               border: `1px solid ${COLORS.border}`,
+               borderRadius: RADIUS,
+               background: COLORS.inputBg,
+               display: "flex",
+               flexDirection: "column",
+               gap: 8,
+             }}
+           >
+             <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.text }}>Your application details</div>
+             <button
+               onClick={() => void handlePrefill()}
+               disabled={!onPrefill || prefilling}
+               style={{
+                 padding: "8px 10px",
+                 background: COLORS.primary,
+                 color: "#fff",
+                 border: "none",
+                 borderRadius: RADIUS,
+                 fontSize: 12,
+                 fontWeight: 600,
+                 cursor: !onPrefill || prefilling ? "not-allowed" : "pointer",
+                 opacity: !onPrefill || prefilling ? 0.65 : 1,
+               }}
+             >
+               {prefilling ? "Prefilling…" : "Prefill my details"}
+             </button>
+             {prefillResult && (
+               <div style={{ fontSize: 12, color: COLORS.textMuted, lineHeight: 1.45 }}>
+                 {prefillResult.filled.length > 0
+                   ? `Filled: ${prefillResult.filled.join(", ")}. `
+                   : "No empty, safe details were filled. "}
+                 {prefillResult.missing.length > 0 && (
+                   <span>Complete {prefillResult.missing.join(", ")} in JOBSAGE to prefill it.</span>
+                 )}
+               </div>
+             )}
+             <button
+               onClick={() => void handleAttachCv()}
+               disabled={!onAttachCv || attachingCv}
+               style={{
+                 padding: "8px 10px",
+                 background: "transparent",
+                 color: COLORS.primary,
+                 border: `1px solid ${COLORS.primary}`,
+                 borderRadius: RADIUS,
+                 fontSize: 12,
+                 fontWeight: 600,
+                 cursor: !onAttachCv || attachingCv ? "not-allowed" : "pointer",
+                 opacity: !onAttachCv || attachingCv ? 0.65 : 1,
+               }}
+             >
+               {attachingCv ? "Getting CV…" : "Attach my JOBSAGE CV"}
+             </button>
+             {cvResult && (
+               <div style={{ fontSize: 12, color: cvResult.attached ? COLORS.successText : COLORS.textMuted, lineHeight: 1.45 }}>
+                 {cvResult.attached
+                   ? `Attached ${cvResult.filename}.`
+                   : cvResult.downloaded
+                   ? `Downloaded ${cvResult.filename}. Upload this file on the form.`
+                   : "No CV upload field was found on this page. Use the button again to download your CV."}
+               </div>
+             )}
+           </section>
           {detected.length > 0 && (
             <div>
               <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.text, marginBottom: 6 }}>

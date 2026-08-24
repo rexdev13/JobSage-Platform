@@ -4,6 +4,7 @@ import React from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Linking,
   Platform,
   Pressable,
   RefreshControl,
@@ -34,13 +35,15 @@ interface Application {
   notes?: string | null;
   roleTitle?: string | null;
   roleLocation?: string | null;
+  companyName?: string | null;
+  applicationUrl?: string | null;
 }
 
 const STATUS_CONFIG: Record<
   string,
   { label: string; color: string; bg: string; icon: keyof typeof Ionicons.glyphMap }
 > = {
-  link_clicked: { label: "Link Clicked", color: "#64748b", bg: "#f1f5f9", icon: "open-outline" },
+  link_clicked: { label: "Started", color: "#64748b", bg: "#f1f5f9", icon: "open-outline" },
   applied: { label: "Applied", color: "#0ea5e9", bg: "#e0f2fe", icon: "paper-plane-outline" },
   shortlisted: { label: "Shortlisted", color: "#8b5cf6", bg: "#ede9fe", icon: "star-outline" },
   interview: { label: "Interview", color: "#f59e0b", bg: "#fef3c7", icon: "people-outline" },
@@ -81,6 +84,11 @@ function ApplicationItem({ item }: { item: Application }) {
           <Text style={[styles.appTitle, { color: colors.foreground }]} numberOfLines={2}>
             {item.roleTitle ?? `Role #${item.roleId}`}
           </Text>
+           {item.companyName && item.companyName !== item.roleTitle ? (
+             <Text style={[styles.company, { color: colors.mutedForeground }]} numberOfLines={1}>
+               {item.companyName}
+             </Text>
+           ) : null}
           {item.roleLocation ? (
             <View style={styles.locationRow}>
               <Ionicons name="location-outline" size={12} color={colors.mutedForeground} />
@@ -94,8 +102,23 @@ function ApplicationItem({ item }: { item: Application }) {
       </View>
       <View style={[styles.appCardBottom, { borderTopColor: colors.border }]}>
         <Ionicons name="calendar-outline" size={12} color={colors.mutedForeground} />
-        <Text style={[styles.date, { color: colors.mutedForeground }]}>Applied {date}</Text>
+        <Text style={[styles.date, { color: colors.mutedForeground }]}>
+          {item.status === "link_clicked" ? "Started" : "Applied"} {date}
+        </Text>
       </View>
+      {item.applicationUrl ? (
+        <Pressable
+          onPress={() => { void Linking.openURL(item.applicationUrl!); }}
+          style={styles.applicationLink}
+          accessibilityRole="link"
+          accessibilityLabel="Open application page"
+        >
+          <Ionicons name="open-outline" size={12} color={colors.accent} />
+          <Text style={[styles.applicationLinkText, { color: colors.accent }]} numberOfLines={1}>
+            View application
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -263,6 +286,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "Inter_400Regular",
   },
+  company: {
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
+  },
   appCardBottom: {
     flexDirection: "row",
     alignItems: "center",
@@ -274,6 +301,17 @@ const styles = StyleSheet.create({
   date: {
     fontSize: 12,
     fontFamily: "Inter_400Regular",
+  },
+  applicationLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+  },
+  applicationLinkText: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
   },
   badge: {
     flexDirection: "row",

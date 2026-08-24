@@ -1,4 +1,5 @@
 import { getEnvSettings, activeOrigin, apiBase } from "./lib/env";
+import { isConfiguredFirstPartyOrigin } from "./lib/trustedOrigin";
 import {
   isTrackingContextFresh,
   nextTrackingContext,
@@ -13,6 +14,7 @@ const SESSION_COOKIE_NAME = "sid";
 const ACTIVATION_SESSION_KEY = "jobsage_tab_activations";
 const SITE_SUPPRESSIONS_KEY = "jobsage_site_suppressions";
 const SESSION_SUPPRESSIONS_KEY = "jobsage_session_suppressions";
+const TRUSTED_NAVIGATION_WINDOW_MS = 2 * 60 * 1000;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -40,6 +42,15 @@ function getEtld1(hostname: string): string {
 }
 
 type TabActivation = TabTrackingContext;
+type TrustedNavigation = { applicationUrl: string; createdAt: number };
+type CreatedNavigationTarget = { tabId: number; url: string; createdAt: number };
+
+// These tiny, short-lived maps bridge the synchronous browser navigation
+// events with the first-party registration message. They are intentionally
+// memory-only: a service worker restart simply means no automatic prefill,
+// never that an arbitrary ?ref parameter becomes trusted.
+const pendingTrustedNavigations = new Map<number, TrustedNavigation>();
+const createdNavigationTargets = new Map<number, CreatedNavigationTarget>();
 
 async function getActivations(): Promise<Record<string, TabActivation>> {
   const stored = await chrome.storage.session.get(ACTIVATION_SESSION_KEY);
@@ -62,31 +73,75 @@ async function getSessionSuppressions(): Promise<string[]> {
 
 // ---------------------------------------------------------------------------
 // Tab activation tracking
-// Marks a tab as "JOBSAGE-activated" when it navigates to a URL with
-// ?ref=jobsage (before any redirect strips the param).
-// Expires when the tab moves to a clearly different domain.
+// A destination becomes trusted only after a content script running on the
+// first-party JOBSAGE page registered the exact outbound URL. A public
+// `?ref=jobsage` parameter is intentionally not sufficient.
 // ---------------------------------------------------------------------------
+
+function sameUrl(a: string, b: string): boolean {
+  try {
+    return new URL(a).toString() === new URL(b).toString();
+  } catch {
+    return false;
+  }
+}
+
+function isFreshTrustedNavigation(entry: TrustedNavigation | CreatedNavigationTarget): boolean {
+  return Date.now() - entry.createdAt <= TRUSTED_NAVIGATION_WINDOW_MS;
+}
+
+async function activateTrackedTab(tabId: number, applicationUrl: string): Promise<void> {
+  const destination = new URL(applicationUrl);
+  const map = await getActivations();
+  map[tabId] = {
+    etld1: getEtld1(destination.hostname),
+    activatedAt: Date.now(),
+    applicationUrl,
+  };
+  await setActivations(map);
+}
 
 chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
   if (details.frameId !== 0) return; // main frame only
   try {
     const url = new URL(details.url);
     if (url.searchParams.get("ref") !== "jobsage") return;
-    const etld1 = getEtld1(url.hostname);
-    const map = await getActivations();
-    map[details.tabId] = { etld1, activatedAt: Date.now(), applicationUrl: url.toString() };
-    await setActivations(map);
+    for (const [sourceTabId, pending] of pendingTrustedNavigations) {
+      if (!isFreshTrustedNavigation(pending)) {
+        pendingTrustedNavigations.delete(sourceTabId);
+        continue;
+      }
+      if (sameUrl(pending.applicationUrl, url.toString())) {
+        pendingTrustedNavigations.delete(sourceTabId);
+        await activateTrackedTab(details.tabId, pending.applicationUrl);
+        return;
+      }
+    }
   } catch {
     // invalid URL — ignore
   }
+});
+
+chrome.webNavigation.onCreatedNavigationTarget.addListener(async (details) => {
+  const pending = pendingTrustedNavigations.get(details.sourceTabId);
+  if (pending && isFreshTrustedNavigation(pending) && sameUrl(pending.applicationUrl, details.url)) {
+    pendingTrustedNavigations.delete(details.sourceTabId);
+    await activateTrackedTab(details.tabId, pending.applicationUrl);
+    return;
+  }
+  createdNavigationTargets.set(details.sourceTabId, {
+    tabId: details.tabId,
+    url: details.url,
+    createdAt: Date.now(),
+  });
 });
 
 chrome.webNavigation.onCommitted.addListener(async (details) => {
   if (details.frameId !== 0) return;
   try {
     const url = new URL(details.url);
-    // If this navigation itself carries ?ref=jobsage, activation was just
-    // (re)set in onBeforeNavigate — don't immediately clear it.
+    // A verified matching navigation was activated in onBeforeNavigate or
+    // onCreatedNavigationTarget — don't immediately clear it.
     if (url.searchParams.get("ref") === "jobsage") return;
 
     const map = await getActivations();
@@ -163,6 +218,20 @@ interface ActivateCurrentTabMessage {
   type: "ACTIVATE_CURRENT_TAB";
 }
 
+interface GetCurrentCvMessage {
+  type: "GET_CURRENT_CV";
+}
+
+interface DownloadCurrentCvMessage {
+  type: "DOWNLOAD_CURRENT_CV";
+  cv: { data: string; filename: string; mimeType: string };
+}
+
+interface RegisterTrackedApplicationMessage {
+  type: "REGISTER_TRACKED_APPLICATION";
+  applicationUrl: string;
+}
+
 type IncomingMessage =
   | ApiRequestMessage
   | GetTokenMessage
@@ -172,7 +241,10 @@ type IncomingMessage =
   | SetSuppressionMessage
   | ClearSuppressionMessage
   | GetAllSuppressionsMessage
-  | ActivateCurrentTabMessage;
+  | ActivateCurrentTabMessage
+  | GetCurrentCvMessage
+  | DownloadCurrentCvMessage
+  | RegisterTrackedApplicationMessage;
 
 interface ApiResponseSuccess { data: unknown }
 interface ApiResponseError { error: string }
@@ -192,6 +264,20 @@ type AnyResponse =
   | SuppressionResponse
   | SuppressionListResponse
   | OkResponse;
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+  }
+  return btoa(binary);
+}
+
+function filenameFromDisposition(contentDisposition: string | null): string {
+  const match = contentDisposition?.match(/filename\*?=(?:UTF-8''|")?([^";]+)/i);
+  return match ? decodeURIComponent(match[1]!.trim()) : "jobsage-cv.pdf";
+}
 
 // ---------------------------------------------------------------------------
 // Long-lived port relay for the streaming assistant endpoint
@@ -468,6 +554,104 @@ chrome.runtime.onMessage.addListener(
           sendResponse({ ok: true });
         } catch {
           sendResponse({ error: "unexpected error" });
+        }
+      })();
+      return true;
+    }
+
+    // --- REGISTER_TRACKED_APPLICATION ---
+    // Only a content script injected in the first-party JOBSAGE app may
+    // register an automatic-prefill destination. The public ref parameter
+    // alone is never trusted.
+    if (message.type === "REGISTER_TRACKED_APPLICATION") {
+      void (async () => {
+        const sourceTabId = sender.tab?.id;
+        let applicationUrl: URL | null = null;
+        try {
+          applicationUrl = new URL(message.applicationUrl);
+        } catch {
+          sendResponse({ error: "invalid tracked application URL" });
+          return;
+        }
+        const configuredOrigin = activeOrigin(await getEnvSettings());
+        if (
+          sourceTabId === undefined ||
+          !isConfiguredFirstPartyOrigin(sender.url, configuredOrigin) ||
+          applicationUrl.searchParams.get("ref") !== "jobsage"
+        ) {
+          sendResponse({ error: "untrusted tracked application registration" });
+          return;
+        }
+
+        const createdTarget = createdNavigationTargets.get(sourceTabId);
+        if (
+          createdTarget &&
+          isFreshTrustedNavigation(createdTarget) &&
+          sameUrl(createdTarget.url, applicationUrl.toString())
+        ) {
+          createdNavigationTargets.delete(sourceTabId);
+          await activateTrackedTab(createdTarget.tabId, applicationUrl.toString());
+        } else {
+          pendingTrustedNavigations.set(sourceTabId, {
+            applicationUrl: applicationUrl.toString(),
+            createdAt: Date.now(),
+          });
+        }
+        sendResponse({ ok: true });
+      })().catch((error) => {
+        sendResponse({ error: error instanceof Error ? error.message : String(error) });
+      });
+      return true;
+    }
+
+    // --- GET_CURRENT_CV ---
+    // The binary download is proxied through the extension service worker so
+    // application pages never receive a signed storage URL or session token.
+    if (message.type === "GET_CURRENT_CV") {
+      (async () => {
+        try {
+          const settings = await getEnvSettings();
+          const token = await getSessionToken(activeOrigin(settings));
+          if (!token) {
+            sendResponse({ error: "Please sign in to JOBSAGE before using your CV." });
+            return;
+          }
+          const response = await fetch(`${apiBase(settings)}/smart-apply/cv`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!response.ok) {
+            sendResponse({ error: response.status === 404 ? "No CV is available in JOBSAGE yet." : `HTTP ${response.status}` });
+            return;
+          }
+          const bytes = new Uint8Array(await response.arrayBuffer());
+          sendResponse({
+            data: {
+              data: bytesToBase64(bytes),
+              filename: filenameFromDisposition(response.headers.get("content-disposition")),
+              mimeType: response.headers.get("content-type")?.split(";")[0] || "application/pdf",
+            },
+          });
+        } catch (err) {
+          sendResponse({ error: err instanceof Error ? err.message : String(err) });
+        }
+      })();
+      return true;
+    }
+
+    // --- DOWNLOAD_CURRENT_CV ---
+    if (message.type === "DOWNLOAD_CURRENT_CV") {
+      (async () => {
+        try {
+          const { cv } = message;
+          const url = `data:${cv.mimeType || "application/pdf"};base64,${cv.data}`;
+          await chrome.downloads.download({
+            url,
+            filename: cv.filename || "jobsage-cv.pdf",
+            saveAs: true,
+          });
+          sendResponse({ ok: true });
+        } catch (err) {
+          sendResponse({ error: err instanceof Error ? err.message : String(err) });
         }
       })();
       return true;

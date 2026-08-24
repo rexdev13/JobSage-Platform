@@ -181,6 +181,7 @@ export * from "./saveSmartApplyDraft200";
 export * from "./saveSmartApplyDraftRequest";
 export * from "./saveSmartApplyDraftRequestAnswers";
 export * from "./sendSpeculativeApplicationRequest";
+export * from "./smartApplyCandidatePrefill";
 export * from "./smartApplyDraftResponse";
 export * from "./smartApplyDraftResponseAnswers";
 export * from "./smartApplyPrefill";
