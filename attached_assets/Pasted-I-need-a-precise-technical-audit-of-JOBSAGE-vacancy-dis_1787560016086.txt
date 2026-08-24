@@ -1,0 +1,62 @@
+I need a precise technical audit of JOBSAGE vacancy discovery. Do not change any code. Inspect the repo and answer with file paths, function names, and current behaviour.
+
+Return the report under these exact headings.
+
+## 1. Vacancy pipeline map
+List every job/vacancy source that feeds the Opportunities page:
+- AI-discovered sponsor vacancies
+- sponsor register import
+- curated/admin/CSV roles
+- employer-published jobs
+- any NHS Jobs / Indeed / Reed / LinkedIn / other feeds
+- any extension-related ingestion
+
+For each source: file path, how it is triggered (cron, button, on-demand, candidate visit), how often it runs, and which DB table/collection stores the result.
+
+## 2. AI vacancy search
+Find the exact prompt(s), model, provider, and calling code used to search sponsor organisations for vacancies.
+Paste the full current search prompt.
+Say:
+- max vacancies per employer
+- cache TTL
+- concurrency
+- retry / skip-on-error behaviour
+- what was disabled, rate-limited, or commented out after the AI bill spike
+- any kill switches, feature flags, env vars, or hard-coded limits that currently stop searches
+
+## 3. Why new vacancies / alerts stopped
+Find job-alert, notification, and scheduled vacancy-check code.
+Say whether each of these is currently running, disabled, broken, or erroring:
+- sponsor register sync
+- per-employer vacancy search batch
+- vacancy liveness checker
+- candidate job alerts / emails / in-app notifications
+- scoring of new vacancies against candidate profiles
+
+Include recent logs, last successful run timestamps, queue backlog, and the most common errors if available.
+
+## 4. Vacancy quality rules as they exist today
+Show the exact current rules for:
+- accepting vs rejecting a URL (company site vs aggregator vs generic careers page)
+- treating a vacancy as live vs dead vs unverified
+- email-only apply
+- login-required / ATS login walls
+- closed / expired / “no longer accepting applications”
+- profession/regulator filtering
+- unsuitable title filtering
+
+Say which of these are actually enforced in code vs only described in comments/prompts.
+
+## 5. Data model
+List the vacancy/role/opportunity schemas and important fields:
+id, employer, title, applyUrl, sourceUrl, sourceType, isLive, lastCheckedAt, discoveredAt, contactEmail, requiresLogin, closedAt, cache keys, alert-sent flags.
+
+## 6. Cost controls
+Find every OpenAI/Anthropic/other AI call related to vacancies, scoring, search, and alerts.
+For each: when it fires, how often, and any daily/budget caps.
+Identify anything that could cause a bill spike (unbounded loops, per-page-visit search, missing cache, full-register scans).
+
+## 7. Smart Apply / extension
+Briefly say what the extension currently does vs what is only planned. Do not expand this unless it touches vacancy ingestion.
+
+Be concrete. Quote the important functions. If something is missing, say “NOT FOUND” rather than guessing.
