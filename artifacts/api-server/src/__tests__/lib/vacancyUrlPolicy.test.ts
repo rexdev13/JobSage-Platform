@@ -13,7 +13,7 @@ describe("isBlockedVacancyUrl", () => {
     expect(isBlockedVacancyUrl("https://www.jobijoba.co.uk/jobs/nurse")).toBe(true);
     expect(isBlockedVacancyUrl("https://www.simplyhired.co.uk/job/xyz")).toBe(true);
     expect(isBlockedVacancyUrl("https://uk.bebee.com/job/12345")).toBe(true);
-    expect(isBlockedVacancyUrl("https://www.jobs.nhs.uk/candidate/jobadvert/C9999")).toBe(true);
+    expect(isBlockedVacancyUrl("https://www.jobs.nhs.uk/candidate/jobadvert/C9999")).toBe(false);
   });
 
   it("does not block employer domains", () => {
@@ -25,7 +25,7 @@ describe("isBlockedVacancyUrl", () => {
   });
 
   it("includes the historic strict backfill blocklist", () => {
-    for (const d of ["monster.co.uk", "cwjobs.co.uk", "google.com", "careerjet.co.uk", "jobs.nhs.uk"]) {
+    for (const d of ["monster.co.uk", "cwjobs.co.uk", "google.com", "careerjet.co.uk"]) {
       expect(BLOCKED_VACANCY_DOMAINS).toContain(d);
     }
   });

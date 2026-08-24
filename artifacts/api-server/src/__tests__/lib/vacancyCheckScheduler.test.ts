@@ -23,6 +23,13 @@ vi.mock("node-cron", () => ({ default: { schedule: vi.fn() } }));
 const { runVacancyCheckMock } = vi.hoisted(() => ({
   runVacancyCheckMock: vi.fn(),
 }));
+
+import {
+  HEALTHCARE_SPONSOR_INDICATORS,
+  HEALTHCARE_SPONSOR_SQL_REGEXP,
+  OBVIOUS_NON_HEALTH_INDUSTRY_INDICATORS,
+  OBVIOUS_NON_HEALTH_INDUSTRY_SQL_REGEXP,
+} from "../../lib/vacancyCheckScheduler";
 vi.mock("../../lib/vacancyCheckHelper", () => ({
   runVacancyCheck: runVacancyCheckMock,
 }));
@@ -30,6 +37,20 @@ vi.mock("../../lib/vacancyCheckHelper", () => ({
 const { runVacancyCheckBatch } = await import("../../lib/vacancyCheckScheduler");
 
 describe("runVacancyCheckBatch", () => {
+  it("documents the health and non-health industry signals used for batch selection", () => {
+    expect(HEALTHCARE_SPONSOR_INDICATORS).toEqual([
+      "nhs", "hospital", "health", "medical", "social care", "care home", "nursing",
+    ]);
+    expect(OBVIOUS_NON_HEALTH_INDUSTRY_INDICATORS).toContain("construction");
+    expect(OBVIOUS_NON_HEALTH_INDUSTRY_INDICATORS).toContain("retail");
+    const healthcareWordPattern = new RegExp(HEALTHCARE_SPONSOR_SQL_REGEXP.replace(/\\m|\\M/g, "\\b"), "i");
+    const nonHealthWordPattern = new RegExp(OBVIOUS_NON_HEALTH_INDUSTRY_SQL_REGEXP.replace(/\\m|\\M/g, "\\b"), "i");
+    expect(healthcareWordPattern.test("Hospitality")).toBe(false);
+    expect(healthcareWordPattern.test("Hospital")).toBe(true);
+    expect(nonHealthWordPattern.test("Retail")).toBe(true);
+    expect(nonHealthWordPattern.test("Retail Health Staffing")).toBe(true);
+  });
+
   beforeEach(() => {
     insertedRows.length = 0;
     runVacancyCheckMock.mockReset();

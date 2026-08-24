@@ -8,6 +8,33 @@ export type VacancySyncTriggeredBy = "scheduler" | "manual";
 
 const DEFAULT_BATCH_SIZE = 80;
 const BATCH_CONCURRENCY = 15;
+export const HEALTHCARE_SPONSOR_INDICATORS = [
+  "nhs",
+  "hospital",
+  "health",
+  "medical",
+  "social care",
+  "care home",
+  "nursing",
+] as const;
+export const OBVIOUS_NON_HEALTH_INDUSTRY_INDICATORS = [
+  "construction",
+  "hospitality",
+  "retail",
+  "transport",
+  "logistics",
+  "manufacturing",
+  "technology",
+  "information technology",
+  "finance",
+  "legal",
+  "education",
+  "recruitment",
+] as const;
+export const HEALTHCARE_SPONSOR_SQL_REGEXP =
+  `\\m(${HEALTHCARE_SPONSOR_INDICATORS.join("|")})\\M`;
+export const OBVIOUS_NON_HEALTH_INDUSTRY_SQL_REGEXP =
+  `\\m(${OBVIOUS_NON_HEALTH_INDUSTRY_INDICATORS.join("|")})\\M`;
 
 // Overlap guard — released in a finally block so it can never stay stuck.
 let batchInProgress = false;
@@ -24,10 +51,15 @@ function getBatchSize(): number {
 /**
  * Select up to batchSize companies to vacancy-check, in explicit priority order:
  *
- * Tier A (priority 1): Bookmarked by any user AND last checked > 7 days ago (or never).
- * Tier B (priority 2): Has any check history AND stale (> 24h), NOT in Tier A.
- * Tier C (priority 3): Never checked at all, NOT in Tier A.
+ * Tier A (priority 1): Bookmarked sponsors without an explicit non-health
+ * industry, stale > 7 days.
+ * Tier B (priority 2): Healthcare-related sponsors with a known website.
+ * Tier C (priority 3): Other healthcare-related stale sponsors.
  *
+ * Healthcare relevance is determined from the sponsor's industry or organisation
+ * name: NHS, hospital, health, medical, social care, care home, or nursing.
+ * Obvious non-health industries are excluded whenever the register supplies one,
+ * even if the organisation name contains a healthcare-related word.
  * Global exclusion: any company with a check fresher than 24h is excluded.
  */
 async function selectBatch(batchSize: number): Promise<{ id: number; organisation_name: string }[]> {
@@ -44,16 +76,23 @@ async function selectBatch(batchSize: number): Promise<{ id: number; organisatio
       FROM sponsor_licence_bookmarks
     ) b ON b.sponsor_licence_id = sl.id
     WHERE
-      vc.last_checked IS NULL
-      OR vc.last_checked < NOW() - INTERVAL '24 hours'
+      (vc.last_checked IS NULL OR vc.last_checked < NOW() - INTERVAL '24 hours')
+      AND (
+        b.sponsor_licence_id IS NOT NULL
+        OR lower(COALESCE(sl.industry, '')) ~* ${HEALTHCARE_SPONSOR_SQL_REGEXP}
+        OR lower(sl.organisation_name) ~* ${HEALTHCARE_SPONSOR_SQL_REGEXP}
+      )
+      AND lower(COALESCE(sl.industry, '')) !~* ${OBVIOUS_NON_HEALTH_INDUSTRY_SQL_REGEXP}
     ORDER BY
       CASE
         WHEN b.sponsor_licence_id IS NOT NULL
          AND (vc.last_checked IS NULL OR vc.last_checked < NOW() - INTERVAL '7 days')
         THEN 1
-        WHEN vc.last_checked IS NOT NULL
+        WHEN sl.website IS NOT NULL AND trim(sl.website) <> ''
         THEN 2
-        ELSE 3
+        WHEN vc.last_checked IS NOT NULL
+        THEN 3
+        ELSE 4
       END ASC,
       CASE WHEN vc.last_checked IS NOT NULL THEN vc.last_checked END DESC NULLS LAST
     LIMIT ${batchSize}
