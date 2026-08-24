@@ -89,6 +89,28 @@ describe("detectQuestions — Workday style forms", () => {
   });
 });
 
+describe("detectQuestions — dedicated ATS selectors", () => {
+  it("detects a labelled NHS Jobs supporting statement from the NHS selector", () => {
+    setBody(`<textarea id="supportingInformation"></textarea>`);
+    const [question] = detectQuestions(document, "apps.jobs.nhs.uk");
+    expect(question.question).toMatch(/supporting/i);
+  });
+
+  it("detects a Trac application question even when the label is terse", () => {
+    setBody(`<textarea id="question-answers-4" aria-label="Answer"></textarea>`);
+    const [question] = detectQuestions(document, "apply.trac.jobs");
+    expect(question.question).toBe("Answer");
+  });
+
+  it("detects a Workday long-text field and keeps Insert behaviour intact", () => {
+    setBody(`<div data-automation-id="question-longText"><textarea id="wd-answer" aria-label="Response"></textarea></div>`);
+    const [question] = detectQuestions(document, "company.myworkdayjobs.com");
+    expect(question.question).toBe("Response");
+    expect(insertAnswer(question.id, "A tailored answer")).toBe(true);
+    expect((document.getElementById("wd-answer") as HTMLTextAreaElement).value).toBe("A tailored answer");
+  });
+});
+
 describe("detectQuestions — precision (non-question fields excluded)", () => {
   it("ignores personal-detail inputs and textareas", () => {
     setBody(`

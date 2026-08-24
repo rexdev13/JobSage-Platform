@@ -44,6 +44,60 @@ const PERSONAL_AUTOCOMPLETE = new Set([
 const QUESTION_KEYWORD_PATTERN =
   /\b(describe|explain|tell us|tell me|why|how (do|did|would|have)|what (do|did|would|is|are|was|were|makes|motivates)|experience|example|demonstrate|evidence|outline|discuss|supporting (information|statement)|personal statement|statement in support|cover(ing)? letter|motivation|skills? and (experience|knowledge)|suitability|strengths?|achievements?|contribute|situation (where|in which)|time (when|you))\b/i;
 
+/**
+ * Long-form fields are named differently by each ATS and frequently do not
+ * include a question mark or an essay keyword in their label. Keep these
+ * selectors deliberately narrow: they are only enabled on the matching host,
+ * and never weaken the generic personal-field exclusions.
+ */
+export const DEDICATED_SITE_SELECTORS = {
+  nhsJobs: [
+    "[id*='supporting' i]",
+    "[name*='supporting' i]",
+    "[id*='personal-statement' i]",
+    "[name*='personal_statement' i]",
+    "[data-test*='supporting' i]",
+    "textarea[id*='statement' i]",
+  ],
+  trac: [
+    "[id*='supporting' i]",
+    "[name*='supporting' i]",
+    "[id*='personal-statement' i]",
+    "[name*='personal_statement' i]",
+    "[id*='application-question' i]",
+    "[name*='application-question' i]",
+    "textarea[id^='question' i]",
+    "textarea[name^='question' i]",
+  ],
+  workday: [
+    "[data-automation-id*='question' i]",
+    "[data-automation-id*='longtext' i]",
+    "[data-automation-id*='long-text' i]",
+    "[data-automation-id*='supporting' i]",
+    "[data-automation-id*='statement' i]",
+  ],
+} as const;
+
+function dedicatedSiteForHost(hostname: string): keyof typeof DEDICATED_SITE_SELECTORS | null {
+  const host = hostname.toLowerCase();
+  if (host.includes("trac.jobs")) return "trac";
+  if (host.includes("jobs.nhs") || host.includes("nhsjobs")) return "nhsJobs";
+  if (host.includes("myworkdayjobs") || host.includes("workdayjobs") || host.includes("workday.com")) return "workday";
+  return null;
+}
+
+function isDedicatedField(field: QuestionField, hostname: string): boolean {
+  const site = dedicatedSiteForHost(hostname);
+  if (!site) return false;
+  return DEDICATED_SITE_SELECTORS[site].some((selector) => {
+    try {
+      return field.matches(selector) || !!field.closest(selector);
+    } catch {
+      return false;
+    }
+  });
+}
+
 function isVisible(el: HTMLElement): boolean {
   if (el.hidden || el.getAttribute("aria-hidden") === "true") return false;
   const style = el.ownerDocument.defaultView?.getComputedStyle(el);
@@ -198,6 +252,21 @@ function resolveQuestionText(field: QuestionField): string {
   return cleanText(field.getAttribute("placeholder"));
 }
 
+function dedicatedQuestionText(field: QuestionField): string {
+  const text = cleanText(
+    field.getAttribute("aria-label") ||
+      field.getAttribute("placeholder") ||
+      field.name ||
+      field.id,
+  );
+  if (!text) return "Supporting statement";
+  return text
+    .replace(/[_-]+/g, " ")
+    .replace(/\b(textarea|longtext|long text|answer|response)\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim() || "Supporting statement";
+}
+
 // ---------------------------------------------------------------------------
 // Limits
 // ---------------------------------------------------------------------------
@@ -229,7 +298,7 @@ function ensureId(field: QuestionField): string {
   return id;
 }
 
-function scanRoot(root: Document | Element): DetectedQuestion[] {
+function scanRoot(root: Document | Element, hostname: string): DetectedQuestion[] {
   const results: DetectedQuestion[] = [];
   const fields = Array.from(root.querySelectorAll("textarea, input[type='text'], input:not([type])"));
 
@@ -238,8 +307,9 @@ function scanRoot(root: Document | Element): DetectedQuestion[] {
     const field = el;
     if (isPersonalField(field)) continue;
 
-    const question = resolveQuestionText(field);
-    if (!question || !isQuestionLike(question, field)) continue;
+    const dedicated = isDedicatedField(field, hostname);
+    const question = resolveQuestionText(field) || (dedicated ? dedicatedQuestionText(field) : "");
+    if (!question || (!dedicated && !isQuestionLike(question, field))) continue;
 
     const maxLength = field.maxLength > 0 ? field.maxLength : undefined;
     results.push({
@@ -256,13 +326,13 @@ function scanRoot(root: Document | Element): DetectedQuestion[] {
  * Detect free-text application questions in the document and any accessible
  * same-origin iframes. Cross-origin frames are skipped silently.
  */
-export function detectQuestions(doc: Document = document): DetectedQuestion[] {
-  const results = scanRoot(doc);
+export function detectQuestions(doc: Document = document, hostname = doc.location?.hostname ?? ""): DetectedQuestion[] {
+  const results = scanRoot(doc, hostname);
 
   for (const iframe of Array.from(doc.querySelectorAll("iframe"))) {
     try {
       const innerDoc = iframe.contentDocument;
-      if (innerDoc?.body) results.push(...scanRoot(innerDoc));
+      if (innerDoc?.body) results.push(...scanRoot(innerDoc, innerDoc.location?.hostname ?? hostname));
     } catch {
       // Cross-origin — browser security prevents access; skip.
     }

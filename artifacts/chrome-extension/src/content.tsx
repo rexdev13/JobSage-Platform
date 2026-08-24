@@ -5,6 +5,8 @@ import { isConfirmationPage, mountConfirmationToast } from "./lib/trackerDetecto
 import { createQuestionWatcher } from "./lib/questionDetector";
 import { ensureBrandFonts } from "./lib/brand";
 import type { PillPos } from "./lib/types";
+import { prefillPersonalDetails, type CandidateProfile, type PrefillResult } from "./lib/prefill";
+import { attachCvToForm, type CandidateCv, type CvAttachResult } from "./lib/cvAttachment";
 
 const JOBSAGE_HOST_ID = "jobsage-extension-root";
 const PILL_POSITION_KEY = "jobsage_pill_position";
@@ -26,6 +28,17 @@ function isJobSageHost(): boolean {
 
 function hasJobSageRef(): boolean {
   return new URLSearchParams(window.location.search).get("ref") === "jobsage";
+}
+
+const OUTBOUND_APPLICATION_EVENT = "jobsage:outbound-application";
+
+function registerFirstPartyOutboundApplication(): void {
+  if (!isJobSageHost()) return;
+  window.addEventListener(OUTBOUND_APPLICATION_EVENT, (event: Event) => {
+    const applicationUrl = (event as CustomEvent<unknown>).detail;
+    if (typeof applicationUrl !== "string") return;
+    void sendMessage({ type: "REGISTER_TRACKED_APPLICATION", applicationUrl });
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -125,6 +138,32 @@ async function logApplication(companyName: string, jobTitle: string, pageUrl: st
   });
 }
 
+async function prefillApplicationDetails(): Promise<PrefillResult> {
+  const response = await sendMessage<{ data?: { profile?: CandidateProfile } | CandidateProfile; error?: string }>({
+    type: "API_REQUEST",
+    endpoint: "/smart-apply/candidate-prefill",
+  });
+  if (response.error || !response.data) {
+    return { filled: [], missing: ["your profile details"], skipped: [] };
+  }
+  const payload = response.data as { profile?: CandidateProfile };
+  return prefillPersonalDetails(payload.profile ?? (response.data as CandidateProfile));
+}
+
+async function attachApplicationCv(): Promise<CvAttachResult & { downloaded?: boolean }> {
+  const response = await sendMessage<{ data?: CandidateCv; error?: string }>({ type: "GET_CURRENT_CV" });
+  const cv = response.data;
+  if (response.error || !cv) {
+    return { attached: false, reason: "no-input", filename: "your JOBSAGE CV" };
+  }
+
+  const result = attachCvToForm(cv);
+  if (result.attached) return result;
+
+  const download = await sendMessage<{ ok?: boolean }>({ type: "DOWNLOAD_CURRENT_CV", cv });
+  return { ...result, downloaded: download.ok === true };
+}
+
 // ---------------------------------------------------------------------------
 // Mount
 // ---------------------------------------------------------------------------
@@ -133,6 +172,7 @@ function mountSidebar(
   initialPosition: PillPos | null,
   onDismiss: (scope: "site" | "session") => void,
   startOpen = false,
+  tracked = false,
 ): ShadowRoot {
   const existing = document.getElementById(JOBSAGE_HOST_ID);
   if (existing) {
@@ -164,12 +204,15 @@ function mountSidebar(
   createRoot(container).render(
     <Sidebar
       jobContext={jobContext}
-      minimal={!isRecognizedJobBoard()}
+      minimal={!isRecognizedJobBoard() && !tracked}
       questionWatcher={questionWatcher}
       onLogApplication={logApplication}
       initialPosition={initialPosition}
       onDismiss={onDismiss}
       startOpen={startOpen}
+      tracked={tracked}
+      onPrefill={prefillApplicationDetails}
+      onAttachCv={attachApplicationCv}
       onOpen={(fn) => { openSidebarFn = fn; }}
     />,
   );
@@ -183,8 +226,9 @@ function mountSidebar(
 // ---------------------------------------------------------------------------
 
 // Shared dismiss handler — used by both init() and the SHOW_SIDEBAR path.
-function makeDismissHandler(): (scope: "site" | "session") => void {
+function makeDismissHandler(tracked = false): (scope: "site" | "session") => void {
   return (scope) => {
+    if (tracked) return;
     void sendMessage({ type: "SET_SUPPRESSION", hostname: location.hostname, scope });
     const host = document.getElementById(JOBSAGE_HOST_ID);
     if (host) host.style.display = "none";
@@ -192,20 +236,23 @@ function makeDismissHandler(): (scope: "site" | "session") => void {
 }
 
 async function init(): Promise<void> {
-  const [activated, suppression, pillPosition] = await Promise.all([
+  const [activated, trackingUrl, suppression, pillPosition] = await Promise.all([
     checkTabActivation(),
+    getTrackingApplicationUrl(),
     checkSuppression(),
     loadPillPosition(),
   ]);
+  const tracked = !!trackingUrl;
 
   // Only activate if: JOBSAGE host, or URL carries ?ref=jobsage, or tab was
   // previously marked by the background worker (survives redirect stripping).
-  if (!isJobSageHost() && !hasJobSageRef() && !activated) return;
+  if (!isJobSageHost() && !tracked && !activated) return;
 
-  // Respect the candidate's suppression choice.
-  if (suppression === "site" || suppression === "session") return;
+  // A tracked application must always retain a minimizable helper so a
+  // previous site-wide launcher dismissal cannot break an in-progress apply.
+  if (!tracked && (suppression === "site" || suppression === "session")) return;
 
-  const shadowRoot = mountSidebar(pillPosition, makeDismissHandler());
+  const shadowRoot = mountSidebar(pillPosition, makeDismissHandler(tracked), tracked, tracked);
 
   if (isConfirmationPage()) {
     const jobContext = scrapeJobContext();
@@ -223,17 +270,20 @@ chrome.runtime.onMessage.addListener((msg: unknown, _sender, sendResponse) => {
     return false;
   }
   (async () => {
-    const suppression = await checkSuppression();
-    if (suppression === "site" || suppression === "session") {
+    const [suppression, trackingUrl] = await Promise.all([checkSuppression(), getTrackingApplicationUrl()]);
+    const tracked = !!trackingUrl;
+    if (!tracked && (suppression === "site" || suppression === "session")) {
       sendResponse({ ok: false, reason: "suppressed" });
       return;
     }
     const pillPosition = await loadPillPosition();
-    mountSidebar(pillPosition, makeDismissHandler(), /* startOpen */ true);
+    mountSidebar(pillPosition, makeDismissHandler(tracked), /* startOpen */ true, tracked);
     sendResponse({ ok: true });
   })();
   return true; // keep channel open for async sendResponse
 });
+
+registerFirstPartyOutboundApplication();
 
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", () => void init());

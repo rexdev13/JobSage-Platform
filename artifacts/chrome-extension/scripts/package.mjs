@@ -43,9 +43,9 @@ if (/^\s*(import|export)[\s{"']/m.test(contentJs)) {
 
 const manifest = JSON.parse(readFileSync(resolve(dist, "manifest.json"), "utf8"));
 const { version, permissions = [], host_permissions: hostPermissions = [] } = manifest;
-if (!permissions.includes("webNavigation") || !hostPermissions.includes("https://*/*")) {
+if (!permissions.includes("webNavigation") || !permissions.includes("downloads") || !hostPermissions.includes("https://*/*")) {
   console.error(
-    "Refusing to package: manifest must include webNavigation and https://*/* host access for redirect-safe application tracking.",
+    "Refusing to package: manifest must include webNavigation, downloads, and https://*/* host access for Smart Apply tracking and CV fallback.",
   );
   process.exit(1);
 }

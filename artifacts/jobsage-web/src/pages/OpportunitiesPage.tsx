@@ -676,6 +676,10 @@ function RoleCard({
       console.warn("[applications] Could not track outbound apply click", error);
     });
 
+    // The extension only treats an application tab as eligible for automatic
+    // prefill after this first-party event. A public `ref=jobsage` query
+    // parameter by itself is deliberately not trusted.
+    window.dispatchEvent(new CustomEvent("jobsage:outbound-application", { detail: outboundUrl }));
     window.open(outboundUrl, "_blank", "noopener,noreferrer");
     onExternalApply?.();
   };
@@ -1356,6 +1360,7 @@ export default function OpportunitiesPage() {
       console.warn("[applications] Could not track Gap Analysis apply click", error);
     });
 
+    window.dispatchEvent(new CustomEvent("jobsage:outbound-application", { detail: outboundUrl }));
     window.open(outboundUrl, "_blank", "noopener,noreferrer");
     handleExternalApply();
   }

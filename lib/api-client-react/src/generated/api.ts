@@ -113,6 +113,7 @@ import type {
   SaveSmartApplyDraft200,
   SaveSmartApplyDraftRequest,
   SendSpeculativeApplicationRequest,
+  SmartApplyCandidatePrefill,
   SmartApplyDraftResponse,
   SmartApplyPrefillResponse,
   SmartApplyQuestionsResponse,
@@ -2847,6 +2848,165 @@ export function useGetSmartApplyQuestions<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetSmartApplyQuestionsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns an allowlisted subset of the authenticated candidate's contact details. Sensitive identity data and credentials are never returned.
+ * @summary Get safe candidate contact fields for browser application form prefilling
+ */
+export const getGetSmartApplyCandidatePrefillUrl = () => {
+  return `/api/smart-apply/candidate-prefill`;
+};
+
+export const getSmartApplyCandidatePrefill = async (
+  options?: RequestInit,
+): Promise<SmartApplyCandidatePrefill> => {
+  return customFetch<SmartApplyCandidatePrefill>(
+    getGetSmartApplyCandidatePrefillUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetSmartApplyCandidatePrefillQueryKey = () => {
+  return [`/api/smart-apply/candidate-prefill`] as const;
+};
+
+export const getGetSmartApplyCandidatePrefillQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSmartApplyCandidatePrefill>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSmartApplyCandidatePrefill>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetSmartApplyCandidatePrefillQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSmartApplyCandidatePrefill>>
+  > = ({ signal }) =>
+    getSmartApplyCandidatePrefill({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSmartApplyCandidatePrefill>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSmartApplyCandidatePrefillQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSmartApplyCandidatePrefill>>
+>;
+export type GetSmartApplyCandidatePrefillQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Get safe candidate contact fields for browser application form prefilling
+ */
+
+export function useGetSmartApplyCandidatePrefill<
+  TData = Awaited<ReturnType<typeof getSmartApplyCandidatePrefill>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSmartApplyCandidatePrefill>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSmartApplyCandidatePrefillQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Downloads the primary CV when one is selected, otherwise the newest CV document. The storage key is not exposed.
+ * @summary Download the authenticated candidate's current CV
+ */
+export const getDownloadSmartApplyCurrentCvUrl = () => {
+  return `/api/smart-apply/cv`;
+};
+
+export const downloadSmartApplyCurrentCv = async (
+  options?: RequestInit,
+): Promise<Blob> => {
+  return customFetch<Blob>(getDownloadSmartApplyCurrentCvUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getDownloadSmartApplyCurrentCvQueryKey = () => {
+  return [`/api/smart-apply/cv`] as const;
+};
+
+export const getDownloadSmartApplyCurrentCvQueryOptions = <
+  TData = Awaited<ReturnType<typeof downloadSmartApplyCurrentCv>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof downloadSmartApplyCurrentCv>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getDownloadSmartApplyCurrentCvQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof downloadSmartApplyCurrentCv>>
+  > = ({ signal }) =>
+    downloadSmartApplyCurrentCv({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof downloadSmartApplyCurrentCv>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type DownloadSmartApplyCurrentCvQueryResult = NonNullable<
+  Awaited<ReturnType<typeof downloadSmartApplyCurrentCv>>
+>;
+export type DownloadSmartApplyCurrentCvQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Download the authenticated candidate's current CV
+ */
+
+export function useDownloadSmartApplyCurrentCv<
+  TData = Awaited<ReturnType<typeof downloadSmartApplyCurrentCv>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof downloadSmartApplyCurrentCv>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getDownloadSmartApplyCurrentCvQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
