@@ -12,6 +12,8 @@ import {
   isBlockedVacancyUrl,
   isValidVacancyDeepLink,
 } from "./vacancyUrlPolicy";
+import { searchNhsJobs } from "./nhsJobsClient";
+import { reserveVacancyAiWebSearch } from "./vacancyAiBudget";
 
 export const VACANCY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -65,7 +67,7 @@ function extractOutermostJson(text: string): string | null {
 export interface VacancyCheckOptions {
   /**
    * When true, skip the 24h cache and always run a fresh AI check.
-   * Use for contact-backfill passes where existing checks predate contact extraction.
+   * Use only for contact-backfill passes where existing checks predate contact extraction.
    */
   bypassCache?: boolean;
 }
@@ -73,10 +75,12 @@ export interface VacancyCheckOptions {
 /**
  * Run a vacancy check for a named sponsor licence company.
  * Returns a cached result (within 24h TTL) if one exists, otherwise
- * calls the OpenAI web search tool, persists the result, and returns it.
+ * uses NHS Jobs HTTP discovery, then the capped OpenAI fallback if allowed,
+ * persists the result, and returns it.
  * Safe to call from both HTTP handlers and background schedulers.
  *
- * Pass { bypassCache: true } to force a fresh AI check regardless of cache age.
+ * Pass { bypassCache: true } only for the existing, separately gated contact
+ * backfill path. It forces a fresh HTTP-first discovery regardless of cache age.
  */
 export async function runVacancyCheck(
   organisationName: string,
@@ -116,18 +120,73 @@ export async function runVacancyCheck(
 
   let vacanciesFound = false;
   let vacancyCount: number | null = null;
-  let sourceUrl: string | null = `https://www.reed.co.uk/jobs?keywords=${encodeURIComponent(organisationName)}&locationName=United+Kingdom`;
+  let sourceUrl: string | null = null;
   let summary = "No active vacancies found.";
   let vacancyList: VacancyListItem[] | null = null;
   let discoveredContactEmail: string | null = null;
   let discoveredContactPhone: string | null = null;
   let discoveredWebsite: string | null = null;
+  let nhsResultsRequestSucceeded = false;
 
+  // Primary discovery path: NHS Jobs is searched over HTTP without using AI.
   try {
-    const response = await openai.responses.create({
-      model: "gpt-4o",
-      tools: [{ type: "web_search_preview" as const }],
-      input: `Search for current job openings at "${organisationName}" in the United Kingdom.
+    const nhs = await searchNhsJobs(organisationName);
+    sourceUrl = nhs.sourceUrl;
+    nhsResultsRequestSucceeded = nhs.resultsRequestSucceeded;
+    vacancyList = nhs.vacancies;
+    vacanciesFound = vacancyList.length > 0;
+    vacancyCount = vacancyList.length || null;
+    summary = !nhsResultsRequestSucceeded
+      ? "NHS Jobs HTTP search was unavailable; no vacancies found."
+      : vacanciesFound
+        ? `${vacancyList.length} matching ${vacancyList.length === 1 ? "vacancy" : "vacancies"} found on NHS Jobs.`
+        : "No closely matched current NHS Jobs vacancies found.";
+    console.info(
+      `[vacancy-check] used_http organisation="${organisationName}" vacancies=${vacancyList.length} structured_feed=${nhs.structuredFeedWorked} results_success=${nhs.resultsRequestSucceeded}`,
+    );
+  } catch (httpErr) {
+    sourceUrl = `https://www.jobs.nhs.uk/candidate/search/results?search=${encodeURIComponent(organisationName)}&language=en`;
+    summary = "NHS Jobs HTTP search was unavailable; no vacancies found.";
+    vacancyList = [];
+    console.warn(
+      `[vacancy-check] NHS Jobs HTTP search failed for "${organisationName}":`,
+      httpErr instanceof Error ? httpErr.message : httpErr,
+    );
+  }
+
+  // Only spend an AI call after NHS HTTP found no suitable result and a slot was
+  // reserved for the current London day. The default cap is zero.
+  if (!vacanciesFound) {
+    const reservation = reserveVacancyAiWebSearch();
+    if (!reservation.allowed) {
+      console.info(
+        `[vacancy-check] skipped_ai_cap organisation="${organisationName}" cap=${reservation.cap} used=${reservation.used} day=${reservation.day}`,
+      );
+      // A failed NHS request is not a completed zero-result search. Do not cache
+      // it for 24 hours; leave the sponsor stale so a later batch can retry.
+      if (!nhsResultsRequestSucceeded) {
+        return {
+          vacanciesFound: false,
+          vacancyCount: null,
+          sourceUrl,
+          summary,
+          checkedAt: new Date(),
+          fromCache: false,
+          vacancyList: null,
+          discoveredContactEmail: null,
+          discoveredContactPhone: null,
+          discoveredWebsite: null,
+        };
+      }
+    } else {
+      console.info(
+        `[vacancy-check] used_ai organisation="${organisationName}" cap=${reservation.cap} used=${reservation.used} day=${reservation.day}`,
+      );
+      try {
+        const response = await openai.responses.create({
+          model: "gpt-4o",
+          tools: [{ type: "web_search_preview" as const }],
+          input: `Search for current job openings at "${organisationName}" in the United Kingdom.
 Prioritise the company's own careers page and NHS Jobs (jobs.nhs.uk) first. Only use third-party aggregators such as Indeed, Reed, LinkedIn, or CV-Library as a last resort, and prefer URLs that point directly to the employer's own domain.
 While visiting the company's own site, also look for their public contact details (email address, phone number, and website URL). Only capture details from the company's own website — do not use aggregator or directory sites for contact information.
 After searching, reply with a JSON object ONLY — no markdown, no extra text, just raw JSON:
@@ -151,92 +210,88 @@ After searching, reply with a JSON object ONLY — no markdown, no extra text, j
   ]
 }
 Include up to 8 specific vacancies in vacancyList if found. Use null for missing fields. vacancyList must be an empty array if no vacancies found.`,
-    });
+        });
 
-    const text = response.output_text ?? "";
-    const jsonStr = extractOutermostJson(text);
-    if (jsonStr) {
-      const parsed = JSON.parse(jsonStr) as {
-        vacanciesFound?: boolean;
-        vacancyCount?: number | null;
-        sourceUrl?: string | null;
-        summary?: string;
-        contactEmail?: string | null;
-        contactPhone?: string | null;
-        website?: string | null;
-        vacancyList?: Array<{
-          title?: string;
-          location?: string | null;
-          salary?: string | null;
-          url?: string | null;
-          description?: string | null;
-          postedDate?: string | null;
-        }>;
-      };
-      vacanciesFound = parsed.vacanciesFound === true;
-      vacancyCount = typeof parsed.vacancyCount === "number" ? parsed.vacancyCount : null;
-      if (typeof parsed.sourceUrl === "string" && parsed.sourceUrl.startsWith("http")) {
-        sourceUrl = parsed.sourceUrl;
-      }
-      summary = typeof parsed.summary === "string"
-        ? parsed.summary
-        : (vacanciesFound
-          ? `Vacancies found for ${organisationName}.`
-          : `No active vacancies found for ${organisationName}.`);
-      // Extract contact details discovered from the company's own site
-      if (typeof parsed.contactEmail === "string" && parsed.contactEmail.trim()) {
-        discoveredContactEmail = parsed.contactEmail.trim();
-      }
-      if (typeof parsed.contactPhone === "string" && parsed.contactPhone.trim()) {
-        discoveredContactPhone = parsed.contactPhone.trim();
-      }
-      if (typeof parsed.website === "string" && parsed.website.trim().startsWith("http")) {
-        discoveredWebsite = parsed.website.trim();
-      }
-      if (Array.isArray(parsed.vacancyList) && parsed.vacancyList.length > 0) {
-        vacancyList = parsed.vacancyList
-          .filter((v) => typeof v.title === "string" && v.title.trim())
-          .map((v) => ({
-            title: (v.title ?? "").trim(),
-            location: typeof v.location === "string" ? v.location.trim() || null : null,
-            salary: typeof v.salary === "string" ? v.salary.trim() || null : null,
-            // Only persist URLs that are valid deep-links to a specific job
-            // advert. Aggregator, generic careers/homepage, and malformed URLs
-            // are stored as null instead.
-            url:
-              typeof v.url === "string" && isValidVacancyDeepLink(v.url.trim())
-                ? v.url.trim()
-                : null,
-            description: typeof v.description === "string" ? v.description.trim() || null : null,
-            postedDate: typeof v.postedDate === "string" ? v.postedDate.trim() || null : null,
-          }))
-          .slice(0, 8);
-        if (vacancyList.length > 0 && !vacancyCount) {
-          vacancyCount = vacancyList.length;
+        const text = response.output_text ?? "";
+        const jsonStr = extractOutermostJson(text);
+        if (jsonStr) {
+          const parsed = JSON.parse(jsonStr) as {
+            vacanciesFound?: boolean;
+            vacancyCount?: number | null;
+            sourceUrl?: string | null;
+            summary?: string;
+            contactEmail?: string | null;
+            contactPhone?: string | null;
+            website?: string | null;
+            vacancyList?: Array<{
+              title?: string;
+              location?: string | null;
+              salary?: string | null;
+              url?: string | null;
+              description?: string | null;
+              postedDate?: string | null;
+            }>;
+          };
+          vacanciesFound = parsed.vacanciesFound === true;
+          vacancyCount = typeof parsed.vacancyCount === "number" ? parsed.vacancyCount : null;
+          if (typeof parsed.sourceUrl === "string" && parsed.sourceUrl.startsWith("http")) {
+            sourceUrl = parsed.sourceUrl;
+          }
+          summary = typeof parsed.summary === "string"
+            ? parsed.summary
+            : (vacanciesFound
+              ? `Vacancies found for ${organisationName}.`
+              : `No active vacancies found for ${organisationName}.`);
+          if (typeof parsed.contactEmail === "string" && parsed.contactEmail.trim()) {
+            discoveredContactEmail = parsed.contactEmail.trim();
+          }
+          if (typeof parsed.contactPhone === "string" && parsed.contactPhone.trim()) {
+            discoveredContactPhone = parsed.contactPhone.trim();
+          }
+          if (typeof parsed.website === "string" && parsed.website.trim().startsWith("http")) {
+            discoveredWebsite = parsed.website.trim();
+          }
+          if (Array.isArray(parsed.vacancyList) && parsed.vacancyList.length > 0) {
+            vacancyList = parsed.vacancyList
+              .filter((v) => typeof v.title === "string" && v.title.trim())
+              .map((v) => ({
+                title: (v.title ?? "").trim(),
+                location: typeof v.location === "string" ? v.location.trim() || null : null,
+                salary: typeof v.salary === "string" ? v.salary.trim() || null : null,
+                url:
+                  typeof v.url === "string" && isValidVacancyDeepLink(v.url.trim())
+                    ? v.url.trim()
+                    : null,
+                description: typeof v.description === "string" ? v.description.trim() || null : null,
+                postedDate: typeof v.postedDate === "string" ? v.postedDate.trim() || null : null,
+              }))
+              .slice(0, 8);
+            if (vacancyList.length > 0 && !vacancyCount) {
+              vacancyCount = vacancyList.length;
+            }
+          }
         }
+      } catch (aiErr) {
+        console.warn(
+          `[vacancy-check] AI check failed for "${organisationName}":`,
+          aiErr instanceof Error ? aiErr.message : aiErr,
+        );
+        // The AI call was allowed but failed. Keep the organisation stale so it
+        // can be retried on a later batch when a fresh cap slot is available.
+        return {
+          vacanciesFound: false,
+          vacancyCount: null,
+          sourceUrl,
+          summary: "AI check failed — will retry on next batch.",
+          checkedAt: new Date(),
+          fromCache: false,
+          vacancyList: null,
+          discoveredContactEmail: null,
+          discoveredContactPhone: null,
+          discoveredWebsite: null,
+        };
       }
     }
-  } catch (aiErr) {
-    console.warn(
-      `[vacancy-check] AI check failed for "${organisationName}":`,
-      aiErr instanceof Error ? aiErr.message : aiErr,
-    );
-    // Do NOT write to sponsor_licence_vacancy_checks on failure — writing here
-    // would stamp a fresh checked_at and suppress this org from the batch for
-    // 24 hours as if the check had succeeded. Return early so the org remains
-    // stale and is picked up again on the next batch.
-    return {
-      vacanciesFound: false,
-      vacancyCount: null,
-      sourceUrl,
-      summary: "AI check failed — will retry on next batch.",
-      checkedAt: new Date(),
-      fromCache: false,
-      vacancyList: null,
-      discoveredContactEmail: null,
-      discoveredContactPhone: null,
-      discoveredWebsite: null,
-    };
   }
 
   const [saved] = await db

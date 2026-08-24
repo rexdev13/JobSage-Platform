@@ -1,6 +1,7 @@
 import { db } from "@workspace/db";
 import { sponsorLicenceVacanciesTable, sponsorLicencesTable } from "@workspace/db";
 import { eq, ne } from "drizzle-orm";
+import { isManualLabourTitle } from "./vacancyTitlePolicy";
 
 /**
  * ID offset for AI-discovered sponsor-licence vacancies when merged into the
@@ -31,10 +32,6 @@ export function presentApplyLink(
     linkCheckedAt: lastVerifiedAt ? new Date(lastVerifiedAt).toISOString() : null,
   };
 }
-
-/** Non-clinical / manual-labour titles are never candidate-facing. */
-const MANUAL_LABOUR_BLOCKLIST =
-  /\b(housekeep|housework|cleaning|cleaner|domestic|catering|cook\b|kitchen|laundry|porter|construction|groundskeep|janitor|caretaker|security\s*guard|warehouse|driver|delivery|bin\s*collect|refuse|sewage|plumb|electri|carpent|bricklayer|scaffold|painter\s*decorator|barista|bartender|waiter|waitress|retail\s*assistant|shop\s*assistant|sales\s*assistant|receptionist|administrator|accountant|software|developer|engineer(?!.*clinical)|chef|veterinar|cashier|customer\s*service|front\s*of\s*house|barber|beautician|hairdress|nail\s*tech)/i;
 
 const NMC_TITLE_PATTERN =
   /\b(nurse|nursing|midwif|health\s*visitor|rgn\b|rmn\b|rnld\b|matron|ward\s*sister)/i;
@@ -134,7 +131,7 @@ export async function fetchSponsorVacanciesAsRoles(
     if (seen.has(vac.id)) continue; // multiple licence rows per org — take first
     seen.add(vac.id);
 
-    if (MANUAL_LABOUR_BLOCKLIST.test(vac.title)) continue;
+    if (isManualLabourTitle(vac.title)) continue;
 
     const classified = classifyVacancyRegulator(vac.title, vac.description);
     if (classified !== null && classified !== regulator) continue;
