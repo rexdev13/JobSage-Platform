@@ -16,6 +16,7 @@ export const rolesTable = pgTable("roles", {
   requiredSafeguardingLevel: varchar("required_safeguarding_level", {
     enum: ["unknown", "none", "level_1", "level_2"],
   }),
+  targetRegions: jsonb("target_regions").$type<string[]>().default([]),
   active: boolean("active").notNull().default(true),
   importedAt: timestamp("imported_at", { withTimezone: true }).notNull().defaultNow(),
   importedBy: varchar("imported_by"),

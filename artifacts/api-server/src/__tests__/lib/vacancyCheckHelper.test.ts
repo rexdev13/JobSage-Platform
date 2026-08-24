@@ -131,6 +131,30 @@ describe("runVacancyCheck HTTP-first discovery", () => {
     );
   });
 
+  it("keeps explicitly supplied sponsor target regions when replacing the vacancy snapshot", async () => {
+    process.env["VACANCY_AI_WEB_SEARCH_DAILY_CAP"] = "0";
+    searchNhsJobsMock.mockResolvedValue({
+      sourceUrl: "https://www.jobs.nhs.uk/candidate/search/results?employer=Example",
+      vacancies: [{
+        title: "Staff Nurse",
+        location: "London",
+        salary: null,
+        url: "https://jobs.nhs.uk/candidate/jobadvert/C123",
+        description: null,
+        postedDate: null,
+        targetRegions: ["London"],
+      }],
+      structuredFeedWorked: false,
+      resultsRequestSucceeded: true,
+    });
+
+    await runVacancyCheck("Example NHS Trust");
+
+    expect(insertValuesMock.mock.calls[1]?.[0]).toEqual(expect.arrayContaining([
+      expect.objectContaining({ title: "Staff Nurse", targetRegions: ["London"] }),
+    ]));
+  });
+
   it("does not cache an NHS 5xx as an empty result when AI fallback is capped", async () => {
     process.env["VACANCY_AI_WEB_SEARCH_DAILY_CAP"] = "0";
     searchNhsJobsMock.mockResolvedValue({

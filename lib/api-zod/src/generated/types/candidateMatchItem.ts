@@ -16,6 +16,7 @@ export interface CandidateMatchItem {
   location: string;
   regulator: string;
   sponsorshipOffered: boolean;
+  targetRegions?: string[] | null;
   requiredRegistration: string;
   requiredDbsClearanceLevel?: DbsClearanceLevel | null;
   requiredSafeguardingLevel?: SafeguardingTrainingLevel | null;

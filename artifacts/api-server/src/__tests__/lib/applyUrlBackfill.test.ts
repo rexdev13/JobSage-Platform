@@ -268,7 +268,7 @@ describe("runApplyUrlBackfill", () => {
   it("processes multiple roles independently — saves valid, skips invalid", async () => {
     setNextSelectRows([makeRole({ id: 1 }), makeRole({ id: 2 })]);
     mockOpenAICreate
-      .mockResolvedValueOnce(makeAIResponse("https://careers.hospital.co.uk/nurse"))
+      .mockResolvedValueOnce(makeAIResponse("https://careers.hospital.co.uk/vacancies/staff-nurse-123"))
       .mockResolvedValueOnce(makeAIResponse(null, false));
 
     const { runApplyUrlBackfill } = await import("../../lib/applyUrlBackfill");
@@ -283,7 +283,7 @@ describe("runApplyUrlBackfill", () => {
   it("stores the last run summary accessible via getLastBackfillSummary", async () => {
     setNextSelectRows([makeRole()]);
     mockOpenAICreate.mockResolvedValueOnce(
-      makeAIResponse("https://careers.nhstrust.nhs.uk/jobs/1"),
+      makeAIResponse("https://careers.nhstrust.nhs.uk/jobs/staff-nurse-123"),
     );
 
     const { runApplyUrlBackfill, getLastBackfillSummary } = await import(

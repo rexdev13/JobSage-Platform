@@ -1,4 +1,4 @@
-const COUNTY_TO_REGION: Record<string, string> = {
+export const COUNTY_TO_REGION: Record<string, string> = {
   "london": "London",
   "greater london": "London",
   "city of london": "London",

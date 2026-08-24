@@ -13,4 +13,5 @@ export interface VacancyListing {
   url?: string | null;
   description?: string | null;
   postedDate?: string | null;
+  targetRegions?: string[] | null;
 }

@@ -32,6 +32,7 @@ describe("NHS Jobs HTML parser", () => {
         url: "https://www.jobs.nhs.uk/candidate/jobadvert/C0001-260001?search=test",
         description: null,
         postedDate: "24 August 2026",
+        targetRegions: null,
       },
     ]);
   });

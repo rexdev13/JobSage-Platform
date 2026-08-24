@@ -3895,6 +3895,11 @@ components:
           enum: [GMC, NMC, HCPC]
         sponsorshipOffered:
           type: boolean
+        targetRegions:
+          type: array
+          nullable: true
+          items:
+            type: string
         requiredRegistration:
           type: string
         requiredDbsClearanceLevel:
@@ -5409,6 +5414,11 @@ components:
         postedDate:
           type: string
           nullable: true
+        targetRegions:
+          type: array
+          nullable: true
+          items:
+            type: string
 
     VacancyCheckResult:
       type: object
@@ -5585,6 +5595,11 @@ components:
         postedDate:
           type: string
           nullable: true
+        targetRegions:
+          type: array
+          nullable: true
+          items:
+            type: string
         matchScore:
           type: integer
           nullable: true
@@ -6448,6 +6463,11 @@ components:
           type: string
         sponsorshipOffered:
           type: boolean
+        targetRegions:
+          type: array
+          nullable: true
+          items:
+            type: string
         requiredRegistration:
           type: string
         requiredDbsClearanceLevel:

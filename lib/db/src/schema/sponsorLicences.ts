@@ -70,7 +70,15 @@ export const sponsorLicenceVacancyChecksTable = pgTable(
     vacancyCount: integer("vacancy_count"),
     sourceUrl: text("source_url"),
     summary: text("summary"),
-    vacancyList: jsonb("vacancy_list").$type<Array<{ title: string; location: string | null; salary: string | null; url: string | null }>>(),
+    vacancyList: jsonb("vacancy_list").$type<Array<{
+      title: string;
+      location: string | null;
+      salary: string | null;
+      url: string | null;
+      description: string | null;
+      postedDate: string | null;
+      targetRegions: string[] | null;
+    }>>(),
   },
   (t) => [
     index("vacancy_checks_org_name_idx").on(t.organisationName),
@@ -98,6 +106,7 @@ export const sponsorLicenceVacanciesTable = pgTable(
     requiredSafeguardingLevel: varchar("required_safeguarding_level", {
       enum: ["unknown", "none", "level_1", "level_2"],
     }),
+    targetRegions: jsonb("target_regions").$type<string[]>().default([]),
     postedDate: text("posted_date"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     // Liveness tracking: background sweep + click-time checker keep these current.

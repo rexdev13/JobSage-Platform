@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@workspace/auth-web";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, Button, PageTransition } from "@/components/ui-enhanced";
@@ -69,6 +69,12 @@ import {
   useExtensionGate,
 } from "@/components/SmartApplyExtensionPrompt";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  defaultSponsorshipOnly,
+  filterOpportunities,
+  hasRegionOverlap,
+  UK_REGIONS,
+} from "@/lib/opportunityFilters";
 
 type Tab = "board" | "employers" | "applications";
 
@@ -1401,6 +1407,8 @@ export default function OpportunitiesPage() {
   const { data: applicationsData } = useListMyApplications();
   const { data: myProfile } = useGetMyProfile();
   const { toast } = useToast();
+  const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
+  const [sponsorshipOnly, setSponsorshipOnly] = useState<boolean | undefined>(undefined);
 
   const [localDismissedIds, setLocalDismissedIds] = useState<Set<number>>(new Set());
   const { data: aiMatchesData, isLoading: aiMatchesLoading } = useGetMyMatches(
@@ -1436,17 +1444,33 @@ export default function OpportunitiesPage() {
   const appliedRoleIds = data?.appliedRoleIds ?? [];
   const eligibilityOutcome = data?.eligibilityOutcome;
   const noProfile = data?.noProfile === true;
+  const p = myProfile as unknown as Record<string, unknown> | undefined;
+
+  // Sponsorship is preselected only for candidates who say they need it. The
+  // explicit state keeps the choice under the candidate's control afterwards.
+  useEffect(() => {
+    if (sponsorshipOnly === undefined && p) {
+      setSponsorshipOnly(defaultSponsorshipOnly(p.requiresSponsorship === true));
+    }
+  }, [p, sponsorshipOnly]);
+
+  const effectiveSponsorshipOnly = sponsorshipOnly ?? defaultSponsorshipOnly(p?.requiresSponsorship === true);
+  const filters = { selectedRegions, sponsorshipOnly: effectiveSponsorshipOnly };
+  const filteredRoles = roles.filter((item) => filterOpportunities([item.role], filters).length > 0);
+  const filteredAiMatchesData = aiMatchesData
+    ? { ...aiMatchesData, matches: filterOpportunities(aiMatchesData.matches, filters) }
+    : aiMatchesData;
 
   // The server now embeds AI scores and sorts by the same unified key the UI
   // previously computed client-side (AI score when cached, heuristic otherwise).
   // Use the server's order directly — no client-side re-sort needed.
-  const recommendedRoles = roles.slice(0, 5);
-  const top5Roles = roles.slice(0, 5);
-  const next5Roles = roles.slice(5, 10);
-  const remainingRoles = roles.slice(10);
+  const recommendedRoles = filteredRoles.slice(0, 5);
+  const top5Roles = filteredRoles.slice(0, 5);
+  const next5Roles = filteredRoles.slice(5, 10);
+  const remainingRoles = filteredRoles.slice(10);
 
   const employerGroups = Object.entries(
-    roles.reduce<Record<string, MatchedRole[]>>((acc, r) => {
+    filteredRoles.reduce<Record<string, MatchedRole[]>>((acc, r) => {
       if (!r.role.sponsorshipOffered) return acc;
       const key = r.role.employer;
       acc[key] ??= [];
@@ -1455,7 +1479,6 @@ export default function OpportunitiesPage() {
     }, {}),
   ).filter(([emp]) => emp.toLowerCase().includes(employerSearch.toLowerCase()));
 
-  const p = myProfile as unknown as Record<string, unknown> | undefined;
   const keyFieldsComplete = !!(
     p?.profession && p?.specialty && p?.qualificationCountry && p?.qualificationType &&
     p?.qualificationYear && (p?.qualificationYear as number) > 0 &&
@@ -1496,7 +1519,7 @@ export default function OpportunitiesPage() {
               {noProfile
                 ? "Complete your profile to see a personalised ranked list."
                 : data
-                ? `${roles.length} vacancies ranked by fit — highest match first`
+                ? `${filteredRoles.length} of ${roles.length} vacancies ranked by fit — highest match first`
                 : "All vacancies ranked by how well they match your profile."}
             </p>
             {(vacancyStatsData?.totalVacanciesFound ?? 0) > 0 && (
@@ -1582,9 +1605,9 @@ export default function OpportunitiesPage() {
             )}
 
             {/* Best Matches AI Strip */}
-            {!noProfile && roles.length > 0 && (
+            {!noProfile && filteredRoles.length > 0 && (
               <BestMatchesStrip
-                matchesData={aiMatchesData}
+                matchesData={filteredAiMatchesData}
                 matchesLoading={aiMatchesLoading}
                 appliedRoleIds={appliedRoleIds}
                 localDismissedIds={localDismissedIds}
@@ -1594,7 +1617,7 @@ export default function OpportunitiesPage() {
             )}
 
             {/* Smart Apply extension banner */}
-            {!noProfile && roles.length > 0 && <SmartApplyExtensionBanner />}
+            {!noProfile && filteredRoles.length > 0 && <SmartApplyExtensionBanner />}
 
             {!noProfile && roles.length === 0 && (
               <Card className="p-8 text-center">
@@ -1611,11 +1634,73 @@ export default function OpportunitiesPage() {
 
             {!noProfile && roles.length > 0 && (
               <>
+                <Card className="p-4 border-primary/15 bg-primary/[0.02]">
+                  <div className="flex flex-col gap-4">
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                      <div>
+                        <h2 className="text-sm font-semibold text-foreground">Refine opportunities</h2>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Region filters keep roles with an unknown or national location visible.
+                        </p>
+                      </div>
+                      <label className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={effectiveSponsorshipOnly}
+                          onChange={(event) => setSponsorshipOnly(event.target.checked)}
+                          className="w-4 h-4 rounded border-primary/30 text-primary focus:ring-primary accent-primary"
+                        />
+                        Visa sponsorship offered
+                      </label>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-2">UK region</p>
+                      <div className="flex flex-wrap gap-2">
+                        {UK_REGIONS.map((region) => {
+                          const selected = selectedRegions.includes(region);
+                          return (
+                            <button
+                              key={region}
+                              type="button"
+                              aria-pressed={selected}
+                              onClick={() => setSelectedRegions((current) =>
+                                selected ? current.filter((value) => value !== region) : [...current, region],
+                              )}
+                              className={`rounded-full px-3 py-1.5 text-xs font-medium border transition-colors ${
+                                selected
+                                  ? "border-primary bg-primary text-primary-foreground"
+                                  : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-primary/40"
+                              }`}
+                            >
+                              {region}
+                            </button>
+                          );
+                        })}
+                        {selectedRegions.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedRegions([])}
+                            className="rounded-full px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10"
+                          >
+                            Clear regions
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+                {filteredRoles.length === 0 && (
+                  <Card className="p-7 text-center">
+                    <Briefcase className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
+                    <h2 className="text-base font-semibold">No opportunities match these filters</h2>
+                    <p className="text-sm text-muted-foreground mt-1">Try another region or turn off the sponsorship filter to broaden your results.</p>
+                  </Card>
+                )}
                 {/* Match score info note */}
-                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                {filteredRoles.length > 0 && <p className="text-xs text-muted-foreground flex items-center gap-1.5">
                   <Info className="w-3.5 h-3.5 shrink-0 text-primary/60" />
                   Match scores are based on your CV, profile, and regulatory eligibility. All vacancies are shown — eligibility notes are advisory only.
-                </p>
+                </p>}
 
                 {/* Recommended — Apply First band */}
                 {recommendedRoles.length > 0 && (
