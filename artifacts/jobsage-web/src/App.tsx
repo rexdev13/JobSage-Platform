@@ -11,6 +11,7 @@ import {
 } from "@workspace/api-client-react";
 
 import { AuthGuard } from "@/components/layout/AuthGuard";
+import { canAccessLeads, isAdminRole } from "@/lib/roleAccess";
 
 // --- Lazy page imports (code-split per route) ---
 // Everything below is loaded on-demand when the user navigates to that route.
@@ -156,13 +157,28 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    if (!isLoading && user && (user.role as string) !== "admin" && (user.role as string) !== "super_admin") {
+    if (!isLoading && user && !isAdminRole(user.role)) {
       setLocation("/");
     }
   }, [isLoading, user, setLocation]);
 
   if (isLoading) return null;
-  if (!user || ((user.role as string) !== "admin" && (user.role as string) !== "super_admin")) return null;
+  if (!user || !isAdminRole(user.role)) return null;
+  return <>{children}</>;
+}
+
+function LeadsGuard({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (!isLoading && user && !canAccessLeads(user.role)) {
+      setLocation("/");
+    }
+  }, [isLoading, user, setLocation]);
+
+  if (isLoading) return null;
+  if (!user || !canAccessLeads(user.role)) return null;
   return <>{children}</>;
 }
 
@@ -275,7 +291,7 @@ function Router() {
                   <AdminGuard><AdminUsersPage /></AdminGuard>
                 </Route>
                 <Route path="/admin/leads">
-                  <AdminGuard><AdminLeadsPage /></AdminGuard>
+                  <LeadsGuard><AdminLeadsPage /></LeadsGuard>
                 </Route>
                 <Route path="/admin/super">
                   <SuperAdminGuard><SuperAdminPage /></SuperAdminGuard>

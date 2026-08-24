@@ -30,6 +30,7 @@ export const AuthUserRole = {
   reviewer: "reviewer",
   employer: "employer",
   super_admin: "super_admin",
+  marketing: "marketing",
 } as const;
 
 export interface AuthUser {

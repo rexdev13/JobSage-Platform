@@ -17,7 +17,7 @@ export const usersTable = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
-  role: varchar("role", { enum: ["candidate", "admin", "reviewer", "employer", "super_admin"] }).notNull().default("candidate"),
+  role: varchar("role", { enum: ["candidate", "admin", "reviewer", "employer", "super_admin", "marketing"] }).notNull().default("candidate"),
   passwordHash: varchar("password_hash"),
   emailVerified: boolean("email_verified").notNull().default(false),
   emailVerifyToken: varchar("email_verify_token"),
