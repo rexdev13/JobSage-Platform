@@ -129,6 +129,15 @@ export interface AlertRole {
   location: string;
   sponsorshipOffered: boolean;
   isEligible: boolean;
+  applyUrl?: string | null;
+}
+
+function escapeHtmlAttribute(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 function jobAlertEmailHtml(
@@ -138,13 +147,18 @@ function jobAlertEmailHtml(
   alertFrequency: "daily" | "weekly" = "daily",
 ): string {
   const frequencyLabel = alertFrequency === "weekly" ? "weekly" : "daily";
-  const roleRow = (role: AlertRole) => `
+  const roleRow = (role: AlertRole) => {
+    const safeApplyUrl =
+      role.applyUrl && /^https?:\/\//i.test(role.applyUrl) ? escapeHtmlAttribute(role.applyUrl) : null;
+    return `
     <tr>
       <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;">
         <p style="margin:0 0 2px;font-size:15px;font-weight:600;color:#0f172a;">${role.title}</p>
         <p style="margin:0;font-size:13px;color:#64748b;">${role.employer} · ${role.location}${role.sponsorshipOffered ? " · <span style=\"color:#059669;\">Sponsorship Available</span>" : ""}</p>
+        ${safeApplyUrl ? `<p style="margin:5px 0 0;font-size:12px;"><a href="${safeApplyUrl}" style="color:#2563eb;">View vacancy</a></p>` : ""}
       </td>
     </tr>`;
+  };
 
   const eligibleSection =
     eligibleRoles.length > 0

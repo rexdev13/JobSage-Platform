@@ -5,9 +5,15 @@ import {
   rolesTable,
   decisionRecordsTable,
   usersTable,
+  jobAlertVacancyDeliveriesTable,
 } from "@workspace/db";
-import { eq, desc, and, gt } from "drizzle-orm";
+import { eq, desc, and, gt, inArray, isNull } from "drizzle-orm";
 import { sendJobAlertEmail, type AlertRole } from "./email";
+import {
+  fetchSponsorVacanciesAsRoles,
+  roleDedupKey,
+  SPONSOR_VACANCY_ID_OFFSET,
+} from "./sponsorVacancyRoles";
 
 const REGISTERED_STATUSES = ["registered", "fully_registered", "full_registration"];
 
@@ -19,25 +25,36 @@ function regulatorForProfession(profession: string | null | undefined): "GMC" | 
   return null;
 }
 
-async function processUserAlert(
+export async function processUserAlert(
   userId: string,
   email: string,
   firstName: string,
   profile: typeof profilesTable.$inferSelect,
   lastAlertAt: Date | null,
-): Promise<void> {
+): Promise<boolean> {
   const regulator = regulatorForProfession(profile.profession);
-  if (!regulator) return;
+  if (!regulator) return false;
 
-  // Optimistically claim the send slot before querying/sending.
-  // This prevents duplicate sends when multiple API instances
-  // run the cron at the same time: the second instance will see
-  // the updated lastAlertSentAt and skip this user.
+  // Claim the slot only if no concurrent worker has already advanced this
+  // profile's alert checkpoint. The old checkpoint is restored when no email
+  // is sent or delivery fails, so a failed send remains eligible for retry.
   const claimedAt = new Date();
-  await db
+  const claimCondition = lastAlertAt
+    ? and(eq(profilesTable.userId, userId), eq(profilesTable.lastAlertSentAt, lastAlertAt))
+    : and(eq(profilesTable.userId, userId), isNull(profilesTable.lastAlertSentAt));
+  const [claim] = await db
     .update(profilesTable)
     .set({ lastAlertSentAt: claimedAt })
-    .where(eq(profilesTable.userId, userId));
+    .where(claimCondition)
+    .returning({ userId: profilesTable.userId });
+  if (!claim) return false;
+
+  const restoreCheckpoint = async (): Promise<void> => {
+    await db
+      .update(profilesTable)
+      .set({ lastAlertSentAt: lastAlertAt })
+      .where(and(eq(profilesTable.userId, userId), eq(profilesTable.lastAlertSentAt, claimedAt)));
+  };
 
   const [latestDecision] = await db
     .select()
@@ -50,6 +67,10 @@ async function processUserAlert(
     ? await db.select().from(rolesTable).where(and(eq(rolesTable.active, true), gt(rolesTable.importedAt, lastAlertAt)))
     : await db.select().from(rolesTable).where(eq(rolesTable.active, true));
   const regulatorRoles = newRoles.filter((r) => r.regulator === regulator);
+  const sponsorVacancyRoles = await fetchSponsorVacanciesAsRoles(regulator, {
+    since: lastAlertAt,
+    requireSpecificVacancyUrl: true,
+  });
 
   const isRegistered =
     profile.registrationStatus != null &&
@@ -59,6 +80,9 @@ async function processUserAlert(
 
   const eligibleRoles: AlertRole[] = [];
   const workTowardsRoles: AlertRole[] = [];
+
+  const roleKeys = new Set<string>();
+  const roleUrls = new Set<string>();
 
   for (const role of regulatorRoles) {
     const reqReg = role.requiredRegistration.toLowerCase();
@@ -73,7 +97,10 @@ async function processUserAlert(
       location: role.location,
       sponsorshipOffered: role.sponsorshipOffered,
       isEligible,
+      applyUrl: role.applyUrl ?? null,
     };
+    roleKeys.add(roleDedupKey(role.employer, role.title));
+    if (role.applyUrl?.trim()) roleUrls.add(role.applyUrl.trim());
 
     if (isEligible) {
       eligibleRoles.push(alertRole);
@@ -82,11 +109,91 @@ async function processUserAlert(
     }
   }
 
+  // Sponsor rows use the same quality gate as GET /roles, with the additional
+  // alert-only requirement that the advert has a specific URL. Snapshot IDs
+  // are not stable, so URL is the durable identity for alert deduplication.
+  const sponsorCandidates = sponsorVacancyRoles.filter((role) => {
+    if (!role.classifiedRelevant) return false;
+    if (!role.applyUrl) return false;
+    if (roleUrls.has(role.applyUrl)) return false;
+    if (roleKeys.has(roleDedupKey(role.employer, role.title))) return false;
+    roleKeys.add(roleDedupKey(role.employer, role.title));
+    roleUrls.add(role.applyUrl);
+    return true;
+  });
+
+  const sponsorUrls = sponsorCandidates.map((role) => role.applyUrl).filter((url): url is string => Boolean(url));
+  let claimedSponsorUrls = new Set<string>();
+  if (sponsorUrls.length > 0) {
+    const alreadyDelivered = await db
+      .select({ vacancyUrl: jobAlertVacancyDeliveriesTable.vacancyUrl })
+      .from(jobAlertVacancyDeliveriesTable)
+      .where(
+        and(
+          eq(jobAlertVacancyDeliveriesTable.userId, userId),
+          inArray(jobAlertVacancyDeliveriesTable.vacancyUrl, sponsorUrls),
+        ),
+      );
+    const deliveredUrls = new Set(alreadyDelivered.map((row) => row.vacancyUrl));
+    const unseenSponsors = sponsorCandidates.filter((role) => role.applyUrl && !deliveredUrls.has(role.applyUrl));
+
+    if (unseenSponsors.length > 0) {
+      const claimed = await db
+        .insert(jobAlertVacancyDeliveriesTable)
+        .values(
+          unseenSponsors.map((role) => ({
+            userId,
+            vacancyId: role.id - SPONSOR_VACANCY_ID_OFFSET,
+            vacancyUrl: role.applyUrl!,
+          })),
+        )
+        .onConflictDoNothing()
+        .returning({ vacancyUrl: jobAlertVacancyDeliveriesTable.vacancyUrl });
+      claimedSponsorUrls = new Set(claimed.map((row) => row.vacancyUrl));
+    }
+  }
+
+  for (const role of sponsorCandidates) {
+    if (!role.applyUrl || !claimedSponsorUrls.has(role.applyUrl)) continue;
+    const alertRole: AlertRole = {
+      title: role.title,
+      employer: role.employer,
+      location: role.location,
+      sponsorshipOffered: role.sponsorshipOffered,
+      isEligible: userIsEligible,
+      applyUrl: role.applyUrl,
+    };
+    if (alertRole.isEligible) eligibleRoles.push(alertRole);
+    else workTowardsRoles.push(alertRole);
+  }
+
+  if (eligibleRoles.length === 0 && workTowardsRoles.length === 0) {
+    await restoreCheckpoint();
+    return false;
+  }
+
   const frequency = profile.alertFrequency === "weekly" ? "weekly" : "daily";
-  await sendJobAlertEmail(email, firstName || "Candidate", eligibleRoles, workTowardsRoles, frequency);
+  try {
+    await sendJobAlertEmail(email, firstName || "Candidate", eligibleRoles, workTowardsRoles, frequency);
+  } catch (error) {
+    // Release claims when delivery fails so a later sweep can retry them.
+    if (claimedSponsorUrls.size > 0) {
+      await db
+        .delete(jobAlertVacancyDeliveriesTable)
+        .where(
+          and(
+            eq(jobAlertVacancyDeliveriesTable.userId, userId),
+            inArray(jobAlertVacancyDeliveriesTable.vacancyUrl, [...claimedSponsorUrls]),
+          ),
+        );
+    }
+    await restoreCheckpoint();
+    throw error;
+  }
+  return true;
 }
 
-async function runAlerts(): Promise<void> {
+export async function runAlerts(): Promise<void> {
   console.log("[alert-scheduler] Running job alert sweep...");
 
   const profiles = await db.select().from(profilesTable);
@@ -114,14 +221,14 @@ async function runAlerts(): Promise<void> {
     if (!userRow?.email) continue;
 
     try {
-      await processUserAlert(
+        const sent = await processUserAlert(
         profile.userId,
         userRow.email,
         userRow.firstName ?? "Candidate",
         profile,
         lastSent ?? null,
       );
-      console.log(`[alert-scheduler] Alert sent to ${userRow.email}`);
+        if (sent) console.log(`[alert-scheduler] Alert sent to ${userRow.email}`);
     } catch (err) {
       console.error(`[alert-scheduler] Failed to send alert to ${userRow.email}:`, err);
     }
