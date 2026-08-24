@@ -1,0 +1,46 @@
+IMPLEMENT marketing-only leads access. Do not broaden AdminGuard or requireRole("admin") globally. Do not touch vacancy discovery, Smart Apply, AI caps, or alerts.
+
+## Role
+Add `marketing` to:
+- lib/db/src/schema/auth.ts role list
+- requireRole AppRole
+- openapi + regenerate role contracts if that is the project convention
+- superAdmin VALID_ROLES so PATCH /admin/super/users/:id/role can set marketing
+
+Migration only if the live DB constrains role values.
+
+## API — allow marketing ONLY here
+requireRole("admin", "super_admin", "marketing") on:
+- GET /api/leads
+- PATCH /api/leads/:id/status
+- PATCH /api/leads/bulk-status
+
+Marketing must get 403 on DELETE /api/leads (admins keep delete).
+
+Do NOT add marketing to: adminUsers, superAdmin (except being a valid target role), roles, audit, sponsor, identity, employer jobs, or any other requireRole("admin"...).
+
+GET /api/leads: if role is marketing, return only table fields (name, email, phone, sector, source, status, createdAt, desiredRole, additionalMessage). Do not send ipHash, utm internals, convertedUserId to marketing. Admin/super_admin may keep full row.
+
+Marketing must 401/403 on candidate/employer APIs (opportunities, applications, etc.).
+
+## UI
+- AppSidebar: marketing sees ONE item — Waitlist Leads → /admin/leads. Not the admin list, not candidate nav, not isCandidateLike.
+- /admin/leads: dedicated guard — admin | super_admin | marketing. Hide bulk delete for marketing; keep search/filter/status.
+- AdminGuard: still admin + super_admin only.
+- If role === marketing and path is not /admin/leads (and not /login, logout, password): redirect to /admin/leads.
+- After login, marketing lands on /admin/leads. They use /login, not /admin/login.
+
+## Create a user
+Document: register normally → super_admin PATCH role to marketing.
+
+## Tests
+- marketing GET /api/leads 200
+- marketing PATCH status 200
+- marketing DELETE /api/leads 403
+- marketing GET /api/admin/users (or equivalent) 403
+- marketing GET /opportunities 403
+- AdminGuard routes still reject marketing
+- Sidebar/nav: marketing only leads
+
+Reply with files changed, how to promote a user, and confirm AdminGuard was not widened.
+Stop.
