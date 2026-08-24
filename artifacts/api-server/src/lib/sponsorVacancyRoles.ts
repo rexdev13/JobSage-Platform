@@ -1,7 +1,8 @@
 import { db } from "@workspace/db";
 import { sponsorLicenceVacanciesTable, sponsorLicencesTable } from "@workspace/db";
-import { eq, ne } from "drizzle-orm";
+import { and, eq, gt, ne } from "drizzle-orm";
 import { isManualLabourTitle } from "./vacancyTitlePolicy";
+import { isValidVacancyDeepLink } from "./vacancyUrlPolicy";
 
 /**
  * ID offset for AI-discovered sponsor-licence vacancies when merged into the
@@ -94,6 +95,13 @@ export interface SponsorVacancyAsRole {
   description: string | null;
 }
 
+export interface SponsorVacancyRoleQueryOptions {
+  /** Restrict to snapshot rows created after this alert checkpoint. */
+  since?: Date | null;
+  /** Job alerts must have an actionable deep link, not just contact metadata. */
+  requireSpecificVacancyUrl?: boolean;
+}
+
 /**
  * Fetch live (non-dead) AI-discovered sponsor-licence vacancies relevant to a
  * candidate regulator, shaped like catalogue roles so the Opportunities data
@@ -112,7 +120,12 @@ export interface SponsorVacancyAsRole {
  */
 export async function fetchSponsorVacanciesAsRoles(
   regulator: "GMC" | "NMC" | "HCPC",
+  options: SponsorVacancyRoleQueryOptions = {},
 ): Promise<SponsorVacancyAsRole[]> {
+  const conditions = [ne(sponsorLicenceVacanciesTable.liveness, "dead")];
+  if (options.since) {
+    conditions.push(gt(sponsorLicenceVacanciesTable.createdAt, options.since));
+  }
   const rows = await db
     .select({ vac: sponsorLicenceVacanciesTable, lic: sponsorLicencesTable })
     .from(sponsorLicenceVacanciesTable)
@@ -120,7 +133,7 @@ export async function fetchSponsorVacanciesAsRoles(
       sponsorLicencesTable,
       eq(sponsorLicenceVacanciesTable.organisationName, sponsorLicencesTable.organisationName),
     )
-    .where(ne(sponsorLicenceVacanciesTable.liveness, "dead"));
+    .where(and(...conditions));
 
   const seen = new Set<number>();
   const out: SponsorVacancyAsRole[] = [];
@@ -140,6 +153,8 @@ export async function fetchSponsorVacanciesAsRoles(
     if (classified === null && !HEALTHCARE_INDUSTRY_PATTERN.test(lic?.industry ?? "")) continue;
 
     const link = presentApplyLink(vac.url, vac.liveness, vac.lastVerifiedAt);
+    if (options.requireSpecificVacancyUrl && !link.applyUrl) continue;
+    if (options.requireSpecificVacancyUrl && !isValidVacancyDeepLink(link.applyUrl)) continue;
     const contactEmail = lic?.contactEmail?.trim() || null;
     const contactPhone = lic?.contactPhone?.trim() || null;
     const contactWebsite = lic?.website?.trim() || null;
