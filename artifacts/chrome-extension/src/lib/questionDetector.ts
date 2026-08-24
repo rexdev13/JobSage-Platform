@@ -13,6 +13,8 @@ export interface DetectedQuestion {
   maxLength?: number;
   /** Word limit parsed from nearby hint text ("max 250 words"), if any. */
   wordLimit?: number;
+  /** Declaration-style prompts must be reviewed and answered by the candidate. */
+  restricted: boolean;
 }
 
 type QuestionField = HTMLTextAreaElement | HTMLInputElement;
@@ -42,7 +44,10 @@ const PERSONAL_AUTOCOMPLETE = new Set([
 
 /** Words that strongly suggest an essay/free-text question. */
 const QUESTION_KEYWORD_PATTERN =
-  /\b(describe|explain|tell us|tell me|why|how (do|did|would|have)|what (do|did|would|is|are|was|were|makes|motivates)|experience|example|demonstrate|evidence|outline|discuss|supporting (information|statement)|personal statement|statement in support|cover(ing)? letter|motivation|skills? and (experience|knowledge)|suitability|strengths?|achievements?|contribute|situation (where|in which)|time (when|you))\b/i;
+  /\b(describe|explain|tell us|tell me|why|how (do|did|would|have)|what (do|did|would|is|are|was|were|makes|motivates)|experience|example|demonstrate|evidence|outline|discuss|supporting (information|statement)|additional (information|details)|further information|anything else|personal statement|statement in support|cover(ing)? letter|motivation|skills? and (experience|knowledge)|suitability|strengths?|achievements?|contribute|situation (where|in which)|time (when|you))\b/i;
+
+const CANDIDATE_CONFIRMATION_PATTERN =
+  /\b(criminal|conviction|convicted|criminal record|disclosure|declaration|consent|agree(?:ment)?|payroll|tax declaration)\b/i;
 
 /**
  * Long-form fields are named differently by each ATS and frequently do not
@@ -154,6 +159,10 @@ function isQuestionLike(text: string, field: QuestionField): boolean {
   // Long labels on textareas are almost always essay prompts.
   if (isTextArea(field) && t.length >= 25) return true;
   return false;
+}
+
+function requiresCandidateConfirmation(question: string): boolean {
+  return CANDIDATE_CONFIRMATION_PATTERN.test(question);
 }
 
 // ---------------------------------------------------------------------------
@@ -317,6 +326,7 @@ function scanRoot(root: Document | Element, hostname: string): DetectedQuestion[
       question: question.length > 300 ? `${question.slice(0, 300)}…` : question,
       maxLength,
       wordLimit: resolveWordLimit(field),
+      restricted: requiresCandidateConfirmation(question),
     });
   }
   return results;
@@ -338,14 +348,9 @@ export function detectQuestions(doc: Document = document, hostname = doc.locatio
     }
   }
 
-  // De-duplicate by question text (repeated hidden clones etc.) keeping first.
-  const seen = new Set<string>();
-  return results.filter((q) => {
-    const key = q.question.toLowerCase();
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  // Every writable field is retained, including repeated prompts such as two
+  // "Achievements" boxes. Identity is field-based, not text-based.
+  return results;
 }
 
 /**
@@ -403,7 +408,8 @@ function sameQuestions(a: DetectedQuestion[], b: DetectedQuestion[]): boolean {
       q.id === b[i].id &&
       q.question === b[i].question &&
       q.maxLength === b[i].maxLength &&
-      q.wordLimit === b[i].wordLimit
+        q.wordLimit === b[i].wordLimit &&
+        q.restricted === b[i].restricted
   );
 }
 

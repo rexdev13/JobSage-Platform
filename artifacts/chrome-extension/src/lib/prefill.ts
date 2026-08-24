@@ -4,7 +4,7 @@ export interface CandidateProfile {
   fullName?: string | null;
   email?: string | null;
   phone?: string | null;
-  address?: string | null;
+  streetAddress?: string | null;
   city?: string | null;
   postcode?: string | null;
   country?: string | null;
@@ -17,7 +17,7 @@ export interface PrefillResult {
 }
 
 type DetailKey = keyof CandidateProfile;
-type DetailField = HTMLInputElement | HTMLTextAreaElement;
+type DetailField = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 
 const SENSITIVE_FIELD_PATTERN =
   /\b(password|passcode|username|user\s*name|national\s*insurance|ni\s*number|passport|date\s*of\s*birth|dob|birth\s*date|security\s*question|security\s*answer)\b/i;
@@ -28,7 +28,7 @@ const FIELD_RULES: Array<{ key: DetailKey; label: string; pattern: RegExp }> = [
   { key: "fullName", label: "full name", pattern: /\bfull\s*name\b|\bname\s*as\s*(shown|it appears)\b/i },
   { key: "email", label: "email", pattern: /\be[-\s]?mail\b/i },
   { key: "phone", label: "phone", pattern: /\b(phone|telephone|mobile|contact\s*number|tel)\b/i },
-  { key: "address", label: "address", pattern: /\b(address|street|address\s*line)\b/i },
+  { key: "streetAddress", label: "street address", pattern: /\b(address|street|address\s*line)\b/i },
   { key: "city", label: "city", pattern: /\b(city|town)\b/i },
   { key: "postcode", label: "postcode", pattern: /\b(post|zip)\s*code\b|\bpostcode\b/i },
   { key: "country", label: "country", pattern: /\bcountry\b/i },
@@ -39,7 +39,12 @@ function clean(value: string | null | undefined): string {
 }
 
 function isVisible(field: DetailField): boolean {
-  if (field.disabled || field.readOnly || field.hidden || field.getAttribute("aria-hidden") === "true") return false;
+  if (
+    field.disabled ||
+    ("readOnly" in field && field.readOnly) ||
+    field.hidden ||
+    field.getAttribute("aria-hidden") === "true"
+  ) return false;
   const style = field.ownerDocument.defaultView?.getComputedStyle(field);
   return style?.display !== "none" && style?.visibility !== "hidden";
 }
@@ -77,7 +82,7 @@ function findRule(field: DetailField): { key: DetailKey; label: string } | null 
   if (autocomplete === "name") return { key: "fullName", label: "full name" };
   if (autocomplete === "email") return { key: "email", label: "email" };
   if (autocomplete === "tel") return { key: "phone", label: "phone" };
-  if (autocomplete === "street-address") return { key: "address", label: "address" };
+  if (autocomplete === "street-address") return { key: "streetAddress", label: "street address" };
   if (autocomplete === "address-level2") return { key: "city", label: "city" };
   if (autocomplete === "postal-code") return { key: "postcode", label: "postcode" };
   if (autocomplete === "country" || autocomplete === "country-name") return { key: "country", label: "country" };
@@ -94,6 +99,15 @@ function valueFor(profile: CandidateProfile, key: DetailKey): string {
   return clean(profile[key]);
 }
 
+function ukSelectValue(field: HTMLSelectElement, candidateValue: string): string | null {
+  if (!/^(united kingdom|uk|gb|gbr)$/i.test(clean(candidateValue))) return null;
+  const match = Array.from(field.options).find((option) => {
+    const optionText = clean(`${option.value} ${option.textContent}`).toLowerCase();
+    return /(^|\s)(united kingdom|uk|gb|gbr)(\s|$)/i.test(optionText);
+  });
+  return match?.value ?? null;
+}
+
 export function prefillPersonalDetails(
   profile: CandidateProfile,
   doc: Document = document,
@@ -103,7 +117,7 @@ export function prefillPersonalDetails(
   const skipped: string[] = [];
   const seenFields = new Set<DetailKey>();
 
-  const fields = Array.from(doc.querySelectorAll<DetailField>("input, textarea"));
+  const fields = Array.from(doc.querySelectorAll<DetailField>("input, textarea, select"));
   for (const field of fields) {
     if (!isVisible(field)) continue;
     if (field instanceof HTMLInputElement && ["hidden", "password", "file", "submit", "button", "checkbox", "radio"].includes(field.type)) {
@@ -128,7 +142,17 @@ export function prefillPersonalDetails(
       continue;
     }
 
-    field.value = candidateValue;
+    if (field instanceof HTMLSelectElement) {
+      if (rule.key !== "country") continue;
+      const selectValue = ukSelectValue(field, candidateValue);
+      if (!selectValue) {
+        missing.add(rule.label);
+        continue;
+      }
+      field.value = selectValue;
+    } else {
+      field.value = candidateValue;
+    }
     field.dispatchEvent(new Event("input", { bubbles: true }));
     field.dispatchEvent(new Event("change", { bubbles: true }));
     filled.push(rule.label);

@@ -3439,6 +3439,26 @@ components:
           type: string
           nullable: true
           description: Free-text notes the candidate wants employers to see
+        phone:
+          type: string
+          nullable: true
+          description: Candidate contact phone number for application-form prefill
+        streetAddress:
+          type: string
+          nullable: true
+          description: Candidate street address for application-form prefill
+        city:
+          type: string
+          nullable: true
+          description: Candidate town or city for application-form prefill
+        postcode:
+          type: string
+          nullable: true
+          description: Candidate postcode for application-form prefill
+        country:
+          type: string
+          nullable: true
+          description: Candidate country for application-form prefill
         jobsageEmail:
           type: string
           nullable: true
@@ -3524,6 +3544,21 @@ components:
           items:
             type: string
         additionalNotes:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        streetAddress:
+          type: string
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        postcode:
+          type: string
+          nullable: true
+        country:
           type: string
           nullable: true
 

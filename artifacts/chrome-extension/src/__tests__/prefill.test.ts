@@ -39,6 +39,25 @@ describe("prefillPersonalDetails", () => {
     expect((document.getElementById("name") as HTMLInputElement).value).toBe("");
     expect(result.filled).toEqual([]);
   });
+
+  it("preserves typed contact details and selects only a clear UK country option", () => {
+    document.body.innerHTML = `
+      <label for="street">Street address</label><input id="street">
+      <label for="country">Country</label>
+      <select id="country"><option value="">Choose</option><option value="GB">United Kingdom</option><option value="IE">Ireland</option></select>
+      <label for="typed">City</label><input id="typed" value="Already typed">
+    `;
+    const result = prefillPersonalDetails({
+      streetAddress: "10 Example Road",
+      city: "Leeds",
+      country: "United Kingdom",
+    });
+
+    expect((document.getElementById("street") as HTMLInputElement).value).toBe("10 Example Road");
+    expect((document.getElementById("country") as HTMLSelectElement).value).toBe("GB");
+    expect((document.getElementById("typed") as HTMLInputElement).value).toBe("Already typed");
+    expect(result.filled).toEqual(expect.arrayContaining(["street address", "country"]));
+  });
 });
 
 describe("findCvFileInput", () => {
@@ -71,6 +90,14 @@ describe("findCvFileInput", () => {
       <input id="hidden-cv" type="file" style="display:none">
     `;
     expect(findCvFileInput()?.id).toBe("hidden-cv");
+  });
+
+  it("recognises a shared CV / awards / certificates upload control", () => {
+    document.body.innerHTML = `
+      <label for="application-documents">CV / Awards / Certificates</label>
+      <input id="application-documents" type="file" accept=".pdf,.doc,.docx">
+    `;
+    expect(findCvFileInput()?.id).toBe("application-documents");
   });
 
   it("rejects cover-letter and generic PDF upload inputs without a CV label", () => {

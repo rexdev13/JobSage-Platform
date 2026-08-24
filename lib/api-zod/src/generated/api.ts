@@ -258,6 +258,26 @@ export const GetMyProfileResponse = zod.object({
     .string()
     .nullish()
     .describe("Free-text notes the candidate wants employers to see"),
+  phone: zod
+    .string()
+    .nullish()
+    .describe("Candidate contact phone number for application-form prefill"),
+  streetAddress: zod
+    .string()
+    .nullish()
+    .describe("Candidate street address for application-form prefill"),
+  city: zod
+    .string()
+    .nullish()
+    .describe("Candidate town or city for application-form prefill"),
+  postcode: zod
+    .string()
+    .nullish()
+    .describe("Candidate postcode for application-form prefill"),
+  country: zod
+    .string()
+    .nullish()
+    .describe("Candidate country for application-form prefill"),
   jobsageEmail: zod
     .string()
     .nullish()
@@ -302,6 +322,11 @@ export const UpsertMyProfileBody = zod.object({
   profilePhotoKey: zod.string().nullish(),
   languages: zod.array(zod.string()).nullish(),
   additionalNotes: zod.string().nullish(),
+  phone: zod.string().nullish(),
+  streetAddress: zod.string().nullish(),
+  city: zod.string().nullish(),
+  postcode: zod.string().nullish(),
+  country: zod.string().nullish(),
 });
 
 export const UpsertMyProfileResponse = zod.object({
@@ -346,6 +371,26 @@ export const UpsertMyProfileResponse = zod.object({
     .string()
     .nullish()
     .describe("Free-text notes the candidate wants employers to see"),
+  phone: zod
+    .string()
+    .nullish()
+    .describe("Candidate contact phone number for application-form prefill"),
+  streetAddress: zod
+    .string()
+    .nullish()
+    .describe("Candidate street address for application-form prefill"),
+  city: zod
+    .string()
+    .nullish()
+    .describe("Candidate town or city for application-form prefill"),
+  postcode: zod
+    .string()
+    .nullish()
+    .describe("Candidate postcode for application-form prefill"),
+  country: zod
+    .string()
+    .nullish()
+    .describe("Candidate country for application-form prefill"),
   jobsageEmail: zod
     .string()
     .nullish()
@@ -680,6 +725,11 @@ export const RunRegressionTestBody = zod.object({
         profilePhotoKey: zod.string().nullish(),
         languages: zod.array(zod.string()).nullish(),
         additionalNotes: zod.string().nullish(),
+        phone: zod.string().nullish(),
+        streetAddress: zod.string().nullish(),
+        city: zod.string().nullish(),
+        postcode: zod.string().nullish(),
+        country: zod.string().nullish(),
       }),
       expectedOutcome: zod.enum(["eligible", "not_eligible", "ineligible"]),
     }),
@@ -1612,6 +1662,28 @@ export const GetReviewCaseResponse = zod.object({
         .string()
         .nullish()
         .describe("Free-text notes the candidate wants employers to see"),
+      phone: zod
+        .string()
+        .nullish()
+        .describe(
+          "Candidate contact phone number for application-form prefill",
+        ),
+      streetAddress: zod
+        .string()
+        .nullish()
+        .describe("Candidate street address for application-form prefill"),
+      city: zod
+        .string()
+        .nullish()
+        .describe("Candidate town or city for application-form prefill"),
+      postcode: zod
+        .string()
+        .nullish()
+        .describe("Candidate postcode for application-form prefill"),
+      country: zod
+        .string()
+        .nullish()
+        .describe("Candidate country for application-form prefill"),
       jobsageEmail: zod
         .string()
         .nullish()

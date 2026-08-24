@@ -55,6 +55,11 @@ type ProfileData = {
   residencyStatus: string;
   requiresSponsorship: boolean;
   preferredRegion: string[];
+  phone: string;
+  streetAddress: string;
+  city: string;
+  postcode: string;
+  country: string;
 };
 
 const FORM_STEPS = [
@@ -90,6 +95,11 @@ export default function OnboardingPage() {
     residencyStatus: "",
     requiresSponsorship: false,
     preferredRegion: [],
+    phone: "",
+    streetAddress: "",
+    city: "",
+    postcode: "",
+    country: "United Kingdom",
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -126,6 +136,11 @@ export default function OnboardingPage() {
           residencyStatus: data.residencyStatus,
           requiresSponsorship: data.requiresSponsorship,
           preferredRegion: data.preferredRegion.length > 0 ? data.preferredRegion : undefined,
+          phone: data.phone.trim(),
+          streetAddress: data.streetAddress.trim(),
+          city: data.city.trim(),
+          postcode: data.postcode.trim(),
+          country: data.country.trim(),
         },
       });
       queryClient.invalidateQueries({ queryKey: getGetMyProfileQueryKey() });
@@ -139,7 +154,7 @@ export default function OnboardingPage() {
   const isStep1Valid = data.profession !== "";
   const isStep2Valid = data.qualificationCountry !== "" && data.qualificationType !== "" && data.qualificationYear !== "";
   const isStep3Valid = data.experienceYears !== "";
-  const isStep4Valid = data.residencyStatus !== "";
+  const isStep4Valid = data.residencyStatus !== "" && data.phone.trim() !== "" && data.streetAddress.trim() !== "" && data.city.trim() !== "" && data.postcode.trim() !== "" && data.country.trim() !== "";
 
   return (
     <div className="min-h-screen bg-background py-10 px-4 flex flex-col items-center">
@@ -354,6 +369,34 @@ export default function OnboardingPage() {
                           {region}
                         </label>
                       ))}
+                    </div>
+                  </div>
+                  <div className="border-t border-border pt-5 space-y-4">
+                    <div>
+                      <h3 className="font-semibold text-foreground">Contact details</h3>
+                      <p className="text-xs text-muted-foreground mt-1">Used to prefill safe contact fields on application forms. You can update these any time in your profile.</p>
+                    </div>
+                    <div>
+                      <Label htmlFor="phone">Phone number <span className="text-destructive">*</span></Label>
+                      <Input name="phone" type="tel" autoComplete="tel" value={data.phone} onChange={handleChange} required />
+                    </div>
+                    <div>
+                      <Label htmlFor="streetAddress">Street address <span className="text-destructive">*</span></Label>
+                      <Input name="streetAddress" autoComplete="street-address" value={data.streetAddress} onChange={handleChange} required />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="city">City / town <span className="text-destructive">*</span></Label>
+                        <Input name="city" autoComplete="address-level2" value={data.city} onChange={handleChange} required />
+                      </div>
+                      <div>
+                        <Label htmlFor="postcode">Postcode <span className="text-destructive">*</span></Label>
+                        <Input name="postcode" autoComplete="postal-code" value={data.postcode} onChange={handleChange} required />
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="country">Country <span className="text-destructive">*</span></Label>
+                      <Input name="country" autoComplete="country-name" value={data.country} onChange={handleChange} required />
                     </div>
                   </div>
                   {submitError && (

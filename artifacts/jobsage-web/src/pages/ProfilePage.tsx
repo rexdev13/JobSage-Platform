@@ -117,6 +117,11 @@ type ProfileFormData = {
   preferredStartDate: string;
   languages: string;
   additionalNotes: string;
+  phone: string;
+  streetAddress: string;
+  city: string;
+  postcode: string;
+  country: string;
   profilePhotoKey: string;
 };
 
@@ -310,6 +315,11 @@ export default function ProfilePage() {
     preferredStartDate: "",
     languages: "",
     additionalNotes: "",
+    phone: "",
+    streetAddress: "",
+    city: "",
+    postcode: "",
+    country: "United Kingdom",
     profilePhotoKey: "",
   });
 
@@ -357,6 +367,11 @@ export default function ProfilePage() {
         preferredStartDate: (p.preferredStartDate as string) ?? "",
         languages: languagesStr,
         additionalNotes: (p.additionalNotes as string) ?? "",
+        phone: (p.phone as string) ?? "",
+        streetAddress: (p.streetAddress as string) ?? "",
+        city: (p.city as string) ?? "",
+        postcode: (p.postcode as string) ?? "",
+        country: (p.country as string) || "United Kingdom",
         profilePhotoKey: (p.profilePhotoKey as string) ?? "",
       });
     }
@@ -395,6 +410,11 @@ export default function ProfilePage() {
         ? fd.languages.split(",").map((l) => l.trim()).filter(Boolean)
         : undefined,
       additionalNotes: fd.additionalNotes || undefined,
+      phone: fd.phone.trim() || undefined,
+      streetAddress: fd.streetAddress.trim() || undefined,
+      city: fd.city.trim() || undefined,
+      postcode: fd.postcode.trim() || undefined,
+      country: fd.country.trim() || undefined,
     };
   }, []);
 
@@ -471,6 +491,10 @@ export default function ProfilePage() {
     }
     if (!formData.residencyStatus) {
       toast({ title: "Validation Error", description: "Residency/visa status is required", variant: "destructive" });
+      return;
+    }
+    if (!formData.phone.trim() || !formData.streetAddress.trim() || !formData.city.trim() || !formData.postcode.trim() || !formData.country.trim()) {
+      toast({ title: "Validation Error", description: "Phone and complete contact address are required for Smart Apply.", variant: "destructive" });
       return;
     }
     if (formData.residencyStatus === "Other" && !formData.residencyStatusOther.trim()) {
@@ -948,6 +972,36 @@ export default function ProfilePage() {
                   Select one or more UK regions where you'd prefer to work. Leave all unchecked if
                   you're open to any UK location.
                 </FieldHint>
+              </div>
+            </div>
+          </Card>
+
+          {/* Contact Details */}
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold mb-2 border-b pb-4">Contact Details</h3>
+            <p className="text-xs text-muted-foreground mb-5">
+              Used only to prefill safe contact fields on application forms. JOBSAGE never fills passwords, identity documents, declarations, or payment details.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <Label>Phone number *</Label>
+                <Input name="phone" type="tel" autoComplete="tel" value={formData.phone} onChange={handleChange} onBlur={handleBlur} required />
+              </div>
+              <div>
+                <Label>Street address *</Label>
+                <Input name="streetAddress" autoComplete="street-address" value={formData.streetAddress} onChange={handleChange} onBlur={handleBlur} required />
+              </div>
+              <div>
+                <Label>City / town *</Label>
+                <Input name="city" autoComplete="address-level2" value={formData.city} onChange={handleChange} onBlur={handleBlur} required />
+              </div>
+              <div>
+                <Label>Postcode *</Label>
+                <Input name="postcode" autoComplete="postal-code" value={formData.postcode} onChange={handleChange} onBlur={handleBlur} required />
+              </div>
+              <div>
+                <Label>Country *</Label>
+                <Input name="country" autoComplete="country-name" value={formData.country} onChange={handleChange} onBlur={handleBlur} required />
               </div>
             </div>
           </Card>
