@@ -14,6 +14,9 @@ import {
   employerProfilesTable,
   candidateMatchScoresTable,
   matchDismissalsTable,
+  vacancyFavoritesTable,
+  sponsorLicenceBookmarksTable,
+  sponsorLicencesTable,
   smartApplyDraftsTable,
   sponsorLicenceVacancyScoresTable,
   roleGapAnalysesTable,
@@ -43,6 +46,11 @@ import {
   type SafeguardingAssessment,
 } from "../lib/safeguarding";
 import { normalizeRegion, normalizeRegionList, regionsOverlap } from "../lib/regionMatching";
+import {
+  calculateBehaviouralRanking,
+  normalizeBehaviouralEmployer,
+  type BehaviouralEngagement,
+} from "../lib/behavioralRanking";
 
 const router: IRouter = Router();
 
@@ -142,6 +150,48 @@ function deriveMatchReason(
     return `Lower registration bar — accessible while you complete your UK journey`;
   }
   return `Matched to your${specialtyHint} profession and registration pathway`;
+}
+
+type BehaviouralRoleSource = {
+  id: number;
+  title: string;
+  employer: string;
+  regulator: string;
+};
+
+function buildBehaviouralSignals(
+  favourites: Array<{ vacancyId: number }>,
+  sponsorBookmarks: Array<{ organisationName: string }>,
+  applications: Array<{
+    roleId: number;
+    status: string;
+    jobTitle: string | null;
+    companyName: string | null;
+    appliedAt: Date | null;
+  }>,
+  roleCatalog: readonly BehaviouralRoleSource[],
+) {
+  const rolesById = new Map(roleCatalog.map((role) => [role.id, role]));
+  const favouriteRoleIds = new Set(favourites.map((favourite) => favourite.vacancyId));
+  const applicationReferences: BehaviouralEngagement[] = applications.map((application) => {
+    const savedRole = rolesById.get(application.roleId);
+    return {
+      roleId: application.roleId,
+      title: application.jobTitle ?? savedRole?.title ?? null,
+      employer: application.companyName ?? savedRole?.employer ?? null,
+      regulator: savedRole?.regulator ?? null,
+      kind: application.status === "link_clicked" ? "link_clicked" : "applied",
+      occurredAt: application.appliedAt,
+    };
+  });
+
+  return {
+    favouriteRoleIds,
+    bookmarkedEmployers: new Set(
+      sponsorBookmarks.map((bookmark) => normalizeBehaviouralEmployer(bookmark.organisationName)),
+    ),
+    engagements: applicationReferences,
+  };
 }
 
 function computeMatchScore(
@@ -646,11 +696,17 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
   }
 
   const cutoff = new Date(Date.now() - SCORE_CACHE_TTL_MS);
-  const [completedApplications, cachedScores, sponsorVacancyScores] = await Promise.all([
+  const [applications, cachedScores, sponsorVacancyScores, favourites, sponsorBookmarks] = await Promise.all([
     db
-      .select({ roleId: applicationsTable.roleId, status: applicationsTable.status })
+      .select({
+        roleId: applicationsTable.roleId,
+        status: applicationsTable.status,
+        jobTitle: applicationsTable.jobTitle,
+        companyName: applicationsTable.companyName,
+        appliedAt: applicationsTable.appliedAt,
+      })
       .from(applicationsTable)
-      .where(and(eq(applicationsTable.userId, userId), ne(applicationsTable.status, "link_clicked"))),
+      .where(eq(applicationsTable.userId, userId)),
     db
       .select()
       .from(candidateMatchScoresTable)
@@ -669,9 +725,18 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
       })
       .from(sponsorLicenceVacancyScoresTable)
       .where(eq(sponsorLicenceVacancyScoresTable.userId, userId)),
+    db
+      .select({ vacancyId: vacancyFavoritesTable.vacancyId })
+      .from(vacancyFavoritesTable)
+      .where(eq(vacancyFavoritesTable.userId, userId)),
+    db
+      .select({ organisationName: sponsorLicencesTable.organisationName })
+      .from(sponsorLicenceBookmarksTable)
+      .innerJoin(sponsorLicencesTable, eq(sponsorLicenceBookmarksTable.sponsorLicenceId, sponsorLicencesTable.id))
+      .where(eq(sponsorLicenceBookmarksTable.userId, userId)),
   ]);
   const completedApplicationRoleIds = new Set(
-    completedApplications
+    applications
       .filter((application) => application.status !== "link_clicked")
       .map((application) => application.roleId),
   );
@@ -741,6 +806,7 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
     .where(eq(matchDismissalsTable.userId, userId));
   const dismissedRoleIds = dismissals.map((d) => d.roleId);
   const dismissedSet = new Set(dismissedRoleIds);
+  const behaviouralSignals = buildBehaviouralSignals(favourites, sponsorBookmarks, applications, regulatorRoles);
 
   // Career profile focus-area boost (same logic as /opportunities/recommended)
   const focusAreaWords = activeCareerProfile?.focusArea
@@ -783,6 +849,7 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
         boost > 0 && effectiveSpecialty
           ? `${baseExplanation} Aligned with your career focus: ${effectiveSpecialty}.`
           : baseExplanation;
+      const behaviouralRanking = calculateBehaviouralRanking(r, behaviouralSignals);
 
       return {
         roleId: r.id,
@@ -800,8 +867,9 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
         contactEmail: r.contactEmail ?? null,
         contactPhone: r.contactPhone ?? null,
         contactWebsite: r.contactWebsite ?? null,
-        aiScore,
+        aiScore: Math.min(100, aiScore + behaviouralRanking.boost),
         aiExplanation,
+        matchReason: behaviouralRanking.reason,
         isEligible,
         safeguarding,
         eligibilityGaps,
@@ -897,13 +965,32 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
     });
 
   // Fetch roles already applied to via both standard and speculative paths
-  const [appliedRows, speculativeRows] = await Promise.all([
-    db.select({ roleId: applicationsTable.roleId, status: applicationsTable.status })
+  const [appliedRows, speculativeRows, favourites, sponsorBookmarks, dismissals] = await Promise.all([
+    db.select({
+      roleId: applicationsTable.roleId,
+      status: applicationsTable.status,
+      jobTitle: applicationsTable.jobTitle,
+      companyName: applicationsTable.companyName,
+      appliedAt: applicationsTable.appliedAt,
+    })
       .from(applicationsTable)
-      .where(and(eq(applicationsTable.userId, userId), ne(applicationsTable.status, "link_clicked"))),
+      .where(eq(applicationsTable.userId, userId)),
     db.select({ companyName: speculativeApplicationsTable.companyName })
       .from(speculativeApplicationsTable)
       .where(eq(speculativeApplicationsTable.userId, userId)),
+    db
+      .select({ vacancyId: vacancyFavoritesTable.vacancyId })
+      .from(vacancyFavoritesTable)
+      .where(eq(vacancyFavoritesTable.userId, userId)),
+    db
+      .select({ organisationName: sponsorLicencesTable.organisationName })
+      .from(sponsorLicenceBookmarksTable)
+      .innerJoin(sponsorLicencesTable, eq(sponsorLicenceBookmarksTable.sponsorLicenceId, sponsorLicencesTable.id))
+      .where(eq(sponsorLicenceBookmarksTable.userId, userId)),
+    db
+      .select({ roleId: matchDismissalsTable.roleId })
+      .from(matchDismissalsTable)
+      .where(eq(matchDismissalsTable.userId, userId)),
   ]);
   const appliedIds = new Set(
     appliedRows
@@ -912,10 +999,14 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
       .filter(Boolean) as number[],
   );
   const speculativeCompanies = new Set(speculativeRows.map((s) => s.companyName.toLowerCase()));
+  const dismissedRoleIds = new Set(dismissals.map((dismissal) => dismissal.roleId));
+  // Preserve role identity before completed applications are excluded so their
+  // title, employer, and regulator can still guide similar future roles.
+  const behaviouralRoleCatalog = [...allRoles, ...employerJobsAsRoles];
 
   const regulatorRoles = [
     ...allRoles
-      .filter((r) => r.regulator === regulator && !appliedIds.has(r.id) && !speculativeCompanies.has(r.employer.toLowerCase()))
+      .filter((r) => r.regulator === regulator && !appliedIds.has(r.id) && !dismissedRoleIds.has(r.id) && !speculativeCompanies.has(r.employer.toLowerCase()))
       .map((r) => {
         const link = presentApplyLink(r.applyUrl, r.liveness, r.lastVerifiedAt);
         return {
@@ -933,7 +1024,7 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
           contactWebsite: r.contactWebsite ?? null,
         };
       }),
-    ...employerJobsAsRoles.filter((r) => !appliedIds.has(r.id) && !speculativeCompanies.has(r.employer.toLowerCase())),
+    ...employerJobsAsRoles.filter((r) => !appliedIds.has(r.id) && !dismissedRoleIds.has(r.id) && !speculativeCompanies.has(r.employer.toLowerCase())),
   ];
 
   if (regulatorRoles.length === 0) {
@@ -948,6 +1039,7 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
     .from(candidateMatchScoresTable)
     .where(and(eq(candidateMatchScoresTable.userId, userId), gte(candidateMatchScoresTable.scoredAt, cutoff)));
   const scoreMap = new Map(cachedScores.map((s) => [s.roleId, s.score]));
+  const behaviouralSignals = buildBehaviouralSignals(favourites, sponsorBookmarks, appliedRows, behaviouralRoleCatalog);
 
   const focusAreaLower = activeCareerProfile?.focusArea?.toLowerCase() ?? null;
 
@@ -970,9 +1062,17 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
       const matchCount = words.filter((w: string) => w.length > 3 && titleLower.includes(w)).length;
       if (matchCount > 0) matchScore = Math.min(100, matchScore + matchCount * 8);
     }
+    const behaviouralRanking = calculateBehaviouralRanking(r, behaviouralSignals);
     const effectiveSpecialty = activeCareerProfile?.focusArea ?? profile.specialty;
-    const matchReason = deriveMatchReason(r, isEligible, profile.requiresSponsorship, effectiveSpecialty);
-    return { ...r, matchScore, isEligible, safeguarding, matchReason, careerProfileId: activeCareerProfile?.id ?? null };
+    const matchReason = behaviouralRanking.reason ?? deriveMatchReason(r, isEligible, profile.requiresSponsorship, effectiveSpecialty);
+    return {
+      ...r,
+      matchScore: Math.min(100, matchScore + behaviouralRanking.boost),
+      isEligible,
+      safeguarding,
+      matchReason,
+      careerProfileId: activeCareerProfile?.id ?? null,
+    };
   });
 
   scored.sort((a, b) => {

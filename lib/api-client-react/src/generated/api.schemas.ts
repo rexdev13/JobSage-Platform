@@ -1980,6 +1980,8 @@ export interface CandidateMatchItem {
   aiScore: number;
   /** One-line AI explanation of the match */
   aiExplanation: string;
+  /** Short explanation when recent candidate behaviour affected the ranking */
+  matchReason?: string | null;
   isEligible: boolean;
   safeguarding: SafeguardingAssessment;
   eligibilityGaps?: string[];

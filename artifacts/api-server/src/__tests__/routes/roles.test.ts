@@ -45,6 +45,8 @@ vi.mock("@workspace/db", () => {
     employerProfilesTable: {},
     candidateMatchScoresTable: {},
     matchDismissalsTable: {},
+    vacancyFavoritesTable: {},
+    sponsorLicenceBookmarksTable: {},
     careerProfilesTable: {},
     auditEventsTable: {},
     sponsorLicenceVacanciesTable: {},
@@ -514,8 +516,8 @@ describe("GET /roles/my-matches — incremental scoring with sponsor vacancies",
    *   4.   rolesTable
    *   5.   jobListingsTable
    *   6.   sponsor vacancies join
-   *   7-9. Promise.all: applicationsTable, candidateMatchScoresTable, sponsorLicenceVacancyScoresTable
-   *   10.  matchDismissalsTable
+   *   7-11. Promise.all: applications, cached scores, sponsor scores, favourites, sponsor bookmarks
+   *   12.  matchDismissalsTable
    */
   function pushMyMatchesDb(
     roles: any[],
@@ -523,6 +525,9 @@ describe("GET /roles/my-matches — incremental scoring with sponsor vacancies",
     cachedScores: any[],
     sponsorScores: any[],
     completedApplications: any[] = [],
+    favourites: any[] = [],
+    sponsorBookmarks: any[] = [],
+    dismissals: any[] = [],
   ) {
     dbResults.push([{
       userId: "admin-1", profession: "doctor", specialty: "cardiology",
@@ -538,7 +543,9 @@ describe("GET /roles/my-matches — incremental scoring with sponsor vacancies",
     dbResults.push(completedApplications); // applicationsTable
     dbResults.push(cachedScores);     // candidateMatchScoresTable
     dbResults.push(sponsorScores);    // sponsorLicenceVacancyScoresTable
-    dbResults.push([]);               // matchDismissalsTable
+    dbResults.push(favourites);       // vacancyFavoritesTable
+    dbResults.push(sponsorBookmarks); // sponsor licence bookmarks join
+    dbResults.push(dismissals);       // matchDismissalsTable
   }
 
   function makeRole(id: number) {
@@ -622,6 +629,35 @@ describe("GET /roles/my-matches — incremental scoring with sponsor vacancies",
     expect(res.body.matches.map((match: any) => match.roleId)).toEqual([73]);
   });
 
+  it("boosts favourites with an explainable reason and excludes dismissed roles", async () => {
+    const lowerScoreFavourite = makeRole(74);
+    const dismissedRole = makeRole(75);
+    pushMyMatchesDb(
+      [dismissedRole, lowerScoreFavourite],
+      [],
+      [
+        { roleId: 75, score: 90, aiExplanation: "Strong fit", scoredAt: new Date() },
+        { roleId: 74, score: 75, aiExplanation: "Good fit", scoredAt: new Date() },
+      ],
+      [],
+      [],
+      [{ vacancyId: 74 }],
+      [],
+      [{ roleId: 75 }],
+    );
+
+    const app = buildApp();
+    const res = await request(app).get("/roles/my-matches").set("Authorization", AUTH);
+
+    expect(res.status).toBe(200);
+    expect(res.body.matches).toHaveLength(1);
+    expect(res.body.matches[0]).toMatchObject({
+      roleId: 74,
+      matchReason: "You favourited this opportunity",
+    });
+    expect(res.body.matches[0].aiScore).toBeGreaterThan(75);
+  });
+
   it("paginates the merged list", async () => {
     const vacs = Array.from({ length: 5 }, (_, i) => makeSponsorVacancyRow(100 + i, "Consultant Physician " + i));
     pushMyMatchesDb([], vacs, [], []);
@@ -631,6 +667,92 @@ describe("GET /roles/my-matches — incremental scoring with sponsor vacancies",
     expect(res.status).toBe(200);
     expect(res.body.matches.length).toBe(2);
     expect(res.body.totalCount).toBe(5);
+  });
+});
+
+describe("GET /opportunities/recommended — behavioural ranking", () => {
+  beforeEach(() => { dbResults.length = 0; vi.clearAllMocks(); });
+
+  it("excludes dismissals and boosts a favourite without replacing its cached score", async () => {
+    const dismissed = {
+      id: 80, title: "Consultant Cardiologist", employer: "NHS Trust", location: "London",
+      regulator: "GMC", sponsorshipOffered: true, requiredRegistration: "Full GMC Registration",
+      active: true, importedAt: new Date(), importedBy: "admin",
+      applyUrl: "https://jobs.nhs.uk/vacancy/80", liveness: "live",
+      lastVerifiedAt: null, livenessReason: null,
+      contactEmail: null, contactPhone: null, contactWebsite: null,
+    };
+    const favourite = { ...dismissed, id: 81, title: "Cardiology Specialty Doctor" };
+    dbResults.push([{
+      userId: "admin-1", profession: "doctor", specialty: "cardiology",
+      registrationStatus: "full_registration", licenceReady: null,
+      requiresSponsorship: false, preferredRegion: null,
+    }]);
+    dbResults.push([]); // career profile
+    dbResults.push([{ outcome: "eligible" }]); // decision
+    dbResults.push([dismissed, favourite]); // roles
+    dbResults.push([]); // employer jobs
+    dbResults.push([]); // applications
+    dbResults.push([]); // speculative applications
+    dbResults.push([{ vacancyId: 81 }]); // favourites
+    dbResults.push([]); // sponsor bookmarks
+    dbResults.push([{ roleId: 80 }]); // dismissals
+    dbResults.push([{ roleId: 81, score: 70, scoredAt: new Date() }]); // cached scores
+
+    const app = buildApp();
+    const res = await request(app).get("/opportunities/recommended").set("Authorization", AUTH);
+
+    expect(res.status).toBe(200);
+    expect(res.body.roles).toHaveLength(1);
+    expect(res.body.roles[0]).toMatchObject({
+      id: 81,
+      matchReason: "You favourited this opportunity",
+    });
+    expect(res.body.roles[0].matchScore).toBeGreaterThan(70);
+  });
+
+  it("uses a completed application's regulator as a similarity signal for future roles", async () => {
+    const completedRole = {
+      id: 82, title: "Medical Administrator", employer: "West Trust", location: "London",
+      regulator: "GMC", sponsorshipOffered: false, requiredRegistration: "Full GMC Registration",
+      active: true, importedAt: new Date(), importedBy: "admin",
+      applyUrl: "https://jobs.nhs.uk/vacancy/82", liveness: "live",
+      lastVerifiedAt: null, livenessReason: null,
+      contactEmail: null, contactPhone: null, contactWebsite: null,
+    };
+    const futureRole = { ...completedRole, id: 83, title: "Paediatrician", employer: "East Trust" };
+    dbResults.push([{
+      userId: "admin-1", profession: "doctor", specialty: null,
+      registrationStatus: "full_registration", licenceReady: null,
+      requiresSponsorship: false, preferredRegion: null,
+    }]);
+    dbResults.push([]); // career profile
+    dbResults.push([{ outcome: "eligible" }]); // decision
+    dbResults.push([completedRole, futureRole]); // roles
+    dbResults.push([]); // employer jobs
+    dbResults.push([{
+      roleId: 82,
+      status: "applied",
+      jobTitle: null,
+      companyName: null,
+      appliedAt: new Date(),
+    }]);
+    dbResults.push([]); // speculative applications
+    dbResults.push([]); // favourites
+    dbResults.push([]); // sponsor bookmarks
+    dbResults.push([]); // dismissals
+    dbResults.push([{ roleId: 83, score: 70, scoredAt: new Date() }]); // cached scores
+
+    const app = buildApp();
+    const res = await request(app).get("/opportunities/recommended").set("Authorization", AUTH);
+
+    expect(res.status).toBe(200);
+    expect(res.body.roles).toHaveLength(1);
+    expect(res.body.roles[0]).toMatchObject({
+      id: 83,
+      matchScore: 73,
+      matchReason: "Similar to roles in your profession",
+    });
   });
 });
 
