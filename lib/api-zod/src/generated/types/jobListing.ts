@@ -5,8 +5,10 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { DbsClearanceLevel } from "./dbsClearanceLevel";
 import type { JobListingRegulator } from "./jobListingRegulator";
 import type { JobListingStatus } from "./jobListingStatus";
+import type { SafeguardingTrainingLevel } from "./safeguardingTrainingLevel";
 
 export interface JobListing {
   id: number;
@@ -21,6 +23,8 @@ export interface JobListing {
   status: JobListingStatus;
   regulator: JobListingRegulator;
   requiredRegistration: string;
+  requiredDbsClearanceLevel?: DbsClearanceLevel | null;
+  requiredSafeguardingLevel?: SafeguardingTrainingLevel | null;
   targetProfessions?: string[];
   targetRegions?: string[];
   createdAt: Date;

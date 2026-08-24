@@ -92,6 +92,12 @@ export const sponsorLicenceVacanciesTable = pgTable(
     salary: text("salary"),
     url: text("url"),
     description: text("description"),
+    requiredDbsClearanceLevel: varchar("required_dbs_clearance_level", {
+      enum: ["unknown", "none", "basic", "standard", "enhanced"],
+    }),
+    requiredSafeguardingLevel: varchar("required_safeguarding_level", {
+      enum: ["unknown", "none", "level_1", "level_2"],
+    }),
     postedDate: text("posted_date"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     // Liveness tracking: background sweep + click-time checker keep these current.

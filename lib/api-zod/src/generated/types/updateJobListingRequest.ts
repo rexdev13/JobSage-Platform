@@ -5,6 +5,8 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { DbsClearanceLevel } from "./dbsClearanceLevel";
+import type { SafeguardingTrainingLevel } from "./safeguardingTrainingLevel";
 import type { UpdateJobListingRequestRegulator } from "./updateJobListingRequestRegulator";
 
 export interface UpdateJobListingRequest {
@@ -17,6 +19,8 @@ export interface UpdateJobListingRequest {
   description?: string;
   regulator?: UpdateJobListingRequestRegulator;
   requiredRegistration?: string;
+  requiredDbsClearanceLevel?: DbsClearanceLevel | null;
+  requiredSafeguardingLevel?: SafeguardingTrainingLevel | null;
   targetProfessions?: string[];
   targetRegions?: string[];
   /** Direct application URL for this role posting */

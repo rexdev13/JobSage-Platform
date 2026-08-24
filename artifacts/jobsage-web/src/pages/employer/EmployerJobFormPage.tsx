@@ -61,6 +61,8 @@ type FormState = {
   description: string;
   regulator: string;
   requiredRegistration: string;
+  requiredDbsClearanceLevel: string;
+  requiredSafeguardingLevel: string;
   targetProfessions: string[];
   targetRegions: string[];
   applyUrl: string;
@@ -76,6 +78,8 @@ const EMPTY_FORM: FormState = {
   description: "",
   regulator: "GMC",
   requiredRegistration: "",
+  requiredDbsClearanceLevel: "",
+  requiredSafeguardingLevel: "",
   targetProfessions: [],
   targetRegions: [],
   applyUrl: "",
@@ -113,6 +117,8 @@ export default function EmployerJobFormPage() {
         description: existingJob.description ?? "",
         regulator: existingJob.regulator,
         requiredRegistration: existingJob.requiredRegistration,
+        requiredDbsClearanceLevel: existingJob.requiredDbsClearanceLevel ?? "",
+        requiredSafeguardingLevel: existingJob.requiredSafeguardingLevel ?? "",
         targetProfessions: (existingJob.targetProfessions ?? []) as string[],
         targetRegions: (existingJob.targetRegions ?? []) as string[],
         applyUrl: existingJob.applyUrl ?? "",
@@ -164,6 +170,8 @@ export default function EmployerJobFormPage() {
       description: form.description.trim() || undefined,
       regulator: form.regulator as "GMC" | "NMC" | "HCPC",
       requiredRegistration: form.requiredRegistration.trim(),
+      requiredDbsClearanceLevel: (form.requiredDbsClearanceLevel || null) as CreateJobListingRequest["requiredDbsClearanceLevel"],
+      requiredSafeguardingLevel: (form.requiredSafeguardingLevel || null) as CreateJobListingRequest["requiredSafeguardingLevel"],
       targetProfessions: form.targetProfessions,
       targetRegions: form.targetRegions,
       applyUrl: form.applyUrl.trim() || null,
@@ -381,6 +389,38 @@ export default function EmployerJobFormPage() {
                 {errors.requiredRegistration && <p className="text-xs text-destructive mt-1">{errors.requiredRegistration}</p>}
               </div>
             </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1.5">Stated DBS requirement</label>
+                <select
+                  value={form.requiredDbsClearanceLevel}
+                  onChange={(e) => setForm({ ...form, requiredDbsClearanceLevel: e.target.value })}
+                  className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="">Not stated</option>
+                  <option value="none">None</option>
+                  <option value="basic">Basic DBS</option>
+                  <option value="standard">Standard DBS</option>
+                  <option value="enhanced">Enhanced DBS</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5">Stated safeguarding requirement</label>
+                <select
+                  value={form.requiredSafeguardingLevel}
+                  onChange={(e) => setForm({ ...form, requiredSafeguardingLevel: e.target.value })}
+                  className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="">Not stated</option>
+                  <option value="none">None</option>
+                  <option value="level_1">Level 1</option>
+                  <option value="level_2">Level 2</option>
+                </select>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground -mt-2">
+              Only select requirements explicitly stated for this role. JOBSAGE compares profile details and does not make legal DBS decisions.
+            </p>
           </Card>
 
           {/* Targeted posting */}

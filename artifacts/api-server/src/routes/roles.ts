@@ -36,6 +36,12 @@ import {
   SPONSOR_VACANCY_ID_OFFSET,
 } from "../lib/sponsorVacancyRoles";
 import { openai } from "@workspace/integrations-openai-ai-server";
+import {
+  assessSafeguarding,
+  safeguardingBlocksEligibility,
+  safeguardingGapText,
+  type SafeguardingAssessment,
+} from "../lib/safeguarding";
 
 const router: IRouter = Router();
 
@@ -80,6 +86,8 @@ function employerJobHasContactInfo(row: {
 }
 
 const OPTIONAL_COLUMNS = ["applyUrl", "contactEmail", "contactPhone", "contactWebsite"];
+const VALID_DBS_LEVELS = ["none", "basic", "standard", "enhanced"] as const;
+const VALID_SAFEGUARDING_LEVELS = ["none", "level_1", "level_2"] as const;
 const APPLY_URL_PATTERN = /^https?:\/\/.+/i;
 const VALID_REGULATORS = ["GMC", "NMC", "HCPC"];
 
@@ -144,9 +152,27 @@ function computeMatchScore(
   return Math.min(score, 100);
 }
 
+type ComplianceRole = {
+  requiredDbsClearanceLevel?: "unknown" | "none" | "basic" | "standard" | "enhanced" | null;
+  requiredSafeguardingLevel?: "unknown" | "none" | "level_1" | "level_2" | null;
+};
+
+function getRoleSafeguarding(
+  role: ComplianceRole,
+  profile: Pick<typeof profilesTable.$inferSelect, "dbsClearanceLevel" | "safeguardingTrainingLevel">,
+): SafeguardingAssessment {
+  return assessSafeguarding(profile, {
+    requiredDbsClearanceLevel: role.requiredDbsClearanceLevel ?? null,
+    requiredSafeguardingLevel: role.requiredSafeguardingLevel ?? null,
+  });
+}
+
 function getRoleEligibilityGaps(
-  role: typeof rolesTable.$inferSelect,
-  profile: { registrationStatus: string | null; licenceReady: boolean | null; requiresSponsorship: boolean },
+  role: { requiredRegistration: string } & ComplianceRole,
+  profile: Pick<
+    typeof profilesTable.$inferSelect,
+    "registrationStatus" | "licenceReady" | "requiresSponsorship" | "dbsClearanceLevel" | "safeguardingTrainingLevel"
+  >,
   decisionExplanation: string | null,
 ): string[] {
   const gaps: string[] = [];
@@ -164,6 +190,7 @@ function getRoleEligibilityGaps(
       }.`,
     );
   }
+  gaps.push(...safeguardingGapText(getRoleSafeguarding(role, profile), profile));
 
   if (decisionExplanation) {
     gaps.push(decisionExplanation);
@@ -231,6 +258,8 @@ router.get("/roles", async (req, res): Promise<void> => {
         regulator: row.job.regulator,
         sponsorshipOffered: row.job.sponsorshipOffered,
         requiredRegistration: row.job.requiredRegistration,
+        requiredDbsClearanceLevel: row.job.requiredDbsClearanceLevel,
+        requiredSafeguardingLevel: row.job.requiredSafeguardingLevel,
         active: true,
         importedAt: row.job.createdAt,
         importedBy: `employer:${row.emp.id}`,
@@ -382,6 +411,8 @@ router.get("/roles", async (req, res): Promise<void> => {
     const reqReg = role.requiredRegistration.toLowerCase();
     const roleRequiresFull = reqReg.includes("full") || reqReg.includes("registered");
     const meetsRegistration = roleRequiresFull ? isRegistered || isLicenceReady : true;
+    const safeguarding = getRoleSafeguarding(role, profile);
+    const meetsSafeguarding = !safeguardingBlocksEligibility(safeguarding);
 
     let isEligible: boolean;
     let eligibilityGaps: string[] = [];
@@ -393,7 +424,7 @@ router.get("/roles", async (req, res): Promise<void> => {
       isEligible = false;
       eligibilityGaps = getRoleEligibilityGaps(role, profile, decision.explanationText);
     } else {
-      isEligible = meetsRegistration;
+      isEligible = meetsRegistration && meetsSafeguarding;
       if (!isEligible) {
         eligibilityGaps = getRoleEligibilityGaps(role, profile, null);
       }
@@ -432,6 +463,7 @@ router.get("/roles", async (req, res): Promise<void> => {
       aiScore: cached?.score ?? null,
       aiExplanation: cached?.explanation ?? null,
       eligibilityGaps,
+      safeguarding,
       contactEmail: role.contactEmail ?? null,
       contactPhone: role.contactPhone ?? null,
       contactWebsite: role.contactWebsite ?? null,
@@ -527,6 +559,8 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
         regulator: row.job.regulator as "GMC" | "NMC" | "HCPC",
         sponsorshipOffered: row.job.sponsorshipOffered,
         requiredRegistration: row.job.requiredRegistration,
+        requiredDbsClearanceLevel: row.job.requiredDbsClearanceLevel,
+        requiredSafeguardingLevel: row.job.requiredSafeguardingLevel,
         applyUrl: link.applyUrl,
         linkVerified: link.linkVerified,
         linkCheckedAt: link.linkCheckedAt,
@@ -547,7 +581,10 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
       return {
         id: r.id, title: r.title, employer: r.employer, location: r.location,
         regulator: r.regulator, sponsorshipOffered: r.sponsorshipOffered,
-        requiredRegistration: r.requiredRegistration, applyUrl: link.applyUrl,
+        requiredRegistration: r.requiredRegistration,
+        requiredDbsClearanceLevel: r.requiredDbsClearanceLevel,
+        requiredSafeguardingLevel: r.requiredSafeguardingLevel,
+        applyUrl: link.applyUrl,
         linkVerified: link.linkVerified,
         linkCheckedAt: link.linkCheckedAt,
         contactEmail: r.contactEmail ?? null,
@@ -563,7 +600,10 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
     .map((v) => ({
       id: v.id, title: v.title, employer: v.employer, location: v.location,
       regulator: v.regulator, sponsorshipOffered: v.sponsorshipOffered,
-      requiredRegistration: v.requiredRegistration, applyUrl: v.applyUrl,
+      requiredRegistration: v.requiredRegistration,
+      requiredDbsClearanceLevel: v.requiredDbsClearanceLevel,
+      requiredSafeguardingLevel: v.requiredSafeguardingLevel,
+      applyUrl: v.applyUrl,
       linkVerified: v.linkVerified,
       linkCheckedAt: v.linkCheckedAt,
       contactEmail: v.contactEmail,
@@ -688,7 +728,8 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
       const reqReg = r.requiredRegistration.toLowerCase();
       const roleRequiresFull = reqReg.includes("full") || reqReg.includes("registered");
       const meetsRegistration = roleRequiresFull ? isRegistered || isLicenceReady : true;
-      const isEligible = userIsEligible && meetsRegistration;
+      const safeguarding = getRoleSafeguarding(r, profile);
+      const isEligible = userIsEligible && meetsRegistration && !safeguardingBlocksEligibility(safeguarding);
 
       const eligibilityGaps: string[] = [];
       if (!isEligible && decision) {
@@ -700,6 +741,7 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
         if (!userIsEligible && decision.explanationText) {
           eligibilityGaps.push(decision.explanationText);
         }
+        eligibilityGaps.push(...safeguardingGapText(safeguarding, profile));
       }
 
       const baseScore = scoreMap.get(r.id)!.score;
@@ -722,6 +764,8 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
         regulator: r.regulator,
         sponsorshipOffered: r.sponsorshipOffered,
         requiredRegistration: r.requiredRegistration,
+        requiredDbsClearanceLevel: r.requiredDbsClearanceLevel ?? null,
+        requiredSafeguardingLevel: r.requiredSafeguardingLevel ?? null,
         applyUrl: r.applyUrl ?? null,
         linkVerified: r.linkVerified ?? false,
         linkCheckedAt: r.linkCheckedAt ?? null,
@@ -731,6 +775,7 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
         aiScore,
         aiExplanation,
         isEligible,
+        safeguarding,
         eligibilityGaps,
         careerProfileId: activeCareerProfile?.id ?? null,
       };
@@ -811,6 +856,8 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
         regulator: row.job.regulator as "GMC" | "NMC" | "HCPC",
         sponsorshipOffered: row.job.sponsorshipOffered,
         requiredRegistration: row.job.requiredRegistration,
+        requiredDbsClearanceLevel: row.job.requiredDbsClearanceLevel,
+        requiredSafeguardingLevel: row.job.requiredSafeguardingLevel,
         applyUrl: link.applyUrl,
         linkVerified: link.linkVerified,
         linkCheckedAt: link.linkCheckedAt,
@@ -845,7 +892,10 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
         return {
           id: r.id, title: r.title, employer: r.employer, location: r.location,
           regulator: r.regulator, sponsorshipOffered: r.sponsorshipOffered,
-          requiredRegistration: r.requiredRegistration, applyUrl: link.applyUrl,
+          requiredRegistration: r.requiredRegistration,
+          requiredDbsClearanceLevel: r.requiredDbsClearanceLevel,
+          requiredSafeguardingLevel: r.requiredSafeguardingLevel,
+          applyUrl: link.applyUrl,
           linkVerified: link.linkVerified,
           linkCheckedAt: link.linkCheckedAt,
           contactEmail: r.contactEmail ?? null,
@@ -875,7 +925,8 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
     const reqReg = r.requiredRegistration.toLowerCase();
     const roleRequiresFull = reqReg.includes("full") || reqReg.includes("registered");
     const meetsRegistration = roleRequiresFull ? isRegistered || isLicenceReady : true;
-    const isEligible = userIsEligible && meetsRegistration;
+    const safeguarding = getRoleSafeguarding(r, profile);
+    const isEligible = userIsEligible && meetsRegistration && !safeguardingBlocksEligibility(safeguarding);
     // AI score if cached, else heuristic
     let matchScore = scoreMap.get(r.id) ?? computeMatchScore(
       { ...r, id: r.id, regulator: r.regulator, active: true, importedAt: new Date(), importedBy: "", liveness: "unverified" as const, lastVerifiedAt: null, livenessReason: null },
@@ -891,7 +942,7 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
     }
     const effectiveSpecialty = activeCareerProfile?.focusArea ?? profile.specialty;
     const matchReason = deriveMatchReason(r, isEligible, profile.requiresSponsorship, effectiveSpecialty);
-    return { ...r, matchScore, isEligible, matchReason, careerProfileId: activeCareerProfile?.id ?? null };
+    return { ...r, matchScore, isEligible, safeguarding, matchReason, careerProfileId: activeCareerProfile?.id ?? null };
   });
 
   scored.sort((a, b) => {
@@ -1112,6 +1163,8 @@ router.post("/admin/roles/import", requireRole("admin"), upload.single("file"), 
     contactEmail: string | null;
     contactPhone: string | null;
     contactWebsite: string | null;
+    requiredDbsClearanceLevel: (typeof VALID_DBS_LEVELS)[number] | null;
+    requiredSafeguardingLevel: (typeof VALID_SAFEGUARDING_LEVELS)[number] | null;
   }> = [];
 
   for (let i = 0; i < records.length; i++) {
@@ -1150,6 +1203,19 @@ router.post("/admin/roles/import", requireRole("admin"), upload.single("file"), 
       errors.push({ row: rowNum, message: "applyUrl must be a valid http or https URL" });
       continue;
     }
+    const dbsRequirement = row.requiredDbsClearanceLevel?.trim().toLowerCase() || null;
+    if (dbsRequirement && !VALID_DBS_LEVELS.includes(dbsRequirement as (typeof VALID_DBS_LEVELS)[number])) {
+      errors.push({ row: rowNum, message: `requiredDbsClearanceLevel must be one of: ${VALID_DBS_LEVELS.join(", ")}` });
+      continue;
+    }
+    const safeguardingRequirement = row.requiredSafeguardingLevel?.trim().toLowerCase() || null;
+    if (
+      safeguardingRequirement &&
+      !VALID_SAFEGUARDING_LEVELS.includes(safeguardingRequirement as (typeof VALID_SAFEGUARDING_LEVELS)[number])
+    ) {
+      errors.push({ row: rowNum, message: `requiredSafeguardingLevel must be one of: ${VALID_SAFEGUARDING_LEVELS.join(", ")}` });
+      continue;
+    }
 
     validRows.push({
       title: row.title.trim(),
@@ -1163,6 +1229,8 @@ router.post("/admin/roles/import", requireRole("admin"), upload.single("file"), 
       contactEmail: row.contactEmail?.trim() || null,
       contactPhone: row.contactPhone?.trim() || null,
       contactWebsite: row.contactWebsite?.trim() || null,
+      requiredDbsClearanceLevel: dbsRequirement as (typeof VALID_DBS_LEVELS)[number] | null,
+      requiredSafeguardingLevel: safeguardingRequirement as (typeof VALID_SAFEGUARDING_LEVELS)[number] | null,
     });
   }
 

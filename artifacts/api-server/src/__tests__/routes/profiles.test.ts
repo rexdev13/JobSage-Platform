@@ -3,7 +3,10 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import request from "supertest";
 
-const { profileResults } = vi.hoisted(() => ({ profileResults: [] as any[] }));
+const { profileResults, conflictUpdates } = vi.hoisted(() => ({
+  profileResults: [] as any[],
+  conflictUpdates: [] as any[],
+}));
 
 vi.mock("@workspace/db", () => {
   function makeChain(): any {
@@ -14,7 +17,7 @@ vi.mock("@workspace/db", () => {
       limit() { return chain; },
       values() { return chain; },
       set() { return chain; },
-      onConflictDoUpdate() { return chain; },
+      onConflictDoUpdate(config: any) { conflictUpdates.push(config); return chain; },
       then(resolve: any, reject?: any) {
         return Promise.resolve(profileResults.shift() ?? []).then(resolve, reject);
       },
@@ -83,8 +86,9 @@ const profileRow = {
   qualificationCountry: "Nigeria", qualificationType: "bachelor",
   qualificationYear: 2015, experienceYears: 5,
   registrationStatus: "registered" as const, licenceReady: true,
+  dbsClearanceLevel: "enhanced" as const, safeguardingTrainingLevel: "level_2" as const,
   residencyStatus: "visa_required", requiresSponsorship: true,
-  preferredRegion: "London", alertFrequency: "daily" as const,
+  preferredRegion: ["London"], alertFrequency: "daily" as const,
   preferredStartDate: null, profilePhotoKey: null, languages: ["English"],
   additionalNotes: null, jobsageEmail: "jane.doe.1234@jobsage.co.uk",
   profileBoostActive: false, profileBoostExpiry: null,
@@ -96,6 +100,7 @@ const profileRow = {
 describe("GET /profiles/me", () => {
   beforeEach(() => {
     profileResults.length = 0;
+    conflictUpdates.length = 0;
     mockGetSession.mockResolvedValue(candidateSession);
   });
 
@@ -149,11 +154,12 @@ describe("PUT /profiles/me", () => {
     registrationStatus: "registered",
     residencyStatus: "visa_required",
     requiresSponsorship: true,
-    preferredRegion: "London",
+    preferredRegion: ["London"],
   };
 
   beforeEach(() => {
     profileResults.length = 0;
+    conflictUpdates.length = 0;
     mockGetSession.mockResolvedValue(candidateSession);
   });
 
@@ -191,6 +197,20 @@ describe("PUT /profiles/me", () => {
       .send(validBody);
     expect(resp.status).toBe(200);
     expect(resp.body).toHaveProperty("profession", "nurse");
+  });
+
+  it("preserves recorded safeguarding values when a partial profile save omits them", async () => {
+    profileResults.push([consentRow]);
+    profileResults.push([{ ...profileRow }]);
+    profileResults.push([{ ...profileRow }]);
+    const resp = await request(buildApp())
+      .put("/profiles/me")
+      .set("Authorization", AUTH_HEADER)
+      .send(validBody);
+    expect(resp.status).toBe(200);
+    const updateSet = conflictUpdates.at(-1)?.set ?? {};
+    expect(updateSet).not.toHaveProperty("dbsClearanceLevel");
+    expect(updateSet).not.toHaveProperty("safeguardingTrainingLevel");
   });
 });
 

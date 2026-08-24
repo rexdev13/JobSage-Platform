@@ -11,6 +11,8 @@ import { JOURNEY_STEPS } from "@/lib/journeySteps";
 import type { IslandState } from "@/lib/journeySteps";
 
 type RegistrationStatus = "registered" | "not_registered" | "in_process";
+type DbsClearanceLevel = "unknown" | "none" | "basic" | "standard" | "enhanced";
+type SafeguardingTrainingLevel = "unknown" | "none" | "level_1" | "level_2";
 
 const ONBOARDING_PROFESSIONS = [
   "Doctor",
@@ -43,6 +45,8 @@ type ProfileData = {
   experienceYears: string;
   registrationStatus: RegistrationStatus;
   licenceReady: boolean;
+  dbsClearanceLevel: DbsClearanceLevel;
+  safeguardingTrainingLevel: SafeguardingTrainingLevel;
   residencyStatus: string;
   requiresSponsorship: boolean;
 };
@@ -75,6 +79,8 @@ export default function OnboardingPage() {
     experienceYears: "",
     registrationStatus: "not_registered",
     licenceReady: false,
+    dbsClearanceLevel: "unknown",
+    safeguardingTrainingLevel: "unknown",
     residencyStatus: "",
     requiresSponsorship: false,
   });
@@ -108,6 +114,8 @@ export default function OnboardingPage() {
           experienceYears: parseInt(data.experienceYears, 10),
           registrationStatus: data.registrationStatus,
           licenceReady: data.licenceReady,
+          dbsClearanceLevel: data.dbsClearanceLevel,
+          safeguardingTrainingLevel: data.safeguardingTrainingLevel,
           residencyStatus: data.residencyStatus,
           requiresSponsorship: data.requiresSponsorship,
         },
@@ -248,6 +256,26 @@ export default function OnboardingPage() {
                       <option value="in_process">In Process</option>
                       <option value="registered">Fully Registered</option>
                     </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="dbsClearanceLevel">DBS clearance level</Label>
+                    <Select name="dbsClearanceLevel" value={data.dbsClearanceLevel} onChange={handleChange}>
+                      <option value="unknown">Not sure / not recorded</option>
+                      <option value="none">None</option>
+                      <option value="basic">Basic DBS</option>
+                      <option value="standard">Standard DBS</option>
+                      <option value="enhanced">Enhanced DBS</option>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="safeguardingTrainingLevel">Safeguarding training</Label>
+                    <Select name="safeguardingTrainingLevel" value={data.safeguardingTrainingLevel} onChange={handleChange}>
+                      <option value="unknown">Not sure / not recorded</option>
+                      <option value="none">None</option>
+                      <option value="level_1">Level 1</option>
+                      <option value="level_2">Level 2</option>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">Used only to compare stated role requirements; it is not a legal DBS decision.</p>
                   </div>
                   <label className="flex items-center space-x-3 p-4 border border-border rounded-xl hover:bg-muted/50 cursor-pointer transition-colors">
                     <input

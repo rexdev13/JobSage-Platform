@@ -5,6 +5,9 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { DbsClearanceLevel } from "./dbsClearanceLevel";
+import type { SafeguardingAssessment } from "./safeguardingAssessment";
+import type { SafeguardingTrainingLevel } from "./safeguardingTrainingLevel";
 
 export interface CandidateMatchItem {
   roleId: number;
@@ -14,6 +17,8 @@ export interface CandidateMatchItem {
   regulator: string;
   sponsorshipOffered: boolean;
   requiredRegistration: string;
+  requiredDbsClearanceLevel?: DbsClearanceLevel | null;
+  requiredSafeguardingLevel?: SafeguardingTrainingLevel | null;
   /** Direct application URL for this role, if available. Dead links are never returned. */
   applyUrl?: string | null;
   /** True when the apply link was health-checked and confirmed live */
@@ -31,5 +36,6 @@ export interface CandidateMatchItem {
   /** One-line AI explanation of the match */
   aiExplanation: string;
   isEligible: boolean;
+  safeguarding: SafeguardingAssessment;
   eligibilityGaps?: string[];
 }

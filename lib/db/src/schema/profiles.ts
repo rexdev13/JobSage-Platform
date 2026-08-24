@@ -14,6 +14,12 @@ export const profilesTable = pgTable("profiles", {
   experienceYears: integer("experience_years").notNull(),
   registrationStatus: varchar("registration_status", { enum: ["registered", "not_registered", "in_process"] }).notNull(),
   licenceReady: boolean("licence_ready"),
+  dbsClearanceLevel: varchar("dbs_clearance_level", {
+    enum: ["unknown", "none", "basic", "standard", "enhanced"],
+  }).notNull().default("unknown"),
+  safeguardingTrainingLevel: varchar("safeguarding_training_level", {
+    enum: ["unknown", "none", "level_1", "level_2"],
+  }).notNull().default("unknown"),
   residencyStatus: text("residency_status").notNull(),
   requiresSponsorship: boolean("requires_sponsorship").notNull(),
   preferredRegion: text("preferred_region").array(),

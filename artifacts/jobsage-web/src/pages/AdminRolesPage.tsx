@@ -27,10 +27,10 @@ import {
   Trash2,
 } from "lucide-react";
 
-const CSV_TEMPLATE = `title,employer,location,regulator,sponsorshipOffered,requiredRegistration,applyUrl
-Consultant Cardiologist,NHS Trust London,London,GMC,true,Full GMC Registration,https://jobs.nhstrustlondon.nhs.uk/consultant-cardiologist
-Staff Nurse (Adult),Barts Health NHS Trust,London,NMC,true,Full NMC Registration,
-Senior Physiotherapist,Kings College Hospital,London,HCPC,false,Full HCPC Registration,`;
+const CSV_TEMPLATE = `title,employer,location,regulator,sponsorshipOffered,requiredRegistration,applyUrl,requiredDbsClearanceLevel,requiredSafeguardingLevel
+Consultant Cardiologist,NHS Trust London,London,GMC,true,Full GMC Registration,https://jobs.nhstrustlondon.nhs.uk/consultant-cardiologist,enhanced,level_2
+Staff Nurse (Adult),Barts Health NHS Trust,London,NMC,true,Full NMC Registration,,,
+Senior Physiotherapist,Kings College Hospital,London,HCPC,false,Full HCPC Registration,,,`;
 
 function friendlyErrorMessage(err: unknown, fallback: string): string {
   const message = err instanceof Error ? err.message : "";
@@ -380,8 +380,8 @@ export default function AdminRolesPage() {
               title, employer, location, regulator, sponsorshipOffered, requiredRegistration
             </code>
             <span className="text-muted-foreground"> and optional </span>
-            <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">applyUrl</code>
-            <span className="text-muted-foreground"> (http/https link to the actual job posting).</span>
+            <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">applyUrl, requiredDbsClearanceLevel, requiredSafeguardingLevel</code>
+            <span className="text-muted-foreground">. Leave the safeguarding columns blank unless the requirement is explicitly stated (DBS: none/basic/standard/enhanced; safeguarding: none/level_1/level_2).</span>
           </p>
 
           <div className="flex gap-3 flex-wrap">

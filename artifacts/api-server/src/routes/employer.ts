@@ -17,6 +17,7 @@ import { openai } from "@workspace/integrations-openai-ai-server";
 import { sendCandidateContactEmail } from "../lib/email";
 import { queueLinkVerification } from "../lib/linkVerification";
 import { createSystemMessage } from "../lib/systemMessages";
+import { DBS_CLEARANCE_LEVELS, SAFEGUARDING_TRAINING_LEVELS } from "../lib/safeguarding";
 
 const router: IRouter = Router();
 
@@ -26,6 +27,19 @@ function requireEmployer() {
 
 const DISCLAIMER =
   "This platform provides decision support only. AI-generated job descriptions should be reviewed and edited before publishing. Final regulatory compliance responsibilities rest with the employer.";
+
+function normalizeComplianceRequirement(
+  value: unknown,
+  allowed: readonly string[],
+  label: string,
+): string | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null || value === "" || value === "unknown") return null;
+  if (typeof value !== "string" || !allowed.includes(value)) {
+    throw new Error(`${label} must be a valid stated level or omitted.`);
+  }
+  return value;
+}
 
 router.get("/employer/profile", requireEmployer(), async (req, res): Promise<void> => {
   const userId = req.user!.id;
@@ -151,7 +165,7 @@ router.post("/employer/jobs", requireEmployer(), async (req, res): Promise<void>
     return;
   }
 
-  const { title, specialty, location, salaryBand, sponsorshipOffered, requirements, description, regulator, requiredRegistration, targetProfessions, targetRegions, applyUrl } = req.body as {
+  const { title, specialty, location, salaryBand, sponsorshipOffered, requirements, description, regulator, requiredRegistration, requiredDbsClearanceLevel, requiredSafeguardingLevel, targetProfessions, targetRegions, applyUrl } = req.body as {
     title?: string;
     specialty?: string;
     location?: string;
@@ -161,6 +175,8 @@ router.post("/employer/jobs", requireEmployer(), async (req, res): Promise<void>
     description?: string;
     regulator?: string;
     requiredRegistration?: string;
+    requiredDbsClearanceLevel?: string | null;
+    requiredSafeguardingLevel?: string | null;
     targetProfessions?: string[];
     targetRegions?: string[];
     applyUrl?: string | null;
@@ -174,6 +190,15 @@ router.post("/employer/jobs", requireEmployer(), async (req, res): Promise<void>
   if (!requiredRegistration?.trim()) { res.status(400).json({ error: "Required registration is required." }); return; }
   if (applyUrl && !/^https?:\/\/.+/i.test(applyUrl)) {
     res.status(400).json({ error: "applyUrl must be a valid http or https URL." }); return;
+  }
+  let dbsRequirement: string | null | undefined;
+  let safeguardingRequirement: string | null | undefined;
+  try {
+    dbsRequirement = normalizeComplianceRequirement(requiredDbsClearanceLevel, DBS_CLEARANCE_LEVELS, "DBS requirement");
+    safeguardingRequirement = normalizeComplianceRequirement(requiredSafeguardingLevel, SAFEGUARDING_TRAINING_LEVELS, "Safeguarding requirement");
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : "Invalid compliance requirement." });
+    return;
   }
 
   const [job] = await db
@@ -190,6 +215,8 @@ router.post("/employer/jobs", requireEmployer(), async (req, res): Promise<void>
       status: "draft",
       regulator: regulator as "GMC" | "NMC" | "HCPC",
       requiredRegistration: requiredRegistration.trim(),
+      requiredDbsClearanceLevel: (dbsRequirement ?? null) as "none" | "basic" | "standard" | "enhanced" | null,
+      requiredSafeguardingLevel: (safeguardingRequirement ?? null) as "none" | "level_1" | "level_2" | null,
       targetProfessions: targetProfessions ?? [],
       targetRegions: targetRegions ?? [],
       applyUrl: applyUrl?.trim() || null,
@@ -228,10 +255,11 @@ router.put("/employer/jobs/:id", requireEmployer(), async (req, res): Promise<vo
   const [existing] = await db.select({ id: jobListingsTable.id, status: jobListingsTable.status }).from(jobListingsTable).where(and(eq(jobListingsTable.id, jobId), eq(jobListingsTable.employerProfileId, empProfile.id)));
   if (!existing) { res.status(404).json({ error: "Job listing not found." }); return; }
 
-  const { title, specialty, location, salaryBand, sponsorshipOffered, requirements, description, regulator, requiredRegistration, targetProfessions, targetRegions, applyUrl } = req.body as {
+  const { title, specialty, location, salaryBand, sponsorshipOffered, requirements, description, regulator, requiredRegistration, requiredDbsClearanceLevel, requiredSafeguardingLevel, targetProfessions, targetRegions, applyUrl } = req.body as {
     title?: string; specialty?: string; location?: string; salaryBand?: string;
     sponsorshipOffered?: boolean; requirements?: string; description?: string;
     regulator?: string; requiredRegistration?: string; targetProfessions?: string[]; targetRegions?: string[];
+    requiredDbsClearanceLevel?: string | null; requiredSafeguardingLevel?: string | null;
     applyUrl?: string | null;
   };
 
@@ -249,6 +277,19 @@ router.put("/employer/jobs/:id", requireEmployer(), async (req, res): Promise<vo
   if (description !== undefined) updates.description = description.trim() || null;
   if (regulator !== undefined && ["GMC", "NMC", "HCPC"].includes(regulator)) updates.regulator = regulator as "GMC" | "NMC" | "HCPC";
   if (requiredRegistration !== undefined) updates.requiredRegistration = requiredRegistration.trim();
+  try {
+    const dbsRequirement = normalizeComplianceRequirement(requiredDbsClearanceLevel, DBS_CLEARANCE_LEVELS, "DBS requirement");
+    const safeguardingRequirement = normalizeComplianceRequirement(requiredSafeguardingLevel, SAFEGUARDING_TRAINING_LEVELS, "Safeguarding requirement");
+    if (dbsRequirement !== undefined) {
+      updates.requiredDbsClearanceLevel = dbsRequirement as "none" | "basic" | "standard" | "enhanced" | null;
+    }
+    if (safeguardingRequirement !== undefined) {
+      updates.requiredSafeguardingLevel = safeguardingRequirement as "none" | "level_1" | "level_2" | null;
+    }
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : "Invalid compliance requirement." });
+    return;
+  }
   if (targetProfessions !== undefined) updates.targetProfessions = targetProfessions;
   if (targetRegions !== undefined) updates.targetRegions = targetRegions;
   if (applyUrl !== undefined) {

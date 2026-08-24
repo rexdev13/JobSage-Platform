@@ -6,6 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CreateJobListingRequestRegulator } from "./createJobListingRequestRegulator";
+import type { DbsClearanceLevel } from "./dbsClearanceLevel";
+import type { SafeguardingTrainingLevel } from "./safeguardingTrainingLevel";
 
 export interface CreateJobListingRequest {
   title: string;
@@ -17,6 +19,8 @@ export interface CreateJobListingRequest {
   description?: string;
   regulator: CreateJobListingRequestRegulator;
   requiredRegistration: string;
+  requiredDbsClearanceLevel?: DbsClearanceLevel | null;
+  requiredSafeguardingLevel?: SafeguardingTrainingLevel | null;
   targetProfessions?: string[];
   targetRegions?: string[];
   /** Direct application URL for this role posting */
