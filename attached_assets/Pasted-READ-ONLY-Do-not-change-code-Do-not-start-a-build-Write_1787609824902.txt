@@ -1,0 +1,74 @@
+READ ONLY. Do not change code. Do not start a build.
+
+Write a MANUAL UI TEST PLAYBOOK for JOBSAGE. Use the current codebase and routes. Order tests in the sequence we shipped. For each test: who to log in as, exact clicks, what you must see, PASS vs FAIL.
+
+If a feature is not in the UI yet, write SKIP — not in this build. Do not invent screens.
+
+Start with: published URL, /login, /admin/login, extension ZIP version (must be the latest Smart Apply zip, currently expected 0.4.6).
+
+## Accounts to use (tell me how to get each)
+- Candidate nurse (NMC) and doctor (GMC)
+- Super-admin
+- Admin (if different)
+- Marketing (how to promote via PATCH role)
+- Employer (optional)
+
+## Test 1 — Vacancies (NHS Jobs HTTP, not aggregators)
+Nurse or doctor → Opportunities.
+PASS: specific jobs.nhs.uk /candidate/jobadvert/ links; can READ the advert without login.
+FAIL: Indeed/Reed/LinkedIn, generic /careers, empty list, or invented jobs.
+
+Also: a non-health profession if one exists — they should not only see nursing jobs.
+
+## Test 2 — Tracker from JOBSAGE click (Slice 1)
+From Opportunities click Apply on employer/NHS site.
+PASS: Applications shows that vacancy TITLE + URL, status started/link_clicked, one row not two.
+FAIL: no row, company-only with no title, status already Applied.
+
+Open /admin/users or another admin URL as this candidate — should not be admin.
+
+## Test 3 — Smart Apply helper (Slice 2)
+Install latest extension. Stay logged into JOBSAGE. Repeat an Opportunities apply click.
+PASS: sidebar opens; name/email prefill empty fields only; long question Generate/Insert; CV attach or download; after NHS submit or Log it → same row becomes applied.
+FAIL: password filled; two tracker rows; sidebar never opens; old extension version.
+
+## Test 4 — Job alerts
+If you can trigger or wait for the 07:00 London sweep: NHS HTTP vacancies can appear in email for matching regulator.
+PASS: email has a real vacancy URL for the candidate’s profession.
+FAIL: only old catalogue roles, or nursing jobs emailed to a doctor.
+If there is no admin “send test alert”, say how to verify in logs/DB instead, still as a tester recipe.
+
+## Test 5 — Marketing-only leads
+Promote a user to marketing. Login at /login (not /admin/login).
+PASS: only Waitlist Leads; can search/filter/change status; no bulk delete; /admin/users and /opportunities bounce to leads.
+FAIL: sees Jobs/Users/Settings; can delete leads; AdminGuard treats them as admin.
+
+## Test 6 — Safeguarding / DBS flags
+If Opportunities/profile has DBS or safeguarding fields/badges, test:
+- job required enhanced + candidate none → Missing flag
+- job requirement blank → NOT shown as missing
+- candidate unknown → ask to add on profile
+If those fields/badges do not exist, SKIP.
+
+## Test 7 — Region / sponsorship filters
+If Opportunities has region or “sponsorship offered” filters, test them.
+If preferred regions cannot be set in the UI, SKIP and say so.
+
+## Test 8 — Recommendations
+If Best Matches / Recommended explains “similar to roles you opened”, test click then rerank.
+If it is only the old score list, SKIP.
+
+## Test 9 — Statistics
+If dashboard or applications shows “this week” counts, test them.
+Admin/super-admin stats: what numbers to check. Marketing must not get a full platform dashboard.
+If week stats are missing, SKIP.
+
+## Test 10 — Regression smoke
+- Super-admin still reaches users, leads, super stats
+- Employer can still post a job if that portal exists
+- Candidate Smart Apply in-app modal still records a platform application (does not submit to NHS)
+- AI vacancy web-search still must not run (cap 0) — how a tester confirms (UI label, or “ask a super-admin to check logs: no OpenAI vacancy search”)
+
+End with a 20-minute DEMO PATH (minimum clicks for tomorrow) and a FAIL FAST list (site down, old extension, empty Opportunities).
+
+Plain language. Numbered steps. No code patches.
