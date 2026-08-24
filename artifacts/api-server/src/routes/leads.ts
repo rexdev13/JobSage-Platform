@@ -8,6 +8,19 @@ import { requireRole } from "../middlewares/requireRole";
 
 const router: IRouter = Router();
 
+const marketingLeadFields = {
+  id: socialLeadsTable.id,
+  name: sql<string>`concat_ws(' ', ${socialLeadsTable.firstName}, ${socialLeadsTable.lastName})`,
+  email: socialLeadsTable.email,
+  phone: socialLeadsTable.phone,
+  sector: socialLeadsTable.industrySector,
+  source: socialLeadsTable.source,
+  status: socialLeadsTable.status,
+  createdAt: socialLeadsTable.createdAt,
+  desiredRole: socialLeadsTable.desiredRole,
+  additionalMessage: socialLeadsTable.additionalMessage,
+};
+
 // ---------------------------------------------------------------------------
 // Validation schema
 // ---------------------------------------------------------------------------
@@ -38,12 +51,14 @@ const SubmitLeadSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
-// GET /api/leads — paginated list of waitlist submissions (admin only)
+// GET /api/leads — paginated list of waitlist submissions.
+// Marketing receives only the fields needed by its table; admin roles retain
+// the full CRM record for operational work.
 // ---------------------------------------------------------------------------
 
 router.get(
   "/leads",
-  requireRole("admin", "super_admin"),
+  requireRole("admin", "super_admin", "marketing"),
   async (req: Request, res: Response): Promise<void> => {
     const page   = Math.max(1, parseInt(String(req.query.page  ?? "1"),  10));
     const limit  = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "25"), 10)));
@@ -67,10 +82,12 @@ router.get(
       searchCondition && sectorCondition ? and(searchCondition, sectorCondition)
       : searchCondition ?? sectorCondition;
 
+    const isMarketing = req.user?.role === "marketing";
     const [[{ total }], leads] = await Promise.all([
       db.select({ total: count() }).from(socialLeadsTable).where(where),
-      db
-        .select()
+      (isMarketing
+        ? db.select(marketingLeadFields)
+        : db.select())
         .from(socialLeadsTable)
         .where(where)
         .orderBy(desc(socialLeadsTable.createdAt))
@@ -246,12 +263,12 @@ router.delete(
 );
 
 // ---------------------------------------------------------------------------
-// PATCH /api/leads/bulk-status — set the same status on multiple leads (admin only)
+// PATCH /api/leads/bulk-status — set the same status on multiple leads.
 // ---------------------------------------------------------------------------
 
 router.patch(
   "/leads/bulk-status",
-  requireRole("admin", "super_admin"),
+  requireRole("admin", "super_admin", "marketing"),
   async (req: Request, res: Response): Promise<void> => {
     const { ids, status } = req.body as { ids?: unknown; status?: string };
 
@@ -283,12 +300,12 @@ router.patch(
 );
 
 // ---------------------------------------------------------------------------
-// PATCH /api/leads/:id/status — manually update a lead's CRM status (admin only)
+// PATCH /api/leads/:id/status — manually update a lead's CRM status.
 // ---------------------------------------------------------------------------
 
 router.patch(
   "/leads/:id/status",
-  requireRole("admin", "super_admin"),
+  requireRole("admin", "super_admin", "marketing"),
   async (req: Request, res: Response): Promise<void> => {
     const id = parseInt(String(req.params.id), 10);
     if (isNaN(id)) {

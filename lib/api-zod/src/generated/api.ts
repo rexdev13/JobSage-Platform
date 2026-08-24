@@ -28,7 +28,14 @@ export const GetCurrentAuthUserResponse = zod.object({
       profileImageUrl: zod.string().nullish(),
       emailVerified: zod.boolean().nullish(),
       role: zod
-        .enum(["candidate", "admin", "reviewer", "employer", "super_admin"])
+        .enum([
+          "candidate",
+          "admin",
+          "reviewer",
+          "employer",
+          "super_admin",
+          "marketing",
+        ])
         .nullish(),
     }),
     zod.null(),
@@ -78,7 +85,14 @@ export const LoginWithEmailResponse = zod.object({
       profileImageUrl: zod.string().nullish(),
       emailVerified: zod.boolean().nullish(),
       role: zod
-        .enum(["candidate", "admin", "reviewer", "employer", "super_admin"])
+        .enum([
+          "candidate",
+          "admin",
+          "reviewer",
+          "employer",
+          "super_admin",
+          "marketing",
+        ])
         .nullish(),
     }),
     zod.null(),
@@ -2993,7 +3007,14 @@ export const ActivateImpersonationTokenResponse = zod.object({
     profileImageUrl: zod.string().nullish(),
     emailVerified: zod.boolean().nullish(),
     role: zod
-      .enum(["candidate", "admin", "reviewer", "employer", "super_admin"])
+      .enum([
+        "candidate",
+        "admin",
+        "reviewer",
+        "employer",
+        "super_admin",
+        "marketing",
+      ])
       .nullish(),
   }),
   adminId: zod.string().nullable(),

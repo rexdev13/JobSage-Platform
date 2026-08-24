@@ -11,6 +11,7 @@ import { cn } from "@/components/ui-enhanced";
 import { useGetMyAnalytics, useGetMyProgressReport, useGetInboxUnreadCount, getGetInboxUnreadCountQueryKey, useGetMyProfile, getGetMyProfileQueryKey } from "@workspace/api-client-react";
 import { motion, useMotionValue, useTransform, animate } from "framer-motion";
 import { useEffect } from "react";
+import { MARKETING_NAVIGATION } from "@/lib/roleAccess";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -123,6 +124,7 @@ export function AppSidebar() {
     { name: "Audit Logs", href: "/admin/audit", icon: Shield, roles: ["admin", "super_admin"] },
     { name: "User Management", href: "/admin/users", icon: UserCog, roles: ["admin", "super_admin"] },
     { name: "Waitlist Leads", href: "/admin/leads", icon: Inbox, roles: ["admin", "super_admin"] },
+    ...MARKETING_NAVIGATION.map((item) => ({ ...item, icon: Inbox, roles: ["marketing"] })),
     { name: "Super Admin", href: "/admin/super", icon: ShieldAlert, roles: ["super_admin"] },
     { name: "Sync Management", href: "/admin/sync", icon: RefreshCw, roles: ["super_admin"] },
   ];

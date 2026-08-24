@@ -1,10 +1,10 @@
 import type { Request, Response, NextFunction } from "express";
 
-export type AppRole = "candidate" | "admin" | "reviewer" | "employer" | "super_admin";
+export type AppRole = "candidate" | "admin" | "reviewer" | "employer" | "super_admin" | "marketing";
 
 /**
- * Middleware for candidate-facing routes: any authenticated user may proceed.
- * Admin and reviewer users are also granted access so they can use the app as candidates.
+ * Middleware for candidate-facing routes. Marketing accounts are deliberately
+ * excluded because their role is limited to the leads-management surface.
  */
 export function requireAuthenticated(req: Request, res: Response, next: NextFunction): void {
   if (!req.isAuthenticated()) {
@@ -13,6 +13,10 @@ export function requireAuthenticated(req: Request, res: Response, next: NextFunc
   }
   if (req.isImpersonating && req.method !== "GET") {
     res.status(403).json({ error: "Write operations are not permitted during impersonation." });
+    return;
+  }
+  if ((req.user as { role?: string | null } | undefined)?.role === "marketing") {
+    res.status(403).json({ error: "Marketing accounts may only access leads management." });
     return;
   }
   next();

@@ -97,6 +97,15 @@ describe("GET /admin/users/search", () => {
     expect(res.status).toBe(403);
   });
 
+  it("returns 403 for a marketing account", async () => {
+    mockGetSession.mockResolvedValue({ user: { id: "marketing-1", email: "marketing@test.com", role: "marketing", firstName: null, lastName: null, profileImageUrl: null } });
+    const app = buildAdminApp();
+    const res = await request(app)
+      .get("/admin/users/search?email=test@example.com")
+      .set("Authorization", "Bearer marketing-session");
+    expect(res.status).toBe(403);
+  });
+
   it("returns 400 when email is missing", async () => {
     const app = buildAdminApp();
     const res = await request(app)

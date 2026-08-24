@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@workspace/auth-web";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { canDeleteLeads } from "@/lib/roleAccess";
 import { Loader2, Search, Users, Trash2, ChevronDown } from "lucide-react";
 import {
   Select,
@@ -31,11 +33,13 @@ type LeadStatus = "new" | "contacted" | "registered" | "unqualified";
 
 interface Lead {
   id: number;
-  firstName: string;
-  lastName: string;
+  firstName?: string;
+  lastName?: string;
+  name?: string;
   email: string;
   phone: string | null;
-  industrySector: string | null;
+  industrySector?: string | null;
+  sector?: string | null;
   status: LeadStatus;
   source: "chat" | "form";
   createdAt: string;
@@ -123,6 +127,8 @@ function StatusSelect({ lead }: { lead: Lead }) {
 // ---------------------------------------------------------------------------
 
 export default function AdminLeadsPage() {
+  const { user } = useAuth();
+  const canDelete = canDeleteLeads(user?.role);
   const [search, setSearch]           = useState("");
   const [sector, setSector]           = useState("");
   const [page, setPage]               = useState(1);
@@ -176,6 +182,7 @@ export default function AdminLeadsPage() {
   }
 
   async function confirmDelete() {
+    if (!canDelete) return;
     setDeleting(true);
     setConfirmOpen(false);
     try {
@@ -263,21 +270,22 @@ export default function AdminLeadsPage() {
                 </Button>
               </div>
 
-              {/* Bulk delete */}
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => setConfirmOpen(true)}
-                disabled={deleting}
-                className="flex items-center gap-1.5 h-7 text-xs px-2.5"
-              >
-                {deleting ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <Trash2 className="h-3 w-3" />
-                )}
-                Delete
-              </Button>
+              {canDelete && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setConfirmOpen(true)}
+                  disabled={deleting}
+                  className="flex items-center gap-1.5 h-7 text-xs px-2.5"
+                >
+                  {deleting ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-3 w-3" />
+                  )}
+                  Delete
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -375,14 +383,14 @@ export default function AdminLeadsPage() {
                       />
                     </td>
                     <td className="px-4 py-3 font-medium text-foreground whitespace-nowrap">
-                      {lead.firstName} {lead.lastName}
+                      {lead.name ?? `${lead.firstName ?? ""} ${lead.lastName ?? ""}`.trim()}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{lead.email}</td>
                     <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
                       {lead.phone || <span className="text-muted-foreground/40 italic">—</span>}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
-                      {lead.industrySector ?? (
+                      {lead.sector ?? lead.industrySector ?? (
                         <span className="text-muted-foreground/40 italic">Not provided</span>
                       )}
                     </td>
@@ -441,26 +449,27 @@ export default function AdminLeadsPage() {
 
       </div>
 
-      {/* ── Delete confirmation dialog ── */}
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete {selected.size} lead{selected.size === 1 ? "" : "s"}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently remove {selected.size === 1 ? "this lead" : `these ${selected.size} leads`} from the system. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {canDelete && (
+        <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete {selected.size} lead{selected.size === 1 ? "" : "s"}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently remove {selected.size === 1 ? "this lead" : `these ${selected.size} leads`} from the system. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmDelete}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
 
     </AppLayout>
   );

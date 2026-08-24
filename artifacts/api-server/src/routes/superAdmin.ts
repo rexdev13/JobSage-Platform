@@ -105,7 +105,7 @@ router.get(
     const offset = (pageNum - 1) * PAGE_SIZE;
 
     const whereClause = and(
-      role ? eq(usersTable.role, role as "candidate" | "admin" | "reviewer" | "employer" | "super_admin") : undefined,
+      role ? eq(usersTable.role, role as "candidate" | "admin" | "reviewer" | "employer" | "super_admin" | "marketing") : undefined,
       verified === "true" ? eq(usersTable.emailVerified, true) : undefined,
       verified === "false" ? eq(usersTable.emailVerified, false) : undefined,
       search ? ilike(usersTable.email, `%${search}%`) : undefined,
@@ -575,7 +575,7 @@ router.patch(
     const actorId = req.user!.id;
     const { role } = req.body as { role?: string };
 
-    const VALID_ROLES = ["candidate", "employer", "reviewer", "admin", "super_admin"] as const;
+    const VALID_ROLES = ["candidate", "employer", "reviewer", "admin", "super_admin", "marketing"] as const;
     type AppRole = typeof VALID_ROLES[number];
     if (!role || !(VALID_ROLES as readonly string[]).includes(role)) {
       res.status(400).json({ error: `Invalid role. Must be one of: ${VALID_ROLES.join(", ")}.` });

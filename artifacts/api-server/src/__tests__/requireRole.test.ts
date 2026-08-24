@@ -68,6 +68,20 @@ describe("requireAuthenticated", () => {
     requireAuthenticated(req, res, next);
     expect(next).toHaveBeenCalledOnce();
   });
+
+  it("returns 403 for marketing accounts on candidate-facing routes", () => {
+    const next: NextFunction = vi.fn();
+    const req = makeReq({
+      isAuthenticated: () => true,
+      method: "GET",
+      user: { id: "marketing-1", role: "marketing" } as unknown as Express.User,
+    });
+    const { res, status, json } = makeRes();
+    requireAuthenticated(req, res, next);
+    expect(status).toHaveBeenCalledWith(403);
+    expect(json).toHaveBeenCalledWith({ error: "Marketing accounts may only access leads management." });
+    expect(next).not.toHaveBeenCalled();
+  });
 });
 
 describe("requireRole", () => {

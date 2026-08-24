@@ -3179,7 +3179,7 @@ components:
           nullable: true
         role:
           type: string
-          enum: [candidate, admin, reviewer, employer, super_admin]
+          enum: [candidate, admin, reviewer, employer, super_admin, marketing]
           nullable: true
 
     AuthUserEnvelope:

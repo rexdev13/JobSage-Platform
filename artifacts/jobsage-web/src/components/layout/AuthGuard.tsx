@@ -7,12 +7,14 @@ import {
   getGetMyConsentQueryKey,
   getGetMyProfileQueryKey,
 } from "@workspace/api-client-react";
+import { isMarketingRole } from "@/lib/roleAccess";
 
 const PUBLIC_PATHS = ["/login", "/register", "/employer/register", "/forgot-password", "/reset-password", "/"];
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const [location, setLocation] = useLocation();
+  const isMarketing = isMarketingRole(user?.role);
 
   const {
     data: consentData,
@@ -21,7 +23,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   } = useGetMyConsent({
     query: {
       queryKey: getGetMyConsentQueryKey(),
-      enabled: isAuthenticated,
+      enabled: isAuthenticated && !isMarketing,
       refetchOnMount: false,
       refetchOnWindowFocus: false,
       retry: false,
@@ -35,7 +37,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   } = useGetMyProfile({
     query: {
       queryKey: getGetMyProfileQueryKey(),
-      enabled: isAuthenticated && consentData?.hasConsented === true,
+      enabled: isAuthenticated && !isMarketing && consentData?.hasConsented === true,
       refetchOnMount: false,
       refetchOnWindowFocus: false,
       retry: false,
@@ -52,7 +54,14 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     (isAuthenticated && !!consentData?.hasConsented && profileLoading);
 
   useEffect(() => {
-    if (isLoading || isPublic) return;
+    if (isLoading) return;
+
+    if (isAuthenticated && isMarketing && location !== "/admin/leads") {
+      setLocation("/admin/leads");
+      return;
+    }
+
+    if (isPublic) return;
 
     if (!isAuthenticated) {
       if (location !== "/login") {
@@ -79,6 +88,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     isLoading,
     isPublic,
     isAuthenticated,
+    isMarketing,
     consentData,
     profileError,
     location,
@@ -115,6 +125,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     !isPublic
   )
     return null;
+  if (isAuthenticated && isMarketing && location !== "/admin/leads") return null;
 
   return <>{children}</>;
 }
