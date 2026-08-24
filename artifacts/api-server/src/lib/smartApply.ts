@@ -57,7 +57,8 @@ const SYSTEM_PROMPT = `You are a specialist UK healthcare career coach helping a
 
 Your task is to pre-fill job application questions using the candidate profile provided.
 For each question, write a concise, professional answer (2–5 sentences).
-If you cannot confidently answer a question from the profile data, set confidence to "none" and provide a template/placeholder.
+Use only facts explicitly supplied in the candidate profile, CV extract, and role context. Never invent duties, qualifications, registrations, dates, achievements, employers, or personal circumstances. If the evidence is insufficient, set confidence to "none", explain what the candidate must add, and do not fabricate a response.
+Never answer criminal-record, conviction, disclosure, declaration, consent, agreement, or payroll questions. Those always need the candidate's own confirmation.
 
 Return ONLY valid JSON matching exactly:
 {
@@ -86,6 +87,9 @@ export async function prefillApplicationAnswers(
     registrationStatus: string;
     requiresSponsorship: boolean;
     preferredRegion?: string | null;
+    languages?: string[] | null;
+    additionalNotes?: string | null;
+    cvText?: string | null;
   },
   roleContext: {
     title: string;
@@ -104,6 +108,9 @@ Years of experience: ${profile.experienceYears}
 UK registration status: ${profile.registrationStatus}
 Requires sponsorship: ${profile.requiresSponsorship ? "Yes" : "No"}
 ${profile.preferredRegion ? `Preferred UK region: ${profile.preferredRegion}` : ""}
+${profile.languages?.length ? `Languages: ${profile.languages.join(", ")}` : ""}
+${profile.additionalNotes ? `Candidate notes: ${profile.additionalNotes.slice(0, 1200)}` : ""}
+${profile.cvText ? `CV extract (use only facts explicitly stated here): ${profile.cvText.slice(0, 5000)}` : "CV extract: unavailable"}
 `.trim();
 
   const roleText = `

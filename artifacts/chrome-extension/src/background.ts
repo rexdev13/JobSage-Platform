@@ -285,6 +285,13 @@ function filenameFromDisposition(contentDisposition: string | null): string {
 
 interface AssistantStreamRequest {
   message: string;
+  questionId?: string;
+  questionText?: string;
+  jobTitle?: string;
+  employer?: string;
+  jobDescription?: string;
+  wordLimit?: number;
+  maxLength?: number;
 }
 
 type AssistantStreamEvent =
@@ -329,7 +336,16 @@ chrome.runtime.onConnect.addListener((port) => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ message: request.message }),
+          body: JSON.stringify({
+            message: request.message,
+            questionId: request.questionId,
+            questionText: request.questionText,
+            jobTitle: request.jobTitle,
+            employer: request.employer,
+            jobDescription: request.jobDescription,
+            wordLimit: request.wordLimit,
+            maxLength: request.maxLength,
+          }),
           signal: controller.signal,
         });
       } catch (err) {

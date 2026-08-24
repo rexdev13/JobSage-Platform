@@ -30,4 +30,9 @@ export interface UpsertProfileRequest {
   profilePhotoKey?: string | null;
   languages?: string[] | null;
   additionalNotes?: string | null;
+  phone?: string | null;
+  streetAddress?: string | null;
+  city?: string | null;
+  postcode?: string | null;
+  country?: string | null;
 }

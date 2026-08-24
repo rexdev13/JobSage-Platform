@@ -33,10 +33,13 @@ function inputScore(input: HTMLInputElement): number {
     input.id,
     input.getAttribute("aria-label"),
     input.getAttribute("data-automation-id"),
+    input.getAttribute("accept"),
     labelText(input),
   ].join(" ");
   let score = 0;
-  if (/\b(cv|resume|curriculum\s*vitae|curriculum)\b/i.test(metadata)) score += 4;
+  if (/\b(cv|resume|résumé|curriculum\s*vitae|curriculum)\b/i.test(metadata)) score += 8;
+  if (/\b(upload|attach)\b/i.test(metadata)) score += 1;
+  if (/\bcover(ing)?\s*letter\b/i.test(metadata)) score -= 10;
   if (/\b(photo|avatar|image|headshot|passport|identity|proof\s*of\s*(id|identity)|national\s*insurance)\b/i.test(metadata)) {
     score -= 10;
   }

@@ -170,12 +170,26 @@ describe("detectQuestions — precision (non-question fields excluded)", () => {
     expect(detectQuestions()).toHaveLength(0);
   });
 
-  it("de-duplicates repeated identical questions", () => {
+  it("keeps repeated identical questions as separate writable fields", () => {
     setBody(`
       <div><label for="x1">Describe a challenging situation you resolved</label><textarea id="x1"></textarea></div>
       <div><label for="x2">Describe a challenging situation you resolved</label><textarea id="x2"></textarea></div>
     `);
-    expect(detectQuestions()).toHaveLength(1);
+    const questions = detectQuestions();
+    expect(questions).toHaveLength(2);
+    expect(questions[0]?.id).not.toBe(questions[1]?.id);
+  });
+
+  it("detects skills and additional-information fields, but flags declarations for the candidate", () => {
+    setBody(`
+      <div><label for="skills">Skills and experience</label><textarea id="skills"></textarea></div>
+      <div><label for="more">Additional information</label><textarea id="more"></textarea></div>
+      <div><label for="declaration">Criminal convictions declaration</label><textarea id="declaration"></textarea></div>
+    `);
+    const questions = detectQuestions();
+    expect(questions).toHaveLength(3);
+    expect(questions.find((q) => q.id === (document.getElementById("skills") as HTMLTextAreaElement).dataset.jobsageQid)?.restricted).toBe(false);
+    expect(questions.find((q) => q.id === (document.getElementById("declaration") as HTMLTextAreaElement).dataset.jobsageQid)?.restricted).toBe(true);
   });
 });
 

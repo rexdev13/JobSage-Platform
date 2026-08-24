@@ -20,19 +20,59 @@ router.get("/smart-apply/questions", requireAuthenticated, (_req: Request, res: 
  * Safe identity/contact fields for browser-based application forms.
  * Keep this allowlist deliberately small: do not return an entire user or profile row.
  */
-router.get("/smart-apply/candidate-prefill", requireAuthenticated, (req: Request, res: Response): void => {
+router.get("/smart-apply/candidate-prefill", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
   const user = req.user!;
   const firstName = user.firstName ?? null;
   const lastName = user.lastName ?? null;
   const fullName = [firstName, lastName].filter((name): name is string => Boolean(name)).join(" ");
+  const [profile] = await db
+    .select({
+      phone: profilesTable.phone,
+      streetAddress: profilesTable.streetAddress,
+      city: profilesTable.city,
+      postcode: profilesTable.postcode,
+      country: profilesTable.country,
+    })
+    .from(profilesTable)
+    .where(eq(profilesTable.userId, user.id));
 
   res.json({
     firstName,
     lastName,
     fullName,
     email: user.email ?? null,
+    phone: profile?.phone ?? null,
+    streetAddress: profile?.streetAddress ?? null,
+    city: profile?.city ?? null,
+    postcode: profile?.postcode ?? null,
+    country: profile?.country ?? "United Kingdom",
   });
 });
+
+async function fetchSmartApplyCvText(userId: string): Promise<string | null> {
+  try {
+    const [cv] = await db
+      .select()
+      .from(documentsTable)
+      .where(and(eq(documentsTable.userId, userId), eq(documentsTable.documentType, "cv")))
+      .orderBy(desc(documentsTable.isPrimary), desc(documentsTable.uploadedAt));
+
+    if (!cv || cv.mimeType !== "application/pdf") return null;
+    const objectFile = await objectStorageService.getObjectEntityFile(cv.storageKey);
+    const response = await objectStorageService.downloadObject(objectFile);
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const { PDFParse } = (await import("pdf-parse")) as unknown as {
+      PDFParse: new (opts: { data: Buffer | Uint8Array }) => {
+        getText(): Promise<{ text: string }>;
+      };
+    };
+    const parsed = await new PDFParse({ data: buffer }).getText();
+    return parsed.text?.replace(/\s+/g, " ").trim().slice(0, 6000) || null;
+  } catch {
+    // CV context improves a draft when available but must never stop an application.
+    return null;
+  }
+}
 
 /**
  * Downloads the authenticated candidate's current CV without disclosing its storage path.
@@ -136,6 +176,7 @@ router.post("/roles/:id/smart-apply/prefill", requireAuthenticated, async (req: 
   }
 
   try {
+    const cvText = await fetchSmartApplyCvText(userId);
     const prefills = await prefillApplicationAnswers(
       {
         profession: profile.profession,
@@ -147,6 +188,9 @@ router.post("/roles/:id/smart-apply/prefill", requireAuthenticated, async (req: 
         registrationStatus: profile.registrationStatus,
         requiresSponsorship: profile.requiresSponsorship,
         preferredRegion: Array.isArray(profile.preferredRegion) ? profile.preferredRegion.join(", ") : (profile.preferredRegion ?? null),
+        languages: profile.languages,
+        additionalNotes: profile.additionalNotes,
+        cvText,
       },
       roleContext
     );
@@ -223,7 +267,7 @@ router.put("/smart-apply/draft/:roleId", requireAuthenticated, async (req: Reque
 // Streaming AI assistant — answers candidate questions using their profile + role context
 router.post("/smart-apply/assistant", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.id;
-  const { roleId, message, question, questionId, questionText, jobTitle, employer, jobDescription } = req.body as {
+  const { roleId, message, question, questionId, questionText, jobTitle, employer, jobDescription, wordLimit, maxLength } = req.body as {
     roleId?: number;
     message?: string;
     question?: string;
@@ -232,11 +276,20 @@ router.post("/smart-apply/assistant", requireAuthenticated, async (req: Request,
     jobTitle?: string;
     employer?: string;
     jobDescription?: string;
+    wordLimit?: number;
+    maxLength?: number;
   };
 
   const userMessage = (message ?? question)?.trim();
   if (!userMessage) {
     res.status(400).json({ error: "message or question is required" });
+    return;
+  }
+  const exactQuestion = (questionText ?? question ?? userMessage).trim();
+  if (/\b(criminal|conviction|convicted|criminal record|disclosure|declaration|consent|agree(?:ment)?|payroll|tax declaration)\b/i.test(exactQuestion)) {
+    res.status(422).json({
+      error: "This declaration needs your own review and confirmation, so JOBSAGE will not generate an answer for it.",
+    });
     return;
   }
 
@@ -263,6 +316,7 @@ router.post("/smart-apply/assistant", requireAuthenticated, async (req: Request,
     }
   }
 
+  const cvText = await fetchSmartApplyCvText(userId);
   const profileSummary = `Candidate profile:
 - Profession: ${profile.profession.replace(/_/g, " ")}
 - Specialty: ${profile.specialty ?? "General"}
@@ -270,13 +324,18 @@ router.post("/smart-apply/assistant", requireAuthenticated, async (req: Request,
 - Experience: ${profile.experienceYears} years
 - UK registration: ${profile.registrationStatus?.replace(/_/g, " ") ?? "unknown"}
 - Requires sponsorship: ${profile.requiresSponsorship ? "Yes" : "No"}
-${profile.preferredRegion?.length ? `- Preferred region: ${Array.isArray(profile.preferredRegion) ? profile.preferredRegion.join(", ") : profile.preferredRegion}` : ""}`.trim();
+${profile.preferredRegion?.length ? `- Preferred region: ${Array.isArray(profile.preferredRegion) ? profile.preferredRegion.join(", ") : profile.preferredRegion}` : ""}
+${profile.languages?.length ? `- Languages: ${profile.languages.join(", ")}` : ""}
+${profile.additionalNotes ? `- Candidate notes: ${profile.additionalNotes.slice(0, 1200)}` : ""}
+${cvText ? `\nCV extract (use only explicit facts from this extract):\n${cvText}` : "\nCV extract: unavailable"}`.trim();
 
   const roleSummary = scrapedSummary ?? `Role: ${roleContext.title} | Location: ${roleContext.location} | Regulator: ${roleContext.regulator} | Sponsorship: ${roleContext.sponsorshipOffered ? "offered" : "not offered"}${roleContext.description ? `\nJob description excerpt: ${roleContext.description.slice(0, 500)}` : ""}`;
 
-  const currentQCtx = questionId && questionText
-    ? `\nThe candidate is currently answering this application question: "${questionText}" (id: ${questionId}). When asked to help with this question, give a concise, professional answer they can use directly.`
-    : "";
+  const limits = [
+    typeof wordLimit === "number" && wordLimit > 0 ? `${wordLimit} words maximum` : null,
+    typeof maxLength === "number" && maxLength > 0 ? `${maxLength} characters maximum` : null,
+  ].filter(Boolean).join("; ");
+  const currentQCtx = `\nThe candidate is currently answering this application question: "${exactQuestion}"${questionId ? ` (id: ${questionId})` : ""}.${limits ? ` Limit: ${limits}.` : ""}`;
 
   const systemPrompt = `You are a friendly and expert UK healthcare career assistant helping an internationally trained health professional complete a job application.
 
@@ -289,7 +348,10 @@ Guidelines:
 - When asked to help answer an application question, write a ready-to-use response in first person
 - Use UK English spelling and professional tone
 - If asked about visa/sponsorship, draw on the profile's requiresSponsorship and registration status
-- Keep responses concise and actionable`;
+- Keep responses concise and actionable
+- Use only facts explicitly stated in the profile, CV extract, and role context. Never invent employers, duties, registrations, qualifications, achievements, dates, or personal circumstances.
+- If the information does not support a specific claim, say what the candidate needs to add instead of drafting a fictional claim.
+- Never produce an answer for criminal-record, conviction, disclosure, declaration, consent, agreement, payroll, or tax-confirmation fields; those require the candidate's own confirmation.`;
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");

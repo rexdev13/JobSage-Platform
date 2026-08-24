@@ -83,7 +83,7 @@ function useStreamAnswer() {
   const [error, setError] = useState<string | null>(null);
   const portRef = useRef<chrome.runtime.Port | null>(null);
 
-  const generate = useCallback((question: string, jobContext: JobContext) => {
+  const generate = useCallback((question: string, jobContext: JobContext, detectedQuestion: DetectedQuestion | null = null) => {
     if (!question.trim()) return;
     portRef.current?.disconnect();
 
@@ -132,10 +132,17 @@ function useStreamAnswer() {
 
     port.postMessage({
       message: `${question.trim()}\n\nJob context: ${jobContext.jobTitle} at ${jobContext.companyName}. ${jobContext.jobDescription.slice(0, 800)}`,
+      questionId: detectedQuestion?.id,
+      questionText: detectedQuestion?.question ?? question.trim(),
+      wordLimit: detectedQuestion?.wordLimit,
+      maxLength: detectedQuestion?.maxLength,
+      jobTitle: jobContext.jobTitle,
+      employer: jobContext.companyName,
+      jobDescription: jobContext.jobDescription.slice(0, 1500),
     });
   }, []);
 
-  return { answer, streaming, error, generate, setAnswer };
+  return { answer, streaming, error, generate, setAnswer, setError };
 }
 
 function limitHint(q: DetectedQuestion): string | null {
@@ -234,7 +241,7 @@ export function Sidebar({
   const [logging, setLogging] = useState(false);
   const [logDone, setLogDone] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const { answer, streaming, error, generate, setAnswer } = useStreamAnswer();
+  const { answer, streaming, error, generate, setAnswer, setError } = useStreamAnswer();
 
   // Question detection
   const subscribe = useCallback(
@@ -339,7 +346,7 @@ export function Sidebar({
   const handleGenerate = () => {
     setInserted(false);
     setInsertFailed(false);
-    generate(buildPrompt(question, selectedQuestion), jobContext);
+    generate(buildPrompt(question, selectedQuestion), jobContext, selectedQuestion);
   };
 
   const handleSelectDetected = (dq: DetectedQuestion) => {
@@ -348,7 +355,12 @@ export function Sidebar({
     setInserted(false);
     setInsertFailed(false);
     highlightField(dq.id);
-    generate(buildPrompt(dq.question, dq), jobContext);
+    if (dq.restricted) {
+      setAnswer("");
+      setError("This declaration needs your own review and confirmation, so JOBSAGE will not generate an answer for it.");
+      return;
+    }
+    generate(buildPrompt(dq.question, dq), jobContext, dq);
   };
 
   const handleInsert = () => {
@@ -724,6 +736,20 @@ export function Sidebar({
                </div>
              )}
            </section>
+            <section
+              style={{
+                padding: "10px 12px",
+                border: `1px solid ${COLORS.border}`,
+                borderRadius: RADIUS,
+                background: COLORS.inputBg,
+                fontSize: 12,
+                color: COLORS.textMuted,
+                lineHeight: 1.5,
+              }}
+            >
+              <strong style={{ color: COLORS.text, display: "block", marginBottom: 2 }}>Employer replies</strong>
+              Replies sent to your JOBSAGE communication address are saved in your JOBSAGE Messages inbox.
+            </section>
           {detected.length > 0 && (
             <div>
               <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.text, marginBottom: 6 }}>
@@ -752,6 +778,11 @@ export function Sidebar({
                       }}
                     >
                       {dq.question}
+                         {dq.restricted && (
+                           <span style={{ display: "block", marginTop: 2, fontSize: 11, color: COLORS.errorText }}>
+                             Requires your own confirmation
+                           </span>
+                         )}
                       {hint && (
                         <span style={{ display: "block", marginTop: 2, fontSize: 11, color: COLORS.textMuted }}>
                           {hint}

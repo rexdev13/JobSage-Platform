@@ -142,6 +142,11 @@ router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
     // drizzle types don't fully narrow text[].array() columns in .values()/.set(); cast needed
     languages: (d.languages ?? null) as unknown as string[] | null,
     additionalNotes: d.additionalNotes ?? null,
+    phone: d.phone ?? null,
+    streetAddress: d.streetAddress ?? null,
+    city: d.city ?? null,
+    postcode: d.postcode ?? null,
+    country: d.country ?? null,
     jobsageEmail,
   };
   // CV extraction submits a partial profile payload. Keep a candidate's
@@ -168,6 +173,11 @@ router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
   };
   if (d.dbsClearanceLevel !== undefined) updateValues.dbsClearanceLevel = d.dbsClearanceLevel;
   if (d.safeguardingTrainingLevel !== undefined) updateValues.safeguardingTrainingLevel = d.safeguardingTrainingLevel;
+  if (d.phone !== undefined) updateValues.phone = d.phone;
+  if (d.streetAddress !== undefined) updateValues.streetAddress = d.streetAddress;
+  if (d.city !== undefined) updateValues.city = d.city;
+  if (d.postcode !== undefined) updateValues.postcode = d.postcode;
+  if (d.country !== undefined) updateValues.country = d.country;
 
   const [profile] = await db
     .insert(profilesTable)

@@ -191,6 +191,16 @@ export interface CandidateProfile {
   languages?: string[] | null;
   /** Free-text notes the candidate wants employers to see */
   additionalNotes?: string | null;
+  /** Candidate contact phone number for application-form prefill */
+  phone?: string | null;
+  /** Candidate street address for application-form prefill */
+  streetAddress?: string | null;
+  /** Candidate town or city for application-form prefill */
+  city?: string | null;
+  /** Candidate postcode for application-form prefill */
+  postcode?: string | null;
+  /** Candidate country for application-form prefill */
+  country?: string | null;
   /** Auto-assigned JOBSAGE communication alias (e.g. jane.smith.a1b2c3@mail.jobsage.app). Used in place of personal email when CVs are sent to employers. */
   jobsageEmail?: string | null;
   /** Profile completeness score (0–100), computed server-side */
@@ -243,6 +253,11 @@ export interface UpsertProfileRequest {
   profilePhotoKey?: string | null;
   languages?: string[] | null;
   additionalNotes?: string | null;
+  phone?: string | null;
+  streetAddress?: string | null;
+  city?: string | null;
+  postcode?: string | null;
+  country?: string | null;
 }
 
 export interface RecordConsentRequest {

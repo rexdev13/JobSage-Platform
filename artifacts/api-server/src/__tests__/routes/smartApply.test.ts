@@ -105,8 +105,38 @@ describe("Smart Apply extension endpoints", () => {
       lastName: "Doe",
       fullName: "Jane Doe",
       email: "jane@example.com",
+      phone: null,
+      streetAddress: null,
+      city: null,
+      postcode: null,
+      country: "United Kingdom",
     });
     expect(response.body).not.toHaveProperty("passwordHash");
+  });
+
+  it("uses the signed-in account email while returning contact fields from the profile", async () => {
+    queryResults.push([{
+      phone: "+44 7700 900123",
+      streetAddress: "10 Example Road",
+      city: "Leeds",
+      postcode: "LS1 1AA",
+      country: "United Kingdom",
+    }]);
+
+    const response = await request(buildApp())
+      .get("/smart-apply/candidate-prefill")
+      .set("Authorization", AUTH_HEADER);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      email: "jane@example.com",
+      phone: "+44 7700 900123",
+      streetAddress: "10 Example Road",
+      city: "Leeds",
+      postcode: "LS1 1AA",
+      country: "United Kingdom",
+    });
+    expect(response.body).not.toHaveProperty("jobsageEmail");
   });
 
   it("returns 404 when the candidate has no CV", async () => {
