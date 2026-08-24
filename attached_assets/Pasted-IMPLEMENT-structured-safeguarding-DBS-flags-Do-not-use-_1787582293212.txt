@@ -1,0 +1,46 @@
+IMPLEMENT structured safeguarding/DBS flags. Do not use AI to decide compliance. Do not treat null as none. Do not touch vacancy HTTP crawler, AI cap, Smart Apply, or marketing role.
+
+## Schema
+Candidate profile:
+- dbsClearanceLevel: unknown | none | basic | standard | enhanced  (default unknown)
+- safeguardingTrainingLevel: unknown | none | level_1 | level_2  (default unknown)
+
+On roles, job_listings, sponsor_licence_vacancies:
+- requiredDbsClearanceLevel: null | none | basic | standard | enhanced
+- requiredSafeguardingLevel: null | none | level_1 | level_2
+null = not specified (UNKNOWN). Do not backfill old rows as none.
+
+## Evaluator
+Shared helper, e.g. evaluateSafeguarding(candidate, job):
+- If job required is null → status unknown (do not fail)
+- If candidate is unknown and job required is set → status unknown_needs_profile (“Add your DBS/safeguarding on profile”)
+- If candidate level < required → missing (flag)
+- If candidate level >= required → met
+Order: none < basic < standard < enhanced; none < level_1 < level_2
+
+Sponsor vacancies: optional conservative text hint ONLY if structured field is null:
+- If description/title clearly contains "enhanced DBS" / "DBS enhanced" → treat required DBS as enhanced, source: inferred_from_text
+- If "safeguarding level 2" / "level 2 safeguarding" → required safeguarding level_2, inferred_from_text
+- If unsure, leave null. Never infer "none".
+
+## UI
+- Onboarding + profile: two selects, not free text
+- Employer job form + admin role edit: the two requirement fields
+- Opportunities + gap sheet: badges
+  - Missing Enhanced DBS / Missing Safeguarding L2
+  - Add DBS details (unknown profile)
+  - Requirement not stated (job unknown)
+  - Meets DBS / safeguarding
+Copy: this is a JOBSAGE check against stated requirements, not a legal DBS decision.
+
+Include these flags in existing eligibilityGaps / match payload so cards can render them.
+
+## Tests
+- null job requirement → unknown, not missing
+- enhanced job + candidate none → missing
+- enhanced job + candidate enhanced → met
+- inferred text only when structured null
+- GET /roles includes the flag for a candidate
+
+Reply files changed + how to set levels on a demo profile and job.
+Stop.
