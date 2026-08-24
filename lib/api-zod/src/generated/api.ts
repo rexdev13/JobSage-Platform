@@ -233,6 +233,12 @@ export const GetMyProfileResponse = zod.object({
     .enum(["registered", "not_registered", "in_process"])
     .nullish(),
   licenceReady: zod.boolean().nullish(),
+  dbsClearanceLevel: zod
+    .enum(["unknown", "none", "basic", "standard", "enhanced"])
+    .optional(),
+  safeguardingTrainingLevel: zod
+    .enum(["unknown", "none", "level_1", "level_2"])
+    .optional(),
   residencyStatus: zod.string().nullish(),
   requiresSponsorship: zod.boolean().nullish(),
   preferredRegion: zod.array(zod.string()).nullish(),
@@ -282,6 +288,12 @@ export const UpsertMyProfileBody = zod.object({
   experienceYears: zod.number(),
   registrationStatus: zod.enum(["registered", "not_registered", "in_process"]),
   licenceReady: zod.boolean().nullish(),
+  dbsClearanceLevel: zod
+    .enum(["unknown", "none", "basic", "standard", "enhanced"])
+    .optional(),
+  safeguardingTrainingLevel: zod
+    .enum(["unknown", "none", "level_1", "level_2"])
+    .optional(),
   residencyStatus: zod.string(),
   requiresSponsorship: zod.boolean(),
   preferredRegion: zod.array(zod.string()).nullish(),
@@ -309,6 +321,12 @@ export const UpsertMyProfileResponse = zod.object({
     .enum(["registered", "not_registered", "in_process"])
     .nullish(),
   licenceReady: zod.boolean().nullish(),
+  dbsClearanceLevel: zod
+    .enum(["unknown", "none", "basic", "standard", "enhanced"])
+    .optional(),
+  safeguardingTrainingLevel: zod
+    .enum(["unknown", "none", "level_1", "level_2"])
+    .optional(),
   residencyStatus: zod.string().nullish(),
   requiresSponsorship: zod.boolean().nullish(),
   preferredRegion: zod.array(zod.string()).nullish(),
@@ -648,6 +666,12 @@ export const RunRegressionTestBody = zod.object({
           "in_process",
         ]),
         licenceReady: zod.boolean().nullish(),
+        dbsClearanceLevel: zod
+          .enum(["unknown", "none", "basic", "standard", "enhanced"])
+          .optional(),
+        safeguardingTrainingLevel: zod
+          .enum(["unknown", "none", "level_1", "level_2"])
+          .optional(),
         residencyStatus: zod.string(),
         requiresSponsorship: zod.boolean(),
         preferredRegion: zod.array(zod.string()).nullish(),
@@ -854,6 +878,12 @@ export const ListMatchedRolesResponse = zod.object({
         regulator: zod.enum(["GMC", "NMC", "HCPC"]),
         sponsorshipOffered: zod.boolean(),
         requiredRegistration: zod.string(),
+        requiredDbsClearanceLevel: zod
+          .enum(["unknown", "none", "basic", "standard", "enhanced"])
+          .nullish(),
+        requiredSafeguardingLevel: zod
+          .enum(["unknown", "none", "level_1", "level_2"])
+          .nullish(),
         active: zod.boolean(),
         importedAt: zod.date(),
         importedBy: zod.string().nullish(),
@@ -879,6 +909,26 @@ export const ListMatchedRolesResponse = zod.object({
         .nullish(),
       isEligible: zod.boolean(),
       matchScore: zod.number().describe("Match score from 0-100"),
+      safeguarding: zod.object({
+        requiredDbsClearanceLevel: zod
+          .enum(["unknown", "none", "basic", "standard", "enhanced"])
+          .nullable(),
+        requiredSafeguardingLevel: zod
+          .enum(["unknown", "none", "level_1", "level_2"])
+          .nullable(),
+        dbsStatus: zod.enum([
+          "unknown",
+          "unknown_needs_profile",
+          "missing",
+          "met",
+        ]),
+        safeguardingStatus: zod.enum([
+          "unknown",
+          "unknown_needs_profile",
+          "missing",
+          "met",
+        ]),
+      }),
       aiScore: zod
         .number()
         .nullish()
@@ -972,6 +1022,12 @@ export const GetMyMatchesResponse = zod.object({
       regulator: zod.string(),
       sponsorshipOffered: zod.boolean(),
       requiredRegistration: zod.string(),
+      requiredDbsClearanceLevel: zod
+        .enum(["unknown", "none", "basic", "standard", "enhanced"])
+        .nullish(),
+      requiredSafeguardingLevel: zod
+        .enum(["unknown", "none", "level_1", "level_2"])
+        .nullish(),
       applyUrl: zod
         .string()
         .nullish()
@@ -1005,6 +1061,26 @@ export const GetMyMatchesResponse = zod.object({
         .string()
         .describe("One-line AI explanation of the match"),
       isEligible: zod.boolean(),
+      safeguarding: zod.object({
+        requiredDbsClearanceLevel: zod
+          .enum(["unknown", "none", "basic", "standard", "enhanced"])
+          .nullable(),
+        requiredSafeguardingLevel: zod
+          .enum(["unknown", "none", "level_1", "level_2"])
+          .nullable(),
+        dbsStatus: zod.enum([
+          "unknown",
+          "unknown_needs_profile",
+          "missing",
+          "met",
+        ]),
+        safeguardingStatus: zod.enum([
+          "unknown",
+          "unknown_needs_profile",
+          "missing",
+          "met",
+        ]),
+      }),
       eligibilityGaps: zod.array(zod.string()).optional(),
     }),
   ),
@@ -1037,6 +1113,12 @@ export const AdminListRolesResponse = zod.object({
       regulator: zod.enum(["GMC", "NMC", "HCPC"]),
       sponsorshipOffered: zod.boolean(),
       requiredRegistration: zod.string(),
+      requiredDbsClearanceLevel: zod
+        .enum(["unknown", "none", "basic", "standard", "enhanced"])
+        .nullish(),
+      requiredSafeguardingLevel: zod
+        .enum(["unknown", "none", "level_1", "level_2"])
+        .nullish(),
       active: zod.boolean(),
       importedAt: zod.date(),
       importedBy: zod.string().nullish(),
@@ -1339,6 +1421,12 @@ export const GetForwardEligibilityResponse = zod.object({
       location: zod.string(),
       sponsorshipOffered: zod.boolean(),
       requiredRegistration: zod.string(),
+      requiredDbsClearanceLevel: zod
+        .enum(["unknown", "none", "basic", "standard", "enhanced"])
+        .nullish(),
+      requiredSafeguardingLevel: zod
+        .enum(["unknown", "none", "level_1", "level_2"])
+        .nullish(),
     }),
   ),
   disclaimer: zod.string(),
@@ -1490,6 +1578,12 @@ export const GetReviewCaseResponse = zod.object({
         .enum(["registered", "not_registered", "in_process"])
         .nullish(),
       licenceReady: zod.boolean().nullish(),
+      dbsClearanceLevel: zod
+        .enum(["unknown", "none", "basic", "standard", "enhanced"])
+        .optional(),
+      safeguardingTrainingLevel: zod
+        .enum(["unknown", "none", "level_1", "level_2"])
+        .optional(),
       residencyStatus: zod.string().nullish(),
       requiresSponsorship: zod.boolean().nullish(),
       preferredRegion: zod.array(zod.string()).nullish(),
@@ -1748,6 +1842,12 @@ export const ListEmployerJobsResponse = zod.object({
         status: zod.enum(["draft", "published", "closed"]),
         regulator: zod.enum(["GMC", "NMC", "HCPC"]),
         requiredRegistration: zod.string(),
+        requiredDbsClearanceLevel: zod
+          .enum(["unknown", "none", "basic", "standard", "enhanced"])
+          .nullish(),
+        requiredSafeguardingLevel: zod
+          .enum(["unknown", "none", "level_1", "level_2"])
+          .nullish(),
         targetProfessions: zod.array(zod.string()).optional(),
         targetRegions: zod.array(zod.string()).optional(),
         createdAt: zod.date(),
@@ -1807,6 +1907,12 @@ export const CreateJobListingBody = zod.object({
   description: zod.string().optional(),
   regulator: zod.enum(["GMC", "NMC", "HCPC"]),
   requiredRegistration: zod.string(),
+  requiredDbsClearanceLevel: zod
+    .enum(["unknown", "none", "basic", "standard", "enhanced"])
+    .nullish(),
+  requiredSafeguardingLevel: zod
+    .enum(["unknown", "none", "level_1", "level_2"])
+    .nullish(),
   targetProfessions: zod.array(zod.string()).optional(),
   targetRegions: zod.array(zod.string()).optional(),
   applyUrl: zod
@@ -1835,6 +1941,12 @@ export const GetJobListingResponse = zod.object({
   status: zod.enum(["draft", "published", "closed"]),
   regulator: zod.enum(["GMC", "NMC", "HCPC"]),
   requiredRegistration: zod.string(),
+  requiredDbsClearanceLevel: zod
+    .enum(["unknown", "none", "basic", "standard", "enhanced"])
+    .nullish(),
+  requiredSafeguardingLevel: zod
+    .enum(["unknown", "none", "level_1", "level_2"])
+    .nullish(),
   targetProfessions: zod.array(zod.string()).optional(),
   targetRegions: zod.array(zod.string()).optional(),
   createdAt: zod.date(),
@@ -1859,6 +1971,12 @@ export const UpdateJobListingBody = zod.object({
   description: zod.string().optional(),
   regulator: zod.enum(["GMC", "NMC", "HCPC"]).optional(),
   requiredRegistration: zod.string().optional(),
+  requiredDbsClearanceLevel: zod
+    .enum(["unknown", "none", "basic", "standard", "enhanced"])
+    .nullish(),
+  requiredSafeguardingLevel: zod
+    .enum(["unknown", "none", "level_1", "level_2"])
+    .nullish(),
   targetProfessions: zod.array(zod.string()).optional(),
   targetRegions: zod.array(zod.string()).optional(),
   applyUrl: zod
@@ -1880,6 +1998,12 @@ export const UpdateJobListingResponse = zod.object({
   status: zod.enum(["draft", "published", "closed"]),
   regulator: zod.enum(["GMC", "NMC", "HCPC"]),
   requiredRegistration: zod.string(),
+  requiredDbsClearanceLevel: zod
+    .enum(["unknown", "none", "basic", "standard", "enhanced"])
+    .nullish(),
+  requiredSafeguardingLevel: zod
+    .enum(["unknown", "none", "level_1", "level_2"])
+    .nullish(),
   targetProfessions: zod.array(zod.string()).optional(),
   targetRegions: zod.array(zod.string()).optional(),
   createdAt: zod.date(),
@@ -1918,6 +2042,12 @@ export const PublishJobListingResponse = zod.object({
   status: zod.enum(["draft", "published", "closed"]),
   regulator: zod.enum(["GMC", "NMC", "HCPC"]),
   requiredRegistration: zod.string(),
+  requiredDbsClearanceLevel: zod
+    .enum(["unknown", "none", "basic", "standard", "enhanced"])
+    .nullish(),
+  requiredSafeguardingLevel: zod
+    .enum(["unknown", "none", "level_1", "level_2"])
+    .nullish(),
   targetProfessions: zod.array(zod.string()).optional(),
   targetRegions: zod.array(zod.string()).optional(),
   createdAt: zod.date(),
@@ -1945,6 +2075,12 @@ export const CloseJobListingResponse = zod.object({
   status: zod.enum(["draft", "published", "closed"]),
   regulator: zod.enum(["GMC", "NMC", "HCPC"]),
   requiredRegistration: zod.string(),
+  requiredDbsClearanceLevel: zod
+    .enum(["unknown", "none", "basic", "standard", "enhanced"])
+    .nullish(),
+  requiredSafeguardingLevel: zod
+    .enum(["unknown", "none", "level_1", "level_2"])
+    .nullish(),
   targetProfessions: zod.array(zod.string()).optional(),
   targetRegions: zod.array(zod.string()).optional(),
   createdAt: zod.date(),
@@ -2217,6 +2353,12 @@ export const ListJobApplicantsResponse = zod.object({
     status: zod.enum(["draft", "published", "closed"]),
     regulator: zod.enum(["GMC", "NMC", "HCPC"]),
     requiredRegistration: zod.string(),
+    requiredDbsClearanceLevel: zod
+      .enum(["unknown", "none", "basic", "standard", "enhanced"])
+      .nullish(),
+    requiredSafeguardingLevel: zod
+      .enum(["unknown", "none", "level_1", "level_2"])
+      .nullish(),
     targetProfessions: zod.array(zod.string()).optional(),
     targetRegions: zod.array(zod.string()).optional(),
     createdAt: zod.date(),

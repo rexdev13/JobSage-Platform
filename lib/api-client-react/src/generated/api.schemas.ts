@@ -105,6 +105,44 @@ export interface UploadUrlResponse {
   metadata?: UploadUrlRequest;
 }
 
+export type DbsClearanceLevel =
+  (typeof DbsClearanceLevel)[keyof typeof DbsClearanceLevel];
+
+export const DbsClearanceLevel = {
+  unknown: "unknown",
+  none: "none",
+  basic: "basic",
+  standard: "standard",
+  enhanced: "enhanced",
+} as const;
+
+export type SafeguardingTrainingLevel =
+  (typeof SafeguardingTrainingLevel)[keyof typeof SafeguardingTrainingLevel];
+
+export const SafeguardingTrainingLevel = {
+  unknown: "unknown",
+  none: "none",
+  level_1: "level_1",
+  level_2: "level_2",
+} as const;
+
+export type SafeguardingStatus =
+  (typeof SafeguardingStatus)[keyof typeof SafeguardingStatus];
+
+export const SafeguardingStatus = {
+  unknown: "unknown",
+  unknown_needs_profile: "unknown_needs_profile",
+  missing: "missing",
+  met: "met",
+} as const;
+
+export interface SafeguardingAssessment {
+  requiredDbsClearanceLevel: DbsClearanceLevel | null;
+  requiredSafeguardingLevel: SafeguardingTrainingLevel | null;
+  dbsStatus: SafeguardingStatus;
+  safeguardingStatus: SafeguardingStatus;
+}
+
 export type CandidateProfileRegistrationStatus =
   | (typeof CandidateProfileRegistrationStatus)[keyof typeof CandidateProfileRegistrationStatus]
   | null;
@@ -137,6 +175,8 @@ export interface CandidateProfile {
   experienceYears?: number | null;
   registrationStatus?: CandidateProfileRegistrationStatus;
   licenceReady?: boolean | null;
+  dbsClearanceLevel?: DbsClearanceLevel;
+  safeguardingTrainingLevel?: SafeguardingTrainingLevel;
   residencyStatus?: string | null;
   requiresSponsorship?: boolean | null;
   preferredRegion?: string[] | null;
@@ -193,6 +233,8 @@ export interface UpsertProfileRequest {
   experienceYears: number;
   registrationStatus: UpsertProfileRequestRegistrationStatus;
   licenceReady?: boolean | null;
+  dbsClearanceLevel?: DbsClearanceLevel;
+  safeguardingTrainingLevel?: SafeguardingTrainingLevel;
   residencyStatus: string;
   requiresSponsorship: boolean;
   preferredRegion?: string[] | null;
@@ -434,6 +476,8 @@ export interface Role {
   regulator: RoleRegulator;
   sponsorshipOffered: boolean;
   requiredRegistration: string;
+  requiredDbsClearanceLevel?: DbsClearanceLevel | null;
+  requiredSafeguardingLevel?: SafeguardingTrainingLevel | null;
   active: boolean;
   importedAt: string;
   importedBy?: string | null;
@@ -468,6 +512,7 @@ export interface MatchedRole {
   isEligible: boolean;
   /** Match score from 0-100 */
   matchScore: number;
+  safeguarding: SafeguardingAssessment;
   /** AI match score from 0-100, when a cached score is available */
   aiScore?: number | null;
   /** AI-generated explanation of this match, when a cached score is available */
@@ -784,6 +829,8 @@ export interface ForwardEligibilityRole {
   location: string;
   sponsorshipOffered: boolean;
   requiredRegistration: string;
+  requiredDbsClearanceLevel?: DbsClearanceLevel | null;
+  requiredSafeguardingLevel?: SafeguardingTrainingLevel | null;
 }
 
 export type ForwardEligibilityResponseRegulator =
@@ -1062,6 +1109,8 @@ export interface JobListing {
   status: JobListingStatus;
   regulator: JobListingRegulator;
   requiredRegistration: string;
+  requiredDbsClearanceLevel?: DbsClearanceLevel | null;
+  requiredSafeguardingLevel?: SafeguardingTrainingLevel | null;
   targetProfessions?: string[];
   targetRegions?: string[];
   createdAt: string;
@@ -1099,6 +1148,8 @@ export interface CreateJobListingRequest {
   description?: string;
   regulator: CreateJobListingRequestRegulator;
   requiredRegistration: string;
+  requiredDbsClearanceLevel?: DbsClearanceLevel | null;
+  requiredSafeguardingLevel?: SafeguardingTrainingLevel | null;
   targetProfessions?: string[];
   targetRegions?: string[];
   /** Direct application URL for this role posting */
@@ -1124,6 +1175,8 @@ export interface UpdateJobListingRequest {
   description?: string;
   regulator?: UpdateJobListingRequestRegulator;
   requiredRegistration?: string;
+  requiredDbsClearanceLevel?: DbsClearanceLevel | null;
+  requiredSafeguardingLevel?: SafeguardingTrainingLevel | null;
   targetProfessions?: string[];
   targetRegions?: string[];
   /** Direct application URL for this role posting */
@@ -1905,6 +1958,8 @@ export interface CandidateMatchItem {
   regulator: string;
   sponsorshipOffered: boolean;
   requiredRegistration: string;
+  requiredDbsClearanceLevel?: DbsClearanceLevel | null;
+  requiredSafeguardingLevel?: SafeguardingTrainingLevel | null;
   /** Direct application URL for this role, if available. Dead links are never returned. */
   applyUrl?: string | null;
   /** True when the apply link was health-checked and confirmed live */
@@ -1922,6 +1977,7 @@ export interface CandidateMatchItem {
   /** One-line AI explanation of the match */
   aiExplanation: string;
   isEligible: boolean;
+  safeguarding: SafeguardingAssessment;
   eligibilityGaps?: string[];
 }
 

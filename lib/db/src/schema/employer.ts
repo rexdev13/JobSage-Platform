@@ -32,6 +32,12 @@ export const jobListingsTable = pgTable("job_listings", {
   status: varchar("status", { enum: ["draft", "published", "closed"] }).notNull().default("draft"),
   regulator: varchar("regulator", { enum: ["GMC", "NMC", "HCPC"] }).notNull(),
   requiredRegistration: text("required_registration").notNull(),
+  requiredDbsClearanceLevel: varchar("required_dbs_clearance_level", {
+    enum: ["unknown", "none", "basic", "standard", "enhanced"],
+  }),
+  requiredSafeguardingLevel: varchar("required_safeguarding_level", {
+    enum: ["unknown", "none", "level_1", "level_2"],
+  }),
   targetProfessions: jsonb("target_professions").$type<string[]>().default([]),
   targetRegions: jsonb("target_regions").$type<string[]>().default([]),
   applyUrl: text("apply_url"),

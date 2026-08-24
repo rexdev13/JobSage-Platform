@@ -46,6 +46,7 @@ import {
   TrendingUp,
   Search,
   BadgeCheck,
+  ShieldCheck,
   Clock,
   DollarSign,
   Sparkles,
@@ -256,6 +257,33 @@ function SponsorshipBadge({ outcome }: { outcome: "feasible" | "not_feasible" | 
   );
 }
 
+function SafeguardingBadge({
+  safeguarding,
+}: {
+  safeguarding: MatchedRole["safeguarding"];
+}) {
+  const statuses = [safeguarding.dbsStatus, safeguarding.safeguardingStatus];
+  if (
+    safeguarding.requiredDbsClearanceLevel == null &&
+    safeguarding.requiredSafeguardingLevel == null
+  ) {
+    return null;
+  }
+  const missing = statuses.includes("missing");
+  const needsProfile = statuses.includes("unknown_needs_profile");
+  const cls = missing
+    ? "bg-red-100 text-red-700"
+    : needsProfile
+      ? "bg-amber-100 text-amber-800"
+      : "bg-emerald-100 text-emerald-800";
+  const label = missing ? "DBS / safeguarding: gap" : needsProfile ? "DBS / safeguarding: update profile" : "DBS / safeguarding: stated requirements met";
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${cls}`}>
+      <ShieldCheck className="w-3 h-3" /> {label}
+    </span>
+  );
+}
+
 function MatchScoreBadge({ score }: { score: number }) {
   const color =
     score >= 80 ? "bg-emerald-100 text-emerald-800" : score >= 50 ? "bg-blue-100 text-blue-800" : "bg-muted text-muted-foreground";
@@ -273,7 +301,7 @@ function RoleDetailModal({ item, appliedRoleIds, onClose, aiScore }: {
   aiScore?: number;
 }) {
   const [, setLocation] = useLocation();
-  const { role, isEligible, matchScore, eligibilityGaps, sponsorshipFeasibility } = item;
+  const { role, isEligible, matchScore, eligibilityGaps, sponsorshipFeasibility, safeguarding } = item;
   const applied = appliedRoleIds.includes(role.id);
 
   return (
@@ -312,6 +340,7 @@ function RoleDetailModal({ item, appliedRoleIds, onClose, aiScore }: {
             )}
             {aiScore != null ? <AiScoreBadge score={aiScore} /> : <MatchScoreBadge score={matchScore} />}
             <SponsorshipBadge outcome={sponsorshipFeasibility?.outcome} />
+            <SafeguardingBadge safeguarding={safeguarding} />
           </div>
 
           <div className="space-y-3 mb-5">
@@ -631,7 +660,7 @@ function RoleCard({
   aiScoring?: boolean;
 }) {
   const [, setLocation] = useLocation();
-  const { role, isEligible, matchScore, eligibilityGaps, sponsorshipFeasibility, contactEmail, contactPhone, contactWebsite, applyUrl, linkVerified, linkCheckedAt } = item;
+  const { role, isEligible, matchScore, eligibilityGaps, sponsorshipFeasibility, safeguarding, contactEmail, contactPhone, contactWebsite, applyUrl, linkVerified, linkCheckedAt } = item;
   const [expanded, setExpanded] = useState(false);
   const [checking, setChecking] = useState(false);
   const [deadLink, setDeadLink] = useState(false);
@@ -793,6 +822,7 @@ function RoleCard({
 
       <div className="mt-3 flex flex-wrap gap-2">
         <SponsorshipBadge outcome={sponsorshipFeasibility?.outcome} />
+        <SafeguardingBadge safeguarding={safeguarding} />
         {role.sponsorshipOffered && (
           <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
             Sponsorship Available

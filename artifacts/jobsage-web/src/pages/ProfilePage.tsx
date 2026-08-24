@@ -23,6 +23,8 @@ import { useToast } from "@/hooks/use-toast";
 
 type RegistrationStatus = "registered" | "not_registered" | "in_process";
 type AlertFrequency = "daily" | "weekly" | "off";
+type DbsClearanceLevel = "unknown" | "none" | "basic" | "standard" | "enhanced";
+type SafeguardingTrainingLevel = "unknown" | "none" | "level_1" | "level_2";
 
 const FALLBACK_PROFESSIONS = [
   "Doctor",
@@ -105,6 +107,8 @@ type ProfileFormData = {
   experienceYears: string;
   registrationStatus: RegistrationStatus;
   licenceReady: boolean;
+  dbsClearanceLevel: DbsClearanceLevel;
+  safeguardingTrainingLevel: SafeguardingTrainingLevel;
   residencyStatus: string;
   residencyStatusOther: string;
   requiresSponsorship: boolean;
@@ -296,6 +300,8 @@ export default function ProfilePage() {
     experienceYears: "",
     registrationStatus: "not_registered",
     licenceReady: false,
+    dbsClearanceLevel: "unknown",
+    safeguardingTrainingLevel: "unknown",
     residencyStatus: "",
     residencyStatusOther: "",
     requiresSponsorship: false,
@@ -339,6 +345,8 @@ export default function ProfilePage() {
         experienceYears: profile.experienceYears?.toString() || "",
         registrationStatus: (profile.registrationStatus as RegistrationStatus) || "not_registered",
         licenceReady: profile.licenceReady || false,
+        dbsClearanceLevel: (profile.dbsClearanceLevel as DbsClearanceLevel) ?? "unknown",
+        safeguardingTrainingLevel: (profile.safeguardingTrainingLevel as SafeguardingTrainingLevel) ?? "unknown",
         residencyStatus: isOther ? "Other" : storedResidency,
         residencyStatusOther: isOther ? storedResidency : "",
         requiresSponsorship: profile.requiresSponsorship || false,
@@ -375,6 +383,8 @@ export default function ProfilePage() {
       experienceYears: parseInt(fd.experienceYears, 10) || 0,
       registrationStatus: fd.registrationStatus,
       licenceReady: fd.licenceReady,
+      dbsClearanceLevel: fd.dbsClearanceLevel,
+      safeguardingTrainingLevel: fd.safeguardingTrainingLevel,
       residencyStatus: effectiveResidency,
       requiresSponsorship: fd.requiresSponsorship,
       preferredRegion: fd.preferredRegion.length > 0 ? fd.preferredRegion : undefined,
@@ -801,6 +811,39 @@ export default function ProfilePage() {
                     </span>
                   </span>
                 </label>
+              </div>
+            </div>
+          </Card>
+
+          {/* Safeguarding */}
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold mb-2 border-b pb-4 flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-primary" />
+              DBS &amp; Safeguarding
+            </h3>
+            <p className="text-sm text-muted-foreground mb-5">
+              Share the levels you already hold so JOBSAGE can compare them with stated job requirements.
+              This is not a legal DBS decision.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <Label>DBS clearance level</Label>
+                <Select name="dbsClearanceLevel" value={formData.dbsClearanceLevel} onChange={handleChange} onBlur={handleBlur}>
+                  <option value="unknown">I don&apos;t know / not recorded</option>
+                  <option value="none">None</option>
+                  <option value="basic">Basic DBS</option>
+                  <option value="standard">Standard DBS</option>
+                  <option value="enhanced">Enhanced DBS</option>
+                </Select>
+              </div>
+              <div>
+                <Label>Safeguarding training level</Label>
+                <Select name="safeguardingTrainingLevel" value={formData.safeguardingTrainingLevel} onChange={handleChange} onBlur={handleBlur}>
+                  <option value="unknown">I don&apos;t know / not recorded</option>
+                  <option value="none">None</option>
+                  <option value="level_1">Level 1</option>
+                  <option value="level_2">Level 2</option>
+                </Select>
               </div>
             </div>
           </Card>

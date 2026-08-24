@@ -131,6 +131,8 @@ router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
     experienceYears: d.experienceYears,
     registrationStatus: d.registrationStatus,
     licenceReady: d.licenceReady ?? null,
+    dbsClearanceLevel: d.dbsClearanceLevel ?? "unknown",
+    safeguardingTrainingLevel: d.safeguardingTrainingLevel ?? "unknown",
     residencyStatus: d.residencyStatus,
     requiresSponsorship: d.requiresSponsorship,
     preferredRegion: d.preferredRegion ?? null,
@@ -142,6 +144,30 @@ router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
     additionalNotes: d.additionalNotes ?? null,
     jobsageEmail,
   };
+  // CV extraction submits a partial profile payload. Keep a candidate's
+  // recorded safeguarding evidence unless the client explicitly changes it.
+  const updateValues: Record<string, unknown> = {
+    profession: d.profession,
+    specialty: d.specialty,
+    qualificationCountry: d.qualificationCountry,
+    qualificationType: d.qualificationType,
+    qualificationYear: d.qualificationYear,
+    experienceYears: d.experienceYears,
+    registrationStatus: d.registrationStatus,
+    licenceReady: d.licenceReady ?? null,
+    residencyStatus: d.residencyStatus,
+    requiresSponsorship: d.requiresSponsorship,
+    preferredRegion: d.preferredRegion ?? null,
+    alertFrequency: d.alertFrequency ?? "daily",
+    preferredStartDate: d.preferredStartDate ?? null,
+    profilePhotoKey: d.profilePhotoKey ?? null,
+    languages: d.languages ?? null,
+    additionalNotes: d.additionalNotes ?? null,
+    jobsageEmail: sql`COALESCE(${profilesTable.jobsageEmail}, ${jobsageEmail})`,
+    updatedAt: new Date(),
+  };
+  if (d.dbsClearanceLevel !== undefined) updateValues.dbsClearanceLevel = d.dbsClearanceLevel;
+  if (d.safeguardingTrainingLevel !== undefined) updateValues.safeguardingTrainingLevel = d.safeguardingTrainingLevel;
 
   const [profile] = await db
     .insert(profilesTable)
@@ -149,29 +175,8 @@ router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
     .values(values as any)
     .onConflictDoUpdate({
       target: profilesTable.userId,
-      set: {
-        profession: d.profession,
-        specialty: d.specialty,
-        qualificationCountry: d.qualificationCountry,
-        qualificationType: d.qualificationType,
-        qualificationYear: d.qualificationYear,
-        experienceYears: d.experienceYears,
-        registrationStatus: d.registrationStatus,
-        licenceReady: d.licenceReady ?? null,
-        residencyStatus: d.residencyStatus,
-        requiresSponsorship: d.requiresSponsorship,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        preferredRegion: (d.preferredRegion ?? null) as any,
-        alertFrequency: d.alertFrequency ?? "daily",
-        preferredStartDate: d.preferredStartDate ?? null,
-        profilePhotoKey: d.profilePhotoKey ?? null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        languages: (d.languages ?? null) as any,
-        additionalNotes: d.additionalNotes ?? null,
-        // Use COALESCE so existing aliases are preserved while null rows are backfilled
-        jobsageEmail: sql`COALESCE(${profilesTable.jobsageEmail}, ${jobsageEmail})`,
-        updatedAt: new Date(),
-      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      set: updateValues as any,
     })
     .returning();
 

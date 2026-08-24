@@ -5,6 +5,8 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { DbsClearanceLevel } from "./dbsClearanceLevel";
+import type { SafeguardingTrainingLevel } from "./safeguardingTrainingLevel";
 import type { UpsertProfileRequestAlertFrequency } from "./upsertProfileRequestAlertFrequency";
 import type { UpsertProfileRequestRegistrationStatus } from "./upsertProfileRequestRegistrationStatus";
 
@@ -18,6 +20,8 @@ export interface UpsertProfileRequest {
   experienceYears: number;
   registrationStatus: UpsertProfileRequestRegistrationStatus;
   licenceReady?: boolean | null;
+  dbsClearanceLevel?: DbsClearanceLevel;
+  safeguardingTrainingLevel?: SafeguardingTrainingLevel;
   residencyStatus: string;
   requiresSponsorship: boolean;
   preferredRegion?: string[] | null;

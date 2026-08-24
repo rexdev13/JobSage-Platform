@@ -3,6 +3,7 @@ import { sponsorLicenceVacanciesTable, sponsorLicencesTable } from "@workspace/d
 import { and, eq, gt, ne } from "drizzle-orm";
 import { isManualLabourTitle } from "./vacancyTitlePolicy";
 import { isValidVacancyDeepLink } from "./vacancyUrlPolicy";
+import type { DbsClearanceLevel, SafeguardingTrainingLevel } from "./safeguarding";
 
 /**
  * ID offset for AI-discovered sponsor-licence vacancies when merged into the
@@ -93,6 +94,32 @@ export interface SponsorVacancyAsRole {
   /** True when the title/description clearly maps to the candidate's regulator. */
   classifiedRelevant: boolean;
   description: string | null;
+  requiredDbsClearanceLevel: DbsClearanceLevel | null;
+  requiredSafeguardingLevel: SafeguardingTrainingLevel | null;
+}
+
+/**
+ * Only extracts unambiguous, explicit phrases. This deliberately avoids
+ * fuzzy classification: an absent or unclear statement must stay unknown.
+ */
+export function inferSafeguardingRequirements(
+  title: string,
+  description: string | null | undefined,
+): Pick<SponsorVacancyAsRole, "requiredDbsClearanceLevel" | "requiredSafeguardingLevel"> {
+  const text = [title, description ?? ""].filter(Boolean).join("\n");
+  const dbsMatches = [
+    ...text.matchAll(/\b(enhanced|standard|basic)\s+(?:DBS|disclosure and barring service)\b/gi),
+  ].map((match) => match[1].toLowerCase() as Exclude<DbsClearanceLevel, "unknown">);
+  const safeguardingMatches = [
+    ...text.matchAll(/\bsafeguarding(?:\s+training)?\s+level\s*([12])\b|\blevel\s*([12])\s+safeguarding\b/gi),
+  ].map((match) => `level_${match[1] ?? match[2]}` as Exclude<SafeguardingTrainingLevel, "unknown">);
+
+  const dbsLevels = [...new Set(dbsMatches)];
+  const safeguardingLevels = [...new Set(safeguardingMatches)];
+  return {
+    requiredDbsClearanceLevel: dbsLevels.length === 1 ? dbsLevels[0] : null,
+    requiredSafeguardingLevel: safeguardingLevels.length === 1 ? safeguardingLevels[0] : null,
+  };
 }
 
 export interface SponsorVacancyRoleQueryOptions {
@@ -158,6 +185,10 @@ export async function fetchSponsorVacanciesAsRoles(
     const contactEmail = lic?.contactEmail?.trim() || null;
     const contactPhone = lic?.contactPhone?.trim() || null;
     const contactWebsite = lic?.website?.trim() || null;
+    const inferredRequirements =
+      vac.requiredDbsClearanceLevel == null || vac.requiredSafeguardingLevel == null
+        ? inferSafeguardingRequirements(vac.title, vac.description)
+        : null;
 
     const hasContactRoute = [link.applyUrl, contactEmail, contactPhone, contactWebsite].some(
       (v) => v != null && v.trim() !== "",
@@ -187,6 +218,14 @@ export async function fetchSponsorVacanciesAsRoles(
       contactWebsite,
       classifiedRelevant: classified === regulator,
       description: vac.description,
+      requiredDbsClearanceLevel:
+        (vac.requiredDbsClearanceLevel as DbsClearanceLevel | null) ??
+        inferredRequirements?.requiredDbsClearanceLevel ??
+        null,
+      requiredSafeguardingLevel:
+        (vac.requiredSafeguardingLevel as SafeguardingTrainingLevel | null) ??
+        inferredRequirements?.requiredSafeguardingLevel ??
+        null,
     });
   }
 

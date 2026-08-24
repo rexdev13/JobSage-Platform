@@ -10,6 +10,12 @@ export const rolesTable = pgTable("roles", {
   regulator: varchar("regulator", { enum: ["GMC", "NMC", "HCPC"] }).notNull(),
   sponsorshipOffered: boolean("sponsorship_offered").notNull().default(false),
   requiredRegistration: text("required_registration").notNull(),
+  requiredDbsClearanceLevel: varchar("required_dbs_clearance_level", {
+    enum: ["unknown", "none", "basic", "standard", "enhanced"],
+  }),
+  requiredSafeguardingLevel: varchar("required_safeguarding_level", {
+    enum: ["unknown", "none", "level_1", "level_2"],
+  }),
   active: boolean("active").notNull().default(true),
   importedAt: timestamp("imported_at", { withTimezone: true }).notNull().defaultNow(),
   importedBy: varchar("imported_by"),

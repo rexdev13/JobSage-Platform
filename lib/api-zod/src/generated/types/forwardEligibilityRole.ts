@@ -5,6 +5,8 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { DbsClearanceLevel } from "./dbsClearanceLevel";
+import type { SafeguardingTrainingLevel } from "./safeguardingTrainingLevel";
 
 export interface ForwardEligibilityRole {
   id: number;
@@ -13,4 +15,6 @@ export interface ForwardEligibilityRole {
   location: string;
   sponsorshipOffered: boolean;
   requiredRegistration: string;
+  requiredDbsClearanceLevel?: DbsClearanceLevel | null;
+  requiredSafeguardingLevel?: SafeguardingTrainingLevel | null;
 }

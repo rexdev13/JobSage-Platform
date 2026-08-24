@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { Role } from "./role";
+import type { SafeguardingAssessment } from "./safeguardingAssessment";
 import type { SponsorshipFeasibility } from "./sponsorshipFeasibility";
 
 export interface MatchedRole {
@@ -18,6 +19,7 @@ export interface MatchedRole {
   isEligible: boolean;
   /** Match score from 0-100 */
   matchScore: number;
+  safeguarding: SafeguardingAssessment;
   /** AI match score from 0-100, when a cached score is available */
   aiScore?: number | null;
   /** AI-generated explanation of this match, when a cached score is available */

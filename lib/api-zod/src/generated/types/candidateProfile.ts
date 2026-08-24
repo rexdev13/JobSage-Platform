@@ -7,6 +7,8 @@
  */
 import type { CandidateProfileAlertFrequency } from "./candidateProfileAlertFrequency";
 import type { CandidateProfileRegistrationStatus } from "./candidateProfileRegistrationStatus";
+import type { DbsClearanceLevel } from "./dbsClearanceLevel";
+import type { SafeguardingTrainingLevel } from "./safeguardingTrainingLevel";
 
 export interface CandidateProfile {
   id: number;
@@ -20,6 +22,8 @@ export interface CandidateProfile {
   experienceYears?: number | null;
   registrationStatus?: CandidateProfileRegistrationStatus;
   licenceReady?: boolean | null;
+  dbsClearanceLevel?: DbsClearanceLevel;
+  safeguardingTrainingLevel?: SafeguardingTrainingLevel;
   residencyStatus?: string | null;
   requiresSponsorship?: boolean | null;
   preferredRegion?: string[] | null;

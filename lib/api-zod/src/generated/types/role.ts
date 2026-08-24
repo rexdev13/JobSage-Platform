@@ -5,7 +5,9 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { DbsClearanceLevel } from "./dbsClearanceLevel";
 import type { RoleRegulator } from "./roleRegulator";
+import type { SafeguardingTrainingLevel } from "./safeguardingTrainingLevel";
 
 export interface Role {
   id: number;
@@ -15,6 +17,8 @@ export interface Role {
   regulator: RoleRegulator;
   sponsorshipOffered: boolean;
   requiredRegistration: string;
+  requiredDbsClearanceLevel?: DbsClearanceLevel | null;
+  requiredSafeguardingLevel?: SafeguardingTrainingLevel | null;
   active: boolean;
   importedAt: Date;
   importedBy?: string | null;
