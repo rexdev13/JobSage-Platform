@@ -1,0 +1,64 @@
+SMART APPLY SLICE 2 — finish the apply helper. Do not auto-submit employer forms. Do not store or fill passwords. Do not touch vacancy discovery, NHS HTTP crawler, AI vacancy cap, alerts, or contact backfill. Question detection may be improved; do not rewrite the whole extension.
+
+JOBSAGE click tracking (link_clicked → applied) is already shipped. Finish the candidate-help side.
+
+## Goal
+When a candidate opens a vacancy from JOBSAGE:
+1. Tracker already has the row.
+2. Sidebar opens and stays useful (not “dismiss and it’s gone” for this tab).
+3. Personal details prefill from the JOBSAGE profile.
+4. Long-form questions are detected on NHS Jobs, Trac, and Workday, then AI draft + Insert works.
+5. CV: fetch the candidate’s JOBSAGE CV and attach it to a file input if possible; otherwise one-click download + “upload this file”.
+
+## 1. Prefill personal details
+The question detector currently SKIPS name/email/phone/address. Keep skipping those as “questions”, but ADD a prefill pass.
+
+From the authenticated JOBSAGE profile, fill matching visible inputs:
+- first name, last name, full name
+- email
+- phone / mobile
+- address / city / postcode / country if profile has them
+
+Rules:
+- Never fill password, username, NI number, passport, DoB unless those exact profile fields exist AND the label is unambiguous. If unsure, skip.
+- Only fill empty fields. Do not overwrite what the candidate typed.
+- Button in sidebar: “Prefill my details”. Also run automatically once when the page was opened with ?ref=jobsage (or the tracked JOBSAGE outbound URL).
+- Log what was filled; if a field is missing in the profile, show “complete this in JOBSAGE”.
+
+## 2. Question detection that works on the real boards
+Auto-detect currently fails. Fix it for the three dedicated sites first, then keep generic textarea fallback.
+
+NHS Jobs (*.nhs.uk), Trac (*.trac.jobs), Workday (*.myworkdayjobs.com):
+- Inspect live application form markup (supporting information, personal statement, “why this role”, competency boxes).
+- Add dedicated selectors, not only “describe/explain/why” heuristics.
+- Still detect visible writable textareas and long text inputs.
+- MutationObserver must rescan after each wizard step.
+- Sidebar lists each question with Generate / Insert / Copy as today.
+
+Prove with a dry note: which selectors you added and on which site. If you cannot load a live form (login wall), use current public NHS Jobs advert + documented form patterns and fixtures.
+
+## 3. JOBSAGE click: helper is not dismissable for this tab
+If the tab came from JOBSAGE (?ref=jobsage or stored original click URL):
+- Auto-open the sidebar.
+- Do not let “hide this site” cancel tracking (already first-party). Also do not let it prevent prefill/sidebar on this tab.
+- Candidate can minimise the sidebar; they cannot make JOBSAGE forget the click.
+
+## 4. CV
+GET the candidate’s current CV from JOBSAGE (existing document endpoint).
+- If the page has <input type="file"> for CV/resume, try to attach the file via the extension.
+- If the browser blocks it, download the CV and show “Upload this file on the form”.
+- Never invent a CV.
+
+## 5. Tracker UI
+Applications list must show jobTitle, applicationUrl, and status link_clicked vs applied. Mobile list should show title too if it currently only shows company.
+
+## Tests
+- Prefill fills empty name/email, skips password, does not overwrite typed values.
+- NHS/Trac/Workday fixtures: at least one supporting-statement field detected.
+- Prefill + detect do not create duplicate tracker rows.
+- Existing click-tracking tests still pass (11/11 applications).
+
+## Stop when
+Prefill works, three-site question detect is dedicated + tested, CV attach-or-download works, sidebar auto-opens on JOBSAGE clicks, tracker shows title. Then STOP.
+
+Reply with files changed, extension version bump if manifest/content changed (rebuild the ZIP), and what still needs a real logged-in NHS form to verify.
