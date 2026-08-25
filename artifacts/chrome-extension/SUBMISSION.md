@@ -4,7 +4,7 @@ Everything is prepared; only the steps below require your Google account.
 
 ## What's already prepared
 
-- **Submission zip:** `artifacts/chrome-extension/release/jobsage-smart-apply-extension-v0.4.6.zip`
+- **Submission zip:** `artifacts/chrome-extension/release/jobsage-smart-apply-extension-v0.4.8.zip`
   (regenerate any time with `pnpm --filter jobsage-chrome-extension run package` — this also refreshes the direct-download zip on the website)
 - **Privacy policy (live page):** `https://jobsage.co.uk/extension-privacy`
 - **All listing text and permission justifications:** `store/LISTING.md` (copy-paste ready)
@@ -19,7 +19,7 @@ Everything is prepared; only the steps below require your Google account.
 
 ## Step 2 — Upload
 
-1. In the dashboard, click **+ New item** and upload `release/jobsage-smart-apply-extension-v0.4.6.zip`.
+1. In the dashboard, click **+ New item** and upload `release/jobsage-smart-apply-extension-v0.4.8.zip`.
 2. The dashboard parses the manifest and opens the draft listing.
 
 ## Step 3 — Fill in the listing
@@ -57,7 +57,7 @@ Reply via the dashboard's review thread; resubmission after edits restarts the r
 
 The website's "Load unpacked" download flow keeps working unchanged and stays useful while the store review is pending. Once the store listing is live, consider updating `SmartApplyExtensionPrompt.tsx` on the web app to link to the store page (one-click install) instead of the manual unzip instructions.
 
-## Smart Apply v0.4.6 behaviour
+## Smart Apply v0.4.8 behaviour
 
 - The helper can only prefill empty, visible, unambiguous contact fields. It never fills passwords, usernames, dates of birth, National Insurance/passport fields, or an ambiguous “Name” input.
 - A tracked JOBSAGE application opens the helper and keeps a minimizable launcher available through ATS redirects. This only occurs after the first-party JOBSAGE page registers the exact outbound URL; a public `ref=jobsage` parameter alone never triggers prefill. Dismissing the helper on an unrelated site still works as before.

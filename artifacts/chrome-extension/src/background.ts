@@ -44,6 +44,7 @@ function getEtld1(hostname: string): string {
 type TabActivation = TabTrackingContext;
 type TrustedNavigation = { applicationUrl: string; createdAt: number };
 type CreatedNavigationTarget = { tabId: number; url: string; createdAt: number };
+type SameTabNavigationTarget = { url: string; createdAt: number };
 
 // These tiny, short-lived maps bridge the synchronous browser navigation
 // events with the first-party registration message. They are intentionally
@@ -51,6 +52,7 @@ type CreatedNavigationTarget = { tabId: number; url: string; createdAt: number }
 // never that an arbitrary ?ref parameter becomes trusted.
 const pendingTrustedNavigations = new Map<number, TrustedNavigation>();
 const createdNavigationTargets = new Map<number, CreatedNavigationTarget>();
+const sameTabNavigationTargets = new Map<number, SameTabNavigationTarget>();
 
 async function getActivations(): Promise<Record<string, TabActivation>> {
   const stored = await chrome.storage.session.get(ACTIVATION_SESSION_KEY);
@@ -86,8 +88,22 @@ function sameUrl(a: string, b: string): boolean {
   }
 }
 
-function isFreshTrustedNavigation(entry: TrustedNavigation | CreatedNavigationTarget): boolean {
+function isFreshTrustedNavigation(
+  entry: TrustedNavigation | CreatedNavigationTarget | SameTabNavigationTarget,
+): boolean {
   return Date.now() - entry.createdAt <= TRUSTED_NAVIGATION_WINDOW_MS;
+}
+
+function cleanExpiredNavigationTargets(): void {
+  for (const [sourceTabId, pending] of pendingTrustedNavigations) {
+    if (!isFreshTrustedNavigation(pending)) pendingTrustedNavigations.delete(sourceTabId);
+  }
+  for (const [sourceTabId, target] of createdNavigationTargets) {
+    if (!isFreshTrustedNavigation(target)) createdNavigationTargets.delete(sourceTabId);
+  }
+  for (const [tabId, target] of sameTabNavigationTargets) {
+    if (!isFreshTrustedNavigation(target)) sameTabNavigationTargets.delete(tabId);
+  }
 }
 
 async function activateTrackedTab(tabId: number, applicationUrl: string): Promise<void> {
@@ -106,23 +122,28 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
   try {
     const url = new URL(details.url);
     if (url.searchParams.get("ref") !== "jobsage") return;
+    cleanExpiredNavigationTargets();
     for (const [sourceTabId, pending] of pendingTrustedNavigations) {
-      if (!isFreshTrustedNavigation(pending)) {
-        pendingTrustedNavigations.delete(sourceTabId);
-        continue;
-      }
       if (sameUrl(pending.applicationUrl, url.toString())) {
         pendingTrustedNavigations.delete(sourceTabId);
         await activateTrackedTab(details.tabId, pending.applicationUrl);
         return;
       }
     }
+    // The first-party registration message is asynchronous, so navigation can
+    // arrive first for same-tab links. Retain only the exact, short-lived
+    // tagged destination until a trusted first-party registration confirms it.
+    sameTabNavigationTargets.set(details.tabId, {
+      url: url.toString(),
+      createdAt: Date.now(),
+    });
   } catch {
     // invalid URL — ignore
   }
 });
 
 chrome.webNavigation.onCreatedNavigationTarget.addListener(async (details) => {
+  cleanExpiredNavigationTargets();
   const pending = pendingTrustedNavigations.get(details.sourceTabId);
   if (pending && isFreshTrustedNavigation(pending) && sameUrl(pending.applicationUrl, details.url)) {
     pendingTrustedNavigations.delete(details.sourceTabId);
@@ -163,6 +184,9 @@ chrome.webNavigation.onCommitted.addListener(async (details) => {
 });
 
 chrome.tabs.onRemoved.addListener(async (tabId) => {
+  pendingTrustedNavigations.delete(tabId);
+  createdNavigationTargets.delete(tabId);
+  sameTabNavigationTargets.delete(tabId);
   const map = await getActivations();
   if (map[tabId]) {
     delete map[tabId];
@@ -599,8 +623,18 @@ chrome.runtime.onMessage.addListener(
           return;
         }
 
+        cleanExpiredNavigationTargets();
         const createdTarget = createdNavigationTargets.get(sourceTabId);
+        const sameTabTarget = sameTabNavigationTargets.get(sourceTabId);
+
         if (
+          sameTabTarget &&
+          isFreshTrustedNavigation(sameTabTarget) &&
+          sameUrl(sameTabTarget.url, applicationUrl.toString())
+        ) {
+          sameTabNavigationTargets.delete(sourceTabId);
+          await activateTrackedTab(sourceTabId, applicationUrl.toString());
+        } else if (
           createdTarget &&
           isFreshTrustedNavigation(createdTarget) &&
           sameUrl(createdTarget.url, applicationUrl.toString())

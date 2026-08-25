@@ -182,6 +182,39 @@ export function isRecognizedJobBoard(): boolean {
   );
 }
 
+/**
+ * Return true when the page has an application-form signal rather than only
+ * job-board navigation/search UI. This intentionally favors hiding the
+ * launcher on listing pages: a candidate can still opt in from the popup
+ * when a site uses a custom form that cannot be identified locally.
+ */
+export function hasApplicationForm(): boolean {
+  const applicationFieldSelector = [
+    "textarea",
+    "input[type='file']",
+    "[name*='supporting' i]",
+    "[id*='supporting' i]",
+    "[name*='personal-statement' i]",
+    "[id*='personal-statement' i]",
+    "[name*='application-question' i]",
+    "[id*='application-question' i]",
+    "[data-automation-id*='question' i]",
+    "[data-automation-id*='longtext' i]",
+    "[data-automation-id*='long-text' i]",
+    "[data-automation-id*='supporting' i]",
+  ].join(",");
+
+  if (document.querySelector(applicationFieldSelector)) return true;
+
+  const path = `${location.pathname} ${location.search}`;
+  if (!/\b(apply|application|candidate)\b/i.test(path)) return false;
+
+  // Some first application steps contain only ordinary text/select controls.
+  // Treat a form on an explicitly application-like route as useful, while
+  // avoiding the search form on ordinary vacancy listings.
+  return document.querySelector("form") !== null;
+}
+
 export function scrapeJobContext(): JobContext {
   const host = location.hostname;
 

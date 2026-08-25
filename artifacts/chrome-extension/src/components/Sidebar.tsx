@@ -163,9 +163,27 @@ function clamp(val: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, val));
 }
 
-function defaultPos(compact: boolean): PillPos {
-  const w = compact ? PILL_W_COMPACT : 148; // approximate full pill width
-  const h = compact ? PILL_H_COMPACT : PILL_H;
+function pillWidth(compact: boolean, showDismiss: boolean): number {
+  if (compact) return showDismiss ? PILL_W_COMPACT + 31 : PILL_W_COMPACT;
+  return showDismiss ? 179 : 148;
+}
+
+function pillHeight(compact: boolean): number {
+  return compact ? PILL_H_COMPACT : PILL_H;
+}
+
+function clampPosition(position: PillPos, compact: boolean, showDismiss: boolean): PillPos {
+  const width = pillWidth(compact, showDismiss);
+  const height = pillHeight(compact);
+  return {
+    left: clamp(position.left, 0, Math.max(0, window.innerWidth - width)),
+    top: clamp(position.top, 0, Math.max(0, window.innerHeight - height)),
+  };
+}
+
+function defaultPos(compact: boolean, showDismiss: boolean): PillPos {
+  const w = pillWidth(compact, showDismiss);
+  const h = pillHeight(compact);
   return {
     left: window.innerWidth - w - 24,
     top: window.innerHeight - h - 24,
@@ -259,7 +277,11 @@ export function Sidebar({
   // Draggable pill state
   // ---------------------------------------------------------------------------
   const compact = minimal && !open;
-  const [pos, setPos] = useState<PillPos | null>(initialPosition);
+  const showDismiss = !open && !tracked;
+  const [pos, setPos] = useState<PillPos | null>(() =>
+    initialPosition ? clampPosition(initialPosition, compact, showDismiss) : null,
+  );
+  const posRef = useRef<PillPos | null>(pos);
   const [isDragging, setIsDragging] = useState(false);
   const hasDraggedRef = useRef(false);
   const dragStartRef = useRef<{
@@ -275,15 +297,29 @@ export function Sidebar({
   const [showDismissMenu, setShowDismissMenu] = useState(false);
 
   // Effective pill position (use stored pos, else compute default)
-  const effPos = pos ?? defaultPos(compact);
+  const effPos = clampPosition(pos ?? defaultPos(compact, showDismiss), compact, showDismiss);
   const pillLeft = effPos.left;
   const pillTop = effPos.top;
+
+  useEffect(() => {
+    const onResize = () => {
+      const current = posRef.current;
+      if (!current) return;
+      const next = clampPosition(current, compact, showDismiss);
+      if (next.left === current.left && next.top === current.top) return;
+      posRef.current = next;
+      setPos(next);
+      void chrome.storage.local.set({ [PILL_POSITION_KEY]: next }).catch(() => {});
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [compact, showDismiss]);
 
   function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
     // Don't initiate drag when clicking the dismiss button
     if (dismissBtnRef.current && dismissBtnRef.current.contains(e.target as Node)) return;
     hasDraggedRef.current = false;
-    const current = pos ?? defaultPos(compact);
+    const current = effPos;
     dragStartRef.current = {
       pointerX: e.clientX,
       pointerY: e.clientY,
@@ -303,21 +339,27 @@ export function Sidebar({
       setShowDismissMenu(false); // close menu if open during drag
     }
     if (!hasDraggedRef.current) return;
-    const pillW = compact ? PILL_W_COMPACT : 148;
-    const pillH = compact ? PILL_H_COMPACT : PILL_H;
-    const newLeft = clamp(dragStartRef.current.pillLeft + dx, 0, window.innerWidth - pillW);
-    const newTop = clamp(dragStartRef.current.pillTop + dy, 0, window.innerHeight - pillH);
-    setPos({ left: newLeft, top: newTop });
+    const next = clampPosition(
+      {
+        left: dragStartRef.current.pillLeft + dx,
+        top: dragStartRef.current.pillTop + dy,
+      },
+      compact,
+      showDismiss,
+    );
+    posRef.current = next;
+    setPos(next);
   }
 
   function handlePointerUp() {
     if (!dragStartRef.current) return;
     dragStartRef.current = null;
     setIsDragging(false);
-    if (hasDraggedRef.current && pos) {
+    const current = posRef.current;
+    if (hasDraggedRef.current && current) {
       // Persist position to extension storage
       try {
-        void chrome.storage.local.set({ [PILL_POSITION_KEY]: pos });
+        void chrome.storage.local.set({ [PILL_POSITION_KEY]: current });
       } catch {
         // storage unavailable (e.g. extension context invalidated)
       }
@@ -448,7 +490,7 @@ export function Sidebar({
           border: "none",
           // Left side is always rounded; right side is only rounded when there
           // is no dismiss button (compact or sidebar is open)
-          borderRadius: !compact && !open ? "9999px 0 0 9999px" : 9999,
+           borderRadius: showDismiss ? "9999px 0 0 9999px" : 9999,
           cursor: isDragging ? "grabbing" : "pointer",
           pointerEvents: isDragging ? "none" : "auto",
         }}
@@ -471,8 +513,8 @@ export function Sidebar({
         {!compact && "JOBSAGE"}
       </button>
 
-      {/* Dismiss separator + button — visible only on full pill when sidebar is closed */}
-       {!compact && !open && !tracked && (
+       {/* Dismiss separator + button — available whenever the launcher is closed */}
+        {showDismiss && (
         <>
           {/* 1 px hairline divider */}
           <div
@@ -494,7 +536,7 @@ export function Sidebar({
               alignItems: "center",
               justifyContent: "center",
               width: 30,
-              height: PILL_H,
+               height: pillHeight(compact),
               background: COLORS.pillBg,
               color: "rgba(255,255,255,0.85)",
               border: "none",
@@ -512,7 +554,7 @@ export function Sidebar({
       )}
 
       {/* Dismiss menu popover */}
-       {showDismissMenu && !tracked && (
+        {showDismissMenu && showDismiss && (
         <div
           style={{
             position: "absolute",

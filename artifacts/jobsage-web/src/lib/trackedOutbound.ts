@@ -13,9 +13,9 @@ export function normalizeWebsiteUrl(url: string): string {
 }
 
 /**
- * Appends `?ref=jobsage` to an outbound URL so the JOBSAGE Chrome extension
- * knows to activate when the candidate lands on the external job board.
- * Uses the URL constructor for safe parameter handling (won't double-append).
+ * Appends `?ref=jobsage` and emits the first-party event that lets the
+ * extension trust this exact click through redirects. The public parameter is
+ * only a matching aid; it is never sufficient to activate the sidebar alone.
  */
 function appendJobSageRef(raw: string): string {
   try {
@@ -39,7 +39,9 @@ export async function openTrackedOutbound({
   toast?: ToastFn;
   onTracked?: () => void;
 }): Promise<void> {
-  window.open(appendJobSageRef(url), "_blank", "noopener,noreferrer");
+  const outboundUrl = appendJobSageRef(url);
+  window.dispatchEvent(new CustomEvent("jobsage:outbound-application", { detail: outboundUrl }));
+  window.open(outboundUrl, "_blank", "noopener,noreferrer");
 }
 
 export async function openTrackedSponsorVacancy({

@@ -1,6 +1,5 @@
 import { createRoot } from "react-dom/client";
 import { Sidebar } from "./components/Sidebar";
-import { scrapeJobContext, isRecognizedJobBoard } from "./lib/scraper";
 import {
   mountAutomaticConfirmationToast,
   retryTrackedApplicationConfirmation,
@@ -11,6 +10,7 @@ import { ensureBrandFonts } from "./lib/brand";
 import type { PillPos } from "./lib/types";
 import { prefillPersonalDetails, type CandidateProfile, type PrefillResult } from "./lib/prefill";
 import { attachCvToForm, type CandidateCv, type CvAttachResult } from "./lib/cvAttachment";
+import { scrapeJobContext, hasApplicationForm } from "./lib/scraper";
 
 const JOBSAGE_HOST_ID = "jobsage-extension-root";
 const PILL_POSITION_KEY = "jobsage_pill_position";
@@ -216,6 +216,7 @@ function mountSidebar(
   const existing = document.getElementById(JOBSAGE_HOST_ID);
   if (existing) {
     // Already mounted — just open it.
+    existing.style.display = "";
     openSidebarFn?.();
     return existing.shadowRoot!;
   }
@@ -243,7 +244,7 @@ function mountSidebar(
   createRoot(container).render(
     <Sidebar
       jobContext={jobContext}
-      minimal={!isRecognizedJobBoard() && !tracked}
+      minimal={!hasApplicationForm() && !tracked}
       questionWatcher={questionWatcher}
       onLogApplication={logApplication}
       initialPosition={initialPosition}
@@ -283,8 +284,9 @@ async function init(): Promise<void> {
   ]);
   const tracked = !!trackingUrl;
 
-  // Only activate if: JOBSAGE host, or URL carries ?ref=jobsage, or tab was
-  // previously marked by the background worker (survives redirect stripping).
+  // Only activate if this is the first-party host or the tab was previously
+  // marked by the background worker (survives redirect stripping). A public
+  // ref query parameter by itself is deliberately not trusted.
   if (!isJobSageHost() && !tracked && !activated) return;
 
   // A tracked application must always retain a minimizable helper so a
