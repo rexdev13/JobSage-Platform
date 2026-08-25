@@ -53,6 +53,18 @@ async function clearSuppression(hostname: string): Promise<void> {
   }
 }
 
+async function showSidebarOnCurrentTab(): Promise<void> {
+  try {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    const tabId = tabs[0]?.id;
+    if (tabId !== undefined) {
+      await chrome.tabs.sendMessage(tabId, { type: "SHOW_SIDEBAR" });
+    }
+  } catch {
+    // The current tab may not allow content scripts (for example chrome://).
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Popup
 // ---------------------------------------------------------------------------
@@ -106,6 +118,7 @@ function Popup() {
   const handleReEnable = async (hostname: string) => {
     await clearSuppression(hostname);
     setSuppressedHostnames((prev) => prev.filter((h) => h !== hostname));
+    await showSidebarOnCurrentTab();
   };
 
   const target = activeOrigin({ env, devOrigin });
@@ -367,7 +380,7 @@ function Popup() {
             ))}
           </div>
           <div style={{ fontSize: 10.5, color: BRAND.textMuted, marginTop: 6, lineHeight: 1.5 }}>
-            Re-enabling takes effect on the next page load.
+             Re-enabling shows JOBSAGE on the current page when possible.
           </div>
         </div>
       )}
