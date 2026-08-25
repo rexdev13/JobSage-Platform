@@ -25,6 +25,13 @@ const COLORS = {
 
 const RADIUS = BRAND.radiusSm;
 const PILL_POSITION_KEY = "jobsage_pill_position";
+const SIDEBAR_WIDTH_KEY = "jobsage_sidebar_width";
+const SIDEBAR_DEFAULT_WIDTH = 420;
+const SIDEBAR_MIN_WIDTH = 320;
+const SIDEBAR_MAX_WIDTH = 720;
+const SIDEBAR_VIEWPORT_GUTTER = 32;
+const SIDEBAR_NARROW_MIN_WIDTH = 240;
+const PILL_GRIP_WIDTH = 18;
 
 // ---------------------------------------------------------------------------
 // Props
@@ -42,6 +49,8 @@ interface SidebarProps {
   onLogApplication: (companyName: string, jobTitle: string, pageUrl: string) => Promise<void>;
   /** Pill position loaded from storage on startup. null = default bottom-right. */
   initialPosition?: PillPos | null;
+  /** Sidebar width loaded from storage on startup. null = a comfortable default. */
+  initialSidebarWidth?: number | null;
   /** Called when the candidate dismisses the launcher for this site or session. */
   onDismiss: (scope: "site" | "session") => void;
   /** When true the sidebar panel starts open (used when activated via popup button). */
@@ -162,8 +171,8 @@ function clamp(val: number, lo: number, hi: number) {
 }
 
 function pillWidth(compact: boolean, showDismiss: boolean): number {
-  if (compact) return showDismiss ? PILL_W_COMPACT + 31 : PILL_W_COMPACT;
-  return showDismiss ? 179 : 148;
+  if (compact) return PILL_GRIP_WIDTH + (showDismiss ? PILL_W_COMPACT + 31 : PILL_W_COMPACT);
+  return PILL_GRIP_WIDTH + (showDismiss ? 179 : 148);
 }
 
 function pillHeight(compact: boolean): number {
@@ -188,6 +197,18 @@ function defaultPos(compact: boolean, showDismiss: boolean): PillPos {
   };
 }
 
+export function sidebarWidthBounds(viewportWidth = window.innerWidth) {
+  const available = Math.max(SIDEBAR_NARROW_MIN_WIDTH, viewportWidth - SIDEBAR_VIEWPORT_GUTTER);
+  const minimum = Math.min(SIDEBAR_MIN_WIDTH, available);
+  const maximum = Math.max(minimum, Math.min(SIDEBAR_MAX_WIDTH, available));
+  return { minimum, maximum };
+}
+
+export function clampSidebarWidth(width: number, viewportWidth = window.innerWidth): number {
+  const { minimum, maximum } = sidebarWidthBounds(viewportWidth);
+  return clamp(width, minimum, maximum);
+}
+
 // ---------------------------------------------------------------------------
 // Sidebar component
 // ---------------------------------------------------------------------------
@@ -198,6 +219,7 @@ export function Sidebar({
   questionWatcher,
   onLogApplication,
   initialPosition = null,
+  initialSidebarWidth = null,
   onDismiss,
   startOpen = false,
   onOpen,
@@ -206,6 +228,9 @@ export function Sidebar({
   onAttachCv,
 }: SidebarProps) {
   const [open, setOpen] = useState(startOpen);
+  const [sidebarWidth, setSidebarWidth] = useState(() =>
+    clampSidebarWidth(initialSidebarWidth ?? SIDEBAR_DEFAULT_WIDTH),
+  );
   const [prefilling, setPrefilling] = useState(false);
   const [prefillResult, setPrefillResult] = useState<PrefillResult | null>(null);
   const [attachingCv, setAttachingCv] = useState(false);
@@ -280,8 +305,9 @@ export function Sidebar({
     initialPosition ? clampPosition(initialPosition, compact, showDismiss) : null,
   );
   const posRef = useRef<PillPos | null>(pos);
+  const sidebarWidthRef = useRef(sidebarWidth);
   const [isDragging, setIsDragging] = useState(false);
-  const hasDraggedRef = useRef(false);
+  const dragMovedRef = useRef(false);
   const dragStartRef = useRef<{
     pointerX: number;
     pointerY: number;
@@ -289,7 +315,9 @@ export function Sidebar({
     pillTop: number;
   } | null>(null);
   const pillContainerRef = useRef<HTMLDivElement>(null);
-  const dismissBtnRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const resizeStartRef = useRef<{ pointerX: number; width: number } | null>(null);
+  const [isResizing, setIsResizing] = useState(false);
 
   // Dismiss menu
   const [showDismissMenu, setShowDismissMenu] = useState(false);
@@ -298,6 +326,7 @@ export function Sidebar({
   const effPos = clampPosition(pos ?? defaultPos(compact, showDismiss), compact, showDismiss);
   const pillLeft = effPos.left;
   const pillTop = effPos.top;
+  sidebarWidthRef.current = sidebarWidth;
 
   useEffect(() => {
     const onResize = () => {
@@ -313,10 +342,64 @@ export function Sidebar({
     return () => window.removeEventListener("resize", onResize);
   }, [compact, showDismiss]);
 
-  function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
-    // Don't initiate drag when clicking the dismiss button
-    if (dismissBtnRef.current && dismissBtnRef.current.contains(e.target as Node)) return;
-    hasDraggedRef.current = false;
+  useEffect(() => {
+    const onViewportResize = () => {
+      setSidebarWidth((current) => {
+        const next = clampSidebarWidth(current);
+        if (next !== current) {
+          sidebarWidthRef.current = next;
+          try {
+            void chrome.storage.local.set({ [SIDEBAR_WIDTH_KEY]: next });
+          } catch {
+            // Storage can be unavailable during an extension reload.
+          }
+        }
+        return next;
+      });
+    };
+    window.addEventListener("resize", onViewportResize);
+    return () => window.removeEventListener("resize", onViewportResize);
+  }, []);
+
+  useEffect(() => {
+    if (initialSidebarWidth !== null) return;
+    try {
+      void chrome.storage.local.get(SIDEBAR_WIDTH_KEY).then((stored) => {
+        const savedWidth = stored[SIDEBAR_WIDTH_KEY];
+        if (typeof savedWidth === "number") {
+          const next = clampSidebarWidth(savedWidth);
+          sidebarWidthRef.current = next;
+          setSidebarWidth(next);
+        }
+      });
+    } catch {
+      // Storage can be unavailable in tests or while Chrome reloads the extension.
+    }
+  }, [initialSidebarWidth]);
+
+  useEffect(() => {
+    if (!open) return;
+    const closeWhenOutside = (event: PointerEvent) => {
+      if (isResizing) return;
+      const path = event.composedPath();
+      if (panelRef.current && path.includes(panelRef.current)) return;
+      if (pillContainerRef.current && path.includes(pillContainerRef.current)) return;
+      setOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", closeWhenOutside, true);
+    document.addEventListener("keydown", closeOnEscape, true);
+    return () => {
+      document.removeEventListener("pointerdown", closeWhenOutside, true);
+      document.removeEventListener("keydown", closeOnEscape, true);
+    };
+  }, [isResizing, open]);
+
+  function handleGripPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    e.preventDefault();
+    dragMovedRef.current = false;
     const current = effPos;
     dragStartRef.current = {
       pointerX: e.clientX,
@@ -327,16 +410,16 @@ export function Sidebar({
     e.currentTarget.setPointerCapture(e.pointerId);
   }
 
-  function handlePointerMove(e: React.PointerEvent<HTMLDivElement>) {
+  function handleGripPointerMove(e: React.PointerEvent<HTMLDivElement>) {
     if (!dragStartRef.current) return;
     const dx = e.clientX - dragStartRef.current.pointerX;
     const dy = e.clientY - dragStartRef.current.pointerY;
-    if (!hasDraggedRef.current && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
-      hasDraggedRef.current = true;
+    if (!dragMovedRef.current && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
+      dragMovedRef.current = true;
       setIsDragging(true);
       setShowDismissMenu(false); // close menu if open during drag
     }
-    if (!hasDraggedRef.current) return;
+    if (Math.abs(dx) <= 5 && Math.abs(dy) <= 5) return;
     const next = clampPosition(
       {
         left: dragStartRef.current.pillLeft + dx,
@@ -349,12 +432,12 @@ export function Sidebar({
     setPos(next);
   }
 
-  function handlePointerUp() {
+  function handleGripPointerUp() {
     if (!dragStartRef.current) return;
     dragStartRef.current = null;
     setIsDragging(false);
     const current = posRef.current;
-    if (hasDraggedRef.current && current) {
+    if (dragMovedRef.current && current) {
       // Persist position to extension storage
       try {
         void chrome.storage.local.set({ [PILL_POSITION_KEY]: current });
@@ -362,14 +445,57 @@ export function Sidebar({
         // storage unavailable (e.g. extension context invalidated)
       }
     }
-    // hasDraggedRef.current intentionally left true — checked in click handler below
   }
 
-  function handlePillClick() {
+  function openSidebar() {
     setShowDismissMenu(false);
-    // The panel header is the minimiser. A visible launcher is always an open
-    // action, so a preceding drag gesture can never consume a genuine tap.
     setOpen(true);
+  }
+
+  function persistSidebarWidth(width: number) {
+    sidebarWidthRef.current = width;
+    setSidebarWidth(width);
+    try {
+      void chrome.storage.local.set({ [SIDEBAR_WIDTH_KEY]: width });
+    } catch {
+      // Storage can be unavailable during an extension reload.
+    }
+  }
+
+  function handleResizePointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    resizeStartRef.current = { pointerX: e.clientX, width: sidebarWidth };
+    setIsResizing(true);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  function handleResizePointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (!resizeStartRef.current) return;
+    const nextWidth = clampSidebarWidth(resizeStartRef.current.width + resizeStartRef.current.pointerX - e.clientX);
+    sidebarWidthRef.current = nextWidth;
+    setSidebarWidth(nextWidth);
+  }
+
+  function handleResizePointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    if (!resizeStartRef.current) return;
+    resizeStartRef.current = null;
+    setIsResizing(false);
+    persistSidebarWidth(sidebarWidthRef.current);
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+  }
+
+  function handleResizeKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    const { minimum, maximum } = sidebarWidthBounds();
+    const increment = 24;
+    let next: number | null = null;
+    if (e.key === "ArrowLeft") next = sidebarWidth + increment;
+    if (e.key === "ArrowRight") next = sidebarWidth - increment;
+    if (e.key === "Home") next = minimum;
+    if (e.key === "End") next = maximum;
+    if (next === null) return;
+    e.preventDefault();
+    persistSidebarWidth(clampSidebarWidth(next));
   }
 
   // ---------------------------------------------------------------------------
@@ -437,10 +563,6 @@ export function Sidebar({
   const pill = (
     <div
       ref={pillContainerRef}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerUp}
       style={{
         position: "fixed",
         left: pillLeft,
@@ -457,11 +579,37 @@ export function Sidebar({
           : "0 4px 14px rgba(0,0,0,0.25)",
       }}
     >
+      <div
+        onPointerDown={handleGripPointerDown}
+        onPointerMove={handleGripPointerMove}
+        onPointerUp={handleGripPointerUp}
+        onPointerCancel={handleGripPointerUp}
+        title="Drag to move JOBSAGE"
+        aria-hidden="true"
+        style={{
+          width: PILL_GRIP_WIDTH,
+          minWidth: PILL_GRIP_WIDTH,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: COLORS.pillBg,
+          color: "rgba(255,255,255,0.78)",
+          borderRadius: "9999px 0 0 9999px",
+          cursor: isDragging ? "grabbing" : "grab",
+          touchAction: "none",
+          fontSize: 13,
+          letterSpacing: -2,
+          paddingBottom: 1,
+        }}
+      >
+        ⠿
+      </div>
       {/* Main toggle button */}
       <button
-        onClick={handlePillClick}
-        title={open ? "Close JOBSAGE" : "Open JOBSAGE"}
-        aria-label={open ? "Close JOBSAGE" : "Open JOBSAGE"}
+        onPointerUp={openSidebar}
+        onClick={openSidebar}
+        title="Open JOBSAGE"
+        aria-label="Open JOBSAGE"
         style={{
           display: "flex",
           alignItems: "center",
@@ -477,11 +625,10 @@ export function Sidebar({
           fontSize: 14,
           fontWeight: 600,
           border: "none",
-          // Left side is always rounded; right side is only rounded when there
-          // is no dismiss button (compact or sidebar is open)
-           borderRadius: showDismiss ? "9999px 0 0 9999px" : 9999,
-          cursor: isDragging ? "grabbing" : "pointer",
-          pointerEvents: isDragging ? "none" : "auto",
+          // The drag grip owns the left rounding. The button remains a pure,
+          // reliably clickable open action.
+          borderRadius: showDismiss ? "0" : "0 9999px 9999px 0",
+          cursor: "pointer",
         }}
       >
         <svg
@@ -514,7 +661,6 @@ export function Sidebar({
             }}
           />
           <button
-            ref={dismissBtnRef}
             onClick={(e) => {
               e.stopPropagation();
               setShowDismissMenu((s) => !s);
@@ -525,16 +671,15 @@ export function Sidebar({
               alignItems: "center",
               justifyContent: "center",
               width: 30,
-               height: pillHeight(compact),
+              height: pillHeight(compact),
               background: COLORS.pillBg,
               color: "rgba(255,255,255,0.85)",
               border: "none",
               borderRadius: "0 9999px 9999px 0",
-              cursor: isDragging ? "grabbing" : "pointer",
+              cursor: "pointer",
               fontSize: 17,
               lineHeight: 1,
               padding: 0,
-              pointerEvents: isDragging ? "none" : "auto",
             }}
           >
             ×
@@ -613,6 +758,7 @@ export function Sidebar({
     <>
       {pill}
       <div
+        ref={panelRef}
         role="dialog"
         aria-label="JOBSAGE Copilot"
         style={{
@@ -620,7 +766,8 @@ export function Sidebar({
           top: 0,
           right: 0,
           bottom: 0,
-          width: 380,
+          width: sidebarWidth,
+          maxWidth: `calc(100vw - ${SIDEBAR_VIEWPORT_GUTTER}px)`,
           zIndex: 2147483645,
           background: COLORS.bg,
           borderLeft: `1px solid ${COLORS.border}`,
@@ -631,6 +778,46 @@ export function Sidebar({
           overflowY: "auto",
         }}
       >
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize JOBSAGE sidebar"
+          aria-valuemin={sidebarWidthBounds().minimum}
+          aria-valuemax={sidebarWidthBounds().maximum}
+          aria-valuenow={sidebarWidth}
+          tabIndex={0}
+          onPointerDown={handleResizePointerDown}
+          onPointerMove={handleResizePointerMove}
+          onPointerUp={handleResizePointerUp}
+          onPointerCancel={handleResizePointerUp}
+          onKeyDown={handleResizeKeyDown}
+          title="Drag to resize JOBSAGE"
+          style={{
+            position: "absolute",
+            top: 0,
+            bottom: 0,
+            left: -7,
+            width: 14,
+            cursor: "col-resize",
+            touchAction: "none",
+            zIndex: 1,
+            outline: "none",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: 5,
+              width: 3,
+              height: 42,
+              transform: "translateY(-50%)",
+              borderRadius: 99,
+              background: isResizing ? COLORS.primary : COLORS.border,
+              boxShadow: isResizing ? `0 0 0 2px ${COLORS.inputBg}` : "none",
+            }}
+          />
+        </div>
         {/* Header */}
         <div
           style={{
