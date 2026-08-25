@@ -19,6 +19,8 @@
   "include": [
     "src/background.ts",
     "src/lib/env.ts",
+    "src/lib/keyedAsyncQueue.ts",
+    "src/lib/navigationRecords.ts",
     "src/lib/trackingContext.ts",
     "src/lib/trustedOrigin.ts"
   ]
