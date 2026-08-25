@@ -10,7 +10,7 @@ import { ensureBrandFonts } from "./lib/brand";
 import type { PillPos } from "./lib/types";
 import { prefillPersonalDetails, type CandidateProfile, type PrefillResult } from "./lib/prefill";
 import { attachCvToForm, type CandidateCv, type CvAttachResult } from "./lib/cvAttachment";
-import { scrapeJobContext, hasApplicationForm } from "./lib/scraper";
+import { scrapeJobContext, hasApplicationForm, type JobContext } from "./lib/scraper";
 
 const JOBSAGE_HOST_ID = "jobsage-extension-root";
 const PILL_POSITION_KEY = "jobsage_pill_position";
@@ -238,13 +238,44 @@ function mountSidebar(
 
   document.body.appendChild(host);
 
-  const jobContext = scrapeJobContext();
-  const questionWatcher = createQuestionWatcher();
+  let jobContext: JobContext = {
+    jobTitle: "",
+    companyName: "",
+    jobDescription: "",
+    pageUrl: location.href,
+  };
+  try {
+    jobContext = scrapeJobContext();
+  } catch (error) {
+    console.warn("[JOBSAGE] Could not scrape job context; opening the helper without page details.", error);
+  }
 
-  createRoot(container).render(
+  let questionWatcher: ReturnType<typeof createQuestionWatcher> | undefined;
+  try {
+    questionWatcher = createQuestionWatcher();
+  } catch (error) {
+    console.warn("[JOBSAGE] Could not start question detection; opening the helper without detected questions.", error);
+  }
+
+  let formDetected = false;
+  try {
+    formDetected = hasApplicationForm();
+  } catch (error) {
+    console.warn("[JOBSAGE] Could not inspect the page form; opening the helper in compact mode.", error);
+  }
+
+  container.dataset.jobsageRenderState = "starting";
+  createRoot(container, {
+    onUncaughtError(error) {
+      console.error("[JOBSAGE] Sidebar render failed.", error);
+      container.dataset.jobsageRenderState = "failed";
+      container.dataset.jobsageRenderError = error instanceof Error ? error.message : String(error);
+      container.textContent = "JOBSAGE helper could not load. Refresh this page and try again.";
+    },
+  }).render(
     <Sidebar
       jobContext={jobContext}
-      minimal={!hasApplicationForm() && !tracked}
+      minimal={!isJobSageHost() && !formDetected && !tracked}
       questionWatcher={questionWatcher}
       onLogApplication={logApplication}
       initialPosition={initialPosition}
@@ -256,6 +287,7 @@ function mountSidebar(
       onOpen={(fn) => { openSidebarFn = fn; }}
     />,
   );
+  container.dataset.jobsageRenderState = "scheduled";
 
   sidebarMounted = true;
   return shadowRoot;
