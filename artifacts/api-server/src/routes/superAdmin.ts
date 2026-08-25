@@ -15,11 +15,22 @@ import {
   jobListingsTable,
   rolesTable,
 } from "@workspace/db";
+import { CreateSuperAdminMarketingAccountBody } from "@workspace/api-zod";
 import { eq, and, desc, gte, lte, count, max, ilike, sql, asc } from "drizzle-orm";
 import { requireRole } from "../middlewares/requireRole";
 import { writeAuditEvent } from "../lib/audit";
-import { createSession, getSession, deleteSession, updateSession, getSessionId } from "../lib/auth";
+import {
+  createSession,
+  getSession,
+  deleteSession,
+  updateSession,
+  getSessionId,
+  generateToken,
+  tokenExpiresAt,
+} from "../lib/auth";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
+import { sendPasswordResetEmail } from "../lib/email";
+import { generateJobsageEmail } from "../lib/jobsageEmailGen";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -174,6 +185,95 @@ router.get(
       .where(whereClause);
 
     res.json({ users, total: Number(totalRow?.cnt ?? 0), page: pageNum, pageSize: PAGE_SIZE });
+  },
+);
+
+router.post(
+  "/admin/super/marketing-accounts",
+  requireRole("super_admin"),
+  async (req: Request, res: Response): Promise<void> => {
+    const parsed = CreateSuperAdminMarketingAccountBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "A valid email address, first name, and last name are required." });
+      return;
+    }
+    const email = parsed.data.email.trim().toLowerCase();
+    const firstName = parsed.data.firstName.trim();
+    const lastName = parsed.data.lastName.trim();
+
+    if (!firstName || firstName.length > 80 || !lastName || lastName.length > 80) {
+      res.status(400).json({ error: "First and last name are required and must be 80 characters or fewer." });
+      return;
+    }
+
+    const [existing] = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(eq(usersTable.email, email));
+    if (existing) {
+      res.status(409).json({ error: "An account with this email already exists." });
+      return;
+    }
+
+    const setupToken = generateToken();
+    const setupTokenExpires = tokenExpiresAt(24);
+    const jobsageAlias = generateJobsageEmail(firstName, lastName);
+    let user: typeof usersTable.$inferSelect;
+
+    try {
+      const inserted = await db
+        .insert(usersTable)
+        .values({
+          email,
+          firstName,
+          lastName,
+          role: "marketing",
+          passwordHash: null,
+          emailVerified: false,
+          passwordResetToken: setupToken,
+          passwordResetTokenExpires: setupTokenExpires,
+          jobsageEmail: jobsageAlias,
+        })
+        .returning();
+      user = inserted[0];
+    } catch (error: unknown) {
+      const code = error && typeof error === "object" && "code" in error
+        ? String((error as { code: unknown }).code)
+        : "";
+      if (code === "23505") {
+        res.status(409).json({ error: "An account with this email already exists." });
+        return;
+      }
+      throw error;
+    }
+
+    try {
+      await sendPasswordResetEmail(email, setupToken, getOrigin(req));
+    } catch {
+      await db.delete(usersTable).where(eq(usersTable.id, user.id));
+      res.status(503).json({
+        error: "We could not send the invitation email. The account was not created; please try again shortly.",
+      });
+      return;
+    }
+
+    writeAuditEvent(req.user!.id, "super_admin_create_marketing_account", user.id, {
+      email,
+      firstName,
+      lastName,
+    }).catch(() => {});
+
+    res.status(201).json({
+      message: "Marketing account created. A password setup link has been sent.",
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        emailVerified: user.emailVerified,
+      },
+    });
   },
 );
 
@@ -367,6 +467,12 @@ router.get(
     });
   },
 );
+
+function getOrigin(req: Request): string {
+  const proto = req.headers["x-forwarded-proto"] || "https";
+  const host = req.headers["x-forwarded-host"] || req.headers["host"] || "localhost";
+  return `${proto}://${host}`;
+}
 
 async function fetchUserFull(userId: string) {
   const [user] = await db

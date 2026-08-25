@@ -3151,6 +3151,25 @@ export const GetSuperAdminUsersResponse = zod.object({
 });
 
 /**
+ * @summary Create a marketing account and send a password setup invitation (super admin only)
+ */
+export const createSuperAdminMarketingAccountBodyFirstNameMax = 80;
+
+export const createSuperAdminMarketingAccountBodyLastNameMax = 80;
+
+export const CreateSuperAdminMarketingAccountBody = zod.object({
+  email: zod.string().email(),
+  firstName: zod
+    .string()
+    .min(1)
+    .max(createSuperAdminMarketingAccountBodyFirstNameMax),
+  lastName: zod
+    .string()
+    .min(1)
+    .max(createSuperAdminMarketingAccountBodyLastNameMax),
+});
+
+/**
  * @summary Full backend state for a specific user (super admin only)
  */
 export const GetSuperAdminUserFullParams = zod.object({

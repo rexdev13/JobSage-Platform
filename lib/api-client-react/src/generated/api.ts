@@ -89,6 +89,8 @@ import type {
   LogoutSuccess,
   MarkApplicationRequest,
   MarkMessageRead200,
+  MarketingAccountCreatedResponse,
+  MarketingAccountInput,
   MatchedRoleList,
   MessageEnvelope,
   OkResponse,
@@ -9740,6 +9742,99 @@ export function useGetSuperAdminUsers<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Create a marketing account and send a password setup invitation (super admin only)
+ */
+export const getCreateSuperAdminMarketingAccountUrl = () => {
+  return `/api/admin/super/marketing-accounts`;
+};
+
+export const createSuperAdminMarketingAccount = async (
+  marketingAccountInput: MarketingAccountInput,
+  options?: RequestInit,
+): Promise<MarketingAccountCreatedResponse> => {
+  return customFetch<MarketingAccountCreatedResponse>(
+    getCreateSuperAdminMarketingAccountUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(marketingAccountInput),
+    },
+  );
+};
+
+export const getCreateSuperAdminMarketingAccountMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSuperAdminMarketingAccount>>,
+    TError,
+    { data: BodyType<MarketingAccountInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createSuperAdminMarketingAccount>>,
+  TError,
+  { data: BodyType<MarketingAccountInput> },
+  TContext
+> => {
+  const mutationKey = ["createSuperAdminMarketingAccount"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createSuperAdminMarketingAccount>>,
+    { data: BodyType<MarketingAccountInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createSuperAdminMarketingAccount(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateSuperAdminMarketingAccountMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createSuperAdminMarketingAccount>>
+>;
+export type CreateSuperAdminMarketingAccountMutationBody =
+  BodyType<MarketingAccountInput>;
+export type CreateSuperAdminMarketingAccountMutationError =
+  ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Create a marketing account and send a password setup invitation (super admin only)
+ */
+export const useCreateSuperAdminMarketingAccount = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSuperAdminMarketingAccount>>,
+    TError,
+    { data: BodyType<MarketingAccountInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createSuperAdminMarketingAccount>>,
+  TError,
+  { data: BodyType<MarketingAccountInput> },
+  TContext
+> => {
+  return useMutation(
+    getCreateSuperAdminMarketingAccountMutationOptions(options),
+  );
+};
 
 /**
  * @summary Full backend state for a specific user (super admin only)

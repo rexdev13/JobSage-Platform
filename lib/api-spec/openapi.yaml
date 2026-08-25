@@ -2986,6 +2986,55 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /admin/super/marketing-accounts:
+    post:
+      tags: [SuperAdmin]
+      operationId: createSuperAdminMarketingAccount
+      summary: Create a marketing account and send a password setup invitation (super admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarketingAccountInput"
+      responses:
+        "201":
+          description: Marketing account created and invitation sent.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketingAccountCreatedResponse"
+        "400":
+          description: Invalid input.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Email already exists.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: Invitation delivery failed and the account was rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
   /admin/super/users/{id}/full:
     get:
       tags: [SuperAdmin]
@@ -6378,6 +6427,47 @@ components:
           type: integer
         pageSize:
           type: integer
+
+    MarketingAccountInput:
+      type: object
+      required: [email, firstName, lastName]
+      properties:
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 80
+        lastName:
+          type: string
+          minLength: 1
+          maxLength: 80
+
+    MarketingAccountCreatedResponse:
+      type: object
+      required: [message, user]
+      properties:
+        message:
+          type: string
+        user:
+          type: object
+          required: [id, email, role, emailVerified]
+          properties:
+            id:
+              type: string
+            email:
+              type: string
+              format: email
+            firstName:
+              type: string
+            lastName:
+              type: string
+            role:
+              type: string
+              enum: [marketing]
+            emailVerified:
+              type: boolean
 
     SuperAdminUserFull:
       type: object

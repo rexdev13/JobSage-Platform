@@ -20,6 +20,7 @@ import { canAccessLeads, isAdminRole } from "@/lib/roleAccess";
 
 const ReleaseNotesPage      = lazy(() => import("@/pages/ReleaseNotesPage"));
 const SuperAdminPage        = lazy(() => import("@/pages/admin/SuperAdminPage"));
+const SuperAdminUsersPage  = lazy(() => import("@/pages/admin/SuperAdminPage").then((module) => ({ default: module.SuperAdminUsersPage })));
 const AdminSyncPage         = lazy(() => import("@/pages/admin/AdminSyncPage"));
 const AdminLeadsPage        = lazy(() => import("@/pages/admin/AdminLeadsPage"));
 const AdminLoginPage        = lazy(() => import("@/pages/admin/AdminLoginPage"));
@@ -197,6 +198,11 @@ function SuperAdminGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function AdminUsersRoute() {
+  const { user } = useAuth();
+  return (user?.role as string) === "super_admin" ? <SuperAdminUsersPage /> : <AdminUsersPage />;
+}
+
 function EmployerGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   const [, setLocation] = useLocation();
@@ -288,7 +294,7 @@ function Router() {
                   <AdminGuard><AdminAuditPage /></AdminGuard>
                 </Route>
                 <Route path="/admin/users">
-                  <AdminGuard><AdminUsersPage /></AdminGuard>
+                  <AdminGuard><AdminUsersRoute /></AdminGuard>
                 </Route>
                 <Route path="/admin/leads">
                   <LeadsGuard><AdminLeadsPage /></LeadsGuard>
