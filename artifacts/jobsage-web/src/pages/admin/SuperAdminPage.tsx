@@ -566,6 +566,7 @@ export function AllUsersTab() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchUsers = useCallback(async () => {
@@ -578,11 +579,19 @@ export function AllUsersTab() {
       if (dateFrom) params.set("dateFrom", dateFrom);
       if (dateTo) params.set("dateTo", dateTo);
       const res = await fetch(`${API_BASE}/admin/super/users?${params}`, { credentials: "include" });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || `Failed to load users (${res.status}).`);
+      }
+      setError(null);
       setUsers(data.users ?? []);
       setTotal(data.total ?? 0);
-    } catch {
-      toast({ title: "Error", description: "Failed to load users.", variant: "destructive" });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to load users.";
+      setError(message);
+      setUsers([]);
+      setTotal(0);
+      toast({ title: "Error", description: message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -668,7 +677,9 @@ export function AllUsersTab() {
         </Button>
       </div>
 
-      <div className="text-xs text-muted-foreground">{total} users total</div>
+      <div className={`text-xs ${error ? "text-destructive" : "text-muted-foreground"}`}>
+        {error ? "Unable to load users" : `${total} users total`}
+      </div>
 
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
@@ -704,10 +715,21 @@ export function AllUsersTab() {
               {loading && (
                 <tr><td colSpan={12} className="text-center py-10 text-muted-foreground">Loading...</td></tr>
               )}
-              {!loading && users.length === 0 && (
+              {!loading && error && (
+                <tr>
+                  <td colSpan={12} className="text-center py-10">
+                    <p className="font-medium text-destructive">Unable to load the user directory.</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{error}</p>
+                    <Button variant="outline" size="sm" onClick={fetchUsers} className="mt-3 gap-1.5">
+                      <RefreshCw className="w-3.5 h-3.5" /> Try again
+                    </Button>
+                  </td>
+                </tr>
+              )}
+              {!loading && !error && users.length === 0 && (
                 <tr><td colSpan={12} className="text-center py-10 text-muted-foreground">No users found.</td></tr>
               )}
-              {!loading && users.map((u) => (
+              {!loading && !error && users.map((u) => (
                 <>
                   <tr
                     key={u.id}
