@@ -70,9 +70,7 @@ function errorMessageFor(event: Extract<AssistantStreamEvent, { type: "error" }>
     return "Please sign in to JOBSAGE (jobsage.co.uk) in another tab, then try again.";
   }
   if (event.kind === "server") {
-    return event.message
-      ? `JOBSAGE couldn't generate an answer: ${event.message}`
-      : `JOBSAGE couldn't generate an answer right now (error ${event.status ?? "unknown"}). Please try again in a moment.`;
+    return "JOBSAGE couldn't generate an answer right now. Please try again in a moment.";
   }
   return "Could not reach the JOBSAGE API. Check your internet connection and try again.";
 }
@@ -368,12 +366,10 @@ export function Sidebar({
   }
 
   function handlePillClick() {
-    if (hasDraggedRef.current) {
-      hasDraggedRef.current = false; // reset so next click works normally
-      return; // was a drag, not a tap — don't toggle sidebar
-    }
     setShowDismissMenu(false);
-    setOpen((o) => !o);
+    // The panel header is the minimiser. A visible launcher is always an open
+    // action, so a preceding drag gesture can never consume a genuine tap.
+    setOpen(true);
   }
 
   // ---------------------------------------------------------------------------
@@ -434,13 +430,6 @@ export function Sidebar({
   };
 
   // ---------------------------------------------------------------------------
-  // Render — fully hidden when minimal + closed + no detected questions
-  // ---------------------------------------------------------------------------
-
-  if (minimal && !open && detected.length === 0) {
-    return null;
-  }
-
   // ---------------------------------------------------------------------------
   // Pill (launcher)
   // ---------------------------------------------------------------------------

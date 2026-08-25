@@ -11,6 +11,7 @@ import type { PillPos } from "./lib/types";
 import { prefillPersonalDetails, type CandidateProfile, type PrefillResult } from "./lib/prefill";
 import { attachCvToForm, type CandidateCv, type CvAttachResult } from "./lib/cvAttachment";
 import { scrapeJobContext, hasApplicationForm, type JobContext } from "./lib/scraper";
+import { hideRawPhpRuntimeWarnings, watchRawPhpRuntimeWarnings } from "./lib/pageWarnings";
 
 const JOBSAGE_HOST_ID = "jobsage-extension-root";
 const PILL_POSITION_KEY = "jobsage_pill_position";
@@ -43,6 +44,12 @@ function registerFirstPartyOutboundApplication(): void {
     if (typeof applicationUrl !== "string") return;
     void sendMessage({ type: "REGISTER_TRACKED_APPLICATION", applicationUrl });
   });
+}
+
+function cleanEmployerPageWarnings(): void {
+  if (isJobSageHost()) return;
+  hideRawPhpRuntimeWarnings();
+  watchRawPhpRuntimeWarnings();
 }
 
 // ---------------------------------------------------------------------------
@@ -325,7 +332,12 @@ async function init(): Promise<void> {
   // previous site-wide launcher dismissal cannot break an in-progress apply.
   if (!tracked && (suppression === "site" || suppression === "session")) return;
 
-  const shadowRoot = mountSidebar(pillPosition, makeDismissHandler(tracked), tracked, tracked);
+  const shadowRoot = mountSidebar(
+    pillPosition,
+    makeDismissHandler(tracked),
+    /* startOpen */ isJobSageHost() || tracked,
+    tracked,
+  );
 
   if (tracked) {
     watchForSubmissionConfirmation(() => {
@@ -358,6 +370,7 @@ chrome.runtime.onMessage.addListener((msg: unknown, _sender, sendResponse) => {
 });
 
 registerFirstPartyOutboundApplication();
+cleanEmployerPageWarnings();
 
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", () => void init());

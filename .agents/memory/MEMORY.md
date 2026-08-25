@@ -15,6 +15,7 @@
 - [pdf-parse v2 ESM class API](pdf-parse-v2-esm.md) — pdf-parse v2.x ESM exports `PDFParse` class (not a bare function); use `new PDFParse({ data: buf })` then `.getText()` — no separate `init()` call needed.
 - [NHS Jobs employer search](nhs-jobs-employer-search.md) — the legacy XML endpoint currently returns HTML; use the public results form’s `employer` parameter and retain only close employer matches.
 - [Smart Apply redirect tracking](smart-apply-redirect-tracking.md) — confirmation URLs differ from outbound URLs; retain the JOBSAGE-originated URL as the tracker identity.
+- [Smart Apply navigation correlation](smart-apply-navigation-correlation.md) — exact session-backed, per-tab URL collections keep trusted multi-tab activation safe and reliable.
 - [Automatic submission confirmation](automatic-submission-confirmation.md) — promote an existing click only; share its lock and retry a short-lived post-navigation 404.
 - [Extension launcher visibility](extension-launcher-visibility.md) — a mounted content-script root can be empty by design; first-party JOBSAGE pages must not use the minimal hidden state.
 - [Candidate region preferences](candidate-region-preferences.md) — Professional Profile and Opportunities now share one account-wide saved region preference.
