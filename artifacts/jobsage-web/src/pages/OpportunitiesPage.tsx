@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@workspace/auth-web";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, Button, PageTransition } from "@/components/ui-enhanced";
@@ -1412,6 +1412,11 @@ export default function OpportunitiesPage() {
   const { toast } = useToast();
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
   const [sponsorshipOnly, setSponsorshipOnly] = useState<boolean | undefined>(undefined);
+  const regionFilterUserId = myProfile?.userId ?? null;
+  const regionFilterStorageKey = regionFilterUserId
+    ? `jobsage_opportunity_regions:${regionFilterUserId}`
+    : null;
+  const hydratedRegionFilterKeyRef = useRef<string | null>(null);
 
   const [localDismissedIds, setLocalDismissedIds] = useState<Set<number>>(new Set());
   const { data: aiMatchesData, isLoading: aiMatchesLoading } = useGetMyMatches(
@@ -1456,6 +1461,44 @@ export default function OpportunitiesPage() {
       setSponsorshipOnly(defaultSponsorshipOnly(p.requiresSponsorship === true));
     }
   }, [p, sponsorshipOnly]);
+
+  useEffect(() => {
+    if (!regionFilterStorageKey || hydratedRegionFilterKeyRef.current === regionFilterStorageKey) return;
+    hydratedRegionFilterKeyRef.current = regionFilterStorageKey;
+
+    let restored: string[] | null = null;
+    try {
+      const raw = localStorage.getItem(regionFilterStorageKey);
+      if (raw) {
+        const parsed: unknown = JSON.parse(raw);
+        if (
+          Array.isArray(parsed) &&
+          parsed.every((region): region is string => typeof region === "string") &&
+          parsed.every((region) => (UK_REGIONS as readonly string[]).includes(region))
+        ) {
+          restored = parsed;
+        }
+      }
+    } catch {
+      // A blocked or malformed local preference should not prevent opportunities loading.
+    }
+
+    if (restored) {
+      setSelectedRegions(restored);
+    } else {
+      const profileRegions = myProfile?.preferredRegion;
+      setSelectedRegions(Array.isArray(profileRegions) ? profileRegions : []);
+    }
+  }, [myProfile?.preferredRegion, regionFilterStorageKey]);
+
+  useEffect(() => {
+    if (!regionFilterStorageKey || hydratedRegionFilterKeyRef.current !== regionFilterStorageKey) return;
+    try {
+      localStorage.setItem(regionFilterStorageKey, JSON.stringify(selectedRegions));
+    } catch {
+      // Local persistence is best-effort; filtering remains fully functional in memory.
+    }
+  }, [regionFilterStorageKey, selectedRegions]);
 
   const effectiveSponsorshipOnly = sponsorshipOnly ?? defaultSponsorshipOnly(p?.requiresSponsorship === true);
   const filters = { selectedRegions, sponsorshipOnly: effectiveSponsorshipOnly };
@@ -1689,6 +1732,9 @@ export default function OpportunitiesPage() {
                           </button>
                         )}
                       </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Your region filter is saved on this device.
+                      </p>
                     </div>
                   </div>
                 </Card>
