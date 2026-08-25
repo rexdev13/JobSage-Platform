@@ -737,6 +737,17 @@ export interface MarkApplicationRequest {
   status?: MarkApplicationRequestStatus;
 }
 
+export interface ConfirmApplicationSubmissionRequest {
+  /** The original exact outbound application URL tracked by JOBSAGE. */
+  applicationUrl: string;
+}
+
+export interface ApplicationConfirmationResult {
+  application: Application;
+  /** True only when a link_clicked record was promoted to applied. */
+  updated: boolean;
+}
+
 export interface RoleList {
   roles: Role[];
 }

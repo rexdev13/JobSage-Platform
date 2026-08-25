@@ -1,7 +1,11 @@
 import { createRoot } from "react-dom/client";
 import { Sidebar } from "./components/Sidebar";
 import { scrapeJobContext, isRecognizedJobBoard } from "./lib/scraper";
-import { isConfirmationPage, mountConfirmationToast } from "./lib/trackerDetector";
+import {
+  mountAutomaticConfirmationToast,
+  retryTrackedApplicationConfirmation,
+  watchForSubmissionConfirmation,
+} from "./lib/trackerDetector";
 import { createQuestionWatcher } from "./lib/questionDetector";
 import { ensureBrandFonts } from "./lib/brand";
 import type { PillPos } from "./lib/types";
@@ -138,6 +142,41 @@ async function logApplication(companyName: string, jobTitle: string, pageUrl: st
   });
 }
 
+async function confirmTrackedApplication(): Promise<void> {
+  const applicationUrl = await getTrackingApplicationUrl();
+  if (!applicationUrl) {
+    throw new Error("This application was not started from JOBSAGE.");
+  }
+
+  const requestConfirmation = () => new Promise<void>((resolve, reject) => {
+    chrome.runtime.sendMessage(
+      {
+        type: "API_REQUEST",
+        endpoint: "/applications/confirm-submission",
+        method: "POST",
+        body: { applicationUrl },
+      },
+      (response: { data?: unknown; error?: string }) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message ?? "Extension messaging error"));
+          return;
+        }
+        if (response?.error) {
+          reject(new Error(response.error));
+        } else {
+          resolve();
+        }
+      },
+    );
+  });
+
+  // The external tab can load and submit before the first-party click write
+  // has committed. The server shares the click lock when it is already in
+  // flight; this short retry only covers the inverse ordering and never
+  // creates a new application record on its own.
+  return retryTrackedApplicationConfirmation(requestConfirmation);
+}
+
 async function prefillApplicationDetails(): Promise<PrefillResult> {
   const response = await sendMessage<{ data?: { profile?: CandidateProfile } | CandidateProfile; error?: string }>({
     type: "API_REQUEST",
@@ -254,10 +293,11 @@ async function init(): Promise<void> {
 
   const shadowRoot = mountSidebar(pillPosition, makeDismissHandler(tracked), tracked, tracked);
 
-  if (isConfirmationPage()) {
-    const jobContext = scrapeJobContext();
-    mountConfirmationToast(shadowRoot, {
-      onLog: () => logApplication(jobContext.companyName, jobContext.jobTitle, jobContext.pageUrl),
+  if (tracked) {
+    watchForSubmissionConfirmation(() => {
+      mountAutomaticConfirmationToast(shadowRoot, {
+        onConfirm: confirmTrackedApplication,
+      });
     });
   }
 }

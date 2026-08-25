@@ -339,6 +339,72 @@ router.post("/applications", requireAuthenticated, async (req: Request, res: Res
   res.json(application);
 });
 
+router.post("/applications/confirm-submission", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user!.id;
+  const { applicationUrl } = req.body as { applicationUrl?: unknown };
+
+  if (typeof applicationUrl !== "string" || applicationUrl.trim().length === 0) {
+    res.status(400).json({ error: "applicationUrl is required." });
+    return;
+  }
+
+  try {
+    const url = new URL(applicationUrl);
+    if (url.protocol !== "https:" && url.protocol !== "http:") {
+      throw new Error("Unsupported protocol");
+    }
+  } catch {
+    res.status(400).json({ error: "applicationUrl must be a valid HTTP(S) URL." });
+    return;
+  }
+
+  const confirmation = await db.transaction(async (tx) => {
+    // A confirmation page can be detected more than once while an ATS
+    // redirects or re-renders. Lock the user/URL pair so retries converge on
+    // one existing first-party click record and cannot create duplicates.
+    await tx.execute(
+      sql`SELECT pg_advisory_xact_lock(hashtext(${`website:${userId}:${applicationUrl}`}))`,
+    );
+
+    const [existing] = await tx
+      .select()
+      .from(applicationsTable)
+      .where(
+        and(
+          eq(applicationsTable.userId, userId),
+          eq(applicationsTable.applicationType, "website"),
+          eq(applicationsTable.applicationUrl, applicationUrl),
+        ),
+      );
+
+    if (!existing) return { application: null, updated: false };
+
+    // Only the initial click state may be promoted. A later candidate or
+    // employer update (for example interview, offer, or rejection) always
+    // wins over a delayed confirmation event from the browser extension.
+    if (existing.status !== "link_clicked") {
+      return { application: existing, updated: false };
+    }
+
+    const [updated] = await tx
+      .update(applicationsTable)
+      .set({ status: "applied" })
+      .where(eq(applicationsTable.id, existing.id))
+      .returning();
+
+    return { application: updated, updated: true };
+  });
+
+  if (!confirmation.application) {
+    res.status(404).json({
+      error: "No tracked JOBSAGE application was found for this application URL.",
+    });
+    return;
+  }
+
+  res.json(confirmation);
+});
+
 router.patch("/applications/:id/status", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.id;
   const id = parseInt(String(req.params.id), 10);
