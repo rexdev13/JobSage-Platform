@@ -32,3 +32,10 @@ uri = "file://attached_assets/jobsage-logo.png"
 type = "image"
 title = "JOBSAGE Wordmark"
 description = "Bold sans-serif, dark maroon, white background — ready to drop into a QR code tool."
+
+[[outputs]]
+id = "UcmNs9GkgbFxrCpN6T6nF"
+uri = "file://artifacts/chrome-extension/release/jobsage-smart-apply-extension-v0.4.9.zip"
+type = "unspecified"
+title = "Download JOBSAGE Smart Apply Extension v0.4.9"
+description = "Chrome extension package, version 0.4.9."
