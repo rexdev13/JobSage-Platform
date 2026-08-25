@@ -1882,6 +1882,41 @@ export interface SuperAdminUserListResponse {
   pageSize: number;
 }
 
+export interface MarketingAccountInput {
+  email: string;
+  /**
+   * @minLength 1
+   * @maxLength 80
+   */
+  firstName: string;
+  /**
+   * @minLength 1
+   * @maxLength 80
+   */
+  lastName: string;
+}
+
+export type MarketingAccountCreatedResponseUserRole =
+  (typeof MarketingAccountCreatedResponseUserRole)[keyof typeof MarketingAccountCreatedResponseUserRole];
+
+export const MarketingAccountCreatedResponseUserRole = {
+  marketing: "marketing",
+} as const;
+
+export type MarketingAccountCreatedResponseUser = {
+  id: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  role: MarketingAccountCreatedResponseUserRole;
+  emailVerified: boolean;
+};
+
+export interface MarketingAccountCreatedResponse {
+  message: string;
+  user: MarketingAccountCreatedResponseUser;
+}
+
 export type SuperAdminUserFullUser = {
   id: string;
   email: string;

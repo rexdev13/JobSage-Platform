@@ -8,7 +8,7 @@ import {
   Users, Briefcase, CheckCircle, FileText, Building2, RefreshCw,
   ChevronDown, ChevronUp, Shield, Activity, Search, ExternalLink,
   TrendingUp, AlertTriangle, ShieldCheck, Star, BadgeCheck, UserCheck,
-  XCircle, Clock, Ban, RotateCcw, Trash2, UserCog, ListOrdered,
+  XCircle, Clock, Ban, RotateCcw, Trash2, UserCog, ListOrdered, UserPlus,
 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -318,6 +318,7 @@ function UserDetailPanel({ userId, apiBase, onImpersonate, onAction }: { userId:
             <option value="reviewer">Reviewer</option>
             <option value="admin">Admin</option>
             <option value="super_admin">Super Admin</option>
+            <option value="marketing">Marketing</option>
           </select>
         </div>
         <Button size="sm" onClick={() => void handleRoleChange()} disabled={!newRole || !!actionLoading} className="gap-1.5">
@@ -460,7 +461,99 @@ function UserDetailPanel({ userId, apiBase, onImpersonate, onAction }: { userId:
   );
 }
 
-function AllUsersTab() {
+function CreateMarketingAccountForm({ onCreated }: { onCreated: () => void }) {
+  const [email, setEmail] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const { toast } = useToast();
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API_BASE}/admin/super/marketing-accounts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email, firstName, lastName }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to create marketing account.");
+
+      setEmail("");
+      setFirstName("");
+      setLastName("");
+      toast({
+        title: "Marketing account created",
+        description: "A secure password setup link has been sent to the new account.",
+      });
+      onCreated();
+    } catch (error) {
+      toast({
+        title: "Could not create account",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <UserPlus className="w-4 h-4 text-primary" />
+          Create marketing account
+        </CardTitle>
+        <p className="text-xs text-muted-foreground">
+          The new user will receive a one-time link to set their password. No password is entered or stored here.
+        </p>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto] items-end">
+          <label className="space-y-1.5">
+            <span className="text-xs font-medium">First name</span>
+            <input
+              required
+              maxLength={80}
+              className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+              value={firstName}
+              onChange={(event) => setFirstName(event.target.value)}
+            />
+          </label>
+          <label className="space-y-1.5">
+            <span className="text-xs font-medium">Last name</span>
+            <input
+              required
+              maxLength={80}
+              className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+              value={lastName}
+              onChange={(event) => setLastName(event.target.value)}
+            />
+          </label>
+          <label className="space-y-1.5">
+            <span className="text-xs font-medium">Email address</span>
+            <input
+              required
+              type="email"
+              className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+          </label>
+          <Button type="submit" disabled={submitting} className="gap-1.5">
+            <UserPlus className="w-3.5 h-3.5" />
+            {submitting ? "Sending..." : "Create & invite"}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function AllUsersTab() {
   const [users, setUsers] = useState<SuperUser[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -520,6 +613,8 @@ function AllUsersTab() {
 
   return (
     <div className="space-y-4">
+      <CreateMarketingAccountForm onCreated={() => { setPage(1); void fetchUsers(); }} />
+
       <div className="flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-48">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -541,6 +636,7 @@ function AllUsersTab() {
           <option value="admin">Admin</option>
           <option value="reviewer">Reviewer</option>
           <option value="super_admin">Super Admin</option>
+           <option value="marketing">Marketing</option>
         </select>
         <select
           className="text-sm border border-border rounded-lg px-3 py-2 bg-background focus:outline-none"
@@ -691,6 +787,22 @@ function AllUsersTab() {
         </div>
       )}
     </div>
+  );
+}
+
+export function SuperAdminUsersPage() {
+  return (
+    <AppLayout>
+      <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
+        <div>
+          <h1 className="text-2xl font-display font-bold text-foreground">User Directory</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            View and manage every JOBSAGE account, including marketing users.
+          </p>
+        </div>
+        <AllUsersTab />
+      </div>
+    </AppLayout>
   );
 }
 
