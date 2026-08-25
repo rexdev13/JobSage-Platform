@@ -73,4 +73,20 @@ describe("Super-admin user directory", () => {
     );
     expect(fetchMock.mock.calls.filter(([url]) => String(url).includes("/admin/super/users")).length).toBeGreaterThan(1);
   });
+
+  it("shows a directory error instead of claiming that no users exist", async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: "Internal server error" }),
+    });
+
+    await act(async () => {
+      root.render(<AllUsersTab />);
+    });
+
+    expect(container.textContent).toContain("Unable to load the user directory.");
+    expect(container.textContent).toContain("Internal server error");
+    expect(container.textContent).not.toContain("No users found.");
+  });
 });

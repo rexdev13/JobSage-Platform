@@ -124,17 +124,21 @@ router.get(
       dateTo ? lte(usersTable.createdAt, new Date(dateTo)) : undefined,
     );
 
-    const docCountExpr = sql<number>`(SELECT COUNT(*) FROM documents WHERE user_id = ${usersTable.id})`;
-    const appCountExpr = sql<number>`(SELECT COUNT(*) FROM applications WHERE user_id = ${usersTable.id})`;
+    // Raw SQL fragments do not preserve Drizzle's table qualification for a
+    // column interpolation. Qualify the outer users.id explicitly so inner
+    // tables' own id columns are not accidentally referenced.
+    const outerUserId = sql.raw(`"users"."id"`);
+    const docCountExpr = sql<number>`(SELECT COUNT(*) FROM documents WHERE user_id = ${outerUserId})`;
+    const appCountExpr = sql<number>`(SELECT COUNT(*) FROM applications WHERE user_id = ${outerUserId})`;
     const profileCompExpr = sql<number>`COALESCE((SELECT
       (CASE WHEN profession IS NOT NULL THEN 25 ELSE 0 END +
        CASE WHEN specialty IS NOT NULL THEN 25 ELSE 0 END +
        CASE WHEN qualification_country IS NOT NULL THEN 25 ELSE 0 END +
        CASE WHEN registration_status IS NOT NULL THEN 25 ELSE 0 END)
-      FROM profiles WHERE user_id = ${usersTable.id}), 0)`;
-    const eligibilityExpr = sql<string | null>`(SELECT outcome FROM decision_records WHERE user_id = ${usersTable.id} ORDER BY created_at DESC LIMIT 1)`;
-    const hasConsentedExpr = sql<boolean>`EXISTS(SELECT 1 FROM consent_logs WHERE user_id = ${usersTable.id})`;
-    const consentedAtExpr = sql<string | null>`(SELECT consented_at FROM consent_logs WHERE user_id = ${usersTable.id} ORDER BY consented_at DESC LIMIT 1)`;
+      FROM profiles WHERE user_id = ${outerUserId}), 0)`;
+    const eligibilityExpr = sql<string | null>`(SELECT outcome FROM decision_records WHERE user_id = ${outerUserId} ORDER BY created_at DESC LIMIT 1)`;
+    const hasConsentedExpr = sql<boolean>`EXISTS(SELECT 1 FROM consent_logs WHERE user_id = ${outerUserId})`;
+    const consentedAtExpr = sql<string | null>`(SELECT consented_at FROM consent_logs WHERE user_id = ${outerUserId} ORDER BY consented_at DESC LIMIT 1)`;
 
     const dir = (sortDir ?? "desc") === "asc" ? asc : desc;
     const orderExpr = (() => {
@@ -144,7 +148,7 @@ router.get(
         case "role": return dir(usersTable.role);
         case "emailVerified": return dir(usersTable.emailVerified);
         case "updatedAt": return dir(usersTable.updatedAt);
-        case "lastLogin": return dir(sql`(SELECT max(created_at) FROM audit_events WHERE actor = ${usersTable.id} AND action = 'user_login')`);
+         case "lastLogin": return dir(sql`(SELECT max(created_at) FROM audit_events WHERE actor = ${outerUserId} AND action = 'user_login')`);
         case "documentCount": return dir(docCountExpr);
         case "applicationCount": return dir(appCountExpr);
         case "profileCompletion": return dir(profileCompExpr);
@@ -165,7 +169,7 @@ router.get(
         createdAt: usersTable.createdAt,
         updatedAt: usersTable.updatedAt,
         suspendedAt: usersTable.suspendedAt,
-        lastLogin: sql<string | null>`(SELECT max(created_at) FROM audit_events WHERE actor = ${usersTable.id} AND action = 'user_login')`,
+         lastLogin: sql<string | null>`(SELECT max(created_at) FROM audit_events WHERE actor = ${outerUserId} AND action = 'user_login')`,
         documentCount: docCountExpr,
         applicationCount: appCountExpr,
         profileCompletion: profileCompExpr,
