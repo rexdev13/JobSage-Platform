@@ -135,7 +135,7 @@ export default function OnboardingPage() {
           safeguardingTrainingLevel: data.safeguardingTrainingLevel,
           residencyStatus: data.residencyStatus,
           requiresSponsorship: data.requiresSponsorship,
-          preferredRegion: data.preferredRegion.length > 0 ? data.preferredRegion : undefined,
+          preferredRegion: data.preferredRegion,
           phone: data.phone.trim(),
           streetAddress: data.streetAddress.trim(),
           city: data.city.trim(),

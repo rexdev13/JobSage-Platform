@@ -402,7 +402,7 @@ export default function ProfilePage() {
       safeguardingTrainingLevel: fd.safeguardingTrainingLevel,
       residencyStatus: effectiveResidency,
       requiresSponsorship: fd.requiresSponsorship,
-      preferredRegion: fd.preferredRegion.length > 0 ? fd.preferredRegion : undefined,
+      preferredRegion: fd.preferredRegion,
       alertFrequency: fd.alertFrequency,
       preferredStartDate: fd.preferredStartDate || undefined,
       profilePhotoKey: fd.profilePhotoKey || undefined,
@@ -440,10 +440,17 @@ export default function ProfilePage() {
     }
   }, [upsertMutation, queryClient, buildPayload]);
 
-  const handleBlur = useCallback(() => {
+  const scheduleAutoSave = useCallback((delayMs: number) => {
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-    autoSaveTimerRef.current = setTimeout(doAutoSave, 800);
+    autoSaveTimerRef.current = setTimeout(() => {
+      autoSaveTimerRef.current = null;
+      void doAutoSave();
+    }, delayMs);
   }, [doAutoSave]);
+
+  const handleBlur = useCallback(() => {
+    scheduleAutoSave(800);
+  }, [scheduleAutoSave]);
 
   const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -959,7 +966,7 @@ export default function ProfilePage() {
                             ? formData.preferredRegion.filter(x => x !== r)
                             : [...formData.preferredRegion, r];
                           setFormData(prev => ({ ...prev, preferredRegion: newRegions }));
-                          setTimeout(() => void doAutoSave(), 300);
+                          scheduleAutoSave(300);
                         }}
                         className="w-4 h-4 rounded border-input accent-primary"
                       />
