@@ -1346,6 +1346,48 @@ export const MarkApplicationResponse = zod.object({
 });
 
 /**
+ * @summary Upgrade a tracked outbound click after the extension detects a confirmed submission
+ */
+export const ConfirmApplicationSubmissionBody = zod.object({
+  applicationUrl: zod
+    .string()
+    .url()
+    .describe(
+      "The original exact outbound application URL tracked by JOBSAGE.",
+    ),
+});
+
+export const ConfirmApplicationSubmissionResponse = zod.object({
+  application: zod.object({
+    id: zod.number(),
+    userId: zod.string(),
+    roleId: zod.number(),
+    status: zod.enum([
+      "link_clicked",
+      "applied",
+      "shortlisted",
+      "interview",
+      "offer",
+      "rejected",
+      "no_response",
+    ]),
+    appliedAt: zod.date(),
+    notes: zod.string().nullish(),
+    roleTitle: zod.string().nullish(),
+    roleLocation: zod.string().nullish(),
+    applicationType: zod.string().nullish(),
+    applicationUrl: zod.string().nullish(),
+    companyName: zod.string().nullish(),
+    jobTitle: zod.string().nullish(),
+    interviewDate: zod.string().nullish(),
+    interviewNotes: zod.string().nullish(),
+  }),
+  updated: zod
+    .boolean()
+    .describe("True only when a link_clicked record was promoted to applied."),
+});
+
+/**
  * @summary Get or generate the current candidate's remediation plan
  */
 export const GetRemediationPlanResponse = zod.object({

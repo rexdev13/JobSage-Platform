@@ -22,6 +22,7 @@ import type {
   AiRemediationSuggestions,
   AnnotateReviewCaseRequest,
   Application,
+  ApplicationConfirmationResult,
   ApplicationList,
   AuthUserEnvelope,
   BookmarkToggleResponse,
@@ -35,6 +36,7 @@ import type {
   CheckAllVacanciesBody,
   CheckAllVacanciesStartResponse,
   CheckAllVacanciesStatus,
+  ConfirmApplicationSubmissionRequest,
   ConsentLogList,
   ConsentRecord,
   ConsentStatus,
@@ -4206,6 +4208,97 @@ export const useMarkApplication = <
   TContext
 > => {
   return useMutation(getMarkApplicationMutationOptions(options));
+};
+
+/**
+ * @summary Upgrade a tracked outbound click after the extension detects a confirmed submission
+ */
+export const getConfirmApplicationSubmissionUrl = () => {
+  return `/api/applications/confirm-submission`;
+};
+
+export const confirmApplicationSubmission = async (
+  confirmApplicationSubmissionRequest: ConfirmApplicationSubmissionRequest,
+  options?: RequestInit,
+): Promise<ApplicationConfirmationResult> => {
+  return customFetch<ApplicationConfirmationResult>(
+    getConfirmApplicationSubmissionUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(confirmApplicationSubmissionRequest),
+    },
+  );
+};
+
+export const getConfirmApplicationSubmissionMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof confirmApplicationSubmission>>,
+    TError,
+    { data: BodyType<ConfirmApplicationSubmissionRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof confirmApplicationSubmission>>,
+  TError,
+  { data: BodyType<ConfirmApplicationSubmissionRequest> },
+  TContext
+> => {
+  const mutationKey = ["confirmApplicationSubmission"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof confirmApplicationSubmission>>,
+    { data: BodyType<ConfirmApplicationSubmissionRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return confirmApplicationSubmission(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ConfirmApplicationSubmissionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof confirmApplicationSubmission>>
+>;
+export type ConfirmApplicationSubmissionMutationBody =
+  BodyType<ConfirmApplicationSubmissionRequest>;
+export type ConfirmApplicationSubmissionMutationError =
+  ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Upgrade a tracked outbound click after the extension detects a confirmed submission
+ */
+export const useConfirmApplicationSubmission = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof confirmApplicationSubmission>>,
+    TError,
+    { data: BodyType<ConfirmApplicationSubmissionRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof confirmApplicationSubmission>>,
+  TError,
+  { data: BodyType<ConfirmApplicationSubmissionRequest> },
+  TContext
+> => {
+  return useMutation(getConfirmApplicationSubmissionMutationOptions(options));
 };
 
 /**

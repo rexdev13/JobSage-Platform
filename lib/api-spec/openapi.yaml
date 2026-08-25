@@ -1341,6 +1341,43 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
 
+  /applications/confirm-submission:
+    post:
+      tags: [Applications]
+      operationId: confirmApplicationSubmission
+      summary: Upgrade a tracked outbound click after the extension detects a confirmed submission
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmApplicationSubmissionRequest'
+      responses:
+        '200':
+          description: The existing tracked application was confirmed or had already progressed further.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationConfirmationResult'
+        '400':
+          description: Invalid confirmation request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: No matching JOBSAGE-tracked outbound application exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
   /remediation/plan:
     get:
       tags: [Remediation]
@@ -4399,6 +4436,25 @@ components:
           type: string
           enum: [link_clicked, applied]
           description: Website clicks use link_clicked; extension confirmation upgrades the same URL to applied.
+
+    ConfirmApplicationSubmissionRequest:
+      type: object
+      required: [applicationUrl]
+      properties:
+        applicationUrl:
+          type: string
+          format: uri
+          description: The original exact outbound application URL tracked by JOBSAGE.
+
+    ApplicationConfirmationResult:
+      type: object
+      required: [application, updated]
+      properties:
+        application:
+          $ref: '#/components/schemas/Application'
+        updated:
+          type: boolean
+          description: True only when a link_clicked record was promoted to applied.
 
     RoleList:
       type: object

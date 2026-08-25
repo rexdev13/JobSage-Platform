@@ -398,3 +398,96 @@ describe("PATCH /applications/:id/status", () => {
     expect(res.status).toBe(401);
   });
 });
+
+describe("POST /applications/confirm-submission", () => {
+  beforeEach(() => {
+    appResults.length = 0;
+    insertValues.length = 0;
+    updateSets.length = 0;
+  });
+
+  it("upgrades the matching JOBSAGE click without replacing its metadata", async () => {
+    const outboundUrl = "https://jobs.example.nhs.uk/roles/42?ref=jobsage";
+    const existingClick = {
+      id: 21,
+      userId: "cand-1",
+      roleId: 42,
+      applicationType: "website",
+      companyName: "Example NHS Trust",
+      jobTitle: "Band 5 Nurse",
+      applicationUrl: outboundUrl,
+      status: "link_clicked",
+      appliedAt: new Date(),
+      cvDocumentId: null,
+      notes: null,
+    };
+    appResults.push(
+      [existingClick],
+      [{ ...existingClick, status: "applied" }],
+    );
+
+    const response = await request(buildApp())
+      .post("/applications/confirm-submission")
+      .set("Authorization", `Bearer ${SESS}`)
+      .send({ applicationUrl: outboundUrl });
+
+    expect(response.status).toBe(200);
+    expect(response.body.updated).toBe(true);
+    expect(response.body.application.status).toBe("applied");
+    expect(updateSets).toEqual([{ status: "applied" }]);
+    expect(insertValues).toHaveLength(0);
+  });
+
+  it("is idempotent and never downgrades a later application status", async () => {
+    const outboundUrl = "https://jobs.example.nhs.uk/roles/42?ref=jobsage";
+    const progressedApplication = {
+      id: 22,
+      userId: "cand-1",
+      roleId: 42,
+      applicationType: "website",
+      companyName: "Example NHS Trust",
+      jobTitle: "Band 5 Nurse",
+      applicationUrl: outboundUrl,
+      status: "interview_invited",
+      appliedAt: new Date(),
+      cvDocumentId: null,
+      notes: null,
+    };
+    appResults.push([progressedApplication]);
+
+    const response = await request(buildApp())
+      .post("/applications/confirm-submission")
+      .set("Authorization", `Bearer ${SESS}`)
+      .send({ applicationUrl: outboundUrl });
+
+    expect(response.status).toBe(200);
+    expect(response.body.updated).toBe(false);
+    expect(response.body.application.status).toBe("interview_invited");
+    expect(updateSets).toHaveLength(0);
+    expect(insertValues).toHaveLength(0);
+  });
+
+  it("does not create an applied record when no tracked outbound click exists", async () => {
+    appResults.push([]);
+
+    const response = await request(buildApp())
+      .post("/applications/confirm-submission")
+      .set("Authorization", `Bearer ${SESS}`)
+      .send({ applicationUrl: "https://jobs.example.nhs.uk/roles/unknown?ref=jobsage" });
+
+    expect(response.status).toBe(404);
+    expect(response.body.error).toMatch(/No tracked JOBSAGE application/i);
+    expect(updateSets).toHaveLength(0);
+    expect(insertValues).toHaveLength(0);
+  });
+
+  it("rejects malformed confirmation URLs", async () => {
+    const response = await request(buildApp())
+      .post("/applications/confirm-submission")
+      .set("Authorization", `Bearer ${SESS}`)
+      .send({ applicationUrl: "not-a-url" });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toMatch(/valid HTTP/i);
+  });
+});

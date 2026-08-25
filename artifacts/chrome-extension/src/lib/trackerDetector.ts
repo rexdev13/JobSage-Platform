@@ -1,42 +1,124 @@
 import { BRAND } from "./brand";
 
+export type SubmissionSignalSource =
+  | "confirmation_url"
+  | "confirmation_heading"
+  | "success_message";
+
+export interface SubmissionSignal {
+  source: SubmissionSignalSource;
+}
+
+const CONFIRMATION_RETRY_DELAYS_MS = [200, 500, 1_000];
+
+export async function retryTrackedApplicationConfirmation(
+  requestConfirmation: () => Promise<void>,
+  wait: (milliseconds: number) => Promise<void> = (milliseconds) =>
+    new Promise<void>((resolve) => setTimeout(resolve, milliseconds)),
+): Promise<void> {
+  for (let attempt = 0; attempt <= CONFIRMATION_RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      await requestConfirmation();
+      return;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!message.includes("HTTP 404") || attempt === CONFIRMATION_RETRY_DELAYS_MS.length) {
+        throw error;
+      }
+      await wait(CONFIRMATION_RETRY_DELAYS_MS[attempt]);
+    }
+  }
+}
+
 const CONFIRMATION_URL_PATTERNS = [
-  /\/confirmation/i,
-  /\/application[-_]submitted/i,
-  /\/apply[-_]success/i,
-  /\/apply\/success/i,
-  /\/submitted/i,
-  /\/thank[-_]you/i,
-  /\/thankyou/i,
+  /\/(?:application[-_]?submitted|application[-_]?complete|apply[-_]?success|apply\/success|thank[-_]?you|thankyou)(?:[/?#]|$)/i,
 ];
 
-const CONFIRMATION_HEADING_PATTERNS = [
-  /application\s+submitted/i,
-  /application\s+received/i,
-  /application\s+sent/i,
-  /application\s+complete/i,
-  /successfully\s+applied/i,
-  /thank\s+you\s+for\s+(your\s+)?apply/i,
-  /thank\s+you\s+for\s+(your\s+)?application/i,
+const CONFIRMATION_TEXT_PATTERNS = [
+  /\byour application (?:has been |was )?(?:submitted|received|sent|completed)\b/i,
+  /\bapplication (?:submitted|received|sent|complete)\b/i,
+  /\bsuccessfully applied\b/i,
+  /\bthank you for (?:your )?application\b/i,
+  /\bthank you for applying\b/i,
 ];
 
-export function isConfirmationPage(): boolean {
-  const url = location.href;
-  if (CONFIRMATION_URL_PATTERNS.some((p) => p.test(url))) return true;
+function hasConfirmationText(text: string | null | undefined): boolean {
+  return CONFIRMATION_TEXT_PATTERNS.some((pattern) => pattern.test(text ?? ""));
+}
 
-  const headings = Array.from(document.querySelectorAll("h1, h2, h3"));
-  return headings.some((h) =>
-    CONFIRMATION_HEADING_PATTERNS.some((p) => p.test(h.textContent ?? ""))
+/**
+ * Return a high-confidence submission signal from the accessible top-level
+ * page. We deliberately do not treat a submit click, validation message, or
+ * generic "success" text as enough evidence to mark an application applied.
+ */
+export function detectSubmissionSignal(
+  doc: Document = document,
+  href: string = location.href,
+): SubmissionSignal | null {
+  if (CONFIRMATION_URL_PATTERNS.some((pattern) => pattern.test(href))) {
+    return { source: "confirmation_url" };
+  }
+
+  const headings = Array.from(
+    doc.querySelectorAll("h1, h2, h3, [role='heading']"),
   );
+  if (headings.some((heading) => hasConfirmationText(heading.textContent))) {
+    return { source: "confirmation_heading" };
+  }
+
+  const successMessages = Array.from(
+    doc.querySelectorAll(
+      "[role='alert'], [role='status'], .alert-success, .success, [class*='success' i], [data-automation-id*='success' i]",
+    ),
+  );
+  if (successMessages.some((message) => hasConfirmationText(message.textContent))) {
+    return { source: "success_message" };
+  }
+
+  return null;
 }
 
-export interface ToastCallbacks {
-  onLog: () => Promise<void>;
+/**
+ * Watches pages that update in place after a form submission (common in ATS
+ * wizards). The callback runs at most once and only after a trusted signal
+ * appears. Cross-origin frames remain inaccessible by browser design.
+ */
+export function watchForSubmissionConfirmation(
+  onConfirmed: (signal: SubmissionSignal) => void,
+  doc: Document = document,
+): () => void {
+  let completed = false;
+  let observer: MutationObserver | null = null;
+
+  const evaluate = () => {
+    if (completed) return;
+    const signal = detectSubmissionSignal(doc);
+    if (!signal) return;
+    completed = true;
+    observer?.disconnect();
+    onConfirmed(signal);
+  };
+
+  evaluate();
+  if (completed || !doc.documentElement) return () => undefined;
+
+  observer = new MutationObserver(evaluate);
+  observer.observe(doc.documentElement, { childList: true, subtree: true, characterData: true });
+  return () => observer?.disconnect();
 }
 
-export function mountConfirmationToast(
+export interface AutomaticConfirmationToastCallbacks {
+  onConfirm: () => Promise<void>;
+}
+
+/**
+ * Shows the candidate what happened without requiring a manual "Yes, log it"
+ * interaction. The tracker is updated only after the API confirms the
+ * matching JOBSAGE-originated click record exists.
+ */
+export function mountAutomaticConfirmationToast(
   shadowRoot: ShadowRoot,
-  callbacks: ToastCallbacks
+  callbacks: AutomaticConfirmationToastCallbacks,
 ): void {
   const existing = shadowRoot.getElementById("jobsage-toast");
   if (existing) return;
@@ -57,7 +139,7 @@ export function mountConfirmationToast(
     fontFamily: BRAND.fontSans,
     display: "flex",
     flexDirection: "column",
-    gap: "10px",
+    gap: "8px",
     animation: "slideUp 0.25s ease",
   });
 
@@ -70,98 +152,26 @@ export function mountConfirmationToast(
   `;
   shadowRoot.appendChild(style);
 
-  const header = document.createElement("div");
-  Object.assign(header.style, { display: "flex", alignItems: "flex-start", gap: "8px" });
-
-  const icon = document.createElement("span");
-  icon.textContent = "📋";
-  icon.style.fontSize = "18px";
-  icon.style.flexShrink = "0";
-
-  const textBlock = document.createElement("div");
-  textBlock.style.flex = "1";
-
   const title = document.createElement("div");
   Object.assign(title.style, { fontSize: "13px", fontWeight: "600", color: BRAND.text, lineHeight: "1.4" });
-  title.textContent = "Application detected";
+  title.textContent = "Application submission detected";
 
   const body = document.createElement("div");
-  Object.assign(body.style, { fontSize: "12px", color: BRAND.textMuted, marginTop: "2px", lineHeight: "1.4" });
-  body.textContent = "Log this application to JOBSAGE Tracker?";
+  Object.assign(body.style, { fontSize: "12px", color: BRAND.textMuted, lineHeight: "1.4" });
+  body.textContent = "Saving it to your JOBSAGE tracker…";
 
-  textBlock.appendChild(title);
-  textBlock.appendChild(body);
-  header.appendChild(icon);
-  header.appendChild(textBlock);
-
-  const closeBtn = document.createElement("button");
-  Object.assign(closeBtn.style, {
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    color: BRAND.textMuted,
-    padding: "0",
-    flexShrink: "0",
-    fontSize: "16px",
-    lineHeight: "1",
-  });
-  closeBtn.textContent = "×";
-  closeBtn.setAttribute("aria-label", "Dismiss");
-  closeBtn.addEventListener("click", () => toast.remove());
-  header.appendChild(closeBtn);
-
-  const actions = document.createElement("div");
-  Object.assign(actions.style, { display: "flex", gap: "8px" });
-
-  const logBtn = document.createElement("button");
-  Object.assign(logBtn.style, {
-    flex: "1",
-    padding: "7px 12px",
-    background: BRAND.primary,
-    color: "#ffffff",
-    border: "none",
-    borderRadius: `${BRAND.radiusSm}px`,
-    fontSize: "12px",
-    fontWeight: "600",
-    cursor: "pointer",
-  });
-  logBtn.textContent = "Yes, Log It";
-  logBtn.addEventListener("click", async () => {
-    logBtn.textContent = "Logging…";
-    logBtn.style.opacity = "0.7";
-    logBtn.style.cursor = "not-allowed";
-    try {
-      await callbacks.onLog();
-      title.textContent = "✓ Logged to JOBSAGE!";
-      body.textContent = "You can view it in your applications tracker.";
-      actions.remove();
-      setTimeout(() => toast.remove(), 3000);
-    } catch {
-      body.textContent = "Could not log. Are you logged in to JOBSAGE?";
-      logBtn.textContent = "Retry";
-      logBtn.style.opacity = "1";
-      logBtn.style.cursor = "pointer";
-    }
-  });
-
-  const dismissBtn = document.createElement("button");
-  Object.assign(dismissBtn.style, {
-    padding: "7px 12px",
-    background: BRAND.inputBg,
-    color: BRAND.text,
-    border: `1px solid ${BRAND.border}`,
-    borderRadius: `${BRAND.radiusSm}px`,
-    fontSize: "12px",
-    fontWeight: "600",
-    cursor: "pointer",
-  });
-  dismissBtn.textContent = "Dismiss";
-  dismissBtn.addEventListener("click", () => toast.remove());
-
-  actions.appendChild(logBtn);
-  actions.appendChild(dismissBtn);
-
-  toast.appendChild(header);
-  toast.appendChild(actions);
+  toast.append(title, body);
   shadowRoot.appendChild(toast);
+
+  void callbacks.onConfirm().then(
+    () => {
+      title.textContent = "✓ Application saved to JOBSAGE";
+      body.textContent = "Your tracker has been updated automatically.";
+      setTimeout(() => toast.remove(), 3500);
+    },
+    () => {
+      title.textContent = "We couldn't confirm this application";
+      body.textContent = "Use “Log this application to JOBSAGE” in the sidebar after reviewing the form.";
+    },
+  );
 }
