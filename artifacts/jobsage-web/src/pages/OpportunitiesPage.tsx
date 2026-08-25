@@ -7,10 +7,12 @@ import {
   useListMyApplications,
   useGenerateCoverLetter,
   useGetMyProfile,
+  useUpsertMyProfile,
   useGetMyMatches,
   useDismissMatch,
   getListMyApplicationsQueryKey,
   getListMatchedRolesQueryKey,
+  getGetMyProfileQueryKey,
   getGetMyMatchesQueryKey,
   type MatchedRole,
   type ApplicationList,
@@ -1409,14 +1411,12 @@ export default function OpportunitiesPage() {
   const { data, isLoading, isError } = useListMatchedRoles();
   const { data: applicationsData } = useListMyApplications();
   const { data: myProfile } = useGetMyProfile();
+  const profileMutation = useUpsertMyProfile();
   const { toast } = useToast();
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
+  const [regionSaveState, setRegionSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [sponsorshipOnly, setSponsorshipOnly] = useState<boolean | undefined>(undefined);
-  const regionFilterUserId = myProfile?.userId ?? null;
-  const regionFilterStorageKey = regionFilterUserId
-    ? `jobsage_opportunity_regions:${regionFilterUserId}`
-    : null;
-  const hydratedRegionFilterKeyRef = useRef<string | null>(null);
+  const regionSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [localDismissedIds, setLocalDismissedIds] = useState<Set<number>>(new Set());
   const { data: aiMatchesData, isLoading: aiMatchesLoading } = useGetMyMatches(
@@ -1463,42 +1463,72 @@ export default function OpportunitiesPage() {
   }, [p, sponsorshipOnly]);
 
   useEffect(() => {
-    if (!regionFilterStorageKey || hydratedRegionFilterKeyRef.current === regionFilterStorageKey) return;
-    hydratedRegionFilterKeyRef.current = regionFilterStorageKey;
+    const profileRegions = myProfile?.preferredRegion;
+    setSelectedRegions(
+      Array.isArray(profileRegions)
+        ? profileRegions.filter((region): region is string => typeof region === "string" && (UK_REGIONS as readonly string[]).includes(region))
+        : [],
+    );
+    setRegionSaveState("idle");
+  }, [myProfile?.userId, myProfile?.preferredRegion]);
 
-    let restored: string[] | null = null;
-    try {
-      const raw = localStorage.getItem(regionFilterStorageKey);
-      if (raw) {
-        const parsed: unknown = JSON.parse(raw);
-        if (
-          Array.isArray(parsed) &&
-          parsed.every((region): region is string => typeof region === "string") &&
-          parsed.every((region) => (UK_REGIONS as readonly string[]).includes(region))
-        ) {
-          restored = parsed;
-        }
-      }
-    } catch {
-      // A blocked or malformed local preference should not prevent opportunities loading.
-    }
+  useEffect(() => () => {
+    if (regionSaveTimerRef.current) clearTimeout(regionSaveTimerRef.current);
+  }, []);
 
-    if (restored) {
-      setSelectedRegions(restored);
-    } else {
-      const profileRegions = myProfile?.preferredRegion;
-      setSelectedRegions(Array.isArray(profileRegions) ? profileRegions : []);
-    }
-  }, [myProfile?.preferredRegion, regionFilterStorageKey]);
+  const saveRegionsToProfile = (nextRegions: string[]) => {
+    setSelectedRegions(nextRegions);
+    if (!myProfile) return;
 
-  useEffect(() => {
-    if (!regionFilterStorageKey || hydratedRegionFilterKeyRef.current !== regionFilterStorageKey) return;
-    try {
-      localStorage.setItem(regionFilterStorageKey, JSON.stringify(selectedRegions));
-    } catch {
-      // Local persistence is best-effort; filtering remains fully functional in memory.
-    }
-  }, [regionFilterStorageKey, selectedRegions]);
+    if (regionSaveTimerRef.current) clearTimeout(regionSaveTimerRef.current);
+    setRegionSaveState("saving");
+    regionSaveTimerRef.current = setTimeout(() => {
+      regionSaveTimerRef.current = null;
+      profileMutation.mutate(
+        {
+          data: {
+            profession: myProfile.profession ?? "",
+            specialty: myProfile.specialty ?? "",
+            qualificationCountry: myProfile.qualificationCountry ?? "",
+            qualificationType: myProfile.qualificationType ?? "",
+            qualificationYear: myProfile.qualificationYear ?? 0,
+            experienceYears: myProfile.experienceYears ?? 0,
+            registrationStatus: myProfile.registrationStatus ?? "not_registered",
+            licenceReady: myProfile.licenceReady ?? null,
+            dbsClearanceLevel: myProfile.dbsClearanceLevel ?? undefined,
+            safeguardingTrainingLevel: myProfile.safeguardingTrainingLevel ?? undefined,
+            residencyStatus: myProfile.residencyStatus ?? "",
+            requiresSponsorship: myProfile.requiresSponsorship ?? false,
+            preferredRegion: nextRegions,
+            alertFrequency: myProfile.alertFrequency ?? "daily",
+            preferredStartDate: myProfile.preferredStartDate ?? null,
+            profilePhotoKey: myProfile.profilePhotoKey ?? null,
+            languages: myProfile.languages ?? null,
+            additionalNotes: myProfile.additionalNotes ?? null,
+            phone: myProfile.phone ?? null,
+            streetAddress: myProfile.streetAddress ?? null,
+            city: myProfile.city ?? null,
+            postcode: myProfile.postcode ?? null,
+            country: myProfile.country ?? null,
+          },
+        },
+        {
+          onSuccess: () => {
+            setRegionSaveState("saved");
+            void queryClient.invalidateQueries({ queryKey: getGetMyProfileQueryKey() });
+          },
+          onError: () => {
+            setRegionSaveState("error");
+            toast({
+              title: "Could not save region preference",
+              description: "Your selection is still active for this view. Please try again.",
+              variant: "destructive",
+            });
+          },
+        },
+      );
+    }, 300);
+  };
 
   const effectiveSponsorshipOnly = sponsorshipOnly ?? defaultSponsorshipOnly(p?.requiresSponsorship === true);
   const filters = { selectedRegions, sponsorshipOnly: effectiveSponsorshipOnly };
@@ -1709,8 +1739,10 @@ export default function OpportunitiesPage() {
                               key={region}
                               type="button"
                               aria-pressed={selected}
-                              onClick={() => setSelectedRegions((current) =>
-                                selected ? current.filter((value) => value !== region) : [...current, region],
+                              onClick={() => saveRegionsToProfile(
+                                selected
+                                  ? selectedRegions.filter((value) => value !== region)
+                                  : [...selectedRegions, region],
                               )}
                               className={`rounded-full px-3 py-1.5 text-xs font-medium border transition-colors ${
                                 selected
@@ -1725,7 +1757,7 @@ export default function OpportunitiesPage() {
                         {selectedRegions.length > 0 && (
                           <button
                             type="button"
-                            onClick={() => setSelectedRegions([])}
+                            onClick={() => saveRegionsToProfile([])}
                             className="rounded-full px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10"
                           >
                             Clear regions
@@ -1733,7 +1765,13 @@ export default function OpportunitiesPage() {
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground mt-2">
-                        Your region filter is saved on this device.
+                        {regionSaveState === "saving"
+                          ? "Saving to your Professional Profile…"
+                          : regionSaveState === "error"
+                            ? "Could not save your profile preference."
+                            : regionSaveState === "saved"
+                              ? "Saved to your Professional Profile."
+                              : "This selection is linked to your Professional Profile."}
                       </p>
                     </div>
                   </div>
