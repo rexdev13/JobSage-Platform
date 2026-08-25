@@ -46,3 +46,10 @@ uri = "file://artifacts/chrome-extension/release/jobsage-smart-apply-extension-v
 type = "unspecified"
 title = "Download JOBSAGE Smart Apply Extension v0.4.10"
 description = "Chrome extension package. Download it, unzip it, then load the unzipped folder using Chrome's Load unpacked option."
+
+[[outputs]]
+id = "AprKMKlyhMM9xzBG333Q8"
+uri = "file://artifacts/chrome-extension/release/jobsage-smart-apply-extension-v0.4.11.zip"
+type = "unspecified"
+title = "Download JOBSAGE Smart Apply Extension v0.4.11"
+description = "Updated Chrome extension with reliable pill opening, click-away dismissal, Escape-to-close, and resizable sidebar controls. Unzip it before using Chrome's Load unpacked option."
