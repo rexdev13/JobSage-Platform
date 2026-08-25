@@ -3,8 +3,8 @@ name: Candidate region preferences
 description: Defines the separate persistence model for candidate profile regions and the Opportunities page filter.
 ---
 
-Treat “Preferred UK Region(s)” in the Professional Profile as the account-wide matching preference, stored by the profile API. Treat the Opportunities-page region controls as a display refinement, saved locally for the signed-in user on that device and initially populated from the account preference.
+Treat “Preferred UK Region(s)” in the Professional Profile and the region controls on Opportunities as the same account-wide matching preference, stored through the profile API.
 
-**Why:** The profile preference affects server-side matching and must follow the candidate across devices. The Opportunities controls are intended to temporarily narrow the already returned list without silently changing the candidate’s broader matching preference.
+**Why:** Candidates expect a region selected in either screen to remain consistent everywhere. The preference affects server-side matching and must follow the candidate across devices rather than living only in browser state.
 
-**How to apply:** Keep the two controls clearly labelled. Do not make an Opportunities filter overwrite profile data; persist it locally and validate restored region values against the standard UK region list.
+**How to apply:** Both screens should read the saved profile value and write changes through the profile API. Keep the controls clearly labelled and validate values against the standard UK region list.
