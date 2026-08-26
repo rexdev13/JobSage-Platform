@@ -27,6 +27,7 @@ const JOBSAGE_HOSTNAMES = new Set(["jobsage.co.uk", "www.jobsage.co.uk", "localh
 function isJobSageHost(): boolean {
   const { hostname } = window.location;
   if (JOBSAGE_HOSTNAMES.has(hostname)) return true;
+  if (hostname.endsWith(".jobsage.co.uk")) return true;
   if (hostname.endsWith(".replit.dev") || hostname.endsWith(".repl.co")) return true;
   return false;
 }
@@ -315,6 +316,14 @@ function makeDismissHandler(tracked = false): (scope: "site" | "session") => voi
 }
 
 async function init(): Promise<void> {
+  const firstParty = isJobSageHost();
+  // The main JOBSAGE site must not wait for background-worker messaging before
+  // the assistant is visible. A cold or temporarily stalled service worker
+  // should never make candidates reach for the extension toolbar.
+  const firstPartyShadowRoot = firstParty
+    ? mountSidebar(null, makeDismissHandler(false), /* startOpen */ true, false)
+    : null;
+
   const [activated, trackingUrl, suppression, pillPosition] = await Promise.all([
     checkTabActivation(),
     getTrackingApplicationUrl(),
@@ -326,11 +335,24 @@ async function init(): Promise<void> {
   // Only activate if this is the first-party host or the tab was previously
   // marked by the background worker (survives redirect stripping). A public
   // ref query parameter by itself is deliberately not trusted.
-  if (!isJobSageHost() && !tracked && !activated) return;
+  if (!firstParty && !tracked && !activated) return;
 
   // A tracked application must always retain a minimizable helper so a
   // previous site-wide launcher dismissal cannot break an in-progress apply.
-  if (!tracked && (suppression === "site" || suppression === "session")) return;
+  if (!firstParty && !tracked && (suppression === "site" || suppression === "session")) return;
+
+  if (firstParty) {
+    // The visible assistant is already mounted above. Only wire submission
+    // confirmation when this first-party page also carries a trusted context.
+    if (tracked && firstPartyShadowRoot) {
+      watchForSubmissionConfirmation(() => {
+        mountAutomaticConfirmationToast(firstPartyShadowRoot, {
+          onConfirm: confirmTrackedApplication,
+        });
+      });
+    }
+    return;
+  }
 
   const shadowRoot = mountSidebar(
     pillPosition,
@@ -358,7 +380,7 @@ chrome.runtime.onMessage.addListener((msg: unknown, _sender, sendResponse) => {
   (async () => {
     const [suppression, trackingUrl] = await Promise.all([checkSuppression(), getTrackingApplicationUrl()]);
     const tracked = !!trackingUrl;
-    if (!tracked && (suppression === "site" || suppression === "session")) {
+    if (!isJobSageHost() && !tracked && (suppression === "site" || suppression === "session")) {
       sendResponse({ ok: false, reason: "suppressed" });
       return;
     }

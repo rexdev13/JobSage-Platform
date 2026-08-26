@@ -343,6 +343,21 @@ export function Sidebar({
   }, [compact, showDismiss]);
 
   useEffect(() => {
+    if (initialPosition) return;
+    try {
+      void chrome.storage.local.get(PILL_POSITION_KEY).then((stored) => {
+        const saved = stored[PILL_POSITION_KEY] as PillPos | undefined;
+        if (!saved || typeof saved.left !== "number" || typeof saved.top !== "number") return;
+        const next = clampPosition(saved, compact, showDismiss);
+        posRef.current = next;
+        setPos(next);
+      });
+    } catch {
+      // Storage can be unavailable in tests or during an extension reload.
+    }
+  }, [compact, initialPosition, showDismiss]);
+
+  useEffect(() => {
     const onViewportResize = () => {
       setSidebarWidth((current) => {
         const next = clampSidebarWidth(current);
