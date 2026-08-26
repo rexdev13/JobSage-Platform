@@ -1,4 +1,5 @@
 import { openai } from "@workspace/integrations-openai-ai-server";
+import { isManualLabourTitle } from "./vacancyTitlePolicy";
 
 export interface RoleForScoring {
   id: number;
@@ -99,12 +100,20 @@ export async function batchScoreRoles(
 ): Promise<Map<number, { score: number; explanation: string }>> {
   if (roles.length === 0) return new Map();
 
-  const chunks: RoleForScoring[][] = [];
-  for (let i = 0; i < roles.length; i += BATCH_SIZE) {
-    chunks.push(roles.slice(i, i + BATCH_SIZE));
+  const merged = new Map<number, { score: number; explanation: string }>();
+  const rolesForAi: RoleForScoring[] = [];
+  for (const role of roles) {
+    if (isManualLabourTitle(role.title)) {
+      merged.set(role.id, { score: 0, explanation: "Out of professional scope" });
+    } else {
+      rolesForAi.push(role);
+    }
   }
 
-  const merged = new Map<number, { score: number; explanation: string }>();
+  const chunks: RoleForScoring[][] = [];
+  for (let i = 0; i < rolesForAi.length; i += BATCH_SIZE) {
+    chunks.push(rolesForAi.slice(i, i + BATCH_SIZE));
+  }
 
   for (const chunk of chunks) {
     try {

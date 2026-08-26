@@ -74,6 +74,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   defaultSponsorshipOnly,
   filterOpportunities,
+  groupRankedOpportunities,
   hasRegionOverlap,
   UK_REGIONS,
 } from "@/lib/opportunityFilters";
@@ -1540,10 +1541,11 @@ export default function OpportunitiesPage() {
   // The server now embeds AI scores and sorts by the same unified key the UI
   // previously computed client-side (AI score when cached, heuristic otherwise).
   // Use the server's order directly — no client-side re-sort needed.
-  const recommendedRoles = filteredRoles.slice(0, 5);
-  const top5Roles = filteredRoles.slice(0, 5);
-  const next5Roles = filteredRoles.slice(5, 10);
-  const remainingRoles = filteredRoles.slice(10);
+  const {
+    recommended: recommendedRoles,
+    consider: next5Roles,
+    remaining: remainingRoles,
+  } = groupRankedOpportunities(filteredRoles);
 
   const employerGroups = Object.entries(
     filteredRoles.reduce<Record<string, MatchedRole[]>>((acc, r) => {
@@ -1828,67 +1830,20 @@ export default function OpportunitiesPage() {
                   </section>
                 )}
 
-                {/* Tiered ranked lists */}
+                {/* Remaining ranked lists */}
                 <div id="job-board-section" className="space-y-8">
-                  {/* Band 1 — Top 5 Recommendations */}
-                  {top5Roles.length > 0 && (
-                    <section>
-                      <div className="flex items-center gap-2 mb-3">
-                        <Medal className="w-4 h-4 text-primary" />
-                        <h2 className="text-base font-semibold text-foreground">Top 5 Recommendations</h2>
-                        <span className="px-1.5 py-0.5 text-xs rounded bg-primary/10 text-primary font-medium">
-                          Apply First
-                        </span>
-                        {!eligibilityOutcome && (
-                          <button
-                            className="ml-auto text-xs text-primary hover:underline flex items-center gap-1"
-                            onClick={() => setLocation("/eligibility")}
-                          >
-                            <AlertCircle className="w-3 h-3" /> Run eligibility check to improve scores
-                          </button>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground mb-4">
-                        Your five highest-scoring vacancies — prioritise these applications.
-                      </p>
-                      <div className="space-y-3">
-                        {top5Roles.map((item) => (
-                          <motion.div
-                            key={item.role.id}
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                          >
-                            <RoleCard
-                              item={item}
-                              recommended={true}
-                              aiScore={item.aiScore ?? undefined}
-                              aiScoring={aiMatchesLoading}
-                              appliedRoleIds={appliedRoleIds}
-                              onSmartApply={handleSmartApply}
-                              onViewDetail={setSelectedRole}
-                              onCoverLetter={setCoverLetterRole}
-                              onViewAnalysis={setGapAnalysisRole}
-                              requireExtension={requireExtension}
-                              onExternalApply={handleExternalApply}
-                            />
-                          </motion.div>
-                        ))}
-                      </div>
-                    </section>
-                  )}
-
-                  {/* Band 2 — Next 5 to Consider */}
+                  {/* Roles that clear the consideration threshold */}
                   {next5Roles.length > 0 && (
                     <section>
                       <div className="flex items-center gap-2 mb-3">
                         <TrendingUp className="w-4 h-4 text-blue-500" />
-                        <h2 className="text-base font-semibold text-foreground">Next 5 to Consider</h2>
+                        <h2 className="text-base font-semibold text-foreground">Worth Considering</h2>
                         <span className="px-1.5 py-0.5 text-xs rounded bg-blue-100 text-blue-700 font-medium">
-                          Strong Matches
+                          Relevant Options
                         </span>
                       </div>
                       <p className="text-xs text-muted-foreground mb-4">
-                        Solid matches worth exploring once you have applied to your top picks.
+                        Relevant options that meet the minimum professional-fit threshold.
                       </p>
                       <div className="space-y-3">
                         {next5Roles.map((item) => (
@@ -1916,7 +1871,7 @@ export default function OpportunitiesPage() {
                     </section>
                   )}
 
-                  {/* Band 3 — More Opportunities */}
+                  {/* Lower-confidence catalogue */}
                   {remainingRoles.length > 0 && (
                     <section>
                       <div className="flex items-center gap-2 mb-3">

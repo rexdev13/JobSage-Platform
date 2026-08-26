@@ -9,6 +9,33 @@ export type OpportunityFilterRole = {
   targetRegions?: string[] | null;
 };
 
+export type RankedOpportunity = {
+  recommended?: boolean;
+  aiScore?: number | null;
+  matchScore: number;
+};
+
+export const CONSIDER_MIN_SCORE = 40;
+
+export function opportunityScore(role: RankedOpportunity): number {
+  return role.aiScore ?? role.matchScore;
+}
+
+export function groupRankedOpportunities<T extends RankedOpportunity>(roles: T[]): {
+  recommended: T[];
+  consider: T[];
+  remaining: T[];
+} {
+  const recommended = roles.filter((role) => role.recommended === true).slice(0, 5);
+  const recommendedSet = new Set(recommended);
+  const consider = roles
+    .filter((role) => !recommendedSet.has(role) && opportunityScore(role) >= CONSIDER_MIN_SCORE)
+    .slice(0, 5);
+  const considerSet = new Set(consider);
+  const remaining = roles.filter((role) => !recommendedSet.has(role) && !considerSet.has(role));
+  return { recommended, consider, remaining };
+}
+
 function regionKey(region: string): string {
   return region.trim().toLowerCase().replace(/\s+/g, " ");
 }

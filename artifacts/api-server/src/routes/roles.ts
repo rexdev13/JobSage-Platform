@@ -51,6 +51,12 @@ import {
   normalizeBehaviouralEmployer,
   type BehaviouralEngagement,
 } from "../lib/behavioralRanking";
+import { isManualLabourTitle } from "../lib/vacancyTitlePolicy";
+import {
+  TOP_MATCH_MIN_SCORE,
+  compareOpportunityRanking,
+  qualifiesForApplyFirst,
+} from "../lib/opportunityRanking";
 
 const router: IRouter = Router();
 
@@ -479,6 +485,8 @@ router.get("/roles", async (req, res): Promise<void> => {
     .filter(Boolean);
 
   const result = regulatorRoles.map((role) => {
+    const professionallyRelevant =
+      sponsorRelevance.get(role.id) !== false && !isManualLabourTitle(role.title);
     const reqReg = role.requiredRegistration.toLowerCase();
     const roleRequiresFull = reqReg.includes("full") || reqReg.includes("registered");
     const meetsRegistration = roleRequiresFull ? isRegistered || isLicenceReady : true;
@@ -500,12 +508,18 @@ router.get("/roles", async (req, res): Promise<void> => {
         eligibilityGaps = getRoleEligibilityGaps(role, profile, null);
       }
     }
+    if (!professionallyRelevant) {
+      isEligible = false;
+      eligibilityGaps = ["This vacancy is outside your professional scope."];
+    }
 
     const sponsorshipFeasibility =
       profile.requiresSponsorship ? assessSponsorshipFeasibility(role, profile.requiresSponsorship) : null;
 
     const professionLabel = profile.profession.replace(/_/g, " ");
-    const explanation = isEligible
+    const explanation = !professionallyRelevant
+      ? "This vacancy is outside your professional scope."
+      : isEligible
       ? `Matched as eligible for ${regulator} registration (${professionLabel}). Ruleset v${rulesetVersion}, decision #${decisionRecordId}${eligibleRuleId ? `, rule #${eligibleRuleId}` : ""}.`
       : decision
         ? `Not yet eligible for this role. Complete your remediation steps to qualify.`
@@ -518,12 +532,14 @@ router.get("/roles", async (req, res): Promise<void> => {
     // are bottom-ranked instead of competing with clearly relevant roles.
     let matchScore = computeMatchScore(role as typeof rolesTable.$inferSelect, isEligible, profile.requiresSponsorship);
     matchScore = Math.min(100, matchScore + specialtyBoost(role.title, specialtyWords));
-    if (sponsorRelevance.get(role.id) === false) {
-      matchScore = Math.min(matchScore, 25);
+    if (!professionallyRelevant) {
+      matchScore = 0;
     }
 
     return {
-      role,
+      role: professionallyRelevant
+        ? role
+        : { ...role, requiredRegistration: "Not applicable — outside your professional scope" },
       explanation,
       rulesetVersion,
       decisionRecordId: decisionRecordId ?? 0,
@@ -531,8 +547,8 @@ router.get("/roles", async (req, res): Promise<void> => {
       sponsorshipFeasibility,
       isEligible,
       matchScore,
-      aiScore: cached?.score ?? null,
-      aiExplanation: cached?.explanation ?? null,
+      aiScore: professionallyRelevant ? cached?.score ?? null : 0,
+      aiExplanation: professionallyRelevant ? cached?.explanation ?? null : "Out of professional scope",
       eligibilityGaps,
       safeguarding,
       contactEmail: role.contactEmail ?? null,
@@ -544,21 +560,14 @@ router.get("/roles", async (req, res): Promise<void> => {
     };
   });
 
-  // Sort: verified apply links first (actionable roles surface above unverified
-  // ones), then by AI score when available, then by heuristic match score.
-  result.sort((a, b) => {
-    const aVerified = a.linkVerified ? 1 : 0;
-    const bVerified = b.linkVerified ? 1 : 0;
-    if (aVerified !== bVerified) return bVerified - aVerified;
-    const aHasAi = a.aiScore !== null;
-    const bHasAi = b.aiScore !== null;
-    if (aHasAi !== bHasAi) return aHasAi ? -1 : 1;
-    if (aHasAi && bHasAi && b.aiScore !== a.aiScore) return (b.aiScore ?? 0) - (a.aiScore ?? 0);
-    if (b.matchScore !== a.matchScore) return b.matchScore - a.matchScore;
-    return a.role.id - b.role.id;
-  });
+  result.sort(compareOpportunityRanking);
 
-  const rankedRoles = result.map((r, i) => ({ ...r, recommended: i < 5 }));
+  let recommendationCount = 0;
+  const rankedRoles = result.map((role) => {
+    const recommended = recommendationCount < 5 && qualifiesForApplyFirst(role);
+    if (recommended) recommendationCount += 1;
+    return { ...role, recommended };
+  });
 
   res.json({
     roles: rankedRoles,
@@ -688,7 +697,8 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
       contactPhone: v.contactPhone,
       contactWebsite: v.contactWebsite,
     }));
-  const regulatorRoles = [...curatedRoles, ...sponsorRoles];
+  const regulatorRoles = [...curatedRoles, ...sponsorRoles]
+    .filter((role) => !isManualLabourTitle(role.title));
 
   if (regulatorRoles.length === 0) {
     res.json({ matches: [], dismissedRoleIds: [], totalCount: 0, cached: false });
@@ -876,15 +886,12 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
         careerProfileId: activeCareerProfile?.id ?? null,
       };
     })
+    .filter((match) => match.aiScore >= TOP_MATCH_MIN_SCORE)
     .sort((a, b) => {
-      // Verified apply links first — actionable roles surface above unverified ones
-      const aVerified = a.linkVerified ? 1 : 0;
-      const bVerified = b.linkVerified ? 1 : 0;
-      if (aVerified !== bVerified) return bVerified - aVerified;
-      // Then eligible before not-yet-eligible
+      if (b.aiScore !== a.aiScore) return b.aiScore - a.aiScore;
+      if (a.linkVerified !== b.linkVerified) return a.linkVerified ? -1 : 1;
       if (a.isEligible !== b.isEligible) return a.isEligible ? -1 : 1;
-      // Then by AI score descending
-      return b.aiScore - a.aiScore;
+      return a.roleId - b.roleId;
     });
 
   const totalCount = allSortedMatches.length;
@@ -1006,7 +1013,13 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
 
   const regulatorRoles = [
     ...allRoles
-      .filter((r) => r.regulator === regulator && !appliedIds.has(r.id) && !dismissedRoleIds.has(r.id) && !speculativeCompanies.has(r.employer.toLowerCase()))
+      .filter((r) =>
+        r.regulator === regulator
+        && !isManualLabourTitle(r.title)
+        && !appliedIds.has(r.id)
+        && !dismissedRoleIds.has(r.id)
+        && !speculativeCompanies.has(r.employer.toLowerCase())
+      )
       .map((r) => {
         const link = presentApplyLink(r.applyUrl, r.liveness, r.lastVerifiedAt);
         return {
@@ -1024,7 +1037,12 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
           contactWebsite: r.contactWebsite ?? null,
         };
       }),
-    ...employerJobsAsRoles.filter((r) => !appliedIds.has(r.id) && !dismissedRoleIds.has(r.id) && !speculativeCompanies.has(r.employer.toLowerCase())),
+    ...employerJobsAsRoles.filter((r) =>
+      !isManualLabourTitle(r.title)
+      && !appliedIds.has(r.id)
+      && !dismissedRoleIds.has(r.id)
+      && !speculativeCompanies.has(r.employer.toLowerCase())
+    ),
   ];
 
   if (regulatorRoles.length === 0) {
@@ -1076,8 +1094,10 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
   });
 
   scored.sort((a, b) => {
+    if (b.matchScore !== a.matchScore) return b.matchScore - a.matchScore;
+    if (a.linkVerified !== b.linkVerified) return a.linkVerified ? -1 : 1;
     if (a.isEligible !== b.isEligible) return a.isEligible ? -1 : 1;
-    return b.matchScore - a.matchScore;
+    return a.id - b.id;
   });
 
   res.json({ roles: scored.slice(0, limit) });
