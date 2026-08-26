@@ -602,6 +602,27 @@ describe("GET /roles/my-matches — incremental scoring with sponsor vacancies",
     expect(m.aiExplanation).toContain("Excellent specialty fit");
   });
 
+  it("excludes an out-of-scope curated role even when it has a stale high cached score", async () => {
+    const pizzaRole = {
+      ...makeRole(61),
+      title: "Pizza Maker",
+      employer: "Pizzeria Test Employer",
+    };
+    pushMyMatchesDb(
+      [pizzaRole],
+      [],
+      [{ roleId: 61, score: 99, aiExplanation: "Stale pre-policy score", scoredAt: new Date() }],
+      [],
+    );
+
+    const app = buildApp();
+    const res = await request(app).get("/roles/my-matches").set("Authorization", AUTH);
+
+    expect(res.status).toBe(200);
+    expect(res.body.matches).toEqual([]);
+    expect(res.body.totalCount).toBe(0);
+  });
+
   it("removes completed roles from matches while retaining link-clicked roles", async () => {
     const interviewRole = makeRole(71);
     const offerRole = makeRole(72);
@@ -709,6 +730,47 @@ describe("GET /opportunities/recommended — behavioural ranking", () => {
       matchReason: "You favourited this opportunity",
     });
     expect(res.body.roles[0].matchScore).toBeGreaterThan(70);
+  });
+
+  it("excludes an out-of-scope role before using its stale high cached score", async () => {
+    const clinicalRole = {
+      id: 84, title: "Consultant Cardiologist", employer: "North Trust", location: "London",
+      regulator: "GMC", sponsorshipOffered: true, requiredRegistration: "Full GMC Registration",
+      active: true, importedAt: new Date(), importedBy: "admin",
+      applyUrl: "https://jobs.nhs.uk/vacancy/84", liveness: "live",
+      lastVerifiedAt: new Date(), livenessReason: null,
+      contactEmail: null, contactPhone: null, contactWebsite: null,
+    };
+    const pizzaRole = {
+      ...clinicalRole,
+      id: 85,
+      title: "Pizza Maker",
+      employer: "Pizzeria Test Employer",
+    };
+    dbResults.push([{
+      userId: "admin-1", profession: "doctor", specialty: "cardiology",
+      registrationStatus: "full_registration", licenceReady: null,
+      requiresSponsorship: false, preferredRegion: null,
+    }]);
+    dbResults.push([]); // career profile
+    dbResults.push([{ outcome: "eligible" }]); // decision
+    dbResults.push([pizzaRole, clinicalRole]); // roles
+    dbResults.push([]); // employer jobs
+    dbResults.push([]); // applications
+    dbResults.push([]); // speculative applications
+    dbResults.push([]); // favourites
+    dbResults.push([]); // sponsor bookmarks
+    dbResults.push([]); // dismissals
+    dbResults.push([
+      { roleId: 85, score: 99, scoredAt: new Date() },
+      { roleId: 84, score: 70, scoredAt: new Date() },
+    ]); // cached scores
+
+    const app = buildApp();
+    const res = await request(app).get("/opportunities/recommended").set("Authorization", AUTH);
+
+    expect(res.status).toBe(200);
+    expect(res.body.roles.map((role: any) => role.id)).toEqual([84]);
   });
 
   it("uses a completed application's regulator as a similarity signal for future roles", async () => {

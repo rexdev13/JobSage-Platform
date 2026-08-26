@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultSponsorshipOnly, filterOpportunities } from "./opportunityFilters";
+import { defaultSponsorshipOnly, filterOpportunities, groupRankedOpportunities } from "./opportunityFilters";
 
 describe("opportunity filters", () => {
   const roles = [
@@ -27,5 +27,17 @@ describe("opportunity filters", () => {
       [{ id: 1, sponsorshipOffered: true, targetRegions: [" london "] }],
       { selectedRegions: ["London"], sponsorshipOnly: false },
     )).toHaveLength(1);
+  });
+
+  it("keeps only server-approved roles in Apply First and separates low scores", () => {
+    const grouped = groupRankedOpportunities([
+      { id: 1, recommended: true, aiScore: 82, matchScore: 70 },
+      { id: 2, recommended: false, aiScore: 63, matchScore: 70 },
+      { id: 3, recommended: false, aiScore: 0, matchScore: 80 },
+    ]);
+
+    expect(grouped.recommended.map((role) => role.id)).toEqual([1]);
+    expect(grouped.consider.map((role) => role.id)).toEqual([2]);
+    expect(grouped.remaining.map((role) => role.id)).toEqual([3]);
   });
 });
