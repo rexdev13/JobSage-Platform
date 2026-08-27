@@ -1,0 +1,41 @@
+READ ONLY. Do not change code. Do not start a build. Do not re-enable OpenAI web_search or raise VACANCY_AI_WEB_SEARCH_DAILY_CAP.
+
+Client request: the “Apply on job boards” / Job Boards area must show vacancies for our sponsor organisations from job boards (Indeed, Reed, LinkedIn, CV-Library, TotalJobs, NHS Jobs as a board, etc.). Company-website vacancies stay separate.
+
+Answer FOUND / NOT FOUND / PARTIAL with file paths.
+
+## 1. What “Job Boards” is today
+- ApplicationsPage (or renamed Apply on job boards) tabs: what each tab lists, which API, which applicationType / source
+- Opportunities: is there a job-boards vs company-website split, or one mixed list?
+- Empty states / copy that mention job boards
+
+## 2. Sponsor vacancy pipeline
+- sponsor_licence_vacancies and sponsor_licence_vacancy_checks: fields, sourceUrl, how rows are created (NHS HTTP vs old AI)
+- selectBatch: who gets checked
+- vacancyUrlPolicy: aggregator allow/deny list
+- GET /roles and Opportunities: are aggregator URLs stripped before the candidate sees them?
+- Alerts: which sources they include
+
+## 3. Any existing job-board integrations
+Search for Indeed, Reed, LinkedIn, CV-Library, TotalJobs, Adzuna, Glassdoor, NHS Jobs (non-HTTP), RSS, affiliate APIs.
+Dedicated clients vs mentions inside AI prompts only.
+
+## 4. Identity of a “sponsor job”
+How we match an external listing to a sponsor_licences org (name, location, website).
+What would duplicate the same role on NHS Jobs and Indeed.
+
+## 5. Scale and cost
+- How many sponsor_licences vs how many we actually vacancy-check
+- Any per-board rate limits, ToS notes, or API keys in env
+- Confirm AI web_search cap is still 0
+
+## 6. Gaps vs the client ask
+For each board (Indeed, Reed, LinkedIn, CV-Library, TotalJobs, others you find in code or UK healthcare use):
+- Can we HTTP-search by employer name like NHS Jobs?
+- Would current policy hide those URLs from candidates?
+
+## 7. Recommend (do not implement)
+Smallest clean model, e.g. new sourceType job_board vs company_site, store board name + listing URL, show board rows only on Apply on job boards, keep company-site tab strict.
+What we cannot honestly promise (login walls, LinkedIn, “every board in the world”).
+
+Stop. No implementation.
