@@ -1682,6 +1682,77 @@ export default function OpportunitiesPage() {
               </Card>
             )}
 
+            {/* Region and sponsorship filters stay above ranked results so candidates
+                can set the scope before reviewing their matches. */}
+            {!noProfile && roles.length > 0 && (
+              <Card className="p-4 border-primary/15 bg-primary/[0.02]">
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div>
+                      <h2 className="text-sm font-semibold text-foreground">Refine opportunities</h2>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Region filters keep roles with an unknown or national location visible.
+                      </p>
+                    </div>
+                    <label className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={effectiveSponsorshipOnly}
+                        onChange={(event) => setSponsorshipOnly(event.target.checked)}
+                        className="w-4 h-4 rounded border-primary/30 text-primary focus:ring-primary accent-primary"
+                      />
+                      Visa sponsorship offered
+                    </label>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-2">UK region</p>
+                    <div className="flex flex-wrap gap-2">
+                      {UK_REGIONS.map((region) => {
+                        const selected = selectedRegions.includes(region);
+                        return (
+                          <button
+                            key={region}
+                            type="button"
+                            aria-pressed={selected}
+                            onClick={() => saveRegionsToProfile(
+                              selected
+                                ? selectedRegions.filter((value) => value !== region)
+                                : [...selectedRegions, region],
+                            )}
+                            className={`rounded-full px-3 py-1.5 text-xs font-medium border transition-colors ${
+                              selected
+                                ? "border-primary bg-primary text-primary-foreground"
+                                : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-primary/40"
+                            }`}
+                          >
+                            {region}
+                          </button>
+                        );
+                      })}
+                      {selectedRegions.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => saveRegionsToProfile([])}
+                          className="rounded-full px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10"
+                        >
+                          Clear regions
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {regionSaveState === "saving"
+                        ? "Saving to your Professional Profile…"
+                        : regionSaveState === "error"
+                          ? "Could not save your profile preference."
+                          : regionSaveState === "saved"
+                            ? "Saved to your Professional Profile."
+                            : "This selection is linked to your Professional Profile."}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            )}
+
             {/* Best Matches AI Strip */}
             {!noProfile && filteredRoles.length > 0 && (
               <BestMatchesStrip
@@ -1712,72 +1783,6 @@ export default function OpportunitiesPage() {
 
             {!noProfile && roles.length > 0 && (
               <>
-                <Card className="p-4 border-primary/15 bg-primary/[0.02]">
-                  <div className="flex flex-col gap-4">
-                    <div className="flex items-start justify-between gap-3 flex-wrap">
-                      <div>
-                        <h2 className="text-sm font-semibold text-foreground">Refine opportunities</h2>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          Region filters keep roles with an unknown or national location visible.
-                        </p>
-                      </div>
-                      <label className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={effectiveSponsorshipOnly}
-                          onChange={(event) => setSponsorshipOnly(event.target.checked)}
-                          className="w-4 h-4 rounded border-primary/30 text-primary focus:ring-primary accent-primary"
-                        />
-                        Visa sponsorship offered
-                      </label>
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-muted-foreground mb-2">UK region</p>
-                      <div className="flex flex-wrap gap-2">
-                        {UK_REGIONS.map((region) => {
-                          const selected = selectedRegions.includes(region);
-                          return (
-                            <button
-                              key={region}
-                              type="button"
-                              aria-pressed={selected}
-                              onClick={() => saveRegionsToProfile(
-                                selected
-                                  ? selectedRegions.filter((value) => value !== region)
-                                  : [...selectedRegions, region],
-                              )}
-                              className={`rounded-full px-3 py-1.5 text-xs font-medium border transition-colors ${
-                                selected
-                                  ? "border-primary bg-primary text-primary-foreground"
-                                  : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-primary/40"
-                              }`}
-                            >
-                              {region}
-                            </button>
-                          );
-                        })}
-                        {selectedRegions.length > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => saveRegionsToProfile([])}
-                            className="rounded-full px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10"
-                          >
-                            Clear regions
-                          </button>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        {regionSaveState === "saving"
-                          ? "Saving to your Professional Profile…"
-                          : regionSaveState === "error"
-                            ? "Could not save your profile preference."
-                            : regionSaveState === "saved"
-                              ? "Saved to your Professional Profile."
-                              : "This selection is linked to your Professional Profile."}
-                      </p>
-                    </div>
-                  </div>
-                </Card>
                 {filteredRoles.length === 0 && (
                   <Card className="p-7 text-center">
                     <Briefcase className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
