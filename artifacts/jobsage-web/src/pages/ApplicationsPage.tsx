@@ -261,8 +261,8 @@ function ApplicationCard({ application, onStatusUpdated }: { application: Enrich
   const kindBadge = isSpeculative
     ? { label: "Send CV", icon: Send, className: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-900/20 dark:text-sky-400" }
     : isWebsite
-    ? { label: "Company Website", icon: Globe, className: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400" }
-    : { label: "Job Boards", icon: Building2, className: "bg-primary/5 text-primary border-primary/20" };
+    ? { label: "Apply on company websites", icon: Globe, className: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400" }
+    : { label: "Apply on job boards", icon: Building2, className: "bg-primary/5 text-primary border-primary/20" };
 
   const KindIcon = kindBadge.icon;
   const isInterviewInvited = application.status === "interview_invited" || application.status === "interview";
@@ -582,9 +582,9 @@ export default function ApplicationsPage() {
 
   const tabs: { id: CategoryTab; label: string; icon: React.ElementType; count: number }[] = [
     { id: "all", label: "All", icon: ClipboardList, count: applications.length },
-    { id: "platform", label: "Job Boards", icon: Building2, count: stats?.platformCount ?? applications.filter((a) => a.applicationKind === "formal").length },
+    { id: "platform", label: "Apply on job boards", icon: Building2, count: stats?.platformCount ?? applications.filter((a) => a.applicationKind === "formal").length },
     { id: "speculative", label: "Send CV", icon: Send, count: stats?.speculativeCount ?? applications.filter((a) => a.applicationKind === "speculative").length },
-    { id: "website", label: "Company Website", icon: Globe, count: stats?.websiteCount ?? applications.filter((a) => a.applicationKind === "website").length },
+    { id: "website", label: "Apply on company websites", icon: Globe, count: stats?.websiteCount ?? applications.filter((a) => a.applicationKind === "website").length },
     { id: "favorites", label: "Favorites", icon: Heart, count: favorites.length },
   ];
 
@@ -598,7 +598,7 @@ export default function ApplicationsPage() {
               Application Tracker
             </h1>
             <p className="text-muted-foreground text-sm mt-1">
-              Track all your job board applications, CV sends, and company website submissions.
+              Track applications from job boards, CV sends, and company websites.
             </p>
           </div>
           <div className="flex flex-col items-end gap-1.5">
