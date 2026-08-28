@@ -81,8 +81,12 @@ export async function processUserAlert(
   const eligibleRoles: AlertRole[] = [];
   const workTowardsRoles: AlertRole[] = [];
 
-  const roleKeys = new Set<string>();
+  const roleFingerprints = new Set<string>();
   const roleUrls = new Set<string>();
+  const roleFingerprint = (role: { employer: string; title: string; location: string }): string =>
+    [role.employer, role.title, role.location]
+      .map((value) => value.trim().toLowerCase().replace(/\s+/g, " "))
+      .join("|");
 
   for (const role of regulatorRoles) {
     const reqReg = role.requiredRegistration.toLowerCase();
@@ -99,7 +103,7 @@ export async function processUserAlert(
       isEligible,
       applyUrl: role.applyUrl ?? null,
     };
-    roleKeys.add(roleDedupKey(role.employer, role.title));
+    roleFingerprints.add(roleFingerprint(role));
     if (role.applyUrl?.trim()) roleUrls.add(role.applyUrl.trim());
 
     if (isEligible) {
@@ -112,15 +116,22 @@ export async function processUserAlert(
   // Sponsor rows use the same quality gate as GET /roles, with the additional
   // alert-only requirement that the advert has a specific URL. Snapshot IDs
   // are not stable, so URL is the durable identity for alert deduplication.
-  const sponsorCandidates = sponsorVacancyRoles.filter((role) => {
+  const sourcePriority = (role: (typeof sponsorVacancyRoles)[number]): number => {
+    if (role.boardName === "NHS Jobs" || role.boardName === "Trac" || role.boardName === "HealthJobsUK") return 0;
+    if (role.sourceType === "company_site") return 1;
+    return 2;
+  };
+  const sponsorCandidates = [...sponsorVacancyRoles]
+    .sort((a, b) => sourcePriority(a) - sourcePriority(b))
+    .filter((role) => {
     if (!role.classifiedRelevant) return false;
     if (!role.applyUrl) return false;
     if (roleUrls.has(role.applyUrl)) return false;
-    if (roleKeys.has(roleDedupKey(role.employer, role.title))) return false;
-    roleKeys.add(roleDedupKey(role.employer, role.title));
+    if (roleFingerprints.has(roleFingerprint(role))) return false;
+    roleFingerprints.add(roleFingerprint(role));
     roleUrls.add(role.applyUrl);
     return true;
-  });
+    });
 
   const sponsorUrls = sponsorCandidates.map((role) => role.applyUrl).filter((url): url is string => Boolean(url));
   let claimedSponsorUrls = new Set<string>();

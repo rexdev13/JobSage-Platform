@@ -3,6 +3,8 @@ import {
   BLOCKED_VACANCY_DOMAINS,
   isBlockedVacancyUrl,
   isValidVacancyDeepLink,
+  isValidJobBoardVacancyDeepLink,
+  isValidVacancyUrlForSource,
 } from "../../lib/vacancyUrlPolicy";
 
 describe("isBlockedVacancyUrl", () => {
@@ -28,6 +30,27 @@ describe("isBlockedVacancyUrl", () => {
     for (const d of ["monster.co.uk", "cwjobs.co.uk", "google.com", "careerjet.co.uk"]) {
       expect(BLOCKED_VACANCY_DOMAINS).toContain(d);
     }
+  });
+});
+
+describe("job-board vacancy URL policy", () => {
+  it("allows exact supported-board adverts only in job-board mode", () => {
+    const reedAdvert = "https://www.reed.co.uk/jobs/staff-nurse-london/57262903?source=searchResults";
+    expect(isValidJobBoardVacancyDeepLink(reedAdvert)).toBe(true);
+    expect(isValidVacancyUrlForSource(reedAdvert, "job_board")).toBe(true);
+    expect(isValidVacancyUrlForSource(reedAdvert, "company_site")).toBe(false);
+  });
+
+  it("rejects board search and employer-listing URLs", () => {
+    expect(isValidJobBoardVacancyDeepLink("https://www.reed.co.uk/jobs?keywords=nurse")).toBe(false);
+    expect(isValidJobBoardVacancyDeepLink("https://uk.indeed.com/jobs?q=nurse")).toBe(false);
+    expect(isValidJobBoardVacancyDeepLink("https://uk.indeed.com/viewjob?jk=abc123")).toBe(true);
+  });
+
+  it("classifies exact NHS-family adverts as job-board links", () => {
+    expect(isValidJobBoardVacancyDeepLink("https://www.jobs.nhs.uk/candidate/jobadvert/C0001-260001")).toBe(true);
+    expect(isValidJobBoardVacancyDeepLink("https://www.trac.jobs/job-advert/1234567")).toBe(true);
+    expect(isValidJobBoardVacancyDeepLink("https://www.healthjobsuk.com/job/UK/London/Trust/Nurse-v123456")).toBe(true);
   });
 });
 

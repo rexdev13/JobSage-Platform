@@ -808,6 +808,11 @@ function RoleCard({
                 <Zap className="w-3 h-3 animate-pulse" /> AI scoring…
               </span>
             )}
+            {role.sourceType === "job_board" && role.boardName && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+                {role.boardName}
+              </span>
+            )}
           </div>
           <h3 className="text-base font-semibold text-foreground">{role.title}</h3>
           <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground flex-wrap">
@@ -1409,7 +1414,7 @@ export default function OpportunitiesPage() {
 
   const queryClient = useQueryClient();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const { data, isLoading, isError } = useListMatchedRoles();
+  const { data, isLoading, isError } = useListMatchedRoles({ source: "job_board" });
   const { data: applicationsData } = useListMyApplications();
   const { data: myProfile } = useGetMyProfile();
   const profileMutation = useUpsertMyProfile();
@@ -1421,8 +1426,8 @@ export default function OpportunitiesPage() {
 
   const [localDismissedIds, setLocalDismissedIds] = useState<Set<number>>(new Set());
   const { data: aiMatchesData, isLoading: aiMatchesLoading } = useGetMyMatches(
-    { limit: 200 },
-    { query: { queryKey: getGetMyMatchesQueryKey({ limit: 200 }), enabled: isAuthenticated && !authLoading, retry: false } },
+    { limit: 200, source: "job_board" },
+    { query: { queryKey: getGetMyMatchesQueryKey({ limit: 200, source: "job_board" }), enabled: isAuthenticated && !authLoading, retry: false } },
   );
   const dismissMutation = useDismissMatch();
 

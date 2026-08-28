@@ -94,6 +94,19 @@ function buildApp() {
 
 const AUTH = "Bearer admin-session";
 
+describe("Matched roles source filter", () => {
+  beforeEach(() => { dbResults.length = 0; });
+
+  it("rejects unknown source values before querying role data", async () => {
+    const res = await request(buildApp())
+      .get("/roles?source=indeed")
+      .set("Authorization", AUTH);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain("job_board or company_site");
+    expect(dbResults).toHaveLength(0);
+  });
+});
+
 // ── Helper: create a multipart CSV upload request ────────────────────────────
 async function importCSV(app: express.Express, csvContent: string) {
   const boundary = "----TestBoundary";

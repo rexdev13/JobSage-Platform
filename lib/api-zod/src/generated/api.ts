@@ -917,6 +917,15 @@ export const DeleteSmartApplyDraftParams = zod.object({
 /**
  * @summary List roles matched to the current candidate's eligibility
  */
+export const ListMatchedRolesQueryParams = zod.object({
+  source: zod
+    .enum(["job_board", "company_site"])
+    .optional()
+    .describe(
+      "Optional vacancy-source filter. Omit to preserve the mixed legacy response.",
+    ),
+});
+
 export const ListMatchedRolesResponse = zod.object({
   roles: zod.array(
     zod.object({
@@ -944,6 +953,20 @@ export const ListMatchedRolesResponse = zod.object({
           .describe(
             "Direct application URL for this specific role, if available",
           ),
+        sourceType: zod
+          .enum(["job_board", "company_site"])
+          .nullish()
+          .describe("Origin category for the vacancy."),
+        boardName: zod
+          .string()
+          .nullish()
+          .describe(
+            "Display name of the job board, when sourceType is job_board.",
+          ),
+        externalListingId: zod
+          .string()
+          .nullish()
+          .describe("Source board's stable advert identifier, when available."),
       }),
       explanation: zod.string(),
       rulesetVersion: zod.string(),
@@ -1061,6 +1084,7 @@ export const getMyMatchesQueryOffsetDefault = 0;
 export const GetMyMatchesQueryParams = zod.object({
   limit: zod.coerce.number().default(getMyMatchesQueryLimitDefault),
   offset: zod.coerce.number().default(getMyMatchesQueryOffsetDefault),
+  source: zod.enum(["job_board", "company_site"]).optional(),
 });
 
 export const GetMyMatchesResponse = zod.object({
@@ -1187,6 +1211,20 @@ export const AdminListRolesResponse = zod.object({
         .describe(
           "Direct application URL for this specific role, if available",
         ),
+      sourceType: zod
+        .enum(["job_board", "company_site"])
+        .nullish()
+        .describe("Origin category for the vacancy."),
+      boardName: zod
+        .string()
+        .nullish()
+        .describe(
+          "Display name of the job board, when sourceType is job_board.",
+        ),
+      externalListingId: zod
+        .string()
+        .nullish()
+        .describe("Source board's stable advert identifier, when available."),
     }),
   ),
 });

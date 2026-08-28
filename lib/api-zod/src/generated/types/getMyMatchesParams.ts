@@ -5,8 +5,10 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { GetMyMatchesSource } from "./getMyMatchesSource";
 
 export type GetMyMatchesParams = {
   limit?: number;
   offset?: number;
+  source?: GetMyMatchesSource;
 };

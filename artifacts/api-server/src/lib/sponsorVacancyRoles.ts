@@ -2,7 +2,7 @@ import { db } from "@workspace/db";
 import { sponsorLicenceVacanciesTable, sponsorLicencesTable } from "@workspace/db";
 import { and, eq, gt, ne } from "drizzle-orm";
 import { isManualLabourTitle } from "./vacancyTitlePolicy";
-import { isValidVacancyDeepLink } from "./vacancyUrlPolicy";
+import { isValidVacancyUrlForSource } from "./vacancyUrlPolicy";
 import type { DbsClearanceLevel, SafeguardingTrainingLevel } from "./safeguarding";
 import { regionsFromLocationText } from "./regionMatching";
 
@@ -98,6 +98,9 @@ export interface SponsorVacancyAsRole {
   requiredDbsClearanceLevel: DbsClearanceLevel | null;
   requiredSafeguardingLevel: SafeguardingTrainingLevel | null;
   targetRegions: string[] | null;
+  sourceType: "job_board" | "company_site" | null;
+  boardName: string | null;
+  externalListingId: string | null;
 }
 
 /**
@@ -183,7 +186,10 @@ export async function fetchSponsorVacanciesAsRoles(
 
     const link = presentApplyLink(vac.url, vac.liveness, vac.lastVerifiedAt);
     if (options.requireSpecificVacancyUrl && !link.applyUrl) continue;
-    if (options.requireSpecificVacancyUrl && !isValidVacancyDeepLink(link.applyUrl)) continue;
+    if (
+      options.requireSpecificVacancyUrl &&
+      !isValidVacancyUrlForSource(link.applyUrl, vac.sourceType)
+    ) continue;
     const contactEmail = lic?.contactEmail?.trim() || null;
     const contactPhone = lic?.contactPhone?.trim() || null;
     const contactWebsite = lic?.website?.trim() || null;
@@ -235,6 +241,9 @@ export async function fetchSponsorVacanciesAsRoles(
         Array.isArray(vac.targetRegions) && vac.targetRegions.length > 0
           ? vac.targetRegions
           : regionsFromLocationText(vac.location),
+      sourceType: vac.sourceType,
+      boardName: vac.boardName,
+      externalListingId: vac.externalListingId,
     });
   }
 

@@ -281,6 +281,14 @@ router.get("/roles", async (req, res): Promise<void> => {
   }
 
   const userId = req.user!.id;
+  const sourceFilter =
+    req.query.source === "job_board" || req.query.source === "company_site"
+      ? req.query.source
+      : null;
+  if (req.query.source != null && sourceFilter == null) {
+    res.status(400).json({ error: "source must be job_board or company_site." });
+    return;
+  }
 
   const [profile] = await db.select().from(profilesTable).where(eq(profilesTable.userId, userId));
 
@@ -346,6 +354,9 @@ router.get("/roles", async (req, res): Promise<void> => {
         applyUrl: link.applyUrl,
         linkVerified: link.linkVerified,
         linkCheckedAt: link.linkCheckedAt,
+        sourceType: "company_site" as const,
+        boardName: null,
+        externalListingId: null,
       };
     });
 
@@ -368,6 +379,9 @@ router.get("/roles", async (req, res): Promise<void> => {
         applyUrl: link.applyUrl,
         linkVerified: link.linkVerified,
         linkCheckedAt: link.linkCheckedAt,
+        sourceType: "company_site" as const,
+        boardName: null,
+        externalListingId: null,
       };
     }),
     ...employerJobsAsRoles,
@@ -381,7 +395,8 @@ router.get("/roles", async (req, res): Promise<void> => {
       const { classifiedRelevant: _cr, description: _d, ...roleShape } = v;
       return roleShape;
     });
-  const regulatorRoles = [...curatedRoles, ...dedupedSponsorRoles];
+  const regulatorRoles = [...curatedRoles, ...dedupedSponsorRoles]
+    .filter((role) => sourceFilter == null || role.sourceType === sourceFilter);
 
   const isRegistered =
     profile.registrationStatus != null &&
@@ -584,6 +599,14 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
   const userId = req.user!.id;
   const limit = Math.min(200, parseInt(String(req.query.limit ?? "10"), 10) || 10);
   const offset = Math.max(0, parseInt(String(req.query.offset ?? "0"), 10) || 0);
+  const sourceFilter =
+    req.query.source === "job_board" || req.query.source === "company_site"
+      ? req.query.source
+      : null;
+  if (req.query.source != null && sourceFilter == null) {
+    res.status(400).json({ error: "source must be job_board or company_site." });
+    return;
+  }
 
   const [[profile], [activeCareerProfile]] = await Promise.all([
     db.select().from(profilesTable).where(eq(profilesTable.userId, userId)),
@@ -649,6 +672,9 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
         contactEmail: row.emp.contactEmail ?? null,
         contactPhone: row.emp.contactPhone ?? null,
         contactWebsite: row.emp.contactWebsite ?? null,
+        sourceType: "company_site" as const,
+        boardName: null,
+        externalListingId: null,
       };
     });
 
@@ -676,6 +702,9 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
         contactEmail: r.contactEmail ?? null,
         contactPhone: r.contactPhone ?? null,
         contactWebsite: r.contactWebsite ?? null,
+        sourceType: "company_site" as const,
+        boardName: null,
+        externalListingId: null,
       };
     }),
     ...employerJobsAsRoles,
@@ -696,9 +725,13 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
       contactEmail: v.contactEmail,
       contactPhone: v.contactPhone,
       contactWebsite: v.contactWebsite,
+      sourceType: v.sourceType,
+      boardName: v.boardName,
+      externalListingId: v.externalListingId,
     }));
   const regulatorRoles = [...curatedRoles, ...sponsorRoles]
-    .filter((role) => !isManualLabourTitle(role.title));
+    .filter((role) => !isManualLabourTitle(role.title))
+    .filter((role) => sourceFilter == null || role.sourceType === sourceFilter);
 
   if (regulatorRoles.length === 0) {
     res.json({ matches: [], dismissedRoleIds: [], totalCount: 0, cached: false });

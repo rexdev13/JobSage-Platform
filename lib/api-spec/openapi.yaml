@@ -1076,6 +1076,13 @@ paths:
       tags: [Roles]
       operationId: listMatchedRoles
       summary: List roles matched to the current candidate's eligibility
+      parameters:
+        - in: query
+          name: source
+          schema:
+            type: string
+            enum: [job_board, company_site]
+          description: Optional vacancy-source filter. Omit to preserve the mixed legacy response.
       responses:
         '200':
           description: Matched roles for eligible candidate or empty list with explanation.
@@ -1112,6 +1119,11 @@ paths:
           schema:
             type: integer
             default: 0
+        - in: query
+          name: source
+          schema:
+            type: string
+            enum: [job_board, company_site]
       responses:
         '200':
           description: AI-ranked matches for this candidate.
@@ -4085,6 +4097,19 @@ components:
           type: string
           nullable: true
           description: Direct application URL for this specific role, if available
+        sourceType:
+          type: string
+          enum: [job_board, company_site]
+          nullable: true
+          description: Origin category for the vacancy.
+        boardName:
+          type: string
+          nullable: true
+          description: Display name of the job board, when sourceType is job_board.
+        externalListingId:
+          type: string
+          nullable: true
+          description: Source board's stable advert identifier, when available.
 
     MatchedRole:
       type: object

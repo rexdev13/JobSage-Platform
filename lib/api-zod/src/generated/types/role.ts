@@ -7,6 +7,7 @@
  */
 import type { DbsClearanceLevel } from "./dbsClearanceLevel";
 import type { RoleRegulator } from "./roleRegulator";
+import type { RoleSourceType } from "./roleSourceType";
 import type { SafeguardingTrainingLevel } from "./safeguardingTrainingLevel";
 
 export interface Role {
@@ -25,4 +26,10 @@ export interface Role {
   importedBy?: string | null;
   /** Direct application URL for this specific role, if available */
   applyUrl?: string | null;
+  /** Origin category for the vacancy. */
+  sourceType?: RoleSourceType;
+  /** Display name of the job board, when sourceType is job_board. */
+  boardName?: string | null;
+  /** Source board's stable advert identifier, when available. */
+  externalListingId?: string | null;
 }

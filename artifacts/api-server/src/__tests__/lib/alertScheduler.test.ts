@@ -236,4 +236,17 @@ describe("job alert sponsor vacancies", () => {
     expect(sendJobAlertEmailMock).toHaveBeenCalledTimes(1);
     expect(sendJobAlertEmailMock.mock.calls[0]?.[2]).toHaveLength(1);
   });
+
+  it("keeps same-title vacancies at different locations", async () => {
+    const secondUrl = "https://www.jobs.nhs.uk/candidate/jobadvert/C9000-26-0002";
+    selectResults.push([{ outcome: "eligible" }], [], []);
+    fetchSponsorVacanciesAsRolesMock.mockResolvedValue([
+      sponsorVacancy(),
+      sponsorVacancy({ id: 2_000_322, location: "Manchester", applyUrl: secondUrl }),
+    ]);
+
+    await processUserAlert("candidate-1", "nurse@example.test", "Ada", nurseProfile, LAST_ALERT_AT);
+
+    expect(sendJobAlertEmailMock.mock.calls[0]?.[2]).toHaveLength(2);
+  });
 });
