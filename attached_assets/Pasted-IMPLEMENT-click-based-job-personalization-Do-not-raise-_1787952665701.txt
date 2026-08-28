@@ -1,0 +1,54 @@
+IMPLEMENT click-based job personalization. Do not raise VACANCY_AI_WEB_SEARCH_DAILY_CAP. Do not change NHS/Reed discovery, liveness, marketing role, or Smart Apply.
+
+## Goal
+Recommend vacancies from behaviour: roles this candidate clicks more (and applies / favourites), not a trained ML model. Explainable.
+
+## Signals (already in DB — use these)
+Positive:
+- applications status link_clicked (and timestamps — recency matters)
+- applications status applied / interview / offer (stronger than click)
+- vacancy favourites
+- sponsor_licence bookmarks
+
+Negative:
+- match_dismissals
+- completed applications that are not link_clicked (already applied — do not keep recommending the same row)
+- dead liveness
+
+Keep existing eligibility: regulator, labour blocklist, source filter if the request has source=job_board or company_site.
+
+## Ranking
+On GET /roles/my-matches and GET /opportunities/recommended (honour source= query if present):
+
+Start from the same candidate-eligible pool as today.
+Then boost:
+- Same employer as recently clicked/applied/favourited
+- Similar title tokens (nurse, midwife, ITU, GP, band, etc.) to clicked/applied roles
+- Same regulator already required
+- Same region as clicked roles when the vacancy has a region
+- Recency: clicks in last 14 days count more than older ones
+- Repeated clicks on the same employer/title family count more than a single click
+
+Penalise / exclude:
+- Dismissed matches
+- Exact URL or exact role already applied (status applied+)
+- Dead links
+
+Do not require a new event table. Do not use page-view/dwell (NOT FOUND).
+Do not call OpenAI to re-rank. Optional: keep cached AI fit score as a weak base; behaviour boosts sit on top.
+
+Return a short reason when boosted, e.g. “Similar to roles you opened” / “Same employer as jobs you clicked”.
+
+## UI
+Best Matches / Recommended: show that reason on the card when present.
+Do not rename Opportunities tabs.
+
+## Tests
+- Two link_clicked rows at employer A → employer A vacancies rank above unrelated employer B, all else equal
+- Dismissed role does not appear
+- Applied URL not re-recommended
+- source=job_board still only returns job_board
+- Cap 0 path untouched
+
+Reply: files changed, how weights work in one paragraph, example reason strings.
+Stop.
