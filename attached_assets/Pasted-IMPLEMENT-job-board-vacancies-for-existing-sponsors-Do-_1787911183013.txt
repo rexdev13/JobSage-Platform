@@ -1,0 +1,68 @@
+IMPLEMENT job-board vacancies for existing sponsors. Do not raise VACANCY_AI_WEB_SEARCH_DAILY_CAP (stay 0). Do not re-enable OpenAI web_search as discovery. Do not scrape LinkedIn. Do not treat marketing as admin. Do not weaken company-site URL rules on the company-website view.
+
+## Product
+Two vacancy sources:
+
+1) company_site — employer/trust/ATS deep links (current strict policy: no Indeed/Reed/LinkedIn as apply URL).
+2) job_board — a specific advert on a board.
+
+NHS Jobs / Trac / HealthJobsUK: sourceType job_board, boardName nhs_jobs (or trac / healthjobsuk from host). They already work via nhsJobsClient.
+
+Opportunities “Job Board” tab: ONLY sourceType = job_board.
+“Apply on company websites” / employer-site apply paths: ONLY company_site (and JOBSAGE-published jobs if that is the current company-website apply path).
+
+Application Tracker tabs stay tracker filters (platform vs website vs CV). Do not pretend those tabs are vacancy feeds. If copy is confusing, add one short empty-state line: “Job vacancies from boards are on Opportunities → Job Board.”
+
+## Schema
+On sponsor_licence_vacancies (and vacancyList JSON if still used):
+- sourceType: 'job_board' | 'company_site'
+- boardName: text nullable (nhs_jobs, reed, indeed, cv_library, totaljobs, company_site, …)
+- externalListingId: text nullable
+- sponsorLicenceId: FK nullable if you can join by organisationName without a risky migration; otherwise keep organisationName and add source fields only
+
+Backfill existing rows from URL host:
+- jobs.nhs.uk / trac.jobs / healthjobsuk.com → job_board
+- blocked aggregator hosts → job_board + boardName (only if we start storing them)
+- employer domains → company_site
+- unknown → leave classifiable, do not show as company_site apply
+
+Dedup: same organisation + canonical URL = one row. Do not title-only merge.
+
+## URL policy (split)
+vacancyUrlPolicy: add a mode or function for job-board vs company-site.
+- job_board mode: ALLOW specific advert URLs on Indeed, Reed, CV-Library, TotalJobs (deep link, not search results/homepage). Still block shorteners and generic /jobs search pages.
+- company_site mode: KEEP current aggregator block.
+
+GET /roles (or a query flag source=job_board|company_site) must apply the matching policy. Opportunities Job Board requests source=job_board.
+
+Alerts: only include a board URL if the candidate-facing view would show it; do not email blocked company-site aggregators. Prefer NHS/company-site links when both exist for the same fingerprint (org + normalised title + location).
+
+## Discovery — Phase 1 boards only
+In runVacancyCheck, after NHS Jobs HTTP (keep as now):
+
+Add HTTP employer search clients, same politeness as NHS (timeout, delay, cap 8 per board per org, no cache of outages as “no jobs”):
+
+1) Reed — search by organisationName, keep only listings whose employer matches (reuse/extend sponsorVacancyMatch). Store sourceType job_board, boardName reed, exact advert URL.
+2) Optional if Reed-shaped and public: CV-Library or TotalJobs. Skip if the HTML is login-walled or unstable.
+
+Indeed: only if you can get stable public advert URLs without a login wall in a dry-run. If not, skip Indeed and say NOT IN THIS TASK.
+LinkedIn: skip.
+
+Merge NHS + new board results into the snapshot. Apply labour blocklist and regulator filters as today. Company-site deep links from AI must still not run (cap 0).
+
+Prove with a dry-run of 2–3 NHS trusts: titles + board + URLs for NHS and Reed (or the boards you actually parsed). No OpenAI.
+
+## UI
+Opportunities Job Board: only job_board rows; show board name (NHS Jobs, Reed, …).
+Company website apply: no Reed/Indeed URL as the primary Apply.
+Do not empty Job Board: existing NHS Jobs rows must appear there after backfill.
+
+## Tests
+- NHS URL classified job_board and visible on Job Board
+- Reed advert allowed in job_board mode, rejected in company_site mode
+- Indeed search-results URL still rejected
+- Cap 0 still never calls OpenAI web_search
+- Tracker tab keys unchanged
+
+Reply: files changed, dry-run URLs, which boards actually worked, Indeed/LinkedIn skipped or not.
+Stop.
