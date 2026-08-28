@@ -1,0 +1,54 @@
+FIX and FILL the Opportunities job-board feed. Cap stays 0. No LinkedIn scrape. No OpenAI web_search. Do not put Indeed/Reed URLs on company-site Apply.
+
+The Job Board tab only reads the DB snapshot. That snapshot has ~89 job_board rows; a candidate then sees 2, both closed on NHS. The tab must GET live board adverts, not only filter a dead cache.
+
+## Goal
+1) Background: actually ingest open NHS (and Reed) adverts for sponsor employers into sponsor_licence_vacancies as sourceType=job_board.
+2) On Job Board page load: live NHS Jobs HTTP search for THIS candidate (profession + region), keep only employers that exist on sponsor_licences, upsert into the snapshot, then return the list.
+3) Never show closed adverts.
+
+## 1. Closed detection + sweep
+Harden liveness for jobs.nhs.uk, trac.jobs, healthjobsuk.com, reed.co.uk:
+- Read enough HTML to see closed banners (not only first 40KB if that misses it)
+- Phrases: vacancy has closed, no longer accepting, deadline has passed, closing date was, applications ended, no longer open, you can no longer apply, this job has closed, vacancy expired
+- Closed banner / no apply → liveness=dead
+Immediately re-sweep all current job_board URLs. Dead must not appear.
+
+## 2. Reclassify what we already stored
+From URL host/path, set sourceType=job_board for real advert URLs on NHS/Trac/HealthJobsUK/Reed (even if unclassified or wrongly company_site).
+Do not classify generic /careers or search-result URLs as job_board.
+
+## 3. Stop emptying the tab
+For GET /roles?source=job_board and my-matches?source=job_board:
+- No preferredRegion on candidate → do not region-filter
+- Vacancy region unknown → do not exclude
+- Do not drop a job_board row because a company_site row has the same employer+title
+Keep regulator + labour blocklist.
+
+## 4. Background GET (fill the DB)
+In runVacancyCheck (and a one-off catch-up for healthcare sponsors already checked / bookmarked / with existing snapshot rows):
+- NHS Jobs HTTP by organisation name (as now)
+- Reed HTTP: matching was too strict (dry-run 0). Second pass: keep listings where normalised employer contains sponsor name or vice versa (GSTT, SLaM, CLCH aliases). Drop clearly different companies. Cap 8 per org per board.
+- Upsert job_board rows with exact advert URL. Dedup by canonical URL.
+- Do not cache an outage as “no vacancies”
+Log NHS vs Reed insert counts. Cap 0 — if NHS+Reed empty, save empty HTTP result, do not call OpenAI.
+
+## 5. Live GET when the candidate opens Job Board
+When GET /roles?source=job_board (and my-matches with that source) runs:
+- After serving what you can from DB, also run NHS Jobs HTTP search using the candidate’s profession keywords (nurse/midwife, doctor, physiotherapist, etc.) and region if they have one.
+- Keep only jobs whose employer matches a sponsor_licences.organisationName (same matcher/aliases as discovery).
+- Upsert those as job_board / nhs_jobs, then include them in the response.
+- Limits: short timeout, cap e.g. 20–40 new rows per request, cache this live query ~15–30 minutes per (user or profession+region) so refresh does not hammer NHS.
+- Still no OpenAI. Skip Reed on the request path if it is too slow; Reed stays on the background batch.
+
+## 6. Prove it
+Reply with:
+- job_board counts before vs after reclassify + sweep + catch-up
+- how many marked dead
+- live Job Board path: did NHS search run, how many sponsor-matched ads added
+- for an NMC London-style profile (or whatever demo user exists): how many Job Board results, and 5 URLs that still OPEN as open adverts (not closed)
+- Reed background: 0 or N, and why
+
+If still under 10 open ads for a nurse with no region, say exactly what blocked it (NHS HTML, sponsor name match, batch size).
+
+Stop.
