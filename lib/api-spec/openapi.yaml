@@ -4144,6 +4144,10 @@ components:
           type: string
           nullable: true
           description: AI-generated explanation of this match, when a cached score is available
+        matchReason:
+          type: string
+          nullable: true
+          description: Explainable reason when recent candidate behaviour influenced this role's ranking
         eligibilityGaps:
           type: array
           items:

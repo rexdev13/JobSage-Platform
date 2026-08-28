@@ -164,10 +164,11 @@ type BehaviouralRoleSource = {
   title: string;
   employer: string;
   regulator: string;
+  targetRegions?: readonly string[] | null;
 };
 
 function buildBehaviouralSignals(
-  favourites: Array<{ vacancyId: number }>,
+  favourites: Array<{ vacancyId: number; createdAt?: Date | null }>,
   sponsorBookmarks: Array<{ organisationName: string }>,
   applications: Array<{
     roleId: number;
@@ -187,9 +188,23 @@ function buildBehaviouralSignals(
       title: application.jobTitle ?? savedRole?.title ?? null,
       employer: application.companyName ?? savedRole?.employer ?? null,
       regulator: savedRole?.regulator ?? null,
+      targetRegions: savedRole?.targetRegions ?? null,
       kind: application.status === "link_clicked" ? "link_clicked" : "applied",
       occurredAt: application.appliedAt,
     };
+  });
+  const favouriteReferences: BehaviouralEngagement[] = favourites.flatMap((favourite) => {
+    const savedRole = rolesById.get(favourite.vacancyId);
+    if (!savedRole) return [];
+    return [{
+      roleId: favourite.vacancyId,
+      title: savedRole.title,
+      employer: savedRole.employer,
+      regulator: savedRole.regulator,
+      targetRegions: savedRole.targetRegions ?? null,
+      kind: "favourited" as const,
+      occurredAt: favourite.createdAt,
+    }];
   });
 
   return {
@@ -197,8 +212,22 @@ function buildBehaviouralSignals(
     bookmarkedEmployers: new Set(
       sponsorBookmarks.map((bookmark) => normalizeBehaviouralEmployer(bookmark.organisationName)),
     ),
-    engagements: applicationReferences,
+    engagements: [...applicationReferences, ...favouriteReferences],
   };
+}
+
+function normalizeApplicationUrl(value: string | null | undefined): string | null {
+  if (!value?.trim()) return null;
+  try {
+    const url = new URL(value.trim());
+    url.hash = "";
+    url.searchParams.delete("ref");
+    url.searchParams.sort();
+    url.pathname = url.pathname.replace(/\/+$/, "") || "/";
+    return url.toString();
+  } catch {
+    return value.trim().replace(/\/+$/, "");
+  }
 }
 
 function computeMatchScore(
@@ -435,10 +464,24 @@ router.get("/roles", async (req, res): Promise<void> => {
     }
   }
 
-  const [appliedApps, vacancySpecificSpeculative, cachedAiScores, sponsorVacancyScores] = await Promise.all([
-    db.select({ roleId: applicationsTable.roleId, status: applicationsTable.status }).from(applicationsTable).where(
-      and(eq(applicationsTable.userId, userId), ne(applicationsTable.status, "link_clicked")),
-    ),
+  const [
+    appliedApps,
+    vacancySpecificSpeculative,
+    cachedAiScores,
+    sponsorVacancyScores,
+    roleFavourites,
+    sponsorBookmarks,
+  ] = await Promise.all([
+    db
+      .select({
+        roleId: applicationsTable.roleId,
+        status: applicationsTable.status,
+        jobTitle: applicationsTable.jobTitle,
+        companyName: applicationsTable.companyName,
+        appliedAt: applicationsTable.appliedAt,
+      })
+      .from(applicationsTable)
+      .where(eq(applicationsTable.userId, userId)),
     // Speculative CVs sent against a specific vacancy count as applied for the
     // matching role (badge, disabled buttons, Best Matches exclusion) without
     // creating an applications row — the tracker already lists them under
@@ -469,6 +512,18 @@ router.get("/roles", async (req, res): Promise<void> => {
       })
       .from(sponsorLicenceVacancyScoresTable)
       .where(eq(sponsorLicenceVacancyScoresTable.userId, userId)),
+    db
+      .select({
+        vacancyId: vacancyFavoritesTable.vacancyId,
+        createdAt: vacancyFavoritesTable.createdAt,
+      })
+      .from(vacancyFavoritesTable)
+      .where(eq(vacancyFavoritesTable.userId, userId)),
+    db
+      .select({ organisationName: sponsorLicencesTable.organisationName })
+      .from(sponsorLicenceBookmarksTable)
+      .innerJoin(sponsorLicencesTable, eq(sponsorLicencesTable.id, sponsorLicenceBookmarksTable.sponsorLicenceId))
+      .where(eq(sponsorLicenceBookmarksTable.userId, userId)),
   ]);
   const speculativeVacancyKeys = new Set(
     vacancySpecificSpeculative
@@ -487,6 +542,12 @@ router.get("/roles", async (req, res): Promise<void> => {
       .map((application) => application.roleId),
     ...speculativeAppliedRoleIds,
   ])];
+  const behaviouralSignals = buildBehaviouralSignals(
+    roleFavourites,
+    sponsorBookmarks,
+    appliedApps,
+    regulatorRoles,
+  );
 
   // Build a lookup from the persisted AI scores so the roles response can
   // sort and badge each card with the same value the /my-matches strip uses.
@@ -551,15 +612,23 @@ router.get("/roles", async (req, res): Promise<void> => {
         : `Run your eligibility assessment to see your match status for this role.`;
 
     const cached = aiScoreMap.get(role.id);
+    const behavioural = professionallyRelevant
+      ? calculateBehaviouralRanking(role, behaviouralSignals)
+      : { boost: 0, reason: null };
 
     // Relevance: specialty/focus keywords boost the heuristic score, and
     // sponsor vacancies whose title never mapped to the candidate's regulator
     // are bottom-ranked instead of competing with clearly relevant roles.
     let matchScore = computeMatchScore(role as typeof rolesTable.$inferSelect, isEligible, profile.requiresSponsorship);
     matchScore = Math.min(100, matchScore + specialtyBoost(role.title, specialtyWords));
+    matchScore = Math.min(100, matchScore + behavioural.boost);
     if (!professionallyRelevant) {
       matchScore = 0;
     }
+    const baseAiScore = professionallyRelevant ? cached?.score ?? null : 0;
+    const aiScore = baseAiScore === null
+      ? null
+      : Math.min(100, baseAiScore + behavioural.boost);
 
     return {
       role: professionallyRelevant
@@ -572,8 +641,9 @@ router.get("/roles", async (req, res): Promise<void> => {
       sponsorshipFeasibility,
       isEligible,
       matchScore,
-      aiScore: professionallyRelevant ? cached?.score ?? null : 0,
+      aiScore,
       aiExplanation: professionallyRelevant ? cached?.explanation ?? null : "Out of professional scope",
+      matchReason: behavioural.reason,
       eligibilityGaps,
       safeguarding,
       contactEmail: role.contactEmail ?? null,
@@ -663,6 +733,7 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
       const tp = (job.targetProfessions ?? []) as string[];
       if (tp.length > 0 && !tp.includes(profile.profession)) return false;
         if (!roleMatchesPreferredRegions(job.targetRegions, profile.preferredRegion)) return false;
+      if (job.liveness === "dead") return false;
       if (!employerJobHasContactInfo(row)) return false;
       return true;
     })
@@ -702,7 +773,11 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
 
   const curatedRoles = [
      ...allRoles
-       .filter((r) => r.regulator === regulator && roleMatchesPreferredRegions(r.targetRegions, profile.preferredRegion))
+       .filter((r) =>
+         r.regulator === regulator
+         && r.liveness !== "dead"
+         && roleMatchesPreferredRegions(r.targetRegions, profile.preferredRegion)
+       )
        .map((r) => {
       const link = presentApplyLink(r.applyUrl, r.liveness, r.lastVerifiedAt);
       return {
@@ -762,6 +837,7 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
         status: applicationsTable.status,
         jobTitle: applicationsTable.jobTitle,
         companyName: applicationsTable.companyName,
+        applicationUrl: applicationsTable.applicationUrl,
         appliedAt: applicationsTable.appliedAt,
       })
       .from(applicationsTable)
@@ -785,7 +861,10 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
       .from(sponsorLicenceVacancyScoresTable)
       .where(eq(sponsorLicenceVacancyScoresTable.userId, userId)),
     db
-      .select({ vacancyId: vacancyFavoritesTable.vacancyId })
+      .select({
+        vacancyId: vacancyFavoritesTable.vacancyId,
+        createdAt: vacancyFavoritesTable.createdAt,
+      })
       .from(vacancyFavoritesTable)
       .where(eq(vacancyFavoritesTable.userId, userId)),
     db
@@ -798,6 +877,12 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
     applications
       .filter((application) => application.status !== "link_clicked")
       .map((application) => application.roleId),
+  );
+  const completedApplicationUrls = new Set(
+    applications
+      .filter((application) => application.status !== "link_clicked")
+      .map((application) => normalizeApplicationUrl(application.applicationUrl))
+      .filter((url): url is string => url !== null),
   );
 
   let scoreMap: Map<number, { score: number; explanation: string }>;
@@ -876,7 +961,15 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
   const allSortedMatches = regulatorRoles
     // Sponsor vacancies without a pipeline score use the transient neutral
     // fallback above; no placeholder score is persisted or triggers AI work.
-    .filter((r) => !dismissedSet.has(r.id) && !completedApplicationRoleIds.has(r.id) && scoreMap.has(r.id))
+    .filter((r) => {
+      const applyUrl = normalizeApplicationUrl(r.applyUrl);
+      return (
+        !dismissedSet.has(r.id)
+        && !completedApplicationRoleIds.has(r.id)
+        && (applyUrl === null || !completedApplicationUrls.has(applyUrl))
+        && scoreMap.has(r.id)
+      );
+    })
     .map((r) => {
       const reqReg = r.requiredRegistration.toLowerCase();
       const roleRequiresFull = reqReg.includes("full") || reqReg.includes("registered");
@@ -954,6 +1047,14 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
 router.get("/opportunities/recommended", requireAuthenticated, async (req, res): Promise<void> => {
   const userId = req.user!.id;
   const limit = Math.min(10, Math.max(1, parseInt(String(req.query.limit ?? "3"), 10) || 3));
+  const sourceFilter =
+    req.query.source === "job_board" || req.query.source === "company_site"
+      ? req.query.source
+      : null;
+  if (req.query.source != null && sourceFilter == null) {
+    res.status(400).json({ error: "source must be job_board or company_site." });
+    return;
+  }
 
   const [[profile], [activeCareerProfile]] = await Promise.all([
     db.select().from(profilesTable).where(eq(profilesTable.userId, userId)),
@@ -995,6 +1096,7 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
       if (row.job.regulator !== regulator) return false;
       const tp = (row.job.targetProfessions ?? []) as string[];
       if (tp.length > 0 && !tp.includes(profile.profession)) return false;
+      if (row.job.liveness === "dead") return false;
       if (!employerJobHasContactInfo(row)) return false;
       return true;
     })
@@ -1017,6 +1119,9 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
         contactEmail: row.emp.contactEmail ?? null,
         contactPhone: row.emp.contactPhone ?? null,
         contactWebsite: row.emp.contactWebsite ?? null,
+        sourceType: "company_site" as const,
+        boardName: null,
+        externalListingId: null,
       };
     });
 
@@ -1027,6 +1132,7 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
       status: applicationsTable.status,
       jobTitle: applicationsTable.jobTitle,
       companyName: applicationsTable.companyName,
+      applicationUrl: applicationsTable.applicationUrl,
       appliedAt: applicationsTable.appliedAt,
     })
       .from(applicationsTable)
@@ -1035,7 +1141,10 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
       .from(speculativeApplicationsTable)
       .where(eq(speculativeApplicationsTable.userId, userId)),
     db
-      .select({ vacancyId: vacancyFavoritesTable.vacancyId })
+      .select({
+        vacancyId: vacancyFavoritesTable.vacancyId,
+        createdAt: vacancyFavoritesTable.createdAt,
+      })
       .from(vacancyFavoritesTable)
       .where(eq(vacancyFavoritesTable.userId, userId)),
     db
@@ -1054,6 +1163,12 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
       .map((application) => application.roleId)
       .filter(Boolean) as number[],
   );
+  const appliedUrls = new Set(
+    appliedRows
+      .filter((application) => application.status !== "link_clicked")
+      .map((application) => normalizeApplicationUrl(application.applicationUrl))
+      .filter((url): url is string => url !== null),
+  );
   const speculativeCompanies = new Set(speculativeRows.map((s) => s.companyName.toLowerCase()));
   const dismissedRoleIds = new Set(dismissals.map((dismissal) => dismissal.roleId));
   // Preserve role identity before completed applications are excluded so their
@@ -1064,8 +1179,13 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
     ...allRoles
       .filter((r) =>
         r.regulator === regulator
+        && r.liveness !== "dead"
         && !isManualLabourTitle(r.title)
         && !appliedIds.has(r.id)
+        && (
+          normalizeApplicationUrl(r.applyUrl) === null
+          || !appliedUrls.has(normalizeApplicationUrl(r.applyUrl)!)
+        )
         && !dismissedRoleIds.has(r.id)
         && !speculativeCompanies.has(r.employer.toLowerCase())
       )
@@ -1084,15 +1204,22 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
           contactEmail: r.contactEmail ?? null,
           contactPhone: r.contactPhone ?? null,
           contactWebsite: r.contactWebsite ?? null,
+          sourceType: "company_site" as const,
+          boardName: null,
+          externalListingId: null,
         };
       }),
     ...employerJobsAsRoles.filter((r) =>
       !isManualLabourTitle(r.title)
       && !appliedIds.has(r.id)
+      && (
+        normalizeApplicationUrl(r.applyUrl) === null
+        || !appliedUrls.has(normalizeApplicationUrl(r.applyUrl)!)
+      )
       && !dismissedRoleIds.has(r.id)
       && !speculativeCompanies.has(r.employer.toLowerCase())
     ),
-  ];
+  ].filter((role) => sourceFilter == null || role.sourceType === sourceFilter);
 
   if (regulatorRoles.length === 0) {
     res.json({ roles: [] });
