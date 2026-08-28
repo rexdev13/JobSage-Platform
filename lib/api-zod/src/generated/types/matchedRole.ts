@@ -24,6 +24,8 @@ export interface MatchedRole {
   aiScore?: number | null;
   /** AI-generated explanation of this match, when a cached score is available */
   aiExplanation?: string | null;
+  /** Explainable reason when recent candidate behaviour influenced this role's ranking */
+  matchReason?: string | null;
   /** Specific gaps preventing eligibility for this role */
   eligibilityGaps?: string[];
   /** True for the top-5 highest-matching roles — should be highlighted as "Apply First" */

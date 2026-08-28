@@ -1015,6 +1015,12 @@ export const ListMatchedRolesResponse = zod.object({
         .describe(
           "AI-generated explanation of this match, when a cached score is available",
         ),
+      matchReason: zod
+        .string()
+        .nullish()
+        .describe(
+          "Explainable reason when recent candidate behaviour influenced this role's ranking",
+        ),
       eligibilityGaps: zod
         .array(zod.string())
         .optional()

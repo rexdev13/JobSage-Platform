@@ -1,4 +1,7 @@
-const RECENT_BEHAVIOUR_WINDOW_MS = 90 * 24 * 60 * 60 * 1000;
+import { normalizeRegionList, regionsOverlap } from "./regionMatching";
+
+const BEHAVIOUR_WINDOW_MS = 90 * 24 * 60 * 60 * 1000;
+const RECENT_BEHAVIOUR_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 const MAX_BEHAVIOURAL_BOOST = 30;
 
 const TITLE_STOP_WORDS = new Set([
@@ -13,16 +16,17 @@ const TITLE_STOP_WORDS = new Set([
   "time",
   "senior",
   "staff",
-  "band",
 ]);
+const SHORT_CLINICAL_TITLE_TOKENS = new Set(["gp", "icu", "itu", "odp", "rgn", "rmn", "rnld"]);
 
-export type BehaviouralEngagementKind = "link_clicked" | "applied";
+export type BehaviouralEngagementKind = "link_clicked" | "favourited" | "applied";
 
 export interface BehaviouralEngagement {
   roleId?: number | null;
   title?: string | null;
   employer?: string | null;
   regulator?: string | null;
+  targetRegions?: readonly string[] | null;
   kind: BehaviouralEngagementKind;
   occurredAt?: Date | string | null;
 }
@@ -32,6 +36,7 @@ export interface BehaviouralRole {
   title: string;
   employer: string;
   regulator: string;
+  targetRegions?: readonly string[] | null;
 }
 
 export interface BehaviouralSignals {
@@ -53,14 +58,38 @@ function titleWords(value: string | null | undefined): Set<string> {
   return new Set(
     normalize(value)
       .split(/[^a-z0-9]+/)
-      .filter((word) => word.length >= 4 && !TITLE_STOP_WORDS.has(word)),
+      .filter((word) =>
+        !TITLE_STOP_WORDS.has(word)
+        && (word.length >= 4 || SHORT_CLINICAL_TITLE_TOKENS.has(word)),
+      ),
   );
 }
 
-function isRecent(occurredAt: Date | string | null | undefined): boolean {
-  if (!occurredAt) return true;
+function occurredAtMs(occurredAt: Date | string | null | undefined): number | null {
+  if (!occurredAt) return Date.now();
   const time = occurredAt instanceof Date ? occurredAt.getTime() : new Date(occurredAt).getTime();
-  return Number.isFinite(time) && Date.now() - time <= RECENT_BEHAVIOUR_WINDOW_MS;
+  return Number.isFinite(time) ? time : null;
+}
+
+function isWithinBehaviourWindow(occurredAt: Date | string | null | undefined): boolean {
+  const time = occurredAtMs(occurredAt);
+  return time !== null && Date.now() - time <= BEHAVIOUR_WINDOW_MS;
+}
+
+function isRecent(occurredAt: Date | string | null | undefined): boolean {
+  const time = occurredAtMs(occurredAt);
+  return time !== null && Date.now() - time <= RECENT_BEHAVIOUR_WINDOW_MS;
+}
+
+function engagementWeight(engagement: BehaviouralEngagement): number {
+  const recentMultiplier = isRecent(engagement.occurredAt) ? 1 : 0.5;
+  const outcomeMultiplier =
+    engagement.kind === "applied"
+      ? 2
+      : engagement.kind === "favourited"
+        ? 1.5
+        : 1;
+  return recentMultiplier * outcomeMultiplier;
 }
 
 /**
@@ -90,36 +119,79 @@ export function calculateBehaviouralRanking(
     reason ??= "From a sponsor you bookmarked";
   }
 
-  const recentEngagements = signals.engagements.filter((engagement) => isRecent(engagement.occurredAt));
+  const recentEngagements = signals.engagements.filter((engagement) =>
+    isWithinBehaviourWindow(engagement.occurredAt),
+  );
   const directlyEngaged = recentEngagements.some((engagement) => engagement.roleId === role.id);
   if (directlyEngaged) {
-    boost += 16;
-    reason ??= "You opened this opportunity recently";
+    const directEngagement = recentEngagements
+      .filter((engagement) => engagement.roleId === role.id)
+      .sort((a, b) => engagementWeight(b) - engagementWeight(a))[0];
+    boost += directEngagement?.kind === "applied" ? 20 : isRecent(directEngagement?.occurredAt) ? 16 : 8;
+    reason ??= directEngagement?.kind === "applied"
+      ? "You applied for this opportunity"
+      : "You opened this opportunity recently";
   }
 
-  let hasSimilarTitle = false;
-  let hasSimilarEmployer = false;
-  let hasSimilarRegulator = false;
+  let titleSignal = 0;
+  let employerSignal = 0;
+  let regulatorSignal = 0;
+  let regionSignal = 0;
+  let titleHasAppliedEvidence = false;
+  let titleHasFavouriteEvidence = false;
+  let employerHasAppliedEvidence = false;
+  let employerHasFavouriteEvidence = false;
 
   for (const engagement of recentEngagements) {
     if (engagement.roleId === role.id) continue;
     const engagementTitle = titleWords(engagement.title);
     const titleOverlap = [...roleTitle].some((word) => engagementTitle.has(word));
-    if (titleOverlap) hasSimilarTitle = true;
-    if (roleEmployer && roleEmployer === normalize(engagement.employer)) hasSimilarEmployer = true;
-    if (roleRegulator && roleRegulator === normalize(engagement.regulator)) hasSimilarRegulator = true;
+    const weight = engagementWeight(engagement);
+    if (titleOverlap) {
+      titleSignal += weight;
+      if (engagement.kind === "applied") titleHasAppliedEvidence = true;
+      if (engagement.kind === "favourited") titleHasFavouriteEvidence = true;
+    }
+    if (roleEmployer && roleEmployer === normalize(engagement.employer)) {
+      employerSignal += weight;
+      if (engagement.kind === "applied") employerHasAppliedEvidence = true;
+      if (engagement.kind === "favourited") employerHasFavouriteEvidence = true;
+    }
+    if (roleRegulator && roleRegulator === normalize(engagement.regulator)) regulatorSignal += weight;
+
+    const roleRegions = normalizeRegionList(role.targetRegions);
+    const engagementRegions = normalizeRegionList(engagement.targetRegions);
+    if (
+      roleRegions.length > 0 &&
+      engagementRegions.length > 0 &&
+      regionsOverlap(roleRegions, engagementRegions)
+    ) {
+      regionSignal += weight;
+    }
   }
 
-  if (hasSimilarTitle) {
-    boost += 10;
-    reason ??= "Similar to roles you opened";
+  if (titleSignal > 0) {
+    boost += Math.min(12, Math.round(6 + titleSignal * 2));
+    reason ??= titleHasAppliedEvidence
+      ? "Similar to roles you applied for"
+      : titleHasFavouriteEvidence
+        ? "Similar to roles you favourited"
+        : "Similar to roles you opened";
   }
-  if (hasSimilarEmployer) {
-    boost += 8;
-    reason ??= "Similar to roles from employers you engaged with";
+  if (employerSignal > 0) {
+    boost += Math.min(12, Math.round(6 + employerSignal * 2));
+    reason ??= employerHasAppliedEvidence
+      ? "Same employer as jobs you applied for"
+      : employerHasFavouriteEvidence
+        ? "Same employer as jobs you favourited"
+        : "Same employer as jobs you clicked";
   }
-  if (hasSimilarRegulator) {
-    boost += 3;
+  if (regionSignal > 0) {
+    boost += Math.min(6, Math.round(2 + regionSignal * 2));
+    reason ??= "Same region as roles you opened";
+  }
+  if (regulatorSignal > 0) {
+    boost += Math.min(4, Math.round(1 + regulatorSignal));
     reason ??= "Similar to roles in your profession";
   }
 

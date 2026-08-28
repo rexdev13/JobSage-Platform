@@ -225,11 +225,22 @@ describe("GET /roles — vacancy-specific speculative CV matching (appliedRoleId
    *   7. Promise.all[1] speculativeApplicationsTable
    *   8. Promise.all[2] candidateMatchScoresTable
    *   9. Promise.all[3] sponsorLicenceVacancyScoresTable
+   *   10. Promise.all[4] vacancyFavoritesTable
+   *   11. Promise.all[5] sponsorLicenceBookmarksTable
    */
   function pushRolesDbResults(
     roles: any[],
     specApps: any[],
-    opts: { applications?: any[]; sponsorVacancies?: any[]; sponsorScores?: any[]; specialty?: string } = {},
+    opts: {
+      applications?: any[];
+      sponsorVacancies?: any[];
+      sponsorScores?: any[];
+      cachedScores?: any[];
+      favourites?: any[];
+      sponsorBookmarks?: any[];
+      specialty?: string;
+      decision?: any;
+    } = {},
   ) {
     dbResults.push([{
       userId: "admin-1",
@@ -240,14 +251,16 @@ describe("GET /roles — vacancy-specific speculative CV matching (appliedRoleId
       requiresSponsorship: false,
       preferredRegion: null,
     }]);
-    dbResults.push([]);      // decisionRecordsTable — no decision
+    dbResults.push(opts.decision ? [opts.decision] : []); // decisionRecordsTable
     dbResults.push(roles);   // rolesTable
     dbResults.push([]);      // jobListingsTable — no employer jobs
     dbResults.push(opts.sponsorVacancies ?? []); // sponsor vacancies join
     dbResults.push(opts.applications ?? []); // applicationsTable
     dbResults.push(specApps); // speculativeApplicationsTable
-    dbResults.push([]);      // candidateMatchScoresTable
+    dbResults.push(opts.cachedScores ?? []); // candidateMatchScoresTable
     dbResults.push(opts.sponsorScores ?? []);    // sponsorLicenceVacancyScoresTable
+    dbResults.push(opts.favourites ?? []); // vacancyFavoritesTable
+    dbResults.push(opts.sponsorBookmarks ?? []); // sponsor licence bookmarks join
   }
 
   function makeRole(id: number, employer: string, title: string) {
@@ -393,6 +406,41 @@ describe("GET /roles — vacancy-specific speculative CV matching (appliedRoleId
     expect(res.status).toBe(200);
     expect(res.body.appliedRoleIds).toContain(10);  // formal application
     expect(res.body.appliedRoleIds).toContain(42);  // speculative vacancy match
+  });
+
+  it("ranks a clicked vacancy above an otherwise equal unrelated role and explains why", async () => {
+    const clickedRole = makeRole(301, "Employer A", "Cardiology Doctor");
+    const unrelatedRole = makeRole(302, "Employer B", "Respiratory Doctor");
+    pushRolesDbResults([unrelatedRole, clickedRole], [], {
+      applications: [{
+        roleId: 301,
+        status: "link_clicked",
+        jobTitle: clickedRole.title,
+        companyName: clickedRole.employer,
+        appliedAt: new Date(),
+      }],
+      cachedScores: [
+        { roleId: 301, score: 70, aiExplanation: "Strong fit", scoredAt: new Date() },
+        { roleId: 302, score: 70, aiExplanation: "Strong fit", scoredAt: new Date() },
+      ],
+      decision: {
+        id: 1,
+        outcome: "eligible",
+        reasonCodes: [],
+        rulesetVersion: "1",
+        explanationText: "Eligible",
+      },
+    });
+
+    const res = await request(buildApp()).get("/roles").set("Authorization", AUTH);
+
+    expect(res.status).toBe(200);
+    expect(res.body.roles[0]).toMatchObject({
+      role: { id: 301 },
+      matchReason: "You opened this opportunity recently",
+      recommended: true,
+    });
+    expect(res.body.roles[0].aiScore).toBeGreaterThan(res.body.roles[1].aiScore);
   });
 });
 
@@ -673,6 +721,29 @@ describe("GET /roles/my-matches — incremental scoring with sponsor vacancies",
     expect(res.body.matches.map((match: any) => match.roleId)).toEqual([73]);
   });
 
+  it("removes a different role id that reuses a completed tracked application URL", async () => {
+    const duplicateUrlRole = makeRole(74);
+    pushMyMatchesDb(
+      [duplicateUrlRole],
+      [],
+      [{ roleId: 74, score: 90, aiExplanation: "Strong fit", scoredAt: new Date() }],
+      [],
+      [{
+        roleId: 999,
+        status: "applied",
+        applicationUrl: `${duplicateUrlRole.applyUrl}?ref=jobsage`,
+        appliedAt: new Date(),
+      }],
+    );
+
+    const res = await request(buildApp())
+      .get("/roles/my-matches")
+      .set("Authorization", AUTH);
+
+    expect(res.status).toBe(200);
+    expect(res.body.matches).toEqual([]);
+  });
+
   it("boosts favourites with an explainable reason and excludes dismissed roles", async () => {
     const lowerScoreFavourite = makeRole(74);
     const dismissedRole = makeRole(75);
@@ -716,6 +787,53 @@ describe("GET /roles/my-matches — incremental scoring with sponsor vacancies",
 
 describe("GET /opportunities/recommended — behavioural ranking", () => {
   beforeEach(() => { dbResults.length = 0; vi.clearAllMocks(); });
+
+  function baseRecommendedRole(id: number, overrides: Record<string, unknown> = {}) {
+    return {
+      id,
+      title: "Consultant Cardiologist",
+      employer: "NHS Trust",
+      location: "London",
+      regulator: "GMC",
+      sponsorshipOffered: true,
+      requiredRegistration: "Full GMC Registration",
+      active: true,
+      importedAt: new Date(),
+      importedBy: "admin",
+      targetRegions: ["London"],
+      applyUrl: `https://jobs.nhs.uk/vacancy/${id}`,
+      liveness: "live",
+      lastVerifiedAt: new Date(),
+      livenessReason: null,
+      contactEmail: null,
+      contactPhone: null,
+      contactWebsite: null,
+      ...overrides,
+    };
+  }
+
+  function pushRecommendedDb(
+    roles: any[],
+    applications: any[] = [],
+    dismissals: any[] = [],
+    cachedScores: any[] = [],
+  ) {
+    dbResults.push([{
+      userId: "admin-1", profession: "doctor", specialty: null,
+      registrationStatus: "full_registration", licenceReady: null,
+      requiresSponsorship: false, preferredRegion: null,
+    }]);
+    dbResults.push([]); // career profile
+    dbResults.push([{ outcome: "eligible" }]); // decision
+    dbResults.push(roles);
+    dbResults.push([]); // employer jobs
+    dbResults.push(applications);
+    dbResults.push([]); // speculative applications
+    dbResults.push([]); // favourites
+    dbResults.push([]); // sponsor bookmarks
+    dbResults.push(dismissals);
+    dbResults.push(cachedScores);
+  }
 
   it("excludes dismissals and boosts a favourite without replacing its cached score", async () => {
     const dismissed = {
@@ -838,6 +956,79 @@ describe("GET /opportunities/recommended — behavioural ranking", () => {
       matchScore: 73,
       matchReason: "Similar to roles in your profession",
     });
+  });
+
+  it("ranks vacancies from a repeatedly clicked employer above an unrelated employer", async () => {
+    const clickedA = baseRecommendedRole(90, { employer: "Employer A", title: "Cardiology Doctor" });
+    const clickedAAgain = baseRecommendedRole(91, { employer: "Employer A", title: "General Medicine Doctor" });
+    const unrelatedB = baseRecommendedRole(92, { employer: "Employer B", title: "Respiratory Doctor" });
+    pushRecommendedDb(
+      [unrelatedB, clickedAAgain, clickedA],
+      [
+        {
+          roleId: 90, status: "link_clicked", jobTitle: clickedA.title,
+          companyName: clickedA.employer, applicationUrl: clickedA.applyUrl, appliedAt: new Date(),
+        },
+        {
+          roleId: 91, status: "link_clicked", jobTitle: clickedAAgain.title,
+          companyName: clickedAAgain.employer, applicationUrl: clickedAAgain.applyUrl, appliedAt: new Date(),
+        },
+      ],
+      [],
+      [
+        { roleId: 90, score: 70, scoredAt: new Date() },
+        { roleId: 91, score: 70, scoredAt: new Date() },
+        { roleId: 92, score: 70, scoredAt: new Date() },
+      ],
+    );
+
+    const res = await request(buildApp())
+      .get("/opportunities/recommended?limit=3")
+      .set("Authorization", AUTH);
+
+    expect(res.status).toBe(200);
+    expect(res.body.roles[0].employer).toBe("Employer A");
+    expect(res.body.roles.findIndex((item: any) => item.employer === "Employer B")).toBeGreaterThan(0);
+  });
+
+  it("does not recommend the same applied URL under a different role id", async () => {
+    const roleWithAppliedUrl = baseRecommendedRole(93, {
+      applyUrl: "https://jobs.nhs.uk/vacancy/shared",
+    });
+    pushRecommendedDb(
+      [roleWithAppliedUrl],
+      [{
+        roleId: 999,
+        status: "applied",
+        jobTitle: "Previous advert",
+        companyName: "NHS Trust",
+        applicationUrl: "https://jobs.nhs.uk/vacancy/shared/?ref=jobsage",
+        appliedAt: new Date(),
+      }],
+    );
+
+    const res = await request(buildApp())
+      .get("/opportunities/recommended")
+      .set("Authorization", AUTH);
+
+    expect(res.status).toBe(200);
+    expect(res.body.roles).toEqual([]);
+  });
+
+  it("honours job-board source filtering without leaking company-site roles", async () => {
+    pushRecommendedDb(
+      [baseRecommendedRole(94)],
+      [],
+      [],
+      [{ roleId: 94, score: 70, scoredAt: new Date() }],
+    );
+
+    const res = await request(buildApp())
+      .get("/opportunities/recommended?source=job_board")
+      .set("Authorization", AUTH);
+
+    expect(res.status).toBe(200);
+    expect(res.body.roles).toEqual([]);
   });
 });
 

@@ -678,7 +678,7 @@ function RoleCard({
   aiScoring?: boolean;
 }) {
   const [, setLocation] = useLocation();
-  const { role, isEligible, matchScore, eligibilityGaps, sponsorshipFeasibility, safeguarding, contactEmail, contactPhone, contactWebsite, applyUrl, linkVerified, linkCheckedAt } = item;
+  const { role, isEligible, matchScore, eligibilityGaps, sponsorshipFeasibility, safeguarding, contactEmail, contactPhone, contactWebsite, applyUrl, linkVerified, linkCheckedAt, matchReason } = item;
   const [expanded, setExpanded] = useState(false);
   const [checking, setChecking] = useState(false);
   const [deadLink, setDeadLink] = useState(false);
@@ -835,6 +835,9 @@ function RoleCard({
               {role.regulator}
             </span>
           </div>
+          {recommended && matchReason && (
+            <p className="mt-2 text-xs font-medium text-primary/80">{matchReason}</p>
+          )}
         </div>
         <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
           {applied && (
