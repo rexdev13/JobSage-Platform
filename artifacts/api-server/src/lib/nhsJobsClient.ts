@@ -6,6 +6,7 @@ const REQUEST_TIMEOUT_MS = 8_000;
 const USER_AGENT = "JOBSAGE vacancy discovery/1.0 (+https://jobsage.co.uk)";
 const MAX_VACANCIES_PER_EMPLOYER = 8;
 const MAX_EXTRA_HTML_PAGES = 3;
+export const MAX_CANDIDATE_HTML_PAGES = 12;
 export const NHS_HTML_PAGE_DELAY_MS = 250;
 
 export type NhsJobsVacancy = {
@@ -402,7 +403,7 @@ export async function searchNhsJobsForCandidate(
   const urls = new Set<string>();
   let interrupted = false;
 
-  for (let page = 1; page <= MAX_EXTRA_HTML_PAGES + 1 && vacancies.length < limit; page++) {
+  for (let page = 1; page <= MAX_CANDIDATE_HTML_PAGES && vacancies.length < limit; page++) {
     if (page > 1) await wait(NHS_HTML_PAGE_DELAY_MS);
     const pageParams = new URLSearchParams(params);
     if (page > 1) pageParams.set("page", String(page));

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   employerNamesCloselyMatch,
   candidateEmployerMatchesSponsor,
+  MAX_CANDIDATE_HTML_PAGES,
   parseNhsJobsCandidateHtml,
   parseNhsJobsHtml,
   searchNhsJobs,
@@ -142,6 +143,10 @@ describe("NHS Jobs HTML pagination", () => {
     ]));
     expect(result.sourceUrl).toContain("keyword=nurse");
     expect(result.sourceUrl).toContain("location=London");
+  });
+
+  it("uses the expanded bounded candidate page budget", () => {
+    expect(MAX_CANDIDATE_HTML_PAGES).toBe(12);
   });
 
   it("stops on an NHS 5xx response and reports a transient failure", async () => {
