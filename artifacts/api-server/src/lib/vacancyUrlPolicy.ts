@@ -214,3 +214,59 @@ export function isValidVacancyDeepLink(url: string | null | undefined): boolean 
 
   return true;
 }
+
+function hostMatches(host: string, domain: string): boolean {
+  return host === domain || host.endsWith(`.${domain}`);
+}
+
+/**
+ * Job-board mode permits only exact advert URLs on explicitly supported boards.
+ * Search, employer-profile, category and home pages remain invalid.
+ */
+export function isValidJobBoardVacancyDeepLink(url: string | null | undefined): boolean {
+  if (!url) return false;
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
+
+  const host = parsed.hostname.toLowerCase();
+  const path = parsed.pathname.replace(/\/+$/, "") || "/";
+
+  if (hostMatches(host, "jobs.nhs.uk")) {
+    return /^\/candidate\/jobadvert\/[^/?#]+$/i.test(path);
+  }
+  if (hostMatches(host, "trac.jobs")) {
+    return /^\/job-advert\/[^/?#]+$/i.test(path);
+  }
+  if (hostMatches(host, "healthjobsuk.com")) {
+    return /^\/job\/[^?#]+$/i.test(path);
+  }
+  if (hostMatches(host, "reed.co.uk")) {
+    return /^\/jobs\/[^/?#]+\/\d+$/i.test(path);
+  }
+  if (hostMatches(host, "indeed.com")) {
+    return /^\/viewjob$/i.test(path) && /^[a-z0-9]+$/i.test(parsed.searchParams.get("jk") ?? "");
+  }
+  if (hostMatches(host, "cv-library.co.uk")) {
+    return /^\/job\/\d+(?:\/[^/?#]+)?$/i.test(path);
+  }
+  if (hostMatches(host, "totaljobs.com")) {
+    return /^\/job\/[^/?#]+\/[^/?#]+$/i.test(path);
+  }
+  return false;
+}
+
+export function isValidVacancyUrlForSource(
+  url: string | null | undefined,
+  sourceType: "job_board" | "company_site" | null | undefined,
+): boolean {
+  return sourceType === "job_board"
+    ? isValidJobBoardVacancyDeepLink(url)
+    : sourceType === "company_site"
+      ? isValidVacancyDeepLink(url)
+      : false;
+}

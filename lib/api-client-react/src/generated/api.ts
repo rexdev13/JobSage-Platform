@@ -84,6 +84,7 @@ import type {
   ListConsentLogParams,
   ListDecisionsParams,
   ListLeadsParams,
+  ListMatchedRolesParams,
   ListReviewQueueParams,
   ListRulesetsParams,
   ListSponsorLicencesParams,
@@ -3374,41 +3375,60 @@ export const useDeleteSmartApplyDraft = <
 /**
  * @summary List roles matched to the current candidate's eligibility
  */
-export const getListMatchedRolesUrl = () => {
-  return `/api/roles`;
+export const getListMatchedRolesUrl = (params?: ListMatchedRolesParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/roles?${stringifiedParams}`
+    : `/api/roles`;
 };
 
 export const listMatchedRoles = async (
+  params?: ListMatchedRolesParams,
   options?: RequestInit,
 ): Promise<MatchedRoleList> => {
-  return customFetch<MatchedRoleList>(getListMatchedRolesUrl(), {
+  return customFetch<MatchedRoleList>(getListMatchedRolesUrl(params), {
     ...options,
     method: "GET",
   });
 };
 
-export const getListMatchedRolesQueryKey = () => {
-  return [`/api/roles`] as const;
+export const getListMatchedRolesQueryKey = (
+  params?: ListMatchedRolesParams,
+) => {
+  return [`/api/roles`, ...(params ? [params] : [])] as const;
 };
 
 export const getListMatchedRolesQueryOptions = <
   TData = Awaited<ReturnType<typeof listMatchedRoles>>,
   TError = ErrorType<ErrorEnvelope>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof listMatchedRoles>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
+>(
+  params?: ListMatchedRolesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMatchedRoles>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getListMatchedRolesQueryKey();
+  const queryKey =
+    queryOptions?.queryKey ?? getListMatchedRolesQueryKey(params);
 
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof listMatchedRoles>>
-  > = ({ signal }) => listMatchedRoles({ signal, ...requestOptions });
+  > = ({ signal }) => listMatchedRoles(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof listMatchedRoles>>,
@@ -3429,15 +3449,18 @@ export type ListMatchedRolesQueryError = ErrorType<ErrorEnvelope>;
 export function useListMatchedRoles<
   TData = Awaited<ReturnType<typeof listMatchedRoles>>,
   TError = ErrorType<ErrorEnvelope>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof listMatchedRoles>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getListMatchedRolesQueryOptions(options);
+>(
+  params?: ListMatchedRolesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMatchedRoles>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMatchedRolesQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

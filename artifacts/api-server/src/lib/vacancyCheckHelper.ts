@@ -13,7 +13,18 @@ import {
   isValidVacancyDeepLink,
 } from "./vacancyUrlPolicy";
 import { searchNhsJobs } from "./nhsJobsClient";
+import { searchReedJobs } from "./reedJobsClient";
+import {
+  completeReedVacancyProbe,
+  failReedVacancyProbe,
+  reserveReedVacancyProbe,
+} from "./reedOutageBackoff";
 import { normalizeRegionList } from "./regionMatching";
+import {
+  classifyVacancySource,
+  vacancyStorageKey,
+  type VacancySourceType,
+} from "./vacancySource";
 import { reserveVacancyAiWebSearch } from "./vacancyAiBudget";
 import {
   completeNhsVacancyProbe,
@@ -36,6 +47,9 @@ export type VacancyListItem = {
   postedDate: string | null;
   /** Explicitly stated, normalized regions; null/empty means unknown or unrestricted. */
   targetRegions: string[] | null;
+  sourceType: VacancySourceType | null;
+  boardName: string | null;
+  externalListingId: string | null;
 };
 
 export type VacancyCheckResult = {
@@ -146,14 +160,6 @@ export async function runVacancyCheck(
     }
   }
 
-  const nhsProbe = await reserveNhsVacancyProbe(organisationName);
-  if (!nhsProbe.allowed) {
-    return unavailableResult(
-      `https://www.jobs.nhs.uk/candidate/search/results?employer=${encodeURIComponent(organisationName)}&language=en`,
-      nhsProbe.retryAt,
-    );
-  }
-
   let vacanciesFound = false;
   let vacancyCount: number | null = null;
   let sourceUrl: string | null = null;
@@ -164,47 +170,89 @@ export async function runVacancyCheck(
   let discoveredWebsite: string | null = null;
   let nhsResultsRequestSucceeded = false;
   let nhsTransientFailure = false;
+  let reedResultsRequestSucceeded = false;
+  let reedTransientFailure = false;
 
-  // Primary discovery path: NHS Jobs is searched over HTTP without using AI.
-  try {
-    const nhs = await searchNhsJobs(organisationName);
-    sourceUrl = nhs.sourceUrl;
-    nhsResultsRequestSucceeded = nhs.resultsRequestSucceeded;
-    nhsTransientFailure = nhs.transientFailure ?? !nhs.resultsRequestSucceeded;
-    vacancyList = nhs.vacancies;
-    vacanciesFound = vacancyList.length > 0;
-    vacancyCount = vacancyList.length || null;
-    summary = !nhsResultsRequestSucceeded && !vacanciesFound
-      ? "NHS Jobs HTTP search was unavailable; no vacancies found."
-      : !nhsResultsRequestSucceeded
-        ? `${vacancyList.length} matching ${vacancyList.length === 1 ? "vacancy" : "vacancies"} found before NHS Jobs became unavailable.`
-      : vacanciesFound
-        ? `${vacancyList.length} matching ${vacancyList.length === 1 ? "vacancy" : "vacancies"} found on NHS Jobs.`
-        : "No closely matched current NHS Jobs vacancies found.";
-    console.info(
-      `[vacancy-check] used_http organisation="${organisationName}" vacancies=${vacancyList.length} structured_feed=${nhs.structuredFeedWorked} results_success=${nhs.resultsRequestSucceeded}`,
-    );
-  } catch (httpErr) {
-    sourceUrl = `https://www.jobs.nhs.uk/candidate/search/results?employer=${encodeURIComponent(organisationName)}&language=en`;
-    summary = "NHS Jobs HTTP search was unavailable; no vacancies found.";
-    vacancyList = [];
-    nhsTransientFailure = true;
-  }
-
-  if (nhsTransientFailure) {
-    const retryAt = await failNhsVacancyProbe(nhsProbe);
-    if (retryAt) {
-      console.warn(
-        `[vacancy-check] NHS Jobs unavailable organisation="${organisationName}" retry_after=${retryAt.toISOString()}`,
+  const discovered: VacancyListItem[] = [];
+  const nhsProbe = await reserveNhsVacancyProbe(organisationName);
+  let nhsRetryAt: Date | undefined;
+  if (nhsProbe.allowed) {
+    try {
+      const nhs = await searchNhsJobs(organisationName);
+      sourceUrl = nhs.sourceUrl;
+      nhsResultsRequestSucceeded = nhs.resultsRequestSucceeded;
+      nhsTransientFailure = nhs.transientFailure ?? !nhs.resultsRequestSucceeded;
+      discovered.push(
+        ...nhs.vacancies.map((vacancy) => ({
+          ...vacancy,
+          ...classifyVacancySource(vacancy.url),
+        })),
       );
+      console.info(
+        `[vacancy-check] used_nhs_http organisation="${organisationName}" vacancies=${nhs.vacancies.length} structured_feed=${nhs.structuredFeedWorked} results_success=${nhs.resultsRequestSucceeded}`,
+      );
+    } catch {
+      nhsTransientFailure = true;
     }
-    // Do not convert an NHS outage into a cached empty result. A partial
-    // first-page result may still be retained, but neither path calls AI.
-    if (!vacanciesFound) {
-      return unavailableResult(sourceUrl, retryAt ?? new Date(Date.now() + 45 * 60 * 1000));
+    if (nhsTransientFailure) {
+      nhsRetryAt = (await failNhsVacancyProbe(nhsProbe)) ?? undefined;
+      if (nhsRetryAt) {
+        console.warn(
+          `[vacancy-check] NHS Jobs unavailable organisation="${organisationName}" retry_after=${nhsRetryAt.toISOString()}`,
+        );
+      }
+    } else {
+      await completeNhsVacancyProbe(nhsProbe);
     }
   } else {
-    await completeNhsVacancyProbe(nhsProbe);
+    nhsTransientFailure = true;
+    nhsRetryAt = nhsProbe.retryAt;
+  }
+
+  const reedProbe = await reserveReedVacancyProbe(organisationName);
+  if (reedProbe.allowed) {
+    try {
+      const reed = await searchReedJobs(organisationName);
+      reedResultsRequestSucceeded = reed.requestSucceeded;
+      reedTransientFailure = reed.transientFailure;
+      discovered.push(...reed.vacancies);
+      console.info(
+        `[vacancy-check] used_reed_http organisation="${organisationName}" vacancies=${reed.vacancies.length} results_success=${reed.requestSucceeded}`,
+      );
+    } catch {
+      reedTransientFailure = true;
+    }
+    if (reedTransientFailure) {
+      const retryAt = await failReedVacancyProbe(reedProbe);
+      if (retryAt) {
+        console.warn(
+          `[vacancy-check] Reed unavailable organisation="${organisationName}" retry_after=${retryAt.toISOString()}`,
+        );
+      }
+    } else {
+      await completeReedVacancyProbe(reedProbe);
+    }
+  } else {
+    reedTransientFailure = true;
+  }
+
+  const seenVacancies = new Set<string>();
+  vacancyList = discovered.filter((vacancy) => {
+    if (!vacancy.url) return false;
+    const key = vacancyStorageKey(organisationName, vacancy.url);
+    if (!key || seenVacancies.has(key)) return false;
+    seenVacancies.add(key);
+    return true;
+  });
+  vacanciesFound = vacancyList.length > 0;
+  vacancyCount = vacancyList.length || null;
+  summary = vacanciesFound
+    ? `${vacancyList.length} matching ${vacancyList.length === 1 ? "vacancy" : "vacancies"} found across supported job boards.`
+    : "No closely matched current vacancies found on supported job boards.";
+
+  // Never cache a cross-board empty snapshot when a board was unavailable.
+  if (!vacanciesFound && (nhsTransientFailure || reedTransientFailure)) {
+    return unavailableResult(sourceUrl, nhsRetryAt ?? new Date(Date.now() + 45 * 60 * 1000));
   }
 
   // Only spend an AI call after NHS HTTP found no suitable result and a slot was
@@ -306,6 +354,11 @@ Include up to 8 specific vacancies in vacancyList if found. Do not guess targetR
                 targetRegions: Array.isArray(v.targetRegions)
                   ? normalizeRegionList(v.targetRegions.filter((value): value is string => typeof value === "string"))
                   : null,
+                ...classifyVacancySource(
+                  typeof v.url === "string" && isValidVacancyDeepLink(v.url.trim())
+                    ? v.url.trim()
+                    : null,
+                ),
               }))
               .slice(0, 8);
             if (vacancyList.length > 0 && !vacancyCount) {
@@ -386,6 +439,9 @@ Include up to 8 specific vacancies in vacancyList if found. Do not guess targetR
             description: v.description ?? null,
             postedDate: v.postedDate ?? null,
             targetRegions: v.targetRegions ?? [],
+            sourceType: v.sourceType,
+            boardName: v.boardName,
+            externalListingId: v.externalListingId,
             liveness: prior?.liveness ?? ("unverified" as const),
             lastVerifiedAt: prior?.lastVerifiedAt ?? null,
             livenessReason: prior?.livenessReason ?? null,

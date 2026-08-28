@@ -99,6 +99,9 @@ export const sponsorLicenceVacanciesTable = pgTable(
     location: text("location"),
     salary: text("salary"),
     url: text("url"),
+    sourceType: text("source_type").$type<"job_board" | "company_site">(),
+    boardName: text("board_name"),
+    externalListingId: text("external_listing_id"),
     description: text("description"),
     requiredDbsClearanceLevel: varchar("required_dbs_clearance_level", {
       enum: ["unknown", "none", "basic", "standard", "enhanced"],

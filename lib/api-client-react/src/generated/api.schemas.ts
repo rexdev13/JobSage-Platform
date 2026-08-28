@@ -483,6 +483,18 @@ export const RoleRegulator = {
   HCPC: "HCPC",
 } as const;
 
+/**
+ * Origin category for the vacancy.
+ */
+export type RoleSourceType =
+  | (typeof RoleSourceType)[keyof typeof RoleSourceType]
+  | null;
+
+export const RoleSourceType = {
+  job_board: "job_board",
+  company_site: "company_site",
+} as const;
+
 export interface Role {
   id: number;
   title: string;
@@ -499,6 +511,12 @@ export interface Role {
   importedBy?: string | null;
   /** Direct application URL for this specific role, if available */
   applyUrl?: string | null;
+  /** Origin category for the vacancy. */
+  sourceType?: RoleSourceType;
+  /** Display name of the job board, when sourceType is job_board. */
+  boardName?: string | null;
+  /** Source board's stable advert identifier, when available. */
+  externalListingId?: string | null;
 }
 
 export type SponsorshipFeasibilityOutcome =
@@ -2147,10 +2165,34 @@ export type SaveSmartApplyDraft200 = {
   ok: boolean;
 };
 
+export type ListMatchedRolesParams = {
+  /**
+   * Optional vacancy-source filter. Omit to preserve the mixed legacy response.
+   */
+  source?: ListMatchedRolesSource;
+};
+
+export type ListMatchedRolesSource =
+  (typeof ListMatchedRolesSource)[keyof typeof ListMatchedRolesSource];
+
+export const ListMatchedRolesSource = {
+  job_board: "job_board",
+  company_site: "company_site",
+} as const;
+
 export type GetMyMatchesParams = {
   limit?: number;
   offset?: number;
+  source?: GetMyMatchesSource;
 };
+
+export type GetMyMatchesSource =
+  (typeof GetMyMatchesSource)[keyof typeof GetMyMatchesSource];
+
+export const GetMyMatchesSource = {
+  job_board: "job_board",
+  company_site: "company_site",
+} as const;
 
 export type ImportRolesCSVBody = {
   file: Blob;

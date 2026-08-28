@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const {
   openaiCreateMock,
   searchNhsJobsMock,
+  searchReedJobsMock,
   selectMock,
   insertValuesMock,
   deleteWhereMock,
@@ -11,9 +12,13 @@ const {
   reserveNhsVacancyProbeMock,
   completeNhsVacancyProbeMock,
   failNhsVacancyProbeMock,
+  reserveReedVacancyProbeMock,
+  completeReedVacancyProbeMock,
+  failReedVacancyProbeMock,
 } = vi.hoisted(() => ({
   openaiCreateMock: vi.fn(),
   searchNhsJobsMock: vi.fn(),
+  searchReedJobsMock: vi.fn(),
   selectMock: vi.fn(),
   insertValuesMock: vi.fn(),
   deleteWhereMock: vi.fn(),
@@ -22,6 +27,9 @@ const {
   reserveNhsVacancyProbeMock: vi.fn(),
   completeNhsVacancyProbeMock: vi.fn(),
   failNhsVacancyProbeMock: vi.fn(),
+  reserveReedVacancyProbeMock: vi.fn(),
+  completeReedVacancyProbeMock: vi.fn(),
+  failReedVacancyProbeMock: vi.fn(),
 }));
 
 vi.mock("@workspace/integrations-openai-ai-server", () => ({
@@ -56,11 +64,17 @@ vi.mock("drizzle-orm", () => ({
 }));
 
 vi.mock("../../lib/nhsJobsClient", () => ({ searchNhsJobs: searchNhsJobsMock }));
+vi.mock("../../lib/reedJobsClient", () => ({ searchReedJobs: searchReedJobsMock }));
 vi.mock("../../lib/linkVerification", () => ({ queueLinkVerificationBatch: vi.fn() }));
 vi.mock("../../lib/nhsOutageBackoff", () => ({
   reserveNhsVacancyProbe: reserveNhsVacancyProbeMock,
   completeNhsVacancyProbe: completeNhsVacancyProbeMock,
   failNhsVacancyProbe: failNhsVacancyProbeMock,
+}));
+vi.mock("../../lib/reedOutageBackoff", () => ({
+  reserveReedVacancyProbe: reserveReedVacancyProbeMock,
+  completeReedVacancyProbe: completeReedVacancyProbeMock,
+  failReedVacancyProbe: failReedVacancyProbeMock,
 }));
 
 const { runVacancyCheck } = await import("../../lib/vacancyCheckHelper");
@@ -71,6 +85,7 @@ describe("runVacancyCheck HTTP-first discovery", () => {
   beforeEach(() => {
     openaiCreateMock.mockReset();
     searchNhsJobsMock.mockReset();
+    searchReedJobsMock.mockReset();
     selectMock.mockReset();
     insertValuesMock.mockReset();
     deleteWhereMock.mockReset();
@@ -79,6 +94,9 @@ describe("runVacancyCheck HTTP-first discovery", () => {
     reserveNhsVacancyProbeMock.mockReset();
     completeNhsVacancyProbeMock.mockReset();
     failNhsVacancyProbeMock.mockReset();
+    reserveReedVacancyProbeMock.mockReset();
+    completeReedVacancyProbeMock.mockReset();
+    failReedVacancyProbeMock.mockReset();
 
     selectMock
       .mockReturnValueOnce({
@@ -98,6 +116,19 @@ describe("runVacancyCheck HTTP-first discovery", () => {
     });
     completeNhsVacancyProbeMock.mockResolvedValue(undefined);
     failNhsVacancyProbeMock.mockResolvedValue(new Date("2026-08-24T08:45:00.000Z"));
+    searchReedJobsMock.mockResolvedValue({
+      sourceUrl: "https://www.reed.co.uk/jobs?keywords=Example",
+      vacancies: [],
+      requestSucceeded: true,
+      transientFailure: false,
+    });
+    reserveReedVacancyProbeMock.mockResolvedValue({
+      allowed: true,
+      organisationKey: "reed:example nhs trust",
+      probeToken: "reed-probe-1",
+    });
+    completeReedVacancyProbeMock.mockResolvedValue(undefined);
+    failReedVacancyProbeMock.mockResolvedValue(new Date("2026-08-24T08:45:00.000Z"));
   });
 
   afterEach(() => {
@@ -168,6 +199,27 @@ describe("runVacancyCheck HTTP-first discovery", () => {
     const result = await runVacancyCheck("Example NHS Trust");
 
     expect(openaiCreateMock).not.toHaveBeenCalled();
+    expect(insertValuesMock).not.toHaveBeenCalled();
+    expect(result.summary).toContain("unavailable");
+  });
+
+  it("suppresses Reed HTTP during a durable cooldown and keeps the snapshot stale", async () => {
+    process.env["VACANCY_AI_WEB_SEARCH_DAILY_CAP"] = "0";
+    searchNhsJobsMock.mockResolvedValue({
+      sourceUrl: "https://www.jobs.nhs.uk/candidate/search/results?employer=Example",
+      vacancies: [],
+      structuredFeedWorked: false,
+      resultsRequestSucceeded: true,
+      transientFailure: false,
+    });
+    reserveReedVacancyProbeMock.mockResolvedValue({
+      allowed: false,
+      retryAt: new Date("2026-08-24T08:45:00.000Z"),
+    });
+
+    const result = await runVacancyCheck("Example NHS Trust");
+
+    expect(searchReedJobsMock).not.toHaveBeenCalled();
     expect(insertValuesMock).not.toHaveBeenCalled();
     expect(result.summary).toContain("unavailable");
   });
