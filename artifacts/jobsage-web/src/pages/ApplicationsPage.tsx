@@ -149,7 +149,7 @@ type EnrichedApplication = {
   deliveryRoute?: DeliveryRoute | null;
 };
 
-type CategoryTab = "all" | "speculative" | "favorites";
+type CategoryTab = "all" | "platform" | "speculative" | "website" | "favorites";
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -569,16 +569,22 @@ export default function ApplicationsPage() {
     speculativeCount?: number;
   } | undefined;
 
-  const filtered = activeTab === "speculative"
+  const filtered = activeTab === "all"
+    ? applications
+    : activeTab === "platform"
+    ? applications.filter((a) => a.applicationKind === "formal")
+    : activeTab === "speculative"
     ? applications.filter((a) => a.applicationKind === "speculative")
-    : applications;
+    : applications.filter((a) => a.applicationKind === "website");
 
   const repliedApps = filtered.filter(isReplied);
   const otherApps = filtered.filter((a) => !isReplied(a));
 
   const tabs: { id: CategoryTab; label: string; icon: React.ElementType; count: number }[] = [
     { id: "all", label: "All", icon: ClipboardList, count: applications.length },
+    { id: "platform", label: "Apply on job boards", icon: Building2, count: stats?.platformCount ?? applications.filter((a) => a.applicationKind === "formal").length },
     { id: "speculative", label: "Send CV", icon: Send, count: stats?.speculativeCount ?? applications.filter((a) => a.applicationKind === "speculative").length },
+    { id: "website", label: "Apply on company websites", icon: Globe, count: stats?.websiteCount ?? applications.filter((a) => a.applicationKind === "website").length },
     { id: "favorites", label: "Favorites", icon: Heart, count: favorites.length },
   ];
 
@@ -663,7 +669,9 @@ export default function ApplicationsPage() {
         ) : filtered.length === 0 ? (
           <Card className="p-12 text-center border-dashed border-2">
             <div className="w-16 h-16 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-4">
-              {activeTab === "speculative" ? (
+              {activeTab === "website" ? (
+                <Globe className="w-8 h-8 text-muted-foreground" />
+              ) : activeTab === "speculative" ? (
                 <Send className="w-8 h-8 text-muted-foreground" />
               ) : (
                 <ClipboardList className="w-8 h-8 text-muted-foreground" />
@@ -673,12 +681,14 @@ export default function ApplicationsPage() {
               {activeTab === "all" ? "No applications yet" : "No applications in this category"}
             </h3>
             <p className="text-muted-foreground mb-6 max-w-sm mx-auto text-sm">
-              {activeTab === "speculative"
+              {activeTab === "website"
+                ? "Applied on an employer's website? Use 'Log an application made elsewhere' above to record it here."
+                : activeTab === "speculative"
                 ? "Send your CV directly to a sponsor licence company to create a record here."
                 : "Use Smart Apply, send your CV directly to sponsor licence companies, or log an application you made elsewhere."}
             </p>
-            <Button variant="outline" onClick={() => setLocation(activeTab === "speculative" ? "/sponsor-licences" : "/opportunities")}>
-              {activeTab === "speculative" ? "Browse Sponsors" : "Browse Jobs"}
+            <Button variant="outline" onClick={() => setLocation(activeTab === "speculative" || activeTab === "website" ? "/sponsor-licences" : "/opportunities")}>
+              {activeTab === "speculative" || activeTab === "website" ? "Browse Sponsors" : "Browse Jobs"}
             </Button>
           </Card>
         ) : (

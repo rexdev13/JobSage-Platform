@@ -1414,7 +1414,8 @@ export default function OpportunitiesPage() {
 
   const queryClient = useQueryClient();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const { data, isLoading, isError } = useListMatchedRoles({ source: "job_board" });
+  const opportunitySource = activeTab === "employers" ? "company_site" : "job_board";
+  const { data, isLoading, isError } = useListMatchedRoles({ source: opportunitySource });
   const { data: applicationsData } = useListMyApplications();
   const { data: myProfile } = useGetMyProfile();
   const profileMutation = useUpsertMyProfile();
@@ -1426,8 +1427,8 @@ export default function OpportunitiesPage() {
 
   const [localDismissedIds, setLocalDismissedIds] = useState<Set<number>>(new Set());
   const { data: aiMatchesData, isLoading: aiMatchesLoading } = useGetMyMatches(
-    { limit: 200, source: "job_board" },
-    { query: { queryKey: getGetMyMatchesQueryKey({ limit: 200, source: "job_board" }), enabled: isAuthenticated && !authLoading, retry: false } },
+    { limit: 200, source: opportunitySource },
+    { query: { queryKey: getGetMyMatchesQueryKey({ limit: 200, source: opportunitySource }), enabled: isAuthenticated && !authLoading && activeTab === "board", retry: false } },
   );
   const dismissMutation = useDismissMatch();
 
@@ -1584,8 +1585,8 @@ export default function OpportunitiesPage() {
   }
 
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
-    { id: "board", label: "Job Board", icon: Briefcase },
-    { id: "employers", label: "Employer Discovery", icon: Building2 },
+    { id: "board", label: "Apply on job boards", icon: Briefcase },
+    { id: "employers", label: "Apply on company websites", icon: Building2 },
     { id: "applications", label: "Application Tracker", icon: ClipboardList },
   ];
 
