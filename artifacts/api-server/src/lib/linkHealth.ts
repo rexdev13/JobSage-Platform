@@ -15,6 +15,13 @@ export const EXPIRATION_PHRASES = [
   "job has expired",
   "this job posting has expired",
   "applications are now closed",
+  "this job is now closed",
+  "this job has closed",
+  "closing date was",
+  "applications ended",
+  "no longer open",
+  "you can no longer apply",
+  "vacancy expired",
 ] as const;
 
 /**
@@ -122,7 +129,7 @@ export async function isPubliclyRoutableHost(hostname: string): Promise<boolean>
 const DEFAULT_HEALTH_CHECK_TIMEOUT_MS = 2500;
 // Increased from 15KB: catching soft-404s and "position no longer available"
 // banners that appear further down a page body.
-const BODY_SNIFF_BYTES = 40 * 1024;
+const BODY_SNIFF_BYTES = 512 * 1024;
 const BROWSER_USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 
@@ -132,7 +139,7 @@ export type HealthVerdict = { verdict: "alive" | "dead" | "unsafe"; reason: stri
 
 /**
  * Fetch the destination and decide if it is dead (404/410/5xx, or an
- * expiration banner in the first 15KB of body text). Redirects are followed
+ * expiration banner in the response body). Redirects are followed
  * manually with a per-hop SSRF check so a public host cannot bounce the
  * server-side fetch into a private/internal target ("unsafe" verdict).
  * Throws on timeout or network/bot-block failure — callers treat throws as
@@ -201,6 +208,9 @@ export async function checkDestinationDead(
           reader.cancel().catch(() => {});
         }
         const lower = text.toLowerCase();
+        if (lower.includes("nhs-closed-job-inset")) {
+          return { verdict: "dead", reason: "closed board advert banner" };
+        }
         const phrase = EXPIRATION_PHRASES.find((p) => lower.includes(p));
         if (phrase) return { verdict: "dead", reason: `expiration phrase: "${phrase}"` };
         // Content-based login-wall check (NHS Jobs exempt).

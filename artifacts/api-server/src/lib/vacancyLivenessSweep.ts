@@ -2,7 +2,7 @@ import cron from "node-cron";
 import { db, sponsorLicenceVacanciesTable, rolesTable, jobListingsTable } from "@workspace/db";
 import { eq, inArray, sql } from "drizzle-orm";
 import { checkDestinationDead } from "./linkHealth";
-import { isBlockedVacancyUrl } from "./vacancyUrlPolicy";
+import { isBlockedVacancyUrl, isValidJobBoardVacancyDeepLink } from "./vacancyUrlPolicy";
 
 /**
  * Unified background liveness sweep over ALL stored job-application links:
@@ -146,8 +146,10 @@ export async function runVacancyLivenessSweep(
     // they bot-block automated checks. Bulk-stamp last_verified_at so the
     // sweep doesn't re-select them, keeping their liveness unchanged, and
     // skip the per-domain politeness delay entirely.
-    const blocked = deduped.filter((r) => isBlockedVacancyUrl(r.url));
-    const rows = deduped.filter((r) => !isBlockedVacancyUrl(r.url));
+    const unverifiableBlocked = (row: SweepRow) =>
+      isBlockedVacancyUrl(row.url) && !isValidJobBoardVacancyDeepLink(row.url);
+    const blocked = deduped.filter(unverifiableBlocked);
+    const rows = deduped.filter((r) => !unverifiableBlocked(r));
     if (blocked.length > 0) {
       const now = new Date();
       const bySource = new Map<SweepSource, SweepRow[]>();

@@ -57,6 +57,7 @@ import {
   compareOpportunityRanking,
   qualifiesForApplyFirst,
 } from "../lib/opportunityRanking";
+import { refreshCandidateBoardVacancies } from "../lib/candidateBoardDiscovery";
 
 const router: IRouter = Router();
 
@@ -302,6 +303,9 @@ router.get("/roles", async (req, res): Promise<void> => {
     res.json({ roles: [], appliedRoleIds: [], decisionRecordId: null, rulesetVersion: "—", eligibilityOutcome: null, message: null, noProfile: false });
     return;
   }
+  if (sourceFilter === "job_board") {
+    await refreshCandidateBoardVacancies(profile);
+  }
 
   const [decision] = await db
     .select()
@@ -363,7 +367,10 @@ router.get("/roles", async (req, res): Promise<void> => {
   // AI-discovered sponsor-licence vacancies (daily pipeline) — merged in so the
   // page self-populates without any admin CSV upload. Deduped below against
   // CSV roles and employer jobs by employer+title.
-  const sponsorVacancyRoles = (await fetchSponsorVacanciesAsRoles(regulator))
+  const sponsorVacancyRoles = (await fetchSponsorVacanciesAsRoles(regulator, {
+    requireSpecificVacancyUrl: sourceFilter === "job_board",
+    onlyVerifiedLive: sourceFilter === "job_board",
+  }))
     .filter((role) => roleMatchesPreferredRegions(role.targetRegions, profile.preferredRegion));
 
   const curatedRoles = [
@@ -389,7 +396,7 @@ router.get("/roles", async (req, res): Promise<void> => {
   const curatedKeys = new Set(curatedRoles.map((r) => roleDedupKey(r.employer, r.title)));
   const sponsorRelevance = new Map<number, boolean>();
   const dedupedSponsorRoles = sponsorVacancyRoles
-    .filter((v) => !curatedKeys.has(roleDedupKey(v.employer, v.title)))
+    .filter((v) => sourceFilter === "job_board" || !curatedKeys.has(roleDedupKey(v.employer, v.title)))
     .map((v) => {
       sponsorRelevance.set(v.id, v.classifiedRelevant);
       const { classifiedRelevant: _cr, description: _d, ...roleShape } = v;
@@ -622,6 +629,9 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
     res.status(200).json({ matches: [], dismissedRoleIds: [], totalCount: 0, cached: false });
     return;
   }
+  if (sourceFilter === "job_board") {
+    await refreshCandidateBoardVacancies(profile);
+  }
 
   const [decision] = await db
     .select()
@@ -681,7 +691,10 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
   // AI-discovered sponsor-licence vacancies. Only vacancies clearly classified
   // to the candidate's regulator qualify for the Best Matches strip; ambiguous
   // ones stay on the main board (bottom-ranked) instead.
-  const sponsorVacancyRoles = (await fetchSponsorVacanciesAsRoles(regulator))
+  const sponsorVacancyRoles = (await fetchSponsorVacanciesAsRoles(regulator, {
+    requireSpecificVacancyUrl: sourceFilter === "job_board",
+    onlyVerifiedLive: sourceFilter === "job_board",
+  }))
     .filter((role) => roleMatchesPreferredRegions(role.targetRegions, profile.preferredRegion));
 
   const curatedRoles = [
@@ -711,7 +724,7 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
   ];
   const curatedKeys = new Set(curatedRoles.map((r) => roleDedupKey(r.employer, r.title)));
   const sponsorRoles = sponsorVacancyRoles
-    .filter((v) => v.classifiedRelevant && !curatedKeys.has(roleDedupKey(v.employer, v.title)))
+    .filter((v) => v.classifiedRelevant && (sourceFilter === "job_board" || !curatedKeys.has(roleDedupKey(v.employer, v.title))))
     .map((v) => ({
       id: v.id, title: v.title, employer: v.employer, location: v.location,
       regulator: v.regulator, sponsorshipOffered: v.sponsorshipOffered,

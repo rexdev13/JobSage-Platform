@@ -1,7 +1,7 @@
 import { db, rolesTable, jobListingsTable, sponsorLicenceVacanciesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { checkDestinationDead } from "./linkHealth";
-import { isBlockedVacancyUrl } from "./vacancyUrlPolicy";
+import { isBlockedVacancyUrl, isValidJobBoardVacancyDeepLink } from "./vacancyUrlPolicy";
 
 /**
  * Single-record apply-link verification, shared by:
@@ -37,7 +37,11 @@ export async function verifyStoredLink(
 ): Promise<"live" | "dead" | "inconclusive" | "skipped"> {
   const table = tableFor(source);
   if (!url || !/^https?:\/\//i.test(url)) return "skipped";
-  if (source === "sponsor_vacancy" && isBlockedVacancyUrl(url)) return "skipped";
+  if (
+    source === "sponsor_vacancy" &&
+    isBlockedVacancyUrl(url) &&
+    !isValidJobBoardVacancyDeepLink(url)
+  ) return "skipped";
   try {
     const result = await checkDestinationDead(url, { timeoutMs: INGEST_CHECK_TIMEOUT_MS });
     if (result.verdict === "dead" || result.verdict === "unsafe") {

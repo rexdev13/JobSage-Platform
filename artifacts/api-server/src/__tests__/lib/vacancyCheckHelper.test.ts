@@ -104,6 +104,9 @@ describe("runVacancyCheck HTTP-first discovery", () => {
       })
       .mockReturnValueOnce({
         from: () => ({ where: priorWhereMock }),
+      })
+      .mockReturnValueOnce({
+        from: () => ({ where: () => Promise.resolve([]) }),
       });
     cacheLimitMock.mockResolvedValue([]);
     priorWhereMock.mockResolvedValue([]);
