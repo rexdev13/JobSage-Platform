@@ -76,6 +76,16 @@ vi.mock("../../lib/candidateAiMatch", () => ({
   batchScoreRoles: vi.fn().mockResolvedValue(new Map()),
 }));
 
+vi.mock("../../lib/candidateBoardDiscovery", () => ({
+  refreshCandidateBoardVacancies: vi.fn().mockResolvedValue({
+    searched: false,
+    discovered: 0,
+    sponsorMatched: 0,
+    inserted: 0,
+    revived: 0,
+  }),
+}));
+
 vi.mock("../../lib/sponsorshipFeasibility", () => ({
   assessSponsorshipFeasibility: vi.fn().mockReturnValue(null),
 }));

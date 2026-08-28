@@ -132,6 +132,8 @@ export interface SponsorVacancyRoleQueryOptions {
   since?: Date | null;
   /** Job alerts must have an actionable deep link, not just contact metadata. */
   requireSpecificVacancyUrl?: boolean;
+  /** Candidate board feeds only show links confirmed by a current search or liveness check. */
+  onlyVerifiedLive?: boolean;
 }
 
 /**
@@ -155,6 +157,9 @@ export async function fetchSponsorVacanciesAsRoles(
   options: SponsorVacancyRoleQueryOptions = {},
 ): Promise<SponsorVacancyAsRole[]> {
   const conditions = [ne(sponsorLicenceVacanciesTable.liveness, "dead")];
+  if (options.onlyVerifiedLive) {
+    conditions.push(eq(sponsorLicenceVacanciesTable.liveness, "live"));
+  }
   if (options.since) {
     conditions.push(gt(sponsorLicenceVacanciesTable.createdAt, options.since));
   }

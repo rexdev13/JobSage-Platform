@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { employerNamesCloselyMatch, parseNhsJobsHtml, searchNhsJobs } from "../../lib/nhsJobsClient";
+import {
+  employerNamesCloselyMatch,
+  candidateEmployerMatchesSponsor,
+  parseNhsJobsCandidateHtml,
+  parseNhsJobsHtml,
+  searchNhsJobs,
+  searchNhsJobsForCandidate,
+} from "../../lib/nhsJobsClient";
 
 const RESULTS_HTML = `
   <ul class="nhsuk-list search-results">
@@ -45,6 +52,35 @@ describe("NHS Jobs HTML parser", () => {
     expect(employerNamesCloselyMatch("South London and Maudsley NHS Foundation Trust", "SLaM NHS Foundation Trust")).toBe(true);
     expect(employerNamesCloselyMatch("Central London Community Healthcare NHS Trust", "CLCH")).toBe(true);
     expect(employerNamesCloselyMatch("Guy's and St Thomas' NHS Foundation Trust", "Great Western Hospitals NHS Foundation Trust")).toBe(false);
+    expect(employerNamesCloselyMatch("Nottingham CityCare Partnership CIC", "Nottingham CityCare Partnership")).toBe(true);
+    expect(employerNamesCloselyMatch("11:FS GROUP LIMITED", "InHealth Group")).toBe(false);
+    expect(employerNamesCloselyMatch("10/10 MEDICAL LIMITED", "Portobello Medical Centre")).toBe(false);
+    expect(employerNamesCloselyMatch("18.01 London Limited", "University College London Hospitals NHS Foundation Trust")).toBe(false);
+    expect(employerNamesCloselyMatch("Alton Street Surgery", "Crown Street Surgery")).toBe(false);
+    expect(employerNamesCloselyMatch("APOLLO HOSPITALITY (PORTOBELLO) LIMITED", "Portobello Medical Centre")).toBe(false);
+    expect(employerNamesCloselyMatch("Express Homerton Ltd", "Homerton Healthcare NHS Foundation Trust")).toBe(false);
+  });
+
+  it("uses strict sponsor identity matching for candidate-wide searches", () => {
+    expect(candidateEmployerMatchesSponsor("InHealth Ltd", "InHealth Group")).toBe(true);
+    expect(candidateEmployerMatchesSponsor("Chelsea & Westminster NHS Foundation Trust", "Chelsea and Westminster Hospital NHS Foundation Trust")).toBe(true);
+    expect(candidateEmployerMatchesSponsor("Great Ormond Street Hospital NHS Trust", "Great Ormond Street Hospital for Children NHS Foundation Trust")).toBe(true);
+    expect(candidateEmployerMatchesSponsor("Ambourne House Limited", "Tamworth House Medical Centre")).toBe(false);
+    expect(candidateEmployerMatchesSponsor("Homerton College", "Homerton Healthcare NHS Foundation Trust")).toBe(false);
+    expect(candidateEmployerMatchesSponsor("Imperial Centre Limited", "Imperial College Healthcare NHS Trust")).toBe(false);
+  });
+
+  it("returns employer identity for candidate-wide sponsor matching", () => {
+    expect(parseNhsJobsCandidateHtml(RESULTS_HTML)).toEqual([
+      expect.objectContaining({
+        title: "Registered Nurse",
+        employer: "Example London NHS Foundation Trust",
+      }),
+      expect.objectContaining({
+        title: "Consultant Psychiatrist",
+        employer: "Another NHS Foundation Trust",
+      }),
+    ]);
   });
 });
 
@@ -96,6 +132,16 @@ describe("NHS Jobs HTML pagination", () => {
     expect(fetchMock).toHaveBeenCalledTimes(5); // structured attempt + first page + 3 extra pages
     expect(String(fetchMock.mock.calls[2]?.[0])).toContain("page=2");
     expect(String(fetchMock.mock.calls[4]?.[0])).toContain("page=4");
+  });
+
+  it("searches by candidate keywords and region without an employer constraint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(RESULTS_HTML)));
+    const result = await searchNhsJobsForCandidate("nurse", "London", 20);
+    expect(result.vacancies).toEqual(expect.arrayContaining([
+      expect.objectContaining({ title: "Registered Nurse", employer: "Example London NHS Foundation Trust" }),
+    ]));
+    expect(result.sourceUrl).toContain("keyword=nurse");
+    expect(result.sourceUrl).toContain("location=London");
   });
 
   it("stops on an NHS 5xx response and reports a transient failure", async () => {

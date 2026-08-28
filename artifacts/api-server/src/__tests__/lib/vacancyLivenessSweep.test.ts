@@ -62,11 +62,13 @@ vi.mock("../../lib/linkHealth", () => ({
 }));
 
 // ── vacancyUrlPolicy mock ─────────────────────────────────────────────────────
-const { isBlockedVacancyUrlMock } = vi.hoisted(() => ({
+const { isBlockedVacancyUrlMock, isValidJobBoardVacancyDeepLinkMock } = vi.hoisted(() => ({
   isBlockedVacancyUrlMock: vi.fn().mockReturnValue(false),
+  isValidJobBoardVacancyDeepLinkMock: vi.fn().mockReturnValue(false),
 }));
 vi.mock("../../lib/vacancyUrlPolicy", () => ({
   isBlockedVacancyUrl: isBlockedVacancyUrlMock,
+  isValidJobBoardVacancyDeepLink: isValidJobBoardVacancyDeepLinkMock,
 }));
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

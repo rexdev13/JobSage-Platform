@@ -18,6 +18,10 @@ export type NhsJobsVacancy = {
   targetRegions: null;
 };
 
+export type NhsJobsCandidateVacancy = NhsJobsVacancy & {
+  employer: string;
+};
+
 export type NhsJobsSearchResult = {
   sourceUrl: string;
   vacancies: NhsJobsVacancy[];
@@ -84,6 +88,8 @@ function stripFieldLabel(value: string | null, label: string): string | null {
 const GENERIC_ORGANISATION_WORDS = new Set([
   "and", "the", "of", "for", "nhs", "foundation", "trust", "hospital", "hospitals",
   "health", "healthcare", "university", "limited", "ltd", "plc", "services", "service",
+  "group", "medical", "centre", "center", "practice", "clinic", "surgery", "college",
+  "london", "community", "partnership",
 ]);
 
 const EMPLOYER_ALIASES: Array<{ canonical: string[]; patterns: RegExp[] }> = [
@@ -100,6 +106,8 @@ const EMPLOYER_ALIASES: Array<{ canonical: string[]; patterns: RegExp[] }> = [
     patterns: [/^clch(?:nhs|foundation|trust)*$/, /centrallondoncommunityhealthcare/],
   },
 ];
+
+const SAFE_SINGLE_WORD_CANDIDATE_IDENTITIES = new Set(["inhealth", "optegra", "davita"]);
 
 function compactEmployerName(value: string): string {
   return textFromHtml(value).toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]/g, "");
@@ -123,17 +131,83 @@ function meaningfulWords(value: string): string[] {
  * name or enough distinctive sponsor-name words before retaining a vacancy.
  */
 export function employerNamesCloselyMatch(organisationName: string, listedEmployer: string): boolean {
-  const requested = meaningfulWords(organisationName);
-  const listed = new Set(meaningfulWords(listedEmployer));
+  const requestedCompact = compactEmployerName(organisationName);
+  const listedCompact = compactEmployerName(listedEmployer);
+  const requestedWords = meaningfulWords(organisationName);
+  const listedWords = meaningfulWords(listedEmployer);
+  const shorterWords = requestedWords.length <= listedWords.length ? requestedWords : listedWords;
+  const longerWords = requestedWords.length <= listedWords.length ? listedWords : requestedWords;
+  if (
+    Math.min(requestedCompact.length, listedCompact.length) >= 10 &&
+    shorterWords.length >= 2 &&
+    shorterWords.every((word) => longerWords.includes(word)) &&
+    (requestedCompact.includes(listedCompact) || listedCompact.includes(requestedCompact))
+  ) {
+    return true;
+  }
+  const requested = requestedWords;
+  const listed = new Set(listedWords);
   if (requested.length === 0 || listed.size === 0) return false;
 
-  const requestedNormalised = requested.join(" ");
-  const listedNormalised = [...listed].join(" ");
+  const requestedNormalised = [...requested].sort().join(" ");
+  const listedNormalised = [...listed].sort().join(" ");
   if (requestedNormalised === listedNormalised) return true;
 
   const shared = requested.filter((word) => listed.has(word));
-  const minimumShared = requested.length <= 2 ? requested.length : Math.max(2, Math.ceil(requested.length * 0.6));
-  return shared.length >= minimumShared;
+  const smallerWordCount = Math.min(requested.length, listed.size);
+  return smallerWordCount >= 2 && shared.length >= 2 && shared.length / smallerWordCount >= 0.75;
+}
+
+/**
+ * Candidate-wide searches compare every NHS employer against the whole sponsor
+ * register, so they must use a stricter rule than an employer-scoped search.
+ */
+export function candidateEmployerMatchesSponsor(
+  organisationName: string,
+  listedEmployer: string,
+): boolean {
+  const requestedWords = meaningfulWords(organisationName);
+  const listedWords = meaningfulWords(listedEmployer);
+  if (requestedWords.length === 0 || listedWords.length === 0) return false;
+  const requestedNormalised = [...requestedWords].sort().join(" ");
+  const listedNormalised = [...listedWords].sort().join(" ");
+  if (
+    requestedNormalised === listedNormalised &&
+    (requestedWords.length >= 2 || SAFE_SINGLE_WORD_CANDIDATE_IDENTITIES.has(requestedNormalised))
+  ) return true;
+
+  const shorterWords = requestedWords.length <= listedWords.length ? requestedWords : listedWords;
+  const longerWords = requestedWords.length <= listedWords.length ? listedWords : requestedWords;
+  return (
+    shorterWords.length >= 2 &&
+    shorterWords.every((word) => longerWords.includes(word))
+  );
+}
+
+export function parseNhsJobsCandidateHtml(html: string): NhsJobsCandidateVacancy[] {
+  const resultBlocks = html.match(
+    /<li\b(?=[^>]*data-test=["']search-result["'])[^>]*>([\s\S]*?)(?=<li\b(?=[^>]*data-test=["']search-result["'])|<\/ul>)/gi,
+  ) ?? [];
+  const vacancies: NhsJobsCandidateVacancy[] = [];
+  const urls = new Set<string>();
+  for (const block of resultBlocks) {
+    const titleAndUrl = extractTitleAndUrl(block);
+    if (!titleAndUrl || !allowedNhsAdvertUrl(titleAndUrl.url) || isManualLabourTitle(titleAndUrl.title)) continue;
+    const { employer, location } = extractEmployerAndLocation(block);
+    if (!employer || urls.has(titleAndUrl.url)) continue;
+    urls.add(titleAndUrl.url);
+    vacancies.push({
+      title: titleAndUrl.title,
+      employer,
+      location,
+      salary: stripFieldLabel(extractTagText(block, "search-result-salary"), "Salary"),
+      url: titleAndUrl.url,
+      description: null,
+      postedDate: stripFieldLabel(extractTagText(block, "search-result-publicationDate"), "Date posted"),
+      targetRegions: null,
+    });
+  }
+  return vacancies;
 }
 
 function allowedNhsAdvertUrl(url: string): boolean {
@@ -309,6 +383,44 @@ export async function searchNhsJobs(organisationName: string): Promise<NhsJobsSe
 
   return {
     sourceUrl: resultsUrl,
+    vacancies,
+    structuredFeedWorked: false,
+    resultsRequestSucceeded: !interrupted,
+    transientFailure: interrupted,
+  };
+}
+
+export async function searchNhsJobsForCandidate(
+  keywords: string,
+  region: string | null,
+  limit = 40,
+): Promise<Omit<NhsJobsSearchResult, "vacancies"> & { vacancies: NhsJobsCandidateVacancy[] }> {
+  const params = new URLSearchParams({ keyword: keywords, language: "en" });
+  if (region) params.set("location", region);
+  const sourceUrl = `${NHS_JOBS_ORIGIN}/candidate/search/results?${params.toString()}`;
+  const vacancies: NhsJobsCandidateVacancy[] = [];
+  const urls = new Set<string>();
+  let interrupted = false;
+
+  for (let page = 1; page <= MAX_EXTRA_HTML_PAGES + 1 && vacancies.length < limit; page++) {
+    if (page > 1) await wait(NHS_HTML_PAGE_DELAY_MS);
+    const pageParams = new URLSearchParams(params);
+    if (page > 1) pageParams.set("page", String(page));
+    const response = await fetchText(`${NHS_JOBS_ORIGIN}/candidate/search/results?${pageParams.toString()}`);
+    if (response.text === null) {
+      interrupted = true;
+      break;
+    }
+    for (const vacancy of parseNhsJobsCandidateHtml(response.text)) {
+      if (urls.has(vacancy.url)) continue;
+      urls.add(vacancy.url);
+      vacancies.push(vacancy);
+      if (vacancies.length >= limit) break;
+    }
+  }
+
+  return {
+    sourceUrl,
     vacancies,
     structuredFeedWorked: false,
     resultsRequestSucceeded: !interrupted,
