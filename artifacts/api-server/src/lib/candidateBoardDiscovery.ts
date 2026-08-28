@@ -6,7 +6,7 @@ import { canonicalVacancyUrl, classifyVacancySource } from "./vacancySource";
 
 const CACHE_TTL_MS = 20 * 60 * 1000;
 const FAILURE_CACHE_TTL_MS = 2 * 60 * 1000;
-const MAX_NEW_ROWS = 40;
+export const MAX_CANDIDATE_BOARD_RESULTS = 120;
 
 type CandidateBoardProfile = {
   profession: string;
@@ -55,7 +55,11 @@ function preferredRegions(profile: CandidateBoardProfile): string[] {
 async function runRefresh(profile: CandidateBoardProfile): Promise<CandidateBoardRefreshResult> {
   const regions = preferredRegions(profile);
   const region = regions.length === 1 ? regions[0]! : null;
-  const result = await searchNhsJobsForCandidate(professionKeywords(profile), region, MAX_NEW_ROWS);
+  const result = await searchNhsJobsForCandidate(
+    professionKeywords(profile),
+    region,
+    MAX_CANDIDATE_BOARD_RESULTS,
+  );
   if (!result.resultsRequestSucceeded) {
     return { searched: true, discovered: result.vacancies.length, sponsorMatched: 0, inserted: 0, revived: 0 };
   }
@@ -75,7 +79,7 @@ async function runRefresh(profile: CandidateBoardProfile): Promise<CandidateBoar
     const source = classifyVacancySource(url);
     if (source.sourceType !== "job_board" || source.boardName !== "NHS Jobs") return [];
     return [{ vacancy, organisationName, targetRegions, url, source }];
-  }).slice(0, MAX_NEW_ROWS);
+  }).slice(0, MAX_CANDIDATE_BOARD_RESULTS);
 
   const existingRows = await db
     .select()

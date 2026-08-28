@@ -304,7 +304,10 @@ router.get("/roles", async (req, res): Promise<void> => {
     return;
   }
   if (sourceFilter === "job_board") {
-    await refreshCandidateBoardVacancies(profile);
+    // Candidate-time discovery can span multiple politely delayed NHS pages.
+    // Serve the current verified cache immediately and refresh it for the next
+    // request rather than holding the Opportunities screen in a loading state.
+    void refreshCandidateBoardVacancies(profile);
   }
 
   const [decision] = await db
@@ -630,7 +633,7 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
     return;
   }
   if (sourceFilter === "job_board") {
-    await refreshCandidateBoardVacancies(profile);
+    void refreshCandidateBoardVacancies(profile);
   }
 
   const [decision] = await db
