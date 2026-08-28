@@ -221,7 +221,7 @@ function BestMatchesStrip({
                     className="flex-1 text-xs h-8 gap-1"
                     onClick={() => onSmartApply(match.roleId, match.title)}
                   >
-                    <Sparkles className="w-3 h-3" /> Apply Now
+                    <Sparkles className="w-3 h-3" /> Apply on job boards
                   </Button>
                 ) : (
                   <Button
@@ -779,6 +779,9 @@ function RoleCard({
 
   const applied = appliedRoleIds.includes(role.id);
   const hasContactDetails = !!(contactEmail || contactPhone || contactWebsite);
+  const applyActionLabel = role.sourceType === "job_board"
+    ? "Apply on job boards"
+    : "Apply on company website";
 
   return (
     <Card
@@ -924,7 +927,7 @@ function RoleCard({
             }
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors"
           >
-            <Globe className="w-3.5 h-3.5" /> Apply via company website
+            <Globe className="w-3.5 h-3.5" /> {applyActionLabel}
           </button>
           <span className="text-[11px] text-muted-foreground">
             No verified apply link yet — this opens the employer&apos;s site in a new tab.
@@ -944,7 +947,7 @@ function RoleCard({
               {checking ? (
                 <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Checking…</>
               ) : (
-                <><ExternalLink className="w-3.5 h-3.5" /> {applied ? "Applied" : "Apply on employer site"}</>
+                <><ExternalLink className="w-3.5 h-3.5" /> {applied ? "Applied" : applyActionLabel}</>
               )}
             </button>
             {linkVerified ? (
