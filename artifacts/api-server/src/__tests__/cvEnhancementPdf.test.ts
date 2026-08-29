@@ -15,7 +15,12 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { buildRewrittenCvPdf } from "../routes/cvEnhancement";
+import {
+  buildCvEnhancementUserPrompt,
+  buildRewrittenCvPdf,
+  normaliseCvEnhancementMode,
+  validateCvEnhancementRequest,
+} from "../routes/cvEnhancement";
 
 // pdf-parse v2.x ESM exports PDFParse as a class — see memory: pdf-parse-v2-esm.md
 async function parsePdf(buf: Buffer): Promise<{ text: string; numpages: number }> {
@@ -129,5 +134,44 @@ describe("buildRewrittenCvPdf → pdf-parse pipeline", () => {
     const { text } = await parsePdf(buf);
     expect(text).toContain("Jane");
     expect(text).toContain("EDUCATION");
+  });
+});
+
+describe("focus-only CV enhancement mode", () => {
+  it("normalises focus_only without changing the existing modes", () => {
+    expect(normaliseCvEnhancementMode("focus_only")).toBe("focus_only");
+    expect(normaliseCvEnhancementMode("focused")).toBe("focused");
+    expect(normaliseCvEnhancementMode("general")).toBe("general");
+    expect(normaliseCvEnhancementMode(undefined)).toBe("general");
+  });
+
+  it("rejects focus_only without focus while allowing general without focus", () => {
+    expect(validateCvEnhancementRequest(1, "focus_only", "")).toBe(
+      "A focus prompt is required for focus-only enhancement.",
+    );
+    expect(validateCvEnhancementRequest(1, "focus_only", "   ")).toBe(
+      "A focus prompt is required for focus-only enhancement.",
+    );
+    expect(validateCvEnhancementRequest(1, "general", undefined)).toBeNull();
+  });
+
+  it("adds omit-unrelated and no-invented-metrics guidance only to focus_only", () => {
+    const focusOnlyPrompt = buildCvEnhancementUserPrompt({
+      mode: "focus_only",
+      focus: "Paediatric intensive care nursing",
+      originalText: "WORK EXPERIENCE\nSenior Nurse\nManaged a 20-bed ward.",
+    });
+    expect(focusOnlyPrompt).toContain("OMIT hobbies, unrelated professions");
+    expect(focusOnlyPrompt).toContain("Never add numbers or metrics unless they appear");
+    expect(focusOnlyPrompt).toContain("Never invent duties from a job title");
+    expect(focusOnlyPrompt).toContain("Paediatric intensive care nursing");
+
+    const focusedPrompt = buildCvEnhancementUserPrompt({
+      mode: "focused",
+      focus: "Paediatric intensive care nursing",
+      originalText: "CV text",
+    });
+    expect(focusedPrompt).not.toContain("OMIT hobbies, unrelated professions");
+    expect(focusedPrompt).toContain("Keep all factual details exactly as-is");
   });
 });

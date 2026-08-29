@@ -165,8 +165,69 @@ export function buildRewrittenCvPdf(params: {
   });
 }
 
+export type CvEnhancementMode = "general" | "focused" | "focus_only";
+
+export function normaliseCvEnhancementMode(mode: unknown): CvEnhancementMode {
+  if (mode === "focused") return "focused";
+  if (mode === "focus_only") return "focus_only";
+  return "general";
+}
+
+export function validateCvEnhancementRequest(
+  documentId: unknown,
+  mode: unknown,
+  focus: unknown,
+): string | null {
+  if (!documentId || typeof documentId !== "number") {
+    return "documentId (number) is required.";
+  }
+
+  const enhMode = normaliseCvEnhancementMode(mode);
+  const focusStr = typeof focus === "string" ? focus.trim() : "";
+
+  if (enhMode === "focused" && !focusStr) {
+    return "A focus prompt is required for focused enhancement.";
+  }
+  if (enhMode === "focus_only" && !focusStr) {
+    return "A focus prompt is required for focus-only enhancement.";
+  }
+
+  return null;
+}
+
+export function buildCvEnhancementUserPrompt(params: {
+  mode: CvEnhancementMode;
+  focus: string;
+  originalText: string;
+}): string {
+  const { mode, focus, originalText } = params;
+
+  if (mode === "focus_only") {
+    return (
+      `Here is the candidate's current CV. Rewrite it to focus only on: "${focus}".\n\n` +
+      "Use ONLY the uploaded CV text as the evidence source. The supplied focus is a target, " +
+      "not extra work history or evidence.\n" +
+      "OMIT hobbies, unrelated professions, and duties that do not support the stated focus. " +
+      "Do not delete an employer or date from the CV if that role has any focus-relevant evidence; " +
+      "shorten that role to relevant bullets only.\n" +
+      "EXPAND and highlight skills, duties, and achievements that support the focus by rephrasing " +
+      "evidence already present in the CV. Never invent duties from a job title. Never add numbers " +
+      "or metrics unless they appear in the source CV.\n" +
+      "If the CV contains little focus-relevant content, keep the truthful thin version and do not " +
+      "pad it with fiction. A short personal statement aimed at the focus is acceptable only when " +
+      "grounded in the CV.\n" +
+      "Return only the complete rewritten CV.\n\n" +
+      `CV:\n\n${originalText}`
+    );
+  }
+
+  return mode === "focused"
+    ? `Here is the candidate's current CV. Rewrite it to be significantly better, specifically tailored toward: "${focus}". Emphasise the skills and experience most relevant to this focus. Keep all factual details exactly as-is.\n\nCV:\n\n${originalText}`
+    : `Here is the candidate's current CV. Rewrite it to be significantly better — stronger language, clearer structure, more professional tone. Keep all factual details exactly as-is.\n\nCV:\n\n${originalText}`;
+}
+
 // ── POST /profiles/cv-enhancement ─────────────────────────────────────────────
-// Body: { documentId: number, mode?: "general"|"focused", focus?: string }
+// Body: { documentId: number, mode?: "general"|"focused"|"focus_only", focus?: string }
 // Downloads the selected CV PDF, parses it, and rewrites with AI.
 router.post("/profiles/cv-enhancement", requireAuthenticated, async (req, res): Promise<void> => {
   const userId = req.user!.id;
@@ -176,18 +237,15 @@ router.post("/profiles/cv-enhancement", requireAuthenticated, async (req, res): 
     focus?:      unknown;
   };
 
-  if (!documentId || typeof documentId !== "number") {
-    res.status(400).json({ error: "documentId (number) is required." });
-    return;
-  }
-
-  const enhMode  = mode === "focused" ? "focused" : "general";
+  const enhMode  = normaliseCvEnhancementMode(mode);
   const focusStr = typeof focus === "string" ? focus.trim() : "";
 
-  if (enhMode === "focused" && !focusStr) {
-    res.status(400).json({ error: "A focus prompt is required for focused enhancement." });
+  const validationError = validateCvEnhancementRequest(documentId, mode, focus);
+  if (validationError) {
+    res.status(400).json({ error: validationError });
     return;
   }
+  const validatedDocumentId = documentId as number;
 
   // Check rate limit
   const { allowed, remaining } = await checkAndIncrementLimit(userId);
@@ -206,7 +264,7 @@ router.post("/profiles/cv-enhancement", requireAuthenticated, async (req, res): 
       .from(documentsTable)
       .where(
         and(
-          eq(documentsTable.id, documentId),
+          eq(documentsTable.id, validatedDocumentId),
           eq(documentsTable.userId, userId),
           eq(documentsTable.documentType, "cv"),
         ),
@@ -258,15 +316,11 @@ router.post("/profiles/cv-enhancement", requireAuthenticated, async (req, res): 
       "'References: Available upon request.' — never list actual referee names or contact details.\n" +
       "Return the complete rewritten CV — nothing else, no preamble, no explanations.";
 
-    const userPrompt =
-      enhMode === "focused"
-        ? `Here is the candidate's current CV. Rewrite it to be significantly better, ` +
-          `specifically tailored toward: "${focusStr}". ` +
-          `Emphasise the skills and experience most relevant to this focus. ` +
-          `Keep all factual details exactly as-is.\n\nCV:\n\n${originalText}`
-        : `Here is the candidate's current CV. Rewrite it to be significantly better — ` +
-          `stronger language, clearer structure, more professional tone. ` +
-          `Keep all factual details exactly as-is.\n\nCV:\n\n${originalText}`;
+    const userPrompt = buildCvEnhancementUserPrompt({
+      mode: enhMode,
+      focus: focusStr,
+      originalText,
+    });
 
     const completion = await openai.chat.completions.create({
       model:       "gpt-4o-mini",
@@ -274,7 +328,7 @@ router.post("/profiles/cv-enhancement", requireAuthenticated, async (req, res): 
         { role: "system", content: systemPrompt },
         { role: "user",   content: userPrompt },
       ],
-      max_tokens:  2000,
+      max_tokens:  enhMode === "focus_only" ? 2200 : 2000,
       temperature: 0.4,
     });
 
@@ -287,7 +341,7 @@ router.post("/profiles/cv-enhancement", requireAuthenticated, async (req, res): 
     res.json({
       enhancedContent,
       originalText,
-      documentId,
+      documentId: validatedDocumentId,
       mode: enhMode,
       focus: focusStr || null,
       remaining,
