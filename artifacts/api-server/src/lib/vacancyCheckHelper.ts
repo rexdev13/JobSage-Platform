@@ -11,31 +11,20 @@ import {
   isBlockedVacancyUrl,
   isValidVacancyDeepLink,
 } from "./vacancyUrlPolicy";
-import { searchNhsJobs } from "./nhsJobsClient";
-import { searchReedJobs } from "./reedJobsClient";
 import {
-  completeReedVacancyProbe,
-  failReedVacancyProbe,
-  reserveReedVacancyProbe,
-} from "./reedOutageBackoff";
+  discoverEmployerBoardVacancies,
+  normaliseAndDedupeBoardAdverts,
+  upsertSharedBoardVacancies,
+} from "./boardVacancyPipeline";
 import {
-  canonicalVacancyUrl,
-  classifyVacancySource,
-  vacancyStorageKey,
   type VacancySourceType,
 } from "./vacancySource";
-import {
-  completeNhsVacancyProbe,
-  failNhsVacancyProbe,
-  reserveNhsVacancyProbe,
-} from "./nhsOutageBackoff";
 
 export const VACANCY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 export const MAX_QUALITY_VACANCIES_PER_EMPLOYER = 12;
 
 // Re-export shared URL policy so existing imports keep working.
 export { BLOCKED_VACANCY_DOMAINS, isBlockedVacancyUrl, isValidVacancyDeepLink };
-import { queueLinkVerificationBatch } from "./linkVerification";
 
 export type VacancyListItem = {
   title: string;
@@ -146,82 +135,24 @@ export async function runVacancyCheck(
   let discoveredContactEmail: string | null = null;
   let discoveredContactPhone: string | null = null;
   let discoveredWebsite: string | null = null;
-  let nhsResultsRequestSucceeded = false;
-  let nhsTransientFailure = false;
-  let reedResultsRequestSucceeded = false;
-  let reedTransientFailure = false;
-
-  const discovered: VacancyListItem[] = [];
-  const nhsProbe = await reserveNhsVacancyProbe(organisationName);
-  let nhsRetryAt: Date | undefined;
-  if (nhsProbe.allowed) {
-    try {
-      const nhs = await searchNhsJobs(organisationName);
-      sourceUrl = nhs.sourceUrl;
-      nhsResultsRequestSucceeded = nhs.resultsRequestSucceeded;
-      nhsTransientFailure = nhs.transientFailure ?? !nhs.resultsRequestSucceeded;
-      discovered.push(
-        ...nhs.vacancies.map((vacancy) => ({
-          ...vacancy,
-          ...classifyVacancySource(vacancy.url),
-        })),
-      );
-      console.info(
-        `[vacancy-check] used_nhs_http organisation="${organisationName}" vacancies=${nhs.vacancies.length} structured_feed=${nhs.structuredFeedWorked} results_success=${nhs.resultsRequestSucceeded}`,
-      );
-    } catch {
-      nhsTransientFailure = true;
-    }
-    if (nhsTransientFailure) {
-      nhsRetryAt = (await failNhsVacancyProbe(nhsProbe)) ?? undefined;
-      if (nhsRetryAt) {
-        console.warn(
-          `[vacancy-check] NHS Jobs unavailable organisation="${organisationName}" retry_after=${nhsRetryAt.toISOString()}`,
-        );
-      }
-    } else {
-      await completeNhsVacancyProbe(nhsProbe);
-    }
-  } else {
-    nhsTransientFailure = true;
-    nhsRetryAt = nhsProbe.retryAt;
-  }
-
-  const reedProbe = await reserveReedVacancyProbe(organisationName);
-  if (reedProbe.allowed) {
-    try {
-      const reed = await searchReedJobs(organisationName);
-      reedResultsRequestSucceeded = reed.requestSucceeded;
-      reedTransientFailure = reed.transientFailure;
-      discovered.push(...reed.vacancies);
-      console.info(
-        `[vacancy-check] used_reed_http organisation="${organisationName}" vacancies=${reed.vacancies.length} results_success=${reed.requestSucceeded}`,
-      );
-    } catch {
-      reedTransientFailure = true;
-    }
-    if (reedTransientFailure) {
-      const retryAt = await failReedVacancyProbe(reedProbe);
-      if (retryAt) {
-        console.warn(
-          `[vacancy-check] Reed unavailable organisation="${organisationName}" retry_after=${retryAt.toISOString()}`,
-        );
-      }
-    } else {
-      await completeReedVacancyProbe(reedProbe);
-    }
-  } else {
-    reedTransientFailure = true;
-  }
-
-  const seenVacancies = new Set<string>();
-  vacancyList = discovered.filter((vacancy) => {
-    if (!vacancy.url) return false;
-    const key = vacancyStorageKey(organisationName, vacancy.url);
-    if (!key || seenVacancies.has(key)) return false;
-    seenVacancies.add(key);
-    return true;
-  }).slice(0, MAX_QUALITY_VACANCIES_PER_EMPLOYER);
+  const discovery = await discoverEmployerBoardVacancies(organisationName);
+  sourceUrl = discovery.sourceUrl;
+  const normalized = normaliseAndDedupeBoardAdverts(discovery.adverts);
+  vacancyList = normalized.slice(0, MAX_QUALITY_VACANCIES_PER_EMPLOYER).map((advert) => ({
+    title: advert.title,
+    location: advert.location,
+    salary: advert.salary,
+    url: advert.url,
+    description: advert.description,
+    postedDate: advert.postedDate,
+    targetRegions: advert.targetRegions,
+    sourceType: "job_board",
+    boardName: advert.boardName,
+    externalListingId: advert.externalId,
+  }));
+  console.info(
+    `[vacancy-check] used_board_pipeline organisation="${organisationName}" nhs=${discovery.boardCounts.nhs ?? 0} reed=${discovery.boardCounts.reed_html ?? 0}`,
+  );
   vacanciesFound = vacancyList.length > 0;
   vacancyCount = vacancyList.length || null;
   summary = vacanciesFound
@@ -229,8 +160,8 @@ export async function runVacancyCheck(
     : "No closely matched current vacancies found on supported job boards.";
 
   // Never cache a cross-board empty snapshot when a board was unavailable.
-  if (!vacanciesFound && (nhsTransientFailure || reedTransientFailure)) {
-    return unavailableResult(sourceUrl, nhsRetryAt ?? new Date(Date.now() + 45 * 60 * 1000));
+  if (!vacanciesFound && discovery.transientFailure) {
+    return unavailableResult(sourceUrl, discovery.retryAt ?? new Date(Date.now() + 45 * 60 * 1000));
   }
 
   const [saved] = await db
@@ -238,86 +169,13 @@ export async function runVacancyCheck(
     .values({ organisationName, vacanciesFound, vacancyCount, sourceUrl, summary, vacancyList })
     .returning();
 
-  // Persist HTTP discoveries without deleting the previous usable snapshot.
-  // Closed/stale adverts are retired by the liveness sweep, while outages never
-  // turn into destructive empty snapshots.
-  // Liveness carry-over: rows in the new snapshot whose URL was already
-  // verified by the liveness sweep keep that verdict (live or dead) and its
-  // timestamp/reason instead of resetting to "unverified" on every refresh.
-  const priorLiveness = new Map<
-    string,
-    { liveness: "unverified" | "live" | "dead"; lastVerifiedAt: Date | null; livenessReason: string | null }
-  >();
-  const priorRows = await db
-    .select({
-      url: sponsorLicenceVacanciesTable.url,
-      liveness: sponsorLicenceVacanciesTable.liveness,
-      lastVerifiedAt: sponsorLicenceVacanciesTable.lastVerifiedAt,
-      livenessReason: sponsorLicenceVacanciesTable.livenessReason,
-    })
-    .from(sponsorLicenceVacanciesTable)
-    .where(eq(sponsorLicenceVacanciesTable.organisationName, organisationName));
-  for (const r of priorRows) {
-    if (r.url && r.liveness !== "unverified") {
-      priorLiveness.set(r.url, { liveness: r.liveness, lastVerifiedAt: r.lastVerifiedAt, livenessReason: r.livenessReason });
-    }
-  }
-
-  if (vacancyList && vacancyList.length > 0) {
-    const existing = await db
-      .select()
-      .from(sponsorLicenceVacanciesTable)
-      .where(eq(sponsorLicenceVacanciesTable.organisationName, organisationName));
-    const existingUrls = new Set(
-      existing.flatMap((row) => {
-        const canonical = row.url ? canonicalVacancyUrl(row.url) : null;
-        return canonical ? [canonical] : [];
-      }),
+  if (normalized.length > 0) {
+    const persisted = await upsertSharedBoardVacancies(
+      normalized.slice(0, MAX_QUALITY_VACANCIES_PER_EMPLOYER),
+      { organisationName },
     );
-    const newVacancies = vacancyList.filter((v) => {
-      const canonical = v.url ? canonicalVacancyUrl(v.url) : null;
-      return canonical != null && !existingUrls.has(canonical);
-    });
-    const checkDate = new Date().toISOString().split("T")[0]!;
-    const inserted = newVacancies.length > 0 ? await db
-      .insert(sponsorLicenceVacanciesTable)
-      .values(
-        newVacancies.map((v) => {
-          const prior = v.url ? priorLiveness.get(v.url) : undefined;
-          return {
-            organisationName,
-            checkDate,
-            title: v.title,
-            location: v.location ?? null,
-            salary: v.salary ?? null,
-            url: v.url ?? null,
-            description: v.description ?? null,
-            postedDate: v.postedDate ?? null,
-            targetRegions: v.targetRegions ?? [],
-            sourceType: v.sourceType,
-            boardName: v.boardName,
-            externalListingId: v.externalListingId,
-            liveness: prior?.liveness ?? ("unverified" as const),
-            lastVerifiedAt: prior?.lastVerifiedAt ?? null,
-            livenessReason: prior?.livenessReason ?? null,
-          };
-        }),
-      )
-      .returning({
-        id: sponsorLicenceVacanciesTable.id,
-        url: sponsorLicenceVacanciesTable.url,
-        liveness: sponsorLicenceVacanciesTable.liveness,
-      }) : [];
     console.info(
-      `[vacancy-check] persisted_http organisation="${organisationName}" nhs=${vacancyList.filter((v) => v.boardName === "NHS Jobs").length} reed=${vacancyList.filter((v) => v.boardName === "Reed").length} inserted=${inserted.length}`,
-    );
-
-    // Verify newly discovered links right away (fire-and-forget) so fresh
-    // snapshots don't sit unverified until the next background sweep.
-    queueLinkVerificationBatch(
-      inserted
-        .filter((r) => r.liveness === "unverified" && r.url)
-        .map((r) => ({ source: "sponsor_vacancy" as const, id: r.id, url: r.url })),
+      `[vacancy-check] persisted_http organisation="${organisationName}" nhs=${vacancyList.filter((v) => v.boardName === "NHS Jobs").length} reed=${vacancyList.filter((v) => v.boardName === "Reed").length} inserted=${persisted.inserted}`,
     );
   }
 

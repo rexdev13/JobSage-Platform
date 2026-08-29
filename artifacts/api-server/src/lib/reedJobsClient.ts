@@ -9,6 +9,7 @@ const POLITE_REQUEST_DELAY_MS = 350;
 
 export interface ReedVacancy {
   title: string;
+  employer: string;
   location: string | null;
   salary: string | null;
   url: string;
@@ -80,6 +81,7 @@ export function parseReedJobsHtml(html: string, organisationName: string): ReedV
       : null;
     vacancies.push({
       title,
+      employer,
       location: decodeHtml(tagByQa(card, "job-metadata-location") ?? "") || null,
       salary: decodeHtml(tagByQa(card, "job-metadata-salary") ?? "") || null,
       url,

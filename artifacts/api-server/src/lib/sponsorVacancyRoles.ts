@@ -82,6 +82,7 @@ export interface SponsorVacancyAsRole {
   requiredRegistration: string;
   active: boolean;
   importedAt: Date;
+  lastDiscoveredAt: Date;
   importedBy: string;
   liveness: "unverified" | "live" | "dead";
   lastVerifiedAt: Date | null;
@@ -219,6 +220,7 @@ export async function fetchSponsorVacanciesAsRoles(
       requiredRegistration: `${regulator} registration pathway`,
       active: true,
       importedAt: vac.createdAt,
+      lastDiscoveredAt: vac.lastDiscoveredAt,
       importedBy: "ai:sponsor-vacancy-pipeline",
       liveness: vac.liveness,
       lastVerifiedAt: vac.lastVerifiedAt,

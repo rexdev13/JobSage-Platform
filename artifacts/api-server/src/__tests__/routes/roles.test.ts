@@ -4,7 +4,10 @@ import cookieParser from "cookie-parser";
 import request from "supertest";
 
 // ── hoisted DB results queue ──────────────────────────────────────────────────
-const { dbResults } = vi.hoisted(() => ({ dbResults: [] as any[] }));
+const { dbResults, refreshCandidateBoardVacanciesMock } = vi.hoisted(() => ({
+  dbResults: [] as any[],
+  refreshCandidateBoardVacanciesMock: vi.fn(),
+}));
 
 vi.mock("@workspace/db", () => {
   function makeChain(): any {
@@ -77,7 +80,8 @@ vi.mock("../../lib/candidateAiMatch", () => ({
 }));
 
 vi.mock("../../lib/candidateBoardDiscovery", () => ({
-  refreshCandidateBoardVacancies: vi.fn().mockResolvedValue({
+  hasFreshCandidateBoardSnapshot: vi.fn().mockReturnValue(false),
+  refreshCandidateBoardVacancies: refreshCandidateBoardVacanciesMock.mockResolvedValue({
     searched: false,
     discovered: 0,
     sponsorMatched: 0,
@@ -284,6 +288,21 @@ describe("GET /roles — vacancy-specific speculative CV matching (appliedRoleId
       contactWebsite: null,
     };
   }
+
+  it("returns the current DB snapshot without waiting for a slow NHS refresh", async () => {
+    refreshCandidateBoardVacanciesMock.mockReturnValueOnce(new Promise(() => {}));
+    pushRolesDbResults([], []);
+
+    const response = await Promise.race([
+      request(buildApp()).get("/roles?source=job_board").set("Authorization", AUTH),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("route waited for NHS refresh")), 500),
+      ),
+    ]);
+
+    expect(response.status).toBe(200);
+    expect(refreshCandidateBoardVacanciesMock).toHaveBeenCalled();
+  });
 
   it("happy path: exact-match company + title → roleId appears in appliedRoleIds", async () => {
     const role = makeRole(42, "NHS Trust", "Consultant Cardiologist");

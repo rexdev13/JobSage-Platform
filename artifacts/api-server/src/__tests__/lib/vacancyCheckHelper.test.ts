@@ -36,12 +36,17 @@ vi.mock("@workspace/integrations-openai-ai-server", () => ({
   openai: { responses: { create: openaiCreateMock } },
 }));
 
-vi.mock("@workspace/db", () => ({
-  db: {
+vi.mock("@workspace/db", () => {
+  const db = {
     select: selectMock,
     insert: () => ({ values: insertValuesMock }),
     delete: () => ({ where: deleteWhereMock }),
     update: vi.fn(),
+  };
+  return {
+  db: {
+    ...db,
+    transaction: vi.fn(async (callback) => callback({ ...db, execute: vi.fn() })),
   },
   sponsorLicenceVacancyChecksTable: { organisationName: "organisationName", checkedAt: "checkedAt" },
   sponsorLicenceVacanciesTable: {
@@ -53,11 +58,14 @@ vi.mock("@workspace/db", () => ({
     id: "id",
   },
   sponsorLicencesTable: {},
-}));
+  };
+});
 
 vi.mock("drizzle-orm", () => ({
   eq: vi.fn(),
   and: vi.fn(),
+  or: vi.fn(),
+  inArray: vi.fn(),
   gt: vi.fn(),
   desc: vi.fn(),
   sql: vi.fn(),
