@@ -1,0 +1,36 @@
+IMPLEMENT company-site vacancy discovery using the CHECK DESIGN below.
+
+CRITICAL: candidate MATCHING must REUSE the existing Job Board / GET /roles pipeline. Do not invent a second classifier, labour list, region rule, or ranking. The first feed (source=job_board) already has this — company_site rows must go through THE SAME functions (sponsorVacancyRoles, roles.ts filters, my-matches boosts, liveness != dead, etc.). Only the source filter and apply URL/button change.
+
+Cap stays 0. No OpenAI web_search. No LinkedIn/Indeed scrape. No crawl on candidate GET /roles.
+
+## Checks
+- KEEP NHS/Reed board job: 02:00, 08:00, 14:00, 20:00 London, 250 employers, 15 workers, 24h TTL.
+- ADD a SEPARATE hourly company-site scheduler, OFFSET from board and liveness, 75–100 employers/run, 6–8 employer workers.
+- Per hostname: ONE in-flight request, 1.5–3s delay, shared across ATS hosts. Honor Retry-After. Persist exponential backoff on 403/429/5xx/timeouts. 8–10s page timeout, 20–30s budget per employer.
+- robots.txt; cache robots + careers mapping 24–48h.
+- Generic site TTL 48h; structured ATS 24h. Separate timestamp from NHS/Reed.
+- Website queue: ALL industries with a website. Bookmarks ≤25% of batch; ≥75% never-checked / oldest. Do NOT reuse healthcare-only board selectBatch.
+- Per employer: ≤3–4 discovery pages, cap extracted vacancies, deep links only, same-domain or known ATS.
+- Shared upsert/dedup pipeline (same as boards) with sourceType=company_site.
+- After commit: immediate liveness enqueue. Sweep remains repair. Show only after initial verification is LIVE.
+- Do not cache empty on robots/timeout/429/outage.
+- Opportunities DB-first. Never crawl on page load.
+
+## Matching — reuse, do not duplicate
+- Persist company_site rows so fetchSponsorVacanciesAsRoles / GET /roles / GET /roles/my-matches already consume them the same way as job_board rows.
+- GET /roles?source=company_site (and my-matches?source=company_site) = existing matcher + source filter only.
+- Same regulator mapping, labour blocklist, region behaviour, click/favourite ranking, dead exclusion as source=job_board.
+- If engineers/teachers currently get zero because regulator is GMC/NMC/HCPC-only, extend that EXISTING mapping in one place so both feeds benefit — do not special-case only company_site.
+- Do not drop company_site because a job_board row shares employer+title.
+
+## UI
+Card button label exactly: Apply on company's website
+Href = company_site deep link. Existing website click-tracking / extension gate. Not NHS/Reed/Indeed.
+
+## Prove
+Dry-run ATS + non-health + no website skip.
+Tests: same matching helpers used for both sources; GET /roles does not fetch employer HTML; unverified hidden; hourly job separate from runVacancyCheck; cap 0.
+
+Reply: which existing functions are reused, schedulers, files changed.
+Stop.
