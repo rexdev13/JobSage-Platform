@@ -84,6 +84,13 @@ router.post("/readiness/claims", requireAuthenticated, async (req: Request, res:
   }
 
   try {
+    const equivalentClaim = (await getCandidateReadinessClaims(req.user!.id))
+      .find((claim) => normalizeReadinessClaim(claim.claimKey) === claimKey);
+    if (equivalentClaim) {
+      res.status(200).json({ claim: serializeClaim(equivalentClaim), created: false });
+      return;
+    }
+
     const [inserted] = await db
       .insert(candidateReadinessClaimsTable)
       .values({

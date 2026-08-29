@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import express from "express";
 import cookieParser from "cookie-parser";
 import request from "supertest";
+import { filterAcknowledgedGaps } from "../../lib/readinessClaims";
 
 const { dbResults, mockGetSession } = vi.hoisted(() => ({
   dbResults: [] as any[],
@@ -147,37 +148,15 @@ describe("candidate readiness claims", () => {
   });
 
   it("creates a normalized self-declared claim with source context", async () => {
-    dbResults.push([{
-      id: 10,
-      userId: "candidate-1",
-      claimKey: "venepuncture experience",
-      claimText: "Venepuncture experience!",
-      sourceRoleId: null,
-      sourceVacancyId: 55,
-      createdAt: new Date("2026-08-29T08:00:00Z"),
-      updatedAt: new Date("2026-08-29T08:00:00Z"),
-    }]);
-    const response = await request(buildApp())
-      .post("/readiness/claims")
-      .set("Authorization", "Bearer candidate-session")
-      .send({ claimText: "Venepuncture experience!", sourceVacancyId: 55 });
-    expect(response.status).toBe(201);
-    expect(response.body).toMatchObject({
-      created: true,
-      claim: { claimKey: "venepuncture experience", sourceVacancyId: 55 },
-    });
-  });
-
-  it("returns the existing claim safely when a duplicate is submitted", async () => {
     dbResults.push(
       [],
       [{
         id: 10,
         userId: "candidate-1",
-        claimKey: "venepuncture experience",
-        claimText: "Venepuncture experience",
-        sourceRoleId: 12,
-        sourceVacancyId: null,
+        claimKey: "venipuncture",
+        claimText: "Venepuncture experience!",
+        sourceRoleId: null,
+        sourceVacancyId: 55,
         createdAt: new Date("2026-08-29T08:00:00Z"),
         updatedAt: new Date("2026-08-29T08:00:00Z"),
       }],
@@ -185,9 +164,46 @@ describe("candidate readiness claims", () => {
     const response = await request(buildApp())
       .post("/readiness/claims")
       .set("Authorization", "Bearer candidate-session")
+      .send({ claimText: "Venepuncture experience!", sourceVacancyId: 55 });
+    expect(response.status).toBe(201);
+    expect(response.body).toMatchObject({
+      created: true,
+      claim: { claimKey: "venipuncture", sourceVacancyId: 55 },
+    });
+  });
+
+  it("returns an equivalent legacy claim safely instead of inserting a duplicate", async () => {
+    dbResults.push([{
+      id: 10,
+      userId: "candidate-1",
+      claimKey: "No evidence of venepuncture experience",
+      claimText: "Venepuncture experience",
+      sourceRoleId: 12,
+      sourceVacancyId: null,
+      createdAt: new Date("2026-08-29T08:00:00Z"),
+      updatedAt: new Date("2026-08-29T08:00:00Z"),
+    }]);
+    const response = await request(buildApp())
+      .post("/readiness/claims")
+      .set("Authorization", "Bearer candidate-session")
       .send({ claimText: "Venepuncture experience" });
     expect(response.status).toBe(200);
     expect(response.body.created).toBe(false);
     expect(response.body.claim.id).toBe(10);
+  });
+
+  it("filters rephrased gaps from cached or regenerated analyses using legacy keys", () => {
+    const claims = [{ claimKey: "No evidence of venepuncture experience" }];
+    expect(filterAcknowledgedGaps(["Venipuncture experience is not shown"], claims)).toEqual([]);
+    expect(filterAcknowledgedGaps(["Medication administration experience"], claims)).toEqual([
+      "Medication administration experience",
+    ]);
+  });
+
+  it("never filters structured gaps based on legacy self-declared claims", () => {
+    expect(filterAcknowledgedGaps(
+      ["NMC registration is missing", "Enhanced DBS is not shown"],
+      [{ claimKey: "NMC registration" }, { claimKey: "Enhanced DBS" }],
+    )).toEqual(["NMC registration is missing", "Enhanced DBS is not shown"]);
   });
 });

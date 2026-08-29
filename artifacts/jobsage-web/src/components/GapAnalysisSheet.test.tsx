@@ -138,8 +138,40 @@ describe("GapAnalysisSheet readiness claims", () => {
 
     await waitFor(() => expect(toastMock).toHaveBeenCalledWith(expect.objectContaining({
       title: "Could not save acknowledgement",
+      description: expect.stringMatching(/not recorded/i),
       variant: "destructive",
     })));
     expect(screen.getByText("Venepuncture experience")).toBeTruthy();
+  });
+
+  it("hides a rephrased gap when reopening with a legacy saved claim", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/readiness/claims")) {
+        return jsonResponse({
+          claims: [{
+            claimKey: "No evidence of venepuncture experience",
+            claimText: "No evidence of venepuncture experience",
+          }],
+        });
+      }
+      if (url.endsWith("/gap-analyses/usage")) return jsonResponse({ used: 1, limit: 10 });
+      if (url.endsWith("/opportunities/roles/42/gap-analysis")) {
+        return jsonResponse({
+          ...analysis,
+          gaps: ["Venipuncture experience is not shown", "Enhanced DBS is not shown"],
+        });
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderSheet();
+
+    await screen.findByText("Enhanced DBS is not shown");
+    expect(screen.queryByText("Venipuncture experience is not shown")).toBeNull();
+    expect(screen.queryByRole("button", {
+      name: "I already have this: Venipuncture experience is not shown",
+    })).toBeNull();
   });
 });
