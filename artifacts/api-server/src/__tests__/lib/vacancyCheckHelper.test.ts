@@ -77,11 +77,18 @@ vi.mock("../../lib/reedOutageBackoff", () => ({
   failReedVacancyProbe: failReedVacancyProbeMock,
 }));
 
-const { runVacancyCheck } = await import("../../lib/vacancyCheckHelper");
+const {
+  MAX_QUALITY_VACANCIES_PER_EMPLOYER,
+  runVacancyCheck,
+} = await import("../../lib/vacancyCheckHelper");
 
 const originalCap = process.env["VACANCY_AI_WEB_SEARCH_DAILY_CAP"];
 
 describe("runVacancyCheck HTTP-first discovery", () => {
+  it("caps each employer snapshot at twelve quality adverts", () => {
+    expect(MAX_QUALITY_VACANCIES_PER_EMPLOYER).toBe(12);
+  });
+
   beforeEach(() => {
     openaiCreateMock.mockReset();
     searchNhsJobsMock.mockReset();

@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { insertedRows, executeMock } = vi.hoisted(() => ({
+const { insertedRows, executeMock, scheduleMock } = vi.hoisted(() => ({
   insertedRows: [] as any[],
   executeMock: vi.fn(async () => ({ rows: [] as { id: number; organisation_name: string }[] })),
+  scheduleMock: vi.fn(),
 }));
 
 vi.mock("@workspace/db", () => ({
@@ -18,7 +19,7 @@ vi.mock("@workspace/db", () => ({
   vacancySyncLogTable: {},
 }));
 
-vi.mock("node-cron", () => ({ default: { schedule: vi.fn() } }));
+vi.mock("node-cron", () => ({ default: { schedule: scheduleMock } }));
 
 const { runVacancyCheckMock } = vi.hoisted(() => ({
   runVacancyCheckMock: vi.fn(),
@@ -29,6 +30,10 @@ import {
   HEALTHCARE_SPONSOR_SQL_REGEXP,
   OBVIOUS_NON_HEALTH_INDUSTRY_INDICATORS,
   OBVIOUS_NON_HEALTH_INDUSTRY_SQL_REGEXP,
+  DEFAULT_VACANCY_CHECK_BATCH_SIZE,
+  VACANCY_CHECK_CONCURRENCY,
+  VACANCY_CHECK_CRON,
+  startVacancyCheckScheduler,
 } from "../../lib/vacancyCheckScheduler";
 vi.mock("../../lib/vacancyCheckHelper", () => ({
   runVacancyCheck: runVacancyCheckMock,
@@ -55,6 +60,7 @@ describe("runVacancyCheckBatch", () => {
     insertedRows.length = 0;
     runVacancyCheckMock.mockReset();
     executeMock.mockReset();
+    scheduleMock.mockReset();
   });
 
   it("processes the chunk concurrently, skips per-company failures, and writes a sync log", async () => {
@@ -115,5 +121,18 @@ describe("runVacancyCheckBatch", () => {
     await runVacancyCheckBatch("scheduler");
     expect(runVacancyCheckMock).not.toHaveBeenCalled();
     expect(insertedRows).toHaveLength(0);
+  });
+
+  it("uses the safe high-volume batch and six-hour schedule", () => {
+    expect(DEFAULT_VACANCY_CHECK_BATCH_SIZE).toBe(250);
+    expect(VACANCY_CHECK_CONCURRENCY).toBe(15);
+
+    startVacancyCheckScheduler();
+
+    expect(scheduleMock).toHaveBeenCalledWith(
+      VACANCY_CHECK_CRON,
+      expect.any(Function),
+      { timezone: "Europe/London" },
+    );
   });
 });

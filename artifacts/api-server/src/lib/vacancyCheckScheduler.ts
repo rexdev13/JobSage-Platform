@@ -6,8 +6,9 @@ import { runVacancyCheck } from "./vacancyCheckHelper";
 
 export type VacancySyncTriggeredBy = "scheduler" | "manual";
 
-const DEFAULT_BATCH_SIZE = 80;
-const BATCH_CONCURRENCY = 15;
+export const DEFAULT_VACANCY_CHECK_BATCH_SIZE = 250;
+export const VACANCY_CHECK_CONCURRENCY = 15;
+export const VACANCY_CHECK_CRON = "0 2,8,14,20 * * *";
 export const HEALTHCARE_SPONSOR_INDICATORS = [
   "nhs",
   "hospital",
@@ -45,7 +46,7 @@ function getBatchSize(): number {
     const n = parseInt(raw, 10);
     if (!isNaN(n) && n > 0) return n;
   }
-  return DEFAULT_BATCH_SIZE;
+  return DEFAULT_VACANCY_CHECK_BATCH_SIZE;
 }
 
 /**
@@ -81,6 +82,11 @@ async function selectBatch(batchSize: number): Promise<{ id: number; organisatio
         b.sponsor_licence_id IS NOT NULL
         OR lower(COALESCE(sl.industry, '')) ~* ${HEALTHCARE_SPONSOR_SQL_REGEXP}
         OR lower(sl.organisation_name) ~* ${HEALTHCARE_SPONSOR_SQL_REGEXP}
+        OR EXISTS (
+          SELECT 1
+          FROM sponsor_licence_vacancies sv
+          WHERE sv.organisation_name = sl.organisation_name
+        )
       )
       AND lower(COALESCE(sl.industry, '')) !~* ${OBVIOUS_NON_HEALTH_INDUSTRY_SQL_REGEXP}
     ORDER BY
@@ -110,7 +116,7 @@ export async function runVacancyCheckBatch(triggeredBy: VacancySyncTriggeredBy =
   try {
     const batchSize = getBatchSize();
     const startMs = Date.now();
-    console.log(`[vacancy-scheduler] Starting batch (size: ${batchSize}, concurrency: ${BATCH_CONCURRENCY}, triggered by: ${triggeredBy})`);
+    console.log(`[vacancy-scheduler] Starting batch (size: ${batchSize}, concurrency: ${VACANCY_CHECK_CONCURRENCY}, triggered by: ${triggeredBy})`);
 
     const rows = await selectBatch(batchSize);
     console.log(`[vacancy-scheduler] ${rows.length} companies selected`);
@@ -146,7 +152,7 @@ export async function runVacancyCheckBatch(triggeredBy: VacancySyncTriggeredBy =
       }
     }
     await Promise.all(
-      Array.from({ length: Math.min(BATCH_CONCURRENCY, rows.length) }, () => worker()),
+      Array.from({ length: Math.min(VACANCY_CHECK_CONCURRENCY, rows.length) }, () => worker()),
     );
 
     const durationMs = Date.now() - startMs;
@@ -177,7 +183,7 @@ export function startVacancyCheckScheduler(): void {
   // Batch every 6 hours with a 15-worker pool, honouring the tiered
   // prioritisation in selectBatch.
   cron.schedule(
-    "0 8 * * *",
+    VACANCY_CHECK_CRON,
     () => {
       runVacancyCheckBatch("scheduler").catch((err) => {
         console.error("[vacancy-scheduler] Unhandled scheduler error:", err);
@@ -187,6 +193,6 @@ export function startVacancyCheckScheduler(): void {
   );
 
   console.log(
-    `[vacancy-scheduler] Scheduler registered: daily at 08:00 Europe/London, batch size ${getBatchSize()}, concurrency ${BATCH_CONCURRENCY}`,
+    `[vacancy-scheduler] Scheduler registered: every 6 hours (${VACANCY_CHECK_CRON}) Europe/London, batch size ${getBatchSize()}, concurrency ${VACANCY_CHECK_CONCURRENCY}`,
   );
 }

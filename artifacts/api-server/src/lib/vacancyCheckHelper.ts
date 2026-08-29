@@ -31,6 +31,7 @@ import {
 } from "./nhsOutageBackoff";
 
 export const VACANCY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+export const MAX_QUALITY_VACANCIES_PER_EMPLOYER = 12;
 
 // Re-export shared URL policy so existing imports keep working.
 export { BLOCKED_VACANCY_DOMAINS, isBlockedVacancyUrl, isValidVacancyDeepLink };
@@ -220,7 +221,7 @@ export async function runVacancyCheck(
     if (!key || seenVacancies.has(key)) return false;
     seenVacancies.add(key);
     return true;
-  });
+  }).slice(0, MAX_QUALITY_VACANCIES_PER_EMPLOYER);
   vacanciesFound = vacancyList.length > 0;
   vacancyCount = vacancyList.length || null;
   summary = vacanciesFound
