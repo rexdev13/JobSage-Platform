@@ -1,12 +1,14 @@
-import { db, sponsorLicenceVacanciesTable, sponsorLicencesTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, sponsorLicencesTable } from "@workspace/db";
 import { candidateEmployerMatchesSponsor, searchNhsJobsForCandidate } from "./nhsJobsClient";
 import { regionsFromLocationText, regionsOverlap } from "./regionMatching";
 import { canonicalVacancyUrl, classifyVacancySource } from "./vacancySource";
+import { upsertSharedBoardVacancies } from "./boardVacancyPipeline";
 
 export const CANDIDATE_BOARD_CACHE_TTL_MS = 20 * 60 * 1000;
 export const CANDIDATE_BOARD_FAILURE_CACHE_TTL_MS = 20 * 60 * 1000;
 export const MAX_CANDIDATE_BOARD_RESULTS = 300;
+export const MIN_FRESH_CANDIDATE_BOARD_ROWS = 30;
+export const CANDIDATE_BOARD_SNAPSHOT_FRESH_MS = 6 * 60 * 60 * 1000;
 const CANDIDATE_BOARD_SOURCE = "job_board";
 
 type CandidateBoardProfile = {
@@ -23,6 +25,27 @@ export type CandidateBoardRefreshResult = {
   inserted: number;
   revived: number;
 };
+
+export function hasFreshCandidateBoardSnapshot(
+  roles: ReadonlyArray<{
+    lastDiscoveredAt: Date;
+    liveness: string;
+    applyUrl: string | null;
+    sourceType: string | null;
+    boardName: string | null;
+  }>,
+  now = Date.now(),
+): boolean {
+  const cutoff = now - CANDIDATE_BOARD_SNAPSHOT_FRESH_MS;
+  return roles.filter(
+    (role) =>
+      role.liveness === "live" &&
+      role.applyUrl != null &&
+      role.sourceType === "job_board" &&
+      (role.boardName === "NHS Jobs" || role.boardName === "Trac" || role.boardName === "HealthJobsUK") &&
+      new Date(role.lastDiscoveredAt).getTime() >= cutoff,
+  ).length >= MIN_FRESH_CANDIDATE_BOARD_ROWS;
+}
 
 type CacheEntry = {
   expiresAt: number;
@@ -90,47 +113,10 @@ async function runRefresh(profile: CandidateBoardProfile): Promise<CandidateBoar
     return [{ vacancy, organisationName, targetRegions, url, source }];
   }).slice(0, MAX_CANDIDATE_BOARD_RESULTS);
 
-  const existingRows = await db
-    .select()
-    .from(sponsorLicenceVacanciesTable)
-    .where(eq(sponsorLicenceVacanciesTable.sourceType, "job_board"));
-  const existingByCanonical = new Map(
-    existingRows.flatMap((row) => {
-      const canonical = row.url ? canonicalVacancyUrl(row.url) : null;
-      return canonical ? [[canonical, row] as const] : [];
-    }),
-  );
-
-  const now = new Date();
-  const checkDate = now.toISOString().slice(0, 10);
-  let inserted = 0;
-  let revived = 0;
-  for (const item of matched) {
-    const existing = existingByCanonical.get(item.url);
-    if (existing) {
-      await db
-        .update(sponsorLicenceVacanciesTable)
-        .set({
-          organisationName: item.organisationName,
-          title: item.vacancy.title,
-          location: item.vacancy.location,
-          salary: item.vacancy.salary,
-          postedDate: item.vacancy.postedDate,
-          targetRegions: item.targetRegions,
-          sourceType: "job_board",
-          boardName: item.source.boardName,
-          externalListingId: item.source.externalListingId,
-          liveness: "live",
-          lastVerifiedAt: now,
-          livenessReason: null,
-        })
-        .where(eq(sponsorLicenceVacanciesTable.id, existing.id));
-      if (existing.liveness !== "live") revived += 1;
-      continue;
-    }
-    await db.insert(sponsorLicenceVacanciesTable).values({
+  const persisted = await upsertSharedBoardVacancies(
+    matched.map((item) => ({
       organisationName: item.organisationName,
-      checkDate,
+      employer: item.vacancy.employer,
       title: item.vacancy.title,
       location: item.vacancy.location,
       salary: item.vacancy.salary,
@@ -138,26 +124,22 @@ async function runRefresh(profile: CandidateBoardProfile): Promise<CandidateBoar
       description: null,
       postedDate: item.vacancy.postedDate,
       targetRegions: item.targetRegions,
-      sourceType: "job_board",
-      boardName: item.source.boardName,
-      externalListingId: item.source.externalListingId,
-      liveness: "live",
-      lastVerifiedAt: now,
-      livenessReason: null,
-    });
-    inserted += 1;
-  }
+      boardName: item.source.boardName ?? "NHS Jobs",
+      externalId: item.source.externalListingId,
+    })),
+    { verifiedLive: true },
+  );
 
   console.info(
-    `[candidate-board] nhs searched=true discovered=${result.vacancies.length} sponsor_matched=${matched.length} inserted=${inserted} revived=${revived}`,
+    `[candidate-board] nhs searched=true discovered=${result.vacancies.length} sponsor_matched=${matched.length} inserted=${persisted.inserted} revived=${persisted.revived}`,
   );
   return {
     searched: true,
     failed: false,
     discovered: result.vacancies.length,
     sponsorMatched: matched.length,
-    inserted,
-    revived,
+    inserted: persisted.inserted,
+    revived: persisted.revived,
   };
 }
 

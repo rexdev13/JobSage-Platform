@@ -33,6 +33,7 @@ const {
   CANDIDATE_BOARD_CACHE_TTL_MS,
   MAX_CANDIDATE_BOARD_RESULTS,
   clearCandidateBoardDiscoveryCache,
+  hasFreshCandidateBoardSnapshot,
   refreshCandidateBoardVacancies,
 } = await import("../../lib/candidateBoardDiscovery");
 
@@ -40,6 +41,25 @@ describe("candidate board shared cache", () => {
   beforeEach(() => {
     clearCandidateBoardDiscoveryCache();
     searchNhsJobsForCandidateMock.mockReset();
+  });
+
+  it("uses a fresh snapshot only when at least 30 solid live rows are under six hours old", () => {
+    const now = new Date("2026-08-29T12:00:00Z").getTime();
+    const rows = Array.from({ length: 30 }, () => ({
+      lastDiscoveredAt: new Date(now - 5 * 60 * 60 * 1000),
+      liveness: "live",
+      applyUrl: "https://jobs.nhs.uk/candidate/jobadvert/C123",
+      sourceType: "job_board",
+      boardName: "NHS Jobs",
+    }));
+    expect(hasFreshCandidateBoardSnapshot(rows, now)).toBe(true);
+    expect(hasFreshCandidateBoardSnapshot(rows.slice(0, 29), now)).toBe(false);
+    expect(hasFreshCandidateBoardSnapshot([
+      ...rows.slice(0, 29),
+      { ...rows[29]!, lastDiscoveredAt: new Date(now - 7 * 60 * 60 * 1000) },
+    ], now)).toBe(false);
+    expect(hasFreshCandidateBoardSnapshot(rows.map((row) => ({ ...row, boardName: "Reed" })), now)).toBe(false);
+    expect(hasFreshCandidateBoardSnapshot(rows.map((row) => ({ ...row, sourceType: "company_site" })), now)).toBe(false);
   });
 
   it("shares one in-flight NHS search for the same profession, region, and source", async () => {

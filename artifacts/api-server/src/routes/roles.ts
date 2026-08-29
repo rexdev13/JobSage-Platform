@@ -57,7 +57,10 @@ import {
   compareOpportunityRanking,
   qualifiesForApplyFirst,
 } from "../lib/opportunityRanking";
-import { refreshCandidateBoardVacancies } from "../lib/candidateBoardDiscovery";
+import {
+  hasFreshCandidateBoardSnapshot,
+  refreshCandidateBoardVacancies,
+} from "../lib/candidateBoardDiscovery";
 import {
   filterAcknowledgedGaps,
   getCandidateReadinessClaims,
@@ -336,13 +339,6 @@ router.get("/roles", async (req, res): Promise<void> => {
     res.json({ roles: [], appliedRoleIds: [], decisionRecordId: null, rulesetVersion: "—", eligibilityOutcome: null, message: null, noProfile: false });
     return;
   }
-  if (sourceFilter === "job_board") {
-    // Candidate-time discovery can span multiple politely delayed NHS pages.
-    // Serve the current verified cache immediately and refresh it for the next
-    // request rather than holding the Opportunities screen in a loading state.
-    void refreshCandidateBoardVacancies(profile);
-  }
-
   const [decision] = await db
     .select()
     .from(decisionRecordsTable)
@@ -403,11 +399,17 @@ router.get("/roles", async (req, res): Promise<void> => {
   // AI-discovered sponsor-licence vacancies (daily pipeline) — merged in so the
   // page self-populates without any admin CSV upload. Deduped below against
   // CSV roles and employer jobs by employer+title.
-  const sponsorVacancyRoles = (await fetchSponsorVacanciesAsRoles(regulator, {
+  let sponsorVacancyRoles = (await fetchSponsorVacanciesAsRoles(regulator, {
     requireSpecificVacancyUrl: sourceFilter === "job_board",
     onlyVerifiedLive: sourceFilter === "job_board",
   }))
     .filter((role) => roleMatchesPreferredRegions(role.targetRegions, profile.preferredRegion));
+  if (sourceFilter === "job_board" && !hasFreshCandidateBoardSnapshot(sponsorVacancyRoles)) {
+    // A cold NHS search can span many politely paced pages. Keep the candidate
+    // request DB-first and non-blocking; the shared cache/store feeds the next
+    // request after this refresh completes.
+    void refreshCandidateBoardVacancies(profile);
+  }
 
   const curatedRoles = [
      ...allRoles
@@ -706,10 +708,6 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
     res.status(200).json({ matches: [], dismissedRoleIds: [], totalCount: 0, cached: false });
     return;
   }
-  if (sourceFilter === "job_board") {
-    void refreshCandidateBoardVacancies(profile);
-  }
-
   const [decision] = await db
     .select()
     .from(decisionRecordsTable)
@@ -769,11 +767,14 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
   // AI-discovered sponsor-licence vacancies. Only vacancies clearly classified
   // to the candidate's regulator qualify for the Best Matches strip; ambiguous
   // ones stay on the main board (bottom-ranked) instead.
-  const sponsorVacancyRoles = (await fetchSponsorVacanciesAsRoles(regulator, {
+  let sponsorVacancyRoles = (await fetchSponsorVacanciesAsRoles(regulator, {
     requireSpecificVacancyUrl: sourceFilter === "job_board",
     onlyVerifiedLive: sourceFilter === "job_board",
   }))
     .filter((role) => roleMatchesPreferredRegions(role.targetRegions, profile.preferredRegion));
+  if (sourceFilter === "job_board" && !hasFreshCandidateBoardSnapshot(sponsorVacancyRoles)) {
+    void refreshCandidateBoardVacancies(profile);
+  }
 
   const curatedRoles = [
      ...allRoles

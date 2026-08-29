@@ -112,6 +112,7 @@ export const sponsorLicenceVacanciesTable = pgTable(
     targetRegions: jsonb("target_regions").$type<string[]>().default([]),
     postedDate: text("posted_date"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    lastDiscoveredAt: timestamp("last_discovered_at", { withTimezone: true }).notNull().defaultNow(),
     // Liveness tracking: background sweep + click-time checker keep these current.
     // "unverified" = never checked (or URL missing), "live" = last check passed,
     // "dead" = last check hit 404/410/5xx or an expiration phrase (see livenessReason).
@@ -123,6 +124,7 @@ export const sponsorLicenceVacanciesTable = pgTable(
     index("sponsor_licence_vacancies_org_date_idx").on(t.organisationName, t.checkDate),
     index("sponsor_licence_vacancies_org_idx").on(t.organisationName),
     index("sponsor_licence_vacancies_liveness_idx").on(t.liveness, t.lastVerifiedAt),
+    index("sponsor_licence_vacancies_discovered_idx").on(t.lastDiscoveredAt),
   ],
 );
 
