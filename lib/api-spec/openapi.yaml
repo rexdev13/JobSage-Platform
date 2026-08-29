@@ -2447,6 +2447,66 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /me/calendly-url:
+    get:
+      operationId: getMyMarketingCalendlyUrl
+      tags: [AdminPortal]
+      summary: Get the signed-in marketing user's Calendly URL
+      responses:
+        "200":
+          description: Marketing user's booking URL.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketingCalendlyUrlResponse"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Only marketing users may access this endpoint.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    patch:
+      operationId: updateMyMarketingCalendlyUrl
+      tags: [AdminPortal]
+      summary: Save the signed-in marketing user's Calendly URL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarketingCalendlyUrlInput"
+      responses:
+        "200":
+          description: Updated booking URL.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketingCalendlyUrlResponse"
+        "400":
+          description: Invalid Calendly URL.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Only marketing users may access this endpoint.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
   /leads/{id}/assignee:
     patch:
       operationId: assignLeadMarketingUser
@@ -3186,6 +3246,55 @@ paths:
                 $ref: "#/components/schemas/ErrorEnvelope"
         "503":
           description: Invitation delivery failed and the account was rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /admin/super/users/{id}/calendly-url:
+    patch:
+      tags: [SuperAdmin]
+      operationId: updateSuperAdminMarketingCalendlyUrl
+      summary: Set or clear a marketing user's Calendly URL (super admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarketingCalendlyUrlInput"
+      responses:
+        "200":
+          description: Updated booking URL.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketingCalendlyUrlResponse"
+        "400":
+          description: Invalid URL or target is not a marketing account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Super admin only.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: User not found.
           content:
             application/json:
               schema:
@@ -6132,6 +6241,29 @@ components:
           nullable: true
         name:
           type: string
+        calendlyUrl:
+          type: string
+          format: uri
+          nullable: true
+
+    MarketingCalendlyUrlInput:
+      type: object
+      required: [calendlyUrl]
+      properties:
+        calendlyUrl:
+          type: string
+          description: HTTPS URL hosted on calendly.com. Send an empty string to clear it.
+          format: uri
+          nullable: true
+
+    MarketingCalendlyUrlResponse:
+      type: object
+      required: [calendlyUrl]
+      properties:
+        calendlyUrl:
+          type: string
+          format: uri
+          nullable: true
 
     LeadListStats:
       type: object
@@ -6728,6 +6860,10 @@ components:
           type: string
           minLength: 1
           maxLength: 80
+        calendlyUrl:
+          type: string
+          format: uri
+          nullable: true
 
     MarketingAccountCreatedResponse:
       type: object
@@ -6753,6 +6889,10 @@ components:
               enum: [marketing]
             emailVerified:
               type: boolean
+            calendlyUrl:
+              type: string
+              format: uri
+              nullable: true
 
     SuperAdminUserFull:
       type: object
@@ -6785,6 +6925,10 @@ components:
             lastLogin:
               type: string
               format: date-time
+              nullable: true
+            calendlyUrl:
+              type: string
+              format: uri
               nullable: true
         profile:
           type: object

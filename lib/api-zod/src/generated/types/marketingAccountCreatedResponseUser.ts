@@ -14,4 +14,5 @@ export type MarketingAccountCreatedResponseUser = {
   lastName?: string;
   role: MarketingAccountCreatedResponseUserRole;
   emailVerified: boolean;
+  calendlyUrl?: string | null;
 };

@@ -1664,6 +1664,16 @@ export interface LeadAssignee {
   id: string;
   email: string | null;
   name: string;
+  calendlyUrl?: string | null;
+}
+
+export interface MarketingCalendlyUrlInput {
+  /** HTTPS URL hosted on calendly.com. Send an empty string to clear it. */
+  calendlyUrl: string | null;
+}
+
+export interface MarketingCalendlyUrlResponse {
+  calendlyUrl: string | null;
 }
 
 export type ProgressReportResponseTopCompaniesItem = {
@@ -1978,6 +1988,7 @@ export interface MarketingAccountInput {
    * @maxLength 80
    */
   lastName: string;
+  calendlyUrl?: string | null;
 }
 
 export type MarketingAccountCreatedResponseUserRole =
@@ -1994,6 +2005,7 @@ export type MarketingAccountCreatedResponseUser = {
   lastName?: string;
   role: MarketingAccountCreatedResponseUserRole;
   emailVerified: boolean;
+  calendlyUrl?: string | null;
 };
 
 export interface MarketingAccountCreatedResponse {
@@ -2011,6 +2023,7 @@ export type SuperAdminUserFullUser = {
   createdAt: string;
   updatedAt: string;
   lastLogin: string | null;
+  calendlyUrl?: string | null;
 };
 
 export type SuperAdminUserFullProfile = { [key: string]: unknown } | null;

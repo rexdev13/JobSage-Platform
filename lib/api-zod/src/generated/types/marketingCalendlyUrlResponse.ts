@@ -6,9 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface LeadAssignee {
-  id: string;
-  email: string | null;
-  name: string;
-  calendlyUrl?: string | null;
+export interface MarketingCalendlyUrlResponse {
+  calendlyUrl: string | null;
 }
