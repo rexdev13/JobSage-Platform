@@ -66,7 +66,11 @@ vi.mock("@workspace/integrations-openai-ai-server", () => ({
   openai: { chat: { completions: { create: vi.fn() } } },
 }));
 
-const leadsRouter = (await import("../../routes/leads")).default;
+const {
+  default: leadsRouter,
+  isMarketingLeadVisible,
+  resolveMarketingLeadScope,
+} = await import("../../routes/leads");
 const { authMiddleware } = await import("../../middlewares/authMiddleware");
 
 function buildApp() {
@@ -115,32 +119,57 @@ describe("marketing lead access", () => {
     mockGetSession.mockResolvedValue(marketingSession);
   });
 
+  it("keeps marketing scope to its own or unassigned leads", () => {
+    expect(isMarketingLeadVisible("marketing-2", "marketing-1")).toBe(false);
+    expect(isMarketingLeadVisible("marketing-1", "marketing-1")).toBe(true);
+    expect(isMarketingLeadVisible(null, "marketing-1")).toBe(true);
+    expect(resolveMarketingLeadScope("marketing", "marketing-1", "")).toBe("mine_or_unassigned");
+    expect(resolveMarketingLeadScope("marketing", "marketing-1", "marketing-2")).toBe("mine_or_unassigned");
+    expect(resolveMarketingLeadScope("marketing", "marketing-1", "marketing-1")).toBe("mine");
+    expect(resolveMarketingLeadScope("admin", "admin-1", "marketing-2")).toBe("all");
+  });
+
   it("allows marketing to list only the approved lead fields", async () => {
     queryResults.push(
       [{ total: 1 }],
-      [{
-        id: 9,
-        name: "Ada Lovelace",
-        email: "ada@example.com",
-        phone: "07123 456789",
-        sector: "Technology",
-        source: "form",
-        status: "new",
-        createdAt: new Date("2026-08-20T12:00:00.000Z"),
-        desiredRole: "Product manager",
-        additionalMessage: "Interested in relocation",
-         assigneeId: "marketing-2",
-         assigneeEmail: "owner@example.com",
-         assigneeName: "Morgan Owner",
-         assigneeCalendlyUrl: "https://calendly.com/morgan-owner",
-      }],
+      [
+        {
+          id: 9,
+          name: "Ada Lovelace",
+          email: "ada@example.com",
+          phone: "07123 456789",
+          sector: "Technology",
+          source: "form",
+          status: "new",
+          createdAt: new Date("2026-08-20T12:00:00.000Z"),
+          desiredRole: "Product manager",
+          additionalMessage: "Interested in relocation",
+          assigneeId: null,
+          assigneeEmail: null,
+          assigneeName: null,
+          assigneeCalendlyUrl: null,
+        },
+        {
+          id: 10,
+          name: "Other Marketer Lead",
+          email: "other@example.com",
+          phone: null,
+          sector: "Technology",
+          source: "form",
+          status: "contacted",
+          createdAt: new Date("2026-08-20T12:00:00.000Z"),
+          desiredRole: null,
+          additionalMessage: null,
+          assigneeId: "marketing-2",
+          assigneeEmail: "owner@example.com",
+          assigneeName: "Morgan Owner",
+          assigneeCalendlyUrl: "https://calendly.com/morgan-owner",
+        },
+      ],
       [
         { status: "new", total: 1 },
-        { status: "contacted", total: 1 },
-        { status: "registered", total: 1 },
-        { status: "unqualified", total: 1 },
       ],
-      [{ total: 2 }],
+      [{ total: 1 }],
     );
 
     const response = await request(buildApp())
@@ -159,19 +188,14 @@ describe("marketing lead access", () => {
     ]);
     expect(response.body.leads[0]).not.toHaveProperty("ipHash");
     expect(response.body.leads[0]).not.toHaveProperty("utmCampaign");
-    expect(response.body.leads[0].assignee).toEqual({
-      id: "marketing-2",
-      email: "owner@example.com",
-      name: "Morgan Owner",
-      calendlyUrl: "https://calendly.com/morgan-owner",
-    });
+    expect(response.body.leads[0].assignee).toBeNull();
     expect(response.body.stats.statusTotals).toEqual({
       new: 1,
-      contacted: 1,
-      registered: 1,
-      unqualified: 1,
+      contacted: 0,
+      registered: 0,
+      unqualified: 0,
     });
-    expect(response.body.stats.createdLast7Days).toBe(2);
+    expect(response.body.stats.createdLast7Days).toBe(1);
   });
 
   it("allows marketing to update one lead status", async () => {
@@ -187,7 +211,10 @@ describe("marketing lead access", () => {
   });
 
   it("allows marketing to update statuses in bulk", async () => {
-    queryResults.push([{ id: 9 }, { id: 10 }]);
+    queryResults.push(
+      [{ id: 9, marketingUserId: "marketing-1" }, { id: 10, marketingUserId: null }],
+      [{ id: 9 }, { id: 10 }],
+    );
 
     const response = await request(buildApp())
       .patch("/leads/bulk-status")
@@ -196,6 +223,20 @@ describe("marketing lead access", () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ updated: 2 });
+  });
+
+  it("returns 403 when marketing tries to update another marketer's lead", async () => {
+    queryResults.push(
+      [],
+      [{ marketingUserId: "marketing-2" }],
+    );
+
+    const response = await request(buildApp())
+      .patch("/leads/9/status")
+      .set("Authorization", "Bearer marketing-session")
+      .send({ status: "contacted" });
+
+    expect(response.status).toBe(403);
   });
 
   it("denies marketing bulk deletion", async () => {
@@ -263,6 +304,80 @@ describe("admin lead assignment", () => {
   beforeEach(() => {
     queryResults.length = 0;
     mockGetSession.mockResolvedValue(adminSession);
+  });
+
+  it("keeps the full lead list scope for admins", async () => {
+    queryResults.push(
+      [{ total: 2 }],
+      [
+        {
+          id: 9,
+          firstName: "Ada",
+          lastName: "Admin",
+          email: "ada@example.com",
+          phone: null,
+          industrySector: null,
+          desiredRole: null,
+          additionalMessage: null,
+          utmSource: null,
+          utmMedium: null,
+          utmCampaign: null,
+          utmContent: null,
+          landingPath: null,
+          referrerUrl: null,
+          ipHash: null,
+          gdprConsent: true,
+          gdprConsentedAt: null,
+          status: "new",
+          source: "form",
+          convertedUserId: null,
+          marketingUserId: "marketing-2",
+          createdAt: new Date("2026-08-20T12:00:00.000Z"),
+          assigneeId: "marketing-2",
+          assigneeEmail: "owner@example.com",
+          assigneeName: "Morgan Owner",
+          assigneeCalendlyUrl: null,
+        },
+        {
+          id: 10,
+          firstName: "Una",
+          lastName: "Assigned",
+          email: "una@example.com",
+          phone: null,
+          industrySector: null,
+          desiredRole: null,
+          additionalMessage: null,
+          utmSource: null,
+          utmMedium: null,
+          utmCampaign: null,
+          utmContent: null,
+          landingPath: null,
+          referrerUrl: null,
+          ipHash: null,
+          gdprConsent: true,
+          gdprConsentedAt: null,
+          status: "new",
+          source: "form",
+          convertedUserId: null,
+          marketingUserId: null,
+          createdAt: new Date("2026-08-20T12:00:00.000Z"),
+          assigneeId: null,
+          assigneeEmail: null,
+          assigneeName: null,
+          assigneeCalendlyUrl: null,
+        },
+      ],
+      [{ status: "new", total: 2 }],
+      [{ total: 1 }],
+    );
+
+    const response = await request(buildApp())
+      .get("/leads")
+      .set("Authorization", "Bearer admin-session");
+
+    expect(response.status).toBe(200);
+    expect(response.body.total).toBe(2);
+    expect(response.body.leads).toHaveLength(2);
   });
 
   it("assigns a marketing user to a lead", async () => {
