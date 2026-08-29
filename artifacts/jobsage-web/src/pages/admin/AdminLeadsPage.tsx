@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@workspace/auth-web";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { canDeleteLeads } from "@/lib/roleAccess";
+import { useGetSponsorLicenceIndustries } from "@workspace/api-client-react";
 import { CalendarDays, Copy, ExternalLink, Loader2, Search, Users, Trash2, ChevronDown, UserPlus, UserCheck, UserX } from "lucide-react";
 import {
   Select,
@@ -352,6 +353,8 @@ export default function AdminLeadsPage() {
   const LIMIT = 25;
 
   const queryClient = useQueryClient();
+  const { data: industryData } = useGetSponsorLicenceIndustries();
+  const industries = industryData?.industries ?? [];
 
   const { data: assigneeData } = useQuery<{ assignees: LeadAssignee[] }>({
     queryKey: ["lead-assignees"],
@@ -617,15 +620,9 @@ export default function AdminLeadsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">All Industries</SelectItem>
-              <SelectItem value="Healthcare">Healthcare</SelectItem>
-              <SelectItem value="Technology">Technology</SelectItem>
-              <SelectItem value="Engineering">Engineering</SelectItem>
-              <SelectItem value="Finance">Finance</SelectItem>
-              <SelectItem value="Marketing">Marketing</SelectItem>
-              <SelectItem value="Education">Education</SelectItem>
-              <SelectItem value="Construction">Construction</SelectItem>
-              <SelectItem value="Retail">Retail</SelectItem>
-              <SelectItem value="Other">Other</SelectItem>
+              {industries.map((industry) => (
+                <SelectItem key={industry} value={industry}>{industry}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Select
