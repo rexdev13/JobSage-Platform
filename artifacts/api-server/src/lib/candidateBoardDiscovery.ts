@@ -4,9 +4,10 @@ import { candidateEmployerMatchesSponsor, searchNhsJobsForCandidate } from "./nh
 import { regionsFromLocationText, regionsOverlap } from "./regionMatching";
 import { canonicalVacancyUrl, classifyVacancySource } from "./vacancySource";
 
-const CACHE_TTL_MS = 20 * 60 * 1000;
-const FAILURE_CACHE_TTL_MS = 2 * 60 * 1000;
-export const MAX_CANDIDATE_BOARD_RESULTS = 120;
+export const CANDIDATE_BOARD_CACHE_TTL_MS = 20 * 60 * 1000;
+export const CANDIDATE_BOARD_FAILURE_CACHE_TTL_MS = 20 * 60 * 1000;
+export const MAX_CANDIDATE_BOARD_RESULTS = 300;
+const CANDIDATE_BOARD_SOURCE = "job_board";
 
 type CandidateBoardProfile = {
   profession: string;
@@ -16,6 +17,7 @@ type CandidateBoardProfile = {
 
 export type CandidateBoardRefreshResult = {
   searched: boolean;
+  failed: boolean;
   discovered: number;
   sponsorMatched: number;
   inserted: number;
@@ -61,7 +63,14 @@ async function runRefresh(profile: CandidateBoardProfile): Promise<CandidateBoar
     MAX_CANDIDATE_BOARD_RESULTS,
   );
   if (!result.resultsRequestSucceeded) {
-    return { searched: true, discovered: result.vacancies.length, sponsorMatched: 0, inserted: 0, revived: 0 };
+    return {
+      searched: true,
+      failed: true,
+      discovered: result.vacancies.length,
+      sponsorMatched: 0,
+      inserted: 0,
+      revived: 0,
+    };
   }
 
   const sponsors = await db
@@ -144,6 +153,7 @@ async function runRefresh(profile: CandidateBoardProfile): Promise<CandidateBoar
   );
   return {
     searched: true,
+    failed: false,
     discovered: result.vacancies.length,
     sponsorMatched: matched.length,
     inserted,
@@ -154,20 +164,28 @@ async function runRefresh(profile: CandidateBoardProfile): Promise<CandidateBoar
 export async function refreshCandidateBoardVacancies(
   profile: CandidateBoardProfile,
 ): Promise<CandidateBoardRefreshResult> {
-  const regions = preferredRegions(profile).sort();
-  const key = `${professionKeywords(profile).toLowerCase()}|${regions.join(",").toLowerCase()}`;
+  const regions = [...new Set(
+    preferredRegions(profile)
+      .map((region) => region.trim().toLowerCase())
+      .filter(Boolean),
+  )].sort();
+  const keywords = professionKeywords(profile).trim().toLowerCase().replace(/\s+/g, " ");
+  const key = `${CANDIDATE_BOARD_SOURCE}|${keywords}|${regions.join(",")}`;
   const existing = cache.get(key);
   if (existing && existing.expiresAt > Date.now()) return existing.promise;
 
   const promise = runRefresh(profile).catch((error) => {
     console.warn("[candidate-board] NHS live refresh failed:", error instanceof Error ? error.message : error);
-    return { searched: true, discovered: 0, sponsorMatched: 0, inserted: 0, revived: 0 };
+    return { searched: true, failed: true, discovered: 0, sponsorMatched: 0, inserted: 0, revived: 0 };
   });
-  const entry = { expiresAt: Date.now() + CACHE_TTL_MS, promise };
+  const entry = { expiresAt: Date.now() + CANDIDATE_BOARD_CACHE_TTL_MS, promise };
   cache.set(key, entry);
   void promise.then((result) => {
-    if (result.discovered === 0 && result.sponsorMatched === 0) {
-      entry.expiresAt = Math.min(entry.expiresAt, Date.now() + FAILURE_CACHE_TTL_MS);
+    if (result.failed) {
+      entry.expiresAt = Math.min(
+        entry.expiresAt,
+        Date.now() + CANDIDATE_BOARD_FAILURE_CACHE_TTL_MS,
+      );
     }
   });
   return promise;

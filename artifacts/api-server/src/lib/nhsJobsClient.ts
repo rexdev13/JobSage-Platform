@@ -6,7 +6,7 @@ const REQUEST_TIMEOUT_MS = 8_000;
 const USER_AGENT = "JOBSAGE vacancy discovery/1.0 (+https://jobsage.co.uk)";
 const MAX_VACANCIES_PER_EMPLOYER = 8;
 const MAX_EXTRA_HTML_PAGES = 3;
-export const MAX_CANDIDATE_HTML_PAGES = 12;
+export const MAX_CANDIDATE_HTML_PAGES = 30;
 export const NHS_HTML_PAGE_DELAY_MS = 250;
 
 export type NhsJobsVacancy = {
@@ -412,12 +412,17 @@ export async function searchNhsJobsForCandidate(
       interrupted = true;
       break;
     }
+    const countBeforePage = vacancies.length;
     for (const vacancy of parseNhsJobsCandidateHtml(response.text)) {
       if (urls.has(vacancy.url)) continue;
       urls.add(vacancy.url);
       vacancies.push(vacancy);
       if (vacancies.length >= limit) break;
     }
+    // A repeated or exhausted results page cannot produce more candidates.
+    // Stop here rather than spending the remaining polite-delay budget on
+    // identical pages.
+    if (vacancies.length === countBeforePage) break;
   }
 
   return {

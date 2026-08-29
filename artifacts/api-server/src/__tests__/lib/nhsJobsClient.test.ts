@@ -146,7 +146,17 @@ describe("NHS Jobs HTML pagination", () => {
   });
 
   it("uses the expanded bounded candidate page budget", () => {
-    expect(MAX_CANDIDATE_HTML_PAGES).toBe(12);
+    expect(MAX_CANDIDATE_HTML_PAGES).toBe(30);
+  });
+
+  it("stops paginating when a page adds no new vacancies", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response(RESULTS_HTML));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await searchNhsJobsForCandidate("nurse", "London", 300);
+
+    expect(result.vacancies).toHaveLength(2);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("stops on an NHS 5xx response and reports a transient failure", async () => {
@@ -162,6 +172,22 @@ describe("NHS Jobs HTML pagination", () => {
       resultsRequestSucceeded: false,
       transientFailure: true,
     });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("stops candidate pagination on a 429 and reports a transient failure", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(response(resultPage(1, 10)))
+      .mockResolvedValueOnce(response("Too many requests", 429));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await searchNhsJobsForCandidate("nurse", "London", 300);
+
+    expect(result).toMatchObject({
+      resultsRequestSucceeded: false,
+      transientFailure: true,
+    });
+    expect(result.vacancies).toHaveLength(10);
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
