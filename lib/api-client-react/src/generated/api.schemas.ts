@@ -1667,6 +1667,19 @@ export interface LeadAssignee {
   calendlyUrl?: string | null;
 }
 
+export interface BulkLeadAssigneeInput {
+  /** @minItems 1 */
+  ids: number[];
+  /** Marketing user ID, or null to unassign the selected leads. */
+  marketingUserId: string | null;
+}
+
+export interface BulkLeadAssigneeResponse {
+  updated: number;
+  marketingUserId: string | null;
+  assignee: LeadAssignee | null;
+}
+
 export interface MarketingCalendlyUrlInput {
   /** HTTPS URL hosted on calendly.com. Send an empty string to clear it. */
   calendlyUrl: string | null;

@@ -299,4 +299,88 @@ describe("admin lead assignment", () => {
     expect(response.status).toBe(400);
     expect(response.body.error).toContain("not a marketing user");
   });
+
+  it("assigns multiple leads to one marketing user", async () => {
+    queryResults.push(
+      [{
+        id: "marketing-2",
+        email: "owner@example.com",
+        name: "Morgan Owner",
+        calendlyUrl: "https://calendly.com/morgan-owner",
+      }],
+      [{ id: 9 }, { id: 10 }],
+    );
+
+    const response = await request(buildApp())
+      .patch("/leads/bulk-assignee")
+      .set("Authorization", "Bearer admin-session")
+      .send({ ids: [9, 10], marketingUserId: "marketing-2" });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      updated: 2,
+      marketingUserId: "marketing-2",
+      assignee: {
+        id: "marketing-2",
+        email: "owner@example.com",
+        name: "Morgan Owner",
+        calendlyUrl: "https://calendly.com/morgan-owner",
+      },
+    });
+  });
+
+  it("allows bulk unassignment with a null marketing user", async () => {
+    queryResults.push([{ id: 9 }, { id: 10 }]);
+
+    const response = await request(buildApp())
+      .patch("/leads/bulk-assignee")
+      .set("Authorization", "Bearer admin-session")
+      .send({ ids: [9, 10], marketingUserId: null });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      updated: 2,
+      marketingUserId: null,
+      assignee: null,
+    });
+  });
+
+  it("rejects an empty or invalid bulk lead ID list", async () => {
+    const emptyResponse = await request(buildApp())
+      .patch("/leads/bulk-assignee")
+      .set("Authorization", "Bearer admin-session")
+      .send({ ids: [], marketingUserId: "marketing-2" });
+
+    expect(emptyResponse.status).toBe(400);
+
+    const invalidResponse = await request(buildApp())
+      .patch("/leads/bulk-assignee")
+      .set("Authorization", "Bearer admin-session")
+      .send({ ids: ["not-a-lead"], marketingUserId: "marketing-2" });
+
+    expect(invalidResponse.status).toBe(400);
+  });
+
+  it("rejects a non-marketing user for bulk assignment", async () => {
+    queryResults.push([]);
+
+    const response = await request(buildApp())
+      .patch("/leads/bulk-assignee")
+      .set("Authorization", "Bearer admin-session")
+      .send({ ids: [9, 10], marketingUserId: "candidate-1" });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toContain("not a marketing user");
+  });
+
+  it("denies marketing users bulk lead assignment", async () => {
+    mockGetSession.mockResolvedValue(marketingSession);
+
+    const response = await request(buildApp())
+      .patch("/leads/bulk-assignee")
+      .set("Authorization", "Bearer marketing-session")
+      .send({ ids: [9, 10], marketingUserId: "marketing-2" });
+
+    expect(response.status).toBe(403);
+  });
 });

@@ -2572,6 +2572,43 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /leads/bulk-assignee:
+    patch:
+      operationId: bulkAssignLeadMarketingUser
+      tags: [AdminPortal]
+      summary: Assign or unassign one marketing user across multiple leads
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkLeadAssigneeInput"
+      responses:
+        "200":
+          description: Bulk lead assignment result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkLeadAssigneeResponse"
+        "400":
+          description: Invalid lead IDs or non-marketing assignee.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Only admins may assign leads.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
   /speculative-applications:
     get:
       operationId: listSpeculativeApplications
@@ -6244,6 +6281,35 @@ components:
         calendlyUrl:
           type: string
           format: uri
+          nullable: true
+
+    BulkLeadAssigneeInput:
+      type: object
+      required: [ids, marketingUserId]
+      properties:
+        ids:
+          type: array
+          minItems: 1
+          items:
+            type: integer
+            minimum: 1
+        marketingUserId:
+          type: string
+          nullable: true
+          description: Marketing user ID, or null to unassign the selected leads.
+
+    BulkLeadAssigneeResponse:
+      type: object
+      required: [updated, marketingUserId, assignee]
+      properties:
+        updated:
+          type: integer
+        marketingUserId:
+          type: string
+          nullable: true
+        assignee:
+          allOf:
+            - $ref: "#/components/schemas/LeadAssignee"
           nullable: true
 
     MarketingCalendlyUrlInput:

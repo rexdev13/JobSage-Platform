@@ -2816,6 +2816,31 @@ export const AssignLeadMarketingUserResponse = zod.object({
 });
 
 /**
+ * @summary Assign or unassign one marketing user across multiple leads
+ */
+
+export const BulkAssignLeadMarketingUserBody = zod.object({
+  ids: zod.array(zod.number().min(1)).min(1),
+  marketingUserId: zod
+    .string()
+    .nullable()
+    .describe("Marketing user ID, or null to unassign the selected leads."),
+});
+
+export const BulkAssignLeadMarketingUserResponse = zod.object({
+  updated: zod.number(),
+  marketingUserId: zod.string().nullable(),
+  assignee: zod
+    .object({
+      id: zod.string(),
+      email: zod.string().nullable(),
+      name: zod.string(),
+      calendlyUrl: zod.string().url().nullish(),
+    })
+    .nullable(),
+});
+
+/**
  * @summary List candidate's speculative CV submissions
  */
 export const ListSpeculativeApplicationsResponse = zod.object({
