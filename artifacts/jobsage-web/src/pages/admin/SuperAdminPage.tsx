@@ -4,6 +4,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useGetSponsorLicenceIndustries } from "@workspace/api-client-react";
 import {
   Users, Briefcase, CheckCircle, FileText, Building2, RefreshCw,
   ChevronDown, ChevronUp, Shield, Activity, Search, ExternalLink,
@@ -136,6 +137,7 @@ function OverviewTab() {
   const [stats, setStats] = useState<PlatformStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [industry, setIndustry] = useState("");
+  const { data: industryData } = useGetSponsorLicenceIndustries();
 
   useEffect(() => {
     setLoading(true);
@@ -159,22 +161,7 @@ function OverviewTab() {
     ? new Date(stats.lastSponsorSync).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
     : "Never";
   const marketing = stats.marketingPerformance;
-  const industryOptions = [
-    "Healthcare",
-    "Social Care",
-    "Education",
-    "Engineering",
-    "Construction",
-    "Technology",
-    "Hospitality",
-    "Finance",
-    "Retail",
-    "Transport",
-    "Legal & Professional",
-    "Public Services",
-    "Manufacturing",
-    "Other",
-  ];
+  const industryOptions = industryData?.industries ?? [];
 
   return (
     <div className="space-y-6">
