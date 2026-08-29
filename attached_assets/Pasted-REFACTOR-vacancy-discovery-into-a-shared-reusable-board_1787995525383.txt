@@ -1,0 +1,33 @@
+REFACTOR vacancy discovery into a shared, reusable board pipeline. Efficient: one pool, shared live cache, no per-user scrape. Effective: hide dead links. Cap stays 0. No Indeed/LinkedIn scrape. No Adzuna/Reed API calls until keys exist — add adapter interfaces only.
+
+## Architecture
+BoardAdapter: searchByEmployer(organisationName) -> normalised ads { title, employer, location, url, boardName, externalId }.
+Implementations: existing NHS client, existing Reed HTML. Same matcher, url policy, labour filter, upsert, outage lease.
+
+Persistence: sponsor_licence_vacancies is the shared store for ALL candidates. Dedup by canonical URL. Prefer NHS over Reed if same fingerprint (org + title + location).
+
+## Candidate Job Board (GET /roles?source=job_board)
+1) Serve from DB first (regulator, labour, liveness != dead, sponsor match). This is the default.
+2) Live NHS profession(+region) search ONLY on SHARED cache miss (existing 20 min key). Not per user, not per session. Ten NMC London users = one NHS live pull.
+3) If background snapshot for that profession is fresh (< 6 hours) AND DB already returns a solid list (e.g. >= 30 open job_board rows after filters), SKIP live NHS this request — DB is enough.
+4) Upsert live hits into the shared table so the next user benefits.
+5) Reed: never on the request path.
+
+## Background (6h, 250 orgs, 15 workers)
+Keep NHS then Reed per employer, sequential, cache 24h per org, politeness/delays.
+Harden Reed employer match (aliases, contains either way) so Reed is not always 0. Still drop clearly different companies.
+Do not add a third HTML scraper.
+
+## Dead links (everyone)
+Liveness sweep applies to all stored apply URLs (job_board + company_site). NHS/Reed closed banners → dead. Job Board and company-site apply never show dead. Re-sweep after ingest.
+
+## Tests
+- Two users same profession+region inside TTL = one live NHS call
+- Fresh DB short-circuit skips live pull
+- Dead URL excluded
+- Reed+NHS same URL/fingerprint = one row
+- Cap 0, no OpenAI
+- Adapter: adding a fake board does not require duplicating upsert/liveness
+
+Reply: files changed, live vs DB decision in one paragraph, Reed match change.
+Stop.
