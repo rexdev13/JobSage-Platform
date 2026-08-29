@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Sheet,
@@ -9,8 +9,13 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui-enhanced";
 import { useToast } from "@/hooks/use-toast";
-import { Send, ExternalLink, CheckCircle2, XCircle, Lightbulb, Loader2, AlertTriangle, Sparkles } from "lucide-react";
+import { Send, ExternalLink, CheckCircle2, XCircle, Lightbulb, Loader2, AlertTriangle, Sparkles, UserRoundCog } from "lucide-react";
 import { openTrackedSponsorVacancy } from "@/lib/trackedOutbound";
+import {
+  normalizeReadinessClaim,
+  requiresStructuredProfileUpdate,
+  unresolvedReadinessGaps,
+} from "@/lib/readinessClaims";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
@@ -34,6 +39,7 @@ interface GapAnalysisSheetProps {
   onWebsiteApply: () => void;
   /** Override the API path (relative to /api). Defaults to /sponsor-licences/vacancies/:vacancyId/gap-analysis */
   analysisEndpoint?: string;
+  analysisSource?: "role" | "sponsor_vacancy";
 }
 
 interface UsageData { used: number; limit: number; }
@@ -49,10 +55,35 @@ export function GapAnalysisSheet({
   onApply,
   onWebsiteApply,
   analysisEndpoint,
+  analysisSource = "sponsor_vacancy",
 }: GapAnalysisSheetProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [limitReached, setLimitReached] = useState(false);
+  const [acknowledgingClaimKey, setAcknowledgingClaimKey] = useState<string | null>(null);
+  const [acknowledgedThisSession, setAcknowledgedThisSession] = useState<Set<string>>(new Set());
+  const [lastAcknowledged, setLastAcknowledged] = useState<string | null>(null);
+
+  const { data: claimsData, isError: claimsError } = useQuery<{
+    claims: Array<{ claimKey: string; claimText: string }>;
+  }>({
+    queryKey: ["readiness-claims"],
+    enabled: open,
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/readiness/claims`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch readiness claims.");
+      return res.json() as Promise<{ claims: Array<{ claimKey: string; claimText: string }> }>;
+    },
+    staleTime: 0,
+  });
+
+  const acknowledgedKeys = useMemo(
+    () => new Set([
+      ...(claimsData?.claims ?? []).map((claim) => claim.claimKey),
+      ...acknowledgedThisSession,
+    ]),
+    [claimsData, acknowledgedThisSession],
+  );
 
   const { data: usage } = useQuery<UsageData>({
     queryKey: ["gap-analysis-usage"],
@@ -66,7 +97,7 @@ export function GapAnalysisSheet({
   });
 
   const { data, isLoading, isError, error } = useQuery<GapAnalysisData>({
-    queryKey: ["gap-analysis", vacancyId],
+    queryKey: ["gap-analysis", analysisEndpoint ?? "sponsor-vacancy", vacancyId],
     enabled: open && !limitReached,
     staleTime: 7 * 24 * 60 * 60 * 1000, // 7 days — matches server TTL
     retry: false,
@@ -90,6 +121,52 @@ export function GapAnalysisSheet({
       return res.json() as Promise<GapAnalysisData>;
     },
   });
+  const visibleGaps = useMemo(
+    () => unresolvedReadinessGaps(data?.gaps ?? [], acknowledgedKeys),
+    [data?.gaps, acknowledgedKeys],
+  );
+
+  async function acknowledgeGap(gap: string) {
+    const claimKey = normalizeReadinessClaim(gap);
+    setAcknowledgingClaimKey(claimKey);
+    setLastAcknowledged(null);
+    setAcknowledgedThisSession((current) => new Set(current).add(claimKey));
+    try {
+      const res = await fetch(`${API_BASE}/readiness/claims`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          claimText: gap,
+          ...(analysisSource === "role" ? { sourceRoleId: vacancyId } : { sourceVacancyId: vacancyId }),
+        }),
+      });
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      if (!res.ok) throw new Error(body.error ?? "Could not save this acknowledgement.");
+      setLastAcknowledged(gap);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["readiness-claims"] }),
+        queryClient.invalidateQueries({ queryKey: ["gap-analysis"] }),
+      ]);
+      toast({
+        title: "Gap acknowledged",
+        description: "Saved as a self-declared claim. It is not verified and will not change your compliance profile.",
+      });
+    } catch (err) {
+      setAcknowledgedThisSession((current) => {
+        const next = new Set(current);
+        next.delete(claimKey);
+        return next;
+      });
+      toast({
+        title: "Could not save acknowledgement",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setAcknowledgingClaimKey(null);
+    }
+  }
 
   // When a fresh (non-cached) result arrives, invalidate the usage counter so
   // the X/10 badge reflects the new count without waiting for the 60s stale time.
@@ -210,23 +287,60 @@ export function GapAnalysisSheet({
                   </div>
                   <h3 className="text-sm font-semibold text-foreground">Gaps to Address</h3>
                   <span className="ml-auto text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                    {data.gaps.length}
+                    {visibleGaps.length}
                   </span>
                 </div>
-                {data.gaps.length > 0 ? (
+                {lastAcknowledged && (
+                  <div className="mb-3 flex items-start gap-2 rounded-lg border border-green-200 bg-green-50/70 px-3 py-2 text-xs text-green-800 dark:border-green-800/40 dark:bg-green-950/20 dark:text-green-300" role="status">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span><strong>Saved:</strong> “{lastAcknowledged}” is now treated as a self-declared claim, not verified compliance evidence.</span>
+                  </div>
+                )}
+                {visibleGaps.length > 0 ? (
                   <ul className="space-y-2">
-                    {data.gaps.map((gap, i) => (
+                    {visibleGaps.map((gap) => (
                       <li
-                        key={i}
-                        className="flex items-start gap-2.5 text-sm text-foreground rounded-lg bg-red-50/70 dark:bg-red-950/20 border border-red-200/60 dark:border-red-800/30 px-3 py-2"
+                        key={normalizeReadinessClaim(gap)}
+                        className="rounded-lg bg-red-50/70 dark:bg-red-950/20 border border-red-200/60 dark:border-red-800/30 px-3 py-2"
                       >
-                        <XCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-                        {gap}
+                        <div className="flex items-start gap-2.5 text-sm text-foreground">
+                          <XCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                          <span>{gap}</span>
+                        </div>
+                        {requiresStructuredProfileUpdate(gap) ? (
+                          <a
+                            href={`${import.meta.env.BASE_URL}profile`}
+                            className="mt-2 inline-flex min-h-9 items-center gap-1.5 rounded-md border border-primary/30 bg-background px-2.5 text-xs font-medium text-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          >
+                            <UserRoundCog className="h-3.5 w-3.5" />
+                            Review this in my profile
+                          </a>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="mt-2 min-h-9 border-red-300/70 bg-background text-xs"
+                            disabled={acknowledgingClaimKey !== null}
+                            onClick={() => void acknowledgeGap(gap)}
+                            aria-label={`I already have this: ${gap}`}
+                          >
+                            {acknowledgingClaimKey === normalizeReadinessClaim(gap)
+                              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              : <CheckCircle2 className="h-3.5 w-3.5" />}
+                            I already have this
+                          </Button>
+                        )}
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-xs text-muted-foreground italic">No significant gaps identified — great fit!</p>
+                  <p className="text-xs text-muted-foreground italic">No unresolved gaps identified — great fit!</p>
+                )}
+                {claimsError && (
+                  <p className="mt-2 text-xs text-amber-700 dark:text-amber-400" role="status">
+                    Saved acknowledgements could not be loaded. Please refresh before reviewing this result.
+                  </p>
                 )}
               </section>
 

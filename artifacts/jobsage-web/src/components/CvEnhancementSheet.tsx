@@ -22,13 +22,15 @@ import {
   useListMyDocuments,
   getListMyDocumentsQueryKey,
   getCareerProfilesQueryKey,
+  useListCareerProfiles,
+  useGetMyProfile,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 const DAILY_LIMIT = 5;
 
-type Mode  = "general" | "focused";
+type Mode  = "general" | "focused" | "focus_only";
 type Phase = "input" | "review" | "success";
 
 interface EnhancementResult {
@@ -76,8 +78,11 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
   const [generationsLeft, setGenerationsLeft] = useState<number | null>(null);
   const [finalizeResult, setFinalizeResult]   = useState<FinalizeResult | null>(null);
   const [setAsPrimary, setSetAsPrimary]       = useState(true);
+  const [focusInitialized, setFocusInitialized] = useState(false);
 
   const { data: documentsData } = useListMyDocuments();
+  const { data: careerProfilesData } = useListCareerProfiles();
+  const { data: profileData } = useGetMyProfile();
   const cvDocuments: CvDocument[] = (documentsData?.documents ?? [])
     .filter((d) => (d as { documentType?: string | null }).documentType === "cv")
     .map((d) => ({
@@ -86,6 +91,21 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
       label:     (d as { label?: string | null }).label ?? null,
       isPrimary: (d as { isPrimary?: boolean }).isPrimary ?? false,
     }));
+
+  const activeCareerProfile =
+    careerProfilesData?.profiles.find((profile) => profile.isActive);
+
+  // Prefill once per opening, without replacing anything the candidate types afterward.
+  useEffect(() => {
+    if (!open) {
+      setFocusInitialized(false);
+      return;
+    }
+    if (focusInitialized || careerProfilesData === undefined) return;
+
+    setFocus(activeCareerProfile?.focusArea?.trim() ?? "");
+    setFocusInitialized(true);
+  }, [open, careerProfilesData, activeCareerProfile?.focusArea, focusInitialized]);
 
   // Auto-select primary (or first) when list loads
   useEffect(() => {
@@ -105,12 +125,14 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
       setIsGenerating(false);
       setFinalizeResult(null);
       setSetAsPrimary(true);
+      setFocus("");
+      setFocusInitialized(false);
     }, 300);
   }
 
   async function handleEnhance() {
     if (!selectedCvId) return;
-    if (mode === "focused" && !focus.trim()) return;
+    if ((mode === "focused" || mode === "focus_only") && !focus.trim()) return;
     setIsGenerating(true);
     try {
       const res = await fetch(`${API_BASE}/profiles/cv-enhancement`, {
@@ -120,7 +142,7 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
         body:        JSON.stringify({
           documentId: selectedCvId,
           mode,
-          focus: mode === "focused" ? focus.trim() : undefined,
+          focus: mode === "general" ? undefined : focus.trim(),
         }),
       });
       if (!res.ok) {
@@ -293,11 +315,18 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
                       <p className="text-xs text-muted-foreground mt-0.5">Tailor the rewrite toward a specific role, specialty, or employer type.</p>
                     </div>
                   </label>
+                  <label className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-colors ${mode === "focus_only" ? "border-primary/50 bg-primary/5" : "border-border hover:border-primary/30"}`}>
+                    <input type="radio" name="enh-mode" value="focus_only" checked={mode === "focus_only"} onChange={() => setMode("focus_only")} className="mt-0.5 accent-primary shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground">Focus only</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Strip unrelated content. Expand and highlight only what matches your focus. Will not add jobs, dates, or metrics that are not on your CV.</p>
+                    </div>
+                  </label>
                 </fieldset>
               )}
 
               {/* Focus text field */}
-              {mode === "focused" && cvDocuments.length > 0 && (
+              {(mode === "focused" || mode === "focus_only") && cvDocuments.length > 0 && (
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-foreground" htmlFor="cv-focus">
                     What should the rewrite focus on?
@@ -311,6 +340,11 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
                     maxLength={500}
                     className="w-full rounded-xl border border-border bg-muted/40 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
                   />
+                  {profileData?.specialty && (
+                    <p className="text-xs text-muted-foreground">
+                      Profile specialty hint only: <span className="font-medium text-foreground">{profileData.specialty}</span>. Edit the focus above to choose the target for this rewrite.
+                    </p>
+                  )}
                   <p className="text-xs text-muted-foreground text-right">{focus.length}/500</p>
                 </div>
               )}
@@ -338,7 +372,7 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
                   dailyLimitReached ||
                   !selectedCvId ||
                   cvDocuments.length === 0 ||
-                  (mode === "focused" && !focus.trim())
+                  ((mode === "focused" || mode === "focus_only") && !focus.trim())
                 }
               >
                 {isGenerating
@@ -397,7 +431,11 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
               <div className="flex items-center gap-2 text-xs text-muted-foreground -mt-1">
                 <span className="inline-flex items-center gap-1 bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
                   <Sparkles className="w-3 h-3" />
-                  {result.mode === "focused" ? "Focused rewrite" : "General rewrite"}
+                   {result.mode === "focus_only"
+                     ? "Focus only"
+                     : result.mode === "focused"
+                     ? "Focused rewrite"
+                     : "General rewrite"}
                 </span>
                 {result.focus && (
                   <span className="truncate italic">"{result.focus}"</span>

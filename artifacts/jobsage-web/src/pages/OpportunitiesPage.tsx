@@ -2223,6 +2223,7 @@ export default function OpportunitiesPage() {
             vacancyUrl={gapAnalysisRole.applyUrl ?? gapAnalysisRole.contactWebsite ?? null}
             hasCvUploaded={!!myProfile}
             analysisEndpoint={endpoint}
+            analysisSource={isSponsorVacancy ? "sponsor_vacancy" : "role"}
             onApply={() => handleSmartApply(gapAnalysisRole.role.id, gapAnalysisRole.role.title)}
             onWebsiteApply={() => trackGapAnalysisWebsiteClick(gapAnalysisRole)}
           />

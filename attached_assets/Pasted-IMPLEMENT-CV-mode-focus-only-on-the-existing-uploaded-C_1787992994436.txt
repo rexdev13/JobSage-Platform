@@ -1,0 +1,38 @@
+IMPLEMENT CV mode focus_only on the existing uploaded-CV enhancer. Do not create a second CV product. Do not use POST /career-profiles/:id/generate-cv for this (it has no real employment history). Do not touch vacancy discovery, AI vacancy cap, marketing, or Smart Apply payloads unless prefill only.
+
+## Mode
+POST /api/profiles/cv-enhancement
+mode: "general" | "focused" | "focus_only"
+focus: required non-empty string for focused and focus_only.
+
+Keep general and focused behaviour unchanged (focused still = emphasise, keep all facts).
+
+## UI — /documents CvEnhancementSheet
+Add a third option, e.g. “Focus only”:
+Copy: Strip unrelated content. Expand and highlight only what matches your focus. Will not add jobs, dates, or metrics that are not on your CV.
+
+Reuse the focus text field. Prefill from the active career profile focusArea if set; candidate can edit. Show specialty as hint only, not as a silent replacement for focus.
+
+Same preview / edit / finalize / primary CV / 2-page PDF flow.
+
+## Prompt (focus_only only)
+Keep the existing UK healthcare CV system rules (sections, UK English, no NI/photo/full address, no invented employers/titles/dates/quals).
+
+Add:
+- Use ONLY the uploaded CV text as the evidence source. Profile specialty/focus string is the TARGET, not extra work history.
+- OMIT hobbies, unrelated professions, and duties that do not support the stated focus. Do not delete an employer/date that is on the CV if that role has any focus-relevant evidence — shorten that role to relevant bullets only.
+- EXPAND and highlight skills, duties, and achievements that support the focus, by rephrasing evidence already in the CV. Never invent duties from a job title. Never add numbers/metrics unless they appear in the source.
+- If the CV has little focus-relevant content, keep the truthful thin version; do not pad with fiction. One short personal statement aimed at the focus is OK if grounded in the CV.
+- Return only the CV.
+
+max_tokens may rise slightly if 2000 truncates focus_only, but do not switch to a larger/expensive model unless necessary; stay gpt-4o-mini.
+
+## Tests
+- focus_only without focus → 400
+- general still works without focus
+- response mode is focus_only
+- finalize still creates Enhanced PDF
+- Prompt or fixture asserts omit-unrelated + no invented metrics (at least the API stores/returns the mode)
+
+Reply: files changed, exact UI label, how focus is prefilled.
+Stop.
