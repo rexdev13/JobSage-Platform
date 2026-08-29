@@ -1908,6 +1908,7 @@ export default function SponsorLicencesPage() {
           vacancyTitle={gapAnalysisVacancy.title}
           companyName={gapAnalysisVacancy.companyName}
           vacancyUrl={gapAnalysisVacancy.url}
+          analysisSource="sponsor_vacancy"
           hasCvUploaded={hasCvUploaded}
           onApply={() => handleOpenApplyModal(gapAnalysisVacancy)}
           onWebsiteApply={() =>

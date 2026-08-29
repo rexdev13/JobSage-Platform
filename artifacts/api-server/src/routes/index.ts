@@ -35,6 +35,7 @@ import vacancyFavoritesRouter from "./vacancyFavorites";
 import leadsRouter from "./leads";
 import vacancyLinkCheckRouter from "./vacancyLinkCheck";
 import cvEnhancementRouter from "./cvEnhancement";
+import readinessClaimsRouter from "./readinessClaims";
 
 const router: IRouter = Router();
 
@@ -74,5 +75,6 @@ router.use(vacancyFavoritesRouter);
 router.use(leadsRouter);
 router.use(vacancyLinkCheckRouter);
 router.use(cvEnhancementRouter);
+router.use(readinessClaimsRouter);
 
 export default router;
