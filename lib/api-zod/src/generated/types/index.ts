@@ -153,6 +153,8 @@ export * from "./marketingAccountCreatedResponse";
 export * from "./marketingAccountCreatedResponseUser";
 export * from "./marketingAccountCreatedResponseUserRole";
 export * from "./marketingAccountInput";
+export * from "./marketingCalendlyUrlInput";
+export * from "./marketingCalendlyUrlResponse";
 export * from "./marketingPerformance";
 export * from "./marketingPerformanceByIndustryItem";
 export * from "./marketingPerformanceByMarketerItem";

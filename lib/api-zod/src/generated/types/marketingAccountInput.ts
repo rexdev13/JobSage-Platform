@@ -18,4 +18,5 @@ export interface MarketingAccountInput {
    * @maxLength 80
    */
   lastName: string;
+  calendlyUrl?: string | null;
 }

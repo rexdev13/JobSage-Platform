@@ -46,6 +46,7 @@ vi.mock("@workspace/db", () => {
       lastName: "last_name",
       role: "role",
       createdAt: "created_at",
+      calendlyUrl: "calendly_url",
     },
     auditEventsTable: {},
     profilesTable: {},
@@ -132,16 +133,23 @@ describe("Super admin marketing account management", () => {
       lastName: "Green",
       role: "marketing",
       emailVerified: false,
+       calendlyUrl: "https://calendly.com/maya-green",
     }]);
 
     const res = await request(buildApp())
       .post("/admin/super/marketing-accounts")
       .set("Authorization", "Bearer super-session")
-      .send({ email: "Marketing@Example.com", firstName: "Maya", lastName: "Green" });
+      .send({
+        email: "Marketing@Example.com",
+        firstName: "Maya",
+        lastName: "Green",
+        calendlyUrl: "https://calendly.com/maya-green",
+      });
 
     expect(res.status).toBe(201);
     expect(res.body.user.role).toBe("marketing");
     expect(res.body.user.email).toBe("marketing@example.com");
+    expect(res.body.user.calendlyUrl).toBe("https://calendly.com/maya-green");
     expect(sendPasswordResetEmailMock).toHaveBeenCalledWith(
       "marketing@example.com",
       expect.any(String),
@@ -176,6 +184,36 @@ describe("Super admin marketing account management", () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error).toContain("email");
+  });
+
+  it("rejects a non-Calendly URL during marketing account creation", async () => {
+    const res = await request(buildApp())
+      .post("/admin/super/marketing-accounts")
+      .set("Authorization", "Bearer super-session")
+      .send({
+        email: "marketing@example.com",
+        firstName: "Maya",
+        lastName: "Green",
+        calendlyUrl: "https://example.com/maya",
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain("calendly.com");
+  });
+
+  it("lets a super admin update a marketing account Calendly URL", async () => {
+    dbResults.push(
+      [{ id: "marketing-1", email: "marketing@example.com", role: "marketing" }],
+      [{ calendlyUrl: "https://calendly.com/maya-green" }],
+    );
+
+    const res = await request(buildApp())
+      .patch("/admin/super/users/marketing-1/calendly-url")
+      .set("Authorization", "Bearer super-session")
+      .send({ calendlyUrl: "https://calendly.com/maya-green" });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ calendlyUrl: "https://calendly.com/maya-green" });
   });
 
   it("rejects a duplicate email address", async () => {

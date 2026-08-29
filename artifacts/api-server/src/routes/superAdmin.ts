@@ -32,6 +32,7 @@ import {
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { sendPasswordResetEmail } from "../lib/email";
 import { generateJobsageEmail } from "../lib/jobsageEmailGen";
+import { OptionalCalendlyUrlSchema } from "../lib/marketingCalendly";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -367,6 +368,11 @@ router.post(
     const email = parsed.data.email.trim().toLowerCase();
     const firstName = parsed.data.firstName.trim();
     const lastName = parsed.data.lastName.trim();
+    const parsedCalendlyUrl = OptionalCalendlyUrlSchema.safeParse(parsed.data.calendlyUrl ?? null);
+    if (!parsedCalendlyUrl.success) {
+      res.status(400).json({ error: parsedCalendlyUrl.error.issues[0]?.message ?? "Invalid Calendly URL." });
+      return;
+    }
 
     if (!firstName || firstName.length > 80 || !lastName || lastName.length > 80) {
       res.status(400).json({ error: "First and last name are required and must be 80 characters or fewer." });
@@ -400,6 +406,7 @@ router.post(
           passwordResetToken: setupToken,
           passwordResetTokenExpires: setupTokenExpires,
           jobsageEmail: jobsageAlias,
+          calendlyUrl: parsedCalendlyUrl.data,
         })
         .returning();
       user = inserted[0];
@@ -439,8 +446,46 @@ router.post(
         lastName: user.lastName,
         role: user.role,
         emailVerified: user.emailVerified,
+        calendlyUrl: user.calendlyUrl,
       },
     });
+  },
+);
+
+router.patch(
+  "/admin/super/users/:id/calendly-url",
+  requireRole("super_admin"),
+  async (req: Request, res: Response): Promise<void> => {
+    const targetId = req.params["id"] as string;
+    const parsed = OptionalCalendlyUrlSchema.safeParse(req.body?.calendlyUrl);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid Calendly URL." });
+      return;
+    }
+
+    const [target] = await db
+      .select({ id: usersTable.id, email: usersTable.email, role: usersTable.role })
+      .from(usersTable)
+      .where(eq(usersTable.id, targetId));
+    if (!target) {
+      res.status(404).json({ error: "User not found." });
+      return;
+    }
+    if (target.role !== "marketing") {
+      res.status(400).json({ error: "Calendly links can only be set for marketing accounts." });
+      return;
+    }
+
+    const [updated] = await db
+      .update(usersTable)
+      .set({ calendlyUrl: parsed.data })
+      .where(eq(usersTable.id, targetId))
+      .returning({ calendlyUrl: usersTable.calendlyUrl });
+
+    writeAuditEvent(req.user!.id, "super_admin_update_marketing_calendly_url", targetId, {
+      calendlyUrl: parsed.data,
+    }).catch(() => {});
+    res.json({ calendlyUrl: updated?.calendlyUrl ?? null });
   },
 );
 
@@ -653,6 +698,7 @@ async function fetchUserFull(userId: string) {
       createdAt: usersTable.createdAt,
       updatedAt: usersTable.updatedAt,
       suspendedAt: usersTable.suspendedAt,
+      calendlyUrl: usersTable.calendlyUrl,
     })
     .from(usersTable)
     .where(eq(usersTable.id, userId));

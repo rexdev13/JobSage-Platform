@@ -6,6 +6,7 @@ import { openai } from "@workspace/integrations-openai-ai-server";
 import { sql, ilike, or, desc, count, eq, and, gte, isNull } from "drizzle-orm";
 import { requireRole } from "../middlewares/requireRole";
 import { buildLeadStats, getRollingWeekStart } from "../lib/weeklyStats";
+import { OptionalCalendlyUrlSchema } from "../lib/marketingCalendly";
 
 const router: IRouter = Router();
 
@@ -23,6 +24,7 @@ const marketingLeadFields = {
   assigneeId: usersTable.id,
   assigneeEmail: usersTable.email,
   assigneeName: sql<string>`concat_ws(' ', ${usersTable.firstName}, ${usersTable.lastName})`,
+  assigneeCalendlyUrl: usersTable.calendlyUrl,
 };
 
 const adminLeadFields = {
@@ -51,6 +53,7 @@ const adminLeadFields = {
   assigneeId: usersTable.id,
   assigneeEmail: usersTable.email,
   assigneeName: sql<string>`concat_ws(' ', ${usersTable.firstName}, ${usersTable.lastName})`,
+  assigneeCalendlyUrl: usersTable.calendlyUrl,
 };
 
 // ---------------------------------------------------------------------------
@@ -147,11 +150,16 @@ router.get(
     ]);
 
     const normalizedLeads = leads.map((lead) => {
-      const { assigneeId, assigneeEmail, assigneeName, ...leadFields } = lead;
+      const { assigneeId, assigneeEmail, assigneeName, assigneeCalendlyUrl, ...leadFields } = lead;
       return {
         ...leadFields,
         assignee: assigneeId
-          ? { id: assigneeId, email: assigneeEmail, name: assigneeName?.trim() || assigneeEmail }
+          ? {
+              id: assigneeId,
+              email: assigneeEmail,
+              name: assigneeName?.trim() || assigneeEmail,
+              calendlyUrl: assigneeCalendlyUrl,
+            }
           : null,
       };
     });
@@ -180,6 +188,7 @@ router.get(
         id: usersTable.id,
         email: usersTable.email,
         name: sql<string>`concat_ws(' ', ${usersTable.firstName}, ${usersTable.lastName})`,
+        calendlyUrl: usersTable.calendlyUrl,
       })
       .from(usersTable)
       .where(eq(usersTable.role, "marketing"))
@@ -191,6 +200,44 @@ router.get(
         name: assignee.name?.trim() || assignee.email,
       })),
     });
+  },
+);
+
+router.get(
+  "/me/calendly-url",
+  requireRole("marketing"),
+  async (req: Request, res: Response): Promise<void> => {
+    const [user] = await db
+      .select({ calendlyUrl: usersTable.calendlyUrl })
+      .from(usersTable)
+      .where(eq(usersTable.id, req.user!.id));
+
+    res.json({ calendlyUrl: user?.calendlyUrl ?? null });
+  },
+);
+
+router.patch(
+  "/me/calendly-url",
+  requireRole("marketing"),
+  async (req: Request, res: Response): Promise<void> => {
+    const parsed = OptionalCalendlyUrlSchema.safeParse(req.body?.calendlyUrl);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid Calendly URL." });
+      return;
+    }
+
+    const [updated] = await db
+      .update(usersTable)
+      .set({ calendlyUrl: parsed.data })
+      .where(eq(usersTable.id, req.user!.id))
+      .returning({ calendlyUrl: usersTable.calendlyUrl });
+
+    if (!updated) {
+      res.status(404).json({ error: "Marketing account not found." });
+      return;
+    }
+
+    res.json({ calendlyUrl: updated.calendlyUrl ?? null });
   },
 );
 
@@ -250,7 +297,7 @@ router.patch(
     }
 
     const marketingUserId = parsed.data.marketingUserId;
-    let assignee: { id: string; email: string | null; name: string | null } | null = null;
+    let assignee: { id: string; email: string | null; name: string | null; calendlyUrl?: string | null } | null = null;
 
     if (marketingUserId !== null) {
       const [marketingUser] = await db
@@ -258,6 +305,7 @@ router.patch(
           id: usersTable.id,
           email: usersTable.email,
           name: sql<string>`concat_ws(' ', ${usersTable.firstName}, ${usersTable.lastName})`,
+          calendlyUrl: usersTable.calendlyUrl,
         })
         .from(usersTable)
         .where(and(eq(usersTable.id, marketingUserId), eq(usersTable.role, "marketing")))

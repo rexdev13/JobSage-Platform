@@ -9,6 +9,7 @@ import {
   ChevronDown, ChevronUp, Shield, Activity, Search, ExternalLink,
   TrendingUp, AlertTriangle, ShieldCheck, Star, BadgeCheck, UserCheck,
   XCircle, Clock, Ban, RotateCcw, Trash2, UserCog, ListOrdered, UserPlus,
+  CalendarDays,
 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -66,6 +67,7 @@ interface SuperUser {
   eligibilityStatus: string | null;
   hasConsented: boolean;
   consentedAt: string | null;
+  calendlyUrl?: string | null;
 }
 
 interface AdminJobListing {
@@ -384,6 +386,7 @@ function UserDetailPanel({ userId, apiBase, onImpersonate, onAction }: { userId:
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [newRole, setNewRole] = useState("");
+  const [calendlyUrl, setCalendlyUrl] = useState("");
   const [gapAnalysisUsage, setGapAnalysisUsage] = useState<{ used: number; limit: number } | null>(null);
   const { toast } = useToast();
 
@@ -402,6 +405,9 @@ function UserDetailPanel({ userId, apiBase, onImpersonate, onAction }: { userId:
   }, [userId, apiBase]);
 
   useEffect(() => { loadDetail(); }, [loadDetail]);
+  useEffect(() => {
+    setCalendlyUrl(detail?.user.calendlyUrl ?? "");
+  }, [detail?.user.calendlyUrl]);
 
   async function doAction(path: string, method: string, body?: Record<string, unknown>) {
     setActionLoading(path);
@@ -458,6 +464,17 @@ function UserDetailPanel({ userId, apiBase, onImpersonate, onAction }: { userId:
     if (await doAction(`/sponsor-licences/gap-analyses/${userId}`, "DELETE")) {
       setGapAnalysisUsage({ used: 0, limit: 10 });
       toast({ title: "Quota reset", description: "Gap analysis quota reset to 0 / 10." });
+    }
+  }
+
+  async function handleCalendlySave() {
+    const saved = await doAction(`/admin/super/users/${userId}/calendly-url`, "PATCH", {
+      calendlyUrl: calendlyUrl.trim(),
+    });
+    if (saved) {
+      toast({ title: calendlyUrl.trim() ? "Calendly link saved" : "Calendly link cleared" });
+      loadDetail();
+      onAction();
     }
   }
 
@@ -518,6 +535,29 @@ function UserDetailPanel({ userId, apiBase, onImpersonate, onAction }: { userId:
         </Button>
         <span className="text-xs text-muted-foreground">Current: <strong>{user.role.replace("_", " ")}</strong></span>
       </div>
+
+      {user.role === "marketing" && (
+        <div className="flex flex-wrap items-end gap-2 p-3 bg-background rounded-lg border border-border">
+          <CalendarDays className="w-4 h-4 text-muted-foreground mb-2" />
+          <div className="flex-1 min-w-64">
+            <label className="text-xs text-muted-foreground block mb-1">Calendly URL</label>
+            <input
+              type="url"
+              placeholder="https://calendly.com/marketing-user"
+              className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+              value={calendlyUrl}
+              onChange={(event) => setCalendlyUrl(event.target.value)}
+            />
+          </div>
+          <Button
+            size="sm"
+            onClick={() => void handleCalendlySave()}
+            disabled={!!actionLoading}
+          >
+            Save Calendly link
+          </Button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {profile && (
@@ -657,6 +697,7 @@ function CreateMarketingAccountForm({ onCreated }: { onCreated: () => void }) {
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [calendlyUrl, setCalendlyUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
 
@@ -668,7 +709,7 @@ function CreateMarketingAccountForm({ onCreated }: { onCreated: () => void }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email, firstName, lastName }),
+        body: JSON.stringify({ email, firstName, lastName, calendlyUrl: calendlyUrl.trim() || null }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Failed to create marketing account.");
@@ -676,6 +717,7 @@ function CreateMarketingAccountForm({ onCreated }: { onCreated: () => void }) {
       setEmail("");
       setFirstName("");
       setLastName("");
+      setCalendlyUrl("");
       toast({
         title: "Marketing account created",
         description: "A secure password setup link has been sent to the new account.",
@@ -704,7 +746,7 @@ function CreateMarketingAccountForm({ onCreated }: { onCreated: () => void }) {
         </p>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto] items-end">
+        <form onSubmit={handleSubmit} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_1.3fr_auto] items-end">
           <label className="space-y-1.5">
             <span className="text-xs font-medium">First name</span>
             <input
@@ -733,6 +775,16 @@ function CreateMarketingAccountForm({ onCreated }: { onCreated: () => void }) {
               className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
+            />
+          </label>
+          <label className="space-y-1.5">
+            <span className="text-xs font-medium">Calendly URL <span className="font-normal text-muted-foreground">(optional)</span></span>
+            <input
+              type="url"
+              placeholder="https://calendly.com/name"
+              className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+              value={calendlyUrl}
+              onChange={(event) => setCalendlyUrl(event.target.value)}
             />
           </label>
           <Button type="submit" disabled={submitting} className="gap-1.5">

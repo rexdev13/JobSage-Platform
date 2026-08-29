@@ -44,7 +44,14 @@ vi.mock("@workspace/db", () => {
       additionalMessage: "additional_message",
       marketingUserId: "marketing_user_id",
     },
-    usersTable: { id: "id", email: "email", firstName: "first_name", lastName: "last_name", role: "role" },
+    usersTable: {
+      id: "id",
+      email: "email",
+      firstName: "first_name",
+      lastName: "last_name",
+      role: "role",
+      calendlyUrl: "calendly_url",
+    },
     sponsorLicencesTable: { industry: "industry" },
   };
 });
@@ -91,6 +98,16 @@ const adminSession = {
     profileImageUrl: null,
   },
 };
+const candidateSession = {
+  user: {
+    id: "candidate-1",
+    email: "candidate@test.com",
+    role: "candidate",
+    firstName: "Cam",
+    lastName: "Candidate",
+    profileImageUrl: null,
+  },
+};
 
 describe("marketing lead access", () => {
   beforeEach(() => {
@@ -112,6 +129,10 @@ describe("marketing lead access", () => {
         createdAt: new Date("2026-08-20T12:00:00.000Z"),
         desiredRole: "Product manager",
         additionalMessage: "Interested in relocation",
+         assigneeId: "marketing-2",
+         assigneeEmail: "owner@example.com",
+         assigneeName: "Morgan Owner",
+         assigneeCalendlyUrl: "https://calendly.com/morgan-owner",
       }],
       [
         { status: "new", total: 1 },
@@ -138,6 +159,12 @@ describe("marketing lead access", () => {
     ]);
     expect(response.body.leads[0]).not.toHaveProperty("ipHash");
     expect(response.body.leads[0]).not.toHaveProperty("utmCampaign");
+    expect(response.body.leads[0].assignee).toEqual({
+      id: "marketing-2",
+      email: "owner@example.com",
+      name: "Morgan Owner",
+      calendlyUrl: "https://calendly.com/morgan-owner",
+    });
     expect(response.body.stats.statusTotals).toEqual({
       new: 1,
       contacted: 1,
@@ -185,6 +212,48 @@ describe("marketing lead access", () => {
       .patch("/leads/9/assignee")
       .set("Authorization", "Bearer marketing-session")
       .send({ marketingUserId: "marketing-2" });
+
+    expect(response.status).toBe(403);
+  });
+
+  it("lets marketing users save and clear their own Calendly link", async () => {
+    queryResults.push([{ calendlyUrl: "https://calendly.com/mara-k" }]);
+
+    const saveResponse = await request(buildApp())
+      .patch("/me/calendly-url")
+      .set("Authorization", "Bearer marketing-session")
+      .send({ calendlyUrl: "https://calendly.com/mara-k" });
+
+    expect(saveResponse.status).toBe(200);
+    expect(saveResponse.body).toEqual({ calendlyUrl: "https://calendly.com/mara-k" });
+
+    queryResults.push([{ calendlyUrl: null }]);
+    const clearResponse = await request(buildApp())
+      .patch("/me/calendly-url")
+      .set("Authorization", "Bearer marketing-session")
+      .send({ calendlyUrl: "" });
+
+    expect(clearResponse.status).toBe(200);
+    expect(clearResponse.body).toEqual({ calendlyUrl: null });
+  });
+
+  it("rejects invalid or non-Calendly booking URLs", async () => {
+    const response = await request(buildApp())
+      .patch("/me/calendly-url")
+      .set("Authorization", "Bearer marketing-session")
+      .send({ calendlyUrl: "https://example.com/book" });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toContain("calendly.com");
+  });
+
+  it("rejects candidate access to the marketing Calendly endpoint", async () => {
+    mockGetSession.mockResolvedValue(candidateSession);
+
+    const response = await request(buildApp())
+      .patch("/me/calendly-url")
+      .set("Authorization", "Bearer candidate-session")
+      .send({ calendlyUrl: "https://calendly.com/candidate" });
 
     expect(response.status).toBe(403);
   });

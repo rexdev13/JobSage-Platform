@@ -2762,8 +2762,33 @@ export const ListLeadAssigneesResponse = zod.object({
       id: zod.string(),
       email: zod.string().nullable(),
       name: zod.string(),
+      calendlyUrl: zod.string().url().nullish(),
     }),
   ),
+});
+
+/**
+ * @summary Get the signed-in marketing user's Calendly URL
+ */
+export const GetMyMarketingCalendlyUrlResponse = zod.object({
+  calendlyUrl: zod.string().url().nullable(),
+});
+
+/**
+ * @summary Save the signed-in marketing user's Calendly URL
+ */
+export const UpdateMyMarketingCalendlyUrlBody = zod.object({
+  calendlyUrl: zod
+    .string()
+    .url()
+    .nullable()
+    .describe(
+      "HTTPS URL hosted on calendly.com. Send an empty string to clear it.",
+    ),
+});
+
+export const UpdateMyMarketingCalendlyUrlResponse = zod.object({
+  calendlyUrl: zod.string().url().nullable(),
 });
 
 /**
@@ -2785,6 +2810,7 @@ export const AssignLeadMarketingUserResponse = zod.object({
       id: zod.string(),
       email: zod.string().nullable(),
       name: zod.string(),
+      calendlyUrl: zod.string().url().nullish(),
     })
     .nullable(),
 });
@@ -3345,6 +3371,28 @@ export const CreateSuperAdminMarketingAccountBody = zod.object({
     .string()
     .min(1)
     .max(createSuperAdminMarketingAccountBodyLastNameMax),
+  calendlyUrl: zod.string().url().nullish(),
+});
+
+/**
+ * @summary Set or clear a marketing user's Calendly URL (super admin only)
+ */
+export const UpdateSuperAdminMarketingCalendlyUrlParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const UpdateSuperAdminMarketingCalendlyUrlBody = zod.object({
+  calendlyUrl: zod
+    .string()
+    .url()
+    .nullable()
+    .describe(
+      "HTTPS URL hosted on calendly.com. Send an empty string to clear it.",
+    ),
+});
+
+export const UpdateSuperAdminMarketingCalendlyUrlResponse = zod.object({
+  calendlyUrl: zod.string().url().nullable(),
 });
 
 /**
@@ -3365,6 +3413,7 @@ export const GetSuperAdminUserFullResponse = zod.object({
     createdAt: zod.date(),
     updatedAt: zod.date(),
     lastLogin: zod.date().nullable(),
+    calendlyUrl: zod.string().url().nullish(),
   }),
   profile: zod.object({}).passthrough().nullish(),
   employerProfile: zod.object({}).passthrough().nullish(),

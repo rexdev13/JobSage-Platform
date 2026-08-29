@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@workspace/auth-web";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { canDeleteLeads } from "@/lib/roleAccess";
-import { Loader2, Search, Users, Trash2, ChevronDown, UserPlus, UserCheck, UserX } from "lucide-react";
+import { CalendarDays, Copy, ExternalLink, Loader2, Search, Users, Trash2, ChevronDown, UserPlus, UserCheck, UserX } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -53,6 +53,7 @@ interface LeadAssignee {
   id: string;
   email: string | null;
   name: string;
+  calendlyUrl: string | null;
 }
 
 interface LeadsResponse {
@@ -88,6 +89,133 @@ const STATUS_OPTIONS: { value: LeadStatus; label: string }[] = [
   { value: "registered",  label: "Registered" },
   { value: "unqualified", label: "Unqualified" },
 ];
+
+function CalendlyLinkCard({ onUrlChange }: { onUrlChange: (url: string | null) => void }) {
+  const queryClient = useQueryClient();
+  const [value, setValue] = useState("");
+  const [message, setMessage] = useState<string | null>(null);
+
+  const { data, isLoading } = useQuery<{ calendlyUrl: string | null }>({
+    queryKey: ["my-marketing-calendly-url"],
+    queryFn: async () => {
+      const res = await fetch(`${BASE}/api/me/calendly-url`, { credentials: "include" });
+      if (!res.ok) throw new Error("Could not load your Calendly link.");
+      return res.json() as Promise<{ calendlyUrl: string | null }>;
+    },
+  });
+
+  useEffect(() => {
+    if (data) {
+      setValue(data.calendlyUrl ?? "");
+      onUrlChange(data.calendlyUrl);
+    }
+  }, [data, onUrlChange]);
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`${BASE}/api/me/calendly-url`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ calendlyUrl: value.trim() }),
+      });
+      const body = await res.json().catch(() => ({})) as { calendlyUrl?: string | null; error?: string };
+      if (!res.ok) throw new Error(body.error ?? "Could not save your Calendly link.");
+      return body;
+    },
+    onSuccess: async (body) => {
+      const savedUrl = body.calendlyUrl ?? null;
+      setValue(savedUrl ?? "");
+      setMessage(savedUrl ? "Calendly link saved." : "Calendly link cleared.");
+      onUrlChange(savedUrl);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["my-marketing-calendly-url"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin-leads"] }),
+      ]);
+    },
+    onError: (error) => setMessage(error instanceof Error ? error.message : "Could not save your Calendly link."),
+  });
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="flex items-start gap-3">
+        <CalendarDays className="mt-0.5 h-5 w-5 text-primary" />
+        <div className="flex-1 space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">My Calendly link</h2>
+            <p className="text-xs text-muted-foreground">
+              Used for unassigned leads and leads assigned to you. Saving or opening it never changes lead status.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input
+              type="url"
+              placeholder="https://calendly.com/your-name"
+              value={value}
+              disabled={isLoading || mutation.isPending}
+              onChange={(event) => {
+                setValue(event.target.value);
+                setMessage(null);
+              }}
+              className="min-w-0 flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+            <Button type="button" disabled={isLoading || mutation.isPending} onClick={() => mutation.mutate()}>
+              {mutation.isPending ? "Saving..." : "Save link"}
+            </Button>
+          </div>
+          {message && <p className="text-xs text-muted-foreground">{message}</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BookingActions({ url, guidance }: { url: string | null; guidance: string }) {
+  const [copied, setCopied] = useState(false);
+
+  if (!url) {
+    return (
+      <button
+        type="button"
+        disabled
+        title={guidance}
+        className="whitespace-nowrap rounded-lg border border-input px-2 py-1 text-[11px] text-muted-foreground opacity-60"
+      >
+        No booking link
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1">
+      <button
+        type="button"
+        title="Copy booking link"
+        aria-label="Copy booking link"
+        className="rounded-lg border border-input p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+        onClick={() => {
+          void navigator.clipboard.writeText(url).then(() => {
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1500);
+          });
+        }}
+      >
+        <Copy className="h-3.5 w-3.5" />
+      </button>
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Open booking page"
+        aria-label="Open booking page"
+        className="rounded-lg border border-input p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+      >
+        <ExternalLink className="h-3.5 w-3.5" />
+      </a>
+      {copied && <span className="text-[10px] text-green-600">Copied</span>}
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Inline status selector
@@ -207,6 +335,8 @@ export default function AdminLeadsPage() {
   const { user } = useAuth();
   const canDelete = canDeleteLeads(user?.role);
   const canAssign = user?.role === "admin" || user?.role === "super_admin";
+  const isMarketing = user?.role === "marketing";
+  const [myCalendlyUrl, setMyCalendlyUrl] = useState<string | null>(null);
   const [search, setSearch]           = useState("");
   const [sector, setSector]           = useState("");
   const [assignedTo, setAssignedTo]   = useState("");
@@ -382,6 +512,8 @@ export default function AdminLeadsPage() {
           )}
         </div>
 
+        {isMarketing && <CalendlyLinkCard onUrlChange={setMyCalendlyUrl} />}
+
         {/* ── Search + filters ── */}
         <div className="flex items-center gap-3 flex-wrap">
           <div className="relative">
@@ -498,6 +630,7 @@ export default function AdminLeadsPage() {
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">Phone</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">Sector</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">Source</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">Booking</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">Assigned</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">Status</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">Date</th>
@@ -541,6 +674,18 @@ export default function AdminLeadsPage() {
                       >
                         {lead.source === "chat" ? "AI Chat" : "Form"}
                       </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <BookingActions
+                        url={lead.assignee?.calendlyUrl ?? (!lead.assignee && isMarketing ? myCalendlyUrl : null)}
+                        guidance={
+                          lead.assignee
+                            ? "The assigned marketer has not added a Calendly link."
+                            : isMarketing
+                              ? "Add your Calendly link above."
+                              : "Assign a marketer first."
+                        }
+                      />
                     </td>
                     <td className="px-4 py-3">
                       <AssigneeSelect lead={lead} assignees={assignees} canAssign={canAssign} />

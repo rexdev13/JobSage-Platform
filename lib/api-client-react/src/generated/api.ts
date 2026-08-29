@@ -98,6 +98,8 @@ import type {
   MarkMessageRead200,
   MarketingAccountCreatedResponse,
   MarketingAccountInput,
+  MarketingCalendlyUrlInput,
+  MarketingCalendlyUrlResponse,
   MatchedRoleList,
   MessageEnvelope,
   OkResponse,
@@ -8047,6 +8049,176 @@ export function useListLeadAssignees<
 }
 
 /**
+ * @summary Get the signed-in marketing user's Calendly URL
+ */
+export const getGetMyMarketingCalendlyUrlUrl = () => {
+  return `/api/me/calendly-url`;
+};
+
+export const getMyMarketingCalendlyUrl = async (
+  options?: RequestInit,
+): Promise<MarketingCalendlyUrlResponse> => {
+  return customFetch<MarketingCalendlyUrlResponse>(
+    getGetMyMarketingCalendlyUrlUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetMyMarketingCalendlyUrlQueryKey = () => {
+  return [`/api/me/calendly-url`] as const;
+};
+
+export const getGetMyMarketingCalendlyUrlQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMyMarketingCalendlyUrl>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyMarketingCalendlyUrl>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetMyMarketingCalendlyUrlQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getMyMarketingCalendlyUrl>>
+  > = ({ signal }) => getMyMarketingCalendlyUrl({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMyMarketingCalendlyUrl>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMyMarketingCalendlyUrlQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMyMarketingCalendlyUrl>>
+>;
+export type GetMyMarketingCalendlyUrlQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Get the signed-in marketing user's Calendly URL
+ */
+
+export function useGetMyMarketingCalendlyUrl<
+  TData = Awaited<ReturnType<typeof getMyMarketingCalendlyUrl>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyMarketingCalendlyUrl>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMyMarketingCalendlyUrlQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Save the signed-in marketing user's Calendly URL
+ */
+export const getUpdateMyMarketingCalendlyUrlUrl = () => {
+  return `/api/me/calendly-url`;
+};
+
+export const updateMyMarketingCalendlyUrl = async (
+  marketingCalendlyUrlInput: MarketingCalendlyUrlInput,
+  options?: RequestInit,
+): Promise<MarketingCalendlyUrlResponse> => {
+  return customFetch<MarketingCalendlyUrlResponse>(
+    getUpdateMyMarketingCalendlyUrlUrl(),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(marketingCalendlyUrlInput),
+    },
+  );
+};
+
+export const getUpdateMyMarketingCalendlyUrlMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMyMarketingCalendlyUrl>>,
+    TError,
+    { data: BodyType<MarketingCalendlyUrlInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateMyMarketingCalendlyUrl>>,
+  TError,
+  { data: BodyType<MarketingCalendlyUrlInput> },
+  TContext
+> => {
+  const mutationKey = ["updateMyMarketingCalendlyUrl"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateMyMarketingCalendlyUrl>>,
+    { data: BodyType<MarketingCalendlyUrlInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateMyMarketingCalendlyUrl(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateMyMarketingCalendlyUrlMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateMyMarketingCalendlyUrl>>
+>;
+export type UpdateMyMarketingCalendlyUrlMutationBody =
+  BodyType<MarketingCalendlyUrlInput>;
+export type UpdateMyMarketingCalendlyUrlMutationError =
+  ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Save the signed-in marketing user's Calendly URL
+ */
+export const useUpdateMyMarketingCalendlyUrl = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMyMarketingCalendlyUrl>>,
+    TError,
+    { data: BodyType<MarketingCalendlyUrlInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateMyMarketingCalendlyUrl>>,
+  TError,
+  { data: BodyType<MarketingCalendlyUrlInput> },
+  TContext
+> => {
+  return useMutation(getUpdateMyMarketingCalendlyUrlMutationOptions(options));
+};
+
+/**
  * @summary Assign or unassign a marketing user from a lead
  */
 export const getAssignLeadMarketingUserUrl = (id: number) => {
@@ -10141,6 +10313,100 @@ export const useCreateSuperAdminMarketingAccount = <
 > => {
   return useMutation(
     getCreateSuperAdminMarketingAccountMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Set or clear a marketing user's Calendly URL (super admin only)
+ */
+export const getUpdateSuperAdminMarketingCalendlyUrlUrl = (id: string) => {
+  return `/api/admin/super/users/${id}/calendly-url`;
+};
+
+export const updateSuperAdminMarketingCalendlyUrl = async (
+  id: string,
+  marketingCalendlyUrlInput: MarketingCalendlyUrlInput,
+  options?: RequestInit,
+): Promise<MarketingCalendlyUrlResponse> => {
+  return customFetch<MarketingCalendlyUrlResponse>(
+    getUpdateSuperAdminMarketingCalendlyUrlUrl(id),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(marketingCalendlyUrlInput),
+    },
+  );
+};
+
+export const getUpdateSuperAdminMarketingCalendlyUrlMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSuperAdminMarketingCalendlyUrl>>,
+    TError,
+    { id: string; data: BodyType<MarketingCalendlyUrlInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateSuperAdminMarketingCalendlyUrl>>,
+  TError,
+  { id: string; data: BodyType<MarketingCalendlyUrlInput> },
+  TContext
+> => {
+  const mutationKey = ["updateSuperAdminMarketingCalendlyUrl"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateSuperAdminMarketingCalendlyUrl>>,
+    { id: string; data: BodyType<MarketingCalendlyUrlInput> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateSuperAdminMarketingCalendlyUrl(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateSuperAdminMarketingCalendlyUrlMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateSuperAdminMarketingCalendlyUrl>>
+>;
+export type UpdateSuperAdminMarketingCalendlyUrlMutationBody =
+  BodyType<MarketingCalendlyUrlInput>;
+export type UpdateSuperAdminMarketingCalendlyUrlMutationError =
+  ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Set or clear a marketing user's Calendly URL (super admin only)
+ */
+export const useUpdateSuperAdminMarketingCalendlyUrl = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSuperAdminMarketingCalendlyUrl>>,
+    TError,
+    { id: string; data: BodyType<MarketingCalendlyUrlInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateSuperAdminMarketingCalendlyUrl>>,
+  TError,
+  { id: string; data: BodyType<MarketingCalendlyUrlInput> },
+  TContext
+> => {
+  return useMutation(
+    getUpdateSuperAdminMarketingCalendlyUrlMutationOptions(options),
   );
 };
 

@@ -16,4 +16,5 @@ export type SuperAdminUserFullUser = {
   createdAt: Date;
   updatedAt: Date;
   lastLogin: Date | null;
+  calendlyUrl?: string | null;
 };
