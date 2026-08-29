@@ -136,15 +136,10 @@ function StatCard({ title, value, icon: Icon, sub }: { title: string; value: str
 function OverviewTab() {
   const [stats, setStats] = useState<PlatformStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [industry, setIndustry] = useState("");
-  const { data: industryData } = useGetSponsorLicenceIndustries();
 
   useEffect(() => {
     setLoading(true);
-    const params = new URLSearchParams();
-    if (industry) params.set("industry", industry);
-    const query = params.size > 0 ? `?${params.toString()}` : "";
-    fetch(`${API_BASE}/admin/super/stats${query}`, { credentials: "include" })
+    fetch(`${API_BASE}/admin/super/stats`, { credentials: "include" })
       .then((r) => {
         if (!r.ok) throw new Error("Failed to load stats");
         return r.json() as Promise<PlatformStats>;
@@ -152,7 +147,7 @@ function OverviewTab() {
       .then(setStats)
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [industry]);
+  }, []);
 
   if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>;
   if (!stats) return <p className="text-muted-foreground text-center py-12">Failed to load stats.</p>;
@@ -160,8 +155,6 @@ function OverviewTab() {
   const lastSync = stats.lastSponsorSync
     ? new Date(stats.lastSponsorSync).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
     : "Never";
-  const marketing = stats.marketingPerformance;
-  const industryOptions = industryData?.industries ?? [];
 
   return (
     <div className="space-y-6">
@@ -192,6 +185,61 @@ function OverviewTab() {
         </CardContent>
       </Card>
 
+      {/* Quick Access */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold">Quick Access</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-3">
+            <Link href="/admin/users">
+              <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-input bg-background text-sm font-medium hover:bg-muted transition-colors">
+                <UserCog className="w-4 h-4 text-muted-foreground" />
+                User Management
+              </button>
+            </Link>
+            <Link href="/admin/audit">
+              <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-input bg-background text-sm font-medium hover:bg-muted transition-colors">
+                <Shield className="w-4 h-4 text-muted-foreground" />
+                Audit Logs
+              </button>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function MarketingPerformanceTab() {
+  const [stats, setStats] = useState<PlatformStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [industry, setIndustry] = useState("");
+  const { data: industryData } = useGetSponsorLicenceIndustries();
+
+  useEffect(() => {
+    setLoading(true);
+    const params = new URLSearchParams();
+    if (industry) params.set("industry", industry);
+    const query = params.size > 0 ? `?${params.toString()}` : "";
+    fetch(`${API_BASE}/admin/super/stats${query}`, { credentials: "include" })
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed to load marketing performance");
+        return r.json() as Promise<PlatformStats>;
+      })
+      .then(setStats)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [industry]);
+
+  if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>;
+  if (!stats) return <p className="text-muted-foreground text-center py-12">Failed to load marketing performance.</p>;
+
+  const marketing = stats.marketingPerformance;
+  const industryOptions = industryData?.industries ?? [];
+
+  return (
+    <div className="space-y-6">
       <section className="space-y-4" aria-labelledby="marketing-performance-title">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -335,35 +383,6 @@ function OverviewTab() {
           </CardContent>
         </Card>
       </section>
-
-      {/* Quick Access */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold">Quick Access</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-3">
-            <Link href="/admin/leads">
-              <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-input bg-background text-sm font-medium hover:bg-muted transition-colors">
-                <Users className="w-4 h-4 text-primary" />
-                View Waitlist Leads
-              </button>
-            </Link>
-            <Link href="/admin/users">
-              <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-input bg-background text-sm font-medium hover:bg-muted transition-colors">
-                <UserCog className="w-4 h-4 text-muted-foreground" />
-                User Management
-              </button>
-            </Link>
-            <Link href="/admin/audit">
-              <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-input bg-background text-sm font-medium hover:bg-muted transition-colors">
-                <Shield className="w-4 h-4 text-muted-foreground" />
-                Audit Logs
-              </button>
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }
@@ -1833,13 +1852,14 @@ function EmployersTab() {
   );
 }
 
-type Tab = "overview" | "users" | "health" | "identity" | "letters" | "job-listings" | "employers";
+type Tab = "overview" | "marketing" | "users" | "health" | "identity" | "letters" | "job-listings" | "employers";
 
 export default function SuperAdminPage() {
   const [activeTab, setActiveTab] = useState<Tab>("overview");
 
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
     { id: "overview", label: "Overview", icon: Shield },
+    { id: "marketing", label: "Marketing", icon: TrendingUp },
     { id: "users", label: "All Users", icon: Users },
     { id: "job-listings", label: "Job Listings", icon: ListOrdered },
     { id: "employers", label: "Employers", icon: Building2 },
@@ -1875,6 +1895,7 @@ export default function SuperAdminPage() {
 
         <div>
           {activeTab === "overview" && <OverviewTab />}
+          {activeTab === "marketing" && <MarketingPerformanceTab />}
           {activeTab === "users" && <AllUsersTab />}
           {activeTab === "job-listings" && <JobListingsTab />}
           {activeTab === "employers" && <EmployersTab />}
