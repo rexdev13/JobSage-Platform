@@ -56,6 +56,26 @@ const adminLeadFields = {
   assigneeCalendlyUrl: usersTable.calendlyUrl,
 };
 
+export type MarketingLeadScope = "mine_or_unassigned" | "mine" | "unassigned";
+
+export function resolveMarketingLeadScope(
+  role: string | null | undefined,
+  currentUserId: string | null | undefined,
+  assignedTo: string,
+): MarketingLeadScope | "all" {
+  if (role !== "marketing" || !currentUserId) return "all";
+  if (assignedTo === "unassigned") return "unassigned";
+  if (assignedTo === currentUserId) return "mine";
+  return "mine_or_unassigned";
+}
+
+export function isMarketingLeadVisible(
+  marketingUserId: string | null | undefined,
+  currentUserId: string,
+): boolean {
+  return marketingUserId == null || marketingUserId === currentUserId;
+}
+
 // ---------------------------------------------------------------------------
 // Validation schema
 // ---------------------------------------------------------------------------
@@ -101,6 +121,8 @@ router.get(
     const sector = String(req.query.sector ?? "").trim();
     const assignedTo = String(req.query.assignedTo ?? "").trim();
     const offset = (page - 1) * limit;
+    const isMarketing = req.user?.role === "marketing";
+    const marketingScope = resolveMarketingLeadScope(req.user?.role, req.user?.id, assignedTo);
 
     const searchCondition = search
       ? or(
@@ -113,11 +135,20 @@ router.get(
     const sectorCondition = sector
       ? ilike(socialLeadsTable.industrySector, `%${sector}%`)
       : undefined;
-    const assigneeCondition = assignedTo === "unassigned"
-      ? isNull(socialLeadsTable.marketingUserId)
-      : assignedTo
-        ? eq(socialLeadsTable.marketingUserId, assignedTo)
-        : undefined;
+    const assigneeCondition = isMarketing
+      ? marketingScope === "mine"
+        ? eq(socialLeadsTable.marketingUserId, req.user!.id)
+        : marketingScope === "unassigned"
+          ? isNull(socialLeadsTable.marketingUserId)
+          : or(
+              eq(socialLeadsTable.marketingUserId, req.user!.id),
+              isNull(socialLeadsTable.marketingUserId),
+            )
+      : assignedTo === "unassigned"
+        ? isNull(socialLeadsTable.marketingUserId)
+        : assignedTo
+          ? eq(socialLeadsTable.marketingUserId, assignedTo)
+          : undefined;
 
     let where =
       searchCondition && sectorCondition ? and(searchCondition, sectorCondition)
@@ -130,7 +161,6 @@ router.get(
       ? and(where, gte(socialLeadsTable.createdAt, getRollingWeekStart(now)))
       : gte(socialLeadsTable.createdAt, getRollingWeekStart(now));
 
-    const isMarketing = req.user?.role === "marketing";
     const [[{ total }], leads, statusRows, [recentLeadCount]] = await Promise.all([
       db.select({ total: count() }).from(socialLeadsTable).where(where),
       (isMarketing
@@ -149,7 +179,9 @@ router.get(
       db.select({ total: count() }).from(socialLeadsTable).where(recentWhere),
     ]);
 
-    const normalizedLeads = leads.map((lead) => {
+    const normalizedLeads = leads
+      .filter((lead) => !isMarketing || isMarketingLeadVisible(lead.assigneeId, req.user!.id))
+      .map((lead) => {
       const { assigneeId, assigneeEmail, assigneeName, assigneeCalendlyUrl, ...leadFields } = lead;
       return {
         ...leadFields,
@@ -162,7 +194,7 @@ router.get(
             }
           : null,
       };
-    });
+      });
 
     res.json({
       leads: normalizedLeads,
@@ -559,10 +591,38 @@ router.patch(
     }
 
     const { inArray } = await import("drizzle-orm");
+    let statusWhere = inArray(socialLeadsTable.id, parsed);
+
+    if (req.user?.role === "marketing") {
+      const existingLeads = await db
+        .select({
+          id: socialLeadsTable.id,
+          marketingUserId: socialLeadsTable.marketingUserId,
+        })
+        .from(socialLeadsTable)
+        .where(inArray(socialLeadsTable.id, parsed));
+
+      const hasForbiddenLead = existingLeads.some(
+        (lead) => !isMarketingLeadVisible(lead.marketingUserId, req.user!.id),
+      );
+      if (hasForbiddenLead) {
+        res.status(403).json({ error: "You can only update unassigned leads or leads assigned to you." });
+        return;
+      }
+
+      statusWhere = and(
+        statusWhere,
+        or(
+          isNull(socialLeadsTable.marketingUserId),
+          eq(socialLeadsTable.marketingUserId, req.user.id),
+        ),
+      )!;
+    }
+
     const updated = await db
       .update(socialLeadsTable)
       .set({ status: status as (typeof VALID)[number] })
-      .where(inArray(socialLeadsTable.id, parsed))
+      .where(statusWhere)
       .returning({ id: socialLeadsTable.id });
 
     res.json({ updated: updated.length });
@@ -590,13 +650,37 @@ router.patch(
       return;
     }
 
+    let statusWhere = eq(socialLeadsTable.id, id);
+    if (req.user?.role === "marketing") {
+      statusWhere = and(
+        statusWhere,
+        or(
+          isNull(socialLeadsTable.marketingUserId),
+          eq(socialLeadsTable.marketingUserId, req.user.id),
+        ),
+      )!;
+    }
+
     const [updated] = await db
       .update(socialLeadsTable)
       .set({ status: status as (typeof VALID)[number] })
-      .where(eq(socialLeadsTable.id, id))
+      .where(statusWhere)
       .returning({ id: socialLeadsTable.id, status: socialLeadsTable.status });
 
     if (!updated) {
+      if (req.user?.role === "marketing") {
+        const [existingLead] = await db
+          .select({ marketingUserId: socialLeadsTable.marketingUserId })
+          .from(socialLeadsTable)
+          .where(eq(socialLeadsTable.id, id))
+          .limit(1);
+
+        if (existingLead && !isMarketingLeadVisible(existingLead.marketingUserId, req.user.id)) {
+          res.status(403).json({ error: "You can only update unassigned leads or leads assigned to you." });
+          return;
+        }
+      }
+
       res.status(404).json({ error: "Lead not found." });
       return;
     }

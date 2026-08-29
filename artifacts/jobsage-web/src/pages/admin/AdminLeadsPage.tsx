@@ -341,6 +341,7 @@ export default function AdminLeadsPage() {
   const [search, setSearch]           = useState("");
   const [sector, setSector]           = useState("");
   const [assignedTo, setAssignedTo]   = useState("");
+  const [includeUnassigned, setIncludeUnassigned] = useState(true);
   const [page, setPage]               = useState(1);
   const [selected, setSelected]       = useState<Set<number>>(new Set());
   const [deleting, setDeleting]         = useState(false);
@@ -368,13 +369,17 @@ export default function AdminLeadsPage() {
   });
   const assignees = assigneeData?.assignees ?? [];
 
+  const effectiveAssignedTo = isMarketing
+    ? (includeUnassigned ? "" : user?.id ?? "")
+    : assignedTo;
+
   const { data, isLoading, isError } = useQuery<LeadsResponse>({
-    queryKey: ["admin-leads", page, search, sector, assignedTo],
+    queryKey: ["admin-leads", page, search, sector, effectiveAssignedTo],
     queryFn: async () => {
       const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
       if (search.trim()) params.set("search", search.trim());
       if (sector)        params.set("sector", sector);
-      if (assignedTo)    params.set("assignedTo", assignedTo);
+      if (effectiveAssignedTo) params.set("assignedTo", effectiveAssignedTo);
       const res = await fetch(`${BASE}/api/leads?${params}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load leads");
       return res.json() as Promise<LeadsResponse>;
@@ -625,30 +630,43 @@ export default function AdminLeadsPage() {
               ))}
             </SelectContent>
           </Select>
-          <Select
-            value={assignedTo || "__all__"}
-            onValueChange={(val) => {
-              setAssignedTo(val === "__all__" ? "" : val);
-              setPage(1);
-              setSelected(new Set());
-            }}
-          >
-            <SelectTrigger className="w-52 text-sm h-[38px]">
-              <SelectValue placeholder="Filter by assignee" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">All assignees</SelectItem>
-              <SelectItem value="unassigned">Unassigned</SelectItem>
-              {canAssign && assignees.map((assignee) => (
-                <SelectItem key={assignee.id} value={assignee.id}>
-                  {assignee.name || assignee.email || assignee.id}
-                </SelectItem>
-              ))}
-              {!canAssign && user?.id && (
-                <SelectItem value={user.id}>Assigned to me</SelectItem>
-              )}
-            </SelectContent>
-          </Select>
+          {isMarketing ? (
+            <label className="inline-flex h-[38px] items-center gap-2 rounded-lg border border-input bg-background px-3 text-sm text-foreground cursor-pointer">
+              <input
+                type="checkbox"
+                checked={includeUnassigned}
+                onChange={(event) => {
+                  setIncludeUnassigned(event.target.checked);
+                  setPage(1);
+                  setSelected(new Set());
+                }}
+                className="rounded border-input accent-primary"
+              />
+              Including unassigned
+            </label>
+          ) : (
+            <Select
+              value={assignedTo || "__all__"}
+              onValueChange={(val) => {
+                setAssignedTo(val === "__all__" ? "" : val);
+                setPage(1);
+                setSelected(new Set());
+              }}
+            >
+              <SelectTrigger className="w-52 text-sm h-[38px]">
+                <SelectValue placeholder="Filter by assignee" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">All assignees</SelectItem>
+                <SelectItem value="unassigned">Unassigned</SelectItem>
+                {assignees.map((assignee) => (
+                  <SelectItem key={assignee.id} value={assignee.id}>
+                    {assignee.name || assignee.email || assignee.id}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         {data?.stats && (
