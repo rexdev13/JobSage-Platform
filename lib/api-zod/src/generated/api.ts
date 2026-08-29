@@ -2727,6 +2727,10 @@ export const ListLeadsQueryParams = zod.object({
   limit: zod.coerce.number().optional(),
   search: zod.coerce.string().optional(),
   sector: zod.coerce.string().optional(),
+  assignedTo: zod.coerce
+    .string()
+    .optional()
+    .describe('Filter by marketing user ID or use \"unassigned\".'),
 });
 
 export const ListLeadsResponse = zod.object({
@@ -2747,6 +2751,42 @@ export const ListLeadsResponse = zod.object({
     }),
     createdLast7Days: zod.number(),
   }),
+});
+
+/**
+ * @summary List marketing users available for lead assignment
+ */
+export const ListLeadAssigneesResponse = zod.object({
+  assignees: zod.array(
+    zod.object({
+      id: zod.string(),
+      email: zod.string().nullable(),
+      name: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Assign or unassign a marketing user from a lead
+ */
+export const AssignLeadMarketingUserParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AssignLeadMarketingUserBody = zod.object({
+  marketingUserId: zod.string().nullable(),
+});
+
+export const AssignLeadMarketingUserResponse = zod.object({
+  id: zod.number(),
+  marketingUserId: zod.string().nullable(),
+  assignee: zod
+    .object({
+      id: zod.string(),
+      email: zod.string().nullable(),
+      name: zod.string(),
+    })
+    .nullable(),
 });
 
 /**
@@ -3187,6 +3227,15 @@ export const ListSponsorLicencesResponse = zod.object({
 /**
  * @summary Platform-wide aggregated statistics (super admin only)
  */
+export const GetSuperAdminStatsQueryParams = zod.object({
+  industry: zod.coerce
+    .string()
+    .optional()
+    .describe(
+      "Optional case-insensitive substring filter for lead industry metrics.",
+    ),
+});
+
 export const GetSuperAdminStatsResponse = zod.object({
   totalUsers: zod.number(),
   usersByRole: zod.record(zod.string(), zod.number()),
@@ -3195,6 +3244,49 @@ export const GetSuperAdminStatsResponse = zod.object({
   applicationsThisWeek: zod.number(),
   sponsorLicences: zod.number(),
   lastSponsorSync: zod.date().nullish(),
+  marketingPerformance: zod.object({
+    totalLeads: zod.number(),
+    leadsLast7Days: zod.number(),
+    byStatus: zod.array(
+      zod.object({
+        status: zod.string(),
+        count: zod.number(),
+      }),
+    ),
+    byIndustry: zod.array(
+      zod.object({
+        industrySector: zod.string(),
+        count: zod.number(),
+      }),
+    ),
+    bySource: zod.array(
+      zod.object({
+        source: zod.string(),
+        count: zod.number(),
+      }),
+    ),
+    conversions: zod.object({
+      total: zod.number(),
+      last7Days: zod.number(),
+      rate: zod.number(),
+    }),
+    byMarketer: zod.array(
+      zod.object({
+        id: zod.string().nullable(),
+        email: zod.string().nullable(),
+        name: zod.string(),
+        assignedCount: zod.number(),
+        contactedCount: zod.number(),
+        registeredCount: zod.number(),
+        byIndustry: zod.array(
+          zod.object({
+            industrySector: zod.string(),
+            count: zod.number(),
+          }),
+        ),
+      }),
+    ),
+  }),
 });
 
 /**

@@ -3,7 +3,10 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import request from "supertest";
 
-const { authResults } = vi.hoisted(() => ({ authResults: [] as any[] }));
+const { authResults, setMock } = vi.hoisted(() => ({
+  authResults: [] as any[],
+  setMock: vi.fn(),
+}));
 
 vi.mock("@workspace/db", () => {
   function makeChain(): any {
@@ -13,7 +16,7 @@ vi.mock("@workspace/db", () => {
       orderBy() { return chain; },
       limit() { return chain; },
       values() { return chain; },
-      set() { return chain; },
+      set(value: unknown) { setMock(value); return chain; },
       then(resolve: any, reject?: any) {
         return Promise.resolve(authResults.shift() ?? []).then(resolve, reject);
       },
@@ -32,6 +35,7 @@ vi.mock("@workspace/db", () => {
     usersTable: {},
     sessionsTable: {},
     auditEventsTable: {},
+    socialLeadsTable: { email: "email", status: "status", convertedUserId: "converted_user_id" },
   };
 });
 
@@ -122,6 +126,10 @@ describe("POST /auth/register", () => {
       .send({ email: "new@example.com", password: "securepass1", firstName: "John", lastName: "Smith" });
     expect(res.status).toBe(201);
     expect(res.body.message).toContain("check your email");
+    expect(setMock).toHaveBeenCalledWith({
+      status: "registered",
+      convertedUserId: "u1",
+    });
   });
 });
 

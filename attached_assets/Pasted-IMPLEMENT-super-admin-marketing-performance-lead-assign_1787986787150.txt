@@ -1,0 +1,44 @@
+IMPLEMENT super-admin marketing performance + lead assignment. Do not touch vacancy discovery, AI cap, Smart Apply, or broaden marketing into other admin areas.
+
+## Assignment (required for per-marketer stats)
+Add social_leads.marketingUserId (nullable FK to users.id). Only users with role=marketing may be assigned. Null = unassigned.
+
+Who can assign: super_admin and admin, on AdminLeadsPage (dropdown per row + optional bulk assign). Marketing can UPDATE status on leads they can see; they cannot reassign owners unless you already have a reason — default: marketing cannot change marketingUserId.
+
+GET /api/leads: include assignee { id, email, name if you have it }. Query param assignedTo=userId | unassigned.
+
+When status → contacted or registered, keep the current assignee (do not clear). Registration via email match still sets convertedUserId + status registered as today.
+
+## Super-admin stats
+Extend GET /api/admin/super/stats (still super_admin only) with marketingPerformance:
+
+- totalLeads, leadsLast7Days
+- byStatus (new, contacted, registered, unqualified)
+- byIndustry (industrySector, count; null as "Unknown")
+- bySource (form, chat)
+- conversions: total where convertedUserId IS NOT NULL, last7Days, rate
+- byMarketer: for each marketing user (and Unassigned):
+  - assignedCount
+  - contactedCount (status contacted)
+  - registeredCount (status registered OR convertedUserId set — pick one definition and use it consistently; prefer convertedUserId for registered)
+  - byIndustry under that marketer (same shape)
+
+Optional query on stats: ?industry=Healthcare (substring like existing sector filter) so the whole marketingPerformance block is scoped to that industry. SuperAdminPage: industry dropdown + the tables/cards.
+
+Do not put this on GET /api/leads as the source of truth; list endpoint can keep its existing stats for the leads table.
+
+## UI
+SuperAdminPage Overview: “Marketing performance” section — totals, status, industry, source, conversion, table of marketers (contacted / registered / assigned). Industry filter.
+
+AdminLeadsPage: Assigned column + assign control for admin/super_admin. Marketing still leads-only; they see assignee; hide assign if they’re marketing.
+
+## Tests
+- Assign marketing user; stats byMarketer increment
+- Non-marketing user rejected as assignee
+- Marketing PATCH other admin routes still 403
+- industry query filters marketingPerformance
+- Unassigned bucket works
+- Registration still sets convertedUserId
+
+Reply: files changed, how to assign a lead, how registered vs contacted is counted.
+Stop.

@@ -2391,6 +2391,11 @@ paths:
           in: query
           schema:
             type: string
+        - name: assignedTo
+          in: query
+          description: Filter by marketing user ID or use "unassigned".
+          schema:
+            type: string
       responses:
         "200":
           description: Paginated leads and aggregate counts for the active leads filter.
@@ -2406,6 +2411,102 @@ paths:
                 $ref: "#/components/schemas/ErrorEnvelope"
         "403":
           description: Not authorised for leads management.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /leads/assignees:
+    get:
+      operationId: listLeadAssignees
+      tags: [AdminPortal]
+      summary: List marketing users available for lead assignment
+      responses:
+        "200":
+          description: Marketing assignees.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [assignees]
+                properties:
+                  assignees:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/LeadAssignee"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Only admins may list assignment options.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /leads/{id}/assignee:
+    patch:
+      operationId: assignLeadMarketingUser
+      tags: [AdminPortal]
+      summary: Assign or unassign a marketing user from a lead
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [marketingUserId]
+              properties:
+                marketingUserId:
+                  type: string
+                  nullable: true
+      responses:
+        "200":
+          description: Updated lead assignment.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, marketingUserId, assignee]
+                properties:
+                  id:
+                    type: integer
+                  marketingUserId:
+                    type: string
+                    nullable: true
+                  assignee:
+                    allOf:
+                      - $ref: "#/components/schemas/LeadAssignee"
+                    nullable: true
+        "400":
+          description: Invalid lead or non-marketing assignee.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Only admins may assign leads.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Lead not found.
           content:
             application/json:
               schema:
@@ -2961,6 +3062,12 @@ paths:
       tags: [SuperAdmin]
       operationId: getSuperAdminStats
       summary: Platform-wide aggregated statistics (super admin only)
+      parameters:
+        - name: industry
+          in: query
+          description: Optional case-insensitive substring filter for lead industry metrics.
+          schema:
+            type: string
       responses:
         "200":
           description: Platform stats.
@@ -6014,6 +6121,18 @@ components:
         stats:
           $ref: "#/components/schemas/LeadListStats"
 
+    LeadAssignee:
+      type: object
+      required: [id, email, name]
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          nullable: true
+        name:
+          type: string
+
     LeadListStats:
       type: object
       required: [statusTotals, createdLast7Days]
@@ -6433,7 +6552,7 @@ components:
 
     SuperAdminStats:
       type: object
-      required: [totalUsers, usersByRole, completedProfiles, activeJobs, applicationsThisWeek, sponsorLicences]
+      required: [totalUsers, usersByRole, completedProfiles, activeJobs, applicationsThisWeek, sponsorLicences, marketingPerformance]
       properties:
         totalUsers:
           type: integer
@@ -6453,6 +6572,87 @@ components:
           type: string
           format: date-time
           nullable: true
+        marketingPerformance:
+          $ref: "#/components/schemas/MarketingPerformance"
+
+    MarketingPerformance:
+      type: object
+      required: [totalLeads, leadsLast7Days, byStatus, byIndustry, bySource, conversions, byMarketer]
+      properties:
+        totalLeads:
+          type: integer
+        leadsLast7Days:
+          type: integer
+        byStatus:
+          type: array
+          items:
+            type: object
+            required: [status, count]
+            properties:
+              status:
+                type: string
+              count:
+                type: integer
+        byIndustry:
+          type: array
+          items:
+            type: object
+            required: [industrySector, count]
+            properties:
+              industrySector:
+                type: string
+              count:
+                type: integer
+        bySource:
+          type: array
+          items:
+            type: object
+            required: [source, count]
+            properties:
+              source:
+                type: string
+              count:
+                type: integer
+        conversions:
+          type: object
+          required: [total, last7Days, rate]
+          properties:
+            total:
+              type: integer
+            last7Days:
+              type: integer
+            rate:
+              type: number
+        byMarketer:
+          type: array
+          items:
+            type: object
+            required: [id, email, name, assignedCount, contactedCount, registeredCount, byIndustry]
+            properties:
+              id:
+                type: string
+                nullable: true
+              email:
+                type: string
+                nullable: true
+              name:
+                type: string
+              assignedCount:
+                type: integer
+              contactedCount:
+                type: integer
+              registeredCount:
+                type: integer
+              byIndustry:
+                type: array
+                items:
+                  type: object
+                  required: [industrySector, count]
+                  properties:
+                    industrySector:
+                      type: string
+                    count:
+                      type: integer
 
     SuperAdminUser:
       type: object

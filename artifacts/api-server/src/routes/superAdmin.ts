@@ -14,6 +14,7 @@ import {
   employerProfilesTable,
   jobListingsTable,
   rolesTable,
+  socialLeadsTable,
 } from "@workspace/db";
 import { CreateSuperAdminMarketingAccountBody } from "@workspace/api-zod";
 import { eq, and, desc, gte, lte, count, max, ilike, sql, asc } from "drizzle-orm";
@@ -40,6 +41,10 @@ router.get(
   requireRole("super_admin"),
   async (req: Request, res: Response): Promise<void> => {
     writeAuditEvent(req.user!.id, "super_admin_view_stats").catch(() => {});
+    const industry = String(req.query.industry ?? "").trim();
+    const industryCondition = industry
+      ? ilike(socialLeadsTable.industrySector, `%${industry}%`)
+      : undefined;
 
     const usersByRoleRows = await db
       .select({ role: usersTable.role, cnt: count(usersTable.id) })
@@ -79,6 +84,151 @@ router.get(
 
     const [totalUsers] = await db.select({ cnt: count(usersTable.id) }).from(usersTable);
 
+    const marketingWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const recentMarketingCondition = industryCondition
+      ? and(industryCondition, gte(socialLeadsTable.createdAt, marketingWeekAgo))
+      : gte(socialLeadsTable.createdAt, marketingWeekAgo);
+    const conversionCondition = industryCondition
+      ? and(industryCondition, sql`${socialLeadsTable.convertedUserId} IS NOT NULL`)
+      : sql`${socialLeadsTable.convertedUserId} IS NOT NULL`;
+    const recentConversionCondition = industryCondition
+      ? and(
+          industryCondition,
+          sql`${socialLeadsTable.convertedUserId} IS NOT NULL`,
+          gte(socialLeadsTable.createdAt, marketingWeekAgo),
+        )
+      : and(
+          sql`${socialLeadsTable.convertedUserId} IS NOT NULL`,
+          gte(socialLeadsTable.createdAt, marketingWeekAgo),
+        );
+
+    const [
+      [totalLeadsRow],
+      [recentLeadsRow],
+      leadStatusRows,
+      leadIndustryRows,
+      leadSourceRows,
+      [totalConversionsRow],
+      [recentConversionsRow],
+      marketingUsers,
+      marketerRows,
+      marketerIndustryRows,
+    ] = await Promise.all([
+      db.select({ cnt: count(socialLeadsTable.id) }).from(socialLeadsTable).where(industryCondition),
+      db.select({ cnt: count(socialLeadsTable.id) }).from(socialLeadsTable).where(recentMarketingCondition),
+      db
+        .select({ status: socialLeadsTable.status, cnt: count(socialLeadsTable.id) })
+        .from(socialLeadsTable)
+        .where(industryCondition)
+        .groupBy(socialLeadsTable.status),
+      db
+        .select({ industrySector: socialLeadsTable.industrySector, cnt: count(socialLeadsTable.id) })
+        .from(socialLeadsTable)
+        .where(industryCondition)
+        .groupBy(socialLeadsTable.industrySector)
+        .orderBy(asc(socialLeadsTable.industrySector)),
+      db
+        .select({ source: socialLeadsTable.source, cnt: count(socialLeadsTable.id) })
+        .from(socialLeadsTable)
+        .where(industryCondition)
+        .groupBy(socialLeadsTable.source)
+        .orderBy(asc(socialLeadsTable.source)),
+      db.select({ cnt: count(socialLeadsTable.id) }).from(socialLeadsTable).where(conversionCondition),
+      db.select({ cnt: count(socialLeadsTable.id) }).from(socialLeadsTable).where(recentConversionCondition),
+      db
+        .select({
+          id: usersTable.id,
+          email: usersTable.email,
+          firstName: usersTable.firstName,
+          lastName: usersTable.lastName,
+        })
+        .from(usersTable)
+        .where(eq(usersTable.role, "marketing"))
+        .orderBy(asc(usersTable.firstName), asc(usersTable.lastName), asc(usersTable.email)),
+      db
+        .select({
+          marketingUserId: socialLeadsTable.marketingUserId,
+          assignedCount: count(socialLeadsTable.id),
+          contactedCount: sql<number>`count(*) filter (where ${socialLeadsTable.status} = 'contacted')`,
+          registeredCount: sql<number>`count(*) filter (where ${socialLeadsTable.convertedUserId} IS NOT NULL)`,
+        })
+        .from(socialLeadsTable)
+        .where(industryCondition)
+        .groupBy(socialLeadsTable.marketingUserId),
+      db
+        .select({
+          marketingUserId: socialLeadsTable.marketingUserId,
+          industrySector: socialLeadsTable.industrySector,
+          cnt: count(socialLeadsTable.id),
+        })
+        .from(socialLeadsTable)
+        .where(industryCondition)
+        .groupBy(socialLeadsTable.marketingUserId, socialLeadsTable.industrySector)
+        .orderBy(asc(socialLeadsTable.industrySector)),
+    ]);
+
+    const statuses = ["new", "contacted", "registered", "unqualified"] as const;
+    const byStatus = statuses.map((status) => ({
+      status,
+      count: Number(leadStatusRows.find((row) => row.status === status)?.cnt ?? 0),
+    }));
+    const byIndustry = leadIndustryRows.map((row) => ({
+      industrySector: row.industrySector ?? "Unknown",
+      count: Number(row.cnt),
+    }));
+    const bySource = (["form", "chat"] as const).map((source) => ({
+      source,
+      count: Number(leadSourceRows.find((row) => row.source === source)?.cnt ?? 0),
+    }));
+    const marketerStats = new Map(
+      marketerRows.map((row) => [
+        row.marketingUserId ?? "__unassigned__",
+        {
+          assignedCount: Number(row.assignedCount),
+          contactedCount: Number(row.contactedCount),
+          registeredCount: Number(row.registeredCount),
+        },
+      ]),
+    );
+    const marketerIndustries = new Map<string, { industrySector: string; count: number }[]>();
+    for (const row of marketerIndustryRows) {
+      const key = row.marketingUserId ?? "__unassigned__";
+      const items = marketerIndustries.get(key) ?? [];
+      items.push({ industrySector: row.industrySector ?? "Unknown", count: Number(row.cnt) });
+      marketerIndustries.set(key, items);
+    }
+    const marketingUserRows = marketingUsers.map((user) => ({
+      id: user.id,
+      email: user.email,
+      name: [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email,
+    }));
+    const byMarketer = [
+      ...marketingUserRows.map((user) => ({
+        ...user,
+        ...(
+          marketerStats.get(user.id) ?? {
+            assignedCount: 0,
+            contactedCount: 0,
+            registeredCount: 0,
+          }
+        ),
+        byIndustry: marketerIndustries.get(user.id) ?? [],
+      })),
+      {
+        id: null,
+        email: null,
+        name: "Unassigned",
+        ...(marketerStats.get("__unassigned__") ?? {
+          assignedCount: 0,
+          contactedCount: 0,
+          registeredCount: 0,
+        }),
+        byIndustry: marketerIndustries.get("__unassigned__") ?? [],
+      },
+    ];
+    const totalLeads = Number(totalLeadsRow?.cnt ?? 0);
+    const totalConversions = Number(totalConversionsRow?.cnt ?? 0);
+
     const roleMap: Record<string, number> = {};
     for (const r of usersByRoleRows) roleMap[r.role] = Number(r.cnt);
 
@@ -90,6 +240,19 @@ router.get(
       applicationsThisWeek: Number(weeklyApps?.cnt ?? 0),
       sponsorLicences: Number(sponsorCount?.cnt ?? 0),
       lastSponsorSync: lastSync?.lastSync ?? null,
+      marketingPerformance: {
+        totalLeads,
+        leadsLast7Days: Number(recentLeadsRow?.cnt ?? 0),
+        byStatus,
+        byIndustry,
+        bySource,
+        conversions: {
+          total: totalConversions,
+          last7Days: Number(recentConversionsRow?.cnt ?? 0),
+          rate: totalLeads > 0 ? Math.round((totalConversions / totalLeads) * 1000) / 10 : 0,
+        },
+        byMarketer,
+      },
     });
   },
 );

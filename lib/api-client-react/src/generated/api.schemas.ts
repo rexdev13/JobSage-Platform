@@ -1660,6 +1660,12 @@ export interface LeadListResponse {
   stats: LeadListStats;
 }
 
+export interface LeadAssignee {
+  id: string;
+  email: string | null;
+  name: string;
+}
+
 export type ProgressReportResponseTopCompaniesItem = {
   name: string;
   count: number;
@@ -1878,6 +1884,52 @@ export interface CandidateMessageListResponse {
 
 export type SuperAdminStatsUsersByRole = { [key: string]: number };
 
+export type MarketingPerformanceByStatusItem = {
+  status: string;
+  count: number;
+};
+
+export type MarketingPerformanceByIndustryItem = {
+  industrySector: string;
+  count: number;
+};
+
+export type MarketingPerformanceBySourceItem = {
+  source: string;
+  count: number;
+};
+
+export type MarketingPerformanceConversions = {
+  total: number;
+  last7Days: number;
+  rate: number;
+};
+
+export type MarketingPerformanceByMarketerItemByIndustryItem = {
+  industrySector: string;
+  count: number;
+};
+
+export type MarketingPerformanceByMarketerItem = {
+  id: string | null;
+  email: string | null;
+  name: string;
+  assignedCount: number;
+  contactedCount: number;
+  registeredCount: number;
+  byIndustry: MarketingPerformanceByMarketerItemByIndustryItem[];
+};
+
+export interface MarketingPerformance {
+  totalLeads: number;
+  leadsLast7Days: number;
+  byStatus: MarketingPerformanceByStatusItem[];
+  byIndustry: MarketingPerformanceByIndustryItem[];
+  bySource: MarketingPerformanceBySourceItem[];
+  conversions: MarketingPerformanceConversions;
+  byMarketer: MarketingPerformanceByMarketerItem[];
+}
+
 export interface SuperAdminStats {
   totalUsers: number;
   usersByRole: SuperAdminStatsUsersByRole;
@@ -1886,6 +1938,7 @@ export interface SuperAdminStats {
   applicationsThisWeek: number;
   sponsorLicences: number;
   lastSponsorSync?: string | null;
+  marketingPerformance: MarketingPerformance;
 }
 
 export interface SuperAdminUser {
@@ -2292,6 +2345,24 @@ export type ListLeadsParams = {
   limit?: number;
   search?: string;
   sector?: string;
+  /**
+   * Filter by marketing user ID or use "unassigned".
+   */
+  assignedTo?: string;
+};
+
+export type ListLeadAssignees200 = {
+  assignees: LeadAssignee[];
+};
+
+export type AssignLeadMarketingUserBody = {
+  marketingUserId: string | null;
+};
+
+export type AssignLeadMarketingUser200 = {
+  id: number;
+  marketingUserId: string | null;
+  assignee: LeadAssignee | null;
 };
 
 export type ListSponsorLicencesParams = {
@@ -2324,6 +2395,13 @@ export type ListSponsorLicencesParams = {
    * @maximum 100
    */
   limit?: number;
+};
+
+export type GetSuperAdminStatsParams = {
+  /**
+   * Optional case-insensitive substring filter for lead industry metrics.
+   */
+  industry?: string;
 };
 
 export type GetSuperAdminUsersParams = {

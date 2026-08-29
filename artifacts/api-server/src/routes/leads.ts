@@ -1,9 +1,9 @@
 import crypto from "crypto";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { z } from "zod";
-import { db, socialLeadsTable, sponsorLicencesTable } from "@workspace/db";
+import { db, socialLeadsTable, sponsorLicencesTable, usersTable } from "@workspace/db";
 import { openai } from "@workspace/integrations-openai-ai-server";
-import { sql, ilike, or, desc, count, eq, and, gte } from "drizzle-orm";
+import { sql, ilike, or, desc, count, eq, and, gte, isNull } from "drizzle-orm";
 import { requireRole } from "../middlewares/requireRole";
 import { buildLeadStats, getRollingWeekStart } from "../lib/weeklyStats";
 
@@ -20,6 +20,37 @@ const marketingLeadFields = {
   createdAt: socialLeadsTable.createdAt,
   desiredRole: socialLeadsTable.desiredRole,
   additionalMessage: socialLeadsTable.additionalMessage,
+  assigneeId: usersTable.id,
+  assigneeEmail: usersTable.email,
+  assigneeName: sql<string>`concat_ws(' ', ${usersTable.firstName}, ${usersTable.lastName})`,
+};
+
+const adminLeadFields = {
+  id: socialLeadsTable.id,
+  firstName: socialLeadsTable.firstName,
+  lastName: socialLeadsTable.lastName,
+  email: socialLeadsTable.email,
+  phone: socialLeadsTable.phone,
+  industrySector: socialLeadsTable.industrySector,
+  desiredRole: socialLeadsTable.desiredRole,
+  additionalMessage: socialLeadsTable.additionalMessage,
+  utmSource: socialLeadsTable.utmSource,
+  utmMedium: socialLeadsTable.utmMedium,
+  utmCampaign: socialLeadsTable.utmCampaign,
+  utmContent: socialLeadsTable.utmContent,
+  landingPath: socialLeadsTable.landingPath,
+  referrerUrl: socialLeadsTable.referrerUrl,
+  ipHash: socialLeadsTable.ipHash,
+  gdprConsent: socialLeadsTable.gdprConsent,
+  gdprConsentedAt: socialLeadsTable.gdprConsentedAt,
+  status: socialLeadsTable.status,
+  source: socialLeadsTable.source,
+  convertedUserId: socialLeadsTable.convertedUserId,
+  marketingUserId: socialLeadsTable.marketingUserId,
+  createdAt: socialLeadsTable.createdAt,
+  assigneeId: usersTable.id,
+  assigneeEmail: usersTable.email,
+  assigneeName: sql<string>`concat_ws(' ', ${usersTable.firstName}, ${usersTable.lastName})`,
 };
 
 // ---------------------------------------------------------------------------
@@ -65,6 +96,7 @@ router.get(
     const limit  = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "25"), 10)));
     const search = String(req.query.search ?? "").trim();
     const sector = String(req.query.sector ?? "").trim();
+    const assignedTo = String(req.query.assignedTo ?? "").trim();
     const offset = (page - 1) * limit;
 
     const searchCondition = search
@@ -78,10 +110,18 @@ router.get(
     const sectorCondition = sector
       ? ilike(socialLeadsTable.industrySector, `%${sector}%`)
       : undefined;
+    const assigneeCondition = assignedTo === "unassigned"
+      ? isNull(socialLeadsTable.marketingUserId)
+      : assignedTo
+        ? eq(socialLeadsTable.marketingUserId, assignedTo)
+        : undefined;
 
-    const where =
+    let where =
       searchCondition && sectorCondition ? and(searchCondition, sectorCondition)
       : searchCondition ?? sectorCondition;
+    if (assigneeCondition) {
+      where = where ? and(where, assigneeCondition) : assigneeCondition;
+    }
     const now = new Date();
     const recentWhere = where
       ? and(where, gte(socialLeadsTable.createdAt, getRollingWeekStart(now)))
@@ -92,8 +132,9 @@ router.get(
       db.select({ total: count() }).from(socialLeadsTable).where(where),
       (isMarketing
         ? db.select(marketingLeadFields)
-        : db.select())
+        : db.select(adminLeadFields))
         .from(socialLeadsTable)
+        .leftJoin(usersTable, eq(socialLeadsTable.marketingUserId, usersTable.id))
         .where(where)
         .orderBy(desc(socialLeadsTable.createdAt))
         .limit(limit)
@@ -105,12 +146,50 @@ router.get(
       db.select({ total: count() }).from(socialLeadsTable).where(recentWhere),
     ]);
 
+    const normalizedLeads = leads.map((lead) => {
+      const { assigneeId, assigneeEmail, assigneeName, ...leadFields } = lead;
+      return {
+        ...leadFields,
+        assignee: assigneeId
+          ? { id: assigneeId, email: assigneeEmail, name: assigneeName?.trim() || assigneeEmail }
+          : null,
+      };
+    });
+
     res.json({
-      leads,
+      leads: normalizedLeads,
       total,
       page,
       limit,
       stats: buildLeadStats(statusRows, recentLeadCount?.total ?? 0),
+    });
+  },
+);
+
+// ---------------------------------------------------------------------------
+// GET /api/leads/assignees — marketing users available for lead assignment.
+// Admin and super_admin only; marketing sees the resolved assignee on each lead.
+// ---------------------------------------------------------------------------
+
+router.get(
+  "/leads/assignees",
+  requireRole("admin", "super_admin"),
+  async (_req: Request, res: Response): Promise<void> => {
+    const assignees = await db
+      .select({
+        id: usersTable.id,
+        email: usersTable.email,
+        name: sql<string>`concat_ws(' ', ${usersTable.firstName}, ${usersTable.lastName})`,
+      })
+      .from(usersTable)
+      .where(eq(usersTable.role, "marketing"))
+      .orderBy(usersTable.firstName, usersTable.lastName, usersTable.email);
+
+    res.json({
+      assignees: assignees.map((assignee) => ({
+        ...assignee,
+        name: assignee.name?.trim() || assignee.email,
+      })),
     });
   },
 );
@@ -143,6 +222,70 @@ router.get(
       console.error("[leads] GET /leads/sectors error:", err);
       res.status(500).json({ error: "Could not load sector list." });
     }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// PATCH /api/leads/:id/assignee — assign or unassign a marketing owner.
+// ---------------------------------------------------------------------------
+
+const AssignLeadSchema = z.object({
+  marketingUserId: z.string().trim().min(1).nullable(),
+});
+
+router.patch(
+  "/leads/:id/assignee",
+  requireRole("admin", "super_admin"),
+  async (req: Request, res: Response): Promise<void> => {
+    const id = parseInt(String(req.params.id), 10);
+    if (isNaN(id)) {
+      res.status(400).json({ error: "Invalid lead ID." });
+      return;
+    }
+
+    const parsed = AssignLeadSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "marketingUserId must be a marketing user ID or null." });
+      return;
+    }
+
+    const marketingUserId = parsed.data.marketingUserId;
+    let assignee: { id: string; email: string | null; name: string | null } | null = null;
+
+    if (marketingUserId !== null) {
+      const [marketingUser] = await db
+        .select({
+          id: usersTable.id,
+          email: usersTable.email,
+          name: sql<string>`concat_ws(' ', ${usersTable.firstName}, ${usersTable.lastName})`,
+        })
+        .from(usersTable)
+        .where(and(eq(usersTable.id, marketingUserId), eq(usersTable.role, "marketing")))
+        .limit(1);
+
+      if (!marketingUser) {
+        res.status(400).json({ error: "The selected assignee is not a marketing user." });
+        return;
+      }
+
+      assignee = {
+        ...marketingUser,
+        name: marketingUser.name?.trim() || marketingUser.email,
+      };
+    }
+
+    const [updated] = await db
+      .update(socialLeadsTable)
+      .set({ marketingUserId })
+      .where(eq(socialLeadsTable.id, id))
+      .returning({ id: socialLeadsTable.id, marketingUserId: socialLeadsTable.marketingUserId });
+
+    if (!updated) {
+      res.status(404).json({ error: "Lead not found." });
+      return;
+    }
+
+    res.json({ id: updated.id, marketingUserId: updated.marketingUserId, assignee });
   },
 );
 
