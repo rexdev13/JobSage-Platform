@@ -1,0 +1,38 @@
+INCREASE vacancy volume the safe way: shared cache + background HTTP collection. Do not scrape 300 NHS pages per click.
+
+VACANCY_AI_WEB_SEARCH_DAILY_CAP stays 0. No OpenAI web_search. No LinkedIn. Do not full-scan 142k sponsors every run. Do not put aggregator URLs on company-site Apply.
+
+## Goal
+More open, sponsor-matched jobs on Opportunities Job Board without NHS rate-limits and without AI cost.
+
+## 1. Live Job Board pull (when a candidate opens Job Board)
+- Raise the live NHS profession+region search from ~120 to 300 (more result pages).
+- Cache MUST be shared: one key per profession + region (and source=job_board), TTL 15–30 minutes. Ten nurses in London in that window = one NHS search, not ten.
+- On cache hit: return cached/DB results. Do not hit NHS.
+- On NHS 429 / 403 / 5xx / timeout: use existing backoff, serve last cache or DB snapshot, do NOT retry-storm.
+- Still keep only employers matched to sponsor_licences, regulator/labour filters, dead/closed hidden.
+- Timeout and delay between pages stay polite (same family as nhsJobsClient).
+- Reed stays off the request path if it would slow or multiply requests; Reed belongs in background.
+
+## 2. Background collection (nobody waiting)
+- Raise batch from 80 to 200–250 organisations per run.
+- Only healthcare / bookmarked / already-in-snapshot / stale — not random non-health from the full register.
+- Prefer every 6 hours if the scheduler can do that; if still daily 08:00, say so and use 250 per day rather than inventing a broken cron.
+- Concurrency stays 15 with page delays.
+- Per employer: cap ~8–12 quality adverts (NHS + Reed as already implemented).
+- Reed: keep looser-but-safe employer match if that already landed; still drop clearly different companies.
+- Outage: do not save “no vacancies”; backoff; continue other employers.
+
+## 3. Closed / dead
+Liveness must still hide closed NHS/Reed pages (200 + closed banner). Volume is useless if we show expired ads.
+
+## 4. Cost / load
+Reply confirming: zero OpenAI discovery calls; live 300 is cache-gated; what the new cron/batch numbers are; worst-case NHS requests per 20 minutes for live search (should be ~1 per profession+region, not per user).
+
+## Tests
+- Two Job Board requests with the same profession+region inside TTL = one NHS live search (mock).
+- 429 → cached/DB, no tight retry loop.
+- Cap 0 still never calls OpenAI web_search.
+- Batch size / schedule numbers match the code.
+
+Stop.
