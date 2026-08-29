@@ -79,7 +79,7 @@ export function GapAnalysisSheet({
 
   const acknowledgedKeys = useMemo(
     () => new Set([
-      ...(claimsData?.claims ?? []).map((claim) => claim.claimKey),
+      ...(claimsData?.claims ?? []).map((claim) => normalizeReadinessClaim(claim.claimKey)),
       ...acknowledgedThisSession,
     ]),
     [claimsData, acknowledgedThisSession],
@@ -160,7 +160,7 @@ export function GapAnalysisSheet({
       });
       toast({
         title: "Could not save acknowledgement",
-        description: err instanceof Error ? err.message : "Please try again.",
+        description: `Your acknowledgement was not recorded. ${err instanceof Error ? err.message : "Please try again."}`,
         variant: "destructive",
       });
     } finally {

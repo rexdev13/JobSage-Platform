@@ -1633,18 +1633,19 @@ router.get("/opportunities/roles/:roleId/gap-analysis", requireAuthenticated, as
     const claims = await getCandidateReadinessClaims(userId);
 
     // 1. Check DB cache (7-day TTL, same as sponsor vacancy checks)
-    const ttlCutoff = new Date(Date.now() - READINESS_CHECK_TTL_DAYS * 24 * 60 * 60 * 1000);
     const [existing] = await db
       .select()
       .from(roleGapAnalysesTable)
       .where(and(
         eq(roleGapAnalysesTable.userId, userId),
         eq(roleGapAnalysesTable.roleId, roleId),
-        sql`${roleGapAnalysesTable.generatedAt} > ${ttlCutoff}`,
       ))
       .limit(1);
 
-    if (existing) {
+    const existingAgeDays = existing
+      ? (Date.now() - existing.generatedAt.getTime()) / (1000 * 60 * 60 * 24)
+      : null;
+    if (existing && existingAgeDays !== null && existingAgeDays < READINESS_CHECK_TTL_DAYS) {
       res.json({
         matchedRequirements: existing.matchedRequirements,
         gaps: filterAcknowledgedGaps(existing.gaps, claims),
@@ -1655,19 +1656,22 @@ router.get("/opportunities/roles/:roleId/gap-analysis", requireAuthenticated, as
       return;
     }
 
-    // 2. Combined lifetime limit: count across both tables
-    const [[sponsorCount], [roleCount]] = await Promise.all([
-      db.select({ count: sql<number>`cast(count(*) as integer)` })
-        .from(sponsorLicenceGapAnalysesTable)
-        .where(eq(sponsorLicenceGapAnalysesTable.userId, userId)),
-      db.select({ count: sql<number>`cast(count(*) as integer)` })
-        .from(roleGapAnalysesTable)
-        .where(eq(roleGapAnalysesTable.userId, userId)),
-    ]);
-    const totalUsed = (sponsorCount?.count ?? 0) + (roleCount?.count ?? 0);
-    if (totalUsed >= READINESS_CHECK_LIMIT) {
-      res.status(429).json({ error: "Readiness Check limit reached. You have used all 10 checks." });
-      return;
+    // 2. Combined lifetime limit: only a new role consumes a new check.
+    // A stale existing result can refresh even after the lifetime quota is full.
+    if (!existing) {
+      const [[sponsorCount], [roleCount]] = await Promise.all([
+        db.select({ count: sql<number>`cast(count(*) as integer)` })
+          .from(sponsorLicenceGapAnalysesTable)
+          .where(eq(sponsorLicenceGapAnalysesTable.userId, userId)),
+        db.select({ count: sql<number>`cast(count(*) as integer)` })
+          .from(roleGapAnalysesTable)
+          .where(eq(roleGapAnalysesTable.userId, userId)),
+      ]);
+      const totalUsed = (sponsorCount?.count ?? 0) + (roleCount?.count ?? 0);
+      if (totalUsed >= READINESS_CHECK_LIMIT) {
+        res.status(429).json({ error: "Readiness Check limit reached. You have used all 10 checks." });
+        return;
+      }
     }
 
     // 3. Fetch role + profile in parallel

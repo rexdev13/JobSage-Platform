@@ -1,0 +1,41 @@
+READ ONLY. Do not change code. Do not start a build. Do not raise VACANCY_AI_WEB_SEARCH_DAILY_CAP. Do not scrape LinkedIn/Indeed.
+
+Product: “Apply on company websites” = live vacancies on the SPONSOR EMPLOYER’S OWN SITE (or their ATS on their domain), for ANY industry on the UK sponsor register — not NHS Jobs, not Reed, not aggregators. Healthcare is one sector, not the whole product.
+
+FOUND / PARTIAL / NOT FOUND with paths.
+
+## 1. What the candidate sees
+- Opportunities company-website / employer-site apply vs tracker tab “Apply on company websites”
+- GET /roles?source=company_site (or equivalent): what rows, filters, empty states
+- How company_site vs job_board is set today (URL classifier, backfill counts if in comments/docs)
+
+## 2. How company_site rows are created
+- runVacancyCheck / NHS / Reed / AI (cap 0) — does anything FETCH the employer website careers page?
+- sponsor_licences.website / contact fields: filled how, used how
+- Any Workday, Greenhouse, Lever, Taleo, SmartRecruiters, Oracle, Pinpoint fetchers
+- Generic HTML careers crawler: EXISTS or NOT FOUND
+
+## 3. Who gets checked
+- selectBatch industry filter: are non-health sponsors skipped forever?
+- Bookmarks of any sector
+- 24h cache, 6h batch, 250 cap, 15 workers
+- Implications for education / engineering / other sponsors
+
+## 4. URL quality
+- vacancyUrlPolicy company_site mode: aggregator block, generic /careers reject, deep-link rules
+- Liveness / closed detection for employer domains (not only NHS)
+- Login walls treated as dead except NHS?
+
+## 5. Best production pull (recommend, do not implement)
+Rank options for a SHARED store (one crawl, all candidates; no per-user scrape):
+A) website field → discover careers/jobs URL → extract vacancy deep links (HTTP, politeness, robots)
+B) Known ATS adapters (Workday/Greenhouse/etc.) when the careers URL matches
+C) AI web_search (only if you must — we want this LAST, cap stays 0 for v1)
+For each: coverage vs rate-limit vs ToS vs accuracy.
+
+v1 scope: which ATS + generic parser is enough to be prod-worthy WITHOUT pretending every .com/careers is crawlable. Explicitly include non-health sponsors in the check queue (bookmark + has website), not healthcare-only.
+
+## 6. Efficiency
+How live candidate requests would reuse the shared snapshot vs extra live crawls (should be DB-first, same pattern as job boards).
+
+Stop. No implementation.
