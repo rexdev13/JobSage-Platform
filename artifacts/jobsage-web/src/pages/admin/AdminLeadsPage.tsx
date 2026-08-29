@@ -346,6 +346,9 @@ export default function AdminLeadsPage() {
   const [confirmOpen, setConfirmOpen]   = useState(false);
   const [bulkStatus, setBulkStatus]     = useState<LeadStatus | "">("");
   const [applyingBulk, setApplyingBulk] = useState(false);
+  const [bulkAssignee, setBulkAssignee] = useState("");
+  const [applyingBulkAssignee, setApplyingBulkAssignee] = useState(false);
+  const [bulkAssignmentMessage, setBulkAssignmentMessage] = useState<string | null>(null);
   const LIMIT = 25;
 
   const queryClient = useQueryClient();
@@ -417,6 +420,8 @@ export default function AdminLeadsPage() {
       if (!res.ok) throw new Error("Delete failed");
       setSelected(new Set());
       setBulkStatus("");
+      setBulkAssignee("");
+      setBulkAssignmentMessage(null);
       await queryClient.invalidateQueries({ queryKey: ["admin-leads"] });
     } catch {
       // silent — user stays on the page
@@ -438,11 +443,49 @@ export default function AdminLeadsPage() {
       if (!res.ok) throw new Error("Bulk update failed");
       setSelected(new Set());
       setBulkStatus("");
+      setBulkAssignee("");
+      setBulkAssignmentMessage(null);
       await queryClient.invalidateQueries({ queryKey: ["admin-leads"] });
     } catch {
       alert("Failed to update statuses. Please try again.");
     } finally {
       setApplyingBulk(false);
+    }
+  }
+
+  async function handleBulkAssignee() {
+    if (!someSelected || !bulkAssignee) return;
+
+    setApplyingBulkAssignee(true);
+    setBulkAssignmentMessage(null);
+    try {
+      const marketingUserId = bulkAssignee === "__unassigned__" ? null : bulkAssignee;
+      const res = await fetch(`${BASE}/api/leads/bulk-assignee`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ ids: Array.from(selected), marketingUserId }),
+      });
+      const body = await res.json().catch(() => ({})) as {
+        updated?: number;
+        error?: string;
+        assignee?: { name?: string | null; email?: string | null } | null;
+      };
+      if (!res.ok) throw new Error(body.error ?? "Bulk assignment failed");
+
+      setSelected(new Set());
+      setBulkStatus("");
+      setBulkAssignee("");
+      setBulkAssignmentMessage(
+        marketingUserId === null
+          ? `Unassigned ${body.updated ?? selected.size} lead${(body.updated ?? selected.size) === 1 ? "" : "s"}.`
+          : `Assigned ${body.updated ?? selected.size} lead${(body.updated ?? selected.size) === 1 ? "" : "s"} to ${body.assignee?.name ?? body.assignee?.email ?? "the selected marketer"}.`,
+      );
+      await queryClient.invalidateQueries({ queryKey: ["admin-leads"] });
+    } catch (error) {
+      setBulkAssignmentMessage(error instanceof Error ? error.message : "Failed to assign leads. Please try again.");
+    } finally {
+      setApplyingBulkAssignee(false);
     }
   }
 
@@ -492,6 +535,37 @@ export default function AdminLeadsPage() {
                 </Button>
               </div>
 
+              {canAssign && (
+                <div className="flex items-center gap-1.5">
+                  <select
+                    value={bulkAssignee}
+                    onChange={(event) => {
+                      setBulkAssignee(event.target.value);
+                      setBulkAssignmentMessage(null);
+                    }}
+                    aria-label="Assign selected leads"
+                    className="text-xs rounded-lg border border-input bg-background px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary/30 cursor-pointer"
+                  >
+                    <option value="">Assign selected…</option>
+                    <option value="__unassigned__">Unassign selected</option>
+                    {assignees.map((assignee) => (
+                      <option key={assignee.id} value={assignee.id}>
+                        {assignee.name || assignee.email || assignee.id}
+                      </option>
+                    ))}
+                  </select>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleBulkAssignee}
+                    disabled={!bulkAssignee || applyingBulkAssignee}
+                    className="h-7 text-xs px-2.5"
+                  >
+                    {applyingBulkAssignee ? <Loader2 className="h-3 w-3 animate-spin" /> : "Assign"}
+                  </Button>
+                </div>
+              )}
+
               {canDelete && (
                 <Button
                   variant="destructive"
@@ -511,6 +585,11 @@ export default function AdminLeadsPage() {
             </div>
           )}
         </div>
+        {bulkAssignmentMessage && (
+          <p className="text-xs text-muted-foreground" role="status">
+            {bulkAssignmentMessage}
+          </p>
+        )}
 
         {isMarketing && <CalendlyLinkCard onUrlChange={setMyCalendlyUrl} />}
 

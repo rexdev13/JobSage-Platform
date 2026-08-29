@@ -30,6 +30,8 @@ import type {
   BookmarkToggleResponse,
   BoostProfileRequest,
   BoostProfileResponse,
+  BulkLeadAssigneeInput,
+  BulkLeadAssigneeResponse,
   CampaignListResponse,
   CandidateAnalytics,
   CandidateMatchList,
@@ -8307,6 +8309,96 @@ export const useAssignLeadMarketingUser = <
   TContext
 > => {
   return useMutation(getAssignLeadMarketingUserMutationOptions(options));
+};
+
+/**
+ * @summary Assign or unassign one marketing user across multiple leads
+ */
+export const getBulkAssignLeadMarketingUserUrl = () => {
+  return `/api/leads/bulk-assignee`;
+};
+
+export const bulkAssignLeadMarketingUser = async (
+  bulkLeadAssigneeInput: BulkLeadAssigneeInput,
+  options?: RequestInit,
+): Promise<BulkLeadAssigneeResponse> => {
+  return customFetch<BulkLeadAssigneeResponse>(
+    getBulkAssignLeadMarketingUserUrl(),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(bulkLeadAssigneeInput),
+    },
+  );
+};
+
+export const getBulkAssignLeadMarketingUserMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bulkAssignLeadMarketingUser>>,
+    TError,
+    { data: BodyType<BulkLeadAssigneeInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof bulkAssignLeadMarketingUser>>,
+  TError,
+  { data: BodyType<BulkLeadAssigneeInput> },
+  TContext
+> => {
+  const mutationKey = ["bulkAssignLeadMarketingUser"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof bulkAssignLeadMarketingUser>>,
+    { data: BodyType<BulkLeadAssigneeInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return bulkAssignLeadMarketingUser(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type BulkAssignLeadMarketingUserMutationResult = NonNullable<
+  Awaited<ReturnType<typeof bulkAssignLeadMarketingUser>>
+>;
+export type BulkAssignLeadMarketingUserMutationBody =
+  BodyType<BulkLeadAssigneeInput>;
+export type BulkAssignLeadMarketingUserMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Assign or unassign one marketing user across multiple leads
+ */
+export const useBulkAssignLeadMarketingUser = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bulkAssignLeadMarketingUser>>,
+    TError,
+    { data: BodyType<BulkLeadAssigneeInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof bulkAssignLeadMarketingUser>>,
+  TError,
+  { data: BodyType<BulkLeadAssigneeInput> },
+  TContext
+> => {
+  return useMutation(getBulkAssignLeadMarketingUserMutationOptions(options));
 };
 
 /**

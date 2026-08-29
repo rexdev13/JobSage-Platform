@@ -27,6 +27,8 @@ export * from "./authUserRole";
 export * from "./bookmarkToggleResponse";
 export * from "./boostProfileRequest";
 export * from "./boostProfileResponse";
+export * from "./bulkLeadAssigneeInput";
+export * from "./bulkLeadAssigneeResponse";
 export * from "./campaignListResponse";
 export * from "./candidateAnalytics";
 export * from "./candidateAnalyticsApplicationsLast7Days";

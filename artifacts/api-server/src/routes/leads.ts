@@ -338,6 +338,69 @@ router.patch(
 );
 
 // ---------------------------------------------------------------------------
+// PATCH /api/leads/bulk-assignee — assign or unassign one marketing owner
+// across multiple leads.
+// ---------------------------------------------------------------------------
+
+const BulkAssignLeadSchema = z.object({
+  ids: z.array(z.coerce.number().int().positive()).min(1, "ids must be a non-empty array."),
+  marketingUserId: z.string().trim().min(1).nullable(),
+});
+
+router.patch(
+  "/leads/bulk-assignee",
+  requireRole("admin", "super_admin"),
+  async (req: Request, res: Response): Promise<void> => {
+    const parsed = BulkAssignLeadSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        error: parsed.error.issues[0]?.message ?? "Invalid bulk assignment request.",
+      });
+      return;
+    }
+
+    const { ids, marketingUserId } = parsed.data;
+    let assignee: { id: string; email: string | null; name: string | null; calendlyUrl?: string | null } | null = null;
+
+    if (marketingUserId !== null) {
+      const [marketingUser] = await db
+        .select({
+          id: usersTable.id,
+          email: usersTable.email,
+          name: sql<string>`concat_ws(' ', ${usersTable.firstName}, ${usersTable.lastName})`,
+          calendlyUrl: usersTable.calendlyUrl,
+        })
+        .from(usersTable)
+        .where(and(eq(usersTable.id, marketingUserId), eq(usersTable.role, "marketing")))
+        .limit(1);
+
+      if (!marketingUser) {
+        res.status(400).json({ error: "The selected assignee is not a marketing user." });
+        return;
+      }
+
+      assignee = {
+        ...marketingUser,
+        name: marketingUser.name?.trim() || marketingUser.email,
+      };
+    }
+
+    const { inArray } = await import("drizzle-orm");
+    const updated = await db
+      .update(socialLeadsTable)
+      .set({ marketingUserId })
+      .where(inArray(socialLeadsTable.id, ids))
+      .returning({ id: socialLeadsTable.id });
+
+    res.json({
+      updated: updated.length,
+      marketingUserId,
+      assignee,
+    });
+  },
+);
+
+// ---------------------------------------------------------------------------
 // POST /api/leads/submit — public, no auth required
 // ---------------------------------------------------------------------------
 
