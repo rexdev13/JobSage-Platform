@@ -24,6 +24,29 @@ interface PlatformStats {
   applicationsThisWeek: number;
   sponsorLicences: number;
   lastSponsorSync: string | null;
+  marketingPerformance: MarketingPerformance;
+}
+
+interface MarketingPerformance {
+  totalLeads: number;
+  leadsLast7Days: number;
+  byStatus: { status: string; count: number }[];
+  byIndustry: { industrySector: string; count: number }[];
+  bySource: { source: string; count: number }[];
+  conversions: {
+    total: number;
+    last7Days: number;
+    rate: number;
+  };
+  byMarketer: {
+    id: string | null;
+    email: string | null;
+    name: string;
+    assignedCount: number;
+    contactedCount: number;
+    registeredCount: number;
+    byIndustry: { industrySector: string; count: number }[];
+  }[];
 }
 
 interface SuperUser {
@@ -110,14 +133,22 @@ function StatCard({ title, value, icon: Icon, sub }: { title: string; value: str
 function OverviewTab() {
   const [stats, setStats] = useState<PlatformStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [industry, setIndustry] = useState("");
 
   useEffect(() => {
-    fetch(`${API_BASE}/admin/super/stats`, { credentials: "include" })
-      .then((r) => r.json())
+    setLoading(true);
+    const params = new URLSearchParams();
+    if (industry) params.set("industry", industry);
+    const query = params.size > 0 ? `?${params.toString()}` : "";
+    fetch(`${API_BASE}/admin/super/stats${query}`, { credentials: "include" })
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed to load stats");
+        return r.json() as Promise<PlatformStats>;
+      })
       .then(setStats)
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  }, [industry]);
 
   if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>;
   if (!stats) return <p className="text-muted-foreground text-center py-12">Failed to load stats.</p>;
@@ -125,6 +156,23 @@ function OverviewTab() {
   const lastSync = stats.lastSponsorSync
     ? new Date(stats.lastSponsorSync).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
     : "Never";
+  const marketing = stats.marketingPerformance;
+  const industryOptions = [
+    "Healthcare",
+    "Social Care",
+    "Education",
+    "Engineering",
+    "Construction",
+    "Technology",
+    "Hospitality",
+    "Finance",
+    "Retail",
+    "Transport",
+    "Legal & Professional",
+    "Public Services",
+    "Manufacturing",
+    "Other",
+  ];
 
   return (
     <div className="space-y-6">
@@ -154,6 +202,150 @@ function OverviewTab() {
           </div>
         </CardContent>
       </Card>
+
+      <section className="space-y-4" aria-labelledby="marketing-performance-title">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 id="marketing-performance-title" className="text-lg font-semibold text-foreground">
+              Marketing performance
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Lead ownership, contact progress, and registrations.
+            </p>
+          </div>
+          <label className="text-xs font-medium text-muted-foreground">
+            Industry
+            <select
+              value={industry}
+              onChange={(event) => setIndustry(event.target.value)}
+              className="mt-1 block min-w-52 rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+            >
+              <option value="">All industries</option>
+              {industryOptions.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard title="Total Leads" value={marketing.totalLeads} icon={Users} />
+          <StatCard title="Leads in 7 Days" value={marketing.leadsLast7Days} icon={TrendingUp} />
+          <StatCard
+            title="Registered Leads"
+            value={marketing.conversions.total}
+            icon={UserCheck}
+            sub={`${marketing.conversions.last7Days} in the last 7 days`}
+          />
+          <StatCard title="Conversion Rate" value={`${marketing.conversions.rate}%`} icon={BadgeCheck} />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">Lead status</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="divide-y divide-border">
+                {marketing.byStatus.map((item) => (
+                  <div key={item.status} className="flex items-center justify-between py-2">
+                    <span className="text-sm capitalize text-muted-foreground">{item.status}</span>
+                    <span className="text-sm font-semibold">{item.count}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">Lead source</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="divide-y divide-border">
+                {marketing.bySource.map((item) => (
+                  <div key={item.source} className="flex items-center justify-between py-2">
+                    <span className="text-sm capitalize text-muted-foreground">
+                      {item.source === "chat" ? "AI Chat" : item.source}
+                    </span>
+                    <span className="text-sm font-semibold">{item.count}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">Industry</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {marketing.byIndustry.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-2">No leads for this industry.</p>
+              ) : (
+                <div className="max-h-64 overflow-y-auto divide-y divide-border">
+                  {marketing.byIndustry.map((item) => (
+                    <div key={item.industrySector} className="flex items-center justify-between gap-3 py-2">
+                      <span className="text-sm text-muted-foreground">{item.industrySector}</span>
+                      <span className="text-sm font-semibold">{item.count}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">Performance by marketer</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto rounded-lg border border-border">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-muted/50">
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Marketer</th>
+                    <th className="text-right px-4 py-3 font-medium text-muted-foreground">Assigned</th>
+                    <th className="text-right px-4 py-3 font-medium text-muted-foreground">Contacted</th>
+                    <th className="text-right px-4 py-3 font-medium text-muted-foreground">Registered</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Industries</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {marketing.byMarketer.map((marketer) => (
+                    <tr key={marketer.id ?? "__unassigned__"} className="hover:bg-muted/30">
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-foreground">{marketer.name}</p>
+                        {marketer.email && (
+                          <p className="text-xs text-muted-foreground">{marketer.email}</p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold">{marketer.assignedCount}</td>
+                      <td className="px-4 py-3 text-right font-semibold">{marketer.contactedCount}</td>
+                      <td className="px-4 py-3 text-right font-semibold">{marketer.registeredCount}</td>
+                      <td className="px-4 py-3">
+                        {marketer.byIndustry.length === 0 ? (
+                          <span className="text-xs text-muted-foreground">None</span>
+                        ) : (
+                          <div className="flex flex-wrap gap-1.5">
+                            {marketer.byIndustry.map((item) => (
+                              <span
+                                key={item.industrySector}
+                                className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground"
+                              >
+                                {item.industrySector} · {item.count}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      </section>
 
       {/* Quick Access */}
       <Card>

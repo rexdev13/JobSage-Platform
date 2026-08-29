@@ -5,6 +5,7 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { MarketingPerformance } from "./marketingPerformance";
 import type { SuperAdminStatsUsersByRole } from "./superAdminStatsUsersByRole";
 
 export interface SuperAdminStats {
@@ -15,4 +16,5 @@ export interface SuperAdminStats {
   applicationsThisWeek: number;
   sponsorLicences: number;
   lastSponsorSync?: Date | null;
+  marketingPerformance: MarketingPerformance;
 }

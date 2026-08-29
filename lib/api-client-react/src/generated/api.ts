@@ -24,6 +24,8 @@ import type {
   Application,
   ApplicationConfirmationResult,
   ApplicationList,
+  AssignLeadMarketingUser200,
+  AssignLeadMarketingUserBody,
   AuthUserEnvelope,
   BookmarkToggleResponse,
   BoostProfileRequest,
@@ -69,6 +71,7 @@ import type {
   GetInterviewPrepQuestionsParams,
   GetMyMatchesParams,
   GetSuperAdminDocumentParams,
+  GetSuperAdminStatsParams,
   GetSuperAdminUsersParams,
   HeadhuntCampaign,
   HealthStatus,
@@ -83,6 +86,7 @@ import type {
   ListAdminAuditEventsParams,
   ListConsentLogParams,
   ListDecisionsParams,
+  ListLeadAssignees200,
   ListLeadsParams,
   ListMatchedRolesParams,
   ListReviewQueueParams,
@@ -7968,6 +7972,172 @@ export function useListLeads<
 }
 
 /**
+ * @summary List marketing users available for lead assignment
+ */
+export const getListLeadAssigneesUrl = () => {
+  return `/api/leads/assignees`;
+};
+
+export const listLeadAssignees = async (
+  options?: RequestInit,
+): Promise<ListLeadAssignees200> => {
+  return customFetch<ListLeadAssignees200>(getListLeadAssigneesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListLeadAssigneesQueryKey = () => {
+  return [`/api/leads/assignees`] as const;
+};
+
+export const getListLeadAssigneesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listLeadAssignees>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listLeadAssignees>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListLeadAssigneesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listLeadAssignees>>
+  > = ({ signal }) => listLeadAssignees({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listLeadAssignees>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListLeadAssigneesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listLeadAssignees>>
+>;
+export type ListLeadAssigneesQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary List marketing users available for lead assignment
+ */
+
+export function useListLeadAssignees<
+  TData = Awaited<ReturnType<typeof listLeadAssignees>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listLeadAssignees>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListLeadAssigneesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Assign or unassign a marketing user from a lead
+ */
+export const getAssignLeadMarketingUserUrl = (id: number) => {
+  return `/api/leads/${id}/assignee`;
+};
+
+export const assignLeadMarketingUser = async (
+  id: number,
+  assignLeadMarketingUserBody: AssignLeadMarketingUserBody,
+  options?: RequestInit,
+): Promise<AssignLeadMarketingUser200> => {
+  return customFetch<AssignLeadMarketingUser200>(
+    getAssignLeadMarketingUserUrl(id),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(assignLeadMarketingUserBody),
+    },
+  );
+};
+
+export const getAssignLeadMarketingUserMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof assignLeadMarketingUser>>,
+    TError,
+    { id: number; data: BodyType<AssignLeadMarketingUserBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof assignLeadMarketingUser>>,
+  TError,
+  { id: number; data: BodyType<AssignLeadMarketingUserBody> },
+  TContext
+> => {
+  const mutationKey = ["assignLeadMarketingUser"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof assignLeadMarketingUser>>,
+    { id: number; data: BodyType<AssignLeadMarketingUserBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return assignLeadMarketingUser(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AssignLeadMarketingUserMutationResult = NonNullable<
+  Awaited<ReturnType<typeof assignLeadMarketingUser>>
+>;
+export type AssignLeadMarketingUserMutationBody =
+  BodyType<AssignLeadMarketingUserBody>;
+export type AssignLeadMarketingUserMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Assign or unassign a marketing user from a lead
+ */
+export const useAssignLeadMarketingUser = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof assignLeadMarketingUser>>,
+    TError,
+    { id: number; data: BodyType<AssignLeadMarketingUserBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof assignLeadMarketingUser>>,
+  TError,
+  { id: number; data: BodyType<AssignLeadMarketingUserBody> },
+  TContext
+> => {
+  return useMutation(getAssignLeadMarketingUserMutationOptions(options));
+};
+
+/**
  * @summary List candidate's speculative CV submissions
  */
 export const getListSpeculativeApplicationsUrl = () => {
@@ -9687,41 +9857,60 @@ export function useListSponsorLicences<
 /**
  * @summary Platform-wide aggregated statistics (super admin only)
  */
-export const getGetSuperAdminStatsUrl = () => {
-  return `/api/admin/super/stats`;
+export const getGetSuperAdminStatsUrl = (params?: GetSuperAdminStatsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/super/stats?${stringifiedParams}`
+    : `/api/admin/super/stats`;
 };
 
 export const getSuperAdminStats = async (
+  params?: GetSuperAdminStatsParams,
   options?: RequestInit,
 ): Promise<SuperAdminStats> => {
-  return customFetch<SuperAdminStats>(getGetSuperAdminStatsUrl(), {
+  return customFetch<SuperAdminStats>(getGetSuperAdminStatsUrl(params), {
     ...options,
     method: "GET",
   });
 };
 
-export const getGetSuperAdminStatsQueryKey = () => {
-  return [`/api/admin/super/stats`] as const;
+export const getGetSuperAdminStatsQueryKey = (
+  params?: GetSuperAdminStatsParams,
+) => {
+  return [`/api/admin/super/stats`, ...(params ? [params] : [])] as const;
 };
 
 export const getGetSuperAdminStatsQueryOptions = <
   TData = Awaited<ReturnType<typeof getSuperAdminStats>>,
   TError = ErrorType<ErrorEnvelope>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getSuperAdminStats>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
+>(
+  params?: GetSuperAdminStatsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSuperAdminStats>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getGetSuperAdminStatsQueryKey();
+  const queryKey =
+    queryOptions?.queryKey ?? getGetSuperAdminStatsQueryKey(params);
 
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof getSuperAdminStats>>
-  > = ({ signal }) => getSuperAdminStats({ signal, ...requestOptions });
+  > = ({ signal }) => getSuperAdminStats(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof getSuperAdminStats>>,
@@ -9742,15 +9931,18 @@ export type GetSuperAdminStatsQueryError = ErrorType<ErrorEnvelope>;
 export function useGetSuperAdminStats<
   TData = Awaited<ReturnType<typeof getSuperAdminStats>>,
   TError = ErrorType<ErrorEnvelope>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getSuperAdminStats>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetSuperAdminStatsQueryOptions(options);
+>(
+  params?: GetSuperAdminStatsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSuperAdminStats>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSuperAdminStatsQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

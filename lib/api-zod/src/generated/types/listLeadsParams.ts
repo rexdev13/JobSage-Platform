@@ -11,4 +11,8 @@ export type ListLeadsParams = {
   limit?: number;
   search?: string;
   sector?: string;
+  /**
+   * Filter by marketing user ID or use "unassigned".
+   */
+  assignedTo?: string;
 };

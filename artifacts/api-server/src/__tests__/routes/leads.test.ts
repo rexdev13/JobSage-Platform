@@ -9,6 +9,7 @@ vi.mock("@workspace/db", () => {
   function makeChain(): any {
     const chain: any = {
       from: () => chain,
+      leftJoin: () => chain,
       where: () => chain,
       orderBy: () => chain,
       groupBy: () => chain,
@@ -41,7 +42,9 @@ vi.mock("@workspace/db", () => {
       createdAt: "created_at",
       desiredRole: "desired_role",
       additionalMessage: "additional_message",
+      marketingUserId: "marketing_user_id",
     },
+    usersTable: { id: "id", email: "email", firstName: "first_name", lastName: "last_name", role: "role" },
     sponsorLicencesTable: { industry: "industry" },
   };
 });
@@ -75,6 +78,16 @@ const marketingSession = {
     role: "marketing",
     firstName: "Mara",
     lastName: "K",
+    profileImageUrl: null,
+  },
+};
+const adminSession = {
+  user: {
+    id: "admin-1",
+    email: "admin@test.com",
+    role: "admin",
+    firstName: "Ari",
+    lastName: "Admin",
     profileImageUrl: null,
   },
 };
@@ -165,5 +178,56 @@ describe("marketing lead access", () => {
       .send({ ids: [9] });
 
     expect(response.status).toBe(403);
+  });
+
+  it("denies marketing lead reassignment", async () => {
+    const response = await request(buildApp())
+      .patch("/leads/9/assignee")
+      .set("Authorization", "Bearer marketing-session")
+      .send({ marketingUserId: "marketing-2" });
+
+    expect(response.status).toBe(403);
+  });
+});
+
+describe("admin lead assignment", () => {
+  beforeEach(() => {
+    queryResults.length = 0;
+    mockGetSession.mockResolvedValue(adminSession);
+  });
+
+  it("assigns a marketing user to a lead", async () => {
+    queryResults.push(
+      [{
+        id: "marketing-2",
+        email: "owner@example.com",
+        name: "Morgan Owner",
+      }],
+      [{ id: 9, marketingUserId: "marketing-2" }],
+    );
+
+    const response = await request(buildApp())
+      .patch("/leads/9/assignee")
+      .set("Authorization", "Bearer admin-session")
+      .send({ marketingUserId: "marketing-2" });
+
+    expect(response.status).toBe(200);
+    expect(response.body.assignee).toEqual({
+      id: "marketing-2",
+      email: "owner@example.com",
+      name: "Morgan Owner",
+    });
+  });
+
+  it("rejects a non-marketing user as assignee", async () => {
+    queryResults.push([]);
+
+    const response = await request(buildApp())
+      .patch("/leads/9/assignee")
+      .set("Authorization", "Bearer admin-session")
+      .send({ marketingUserId: "candidate-1" });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toContain("not a marketing user");
   });
 });

@@ -14,8 +14,10 @@ vi.mock("@workspace/db", () => {
   function makeChain(): any {
     const chain: any = {
       from: () => chain,
+      innerJoin: () => chain,
       where: () => chain,
       orderBy: () => chain,
+      groupBy: () => chain,
       limit: () => chain,
       offset: () => chain,
       values: () => chain,
@@ -37,7 +39,14 @@ vi.mock("@workspace/db", () => {
         return makeChain();
       },
     },
-    usersTable: {},
+    usersTable: {
+      id: "id",
+      email: "email",
+      firstName: "first_name",
+      lastName: "last_name",
+      role: "role",
+      createdAt: "created_at",
+    },
     auditEventsTable: {},
     profilesTable: {},
     documentsTable: {},
@@ -49,6 +58,15 @@ vi.mock("@workspace/db", () => {
     employerProfilesTable: {},
     jobListingsTable: {},
     rolesTable: {},
+    socialLeadsTable: {
+      id: "id",
+      industrySector: "industry_sector",
+      status: "status",
+      source: "source",
+      convertedUserId: "converted_user_id",
+      marketingUserId: "marketing_user_id",
+      createdAt: "created_at",
+    },
   };
 });
 
@@ -221,5 +239,109 @@ describe("Super admin marketing account management", () => {
     expect(res.status).toBe(200);
     expect(res.body.total).toBe(1);
     expect(res.body.users[0].role).toBe("marketing");
+  });
+});
+
+describe("Super admin marketing performance", () => {
+  beforeEach(() => {
+    dbResults.length = 0;
+    writeAuditEventMock.mockReset().mockResolvedValue(undefined);
+    mockGetSession.mockResolvedValue(superAdminSession);
+  });
+
+  function queuePlatformAndMarketingStats() {
+    dbResults.push(
+      [{ role: "candidate", cnt: 10 }, { role: "marketing", cnt: 1 }],
+      [{ cnt: 8 }],
+      [{ cnt: 3 }],
+      [{ cnt: 4 }],
+      [{ cnt: 100 }],
+      [{ lastSync: null }],
+      [{ cnt: 11 }],
+      [{ cnt: 5 }],
+      [{ cnt: 2 }],
+      [
+        { status: "new", cnt: 2 },
+        { status: "contacted", cnt: 1 },
+        { status: "registered", cnt: 1 },
+        { status: "unqualified", cnt: 1 },
+      ],
+      [
+        { industrySector: "Healthcare", cnt: 4 },
+        { industrySector: null, cnt: 1 },
+      ],
+      [{ source: "form", cnt: 4 }, { source: "chat", cnt: 1 }],
+      [{ cnt: 2 }],
+      [{ cnt: 1 }],
+      [{
+        id: "marketing-1",
+        email: "marketing@example.com",
+        firstName: "Maya",
+        lastName: "Green",
+      }],
+      [
+        {
+          marketingUserId: "marketing-1",
+          assignedCount: 3,
+          contactedCount: 1,
+          registeredCount: 1,
+        },
+        {
+          marketingUserId: null,
+          assignedCount: 2,
+          contactedCount: 0,
+          registeredCount: 1,
+        },
+      ],
+      [
+        { marketingUserId: "marketing-1", industrySector: "Healthcare", cnt: 3 },
+        { marketingUserId: null, industrySector: "Healthcare", cnt: 1 },
+        { marketingUserId: null, industrySector: null, cnt: 1 },
+      ],
+    );
+  }
+
+  it("returns assigned and unassigned marketer performance", async () => {
+    queuePlatformAndMarketingStats();
+
+    const res = await request(buildApp())
+      .get("/admin/super/stats")
+      .set("Authorization", "Bearer super-session");
+
+    expect(res.status).toBe(200);
+    expect(res.body.marketingPerformance.totalLeads).toBe(5);
+    expect(res.body.marketingPerformance.conversions).toEqual({
+      total: 2,
+      last7Days: 1,
+      rate: 40,
+    });
+    expect(res.body.marketingPerformance.byMarketer).toEqual([
+      expect.objectContaining({
+        id: "marketing-1",
+        assignedCount: 3,
+        contactedCount: 1,
+        registeredCount: 1,
+      }),
+      expect.objectContaining({
+        id: null,
+        name: "Unassigned",
+        assignedCount: 2,
+        registeredCount: 1,
+      }),
+    ]);
+  });
+
+  it("returns the industry-scoped marketing performance block", async () => {
+    queuePlatformAndMarketingStats();
+
+    const res = await request(buildApp())
+      .get("/admin/super/stats?industry=Healthcare")
+      .set("Authorization", "Bearer super-session");
+
+    expect(res.status).toBe(200);
+    expect(res.body.marketingPerformance.byIndustry).toEqual([
+      { industrySector: "Healthcare", count: 4 },
+      { industrySector: "Unknown", count: 1 },
+    ]);
   });
 });

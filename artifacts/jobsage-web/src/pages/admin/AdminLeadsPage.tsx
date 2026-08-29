@@ -46,6 +46,13 @@ interface Lead {
   utmSource: string | null;
   utmMedium: string | null;
   utmCampaign: string | null;
+  assignee: LeadAssignee | null;
+}
+
+interface LeadAssignee {
+  id: string;
+  email: string | null;
+  name: string;
 }
 
 interface LeadsResponse {
@@ -131,6 +138,67 @@ function StatusSelect({ lead }: { lead: Lead }) {
   );
 }
 
+function AssigneeSelect({
+  lead,
+  assignees,
+  canAssign,
+}: {
+  lead: Lead;
+  assignees: LeadAssignee[];
+  canAssign: boolean;
+}) {
+  const queryClient = useQueryClient();
+  const [saving, setSaving] = useState(false);
+
+  const mutation = useMutation({
+    mutationFn: async (marketingUserId: string | null) => {
+      const res = await fetch(`${BASE}/api/leads/${lead.id}/assignee`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ marketingUserId }),
+      });
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      if (!res.ok) throw new Error(body.error ?? "Failed to update assignee");
+      return body;
+    },
+    onMutate: () => setSaving(true),
+    onSettled: () => setSaving(false),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-leads"] }),
+    onError: (error) => alert(error instanceof Error ? error.message : "Failed to update assignee"),
+  });
+
+  if (!canAssign) {
+    return (
+      <div className="min-w-32">
+        <p className="text-xs font-medium text-foreground">{lead.assignee?.name ?? "Unassigned"}</p>
+        {lead.assignee?.email && (
+          <p className="text-[10px] text-muted-foreground">{lead.assignee.email}</p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <select
+      value={lead.assignee?.id ?? "__unassigned__"}
+      disabled={saving}
+      onChange={(event) => mutation.mutate(
+        event.target.value === "__unassigned__" ? null : event.target.value,
+      )}
+      aria-label={`Assign ${lead.name ?? lead.email}`}
+      className="min-w-40 max-w-52 rounded-lg border border-input bg-background px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60"
+    >
+      <option value="__unassigned__">Unassigned</option>
+      {assignees.map((assignee) => (
+        <option key={assignee.id} value={assignee.id}>
+          {assignee.name || assignee.email || assignee.id}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
@@ -138,8 +206,10 @@ function StatusSelect({ lead }: { lead: Lead }) {
 export default function AdminLeadsPage() {
   const { user } = useAuth();
   const canDelete = canDeleteLeads(user?.role);
+  const canAssign = user?.role === "admin" || user?.role === "super_admin";
   const [search, setSearch]           = useState("");
   const [sector, setSector]           = useState("");
+  const [assignedTo, setAssignedTo]   = useState("");
   const [page, setPage]               = useState(1);
   const [selected, setSelected]       = useState<Set<number>>(new Set());
   const [deleting, setDeleting]         = useState(false);
@@ -150,12 +220,25 @@ export default function AdminLeadsPage() {
 
   const queryClient = useQueryClient();
 
+  const { data: assigneeData } = useQuery<{ assignees: LeadAssignee[] }>({
+    queryKey: ["lead-assignees"],
+    enabled: canAssign,
+    queryFn: async () => {
+      const res = await fetch(`${BASE}/api/leads/assignees`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load lead assignees");
+      return res.json() as Promise<{ assignees: LeadAssignee[] }>;
+    },
+    staleTime: 60_000,
+  });
+  const assignees = assigneeData?.assignees ?? [];
+
   const { data, isLoading, isError } = useQuery<LeadsResponse>({
-    queryKey: ["admin-leads", page, search, sector],
+    queryKey: ["admin-leads", page, search, sector, assignedTo],
     queryFn: async () => {
       const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
       if (search.trim()) params.set("search", search.trim());
       if (sector)        params.set("sector", sector);
+      if (assignedTo)    params.set("assignedTo", assignedTo);
       const res = await fetch(`${BASE}/api/leads?${params}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load leads");
       return res.json() as Promise<LeadsResponse>;
@@ -299,7 +382,7 @@ export default function AdminLeadsPage() {
           )}
         </div>
 
-        {/* ── Search + Sector filter ── */}
+        {/* ── Search + filters ── */}
         <div className="flex items-center gap-3 flex-wrap">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
@@ -332,6 +415,30 @@ export default function AdminLeadsPage() {
               <SelectItem value="Construction">Construction</SelectItem>
               <SelectItem value="Retail">Retail</SelectItem>
               <SelectItem value="Other">Other</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select
+            value={assignedTo || "__all__"}
+            onValueChange={(val) => {
+              setAssignedTo(val === "__all__" ? "" : val);
+              setPage(1);
+              setSelected(new Set());
+            }}
+          >
+            <SelectTrigger className="w-52 text-sm h-[38px]">
+              <SelectValue placeholder="Filter by assignee" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All assignees</SelectItem>
+              <SelectItem value="unassigned">Unassigned</SelectItem>
+              {canAssign && assignees.map((assignee) => (
+                <SelectItem key={assignee.id} value={assignee.id}>
+                  {assignee.name || assignee.email || assignee.id}
+                </SelectItem>
+              ))}
+              {!canAssign && user?.id && (
+                <SelectItem value={user.id}>Assigned to me</SelectItem>
+              )}
             </SelectContent>
           </Select>
         </div>
@@ -391,6 +498,7 @@ export default function AdminLeadsPage() {
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">Phone</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">Sector</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">Source</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">Assigned</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">Status</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">Date</th>
                 </tr>
@@ -433,6 +541,9 @@ export default function AdminLeadsPage() {
                       >
                         {lead.source === "chat" ? "AI Chat" : "Form"}
                       </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <AssigneeSelect lead={lead} assignees={assignees} canAssign={canAssign} />
                     </td>
                     <td className="px-4 py-3">
                       <StatusSelect lead={lead} />

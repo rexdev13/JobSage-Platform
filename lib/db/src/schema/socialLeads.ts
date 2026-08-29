@@ -7,6 +7,7 @@ import {
   timestamp,
   index,
 } from "drizzle-orm/pg-core";
+import { usersTable } from "./auth";
 
 
 /**
@@ -61,6 +62,8 @@ export const socialLeadsTable = pgTable(
     source: varchar("source", { enum: ["chat", "form"] }).notNull().default("form"),
     /** Set when the lead completes /register — closes the attribution loop */
     convertedUserId: varchar("converted_user_id"),
+    /** Nullable CRM owner. Only users with role='marketing' may be assigned by the API. */
+    marketingUserId: varchar("marketing_user_id").references(() => usersTable.id, { onDelete: "set null" }),
 
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -69,6 +72,7 @@ export const socialLeadsTable = pgTable(
     index("social_leads_status_idx").on(t.status),
     index("social_leads_utm_source_idx").on(t.utmSource),
     index("social_leads_created_at_idx").on(t.createdAt),
+    index("social_leads_marketing_user_idx").on(t.marketingUserId),
   ],
 );
 
