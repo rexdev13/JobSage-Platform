@@ -123,6 +123,7 @@ export const companySiteHostStatesTable = pgTable(
     robotsCheckedAt: timestamp("robots_checked_at", { withTimezone: true }),
     lastRequestAt: timestamp("last_request_at", { withTimezone: true }),
     requestLeaseUntil: timestamp("request_lease_until", { withTimezone: true }),
+    requestLeaseToken: text("request_lease_token"),
     failureCount: integer("failure_count").notNull().default(0),
     retryAfter: timestamp("retry_after", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

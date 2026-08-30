@@ -54,7 +54,7 @@ export type CompanySiteFetchResult =
     };
 
 type HostReservation =
-  | { allowed: true }
+  | { allowed: true; leaseToken: string }
   | { allowed: false; retryAt?: Date; waitMs: number };
 
 type PinnedAddress = { address: string; family: 4 | 6 };
@@ -231,17 +231,19 @@ function parseRetryAfter(value: string | null): Date | null {
   return Number.isFinite(timestamp) ? new Date(timestamp) : null;
 }
 
-async function reserveHost(hostname: string, deadlineMs: number): Promise<HostReservation> {
+export async function reserveHost(hostname: string, deadlineMs: number): Promise<HostReservation> {
   const host = normaliseHostname(hostname);
   const now = new Date();
   const leaseUntil = new Date(now.getTime() + HOST_LEASE_MS);
+  const leaseToken = crypto.randomUUID();
   const result = await db.execute<{ hostname: string }>(sql`
     INSERT INTO company_site_host_states (
-      hostname, request_lease_until, created_at, updated_at
+      hostname, request_lease_until, request_lease_token, created_at, updated_at
     )
-    VALUES (${host}, ${leaseUntil}, ${now}, ${now})
+    VALUES (${host}, ${leaseUntil}, ${leaseToken}, ${now}, ${now})
     ON CONFLICT (hostname) DO UPDATE
     SET request_lease_until = EXCLUDED.request_lease_until,
+        request_lease_token = EXCLUDED.request_lease_token,
         updated_at = EXCLUDED.updated_at
     WHERE
       (
@@ -258,7 +260,7 @@ async function reserveHost(hostname: string, deadlineMs: number): Promise<HostRe
       )
     RETURNING hostname
   `);
-  if (result.rows.length > 0) return { allowed: true };
+  if (result.rows.length > 0) return { allowed: true, leaseToken };
 
   const [state] = await db
     .select({
@@ -281,54 +283,67 @@ async function reserveHost(hostname: string, deadlineMs: number): Promise<HostRe
   };
 }
 
-async function completeHost(hostname: string): Promise<void> {
+export async function completeHost(hostname: string, leaseToken: string): Promise<void> {
   await db
     .update(companySiteHostStatesTable)
     .set({
       requestLeaseUntil: null,
+      requestLeaseToken: null,
       lastRequestAt: new Date(),
       failureCount: 0,
       retryAfter: null,
       updatedAt: new Date(),
     })
-    .where(eq(companySiteHostStatesTable.hostname, normaliseHostname(hostname)));
+    .where(
+      sql`${companySiteHostStatesTable.hostname} = ${normaliseHostname(hostname)}
+        AND ${companySiteHostStatesTable.requestLeaseToken} = ${leaseToken}`,
+    );
 }
 
-async function releaseHost(hostname: string): Promise<void> {
-  await db
-    .update(companySiteHostStatesTable)
-    .set({ requestLeaseUntil: null, lastRequestAt: new Date(), updatedAt: new Date() })
-    .where(eq(companySiteHostStatesTable.hostname, normaliseHostname(hostname)))
-    .catch(() => {});
-}
-
-async function failHost(
-  hostname: string,
-  explicitRetryAt: Date | null,
-): Promise<Date> {
-  const host = normaliseHostname(hostname);
-  const [state] = await db
-    .select({ failureCount: companySiteHostStatesTable.failureCount })
-    .from(companySiteHostStatesTable)
-    .where(eq(companySiteHostStatesTable.hostname, host))
-    .limit(1);
-  const failureCount = Math.min((state?.failureCount ?? 0) + 1, 8);
-  const exponentialMs = Math.min(15 * 60 * 1000 * 2 ** (failureCount - 1), 24 * 60 * 60 * 1000);
-  const retryAfter =
-    explicitRetryAt && explicitRetryAt.getTime() > Date.now()
-      ? explicitRetryAt
-      : new Date(Date.now() + exponentialMs);
+export async function releaseHost(hostname: string, leaseToken: string): Promise<void> {
   await db
     .update(companySiteHostStatesTable)
     .set({
       requestLeaseUntil: null,
+      requestLeaseToken: null,
       lastRequestAt: new Date(),
-      failureCount,
-      retryAfter,
       updatedAt: new Date(),
     })
-    .where(eq(companySiteHostStatesTable.hostname, host));
-  return retryAfter;
+    .where(
+      sql`${companySiteHostStatesTable.hostname} = ${normaliseHostname(hostname)}
+        AND ${companySiteHostStatesTable.requestLeaseToken} = ${leaseToken}`,
+    )
+    .catch(() => {});
+}
+
+export async function failHost(
+  hostname: string,
+  leaseToken: string,
+  explicitRetryAt: Date | null,
+): Promise<Date | null> {
+  const host = normaliseHostname(hostname);
+  const result = await db.execute<{ retry_after: Date | string | null }>(sql`
+    UPDATE company_site_host_states
+    SET request_lease_until = NULL,
+        request_lease_token = NULL,
+        last_request_at = NOW(),
+        failure_count = LEAST(failure_count + 1, 8),
+        retry_after = CASE
+          WHEN ${explicitRetryAt}::timestamptz IS NOT NULL
+            AND ${explicitRetryAt}::timestamptz > NOW()
+            THEN ${explicitRetryAt}::timestamptz
+          ELSE NOW() + LEAST(
+            INTERVAL '24 hours',
+            INTERVAL '15 minutes' * POWER(2, LEAST(failure_count + 1, 8) - 1)
+          )
+        END,
+        updated_at = NOW()
+    WHERE hostname = ${host}
+      AND request_lease_token = ${leaseToken}
+    RETURNING retry_after
+  `);
+  const retryAfter = result.rows[0]?.retry_after;
+  return retryAfter ? new Date(retryAfter) : null;
 }
 
 async function fetchWithoutRobots(
@@ -384,12 +399,13 @@ async function fetchWithoutRobots(
       };
     }
 
+    const leaseToken = reservation.leaseToken;
     const timeoutMs = Math.max(1, Math.min(COMPANY_SITE_PAGE_TIMEOUT_MS, deadlineMs - Date.now()));
     try {
       const response = await requestPinned(parsed, pinned, timeoutMs, maxBytes);
       if (response.status >= 300 && response.status < 400) {
         const location = headerValue(response.headers, "location");
-        await completeHost(parsed.hostname);
+        await completeHost(parsed.hostname, leaseToken);
         if (!location) return { ok: false, kind: "http", status: response.status, reason: "redirect without Location" };
         currentUrl = new URL(location, currentUrl).toString();
         continue;
@@ -397,6 +413,7 @@ async function fetchWithoutRobots(
       if (response.status === 403 || response.status === 429 || response.status >= 500) {
         const retryAt = await failHost(
           parsed.hostname,
+          leaseToken,
           parseRetryAfter(headerValue(response.headers, "retry-after")),
         );
         return {
@@ -404,10 +421,10 @@ async function fetchWithoutRobots(
           kind: "rate_limited",
           status: response.status,
           reason: `HTTP ${response.status}`,
-          retryAt,
+          retryAt: retryAt ?? undefined,
         };
       }
-      await completeHost(parsed.hostname);
+      await completeHost(parsed.hostname, leaseToken);
       if (response.status < 200 || response.status >= 300) {
         return { ok: false, kind: "http", status: response.status, reason: `HTTP ${response.status}` };
       }
@@ -419,15 +436,15 @@ async function fetchWithoutRobots(
         contentType: headerValue(response.headers, "content-type") ?? "",
       };
     } catch (error) {
-      const retryAt = await failHost(parsed.hostname, null);
+      const retryAt = await failHost(parsed.hostname, leaseToken, null);
       return {
         ok: false,
         kind: error instanceof Error && error.name === "AbortError" ? "timeout" : "network",
         reason: error instanceof Error ? error.message : "network failure",
-        retryAt,
+        retryAt: retryAt ?? undefined,
       };
     } finally {
-      await releaseHost(parsed.hostname);
+      await releaseHost(parsed.hostname, leaseToken);
     }
   }
   return { ok: false, kind: "unsafe", reason: "too many redirects" };
