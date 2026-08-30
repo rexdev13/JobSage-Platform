@@ -4308,7 +4308,7 @@ components:
 
     Role:
       type: object
-      required: [id, title, employer, location, regulator, sponsorshipOffered, requiredRegistration, active, importedAt]
+      required: [id, title, employer, location, sponsorshipOffered, requiredRegistration, active, importedAt]
       properties:
         id:
           type: integer
@@ -4321,6 +4321,18 @@ components:
         regulator:
           type: string
           enum: [GMC, NMC, HCPC]
+          nullable: true
+          description: Statutory regulator for legacy regulated-role records. Use opportunityCategory for candidate opportunity matching.
+        opportunityCategory:
+          type: string
+          enum: [GMC, NMC, HCPC, DENTAL, PHARMACY, SOCIAL_WORK, EDUCATION, ENGINEERING, ACCOUNTING, IT, LEGAL, ARCHITECTURE]
+          nullable: true
+          description: Broader profession category used by Opportunities and alerts; separate from statutory regulation.
+        statutoryRegulator:
+          type: string
+          enum: [GMC, NMC, HCPC]
+          nullable: true
+          description: Statutory regulator when the opportunity is regulated by GMC, NMC, or HCPC.
         sponsorshipOffered:
           type: boolean
         targetRegions:

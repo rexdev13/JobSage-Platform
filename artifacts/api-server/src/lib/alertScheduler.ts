@@ -14,7 +14,10 @@ import {
   roleDedupKey,
   SPONSOR_VACANCY_ID_OFFSET,
 } from "./sponsorVacancyRoles";
-import { regulatorForProfession } from "./opportunityProfession";
+import {
+  professionCategoryFor,
+  statutoryRegulatorForCategory,
+} from "./professionCategory";
 
 const REGISTERED_STATUSES = ["registered", "fully_registered", "full_registration"];
 
@@ -25,8 +28,9 @@ export async function processUserAlert(
   profile: typeof profilesTable.$inferSelect,
   lastAlertAt: Date | null,
 ): Promise<boolean> {
-  const regulator = regulatorForProfession(profile.profession);
-  if (!regulator) return false;
+  const opportunityCategory = professionCategoryFor(profile.profession);
+  if (!opportunityCategory) return false;
+  const statutoryRegulator = statutoryRegulatorForCategory(opportunityCategory);
 
   // Claim the slot only if no concurrent worker has already advanced this
   // profile's alert checkpoint. The old checkpoint is restored when no email
@@ -59,8 +63,10 @@ export async function processUserAlert(
   const newRoles = lastAlertAt
     ? await db.select().from(rolesTable).where(and(eq(rolesTable.active, true), gt(rolesTable.importedAt, lastAlertAt)))
     : await db.select().from(rolesTable).where(eq(rolesTable.active, true));
-  const regulatorRoles = newRoles.filter((r) => r.regulator === regulator);
-  const sponsorVacancyRoles = await fetchSponsorVacanciesAsRoles(regulator, {
+  const regulatorRoles = statutoryRegulator
+    ? newRoles.filter((r) => r.regulator === statutoryRegulator)
+    : [];
+  const sponsorVacancyRoles = await fetchSponsorVacanciesAsRoles(opportunityCategory, {
     since: lastAlertAt,
     requireSpecificVacancyUrl: true,
   });

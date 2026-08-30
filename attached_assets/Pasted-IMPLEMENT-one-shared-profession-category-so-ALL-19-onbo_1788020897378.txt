@@ -1,0 +1,49 @@
+IMPLEMENT one shared profession category so ALL 19 onboarding professions get Opportunities + alerts. Do not raise AI vacancy cap. Do not scrape LinkedIn/Indeed. Do not wait for company-site Task #523. Reuse this mapper for job_board AND company_site AND alerts.
+
+## Source of truth
+Create artifacts/api-server/src/lib/professionCategory.ts (name can match repo style).
+SOLE authority for: normalize profession string → category. DELETE duplicate maps in opportunityProfession.ts (or make it a thin re-export).
+
+Normalize: lowercase, spaces/hyphens → underscore, strip slashes so "Teacher / Lecturer" → teacher_lecturer AND alias to teacher. Aliases for teacher, teaching, teacher_/_lecturer.
+
+Map ALL 19 onboarding values to a non-null category, including:
+- doctor, clinical_academic → GMC
+- nurse, midwife → NMC
+- allied_health_professional, physiotherapist, radiographer, paramedic, occupational_therapist, optometrist → HCPC (AHP/HCPC family)
+- dentist → DENTAL (or GMC-adjacent if you already have a pattern; do NOT leave null)
+- pharmacist → PHARMACY
+- social_worker → SOCIAL_WORK
+- teacher / lecturer variants → EDUCATION
+- engineer, engineering → ENGINEERING
+- accountant → ACCOUNTING
+- it_professional, it → IT
+- lawyer, solicitor → LEGAL
+- architect → ARCHITECTURE
+
+GET /roles, my-matches, recommended, fetchSponsorVacanciesAsRoles, alertScheduler, vacancy title classifier MUST import this module. Unmapped → do not return empty for a known onboarding value.
+
+Extend title classifier categories to match (dentist, pharmacist, social worker, accountant, IT, lawyer, architect — keyword rules like existing EDUCATION/ENGINEERING). Education/Engineering candidates must not drop unclassified rows more harshly than healthcare without a documented reason; prefer classify then keep in-category.
+
+## Blocklist (vacancyTitlePolicy)
+Remove UNCONDITIONAL blocks for: accountant, software, developer, administrator, construction.
+Keep genuine labour: warehouse, cleaner, kitchen porter, etc.
+Profession-aware: a Software Engineer title is IN for IT/ENGINEERING candidates, OUT for NMC unless clearly nursing.
+Do not block "Clinical Research Administrator" as labour.
+CSV import blocklist in roles.ts must use the SAME policy.
+
+candidateAiMatch hard-negative: not “all non-clinical = 0”. Unrelated to THAT candidate’s category = 0.
+
+## Teacher
+Onboarding "Teacher / Lecturer" must map. Add a regression test with the exact stored/normalized profile string.
+
+## Tests (table-driven)
+Every of the 19 onboarding labels → non-null category.
+Teacher / Lecturer → EDUCATION, not empty /roles.
+Accountant title not globally stripped; Software Engineer visible for IT Professional; Construction Engineer not killed solely by "construction" for Engineer.
+Alerts use same mapper as Opportunities (import the module).
+Doctor/nurse still GMC/NMC.
+
+If DB/OpenAPI regulator enum is still GMC/NMC/HCPC only, do not force EDUCATION into that enum if it will break employer jobs — keep opportunity category separate as the audit recommends; document the split.
+
+Reply: mapping table, blocklist changes, files changed.
+Stop.

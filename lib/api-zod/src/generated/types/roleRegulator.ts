@@ -6,7 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type RoleRegulator = (typeof RoleRegulator)[keyof typeof RoleRegulator];
+/**
+ * Statutory regulator for legacy regulated-role records. Use opportunityCategory for candidate opportunity matching.
+ */
+export type RoleRegulator =
+  | (typeof RoleRegulator)[keyof typeof RoleRegulator]
+  | null;
 
 export const RoleRegulator = {
   GMC: "GMC",

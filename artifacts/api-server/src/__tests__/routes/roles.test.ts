@@ -252,12 +252,13 @@ describe("GET /roles — vacancy-specific speculative CV matching (appliedRoleId
       favourites?: any[];
       sponsorBookmarks?: any[];
       specialty?: string;
+      profession?: string;
       decision?: any;
     } = {},
   ) {
     dbResults.push([{
       userId: "admin-1",
-      profession: "doctor",
+      profession: opts.profession ?? "doctor",
       specialty: opts.specialty ?? "cardiology",
       registrationStatus: "full_registration",
       licenceReady: null,
@@ -323,6 +324,51 @@ describe("GET /roles — vacancy-specific speculative CV matching (appliedRoleId
     expect(response.status).toBe(200);
     expect(discoverCompanySiteVacanciesMock).not.toHaveBeenCalled();
     expect(refreshCandidateBoardVacanciesMock).not.toHaveBeenCalled();
+  });
+
+  it("does not send the exact Teacher / Lecturer onboarding value down the null-to-empty path", async () => {
+    const url = "https://careers.example.edu/jobs/lecturer-101";
+    pushRolesDbResults([], [], {
+      profession: "Teacher / Lecturer",
+      sponsorVacancies: [{
+        vac: {
+          id: 101,
+          organisationName: "Example University",
+          title: "Senior Lecturer",
+          location: "London",
+          url,
+          sourceType: "company_site",
+          boardName: null,
+          externalListingId: null,
+          description: "Teach undergraduate students.",
+          createdAt: new Date(),
+          lastDiscoveredAt: new Date(),
+          liveness: "live",
+          lastVerifiedAt: new Date(),
+          livenessReason: null,
+          targetRegions: ["London"],
+          requiredDbsClearanceLevel: null,
+          requiredSafeguardingLevel: null,
+        },
+        lic: {
+          contactEmail: null,
+          contactPhone: null,
+          website: "https://example.edu",
+          industry: "Higher education",
+        },
+      }],
+    });
+
+    const response = await request(buildApp())
+      .get("/roles")
+      .set("Authorization", AUTH);
+
+    expect(response.status).toBe(200);
+    expect(response.body.roles).toHaveLength(1);
+    expect(response.body.roles[0].role).toMatchObject({
+      title: "Senior Lecturer",
+      opportunityCategory: "EDUCATION",
+    });
   });
 
   it("happy path: exact-match company + title → roleId appears in appliedRoleIds", async () => {
@@ -867,6 +913,7 @@ describe("GET /opportunities/recommended — behavioural ranking", () => {
     dbResults.push([{ outcome: "eligible" }]); // decision
     dbResults.push(roles);
     dbResults.push([]); // employer jobs
+    dbResults.push([]); // sponsor vacancies
     dbResults.push(applications);
     dbResults.push([]); // speculative applications
     dbResults.push([]); // favourites
@@ -894,6 +941,7 @@ describe("GET /opportunities/recommended — behavioural ranking", () => {
     dbResults.push([{ outcome: "eligible" }]); // decision
     dbResults.push([dismissed, favourite]); // roles
     dbResults.push([]); // employer jobs
+    dbResults.push([]); // sponsor vacancies
     dbResults.push([]); // applications
     dbResults.push([]); // speculative applications
     dbResults.push([{ vacancyId: 81 }]); // favourites
@@ -937,6 +985,7 @@ describe("GET /opportunities/recommended — behavioural ranking", () => {
     dbResults.push([{ outcome: "eligible" }]); // decision
     dbResults.push([pizzaRole, clinicalRole]); // roles
     dbResults.push([]); // employer jobs
+    dbResults.push([]); // sponsor vacancies
     dbResults.push([]); // applications
     dbResults.push([]); // speculative applications
     dbResults.push([]); // favourites
@@ -973,6 +1022,7 @@ describe("GET /opportunities/recommended — behavioural ranking", () => {
     dbResults.push([{ outcome: "eligible" }]); // decision
     dbResults.push([completedRole, futureRole]); // roles
     dbResults.push([]); // employer jobs
+    dbResults.push([]); // sponsor vacancies
     dbResults.push([{
       roleId: 82,
       status: "applied",

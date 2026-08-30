@@ -934,7 +934,37 @@ export const ListMatchedRolesResponse = zod.object({
         title: zod.string(),
         employer: zod.string(),
         location: zod.string(),
-        regulator: zod.enum(["GMC", "NMC", "HCPC"]),
+        regulator: zod
+          .enum(["GMC", "NMC", "HCPC"])
+          .nullish()
+          .describe(
+            "Statutory regulator for legacy regulated-role records. Use opportunityCategory for candidate opportunity matching.",
+          ),
+        opportunityCategory: zod
+          .enum([
+            "GMC",
+            "NMC",
+            "HCPC",
+            "DENTAL",
+            "PHARMACY",
+            "SOCIAL_WORK",
+            "EDUCATION",
+            "ENGINEERING",
+            "ACCOUNTING",
+            "IT",
+            "LEGAL",
+            "ARCHITECTURE",
+          ])
+          .nullish()
+          .describe(
+            "Broader profession category used by Opportunities and alerts; separate from statutory regulation.",
+          ),
+        statutoryRegulator: zod
+          .enum(["GMC", "NMC", "HCPC"])
+          .nullish()
+          .describe(
+            "Statutory regulator when the opportunity is regulated by GMC, NMC, or HCPC.",
+          ),
         sponsorshipOffered: zod.boolean(),
         targetRegions: zod.array(zod.string()).nullish(),
         requiredRegistration: zod.string(),
@@ -1198,7 +1228,37 @@ export const AdminListRolesResponse = zod.object({
       title: zod.string(),
       employer: zod.string(),
       location: zod.string(),
-      regulator: zod.enum(["GMC", "NMC", "HCPC"]),
+      regulator: zod
+        .enum(["GMC", "NMC", "HCPC"])
+        .nullish()
+        .describe(
+          "Statutory regulator for legacy regulated-role records. Use opportunityCategory for candidate opportunity matching.",
+        ),
+      opportunityCategory: zod
+        .enum([
+          "GMC",
+          "NMC",
+          "HCPC",
+          "DENTAL",
+          "PHARMACY",
+          "SOCIAL_WORK",
+          "EDUCATION",
+          "ENGINEERING",
+          "ACCOUNTING",
+          "IT",
+          "LEGAL",
+          "ARCHITECTURE",
+        ])
+        .nullish()
+        .describe(
+          "Broader profession category used by Opportunities and alerts; separate from statutory regulation.",
+        ),
+      statutoryRegulator: zod
+        .enum(["GMC", "NMC", "HCPC"])
+        .nullish()
+        .describe(
+          "Statutory regulator when the opportunity is regulated by GMC, NMC, or HCPC.",
+        ),
       sponsorshipOffered: zod.boolean(),
       targetRegions: zod.array(zod.string()).nullish(),
       requiredRegistration: zod.string(),

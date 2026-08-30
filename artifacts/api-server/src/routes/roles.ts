@@ -38,7 +38,13 @@ import {
   specialtyBoost,
   SPONSOR_VACANCY_ID_OFFSET,
 } from "../lib/sponsorVacancyRoles";
-import { isHealthcareRegulator, regulatorForProfession } from "../lib/opportunityProfession";
+import {
+  categoryForStatutoryRegulator,
+  opportunityCategoriesMatch,
+  professionCategoryFor,
+  statutoryRegulatorForCategory,
+  type OpportunityCategory,
+} from "../lib/professionCategory";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import {
   assessSafeguarding,
@@ -109,6 +115,26 @@ function employerJobHasContactInfo(row: {
   return vals.some((v) => v != null && v.trim() !== "");
 }
 
+function storedRegulatorMatchesCategory(
+  regulator: string | null | undefined,
+  category: OpportunityCategory,
+): boolean {
+  return opportunityCategoriesMatch(category, categoryForStatutoryRegulator(regulator));
+}
+
+function employerJobTargetsCategory(
+  job: { regulator: string; targetProfessions?: readonly string[] | null },
+  category: OpportunityCategory,
+): boolean {
+  const targetProfessions = job.targetProfessions ?? [];
+  if (targetProfessions.length > 0) {
+    return targetProfessions.some((profession) =>
+      opportunityCategoriesMatch(category, professionCategoryFor(profession)),
+    );
+  }
+  return storedRegulatorMatchesCategory(job.regulator, category);
+}
+
 const OPTIONAL_COLUMNS = ["applyUrl", "contactEmail", "contactPhone", "contactWebsite", "targetRegions"];
 const VALID_DBS_LEVELS = ["none", "basic", "standard", "enhanced"] as const;
 const VALID_SAFEGUARDING_LEVELS = ["none", "level_1", "level_2"] as const;
@@ -163,7 +189,7 @@ type BehaviouralRoleSource = {
   id: number;
   title: string;
   employer: string;
-  regulator: string;
+  regulator: string | null;
   targetRegions?: readonly string[] | null;
 };
 
@@ -231,7 +257,7 @@ function normalizeApplicationUrl(value: string | null | undefined): string | nul
 }
 
 function computeMatchScore(
-  role: typeof rolesTable.$inferSelect,
+  role: { sponsorshipOffered: boolean; requiredRegistration: string },
   isEligible: boolean,
   requiresSponsorship: boolean,
 ): number {
@@ -327,8 +353,8 @@ router.get("/roles", async (req, res): Promise<void> => {
     return;
   }
 
-  const regulator = regulatorForProfession(profile.profession);
-  if (!regulator) {
+  const opportunityCategory = professionCategoryFor(profile.profession);
+  if (!opportunityCategory) {
     res.json({ roles: [], appliedRoleIds: [], decisionRecordId: null, rulesetVersion: "—", eligibilityOutcome: null, message: null, noProfile: false });
     return;
   }
@@ -350,9 +376,7 @@ router.get("/roles", async (req, res): Promise<void> => {
   const employerJobsAsRoles = publishedJobListings
     .filter((row) => {
       const job = row.job;
-      if (job.regulator !== regulator) return false;
-      const tp = (job.targetProfessions ?? []) as string[];
-      if (tp.length > 0 && !tp.includes(profile.profession)) return false;
+      if (!employerJobTargetsCategory(job, opportunityCategory)) return false;
       const tr = (job.targetRegions ?? []) as string[];
       if (!roleMatchesPreferredRegions(tr, profile.preferredRegion)) return false;
       if (!employerJobHasContactInfo(row)) return false;
@@ -366,6 +390,7 @@ router.get("/roles", async (req, res): Promise<void> => {
         employer: row.emp.companyName,
         location: row.job.location,
         regulator: row.job.regulator,
+        opportunityCategory,
         sponsorshipOffered: row.job.sponsorshipOffered,
         requiredRegistration: row.job.requiredRegistration,
         requiredDbsClearanceLevel: row.job.requiredDbsClearanceLevel,
@@ -392,7 +417,7 @@ router.get("/roles", async (req, res): Promise<void> => {
   // AI-discovered sponsor-licence vacancies (daily pipeline) — merged in so the
   // page self-populates without any admin CSV upload. Deduped below against
   // CSV roles and employer jobs by employer+title.
-  let sponsorVacancyRoles = (await fetchSponsorVacanciesAsRoles(regulator, {
+  let sponsorVacancyRoles = (await fetchSponsorVacanciesAsRoles(opportunityCategory, {
     requireSpecificVacancyUrl: sourceFilter != null,
     onlyVerifiedLive: sourceFilter != null,
   }))
@@ -406,11 +431,15 @@ router.get("/roles", async (req, res): Promise<void> => {
 
   const curatedRoles = [
      ...allRoles
-       .filter((role) => role.regulator === regulator && roleMatchesPreferredRegions(role.targetRegions, profile.preferredRegion))
+       .filter((role) =>
+         storedRegulatorMatchesCategory(role.regulator, opportunityCategory) &&
+         roleMatchesPreferredRegions(role.targetRegions, profile.preferredRegion)
+       )
        .map((r) => {
       const link = presentApplyLink(r.applyUrl, r.liveness, r.lastVerifiedAt);
       return {
         ...r,
+        opportunityCategory: categoryForStatutoryRegulator(r.regulator),
         contactEmail: r.contactEmail ?? null,
         contactPhone: r.contactPhone ?? null,
         contactWebsite: r.contactWebsite ?? null,
@@ -599,9 +628,15 @@ router.get("/roles", async (req, res): Promise<void> => {
     }
 
     const sponsorshipFeasibility =
-      profile.requiresSponsorship && isHealthcareRegulator(role.regulator)
+      profile.requiresSponsorship &&
+      statutoryRegulatorForCategory(role.opportunityCategory ?? role.regulator) !== null
         ? assessSponsorshipFeasibility(
-            { ...role, regulator: role.regulator },
+            {
+              ...role,
+              regulator: statutoryRegulatorForCategory(
+                role.opportunityCategory ?? role.regulator,
+              )!,
+            },
             profile.requiresSponsorship,
           )
         : null;
@@ -610,7 +645,7 @@ router.get("/roles", async (req, res): Promise<void> => {
     const explanation = !professionallyRelevant
       ? "This vacancy is outside your professional scope."
       : isEligible
-      ? `Matched as eligible for ${regulator} registration (${professionLabel}). Ruleset v${rulesetVersion}, decision #${decisionRecordId}${eligibleRuleId ? `, rule #${eligibleRuleId}` : ""}.`
+      ? `Matched as eligible for ${opportunityCategory} opportunities (${professionLabel}). Ruleset v${rulesetVersion}, decision #${decisionRecordId}${eligibleRuleId ? `, rule #${eligibleRuleId}` : ""}.`
       : decision
         ? `Not yet eligible for this role. Complete your remediation steps to qualify.`
         : `Run your eligibility assessment to see your match status for this role.`;
@@ -701,8 +736,8 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
     return;
   }
 
-  const regulator = regulatorForProfession(profile.profession);
-  if (!regulator) {
+  const opportunityCategory = professionCategoryFor(profile.profession);
+  if (!opportunityCategory) {
     res.status(200).json({ matches: [], dismissedRoleIds: [], totalCount: 0, cached: false });
     return;
   }
@@ -729,9 +764,7 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
   const employerJobsAsRoles = publishedJobListings
       .filter((row) => {
       const job = row.job;
-      if (job.regulator !== regulator) return false;
-      const tp = (job.targetProfessions ?? []) as string[];
-      if (tp.length > 0 && !tp.includes(profile.profession)) return false;
+      if (!employerJobTargetsCategory(job, opportunityCategory)) return false;
         if (!roleMatchesPreferredRegions(job.targetRegions, profile.preferredRegion)) return false;
       if (job.liveness === "dead") return false;
       if (!employerJobHasContactInfo(row)) return false;
@@ -745,6 +778,7 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
         employer: row.emp.companyName,
         location: row.job.location,
         regulator: row.job.regulator as "GMC" | "NMC" | "HCPC",
+        opportunityCategory,
         sponsorshipOffered: row.job.sponsorshipOffered,
         requiredRegistration: row.job.requiredRegistration,
         requiredDbsClearanceLevel: row.job.requiredDbsClearanceLevel,
@@ -765,7 +799,7 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
   // AI-discovered sponsor-licence vacancies. Only vacancies clearly classified
   // to the candidate's regulator qualify for the Best Matches strip; ambiguous
   // ones stay on the main board (bottom-ranked) instead.
-  let sponsorVacancyRoles = (await fetchSponsorVacanciesAsRoles(regulator, {
+  let sponsorVacancyRoles = (await fetchSponsorVacanciesAsRoles(opportunityCategory, {
     requireSpecificVacancyUrl: sourceFilter != null,
     onlyVerifiedLive: sourceFilter != null,
   }))
@@ -777,7 +811,7 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
   const curatedRoles = [
      ...allRoles
        .filter((r) =>
-         r.regulator === regulator
+         storedRegulatorMatchesCategory(r.regulator, opportunityCategory)
          && r.liveness !== "dead"
          && roleMatchesPreferredRegions(r.targetRegions, profile.preferredRegion)
        )
@@ -786,6 +820,7 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
       return {
         id: r.id, title: r.title, employer: r.employer, location: r.location,
         regulator: r.regulator, sponsorshipOffered: r.sponsorshipOffered,
+        opportunityCategory: categoryForStatutoryRegulator(r.regulator),
         requiredRegistration: r.requiredRegistration,
         requiredDbsClearanceLevel: r.requiredDbsClearanceLevel,
         requiredSafeguardingLevel: r.requiredSafeguardingLevel,
@@ -809,6 +844,7 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
     .map((v) => ({
       id: v.id, title: v.title, employer: v.employer, location: v.location,
       regulator: v.regulator, sponsorshipOffered: v.sponsorshipOffered,
+      opportunityCategory: v.opportunityCategory,
       requiredRegistration: v.requiredRegistration,
       requiredDbsClearanceLevel: v.requiredDbsClearanceLevel,
       requiredSafeguardingLevel: v.requiredSafeguardingLevel,
@@ -1068,8 +1104,8 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
     return;
   }
 
-  const regulator = regulatorForProfession(profile.profession);
-  if (!regulator) {
+  const opportunityCategory = professionCategoryFor(profile.profession);
+  if (!opportunityCategory) {
     res.json({ roles: [] });
     return;
   }
@@ -1096,9 +1132,7 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
 
   const employerJobsAsRoles = publishedJobListings
     .filter((row) => {
-      if (row.job.regulator !== regulator) return false;
-      const tp = (row.job.targetProfessions ?? []) as string[];
-      if (tp.length > 0 && !tp.includes(profile.profession)) return false;
+      if (!employerJobTargetsCategory(row.job, opportunityCategory)) return false;
       if (row.job.liveness === "dead") return false;
       if (!employerJobHasContactInfo(row)) return false;
       return true;
@@ -1111,6 +1145,7 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
         employer: row.emp.companyName,
         location: row.job.location,
         regulator: row.job.regulator as "GMC" | "NMC" | "HCPC",
+        opportunityCategory,
         sponsorshipOffered: row.job.sponsorshipOffered,
         requiredRegistration: row.job.requiredRegistration,
         requiredDbsClearanceLevel: row.job.requiredDbsClearanceLevel,
@@ -1127,6 +1162,14 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
         externalListingId: null,
       };
     });
+
+  const sponsorVacancyRoles = await fetchSponsorVacanciesAsRoles(opportunityCategory, {
+    requireSpecificVacancyUrl: sourceFilter != null,
+    onlyVerifiedLive: sourceFilter != null,
+  });
+  if (sourceFilter === "job_board" && !hasFreshCandidateBoardSnapshot(sponsorVacancyRoles)) {
+    void refreshCandidateBoardVacancies(profile);
+  }
 
   // Fetch roles already applied to via both standard and speculative paths
   const [appliedRows, speculativeRows, favourites, sponsorBookmarks, dismissals] = await Promise.all([
@@ -1176,12 +1219,15 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
   const dismissedRoleIds = new Set(dismissals.map((dismissal) => dismissal.roleId));
   // Preserve role identity before completed applications are excluded so their
   // title, employer, and regulator can still guide similar future roles.
-  const behaviouralRoleCatalog = [...allRoles, ...employerJobsAsRoles];
+  const behaviouralRoleCatalog = [...allRoles, ...employerJobsAsRoles, ...sponsorVacancyRoles];
+  const curatedKeys = new Set(
+    [...allRoles, ...employerJobsAsRoles].map((role) => roleDedupKey(role.employer, role.title)),
+  );
 
   const regulatorRoles = [
     ...allRoles
       .filter((r) =>
-        r.regulator === regulator
+        storedRegulatorMatchesCategory(r.regulator, opportunityCategory)
         && r.liveness !== "dead"
         && !isManualLabourTitle(r.title)
         && !appliedIds.has(r.id)
@@ -1197,6 +1243,7 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
         return {
           id: r.id, title: r.title, employer: r.employer, location: r.location,
           regulator: r.regulator, sponsorshipOffered: r.sponsorshipOffered,
+          opportunityCategory: categoryForStatutoryRegulator(r.regulator),
           requiredRegistration: r.requiredRegistration,
           requiredDbsClearanceLevel: r.requiredDbsClearanceLevel,
           requiredSafeguardingLevel: r.requiredSafeguardingLevel,
@@ -1214,6 +1261,18 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
       }),
     ...employerJobsAsRoles.filter((r) =>
       !isManualLabourTitle(r.title)
+      && !appliedIds.has(r.id)
+      && (
+        normalizeApplicationUrl(r.applyUrl) === null
+        || !appliedUrls.has(normalizeApplicationUrl(r.applyUrl)!)
+      )
+      && !dismissedRoleIds.has(r.id)
+      && !speculativeCompanies.has(r.employer.toLowerCase())
+    ),
+    ...sponsorVacancyRoles.filter((r) =>
+      r.classifiedRelevant
+      && (sourceFilter === "job_board" || !curatedKeys.has(roleDedupKey(r.employer, r.title)))
+      && !isManualLabourTitle(r.title)
       && !appliedIds.has(r.id)
       && (
         normalizeApplicationUrl(r.applyUrl) === null
@@ -1248,7 +1307,7 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
     const isEligible = userIsEligible && meetsRegistration && !safeguardingBlocksEligibility(safeguarding);
     // AI score if cached, else heuristic
     let matchScore = scoreMap.get(r.id) ?? computeMatchScore(
-      { ...r, id: r.id, regulator: r.regulator, active: true, importedAt: new Date(), importedBy: "", liveness: "unverified" as const, lastVerifiedAt: null, livenessReason: null, targetRegions: r.targetRegions ?? [] },
+      r,
       isEligible,
       profile.requiresSponsorship,
     );
@@ -1575,12 +1634,9 @@ router.post("/admin/roles/import", requireRole("admin"), upload.single("file"), 
 
   void OPTIONAL_COLUMNS; // referenced for documentation purposes
 
-  const MANUAL_LABOUR_BLOCKLIST =
-    /\b(housekeep|housework|cleaning|cleaner|domestic|catering|cook|kitchen|laundry|porter|portering|construction|groundskeep|groundskeeper|janitor|caretaker|security\s*guard|warehouse|driver|delivery|bin\s*collect|refuse|sewage|plumb|electri|carpent|bricklayer|scaffold|painter\s*decorator)\b/i;
-
   const blockedRows: Array<{ row: number; title: string }> = [];
   for (let i = 0; i < validRows.length; i++) {
-    if (MANUAL_LABOUR_BLOCKLIST.test(validRows[i].title)) {
+    if (isManualLabourTitle(validRows[i].title)) {
       blockedRows.push({ row: i + 2, title: validRows[i].title });
     }
   }

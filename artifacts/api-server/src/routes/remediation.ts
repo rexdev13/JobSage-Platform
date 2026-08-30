@@ -11,6 +11,10 @@ import {
 import { eq, desc, and, inArray } from "drizzle-orm";
 import { generateRemediationSteps } from "../lib/remediationGenerator";
 import { requireAuthenticated } from "../middlewares/requireRole";
+import {
+  professionCategoryFor,
+  statutoryRegulatorForCategory,
+} from "../lib/professionCategory";
 
 const REGISTERED_STATUSES = ["registered", "fully_registered", "full_registration"];
 
@@ -20,14 +24,6 @@ function parseMonthsFromRange(range: string | null): number {
   if (!nums || nums.length === 0) return 0;
   const values = nums.map(Number);
   return values.reduce((a, b) => a + b, 0) / values.length;
-}
-
-function regulatorForProfession(profession: string | null | undefined): "GMC" | "NMC" | "HCPC" | null {
-  const p = profession?.toLowerCase().trim() ?? "";
-  if (p === "doctor" || p === "clinical_academic") return "GMC";
-  if (p === "nurse" || p === "midwife") return "NMC";
-  if (p === "allied_health_professional") return "HCPC";
-  return null;
 }
 
 const router: IRouter = Router();
@@ -327,7 +323,9 @@ router.get("/remediation/forward-eligibility", requireAuthenticated, async (req,
     return;
   }
 
-  const regulator = regulatorForProfession(profile.profession);
+  const regulator = statutoryRegulatorForCategory(
+    professionCategoryFor(profile.profession),
+  );
   if (!regulator) {
     res.status(200).json({ timeToEligibilityMonths: null, timeToEligibilityLabel: null, roles: [] });
     return;
