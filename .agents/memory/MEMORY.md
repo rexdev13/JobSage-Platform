@@ -23,3 +23,4 @@
 - [Marketing lead performance](marketing-lead-performance.md) — registered performance uses converted-user attribution; contacted uses the current contacted status.
 - [Vacancy board deduplication](vacancy-board-deduplication.md) — shared board writes use canonical/fingerprint advisory locks; verification starts only after commit.
 - [Company-site verification safety](company-site-verification-safety.md) — initial liveness checks must share crawler robots, pacing, backoff, redirect, and SSRF controls.
+- [Send CV delivery semantics](send-cv-delivery-semantics.md) — vacancy CV outreach stays independent from Apply and must use durable attempts, stored contacts, and real PDFs.

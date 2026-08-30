@@ -419,8 +419,8 @@ router.get("/roles", async (req, res): Promise<void> => {
   // page self-populates without any admin CSV upload. Deduped below against
   // CSV roles and employer jobs by employer+title.
   let sponsorVacancyRoles = (await fetchSponsorVacanciesAsRoles(opportunityCategory, {
-    requireSpecificVacancyUrl: sourceFilter != null,
-    onlyVerifiedLive: sourceFilter != null,
+    requireSpecificVacancyUrl: false,
+    onlyVerifiedLive: false,
   }))
     .filter((role) => roleMatchesPreferredRegions(role.targetRegions, profile.preferredRegion));
   if (
@@ -518,14 +518,12 @@ router.get("/roles", async (req, res): Promise<void> => {
       })
       .from(applicationsTable)
       .where(eq(applicationsTable.userId, userId)),
-    // Speculative CVs sent against a specific vacancy count as applied for the
-    // matching role (badge, disabled buttons, Best Matches exclusion) without
-    // creating an applications row — the tracker already lists them under
-    // Speculative CVs, so no double-counting occurs.
+    // CV sends have their own state and never count as normal Apply actions.
     db
       .select({
         companyName: speculativeApplicationsTable.companyName,
         vacancyTitle: speculativeApplicationsTable.vacancyTitle,
+        roleId: speculativeApplicationsTable.roleId,
       })
       .from(speculativeApplicationsTable)
       .where(and(eq(speculativeApplicationsTable.userId, userId), isNotNull(speculativeApplicationsTable.vacancyTitle))),
@@ -561,23 +559,22 @@ router.get("/roles", async (req, res): Promise<void> => {
       .innerJoin(sponsorLicencesTable, eq(sponsorLicencesTable.id, sponsorLicenceBookmarksTable.sponsorLicenceId))
       .where(eq(sponsorLicenceBookmarksTable.userId, userId)),
   ]);
-  const speculativeVacancyKeys = new Set(
+  const legacySpeculativeVacancyKeys = new Set(
     vacancySpecificSpeculative
-      .filter((s) => (s.vacancyTitle ?? "").trim() !== "")
+      .filter((s) => s.roleId == null && (s.vacancyTitle ?? "").trim() !== "")
       .map((s) => `${s.companyName.trim().toLowerCase()}|${s.vacancyTitle!.trim().toLowerCase()}`),
   );
-  const speculativeAppliedRoleIds =
-    speculativeVacancyKeys.size > 0
-      ? regulatorRoles
-          .filter((r) => speculativeVacancyKeys.has(`${r.employer.trim().toLowerCase()}|${r.title.trim().toLowerCase()}`))
-          .map((r) => r.id)
-      : [];
-  const appliedRoleIds = [...new Set([
-    ...appliedApps
+  const cvSentRoleIds = [...new Set([
+    ...vacancySpecificSpeculative.flatMap((application) => application.roleId == null ? [] : [application.roleId]),
+    ...regulatorRoles
+      .filter((role) => legacySpeculativeVacancyKeys.has(`${role.employer.trim().toLowerCase()}|${role.title.trim().toLowerCase()}`))
+      .map((role) => role.id),
+  ])];
+  const appliedRoleIds = [...new Set(
+    appliedApps
       .filter((application) => application.status !== "link_clicked")
       .map((application) => application.roleId),
-    ...speculativeAppliedRoleIds,
-  ])];
+  )];
   const behaviouralSignals = buildBehaviouralSignals(
     roleFavourites,
     sponsorBookmarks,
@@ -718,6 +715,7 @@ router.get("/roles", async (req, res): Promise<void> => {
     eligibilityOutcome: decision?.outcome ?? null,
     message: null,
     appliedRoleIds,
+    cvSentRoleIds,
     noProfile: false,
   });
 });

@@ -124,9 +124,9 @@ router.get("/applications", requireAuthenticated, async (req: Request, res: Resp
   const enrichedSpeculative = speculativeApps.map((s) => ({
     id: s.id * -1,
     userId: s.userId,
-    roleId: 0,
+    roleId: s.roleId ?? 0,
     applicationType: "speculative" as const,
-    applicationUrl: null as string | null,
+    applicationUrl: s.vacancyUrl ?? null,
     status: s.status as string,
     appliedAt: s.createdAt.toISOString(),
     notes: s.notes ?? null,
@@ -142,6 +142,11 @@ router.get("/applications", requireAuthenticated, async (req: Request, res: Resp
     emailSentAt: s.emailSentAt?.toISOString() ?? null,
     emailRecipient: s.emailRecipient ?? null,
     deliveryRoute: s.deliveryRoute ?? null,
+    deliveryStatus: s.deliveryStatus,
+    deliveryError: s.deliveryError ?? null,
+    boardName: s.boardName ?? null,
+    sourceType: s.sourceType ?? null,
+    vacancyRef: s.vacancyRef ?? null,
     cvLabel: s.cvDocumentId ? (cvLabelMap[s.cvDocumentId] ?? null) : null,
   }));
 

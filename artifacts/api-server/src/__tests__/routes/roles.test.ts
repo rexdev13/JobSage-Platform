@@ -398,7 +398,7 @@ describe("GET /roles — vacancy-specific speculative CV matching (appliedRoleId
     });
   });
 
-  it("happy path: exact-match company + title → roleId appears in appliedRoleIds", async () => {
+  it("happy path: exact-match company + title appears only in cvSentRoleIds", async () => {
     const role = makeRole(42, "NHS Trust", "Consultant Cardiologist");
     const specApp = { companyName: "NHS Trust", vacancyTitle: "Consultant Cardiologist" };
 
@@ -407,7 +407,8 @@ describe("GET /roles — vacancy-specific speculative CV matching (appliedRoleId
     const app = buildApp();
     const res = await request(app).get("/roles").set("Authorization", AUTH);
     expect(res.status).toBe(200);
-    expect(res.body.appliedRoleIds).toContain(42);
+    expect(res.body.cvSentRoleIds).toContain(42);
+    expect(res.body.appliedRoleIds).not.toContain(42);
   });
 
   it("normalises casing: UPPER company + lower title still matches the role", async () => {
@@ -420,7 +421,8 @@ describe("GET /roles — vacancy-specific speculative CV matching (appliedRoleId
     const app = buildApp();
     const res = await request(app).get("/roles").set("Authorization", AUTH);
     expect(res.status).toBe(200);
-    expect(res.body.appliedRoleIds).toContain(99);
+    expect(res.body.cvSentRoleIds).toContain(99);
+    expect(res.body.appliedRoleIds).not.toContain(99);
   });
 
   it("normalises whitespace: leading/trailing spaces around company + title still match", async () => {
@@ -432,7 +434,8 @@ describe("GET /roles — vacancy-specific speculative CV matching (appliedRoleId
     const app = buildApp();
     const res = await request(app).get("/roles").set("Authorization", AUTH);
     expect(res.status).toBe(200);
-    expect(res.body.appliedRoleIds).toContain(77);
+    expect(res.body.cvSentRoleIds).toContain(77);
+    expect(res.body.appliedRoleIds).not.toContain(77);
   });
 
   it("excludes completed application statuses but leaves a bare outbound click eligible", async () => {
@@ -465,7 +468,7 @@ describe("GET /roles — vacancy-specific speculative CV matching (appliedRoleId
     const app = buildApp();
     const res = await request(app).get("/roles").set("Authorization", AUTH);
     expect(res.status).toBe(200);
-    expect(res.body.appliedRoleIds).not.toContain(7);
+    expect(res.body.cvSentRoleIds).not.toContain(7);
   });
 
   it("does not include roleId when vacancy title mismatches", async () => {
@@ -477,7 +480,7 @@ describe("GET /roles — vacancy-specific speculative CV matching (appliedRoleId
     const app = buildApp();
     const res = await request(app).get("/roles").set("Authorization", AUTH);
     expect(res.status).toBe(200);
-    expect(res.body.appliedRoleIds).not.toContain(8);
+    expect(res.body.cvSentRoleIds).not.toContain(8);
   });
 
   it("ignores speculative apps with blank-only vacancyTitle", async () => {
@@ -489,10 +492,10 @@ describe("GET /roles — vacancy-specific speculative CV matching (appliedRoleId
     const app = buildApp();
     const res = await request(app).get("/roles").set("Authorization", AUTH);
     expect(res.status).toBe(200);
-    expect(res.body.appliedRoleIds).not.toContain(5);
+    expect(res.body.cvSentRoleIds).not.toContain(5);
   });
 
-  it("merges speculative appliedRoleIds with formal application roleIds", async () => {
+  it("keeps formal Apply and speculative CV-send role IDs independent", async () => {
     const role = makeRole(42, "NHS Trust", "Consultant Cardiologist");
     const specApp = { companyName: "NHS Trust", vacancyTitle: "Consultant Cardiologist" };
 
@@ -518,7 +521,8 @@ describe("GET /roles — vacancy-specific speculative CV matching (appliedRoleId
     const res = await request(app).get("/roles").set("Authorization", AUTH);
     expect(res.status).toBe(200);
     expect(res.body.appliedRoleIds).toContain(10);  // formal application
-    expect(res.body.appliedRoleIds).toContain(42);  // speculative vacancy match
+    expect(res.body.appliedRoleIds).not.toContain(42);
+    expect(res.body.cvSentRoleIds).toContain(42);
   });
 
   it("ranks a clicked vacancy above an otherwise equal unrelated role and explains why", async () => {

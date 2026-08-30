@@ -337,6 +337,8 @@ export async function sendSpeculativeCVToOps(opts: {
   applicationId: number;
   cvFilename?: string | null;
   cvContent?: Buffer | null;
+  vacancyTitle?: string | null;
+  vacancyUrl?: string | null;
   notes?: string | null;
   /** JOBSAGE alias — required; personal email is never used as contact in employer-facing comms */
   jobsageEmail: string;
@@ -346,45 +348,14 @@ export async function sendSpeculativeCVToOps(opts: {
    * Defaults to OPS_INBOX so ops can manually forward if no employer account exists.
    */
   recipientEmail?: string;
-  /** Masked plain-text extract of the CV (personal email/phone replaced with JOBSAGE alias) */
-  maskedCvTextExtract?: string | null;
 }): Promise<void> {
   const contactEmail = opts.jobsageEmail;
   const recipientEmail = opts.recipientEmail ?? OPS_INBOX;
 
-  // Attachment strategy (true document redaction):
-  // • When alias is present: personal email/phone in the document MUST be masked before ops see it.
-  //   - masked text extract available → attach as the sole CV document (no raw binary)
-  //   - no extract (parse failure)    → attach safe placeholder notice (no raw binary)
-  // • No alias (legacy path): attach original binary as before.
   const attachments: { filename: string; content: Buffer | string }[] = [];
-  const baseName = opts.cvFilename?.replace(/\.[^.]+$/, "") ?? "cv";
-  if (opts.jobsageEmail) {
-    if (opts.maskedCvTextExtract) {
-      attachments.push({
-        filename: `${baseName}_redacted_contact.txt`,
-        content: opts.maskedCvTextExtract,
-      });
-    } else {
-      attachments.push({
-        filename: `${baseName}_cv_notice.txt`,
-        content:
-          `CV for candidate with JOBSAGE alias: ${opts.jobsageEmail}\n\n` +
-          `Automatic text extraction was not available for this document.\n` +
-          `Please request the CV via the JOBSAGE system using the alias above.\n` +
-          `Do NOT contact the candidate using any personal details.`,
-      });
-    }
-  } else if (opts.cvContent && opts.cvFilename) {
+  if (opts.cvContent && opts.cvFilename) {
     attachments.push({ filename: opts.cvFilename, content: opts.cvContent });
   }
-
-  const cvExtractSection = opts.maskedCvTextExtract
-    ? `<tr><td colspan="2" style="padding-top:16px;">
-        <p style="font-size:13px;font-weight:600;color:#0f172a;margin:0 0 6px;">CV text extract — contact info redacted (see attached <em>_redacted_contact.txt</em>)</p>
-        <pre style="font-size:12px;white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px;color:#334155;margin:0;">${opts.maskedCvTextExtract.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>
-      </td></tr>`
-    : "";
 
   // Send FROM the candidate's JOBSAGE alias — requires mail.jobsage.app DNS verification.
   // TO the resolved employer address (or OPS_INBOX as fallback when employer has no account).
@@ -393,7 +364,7 @@ export async function sendSpeculativeCVToOps(opts: {
     from: `${opts.candidateName} <${opts.jobsageEmail}>`,
     to: recipientEmail,
     replyTo: opts.jobsageEmail,
-    subject: `[Speculative CV] ${opts.candidateName} → ${opts.companyName}`,
+    subject: `[CV] ${opts.candidateName} → ${opts.vacancyTitle ?? opts.companyName}`,
     attachments,
     html: `<!DOCTYPE html>
 <html lang="en">
@@ -407,9 +378,10 @@ export async function sendSpeculativeCVToOps(opts: {
         <tr><td style="font-weight:600;">Candidate</td><td>${opts.candidateName} &lt;${contactEmail}&gt;</td></tr>
         <tr><td style="font-weight:600;">User ID</td><td>${opts.candidateUserId}</td></tr>
         <tr><td style="font-weight:600;">Target company</td><td>${opts.companyName}</td></tr>
+        <tr><td style="font-weight:600;">Vacancy</td><td>${opts.vacancyTitle ?? "General CV submission"}</td></tr>
+        <tr><td style="font-weight:600;">Vacancy link</td><td>${opts.vacancyUrl ? `<a href="${opts.vacancyUrl}">${opts.vacancyUrl}</a>` : "—"}</td></tr>
         <tr><td style="font-weight:600;">CV document</td><td>${opts.cvFilename ?? "not attached"}</td></tr>
         <tr><td style="font-weight:600;">Cover note</td><td>${opts.notes ? opts.notes.replace(/\n/g, "<br>") : "—"}</td></tr>
-        ${cvExtractSection}
       </table>
       ${opts.jobsageEmail ? `<p style="margin:16px 0 0;font-size:12px;color:#64748b;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;padding:10px;">⚠️ Contact this candidate via their JOBSAGE alias only: <strong>${opts.jobsageEmail}</strong>. Any personal contact info in the attached file should be disregarded.</p>` : ""}
       <p style="margin:16px 0 0;font-size:12px;color:#94a3b8;">
@@ -427,7 +399,7 @@ export async function sendSpeculativeCVNotification(opts: {
   candidateName: string;
   companyName: string;
   /** Required: only called after confirmed delivery, so route is always known */
-  deliveryRoute: "employer_account" | "sponsor_contact_email" | "ai_enrichment" | "ops_fallback";
+  deliveryRoute: "employer_contact_email" | "employer_account" | "sponsor_contact_email" | "ops_fallback";
 }): Promise<void> {
   const isDirectSend = opts.deliveryRoute !== "ops_fallback";
   const deliveryLine = isDirectSend

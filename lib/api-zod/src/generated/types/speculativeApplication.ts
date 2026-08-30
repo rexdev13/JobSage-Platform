@@ -5,6 +5,10 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { SpeculativeApplicationAttachmentType } from "./speculativeApplicationAttachmentType";
+import type { SpeculativeApplicationDeliveryRoute } from "./speculativeApplicationDeliveryRoute";
+import type { SpeculativeApplicationDeliveryStatus } from "./speculativeApplicationDeliveryStatus";
+import type { SpeculativeApplicationSourceType } from "./speculativeApplicationSourceType";
 import type { SpeculativeApplicationStatus } from "./speculativeApplicationStatus";
 
 export interface SpeculativeApplication {
@@ -14,5 +18,21 @@ export interface SpeculativeApplication {
   sponsorLicenceId?: number | null;
   status: SpeculativeApplicationStatus;
   notes?: string | null;
+  vacancyTitle?: string | null;
+  vacancyRef?: string | null;
+  roleId?: number | null;
+  vacancyUrl?: string | null;
+  sourceType?: SpeculativeApplicationSourceType;
+  boardName?: string | null;
+  cvDocumentId?: number | null;
+  deliveryStatus?: SpeculativeApplicationDeliveryStatus;
+  deliveryError?: string | null;
+  deliveryAttempts?: number;
+  emailSent?: boolean;
+  emailSentAt?: Date | null;
+  emailRecipient?: string | null;
+  jobsageEmail?: string | null;
+  deliveryRoute?: SpeculativeApplicationDeliveryRoute;
+  attachmentType?: SpeculativeApplicationAttachmentType;
   createdAt: Date;
 }

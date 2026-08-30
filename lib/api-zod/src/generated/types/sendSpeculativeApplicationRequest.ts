@@ -5,11 +5,17 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { SendSpeculativeApplicationRequestSourceType } from "./sendSpeculativeApplicationRequestSourceType";
 
 export interface SendSpeculativeApplicationRequest {
   companyName: string;
   sponsorLicenceId?: number | null;
   vacancyTitle?: string | null;
+  vacancyRef?: string | null;
+  roleId?: number | null;
+  vacancyUrl?: string | null;
+  sourceType?: SendSpeculativeApplicationRequestSourceType;
+  boardName?: string | null;
   notes?: string | null;
   cvDocumentId?: number | null;
 }

@@ -15,6 +15,8 @@ export interface MatchedRoleList {
   message?: string | null;
   /** Role IDs the user has already applied to */
   appliedRoleIds?: number[];
+  /** Role IDs the user has sent a CV for, independent from normal Apply state */
+  cvSentRoleIds?: number[];
   /** True when the candidate has no profile — show upload nudge instead of roles */
   noProfile?: boolean;
 }
