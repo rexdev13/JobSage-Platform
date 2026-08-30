@@ -95,12 +95,15 @@ export interface SponsorVacancyApplyModalProps {
   vacancyId?: number | null;
   vacancyTitle?: string;
   companyName: string;
-  companyId: number;
+  companyId?: number;
   location?: string | null;
   salary?: string | null;
   postedDate?: string | null;
   description?: string | null;
   externalUrl?: string | null;
+  roleId?: number | null;
+  sourceType?: "job_board" | "company_site" | null;
+  boardName?: string | null;
   speculative?: boolean;
   onClose: () => void;
   onSuccess: () => void;
@@ -116,6 +119,9 @@ export function SponsorVacancyApplyModal({
   postedDate,
   description,
   externalUrl,
+  roleId,
+  sourceType,
+  boardName,
   speculative = false,
   onClose,
   onSuccess,
@@ -174,8 +180,13 @@ export function SponsorVacancyApplyModal({
       {
         data: {
           companyName,
-          sponsorLicenceId: companyId,
-          vacancyTitle: speculative ? undefined : vacancyTitle,
+          sponsorLicenceId: companyId ?? undefined,
+          vacancyTitle: vacancyTitleProp ? vacancyTitle : undefined,
+          vacancyRef: roleId ? `role:${roleId}` : undefined,
+          roleId: roleId ?? undefined,
+          vacancyUrl: externalUrl ?? undefined,
+          sourceType: sourceType ?? undefined,
+          boardName: boardName ?? undefined,
           notes,
           cvDocumentId: selectedCvId ?? null,
         },

@@ -1103,6 +1103,12 @@ export const ListMatchedRolesResponse = zod.object({
     .array(zod.number())
     .optional()
     .describe("Role IDs the user has already applied to"),
+  cvSentRoleIds: zod
+    .array(zod.number())
+    .optional()
+    .describe(
+      "Role IDs the user has sent a CV for, independent from normal Apply state",
+    ),
   noProfile: zod
     .boolean()
     .optional()
@@ -2912,6 +2918,29 @@ export const ListSpeculativeApplicationsResponse = zod.object({
       sponsorLicenceId: zod.number().nullish(),
       status: zod.enum(["sent", "acknowledged", "no_account"]),
       notes: zod.string().nullish(),
+      vacancyTitle: zod.string().nullish(),
+      vacancyRef: zod.string().nullish(),
+      roleId: zod.number().nullish(),
+      vacancyUrl: zod.string().nullish(),
+      sourceType: zod.enum(["job_board", "company_site"]).nullish(),
+      boardName: zod.string().nullish(),
+      cvDocumentId: zod.number().nullish(),
+      deliveryStatus: zod.enum(["pending", "delivered", "failed"]).optional(),
+      deliveryError: zod.string().nullish(),
+      deliveryAttempts: zod.number().optional(),
+      emailSent: zod.boolean().optional(),
+      emailSentAt: zod.date().nullish(),
+      emailRecipient: zod.string().nullish(),
+      jobsageEmail: zod.string().nullish(),
+      deliveryRoute: zod
+        .enum([
+          "employer_contact_email",
+          "employer_account",
+          "sponsor_contact_email",
+          "ops_fallback",
+        ])
+        .nullish(),
+      attachmentType: zod.enum(["pdf"]).nullish(),
       createdAt: zod.date(),
     }),
   ),
@@ -2924,6 +2953,11 @@ export const SendSpeculativeApplicationBody = zod.object({
   companyName: zod.string(),
   sponsorLicenceId: zod.number().nullish(),
   vacancyTitle: zod.string().nullish(),
+  vacancyRef: zod.string().nullish(),
+  roleId: zod.number().nullish(),
+  vacancyUrl: zod.string().nullish(),
+  sourceType: zod.enum(["job_board", "company_site"]).nullish(),
+  boardName: zod.string().nullish(),
   notes: zod.string().nullish(),
   cvDocumentId: zod.number().nullish(),
 });
@@ -2936,6 +2970,29 @@ export const SendSpeculativeApplicationResponse = zod.object({
     sponsorLicenceId: zod.number().nullish(),
     status: zod.enum(["sent", "acknowledged", "no_account"]),
     notes: zod.string().nullish(),
+    vacancyTitle: zod.string().nullish(),
+    vacancyRef: zod.string().nullish(),
+    roleId: zod.number().nullish(),
+    vacancyUrl: zod.string().nullish(),
+    sourceType: zod.enum(["job_board", "company_site"]).nullish(),
+    boardName: zod.string().nullish(),
+    cvDocumentId: zod.number().nullish(),
+    deliveryStatus: zod.enum(["pending", "delivered", "failed"]).optional(),
+    deliveryError: zod.string().nullish(),
+    deliveryAttempts: zod.number().optional(),
+    emailSent: zod.boolean().optional(),
+    emailSentAt: zod.date().nullish(),
+    emailRecipient: zod.string().nullish(),
+    jobsageEmail: zod.string().nullish(),
+    deliveryRoute: zod
+      .enum([
+        "employer_contact_email",
+        "employer_account",
+        "sponsor_contact_email",
+        "ops_fallback",
+      ])
+      .nullish(),
+    attachmentType: zod.enum(["pdf"]).nullish(),
     createdAt: zod.date(),
   }),
   alreadySent: zod.boolean(),

@@ -2656,6 +2656,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: A delivery attempt for this vacancy is already in progress.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Daily Send CV delivery limit reached.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
 
   /sponsor-licences/regions:
     get:
@@ -4469,6 +4481,11 @@ components:
           items:
             type: integer
           description: Role IDs the user has already applied to
+        cvSentRoleIds:
+          type: array
+          items:
+            type: integer
+          description: Role IDs the user has sent a CV for, independent from normal Apply state
         noProfile:
           type: boolean
           description: True when the candidate has no profile — show upload nudge instead of roles
@@ -6448,6 +6465,56 @@ components:
         notes:
           type: string
           nullable: true
+        vacancyTitle:
+          type: string
+          nullable: true
+        vacancyRef:
+          type: string
+          nullable: true
+        roleId:
+          type: integer
+          nullable: true
+        vacancyUrl:
+          type: string
+          nullable: true
+        sourceType:
+          type: string
+          enum: [job_board, company_site]
+          nullable: true
+        boardName:
+          type: string
+          nullable: true
+        cvDocumentId:
+          type: integer
+          nullable: true
+        deliveryStatus:
+          type: string
+          enum: [pending, delivered, failed]
+        deliveryError:
+          type: string
+          nullable: true
+        deliveryAttempts:
+          type: integer
+        emailSent:
+          type: boolean
+        emailSentAt:
+          type: string
+          format: date-time
+          nullable: true
+        emailRecipient:
+          type: string
+          nullable: true
+        jobsageEmail:
+          type: string
+          nullable: true
+        deliveryRoute:
+          type: string
+          enum: [employer_contact_email, employer_account, sponsor_contact_email, ops_fallback]
+          nullable: true
+        attachmentType:
+          type: string
+          enum: [pdf]
+          nullable: true
         createdAt:
           type: string
           format: date-time
@@ -6471,6 +6538,22 @@ components:
           type: integer
           nullable: true
         vacancyTitle:
+          type: string
+          nullable: true
+        vacancyRef:
+          type: string
+          nullable: true
+        roleId:
+          type: integer
+          nullable: true
+        vacancyUrl:
+          type: string
+          nullable: true
+        sourceType:
+          type: string
+          enum: [job_board, company_site]
+          nullable: true
+        boardName:
           type: string
           nullable: true
         notes:

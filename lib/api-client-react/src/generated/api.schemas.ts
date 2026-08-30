@@ -624,6 +624,8 @@ export interface MatchedRoleList {
   message?: string | null;
   /** Role IDs the user has already applied to */
   appliedRoleIds?: number[];
+  /** Role IDs the user has sent a CV for, independent from normal Apply state */
+  cvSentRoleIds?: number[];
   /** True when the candidate has no profile — show upload nudge instead of roles */
   noProfile?: boolean;
 }
@@ -1780,6 +1782,43 @@ export const SpeculativeApplicationStatus = {
   no_account: "no_account",
 } as const;
 
+export type SpeculativeApplicationSourceType =
+  | (typeof SpeculativeApplicationSourceType)[keyof typeof SpeculativeApplicationSourceType]
+  | null;
+
+export const SpeculativeApplicationSourceType = {
+  job_board: "job_board",
+  company_site: "company_site",
+} as const;
+
+export type SpeculativeApplicationDeliveryStatus =
+  (typeof SpeculativeApplicationDeliveryStatus)[keyof typeof SpeculativeApplicationDeliveryStatus];
+
+export const SpeculativeApplicationDeliveryStatus = {
+  pending: "pending",
+  delivered: "delivered",
+  failed: "failed",
+} as const;
+
+export type SpeculativeApplicationDeliveryRoute =
+  | (typeof SpeculativeApplicationDeliveryRoute)[keyof typeof SpeculativeApplicationDeliveryRoute]
+  | null;
+
+export const SpeculativeApplicationDeliveryRoute = {
+  employer_contact_email: "employer_contact_email",
+  employer_account: "employer_account",
+  sponsor_contact_email: "sponsor_contact_email",
+  ops_fallback: "ops_fallback",
+} as const;
+
+export type SpeculativeApplicationAttachmentType =
+  | (typeof SpeculativeApplicationAttachmentType)[keyof typeof SpeculativeApplicationAttachmentType]
+  | null;
+
+export const SpeculativeApplicationAttachmentType = {
+  pdf: "pdf",
+} as const;
+
 export interface SpeculativeApplication {
   id: number;
   userId: string;
@@ -1787,6 +1826,22 @@ export interface SpeculativeApplication {
   sponsorLicenceId?: number | null;
   status: SpeculativeApplicationStatus;
   notes?: string | null;
+  vacancyTitle?: string | null;
+  vacancyRef?: string | null;
+  roleId?: number | null;
+  vacancyUrl?: string | null;
+  sourceType?: SpeculativeApplicationSourceType;
+  boardName?: string | null;
+  cvDocumentId?: number | null;
+  deliveryStatus?: SpeculativeApplicationDeliveryStatus;
+  deliveryError?: string | null;
+  deliveryAttempts?: number;
+  emailSent?: boolean;
+  emailSentAt?: string | null;
+  emailRecipient?: string | null;
+  jobsageEmail?: string | null;
+  deliveryRoute?: SpeculativeApplicationDeliveryRoute;
+  attachmentType?: SpeculativeApplicationAttachmentType;
   createdAt: string;
 }
 
@@ -1794,10 +1849,24 @@ export interface SpeculativeApplicationListResponse {
   applications: SpeculativeApplication[];
 }
 
+export type SendSpeculativeApplicationRequestSourceType =
+  | (typeof SendSpeculativeApplicationRequestSourceType)[keyof typeof SendSpeculativeApplicationRequestSourceType]
+  | null;
+
+export const SendSpeculativeApplicationRequestSourceType = {
+  job_board: "job_board",
+  company_site: "company_site",
+} as const;
+
 export interface SendSpeculativeApplicationRequest {
   companyName: string;
   sponsorLicenceId?: number | null;
   vacancyTitle?: string | null;
+  vacancyRef?: string | null;
+  roleId?: number | null;
+  vacancyUrl?: string | null;
+  sourceType?: SendSpeculativeApplicationRequestSourceType;
+  boardName?: string | null;
   notes?: string | null;
   cvDocumentId?: number | null;
 }

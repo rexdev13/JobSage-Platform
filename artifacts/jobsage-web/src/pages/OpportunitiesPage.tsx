@@ -668,6 +668,8 @@ function CoverLetterModal({
 function RoleCard({
   item,
   appliedRoleIds,
+  cvSentRoleIds,
+  onSendCv,
   onSmartApply,
   onViewDetail,
   onCoverLetter,
@@ -680,6 +682,8 @@ function RoleCard({
 }: {
   item: MatchedRole;
   appliedRoleIds: number[];
+  cvSentRoleIds: number[];
+  onSendCv: (item: MatchedRole) => void;
   onSmartApply: (roleId: number, roleTitle: string) => void;
   onViewDetail: (item: MatchedRole) => void;
   onCoverLetter: (role: MatchedRole["role"]) => void;
@@ -791,6 +795,7 @@ function RoleCard({
   };
 
   const applied = appliedRoleIds.includes(role.id);
+  const cvSent = cvSentRoleIds.includes(role.id);
   const hasContactDetails = !!(contactEmail || contactPhone || contactWebsite);
   const applyAction = getOpportunityApplyAction({ sourceType: role.sourceType, applyUrl, contactWebsite });
 
@@ -1041,6 +1046,14 @@ function RoleCard({
             onClick={(e) => { e.stopPropagation(); onCoverLetter(role); }}
           >
             <FileText className="w-3 h-3" /> Cover Letter
+          </Button>
+          <Button
+            size="sm"
+            variant={cvSent ? "outline" : "accent"}
+            className="text-xs h-8 gap-1"
+            onClick={(e) => { e.stopPropagation(); onSendCv(item); }}
+          >
+            <Send className="w-3 h-3" /> {cvSent ? "Resend CV" : "Send CV"}
           </Button>
           {isEligible && !applied && (
             <Button
@@ -1401,7 +1414,7 @@ export default function OpportunitiesPage() {
   });
   const [selectedRole, setSelectedRole] = useState<MatchedRole | null>(null);
   const [sponsorSearch, setSponsorSearch] = useState("");
-  const [sendCvTarget, setSendCvTarget] = useState<SponsorLicenceCompany | null>(null);
+  const [sendCvTarget, setSendCvTarget] = useState<MatchedRole | null>(null);
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
   const [smartApplyRole, setSmartApplyRole] = useState<{ id: number; title: string } | null>(null);
   const [coverLetterRole, setCoverLetterRole] = useState<MatchedRole["role"] | null>(null);
@@ -1453,8 +1466,8 @@ export default function OpportunitiesPage() {
 
   const queryClient = useQueryClient();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const opportunitySource = activeTab === "employers" ? "company_site" : "job_board";
-  const isVacancyTab = activeTab === "board" || activeTab === "employers";
+  const opportunitySource = activeTab === "employers" ? "company_site" : activeTab === "board" ? "job_board" : undefined;
+  const isVacancyTab = activeTab === "board" || activeTab === "employers" || activeTab === "sendcv";
   const isCompanySiteTab = activeTab === "employers";
   const resultsSectionId = isCompanySiteTab ? "company-site-section" : "job-board-section";
   const { data, isLoading, isError } = useListMatchedRoles(
@@ -1477,7 +1490,7 @@ export default function OpportunitiesPage() {
           page: 1,
           limit: 100,
         }),
-        enabled: activeTab === "sendcv",
+        enabled: false,
       },
     },
   );
@@ -1522,6 +1535,7 @@ export default function OpportunitiesPage() {
 
   const roles = data?.roles ?? [];
   const appliedRoleIds = data?.appliedRoleIds ?? [];
+  const cvSentRoleIds = data?.cvSentRoleIds ?? [];
   const eligibilityOutcome = data?.eligibilityOutcome;
   const noProfile = data?.noProfile === true;
   const p = myProfile as unknown as Record<string, unknown> | undefined;
@@ -1821,7 +1835,7 @@ export default function OpportunitiesPage() {
             )}
 
             {/* Best Matches AI Strip */}
-            {!noProfile && filteredRoles.length > 0 && (
+            {activeTab !== "sendcv" && !noProfile && filteredRoles.length > 0 && (
               <BestMatchesStrip
                 matchesData={filteredAiMatchesData}
                 matchesLoading={aiMatchesLoading}
@@ -1829,7 +1843,7 @@ export default function OpportunitiesPage() {
                 localDismissedIds={localDismissedIds}
                 onSmartApply={handleSmartApply}
                 onDismiss={handleDismissMatch}
-                sourceType={opportunitySource}
+                sourceType={opportunitySource ?? "job_board"}
               />
             )}
 
@@ -1890,6 +1904,8 @@ export default function OpportunitiesPage() {
                             aiScore={item.aiScore ?? undefined}
                             aiScoring={aiMatchesLoading}
                             appliedRoleIds={appliedRoleIds}
+                            cvSentRoleIds={cvSentRoleIds}
+                            onSendCv={setSendCvTarget}
                             onSmartApply={handleSmartApply}
                             onViewDetail={setSelectedRole}
                             onCoverLetter={setCoverLetterRole}
@@ -1931,6 +1947,8 @@ export default function OpportunitiesPage() {
                               aiScore={item.aiScore ?? undefined}
                               aiScoring={aiMatchesLoading}
                               appliedRoleIds={appliedRoleIds}
+                              cvSentRoleIds={cvSentRoleIds}
+                              onSendCv={setSendCvTarget}
                               onSmartApply={handleSmartApply}
                               onViewDetail={setSelectedRole}
                               onCoverLetter={setCoverLetterRole}
@@ -1970,6 +1988,8 @@ export default function OpportunitiesPage() {
                               aiScore={item.aiScore ?? undefined}
                               aiScoring={aiMatchesLoading}
                               appliedRoleIds={appliedRoleIds}
+                              cvSentRoleIds={cvSentRoleIds}
+                              onSendCv={setSendCvTarget}
                               onSmartApply={handleSmartApply}
                               onViewDetail={setSelectedRole}
                               onCoverLetter={setCoverLetterRole}
@@ -1989,7 +2009,7 @@ export default function OpportunitiesPage() {
         )}
 
         {/* Send CV tab */}
-        {activeTab === "sendcv" && (
+        {false && activeTab === "sendcv" && (
           <div className="space-y-4">
             <Card className="p-5 border-sky-500/20 bg-sky-500/[0.04]">
               <div className="flex items-start gap-3">
@@ -2039,7 +2059,7 @@ export default function OpportunitiesPage() {
                       company={company}
                       alreadySent={sentSponsorNames.has(company.organisationName.toLowerCase())}
                       hasCv={hasCvUploaded}
-                      onSend={() => setSendCvTarget(company)}
+                      onSend={() => undefined}
                       onUploadCv={() => setLocation("/documents")}
                     />
                   ))}
@@ -2060,13 +2080,18 @@ export default function OpportunitiesPage() {
         {sendCvTarget && (
           <SponsorVacancyApplyModal
             speculative
-            companyName={sendCvTarget.organisationName}
-            companyId={sendCvTarget.id}
+            companyName={sendCvTarget.role.employer}
+            vacancyTitle={sendCvTarget.role.title}
+            roleId={sendCvTarget.role.id}
+            externalUrl={sendCvTarget.applyUrl ?? sendCvTarget.contactWebsite ?? null}
+            sourceType={sendCvTarget.role.sourceType ?? null}
+            boardName={sendCvTarget.role.boardName ?? null}
             onClose={() => setSendCvTarget(null)}
             onSuccess={() => {
               setSendCvTarget(null);
               void queryClient.invalidateQueries({ queryKey: ["listSpeculativeApplications"] });
               void queryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
+              void queryClient.invalidateQueries({ queryKey: getListMatchedRolesQueryKey() });
             }}
           />
         )}

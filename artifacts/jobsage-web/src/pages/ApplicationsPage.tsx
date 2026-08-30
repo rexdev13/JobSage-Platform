@@ -123,7 +123,7 @@ const isReplied = (a: { status: string }) => REPLIED_STATUSES.has(a.status);
 
 type ApplicationKind = "formal" | "speculative" | "website";
 
-type DeliveryRoute = "employer_account" | "sponsor_contact_email" | "ai_enrichment" | "ops_fallback";
+type DeliveryRoute = "employer_contact_email" | "employer_account" | "sponsor_contact_email" | "ops_fallback";
 
 type EnrichedApplication = {
   id: number;
@@ -147,6 +147,10 @@ type EnrichedApplication = {
   emailRecipient?: string | null;
   cvLabel?: string | null;
   deliveryRoute?: DeliveryRoute | null;
+  deliveryStatus?: "pending" | "delivered" | "failed" | null;
+  deliveryError?: string | null;
+  boardName?: string | null;
+  sourceType?: "job_board" | "company_site" | null;
 };
 
 type CategoryTab = "all" | "platform" | "speculative" | "website" | "favorites";
@@ -279,7 +283,7 @@ function ApplicationCard({ application, onStatusUpdated }: { application: Enrich
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="font-semibold text-foreground truncate">
                 {isSpeculative
-                  ? application.companyName ?? application.roleTitle ?? "CV Send"
+                  ? application.roleTitle ?? application.companyName ?? "CV Send"
                   : isWebsite
                   ? application.roleTitle ?? application.companyName ?? "Website Application"
                   : application.roleTitle ?? `Role #${application.roleId}`}
@@ -301,6 +305,11 @@ function ApplicationCard({ application, onStatusUpdated }: { application: Enrich
                 <span className="flex items-center gap-1">
                   <Building2 className="w-3 h-3" />
                   {application.companyName}
+                </span>
+              )}
+              {isSpeculative && application.companyName && application.companyName !== application.roleTitle && (
+                <span className="flex items-center gap-1">
+                  <Building2 className="w-3 h-3" /> {application.companyName}
                 </span>
               )}
               <span className="flex items-center gap-1">
@@ -334,6 +343,11 @@ function ApplicationCard({ application, onStatusUpdated }: { application: Enrich
           // showing misleading "Delivered directly" on failed sends
           if (!route || !application.emailSent) return null;
           const routeConfig: Record<DeliveryRoute, { label: string; description: string; className: string }> = {
+            employer_contact_email: {
+              label: "Delivered directly",
+              description: "Sent to the employer's stored contact email",
+              className: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800",
+            },
             employer_account: {
               label: "Delivered directly",
               description: "Sent to the employer's registered JOBSAGE account",
@@ -342,11 +356,6 @@ function ApplicationCard({ application, onStatusUpdated }: { application: Enrich
             sponsor_contact_email: {
               label: "Delivered directly",
               description: "Sent to the employer's registered contact email",
-              className: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800",
-            },
-            ai_enrichment: {
-              label: "Delivered directly",
-              description: "Contact email found automatically and saved for future sends",
               className: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800",
             },
             ops_fallback: {
@@ -363,6 +372,18 @@ function ApplicationCard({ application, onStatusUpdated }: { application: Enrich
             </div>
           );
         })()}
+
+        {isSpeculative && application.deliveryStatus === "failed" && (
+          <div className="text-xs border rounded-lg px-3 py-2 bg-rose-50 text-rose-700 border-rose-200">
+            <span className="font-semibold">Delivery failed.</span> {application.deliveryError ?? "You can retry Send CV from Opportunities."}
+          </div>
+        )}
+
+        {isSpeculative && application.applicationUrl && (
+          <a href={application.applicationUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-blue-700 dark:text-blue-400 hover:underline">
+            <ExternalLink className="w-3 h-3" /> View vacancy{application.boardName ? ` on ${application.boardName}` : ""}
+          </a>
+        )}
 
         {application.cvLabel && (
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/40 border border-border rounded-lg px-3 py-2">
