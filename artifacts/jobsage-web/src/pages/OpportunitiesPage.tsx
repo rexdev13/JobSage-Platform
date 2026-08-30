@@ -781,7 +781,7 @@ function RoleCard({
   const hasContactDetails = !!(contactEmail || contactPhone || contactWebsite);
   const applyActionLabel = role.sourceType === "job_board"
     ? "Apply on job boards"
-    : "Apply on company website";
+    : "Apply on company's website";
 
   return (
     <Card

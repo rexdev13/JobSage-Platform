@@ -4,9 +4,10 @@ import cookieParser from "cookie-parser";
 import request from "supertest";
 
 // ── hoisted DB results queue ──────────────────────────────────────────────────
-const { dbResults, refreshCandidateBoardVacanciesMock } = vi.hoisted(() => ({
+const { dbResults, refreshCandidateBoardVacanciesMock, discoverCompanySiteVacanciesMock } = vi.hoisted(() => ({
   dbResults: [] as any[],
   refreshCandidateBoardVacanciesMock: vi.fn(),
+  discoverCompanySiteVacanciesMock: vi.fn(),
 }));
 
 vi.mock("@workspace/db", () => {
@@ -88,6 +89,10 @@ vi.mock("../../lib/candidateBoardDiscovery", () => ({
     inserted: 0,
     revived: 0,
   }),
+}));
+
+vi.mock("../../lib/companySiteDiscovery", () => ({
+  discoverCompanySiteVacancies: discoverCompanySiteVacanciesMock,
 }));
 
 vi.mock("../../lib/sponsorshipFeasibility", () => ({
@@ -215,7 +220,11 @@ describe("Admin roles CSV import — applyUrl column", () => {
 });
 
 describe("GET /roles — vacancy-specific speculative CV matching (appliedRoleIds)", () => {
-  beforeEach(() => { dbResults.length = 0; });
+  beforeEach(() => {
+    dbResults.length = 0;
+    refreshCandidateBoardVacanciesMock.mockClear();
+    discoverCompanySiteVacanciesMock.mockClear();
+  });
 
   /**
    * Push the standard sequence of DB results needed by GET /roles.
@@ -302,6 +311,18 @@ describe("GET /roles — vacancy-specific speculative CV matching (appliedRoleId
 
     expect(response.status).toBe(200);
     expect(refreshCandidateBoardVacanciesMock).toHaveBeenCalled();
+  });
+
+  it("serves company-site Opportunities from the database without fetching employer HTML", async () => {
+    pushRolesDbResults([], []);
+
+    const response = await request(buildApp())
+      .get("/roles?source=company_site")
+      .set("Authorization", AUTH);
+
+    expect(response.status).toBe(200);
+    expect(discoverCompanySiteVacanciesMock).not.toHaveBeenCalled();
+    expect(refreshCandidateBoardVacanciesMock).not.toHaveBeenCalled();
   });
 
   it("happy path: exact-match company + title → roleId appears in appliedRoleIds", async () => {

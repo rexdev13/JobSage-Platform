@@ -94,20 +94,60 @@ function isLoginWallPath(pathname: string): boolean {
 export function isPrivateIp(ip: string): boolean {
   if (net.isIPv4(ip)) {
     const parts = ip.split(".").map(Number);
-    const [a, b] = [parts[0]!, parts[1]!];
+    const [a, b, c] = [parts[0]!, parts[1]!, parts[2]!];
     return (
       a === 0 || a === 10 || a === 127 ||
       (a === 100 && b >= 64 && b <= 127) || // CGNAT
       (a === 169 && b === 254) || // link-local / cloud metadata
       (a === 172 && b >= 16 && b <= 31) ||
-      (a === 192 && b === 168)
+      (a === 192 && b === 0 && (c === 0 || c === 2)) ||
+      (a === 192 && b === 168) ||
+      (a === 198 && (b === 18 || b === 19 || (b === 51 && c === 100))) ||
+      (a === 203 && b === 0 && c === 113) ||
+      a >= 224
     );
   }
-  const lower = ip.toLowerCase();
+  if (!net.isIPv6(ip)) return true;
+  const lower = ip.toLowerCase().split("%", 1)[0]!;
+  const [head = "", tail = ""] = lower.split("::");
+  const expand = (part: string): number[] =>
+    part
+      ? part.split(":").flatMap((segment) => {
+          if (!segment.includes(".")) return [Number.parseInt(segment || "0", 16)];
+          const octets = segment.split(".").map(Number);
+          return [(octets[0]! << 8) | octets[1]!, (octets[2]! << 8) | octets[3]!];
+        })
+      : [];
+  const before = expand(head);
+  const after = expand(tail);
+  const groups =
+    lower.includes("::")
+      ? [...before, ...Array(Math.max(0, 8 - before.length - after.length)).fill(0), ...after]
+      : before;
+  if (groups.length !== 8 || groups.some((group) => !Number.isInteger(group) || group < 0 || group > 0xffff)) {
+    return true;
+  }
+  const value = groups.reduce((acc, group) => (acc << 16n) | BigInt(group), 0n);
+  const inCidr = (network: bigint, prefix: number) =>
+    (value >> BigInt(128 - prefix)) === (network >> BigInt(128 - prefix));
+  const mappedV4 = inCidr(0xffffn << 32n, 96);
+  if (mappedV4) {
+    const v4 = Number(value & 0xffff_ffffn);
+    return isPrivateIp(
+      `${(v4 >>> 24) & 255}.${(v4 >>> 16) & 255}.${(v4 >>> 8) & 255}.${v4 & 255}`,
+    );
+  }
   return (
-    lower === "::" || lower === "::1" ||
-    lower.startsWith("fe80") || lower.startsWith("fc") || lower.startsWith("fd") ||
-    (lower.startsWith("::ffff:") && isPrivateIp(lower.slice(7)))
+    value === 0n ||
+    value === 1n ||
+    inCidr(0x0064_ff9b_0001n << 80n, 48) ||
+    inCidr(0x0100n << 112n, 64) ||
+    inCidr(0x2001_0000n << 96n, 23) ||
+    inCidr(0x2001_0db8n << 96n, 32) ||
+    inCidr(0x2002n << 112n, 16) ||
+    inCidr(0xfc00n << 112n, 7) ||
+    inCidr(0xfe80n << 112n, 10) ||
+    inCidr(0xff00n << 112n, 8)
   );
 }
 
