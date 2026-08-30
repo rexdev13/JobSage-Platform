@@ -475,9 +475,49 @@ export interface DecisionRecordList {
   decisions: DecisionRecord[];
 }
 
-export type RoleRegulator = (typeof RoleRegulator)[keyof typeof RoleRegulator];
+/**
+ * Statutory regulator for legacy regulated-role records. Use opportunityCategory for candidate opportunity matching.
+ */
+export type RoleRegulator =
+  | (typeof RoleRegulator)[keyof typeof RoleRegulator]
+  | null;
 
 export const RoleRegulator = {
+  GMC: "GMC",
+  NMC: "NMC",
+  HCPC: "HCPC",
+} as const;
+
+/**
+ * Broader profession category used by Opportunities and alerts; separate from statutory regulation.
+ */
+export type RoleOpportunityCategory =
+  | (typeof RoleOpportunityCategory)[keyof typeof RoleOpportunityCategory]
+  | null;
+
+export const RoleOpportunityCategory = {
+  GMC: "GMC",
+  NMC: "NMC",
+  HCPC: "HCPC",
+  DENTAL: "DENTAL",
+  PHARMACY: "PHARMACY",
+  SOCIAL_WORK: "SOCIAL_WORK",
+  EDUCATION: "EDUCATION",
+  ENGINEERING: "ENGINEERING",
+  ACCOUNTING: "ACCOUNTING",
+  IT: "IT",
+  LEGAL: "LEGAL",
+  ARCHITECTURE: "ARCHITECTURE",
+} as const;
+
+/**
+ * Statutory regulator when the opportunity is regulated by GMC, NMC, or HCPC.
+ */
+export type RoleStatutoryRegulator =
+  | (typeof RoleStatutoryRegulator)[keyof typeof RoleStatutoryRegulator]
+  | null;
+
+export const RoleStatutoryRegulator = {
   GMC: "GMC",
   NMC: "NMC",
   HCPC: "HCPC",
@@ -500,7 +540,12 @@ export interface Role {
   title: string;
   employer: string;
   location: string;
-  regulator: RoleRegulator;
+  /** Statutory regulator for legacy regulated-role records. Use opportunityCategory for candidate opportunity matching. */
+  regulator?: RoleRegulator;
+  /** Broader profession category used by Opportunities and alerts; separate from statutory regulation. */
+  opportunityCategory?: RoleOpportunityCategory;
+  /** Statutory regulator when the opportunity is regulated by GMC, NMC, or HCPC. */
+  statutoryRegulator?: RoleStatutoryRegulator;
   sponsorshipOffered: boolean;
   targetRegions?: string[] | null;
   requiredRegistration: string;

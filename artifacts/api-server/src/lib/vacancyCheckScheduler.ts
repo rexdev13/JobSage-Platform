@@ -18,24 +18,10 @@ export const HEALTHCARE_SPONSOR_INDICATORS = [
   "care home",
   "nursing",
 ] as const;
-export const OBVIOUS_NON_HEALTH_INDUSTRY_INDICATORS = [
-  "construction",
-  "hospitality",
-  "retail",
-  "transport",
-  "logistics",
-  "manufacturing",
-  "technology",
-  "information technology",
-  "finance",
-  "legal",
-  "education",
-  "recruitment",
-] as const;
 export const HEALTHCARE_SPONSOR_SQL_REGEXP =
   `\\m(${HEALTHCARE_SPONSOR_INDICATORS.join("|")})\\M`;
-export const OBVIOUS_NON_HEALTH_INDUSTRY_SQL_REGEXP =
-  `\\m(${OBVIOUS_NON_HEALTH_INDUSTRY_INDICATORS.join("|")})\\M`;
+export const BOOKMARK_QUEUE_SHARE = 0.25;
+export const HEALTHCARE_QUEUE_SHARE = 0.5;
 
 // Overlap guard — released in a finally block so it can never stay stuck.
 let batchInProgress = false;
@@ -52,55 +38,107 @@ function getBatchSize(): number {
 /**
  * Select up to batchSize companies to vacancy-check, in explicit priority order:
  *
- * Tier A (priority 1): Bookmarked sponsors without an explicit non-health
- * industry, stale > 7 days.
- * Tier B (priority 2): Healthcare-related sponsors with a known website.
- * Tier C (priority 3): Other healthcare-related stale sponsors.
+ * Tier A: reserve a quarter of the batch for bookmarked sponsors, regardless
+ * of their sector.
+ * Tier B: fill the remaining slots with an even healthcare/non-health split,
+ * using the oldest rows in each cohort first.
+ * Tier C: use any available rows to fill a shortfall when one cohort is small.
  *
  * Healthcare relevance is determined from the sponsor's industry or organisation
  * name: NHS, hospital, health, medical, social care, care home, or nursing.
- * Obvious non-health industries are excluded whenever the register supplies one,
- * even if the organisation name contains a healthcare-related word.
- * Global exclusion: any company with a check fresher than 24h is excluded.
+ * Every stale sponsor is eligible: the healthcare signal balances the queue but
+ * never excludes education, engineering, technology, finance, legal, or other
+ * professional sectors.
  */
-async function selectBatch(batchSize: number): Promise<{ id: number; organisation_name: string }[]> {
+export async function selectBatch(batchSize: number): Promise<{ id: number; organisation_name: string }[]> {
+  const bookmarkLimit = Math.max(1, Math.floor(batchSize * BOOKMARK_QUEUE_SHARE));
   const result = await db.execute<{ id: number; organisation_name: string }>(sql`
-    SELECT sl.id, sl.organisation_name
-    FROM sponsor_licences sl
-    LEFT JOIN (
-      SELECT organisation_name, MAX(checked_at) AS last_checked
-      FROM sponsor_licence_vacancy_checks
-      GROUP BY organisation_name
-    ) vc ON vc.organisation_name = sl.organisation_name
-    LEFT JOIN (
-      SELECT DISTINCT sponsor_licence_id
-      FROM sponsor_licence_bookmarks
-    ) b ON b.sponsor_licence_id = sl.id
-    WHERE
-      (vc.last_checked IS NULL OR vc.last_checked < NOW() - INTERVAL '24 hours')
-      AND (
-        b.sponsor_licence_id IS NOT NULL
-        OR lower(COALESCE(sl.industry, '')) ~* ${HEALTHCARE_SPONSOR_SQL_REGEXP}
-        OR lower(sl.organisation_name) ~* ${HEALTHCARE_SPONSOR_SQL_REGEXP}
-        OR EXISTS (
-          SELECT 1
-          FROM sponsor_licence_vacancies sv
-          WHERE sv.organisation_name = sl.organisation_name
-        )
+    WITH eligible AS (
+      SELECT
+        sl.id,
+        sl.organisation_name,
+        vc.last_checked,
+        b.sponsor_licence_id IS NOT NULL AS is_bookmarked,
+        (
+          lower(COALESCE(sl.industry, '')) ~* ${HEALTHCARE_SPONSOR_SQL_REGEXP}
+          OR lower(sl.organisation_name) ~* ${HEALTHCARE_SPONSOR_SQL_REGEXP}
+        ) AS is_healthcare
+      FROM sponsor_licences sl
+      LEFT JOIN (
+        SELECT organisation_name, MAX(checked_at) AS last_checked
+        FROM sponsor_licence_vacancy_checks
+        GROUP BY organisation_name
+      ) vc ON vc.organisation_name = sl.organisation_name
+      LEFT JOIN (
+        SELECT DISTINCT sponsor_licence_id
+        FROM sponsor_licence_bookmarks
+      ) b ON b.sponsor_licence_id = sl.id
+      WHERE vc.last_checked IS NULL OR vc.last_checked < NOW() - INTERVAL '24 hours'
+    ),
+    selected_bookmarks AS (
+      SELECT e.*
+      FROM eligible e
+      WHERE e.is_bookmarked
+      ORDER BY
+        CASE WHEN e.last_checked IS NOT NULL THEN e.last_checked END ASC NULLS FIRST,
+        e.id ASC
+      LIMIT ${bookmarkLimit}
+    ),
+    queue_limits AS (
+      SELECT GREATEST(0, ${batchSize} - COUNT(*)::int) AS unbookmarked_slots
+      FROM selected_bookmarks
+    ),
+    ranked_unbookmarked AS (
+      SELECT
+        e.*,
+        ROW_NUMBER() OVER (
+          PARTITION BY e.is_healthcare
+          ORDER BY
+            CASE WHEN e.last_checked IS NOT NULL THEN e.last_checked END ASC NULLS FIRST,
+            e.id ASC
+        ) AS cohort_rank
+      FROM eligible e
+      WHERE NOT e.is_bookmarked
+    ),
+    balanced_unbookmarked AS (
+      SELECT r.*
+      FROM ranked_unbookmarked r
+      CROSS JOIN queue_limits q
+      WHERE r.cohort_rank <= CASE
+        WHEN r.is_healthcare
+        THEN FLOOR(q.unbookmarked_slots * ${HEALTHCARE_QUEUE_SHARE})
+        ELSE q.unbookmarked_slots - FLOOR(q.unbookmarked_slots * ${HEALTHCARE_QUEUE_SHARE})
+      END
+    ),
+    fill_unbookmarked AS (
+      SELECT r.*
+      FROM ranked_unbookmarked r
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM balanced_unbookmarked b
+        WHERE b.id = r.id
       )
-      AND lower(COALESCE(sl.industry, '')) !~* ${OBVIOUS_NON_HEALTH_INDUSTRY_SQL_REGEXP}
-    ORDER BY
-      CASE
-        WHEN b.sponsor_licence_id IS NOT NULL
-         AND (vc.last_checked IS NULL OR vc.last_checked < NOW() - INTERVAL '7 days')
-        THEN 1
-        WHEN sl.website IS NOT NULL AND trim(sl.website) <> ''
-        THEN 2
-        WHEN vc.last_checked IS NOT NULL
-        THEN 3
-        ELSE 4
-      END ASC,
-      CASE WHEN vc.last_checked IS NOT NULL THEN vc.last_checked END DESC NULLS LAST
+      ORDER BY
+        CASE WHEN r.last_checked IS NOT NULL THEN r.last_checked END ASC NULLS FIRST,
+        r.id ASC
+      LIMIT (
+        SELECT GREATEST(
+          0,
+          q.unbookmarked_slots - (SELECT COUNT(*)::int FROM balanced_unbookmarked)
+        )
+        FROM queue_limits q
+      )
+    ),
+    selected AS (
+      SELECT id, organisation_name, 0 AS priority, last_checked FROM selected_bookmarks
+      UNION ALL
+      SELECT id, organisation_name, 1 AS priority, last_checked FROM balanced_unbookmarked
+      UNION ALL
+      SELECT id, organisation_name, 2 AS priority, last_checked FROM fill_unbookmarked
+    )
+    SELECT id, organisation_name
+    FROM selected
+    ORDER BY priority ASC, last_checked ASC NULLS FIRST, id ASC
     LIMIT ${batchSize}
   `);
   return result.rows;

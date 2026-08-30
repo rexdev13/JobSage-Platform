@@ -34,7 +34,10 @@ vi.mock("drizzle-orm", () => ({
   ne: vi.fn(),
 }));
 
-const { fetchSponsorVacanciesAsRoles } = await import("../../lib/sponsorVacancyRoles");
+const {
+  classifyVacancyCategory,
+  fetchSponsorVacanciesAsRoles,
+} = await import("../../lib/sponsorVacancyRoles");
 
 const NHS_URL = "https://www.jobs.nhs.uk/candidate/jobadvert/C9000-26-0001?language=en";
 
@@ -155,7 +158,9 @@ describe("fetchSponsorVacanciesAsRoles alert options", () => {
     expect(result).toEqual([
       expect.objectContaining({
         id: 2_000_040,
-        regulator: "ENGINEERING",
+        regulator: null,
+        opportunityCategory: "ENGINEERING",
+        statutoryRegulator: null,
         requiredRegistration: "UK professional engineering pathway",
       }),
     ]);
@@ -172,5 +177,36 @@ describe("fetchSponsorVacanciesAsRoles alert options", () => {
     const result = await fetchSponsorVacanciesAsRoles("NMC");
 
     expect(result.map((role) => role.id)).toEqual([2_000_053]);
+  });
+
+  it.each([
+    ["Consultant Dentist", "DENTAL"],
+    ["Clinical Pharmacist", "PHARMACY"],
+    ["Senior Social Worker", "SOCIAL_WORK"],
+    ["Management Accountant", "ACCOUNTING"],
+    ["Software Engineer", "IT"],
+    ["Construction Engineer", "ENGINEERING"],
+    ["Optometrist", "HCPC"],
+    ["Senior Clinical Academic", "GMC"],
+    ["Commercial Solicitor", "LEGAL"],
+    ["Project Architect", "ARCHITECTURE"],
+    ["University Lecturer", "EDUCATION"],
+    ["Clinical Research Administrator", "GMC"],
+  ])("classifies %s as %s", (title, expected) => {
+    expect(classifyVacancyCategory(title, null)).toBe(expected);
+  });
+
+  it("retains software engineering for IT and engineering candidates but not nurses", async () => {
+    rows = [
+      vacancyRow({
+        id: 60,
+        organisationName: "Acme Digital Limited",
+        title: "Software Engineer",
+      }),
+    ];
+
+    expect((await fetchSponsorVacanciesAsRoles("IT")).map((role) => role.id)).toEqual([2_000_060]);
+    expect((await fetchSponsorVacanciesAsRoles("ENGINEERING")).map((role) => role.id)).toEqual([2_000_060]);
+    expect(await fetchSponsorVacanciesAsRoles("NMC")).toEqual([]);
   });
 });

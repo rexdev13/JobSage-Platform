@@ -7,8 +7,13 @@ import type { DbsClearanceLevel, SafeguardingTrainingLevel } from "./safeguardin
 import { regionsFromLocationText } from "./regionMatching";
 import {
   opportunityRegistrationLabel,
-  type OpportunityRegulator,
 } from "./opportunityProfession";
+import {
+  opportunityCategoriesMatch,
+  statutoryRegulatorForCategory,
+  type OpportunityCategory,
+  type StatutoryRegulator,
+} from "./professionCategory";
 
 /**
  * ID offset for AI-discovered sponsor-licence vacancies when merged into the
@@ -44,17 +49,31 @@ const NMC_TITLE_PATTERN =
   /\b(nurse|nursing|midwif|health\s*visitor|rgn\b|rmn\b|rnld\b|matron|ward\s*sister)/i;
 
 const HCPC_TITLE_PATTERN =
-  /\b(physiotherap|occupational\s*therap|radiograph|paramedic|dietitian|dietician|podiatr|chiropod|speech\s*(and|&)\s*language|speech\s*therap|biomedical\s*scientist|clinical\s*scientist|orthoptist|prosthetist|orthotist|operating\s*department\s*practitioner|\bodp\b|art\s*therap|drama\s*therap|music\s*therap|hearing\s*aid\s*dispenser|practitioner\s*psycholog|clinical\s*psycholog)/i;
+  /\b(physiotherap|occupational\s*therap|radiograph|paramedic|optometr|dietitian|dietician|podiatr|chiropod|speech\s*(and|&)\s*language|speech\s*therap|biomedical\s*scientist|clinical\s*scientist|orthoptist|prosthetist|orthotist|operating\s*department\s*practitioner|\bodp\b|art\s*therap|drama\s*therap|music\s*therap|hearing\s*aid\s*dispenser|practitioner\s*psycholog|clinical\s*psycholog)/i;
 
 // NOTE: deliberately does NOT match a bare "consultant" — the sponsor register
 // spans every industry, so "Environmental Consultant" etc. must not classify
 // as GMC. Medical consultant titles always carry a specialty word that matches.
 const GMC_TITLE_PATTERN =
-  /\b(doctor|physician|surgeon|surgical|registrar\b|general\s*practitioner|gp\b|medical\s*officer|psychiatr|anaesthet|radiolog|cardiolog|paediatric|oncolog|dermatolog|neurolog|patholog|geriatric\s*medicine|urolog|gynaecolog|obstetric|ophthalmolog|clinical\s*fellow|house\s*officer|sho\b|specialty\s*doctor|junior\s*doctor|emergency\s*medicine|intensivist|haematolog|rheumatolog|endocrinolog|gastroenterolog|nephrolog|histopatholog|microbiolog)/i;
+  /\b(doctor|physician|surgeon|surgical|registrar\b|general\s*practitioner|gp\b|medical\s*officer|psychiatr|anaesthet|radiolog|cardiolog|paediatric|oncolog|dermatolog|neurolog|patholog|geriatric\s*medicine|urolog|gynaecolog|obstetric|ophthalmolog|clinical\s*(academic|fellow|research)|house\s*officer|sho\b|specialty\s*doctor|junior\s*doctor|emergency\s*medicine|intensivist|haematolog|rheumatolog|endocrinolog|gastroenterolog|nephrolog|histopatholog|microbiolog)/i;
 const EDUCATION_TITLE_PATTERN =
   /\b(teacher|teaching|lecturer|professor|academic|school\s*leader|headteacher|head\s*teacher|curriculum\s*lead|education\s*lead|research\s*fellow|postdoctoral|postdoc)/i;
 const ENGINEERING_TITLE_PATTERN =
-  /\b(engineer|engineering|technical\s*design|structural\s*design|civil\s*design|mechanical\s*design|electronic\s*design)/i;
+  /\b(engineer|engineering|technical\s*design|structural\s*design|civil\s*design|mechanical\s*design|electronic\s*design|construction\s*(project|manager|management))/i;
+const DENTAL_TITLE_PATTERN =
+  /\b(dentist|dentistry|dental\s*(surgeon|officer|therapist|hygienist|technician)|orthodont|periodont|endodont|prosthodont)/i;
+const PHARMACY_TITLE_PATTERN =
+  /\b(pharmacist|pharmacy|pharmaceutical|dispensary|medicines\s*management)/i;
+const SOCIAL_WORK_TITLE_PATTERN =
+  /\b(social\s*work(?:er)?|social\s*care\s*(practitioner|professional)|approved\s*mental\s*health\s*professional|\bamhp\b)/i;
+const ACCOUNTING_TITLE_PATTERN =
+  /\b(accountant|accounting|auditor|audit\s*manager|financial\s*controller|chartered\s*account)/i;
+const IT_TITLE_PATTERN =
+  /\b(software\s*(engineer|developer)|web\s*developer|application\s*developer|programmer|devops|site\s*reliability|cyber\s*security|cybersecurity|information\s*technology|\bit\s+(support|engineer|manager|analyst|consultant)|systems?\s*(engineer|administrator|analyst)|data\s*(engineer|scientist))/i;
+const LEGAL_TITLE_PATTERN =
+  /\b(lawyer|solicitor|barrister|legal\s*(counsel|adviser|advisor|executive)|paralegal|attorney)/i;
+const ARCHITECTURE_TITLE_PATTERN =
+  /\b(architect|architectural|architecture)/i;
 
 /**
  * Best-effort keyword classification of an AI-discovered vacancy to the UK
@@ -64,30 +83,62 @@ const ENGINEERING_TITLE_PATTERN =
  * NMC and HCPC patterns are checked before GMC because GMC keywords like
  * "consultant" are more generic (e.g. "Nurse Consultant" is NMC).
  */
-export function classifyVacancyRegulator(
+export function classifyVacancyCategory(
   title: string,
   description: string | null | undefined,
-): OpportunityRegulator | null {
+): OpportunityCategory | null {
   for (const text of [title, description ?? ""]) {
     if (!text.trim()) continue;
     if (NMC_TITLE_PATTERN.test(text)) return "NMC";
     if (HCPC_TITLE_PATTERN.test(text)) return "HCPC";
     if (GMC_TITLE_PATTERN.test(text)) return "GMC";
+    if (DENTAL_TITLE_PATTERN.test(text)) return "DENTAL";
+    if (PHARMACY_TITLE_PATTERN.test(text)) return "PHARMACY";
+    if (SOCIAL_WORK_TITLE_PATTERN.test(text)) return "SOCIAL_WORK";
+    if (ACCOUNTING_TITLE_PATTERN.test(text)) return "ACCOUNTING";
+    if (IT_TITLE_PATTERN.test(text)) return "IT";
+    if (LEGAL_TITLE_PATTERN.test(text)) return "LEGAL";
+    if (ARCHITECTURE_TITLE_PATTERN.test(text)) return "ARCHITECTURE";
     if (EDUCATION_TITLE_PATTERN.test(text)) return "EDUCATION";
     if (ENGINEERING_TITLE_PATTERN.test(text)) return "ENGINEERING";
   }
   return null;
 }
 
-/** Register industries where an unclassified title may still be clinical. */
-const HEALTHCARE_INDUSTRY_PATTERN = /health|hospital|medical|nursing|care|social\s*work|dental|pharma/i;
+/** Compatibility export for callers/tests that used the old overloaded name. */
+export const classifyVacancyRegulator = classifyVacancyCategory;
+
+const CATEGORY_INDUSTRY_PATTERNS: Partial<Record<OpportunityCategory, RegExp>> = {
+  GMC: /health|hospital|medical|clinical/i,
+  NMC: /health|hospital|medical|nursing|care/i,
+  HCPC: /health|hospital|medical|clinical|therapy|diagnostic/i,
+  DENTAL: /dental|dentistry|oral\s*health/i,
+  PHARMACY: /pharma|pharmacy|medicines|health/i,
+  SOCIAL_WORK: /social\s*(work|care)|charity|local\s*authority/i,
+  EDUCATION: /education|school|college|university|academy/i,
+  ENGINEERING: /engineer|manufactur|construction|technical|infrastructure/i,
+  ACCOUNTING: /account|audit|finance|financial/i,
+  IT: /software|technology|digital|information\s*technology|computer/i,
+  LEGAL: /legal|law|solicitor|professional\s*services/i,
+  ARCHITECTURE: /architect|design|planning|construction/i,
+};
+
+function industrySupportsCategory(
+  category: OpportunityCategory,
+  industry: string | null | undefined,
+): boolean {
+  return CATEGORY_INDUSTRY_PATTERNS[category]?.test(industry ?? "") ?? false;
+}
 
 export interface SponsorVacancyAsRole {
   id: number;
   title: string;
   employer: string;
   location: string;
-  regulator: OpportunityRegulator;
+  /** Statutory regulator when applicable; broader matching uses opportunityCategory. */
+  regulator: StatutoryRegulator | null;
+  opportunityCategory: OpportunityCategory;
+  statutoryRegulator: StatutoryRegulator | null;
   sponsorshipOffered: boolean;
   requiredRegistration: string;
   active: boolean;
@@ -164,7 +215,7 @@ export interface SponsorVacancyRoleQueryOptions {
  *   website) are excluded, mirroring the HAS_CONTACT_INFO rule for roles
  */
 export async function fetchSponsorVacanciesAsRoles(
-  regulator: OpportunityRegulator,
+  category: OpportunityCategory,
   options: SponsorVacancyRoleQueryOptions = {},
 ): Promise<SponsorVacancyAsRole[]> {
   const conditions = [ne(sponsorLicenceVacanciesTable.liveness, "dead")];
@@ -198,16 +249,9 @@ export async function fetchSponsorVacanciesAsRoles(
     if (vac.sourceType === "company_site" && vac.liveness !== "live") continue;
     if (isManualLabourTitle(vac.title)) continue;
 
-    const classified = classifyVacancyRegulator(vac.title, vac.description);
-    if (classified !== null && classified !== regulator) continue;
-    // Unclassified titles are only plausible for clinical candidates when the
-    // sponsor itself operates in health/social care.
-    if (
-      classified === null &&
-      (regulator === "EDUCATION" ||
-        regulator === "ENGINEERING" ||
-        !HEALTHCARE_INDUSTRY_PATTERN.test(lic?.industry ?? ""))
-    ) continue;
+    const classified = classifyVacancyCategory(vac.title, vac.description);
+    if (classified !== null && !opportunityCategoriesMatch(category, classified)) continue;
+    if (classified === null && !industrySupportsCategory(category, lic?.industry)) continue;
 
     const link = presentApplyLink(vac.url, vac.liveness, vac.lastVerifiedAt);
     if (
@@ -237,10 +281,12 @@ export async function fetchSponsorVacanciesAsRoles(
       title: vac.title,
       employer: vac.organisationName,
       location: vac.location?.trim() || "United Kingdom",
-      regulator,
+      regulator: statutoryRegulatorForCategory(category),
+      opportunityCategory: category,
+      statutoryRegulator: statutoryRegulatorForCategory(category),
       // Every organisation in this table holds a Home Office sponsor licence.
       sponsorshipOffered: true,
-      requiredRegistration: opportunityRegistrationLabel(regulator),
+      requiredRegistration: opportunityRegistrationLabel(category),
       active: true,
       importedAt: vac.createdAt,
       lastDiscoveredAt: vac.lastDiscoveredAt,
@@ -254,7 +300,8 @@ export async function fetchSponsorVacanciesAsRoles(
       contactEmail,
       contactPhone,
       contactWebsite,
-      classifiedRelevant: classified === regulator,
+      classifiedRelevant:
+        classified !== null && opportunityCategoriesMatch(category, classified),
       description: vac.description,
       requiredDbsClearanceLevel:
         (vac.requiredDbsClearanceLevel as DbsClearanceLevel | null) ??

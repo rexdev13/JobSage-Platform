@@ -14,4 +14,22 @@ describe("vacancy title professional-scope policy", () => {
     expect(isManualLabourTitle("Clinical Engineer")).toBe(false);
     expect(isManualLabourTitle("Dietitian - Food Service Transformation")).toBe(false);
   });
+
+  it.each([
+    "Accountant",
+    "Software Engineer",
+    "Construction Engineer",
+    "Clinical Research Administrator",
+  ])("does not globally reject the professional title %s", (title) => {
+    expect(isManualLabourTitle(title)).toBe(false);
+  });
+
+  it.each([
+    "Warehouse Operative",
+    "Hospital Cleaner",
+    "Kitchen Porter",
+    "Construction Labourer",
+  ])("still rejects genuine manual-labour title %s", (title) => {
+    expect(isManualLabourTitle(title)).toBe(true);
+  });
 });

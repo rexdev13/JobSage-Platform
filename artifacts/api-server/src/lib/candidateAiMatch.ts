@@ -1,12 +1,19 @@
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { isManualLabourTitle } from "./vacancyTitlePolicy";
+import {
+  categoryForStatutoryRegulator,
+  opportunityCategoriesMatch,
+  professionCategoryFor,
+  type OpportunityCategory,
+} from "./professionCategory";
 
 export interface RoleForScoring {
   id: number;
   title: string;
   employer: string;
   location: string;
-  regulator: string;
+  regulator: string | null;
+  opportunityCategory?: OpportunityCategory | string | null;
   sponsorshipOffered: boolean;
   requiredRegistration: string;
 }
@@ -28,6 +35,7 @@ async function scoreSingleBatch(
 ): Promise<Map<number, { score: number; explanation: string }>> {
   const profileText = [
     `Profession: ${profile.profession.replace(/_/g, " ")}`,
+    `Opportunity category: ${professionCategoryFor(profile.profession) ?? "UNKNOWN"}`,
     `Specialty: ${profile.specialty}`,
     `Experience: ${profile.experienceYears} years`,
     `Qualification country: ${profile.qualificationCountry}`,
@@ -42,15 +50,14 @@ async function scoreSingleBatch(
     )
     .join("\n");
 
-  const prompt = `You are a UK healthcare recruitment AI. Score how well this candidate matches each vacancy.
+  const prompt = `You are a UK professional recruitment AI. Score how well this candidate matches each vacancy.
 
 Candidate Profile:
 ${profileText}
 
 HARD NEGATIVE CONSTRAINT — This is mandatory and overrides all other scoring criteria:
-Any vacancy whose title implies a non-clinical, manual-labour, or unrelated discipline MUST receive a score of exactly 0 with the explanation "Out of professional scope".
-Examples of titles that trigger this rule (not exhaustive): housekeeping, housekeep, cleaning, cleaner, domestic, catering, cook, kitchen, laundry, portering, porter, construction, groundskeeping, groundskeeper, janitor, caretaker, security guard, warehouse, driver, delivery.
-If any word in the vacancy title matches or strongly implies these categories, assign score 0 and explanation "Out of professional scope" — do not consider the candidate profile at all for those vacancies.
+Any genuinely manual-labour vacancy or vacancy unrelated to THIS candidate's profession category MUST receive a score of exactly 0 with the explanation "Out of professional scope".
+Professional roles such as accountant, software engineer, construction engineer, and clinical research administrator are not globally out of scope. Judge them relative to the candidate category.
 
 For all other vacancies, score 0–100 based on: specialty alignment, experience level, sponsorship fit, and registration requirement.
 For each vacancy provide a short one-sentence explanation (max 90 characters) like "Strong specialty match — sponsorship available" or "Experience below senior requirement".
@@ -102,8 +109,18 @@ export async function batchScoreRoles(
 
   const merged = new Map<number, { score: number; explanation: string }>();
   const rolesForAi: RoleForScoring[] = [];
+  const candidateCategory = professionCategoryFor(profile.profession);
   for (const role of roles) {
-    if (isManualLabourTitle(role.title)) {
+    const roleCategory =
+      role.opportunityCategory ??
+      categoryForStatutoryRegulator(role.regulator) ??
+      (professionCategoryFor(role.regulator) as OpportunityCategory | null);
+    if (
+      isManualLabourTitle(role.title) ||
+      (candidateCategory !== null &&
+        roleCategory !== null &&
+        !opportunityCategoriesMatch(candidateCategory, roleCategory))
+    ) {
       merged.set(role.id, { score: 0, explanation: "Out of professional scope" });
     } else {
       rolesForAi.push(role);

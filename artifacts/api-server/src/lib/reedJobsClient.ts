@@ -6,6 +6,7 @@ const REED_BASE_URL = "https://www.reed.co.uk";
 const REQUEST_TIMEOUT_MS = 12_000;
 const MAX_RESULTS = 8;
 const POLITE_REQUEST_DELAY_MS = 350;
+export const MAX_REED_CANDIDATE_PAGES = 15;
 
 export interface ReedVacancy {
   title: string;
@@ -28,6 +29,8 @@ export interface ReedSearchResult {
   transientFailure: boolean;
 }
 
+export interface ReedCandidateSearchResult extends ReedSearchResult {}
+
 function decodeHtml(value: string): string {
   return value
     .replace(/<!--[\s\S]*?-->/g, "")
@@ -48,7 +51,11 @@ function tagByQa(card: string, qa: string): string | null {
   return match?.[0] ?? null;
 }
 
-export function parseReedJobsHtml(html: string, organisationName: string): ReedVacancy[] {
+function parseReedJobsCards(
+  html: string,
+  organisationName: string | null,
+  limit: number,
+): ReedVacancy[] {
   const cards = html
     .split(/<article\b/i)
     .slice(1)
@@ -63,7 +70,7 @@ export function parseReedJobsHtml(html: string, organisationName: string): ReedV
 
     const title = decodeHtml(titleTag);
     const employer = decodeHtml(employerTag);
-    if (!title || !employerNamesCloselyMatch(organisationName, employer)) continue;
+    if (!title || (organisationName && !employerNamesCloselyMatch(organisationName, employer))) continue;
 
     const href = titleTag.match(/\bhref=["']([^"']+)["']/i)?.[1]?.replace(/&amp;/gi, "&");
     const externalListingId =
@@ -92,9 +99,17 @@ export function parseReedJobsHtml(html: string, organisationName: string): ReedV
       boardName: "Reed",
       externalListingId,
     });
-    if (vacancies.length >= MAX_RESULTS) break;
+    if (vacancies.length >= limit) break;
   }
   return vacancies;
+}
+
+export function parseReedJobsHtml(html: string, organisationName: string): ReedVacancy[] {
+  return parseReedJobsCards(html, organisationName, MAX_RESULTS);
+}
+
+export function parseReedCandidateJobsHtml(html: string, limit: number): ReedVacancy[] {
+  return parseReedJobsCards(html, null, limit);
 }
 
 export async function searchReedJobs(organisationName: string): Promise<ReedSearchResult> {
@@ -132,4 +147,71 @@ export async function searchReedJobs(organisationName: string): Promise<ReedSear
   } finally {
     clearTimeout(timeout);
   }
+}
+
+/**
+ * Search Reed by profession keywords without applying the employer-name filter
+ * used by the background employer adapter. Candidate discovery matches the
+ * returned employer names to the sponsor register before persistence.
+ */
+export async function searchReedJobsForCandidate(
+  keywords: string,
+  region: string | null,
+  limit = 40,
+): Promise<ReedCandidateSearchResult> {
+  const params = new URLSearchParams({ keywords });
+  if (region) params.set("locationName", region);
+  const sourceUrl = `${REED_BASE_URL}/jobs?${params.toString()}`;
+  const vacancies: ReedVacancy[] = [];
+  const urls = new Set<string>();
+
+  for (let page = 1; page <= MAX_REED_CANDIDATE_PAGES && vacancies.length < limit; page++) {
+    if (page > 1) await new Promise((resolve) => setTimeout(resolve, POLITE_REQUEST_DELAY_MS));
+    const pageParams = new URLSearchParams(params);
+    if (page > 1) pageParams.set("pageno", String(page));
+    const pageUrl = `${REED_BASE_URL}/jobs?${pageParams.toString()}`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      const response = await fetch(pageUrl, {
+        signal: controller.signal,
+        redirect: "follow",
+        headers: {
+          Accept: "text/html,application/xhtml+xml",
+          "Accept-Language": "en-GB,en;q=0.9",
+          "User-Agent": "JOBSAGE vacancy discovery/1.0 (+https://jobsage.co.uk)",
+        },
+      });
+      const contentType = response.headers.get("content-type") ?? "";
+      if (!response.ok || !contentType.toLowerCase().includes("text/html")) {
+        return {
+          vacancies,
+          sourceUrl,
+          requestSucceeded: false,
+          transientFailure: response.status === 403 || response.status === 429 || response.status >= 500,
+        };
+      }
+
+      let added = 0;
+      for (const vacancy of parseReedCandidateJobsHtml(await response.text(), limit)) {
+        if (urls.has(vacancy.url)) continue;
+        urls.add(vacancy.url);
+        vacancies.push(vacancy);
+        added += 1;
+        if (vacancies.length >= limit) break;
+      }
+      if (added === 0) break;
+    } catch {
+      return { vacancies, sourceUrl, requestSucceeded: false, transientFailure: true };
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  return {
+    vacancies,
+    sourceUrl,
+    requestSucceeded: true,
+    transientFailure: false,
+  };
 }

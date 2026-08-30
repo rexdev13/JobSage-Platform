@@ -3,6 +3,7 @@ import { isNotNull, inArray } from "drizzle-orm";
 import { writeAuditEvent } from "./audit";
 import {
   isBlockedVacancyUrl,
+  isValidJobBoardVacancyDeepLink,
   isValidVacancyDeepLink,
   getBlockedVacancyDomain,
   isShortenerUrl,
@@ -57,6 +58,7 @@ export async function runVacancyUrlCleanup(
       id: sponsorLicenceVacanciesTable.id,
       url: sponsorLicenceVacanciesTable.url,
       organisationName: sponsorLicenceVacanciesTable.organisationName,
+      sourceType: sponsorLicenceVacanciesTable.sourceType,
     })
     .from(sponsorLicenceVacanciesTable)
     .where(isNotNull(sponsorLicenceVacanciesTable.url));
@@ -73,6 +75,13 @@ export async function runVacancyUrlCleanup(
     // Link shorteners: destination is unknown — flag for manual review, skip purge.
     if (isShortenerUrl(url)) {
       shortenerRows.push({ id: row.id, url, organisationName: row.organisationName });
+      continue;
+    }
+
+    // Board adverts have their own strict deep-link allowlist. Do not let the
+    // company-site aggregator blocklist erase valid Reed/NHS board inventory.
+    if (row.sourceType === "job_board" && isValidJobBoardVacancyDeepLink(url)) {
+      remainingValidDeepLinks++;
       continue;
     }
 

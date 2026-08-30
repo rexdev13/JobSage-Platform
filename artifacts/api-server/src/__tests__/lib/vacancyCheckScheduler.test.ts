@@ -1,8 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { PgDialect } from "drizzle-orm/pg-core";
+import type { SQL } from "drizzle-orm";
 
 const { insertedRows, executeMock, scheduleMock } = vi.hoisted(() => ({
   insertedRows: [] as any[],
-  executeMock: vi.fn(async () => ({ rows: [] as { id: number; organisation_name: string }[] })),
+  executeMock: vi.fn(async (_statement: unknown) => ({
+    rows: [] as { id: number; organisation_name: string }[],
+  })),
   scheduleMock: vi.fn(),
 }));
 
@@ -26,10 +30,10 @@ const { runVacancyCheckMock } = vi.hoisted(() => ({
 }));
 
 import {
+  BOOKMARK_QUEUE_SHARE,
   HEALTHCARE_SPONSOR_INDICATORS,
   HEALTHCARE_SPONSOR_SQL_REGEXP,
-  OBVIOUS_NON_HEALTH_INDUSTRY_INDICATORS,
-  OBVIOUS_NON_HEALTH_INDUSTRY_SQL_REGEXP,
+  HEALTHCARE_QUEUE_SHARE,
   DEFAULT_VACANCY_CHECK_BATCH_SIZE,
   VACANCY_CHECK_CONCURRENCY,
   VACANCY_CHECK_CRON,
@@ -42,18 +46,15 @@ vi.mock("../../lib/vacancyCheckHelper", () => ({
 const { runVacancyCheckBatch } = await import("../../lib/vacancyCheckScheduler");
 
 describe("runVacancyCheckBatch", () => {
-  it("documents the health and non-health industry signals used for batch selection", () => {
+  it("uses healthcare only as a balanced cohort signal, not a non-health exclusion", () => {
     expect(HEALTHCARE_SPONSOR_INDICATORS).toEqual([
       "nhs", "hospital", "health", "medical", "social care", "care home", "nursing",
     ]);
-    expect(OBVIOUS_NON_HEALTH_INDUSTRY_INDICATORS).toContain("construction");
-    expect(OBVIOUS_NON_HEALTH_INDUSTRY_INDICATORS).toContain("retail");
+    expect(BOOKMARK_QUEUE_SHARE).toBe(0.25);
+    expect(HEALTHCARE_QUEUE_SHARE).toBe(0.5);
     const healthcareWordPattern = new RegExp(HEALTHCARE_SPONSOR_SQL_REGEXP.replace(/\\m|\\M/g, "\\b"), "i");
-    const nonHealthWordPattern = new RegExp(OBVIOUS_NON_HEALTH_INDUSTRY_SQL_REGEXP.replace(/\\m|\\M/g, "\\b"), "i");
     expect(healthcareWordPattern.test("Hospitality")).toBe(false);
     expect(healthcareWordPattern.test("Hospital")).toBe(true);
-    expect(nonHealthWordPattern.test("Retail")).toBe(true);
-    expect(nonHealthWordPattern.test("Retail Health Staffing")).toBe(true);
   });
 
   beforeEach(() => {
@@ -93,6 +94,31 @@ describe("runVacancyCheckBatch", () => {
     expect(log.errorCount).toBe(1);
     expect(log.errorMessage).toContain("boom");
     expect(log.triggeredBy).toBe("scheduler");
+  });
+
+  it("does not globally exclude bookmarked engineering, accounting, or education sponsors", async () => {
+    executeMock.mockResolvedValue({
+      rows: [
+        { id: 1, organisation_name: "Bookmarked Engineer Ltd" },
+        { id: 2, organisation_name: "Bookmarked Accountants LLP" },
+        { id: 3, organisation_name: "Bookmarked Teacher College" },
+      ],
+    });
+    runVacancyCheckMock.mockResolvedValue({ fromCache: false });
+
+    await runVacancyCheckBatch("scheduler");
+
+    expect(runVacancyCheckMock.mock.calls.map(([name]) => name)).toEqual([
+      "Bookmarked Engineer Ltd",
+      "Bookmarked Accountants LLP",
+      "Bookmarked Teacher College",
+    ]);
+    const statement = executeMock.mock.calls[0]?.[0] as SQL;
+    const query = new PgDialect().sqlToQuery(statement);
+    expect(query.sql).toContain("PARTITION BY e.is_healthcare");
+    expect(query.sql).toContain("FROM sponsor_licence_bookmarks");
+    expect(query.sql).not.toContain("!~*");
+    expect(query.params).not.toContain("construction|hospitality|retail");
   });
 
   it("skips overlapping runs instead of stacking them", async () => {

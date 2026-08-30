@@ -35,7 +35,7 @@ export interface BehaviouralRole {
   id: number;
   title: string;
   employer: string;
-  regulator: string;
+  regulator: string | null;
   targetRegions?: readonly string[] | null;
 }
 

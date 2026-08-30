@@ -102,6 +102,12 @@ const nurseProfile = {
   alertFrequency: "daily",
 } as any;
 
+const teacherProfile = {
+  ...nurseProfile,
+  profession: "Teacher / Lecturer",
+  registrationStatus: "not_registered",
+} as any;
+
 function sponsorVacancy(overrides: Record<string, unknown> = {}) {
   return {
     id: 2_000_321,
@@ -171,6 +177,35 @@ describe("job alert sponsor vacancies", () => {
     expect(insertValuesMock).toHaveBeenCalledWith([
       { userId: "candidate-1", vacancyId: 321, vacancyUrl: NHS_URL },
     ]);
+  });
+
+  it("uses the shared EDUCATION category for the exact Teacher / Lecturer profile value", async () => {
+    const educationUrl = "https://careers.example.edu/jobs/lecturer-1";
+    selectResults.push([{ outcome: "eligible" }], [], []);
+    fetchSponsorVacanciesAsRolesMock.mockResolvedValue([
+      sponsorVacancy({
+        title: "University Lecturer",
+        regulator: null,
+        opportunityCategory: "EDUCATION",
+        statutoryRegulator: null,
+        applyUrl: educationUrl,
+      }),
+    ]);
+
+    const sent = await processUserAlert(
+      "candidate-1",
+      "teacher@example.test",
+      "Ada",
+      teacherProfile,
+      LAST_ALERT_AT,
+    );
+
+    expect(sent).toBe(true);
+    expect(fetchSponsorVacanciesAsRolesMock).toHaveBeenCalledWith("EDUCATION", {
+      since: LAST_ALERT_AT,
+      requireSpecificVacancyUrl: true,
+    });
+    expect(sendJobAlertEmailMock).toHaveBeenCalledTimes(1);
   });
 
   it("does not send or claim a sponsor vacancy already delivered to this candidate", async () => {

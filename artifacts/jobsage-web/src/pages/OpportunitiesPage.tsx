@@ -364,8 +364,8 @@ function RoleDetailModal({ item, appliedRoleIds, onClose, aiScore }: {
           <div className="space-y-3 mb-5">
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div className="p-3 rounded-lg bg-muted/40">
-                <p className="text-xs text-muted-foreground mb-0.5">Regulator</p>
-                <p className="font-semibold">{role.regulator}</p>
+                <p className="text-xs text-muted-foreground mb-0.5">Profession category</p>
+                <p className="font-semibold">{role.opportunityCategory ?? role.regulator ?? "Professional"}</p>
               </div>
               <div className="p-3 rounded-lg bg-muted/40">
                 <p className="text-xs text-muted-foreground mb-0.5">Required Registration</p>
@@ -502,7 +502,15 @@ function CoverLetterModal({
   role,
   onClose,
 }: {
-  role: { id: number; title: string; employer: string; location: string; regulator: string; description?: string | null };
+  role: {
+    id: number;
+    title: string;
+    employer: string;
+    location: string;
+    regulator?: string | null;
+    opportunityCategory?: string | null;
+    description?: string | null;
+  };
   onClose: () => void;
 }) {
   const { toast } = useToast();
@@ -520,7 +528,7 @@ function CoverLetterModal({
       jobTitle: role.title,
       employer: role.employer,
       location: role.location,
-      regulator: role.regulator,
+      regulator: role.opportunityCategory ?? role.regulator ?? "Professional",
       jobDescription: role.description ?? null,
       roleId: role.id,
     }).catch(() => toast({ title: "Error", description: "Failed to generate cover letter.", variant: "destructive" }));
@@ -832,7 +840,7 @@ function RoleCard({
               <MapPin className="w-3.5 h-3.5" /> {role.location}
             </span>
             <span className="px-1.5 py-0.5 text-xs rounded bg-muted text-muted-foreground font-mono">
-              {role.regulator}
+              {role.opportunityCategory ?? role.regulator ?? "Professional"}
             </span>
           </div>
           {recommended && matchReason && (
@@ -1067,7 +1075,10 @@ function RoleCard({
 function EmployerCard({ employer, roles }: { employer: string; roles: MatchedRole[] }) {
   const sponsorsCount = roles.filter((r) => r.role.sponsorshipOffered).length;
   const locations = [...new Set(roles.map((r) => r.role.location))].slice(0, 2);
-  const regulator = roles[0]?.role.regulator;
+  const regulator =
+    roles[0]?.role.opportunityCategory ??
+    roles[0]?.role.regulator ??
+    "Professional";
 
   return (
     <Card className="p-5 hover:shadow-md transition-shadow">

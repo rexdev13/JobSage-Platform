@@ -1,37 +1,40 @@
-export type OpportunityRegulator =
-  | "GMC"
-  | "NMC"
-  | "HCPC"
-  | "EDUCATION"
-  | "ENGINEERING";
+import {
+  categoryForStatutoryRegulator,
+  opportunityCategoriesMatch,
+  professionCategoryFor,
+  statutoryRegulatorForCategory,
+  type OpportunityCategory,
+  type StatutoryRegulator,
+} from "./professionCategory";
 
-/**
- * One mapping shared by catalogue roles, sponsor-vacancy roles, matched roles,
- * and alerts. EDUCATION and ENGINEERING are opportunity categories rather
- * than statutory healthcare regulators, but use the existing field so both
- * board and company-site sources flow through the same candidate pipeline.
- */
-export function regulatorForProfession(
-  profession: string | null | undefined,
-): OpportunityRegulator | null {
-  const value = profession?.toLowerCase().trim() ?? "";
-  const normalized = value.replace(/[\s-]+/g, "_");
-  if (normalized === "doctor" || normalized === "clinical_academic") return "GMC";
-  if (normalized === "nurse" || normalized === "midwife") return "NMC";
-  if (normalized === "allied_health_professional") return "HCPC";
-  if (normalized === "teacher" || normalized === "teaching") return "EDUCATION";
-  if (normalized === "engineer" || normalized === "engineering") return "ENGINEERING";
-  return null;
-}
+/** @deprecated Use OpportunityCategory; retained for existing feed callers. */
+export type OpportunityRegulator = OpportunityCategory;
+export type { OpportunityCategory, StatutoryRegulator };
 
-export function opportunityRegistrationLabel(regulator: OpportunityRegulator): string {
-  if (regulator === "EDUCATION") return "Qualified Teacher Status pathway";
-  if (regulator === "ENGINEERING") return "UK professional engineering pathway";
-  return `${regulator} registration pathway`;
+/** Compatibility name for older callers; this now returns the opportunity category. */
+export const regulatorForProfession = professionCategoryFor;
+export {
+  categoryForStatutoryRegulator,
+  opportunityCategoriesMatch,
+  professionCategoryFor,
+  statutoryRegulatorForCategory,
+};
+
+export function opportunityRegistrationLabel(category: OpportunityCategory): string {
+  if (category === "EDUCATION") return "Qualified Teacher Status pathway";
+  if (category === "ENGINEERING") return "UK professional engineering pathway";
+  if (category === "DENTAL") return "General Dental Council pathway";
+  if (category === "PHARMACY") return "General Pharmaceutical Council pathway";
+  if (category === "SOCIAL_WORK") return "Social Work England pathway";
+  if (category === "ACCOUNTING") return "UK professional accounting pathway";
+  if (category === "IT") return "UK information technology pathway";
+  if (category === "LEGAL") return "UK legal profession pathway";
+  if (category === "ARCHITECTURE") return "Architects Registration Board pathway";
+  return `${category} registration pathway`;
 }
 
 export function isHealthcareRegulator(
   regulator: OpportunityRegulator,
-): regulator is Extract<OpportunityRegulator, "GMC" | "NMC" | "HCPC"> {
-  return regulator === "GMC" || regulator === "NMC" || regulator === "HCPC";
+): regulator is StatutoryRegulator {
+  return statutoryRegulatorForCategory(regulator) !== null;
 }

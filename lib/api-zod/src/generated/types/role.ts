@@ -6,8 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { DbsClearanceLevel } from "./dbsClearanceLevel";
+import type { RoleOpportunityCategory } from "./roleOpportunityCategory";
 import type { RoleRegulator } from "./roleRegulator";
 import type { RoleSourceType } from "./roleSourceType";
+import type { RoleStatutoryRegulator } from "./roleStatutoryRegulator";
 import type { SafeguardingTrainingLevel } from "./safeguardingTrainingLevel";
 
 export interface Role {
@@ -15,7 +17,12 @@ export interface Role {
   title: string;
   employer: string;
   location: string;
-  regulator: RoleRegulator;
+  /** Statutory regulator for legacy regulated-role records. Use opportunityCategory for candidate opportunity matching. */
+  regulator?: RoleRegulator;
+  /** Broader profession category used by Opportunities and alerts; separate from statutory regulation. */
+  opportunityCategory?: RoleOpportunityCategory;
+  /** Statutory regulator when the opportunity is regulated by GMC, NMC, or HCPC. */
+  statutoryRegulator?: RoleStatutoryRegulator;
   sponsorshipOffered: boolean;
   targetRegions?: string[] | null;
   requiredRegistration: string;
