@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { defaultSponsorshipOnly, filterOpportunities, groupRankedOpportunities } from "./opportunityFilters";
+import {
+  defaultSponsorshipOnly,
+  filterOpportunities,
+  getOpportunityApplyAction,
+  groupRankedOpportunities,
+} from "./opportunityFilters";
 
 describe("opportunity filters", () => {
   const roles = [
@@ -39,5 +44,39 @@ describe("opportunity filters", () => {
     expect(grouped.recommended.map((role) => role.id)).toEqual([1]);
     expect(grouped.consider.map((role) => role.id)).toEqual([2]);
     expect(grouped.remaining.map((role) => role.id)).toEqual([3]);
+  });
+
+  it("keeps the exact source-specific vacancy URL ahead of an employer website fallback", () => {
+    expect(getOpportunityApplyAction({
+      sourceType: "company_site",
+      applyUrl: "https://ats.example.com/jobs/registered-nurse-42",
+      contactWebsite: "https://employer.example.com",
+    })).toEqual({
+      destinationUrl: "https://ats.example.com/jobs/registered-nurse-42",
+      label: "Apply on company site",
+      usesWebsiteFallback: false,
+    });
+
+    expect(getOpportunityApplyAction({
+      sourceType: "job_board",
+      applyUrl: "https://board.example.com/jobs/42",
+      contactWebsite: "https://employer.example.com",
+    })).toEqual({
+      destinationUrl: "https://board.example.com/jobs/42",
+      label: "Apply on job boards",
+      usesWebsiteFallback: false,
+    });
+  });
+
+  it("clearly labels and normalises the employer website fallback", () => {
+    expect(getOpportunityApplyAction({
+      sourceType: "company_site",
+      applyUrl: null,
+      contactWebsite: "employer.example.com/careers",
+    })).toEqual({
+      destinationUrl: "https://employer.example.com/careers",
+      label: "Open employer website",
+      usesWebsiteFallback: true,
+    });
   });
 });

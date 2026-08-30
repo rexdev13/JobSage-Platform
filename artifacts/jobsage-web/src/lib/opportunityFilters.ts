@@ -15,7 +15,40 @@ export type RankedOpportunity = {
   matchScore: number;
 };
 
+export type OpportunitySource = "job_board" | "company_site" | null | undefined;
+
+export type OpportunityApplyAction = {
+  destinationUrl: string;
+  label: string;
+  usesWebsiteFallback: boolean;
+};
+
 export const CONSIDER_MIN_SCORE = 40;
+
+export function getOpportunityApplyAction({
+  sourceType,
+  applyUrl,
+  contactWebsite,
+}: {
+  sourceType: OpportunitySource;
+  applyUrl?: string | null;
+  contactWebsite?: string | null;
+}): OpportunityApplyAction | null {
+  if (applyUrl) {
+    return {
+      destinationUrl: applyUrl,
+      label: sourceType === "company_site" ? "Apply on company site" : "Apply on job boards",
+      usesWebsiteFallback: false,
+    };
+  }
+
+  if (!contactWebsite) return null;
+  return {
+    destinationUrl: contactWebsite.startsWith("http") ? contactWebsite : `https://${contactWebsite}`,
+    label: "Open employer website",
+    usesWebsiteFallback: true,
+  };
+}
 
 export function opportunityScore(role: RankedOpportunity): number {
   return role.aiScore ?? role.matchScore;
