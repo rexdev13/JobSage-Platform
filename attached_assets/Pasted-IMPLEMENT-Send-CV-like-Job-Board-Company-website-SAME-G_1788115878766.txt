@@ -1,0 +1,34 @@
+IMPLEMENT Send CV like Job Board / Company website: SAME GET /roles vacancies, extra action, tracker with title+URL+employer. Cap stays 0. No AI job search. Do not change NHS/Reed/company-site crawlers or profession mapping.
+
+## Feed
+Opportunities Send CV tab: GET /roles (no source filter, or include job_board + company_site + curated + employer jobs). SAME matching as the other tabs.
+Include email-only rows (contact email, no apply URL). Do NOT use requireSpecificVacancyUrl to hide them on this tab.
+STOP using GET /sponsor-licences as the Send CV opportunity list. Empty state → Opportunities Send CV, not /sponsor-licences.
+
+## CTAs
+On every matched vacancy card (all three tabs if the vacancy is on that tab): keep Apply on job board / Apply on company's website UNCHANGED.
+Add **Send CV** as a second action with that vacancy’s title, employer, URL, source.
+Send CV MUST NOT add the vacancy to appliedRoleIds. Separate cvSentRoleIds (or equivalent) so Apply stays available after a CV send.
+
+## Persist speculative_applications (or extend)
+Store: stable vacancy ref (role id and/or sponsor_licence_vacancies id + source), employer, title, vacancy URL, sourceType/boardName, cvDocumentId, delivery status.
+GET /applications Send CV tab: show title, URL, employer. applicationUrl must not be forced null.
+
+## Delivery
+Insert/update must NOT mean success. States: pending | delivered | failed. Failed and Resend CV must actually send again.
+Require a real candidate CV server-side (PDF); reject if missing.
+Attach the selected/primary CV PDF (or a clearly labelled redacted PDF). Do not pretend a .txt extract is the CV.
+Recipient: stored employer/sponsor email, then JOBSAGE employer account; operations fallback only if no email. Do NOT run AI contact-email enrichment on send (latency/cost). Optional: skip send if no email, 400 with message.
+Durable per-candidate rate limit + duplicate-click guard. Dedupe by vacancy ref, not company+title text only.
+
+## Tests
+- Send CV tab uses /roles not /sponsor-licences
+- Apply still enabled after Send CV
+- Email-only vacancy appears on Send CV
+- Tracker has URL+title
+- Failed send is retryable
+- No CV → 400
+- Cap 0 / no vacancy OpenAI
+
+Reply: files changed, delivery states, attachment type (PDF vs extract).
+Stop.
