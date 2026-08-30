@@ -1,0 +1,395 @@
+import { canonicalVacancyUrl } from "./vacancySource";
+import { isBlockedVacancyUrl, isValidVacancyDeepLink } from "./vacancyUrlPolicy";
+import {
+  type BoardAdvert,
+  normaliseAndDedupeBoardAdverts,
+  upsertSharedBoardVacancies,
+} from "./boardVacancyPipeline";
+import {
+  COMPANY_SITE_EMPLOYER_BUDGET_MS,
+  fetchCompanySitePage,
+  isAllowedCompanyDestination,
+  knownAtsProvider,
+} from "./companySiteHttp";
+
+export const MAX_COMPANY_SITE_DISCOVERY_PAGES = 4;
+export const MAX_COMPANY_SITE_VACANCIES_PER_EMPLOYER = 12;
+
+const CAREERS_SIGNAL = /\b(career|careers|job|jobs|vacanc|vacancies|open positions|opportunities|join (?:our|the) team|work (?:for|with) us)\b/i;
+const VACANCY_SIGNAL = /\b(job|vacanc|position|role|opportunit|opening|apply)\b/i;
+const GENERIC_ANCHOR_TEXT = /^(apply|apply now|view|view job|view vacancy|details|more|read more|learn more|job details)$/i;
+
+type ExtractedLink = {
+  url: string;
+  text: string;
+  atsProvider: string | null;
+};
+
+export type CompanySiteDiscoveryResult = {
+  adverts: BoardAdvert[];
+  sourceUrl: string;
+  careersUrl: string | null;
+  atsProvider: string | null;
+  genericCompleted: boolean;
+  atsCompleted: boolean;
+  transientFailure: boolean;
+  retryAt?: Date;
+  error?: string;
+  pagesFetched: number;
+};
+
+export type CompanySiteDiscoveryOptions = {
+  knownCareersUrl?: string | null;
+  checkGeneric?: boolean;
+  checkAts?: boolean;
+  now?: () => number;
+};
+
+function decodeHtml(value: string): string {
+  return value
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex: string) => String.fromCodePoint(Number.parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, decimal: string) => String.fromCodePoint(Number.parseInt(decimal, 10)))
+    .replace(/&(amp|quot|apos|lt|gt|nbsp|#39);/gi, (_, entity: string) => {
+      const entities: Record<string, string> = {
+        amp: "&",
+        quot: "\"",
+        apos: "'",
+        lt: "<",
+        gt: ">",
+        nbsp: " ",
+        "#39": "'",
+      };
+      return entities[entity.toLowerCase()] ?? "";
+    });
+}
+
+function textFromHtml(value: string): string {
+  return decodeHtml(
+    value
+      .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
+      .replace(/<[^>]+>/g, " "),
+  )
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function normaliseSponsorWebsite(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const candidate = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    const parsed = new URL(candidate);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+    parsed.hash = "";
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+function cleanTitle(value: string, url: string): string | null {
+  const text = textFromHtml(value).replace(/\s+[|–—-]\s+(apply|details)$/i, "").trim();
+  if (text.length >= 4 && text.length <= 180 && !GENERIC_ANCHOR_TEXT.test(text)) return text;
+  const parsed = new URL(url);
+  const slug = parsed.pathname.split("/").filter(Boolean).at(-1) ?? "";
+  const fromSlug = decodeURIComponent(slug)
+    .replace(/\.[a-z0-9]+$/i, "")
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\d{5,}\b/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return fromSlug.length >= 4 && !GENERIC_ANCHOR_TEXT.test(fromSlug) ? fromSlug : null;
+}
+
+function extractAnchors(html: string, baseUrl: string, originHostname: string): ExtractedLink[] {
+  const links: ExtractedLink[] = [];
+  const seen = new Set<string>();
+  const pattern = /<a\b([^>]*)>([\s\S]*?)<\/a>/gi;
+  for (const match of html.matchAll(pattern)) {
+    const attrs = match[1] ?? "";
+    const href = attrs.match(/\bhref\s*=\s*["']([^"']+)["']/i)?.[1];
+    if (!href || /^(mailto:|tel:|javascript:|#)/i.test(href)) continue;
+    let url: string;
+    try {
+      url = new URL(decodeHtml(href), baseUrl).toString();
+    } catch {
+      continue;
+    }
+    const canonical = canonicalVacancyUrl(url) ?? url;
+    if (seen.has(canonical) || !isAllowedCompanyDestination(originHostname, canonical)) continue;
+    if (isBlockedVacancyUrl(canonical)) continue;
+    seen.add(canonical);
+    links.push({
+      url: canonical,
+      text: textFromHtml(match[2] ?? ""),
+      atsProvider: knownAtsProvider(canonical),
+    });
+  }
+  return links;
+}
+
+function jsonLdLocation(value: unknown): string | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  if (typeof record.name === "string") return record.name;
+  const address = record.address;
+  if (address && typeof address === "object") {
+    const addressRecord = address as Record<string, unknown>;
+    const parts = ["addressLocality", "addressRegion", "addressCountry"]
+      .map((key) => addressRecord[key])
+      .filter((part): part is string => typeof part === "string" && part.trim() !== "");
+    return parts.join(", ") || null;
+  }
+  return null;
+}
+
+function flattenJsonLd(value: unknown): Array<Record<string, unknown>> {
+  if (Array.isArray(value)) return value.flatMap(flattenJsonLd);
+  if (!value || typeof value !== "object") return [];
+  const record = value as Record<string, unknown>;
+  const graph = record["@graph"];
+  return [record, ...(graph ? flattenJsonLd(graph) : [])];
+}
+
+function extractJsonLdAdverts(
+  html: string,
+  pageUrl: string,
+  originHostname: string,
+  organisationName: string,
+): BoardAdvert[] {
+  const adverts: BoardAdvert[] = [];
+  const scripts = html.match(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>[\s\S]*?<\/script>/gi) ?? [];
+  for (const script of scripts) {
+    const raw = script.replace(/^<script\b[^>]*>/i, "").replace(/<\/script>$/i, "").trim();
+    try {
+      for (const record of flattenJsonLd(JSON.parse(raw))) {
+        const type = record["@type"];
+        if (!(type === "JobPosting" || (Array.isArray(type) && type.includes("JobPosting")))) continue;
+        const rawUrl = typeof record.url === "string" ? record.url : pageUrl;
+        const url = new URL(rawUrl, pageUrl).toString();
+        if (
+          !isAllowedCompanyDestination(originHostname, url) ||
+          !isValidVacancyDeepLink(url) ||
+          isBlockedVacancyUrl(url)
+        ) continue;
+        const title = typeof record.title === "string" ? cleanTitle(record.title, url) : null;
+        if (!title) continue;
+        const jobLocation = Array.isArray(record.jobLocation) ? record.jobLocation[0] : record.jobLocation;
+        adverts.push({
+          organisationName,
+          employer: organisationName,
+          title,
+          location: jsonLdLocation(jobLocation),
+          salary: null,
+          url,
+          description: typeof record.description === "string" ? textFromHtml(record.description).slice(0, 8_000) : null,
+          postedDate: typeof record.datePosted === "string" ? record.datePosted : null,
+          targetRegions: null,
+          boardName: null,
+          externalId: null,
+          sourceType: "company_site",
+        });
+      }
+    } catch {
+      // Invalid third-party JSON-LD must not fail the employer check.
+    }
+  }
+  return adverts;
+}
+
+function isOpaqueAtsPostingLink(
+  link: ExtractedLink,
+  listingPageProvider: string | null,
+  listingPageUrl: string,
+): boolean {
+  const linkProvider = knownAtsProvider(link.url);
+  const pathSegments = new URL(link.url).pathname.split("/").filter(Boolean);
+  return (
+    listingPageProvider !== null &&
+    linkProvider === listingPageProvider &&
+    link.url !== listingPageUrl &&
+    (
+      ((linkProvider === "Lever" || linkProvider === "Ashby") && pathSegments.length >= 2) ||
+      (linkProvider === "Greenhouse" && /\/jobs\/\d+/i.test(new URL(link.url).pathname)) ||
+      (linkProvider !== "Lever" && linkProvider !== "Ashby" && linkProvider !== "Greenhouse")
+    )
+  );
+}
+
+function advertsFromLinks(
+  links: readonly ExtractedLink[],
+  organisationName: string,
+  listingPageProvider: string | null,
+  listingPageUrl: string,
+): BoardAdvert[] {
+  return links.flatMap((link) => {
+    if (!isValidVacancyDeepLink(link.url)) return [];
+    const opaqueAtsPosting = isOpaqueAtsPostingLink(
+      link,
+      listingPageProvider,
+      listingPageUrl,
+    );
+    if (
+      !opaqueAtsPosting &&
+      !VACANCY_SIGNAL.test(`${link.text} ${new URL(link.url).pathname}`)
+    ) return [];
+    const title = cleanTitle(link.text, link.url);
+    if (!title) return [];
+    return [{
+      organisationName,
+      employer: organisationName,
+      title,
+      location: null,
+      salary: null,
+      url: link.url,
+      description: null,
+      postedDate: null,
+      targetRegions: null,
+      boardName: null,
+      externalId: null,
+      sourceType: "company_site" as const,
+    }];
+  });
+}
+
+function selectNavigationLinks(
+  links: readonly ExtractedLink[],
+  visited: ReadonlySet<string>,
+  listingPageProvider: string | null,
+  listingPageUrl: string,
+): ExtractedLink[] {
+  return links
+    .filter((link) => !visited.has(link.url))
+    .filter((link) => !isOpaqueAtsPostingLink(link, listingPageProvider, listingPageUrl))
+    .filter((link) =>
+      !(
+        isValidVacancyDeepLink(link.url) &&
+        VACANCY_SIGNAL.test(`${link.text} ${new URL(link.url).pathname}`)
+      ),
+    )
+    .filter((link) => link.atsProvider !== null || CAREERS_SIGNAL.test(`${link.text} ${new URL(link.url).pathname}`))
+    .sort((a, b) => {
+      const aScore = (a.atsProvider ? 2 : 0) + (CAREERS_SIGNAL.test(a.text) ? 1 : 0);
+      const bScore = (b.atsProvider ? 2 : 0) + (CAREERS_SIGNAL.test(b.text) ? 1 : 0);
+      return bScore - aScore;
+    });
+}
+
+function isTransientFailure(kind: string): boolean {
+  return kind === "robots" || kind === "rate_limited" || kind === "timeout" || kind === "network";
+}
+
+export async function discoverCompanySiteVacancies(
+  organisationName: string,
+  website: string,
+  options: CompanySiteDiscoveryOptions = {},
+): Promise<CompanySiteDiscoveryResult> {
+  const sourceUrl = normaliseSponsorWebsite(website);
+  if (!sourceUrl) {
+    return {
+      adverts: [],
+      sourceUrl: website,
+      careersUrl: null,
+      atsProvider: null,
+      genericCompleted: false,
+      atsCompleted: false,
+      transientFailure: false,
+      error: "invalid sponsor website",
+      pagesFetched: 0,
+    };
+  }
+  const now = options.now ?? Date.now;
+  const deadlineMs = now() + COMPANY_SITE_EMPLOYER_BUDGET_MS;
+  const originHostname = new URL(sourceUrl).hostname;
+  const checkGeneric = options.checkGeneric !== false;
+  const checkAts = options.checkAts !== false;
+  const queue: string[] = [];
+  if (checkGeneric) queue.push(sourceUrl);
+  if (
+    checkAts &&
+    options.knownCareersUrl &&
+    knownAtsProvider(options.knownCareersUrl) !== null
+  ) {
+    queue.push(options.knownCareersUrl);
+  }
+  if (queue.length === 0) queue.push(sourceUrl);
+
+  const visited = new Set<string>();
+  const adverts: BoardAdvert[] = [];
+  let careersUrl = options.knownCareersUrl ?? null;
+  let atsProvider = careersUrl ? knownAtsProvider(careersUrl) : null;
+  let genericCompleted = false;
+  let atsCompleted = false;
+  let transientFailure = false;
+  let retryAt: Date | undefined;
+  let error: string | undefined;
+  let pagesFetched = 0;
+
+  while (
+    queue.length > 0 &&
+    visited.size < MAX_COMPANY_SITE_DISCOVERY_PAGES &&
+    now() < deadlineMs
+  ) {
+    const next = queue.shift()!;
+    const canonical = canonicalVacancyUrl(next) ?? next;
+    if (visited.has(canonical)) continue;
+    visited.add(canonical);
+    const provider = knownAtsProvider(canonical);
+    const result = await fetchCompanySitePage(canonical, originHostname, deadlineMs);
+    if (!result.ok) {
+      error ??= result.reason;
+      retryAt ??= result.retryAt;
+      transientFailure ||= isTransientFailure(result.kind);
+      continue;
+    }
+    pagesFetched += 1;
+    if (!/html|text/i.test(result.contentType)) continue;
+    if (provider) {
+      atsProvider ??= provider;
+      careersUrl ??= result.url;
+      atsCompleted = true;
+    } else {
+      genericCompleted = true;
+    }
+
+    const links = extractAnchors(result.body, result.url, originHostname);
+    adverts.push(
+      ...extractJsonLdAdverts(result.body, result.url, originHostname, organisationName),
+      ...advertsFromLinks(links, organisationName, provider, result.url),
+    );
+    const navigation = selectNavigationLinks(links, visited, provider, result.url);
+    for (const link of navigation) {
+      if (queue.length + visited.size >= MAX_COMPANY_SITE_DISCOVERY_PAGES) break;
+      if (link.atsProvider && !checkAts) continue;
+      if (!careersUrl || link.atsProvider) careersUrl = link.url;
+      atsProvider ??= link.atsProvider;
+      queue.push(link.url);
+    }
+  }
+
+  if (genericCompleted && !atsProvider) atsCompleted = true;
+  if (now() >= deadlineMs && queue.length > 0) {
+    transientFailure = true;
+    error ??= "employer request budget exhausted";
+  }
+
+  return {
+    adverts: normaliseAndDedupeBoardAdverts(adverts).slice(0, MAX_COMPANY_SITE_VACANCIES_PER_EMPLOYER),
+    sourceUrl,
+    careersUrl,
+    atsProvider,
+    genericCompleted,
+    atsCompleted,
+    transientFailure,
+    retryAt,
+    error,
+    pagesFetched,
+  };
+}
+
+export async function persistCompanySiteVacancies(
+  adverts: readonly BoardAdvert[],
+): Promise<{ inserted: number; revived: number }> {
+  return upsertSharedBoardVacancies(adverts);
+}

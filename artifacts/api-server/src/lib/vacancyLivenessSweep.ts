@@ -3,6 +3,7 @@ import { db, sponsorLicenceVacanciesTable, rolesTable, jobListingsTable } from "
 import { eq, inArray, sql } from "drizzle-orm";
 import { checkDestinationDead } from "./linkHealth";
 import { isBlockedVacancyUrl, isValidJobBoardVacancyDeepLink } from "./vacancyUrlPolicy";
+import { verifyCompanySiteStoredLink } from "./companySiteVerification";
 
 /**
  * Unified background liveness sweep over ALL stored job-application links:
@@ -30,7 +31,15 @@ const PER_DOMAIN_DELAY_MS = 1500;
 const SWEEP_TIMEOUT_MS = 8000; // background sweep can afford a longer fetch than click-time
 
 type SweepSource = "sponsor_vacancy" | "role" | "job_listing";
-type SweepRow = { source: SweepSource; id: number; url: string };
+type SweepRow = {
+  source: SweepSource;
+  sourceType: "job_board" | "company_site" | null;
+  id: number;
+  url: string;
+};
+type SweepSqlRow = Omit<SweepRow, "sourceType"> & {
+  source_type: "job_board" | "company_site" | null;
+};
 
 export type SweepCounters = { checked: number; live: number; dead: number; inconclusive: number };
 
@@ -44,19 +53,19 @@ let sweepRunning = false;
  */
 async function selectSweepBatch(limit: number, staleThresholdMs: number): Promise<SweepRow[]> {
   const staleSecs = staleThresholdMs / 1000;
-  const result = await db.execute<SweepRow>(sql`
+  const result = await db.execute<SweepSqlRow>(sql`
     SELECT * FROM (
-      SELECT 'sponsor_vacancy' AS source, v.id, v.url, v.last_verified_at
+      SELECT 'sponsor_vacancy' AS source, v.source_type, v.id, v.url, v.last_verified_at
       FROM sponsor_licence_vacancies v
       WHERE v.url IS NOT NULL AND v.liveness <> 'dead'
         AND (v.last_verified_at IS NULL OR v.last_verified_at < NOW() - make_interval(secs => ${staleSecs}))
       UNION ALL
-      SELECT 'role' AS source, r.id, r.apply_url AS url, r.last_verified_at
+      SELECT 'role' AS source, NULL::text AS source_type, r.id, r.apply_url AS url, r.last_verified_at
       FROM roles r
       WHERE r.apply_url IS NOT NULL AND r.apply_url <> '' AND r.active = true AND r.liveness <> 'dead'
         AND (r.last_verified_at IS NULL OR r.last_verified_at < NOW() - make_interval(secs => ${staleSecs}))
       UNION ALL
-      SELECT 'job_listing' AS source, j.id, j.apply_url AS url, j.last_verified_at
+      SELECT 'job_listing' AS source, NULL::text AS source_type, j.id, j.apply_url AS url, j.last_verified_at
       FROM job_listings j
       WHERE j.apply_url IS NOT NULL AND j.apply_url <> '' AND j.status = 'published' AND j.liveness <> 'dead'
         AND (j.last_verified_at IS NULL OR j.last_verified_at < NOW() - make_interval(secs => ${staleSecs}))
@@ -64,7 +73,12 @@ async function selectSweepBatch(limit: number, staleThresholdMs: number): Promis
     ORDER BY last_verified_at ASC NULLS FIRST, id ASC
     LIMIT ${limit}
   `);
-  return result.rows.map((r) => ({ source: r.source, id: Number(r.id), url: r.url }));
+  return result.rows.map((r) => ({
+    source: r.source,
+    sourceType: r.source_type ?? null,
+    id: Number(r.id),
+    url: r.url,
+  }));
 }
 
 function tableFor(source: SweepSource) {
@@ -90,6 +104,10 @@ async function markResult(
 }
 
 async function verifyOne(row: SweepRow): Promise<"live" | "dead" | "inconclusive"> {
+  if (row.source === "sponsor_vacancy" && row.sourceType === "company_site") {
+    const outcome = await verifyCompanySiteStoredLink(row.id, row.url);
+    return outcome === "live" || outcome === "dead" ? outcome : "inconclusive";
+  }
   try {
     const result = await checkDestinationDead(row.url, { timeoutMs: SWEEP_TIMEOUT_MS });
     if (result.verdict === "dead" || result.verdict === "unsafe") {
@@ -147,7 +165,9 @@ export async function runVacancyLivenessSweep(
     // sweep doesn't re-select them, keeping their liveness unchanged, and
     // skip the per-domain politeness delay entirely.
     const unverifiableBlocked = (row: SweepRow) =>
-      isBlockedVacancyUrl(row.url) && !isValidJobBoardVacancyDeepLink(row.url);
+      row.sourceType !== "company_site" &&
+      isBlockedVacancyUrl(row.url) &&
+      !isValidJobBoardVacancyDeepLink(row.url);
     const blocked = deduped.filter(unverifiableBlocked);
     const rows = deduped.filter((r) => !unverifiableBlocked(r));
     if (blocked.length > 0) {

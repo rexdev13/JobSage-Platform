@@ -61,6 +61,13 @@ vi.mock("../../lib/linkHealth", () => ({
   checkDestinationDead: checkDestinationDeadMock,
 }));
 
+const { verifyCompanySiteStoredLinkMock } = vi.hoisted(() => ({
+  verifyCompanySiteStoredLinkMock: vi.fn(),
+}));
+vi.mock("../../lib/companySiteVerification", () => ({
+  verifyCompanySiteStoredLink: verifyCompanySiteStoredLinkMock,
+}));
+
 // ── vacancyUrlPolicy mock ─────────────────────────────────────────────────────
 const { isBlockedVacancyUrlMock, isValidJobBoardVacancyDeepLinkMock } = vi.hoisted(() => ({
   isBlockedVacancyUrlMock: vi.fn().mockReturnValue(false),
@@ -77,8 +84,9 @@ function makeSweepRow(
   id: number,
   url: string,
   lastVerifiedAt: string | null = null,
+  sourceType: "job_board" | "company_site" | null = null,
 ) {
-  return { source, id, url, last_verified_at: lastVerifiedAt };
+  return { source, source_type: sourceType, id, url, last_verified_at: lastVerifiedAt };
 }
 
 function setExecuteRows(rows: any[]) {
@@ -93,6 +101,7 @@ describe("runVacancyLivenessSweep", () => {
     executeMock.mockReset();
     updateMock.mockReset();
     checkDestinationDeadMock.mockReset();
+    verifyCompanySiteStoredLinkMock.mockReset();
     isBlockedVacancyUrlMock.mockReset().mockReturnValue(false);
   });
 
@@ -102,6 +111,29 @@ describe("runVacancyLivenessSweep", () => {
     const result = await runVacancyLivenessSweep();
     expect(result).toEqual({ checked: 0, live: 0, dead: 0, inconclusive: 0 });
     expect(checkDestinationDeadMock).not.toHaveBeenCalled();
+  });
+
+  it("routes stale company-site sponsor links through the controlled verifier", async () => {
+    setExecuteRows([
+      makeSweepRow(
+        "sponsor_vacancy",
+        70,
+        "https://careers.example.org/jobs/nurse-70",
+        "2026-08-01T00:00:00Z",
+        "company_site",
+      ),
+    ]);
+    verifyCompanySiteStoredLinkMock.mockResolvedValue("live");
+
+    const { runVacancyLivenessSweep } = await import("../../lib/vacancyLivenessSweep");
+    const result = await runVacancyLivenessSweep({ domainConcurrency: 1 });
+
+    expect(verifyCompanySiteStoredLinkMock).toHaveBeenCalledWith(
+      70,
+      "https://careers.example.org/jobs/nurse-70",
+    );
+    expect(checkDestinationDeadMock).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ checked: 1, live: 1 });
   });
 
   it("never-verified rows sort first (SQL uses NULLS FIRST)", async () => {

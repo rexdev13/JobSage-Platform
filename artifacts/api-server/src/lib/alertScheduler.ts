@@ -14,16 +14,9 @@ import {
   roleDedupKey,
   SPONSOR_VACANCY_ID_OFFSET,
 } from "./sponsorVacancyRoles";
+import { regulatorForProfession } from "./opportunityProfession";
 
 const REGISTERED_STATUSES = ["registered", "fully_registered", "full_registration"];
-
-function regulatorForProfession(profession: string | null | undefined): "GMC" | "NMC" | "HCPC" | null {
-  const p = profession?.toLowerCase().trim() ?? "";
-  if (p === "doctor" || p === "clinical_academic") return "GMC";
-  if (p === "nurse" || p === "midwife") return "NMC";
-  if (p === "allied_health_professional") return "HCPC";
-  return null;
-}
 
 export async function processUserAlert(
   userId: string,

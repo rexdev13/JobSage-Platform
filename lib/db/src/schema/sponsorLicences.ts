@@ -89,6 +89,54 @@ export const sponsorLicenceVacancyChecksTable = pgTable(
 export type SponsorLicenceVacancyCheck = typeof sponsorLicenceVacancyChecksTable.$inferSelect;
 export type InsertSponsorLicenceVacancyCheck = typeof sponsorLicenceVacancyChecksTable.$inferInsert;
 
+export const sponsorLicenceCompanySiteChecksTable = pgTable(
+  "sponsor_licence_company_site_checks",
+  {
+    id: serial("id").primaryKey(),
+    organisationName: text("organisation_name").notNull(),
+    genericCheckedAt: timestamp("generic_checked_at", { withTimezone: true }),
+    atsCheckedAt: timestamp("ats_checked_at", { withTimezone: true }),
+    careersUrl: text("careers_url"),
+    atsProvider: text("ats_provider"),
+    retryAfter: timestamp("retry_after", { withTimezone: true }),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("company_site_checks_org_unique").on(t.organisationName),
+    index("company_site_checks_generic_idx").on(t.genericCheckedAt),
+    index("company_site_checks_ats_idx").on(t.atsCheckedAt),
+    index("company_site_checks_retry_idx").on(t.retryAfter),
+  ],
+);
+
+export type SponsorLicenceCompanySiteCheck = typeof sponsorLicenceCompanySiteChecksTable.$inferSelect;
+export type InsertSponsorLicenceCompanySiteCheck = typeof sponsorLicenceCompanySiteChecksTable.$inferInsert;
+
+export const companySiteHostStatesTable = pgTable(
+  "company_site_host_states",
+  {
+    id: serial("id").primaryKey(),
+    hostname: text("hostname").notNull(),
+    robotsBody: text("robots_body"),
+    robotsCheckedAt: timestamp("robots_checked_at", { withTimezone: true }),
+    lastRequestAt: timestamp("last_request_at", { withTimezone: true }),
+    requestLeaseUntil: timestamp("request_lease_until", { withTimezone: true }),
+    failureCount: integer("failure_count").notNull().default(0),
+    retryAfter: timestamp("retry_after", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("company_site_host_states_hostname_unique").on(t.hostname),
+    index("company_site_host_states_retry_idx").on(t.retryAfter),
+  ],
+);
+
+export type CompanySiteHostState = typeof companySiteHostStatesTable.$inferSelect;
+export type InsertCompanySiteHostState = typeof companySiteHostStatesTable.$inferInsert;
+
 export const sponsorLicenceVacanciesTable = pgTable(
   "sponsor_licence_vacancies",
   {

@@ -61,6 +61,21 @@ describe("shared board vacancy pipeline", () => {
     expect(result[0]).toMatchObject({ boardName: "NHS Jobs", externalId: "C123" });
   });
 
+  it("keeps a direct employer advert when a job-board advert has the same fingerprint", () => {
+    const result = normaliseAndDedupeBoardAdverts([
+      advert(),
+      advert({
+        sourceType: "company_site",
+        url: "https://careers.example.nhs.uk/jobs/staff-nurse-123",
+        boardName: null,
+        externalId: null,
+      }),
+    ]);
+
+    expect(result).toHaveLength(2);
+    expect(result.map((item) => item.sourceType).sort()).toEqual(["company_site", "job_board"]);
+  });
+
   it("drops manual-labour titles before persistence", () => {
     expect(normaliseAndDedupeBoardAdverts([advert({ title: "Warehouse Operative" })])).toEqual([]);
   });

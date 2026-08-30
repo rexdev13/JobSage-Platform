@@ -22,3 +22,4 @@
 - [Candidate sponsor matching](candidate-sponsor-matching.md) — candidate-wide board searches need stricter employer identity matching than employer-scoped background searches.
 - [Marketing lead performance](marketing-lead-performance.md) — registered performance uses converted-user attribution; contacted uses the current contacted status.
 - [Vacancy board deduplication](vacancy-board-deduplication.md) — shared board writes use canonical/fingerprint advisory locks; verification starts only after commit.
+- [Company-site verification safety](company-site-verification-safety.md) — initial liveness checks must share crawler robots, pacing, backoff, redirect, and SSRF controls.

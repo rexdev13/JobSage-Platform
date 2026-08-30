@@ -3,6 +3,7 @@ import { seedRulesets } from "./lib/seedRulesets";
 import { startAlertScheduler } from "./lib/alertScheduler";
 import { startSponsorLicenceScheduler } from "./lib/sponsorLicenceScheduler";
 import { startVacancyCheckScheduler } from "./lib/vacancyCheckScheduler";
+import { startCompanySiteDiscoveryScheduler } from "./lib/companySiteScheduler";
 import { startDailyVacancySyncScheduler } from "./lib/dailyVacancySync";
 import { startVacancyLivenessSweepScheduler } from "./lib/vacancyLivenessSweep";
 import { startSponsorVacancyCleanupScheduler } from "./lib/sponsorVacancyCleanup";
@@ -72,6 +73,7 @@ app.listen(port, () => {
   startAlertScheduler();
   startSponsorLicenceScheduler();
   startVacancyCheckScheduler();
+  startCompanySiteDiscoveryScheduler();
   startDailyVacancySyncScheduler();
   startVacancyLivenessSweepScheduler();
   startSponsorVacancyCleanupScheduler();

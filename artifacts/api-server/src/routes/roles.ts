@@ -38,6 +38,7 @@ import {
   specialtyBoost,
   SPONSOR_VACANCY_ID_OFFSET,
 } from "../lib/sponsorVacancyRoles";
+import { isHealthcareRegulator, regulatorForProfession } from "../lib/opportunityProfession";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import {
   assessSafeguarding,
@@ -131,14 +132,6 @@ function parseImportedRegions(raw: string | undefined): string[] | null {
 }
 
 const REGISTERED_STATUSES = ["registered", "fully_registered", "full_registration"];
-
-function regulatorForProfession(profession: string | null | undefined): "GMC" | "NMC" | "HCPC" | null {
-  const p = profession?.toLowerCase().trim() ?? "";
-  if (p === "doctor" || p === "clinical_academic") return "GMC";
-  if (p === "nurse" || p === "midwife") return "NMC";
-  if (p === "allied_health_professional") return "HCPC";
-  return null;
-}
 
 function deriveMatchReason(
   r: { sponsorshipOffered: boolean; requiredRegistration: string },
@@ -400,8 +393,8 @@ router.get("/roles", async (req, res): Promise<void> => {
   // page self-populates without any admin CSV upload. Deduped below against
   // CSV roles and employer jobs by employer+title.
   let sponsorVacancyRoles = (await fetchSponsorVacanciesAsRoles(regulator, {
-    requireSpecificVacancyUrl: sourceFilter === "job_board",
-    onlyVerifiedLive: sourceFilter === "job_board",
+    requireSpecificVacancyUrl: sourceFilter != null,
+    onlyVerifiedLive: sourceFilter != null,
   }))
     .filter((role) => roleMatchesPreferredRegions(role.targetRegions, profile.preferredRegion));
   if (sourceFilter === "job_board" && !hasFreshCandidateBoardSnapshot(sponsorVacancyRoles)) {
@@ -606,7 +599,12 @@ router.get("/roles", async (req, res): Promise<void> => {
     }
 
     const sponsorshipFeasibility =
-      profile.requiresSponsorship ? assessSponsorshipFeasibility(role, profile.requiresSponsorship) : null;
+      profile.requiresSponsorship && isHealthcareRegulator(role.regulator)
+        ? assessSponsorshipFeasibility(
+            { ...role, regulator: role.regulator },
+            profile.requiresSponsorship,
+          )
+        : null;
 
     const professionLabel = profile.profession.replace(/_/g, " ");
     const explanation = !professionallyRelevant
@@ -768,8 +766,8 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
   // to the candidate's regulator qualify for the Best Matches strip; ambiguous
   // ones stay on the main board (bottom-ranked) instead.
   let sponsorVacancyRoles = (await fetchSponsorVacanciesAsRoles(regulator, {
-    requireSpecificVacancyUrl: sourceFilter === "job_board",
-    onlyVerifiedLive: sourceFilter === "job_board",
+    requireSpecificVacancyUrl: sourceFilter != null,
+    onlyVerifiedLive: sourceFilter != null,
   }))
     .filter((role) => roleMatchesPreferredRegions(role.targetRegions, profile.preferredRegion));
   if (sourceFilter === "job_board" && !hasFreshCandidateBoardSnapshot(sponsorVacancyRoles)) {

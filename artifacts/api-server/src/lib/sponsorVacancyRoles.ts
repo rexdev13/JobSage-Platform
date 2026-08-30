@@ -5,6 +5,10 @@ import { isManualLabourTitle } from "./vacancyTitlePolicy";
 import { isValidVacancyUrlForSource } from "./vacancyUrlPolicy";
 import type { DbsClearanceLevel, SafeguardingTrainingLevel } from "./safeguarding";
 import { regionsFromLocationText } from "./regionMatching";
+import {
+  opportunityRegistrationLabel,
+  type OpportunityRegulator,
+} from "./opportunityProfession";
 
 /**
  * ID offset for AI-discovered sponsor-licence vacancies when merged into the
@@ -47,6 +51,10 @@ const HCPC_TITLE_PATTERN =
 // as GMC. Medical consultant titles always carry a specialty word that matches.
 const GMC_TITLE_PATTERN =
   /\b(doctor|physician|surgeon|surgical|registrar\b|general\s*practitioner|gp\b|medical\s*officer|psychiatr|anaesthet|radiolog|cardiolog|paediatric|oncolog|dermatolog|neurolog|patholog|geriatric\s*medicine|urolog|gynaecolog|obstetric|ophthalmolog|clinical\s*fellow|house\s*officer|sho\b|specialty\s*doctor|junior\s*doctor|emergency\s*medicine|intensivist|haematolog|rheumatolog|endocrinolog|gastroenterolog|nephrolog|histopatholog|microbiolog)/i;
+const EDUCATION_TITLE_PATTERN =
+  /\b(teacher|teaching|lecturer|professor|academic|school\s*leader|headteacher|head\s*teacher|curriculum\s*lead|education\s*lead|research\s*fellow|postdoctoral|postdoc)/i;
+const ENGINEERING_TITLE_PATTERN =
+  /\b(engineer|engineering|technical\s*design|structural\s*design|civil\s*design|mechanical\s*design|electronic\s*design)/i;
 
 /**
  * Best-effort keyword classification of an AI-discovered vacancy to the UK
@@ -59,12 +67,14 @@ const GMC_TITLE_PATTERN =
 export function classifyVacancyRegulator(
   title: string,
   description: string | null | undefined,
-): "GMC" | "NMC" | "HCPC" | null {
+): OpportunityRegulator | null {
   for (const text of [title, description ?? ""]) {
     if (!text.trim()) continue;
     if (NMC_TITLE_PATTERN.test(text)) return "NMC";
     if (HCPC_TITLE_PATTERN.test(text)) return "HCPC";
     if (GMC_TITLE_PATTERN.test(text)) return "GMC";
+    if (EDUCATION_TITLE_PATTERN.test(text)) return "EDUCATION";
+    if (ENGINEERING_TITLE_PATTERN.test(text)) return "ENGINEERING";
   }
   return null;
 }
@@ -77,7 +87,7 @@ export interface SponsorVacancyAsRole {
   title: string;
   employer: string;
   location: string;
-  regulator: "GMC" | "NMC" | "HCPC";
+  regulator: OpportunityRegulator;
   sponsorshipOffered: boolean;
   requiredRegistration: string;
   active: boolean;
@@ -154,7 +164,7 @@ export interface SponsorVacancyRoleQueryOptions {
  *   website) are excluded, mirroring the HAS_CONTACT_INFO rule for roles
  */
 export async function fetchSponsorVacanciesAsRoles(
-  regulator: "GMC" | "NMC" | "HCPC",
+  regulator: OpportunityRegulator,
   options: SponsorVacancyRoleQueryOptions = {},
 ): Promise<SponsorVacancyAsRole[]> {
   const conditions = [ne(sponsorLicenceVacanciesTable.liveness, "dead")];
@@ -182,15 +192,28 @@ export async function fetchSponsorVacanciesAsRoles(
     if (seen.has(vac.id)) continue; // multiple licence rows per org — take first
     seen.add(vac.id);
 
+    // Company-site discovery is allowed to populate rows asynchronously, but
+    // candidate feeds must not expose them until the post-commit verifier has
+    // confirmed the exact deep link.
+    if (vac.sourceType === "company_site" && vac.liveness !== "live") continue;
     if (isManualLabourTitle(vac.title)) continue;
 
     const classified = classifyVacancyRegulator(vac.title, vac.description);
     if (classified !== null && classified !== regulator) continue;
     // Unclassified titles are only plausible for clinical candidates when the
     // sponsor itself operates in health/social care.
-    if (classified === null && !HEALTHCARE_INDUSTRY_PATTERN.test(lic?.industry ?? "")) continue;
+    if (
+      classified === null &&
+      (regulator === "EDUCATION" ||
+        regulator === "ENGINEERING" ||
+        !HEALTHCARE_INDUSTRY_PATTERN.test(lic?.industry ?? ""))
+    ) continue;
 
     const link = presentApplyLink(vac.url, vac.liveness, vac.lastVerifiedAt);
+    if (
+      vac.sourceType === "company_site" &&
+      !isValidVacancyUrlForSource(link.applyUrl, "company_site")
+    ) continue;
     if (options.requireSpecificVacancyUrl && !link.applyUrl) continue;
     if (
       options.requireSpecificVacancyUrl &&
@@ -217,7 +240,7 @@ export async function fetchSponsorVacanciesAsRoles(
       regulator,
       // Every organisation in this table holds a Home Office sponsor licence.
       sponsorshipOffered: true,
-      requiredRegistration: `${regulator} registration pathway`,
+      requiredRegistration: opportunityRegistrationLabel(regulator),
       active: true,
       importedAt: vac.createdAt,
       lastDiscoveredAt: vac.lastDiscoveredAt,

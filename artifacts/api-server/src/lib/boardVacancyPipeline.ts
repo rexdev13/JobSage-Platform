@@ -2,7 +2,9 @@ import { db, sponsorLicenceVacanciesTable } from "@workspace/db";
 import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { isManualLabourTitle } from "./vacancyTitlePolicy";
 import { canonicalVacancyUrl, classifyVacancySource } from "./vacancySource";
+import { isValidVacancyUrlForSource } from "./vacancyUrlPolicy";
 import { queueLinkVerificationBatch } from "./linkVerification";
+import { queueCompanySiteVerificationBatch } from "./companySiteVerification";
 import { searchNhsJobs } from "./nhsJobsClient";
 import { searchReedJobs } from "./reedJobsClient";
 import {
@@ -27,8 +29,9 @@ export interface BoardAdvert {
   description: string | null;
   postedDate: string | null;
   targetRegions: string[] | null;
-  boardName: string;
+  boardName: string | null;
   externalId: string | null;
+  sourceType?: "job_board" | "company_site";
 }
 
 export interface BoardAdapterSearchResult {
@@ -193,22 +196,24 @@ export function normaliseAndDedupeBoardAdverts(adverts: readonly BoardAdvert[]):
     if (isManualLabourTitle(advert.title)) continue;
     const url = canonicalVacancyUrl(advert.url);
     const source = classifyVacancySource(url);
-    if (!url || source.sourceType !== "job_board") continue;
+    const sourceType = advert.sourceType ?? source.sourceType;
+    if (!url || !sourceType || !isValidVacancyUrlForSource(url, sourceType)) continue;
     const normalized = {
       ...advert,
       url,
-      boardName: source.boardName ?? advert.boardName,
-      externalId: source.externalListingId ?? advert.externalId,
+      sourceType,
+      boardName: sourceType === "company_site" ? null : source.boardName ?? advert.boardName,
+      externalId: sourceType === "company_site" ? null : source.externalListingId ?? advert.externalId,
     };
-    const current = byUrl.get(url);
+    const current = byUrl.get(`${sourceType}\u0000${url}`);
     if (!current || boardPreference(normalized.boardName) < boardPreference(current.boardName)) {
-      byUrl.set(url, normalized);
+      byUrl.set(`${sourceType}\u0000${url}`, normalized);
     }
   }
 
   const byFingerprint = new Map<string, BoardAdvert>();
   for (const advert of byUrl.values()) {
-    const fingerprint = boardVacancyFingerprint(advert);
+    const fingerprint = `${advert.sourceType}\u0000${boardVacancyFingerprint(advert)}`;
     const current = byFingerprint.get(fingerprint);
     if (!current || boardPreference(advert.boardName) < boardPreference(current.boardName)) {
       byFingerprint.set(fingerprint, advert);
@@ -234,9 +239,11 @@ export async function upsertSharedBoardVacancies(
   // The JSON expansion keeps a 300-result candidate refresh to one lock query
   // while still serializing cross-process writers for the same vacancy.
   const lockKeys = [...new Set(adverts.flatMap((advert) => [
-    `url:${advert.url}`,
-    `fingerprint:${boardVacancyFingerprint(advert)}`,
-    ...(advert.externalId ? [`external:${advert.boardName}|${advert.externalId}`] : []),
+    `${advert.sourceType ?? "job_board"}:url:${advert.url}`,
+    `${advert.sourceType ?? "job_board"}:fingerprint:${boardVacancyFingerprint(advert)}`,
+    ...(advert.externalId
+      ? [`${advert.sourceType ?? "job_board"}:external:${advert.boardName}|${advert.externalId}`]
+      : []),
   ]))].sort();
   await tx.execute(sql`
     SELECT pg_advisory_xact_lock(hashtext(value))
@@ -244,6 +251,7 @@ export async function upsertSharedBoardVacancies(
     ORDER BY value
   `);
   const organisations = [...new Set(adverts.map((advert) => advert.organisationName))];
+  const sourceTypes = [...new Set(adverts.map((advert) => advert.sourceType ?? "job_board"))];
   const urls = adverts.map((advert) => advert.url);
   const urlBases = adverts.map((advert) =>
     advert.url.split(/[?#]/, 1)[0]!.toLowerCase().replace(/\/+$/, ""),
@@ -276,7 +284,7 @@ export async function upsertSharedBoardVacancies(
     .from(sponsorLicenceVacanciesTable)
     .where(
       and(
-        eq(sponsorLicenceVacanciesTable.sourceType, "job_board"),
+        inArray(sponsorLicenceVacanciesTable.sourceType, sourceTypes),
         or(
           inArray(sponsorLicenceVacanciesTable.organisationName, organisations),
           inArray(sponsorLicenceVacanciesTable.url, urls),
@@ -289,39 +297,47 @@ export async function upsertSharedBoardVacancies(
   const byCanonical = new Map(
     existing.flatMap((row) => {
       const canonical = row.url ? canonicalVacancyUrl(row.url) : null;
-      return canonical ? [[canonical, row] as const] : [];
+      return canonical
+        ? [[`${row.sourceType ?? "job_board"}\u0000${canonical}`, row] as const]
+        : [];
     }),
   );
   const byFingerprint = new Map(
     existing.map((row) => [
-      boardVacancyFingerprint({
+      `${row.sourceType ?? "job_board"}\u0000${boardVacancyFingerprint({
         organisationName: row.organisationName,
         title: row.title,
         location: row.location,
-      }),
+      })}`,
       row,
     ] as const),
   );
   const byExternal = new Map(
     existing.flatMap((row) =>
       row.boardName && row.externalListingId
-        ? [[`${row.boardName}|${row.externalListingId}`, row] as const]
+        ? [[`${row.sourceType ?? "job_board"}\u0000${row.boardName}|${row.externalListingId}`, row] as const]
         : [],
     ),
   );
   const now = new Date();
   const checkDate = now.toISOString().slice(0, 10);
-  const toVerify: Array<{ source: "sponsor_vacancy"; id: number; url: string | null }> = [];
+  const toVerify: Array<{
+    source: "sponsor_vacancy";
+    sourceType: "job_board" | "company_site";
+    id: number;
+    url: string | null;
+  }> = [];
   let inserted = 0;
   let revived = 0;
 
   for (const advert of adverts) {
+    const sourceType = advert.sourceType ?? "job_board";
     const fingerprint = boardVacancyFingerprint(advert);
-    const canonicalMatch = byCanonical.get(advert.url);
+    const canonicalMatch = byCanonical.get(`${sourceType}\u0000${advert.url}`);
     const externalMatch = advert.externalId
-      ? byExternal.get(`${advert.boardName}|${advert.externalId}`)
+      ? byExternal.get(`${sourceType}\u0000${advert.boardName}|${advert.externalId}`)
       : undefined;
-    const fingerprintMatch = byFingerprint.get(fingerprint);
+    const fingerprintMatch = byFingerprint.get(`${sourceType}\u0000${fingerprint}`);
     const existingRow = canonicalMatch ?? externalMatch ?? fingerprintMatch;
     if (existingRow) {
       const incomingWins =
@@ -342,8 +358,8 @@ export async function upsertSharedBoardVacancies(
           description: advert.description,
           postedDate: advert.postedDate,
           targetRegions: advert.targetRegions ?? [],
-          sourceType: "job_board",
-          boardName: advert.boardName,
+          sourceType,
+          boardName: sourceType === "company_site" ? null : advert.boardName,
           externalListingId: advert.externalId,
           lastDiscoveredAt: now,
           ...(options.verifiedLive
@@ -357,10 +373,15 @@ export async function upsertSharedBoardVacancies(
           liveness: sponsorLicenceVacanciesTable.liveness,
         });
       if (options.verifiedLive && wasDead) revived += 1;
-      if (updated && updated.liveness === "unverified") toVerify.push({ source: "sponsor_vacancy", ...updated });
-      byCanonical.set(advert.url, { ...existingRow, ...advert, url: advert.url } as typeof existingRow);
+      if (updated && updated.liveness === "unverified") {
+        toVerify.push({ source: "sponsor_vacancy", sourceType, ...updated });
+      }
+      byCanonical.set(
+        `${sourceType}\u0000${advert.url}`,
+        { ...existingRow, ...advert, url: advert.url } as typeof existingRow,
+      );
       if (advert.externalId) {
-        byExternal.set(`${advert.boardName}|${advert.externalId}`, existingRow);
+        byExternal.set(`${sourceType}\u0000${advert.boardName}|${advert.externalId}`, existingRow);
       }
       continue;
     }
@@ -377,8 +398,8 @@ export async function upsertSharedBoardVacancies(
         description: advert.description,
         postedDate: advert.postedDate,
         targetRegions: advert.targetRegions ?? [],
-        sourceType: "job_board",
-        boardName: advert.boardName,
+        sourceType,
+        boardName: sourceType === "company_site" ? null : advert.boardName,
         externalListingId: advert.externalId,
         liveness: options.verifiedLive ? "live" : "unverified",
         lastVerifiedAt: options.verifiedLive ? now : null,
@@ -392,13 +413,22 @@ export async function upsertSharedBoardVacancies(
       });
     if (created) {
       inserted += 1;
-      if (created.liveness === "unverified") toVerify.push({ source: "sponsor_vacancy", ...created });
+      if (created.liveness === "unverified") {
+        toVerify.push({ source: "sponsor_vacancy", sourceType, ...created });
+      }
     }
   }
 
   return { inserted, revived, toVerify };
   });
   // Do not let a separate verifier race rows that are not committed yet.
-  queueLinkVerificationBatch(transactionResult.toVerify);
+  const companySiteItems = transactionResult.toVerify
+    .filter((item) => item.sourceType === "company_site")
+    .map(({ id, url }) => ({ id, url }));
+  const boardItems = transactionResult.toVerify
+    .filter((item) => item.sourceType === "job_board")
+    .map(({ source, id, url }) => ({ source, id, url }));
+  queueCompanySiteVerificationBatch(companySiteItems);
+  queueLinkVerificationBatch(boardItems);
   return { inserted: transactionResult.inserted, revived: transactionResult.revived };
 }
