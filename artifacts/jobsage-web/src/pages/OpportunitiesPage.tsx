@@ -46,7 +46,6 @@ import {
   X,
   Megaphone,
   ClipboardList,
-  Linkedin,
   Globe,
   Mail,
   Phone,
@@ -80,6 +79,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   defaultSponsorshipOnly,
   filterOpportunities,
+  getOpportunityApplyAction,
   groupRankedOpportunities,
   hasRegionOverlap,
   UK_REGIONS,
@@ -108,6 +108,7 @@ function BestMatchesStrip({
   localDismissedIds,
   onSmartApply,
   onDismiss,
+  sourceType,
 }: {
   matchesData: CandidateMatchList | undefined;
   matchesLoading: boolean;
@@ -115,8 +116,12 @@ function BestMatchesStrip({
   localDismissedIds: Set<number>;
   onSmartApply: (roleId: number, roleTitle: string) => void;
   onDismiss: (roleId: number) => void;
+  sourceType: "job_board" | "company_site";
 }) {
   const [, setLocation] = useLocation();
+  const isCompanySite = sourceType === "company_site";
+  const resultsSectionId = isCompanySite ? "company-site-section" : "job-board-section";
+  const applyLabel = isCompanySite ? "Smart Apply on company sites" : "Smart Apply on job boards";
 
   const serverDismissed = new Set(matchesData?.dismissedRoleIds ?? []);
   const effectiveDismissed = new Set([...serverDismissed, ...localDismissedIds]);
@@ -157,7 +162,7 @@ function BestMatchesStrip({
         <Button
           size="sm"
           variant="outline"
-          onClick={() => document.getElementById("job-board-section")?.scrollIntoView({ behavior: "smooth" })}
+          onClick={() => document.getElementById(resultsSectionId)?.scrollIntoView({ behavior: "smooth" })}
         >
           See all roles
         </Button>
@@ -221,7 +226,7 @@ function BestMatchesStrip({
                     className="flex-1 text-xs h-8 gap-1"
                     onClick={() => onSmartApply(match.roleId, match.title)}
                   >
-                    <Sparkles className="w-3 h-3" /> Apply on job boards
+                    <Sparkles className="w-3 h-3" /> {applyLabel}
                   </Button>
                 ) : (
                   <Button
@@ -245,7 +250,7 @@ function BestMatchesStrip({
         </p>
         <button
           className="text-xs text-primary font-medium flex items-center gap-1 hover:underline"
-          onClick={() => document.getElementById("job-board-section")?.scrollIntoView({ behavior: "smooth" })}
+          onClick={() => document.getElementById(resultsSectionId)?.scrollIntoView({ behavior: "smooth" })}
         >
           See all {totalAvailable} matches below <ArrowRight className="w-3 h-3" />
         </button>
@@ -787,9 +792,7 @@ function RoleCard({
 
   const applied = appliedRoleIds.includes(role.id);
   const hasContactDetails = !!(contactEmail || contactPhone || contactWebsite);
-  const applyActionLabel = role.sourceType === "job_board"
-    ? "Apply on job boards"
-    : "Apply on company's website";
+  const applyAction = getOpportunityApplyAction({ sourceType: role.sourceType, applyUrl, contactWebsite });
 
   return (
     <Card
@@ -927,26 +930,24 @@ function RoleCard({
         </div>
       )}
 
-      {!applyUrl && contactWebsite && !applied && (
+      {applyAction?.usesWebsiteFallback && !applied && (
         <div className="mt-3 flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
             onClick={() =>
-              handleApplyClick(
-                contactWebsite.startsWith("http") ? contactWebsite : `https://${contactWebsite}`,
-              )
+              handleApplyClick(applyAction.destinationUrl)
             }
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors"
           >
-            <Globe className="w-3.5 h-3.5" /> {applyActionLabel}
+            <Globe className="w-3.5 h-3.5" /> {applyAction.label}
           </button>
-          <span className="text-[11px] text-muted-foreground">
-            No verified apply link yet — this opens the employer&apos;s site in a new tab.
+            <span className="text-[11px] text-muted-foreground">
+             No verified vacancy link yet — this opens the employer&apos;s website in a new tab.
           </span>
         </div>
       )}
 
-      {applyUrl && (
+      {applyAction && !applyAction.usesWebsiteFallback && (
         <div className="mt-3 flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-2 flex-wrap">
             <button
@@ -958,7 +959,7 @@ function RoleCard({
               {checking ? (
                 <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Checking…</>
               ) : (
-                <><ExternalLink className="w-3.5 h-3.5" /> {applied ? "Applied" : applyActionLabel}</>
+                <><ExternalLink className="w-3.5 h-3.5" /> {applied ? "Applied" : applyAction.label}</>
               )}
             </button>
             {linkVerified ? (
@@ -1067,59 +1068,6 @@ function RoleCard({
             </Button>
           )}
         </div>
-      </div>
-    </Card>
-  );
-}
-
-function EmployerCard({ employer, roles }: { employer: string; roles: MatchedRole[] }) {
-  const sponsorsCount = roles.filter((r) => r.role.sponsorshipOffered).length;
-  const locations = [...new Set(roles.map((r) => r.role.location))].slice(0, 2);
-  const regulator =
-    roles[0]?.role.opportunityCategory ??
-    roles[0]?.role.regulator ??
-    "Professional";
-
-  return (
-    <Card className="p-5 hover:shadow-md transition-shadow">
-      <div className="flex items-start gap-3 mb-3">
-        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
-          {employer.charAt(0)}
-        </div>
-        <div className="min-w-0 flex-1">
-          <h3 className="font-semibold text-foreground text-sm leading-tight truncate">{employer}</h3>
-          <p className="text-xs text-muted-foreground">{regulator} · {locations.join(", ")}</p>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap gap-2 items-center mb-3">
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted">
-          <Briefcase className="w-3 h-3" /> {roles.length} open role{roles.length !== 1 ? "s" : ""}
-        </span>
-        {sponsorsCount > 0 && (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-            <CheckCircle2 className="w-3 h-3" /> Offers sponsorship
-          </span>
-        )}
-      </div>
-
-      <div className="flex gap-2">
-        <a
-          href={`https://www.linkedin.com/search/results/companies/?keywords=${encodeURIComponent(employer)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0077B5]/10 text-[#0077B5] text-xs font-medium hover:bg-[#0077B5]/20 transition-colors"
-        >
-          <Linkedin className="w-3.5 h-3.5" /> LinkedIn
-        </a>
-        <a
-          href={`https://www.google.com/search?q=${encodeURIComponent(employer + " healthcare careers")}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted text-muted-foreground text-xs font-medium hover:bg-muted/80 transition-colors"
-        >
-          <Globe className="w-3.5 h-3.5" /> Web
-        </a>
       </div>
     </Card>
   );
@@ -1452,7 +1400,6 @@ export default function OpportunitiesPage() {
     return (t === "employers" || t === "board" || t === "sendcv") ? t as Tab : "board";
   });
   const [selectedRole, setSelectedRole] = useState<MatchedRole | null>(null);
-  const [employerSearch, setEmployerSearch] = useState(() => new URLSearchParams(window.location.search).get("q") ?? "");
   const [sponsorSearch, setSponsorSearch] = useState("");
   const [sendCvTarget, setSendCvTarget] = useState<SponsorLicenceCompany | null>(null);
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
@@ -1507,9 +1454,12 @@ export default function OpportunitiesPage() {
   const queryClient = useQueryClient();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const opportunitySource = activeTab === "employers" ? "company_site" : "job_board";
+  const isVacancyTab = activeTab === "board" || activeTab === "employers";
+  const isCompanySiteTab = activeTab === "employers";
+  const resultsSectionId = isCompanySiteTab ? "company-site-section" : "job-board-section";
   const { data, isLoading, isError } = useListMatchedRoles(
     { source: opportunitySource },
-    { query: { queryKey: getListMatchedRolesQueryKey({ source: opportunitySource }), enabled: activeTab !== "sendcv" } },
+    { query: { queryKey: getListMatchedRolesQueryKey({ source: opportunitySource }), enabled: isVacancyTab } },
   );
   const { data: applicationsData } = useListMyApplications();
   const { data: sponsorData, isLoading: sponsorsLoading, isError: sponsorsError } = useListSponsorLicences(
@@ -1543,7 +1493,7 @@ export default function OpportunitiesPage() {
   const [localDismissedIds, setLocalDismissedIds] = useState<Set<number>>(new Set());
   const { data: aiMatchesData, isLoading: aiMatchesLoading } = useGetMyMatches(
     { limit: 200, source: opportunitySource },
-    { query: { queryKey: getGetMyMatchesQueryKey({ limit: 200, source: opportunitySource }), enabled: isAuthenticated && !authLoading && activeTab === "board", retry: false } },
+    { query: { queryKey: getGetMyMatchesQueryKey({ limit: 200, source: opportunitySource }), enabled: isAuthenticated && !authLoading && isVacancyTab, retry: false } },
   );
   const dismissMutation = useDismissMatch();
 
@@ -1564,7 +1514,7 @@ export default function OpportunitiesPage() {
       { data: { roleId } },
       {
         onSettled: () => {
-          void queryClient.invalidateQueries({ queryKey: getGetMyMatchesQueryKey({ limit: 200 }) });
+          void queryClient.invalidateQueries({ queryKey: getGetMyMatchesQueryKey({ limit: 200, source: opportunitySource }) });
         },
       },
     );
@@ -1668,15 +1618,6 @@ export default function OpportunitiesPage() {
     remaining: remainingRoles,
   } = groupRankedOpportunities(filteredRoles);
 
-  const employerGroups = Object.entries(
-    filteredRoles.reduce<Record<string, MatchedRole[]>>((acc, r) => {
-      if (!r.role.sponsorshipOffered) return acc;
-      const key = r.role.employer;
-      acc[key] ??= [];
-      acc[key].push(r);
-      return acc;
-    }, {}),
-  ).filter(([emp]) => emp.toLowerCase().includes(employerSearch.toLowerCase()));
   const sponsorCompanies = sponsorData?.companies ?? [];
   const sentSponsorNames = new Set((speculativeData?.applications ?? []).map((application) => application.companyName.toLowerCase()));
   const hasCvUploaded = (documentsData?.documents ?? []).some((document) => document.documentType === "cv");
@@ -1723,7 +1664,7 @@ export default function OpportunitiesPage() {
                 : noProfile
                 ? "Complete your profile to see a personalised ranked list."
                 : data
-                ? `${filteredRoles.length} of ${roles.length} vacancies ranked by fit — highest match first`
+                ? `${filteredRoles.length} of ${roles.length} ${isCompanySiteTab ? "company-site vacancies" : "job-board vacancies"} ranked by fit — highest match first`
                 : "All vacancies ranked by how well they match your profile."}
             </p>
             {(vacancyStatsData?.totalVacanciesFound ?? 0) > 0 && (
@@ -1768,14 +1709,14 @@ export default function OpportunitiesPage() {
         </div>
 
         {/* Loading / error states */}
-        {isLoading && activeTab !== "sendcv" && (
+        {isLoading && isVacancyTab && (
           <Card className="p-8 text-center">
             <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
             <p className="text-muted-foreground text-sm">Loading opportunities…</p>
           </Card>
         )}
 
-        {isError && activeTab !== "sendcv" && (
+        {isError && isVacancyTab && (
           <Card className="p-8 text-center border-destructive/20">
             <AlertCircle className="w-10 h-10 text-destructive mx-auto mb-3" />
             <p className="text-sm text-destructive font-medium">Could not load opportunities.</p>
@@ -1786,8 +1727,8 @@ export default function OpportunitiesPage() {
           </Card>
         )}
 
-        {/* Job Board tab */}
-        {!isLoading && !isError && activeTab === "board" && (
+        {/* Ranked vacancy tabs */}
+        {!isLoading && !isError && isVacancyTab && (
           <div className="space-y-8">
             {/* No-profile nudge */}
             {noProfile && (
@@ -1888,6 +1829,7 @@ export default function OpportunitiesPage() {
                 localDismissedIds={localDismissedIds}
                 onSmartApply={handleSmartApply}
                 onDismiss={handleDismissMatch}
+                sourceType={opportunitySource}
               />
             )}
 
@@ -1962,7 +1904,7 @@ export default function OpportunitiesPage() {
                 )}
 
                 {/* Remaining ranked lists */}
-                <div id="job-board-section" className="space-y-8">
+                <div id={resultsSectionId} className="space-y-8">
                   {/* Roles that clear the consideration threshold */}
                   {next5Roles.length > 0 && (
                     <section>
@@ -2040,46 +1982,6 @@ export default function OpportunitiesPage() {
                       </div>
                     </section>
                   )}
-                </div>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* Employer Discovery tab */}
-        {!isLoading && !isError && activeTab === "employers" && (
-          <div className="space-y-4">
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search employers…"
-                value={employerSearch}
-                onChange={(e) => setEmployerSearch(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-              />
-            </div>
-
-            {employerGroups.length === 0 ? (
-              <Card className="p-8 text-center">
-                <Building2 className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground">
-                  {roles.length === 0
-                    ? "No employers in catalogue yet. Roles are imported by administrators."
-                    : employerSearch
-                    ? "No sponsoring employers match your search."
-                    : "No employers in your field currently hold a Skilled Worker sponsor licence."}
-                </p>
-              </Card>
-            ) : (
-              <>
-                <p className="text-xs text-muted-foreground">
-                  {employerGroups.length} Skilled Worker sponsor-licence holder{employerGroups.length !== 1 ? "s" : ""} with open roles in your field
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {employerGroups.map(([employer, empRoles]) => (
-                    <EmployerCard key={employer} employer={employer} roles={empRoles} />
-                  ))}
                 </div>
               </>
             )}
