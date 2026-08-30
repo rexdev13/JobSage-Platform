@@ -119,6 +119,8 @@ vi.mock("../../middlewares/consentMiddleware", () => ({
 }));
 vi.mock("../../lib/candidateAiMatch", () => ({ batchScoreRoles: vi.fn() }));
 vi.mock("../../lib/candidateBoardDiscovery", () => ({
+  candidateBoardSourceForProfession: vi.fn().mockReturnValue("nhs"),
+  hasFreshCandidateBoardSnapshot: vi.fn().mockReturnValue(false),
   refreshCandidateBoardVacancies: vi.fn().mockResolvedValue({
     searched: false,
     discovered: 0,

@@ -1,8 +1,14 @@
 import { db, sponsorLicencesTable } from "@workspace/db";
 import { candidateEmployerMatchesSponsor, searchNhsJobsForCandidate } from "./nhsJobsClient";
+import { searchReedJobsForCandidate } from "./reedJobsClient";
 import { regionsFromLocationText, regionsOverlap } from "./regionMatching";
 import { canonicalVacancyUrl, classifyVacancySource } from "./vacancySource";
 import { upsertSharedBoardVacancies } from "./boardVacancyPipeline";
+import {
+  normalizeProfession,
+  professionCategoryFor,
+  statutoryRegulatorForCategory,
+} from "./professionCategory";
 
 export const CANDIDATE_BOARD_CACHE_TTL_MS = 20 * 60 * 1000;
 export const CANDIDATE_BOARD_FAILURE_CACHE_TTL_MS = 20 * 60 * 1000;
@@ -10,6 +16,10 @@ export const MAX_CANDIDATE_BOARD_RESULTS = 300;
 export const MIN_FRESH_CANDIDATE_BOARD_ROWS = 30;
 export const CANDIDATE_BOARD_SNAPSHOT_FRESH_MS = 6 * 60 * 60 * 1000;
 const CANDIDATE_BOARD_SOURCE = "job_board";
+export type CandidateBoardSource = "nhs" | "reed";
+
+const NHS_BOARD_NAMES = new Set(["NHS Jobs", "Trac", "HealthJobsUK"]);
+const REED_BOARD_NAMES = new Set(["Reed"]);
 
 type CandidateBoardProfile = {
   profession: string;
@@ -35,14 +45,21 @@ export function hasFreshCandidateBoardSnapshot(
     boardName: string | null;
   }>,
   now = Date.now(),
+  source?: CandidateBoardSource,
 ): boolean {
   const cutoff = now - CANDIDATE_BOARD_SNAPSHOT_FRESH_MS;
+  const expectedBoards = source === "nhs"
+    ? NHS_BOARD_NAMES
+    : source === "reed"
+      ? REED_BOARD_NAMES
+      : new Set([...NHS_BOARD_NAMES, ...REED_BOARD_NAMES]);
   return roles.filter(
     (role) =>
       role.liveness === "live" &&
       role.applyUrl != null &&
       role.sourceType === "job_board" &&
-      (role.boardName === "NHS Jobs" || role.boardName === "Trac" || role.boardName === "HealthJobsUK") &&
+      role.boardName != null &&
+      expectedBoards.has(role.boardName) &&
       new Date(role.lastDiscoveredAt).getTime() >= cutoff,
   ).length >= MIN_FRESH_CANDIDATE_BOARD_ROWS;
 }
@@ -54,22 +71,38 @@ type CacheEntry = {
 
 const cache = new Map<string, CacheEntry>();
 
-function professionKeywords(profile: CandidateBoardProfile): string {
+export function candidateBoardSourceForProfession(
+  profession: string | null | undefined,
+): CandidateBoardSource {
+  const category = professionCategoryFor(profession);
+  return statutoryRegulatorForCategory(category) ? "nhs" : "reed";
+}
+
+export function professionKeywords(profile: CandidateBoardProfile): string {
+  const normalized = normalizeProfession(profile.profession);
+  const base = (() => {
+    switch (normalized) {
+      case "nurse":
+        return "nurse";
+      case "midwife":
+        return "midwife";
+      case "doctor":
+      case "clinical_academic":
+        return "doctor";
+      case "allied_health_professional":
+        return "physiotherapist OR occupational therapist OR radiographer OR paramedic";
+      case "teacher_lecturer":
+        return "teacher OR lecturer";
+      case "lawyer_solicitor":
+        return "lawyer OR solicitor";
+      case "it_professional":
+        return "software OR IT";
+      default:
+        return normalized.replace(/_/g, " ") || profile.profession.trim();
+    }
+  })();
   const specialty = profile.specialty?.trim();
-  if (specialty) return specialty;
-  switch (profile.profession.toLowerCase().trim()) {
-    case "nurse":
-      return "nurse";
-    case "midwife":
-      return "midwife";
-    case "doctor":
-    case "clinical_academic":
-      return "doctor";
-    case "allied_health_professional":
-      return "physiotherapist";
-    default:
-      return profile.profession.replace(/_/g, " ");
-  }
+  return specialty ? `${base} ${specialty}` : base;
 }
 
 function preferredRegions(profile: CandidateBoardProfile): string[] {
@@ -80,12 +113,15 @@ function preferredRegions(profile: CandidateBoardProfile): string[] {
 async function runRefresh(profile: CandidateBoardProfile): Promise<CandidateBoardRefreshResult> {
   const regions = preferredRegions(profile);
   const region = regions.length === 1 ? regions[0]! : null;
-  const result = await searchNhsJobsForCandidate(
-    professionKeywords(profile),
-    region,
-    MAX_CANDIDATE_BOARD_RESULTS,
-  );
-  if (!result.resultsRequestSucceeded) {
+  const sourceFamily = candidateBoardSourceForProfession(profile.profession);
+  const keywords = professionKeywords(profile);
+  const result = sourceFamily === "nhs"
+    ? await searchNhsJobsForCandidate(keywords, region, MAX_CANDIDATE_BOARD_RESULTS)
+    : await searchReedJobsForCandidate(keywords, region, MAX_CANDIDATE_BOARD_RESULTS);
+  const requestSucceeded = "resultsRequestSucceeded" in result
+    ? result.resultsRequestSucceeded
+    : result.requestSucceeded;
+  if (!requestSucceeded) {
     return {
       searched: true,
       failed: true,
@@ -109,7 +145,8 @@ async function runRefresh(profile: CandidateBoardProfile): Promise<CandidateBoar
     const url = canonicalVacancyUrl(vacancy.url);
     if (!url) return [];
     const source = classifyVacancySource(url);
-    if (source.sourceType !== "job_board" || source.boardName !== "NHS Jobs") return [];
+    const expectedBoard = sourceFamily === "nhs" ? "NHS Jobs" : "Reed";
+    if (source.sourceType !== "job_board" || source.boardName !== expectedBoard) return [];
     return [{ vacancy, organisationName, targetRegions, url, source }];
   }).slice(0, MAX_CANDIDATE_BOARD_RESULTS);
 
@@ -124,14 +161,14 @@ async function runRefresh(profile: CandidateBoardProfile): Promise<CandidateBoar
       description: null,
       postedDate: item.vacancy.postedDate,
       targetRegions: item.targetRegions,
-      boardName: item.source.boardName ?? "NHS Jobs",
+      boardName: item.source.boardName ?? (sourceFamily === "nhs" ? "NHS Jobs" : "Reed"),
       externalId: item.source.externalListingId,
     })),
     { verifiedLive: true },
   );
 
   console.info(
-    `[candidate-board] nhs searched=true discovered=${result.vacancies.length} sponsor_matched=${matched.length} inserted=${persisted.inserted} revived=${persisted.revived}`,
+    `[candidate-board] ${sourceFamily} searched=true discovered=${result.vacancies.length} sponsor_matched=${matched.length} inserted=${persisted.inserted} revived=${persisted.revived}`,
   );
   return {
     searched: true,
@@ -151,13 +188,14 @@ export async function refreshCandidateBoardVacancies(
       .map((region) => region.trim().toLowerCase())
       .filter(Boolean),
   )].sort();
+  const sourceFamily = candidateBoardSourceForProfession(profile.profession);
   const keywords = professionKeywords(profile).trim().toLowerCase().replace(/\s+/g, " ");
-  const key = `${CANDIDATE_BOARD_SOURCE}|${keywords}|${regions.join(",")}`;
+  const key = `${CANDIDATE_BOARD_SOURCE}|${sourceFamily}|${keywords}|${regions.join(",")}`;
   const existing = cache.get(key);
   if (existing && existing.expiresAt > Date.now()) return existing.promise;
 
   const promise = runRefresh(profile).catch((error) => {
-    console.warn("[candidate-board] NHS live refresh failed:", error instanceof Error ? error.message : error);
+    console.warn(`[candidate-board] ${sourceFamily} live refresh failed:`, error instanceof Error ? error.message : error);
     return { searched: true, failed: true, discovered: 0, sponsorMatched: 0, inserted: 0, revived: 0 };
   });
   const entry = { expiresAt: Date.now() + CANDIDATE_BOARD_CACHE_TTL_MS, promise };

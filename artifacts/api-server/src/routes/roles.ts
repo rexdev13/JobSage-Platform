@@ -65,6 +65,7 @@ import {
   qualifiesForApplyFirst,
 } from "../lib/opportunityRanking";
 import {
+  candidateBoardSourceForProfession,
   hasFreshCandidateBoardSnapshot,
   refreshCandidateBoardVacancies,
 } from "../lib/candidateBoardDiscovery";
@@ -422,8 +423,15 @@ router.get("/roles", async (req, res): Promise<void> => {
     onlyVerifiedLive: sourceFilter != null,
   }))
     .filter((role) => roleMatchesPreferredRegions(role.targetRegions, profile.preferredRegion));
-  if (sourceFilter === "job_board" && !hasFreshCandidateBoardSnapshot(sponsorVacancyRoles)) {
-    // A cold NHS search can span many politely paced pages. Keep the candidate
+  if (
+    sourceFilter === "job_board" &&
+    !hasFreshCandidateBoardSnapshot(
+      sponsorVacancyRoles,
+      Date.now(),
+      candidateBoardSourceForProfession(profile.profession),
+    )
+  ) {
+    // A cold board search can be politely paced. Keep the candidate
     // request DB-first and non-blocking; the shared cache/store feeds the next
     // request after this refresh completes.
     void refreshCandidateBoardVacancies(profile);
@@ -804,7 +812,14 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
     onlyVerifiedLive: sourceFilter != null,
   }))
     .filter((role) => roleMatchesPreferredRegions(role.targetRegions, profile.preferredRegion));
-  if (sourceFilter === "job_board" && !hasFreshCandidateBoardSnapshot(sponsorVacancyRoles)) {
+  if (
+    sourceFilter === "job_board" &&
+    !hasFreshCandidateBoardSnapshot(
+      sponsorVacancyRoles,
+      Date.now(),
+      candidateBoardSourceForProfession(profile.profession),
+    )
+  ) {
     void refreshCandidateBoardVacancies(profile);
   }
 
@@ -1167,7 +1182,14 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
     requireSpecificVacancyUrl: sourceFilter != null,
     onlyVerifiedLive: sourceFilter != null,
   });
-  if (sourceFilter === "job_board" && !hasFreshCandidateBoardSnapshot(sponsorVacancyRoles)) {
+  if (
+    sourceFilter === "job_board" &&
+    !hasFreshCandidateBoardSnapshot(
+      sponsorVacancyRoles,
+      Date.now(),
+      candidateBoardSourceForProfession(profile.profession),
+    )
+  ) {
     void refreshCandidateBoardVacancies(profile);
   }
 

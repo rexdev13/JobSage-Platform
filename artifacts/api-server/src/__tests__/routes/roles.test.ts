@@ -4,8 +4,14 @@ import cookieParser from "cookie-parser";
 import request from "supertest";
 
 // ── hoisted DB results queue ──────────────────────────────────────────────────
-const { dbResults, refreshCandidateBoardVacanciesMock, discoverCompanySiteVacanciesMock } = vi.hoisted(() => ({
+const {
+  dbResults,
+  hasFreshCandidateBoardSnapshotMock,
+  refreshCandidateBoardVacanciesMock,
+  discoverCompanySiteVacanciesMock,
+} = vi.hoisted(() => ({
   dbResults: [] as any[],
+  hasFreshCandidateBoardSnapshotMock: vi.fn().mockReturnValue(false),
   refreshCandidateBoardVacanciesMock: vi.fn(),
   discoverCompanySiteVacanciesMock: vi.fn(),
 }));
@@ -81,7 +87,10 @@ vi.mock("../../lib/candidateAiMatch", () => ({
 }));
 
 vi.mock("../../lib/candidateBoardDiscovery", () => ({
-  hasFreshCandidateBoardSnapshot: vi.fn().mockReturnValue(false),
+  candidateBoardSourceForProfession: vi.fn((profession: string) =>
+    profession.toLowerCase().includes("nurse") ? "nhs" : "reed",
+  ),
+  hasFreshCandidateBoardSnapshot: hasFreshCandidateBoardSnapshotMock,
   refreshCandidateBoardVacancies: refreshCandidateBoardVacanciesMock.mockResolvedValue({
     searched: false,
     discovered: 0,
@@ -222,6 +231,7 @@ describe("Admin roles CSV import — applyUrl column", () => {
 describe("GET /roles — vacancy-specific speculative CV matching (appliedRoleIds)", () => {
   beforeEach(() => {
     dbResults.length = 0;
+    hasFreshCandidateBoardSnapshotMock.mockReset().mockReturnValue(false);
     refreshCandidateBoardVacanciesMock.mockClear();
     discoverCompanySiteVacanciesMock.mockClear();
   });
@@ -312,6 +322,23 @@ describe("GET /roles — vacancy-specific speculative CV matching (appliedRoleId
 
     expect(response.status).toBe(200);
     expect(refreshCandidateBoardVacanciesMock).toHaveBeenCalled();
+  });
+
+  it("does not refresh again when the accountant feed has a fresh Reed snapshot", async () => {
+    hasFreshCandidateBoardSnapshotMock.mockReturnValue(true);
+    pushRolesDbResults([], [], { profession: "Accountant" });
+
+    const response = await request(buildApp())
+      .get("/roles?source=job_board")
+      .set("Authorization", AUTH);
+
+    expect(response.status).toBe(200);
+    expect(hasFreshCandidateBoardSnapshotMock).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.any(Number),
+      "reed",
+    );
+    expect(refreshCandidateBoardVacanciesMock).not.toHaveBeenCalled();
   });
 
   it("serves company-site Opportunities from the database without fetching employer HTML", async () => {
