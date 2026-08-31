@@ -26,6 +26,8 @@ export interface SponsorLicenceCompany {
   matchIsEligible?: boolean | null;
   /** Timestamp of the most recent successful vacancy check for this employer. */
   lastVacancyCheckedAt?: Date | null;
+  /** True when Send CV resolves to a stored direct employer email rather than the operations fallback. */
+  sendCvEligible?: boolean;
   /** Company website URL enriched via AI. */
   website?: string | null;
   /** Contact email address enriched via AI. */

@@ -9,6 +9,7 @@ import { startCheckAllVacancies, getCheckAllStatus } from "../lib/vacancyCheckAl
 import { scoreVacanciesForCompany } from "../lib/sponsorVacancyScoring";
 import { getOrGenerateGapAnalysis, LimitReachedError } from "../lib/vacancyGapAnalysis";
 import { getNextReadinessReset, getReadinessMonthStart, READINESS_CHECK_LIMIT } from "../lib/readinessQuota";
+import { getDirectContactEligibility } from "../lib/employerRecipient";
 
 const router: IRouter = Router();
 
@@ -589,6 +590,7 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
         : [];
     const hasVacanciesParam = req.query["hasVacancies"];
     const filterVacancies = hasVacanciesParam === "true";
+    const directContactOnly = req.query["directContactOnly"] === "true";
     const bookmarkedOnly = req.query["bookmarkedOnly"] === "true";
     const page = Math.max(1, parseInt(String(req.query["page"] ?? "1"), 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(String(req.query["limit"] ?? "20"), 10) || 20));
@@ -635,6 +637,12 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
     }
 
     const allCompanies = await companiesQuery.orderBy(sponsorLicencesTable.organisationName);
+    const directContactEligibility = await getDirectContactEligibility(
+      allCompanies.map((company) => ({
+        companyName: company.organisationName,
+        sponsorLicenceId: company.id,
+      })),
+    );
 
     // Fetch the most recent AI-reported vacancy count per org from vacancy_checks.
     // vacancyCount here is the actual total the AI found (e.g. 40), not the count
@@ -678,7 +686,7 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
       matchScoreRows.rows.map((r) => [r.organisation_name.toLowerCase().trim(), { score: r.score, isEligible: r.is_eligible }]),
     );
 
-    const annotated = allCompanies.map((c) => {
+    const annotated = allCompanies.map((c, index) => {
       const key = c.organisationName.toLowerCase().trim();
       const storedVacancyCount = storedVacancyCounts.get(key) ?? null;
       const match = matchScoresByOrg.get(key);
@@ -691,6 +699,7 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
         matchScore: match?.score ?? null,
         matchIsEligible: match?.isEligible ?? null,
         lastVacancyCheckedAt: lastVacancyCheckedAtByOrg.get(key) ?? null,
+        sendCvEligible: directContactEligibility[index] === true,
       };
     });
 
@@ -722,6 +731,7 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
 
     let filtered = annotated;
     if (bookmarkedOnly) filtered = filtered.filter((c) => c.isBookmarked);
+    if (directContactOnly) filtered = filtered.filter((c) => c.sendCvEligible);
 
     const total = filtered.length;
     const companies = filtered.slice(offset, offset + limit);

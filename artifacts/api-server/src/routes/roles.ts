@@ -73,6 +73,7 @@ import {
   filterAcknowledgedGaps,
   getCandidateReadinessClaims,
 } from "../lib/readinessClaims";
+import { getDirectContactEligibility } from "../lib/employerRecipient";
 import {
   getNextReadinessReset,
   getReadinessMonthStart,
@@ -604,6 +605,9 @@ router.get("/roles", async (req, res): Promise<void> => {
     appliedApps,
     regulatorRoles,
   );
+  const sendCvEligibility = await getDirectContactEligibility(
+    regulatorRoles.map((role) => ({ companyName: role.employer })),
+  );
 
   // Build a lookup from the persisted AI scores so the roles response can
   // sort and badge each card with the same value the /my-matches strip uses.
@@ -626,7 +630,7 @@ router.get("/roles", async (req, res): Promise<void> => {
     .split(/\s+/)
     .filter(Boolean);
 
-  const result = regulatorRoles.map((role) => {
+  const result = regulatorRoles.map((role, index) => {
     const professionallyRelevant =
       sponsorRelevance.get(role.id) !== false && !isManualLabourTitle(role.title);
     const reqReg = role.requiredRegistration.toLowerCase();
@@ -722,6 +726,7 @@ router.get("/roles", async (req, res): Promise<void> => {
       contactEmail: role.contactEmail ?? null,
       contactPhone: role.contactPhone ?? null,
       contactWebsite: role.contactWebsite ?? null,
+      sendCvEligible: sendCvEligibility[index] === true,
       applyUrl: role.applyUrl ?? null,
       linkVerified: role.linkVerified ?? false,
       linkCheckedAt: role.linkCheckedAt ?? null,

@@ -614,6 +614,8 @@ export interface MatchedRole {
   contactPhone?: string | null;
   /** Company website URL from employer profile, where available */
   contactWebsite?: string | null;
+  /** True when the persisted Send CV recipient lookup found a direct employer email. */
+  sendCvEligible?: boolean;
 }
 
 export interface MatchedRoleList {
@@ -1398,6 +1400,8 @@ export interface SponsorLicenceCompany {
   matchIsEligible?: boolean | null;
   /** Timestamp of the most recent successful vacancy check for this employer. */
   lastVacancyCheckedAt?: string | null;
+  /** True when Send CV resolves to a stored direct employer email rather than the operations fallback. */
+  sendCvEligible?: boolean;
   /** Company website URL enriched via AI. */
   website?: string | null;
   /** Contact email address enriched via AI. */
@@ -1869,6 +1873,8 @@ export interface SendSpeculativeApplicationRequest {
   boardName?: string | null;
   notes?: string | null;
   cvDocumentId?: number | null;
+  /** Reject the request instead of using the legacy operations fallback when no direct employer email is stored. */
+  requireDirectContact?: boolean;
 }
 
 export interface SpeculativeApplicationResult {
@@ -2530,6 +2536,10 @@ export type ListSponsorLicencesParams = {
    * If true, return only the candidate's bookmarked companies
    */
   bookmarkedOnly?: boolean;
+  /**
+   * If true, return only companies with a stored direct employer email usable by Send CV
+   */
+  directContactOnly?: boolean;
   page?: number;
   /**
    * @maximum 100

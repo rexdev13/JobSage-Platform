@@ -31,6 +31,10 @@ export type ListSponsorLicencesParams = {
    * If true, return only the candidate's bookmarked companies
    */
   bookmarkedOnly?: boolean;
+  /**
+   * If true, return only companies with a stored direct employer email usable by Send CV
+   */
+  directContactOnly?: boolean;
   page?: number;
   /**
    * @maximum 100

@@ -1093,6 +1093,12 @@ export const ListMatchedRolesResponse = zod.object({
         .string()
         .nullish()
         .describe("Company website URL from employer profile, where available"),
+      sendCvEligible: zod
+        .boolean()
+        .optional()
+        .describe(
+          "True when the persisted Send CV recipient lookup found a direct employer email.",
+        ),
     }),
   ),
   decisionRecordId: zod.number().nullish(),
@@ -2960,6 +2966,12 @@ export const SendSpeculativeApplicationBody = zod.object({
   boardName: zod.string().nullish(),
   notes: zod.string().nullish(),
   cvDocumentId: zod.number().nullish(),
+  requireDirectContact: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Reject the request instead of using the legacy operations fallback when no direct employer email is stored.",
+    ),
 });
 
 export const SendSpeculativeApplicationResponse = zod.object({
@@ -3323,6 +3335,12 @@ export const ListSponsorLicencesQueryParams = zod.object({
     .boolean()
     .optional()
     .describe("If true, return only the candidate's bookmarked companies"),
+  directContactOnly: zod.coerce
+    .boolean()
+    .optional()
+    .describe(
+      "If true, return only companies with a stored direct employer email usable by Send CV",
+    ),
   page: zod.coerce.number().default(listSponsorLicencesQueryPageDefault),
   limit: zod.coerce
     .number()
@@ -3363,6 +3381,12 @@ export const ListSponsorLicencesResponse = zod.object({
         .nullish()
         .describe(
           "Timestamp of the most recent successful vacancy check for this employer.",
+        ),
+      sendCvEligible: zod
+        .boolean()
+        .optional()
+        .describe(
+          "True when Send CV resolves to a stored direct employer email rather than the operations fallback.",
         ),
       website: zod
         .string()

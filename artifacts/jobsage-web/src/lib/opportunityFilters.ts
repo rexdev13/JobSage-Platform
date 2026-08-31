@@ -27,6 +27,9 @@ export function shouldShowOpportunityApplyActions(sendCvOnly: boolean | undefine
   return !sendCvOnly;
 }
 
+export function shouldShowSendCv(sendCvEligible: boolean | null | undefined): boolean {
+  return sendCvEligible === true;
+}
 export const CONSIDER_MIN_SCORE = 40;
 
 export function getOpportunityApplyAction({
@@ -96,4 +99,10 @@ export function filterOpportunities<T extends OpportunityFilterRole>(
     (!filters.sponsorshipOnly || role.sponsorshipOffered) &&
     hasRegionOverlap(role.targetRegions, filters.selectedRegions),
   );
+}
+
+export function filterSendCvSponsors<T extends { sendCvEligible?: boolean | null }>(
+  companies: T[],
+): T[] {
+  return companies.filter((company) => shouldShowSendCv(company.sendCvEligible));
 }

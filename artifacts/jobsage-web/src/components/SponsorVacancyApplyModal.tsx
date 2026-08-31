@@ -105,6 +105,7 @@ export interface SponsorVacancyApplyModalProps {
   sourceType?: "job_board" | "company_site" | null;
   boardName?: string | null;
   speculative?: boolean;
+  requireDirectContact?: boolean;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -123,6 +124,7 @@ export function SponsorVacancyApplyModal({
   sourceType,
   boardName,
   speculative = false,
+  requireDirectContact = false,
   onClose,
   onSuccess,
 }: SponsorVacancyApplyModalProps) {
@@ -187,6 +189,7 @@ export function SponsorVacancyApplyModal({
           vacancyUrl: externalUrl ?? undefined,
           sourceType: sourceType ?? undefined,
           boardName: boardName ?? undefined,
+           requireDirectContact,
           notes,
           cvDocumentId: selectedCvId ?? null,
         },

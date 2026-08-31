@@ -78,11 +78,13 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import {
   defaultSponsorshipOnly,
+  filterSendCvSponsors,
   filterOpportunities,
   getOpportunityApplyAction,
   groupRankedOpportunities,
   hasRegionOverlap,
   shouldShowOpportunityApplyActions,
+  shouldShowSendCv,
   UK_REGIONS,
 } from "@/lib/opportunityFilters";
 import { checkApplyLinkInBackground } from "@/lib/vacancyApply";
@@ -1052,14 +1054,16 @@ function RoleCard({
           >
             <FileText className="w-3 h-3" /> Cover Letter
           </Button>
-          <Button
-            size="sm"
-            variant={cvSent ? "outline" : "accent"}
-            className="text-xs h-8 gap-1"
-            onClick={(e) => { e.stopPropagation(); onSendCv(item); }}
-          >
-            <Send className="w-3 h-3" /> {cvSent ? "Resend CV" : "Send CV"}
-          </Button>
+          {shouldShowSendCv(item.sendCvEligible) && (
+            <Button
+              size="sm"
+              variant={cvSent ? "outline" : "accent"}
+              className="text-xs h-8 gap-1"
+              onClick={(e) => { e.stopPropagation(); onSendCv(item); }}
+            >
+              <Send className="w-3 h-3" /> {cvSent ? "Resend CV" : "Send CV"}
+            </Button>
+          )}
           {isEligible && !applied && (
             <Button
               size="sm"
@@ -1420,6 +1424,7 @@ export default function OpportunitiesPage() {
   const [selectedRole, setSelectedRole] = useState<MatchedRole | null>(null);
   const [sponsorSearch, setSponsorSearch] = useState("");
   const [sendCvTarget, setSendCvTarget] = useState<MatchedRole | null>(null);
+  const [sendCvCompanyTarget, setSendCvCompanyTarget] = useState<SponsorLicenceCompany | null>(null);
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
   const [smartApplyRole, setSmartApplyRole] = useState<{ id: number; title: string } | null>(null);
   const [coverLetterRole, setCoverLetterRole] = useState<MatchedRole["role"] | null>(null);
@@ -1491,6 +1496,7 @@ export default function OpportunitiesPage() {
     {
       search: sponsorSearch || undefined,
       region: selectedRegions.length > 0 ? selectedRegions : undefined,
+      directContactOnly: true,
       page: 1,
       limit: 100,
     },
@@ -1499,10 +1505,11 @@ export default function OpportunitiesPage() {
         queryKey: getListSponsorLicencesQueryKey({
           search: sponsorSearch || undefined,
           region: selectedRegions.length > 0 ? selectedRegions : undefined,
+          directContactOnly: true,
           page: 1,
           limit: 100,
         }),
-        enabled: false,
+        enabled: activeTab === "sendcv",
       },
     },
   );
@@ -1654,7 +1661,9 @@ export default function OpportunitiesPage() {
     remaining: remainingRoles,
   } = groupRankedOpportunities(filteredRoles);
 
-  const sponsorCompanies = sponsorData?.companies ?? [];
+  // The server filter is authoritative. The boolean check is defensive against
+  // stale cached responses from before direct-contact eligibility was added.
+  const sponsorCompanies = filterSendCvSponsors(sponsorData?.companies ?? []);
   const sentSponsorNames = new Set((speculativeData?.applications ?? []).map((application) => application.companyName.toLowerCase()));
   const hasCvUploaded = (documentsData?.documents ?? []).some((document) => document.documentType === "cv");
 
@@ -1764,7 +1773,7 @@ export default function OpportunitiesPage() {
         )}
 
         {/* Ranked vacancy tabs */}
-        {!isLoading && !isError && isVacancyTab && (
+        {!isLoading && !isError && isVacancyTab && activeTab !== "sendcv" && (
           <div className="space-y-8">
             {/* No-profile nudge */}
             {noProfile && (
@@ -1935,7 +1944,7 @@ export default function OpportunitiesPage() {
                             onViewAnalysis={setGapAnalysisRole}
                             requireExtension={requireExtension}
                             onExternalApply={handleExternalApply}
-                            sendCvOnly={activeTab === "sendcv"}
+                            sendCvOnly={false}
                           />
                         </motion.div>
                       ))}
@@ -1979,7 +1988,7 @@ export default function OpportunitiesPage() {
                               onViewAnalysis={setGapAnalysisRole}
                               requireExtension={requireExtension}
                               onExternalApply={handleExternalApply}
-                              sendCvOnly={activeTab === "sendcv"}
+                              sendCvOnly={false}
                             />
                           </motion.div>
                         ))}
@@ -2021,7 +2030,7 @@ export default function OpportunitiesPage() {
                               onViewAnalysis={setGapAnalysisRole}
                               requireExtension={requireExtension}
                               onExternalApply={handleExternalApply}
-                              sendCvOnly={activeTab === "sendcv"}
+                              sendCvOnly={false}
                             />
                           </motion.div>
                         ))}
@@ -2035,7 +2044,7 @@ export default function OpportunitiesPage() {
         )}
 
         {/* Send CV tab */}
-        {false && activeTab === "sendcv" && (
+        {activeTab === "sendcv" && (
           <div className="space-y-4">
             <Card className="p-5 border-sky-500/20 bg-sky-500/[0.04]">
               <div className="flex items-start gap-3">
@@ -2071,7 +2080,10 @@ export default function OpportunitiesPage() {
             ) : sponsorCompanies.length === 0 ? (
               <Card className="p-8 text-center">
                 <Building2 className="w-9 h-9 text-muted-foreground/40 mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground">No sponsor organisations match this search and region selection.</p>
+                <p className="text-sm font-medium text-foreground">No sponsors with a direct email match these filters.</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Send CV is only available when JOBSAGE has a stored employer contact email.
+                </p>
               </Card>
             ) : (
               <>
@@ -2085,7 +2097,7 @@ export default function OpportunitiesPage() {
                       company={company}
                       alreadySent={sentSponsorNames.has(company.organisationName.toLowerCase())}
                       hasCv={hasCvUploaded}
-                      onSend={() => undefined}
+                      onSend={() => setSendCvCompanyTarget(company)}
                       onUploadCv={() => setLocation("/documents")}
                     />
                   ))}
@@ -2106,6 +2118,7 @@ export default function OpportunitiesPage() {
         {sendCvTarget && (
           <SponsorVacancyApplyModal
             speculative
+            requireDirectContact
             companyName={sendCvTarget.role.employer}
             vacancyTitle={sendCvTarget.role.title}
             roleId={sendCvTarget.role.id}
@@ -2118,6 +2131,25 @@ export default function OpportunitiesPage() {
               void queryClient.invalidateQueries({ queryKey: ["listSpeculativeApplications"] });
               void queryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
               void queryClient.invalidateQueries({ queryKey: getListMatchedRolesQueryKey() });
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {sendCvCompanyTarget && (
+          <SponsorVacancyApplyModal
+            speculative
+            requireDirectContact
+            companyName={sendCvCompanyTarget.organisationName}
+            companyId={sendCvCompanyTarget.id}
+            location={[sendCvCompanyTarget.townCity, sendCvCompanyTarget.region ?? sendCvCompanyTarget.county].filter(Boolean).join(", ") || null}
+            onClose={() => setSendCvCompanyTarget(null)}
+            onSuccess={() => {
+              setSendCvCompanyTarget(null);
+              void queryClient.invalidateQueries({ queryKey: ["listSpeculativeApplications"] });
+              void queryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
+              void queryClient.invalidateQueries({ queryKey: getListSponsorLicencesQueryKey() });
             }}
           />
         )}

@@ -170,3 +170,73 @@ Status is only advanced — a reply cannot move an application backward (except
 - **Duplicate deliveries** are deduplicated using the Resend `messageId`.
 - **Rate limiting** caps inbound processing at 20 emails per minute per sender.
 - The endpoint returns HTTP 200 for all "safe skip" cases so Resend does not retry.
+
+---
+
+## Authenticated staging smoke test: Send CV direct-contact loop
+
+Run this checklist after changing Send CV delivery, Resend, inbound DNS, or webhook
+configuration. Use a staging candidate account and controlled mailboxes; do not use
+a real candidate CV or an uncontrolled employer address.
+
+### Preconditions
+
+- Staging is configured with its own authenticated candidate account.
+- The candidate has a real PDF CV in Documents.
+- Company A has a stored sponsor contact, employer-profile contact, or registered
+  employer-account email pointing to a controlled employer mailbox.
+- Company B has no stored direct contact and therefore resolves only to the
+  operations fallback mailbox.
+- The controlled employer mailbox can reply to the candidate's generated
+  `@mail.jobsage.app` alias.
+- Resend sending-domain DNS, inbound-domain MX records, `RESEND_API_KEY`, and
+  `INBOUND_EMAIL_WEBHOOK_SECRET` are configured for staging. Record any
+  infrastructure changes separately from application-code results.
+
+### Direct send and attachment
+
+1. Sign in as the staging candidate and open Opportunities.
+2. Confirm Company A shows **Send CV** on an eligible vacancy and appears in the
+   Send CV tab.
+3. Send the selected PDF from the vacancy card.
+4. Confirm the normal Apply/Smart Apply action is still available on that vacancy.
+5. In the controlled employer mailbox, verify:
+   - exactly one message arrives;
+   - the recipient is the controlled direct employer address, not operations;
+   - the selected PDF opens successfully;
+   - subject/body content identify the expected candidate, company, and vacancy;
+   - Reply-To is the candidate's generated JOBSAGE alias.
+6. In the candidate tracker, confirm the vacancy-linked record contains the
+   expected role/reference, `deliveryStatus=delivered`, `emailSent=true`, the
+   actual recipient, the direct delivery route, PDF attachment type, and one
+   delivery attempt.
+
+### Reply ingestion
+
+1. Reply from the controlled employer mailbox to the generated alias with a
+   clearly classifiable response such as an interview invitation.
+2. Confirm the signed Resend webhook is accepted once.
+3. Confirm the candidate inbox receives the reply and the tracker status advances
+   to the expected classification without creating a duplicate message.
+
+### No-contact exclusion and failure handling
+
+1. Confirm Company B has no Send CV action on vacancy cards and does not appear
+   in the Send CV tab under equivalent search/region filters.
+2. Submit an authenticated stale UI-style request for Company B with
+   `requireDirectContact=true`; expect HTTP 422, no outbound message, and no
+   successful tracker record.
+3. Repeat the request without `requireDirectContact` only as a legacy/API
+   compatibility check; verify it is explicitly recorded as `ops_fallback`, not
+   presented as a direct employer delivery.
+4. Temporarily force a controlled delivery rejection for Company A. Confirm the
+   attempt is recorded as failed, `emailSent` remains false, the actual error and
+   route are retained, and the tracker never displays “Delivered directly.”
+5. Restore delivery and retry. Confirm the retry produces one successful direct
+   message, increments delivery-attempt metadata correctly, and preserves the
+   same vacancy-linked tracker identity.
+
+Record the staging date, tester, candidate/company fixtures, message IDs, tracker
+record IDs, observed routes/statuses, and pass/fail result in the release evidence.
+Never copy API keys, webhook secrets, full CV contents, or uncontrolled personal
+email addresses into that evidence.

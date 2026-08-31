@@ -42,4 +42,6 @@ export interface MatchedRole {
   contactPhone?: string | null;
   /** Company website URL from employer profile, where available */
   contactWebsite?: string | null;
+  /** True when the persisted Send CV recipient lookup found a direct employer email. */
+  sendCvEligible?: boolean;
 }

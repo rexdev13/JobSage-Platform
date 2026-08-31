@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, PageTransition, Button } from "@/components/ui-enhanced";
 import { SponsorVacancyApplyModal } from "@/components/SponsorVacancyApplyModal";
+import { shouldShowSendCv } from "@/lib/opportunityFilters";
 import { GapAnalysisSheet } from "@/components/GapAnalysisSheet";
 import { getListMyApplicationsQueryKey } from "@workspace/api-client-react";
 import { openTrackedSponsorVacancy, openTrackedOutbound, normalizeWebsiteUrl } from "@/lib/trackedOutbound";
@@ -186,7 +187,11 @@ function getSectorConfig(industry: string): SectorConfig {
   return SECTOR_CONFIG[industry] ?? SECTOR_CONFIG["Other"]!;
 }
 
-type SelectedVacancy = SponsorLicenceVacancyMatch & { companyName: string; companyId: number };
+type SelectedVacancy = SponsorLicenceVacancyMatch & {
+  companyName: string;
+  companyId: number;
+  sendCvEligible: boolean;
+};
 
 function VacancyMatchPanel({
   companyId,
@@ -194,6 +199,7 @@ function VacancyMatchPanel({
   hasCvUploaded,
   isSent,
   sendCVPending,
+  sendCvEligible,
   storedVacancyCount,
   careersUrl,
   onSendCV,
@@ -209,6 +215,7 @@ function VacancyMatchPanel({
   hasCvUploaded: boolean;
   isSent: boolean;
   sendCVPending: boolean;
+  sendCvEligible: boolean;
   storedVacancyCount: number | null;
   careersUrl: string | null;
   onSendCV: () => void;
@@ -289,13 +296,15 @@ function VacancyMatchPanel({
                 <ExternalLink className="w-3 h-3 opacity-60" />
               </button>
             )}
-            <button
-              onClick={onSendCV}
-              disabled={isSent || sendCVPending}
-              className="text-xs text-primary font-medium hover:underline disabled:opacity-50 flex items-center gap-1"
-            >
-              {isSent ? "CV Sent ✓" : "Send CV speculatively"}
-            </button>
+            {sendCvEligible && (
+              <button
+                onClick={onSendCV}
+                disabled={isSent || sendCVPending}
+                className="text-xs text-primary font-medium hover:underline disabled:opacity-50 flex items-center gap-1"
+              >
+                {isSent ? "CV Sent ✓" : "Send CV speculatively"}
+              </button>
+            )}
           </div>
         </div>
       ) : vacancies.length === 0 ? (
@@ -308,13 +317,15 @@ function VacancyMatchPanel({
             <Globe className="w-3 h-3" />
             Apply on company website
           </button>
-          <button
-            onClick={onSendCV}
-            disabled={isSent || sendCVPending}
-            className="text-xs text-primary font-medium hover:underline disabled:opacity-50 flex items-center gap-1"
-          >
-            {isSent ? "CV Sent ✓" : "Send CV speculatively"}
-          </button>
+          {sendCvEligible && (
+            <button
+              onClick={onSendCV}
+              disabled={isSent || sendCVPending}
+              className="text-xs text-primary font-medium hover:underline disabled:opacity-50 flex items-center gap-1"
+            >
+              {isSent ? "CV Sent ✓" : "Send CV speculatively"}
+            </button>
+          )}
         </div>
       ) : (
         <div className="rounded-xl border border-green-200 bg-green-50/60 dark:bg-green-950/20 dark:border-green-800/40 overflow-hidden">
@@ -339,7 +350,7 @@ function VacancyMatchPanel({
                 <div
                   key={v.id}
                   className="flex items-start justify-between gap-3 px-3 py-2.5 rounded-lg bg-white dark:bg-green-950/40 border border-green-100 dark:border-green-800/30 group hover:border-green-300 dark:hover:border-green-700/60 transition-colors cursor-pointer"
-                  onClick={() => onSelectVacancy({ ...v, companyName, companyId })}
+                  onClick={() => onSelectVacancy({ ...v, companyName, companyId, sendCvEligible })}
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -411,7 +422,10 @@ function VacancyMatchPanel({
                     {score != null && (
                       <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); onViewAnalysis({ ...v, companyName, companyId }); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onViewAnalysis({ ...v, companyName, companyId, sendCvEligible });
+                        }}
                         className="mt-1.5 inline-flex items-center gap-1 text-xs text-primary font-medium hover:underline"
                       >
                         <Sparkles className="w-3 h-3" />
@@ -434,7 +448,7 @@ function VacancyMatchPanel({
                         <ExternalLink className="w-3.5 h-3.5 opacity-60" />
                       </Button>
                     )}
-                    {(() => {
+                    {sendCvEligible && (() => {
                       const disabledReason = getApplyDisabledReason(hasCvUploaded, eligible);
                       return (
                         <span
@@ -443,7 +457,7 @@ function VacancyMatchPanel({
                         >
                           <Button
                             size="sm"
-                            onClick={(e) => { e.stopPropagation(); onApply({ ...v, companyName, companyId }); }}
+                          onClick={(e) => { e.stopPropagation(); onApply({ ...v, companyName, companyId, sendCvEligible }); }}
                             disabled={disabledReason != null}
                           >
                             <Send className="w-3.5 h-3.5" />
@@ -492,19 +506,21 @@ function VacancyMatchPanel({
             >
               <Globe className="w-3.5 h-3.5" /> Apply on company website
             </Button>
-            <Button
-              size="sm"
-              variant={isSent ? "outline" : "default"}
-              className="text-xs gap-1.5 h-7"
-              onClick={onSendCV}
-              disabled={sendCVPending}
-            >
-              {isSent ? (
-                <><CheckCircle2 className="w-3.5 h-3.5" /> CV Sent</>
-              ) : (
-                <><Send className="w-3.5 h-3.5" /> Send CV speculatively</>
-              )}
-            </Button>
+            {sendCvEligible && (
+              <Button
+                size="sm"
+                variant={isSent ? "outline" : "default"}
+                className="text-xs gap-1.5 h-7"
+                onClick={onSendCV}
+                disabled={sendCVPending}
+              >
+                {isSent ? (
+                  <><CheckCircle2 className="w-3.5 h-3.5" /> CV Sent</>
+                ) : (
+                  <><Send className="w-3.5 h-3.5" /> Send CV speculatively</>
+                )}
+              </Button>
+            )}
             <p className="text-[10px] text-green-700/60 dark:text-green-400/50">
               Vacancies sourced from job boards. Always verify directly on the employer's official site.
             </p>
@@ -1657,6 +1673,7 @@ export default function SponsorLicencesPage() {
                               hasCvUploaded={hasCvUploaded}
                               isSent={sentCompanyNames.has(c.organisationName)}
                               sendCVPending={false}
+                              sendCvEligible={shouldShowSendCv(c.sendCvEligible)}
                               onSendCV={() => handleOpenSpeculativeModal(c.organisationName, c.id)}
                               onSelectVacancy={setSelectedVacancy}
                               onApply={handleOpenApplyModal}
@@ -1821,7 +1838,7 @@ export default function SponsorLicencesPage() {
                   <Sparkles className="w-4 h-4" />
                   View Readiness Check
                 </button>
-                {(() => {
+                {selectedVacancy.sendCvEligible && (() => {
                   const disabledReason = getApplyDisabledReason(hasCvUploaded, selectedVacancy.isEligible);
                   return (
                     <span title={disabledReason ? APPLY_DISABLED_TITLES[disabledReason] : undefined}>
@@ -1866,6 +1883,7 @@ export default function SponsorLicencesPage() {
       <AnimatePresence>
         {applyModalVacancy && (
           <SponsorVacancyApplyModal
+            requireDirectContact
             vacancyId={applyModalVacancy.id}
             vacancyTitle={applyModalVacancy.title}
             companyName={applyModalVacancy.companyName}
@@ -1888,6 +1906,7 @@ export default function SponsorLicencesPage() {
         {speculativeModalTarget && (
           <SponsorVacancyApplyModal
             speculative
+            requireDirectContact
             companyName={speculativeModalTarget.companyName}
             companyId={speculativeModalTarget.companyId}
             onClose={() => setSpeculativeModalTarget(null)}

@@ -35,7 +35,11 @@ vi.mock("@workspace/integrations-openai-ai-server", () => ({
   openai: { responses: { create: openAiCreate } },
 }));
 
-const { resolveEmployerRecipient } = await import("../../routes/speculativeApplications");
+const {
+  isUsableEmployerEmail,
+  resolveEmployerRecipient,
+  shouldRejectOperationsFallback,
+} = await import("../../routes/speculativeApplications");
 
 beforeEach(() => {
   dbSelectResults.length = 0;
@@ -43,6 +47,15 @@ beforeEach(() => {
 });
 
 describe("resolveEmployerRecipient", () => {
+  it("rejects operations fallback only for direct-contact UI requests", () => {
+    expect(shouldRejectOperationsFallback(true, "ops_fallback")).toBe(true);
+    expect(shouldRejectOperationsFallback(false, "ops_fallback")).toBe(false);
+    expect(shouldRejectOperationsFallback(undefined, "ops_fallback")).toBe(false);
+    expect(shouldRejectOperationsFallback(true, "employer_contact_email")).toBe(false);
+    expect(shouldRejectOperationsFallback(true, "employer_account")).toBe(false);
+    expect(shouldRejectOperationsFallback(true, "sponsor_contact_email")).toBe(false);
+  });
+
   it("prefers a stored sponsor contact email", async () => {
     dbSelectResults.push([{ contactEmail: "contact@sponsor.co.uk" }]);
 
@@ -82,5 +95,21 @@ describe("resolveEmployerRecipient", () => {
       route: "ops_fallback",
     });
     expect(openAiCreate).not.toHaveBeenCalled();
+  });
+
+  it("does not classify missing or malformed persisted values as direct email routes", async () => {
+    expect(isUsableEmployerEmail(null)).toBe(false);
+    expect(isUsableEmployerEmail("")).toBe(false);
+    expect(isUsableEmployerEmail("not-an-email")).toBe(false);
+    expect(isUsableEmployerEmail("  hiring@example.org  ")).toBe(true);
+
+    dbSelectResults.push([{ contactEmail: "not-an-email" }]);
+    dbSelectResults.push([{ contactEmail: " ", empUserId: "emp-1" }]);
+    dbSelectResults.push([{ email: "invalid" }]);
+
+    await expect(resolveEmployerRecipient("Invalid Contacts Ltd", 7)).resolves.toEqual({
+      email: "ops@jobsage.co.uk",
+      route: "ops_fallback",
+    });
   });
 });
