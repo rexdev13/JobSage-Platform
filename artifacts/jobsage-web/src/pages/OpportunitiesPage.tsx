@@ -240,7 +240,7 @@ function BestMatchesStrip({
                     className="flex-1 min-w-[9rem] text-xs h-8 gap-1"
                     onClick={() => onOpenApplication(normalizeWebsiteUrl(match.contactWebsite!))}
                   >
-                    <Globe className="w-3 h-3" /> Apply on company&apos;s website
+                    <Globe className="w-3 h-3" /> Visit company website
                   </Button>
                 )}
                 {match.isEligible ? (
