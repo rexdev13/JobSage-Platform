@@ -23,6 +23,10 @@ export type OpportunityApplyAction = {
   usesWebsiteFallback: boolean;
 };
 
+export function shouldShowOpportunityApplyActions(sendCvOnly: boolean | undefined): boolean {
+  return !sendCvOnly;
+}
+
 export const CONSIDER_MIN_SCORE = 40;
 
 export function getOpportunityApplyAction({
@@ -37,7 +41,7 @@ export function getOpportunityApplyAction({
   if (applyUrl) {
     return {
       destinationUrl: applyUrl,
-      label: sourceType === "company_site" ? "Apply on company site" : "Apply on job boards",
+      label: sourceType === "company_site" ? "Apply on company site" : "Apply Via Job Board",
       usesWebsiteFallback: false,
     };
   }

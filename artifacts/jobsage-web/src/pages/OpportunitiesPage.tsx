@@ -82,6 +82,7 @@ import {
   getOpportunityApplyAction,
   groupRankedOpportunities,
   hasRegionOverlap,
+  shouldShowOpportunityApplyActions,
   UK_REGIONS,
 } from "@/lib/opportunityFilters";
 import { checkApplyLinkInBackground } from "@/lib/vacancyApply";
@@ -122,7 +123,7 @@ function BestMatchesStrip({
   const [, setLocation] = useLocation();
   const isCompanySite = sourceType === "company_site";
   const resultsSectionId = isCompanySite ? "company-site-section" : "job-board-section";
-  const applyLabel = isCompanySite ? "Smart Apply on company sites" : "Smart Apply on job boards";
+  const applyLabel = isCompanySite ? "Smart Apply on company sites" : "Smart Apply Via Job Board";
 
   const serverDismissed = new Set(matchesData?.dismissedRoleIds ?? []);
   const effectiveDismissed = new Set([...serverDismissed, ...localDismissedIds]);
@@ -680,6 +681,7 @@ function RoleCard({
   recommended,
   aiScore,
   aiScoring,
+  sendCvOnly,
 }: {
   item: MatchedRole;
   appliedRoleIds: number[];
@@ -694,6 +696,7 @@ function RoleCard({
   recommended?: boolean;
   aiScore?: number;
   aiScoring?: boolean;
+  sendCvOnly?: boolean;
 }) {
   const [, setLocation] = useLocation();
   const { role, isEligible, matchScore, eligibilityGaps, sponsorshipFeasibility, safeguarding, contactEmail, contactPhone, contactWebsite, applyUrl, linkVerified, linkCheckedAt, matchReason } = item;
@@ -862,7 +865,7 @@ function RoleCard({
 
       {/* Company contact row */}
       <div className="mt-3 space-y-2" onClick={(e) => e.stopPropagation()}>
-        {contactWebsite && (
+        {shouldShowOpportunityApplyActions(sendCvOnly) && contactWebsite && (
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); handleApplyClick(contactWebsite.startsWith("http") ? contactWebsite : `https://${contactWebsite}`); }}
@@ -920,7 +923,7 @@ function RoleCard({
         </div>
       )}
 
-      {applyAction?.usesWebsiteFallback && !applied && (
+      {shouldShowOpportunityApplyActions(sendCvOnly) && applyAction?.usesWebsiteFallback && !applied && (
         <div className="mt-3 flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
@@ -937,7 +940,7 @@ function RoleCard({
         </div>
       )}
 
-      {applyAction && !applyAction.usesWebsiteFallback && (
+      {shouldShowOpportunityApplyActions(sendCvOnly) && applyAction && !applyAction.usesWebsiteFallback && (
         <div className="mt-3 flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-2 flex-wrap">
             <button
@@ -1649,7 +1652,7 @@ export default function OpportunitiesPage() {
   }
 
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
-    { id: "board", label: "Apply on job boards", icon: Briefcase },
+    { id: "board", label: "Apply Via Job Board", icon: Briefcase },
     { id: "employers", label: "Apply on company websites", icon: Building2 },
     { id: "sendcv", label: "Send CV", icon: Send },
   ];
@@ -1903,6 +1906,7 @@ export default function OpportunitiesPage() {
                             onViewAnalysis={setGapAnalysisRole}
                             requireExtension={requireExtension}
                             onExternalApply={handleExternalApply}
+                            sendCvOnly={activeTab === "sendcv"}
                           />
                         </motion.div>
                       ))}
@@ -1946,6 +1950,7 @@ export default function OpportunitiesPage() {
                               onViewAnalysis={setGapAnalysisRole}
                               requireExtension={requireExtension}
                               onExternalApply={handleExternalApply}
+                              sendCvOnly={activeTab === "sendcv"}
                             />
                           </motion.div>
                         ))}
@@ -1987,6 +1992,7 @@ export default function OpportunitiesPage() {
                               onViewAnalysis={setGapAnalysisRole}
                               requireExtension={requireExtension}
                               onExternalApply={handleExternalApply}
+                              sendCvOnly={activeTab === "sendcv"}
                             />
                           </motion.div>
                         ))}
