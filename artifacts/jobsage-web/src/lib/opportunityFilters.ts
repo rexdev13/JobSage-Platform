@@ -41,7 +41,7 @@ export function getOpportunityApplyAction({
   if (applyUrl) {
     return {
       destinationUrl: applyUrl,
-      label: sourceType === "company_site" ? "Apply on company site" : "Apply Via Job Board",
+      label: sourceType === "company_site" ? "Apply on company's website" : "Apply Via Job Board",
       usesWebsiteFallback: false,
     };
   }

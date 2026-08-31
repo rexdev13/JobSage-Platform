@@ -54,7 +54,7 @@ describe("opportunity filters", () => {
       contactWebsite: "https://employer.example.com",
     })).toEqual({
       destinationUrl: "https://ats.example.com/jobs/registered-nurse-42",
-      label: "Apply on company site",
+      label: "Apply on company's website",
       usesWebsiteFallback: false,
     });
 
