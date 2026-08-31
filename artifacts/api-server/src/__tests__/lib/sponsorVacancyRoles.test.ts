@@ -37,6 +37,7 @@ vi.mock("drizzle-orm", () => ({
 const {
   classifyVacancyCategory,
   fetchSponsorVacanciesAsRoles,
+  inferVacancySponsorshipStatus,
 } = await import("../../lib/sponsorVacancyRoles");
 
 const NHS_URL = "https://www.jobs.nhs.uk/candidate/jobadvert/C9000-26-0001?language=en";
@@ -73,6 +74,30 @@ describe("fetchSponsorVacanciesAsRoles alert options", () => {
     rows = [];
     selectMock.mockClear();
     gtMock.mockClear();
+  });
+
+  it.each([
+    ["Visa sponsorship is available for this role.", "confirmed"],
+    ["We offer Skilled Worker sponsorship.", "confirmed"],
+    ["Certificate of Sponsorship available.", "confirmed"],
+    ["We cannot offer visa sponsorship for this role.", "not_offered"],
+    ["Sponsorship is not available.", "not_offered"],
+    ["Sponsorship may be considered depending on circumstances.", "unknown"],
+    [null, "unknown"],
+  ])("classifies vacancy sponsorship evidence %j as %s", (description, expected) => {
+    expect(inferVacancySponsorshipStatus("Senior Staff Nurse", description)).toBe(expected);
+  });
+
+  it("keeps sponsor licensing separate from unconfirmed vacancy sponsorship", async () => {
+    rows = [vacancyRow({ description: "Join our friendly nursing team." })];
+
+    const [result] = await fetchSponsorVacanciesAsRoles("NMC");
+
+    expect(result).toMatchObject({
+      licensedSponsor: true,
+      sponsorshipStatus: "unknown",
+      sponsorshipOffered: false,
+    });
   });
 
   it("keeps only specific, non-dead vacancy URLs when preparing an alert", async () => {

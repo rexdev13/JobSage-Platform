@@ -877,6 +877,10 @@ export const SmartApplyPrefillResponse = zod.object({
     location: zod.string(),
     regulator: zod.string(),
     sponsorshipOffered: zod.boolean(),
+    sponsorshipStatus: zod
+      .enum(["confirmed", "not_offered", "unknown"])
+      .optional(),
+    licensedSponsor: zod.boolean().optional(),
   }),
 });
 
@@ -966,6 +970,18 @@ export const ListMatchedRolesResponse = zod.object({
             "Statutory regulator when the opportunity is regulated by GMC, NMC, or HCPC.",
           ),
         sponsorshipOffered: zod.boolean(),
+        sponsorshipStatus: zod
+          .enum(["confirmed", "not_offered", "unknown"])
+          .optional()
+          .describe(
+            "Vacancy-level sponsorship evidence. Unknown means the advert does not explicitly confirm or deny sponsorship.",
+          ),
+        licensedSponsor: zod
+          .boolean()
+          .optional()
+          .describe(
+            "True when the employer appears on the Home Office sponsor register; this does not prove the vacancy offers sponsorship.",
+          ),
         targetRegions: zod.array(zod.string()).nullish(),
         requiredRegistration: zod.string(),
         requiredDbsClearanceLevel: zod
@@ -1272,6 +1288,18 @@ export const AdminListRolesResponse = zod.object({
           "Statutory regulator when the opportunity is regulated by GMC, NMC, or HCPC.",
         ),
       sponsorshipOffered: zod.boolean(),
+      sponsorshipStatus: zod
+        .enum(["confirmed", "not_offered", "unknown"])
+        .optional()
+        .describe(
+          "Vacancy-level sponsorship evidence. Unknown means the advert does not explicitly confirm or deny sponsorship.",
+        ),
+      licensedSponsor: zod
+        .boolean()
+        .optional()
+        .describe(
+          "True when the employer appears on the Home Office sponsor register; this does not prove the vacancy offers sponsorship.",
+        ),
       targetRegions: zod.array(zod.string()).nullish(),
       requiredRegistration: zod.string(),
       requiredDbsClearanceLevel: zod

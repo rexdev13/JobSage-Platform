@@ -342,6 +342,32 @@ function MatchScoreBadge({ score }: { score: number }) {
   );
 }
 
+function VacancySponsorshipBadges({
+  licensedSponsor,
+  sponsorshipOffered,
+}: {
+  licensedSponsor?: boolean;
+  sponsorshipOffered: boolean;
+}) {
+  return (
+    <>
+      {licensedSponsor && (
+        <span
+          className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200"
+          title="The employer appears on the Home Office sponsor register. This does not confirm sponsorship for this vacancy."
+        >
+          <ShieldCheck className="w-3 h-3" /> Licensed Sponsor
+        </span>
+      )}
+      {sponsorshipOffered && (
+        <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+          Sponsorship Available
+        </span>
+      )}
+    </>
+  );
+}
+
 function RoleDetailModal({ item, appliedRoleIds, onClose, aiScore }: {
   item: MatchedRole;
   appliedRoleIds: number[];
@@ -388,6 +414,10 @@ function RoleDetailModal({ item, appliedRoleIds, onClose, aiScore }: {
             )}
             {aiScore != null ? <AiScoreBadge score={aiScore} /> : <MatchScoreBadge score={matchScore} />}
             <SponsorshipBadge outcome={sponsorshipFeasibility?.outcome} />
+            <VacancySponsorshipBadges
+              licensedSponsor={role.licensedSponsor}
+              sponsorshipOffered={role.sponsorshipOffered}
+            />
             <SafeguardingBadge safeguarding={safeguarding} />
           </div>
 
@@ -402,8 +432,14 @@ function RoleDetailModal({ item, appliedRoleIds, onClose, aiScore }: {
                 <p className="font-semibold text-xs leading-tight">{role.requiredRegistration}</p>
               </div>
               <div className="p-3 rounded-lg bg-muted/40">
-                <p className="text-xs text-muted-foreground mb-0.5">Sponsorship Offered</p>
-                <p className="font-semibold">{role.sponsorshipOffered ? "Yes" : "No"}</p>
+                <p className="text-xs text-muted-foreground mb-0.5">Vacancy sponsorship</p>
+                <p className="font-semibold">
+                  {role.sponsorshipStatus === "unknown"
+                    ? "Not confirmed"
+                    : role.sponsorshipOffered
+                      ? "Confirmed"
+                      : "Not offered"}
+                </p>
               </div>
             </div>
           </div>
@@ -879,11 +915,10 @@ function RoleCard({
       <div className="mt-3 flex flex-wrap gap-2">
         <SponsorshipBadge outcome={sponsorshipFeasibility?.outcome} />
         <SafeguardingBadge safeguarding={safeguarding} />
-        {role.sponsorshipOffered && (
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-            Sponsorship Available
-          </span>
-        )}
+        <VacancySponsorshipBadges
+          licensedSponsor={role.licensedSponsor}
+          sponsorshipOffered={role.sponsorshipOffered}
+        />
       </div>
 
       {/* Company contact row */}

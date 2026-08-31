@@ -524,6 +524,18 @@ export const RoleStatutoryRegulator = {
 } as const;
 
 /**
+ * Vacancy-level sponsorship evidence. Unknown means the advert does not explicitly confirm or deny sponsorship.
+ */
+export type RoleSponsorshipStatus =
+  (typeof RoleSponsorshipStatus)[keyof typeof RoleSponsorshipStatus];
+
+export const RoleSponsorshipStatus = {
+  confirmed: "confirmed",
+  not_offered: "not_offered",
+  unknown: "unknown",
+} as const;
+
+/**
  * Origin category for the vacancy.
  */
 export type RoleSourceType =
@@ -547,6 +559,10 @@ export interface Role {
   /** Statutory regulator when the opportunity is regulated by GMC, NMC, or HCPC. */
   statutoryRegulator?: RoleStatutoryRegulator;
   sponsorshipOffered: boolean;
+  /** Vacancy-level sponsorship evidence. Unknown means the advert does not explicitly confirm or deny sponsorship. */
+  sponsorshipStatus?: RoleSponsorshipStatus;
+  /** True when the employer appears on the Home Office sponsor register; this does not prove the vacancy offers sponsorship. */
+  licensedSponsor?: boolean;
   targetRegions?: string[] | null;
   requiredRegistration: string;
   requiredDbsClearanceLevel?: DbsClearanceLevel | null;
@@ -710,11 +726,22 @@ export interface SmartApplyCandidatePrefill {
   email: string | null;
 }
 
+export type SmartApplyRoleContextSponsorshipStatus =
+  (typeof SmartApplyRoleContextSponsorshipStatus)[keyof typeof SmartApplyRoleContextSponsorshipStatus];
+
+export const SmartApplyRoleContextSponsorshipStatus = {
+  confirmed: "confirmed",
+  not_offered: "not_offered",
+  unknown: "unknown",
+} as const;
+
 export interface SmartApplyRoleContext {
   title: string;
   location: string;
   regulator: string;
   sponsorshipOffered: boolean;
+  sponsorshipStatus?: SmartApplyRoleContextSponsorshipStatus;
+  licensedSponsor?: boolean;
 }
 
 export interface SmartApplyPrefillResponse {

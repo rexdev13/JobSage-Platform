@@ -5,10 +5,13 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { SmartApplyRoleContextSponsorshipStatus } from "./smartApplyRoleContextSponsorshipStatus";
 
 export interface SmartApplyRoleContext {
   title: string;
   location: string;
   regulator: string;
   sponsorshipOffered: boolean;
+  sponsorshipStatus?: SmartApplyRoleContextSponsorshipStatus;
+  licensedSponsor?: boolean;
 }

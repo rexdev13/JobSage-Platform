@@ -182,6 +182,44 @@ const MAX_REDIRECT_HOPS = 5;
 
 export type HealthVerdict = { verdict: "alive" | "dead" | "unsafe"; reason: string };
 
+const SOFT_NOT_FOUND_PATH_SEGMENTS = new Set([
+  "404",
+  "404-error",
+  "error-404",
+  "not-found",
+  "page-not-found",
+  "page_not_found",
+]);
+
+/**
+ * Detect branded error pages that return HTTP 200. Keep the body checks
+ * deliberately narrow so ordinary job adverts mentioning a missing document
+ * are not mistaken for dead vacancies.
+ */
+export function softNotFoundReason(url: string, body = ""): string | null {
+  try {
+    const pathname = new URL(url).pathname.toLowerCase().replace(/\/+$/, "");
+    const terminal = pathname.split("/").filter(Boolean).at(-1) ?? "";
+    if (SOFT_NOT_FOUND_PATH_SEGMENTS.has(terminal)) {
+      return `soft 404 path: /${terminal}`;
+    }
+  } catch {
+    return "invalid final URL";
+  }
+
+  const titleOrHeading =
+    body.match(/<title[^>]*>([\s\S]{0,300}?)<\/title>/i)?.[1] ??
+    body.match(/<h[12][^>]*>([\s\S]{0,300}?)<\/h[12]>/i)?.[1] ??
+    "";
+  const plainHeading = titleOrHeading.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
+  if (
+    /\b(?:404|page not found|job not found|vacancy not found|position not found)\b/.test(plainHeading)
+  ) {
+    return `soft 404 heading: "${plainHeading.slice(0, 120)}"`;
+  }
+  return null;
+}
+
 /**
  * Fetch the destination and decide if it is dead (404/410/5xx, or an
  * expiration banner in the response body). Redirects are followed
@@ -226,6 +264,12 @@ export async function checkDestinationDead(
         return { verdict: "dead", reason: `HTTP ${resp.status}` };
       }
 
+      const softNotFoundPath = softNotFoundReason(currentUrl);
+      if (softNotFoundPath) {
+        resp.body?.cancel().catch(() => {});
+        return { verdict: "dead", reason: softNotFoundPath };
+      }
+
       // NHS Jobs requires a login but is the only channel for NHS Trust
       // vacancies — skip login-wall detection for it.
       const nhsJobs = isNhsJobsUrl(currentUrl);
@@ -253,6 +297,10 @@ export async function checkDestinationDead(
           reader.cancel().catch(() => {});
         }
         const lower = text.toLowerCase();
+        const softNotFoundPage = softNotFoundReason(currentUrl, text);
+        if (softNotFoundPage) {
+          return { verdict: "dead", reason: softNotFoundPage };
+        }
         if (lower.includes("nhs-closed-job-inset")) {
           return { verdict: "dead", reason: "closed board advert banner" };
         }

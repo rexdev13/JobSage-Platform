@@ -177,6 +177,12 @@ const GENERIC_TERMINAL_SLUGS = new Set([
   "job-portal",
   "search-jobs",
   "search_jobs",
+  "404",
+  "404-error",
+  "error-404",
+  "not-found",
+  "page-not-found",
+  "page_not_found",
 ]);
 
 /**

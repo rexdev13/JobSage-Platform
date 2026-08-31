@@ -867,6 +867,8 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
       return {
         id: r.id, title: r.title, employer: r.employer, location: r.location,
         regulator: r.regulator, sponsorshipOffered: r.sponsorshipOffered,
+        licensedSponsor: false,
+        sponsorshipStatus: r.sponsorshipOffered ? "confirmed" as const : "not_offered" as const,
         opportunityCategory: categoryForStatutoryRegulator(r.regulator),
         requiredRegistration: r.requiredRegistration,
         requiredDbsClearanceLevel: r.requiredDbsClearanceLevel,
@@ -891,6 +893,8 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
     .map((v) => ({
       id: v.id, title: v.title, employer: v.employer, location: v.location,
       regulator: v.regulator, sponsorshipOffered: v.sponsorshipOffered,
+      licensedSponsor: v.licensedSponsor,
+      sponsorshipStatus: v.sponsorshipStatus,
       opportunityCategory: v.opportunityCategory,
       requiredRegistration: v.requiredRegistration,
       requiredDbsClearanceLevel: v.requiredDbsClearanceLevel,
@@ -1095,6 +1099,11 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
         location: r.location,
         regulator: r.regulator,
         sponsorshipOffered: r.sponsorshipOffered,
+        licensedSponsor: "licensedSponsor" in r ? r.licensedSponsor : false,
+        sponsorshipStatus:
+          "sponsorshipStatus" in r
+            ? r.sponsorshipStatus
+            : r.sponsorshipOffered ? "confirmed" : "not_offered",
         requiredRegistration: r.requiredRegistration,
         requiredDbsClearanceLevel: r.requiredDbsClearanceLevel ?? null,
         requiredSafeguardingLevel: r.requiredSafeguardingLevel ?? null,
@@ -1296,6 +1305,8 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
         return {
           id: r.id, title: r.title, employer: r.employer, location: r.location,
           regulator: r.regulator, sponsorshipOffered: r.sponsorshipOffered,
+          licensedSponsor: false,
+          sponsorshipStatus: r.sponsorshipOffered ? "confirmed" as const : "not_offered" as const,
           opportunityCategory: categoryForStatutoryRegulator(r.regulator),
           requiredRegistration: r.requiredRegistration,
           requiredDbsClearanceLevel: r.requiredDbsClearanceLevel,

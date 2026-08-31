@@ -27,3 +27,4 @@
 - [Opportunity score consistency](opportunity-score-consistency.md) — every Opportunities section must share one score basis; pending pipeline scores use the same neutral value.
 - [Monthly Readiness quota](monthly-readiness-quota.md) — ten new vacancy analyses reset on the first of each UTC month; cached results remain available.
 - [Smart Apply profile gate](smart-apply-profile-gate.md) — search preferences such as preferred region are optional and must not block application drafting.
+- [Vacancy sponsorship evidence](vacancy-sponsorship-evidence.md) — sponsor-register membership and vacancy-confirmed sponsorship are separate facts; never infer one from the other.
