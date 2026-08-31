@@ -84,6 +84,7 @@ import {
   hasRegionOverlap,
   UK_REGIONS,
 } from "@/lib/opportunityFilters";
+import { checkApplyLinkInBackground } from "@/lib/vacancyApply";
 
 type Tab = "board" | "employers" | "sendcv";
 
@@ -696,17 +697,15 @@ function RoleCard({
 }) {
   const [, setLocation] = useLocation();
   const { role, isEligible, matchScore, eligibilityGaps, sponsorshipFeasibility, safeguarding, contactEmail, contactPhone, contactWebsite, applyUrl, linkVerified, linkCheckedAt, matchReason } = item;
+  const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(false);
-  const [checking, setChecking] = useState(false);
   const [deadLink, setDeadLink] = useState(false);
 
-  // Click-time live check: ping the server before opening any apply link so
-  // dead/login-walled links never open a broken tab.
-  // Links verified within the last 2 hours are trusted from cache; everything
-  // else (stale "live", or "unverified") goes through a fresh check.
+  // Apply links always open immediately. Fresh live links skip the health API;
+  // stale or unverified links get a bounded background check that can remove a
+  // dead URL globally without ever holding the candidate's tab or button.
   // All outbound clicks (apply links AND company-website fallbacks) are gated
   // behind the Smart Apply extension so every application is tracked.
-  const RECENT_VERIFIED_MS = 2 * 60 * 60 * 1000; // 2 hours
 
   const trackAndOpen = (targetUrl: string): void => {
     let outboundUrl = targetUrl;
@@ -748,50 +747,36 @@ function RoleCard({
     onExternalApply?.();
   };
 
-  const doApplyClick = async (destinationUrl?: string): Promise<void> => {
+  const doApplyClick = (destinationUrl?: string): void => {
     const targetUrl = destinationUrl ?? applyUrl;
     if (!targetUrl) return;
 
-    // Company-website fallback — open immediately, no ATS check needed.
+    // Company-website fallback has no vacancy URL to health-check.
     if (destinationUrl !== undefined) {
       trackAndOpen(targetUrl);
       return;
     }
 
-    // Recently verified (within 2 h) — trust the cached result, skip re-check.
-    const checkedMs = linkCheckedAt ? new Date(linkCheckedAt).getTime() : 0;
-    if (linkVerified && checkedMs > 0 && Date.now() - checkedMs < RECENT_VERIFIED_MS) {
-      trackAndOpen(targetUrl);
-      return;
-    }
-
-    // Stale "live", unverified, or never-checked — do a fast click-time check.
-    setChecking(true);
-    setDeadLink(false);
-    const base = import.meta.env.BASE_URL.replace(/\/$/, "");
-    try {
-      const resp = await fetch(`${base}/api/vacancy-link-check?url=${encodeURIComponent(targetUrl)}`, {
-        credentials: "include",
-      });
-      if (resp.ok) {
-        const data = (await resp.json()) as { verdict: string };
-        if (data.verdict === "dead") {
-          setDeadLink(true);
-          return;
-        }
-      }
-    } catch {
-      // Network error or API down — open anyway (benefit of the doubt)
-    } finally {
-      setChecking(false);
-    }
-
+    // Open and record synchronously so popup blockers and health API latency
+    // can never strand the candidate on a "Checking…" state.
     trackAndOpen(targetUrl);
+    const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+    void checkApplyLinkInBackground({
+      url: targetUrl,
+      endpoint: `${base}/api/vacancy-link-check`,
+      linkVerified: !!linkVerified,
+      linkCheckedAt,
+      onDead: () => {
+        setDeadLink(true);
+        void queryClient.invalidateQueries({ queryKey: getListMatchedRolesQueryKey() });
+        void queryClient.invalidateQueries({ queryKey: getGetMyMatchesQueryKey() });
+      },
+    });
   };
 
   // Gate every outbound click behind the extension check.
   const handleApplyClick = (destinationUrl?: string): void => {
-    requireExtension(() => void doApplyClick(destinationUrl));
+    requireExtension(() => doApplyClick(destinationUrl));
   };
 
   const applied = appliedRoleIds.includes(role.id);
@@ -957,15 +942,11 @@ function RoleCard({
           <div className="flex items-center gap-2 flex-wrap">
             <button
               type="button"
-              onClick={() => void handleApplyClick()}
-              disabled={applied || checking}
+              onClick={() => handleApplyClick()}
+              disabled={applied}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60"
             >
-              {checking ? (
-                <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Checking…</>
-              ) : (
-                <><ExternalLink className="w-3.5 h-3.5" /> {applied ? "Applied" : applyAction.label}</>
-              )}
+              <><ExternalLink className="w-3.5 h-3.5" /> {applied ? "Applied" : applyAction.label}</>
             </button>
             {linkVerified ? (
               <span

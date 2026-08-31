@@ -8,6 +8,8 @@
  * Cost: plain HTTP fetch — zero AI/LLM calls.
  */
 import { Router, type IRouter, type Request, type Response } from "express";
+import { db, jobListingsTable, rolesTable, sponsorLicenceVacanciesTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 import { requireAuthenticated } from "../middlewares/requireRole";
 import { checkDestinationDead } from "../lib/linkHealth";
 
@@ -22,7 +24,20 @@ interface CacheEntry {
 const linkCheckCache = new Map<string, CacheEntry>();
 const CACHE_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
 const CACHE_MAX_SIZE = 5000;
-const CLICK_CHECK_TIMEOUT_MS = 3000; // keep it fast for the user
+const CLICK_CHECK_TIMEOUT_MS = 1500;
+
+async function markUrlDeadGlobally(url: string, reason: string | null): Promise<void> {
+  const update = {
+    liveness: "dead" as const,
+    lastVerifiedAt: new Date(),
+    livenessReason: (reason || "background click check marked URL dead").slice(0, 500),
+  };
+  await Promise.all([
+    db.update(sponsorLicenceVacanciesTable).set(update).where(eq(sponsorLicenceVacanciesTable.url, url)),
+    db.update(rolesTable).set(update).where(eq(rolesTable.applyUrl, url)),
+    db.update(jobListingsTable).set(update).where(eq(jobListingsTable.applyUrl, url)),
+  ]);
+}
 
 function pruneCache(): void {
   if (linkCheckCache.size <= CACHE_MAX_SIZE) return;
@@ -65,6 +80,9 @@ router.get(
       const entry: CacheEntry = { verdict, reason: result.reason || null, at: Date.now() };
       linkCheckCache.set(url, entry);
       pruneCache();
+      if (verdict === "dead") {
+        await markUrlDeadGlobally(url, entry.reason);
+      }
       res.json({ verdict: entry.verdict, reason: entry.reason, cached: false });
     } catch {
       // Timeout or network error — inconclusive; don't cache so next click retries
