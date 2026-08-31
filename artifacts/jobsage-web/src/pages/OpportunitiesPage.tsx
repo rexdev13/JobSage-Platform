@@ -1510,6 +1510,16 @@ export default function OpportunitiesPage() {
   );
   const dismissMutation = useDismissMatch();
 
+  // /roles/my-matches may finish and persist fresh AI scores after the main
+  // /roles request has already returned. Refetch the cards once scoring settles
+  // so both sections display the same score snapshot.
+  useEffect(() => {
+    if (!aiMatchesData) return;
+    void queryClient.invalidateQueries({
+      queryKey: getListMatchedRolesQueryKey({ source: opportunitySource }),
+    });
+  }, [aiMatchesData, opportunitySource, queryClient]);
+
   const base = import.meta.env.BASE_URL.replace(/\/$/, "");
   const { data: vacancyStatsData } = useQuery<{ companiesChecked: number; companiesWithVacancies: number; totalVacanciesFound: number }>({
     queryKey: ["sponsorVacancyStats"],

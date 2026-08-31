@@ -330,6 +330,18 @@ function getRoleEligibilityGaps(
 }
 
 const SCORE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const PENDING_AI_SCORE = 50;
+
+function careerFocusBoost(title: string, focusArea: string | null | undefined): number {
+  if (!focusArea) return 0;
+  const titleLower = title.toLowerCase();
+  const matchedWords = focusArea
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .filter((word) => titleLower.includes(word));
+  return matchedWords.length * 8;
+}
 
 router.get("/roles", async (req, res): Promise<void> => {
   if (!req.isAuthenticated()) {
@@ -507,6 +519,7 @@ router.get("/roles", async (req, res): Promise<void> => {
     sponsorVacancyScores,
     roleFavourites,
     sponsorBookmarks,
+    activeCareerProfiles,
   ] = await Promise.all([
     db
       .select({
@@ -558,7 +571,13 @@ router.get("/roles", async (req, res): Promise<void> => {
       .from(sponsorLicenceBookmarksTable)
       .innerJoin(sponsorLicencesTable, eq(sponsorLicencesTable.id, sponsorLicenceBookmarksTable.sponsorLicenceId))
       .where(eq(sponsorLicenceBookmarksTable.userId, userId)),
+    db
+      .select()
+      .from(careerProfilesTable)
+      .where(and(eq(careerProfilesTable.userId, userId), eq(careerProfilesTable.isActive, true)))
+      .limit(1),
   ]);
+  const activeCareerProfile = activeCareerProfiles[0];
   const legacySpeculativeVacancyKeys = new Set(
     vacancySpecificSpeculative
       .filter((s) => s.roleId == null && (s.vacancyTitle ?? "").trim() !== "")
@@ -669,10 +688,14 @@ router.get("/roles", async (req, res): Promise<void> => {
     if (!professionallyRelevant) {
       matchScore = 0;
     }
-    const baseAiScore = professionallyRelevant ? cached?.score ?? null : 0;
-    const aiScore = baseAiScore === null
-      ? null
-      : Math.min(100, baseAiScore + behavioural.boost);
+    // Every role uses the same score basis as /roles/my-matches. A vacancy
+    // awaiting its pipeline score receives the same neutral 50-point value in
+    // both feeds instead of an unrelated heuristic that can appear as 100%.
+    const baseAiScore = professionallyRelevant ? cached?.score ?? PENDING_AI_SCORE : 0;
+    const aiScore = Math.min(
+      100,
+      baseAiScore + careerFocusBoost(role.title, activeCareerProfile?.focusArea) + behavioural.boost,
+    );
 
     return {
       role: professionallyRelevant
@@ -686,7 +709,9 @@ router.get("/roles", async (req, res): Promise<void> => {
       isEligible,
       matchScore,
       aiScore,
-      aiExplanation: professionallyRelevant ? cached?.explanation ?? null : "Out of professional scope",
+        aiExplanation: professionallyRelevant
+          ? cached?.explanation ?? "Match score pending the next sponsor-vacancy scoring run."
+          : "Out of professional scope",
       matchReason: behavioural.reason,
       eligibilityGaps,
       safeguarding,
@@ -990,7 +1015,7 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
   for (const sponsorRole of sponsorRoles) {
     if (!scoreMap.has(sponsorRole.id)) {
       scoreMap.set(sponsorRole.id, {
-        score: 50,
+        score: PENDING_AI_SCORE,
         explanation: "Match score pending the next sponsor-vacancy scoring run.",
       });
     }
@@ -1046,8 +1071,7 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
       const baseExplanation = scoreMap.get(r.id)!.explanation;
 
       // Boost score if the role title matches career profile focus-area keywords
-      const titleLower = r.title.toLowerCase();
-      const boost = focusAreaWords.filter((w) => titleLower.includes(w)).length * 8;
+      const boost = careerFocusBoost(r.title, activeCareerProfile?.focusArea);
       const aiScore = Math.min(100, baseScore + boost);
       const aiExplanation =
         boost > 0 && effectiveSpecialty
