@@ -1857,7 +1857,7 @@ export default function OpportunitiesPage() {
             )}
 
             {/* Best Matches AI Strip */}
-            {activeTab !== "sendcv" && !noProfile && filteredRoles.length > 0 && (
+            {!noProfile && filteredRoles.length > 0 && (
               <BestMatchesStrip
                 matchesData={filteredAiMatchesData}
                 matchesLoading={aiMatchesLoading}
