@@ -86,6 +86,7 @@ import {
   UK_REGIONS,
 } from "@/lib/opportunityFilters";
 import { checkApplyLinkInBackground } from "@/lib/vacancyApply";
+import { normalizeWebsiteUrl, openTrackedOutbound } from "@/lib/trackedOutbound";
 
 type Tab = "board" | "employers" | "sendcv";
 
@@ -109,6 +110,7 @@ function BestMatchesStrip({
   appliedRoleIds,
   localDismissedIds,
   onSmartApply,
+  onOpenApplication,
   onDismiss,
   sourceType,
 }: {
@@ -117,13 +119,12 @@ function BestMatchesStrip({
   appliedRoleIds: number[];
   localDismissedIds: Set<number>;
   onSmartApply: (roleId: number, roleTitle: string) => void;
+  onOpenApplication: (url: string) => void;
   onDismiss: (roleId: number) => void;
   sourceType: "job_board" | "company_site";
 }) {
   const [, setLocation] = useLocation();
-  const isCompanySite = sourceType === "company_site";
-  const resultsSectionId = isCompanySite ? "company-site-section" : "job-board-section";
-  const applyLabel = isCompanySite ? "Smart Apply on company sites" : "Smart Apply Via Job Board";
+  const resultsSectionId = sourceType === "company_site" ? "company-site-section" : "job-board-section";
 
   const serverDismissed = new Set(matchesData?.dismissedRoleIds ?? []);
   const effectiveDismissed = new Set([...serverDismissed, ...localDismissedIds]);
@@ -221,20 +222,40 @@ function BestMatchesStrip({
                 </div>
               </div>
 
-              <div className="flex gap-2 mt-auto pt-1">
+              <div className="flex flex-wrap gap-2 mt-auto pt-1">
+                {match.applyUrl && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 min-w-[9rem] text-xs h-8 gap-1"
+                    onClick={() => onOpenApplication(normalizeWebsiteUrl(match.applyUrl!))}
+                  >
+                    <ExternalLink className="w-3 h-3" /> {sourceType === "job_board" ? "Apply Via Job Board" : "Apply on company's website"}
+                  </Button>
+                )}
+                {match.contactWebsite && (sourceType === "job_board" || !match.applyUrl) && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 min-w-[9rem] text-xs h-8 gap-1"
+                    onClick={() => onOpenApplication(normalizeWebsiteUrl(match.contactWebsite!))}
+                  >
+                    <Globe className="w-3 h-3" /> Apply on company&apos;s website
+                  </Button>
+                )}
                 {match.isEligible ? (
                   <Button
                     size="sm"
-                    className="flex-1 text-xs h-8 gap-1"
+                    className="flex-1 min-w-[9rem] text-xs h-8 gap-1"
                     onClick={() => onSmartApply(match.roleId, match.title)}
                   >
-                    <Sparkles className="w-3 h-3" /> {applyLabel}
+                    <Sparkles className="w-3 h-3" /> Smart Apply
                   </Button>
                 ) : (
                   <Button
                     size="sm"
                     variant="outline"
-                    className="flex-1 text-xs h-8 gap-1 text-amber-700 border-amber-200"
+                    className="flex-1 min-w-[9rem] text-xs h-8 gap-1 text-amber-700 border-amber-200"
                     onClick={() => setLocation("/path")}
                   >
                     View Path <ArrowRight className="w-3 h-3" />
@@ -1411,6 +1432,13 @@ export default function OpportunitiesPage() {
     if (shouldShowExtensionNudge()) setShowExtensionNudge(true);
   }
 
+  function handleBestMatchOpenApplication(url: string) {
+    requireExtension(() => {
+      void openTrackedOutbound({ url });
+      handleExternalApply();
+    });
+  }
+
   function trackGapAnalysisWebsiteClick(item: MatchedRole) {
     const rawUrl = item.applyUrl ?? item.contactWebsite;
     if (!rawUrl) return;
@@ -1836,6 +1864,7 @@ export default function OpportunitiesPage() {
                 appliedRoleIds={appliedRoleIds}
                 localDismissedIds={localDismissedIds}
                 onSmartApply={handleSmartApply}
+                onOpenApplication={handleBestMatchOpenApplication}
                 onDismiss={handleDismissMatch}
                 sourceType={opportunitySource ?? "job_board"}
               />
