@@ -12,74 +12,26 @@ import {
 } from "@workspace/db";
 import { eq, and, desc, ilike, gte, count, sql } from "drizzle-orm";
 import { writeAuditEvent } from "../lib/audit";
-import { sendSpeculativeCVNotification, sendSpeculativeCVToOps, OPS_INBOX } from "../lib/email";
+import { sendSpeculativeCVNotification, sendSpeculativeCVToOps } from "../lib/email";
 import { ObjectStorageService } from "../lib/objectStorage";
 import { maskPersonalContactInfo, resolveJobsageAlias } from "../lib/jobsageEmailGen";
+import {
+  isUsableEmployerEmail,
+  resolveEmployerRecipient,
+  type DeliveryRoute,
+  type RecipientResolution,
+} from "../lib/employerRecipient";
 
 const APP_URL = process.env.APP_URL ?? "https://jobsage.co.uk";
 
-export type DeliveryRoute = "employer_contact_email" | "employer_account" | "sponsor_contact_email" | "ops_fallback";
+export { isUsableEmployerEmail, resolveEmployerRecipient };
+export type { DeliveryRoute, RecipientResolution };
 
-interface RecipientResolution {
-  email: string;
-  route: DeliveryRoute;
-}
-
-/**
- * Resolve the employer recipient in priority order:
- *   1. Stored contactEmail on the sponsor licence or employer profile
- *   2. Registered JOBSAGE employer account email
- *   3. Ops inbox fallback
- *
- * This action deliberately performs no AI contact enrichment. Sending remains
- * fast, predictable, and independent from the vacancy-discovery AI budget.
- */
-export async function resolveEmployerRecipient(
-  companyName: string,
-  sponsorLicenceId: number | null | undefined,
-  _legacyEnrichmentTimeoutMs?: number,
-): Promise<RecipientResolution> {
-  try {
-    const [licenceRow] = await db
-      .select({ contactEmail: sponsorLicencesTable.contactEmail })
-      .from(sponsorLicencesTable)
-      .where(
-        sponsorLicenceId
-          ? eq(sponsorLicencesTable.id, sponsorLicenceId)
-          : ilike(sponsorLicencesTable.organisationName, companyName),
-      )
-      .limit(1);
-    if (licenceRow?.contactEmail) {
-      return { email: licenceRow.contactEmail, route: "sponsor_contact_email" };
-    }
-  } catch {
-    // Best-effort. Employer profile lookup and ops fallback remain available.
-  }
-
-  try {
-    const [empRow] = await db
-      .select({
-        empUserId: employerProfilesTable.userId,
-        contactEmail: employerProfilesTable.contactEmail,
-      })
-      .from(employerProfilesTable)
-      .where(ilike(employerProfilesTable.companyName, companyName))
-      .limit(1);
-    if (empRow?.contactEmail) {
-      return { email: empRow.contactEmail, route: "employer_contact_email" };
-    }
-    if (empRow?.empUserId) {
-      const [empUser] = await db
-        .select({ email: usersTable.email })
-        .from(usersTable)
-        .where(eq(usersTable.id, empRow.empUserId));
-      if (empUser?.email) return { email: empUser.email, route: "employer_account" };
-    }
-  } catch {
-    // Best-effort. Ops fallback is intentionally always available.
-  }
-
-  return { email: OPS_INBOX, route: "ops_fallback" };
+export function shouldRejectOperationsFallback(
+  requireDirectContact: boolean | undefined,
+  deliveryRoute: DeliveryRoute,
+): boolean {
+  return requireDirectContact === true && deliveryRoute === "ops_fallback";
 }
 
 const router: IRouter = Router();
@@ -108,6 +60,7 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
     vacancyUrl,
     sourceType,
     boardName,
+    requireDirectContact,
   } = req.body as {
     companyName?: string;
     sponsorLicenceId?: number | null;
@@ -119,6 +72,7 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
     vacancyUrl?: string | null;
     sourceType?: "job_board" | "company_site" | null;
     boardName?: string | null;
+    requireDirectContact?: boolean;
   };
 
   if (!companyName || typeof companyName !== "string" || companyName.trim().length === 0) {
@@ -158,6 +112,19 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
   if (!jobsageEmail) {
     res.status(400).json({
       error: "No JOBSAGE email alias found. Please visit your Profile page to set one up before sending a speculative application.",
+    });
+    return;
+  }
+
+  // The candidate-facing Send CV flow opts out of the legacy operations
+  // fallback. Other API callers retain the existing fallback behaviour.
+  const resolvedRecipient = await resolveEmployerRecipient(
+    normalizedCompanyName,
+    sponsorLicenceId,
+  );
+  if (shouldRejectOperationsFallback(requireDirectContact, resolvedRecipient.route)) {
+    res.status(422).json({
+      error: "This company has no stored direct contact email, so Send CV is unavailable.",
     });
     return;
   }
@@ -300,10 +267,7 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
   // Mask personal contact info in the cover note if we have a JOBSAGE alias
   const maskedNotes = notes && jobsageEmail ? maskPersonalContactInfo(notes, jobsageEmail) : (notes ?? null);
 
-  const { email: employerContactEmail, route: deliveryRoute } = await resolveEmployerRecipient(
-    normalizedCompanyName,
-    sponsorLicenceId,
-  );
+  const { email: employerContactEmail, route: deliveryRoute } = resolvedRecipient;
 
   // Fire outbound emails and persist delivery metadata.
   // Step 1: Send the CV to the employer/ops — this determines actual delivery.

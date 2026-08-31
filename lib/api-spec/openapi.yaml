@@ -3141,6 +3141,11 @@ paths:
           schema:
             type: boolean
           description: If true, return only the candidate's bookmarked companies
+        - name: directContactOnly
+          in: query
+          schema:
+            type: boolean
+          description: If true, return only companies with a stored direct employer email usable by Send CV
         - name: page
           in: query
           schema:
@@ -4347,6 +4352,13 @@ components:
           description: Statutory regulator when the opportunity is regulated by GMC, NMC, or HCPC.
         sponsorshipOffered:
           type: boolean
+        sponsorshipStatus:
+          type: string
+          enum: [confirmed, not_offered, unknown]
+          description: Vacancy-level sponsorship evidence. Unknown means the advert does not explicitly confirm or deny sponsorship.
+        licensedSponsor:
+          type: boolean
+          description: True when the employer appears on the Home Office sponsor register; this does not prove the vacancy offers sponsorship.
         targetRegions:
           type: array
           nullable: true
@@ -4457,6 +4469,9 @@ components:
           type: string
           nullable: true
           description: Company website URL from employer profile, where available
+        sendCvEligible:
+          type: boolean
+          description: True when the persisted Send CV recipient lookup found a direct employer email.
 
     MatchedRoleList:
       type: object
@@ -4609,6 +4624,11 @@ components:
         regulator:
           type: string
         sponsorshipOffered:
+          type: boolean
+        sponsorshipStatus:
+          type: string
+          enum: [confirmed, not_offered, unknown]
+        licensedSponsor:
           type: boolean
 
     SmartApplyPrefillResponse:
@@ -5695,6 +5715,9 @@ components:
           format: date-time
           nullable: true
           description: Timestamp of the most recent successful vacancy check for this employer.
+        sendCvEligible:
+          type: boolean
+          description: True when Send CV resolves to a stored direct employer email rather than the operations fallback.
         website:
           type: string
           nullable: true
@@ -6562,6 +6585,9 @@ components:
         cvDocumentId:
           type: integer
           nullable: true
+        requireDirectContact:
+          type: boolean
+          description: Reject the request instead of using the legacy operations fallback when no direct employer email is stored.
 
     SpeculativeApplicationResult:
       type: object

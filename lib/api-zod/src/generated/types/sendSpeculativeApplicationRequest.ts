@@ -18,4 +18,6 @@ export interface SendSpeculativeApplicationRequest {
   boardName?: string | null;
   notes?: string | null;
   cvDocumentId?: number | null;
+  /** Reject the request instead of using the legacy operations fallback when no direct employer email is stored. */
+  requireDirectContact?: boolean;
 }

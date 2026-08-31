@@ -524,6 +524,18 @@ export const RoleStatutoryRegulator = {
 } as const;
 
 /**
+ * Vacancy-level sponsorship evidence. Unknown means the advert does not explicitly confirm or deny sponsorship.
+ */
+export type RoleSponsorshipStatus =
+  (typeof RoleSponsorshipStatus)[keyof typeof RoleSponsorshipStatus];
+
+export const RoleSponsorshipStatus = {
+  confirmed: "confirmed",
+  not_offered: "not_offered",
+  unknown: "unknown",
+} as const;
+
+/**
  * Origin category for the vacancy.
  */
 export type RoleSourceType =
@@ -547,6 +559,10 @@ export interface Role {
   /** Statutory regulator when the opportunity is regulated by GMC, NMC, or HCPC. */
   statutoryRegulator?: RoleStatutoryRegulator;
   sponsorshipOffered: boolean;
+  /** Vacancy-level sponsorship evidence. Unknown means the advert does not explicitly confirm or deny sponsorship. */
+  sponsorshipStatus?: RoleSponsorshipStatus;
+  /** True when the employer appears on the Home Office sponsor register; this does not prove the vacancy offers sponsorship. */
+  licensedSponsor?: boolean;
   targetRegions?: string[] | null;
   requiredRegistration: string;
   requiredDbsClearanceLevel?: DbsClearanceLevel | null;
@@ -614,6 +630,8 @@ export interface MatchedRole {
   contactPhone?: string | null;
   /** Company website URL from employer profile, where available */
   contactWebsite?: string | null;
+  /** True when the persisted Send CV recipient lookup found a direct employer email. */
+  sendCvEligible?: boolean;
 }
 
 export interface MatchedRoleList {
@@ -708,11 +726,22 @@ export interface SmartApplyCandidatePrefill {
   email: string | null;
 }
 
+export type SmartApplyRoleContextSponsorshipStatus =
+  (typeof SmartApplyRoleContextSponsorshipStatus)[keyof typeof SmartApplyRoleContextSponsorshipStatus];
+
+export const SmartApplyRoleContextSponsorshipStatus = {
+  confirmed: "confirmed",
+  not_offered: "not_offered",
+  unknown: "unknown",
+} as const;
+
 export interface SmartApplyRoleContext {
   title: string;
   location: string;
   regulator: string;
   sponsorshipOffered: boolean;
+  sponsorshipStatus?: SmartApplyRoleContextSponsorshipStatus;
+  licensedSponsor?: boolean;
 }
 
 export interface SmartApplyPrefillResponse {
@@ -1398,6 +1427,8 @@ export interface SponsorLicenceCompany {
   matchIsEligible?: boolean | null;
   /** Timestamp of the most recent successful vacancy check for this employer. */
   lastVacancyCheckedAt?: string | null;
+  /** True when Send CV resolves to a stored direct employer email rather than the operations fallback. */
+  sendCvEligible?: boolean;
   /** Company website URL enriched via AI. */
   website?: string | null;
   /** Contact email address enriched via AI. */
@@ -1869,6 +1900,8 @@ export interface SendSpeculativeApplicationRequest {
   boardName?: string | null;
   notes?: string | null;
   cvDocumentId?: number | null;
+  /** Reject the request instead of using the legacy operations fallback when no direct employer email is stored. */
+  requireDirectContact?: boolean;
 }
 
 export interface SpeculativeApplicationResult {
@@ -2530,6 +2563,10 @@ export type ListSponsorLicencesParams = {
    * If true, return only the candidate's bookmarked companies
    */
   bookmarkedOnly?: boolean;
+  /**
+   * If true, return only companies with a stored direct employer email usable by Send CV
+   */
+  directContactOnly?: boolean;
   page?: number;
   /**
    * @maximum 100

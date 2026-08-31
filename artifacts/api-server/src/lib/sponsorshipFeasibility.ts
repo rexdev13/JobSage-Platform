@@ -14,7 +14,7 @@ const DISCLAIMER =
   "This assessment is based solely on the role's declared sponsorship information and the candidate's stated requirements. It is not a guarantee of sponsorship and does not constitute an offer of employment or visa sponsorship. Sponsorship decisions are made solely by the employing organisation.";
 
 export function assessSponsorshipFeasibility(
-  role: Role,
+  role: Role & { sponsorshipStatus?: "confirmed" | "not_offered" | "unknown" },
   requiresSponsorship: boolean
 ): SponsorshipFeasibilityResult {
   if (!requiresSponsorship) {
@@ -35,6 +35,17 @@ export function assessSponsorshipFeasibility(
       reasonCode: "SPONSORSHIP_OFFERED",
       explanation:
         "This employer has indicated they offer visa sponsorship. Your requirement for sponsorship is likely compatible with this role.",
+      disclaimer: DISCLAIMER,
+    };
+  }
+
+  if (role.sponsorshipStatus === "unknown") {
+    return {
+      roleId: role.id,
+      outcome: "uncertain",
+      reasonCode: "SPONSORSHIP_UNCONFIRMED",
+      explanation:
+        "This employer is licensed to sponsor workers, but this vacancy does not explicitly confirm that sponsorship is available.",
       disclaimer: DISCLAIMER,
     };
   }

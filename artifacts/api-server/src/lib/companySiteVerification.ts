@@ -1,6 +1,6 @@
 import { db, sponsorLicenceVacanciesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { EXPIRATION_PHRASES } from "./linkHealth";
+import { EXPIRATION_PHRASES, softNotFoundReason } from "./linkHealth";
 import { fetchCompanySitePage, COMPANY_SITE_EMPLOYER_BUDGET_MS } from "./companySiteHttp";
 import { isBlockedVacancyUrl, isValidVacancyUrlForSource } from "./vacancyUrlPolicy";
 
@@ -50,6 +50,10 @@ export async function verifyCompanySiteStoredLink(
       .where(eq(sponsorLicenceVacanciesTable.id, id))
       .catch(() => {});
     return "inconclusive";
+  }
+  const softNotFound = softNotFoundReason(result.url, result.body);
+  if (softNotFound) {
+    return writeDead(id, softNotFound);
   }
   if (
     isBlockedVacancyUrl(result.url) ||

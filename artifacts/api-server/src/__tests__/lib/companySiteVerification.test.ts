@@ -63,6 +63,37 @@ describe("company-site initial verification", () => {
     expect(setMock).toHaveBeenLastCalledWith(expect.objectContaining({ liveness: "dead" }));
   });
 
+  it("marks a branded HTTP-200 /404 destination dead", async () => {
+    fetchCompanySitePageMock.mockResolvedValue({
+      ok: true,
+      url: "https://jobs.barchester.com/404",
+      status: 200,
+      body: "<html><title>Barchester Careers</title><body>Current vacancies</body></html>",
+      contentType: "text/html",
+    });
+
+    await expect(
+      verifyCompanySiteStoredLink(4, "https://jobs.barchester.com/jobs/registered-nurse-4"),
+    ).resolves.toBe("dead");
+    expect(setMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ liveness: "dead", livenessReason: expect.stringContaining("soft 404") }),
+    );
+  });
+
+  it("marks a soft-not-found title dead even when the path looks like a vacancy", async () => {
+    fetchCompanySitePageMock.mockResolvedValue({
+      ok: true,
+      url: "https://careers.example.org/jobs/registered-nurse-5",
+      status: 200,
+      body: "<html><title>Job not found</title><body>Search current vacancies</body></html>",
+      contentType: "text/html",
+    });
+
+    await expect(
+      verifyCompanySiteStoredLink(5, "https://careers.example.org/jobs/registered-nurse-5"),
+    ).resolves.toBe("dead");
+  });
+
   it("keeps robots and rate-limit failures inconclusive", async () => {
     fetchCompanySitePageMock.mockResolvedValue({
       ok: false,

@@ -140,6 +140,8 @@ export interface SponsorVacancyAsRole {
   opportunityCategory: OpportunityCategory;
   statutoryRegulator: StatutoryRegulator | null;
   sponsorshipOffered: boolean;
+  sponsorshipStatus: "confirmed" | "not_offered" | "unknown";
+  licensedSponsor: true;
   requiredRegistration: string;
   active: boolean;
   importedAt: Date;
@@ -163,6 +165,39 @@ export interface SponsorVacancyAsRole {
   sourceType: "job_board" | "company_site" | null;
   boardName: string | null;
   externalListingId: string | null;
+}
+
+export type VacancySponsorshipStatus = SponsorVacancyAsRole["sponsorshipStatus"];
+
+const SPONSORSHIP_NEGATIVE_PATTERNS = [
+  /\b(?:no|without)\s+(?:visa\s+|skilled\s+worker\s+)?sponsorship\b/i,
+  /\b(?:cannot|can't|unable\s+to|do(?:es)?\s+not|will\s+not|won't)\s+(?:offer|provide|support)\s+(?:visa\s+|skilled\s+worker\s+)?sponsorship\b/i,
+  /\bsponsorship\b.{0,50}\b(?:not\s+available|cannot\s+be\s+offered|will\s+not\s+be\s+(?:offered|provided)|is\s+not\s+(?:offered|provided))\b/i,
+  /\bnot\s+eligible\s+for\s+(?:visa\s+|skilled\s+worker\s+)?sponsorship\b/i,
+] as const;
+
+const SPONSORSHIP_POSITIVE_PATTERNS = [
+  /\b(?:visa\s+|skilled\s+worker\s+)?sponsorship\s+(?:is\s+)?(?:available|offered|provided)\b/i,
+  /\b(?:we|the\s+employer|this\s+employer)\s+(?:can\s+|will\s+)?(?:offer|provide|support)\s+(?:visa\s+|skilled\s+worker\s+)?sponsorship\b/i,
+  /\bcertificate\s+of\s+sponsorship\s+(?:is\s+)?available\b/i,
+] as const;
+
+/**
+ * Deterministic vacancy-level evidence only. Sponsor-register membership is
+ * represented separately and is never treated as proof for an individual job.
+ */
+export function inferVacancySponsorshipStatus(
+  title: string,
+  description: string | null | undefined,
+): VacancySponsorshipStatus {
+  const text = [title, description ?? ""].filter(Boolean).join("\n");
+  if (SPONSORSHIP_NEGATIVE_PATTERNS.some((pattern) => pattern.test(text))) {
+    return "not_offered";
+  }
+  if (SPONSORSHIP_POSITIVE_PATTERNS.some((pattern) => pattern.test(text))) {
+    return "confirmed";
+  }
+  return "unknown";
 }
 
 /**
@@ -270,6 +305,7 @@ export async function fetchSponsorVacanciesAsRoles(
       vac.requiredDbsClearanceLevel == null || vac.requiredSafeguardingLevel == null
         ? inferSafeguardingRequirements(vac.title, vac.description)
         : null;
+    const sponsorshipStatus = inferVacancySponsorshipStatus(vac.title, vac.description);
 
     const hasContactRoute = [link.applyUrl, contactEmail, contactPhone, contactWebsite].some(
       (v) => v != null && v.trim() !== "",
@@ -284,8 +320,10 @@ export async function fetchSponsorVacanciesAsRoles(
       regulator: statutoryRegulatorForCategory(category),
       opportunityCategory: category,
       statutoryRegulator: statutoryRegulatorForCategory(category),
-      // Every organisation in this table holds a Home Office sponsor licence.
-      sponsorshipOffered: true,
+      // Register membership and vacancy-level sponsorship are separate facts.
+      licensedSponsor: true,
+      sponsorshipStatus,
+      sponsorshipOffered: sponsorshipStatus === "confirmed",
       requiredRegistration: opportunityRegistrationLabel(category),
       active: true,
       importedAt: vac.createdAt,

@@ -73,6 +73,7 @@ import {
   filterAcknowledgedGaps,
   getCandidateReadinessClaims,
 } from "../lib/readinessClaims";
+import { getDirectContactEligibility } from "../lib/employerRecipient";
 import {
   getNextReadinessReset,
   getReadinessMonthStart,
@@ -604,6 +605,9 @@ router.get("/roles", async (req, res): Promise<void> => {
     appliedApps,
     regulatorRoles,
   );
+  const sendCvEligibility = await getDirectContactEligibility(
+    regulatorRoles.map((role) => ({ companyName: role.employer })),
+  );
 
   // Build a lookup from the persisted AI scores so the roles response can
   // sort and badge each card with the same value the /my-matches strip uses.
@@ -626,7 +630,7 @@ router.get("/roles", async (req, res): Promise<void> => {
     .split(/\s+/)
     .filter(Boolean);
 
-  const result = regulatorRoles.map((role) => {
+  const result = regulatorRoles.map((role, index) => {
     const professionallyRelevant =
       sponsorRelevance.get(role.id) !== false && !isManualLabourTitle(role.title);
     const reqReg = role.requiredRegistration.toLowerCase();
@@ -722,6 +726,7 @@ router.get("/roles", async (req, res): Promise<void> => {
       contactEmail: role.contactEmail ?? null,
       contactPhone: role.contactPhone ?? null,
       contactWebsite: role.contactWebsite ?? null,
+      sendCvEligible: sendCvEligibility[index] === true,
       applyUrl: role.applyUrl ?? null,
       linkVerified: role.linkVerified ?? false,
       linkCheckedAt: role.linkCheckedAt ?? null,
@@ -862,6 +867,8 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
       return {
         id: r.id, title: r.title, employer: r.employer, location: r.location,
         regulator: r.regulator, sponsorshipOffered: r.sponsorshipOffered,
+        licensedSponsor: false,
+        sponsorshipStatus: r.sponsorshipOffered ? "confirmed" as const : "not_offered" as const,
         opportunityCategory: categoryForStatutoryRegulator(r.regulator),
         requiredRegistration: r.requiredRegistration,
         requiredDbsClearanceLevel: r.requiredDbsClearanceLevel,
@@ -886,6 +893,8 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
     .map((v) => ({
       id: v.id, title: v.title, employer: v.employer, location: v.location,
       regulator: v.regulator, sponsorshipOffered: v.sponsorshipOffered,
+      licensedSponsor: v.licensedSponsor,
+      sponsorshipStatus: v.sponsorshipStatus,
       opportunityCategory: v.opportunityCategory,
       requiredRegistration: v.requiredRegistration,
       requiredDbsClearanceLevel: v.requiredDbsClearanceLevel,
@@ -1090,6 +1099,11 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
         location: r.location,
         regulator: r.regulator,
         sponsorshipOffered: r.sponsorshipOffered,
+        licensedSponsor: "licensedSponsor" in r ? r.licensedSponsor : false,
+        sponsorshipStatus:
+          "sponsorshipStatus" in r
+            ? r.sponsorshipStatus
+            : r.sponsorshipOffered ? "confirmed" : "not_offered",
         requiredRegistration: r.requiredRegistration,
         requiredDbsClearanceLevel: r.requiredDbsClearanceLevel ?? null,
         requiredSafeguardingLevel: r.requiredSafeguardingLevel ?? null,
@@ -1291,6 +1305,8 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
         return {
           id: r.id, title: r.title, employer: r.employer, location: r.location,
           regulator: r.regulator, sponsorshipOffered: r.sponsorshipOffered,
+          licensedSponsor: false,
+          sponsorshipStatus: r.sponsorshipOffered ? "confirmed" as const : "not_offered" as const,
           opportunityCategory: categoryForStatutoryRegulator(r.regulator),
           requiredRegistration: r.requiredRegistration,
           requiredDbsClearanceLevel: r.requiredDbsClearanceLevel,

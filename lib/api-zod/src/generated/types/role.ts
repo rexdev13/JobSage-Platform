@@ -9,6 +9,7 @@ import type { DbsClearanceLevel } from "./dbsClearanceLevel";
 import type { RoleOpportunityCategory } from "./roleOpportunityCategory";
 import type { RoleRegulator } from "./roleRegulator";
 import type { RoleSourceType } from "./roleSourceType";
+import type { RoleSponsorshipStatus } from "./roleSponsorshipStatus";
 import type { RoleStatutoryRegulator } from "./roleStatutoryRegulator";
 import type { SafeguardingTrainingLevel } from "./safeguardingTrainingLevel";
 
@@ -24,6 +25,10 @@ export interface Role {
   /** Statutory regulator when the opportunity is regulated by GMC, NMC, or HCPC. */
   statutoryRegulator?: RoleStatutoryRegulator;
   sponsorshipOffered: boolean;
+  /** Vacancy-level sponsorship evidence. Unknown means the advert does not explicitly confirm or deny sponsorship. */
+  sponsorshipStatus?: RoleSponsorshipStatus;
+  /** True when the employer appears on the Home Office sponsor register; this does not prove the vacancy offers sponsorship. */
+  licensedSponsor?: boolean;
   targetRegions?: string[] | null;
   requiredRegistration: string;
   requiredDbsClearanceLevel?: DbsClearanceLevel | null;

@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   defaultSponsorshipOnly,
+  filterSendCvSponsors,
   filterOpportunities,
   getOpportunityApplyAction,
   groupRankedOpportunities,
   shouldShowOpportunityApplyActions,
+  shouldShowSendCv,
 } from "./opportunityFilters";
 
 describe("opportunity filters", () => {
@@ -87,5 +89,19 @@ describe("opportunity filters", () => {
     expect(["Send CV", "Smart Apply"]).toEqual(
       expect.arrayContaining(["Send CV", "Smart Apply"]),
     );
+  });
+
+  it("shows Send CV only for server-approved direct contacts", () => {
+    expect(shouldShowSendCv(true)).toBe(true);
+    expect(shouldShowSendCv(false)).toBe(false);
+    expect(shouldShowSendCv(undefined)).toBe(false);
+  });
+
+  it("excludes operations-only and stale sponsor records from the Send CV feed", () => {
+    expect(filterSendCvSponsors([
+      { id: 1, sendCvEligible: true },
+      { id: 2, sendCvEligible: false },
+      { id: 3 },
+    ])).toEqual([{ id: 1, sendCvEligible: true }]);
   });
 });
