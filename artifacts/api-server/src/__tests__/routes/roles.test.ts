@@ -631,7 +631,7 @@ describe("GET /roles — AI-discovered sponsor vacancy merging", () => {
     expect(merged.contactWebsite).toBe("https://org.example");
   });
 
-  it("appears without a pipeline score yet (score-pending) with null aiScore", async () => {
+  it("uses the same neutral pending score as the AI matches feed", async () => {
     const sv = makeSponsorVacancyRow(9, "City Hospital", "Staff Physician");
     pushDb([], [sv], []);
 
@@ -640,7 +640,8 @@ describe("GET /roles — AI-discovered sponsor vacancy merging", () => {
     expect(res.status).toBe(200);
     const merged = res.body.roles.find((r: any) => r.role.id === 2_000_009);
     expect(merged).toBeTruthy();
-    expect(merged.aiScore).toBeNull();
+    expect(merged.aiScore).toBe(50);
+    expect(merged.aiExplanation).toContain("pending");
     expect(typeof merged.matchScore).toBe("number");
   });
 
