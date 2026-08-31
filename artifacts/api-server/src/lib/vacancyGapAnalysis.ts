@@ -4,12 +4,14 @@ import {
   profilesTable,
   sponsorLicenceVacanciesTable,
   sponsorLicenceGapAnalysesTable,
+  roleGapAnalysesTable,
 } from "@workspace/db";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, gte, sql } from "drizzle-orm";
 import {
   filterAcknowledgedGaps,
   getCandidateReadinessClaims,
 } from "./readinessClaims";
+import { getReadinessMonthStart, READINESS_CHECK_LIMIT } from "./readinessQuota";
 
 export interface GapAnalysisResult {
   matchedRequirements: string[];
@@ -26,7 +28,6 @@ export class LimitReachedError extends Error {
   }
 }
 
-const GAP_ANALYSIS_LIMIT = 10;
 const CACHE_TTL_DAYS = 7;
 
 export async function getOrGenerateGapAnalysis(
@@ -62,15 +63,26 @@ export async function getOrGenerateGapAnalysis(
     // Stale — fall through to regenerate (count it as already-used, no limit deduction)
   }
 
-  // ── 2. Enforce 10-analysis lifetime limit (only for new analyses) ─────────
+  // ── 2. Enforce 10-analysis monthly limit (only for new analyses) ──────────
   if (!existing) {
-    const [countRow] = await db
-      .select({ count: sql<number>`cast(count(*) as integer)` })
-      .from(sponsorLicenceGapAnalysesTable)
-      .where(eq(sponsorLicenceGapAnalysesTable.userId, userId));
+    const monthStart = getReadinessMonthStart();
+    const [[sponsorCount], [roleCount]] = await Promise.all([
+      db.select({ count: sql<number>`cast(count(*) as integer)` })
+        .from(sponsorLicenceGapAnalysesTable)
+        .where(and(
+          eq(sponsorLicenceGapAnalysesTable.userId, userId),
+          gte(sponsorLicenceGapAnalysesTable.generatedAt, monthStart),
+        )),
+      db.select({ count: sql<number>`cast(count(*) as integer)` })
+        .from(roleGapAnalysesTable)
+        .where(and(
+          eq(roleGapAnalysesTable.userId, userId),
+          gte(roleGapAnalysesTable.generatedAt, monthStart),
+        )),
+    ]);
 
-    const used = countRow?.count ?? 0;
-    if (used >= GAP_ANALYSIS_LIMIT) {
+    const used = (sponsorCount?.count ?? 0) + (roleCount?.count ?? 0);
+    if (used >= READINESS_CHECK_LIMIT) {
       throw new LimitReachedError();
     }
   }

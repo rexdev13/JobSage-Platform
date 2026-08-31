@@ -39,12 +39,17 @@ vi.mock("@workspace/db", () => {
       vacancyId: "vacancyId",
       generatedAt: "generatedAt",
     },
+    roleGapAnalysesTable: {
+      userId: "userId",
+      generatedAt: "generatedAt",
+    },
   };
 });
 
 vi.mock("drizzle-orm", () => ({
   and: vi.fn(),
   eq: vi.fn(),
+  gte: vi.fn(),
   sql: vi.fn(),
 }));
 
@@ -100,6 +105,7 @@ describe("sponsor vacancy readiness claim suppression", () => {
     selectResults.push(
       [legacyClaim],
       [],
+      [{ count: 0 }],
       [{ count: 0 }],
       [{
         profession: "nurse",

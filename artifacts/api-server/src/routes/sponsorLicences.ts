@@ -1,13 +1,14 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { sponsorLicencesTable, sponsorLicenceSyncLogTable, sponsorLicenceVacancyChecksTable, sponsorLicenceBookmarksTable, sponsorLicenceVacanciesTable, sponsorLicenceVacancyScoresTable, sponsorLicenceGapAnalysesTable } from "@workspace/db";
-import { eq, ilike, and, desc, sql, isNotNull, inArray } from "drizzle-orm";
+import { sponsorLicencesTable, sponsorLicenceSyncLogTable, sponsorLicenceVacancyChecksTable, sponsorLicenceBookmarksTable, sponsorLicenceVacanciesTable, sponsorLicenceVacancyScoresTable, sponsorLicenceGapAnalysesTable, roleGapAnalysesTable } from "@workspace/db";
+import { eq, ilike, and, desc, sql, isNotNull, inArray, gte } from "drizzle-orm";
 import { countyToRegion } from "../lib/countyToRegion";
 import { requireAuthenticated, requireRole } from "../middlewares/requireRole";
 import { runVacancyCheck } from "../lib/vacancyCheckHelper";
 import { startCheckAllVacancies, getCheckAllStatus } from "../lib/vacancyCheckAllRunner";
 import { scoreVacanciesForCompany } from "../lib/sponsorVacancyScoring";
 import { getOrGenerateGapAnalysis, LimitReachedError } from "../lib/vacancyGapAnalysis";
+import { getNextReadinessReset, getReadinessMonthStart, READINESS_CHECK_LIMIT } from "../lib/readinessQuota";
 
 const router: IRouter = Router();
 
@@ -764,11 +765,26 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
 router.get("/sponsor-licences/gap-analyses/usage", requireAuthenticated, async (req, res) => {
   try {
     const userId = req.user!.id;
-    const [row] = await db
-      .select({ count: sql<number>`cast(count(*) as integer)` })
-      .from(sponsorLicenceGapAnalysesTable)
-      .where(eq(sponsorLicenceGapAnalysesTable.userId, userId));
-    res.json({ used: row?.count ?? 0, limit: 10 });
+    const monthStart = getReadinessMonthStart();
+    const [[sponsorRow], [roleRow]] = await Promise.all([
+      db.select({ count: sql<number>`cast(count(*) as integer)` })
+        .from(sponsorLicenceGapAnalysesTable)
+        .where(and(
+          eq(sponsorLicenceGapAnalysesTable.userId, userId),
+          gte(sponsorLicenceGapAnalysesTable.generatedAt, monthStart),
+        )),
+      db.select({ count: sql<number>`cast(count(*) as integer)` })
+        .from(roleGapAnalysesTable)
+        .where(and(
+          eq(roleGapAnalysesTable.userId, userId),
+          gte(roleGapAnalysesTable.generatedAt, monthStart),
+        )),
+    ]);
+    res.json({
+      used: (sponsorRow?.count ?? 0) + (roleRow?.count ?? 0),
+      limit: READINESS_CHECK_LIMIT,
+      resetsAt: getNextReadinessReset().toISOString(),
+    });
   } catch (err) {
     console.error("[sponsor-licences] /gap-analyses/usage error:", err);
     res.status(500).json({ error: "Failed to fetch usage." });
@@ -781,11 +797,26 @@ router.get("/sponsor-licences/gap-analyses/usage/:userId", requireRole("admin"),
   try {
     const targetUserId = typeof req.params["userId"] === "string" ? req.params["userId"] : "";
     if (!targetUserId) return void res.status(400).json({ error: "Invalid user ID." });
-    const [row] = await db
-      .select({ count: sql<number>`cast(count(*) as integer)` })
-      .from(sponsorLicenceGapAnalysesTable)
-      .where(eq(sponsorLicenceGapAnalysesTable.userId, targetUserId));
-    res.json({ used: row?.count ?? 0, limit: 10 });
+    const monthStart = getReadinessMonthStart();
+    const [[sponsorRow], [roleRow]] = await Promise.all([
+      db.select({ count: sql<number>`cast(count(*) as integer)` })
+        .from(sponsorLicenceGapAnalysesTable)
+        .where(and(
+          eq(sponsorLicenceGapAnalysesTable.userId, targetUserId),
+          gte(sponsorLicenceGapAnalysesTable.generatedAt, monthStart),
+        )),
+      db.select({ count: sql<number>`cast(count(*) as integer)` })
+        .from(roleGapAnalysesTable)
+        .where(and(
+          eq(roleGapAnalysesTable.userId, targetUserId),
+          gte(roleGapAnalysesTable.generatedAt, monthStart),
+        )),
+    ]);
+    res.json({
+      used: (sponsorRow?.count ?? 0) + (roleRow?.count ?? 0),
+      limit: READINESS_CHECK_LIMIT,
+      resetsAt: getNextReadinessReset().toISOString(),
+    });
   } catch (err) {
     console.error("[sponsor-licences] /gap-analyses/usage/:userId error:", err);
     res.status(500).json({ error: "Failed to fetch usage." });
@@ -796,9 +827,10 @@ router.delete("/sponsor-licences/gap-analyses/:userId", requireRole("admin"), as
   try {
     const targetUserId = typeof req.params["userId"] === "string" ? req.params["userId"] : "";
     if (!targetUserId) return void res.status(400).json({ error: "Invalid user ID." });
-    await db
-      .delete(sponsorLicenceGapAnalysesTable)
-      .where(eq(sponsorLicenceGapAnalysesTable.userId, targetUserId));
+    await Promise.all([
+      db.delete(sponsorLicenceGapAnalysesTable).where(eq(sponsorLicenceGapAnalysesTable.userId, targetUserId)),
+      db.delete(roleGapAnalysesTable).where(eq(roleGapAnalysesTable.userId, targetUserId)),
+    ]);
     res.json({ reset: true });
   } catch (err) {
     console.error("[sponsor-licences] /gap-analyses/:userId DELETE error:", err);
@@ -808,7 +840,7 @@ router.delete("/sponsor-licences/gap-analyses/:userId", requireRole("admin"), as
 
 // ── Gap Analysis ──────────────────────────────────────────────────────────────
 // Deep per-vacancy AI gap analysis. Cached for 7 days per user+vacancy.
-// Lifetime limit: 10 analyses per candidate (enforced in vacancyGapAnalysis.ts).
+// Monthly limit: 10 new analyses per candidate (enforced in vacancyGapAnalysis.ts).
 
 router.get("/sponsor-licences/vacancies/:vacancyId/gap-analysis", requireAuthenticated, async (req, res) => {
   try {
@@ -824,7 +856,10 @@ router.get("/sponsor-licences/vacancies/:vacancyId/gap-analysis", requireAuthent
     res.json(result);
   } catch (err) {
     if (err instanceof LimitReachedError) {
-      res.status(429).json({ error: "You have used all 10 of your detailed gap analyses." });
+      res.status(429).json({
+        error: "You have used all 10 of your Readiness Checks this month.",
+        resetsAt: getNextReadinessReset().toISOString(),
+      });
       return;
     }
     console.error("[sponsor-licences] /gap-analysis error:", err);
