@@ -61,6 +61,7 @@ interface SidebarProps {
   tracked?: boolean;
   onPrefill?: () => Promise<PrefillResult>;
   onAttachCv?: () => Promise<CvAttachResult & { downloaded?: boolean }>;
+  onClearAnswerMemory?: () => Promise<number>;
 }
 
 const EMPTY_QUESTIONS: DetectedQuestion[] = [];
@@ -226,6 +227,7 @@ export function Sidebar({
   tracked = false,
   onPrefill,
   onAttachCv,
+  onClearAnswerMemory,
 }: SidebarProps) {
   const [open, setOpen] = useState(startOpen);
   const [sidebarWidth, setSidebarWidth] = useState(() =>
@@ -235,6 +237,8 @@ export function Sidebar({
   const [prefillResult, setPrefillResult] = useState<PrefillResult | null>(null);
   const [attachingCv, setAttachingCv] = useState(false);
   const [cvResult, setCvResult] = useState<(CvAttachResult & { downloaded?: boolean }) | null>(null);
+  const [clearingMemory, setClearingMemory] = useState(false);
+  const [memoryClearResult, setMemoryClearResult] = useState<number | null>(null);
   const autoPrefilledRef = useRef(false);
 
   // Expose an imperative open handle so the content script can open the
@@ -268,6 +272,17 @@ export function Sidebar({
       setAttachingCv(false);
     }
   }, [onAttachCv, attachingCv]);
+
+  const handleClearAnswerMemory = useCallback(async () => {
+    if (!onClearAnswerMemory || clearingMemory) return;
+    setClearingMemory(true);
+    setMemoryClearResult(null);
+    try {
+      setMemoryClearResult(await onClearAnswerMemory());
+    } finally {
+      setClearingMemory(false);
+    }
+  }, [clearingMemory, onClearAnswerMemory]);
 
   useEffect(() => {
     if (tracked && onPrefill && !autoPrefilledRef.current) {
@@ -968,6 +983,33 @@ export function Sidebar({
                    : "No CV upload field was found on this page. Use the button again to download your CV."}
                </div>
              )}
+              {onClearAnswerMemory && (
+                <>
+                  <button
+                    onClick={() => void handleClearAnswerMemory()}
+                    disabled={clearingMemory}
+                    style={{
+                      padding: 0,
+                      alignSelf: "flex-start",
+                      background: "none",
+                      color: COLORS.textMuted,
+                      border: "none",
+                      fontSize: 11,
+                      cursor: clearingMemory ? "not-allowed" : "pointer",
+                      textDecoration: "underline",
+                    }}
+                  >
+                    {clearingMemory ? "Clearing remembered answers…" : "Clear remembered answers for this page"}
+                  </button>
+                  {memoryClearResult !== null && (
+                    <div style={{ fontSize: 11, color: COLORS.textMuted }}>
+                      {memoryClearResult > 0
+                        ? `Cleared ${memoryClearResult} remembered ${memoryClearResult === 1 ? "answer" : "answers"}.`
+                        : "No remembered answers were stored for this page."}
+                    </div>
+                  )}
+                </>
+              )}
            </section>
             <section
               style={{

@@ -6,6 +6,7 @@ import {
   watchForSubmissionConfirmation,
 } from "./lib/trackerDetector";
 import { createQuestionWatcher } from "./lib/questionDetector";
+import { createAnswerMemoryController } from "./lib/answerMemory";
 import { ensureBrandFonts } from "./lib/brand";
 import type { PillPos } from "./lib/types";
 import { prefillPersonalDetails, type CandidateProfile, type PrefillResult } from "./lib/prefill";
@@ -259,8 +260,10 @@ function mountSidebar(
   }
 
   let questionWatcher: ReturnType<typeof createQuestionWatcher> | undefined;
+  let answerMemory: ReturnType<typeof createAnswerMemoryController> | undefined;
   try {
     questionWatcher = createQuestionWatcher();
+    answerMemory = createAnswerMemoryController(questionWatcher);
   } catch (error) {
     console.warn("[JOBSAGE] Could not start question detection; opening the helper without detected questions.", error);
   }
@@ -292,6 +295,7 @@ function mountSidebar(
       tracked={tracked}
       onPrefill={prefillApplicationDetails}
       onAttachCv={attachApplicationCv}
+      onClearAnswerMemory={() => answerMemory?.clearPage() ?? Promise.resolve(0)}
       onOpen={(fn) => { openSidebarFn = fn; }}
     />,
   );

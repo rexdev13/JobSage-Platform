@@ -8,7 +8,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 let mount: HTMLDivElement | null = null;
 
-function renderSidebar(startOpen = false) {
+function renderSidebar(startOpen = false, onClearAnswerMemory?: () => Promise<number>) {
   mount = document.createElement("div");
   document.body.append(mount);
   const root = createRoot(mount);
@@ -24,6 +24,7 @@ function renderSidebar(startOpen = false) {
         }}
         onLogApplication={async () => undefined}
         onDismiss={() => undefined}
+        onClearAnswerMemory={onClearAnswerMemory}
       />,
     );
   });
@@ -83,5 +84,26 @@ describe("Smart Apply panel interactions", () => {
     expect(sidebarWidthBounds(320)).toEqual({ minimum: 288, maximum: 288 });
     expect(clampSidebarWidth(1000, 500)).toBe(468);
     expect(clampSidebarWidth(100, 500)).toBe(320);
+  });
+
+  it("clears remembered answers for the current page without exposing a submit action", async () => {
+    let clearCalls = 0;
+    const root = renderSidebar(true, async () => {
+      clearCalls += 1;
+      return 2;
+    });
+
+    const clearButton = Array.from(document.querySelectorAll("button")).find((button) =>
+      button.textContent?.includes("Clear remembered answers for this page"),
+    );
+    await act(async () => clearButton?.click());
+
+    expect(clearCalls).toBe(1);
+    expect(document.body.textContent).toContain("Cleared 2 remembered answers.");
+    expect(document.querySelector("form")).toBeNull();
+    expect(
+      Array.from(document.querySelectorAll("button")).some((button) => /^submit/i.test(button.textContent?.trim() ?? "")),
+    ).toBe(false);
+    await act(async () => root.unmount());
   });
 });

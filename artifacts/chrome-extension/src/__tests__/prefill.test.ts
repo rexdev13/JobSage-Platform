@@ -58,6 +58,22 @@ describe("prefillPersonalDetails", () => {
     expect((document.getElementById("typed") as HTMLInputElement).value).toBe("Already typed");
     expect(result.filled).toEqual(expect.arrayContaining(["street address", "country"]));
   });
+
+  it("fills every matching empty safe field while preserving filled and password fields", () => {
+    document.body.innerHTML = `
+      <label for="phone-primary">Phone</label><input id="phone-primary">
+      <label for="phone-confirm">Contact number</label><input id="phone-confirm">
+      <label for="phone-existing">Mobile phone</label><input id="phone-existing" value="Keep me">
+      <label for="password-again">Password</label><input id="password-again" type="password">
+    `;
+
+    prefillPersonalDetails({ phone: "07123456789" });
+
+    expect((document.getElementById("phone-primary") as HTMLInputElement).value).toBe("07123456789");
+    expect((document.getElementById("phone-confirm") as HTMLInputElement).value).toBe("07123456789");
+    expect((document.getElementById("phone-existing") as HTMLInputElement).value).toBe("Keep me");
+    expect((document.getElementById("password-again") as HTMLInputElement).value).toBe("");
+  });
 });
 
 describe("findCvFileInput", () => {

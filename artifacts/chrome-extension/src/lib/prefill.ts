@@ -112,11 +112,9 @@ export function prefillPersonalDetails(
   profile: CandidateProfile,
   doc: Document = document,
 ): PrefillResult {
-  const filled: string[] = [];
+  const filled = new Set<string>();
   const missing = new Set<string>();
   const skipped: string[] = [];
-  const seenFields = new Set<DetailKey>();
-
   const fields = Array.from(doc.querySelectorAll<DetailField>("input, textarea, select"));
   for (const field of fields) {
     if (!isVisible(field)) continue;
@@ -131,8 +129,7 @@ export function prefillPersonalDetails(
     }
 
     const rule = findRule(field);
-    if (!rule || seenFields.has(rule.key)) continue;
-    seenFields.add(rule.key);
+    if (!rule) continue;
 
     const currentValue = clean(field.value);
     const candidateValue = valueFor(profile, rule.key);
@@ -155,8 +152,8 @@ export function prefillPersonalDetails(
     }
     field.dispatchEvent(new Event("input", { bubbles: true }));
     field.dispatchEvent(new Event("change", { bubbles: true }));
-    filled.push(rule.label);
+    filled.add(rule.label);
   }
 
-  return { filled, missing: Array.from(missing), skipped };
+  return { filled: Array.from(filled), missing: Array.from(missing), skipped };
 }
