@@ -160,6 +160,7 @@ export function SmartApplyModal({
     setClEditable(coverLetter.text);
   }
   const [prefillData, setPrefillData] = useState<SmartApplyPrefillResponse | null>(null);
+  const [prefillError, setPrefillError] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [currentQuestion, setCurrentQuestion] = useState(0);
 
@@ -211,6 +212,7 @@ export function SmartApplyModal({
       { id: roleId },
       {
         onSuccess: (data) => {
+          setPrefillError(null);
           setPrefillData(data);
           const aiAnswers: Record<string, string> = {};
           for (const pf of data.prefills) {
@@ -232,7 +234,8 @@ export function SmartApplyModal({
           }
           setStep("review");
         },
-        onError: () => {
+        onError: (error) => {
+          setPrefillError(error instanceof Error ? error.message : "Please try again.");
           setStep("error");
         },
       }
@@ -386,7 +389,7 @@ export function SmartApplyModal({
               <AlertTriangle className="w-10 h-10 text-destructive mb-4" />
               <p className="text-sm font-medium text-foreground">Could not generate answers</p>
               <p className="text-xs text-muted-foreground mt-1 text-center max-w-xs">
-                Please ensure your candidate profile is complete, then try again.
+                {prefillError ?? "Please ensure your candidate profile is complete, then try again."}
               </p>
               <Button className="mt-4" variant="outline" onClick={onClose}>
                 Close
