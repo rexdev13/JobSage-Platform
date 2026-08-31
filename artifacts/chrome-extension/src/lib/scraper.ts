@@ -5,6 +5,11 @@ export interface JobContext {
   pageUrl: string;
 }
 
+export function isWorkdayHostname(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  return host.includes("myworkdayjobs") || host.includes("workdayjobs") || host.includes("workday.com");
+}
+
 function getMeta(name: string): string {
   const el =
     document.querySelector<HTMLMetaElement>(`meta[property="${name}"]`) ??
@@ -177,7 +182,7 @@ export function isRecognizedJobBoard(): boolean {
   return (
     host.includes("nhs.uk") ||
     host.includes("trac.jobs") ||
-    host.includes("myworkdayjobs.com") ||
+    isWorkdayHostname(host) ||
     host.includes("jobsage.co.uk")
   );
 }
@@ -223,7 +228,7 @@ export function scrapeJobContext(): JobContext {
     partial = scrapeNhs();
   } else if (host.includes("trac.jobs")) {
     partial = scrapeTrac();
-  } else if (host.includes("myworkdayjobs.com")) {
+  } else if (isWorkdayHostname(host)) {
     partial = scrapeWorkday();
   } else {
     partial = scrapeFallback();

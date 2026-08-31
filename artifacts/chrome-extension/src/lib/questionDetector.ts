@@ -3,6 +3,7 @@
  * Workday and generic sites) so the sidebar can list them and write generated
  * answers back into the right field.
  */
+import { isWorkdayHostname } from "./scraper";
 
 export interface DetectedQuestion {
   /** Stable identity for the field across re-scans. */
@@ -15,6 +16,8 @@ export interface DetectedQuestion {
   wordLimit?: number;
   /** Declaration-style prompts must be reviewed and answered by the candidate. */
   restricted: boolean;
+  /** Stable label/name/id signature used for page-scoped answer memory. */
+  signature: string;
 }
 
 type QuestionField = HTMLTextAreaElement | HTMLInputElement;
@@ -41,10 +44,6 @@ const PERSONAL_AUTOCOMPLETE = new Set([
   "postal-code", "country", "country-name", "bday", "bday-day", "bday-month",
   "bday-year", "organization", "organization-title", "url",
 ]);
-
-/** Words that strongly suggest an essay/free-text question. */
-const QUESTION_KEYWORD_PATTERN =
-  /\b(describe|explain|tell us|tell me|why|how (do|did|would|have)|what (do|did|would|is|are|was|were|makes|motivates)|experience|example|demonstrate|evidence|outline|discuss|supporting (information|statement)|additional (information|details)|further information|anything else|personal statement|statement in support|cover(ing)? letter|motivation|skills? and (experience|knowledge)|suitability|strengths?|achievements?|contribute|situation (where|in which)|time (when|you))\b/i;
 
 const CANDIDATE_CONFIRMATION_PATTERN =
   /\b(criminal|conviction|convicted|criminal record|disclosure|declaration|consent|agree(?:ment)?|payroll|tax declaration)\b/i;
@@ -87,7 +86,7 @@ function dedicatedSiteForHost(hostname: string): keyof typeof DEDICATED_SITE_SEL
   const host = hostname.toLowerCase();
   if (host.includes("trac.jobs")) return "trac";
   if (host.includes("jobs.nhs") || host.includes("nhsjobs")) return "nhsJobs";
-  if (host.includes("myworkdayjobs") || host.includes("workdayjobs") || host.includes("workday.com")) return "workday";
+  if (isWorkdayHostname(host)) return "workday";
   return null;
 }
 
@@ -141,23 +140,11 @@ function isCandidateField(el: Element): el is QuestionField {
   return false;
 }
 
-function isPersonalField(field: QuestionField): boolean {
-  const meta = `${field.name} ${field.id} ${field.getAttribute("data-automation-id") ?? ""}`;
+function isPersonalField(field: QuestionField, question = ""): boolean {
+  const meta = `${field.name} ${field.id} ${field.getAttribute("data-automation-id") ?? ""} ${question}`;
   if (PERSONAL_FIELD_PATTERN.test(meta)) return true;
   const auto = field.getAttribute("autocomplete")?.toLowerCase().trim();
   if (auto && PERSONAL_AUTOCOMPLETE.has(auto)) return true;
-  return false;
-}
-
-/** Does this text read like a genuine free-text question? */
-function isQuestionLike(text: string, field: QuestionField): boolean {
-  const t = text.trim();
-  if (t.length < 4) return false;
-  if (PERSONAL_FIELD_PATTERN.test(t) && t.length < 40) return false;
-  if (QUESTION_KEYWORD_PATTERN.test(t)) return true;
-  if (t.endsWith("?")) return true;
-  // Long labels on textareas are almost always essay prompts.
-  if (isTextArea(field) && t.length >= 25) return true;
   return false;
 }
 
@@ -261,19 +248,20 @@ function resolveQuestionText(field: QuestionField): string {
   return cleanText(field.getAttribute("placeholder"));
 }
 
-function dedicatedQuestionText(field: QuestionField): string {
+function fallbackQuestionText(field: QuestionField, defaultText = "Application response"): string {
   const text = cleanText(
     field.getAttribute("aria-label") ||
       field.getAttribute("placeholder") ||
       field.name ||
       field.id,
   );
-  if (!text) return "Supporting statement";
+  if (!text) return defaultText;
   return text
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
     .replace(/[_-]+/g, " ")
     .replace(/\b(textarea|longtext|long text|answer|response)\b/gi, "")
     .replace(/\s+/g, " ")
-    .trim() || "Supporting statement";
+    .trim() || defaultText;
 }
 
 // ---------------------------------------------------------------------------
@@ -307,6 +295,23 @@ function ensureId(field: QuestionField): string {
   return id;
 }
 
+function stableFieldSignature(
+  field: QuestionField,
+  question: string,
+  root: Document | Element,
+): string {
+  const normalized = (value: string) => cleanText(value).toLowerCase();
+  const base = [
+    normalized(question),
+    normalized(field.name),
+    normalized(field.id),
+    normalized(field.getAttribute("data-automation-id") ?? ""),
+  ].join("|");
+  const candidates = Array.from(root.querySelectorAll("textarea, input[type='text'], input:not([type])"));
+  const ordinal = Math.max(0, candidates.indexOf(field));
+  return `${base}|${field.tagName.toLowerCase()}|${ordinal}`;
+}
+
 function scanRoot(root: Document | Element, hostname: string): DetectedQuestion[] {
   const results: DetectedQuestion[] = [];
   const fields = Array.from(root.querySelectorAll("textarea, input[type='text'], input:not([type])"));
@@ -314,19 +319,21 @@ function scanRoot(root: Document | Element, hostname: string): DetectedQuestion[
   for (const el of fields) {
     if (!isCandidateField(el)) continue;
     const field = el;
-    if (isPersonalField(field)) continue;
-
     const dedicated = isDedicatedField(field, hostname);
-    const question = resolveQuestionText(field) || (dedicated ? dedicatedQuestionText(field) : "");
-    if (!question || (!dedicated && !isQuestionLike(question, field))) continue;
+    const question =
+      resolveQuestionText(field) ||
+      fallbackQuestionText(field, dedicated ? "Supporting statement" : "Application response");
+    if (isPersonalField(field, question)) continue;
 
     const maxLength = field.maxLength > 0 ? field.maxLength : undefined;
+    const restrictionText = `${question} ${field.name} ${field.id} ${field.getAttribute("data-automation-id") ?? ""}`;
     results.push({
       id: ensureId(field),
       question: question.length > 300 ? `${question.slice(0, 300)}…` : question,
       maxLength,
       wordLimit: resolveWordLimit(field),
-      restricted: requiresCandidateConfirmation(question),
+      restricted: requiresCandidateConfirmation(restrictionText),
+      signature: stableFieldSignature(field, question, root),
     });
   }
   return results;
@@ -336,18 +343,25 @@ function scanRoot(root: Document | Element, hostname: string): DetectedQuestion[
  * Detect free-text application questions in the document and any accessible
  * same-origin iframes. Cross-origin frames are skipped silently.
  */
-export function detectQuestions(doc: Document = document, hostname = doc.location?.hostname ?? ""): DetectedQuestion[] {
-  const results = scanRoot(doc, hostname);
-
+function accessibleDocuments(doc: Document): Document[] {
+  const documents: Document[] = [doc];
   for (const iframe of Array.from(doc.querySelectorAll("iframe"))) {
     try {
       const innerDoc = iframe.contentDocument;
-      if (innerDoc?.body) results.push(...scanRoot(innerDoc, innerDoc.location?.hostname ?? hostname));
+      if (innerDoc?.body && !documents.includes(innerDoc)) {
+        documents.push(...accessibleDocuments(innerDoc));
+      }
     } catch {
       // Cross-origin — browser security prevents access; skip.
     }
   }
+  return documents;
+}
 
+export function detectQuestions(doc: Document = document, hostname = doc.location?.hostname ?? ""): DetectedQuestion[] {
+  const results = accessibleDocuments(doc).flatMap((currentDoc) =>
+    scanRoot(currentDoc, currentDoc.location?.hostname || hostname),
+  );
   // Every writable field is retained, including repeated prompts such as two
   // "Achievements" boxes. Identity is field-based, not text-based.
   return results;
@@ -359,6 +373,19 @@ export function detectQuestions(doc: Document = document, hostname = doc.locatio
  * is no longer on the page.
  */
 export function insertAnswer(questionId: string, answer: string): boolean {
+  return setQuestionFieldValue(questionId, answer, { focus: true });
+}
+
+export function getQuestionField(questionId: string): QuestionField | null {
+  const field = fieldRegistry.get(questionId)?.deref();
+  return field?.isConnected ? field : null;
+}
+
+export function setQuestionFieldValue(
+  questionId: string,
+  answer: string,
+  options: { focus?: boolean } = {},
+): boolean {
   const field = fieldRegistry.get(questionId)?.deref();
   if (!field || !field.isConnected) return false;
 
@@ -375,7 +402,7 @@ export function insertAnswer(questionId: string, answer: string): boolean {
 
   field.dispatchEvent(new Event("input", { bubbles: true }));
   field.dispatchEvent(new Event("change", { bubbles: true }));
-  field.focus?.();
+  if (options.focus !== false) field.focus?.();
   return true;
 }
 
@@ -409,7 +436,8 @@ function sameQuestions(a: DetectedQuestion[], b: DetectedQuestion[]): boolean {
       q.question === b[i].question &&
       q.maxLength === b[i].maxLength &&
         q.wordLimit === b[i].wordLimit &&
-        q.restricted === b[i].restricted
+      q.restricted === b[i].restricted &&
+      q.signature === b[i].signature
   );
 }
 
@@ -422,30 +450,93 @@ export function createQuestionWatcher(doc: Document = document): QuestionWatcher
   let snapshot = detectQuestions(doc);
   const listeners = new Set<() => void>();
   let timer: ReturnType<typeof setTimeout> | null = null;
+  let forceNotify = false;
+  let lastUrl = doc.location?.href ?? "";
+  const observers = new Map<Document, MutationObserver>();
+  const frameLoadListeners = new Map<HTMLIFrameElement, () => void>();
+  const view = doc.defaultView;
 
   const rescan = () => {
     timer = null;
+    const previousUrl = lastUrl;
+    lastUrl = doc.location?.href ?? "";
     const next = detectQuestions(doc);
-    if (!sameQuestions(snapshot, next)) {
+    syncObservers();
+    if (forceNotify || previousUrl !== lastUrl || !sameQuestions(snapshot, next)) {
+      forceNotify = false;
       snapshot = next;
       listeners.forEach((l) => l());
     }
   };
 
-  const observer = new MutationObserver((mutations) => {
+  const scheduleRescan = (force = false) => {
+    forceNotify ||= force;
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(rescan, 400);
+  };
+
+  const mutationListener = (mutations: MutationRecord[]) => {
     // Ignore mutations caused solely by our own id-stamping attribute.
     if (mutations.every((m) => m.type === "attributes" && m.attributeName === FIELD_ID_ATTR)) {
       return;
     }
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(rescan, 400);
-  });
-  observer.observe(doc.documentElement, {
-    childList: true,
-    subtree: true,
-    attributes: true,
-    attributeFilter: ["hidden", "disabled", "style", "class", "aria-hidden"],
-  });
+    scheduleRescan();
+  };
+
+  function syncObservers() {
+    const currentDocuments = new Set(accessibleDocuments(doc));
+    for (const [observedDoc, observer] of observers) {
+      if (!currentDocuments.has(observedDoc)) {
+        observer.disconnect();
+        observers.delete(observedDoc);
+      }
+    }
+    for (const currentDoc of currentDocuments) {
+      if (!currentDoc.documentElement || observers.has(currentDoc)) continue;
+      const observer = new MutationObserver(mutationListener);
+      observer.observe(currentDoc.documentElement, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["hidden", "disabled", "style", "class", "aria-hidden"],
+      });
+      observers.set(currentDoc, observer);
+    }
+
+    const currentFrames = new Set(
+      Array.from(currentDocuments).flatMap((currentDoc) => Array.from(currentDoc.querySelectorAll("iframe"))),
+    );
+    for (const [frame, listener] of frameLoadListeners) {
+      if (!currentFrames.has(frame)) {
+        frame.removeEventListener("load", listener);
+        frameLoadListeners.delete(frame);
+      }
+    }
+    for (const frame of currentFrames) {
+      if (frameLoadListeners.has(frame)) continue;
+      const listener = () => scheduleRescan(true);
+      frame.addEventListener("load", listener);
+      frameLoadListeners.set(frame, listener);
+    }
+  }
+
+  syncObservers();
+
+  const onHistoryChange = () => scheduleRescan(true);
+  const originalPushState = view?.history.pushState;
+  const originalReplaceState = view?.history.replaceState;
+  if (view && originalPushState && originalReplaceState) {
+    view.history.pushState = function (...args) {
+      originalPushState.apply(view.history, args);
+      onHistoryChange();
+    };
+    view.history.replaceState = function (...args) {
+      originalReplaceState.apply(view.history, args);
+      onHistoryChange();
+    };
+    view.addEventListener("popstate", onHistoryChange);
+    view.addEventListener("hashchange", onHistoryChange);
+  }
 
   return {
     subscribe(listener) {
@@ -454,7 +545,16 @@ export function createQuestionWatcher(doc: Document = document): QuestionWatcher
     },
     getSnapshot: () => snapshot,
     stop() {
-      observer.disconnect();
+      for (const observer of observers.values()) observer.disconnect();
+      observers.clear();
+      for (const [frame, listener] of frameLoadListeners) frame.removeEventListener("load", listener);
+      frameLoadListeners.clear();
+      if (view && originalPushState && originalReplaceState) {
+        view.history.pushState = originalPushState;
+        view.history.replaceState = originalReplaceState;
+        view.removeEventListener("popstate", onHistoryChange);
+        view.removeEventListener("hashchange", onHistoryChange);
+      }
       if (timer) clearTimeout(timer);
     },
   };

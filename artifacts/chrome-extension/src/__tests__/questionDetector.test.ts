@@ -165,15 +165,24 @@ describe("detectQuestions — precision (non-question fields excluded)", () => {
     expect(qs).toHaveLength(1);
   });
 
-  it("ignores unlabelled textareas with no question-like context", () => {
+  it("detects an unlabelled writable textarea using its stable field metadata", () => {
     setBody(`<div><textarea name="notes"></textarea></div>`);
-    expect(detectQuestions()).toHaveLength(0);
+    const [question] = detectQuestions();
+    expect(question.question).toBe("notes");
+  });
+
+  it("detects two generic long-text fields even when both labels are weak", () => {
+    setBody(`
+      <div><label for="weak-1">Response one</label><textarea id="weak-1"></textarea></div>
+      <div><label for="weak-2">Response two</label><input id="weak-2" type="text" maxlength="500"></div>
+    `);
+    expect(detectQuestions().map((question) => question.question)).toEqual(["Response one", "Response two"]);
   });
 
   it("keeps repeated identical questions as separate writable fields", () => {
     setBody(`
-      <div><label for="x1">Describe a challenging situation you resolved</label><textarea id="x1"></textarea></div>
-      <div><label for="x2">Describe a challenging situation you resolved</label><textarea id="x2"></textarea></div>
+      <div><label for="x1">Achievements</label><textarea id="x1"></textarea></div>
+      <div><label for="x2">Achievements</label><textarea id="x2"></textarea></div>
     `);
     const questions = detectQuestions();
     expect(questions).toHaveLength(2);
@@ -279,6 +288,37 @@ describe("createQuestionWatcher — live re-scanning", () => {
     document.getElementById("noise")!.innerHTML = `<p>Some unrelated content update</p>`;
     await new Promise((r) => setTimeout(r, 600));
     expect(notified).toBe(0);
+    watcher.stop();
+  });
+
+  it("rescans when a history-based SPA URL changes", async () => {
+    setBody(`<div><label for="spa">Supporting statement</label><textarea id="spa"></textarea></div>`);
+    const watcher = createQuestionWatcher();
+    let notified = 0;
+    watcher.subscribe(() => notified++);
+
+    history.pushState({}, "", "/application/step-2");
+    await new Promise((r) => setTimeout(r, 600));
+
+    expect(notified).toBe(1);
+    watcher.stop();
+  });
+
+  it("observes changes inside an accessible same-origin iframe", async () => {
+    const iframe = document.createElement("iframe");
+    document.body.appendChild(iframe);
+    const watcher = createQuestionWatcher();
+    let notified = 0;
+    watcher.subscribe(() => notified++);
+
+    iframe.contentDocument!.body.innerHTML = `
+      <label for="iframe-answer">Anything else</label>
+      <textarea id="iframe-answer"></textarea>
+    `;
+    await new Promise((r) => setTimeout(r, 600));
+
+    expect(notified).toBe(1);
+    expect(watcher.getSnapshot()).toHaveLength(1);
     watcher.stop();
   });
 });

@@ -22,6 +22,7 @@
     "src/components",
     "src/content.tsx",
     "src/lib/brand.ts",
+    "src/lib/answerMemory.ts",
     "src/lib/cvAttachment.ts",
     "src/lib/env.ts",
     "src/lib/prefill.ts",
