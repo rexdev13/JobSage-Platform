@@ -25,8 +25,8 @@ import { verifyCompanySiteStoredLink } from "./companySiteVerification";
  */
 
 const STALE_THRESHOLD_MS = 12 * 60 * 60 * 1000; // re-verify at most twice a day
-const BATCH_LIMIT = 200;
-const DOMAIN_CONCURRENCY = 4;
+export const VACANCY_LIVENESS_BATCH_LIMIT = 600;
+export const VACANCY_LIVENESS_DOMAIN_CONCURRENCY = 24;
 const PER_DOMAIN_DELAY_MS = 1500;
 const SWEEP_TIMEOUT_MS = 8000; // background sweep can afford a longer fetch than click-time
 
@@ -70,7 +70,11 @@ async function selectSweepBatch(limit: number, staleThresholdMs: number): Promis
       WHERE j.apply_url IS NOT NULL AND j.apply_url <> '' AND j.status = 'published' AND j.liveness <> 'dead'
         AND (j.last_verified_at IS NULL OR j.last_verified_at < NOW() - make_interval(secs => ${staleSecs}))
     ) all_links
-    ORDER BY last_verified_at ASC NULLS FIRST, id ASC
+    ORDER BY
+      CASE WHEN last_verified_at IS NULL THEN 0 ELSE 1 END,
+      CASE WHEN source_type IN ('job_board', 'company_site') THEN 0 ELSE 1 END,
+      last_verified_at ASC NULLS FIRST,
+      id ASC
     LIMIT ${limit}
   `);
   return result.rows.map((r) => ({
@@ -149,7 +153,10 @@ export async function runVacancyLivenessSweep(
   sweepRunning = true;
   const startMs = Date.now();
   try {
-    const rawRows = await selectSweepBatch(options.batchLimit ?? BATCH_LIMIT, options.staleThresholdMs ?? STALE_THRESHOLD_MS);
+    const rawRows = await selectSweepBatch(
+      options.batchLimit ?? VACANCY_LIVENESS_BATCH_LIMIT,
+      options.staleThresholdMs ?? STALE_THRESHOLD_MS,
+    );
     // Dedupe within the batch: one check per (source, url) — markResult
     // propagates sponsor verdicts to every snapshot row sharing the URL.
     const seen = new Set<string>();
@@ -234,7 +241,7 @@ export async function runVacancyLivenessSweep(
 
     await Promise.all(
       Array.from(
-        { length: Math.min(options.domainConcurrency ?? DOMAIN_CONCURRENCY, domainQueues.length) },
+        { length: Math.min(options.domainConcurrency ?? VACANCY_LIVENESS_DOMAIN_CONCURRENCY, domainQueues.length) },
         () => worker(),
       ),
     );

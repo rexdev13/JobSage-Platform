@@ -161,6 +161,26 @@ describe("runVacancyLivenessSweep", () => {
     expect(calls[1]).toBe("https://nhs.uk/job/2");
   });
 
+  it("uses the 600-link default, prioritises candidate-facing sources, and excludes dead rows", async () => {
+    setExecuteRows([]);
+    const {
+      runVacancyLivenessSweep,
+      VACANCY_LIVENESS_BATCH_LIMIT,
+      VACANCY_LIVENESS_DOMAIN_CONCURRENCY,
+    } = await import("../../lib/vacancyLivenessSweep");
+
+    await runVacancyLivenessSweep();
+
+    expect(VACANCY_LIVENESS_BATCH_LIMIT).toBe(600);
+    expect(VACANCY_LIVENESS_DOMAIN_CONCURRENCY).toBe(24);
+    const query = (executeMock.mock.calls as unknown[][])[0]?.[0] as
+      | { queryChunks?: Array<{ value?: string[] }> }
+      | undefined;
+    const sqlText = query?.queryChunks?.map((chunk) => chunk.value?.join("") ?? "").join("") ?? String(query);
+    expect(sqlText).toContain("source_type IN ('job_board', 'company_site')");
+    expect(sqlText.match(/liveness <> 'dead'/g)).toHaveLength(3);
+  });
+
   describe("URL dedupe — same (source, url) in batch is only fetched once", () => {
     it("deduplicates sponsor_vacancy rows sharing a URL and propagates verdict via URL-wide update", async () => {
       // Two sponsor_vacancy rows for the same URL (different snapshot dates)
