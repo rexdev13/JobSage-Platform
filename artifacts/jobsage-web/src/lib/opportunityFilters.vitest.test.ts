@@ -4,6 +4,7 @@ import {
   filterOpportunities,
   getOpportunityApplyAction,
   groupRankedOpportunities,
+  shouldShowOpportunityApplyActions,
 } from "./opportunityFilters";
 
 describe("opportunity filters", () => {
@@ -63,7 +64,7 @@ describe("opportunity filters", () => {
       contactWebsite: "https://employer.example.com",
     })).toEqual({
       destinationUrl: "https://board.example.com/jobs/42",
-      label: "Apply on job boards",
+      label: "Apply Via Job Board",
       usesWebsiteFallback: false,
     });
   });
@@ -78,5 +79,13 @@ describe("opportunity filters", () => {
       label: "Open employer website",
       usesWebsiteFallback: true,
     });
+  });
+
+  it("hides vacancy Apply actions on the Send CV view while retaining its other actions", () => {
+    expect(shouldShowOpportunityApplyActions(true)).toBe(false);
+    expect(shouldShowOpportunityApplyActions(false)).toBe(true);
+    expect(["Send CV", "Smart Apply"]).toEqual(
+      expect.arrayContaining(["Send CV", "Smart Apply"]),
+    );
   });
 });
