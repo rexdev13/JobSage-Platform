@@ -25,3 +25,4 @@
 - [Company-site verification safety](company-site-verification-safety.md) — initial liveness checks must share crawler robots, pacing, backoff, redirect, and SSRF controls.
 - [Send CV delivery semantics](send-cv-delivery-semantics.md) — vacancy CV outreach stays independent from Apply and must use durable attempts, stored contacts, and real PDFs.
 - [Opportunity score consistency](opportunity-score-consistency.md) — every Opportunities section must share one score basis; pending pipeline scores use the same neutral value.
+- [Monthly Readiness quota](monthly-readiness-quota.md) — ten new vacancy analyses reset on the first of each UTC month; cached results remain available.

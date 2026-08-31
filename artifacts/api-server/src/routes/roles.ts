@@ -73,6 +73,11 @@ import {
   filterAcknowledgedGaps,
   getCandidateReadinessClaims,
 } from "../lib/readinessClaims";
+import {
+  getNextReadinessReset,
+  getReadinessMonthStart,
+  READINESS_CHECK_LIMIT,
+} from "../lib/readinessQuota";
 
 const router: IRouter = Router();
 
@@ -84,7 +89,6 @@ interface RoleGapResult {
   fromCache: boolean;
 }
 
-const READINESS_CHECK_LIMIT = 10;
 const READINESS_CHECK_TTL_DAYS = 7;
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
@@ -1757,17 +1761,27 @@ router.get("/opportunities/roles/:roleId/gap-analysis", requireAuthenticated, as
     // 2. Combined lifetime limit: only a new role consumes a new check.
     // A stale existing result can refresh even after the lifetime quota is full.
     if (!existing) {
+      const monthStart = getReadinessMonthStart();
       const [[sponsorCount], [roleCount]] = await Promise.all([
         db.select({ count: sql<number>`cast(count(*) as integer)` })
           .from(sponsorLicenceGapAnalysesTable)
-          .where(eq(sponsorLicenceGapAnalysesTable.userId, userId)),
+          .where(and(
+            eq(sponsorLicenceGapAnalysesTable.userId, userId),
+            gte(sponsorLicenceGapAnalysesTable.generatedAt, monthStart),
+          )),
         db.select({ count: sql<number>`cast(count(*) as integer)` })
           .from(roleGapAnalysesTable)
-          .where(eq(roleGapAnalysesTable.userId, userId)),
+          .where(and(
+            eq(roleGapAnalysesTable.userId, userId),
+            gte(roleGapAnalysesTable.generatedAt, monthStart),
+          )),
       ]);
       const totalUsed = (sponsorCount?.count ?? 0) + (roleCount?.count ?? 0);
       if (totalUsed >= READINESS_CHECK_LIMIT) {
-        res.status(429).json({ error: "Readiness Check limit reached. You have used all 10 checks." });
+        res.status(429).json({
+          error: "Readiness Check limit reached. You have used all 10 checks this month.",
+          resetsAt: getNextReadinessReset().toISOString(),
+        });
         return;
       }
     }

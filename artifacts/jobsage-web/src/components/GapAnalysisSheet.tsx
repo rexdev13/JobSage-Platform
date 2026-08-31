@@ -42,7 +42,7 @@ interface GapAnalysisSheetProps {
   analysisSource?: "role" | "sponsor_vacancy";
 }
 
-interface UsageData { used: number; limit: number; }
+interface UsageData { used: number; limit: number; resetsAt?: string; }
 
 export function GapAnalysisSheet({
   open,
@@ -88,13 +88,19 @@ export function GapAnalysisSheet({
   const { data: usage } = useQuery<UsageData>({
     queryKey: ["gap-analysis-usage"],
     enabled: open,
-    staleTime: 60_000,
+    staleTime: 0,
     queryFn: async () => {
       const res = await fetch(`${API_BASE}/sponsor-licences/gap-analyses/usage`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch usage.");
       return res.json() as Promise<UsageData>;
     },
   });
+
+  useEffect(() => {
+    if (open && usage && usage.used < usage.limit) {
+      setLimitReached(false);
+    }
+  }, [open, usage]);
 
   const { data, isLoading, isError, error } = useQuery<GapAnalysisData>({
     queryKey: ["gap-analysis", analysisEndpoint ?? "sponsor-vacancy", vacancyId],
@@ -191,14 +197,16 @@ export function GapAnalysisSheet({
               </SheetDescription>
             </div>
             {usage && (
-              <span className={`shrink-0 text-[11px] font-semibold px-2 py-1 rounded-full border ${
+              <span
+                title={usage.resetsAt ? `Resets ${new Date(usage.resetsAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}` : undefined}
+                className={`shrink-0 text-[11px] font-semibold px-2 py-1 rounded-full border ${
                 usage.used >= usage.limit
                   ? "bg-red-50 text-red-600 border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-800/40"
                   : usage.used >= usage.limit - 2
                   ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800/40"
                   : "bg-muted text-muted-foreground border-border"
               }`}>
-                {usage.used}/{usage.limit} used
+                {usage.used}/{usage.limit} this month
               </span>
             )}
           </div>
@@ -225,7 +233,11 @@ export function GapAnalysisSheet({
                   Readiness Check limit reached
                 </p>
                 <p className="text-xs text-amber-700/80 dark:text-amber-400/70 mt-1">
-                  You have used all 10 of your Readiness Checks. Your existing results remain accessible below.
+                  You have used all 10 of your Readiness Checks this month. New checks become available on{" "}
+                  {usage?.resetsAt
+                    ? new Date(usage.resetsAt).toLocaleDateString("en-GB", { day: "numeric", month: "long" })
+                    : "the first day of next month"}
+                  . Your existing results remain accessible below.
                 </p>
               </div>
             </div>
