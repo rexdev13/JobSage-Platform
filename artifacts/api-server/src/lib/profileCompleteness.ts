@@ -59,7 +59,6 @@ export function computeSmartApplyReady(p: ProfileRow): { ready: boolean; missing
     { label: "Years of experience", value: p.experienceYears },
     { label: "Registration status", value: p.registrationStatus },
     { label: "Residency status", value: p.residencyStatus },
-    { label: "Preferred region", value: p.preferredRegion },
     { label: "Preferred start date", value: p.preferredStartDate },
     { label: "Languages", value: p.languages },
   ];
