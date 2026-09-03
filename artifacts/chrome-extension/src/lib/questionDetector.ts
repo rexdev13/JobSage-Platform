@@ -57,7 +57,7 @@ const PERSONAL_AUTOCOMPLETE = new Set([
 ]);
 
 const CANDIDATE_CONFIRMATION_PATTERN =
-  /\b(caution(?:s)?|criminal|conviction|convicted|criminal record|asbo|disclosure|dbs|declaration|consent|agree(?:ment)?|payroll|tax declaration|health|medical|disab(?:ility|led)|ethnic(?:ity| group)?|sex|religion|sexual orientation|gender|trans(?:gender)?|diversity|equal opportunit(?:y|ies)|national insurance|ni number|passport|date of birth|dob|birth date|right to work|require(?:s|d)? sponsorship|sponsorship required|currently work|current employee)\b/i;
+  /\b(caution(?:s)?|criminal|conviction|convicted|criminal record|asbo|disclosure|dbs|declaration|consent|agree(?:ment)?|payroll|tax declaration|health|medical|disab(?:ility|led)|ethnic(?:ity| group)?|sex|religion|sexual orientation|gender|trans(?:gender)?|diversity|equal opportunit(?:y|ies)|national insurance|ni number|passport|date of birth|dob|birth date|right to work|rtw|work permit|require(?:s|d)? sponsorship|sponsorship required|currently work|current employee|bank account|sort code|marital|dependant|next of kin)\b/i;
 
 const STRUCTURED_CONTEXT_PATTERN =
   /\b(training|course|qualification|education|employment|work history|current\s*\/?\s*last job|previous job|career history)\b/i;

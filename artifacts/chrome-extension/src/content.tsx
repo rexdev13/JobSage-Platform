@@ -217,7 +217,13 @@ async function prefillApplicationDetails(questions: DetectedQuestion[] = []): Pr
     endpoint: "/smart-apply/candidate-prefill",
   });
   if (response.error || !response.data) {
-    return { filled: [], missing: ["your profile details"], skipped: [], fieldResults: {} };
+    return {
+      filled: [],
+      missing: ["your profile details"],
+      skipped: [],
+      fieldResults: {},
+      warning: "Could not load your JOBSAGE profile. Check your connection and try again.",
+    };
   }
   const payload = response.data as { profile?: CandidateProfile };
   const trackingContext = await getTrackingContext();
@@ -243,6 +249,9 @@ async function prefillApplicationDetails(questions: DetectedQuestion[] = []): Pr
     },
   });
   const values = new Map((mapped.data?.values ?? []).map((entry) => [entry.id, entry.value]));
+  if (mapped.error) {
+    result.warning = "JOBSAGE could not map your saved profile and CV details right now. Nothing was changed; please try again.";
+  }
   for (const field of fields) {
     const value = values.get(field.id);
     if (value && fillStructuredField(field.id, value)) {
@@ -252,7 +261,7 @@ async function prefillApplicationDetails(questions: DetectedQuestion[] = []): Pr
       result.missing.push(field.label);
       result.fieldResults[field.id] = {
         status: "missing",
-        message: mapped.error ? "Could not read your CV — retry" : "Not found in your JOBSAGE profile or CV",
+        message: mapped.error ? "Not filled because mapping is temporarily unavailable" : "Not found in your JOBSAGE profile or CV",
       };
     }
   }
