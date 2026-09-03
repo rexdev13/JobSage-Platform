@@ -1,0 +1,39 @@
+READ ONLY first, then fix only if the hang is in our code. Do not raise VACANCY_AI_WEB_SEARCH_DAILY_CAP. Do not scrape LinkedIn/Indeed. Do not copy preview DB into prod.
+
+Production jobsage.co.uk is unusable:
+- Site often fails to open or spins forever.
+- Opportunities Job Board: “0 of 0 job-board vacancies” and “No roles in catalogue yet” while the banner still says ~47,286 sponsor vacancies / ~15k employers.
+- Company-website tab stuck on “Loading opportunities…”.
+- Eligibility Status still shows several 93% roles (nursery / nurse / lecturer / vet nurse) — so SOME roles exist for this user.
+- Console: Chrome font “Slow network” interventions (IGNORE). Uncaught TypeError: Cannot read properties of undefined (reading 'startTime') at et.reportAllChanges (say if this is OUR bundle, web-vitals, or an extension).
+
+FOUND / PARTIAL / NOT FOUND with paths. Prod vs preview.
+
+## 1. Why Job Board is 0 while Eligibility has cards
+Exact endpoints and filters for:
+- Eligibility Status page
+- GET /roles?source=job_board
+- GET /roles?source=company_site
+- my-matches / ranking
+Which empty-state string is “No roles in catalogue yet” vs “no matches”?
+Can Eligibility show rows that /roles hides (unverified, dead, wrong source, profession mapper)?
+
+## 2. Why it spins / sometimes never opens
+Prod logs: API restarts, boot scan (~9,700 region backfill — must stay OFF), /roles duration, timeouts, 500s.
+Does company_site still load all sources then filter in JS?
+Is the published build the perf fix or the old one?
+
+## 3. Chrome extension on jobsage.co.uk
+Does the content script inject the Copilot/React root on first-party jobsage hosts? That would show the red JOBSAGE FAB on Opportunities and compete with page JS/API.
+If yes: skip sidebar + autofill + MutationObserver on jobsage.co.uk / replit.dev EXCEPT the outbound-application handoff.
+
+## 4. Counts
+Prod SQL (or admin): live vs unverified vs dead for job_board and company_site. Confirm 0-of-0 is supply/liveness, not a frontend wipe.
+
+## Then implement only
+A) Never hang the UI: timeout /roles, keep previous list, error state instead of infinite “Loading opportunities…”.
+B) If extension runs on jobsage.co.uk, disable helper UI there.
+C) Do not show 47k as if they were live Opportunities.
+D) Do not re-enable the 9.7k boot scan.
+
+If you cannot write prod: say so, and list the exact Publish / Always-on / Reserved VM steps for the owner. Stop after that.

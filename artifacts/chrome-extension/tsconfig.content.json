@@ -30,6 +30,7 @@
     "src/lib/questionDetector.ts",
     "src/lib/scraper.ts",
     "src/lib/trackerDetector.ts",
+    "src/lib/trustedOrigin.ts",
     "src/lib/types.ts",
     "src/popup.tsx"
   ]

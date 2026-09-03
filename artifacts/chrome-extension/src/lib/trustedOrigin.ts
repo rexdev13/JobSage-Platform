@@ -10,3 +10,16 @@ export function isConfiguredFirstPartyOrigin(senderUrl: string | undefined, conf
     return false;
   }
 }
+
+export function isJobSageFirstPartyPage(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    return hostname === "jobsage.co.uk"
+      || hostname.endsWith(".jobsage.co.uk")
+      || hostname === "localhost"
+      || hostname.endsWith(".replit.dev")
+      || hostname.endsWith(".repl.co");
+  } catch {
+    return false;
+  }
+}
