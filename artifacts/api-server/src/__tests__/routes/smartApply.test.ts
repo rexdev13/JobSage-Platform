@@ -3,13 +3,14 @@ import cookieParser from "cookie-parser";
 import express from "express";
 import request from "supertest";
 
-const { queryResults, storage } = vi.hoisted(() => ({
+const { queryResults, storage, createCompletion } = vi.hoisted(() => ({
   queryResults: [] as any[],
   storage: {
     getObjectEntityFile: vi.fn(),
     canAccessObjectEntity: vi.fn(),
     downloadObject: vi.fn(),
   },
+  createCompletion: vi.fn(),
 }));
 
 vi.mock("@workspace/db", () => {
@@ -42,6 +43,16 @@ vi.mock("../../lib/objectStorage", () => {
   }
   return { ObjectStorageService, ObjectNotFoundError };
 });
+
+vi.mock("@workspace/integrations-openai-ai-server", () => ({
+  openai: {
+    chat: {
+      completions: {
+        create: createCompletion,
+      },
+    },
+  },
+}));
 
 vi.mock("../../lib/auth", async () => {
   const actual = await vi.importActual<typeof import("../../lib/auth")>("../../lib/auth");
@@ -88,6 +99,9 @@ describe("Smart Apply extension endpoints", () => {
   beforeEach(() => {
     queryResults.length = 0;
     vi.clearAllMocks();
+    createCompletion.mockResolvedValue({
+      choices: [{ message: { content: JSON.stringify({ values: [] }) } }],
+    });
   });
 
   it("requires authentication for the safe candidate prefill", async () => {
@@ -207,5 +221,54 @@ describe("Smart Apply extension endpoints", () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ values: [] });
+  });
+
+  it("uses the fallback model when the primary structured-prefill request fails", async () => {
+    queryResults.push([{
+      phone: "+44 7700 900123",
+      streetAddress: "10 Example Road",
+      city: "Leeds",
+      postcode: "LS1 1AA",
+      country: "United Kingdom",
+      profession: "Registered Nurse",
+      specialty: "Adult Nursing",
+      qualificationCountry: "Nigeria",
+      qualificationType: "BSc Nursing",
+      qualificationYear: 2020,
+      experienceYears: 4,
+      registrationStatus: "NMC registered",
+      residencyStatus: "Skilled Worker",
+      preferredStartDate: null,
+      languages: ["English"],
+    }]);
+    queryResults.push([]);
+    createCompletion
+      .mockRejectedValueOnce(new Error("Temporary provider failure"))
+      .mockResolvedValueOnce({
+        choices: [{
+          message: {
+            content: JSON.stringify({
+              values: [{ id: "experience", value: "4" }],
+            }),
+          },
+        }],
+      });
+
+    const response = await request(buildApp())
+      .post("/smart-apply/structured-prefill")
+      .set("Authorization", AUTH_HEADER)
+      .send({
+        fields: [
+          { id: "experience", label: "Years of relevant experience", controlType: "text", options: [] },
+        ],
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      values: [{ id: "experience", value: "4" }],
+    });
+    expect(createCompletion).toHaveBeenCalledTimes(2);
+    expect(createCompletion.mock.calls[0]?.[0]).toMatchObject({ model: "gpt-4o" });
+    expect(createCompletion.mock.calls[1]?.[0]).toMatchObject({ model: "gpt-4o-mini" });
   });
 });
