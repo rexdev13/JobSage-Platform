@@ -227,6 +227,8 @@ export function inferSafeguardingRequirements(
 export interface SponsorVacancyRoleQueryOptions {
   /** Restrict to snapshot rows created after this alert checkpoint. */
   since?: Date | null;
+  /** Let candidate tabs filter at the database instead of scanning every source. */
+  sourceType?: "job_board" | "company_site" | null;
   /** Job alerts must have an actionable deep link, not just contact metadata. */
   requireSpecificVacancyUrl?: boolean;
   /** Candidate board feeds only show links confirmed by a current search or liveness check. */
@@ -256,6 +258,9 @@ export async function fetchSponsorVacanciesAsRoles(
   const conditions = [ne(sponsorLicenceVacanciesTable.liveness, "dead")];
   if (options.onlyVerifiedLive) {
     conditions.push(eq(sponsorLicenceVacanciesTable.liveness, "live"));
+  }
+  if (options.sourceType) {
+    conditions.push(eq(sponsorLicenceVacanciesTable.sourceType, options.sourceType));
   }
   if (options.since) {
     conditions.push(gt(sponsorLicenceVacanciesTable.createdAt, options.since));
