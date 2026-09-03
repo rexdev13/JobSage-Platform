@@ -14,6 +14,7 @@ export type VacancyCheckBatchSummary = {
 };
 
 export const DEFAULT_VACANCY_CHECK_BATCH_SIZE = 250;
+export const MAX_VACANCY_CHECK_BATCH_SIZE = 250;
 export const VACANCY_CHECK_CONCURRENCY = 15;
 export const VACANCY_CHECK_CRON = "0 2,8,14,20 * * *";
 export const HEALTHCARE_SPONSOR_INDICATORS = [
@@ -37,7 +38,7 @@ function getBatchSize(): number {
   const raw = process.env["VACANCY_CHECK_BATCH_SIZE"];
   if (raw) {
     const n = parseInt(raw, 10);
-    if (!isNaN(n) && n > 0) return n;
+    if (!isNaN(n) && n > 0) return Math.min(n, MAX_VACANCY_CHECK_BATCH_SIZE);
   }
   return DEFAULT_VACANCY_CHECK_BATCH_SIZE;
 }
