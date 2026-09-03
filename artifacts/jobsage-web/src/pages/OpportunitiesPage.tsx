@@ -1942,7 +1942,7 @@ export default function OpportunitiesPage() {
                 {/* Match score info note */}
                 {filteredRoles.length > 0 && <p className="text-xs text-muted-foreground flex items-center gap-1.5">
                   <Info className="w-3.5 h-3.5 shrink-0 text-primary/60" />
-                  Match scores are based on your CV, profile, and regulatory eligibility. All vacancies are shown — eligibility notes are advisory only.
+                  Match scores are based on your CV, profile, and regulatory eligibility. Vacancies outside your professional category are excluded.
                 </p>}
 
                 {/* Recommended — Apply First band */}

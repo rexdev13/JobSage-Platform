@@ -658,7 +658,7 @@ describe("GET /roles — AI-discovered sponsor vacancy merging", () => {
     expect(ids).not.toContain(2_000_011);
   });
 
-  it("bottom-ranks unclassified vacancies below regulator-relevant ones", async () => {
+  it("excludes unclassified vacancies instead of showing them as 0% matches", async () => {
     const relevant = makeSponsorVacancyRow(1, "Trust A", "Consultant Cardiologist");
     const unclassified = makeSponsorVacancyRow(2, "Trust B", "Team Lead");
     pushDb([], [relevant, unclassified], []);
@@ -667,9 +667,8 @@ describe("GET /roles — AI-discovered sponsor vacancy merging", () => {
     const res = await request(app).get("/roles").set("Authorization", AUTH);
     expect(res.status).toBe(200);
     const ids = res.body.roles.map((r: any) => r.role.id);
-    expect(ids.indexOf(2_000_001)).toBeLessThan(ids.indexOf(2_000_002));
-    const unclassifiedItem = res.body.roles.find((r: any) => r.role.id === 2_000_002);
-    expect(unclassifiedItem.matchScore).toBeLessThanOrEqual(25);
+    expect(ids).toContain(2_000_001);
+    expect(ids).not.toContain(2_000_002);
   });
 
   it("excludes vacancies classified to a different regulator and manual-labour titles", async () => {
