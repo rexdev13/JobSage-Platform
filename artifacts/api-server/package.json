@@ -7,6 +7,7 @@
     "dev": "NODE_ENV=development tsx watch ./src/index.ts",
     "build": "tsx ./build.ts",
     "start": "node dist/index.cjs",
+    "vacancy:jobs": "NODE_ENV=production node ./dist/vacancyJobs.cjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --config vitest.config.ts",
     "test:watch": "vitest --config vitest.config.ts",

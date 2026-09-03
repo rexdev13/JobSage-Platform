@@ -55,11 +55,16 @@ async function buildAll() {
   );
 
   await esbuild({
-    entryPoints: [path.resolve(__dirname, "src/index.ts")],
+    entryPoints: {
+      index: path.resolve(__dirname, "src/index.ts"),
+      vacancyJobs: path.resolve(__dirname, "src/vacancyJobs.ts"),
+    },
     platform: "node",
     bundle: true,
     format: "cjs",
-    outfile: path.resolve(distDir, "index.cjs"),
+    outdir: distDir,
+    entryNames: "[name]",
+    outExtension: { ".js": ".cjs" },
     banner: {
       js: 'var __cjsImportMetaUrl=require("url").pathToFileURL(__filename).href;',
     },

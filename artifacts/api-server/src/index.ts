@@ -80,18 +80,22 @@ app.listen(port, () => {
   });
   startAlertScheduler();
   startSponsorLicenceScheduler();
-  startVacancyCheckScheduler();
-  startCompanySiteDiscoveryScheduler();
   startDailyVacancySyncScheduler();
-  startVacancyLivenessSweepScheduler();
   startSponsorVacancyCleanupScheduler();
   startApplyUrlBackfillScheduler();
-  const catchupTimer = setTimeout(() => {
-    runVacancyPipelineCatchupsIfStale().catch((err) => {
-      console.error("[pipeline-catchup] Post-boot catch-up failed:", err);
-    });
-  }, 5_000);
-  catchupTimer.unref();
+  if (process.env.NODE_ENV === "production") {
+    console.log("[vacancy-scheduling] External Scheduled deployments own job_board, company_site, and liveness");
+  } else {
+    startVacancyCheckScheduler();
+    startCompanySiteDiscoveryScheduler();
+    startVacancyLivenessSweepScheduler();
+    const catchupTimer = setTimeout(() => {
+      runVacancyPipelineCatchupsIfStale().catch((err) => {
+        console.error("[pipeline-catchup] Post-boot catch-up failed:", err);
+      });
+    }, 5_000);
+    catchupTimer.unref();
+  }
   if (process.env.ENABLE_CONTACT_BACKFILL === "true") {
     const contactBackfillResult = startContactBackfill(500);
     if (contactBackfillResult.started) {
