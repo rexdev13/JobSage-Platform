@@ -96,9 +96,17 @@ app.listen(port, () => {
   } else {
     console.log("[industry-backfill] Skipped — set ENABLE_INDUSTRY_BACKFILL=true to run on startup");
   }
-  runRegionBackfill().catch((err) => {
-    console.error("[region-backfill] Startup backfill failed:", err);
-  });
+  // Most unmapped rows contain free-form county values the current mapper
+  // cannot resolve. Re-scanning all of them on every autoscale cold start
+  // competes with candidate-facing requests, so run this migration only when
+  // explicitly requested.
+  if (process.env.ENABLE_REGION_BACKFILL === "true") {
+    runRegionBackfill().catch((err) => {
+      console.error("[region-backfill] Startup backfill failed:", err);
+    });
+  } else {
+    console.log("[region-backfill] Skipped — set ENABLE_REGION_BACKFILL=true to run on startup");
+  }
   runDocumentAclBackfill().catch((err) => {
     console.error("[doc-acl-backfill] Startup backfill failed:", err);
   });

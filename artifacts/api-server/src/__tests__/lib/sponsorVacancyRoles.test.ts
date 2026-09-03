@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { selectMock, gtMock } = vi.hoisted(() => ({
+const { selectMock, eqMock, gtMock } = vi.hoisted(() => ({
   selectMock: vi.fn(),
+  eqMock: vi.fn(),
   gtMock: vi.fn(),
 }));
 
@@ -22,6 +23,7 @@ vi.mock("@workspace/db", () => {
       organisationName: "organisationName",
       liveness: "liveness",
       createdAt: "createdAt",
+      sourceType: "sourceType",
     },
     sponsorLicencesTable: { organisationName: "organisationName" },
   };
@@ -29,7 +31,7 @@ vi.mock("@workspace/db", () => {
 
 vi.mock("drizzle-orm", () => ({
   and: vi.fn(),
-  eq: vi.fn(),
+  eq: eqMock,
   gt: gtMock,
   ne: vi.fn(),
 }));
@@ -73,6 +75,7 @@ describe("fetchSponsorVacanciesAsRoles alert options", () => {
   beforeEach(() => {
     rows = [];
     selectMock.mockClear();
+    eqMock.mockClear();
     gtMock.mockClear();
   });
 
@@ -121,6 +124,14 @@ describe("fetchSponsorVacanciesAsRoles alert options", () => {
       applyUrl: NHS_URL,
       linkVerified: true,
     });
+  });
+
+  it("filters candidate vacancy tabs by source in the database query", async () => {
+    rows = [vacancyRow()];
+
+    await fetchSponsorVacanciesAsRoles("NMC", { sourceType: "job_board" });
+
+    expect(eqMock).toHaveBeenCalledWith("sourceType", "job_board");
   });
 
   it("uses explicit target regions first, then location text, while leaving unknown locations unrestricted", async () => {

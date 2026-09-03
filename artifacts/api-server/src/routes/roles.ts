@@ -436,8 +436,9 @@ router.get("/roles", async (req, res): Promise<void> => {
   // page self-populates without any admin CSV upload. Deduped below against
   // CSV roles and employer jobs by employer+title.
   let sponsorVacancyRoles = (await fetchSponsorVacanciesAsRoles(opportunityCategory, {
-    requireSpecificVacancyUrl: false,
-    onlyVerifiedLive: false,
+    sourceType: sourceFilter,
+    requireSpecificVacancyUrl: sourceFilter != null,
+    onlyVerifiedLive: sourceFilter != null,
   }))
     .filter((role) => roleMatchesPreferredRegions(role.targetRegions, profile.preferredRegion));
   if (
@@ -840,6 +841,7 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
   // to the candidate's regulator qualify for the Best Matches strip; ambiguous
   // ones stay on the main board (bottom-ranked) instead.
   let sponsorVacancyRoles = (await fetchSponsorVacanciesAsRoles(opportunityCategory, {
+    sourceType: sourceFilter,
     requireSpecificVacancyUrl: sourceFilter != null,
     onlyVerifiedLive: sourceFilter != null,
   }))
@@ -1219,6 +1221,7 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
     });
 
   const sponsorVacancyRoles = await fetchSponsorVacanciesAsRoles(opportunityCategory, {
+    sourceType: sourceFilter,
     requireSpecificVacancyUrl: sourceFilter != null,
     onlyVerifiedLive: sourceFilter != null,
   });
