@@ -1,0 +1,29 @@
+I do not have production publish access. I cannot Republish. Populate the PRODUCTION vacancy feed NOW if you can.
+
+Preview has ~269 live job_board. Production has ~5 live + ~13 unverified job_board and ~43k unverified sponsor rows. Candidates on jobsage.co.uk see ~6. I need live job_board (and company_site) counts up without me publishing.
+
+VACANCY_AI_WEB_SEARCH_DAILY_CAP stays 0. No OpenAI web_search. No LinkedIn/Indeed. Do not run the ~9,700-row region backfill. Do not scan the whole sponsor register in one shot.
+
+## First: can you fire it?
+Check whether THIS agent session can run discovery + liveness against the PRODUCTION database (the one jobsage.co.uk uses — not preview). Say clearly:
+- YES, I can write prod vacancies / call prod-internal jobs
+- or NO, only preview, and why
+
+If NO: stop. Tell me exactly who must click what (Republish, Always-on, workflow). Do not pretend prod will fill.
+
+If YES: fire it now. Do not wait for cron. Do not wait for republish.
+
+## Run now (capped)
+1) Job-board discovery: same as vacancyCheckScheduler / runVacancyCheck — NHS + Reed, ~250 employers, 15 workers, 24h cache. Prefer employers that still have no live job_board rows.
+2) Liveness: prefer unverified job_board URLs first (the ~13), then due URLs. Soft-404 = dead. Timeouts/bots = inconclusive, not dead. Existing per-tick cap. Then a limited company_site liveness pass if that job exists.
+3) Company-site discovery: one hourly-sized batch only (75–100 orgs, 6–8 workers, robots/backoff/leases). Not 43k.
+4) If a super-admin/internal route already exists (check-batch, check-vacancies, sweep, runVacancyCheck), call THAT against prod. Do not invent a one-off full crawl.
+
+## After
+Print prod counts before vs after:
+- live / unverified / dead job_board
+- live / unverified / dead company_site
+Confirm Opportunities would show more than ~6 for a typical nurse profile.
+If a tick is still running, say when to refresh.
+
+Do not copy the preview DB into prod. Stop after this catch-up unless I ask for the always-on cron fix.
