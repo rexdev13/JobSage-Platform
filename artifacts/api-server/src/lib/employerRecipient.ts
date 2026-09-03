@@ -4,7 +4,7 @@ import {
   sponsorLicencesTable,
   usersTable,
 } from "@workspace/db";
-import { eq, ilike, inArray, or } from "drizzle-orm";
+import { eq, ilike, inArray, sql } from "drizzle-orm";
 import { OPS_INBOX } from "./email";
 
 export type DeliveryRoute =
@@ -108,8 +108,13 @@ export async function getDirectContactEligibility(
   )];
   if (names.length === 0) return references.map(() => false);
 
-  const sponsorNameWhere = or(...names.map((name) => ilike(sponsorLicencesTable.organisationName, name)));
-  const profileNameWhere = or(...names.map((name) => ilike(employerProfilesTable.companyName, name)));
+  // Binding all names as one PostgreSQL array avoids constructing a deeply
+  // nested OR expression. Large sponsor result sets previously overflowed the
+  // JavaScript call stack before either query could execute.
+  const normalizedNames = names.map(normalizedCompanyName);
+  const namesParameter = sql.param(normalizedNames);
+  const sponsorNameWhere = sql`lower(${sponsorLicencesTable.organisationName}) = any(${namesParameter}::text[])`;
+  const profileNameWhere = sql`lower(${employerProfilesTable.companyName}) = any(${namesParameter}::text[])`;
 
   const [sponsorRows, profileRows] = await Promise.all([
     db
