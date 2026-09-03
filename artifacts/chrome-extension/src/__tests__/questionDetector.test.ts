@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from "vitest";
-import { detectQuestions, insertAnswer, createQuestionWatcher } from "../lib/questionDetector";
+import {
+  createQuestionWatcher,
+  detectQuestions,
+  fillStructuredField,
+  getStructuredFieldDescriptors,
+  insertAnswer,
+} from "../lib/questionDetector";
 
 function setBody(html: string) {
   document.body.innerHTML = html;
@@ -112,7 +118,7 @@ describe("detectQuestions — dedicated ATS selectors", () => {
 });
 
 describe("detectQuestions — precision (non-question fields excluded)", () => {
-  it("ignores personal-detail inputs and textareas", () => {
+  it("lists personal-detail controls as fillable structured rows", () => {
     setBody(`
       <form>
         <label for="fn">First name</label><input id="fn" type="text" name="first_name" size="80">
@@ -125,8 +131,14 @@ describe("detectQuestions — precision (non-question fields excluded)", () => {
       </form>
     `);
     const qs = detectQuestions();
-    expect(qs).toHaveLength(1);
-    expect(qs[0].question).toBe("Explain why you meet the person specification");
+    expect(qs).toHaveLength(5);
+    expect(qs.map((question) => question.bucket)).toEqual([
+      "structured",
+      "structured",
+      "structured",
+      "structured",
+      "generate",
+    ]);
   });
 
   it("ignores hidden and disabled fields", () => {
@@ -143,7 +155,7 @@ describe("detectQuestions — precision (non-question fields excluded)", () => {
     expect(detectQuestions()).toHaveLength(0);
   });
 
-  it("ignores short text inputs and autocomplete personal fields", () => {
+  it("lists short labelled controls but still ignores search controls", () => {
     setBody(`
       <div>
         <label for="a">What?</label><input id="a" type="text" maxlength="30">
@@ -151,7 +163,7 @@ describe("detectQuestions — precision (non-question fields excluded)", () => {
         <label for="c">Search</label><input id="c" type="text" size="70" name="search">
       </div>
     `);
-    expect(detectQuestions()).toHaveLength(0);
+    expect(detectQuestions().map((question) => question.question)).toEqual(["What?", "Describe yourself"]);
   });
 
   it("accepts long text inputs with question-like labels", () => {
@@ -168,7 +180,7 @@ describe("detectQuestions — precision (non-question fields excluded)", () => {
   it("detects an unlabelled writable textarea using its stable field metadata", () => {
     setBody(`<div><textarea name="notes"></textarea></div>`);
     const [question] = detectQuestions();
-    expect(question.question).toBe("notes");
+    expect(question.question).toBe("Notes");
   });
 
   it("detects two generic long-text fields even when both labels are weak", () => {
@@ -274,6 +286,46 @@ describe("detectQuestions — Pinpoint", () => {
       "3. Questions — Do you currently work for this employer?",
     ]);
     expect(questions.every((question) => question.bucket !== "generate")).toBe(true);
+  });
+});
+
+describe("detectQuestions — AMS-style forms", () => {
+  it("turns indexed raw names into readable section and child labels", () => {
+    setBody(`
+      <fieldset>
+        <legend>Employment History</legend>
+        <input name="employment[0][from]">
+        <input name="employment[0][to]">
+        <input name="employment[0][position]">
+      </fieldset>
+      <fieldset>
+        <legend>Equal Opportunities</legend>
+        <select name="eq_sex"><option value="">Choose</option><option>Female</option></select>
+      </fieldset>
+    `);
+
+    expect(detectQuestions().map((question) => question.question)).toEqual([
+      "Employment History 1 — From",
+      "Employment History 1 — To",
+      "Employment History 1 — Position held",
+      "Equal Opportunities — Sex",
+    ]);
+  });
+
+  it("fills exact safe structured values but does not overwrite existing answers", () => {
+    setBody(`
+      <label for="qualification">Qualification gained</label>
+      <select id="qualification"><option value="">Choose</option><option value="bsc">BSc Nursing</option></select>
+      <label for="employer">Employer</label><input id="employer">
+      <label for="existing">Position held</label><input id="existing" value="Already entered">
+    `);
+    const questions = detectQuestions();
+    const descriptors = getStructuredFieldDescriptors(questions);
+    expect(descriptors.map((field) => field.label)).toEqual(["Qualifications — Qualification gained", "Employer"]);
+    expect(fillStructuredField(descriptors[0].id, "BSc Nursing")).toBe(true);
+    expect(fillStructuredField(descriptors[1].id, "Example NHS Trust")).toBe(true);
+    expect((document.getElementById("qualification") as HTMLSelectElement).value).toBe("bsc");
+    expect((document.getElementById("employer") as HTMLInputElement).value).toBe("Example NHS Trust");
   });
 });
 

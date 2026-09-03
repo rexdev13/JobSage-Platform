@@ -93,6 +93,22 @@ describe("prefillPersonalDetails", () => {
     expect((document.getElementById("existing-role") as HTMLInputElement).value).toBe("Keep this role");
     expect(result.filled).toContain("position applied for");
   });
+
+  it("fills safe identity fields inside a same-origin iframe", () => {
+    const iframe = document.createElement("iframe");
+    document.body.appendChild(iframe);
+    const iframeDocument = iframe.contentDocument!;
+    iframeDocument.body.innerHTML = `
+      <label for="first">First name</label><input id="first">
+      <label for="phone">Telephone</label><input id="phone" type="tel">
+    `;
+
+    const result = prefillPersonalDetails({ firstName: "Ada", phone: "07123456789" });
+
+    expect((iframeDocument.getElementById("first") as HTMLInputElement).value).toBe("Ada");
+    expect((iframeDocument.getElementById("phone") as HTMLInputElement).value).toBe("07123456789");
+    expect(result.filled).toEqual(expect.arrayContaining(["first name", "phone"]));
+  });
 });
 
 describe("findCvFileInput", () => {

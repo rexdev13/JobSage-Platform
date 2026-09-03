@@ -121,7 +121,7 @@ function BestMatchesStrip({
   appliedRoleIds: number[];
   localDismissedIds: Set<number>;
   onSmartApply: (roleId: number, roleTitle: string) => void;
-  onOpenApplication: (url: string) => void;
+  onOpenApplication: (url: string, match: CandidateMatchItem) => void;
   onDismiss: (roleId: number) => void;
   sourceType: "job_board" | "company_site";
 }) {
@@ -230,7 +230,7 @@ function BestMatchesStrip({
                     size="sm"
                     variant="outline"
                     className="flex-1 min-w-[9rem] text-xs h-8 gap-1"
-                    onClick={() => onOpenApplication(normalizeWebsiteUrl(match.applyUrl!))}
+                    onClick={() => onOpenApplication(normalizeWebsiteUrl(match.applyUrl!), match)}
                   >
                     <ExternalLink className="w-3 h-3" /> {sourceType === "job_board" ? "Apply Via Job Board" : "Apply on company's website"}
                   </Button>
@@ -240,7 +240,7 @@ function BestMatchesStrip({
                     size="sm"
                     variant="outline"
                     className="flex-1 min-w-[9rem] text-xs h-8 gap-1"
-                    onClick={() => onOpenApplication(normalizeWebsiteUrl(match.contactWebsite!))}
+                    onClick={() => onOpenApplication(normalizeWebsiteUrl(match.contactWebsite!), match)}
                   >
                     <Globe className="w-3 h-3" /> Visit company website
                   </Button>
@@ -1480,9 +1480,17 @@ export default function OpportunitiesPage() {
     if (shouldShowExtensionNudge()) setShowExtensionNudge(true);
   }
 
-  function handleBestMatchOpenApplication(url: string) {
+  function handleBestMatchOpenApplication(url: string, match: CandidateMatchItem) {
     requireExtension(() => {
-      void openTrackedOutbound({ url });
+      void openTrackedOutbound({
+        url,
+        vacancy: {
+          title: match.title,
+          employer: match.employer,
+          roleId: match.roleId,
+          canonicalUrl: url,
+        },
+      });
       handleExternalApply();
     });
   }

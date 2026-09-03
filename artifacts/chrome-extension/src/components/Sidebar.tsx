@@ -59,7 +59,7 @@ interface SidebarProps {
   onOpen?: (openFn: () => void) => void;
   /** This tab originated from a JOBSAGE opportunity. */
   tracked?: boolean;
-  onPrefill?: () => Promise<PrefillResult>;
+  onPrefill?: (questions: DetectedQuestion[]) => Promise<PrefillResult>;
   onAttachCv?: () => Promise<CvAttachResult & { downloaded?: boolean }>;
   onClearAnswerMemory?: () => Promise<number>;
 }
@@ -167,6 +167,7 @@ function useStreamAnswer() {
         maxLength: detectedQuestion?.maxLength,
         jobTitle: jobContext.jobTitle,
         employer: jobContext.companyName,
+        roleId: jobContext.roleId,
         jobDescription: jobContext.jobDescription.slice(0, 1500),
       });
     } catch {
@@ -281,11 +282,11 @@ export function Sidebar({
     setPrefilling(true);
     setPrefillResult(null);
     try {
-      setPrefillResult(await onPrefill());
+      setPrefillResult(await onPrefill(questionWatcher?.getSnapshot() ?? EMPTY_QUESTIONS));
     } finally {
       setPrefilling(false);
     }
-  }, [onPrefill, prefilling]);
+  }, [onPrefill, prefilling, questionWatcher]);
 
   const handleAttachCv = useCallback(async () => {
     if (!onAttachCv || attachingCv) return;
@@ -565,12 +566,8 @@ export function Sidebar({
   const handleGenerate = () => {
     setInserted(false);
     setInsertFailed(false);
-    if (selectedQuestion && selectedQuestion.bucket !== "generate") {
-      setError(
-        selectedQuestion.bucket === "confirmation"
-          ? "Review and complete this field yourself. JOBSAGE will not generate or select an answer."
-          : "This is a structured application field. Complete it on the form; JOBSAGE will not generate an answer.",
-      );
+    if (selectedQuestion?.bucket === "confirmation") {
+      setError("Review and complete this sensitive field yourself. JOBSAGE will not generate or fill it.");
       return;
     }
     generate(buildPrompt(question, selectedQuestion), jobContext, selectedQuestion);
@@ -582,16 +579,12 @@ export function Sidebar({
     setInserted(false);
     setInsertFailed(false);
     highlightField(dq.id);
-    if (dq.bucket !== "generate") {
+    setError(null);
+    if (dq.bucket === "confirmation") {
       setAnswer("");
-      setError(
-        dq.bucket === "confirmation"
-          ? "Review and complete this field yourself. JOBSAGE will not generate or select an answer."
-          : "This is a structured application field. Complete it on the form; JOBSAGE will not generate an answer.",
-      );
+      setError("Review and complete this sensitive field yourself. JOBSAGE will not generate or fill it.");
       return;
     }
-    generate(buildPrompt(dq.question, dq), jobContext, dq);
   };
 
   const handleInsert = () => {
@@ -1091,8 +1084,15 @@ export function Sidebar({
                     >
                       {dq.question}
                          {dq.bucket !== "generate" && (
-                           <span style={{ display: "block", marginTop: 2, fontSize: 11, color: COLORS.errorText }}>
-                              {dq.bucket === "confirmation" ? "Complete this yourself" : "Structured field — no AI generation"}
+                            <span style={{
+                              display: "block",
+                              marginTop: 2,
+                              fontSize: 11,
+                              color: dq.bucket === "confirmation" ? COLORS.errorText : COLORS.textMuted,
+                            }}>
+                              {dq.bucket === "confirmation"
+                                ? "Complete this yourself"
+                                : prefillResult?.fieldResults[dq.id]?.message ?? "Fill from JOBSAGE profile + CV"}
                            </span>
                          )}
                       {hint && (
@@ -1139,17 +1139,33 @@ export function Sidebar({
           </div>
 
           <button
-            onClick={streaming ? () => cancel() : handleGenerate}
-            disabled={!streaming && (!question.trim() || selectedQuestion?.bucket !== "generate" && selectedQuestion !== null)}
+            onClick={
+              streaming
+                ? () => cancel()
+                : selectedQuestion?.bucket === "structured"
+                  ? () => void handlePrefill()
+                  : handleGenerate
+            }
+            disabled={
+              !streaming && (
+                selectedQuestion?.bucket === "confirmation"
+                || (!selectedQuestion && !question.trim())
+                || (selectedQuestion?.bucket === "generate" && !question.trim())
+                || (selectedQuestion?.bucket === "structured" && (!onPrefill || prefilling))
+              )
+            }
             style={{
               padding: "9px 16px",
-              background: !streaming && (!question.trim() || selectedQuestion?.bucket !== "generate" && selectedQuestion !== null) ? BRAND.primaryDisabled : COLORS.primary,
+              background: !streaming && (
+                selectedQuestion?.bucket === "confirmation"
+                || (!selectedQuestion && !question.trim())
+              ) ? BRAND.primaryDisabled : COLORS.primary,
               color: "#fff",
               border: "none",
               borderRadius: RADIUS,
               fontSize: 13,
               fontWeight: 600,
-              cursor: !streaming && (!question.trim() || selectedQuestion?.bucket !== "generate" && selectedQuestion !== null) ? "not-allowed" : "pointer",
+              cursor: !streaming && selectedQuestion?.bucket === "confirmation" ? "not-allowed" : "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -1171,6 +1187,10 @@ export function Sidebar({
                 </svg>
                 Cancel generation
               </>
+            ) : selectedQuestion?.bucket === "structured" ? (
+              prefilling ? "Filling…" : "Fill from JOBSAGE & CV"
+            ) : selectedQuestion?.bucket === "confirmation" ? (
+              "Complete yourself"
             ) : (
               "Generate Answer"
             )}

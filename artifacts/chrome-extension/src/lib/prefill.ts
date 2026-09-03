@@ -8,6 +8,16 @@ export interface CandidateProfile {
   city?: string | null;
   postcode?: string | null;
   country?: string | null;
+  profession?: string | null;
+  specialty?: string | null;
+  qualificationCountry?: string | null;
+  qualificationType?: string | null;
+  qualificationYear?: number | null;
+  experienceYears?: number | null;
+  registrationStatus?: string | null;
+  residencyStatus?: string | null;
+  preferredStartDate?: string | null;
+  languages?: string[] | null;
 }
 
 export interface TrustedVacancyContext {
@@ -18,13 +28,39 @@ export interface PrefillResult {
   filled: string[];
   missing: string[];
   skipped: string[];
+  fieldResults: Record<string, { status: "filled" | "missing" | "skipped"; message: string }>;
 }
 
 type DetailKey = keyof CandidateProfile;
 type DetailField = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 
+function isInput(field: DetailField): field is HTMLInputElement {
+  return field.tagName === "INPUT";
+}
+
+function isSelect(field: DetailField): field is HTMLSelectElement {
+  return field.tagName === "SELECT";
+}
+
+function notifyValueChange(field: DetailField): void {
+  const ViewEvent = field.ownerDocument.defaultView?.Event ?? Event;
+  field.dispatchEvent(new ViewEvent("input", { bubbles: true }));
+  field.dispatchEvent(new ViewEvent("change", { bubbles: true }));
+}
+
+function setTextValue(field: HTMLInputElement | HTMLTextAreaElement, value: string): void {
+  const view = field.ownerDocument.defaultView ?? window;
+  const prototype = field.tagName === "TEXTAREA"
+    ? view.HTMLTextAreaElement.prototype
+    : view.HTMLInputElement.prototype;
+  const setter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
+  if (setter) setter.call(field, value);
+  else field.value = value;
+  notifyValueChange(field);
+}
+
 const SENSITIVE_FIELD_PATTERN =
-  /\b(password|passcode|username|user\s*name|national\s*insurance|ni\s*number|passport|date\s*of\s*birth|dob|birth\s*date|security\s*question|security\s*answer)\b/i;
+  /\b(password|passcode|username|user\s*name|national\s*insurance|ni\s*number|passport|date\s*of\s*birth|dob|birth\s*date|security\s*question|security\s*answer|caution|criminal|conviction|asbo|dbs|health|medical|ethnic|sex|gender|religion|sexual orientation|equal opportunit|diversity|declaration|consent)\b/i;
 
 const FIELD_RULES: Array<{ key: DetailKey; label: string; pattern: RegExp }> = [
   { key: "firstName", label: "first name", pattern: /\b(first|given|forename)\s*name\b|\bfirst_name\b/i },
@@ -36,6 +72,16 @@ const FIELD_RULES: Array<{ key: DetailKey; label: string; pattern: RegExp }> = [
   { key: "city", label: "city", pattern: /\b(city|town)\b/i },
   { key: "postcode", label: "postcode", pattern: /\b(post|zip)\s*code\b|\bpostcode\b/i },
   { key: "country", label: "country", pattern: /\bcountry\b/i },
+  { key: "profession", label: "profession", pattern: /\bprofession\b/i },
+  { key: "specialty", label: "specialty", pattern: /\b(specialty|speciality)\b/i },
+  { key: "qualificationCountry", label: "qualification country", pattern: /\bqualification country\b|\bcountry qualified\b/i },
+  { key: "qualificationType", label: "qualification", pattern: /\b(qualification gained|qualification type|highest qualification)\b/i },
+  { key: "qualificationYear", label: "qualification year", pattern: /\b(year qualified|qualification year|year gained)\b/i },
+  { key: "experienceYears", label: "years of experience", pattern: /\b(years? of experience|experience years?)\b/i },
+  { key: "registrationStatus", label: "registration status", pattern: /\b(registration status|professional registration)\b/i },
+  { key: "residencyStatus", label: "residency status", pattern: /\bresidency status\b/i },
+  { key: "preferredStartDate", label: "preferred start date", pattern: /\b(preferred start date|available from)\b/i },
+  { key: "languages", label: "languages", pattern: /\blanguages?\b/i },
 ];
 
 function clean(value: string | null | undefined): string {
@@ -100,7 +146,10 @@ function valueFor(profile: CandidateProfile, key: DetailKey): string {
   if (key === "fullName") {
     return clean(profile.fullName) || [profile.firstName, profile.lastName].map(clean).filter(Boolean).join(" ");
   }
-  return clean(profile[key]);
+  const value = profile[key];
+  if (Array.isArray(value)) return value.map(clean).filter(Boolean).join(", ");
+  if (typeof value === "number") return String(value);
+  return clean(value);
 }
 
 function ukSelectValue(field: HTMLSelectElement, candidateValue: string): string | null {
@@ -120,16 +169,29 @@ export function prefillPersonalDetails(
   const filled = new Set<string>();
   const missing = new Set<string>();
   const skipped: string[] = [];
-  const fields = Array.from(doc.querySelectorAll<DetailField>("input, textarea, select"));
+  const fieldResults: PrefillResult["fieldResults"] = {};
+  const documents: Document[] = [doc];
+  for (let i = 0; i < documents.length; i++) {
+    for (const iframe of Array.from(documents[i].querySelectorAll("iframe"))) {
+      try {
+        if (iframe.contentDocument?.body && !documents.includes(iframe.contentDocument)) documents.push(iframe.contentDocument);
+      } catch {
+        // Cross-origin frames cannot be filled.
+      }
+    }
+  }
+  const fields = documents.flatMap((currentDoc) => Array.from(currentDoc.querySelectorAll<DetailField>("input, textarea, select")));
   for (const field of fields) {
     if (!isVisible(field)) continue;
-    if (field instanceof HTMLInputElement && ["hidden", "password", "file", "submit", "button", "checkbox", "radio"].includes(field.type)) {
+    if (isInput(field) && ["hidden", "password", "file", "submit", "button", "checkbox", "radio"].includes(field.type)) {
       continue;
     }
 
     const label = fieldLabel(field);
+    const questionId = field.getAttribute("data-jobsage-qid");
     if (SENSITIVE_FIELD_PATTERN.test(label)) {
       skipped.push(label || "sensitive field");
+      if (questionId) fieldResults[questionId] = { status: "skipped", message: "Complete this yourself" };
       continue;
     }
 
@@ -140,11 +202,10 @@ export function prefillPersonalDetails(
         && !/\b(employer|company|organisation|organization)\b/i.test(label);
       const trustedTitle = clean(vacancyContext?.jobTitle);
       if (!isPositionField || !trustedTitle || clean(field.value)) continue;
-      if (field instanceof HTMLSelectElement) continue;
-      field.value = trustedTitle;
-      field.dispatchEvent(new Event("input", { bubbles: true }));
-      field.dispatchEvent(new Event("change", { bubbles: true }));
+      if (isSelect(field)) continue;
+      setTextValue(field, trustedTitle);
       filled.add("position applied for");
+      if (questionId) fieldResults[questionId] = { status: "filled", message: "Filled from the JOBSAGE vacancy" };
       continue;
     }
 
@@ -153,10 +214,11 @@ export function prefillPersonalDetails(
     if (currentValue) continue;
     if (!candidateValue) {
       missing.add(rule.label);
+      if (questionId) fieldResults[questionId] = { status: "missing", message: "Not in your JOBSAGE profile or CV" };
       continue;
     }
 
-    if (field instanceof HTMLSelectElement) {
+    if (isSelect(field)) {
       if (rule.key !== "country") continue;
       const selectValue = ukSelectValue(field, candidateValue);
       if (!selectValue) {
@@ -165,12 +227,12 @@ export function prefillPersonalDetails(
       }
       field.value = selectValue;
     } else {
-      field.value = candidateValue;
+      setTextValue(field, candidateValue);
     }
-    field.dispatchEvent(new Event("input", { bubbles: true }));
-    field.dispatchEvent(new Event("change", { bubbles: true }));
+    if (isSelect(field)) notifyValueChange(field);
     filled.add(rule.label);
+    if (questionId) fieldResults[questionId] = { status: "filled", message: "Filled from JOBSAGE" };
   }
 
-  return { filled: Array.from(filled), missing: Array.from(missing), skipped };
+  return { filled: Array.from(filled), missing: Array.from(missing), skipped, fieldResults };
 }

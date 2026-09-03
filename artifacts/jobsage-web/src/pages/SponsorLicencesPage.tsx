@@ -441,7 +441,12 @@ function VacancyMatchPanel({
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
-                          void openTrackedSponsorVacancy({ vacancyId: v.id, url: v.url! });
+                          void openTrackedSponsorVacancy({
+                            vacancyId: v.id,
+                            url: v.url!,
+                            title: v.title,
+                            employer: companyName,
+                          });
                         }}
                       >
                         Apply on company's website
@@ -1822,7 +1827,12 @@ export default function SponsorLicencesPage() {
                   <button
                     type="button"
                     onClick={() =>
-                      void openTrackedSponsorVacancy({ vacancyId: selectedVacancy.id, url: selectedVacancy.url! })
+                      void openTrackedSponsorVacancy({
+                        vacancyId: selectedVacancy.id,
+                        url: selectedVacancy.url!,
+                        title: selectedVacancy.title,
+                        employer: selectedVacancy.companyName,
+                      })
                     }
                     className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-medium text-foreground hover:bg-accent transition-colors"
                   >

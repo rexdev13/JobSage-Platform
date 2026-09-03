@@ -3,6 +3,7 @@ export interface JobContext {
   companyName: string;
   jobDescription: string;
   pageUrl: string;
+  roleId?: number;
 }
 
 export function isWorkdayHostname(hostname: string): boolean {
