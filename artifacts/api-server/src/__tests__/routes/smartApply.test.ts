@@ -223,7 +223,7 @@ describe("Smart Apply extension endpoints", () => {
     expect(response.body).toEqual({ values: [] });
   });
 
-  it("uses the fallback model when the primary structured-prefill request fails", async () => {
+  it("uses gpt-4o-mini and retries it when structured-prefill temporarily fails", async () => {
     queryResults.push([{
       phone: "+44 7700 900123",
       streetAddress: "10 Example Road",
@@ -268,7 +268,7 @@ describe("Smart Apply extension endpoints", () => {
       values: [{ id: "experience", value: "4" }],
     });
     expect(createCompletion).toHaveBeenCalledTimes(2);
-    expect(createCompletion.mock.calls[0]?.[0]).toMatchObject({ model: "gpt-4o" });
+    expect(createCompletion.mock.calls[0]?.[0]).toMatchObject({ model: "gpt-4o-mini" });
     expect(createCompletion.mock.calls[1]?.[0]).toMatchObject({ model: "gpt-4o-mini" });
   });
 });

@@ -141,9 +141,9 @@ ${evidence}
 Return only JSON: {"values":[{"id":"field id","value":"exact value or null"}]}`;
 
   try {
-    const request = (model: "gpt-4o" | "gpt-4o-mini") =>
+    const request = () =>
       openai.chat.completions.create({
-        model,
+        model: "gpt-4o-mini",
         max_completion_tokens: 3000,
         response_format: { type: "json_object" },
         messages: [
@@ -154,13 +154,13 @@ Return only JSON: {"values":[{"id":"field id","value":"exact value or null"}]}`;
 
     let response;
     try {
-      response = await request("gpt-4o");
+      response = await request();
     } catch (primaryError) {
       console.warn(
-        "[smart-apply-structured-prefill] primary model failed; retrying with fallback:",
+        "[smart-apply-structured-prefill] model failed; retrying with gpt-4o-mini:",
         primaryError instanceof Error ? primaryError.message : String(primaryError),
       );
-      response = await request("gpt-4o-mini");
+      response = await request();
     }
     let parsed: { values?: unknown[] } = {};
     try {
