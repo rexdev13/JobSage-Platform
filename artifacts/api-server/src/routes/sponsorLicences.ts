@@ -377,15 +377,22 @@ Only include information you are confident about. Return null for any field you 
 
 router.get("/sponsor-licences/vacancy-stats", requireAuthenticated, async (_req, res) => {
   try {
-    // Aggregate from persisted sponsor_licence_vacancies rows (no TTL — all
-    // stored records), excluding vacancies the liveness sweep marked dead.
+    // Candidate-facing vacancy statistics only count live, source-classified
+    // rows with a specific URL. Historical, unverified, and legacy rows must
+    // not inflate the banner.
     const countRows = await db
       .select({
         organisationName: sponsorLicenceVacanciesTable.organisationName,
         vacancyCount: sql<number>`cast(count(*) as integer)`,
       })
       .from(sponsorLicenceVacanciesTable)
-      .where(sql`${sponsorLicenceVacanciesTable.liveness} <> 'dead'`)
+      .where(
+        and(
+          eq(sponsorLicenceVacanciesTable.liveness, "live"),
+          isNotNull(sponsorLicenceVacanciesTable.sourceType),
+          isNotNull(sponsorLicenceVacanciesTable.url),
+        ),
+      )
       .groupBy(sponsorLicenceVacanciesTable.organisationName);
 
     const companiesWithVacancies = countRows.length;
@@ -602,19 +609,14 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
     if (industry) conditions.push(eq(sponsorLicencesTable.industry, industry));
     if (regions.length > 0) conditions.push(inArray(sponsorLicencesTable.region, regions));
     if (filterVacancies) {
-      // Latest AI-reported count, minus vacancies the liveness sweep marked dead.
       conditions.push(
-        sql`0 < COALESCE((
-          SELECT vacancy_count
-          FROM sponsor_licence_vacancy_checks
-          WHERE organisation_name = ${sponsorLicencesTable.organisationName}
-          ORDER BY checked_at DESC
-          LIMIT 1
-        ), 0) - (
-          SELECT COUNT(*)
+        sql`EXISTS (
+          SELECT 1
           FROM sponsor_licence_vacancies
           WHERE organisation_name = ${sponsorLicencesTable.organisationName}
-            AND liveness = 'dead'
+            AND liveness = 'live'
+            AND source_type IS NOT NULL
+            AND url IS NOT NULL
         )`,
       );
     }
@@ -644,35 +646,25 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
       })),
     );
 
-    // Fetch the most recent AI-reported vacancy count per org from vacancy_checks.
-    // vacancyCount here is the actual total the AI found (e.g. 40), not the count
-    // of stored sample rows (which is capped at 8).
-    const storedVacancyRows = await db.execute<{ organisation_name: string; vacancy_count: number | null; checked_at: string }>(
-      sql`SELECT DISTINCT ON (organisation_name) organisation_name, vacancy_count, checked_at
+    const visibleVacancyRows = await db.execute<{ organisation_name: string; vacancy_count: number }>(
+      sql`SELECT lower(trim(organisation_name)) AS organisation_name,
+                 cast(count(*) as integer) AS vacancy_count
+          FROM sponsor_licence_vacancies
+          WHERE liveness = 'live'
+            AND source_type IS NOT NULL
+            AND url IS NOT NULL
+          GROUP BY lower(trim(organisation_name))`,
+    );
+    const latestCheckRows = await db.execute<{ organisation_name: string; checked_at: string }>(
+      sql`SELECT DISTINCT ON (organisation_name) organisation_name, checked_at
           FROM sponsor_licence_vacancy_checks
           ORDER BY organisation_name, checked_at DESC`,
     );
-    // Vacancies the liveness sweep marked dead per org — subtracted from the
-    // AI-reported count so badges only reflect live (or not-yet-verified) roles.
-    const deadVacancyRows = await db.execute<{ organisation_name: string; dead_count: number }>(
-      sql`SELECT organisation_name, cast(count(*) as integer) AS dead_count
-          FROM sponsor_licence_vacancies
-          WHERE liveness = 'dead'
-          GROUP BY organisation_name`,
-    );
-    const deadCounts = new Map<string, number>(
-      deadVacancyRows.rows.map((r) => [r.organisation_name.toLowerCase().trim(), r.dead_count]),
-    );
     const storedVacancyCounts = new Map<string, number>(
-      storedVacancyRows.rows
-        .filter((r) => r.vacancy_count !== null && r.vacancy_count > 0)
-        .map((r) => {
-          const key = r.organisation_name.toLowerCase().trim();
-          return [key, Math.max(0, r.vacancy_count! - (deadCounts.get(key) ?? 0))];
-        }),
+      visibleVacancyRows.rows.map((r) => [r.organisation_name, r.vacancy_count]),
     );
     const lastVacancyCheckedAtByOrg = new Map<string, string>(
-      storedVacancyRows.rows.map((r) => [r.organisation_name.toLowerCase().trim(), r.checked_at]),
+      latestCheckRows.rows.map((r) => [r.organisation_name.toLowerCase().trim(), r.checked_at]),
     );
 
     // Top vacancy match score/eligibility per org for the current candidate.
@@ -759,7 +751,11 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
       page,
       limit,
       totalPages: Math.ceil(total / limit),
-      withVacancies: annotated.filter((c) => c.hasVacancies).length,
+      withVacancies: new Set(
+        annotated
+          .filter((c) => c.hasVacancies)
+          .map((c) => c.organisationName.toLowerCase().trim()),
+      ).size,
       bookmarkedCount: annotated.filter((c) => c.isBookmarked).length,
       lastSyncedAt: lastSync?.createdAt ?? null,
       lastSyncFailed,
