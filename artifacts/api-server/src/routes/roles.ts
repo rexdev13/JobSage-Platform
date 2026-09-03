@@ -487,7 +487,11 @@ router.get("/roles", async (req, res): Promise<void> => {
       sponsorRelevance.set(v.id, v.classifiedRelevant);
       const { classifiedRelevant: _cr, description: _d, ...roleShape } = v;
       return roleShape;
-    });
+    })
+    // Do not expose ambiguous sponsor vacancies as 0% matches. They are
+    // useful for internal review, but a candidate feed should contain only
+    // vacancies classified for the candidate's professional category.
+    .filter((role) => sponsorRelevance.get(role.id) !== false);
   const regulatorRoles = [...curatedRoles, ...dedupedSponsorRoles]
     .filter((role) => sourceFilter == null || role.sourceType === sourceFilter);
 
