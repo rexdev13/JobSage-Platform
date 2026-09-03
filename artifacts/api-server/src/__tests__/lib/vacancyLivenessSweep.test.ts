@@ -177,7 +177,11 @@ describe("runVacancyLivenessSweep", () => {
       | { queryChunks?: Array<{ value?: string[] }> }
       | undefined;
     const sqlText = query?.queryChunks?.map((chunk) => chunk.value?.join("") ?? "").join("") ?? String(query);
-    expect(sqlText).toContain("source_type IN ('job_board', 'company_site')");
+    expect(sqlText).toContain("WHEN source_type = 'job_board' THEN 0");
+    expect(sqlText).toContain("WHEN source_type = 'company_site' THEN 1");
+    expect(sqlText.indexOf("source_type = 'job_board'")).toBeLessThan(
+      sqlText.indexOf("source_type = 'company_site'"),
+    );
     expect(sqlText.match(/liveness <> 'dead'/g)).toHaveLength(3);
   });
 

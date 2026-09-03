@@ -5,6 +5,13 @@ import { sql } from "drizzle-orm";
 import { runVacancyCheck } from "./vacancyCheckHelper";
 
 export type VacancySyncTriggeredBy = "scheduler" | "manual";
+export type VacancyCheckBatchSummary = {
+  selected: number;
+  checked: number;
+  cacheHits: number;
+  errors: number;
+  upserted: number;
+};
 
 export const DEFAULT_VACANCY_CHECK_BATCH_SIZE = 250;
 export const VACANCY_CHECK_CONCURRENCY = 15;
@@ -106,8 +113,8 @@ export async function selectBatch(batchSize: number): Promise<{ id: number; orga
       CROSS JOIN queue_limits q
       WHERE r.cohort_rank <= CASE
         WHEN r.is_healthcare
-        THEN FLOOR(q.unbookmarked_slots * ${HEALTHCARE_QUEUE_SHARE})
-        ELSE q.unbookmarked_slots - FLOOR(q.unbookmarked_slots * ${HEALTHCARE_QUEUE_SHARE})
+        THEN FLOOR(q.unbookmarked_slots * CAST(${HEALTHCARE_QUEUE_SHARE} AS numeric))
+        ELSE q.unbookmarked_slots - FLOOR(q.unbookmarked_slots * CAST(${HEALTHCARE_QUEUE_SHARE} AS numeric))
       END
     ),
     fill_unbookmarked AS (
@@ -144,10 +151,12 @@ export async function selectBatch(batchSize: number): Promise<{ id: number; orga
   return result.rows;
 }
 
-export async function runVacancyCheckBatch(triggeredBy: VacancySyncTriggeredBy = "scheduler"): Promise<void> {
+export async function runVacancyCheckBatch(
+  triggeredBy: VacancySyncTriggeredBy = "scheduler",
+): Promise<VacancyCheckBatchSummary | null> {
   if (batchInProgress) {
     console.log("[vacancy-scheduler] Previous batch still running — skipping this tick");
-    return;
+    return null;
   }
   batchInProgress = true;
 
@@ -158,11 +167,15 @@ export async function runVacancyCheckBatch(triggeredBy: VacancySyncTriggeredBy =
 
     const rows = await selectBatch(batchSize);
     console.log(`[vacancy-scheduler] ${rows.length} companies selected`);
-    if (rows.length === 0) return;
+    if (rows.length === 0) {
+      console.log(`[pipeline-tick] env=${process.env.NODE_ENV ?? "unknown"} job=job_board selected=0 upserted=0 live=0 dead=0 inconclusive=0 errors=0`);
+      return { selected: 0, checked: 0, cacheHits: 0, errors: 0, upserted: 0 };
+    }
 
     let checked = 0;
     let fromCache = 0;
     let errors = 0;
+    let upserted = 0;
     let lastErrorMsg: string | null = null;
 
     // Bounded worker pool — per-company failures are logged and skipped so a
@@ -178,6 +191,7 @@ export async function runVacancyCheckBatch(triggeredBy: VacancySyncTriggeredBy =
             fromCache++;
           } else {
             checked++;
+            upserted += result.upsertedCount ?? 0;
           }
         } catch (err) {
           errors++;
@@ -212,6 +226,8 @@ export async function runVacancyCheckBatch(triggeredBy: VacancySyncTriggeredBy =
     console.log(
       `[vacancy-scheduler] Batch complete — new checks: ${checked}, cache hits: ${fromCache}, errors: ${errors}, ${durationMs}ms`,
     );
+    console.log(`[pipeline-tick] env=${process.env.NODE_ENV ?? "unknown"} job=job_board selected=${rows.length} upserted=${upserted} live=0 dead=0 inconclusive=0 errors=${errors}`);
+    return { selected: rows.length, checked, cacheHits: fromCache, errors, upserted };
   } finally {
     batchInProgress = false;
   }
@@ -225,6 +241,7 @@ export function startVacancyCheckScheduler(): void {
     () => {
       runVacancyCheckBatch("scheduler").catch((err) => {
         console.error("[vacancy-scheduler] Unhandled scheduler error:", err);
+        console.log(`[pipeline-tick] env=${process.env.NODE_ENV ?? "unknown"} job=job_board selected=0 upserted=0 live=0 dead=0 inconclusive=0 errors=1`);
       });
     },
     { timezone: "Europe/London" },

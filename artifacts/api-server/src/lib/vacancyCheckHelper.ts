@@ -51,6 +51,7 @@ export type VacancyCheckResult = {
   discoveredContactEmail: string | null;
   discoveredContactPhone: string | null;
   discoveredWebsite: string | null;
+  upsertedCount: number;
 };
 
 export interface VacancyCheckOptions {
@@ -78,6 +79,7 @@ function unavailableResult(
     discoveredContactEmail: null,
     discoveredContactPhone: null,
     discoveredWebsite: null,
+    upsertedCount: 0,
   };
 }
 
@@ -123,6 +125,7 @@ export async function runVacancyCheck(
         discoveredContactEmail: null,
         discoveredContactPhone: null,
         discoveredWebsite: null,
+        upsertedCount: 0,
       };
     }
   }
@@ -135,6 +138,7 @@ export async function runVacancyCheck(
   let discoveredContactEmail: string | null = null;
   let discoveredContactPhone: string | null = null;
   let discoveredWebsite: string | null = null;
+  let upsertedCount = 0;
   const discovery = await discoverEmployerBoardVacancies(organisationName);
   sourceUrl = discovery.sourceUrl;
   const normalized = normaliseAndDedupeBoardAdverts(discovery.adverts);
@@ -174,6 +178,7 @@ export async function runVacancyCheck(
       normalized.slice(0, MAX_QUALITY_VACANCIES_PER_EMPLOYER),
       { organisationName },
     );
+    upsertedCount = persisted.inserted + persisted.revived;
     console.info(
       `[vacancy-check] persisted_http organisation="${organisationName}" nhs=${vacancyList.filter((v) => v.boardName === "NHS Jobs").length} reed=${vacancyList.filter((v) => v.boardName === "Reed").length} inserted=${persisted.inserted}`,
     );
@@ -229,5 +234,6 @@ export async function runVacancyCheck(
     discoveredContactEmail,
     discoveredContactPhone,
     discoveredWebsite,
+    upsertedCount,
   };
 }

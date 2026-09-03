@@ -1,0 +1,45 @@
+IMPLEMENT: production (jobsage.co.uk) must run vacancy discovery + liveness BY ITSELF. No super-admin runbook, no “paste this curl”, no one-shot crawl of the whole sponsor register.
+
+Preview DB has ~269 live job_board (0 unverified) → candidates see ~132. Prod DB has ~5 live job_board + ~13 unverified + ~43k unverified sponsor rows → candidates see ~6. Same product, different DBs. Publishing UI fixes will NOT turn 5 into 132 unless the published process actually runs the pipelines.
+
+VACANCY_AI_WEB_SEARCH_DAILY_CAP stays 0. No OpenAI web_search. No LinkedIn/Indeed scrape. Do NOT restore the ~9,700-row region backfill on API startup.
+
+## Goal
+After Republish, the live deployment continuously:
+1) Discovers NHS/Reed job_board vacancies (existing 4×/day job: 02:00/08:00/14:00/20:00 London, 250 orgs, 15 workers, 24h cache).
+2) Discovers company_site vacancies (existing hourly job, 75–100 orgs, 6–8 workers, robots/backoff/leases).
+3) Runs liveness (existing 01:30/07:30/13:30/19:30) so unverified → live or dead. Soft-404 = dead. Timeouts/bots = inconclusive, not dead.
+4) Candidate tabs still hide unverified/dead.
+
+## Diagnose first (then fix)
+Inspect how schedulers start (index.ts / vacancyCheckScheduler / companySiteScheduler / vacancyLivenessSweep).
+Find why PREVIEW fills live rows and PROD does not. Typical causes — confirm in THIS repo + prod logs, do not guess:
+- Schedulers gated to development / Replit workflow / “not production”
+- node-cron dies because published API cold-starts / restarts (logs already showed restarts + 9.7k boot scan)
+- Cron registered but first tick hours away, no catch-up
+- Only one replica / in-memory leases so overlapping boots skip or wipe work
+- Always-on / reserved VM off so published process sleeps between crons
+
+## Required behaviour on the PUBLISHED app
+1. Start all three schedulers on production boot. Same clocks/batches as preview. Not preview-only.
+2. Catch-up if stale: if last successful board / company-site / liveness run is older than its cadence (or never ran), kick ONE capped catch-up of that job after boot is healthy (after listen, NOT during the 9.7k path). Then resume cron. Do not stack overlapping catch-ups.
+3. Liveness catch-up MUST prefer unverified + due URLs (job_board first, then company_site), existing per-tick URL cap. Drain prod’s ~13 unverified job_board quickly; do not try 43k in one process start.
+4. Keep per-host leases, robots, backoff. If two boots overlap, tokens must not wipe backoff.
+5. If Replit published deployments sleep and miss cron: smallest fix so the worker stays alive (always-on / deployment config / dedicated worker workflow that also runs in prod). Document the one Replit toggle if code cannot do it. Do not invent a second database.
+6. Logging: one line per tick with env, job name, selected count, upserted, live/dead/inconclusive. Greppable.
+
+## Do not
+- Enable AI search
+- Scan all sponsors on boot
+- Show unverified on Opportunities
+- Copy preview DB into prod
+- Change matching/UI except hiding junk already specified
+- Add a required manual “Run pipeline” button (optional super-admin trigger is OK as extra, not the product path)
+
+## Verify
+- Preview still starts schedulers
+- Prod boot: no 9.7k scan; logs show schedulers registered + catch-up if stale
+- After catch-up + a liveness tick: prod live job_board count rises; unverified job_board falls; Opportunities for a nurse-like profile is no longer ~6
+- Cap still 0
+
+Implement, test, say exactly what must be Republished / Always-on for jobsage.co.uk. Then stop.
