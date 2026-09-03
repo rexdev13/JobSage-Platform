@@ -1,0 +1,49 @@
+READ ONLY. Do not change code. Do not start a build. Do not bump the extension version. Do not touch vacancy crawlers or VACANCY_AI_WEB_SEARCH_DAILY_CAP.
+
+Chrome extension (Smart Apply / JOBSAGE Copilot) is mis-detecting apply forms. I need a precise audit of CURRENT packaged behaviour vs what the page actually contains.
+
+Current packaged version (manifest source, dist, release ZIP) — print it.
+
+FOUND / PARTIAL / NOT FOUND with file paths and function names.
+
+## Live failures to explain (do not crawl those sites; map from CODE)
+
+A) amscare.org.uk-style multi-section form
+Sidebar listed: Personal Details; Current / Last Job ×3; Employment History ×2; Cautions…; General Comments; Health Details.
+Visible on page and MISSING from sidebar: Training (Course title, Tutored by, Number of days, Year attended, Qualifications).
+Generating… can hang. Manual paste box had “hi”.
+
+B) Pinpoint ATS (POWERED BY Pinpoint)
+Page has Personal Details, CV upload, screening questions (Right to Work in the UK; require sponsorship; GMC PIN / professional registrations; currently work for employer), Diversity dropdowns, Submit.
+Also “Back to Band 5/6 Nurse” / job title on the apply page.
+Does the extension detect Pinpoint at all? Identity vs questions vs dropdowns/radios?
+
+## 1. Detect
+- questionDetector + NHS / Trac / Workday / generic / any Pinpoint (or Greenhouse/Lever) adapters.
+- What counts as a “question” (textarea only? headings/legends? short inputs? select? radio?).
+- Why section titles become list rows (Personal Details, Current / Last Job).
+- Why repeatable groups duplicate (same legend, Add Fields). Dedup key (label vs id/name).
+- MutationObserver: rescan append vs replace; viewport-only vs whole document; same-origin iframes.
+- What is deliberately skipped (identity, file, criminal, health, diversity).
+- Would Training short fields be skipped by size/keyword heuristics?
+
+## 2. Vacancy context
+- JOBSAGE Apply click → extension: what is passed (title, employer, URL, roleId)? Dropped?
+- Page scrape: NHS/Trac/Workday/Pinpoint/generic (h1, Back to {title}, document.title).
+- Sidebar: does it show “Applying for …”?
+- Prefill of “position / job title / vacancy / role applied for” fields.
+- Does Generate use that vacancy + CV, or a generic draft?
+
+## 3. Prefill vs Generate vs leave-alone
+- Prefill: name, email, phone, address, country — sources, empty-only, overwrite rules.
+- Generate: which detected rows call AI; hang/timeout behaviour; manual paste path.
+- Auto-submit? Passwords/NI/criminal/diversity/health?
+
+## 4. Pinpoint specifically
+Selectors for pinpoint domains / “powered by pinpoint”. Numbered “3. Questions” selects/radios. If NOT FOUND, say so.
+
+## 5. Gaps vs a correct v1
+For A and B: DETECTED / DUPLICATE / MISSED / WRONG-BUCKET (question vs prefill vs confirmation-only) as far as the CODE would behave.
+Smallest fix order. Do not implement.
+
+Stop after the report.
