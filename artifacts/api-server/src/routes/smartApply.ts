@@ -70,7 +70,7 @@ router.get("/smart-apply/candidate-prefill", requireAuthenticated, async (req: R
 });
 
 const STRUCTURED_PREFILL_SENSITIVE_PATTERN =
-  /\b(caution|criminal|conviction|asbo|disclosure|dbs|health|medical|disab|ethnic|sex|gender|religion|sexual orientation|diversity|equal opportunit|national insurance|ni number|passport|date of birth|dob|declaration|consent|right to work|sponsorship|current employee|currently work)\b/i;
+  /\b(caution|criminal|conviction|asbo|disclosure|dbs|health|medical|disab|ethnic|sex|gender|religion|sexual orientation|diversity|equal opportunit|national insurance|ni number|passport|date of birth|dob|declaration|consent|right to work|rtw|work permit|sponsorship|current employee|currently work|bank account|sort code|marital|dependant|next of kin)\b/i;
 
 router.post("/smart-apply/structured-prefill", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
   const rawFields = Array.isArray(req.body?.fields) ? req.body.fields : [];
@@ -169,7 +169,7 @@ Return only JSON: {"values":[{"id":"field id","value":"exact value or null"}]}`;
     res.json({ values });
   } catch (error) {
     console.error("[smart-apply-structured-prefill] mapping error:", error);
-    res.status(503).json({ error: "Could not read structured details from the CV. Please retry." });
+    res.status(503).json({ error: "Could not map your saved profile and CV details right now. Please retry." });
   }
 });
 

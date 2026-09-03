@@ -110,3 +110,17 @@ mtime_ms = 1788421527015
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/27d5dac1-4c96-4a6c-84bf-8bf6078626f5/4991a0b8-892d-4f43-85a0-88c4dabd96e5"
 storage_version_token = "1788421573190515"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "rQ4JC7CHsJdiT_BW_ggYl"
+uri = "file://artifacts/chrome-extension/release/jobsage-smart-apply-extension-v0.4.18.zip"
+type = "unspecified"
+title = "JOBSAGE Smart Apply v0.4.18"
+description = "Fixes repeated false CV-read errors, summarizes unmapped fields once, and keeps sensitive employment-form fields candidate-controlled."
+logical_id = "7f74f2a2-bd33-49ce-ac73-9a7c101b0ac3"
+content_hash = "sha256:aac98e1ee6b4ba78dc1d22d59ad8a37e6ccf533296f4d66181148fd42879004f"
+size = 151492
+mtime_ms = 1788422212565
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/7f74f2a2-bd33-49ce-ac73-9a7c101b0ac3/fdf75746-d2d7-4483-8039-0b380bde42df"
+storage_version_token = "1788422235920855"
+content_type = "application/octet-stream"

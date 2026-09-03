@@ -978,14 +978,23 @@ export function Sidebar({
                {prefilling ? "Prefilling…" : "Prefill my details"}
              </button>
              {prefillResult && (
-               <div style={{ fontSize: 12, color: COLORS.textMuted, lineHeight: 1.45 }}>
-                 {prefillResult.filled.length > 0
-                   ? `Filled: ${prefillResult.filled.join(", ")}. `
-                   : "No empty, safe details were filled. "}
-                 {prefillResult.missing.length > 0 && (
-                   <span>Complete {prefillResult.missing.join(", ")} in JOBSAGE to prefill it.</span>
-                 )}
-               </div>
+                <>
+                  {prefillResult.warning && (
+                    <div style={{ fontSize: 12, color: COLORS.errorText, lineHeight: 1.45 }}>
+                      {prefillResult.warning}
+                    </div>
+                  )}
+                  <div style={{ fontSize: 12, color: COLORS.textMuted, lineHeight: 1.45 }}>
+                    {prefillResult.filled.length > 0
+                      ? `Filled ${prefillResult.filled.length} safe ${prefillResult.filled.length === 1 ? "field" : "fields"}. `
+                      : "No empty, safe details were filled. "}
+                    {prefillResult.missing.length > 0 && (
+                      <span>
+                        {prefillResult.missing.length} {prefillResult.missing.length === 1 ? "field was" : "fields were"} left blank because no exact saved detail was available.
+                      </span>
+                    )}
+                  </div>
+                </>
              )}
              <button
                onClick={() => void handleAttachCv()}

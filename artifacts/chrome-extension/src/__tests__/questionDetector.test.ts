@@ -258,6 +258,18 @@ describe("detectQuestions — precision (non-question fields excluded)", () => {
     expect(questions).toHaveLength(4);
     expect(questions.every((question) => question.bucket === "confirmation" && question.restricted)).toBe(true);
   });
+
+  it("keeps employment-form financial and personal declarations candidate-controlled", () => {
+    setBody(`
+      <label for="rtw">RTW UK</label><select id="rtw"><option>Choose</option></select>
+      <label for="sort-code">Bank Sort Code</label><input id="sort-code">
+      <label for="kin">Next of Kin Name</label><input id="kin">
+      <label for="marital">Marital Status</label><select id="marital"><option>Choose</option></select>
+    `);
+    const questions = detectQuestions();
+    expect(questions).toHaveLength(4);
+    expect(questions.every((question) => question.bucket === "confirmation" && question.restricted)).toBe(true);
+  });
 });
 
 describe("detectQuestions — Pinpoint", () => {

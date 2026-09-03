@@ -29,6 +29,7 @@ export interface PrefillResult {
   missing: string[];
   skipped: string[];
   fieldResults: Record<string, { status: "filled" | "missing" | "skipped"; message: string }>;
+  warning?: string;
 }
 
 type DetailKey = keyof CandidateProfile;
