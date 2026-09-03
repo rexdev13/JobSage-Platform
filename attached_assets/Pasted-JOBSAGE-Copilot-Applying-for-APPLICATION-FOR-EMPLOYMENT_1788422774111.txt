@@ -1,0 +1,147 @@
+JOBSAGE Copilot
+Applying for APPLICATION FOR EMPLOYMENT
+at AMS Care
+
+Your application details
+Prefill my details
+JOBSAGE could not map your saved profile and CV details right now. Nothing was changed; please try again.
+Filled 5 safe fields. 34 fields were left blank because no exact saved detail was available.
+Attach my JOBSAGE CV
+Clear remembered answers for this page
+Employer replies
+Replies sent to your JOBSAGE communication address are saved in your JOBSAGE Messages inbox.
+Detected questions
+Position Applied
+Not filled because mapping is temporarily unavailable
+Care Home
+Not filled because mapping is temporarily unavailable
+Personal Details — Surname
+Filled from JOBSAGE
+Personal Details — Previous Surname
+Not filled because mapping is temporarily unavailable
+Personal Details — Forenames
+Not filled because mapping is temporarily unavailable
+Personal Details — Address
+Filled from JOBSAGE
+Personal Details — Postcode
+Filled from JOBSAGE
+Personal Details — Home Phone
+Not filled because mapping is temporarily unavailable
+Personal Details — Mobile
+Filled from JOBSAGE
+Personal Details — Email
+Filled from JOBSAGE
+Personal Details — Dob
+Complete this yourself
+Personal Details — Ni Number
+Complete this yourself
+Personal Details — Marital Status
+Complete this yourself
+Personal Details — Dependants
+Not filled because mapping is temporarily unavailable
+Personal Details — Rtw Uk
+Complete this yourself
+Personal Details — Passport
+Complete this yourself
+Personal Details — Work Permit
+Complete this yourself
+Personal Details — Work Permit Expiry
+Complete this yourself
+Personal Details — Pin Number
+Not filled because mapping is temporarily unavailable
+Personal Details — Pin Expiry
+Not filled because mapping is temporarily unavailable
+Personal Details — Next Of Kin Name
+Complete this yourself
+Personal Details — Next Of Kin Relationship
+Complete this yourself
+Personal Details — Next Of Kin Address
+Complete this yourself
+Personal Details — Next Of Kin Phone
+Complete this yourself
+Experience & Skills (summary) — Experience Years
+Not filled because mapping is temporarily unavailable
+Experience & Skills (summary) — Skills
+Not filled because mapping is temporarily unavailable
+Professional Qualifications 1 — Gained
+Not filled because mapping is temporarily unavailable
+Professional Qualifications 1 — Centre
+Not filled because mapping is temporarily unavailable
+Professional Qualifications 1 — From
+Not filled because mapping is temporarily unavailable
+Professional Qualifications 1 — To
+Not filled because mapping is temporarily unavailable
+Training 1 — Course title
+Not filled because mapping is temporarily unavailable
+Training 1 — Tutored by
+Not filled because mapping is temporarily unavailable
+Training 1 — Number of days
+Not filled because mapping is temporarily unavailable
+Training 1 — Year attended
+Not filled because mapping is temporarily unavailable
+Training 1 — Certs
+Not filled because mapping is temporarily unavailable
+Professional Bodies 1 — Name
+Not filled because mapping is temporarily unavailable
+Professional Bodies 1 — Membership
+Not filled because mapping is temporarily unavailable
+Professional Bodies 1 — Joined
+Not filled because mapping is temporarily unavailable
+Professional Bodies 1 — Certs
+Not filled because mapping is temporarily unavailable
+Current / Last Job — Employer
+Current / Last Job — From
+Not filled because mapping is temporarily unavailable
+Current / Last Job — To
+Not filled because mapping is temporarily unavailable
+Current / Last Job — Position held
+Not filled because mapping is temporarily unavailable
+Current / Last Job — Number of days
+Current / Last Job — Reasons Leaving
+Employment History 1 — Employer
+Employment History 1 — From
+Not filled because mapping is temporarily unavailable
+Employment History 1 — To
+Not filled because mapping is temporarily unavailable
+Employment History 1 — Duties
+Employment History 1 — Position held
+Not filled because mapping is temporarily unavailable
+Employment History 1 — Reason
+Not filled because mapping is temporarily unavailable
+Employment History 1 — Salary
+Not filled because mapping is temporarily unavailable
+References 1 — Name
+Not filled because mapping is temporarily unavailable
+References 1 — Company
+Not filled because mapping is temporarily unavailable
+References 1 — Position held
+Not filled because mapping is temporarily unavailable
+References 1 — Address
+Filled from JOBSAGE
+References 1 — Email
+Filled from JOBSAGE
+References 1 — Phone
+Filled from JOBSAGE
+References — Ref Permission
+Fill from JOBSAGE profile + CV
+Cautions, Rehabilitation & Criminal Records — Has Convictions
+Complete this yourself
+Cautions, Rehabilitation & Criminal Records — Conviction Details
+Complete this yourself
+General Comments
+Health Details
+Complete this yourself
+Equal Opportunities Monitoring — Group
+Complete this yourself
+Equal Opportunities Monitoring — Sex
+Complete this yourself
+Bank Details — Bank Account Name
+Complete this yourself
+Bank Details — Bank Sort Code
+Complete this yourself
+Bank Details — Bank Account Number
+Complete this yourself
+Or paste a question manually
+Personal Details — Rtw Uk
+Complete yourself
+Review and complete this sensitive field yourself. JOBSAGE will not generate or fill it.
