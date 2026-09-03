@@ -141,15 +141,27 @@ ${evidence}
 Return only JSON: {"values":[{"id":"field id","value":"exact value or null"}]}`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      max_completion_tokens: 3000,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: "You extract structured job-application facts. Never fabricate missing candidate history." },
-        { role: "user", content: prompt },
-      ],
-    });
+    const request = (model: "gpt-4o" | "gpt-4o-mini") =>
+      openai.chat.completions.create({
+        model,
+        max_completion_tokens: 3000,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: "You extract structured job-application facts. Never fabricate missing candidate history." },
+          { role: "user", content: prompt },
+        ],
+      });
+
+    let response;
+    try {
+      response = await request("gpt-4o");
+    } catch (primaryError) {
+      console.warn(
+        "[smart-apply-structured-prefill] primary model failed; retrying with fallback:",
+        primaryError instanceof Error ? primaryError.message : String(primaryError),
+      );
+      response = await request("gpt-4o-mini");
+    }
     let parsed: { values?: unknown[] } = {};
     try {
       parsed = JSON.parse(response.choices[0]?.message?.content ?? "{}") as { values?: unknown[] };
