@@ -138,16 +138,21 @@ function useStreamAnswer() {
       }
     });
 
-    port.postMessage({
-      message: `${question.trim()}\n\nJob context: ${jobContext.jobTitle} at ${jobContext.companyName}. ${jobContext.jobDescription.slice(0, 800)}`,
-      questionId: detectedQuestion?.id,
-      questionText: detectedQuestion?.question ?? question.trim(),
-      wordLimit: detectedQuestion?.wordLimit,
-      maxLength: detectedQuestion?.maxLength,
-      jobTitle: jobContext.jobTitle,
-      employer: jobContext.companyName,
-      jobDescription: jobContext.jobDescription.slice(0, 1500),
-    });
+    try {
+      port.postMessage({
+        message: `${question.trim()}\n\nJob context: ${jobContext.jobTitle} at ${jobContext.companyName}. ${jobContext.jobDescription.slice(0, 800)}`,
+        questionId: detectedQuestion?.id,
+        questionText: detectedQuestion?.question ?? question.trim(),
+        wordLimit: detectedQuestion?.wordLimit,
+        maxLength: detectedQuestion?.maxLength,
+        jobTitle: jobContext.jobTitle,
+        employer: jobContext.companyName,
+        jobDescription: jobContext.jobDescription.slice(0, 1500),
+      });
+    } catch {
+      finish();
+      setError("The JOBSAGE extension was updated or reloaded. Please refresh this page and try again.");
+    }
   }, []);
 
   return { answer, streaming, error, generate, setAnswer, setError };

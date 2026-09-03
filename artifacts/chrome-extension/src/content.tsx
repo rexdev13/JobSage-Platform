@@ -60,14 +60,26 @@ function cleanEmployerPageWarnings(): void {
 
 function sendMessage<T>(msg: unknown): Promise<T> {
   return new Promise((resolve) => {
-    chrome.runtime.sendMessage(msg, (response: T) => {
-      if (chrome.runtime.lastError) {
-        // Service worker woke up but errored — return a safe default
-        resolve({} as T);
-        return;
-      }
-      resolve(response);
-    });
+    try {
+      chrome.runtime.sendMessage(msg, (response: T) => {
+        try {
+          if (chrome.runtime.lastError) {
+            // Service worker woke up but errored — return a safe default
+            resolve({} as T);
+            return;
+          }
+          resolve(response);
+        } catch {
+          // The extension can be reloaded while an old content script remains
+          // in a tab. Treat that invalidated context like a disconnected worker.
+          resolve({} as T);
+        }
+      });
+    } catch {
+      // sendMessage itself throws synchronously for an invalidated extension
+      // context, so this must be caught outside the callback.
+      resolve({} as T);
+    }
   });
 }
 
