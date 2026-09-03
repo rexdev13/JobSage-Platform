@@ -1,0 +1,69 @@
+FIX Smart Apply. The last slice made structured rows dead. That is wrong.
+
+Do not auto-submit. Do not invent employment/training that is not in the CV or JOBSAGE profile. Do not fill passwords, NI, passport, DOB, criminal/cautions/DBS, health/medical, diversity/equal-ops. Cap stays 0. Bump extension version, rebuild ZIP, update download.
+
+Live sidebar on AMS Care is broken:
+- Header: “Applying for APPLICATION FOR EMPLOYMENT at AMS Care” — that is the form title, NOT the vacancy.
+- Prefill my details: “No empty, safe details were filled.”
+- Almost every real field is “Structured field — no AI generation” or “Complete this yourself.”
+- Raw names in the list: employment[0][to], eq sex, “current job to”.
+- general comments / health details still poorly labelled.
+- Position applying for is listed but not filled from the JOBSAGE vacancy.
+
+## Product
+Three actions only:
+
+1) FILL from JOBSAGE profile + parsed CV into empty matching fields (no essay). This is the default for structured data.
+2) GENERATE from CV for narrative leftover boxes (general comments, duties if empty, reasons for leaving if empty).
+3) YOURSELF: criminal, health, equal ops, declarations.
+
+“Structured — no AI” is not a UX. If we have the value, PUT IT IN THE FORM. If we don’t, say “Not in your CV — add it” and still show the row. Never leave a wall of disabled rows.
+
+## 1. Vacancy
+Handoff from JOBSAGE Apply must include title, employer, roleId, URL. Prefer that over page scrape.
+Never use “Application for employment” / “Apply” / generic form H1 as job title.
+Position applying for / job title / vacancy / post applied for → fill with trusted JOBSAGE title.
+Sidebar: Applying for {JOBSAGE title} at {employer}.
+
+## 2. Fill from CV / profile (empty fields only, never overwrite)
+Use existing candidate-prefill + CV extract/parser. Map into AMS-style (and generic) labelled fields:
+
+Identity: first/last/email/phone/address/town/postcode/country. If Prefill fills 0, fix label matching on this form (legends, tables, non-autocomplete inputs). Recurse same-origin iframes.
+
+Professional qualifications: qualification gained, school/college/training centre, dates if present.
+
+Training: course title, tutored by, days, year, certificates — one CV training/course row per form instance; extra form rows stay empty.
+
+Current / last job + Employment History: from, to (including name="employment[0][to]"), position held, employer, nature of business, duties, reason for leaving — from CV jobs, newest first. Do not invent sick-day counts.
+
+References: name/employer/position/contact if in profile; else leave empty.
+
+Right to work: do not auto-click. If profile has a clear UK RTW/sponsorship answer, show a suggested value in the sidebar for that row; user confirms. Same for sponsorship.
+
+## 3. Detect ALL questions, human labels
+Whole document + same-origin iframes, not viewport. Every visible labelled control: text, textarea, number, date, select, radio group.
+Row title = control’s own label, not fieldset legend alone, not name="eq sex" / employment[0][to].
+Legend is prefix only: “Employment History — To”, “Equal Opportunities — Sex”.
+Repeatable groups: instance index + child label.
+Must still list: Position applying for, RTW, quals, all Training fields, all current-job and history fields, references, general comments, health (yourself), cautions (yourself), equal ops (yourself).
+Scan again after Add Fields. Replace list, don’t append junk.
+If a visible labelled input is missing from the sidebar, that is a bug.
+
+## 4. Generate
+Only narrative generate-rows, on click (not on select, not on typing “hi”).
+Use JOBSAGE vacancy + CV. Timeout 45–60s, error + Retry.
+Insert into that field. Structured rows use FILL from CV, not Generate. The Generate button on “Position applying for” must not say “we will not generate” while also refusing to fill — FILL it from the vacancy.
+
+## 5. Sensitive
+Cautions/convictions/ASBOs, health details, equal ops (ethnic group, sex, etc.): Complete yourself. No fill, no AI.
+
+## Verify
+- Header is the JOBSAGE vacancy, not APPLICATION FOR EMPLOYMENT.
+- Prefill puts name/email/phone when empty.
+- Position applying for is filled.
+- At least one current job / history / training / qualification field filled when that data exists on the CV.
+- No employment[0][to] or eq sex as the visible title.
+- Criminal/health/equal ops still yourself.
+- ZIP updated.
+
+Stop after ZIP + what still cannot be mapped from CV (honest list).
