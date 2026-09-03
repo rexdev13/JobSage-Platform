@@ -2,7 +2,7 @@
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
-import { clampSidebarWidth, Sidebar, sidebarWidthBounds } from "../components/Sidebar";
+import { ASSISTANT_STREAM_TIMEOUT_MS, clampSidebarWidth, Sidebar, sidebarWidthBounds } from "../components/Sidebar";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -37,6 +37,10 @@ afterEach(async () => {
 });
 
 describe("Smart Apply panel interactions", () => {
+  it("uses a bounded assistant stream timeout", () => {
+    expect(ASSISTANT_STREAM_TIMEOUT_MS).toBeGreaterThanOrEqual(45_000);
+    expect(ASSISTANT_STREAM_TIMEOUT_MS).toBeLessThanOrEqual(60_000);
+  });
   it("opens from a pointer release on the visible launcher", async () => {
     const root = renderSidebar();
     const pill = document.querySelector<HTMLButtonElement>("[aria-label='Open JOBSAGE']");

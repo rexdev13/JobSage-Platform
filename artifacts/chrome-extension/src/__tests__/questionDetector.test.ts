@@ -25,7 +25,7 @@ describe("detectQuestions — NHS Jobs / Trac style forms", () => {
     expect(qs[0].question).toContain("Describe a time you handled a clinical crisis");
   });
 
-  it("resolves question text from a fieldset legend", () => {
+  it("uses a fieldset legend as context rather than the sole row title", () => {
     setBody(`
       <fieldset>
         <legend>Why do you want to work for this NHS trust?</legend>
@@ -34,7 +34,7 @@ describe("detectQuestions — NHS Jobs / Trac style forms", () => {
     `);
     const qs = detectQuestions();
     expect(qs).toHaveLength(1);
-    expect(qs[0].question).toBe("Why do you want to work for this NHS trust?");
+    expect(qs[0].question).toBe("Why do you want to work for this NHS trust? — Application response");
   });
 
   it("resolves question text from a preceding heading when no label exists", () => {
@@ -47,7 +47,7 @@ describe("detectQuestions — NHS Jobs / Trac style forms", () => {
     `);
     const qs = detectQuestions();
     expect(qs).toHaveLength(1);
-    expect(qs[0].question).toBe("Tell us why you are suitable for this role.");
+    expect(qs[0].question).toBe("Supporting information — Tell us why you are suitable for this role.");
   });
 
   it("extracts maxlength and word limits", () => {
@@ -199,6 +199,81 @@ describe("detectQuestions — precision (non-question fields excluded)", () => {
     expect(questions).toHaveLength(3);
     expect(questions.find((q) => q.id === (document.getElementById("skills") as HTMLTextAreaElement).dataset.jobsageQid)?.restricted).toBe(false);
     expect(questions.find((q) => q.id === (document.getElementById("declaration") as HTMLTextAreaElement).dataset.jobsageQid)?.restricted).toBe(true);
+  });
+
+  it("labels repeated section controls with their child fields instead of duplicate legends", () => {
+    setBody(`
+      <fieldset>
+        <legend>Current / Last Job</legend>
+        <label for="employer">Employer</label><input id="employer" name="previous_employer">
+        <label for="position">Position</label><input id="position" name="previous_position">
+        <label for="duties">Duties</label><textarea id="duties" name="previous_duties"></textarea>
+      </fieldset>
+    `);
+    const questions = detectQuestions();
+    expect(questions.map((question) => question.question)).toEqual([
+      "Current / Last Job — Employer",
+      "Current / Last Job — Position",
+      "Current / Last Job — Duties",
+    ]);
+    expect(questions.map((question) => question.bucket)).toEqual(["structured", "structured", "generate"]);
+  });
+
+  it("keeps Training short fields as structured rows", () => {
+    setBody(`
+      <fieldset>
+        <legend>Training</legend>
+        <label for="course">Course title</label><input id="course" type="text">
+        <label for="tutor">Tutored by</label><input id="tutor" type="text">
+        <label for="days">Number of days</label><input id="days" type="number">
+        <label for="year">Year attended</label><input id="year" type="date">
+      </fieldset>
+    `);
+    const questions = detectQuestions();
+    expect(questions).toHaveLength(4);
+    expect(questions.every((question) => question.bucket === "structured")).toBe(true);
+    expect(questions.map((question) => question.question)).toContain("Training — Course title");
+  });
+
+  it("never marks cautions, health, medical or diversity controls as generatable", () => {
+    setBody(`
+      <label for="cautions">Cautions</label><textarea id="cautions"></textarea>
+      <label for="health">Health Details</label><textarea id="health"></textarea>
+      <label for="medical">Medical declaration</label><textarea id="medical"></textarea>
+      <label for="ethnicity">Ethnicity</label><select id="ethnicity"><option>Choose</option></select>
+    `);
+    const questions = detectQuestions();
+    expect(questions).toHaveLength(4);
+    expect(questions.every((question) => question.bucket === "confirmation" && question.restricted)).toBe(true);
+  });
+});
+
+describe("detectQuestions — Pinpoint", () => {
+  it("lists Pinpoint screening selects and radio groups once without making them generatable", () => {
+    setBody(`
+      <main>
+        <section class="questions-step">
+          <h2>3. Questions</h2>
+          <fieldset>
+            <legend>Right to Work in the UK</legend>
+            <label><input type="radio" name="rtw" value="yes">Yes</label>
+            <label><input type="radio" name="rtw" value="no">No</label>
+          </fieldset>
+          <label for="registration">Professional registration</label>
+          <input id="registration" name="professional_registration">
+          <label for="employee">Do you currently work for this employer?</label>
+          <select id="employee"><option>Choose</option><option>Yes</option><option>No</option></select>
+        </section>
+      </main>
+      <footer>POWERED BY Pinpoint</footer>
+    `);
+    const questions = detectQuestions(document, "careers.example.test");
+    expect(questions.map((question) => question.question)).toEqual([
+      "Right to Work in the UK",
+      "3. Questions — Professional registration",
+      "3. Questions — Do you currently work for this employer?",
+    ]);
+    expect(questions.every((question) => question.bucket !== "generate")).toBe(true);
   });
 });
 

@@ -11,6 +11,7 @@ id = "LkR3id4iUf4vRpG2yIpNQ"
 uri = "file://artifacts/jobsage-web/public/jobsage-source.zip"
 type = "unspecified"
 title = "JOBSAGE Source Code"
+logical_id = "886786a3-7a0e-406f-b303-45eeb2aa08d2"
 
 [[outputs]]
 id = "wEXwOBmXCNHQjPhjTl9nG"
@@ -18,6 +19,7 @@ uri = "file://RELEASE_NOTES.md"
 type = "text"
 title = "Release Notes — 12–16 August 2026"
 description = "Sprint release notes with testing steps and live links for all 7 features."
+logical_id = "89dd049c-542e-4763-b112-a13a35d338f0"
 
 [[outputs]]
 id = "P6z_KBorjWtbrLw6sBxdy"
@@ -25,6 +27,7 @@ uri = "file://attached_assets/jobsage-qr.png"
 type = "image"
 title = "JOBSAGE QR Code"
 description = "Scans to https://jobsage.co.uk/get-started — 1200×1200px, error correction H, JOBSAGE centred on white rounded panel."
+logical_id = "6ee6a33d-4e55-445d-bcbb-e81b488a5505"
 
 [[outputs]]
 id = "pcM0OMTuqcpk66QOw0XL-"
@@ -32,6 +35,7 @@ uri = "file://attached_assets/jobsage-logo.png"
 type = "image"
 title = "JOBSAGE Wordmark"
 description = "Bold sans-serif, dark maroon, white background — ready to drop into a QR code tool."
+logical_id = "6f01df48-d7e3-43c6-a76d-d35bc979c26b"
 
 [[outputs]]
 id = "UcmNs9GkgbFxrCpN6T6nF"
@@ -39,6 +43,7 @@ uri = "file://artifacts/chrome-extension/release/jobsage-smart-apply-extension-v
 type = "unspecified"
 title = "Download JOBSAGE Smart Apply Extension v0.4.9"
 description = "Chrome extension package, version 0.4.9."
+logical_id = "c1d91811-517e-406c-a056-5182be72fe47"
 
 [[outputs]]
 id = "NQaCI2GchGJWtSUKmbz1-"
@@ -46,6 +51,7 @@ uri = "file://artifacts/chrome-extension/release/jobsage-smart-apply-extension-v
 type = "unspecified"
 title = "Download JOBSAGE Smart Apply Extension v0.4.10"
 description = "Chrome extension package. Download it, unzip it, then load the unzipped folder using Chrome's Load unpacked option."
+logical_id = "1560ccdb-435d-49c1-bf8f-46c567aad440"
 
 [[outputs]]
 id = "AprKMKlyhMM9xzBG333Q8"
@@ -53,6 +59,7 @@ uri = "file://artifacts/chrome-extension/release/jobsage-smart-apply-extension-v
 type = "unspecified"
 title = "Download JOBSAGE Smart Apply Extension v0.4.11"
 description = "Updated Chrome extension with reliable pill opening, click-away dismissal, Escape-to-close, and resizable sidebar controls. Unzip it before using Chrome's Load unpacked option."
+logical_id = "91aafe3d-c308-4b05-a74a-e89e84a0a5fe"
 
 [[outputs]]
 id = "uQsg0HuTF_IdSkGKnppBS"
@@ -60,3 +67,18 @@ uri = "file://artifacts/chrome-extension/release/jobsage-smart-apply-extension-v
 type = "unspecified"
 title = "Download JOBSAGE Smart Apply Extension v0.4.12"
 description = "Validated update: opens automatically on JOBSAGE and on trusted vacancy links opened from JOBSAGE. Unzip it before loading the folder in Chrome."
+logical_id = "da64a545-ed92-423e-9850-a196905d6a0f"
+
+[[outputs]]
+id = "jX6kk84zQUnXVuJPOgt-o"
+uri = "file://artifacts/chrome-extension/release/jobsage-smart-apply-extension-v0.4.15.zip"
+type = "unspecified"
+title = "JOBSAGE Smart Apply 0.4.15"
+description = "Chrome extension release with Pinpoint support, safe field buckets, trusted vacancy handoff, position prefill, and bounded assistant generation."
+logical_id = "6fbb45e6-1a0a-4c6b-8afa-b766d17074b0"
+content_hash = "sha256:e064be052e2ca90f496f12eb0b535eeac0a57ed4c4a4ee8ce336094b8ff6a36c"
+size = 149448
+mtime_ms = 1788413130956
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/6fbb45e6-1a0a-4c6b-8afa-b766d17074b0/c18c4de8-a406-422e-b997-ee6450250e74"
+storage_version_token = "1788413209264500"
+content_type = "application/octet-stream"

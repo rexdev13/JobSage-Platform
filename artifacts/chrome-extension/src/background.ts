@@ -47,7 +47,14 @@ function getEtld1(hostname: string): string {
 }
 
 type TabActivation = TabTrackingContext;
-type TrustedNavigation = { applicationUrl: string; createdAt: number };
+type TrustedNavigation = {
+  applicationUrl: string;
+  canonicalUrl?: string;
+  jobTitle?: string;
+  employer?: string;
+  roleId?: number;
+  createdAt: number;
+};
 type CreatedNavigationTarget = { tabId: number; url: string; createdAt: number };
 type SameTabNavigationTarget = { url: string; createdAt: number };
 
@@ -174,13 +181,17 @@ async function persistRecords<T extends { createdAt: number }>(
   await storeNavigationRecords(prefix, tabId, entries);
 }
 
-async function activateTrackedTab(tabId: number, applicationUrl: string): Promise<void> {
-  const destination = new URL(applicationUrl);
+async function activateTrackedTab(tabId: number, context: TrustedNavigation): Promise<void> {
+  const destination = new URL(context.applicationUrl);
   const map = await getActivations();
   map[tabId] = {
     etld1: getEtld1(destination.hostname),
     activatedAt: Date.now(),
-    applicationUrl,
+    applicationUrl: context.applicationUrl,
+    canonicalUrl: context.canonicalUrl,
+    jobTitle: context.jobTitle,
+    employer: context.employer,
+    roleId: context.roleId,
   };
   await setActivations(map);
   // The destination content script may have already completed its initial
@@ -213,7 +224,7 @@ chrome.webNavigation.onBeforeNavigate.addListener((details) => {
           details.tabId,
           pending,
         );
-        await activateTrackedTab(details.tabId, match.applicationUrl);
+        await activateTrackedTab(details.tabId, match);
         return;
       }
       // The first-party registration message is asynchronous, so navigation can
@@ -257,7 +268,7 @@ chrome.webNavigation.onCreatedNavigationTarget.addListener((details) => {
         details.sourceTabId,
         pending,
       );
-      await activateTrackedTab(details.tabId, match.applicationUrl);
+      await activateTrackedTab(details.tabId, match);
       return;
     }
     const target = {
@@ -382,6 +393,10 @@ interface DownloadCurrentCvMessage {
 interface RegisterTrackedApplicationMessage {
   type: "REGISTER_TRACKED_APPLICATION";
   applicationUrl: string;
+  canonicalUrl?: string;
+  jobTitle?: string;
+  employer?: string;
+  roleId?: number;
 }
 
 type IncomingMessage =
@@ -402,7 +417,13 @@ interface ApiResponseSuccess { data: unknown }
 interface ApiResponseError { error: string }
 interface TokenResponse { token: string | null }
 interface ActivationResponse { activated: boolean }
-interface TrackingContextResponse { applicationUrl: string | null }
+interface TrackingContextResponse {
+  applicationUrl: string | null;
+  canonicalUrl?: string;
+  jobTitle?: string;
+  employer?: string;
+  roleId?: number;
+}
 interface SuppressionResponse { suppressed: "site" | "session" | null }
 interface SuppressionListResponse { hostnames: string[] }
 interface OkResponse { ok: true }
@@ -613,7 +634,13 @@ chrome.runtime.onMessage.addListener(
             sendResponse({ applicationUrl: null });
             return;
           }
-          sendResponse({ applicationUrl: activation?.applicationUrl ?? null });
+          sendResponse({
+            applicationUrl: activation?.applicationUrl ?? null,
+            canonicalUrl: activation?.canonicalUrl,
+            jobTitle: activation?.jobTitle,
+            employer: activation?.employer,
+            roleId: activation?.roleId,
+          });
         })
         .catch(() => sendResponse({ applicationUrl: null }));
       return true;
@@ -750,6 +777,14 @@ chrome.runtime.onMessage.addListener(
           sendResponse({ error: "untrusted tracked application registration" });
           return;
         }
+        const trustedNavigation: TrustedNavigation = {
+          applicationUrl: applicationUrl.toString(),
+          canonicalUrl: message.canonicalUrl,
+          jobTitle: message.jobTitle?.trim() || undefined,
+          employer: message.employer?.trim() || undefined,
+          roleId: Number.isInteger(message.roleId) ? message.roleId : undefined,
+          createdAt: Date.now(),
+        };
 
         await navigationQueue.run(sourceTabId, async () => {
           cleanExpiredNavigationTargets();
@@ -769,7 +804,7 @@ chrome.runtime.onMessage.addListener(
               sourceTabId,
               sameTabTargets,
             );
-            await activateTrackedTab(sourceTabId, applicationUrl.toString());
+            await activateTrackedTab(sourceTabId, trustedNavigation);
           } else {
             const createdTargets = await recordsFor(
               createdNavigationTargets,
@@ -787,17 +822,14 @@ chrome.runtime.onMessage.addListener(
                 sourceTabId,
                 createdTargets,
               );
-              await activateTrackedTab(createdTarget.tabId, applicationUrl.toString());
+              await activateTrackedTab(createdTarget.tabId, trustedNavigation);
             } else {
               const pending = await recordsFor(
                 pendingTrustedNavigations,
                 PENDING_NAVIGATION_STORAGE_PREFIX,
                 sourceTabId,
               );
-              pending.push({
-                applicationUrl: applicationUrl.toString(),
-                createdAt: Date.now(),
-              });
+              pending.push(trustedNavigation);
               await persistRecords(
                 pendingTrustedNavigations,
                 PENDING_NAVIGATION_STORAGE_PREFIX,

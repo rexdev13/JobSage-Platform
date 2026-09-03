@@ -804,7 +804,15 @@ function RoleCard({
     // The extension only treats an application tab as eligible for automatic
     // prefill after this first-party event. A public `ref=jobsage` query
     // parameter by itself is deliberately not trusted.
-    window.dispatchEvent(new CustomEvent("jobsage:outbound-application", { detail: outboundUrl }));
+    window.dispatchEvent(new CustomEvent("jobsage:outbound-application", {
+      detail: {
+        applicationUrl: outboundUrl,
+        canonicalUrl: targetUrl,
+        jobTitle: role.title,
+        employer: role.employer,
+        roleId: role.id,
+      },
+    }));
     window.open(outboundUrl, "_blank", "noopener,noreferrer");
     onExternalApply?.();
   };
@@ -1511,7 +1519,15 @@ export default function OpportunitiesPage() {
       console.warn("[applications] Could not track Gap Analysis apply click", error);
     });
 
-    window.dispatchEvent(new CustomEvent("jobsage:outbound-application", { detail: outboundUrl }));
+    window.dispatchEvent(new CustomEvent("jobsage:outbound-application", {
+      detail: {
+        applicationUrl: outboundUrl,
+        canonicalUrl: targetUrl,
+        jobTitle: item.role.title,
+        employer: item.role.employer,
+        roleId: item.role.id,
+      },
+    }));
     window.open(outboundUrl, "_blank", "noopener,noreferrer");
     handleExternalApply();
   }

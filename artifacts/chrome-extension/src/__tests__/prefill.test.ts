@@ -74,6 +74,25 @@ describe("prefillPersonalDetails", () => {
     expect((document.getElementById("phone-existing") as HTMLInputElement).value).toBe("Keep me");
     expect((document.getElementById("password-again") as HTMLInputElement).value).toBe("");
   });
+
+  it("fills an empty position field only from trusted vacancy context", () => {
+    document.body.innerHTML = `
+      <label for="position">Position applied for</label><input id="position">
+      <label for="company">Employer name</label><input id="company">
+      <label for="existing-role">Job title</label><input id="existing-role" value="Keep this role">
+    `;
+
+    const result = prefillPersonalDetails(
+      {},
+      document,
+      { jobTitle: "Band 5/6 Nurse" },
+    );
+
+    expect((document.getElementById("position") as HTMLInputElement).value).toBe("Band 5/6 Nurse");
+    expect((document.getElementById("company") as HTMLInputElement).value).toBe("");
+    expect((document.getElementById("existing-role") as HTMLInputElement).value).toBe("Keep this role");
+    expect(result.filled).toContain("position applied for");
+  });
 });
 
 describe("findCvFileInput", () => {

@@ -39,12 +39,26 @@ function hasJobSageRef(): boolean {
 
 const OUTBOUND_APPLICATION_EVENT = "jobsage:outbound-application";
 
+interface TrackedApplicationContext {
+  applicationUrl: string;
+  canonicalUrl?: string;
+  jobTitle?: string;
+  employer?: string;
+  roleId?: number;
+}
+
 function registerFirstPartyOutboundApplication(): void {
   if (!isJobSageHost()) return;
   window.addEventListener(OUTBOUND_APPLICATION_EVENT, (event: Event) => {
-    const applicationUrl = (event as CustomEvent<unknown>).detail;
-    if (typeof applicationUrl !== "string") return;
-    void sendMessage({ type: "REGISTER_TRACKED_APPLICATION", applicationUrl });
+    const detail = (event as CustomEvent<unknown>).detail;
+    const context: TrackedApplicationContext | null =
+      typeof detail === "string"
+        ? { applicationUrl: detail }
+        : detail && typeof detail === "object" && typeof (detail as Record<string, unknown>)["applicationUrl"] === "string"
+          ? detail as TrackedApplicationContext
+          : null;
+    if (!context) return;
+    void sendMessage({ type: "REGISTER_TRACKED_APPLICATION", ...context });
   });
 }
 
@@ -92,10 +106,10 @@ async function checkTabActivation(): Promise<boolean> {
   }
 }
 
-async function getTrackingApplicationUrl(): Promise<string | null> {
+async function getTrackingContext(): Promise<TrackedApplicationContext | null> {
   try {
-    const resp = await sendMessage<{ applicationUrl?: string | null }>({ type: "GET_TRACKING_CONTEXT" });
-    return resp.applicationUrl ?? null;
+    const resp = await sendMessage<Partial<TrackedApplicationContext>>({ type: "GET_TRACKING_CONTEXT" });
+    return resp.applicationUrl ? resp as TrackedApplicationContext : null;
   } catch {
     return null;
   }
@@ -129,7 +143,7 @@ async function loadPillPosition(): Promise<PillPos | null> {
 // ---------------------------------------------------------------------------
 
 async function logApplication(companyName: string, jobTitle: string, pageUrl: string): Promise<void> {
-  const originalApplicationUrl = await getTrackingApplicationUrl();
+  const trackingContext = await getTrackingContext();
   return new Promise((resolve, reject) => {
     chrome.runtime.sendMessage(
       {
@@ -142,7 +156,7 @@ async function logApplication(companyName: string, jobTitle: string, pageUrl: st
         body: {
           companyName,
           jobTitle,
-          applicationUrl: originalApplicationUrl ?? undefined,
+          applicationUrl: trackingContext?.applicationUrl,
           pageUrl,
           applicationType: "website",
           status: "applied",
@@ -164,7 +178,7 @@ async function logApplication(companyName: string, jobTitle: string, pageUrl: st
 }
 
 async function confirmTrackedApplication(): Promise<void> {
-  const applicationUrl = await getTrackingApplicationUrl();
+  const applicationUrl = (await getTrackingContext())?.applicationUrl;
   if (!applicationUrl) {
     throw new Error("This application was not started from JOBSAGE.");
   }
@@ -207,7 +221,12 @@ async function prefillApplicationDetails(): Promise<PrefillResult> {
     return { filled: [], missing: ["your profile details"], skipped: [] };
   }
   const payload = response.data as { profile?: CandidateProfile };
-  return prefillPersonalDetails(payload.profile ?? (response.data as CandidateProfile));
+  const trackingContext = await getTrackingContext();
+  return prefillPersonalDetails(
+    payload.profile ?? (response.data as CandidateProfile),
+    document,
+    { jobTitle: trackingContext?.jobTitle },
+  );
 }
 
 async function attachApplicationCv(): Promise<CvAttachResult & { downloaded?: boolean }> {
@@ -233,6 +252,7 @@ function mountSidebar(
   onDismiss: (scope: "site" | "session") => void,
   startOpen = false,
   tracked = false,
+  trustedContext: TrackedApplicationContext | null = null,
 ): ShadowRoot {
   const existing = document.getElementById(JOBSAGE_HOST_ID);
   if (existing) {
@@ -267,6 +287,8 @@ function mountSidebar(
   };
   try {
     jobContext = scrapeJobContext();
+    if (trustedContext?.jobTitle) jobContext.jobTitle = trustedContext.jobTitle;
+    if (trustedContext?.employer) jobContext.companyName = trustedContext.employer;
   } catch (error) {
     console.warn("[JOBSAGE] Could not scrape job context; opening the helper without page details.", error);
   }
@@ -340,13 +362,13 @@ async function init(): Promise<void> {
     ? mountSidebar(null, makeDismissHandler(false), /* startOpen */ true, false)
     : null;
 
-  const [activated, trackingUrl, suppression, pillPosition] = await Promise.all([
+  const [activated, trackingContext, suppression, pillPosition] = await Promise.all([
     checkTabActivation(),
-    getTrackingApplicationUrl(),
+    getTrackingContext(),
     checkSuppression(),
     loadPillPosition(),
   ]);
-  const tracked = !!trackingUrl;
+  const tracked = !!trackingContext?.applicationUrl;
 
   // Only activate if this is the first-party host or the tab was previously
   // marked by the background worker (survives redirect stripping). A public
@@ -375,6 +397,7 @@ async function init(): Promise<void> {
     makeDismissHandler(tracked),
     /* startOpen */ isJobSageHost() || tracked,
     tracked,
+    trackingContext,
   );
 
   if (tracked) {
@@ -394,14 +417,14 @@ chrome.runtime.onMessage.addListener((msg: unknown, _sender, sendResponse) => {
     return false;
   }
   (async () => {
-    const [suppression, trackingUrl] = await Promise.all([checkSuppression(), getTrackingApplicationUrl()]);
-    const tracked = !!trackingUrl;
+    const [suppression, trackingContext] = await Promise.all([checkSuppression(), getTrackingContext()]);
+    const tracked = !!trackingContext?.applicationUrl;
     if (!isJobSageHost() && !tracked && (suppression === "site" || suppression === "session")) {
       sendResponse({ ok: false, reason: "suppressed" });
       return;
     }
     const pillPosition = await loadPillPosition();
-    mountSidebar(pillPosition, makeDismissHandler(tracked), /* startOpen */ true, tracked);
+    mountSidebar(pillPosition, makeDismissHandler(tracked), /* startOpen */ true, tracked, trackingContext);
     sendResponse({ ok: true });
   })();
   return true; // keep channel open for async sendResponse

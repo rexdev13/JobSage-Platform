@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from "vitest";
-import { hasApplicationForm } from "../lib/scraper";
+import { hasApplicationForm, scrapeJobContext } from "../lib/scraper";
 
 afterEach(() => {
   document.body.innerHTML = "";
@@ -37,5 +37,20 @@ describe("hasApplicationForm", () => {
     `;
 
     expect(hasApplicationForm()).toBe(true);
+  });
+});
+
+describe("scrapeJobContext — Pinpoint", () => {
+  it("prefers the Back to vacancy title over an unrelated first heading", () => {
+    document.title = "Application | Example Health";
+    document.body.innerHTML = `
+      <main>
+        <h1>Application form</h1>
+        <a href="/jobs/42">Back to Band 5/6 Nurse</a>
+      </main>
+      <footer>POWERED BY Pinpoint</footer>
+    `;
+
+    expect(scrapeJobContext().jobTitle).toBe("Band 5/6 Nurse");
   });
 });

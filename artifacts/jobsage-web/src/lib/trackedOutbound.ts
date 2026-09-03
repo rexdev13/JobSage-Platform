@@ -6,6 +6,13 @@ type ToastFn = (opts: { title: string; description: string; variant?: "default" 
 
 export type TrackedOutboundSource = "sponsor" | "careers" | "role-website";
 
+export interface TrackedVacancyContext {
+  title?: string;
+  employer?: string;
+  roleId?: number;
+  canonicalUrl?: string;
+}
+
 /** Stored websites are sometimes saved without a protocol ("www.x.com"). */
 export function normalizeWebsiteUrl(url: string): string {
   const t = url.trim();
@@ -31,6 +38,7 @@ function appendJobSageRef(raw: string): string {
 
 export async function openTrackedOutbound({
   url,
+  vacancy,
 }: {
   /** Id in the id-space implied by `source` (kept for call-site compatibility; no longer used). */
   id?: number | null | undefined;
@@ -38,19 +46,41 @@ export async function openTrackedOutbound({
   url: string;
   toast?: ToastFn;
   onTracked?: () => void;
+  vacancy?: TrackedVacancyContext;
 }): Promise<void> {
   const outboundUrl = appendJobSageRef(url);
-  window.dispatchEvent(new CustomEvent("jobsage:outbound-application", { detail: outboundUrl }));
+  window.dispatchEvent(new CustomEvent("jobsage:outbound-application", {
+    detail: {
+      applicationUrl: outboundUrl,
+      canonicalUrl: vacancy?.canonicalUrl ?? url,
+      jobTitle: vacancy?.title,
+      employer: vacancy?.employer,
+      roleId: vacancy?.roleId,
+    },
+  }));
   window.open(outboundUrl, "_blank", "noopener,noreferrer");
 }
 
 export async function openTrackedSponsorVacancy({
   url,
+  title,
+  employer,
+  vacancyId,
 }: {
   vacancyId?: number | null | undefined;
   url: string;
+  title?: string;
+  employer?: string;
   toast?: ToastFn;
   onTracked?: () => void;
 }): Promise<void> {
-  return openTrackedOutbound({ url });
+  return openTrackedOutbound({
+    url,
+    vacancy: {
+      title,
+      employer,
+      roleId: vacancyId ?? undefined,
+      canonicalUrl: url,
+    },
+  });
 }

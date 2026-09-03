@@ -1,0 +1,49 @@
+IMPLEMENT Smart Apply from the v0.4.14 audit. Do not auto-submit. Do not fill passwords, NI, passport, DOB, username. Do not touch vacancy crawlers or VACANCY_AI_WEB_SEARCH_DAILY_CAP. Bump manifest 0.4.14 → next, rebuild dist + ZIP, update website download.
+
+Follow the audit’s smallest-fix order. Do not rewrite the extension.
+
+## 1. Labels before more field types
+questionDetector.resolveQuestionText(): prefer the control’s own label/for, wrapping label, aria-label/labelledby, name — NOT the nearest fieldset legend/heading as the row title.
+Legend/heading = context only, e.g. “Current / Last Job — Employer”, “Employment History — Duties”, “Training — Course title”.
+Repeatable groups: keep each DOM instance (do not collapse three jobs into one), but NEVER three identical titles. Signature must include the child label, not only the legend.
+
+## 2. Buckets (every eligible control goes in exactly one)
+- prefill: identity (existing PERSONAL_FIELD_PATTERN)
+- structured: short text/number/date in history/training (Course title, Tutored by, days, year, qualifications if short). Show in sidebar. Do NOT auto-call AI. Optional: later profile mapping; v1 list + copy is enough
+- generate: textarea + long text that is a real narrative question (General Comments, supporting statement, duties)
+- confirmation: user must type/insert themselves — criminal/cautions/conviction/disclosure/DBS, health/medical, diversity/equal-ops, declarations/consent
+- leave-alone: file (CV action stays), submit/save, Add/Remove Fields, LinkedIn, Find Address
+
+Expand restriction patterns: caution(s), criminal, conviction, disclosure, DBS, health, medical, disability, ethnicity, religion, sexual orientation, gender, trans, diversity, equal opportunit.
+
+Health Details must not be generatable. “Cautions…” must be confirmation even if the label is only “Cautions”.
+
+## 3. Pinpoint adapter
+Detect hostname / “POWERED BY Pinpoint” / pinpoint branding.
+scraper: job title from “Back to {title}”, h1, og:title — not a random first heading.
+questionDetector: include visible selects and radio groups in “3. Questions” (Right to Work, require sponsorship, GMC PIN / registrations if short text, currently work for employer). Sidebar lists them once.
+Do NOT auto-select RTW/sponsorship/currently-work/diversity. Generate may draft text for a matching long field only. Dropdowns: show the question + Copy; user chooses. Identity → existing prefill. Diversity → confirmation/leave-alone. Submit untouched.
+
+Keep NHS/Trac/Workday. Generic scanRoot still used elsewhere.
+
+## 4. Training / short structured fields (generic + amscare)
+Eligible structured inputs are NOT only maxlength>=200 / size>=60. Labelled short text/number/date in application fieldsets count as structured. Still skip hidden/disabled.
+
+## 5. Vacancy handoff + position prefill
+jobsage:outbound-application / REGISTER_TRACKED_APPLICATION must pass title, employer, roleId, canonical URL (web already has them; content.tsx currently drops all but URL).
+Sidebar: “Applying for {title} at {employer}” from handoff, fallback to scraper.
+prefill.ts: empty fields meaning position applied for / job title / vacancy / role (not employer-name fields) from trusted JOBSAGE context only.
+Generate already sends job title/employer/CV server-side — use the handoff values when present so Pinpoint cannot scrape the wrong h1.
+
+## 6. Generating hang
+Hard timeout on assistant-stream (e.g. 45–60s). Cancel + error + Retry. Manual paste “hi” must not auto-start Generate; Generate only on click. Manual mode: Copy only (no Insert) is OK.
+
+## Verify in code/tests (cannot crawl amscare/Pinpoint)
+- Legend no longer becomes the sole row title; duplicates are “section — field”
+- Training-like short labelled inputs are structured, not missing
+- Pinpoint-like select/radio screening questions listed once, not generatable-submit
+- Handoff includes title+employer; position field prefill rule exists
+- Stream timeout exists
+- No Submit click; sensitive buckets not sent to AI
+
+Stop after ZIP + download path.

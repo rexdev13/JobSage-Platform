@@ -10,6 +10,10 @@ export interface CandidateProfile {
   country?: string | null;
 }
 
+export interface TrustedVacancyContext {
+  jobTitle?: string | null;
+}
+
 export interface PrefillResult {
   filled: string[];
   missing: string[];
@@ -111,6 +115,7 @@ function ukSelectValue(field: HTMLSelectElement, candidateValue: string): string
 export function prefillPersonalDetails(
   profile: CandidateProfile,
   doc: Document = document,
+  vacancyContext?: TrustedVacancyContext,
 ): PrefillResult {
   const filled = new Set<string>();
   const missing = new Set<string>();
@@ -129,7 +134,19 @@ export function prefillPersonalDetails(
     }
 
     const rule = findRule(field);
-    if (!rule) continue;
+    if (!rule) {
+      const isPositionField =
+        /\b(position|job\s*title|vacancy|role)\s*(applied\s*for)?\b|\bapplied\s*for\s*(position|job|vacancy|role)\b/i.test(label)
+        && !/\b(employer|company|organisation|organization)\b/i.test(label);
+      const trustedTitle = clean(vacancyContext?.jobTitle);
+      if (!isPositionField || !trustedTitle || clean(field.value)) continue;
+      if (field instanceof HTMLSelectElement) continue;
+      field.value = trustedTitle;
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+      field.dispatchEvent(new Event("change", { bubbles: true }));
+      filled.add("position applied for");
+      continue;
+    }
 
     const currentValue = clean(field.value);
     const candidateValue = valueFor(profile, rule.key);

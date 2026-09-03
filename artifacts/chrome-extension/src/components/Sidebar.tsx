@@ -75,6 +75,8 @@ type AssistantStreamEvent =
   | { type: "error"; kind: "auth" | "server" | "network"; status?: number; message?: string }
   | { type: "done" };
 
+export const ASSISTANT_STREAM_TIMEOUT_MS = 55_000;
+
 function errorMessageFor(event: Extract<AssistantStreamEvent, { type: "error" }>): string {
   if (event.kind === "auth") {
     return "Please sign in to JOBSAGE (jobsage.co.uk) in another tab, then try again.";
@@ -90,6 +92,12 @@ function useStreamAnswer() {
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const portRef = useRef<chrome.runtime.Port | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelRef = useRef<((reason: string) => void) | null>(null);
+
+  const cancel = useCallback((reason = "Generation cancelled. You can retry when ready.") => {
+    cancelRef.current?.(reason);
+  }, []);
 
   const generate = useCallback((question: string, jobContext: JobContext, detectedQuestion: DetectedQuestion | null = null) => {
     if (!question.trim()) return;
@@ -113,10 +121,22 @@ function useStreamAnswer() {
     const finish = () => {
       if (finished) return;
       finished = true;
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
       setStreaming(false);
       if (portRef.current === port) portRef.current = null;
+      if (cancelRef.current) cancelRef.current = null;
       port.disconnect();
     };
+    cancelRef.current = (reason) => {
+      setError(reason);
+      finish();
+    };
+    timeoutRef.current = setTimeout(() => {
+      if (finished) return;
+      setError("Generation timed out after 55 seconds. Please retry.");
+      finish();
+    }, ASSISTANT_STREAM_TIMEOUT_MS);
 
     port.onMessage.addListener((event: AssistantStreamEvent) => {
       if (event.type === "chunk") {
@@ -155,7 +175,7 @@ function useStreamAnswer() {
     }
   }, []);
 
-  return { answer, streaming, error, generate, setAnswer, setError };
+  return { answer, streaming, error, generate, cancel, setAnswer, setError };
 }
 
 function limitHint(q: DetectedQuestion): string | null {
@@ -302,7 +322,7 @@ export function Sidebar({
   const [logging, setLogging] = useState(false);
   const [logDone, setLogDone] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const { answer, streaming, error, generate, setAnswer, setError } = useStreamAnswer();
+  const { answer, streaming, error, generate, cancel, setAnswer, setError } = useStreamAnswer();
 
   // Question detection
   const subscribe = useCallback(
@@ -545,6 +565,14 @@ export function Sidebar({
   const handleGenerate = () => {
     setInserted(false);
     setInsertFailed(false);
+    if (selectedQuestion && selectedQuestion.bucket !== "generate") {
+      setError(
+        selectedQuestion.bucket === "confirmation"
+          ? "Review and complete this field yourself. JOBSAGE will not generate or select an answer."
+          : "This is a structured application field. Complete it on the form; JOBSAGE will not generate an answer.",
+      );
+      return;
+    }
     generate(buildPrompt(question, selectedQuestion), jobContext, selectedQuestion);
   };
 
@@ -554,9 +582,13 @@ export function Sidebar({
     setInserted(false);
     setInsertFailed(false);
     highlightField(dq.id);
-    if (dq.restricted) {
+    if (dq.bucket !== "generate") {
       setAnswer("");
-      setError("This declaration needs your own review and confirmation, so JOBSAGE will not generate an answer for it.");
+      setError(
+        dq.bucket === "confirmation"
+          ? "Review and complete this field yourself. JOBSAGE will not generate or select an answer."
+          : "This is a structured application field. Complete it on the form; JOBSAGE will not generate an answer.",
+      );
       return;
     }
     generate(buildPrompt(dq.question, dq), jobContext, dq);
@@ -887,7 +919,7 @@ export function Sidebar({
                 whiteSpace: "nowrap",
               }}
             >
-              {jobContext.jobTitle || "Role detected"}
+              Applying for {jobContext.jobTitle || "role detected"}
             </div>
             <div
               style={{
@@ -898,7 +930,7 @@ export function Sidebar({
                 whiteSpace: "nowrap",
               }}
             >
-              {jobContext.companyName}
+              {jobContext.companyName ? `at ${jobContext.companyName}` : ""}
             </div>
           </div>
           <button
@@ -1058,9 +1090,9 @@ export function Sidebar({
                       }}
                     >
                       {dq.question}
-                         {dq.restricted && (
+                         {dq.bucket !== "generate" && (
                            <span style={{ display: "block", marginTop: 2, fontSize: 11, color: COLORS.errorText }}>
-                             Requires your own confirmation
+                              {dq.bucket === "confirmation" ? "Complete this yourself" : "Structured field — no AI generation"}
                            </span>
                          )}
                       {hint && (
@@ -1107,17 +1139,17 @@ export function Sidebar({
           </div>
 
           <button
-            onClick={handleGenerate}
-            disabled={streaming || !question.trim()}
+            onClick={streaming ? () => cancel() : handleGenerate}
+            disabled={!streaming && (!question.trim() || selectedQuestion?.bucket !== "generate" && selectedQuestion !== null)}
             style={{
               padding: "9px 16px",
-              background: streaming || !question.trim() ? BRAND.primaryDisabled : COLORS.primary,
+              background: !streaming && (!question.trim() || selectedQuestion?.bucket !== "generate" && selectedQuestion !== null) ? BRAND.primaryDisabled : COLORS.primary,
               color: "#fff",
               border: "none",
               borderRadius: RADIUS,
               fontSize: 13,
               fontWeight: 600,
-              cursor: streaming || !question.trim() ? "not-allowed" : "pointer",
+              cursor: !streaming && (!question.trim() || selectedQuestion?.bucket !== "generate" && selectedQuestion !== null) ? "not-allowed" : "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -1137,7 +1169,7 @@ export function Sidebar({
                 >
                   <path d="M21 12a9 9 0 1 1-6.219-8.56" />
                 </svg>
-                Generating…
+                Cancel generation
               </>
             ) : (
               "Generate Answer"
@@ -1156,6 +1188,24 @@ export function Sidebar({
               }}
             >
               {error}
+              {!streaming && question.trim() && (!selectedQuestion || selectedQuestion.bucket === "generate") && (
+                <button
+                  onClick={handleGenerate}
+                  style={{
+                    display: "block",
+                    marginTop: 8,
+                    padding: "6px 10px",
+                    background: "transparent",
+                    color: COLORS.errorText,
+                    border: `1px solid ${COLORS.errorText}`,
+                    borderRadius: RADIUS,
+                    cursor: "pointer",
+                    fontWeight: 600,
+                  }}
+                >
+                  Retry
+                </button>
+              )}
             </div>
           )}
 

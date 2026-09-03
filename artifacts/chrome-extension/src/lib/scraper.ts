@@ -10,6 +10,14 @@ export function isWorkdayHostname(hostname: string): boolean {
   return host.includes("myworkdayjobs") || host.includes("workdayjobs") || host.includes("workday.com");
 }
 
+export function isPinpointPage(doc: Document = document, hostname = doc.location?.hostname ?? ""): boolean {
+  const host = hostname.toLowerCase();
+  if (host.includes("pinpointhq.com") || host.includes("pinpoint")) return true;
+  const branding = Array.from(doc.querySelectorAll("footer, [class*='pinpoint' i], [id*='pinpoint' i], a"))
+    .some((element) => /\bpowered by\s+pinpoint\b/i.test(element.textContent ?? ""));
+  return branding;
+}
+
 function getMeta(name: string): string {
   const el =
     document.querySelector<HTMLMetaElement>(`meta[property="${name}"]`) ??
@@ -149,6 +157,30 @@ function scrapeWorkday(): Partial<JobContext> {
   };
 }
 
+function scrapePinpoint(): Partial<JobContext> {
+  const backLink = Array.from(document.querySelectorAll("a"))
+    .map((link) => link.textContent?.replace(/\s+/g, " ").trim() ?? "")
+    .find((text) => /^back to\s+.+/i.test(text));
+  const backTitle = backLink?.replace(/^back to\s+/i, "").trim() ?? "";
+  return {
+    jobTitle:
+      backTitle ||
+      getFirstText([
+        "[data-testid*='job-title' i]",
+        "[class*='job-title' i]",
+        "main h1",
+      ]) ||
+      getMeta("og:title"),
+    companyName:
+      getMeta("og:site_name") ||
+      getFirstText([
+        "[data-testid*='company' i]",
+        "[class*='company-name' i]",
+        "[class*='organisation' i]",
+      ]),
+  };
+}
+
 function scrapeFallback(): Partial<JobContext> {
   const ogTitle = getMeta("og:title");
   const titleTag = document.title?.trim();
@@ -183,6 +215,7 @@ export function isRecognizedJobBoard(): boolean {
     host.includes("nhs.uk") ||
     host.includes("trac.jobs") ||
     isWorkdayHostname(host) ||
+    isPinpointPage() ||
     host.includes("jobsage.co.uk")
   );
 }
@@ -230,6 +263,8 @@ export function scrapeJobContext(): JobContext {
     partial = scrapeTrac();
   } else if (isWorkdayHostname(host)) {
     partial = scrapeWorkday();
+  } else if (isPinpointPage(document, host)) {
+    partial = scrapePinpoint();
   } else {
     partial = scrapeFallback();
   }
