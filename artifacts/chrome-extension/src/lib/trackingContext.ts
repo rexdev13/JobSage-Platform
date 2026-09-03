@@ -5,6 +5,10 @@ export interface TabTrackingContext {
   activatedAt: number;
   /** The exact URL initially opened from JOBSAGE, retained through ATS redirects. */
   applicationUrl?: string;
+  canonicalUrl?: string;
+  jobTitle?: string;
+  employer?: string;
+  roleId?: number;
 }
 
 export interface TopLevelNavigation {

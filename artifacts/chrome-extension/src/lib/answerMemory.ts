@@ -121,10 +121,15 @@ export function createAnswerMemoryController(
       }
       const field = getQuestionField(question.id);
       if (!field) continue;
+      if (!(field.tagName === "TEXTAREA" || (field.tagName === "INPUT" && (field as HTMLInputElement).type !== "radio"))) {
+        unbind(question.id);
+        continue;
+      }
+      const memoryField = field as HTMLTextAreaElement | HTMLInputElement;
       const urlValue = getUrl();
       const pagePrefix = answerMemoryPagePrefix(urlValue);
       const existing = bindings.get(question.id);
-      if (existing?.field === field && existing.pagePrefix === pagePrefix) continue;
+      if (existing?.field === memoryField && existing.pagePrefix === pagePrefix) continue;
       if (existing) unbind(question.id);
 
       const persist = () => {
@@ -132,14 +137,14 @@ export function createAnswerMemoryController(
           .catch(() => {
             // Keep later candidate edits writable after a transient storage error.
           })
-          .then(() => saveAnswer(question, field.value, getUrl(), storage));
+          .then(() => saveAnswer(question, memoryField.value, getUrl(), storage));
         void storageQueue.catch(() => {
           // The extension may be reloaded while an employer form remains open.
         });
       };
-      field.addEventListener("input", persist);
-      field.addEventListener("blur", persist);
-      bindings.set(question.id, { field, input: persist, blur: persist, pagePrefix });
+      memoryField.addEventListener("input", persist);
+      memoryField.addEventListener("blur", persist);
+      bindings.set(question.id, { field: memoryField, input: persist, blur: persist, pagePrefix });
       void restoreAnswer(question, urlValue, storage).catch(() => {
         // Storage may be unavailable during an extension reload.
       });

@@ -3,7 +3,9 @@
  * Workday and generic sites) so the sidebar can list them and write generated
  * answers back into the right field.
  */
-import { isWorkdayHostname } from "./scraper";
+import { isPinpointPage, isWorkdayHostname } from "./scraper";
+
+export type QuestionBucket = "generate" | "structured" | "confirmation";
 
 export interface DetectedQuestion {
   /** Stable identity for the field across re-scans. */
@@ -16,11 +18,13 @@ export interface DetectedQuestion {
   wordLimit?: number;
   /** Declaration-style prompts must be reviewed and answered by the candidate. */
   restricted: boolean;
+  /** Controls whether this row may call AI, is structured data, or needs personal confirmation. */
+  bucket: QuestionBucket;
   /** Stable label/name/id signature used for page-scoped answer memory. */
   signature: string;
 }
 
-type QuestionField = HTMLTextAreaElement | HTMLInputElement;
+type QuestionField = HTMLTextAreaElement | HTMLInputElement | HTMLSelectElement;
 
 const FIELD_ID_ATTR = "data-jobsage-qid";
 let idCounter = 0;
@@ -46,7 +50,14 @@ const PERSONAL_AUTOCOMPLETE = new Set([
 ]);
 
 const CANDIDATE_CONFIRMATION_PATTERN =
-  /\b(criminal|conviction|convicted|criminal record|disclosure|declaration|consent|agree(?:ment)?|payroll|tax declaration)\b/i;
+  /\b(caution(?:s)?|criminal|conviction|convicted|criminal record|disclosure|dbs|declaration|consent|agree(?:ment)?|payroll|tax declaration|health|medical|disab(?:ility|led)|ethnicity|religion|sexual orientation|gender|trans(?:gender)?|diversity|equal opportunit(?:y|ies)|right to work|require(?:s|d)? sponsorship|sponsorship required|currently work|current employee)\b/i;
+
+const STRUCTURED_CONTEXT_PATTERN =
+  /\b(training|course|qualification|education|employment|work history|current\s*\/?\s*last job|previous job|career history)\b/i;
+const STRUCTURED_FIELD_PATTERN =
+  /\b(course title|tutored by|trainer|number of days|days|year attended|qualification|employer|job title|position|start date|end date|from date|to date|duties)\b/i;
+const LEAVE_ALONE_PATTERN =
+  /\b(add fields?|remove fields?|find address|linkedin|save|submit|upload)\b/i;
 
 /**
  * Long-form fields are named differently by each ATS and frequently do not
@@ -120,22 +131,29 @@ function isTextArea(el: Element): el is HTMLTextAreaElement {
   return el.tagName === "TEXTAREA";
 }
 
+function isInput(el: Element): el is HTMLInputElement {
+  return el.tagName === "INPUT";
+}
+
+function isSelect(el: Element): el is HTMLSelectElement {
+  return el.tagName === "SELECT";
+}
+
 function isCandidateField(el: Element): el is QuestionField {
   if (isTextArea(el)) {
     if (el.disabled || el.readOnly) return false;
     return isVisible(el);
   }
-  if (el.tagName === "INPUT") {
+  if (isInput(el)) {
     const input = el as HTMLInputElement;
     if (input.disabled || input.readOnly) return false;
-    if (input.type !== "text") return false;
-    const el2 = input;
-    // Only "long" text inputs qualify (essay-style single-line is rare).
-    const maxLen = el2.maxLength > 0 ? el2.maxLength : undefined;
-    const size = el2.size > 0 ? el2.size : undefined;
-    const long = (maxLen !== undefined && maxLen >= 200) || (size !== undefined && size >= 60);
-    if (!long) return false;
-    return isVisible(el2);
+    if (!["text", "number", "date", "month", "radio"].includes(input.type)) return false;
+    return isVisible(input);
+  }
+  if (isSelect(el)) {
+    const select = el as HTMLSelectElement;
+    if (select.disabled) return false;
+    return isVisible(select);
   }
   return false;
 }
@@ -160,7 +178,16 @@ function cleanText(text: string | null | undefined): string {
   return (text ?? "").replace(/\s+/g, " ").replace(/\s*\*\s*$/, "").trim();
 }
 
-function resolveQuestionText(field: QuestionField): string {
+function humanizeMetadata(value: string): string {
+  return cleanText(value)
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .replace(/\b(textarea|longtext|long text|answer|response)\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function explicitFieldLabel(field: QuestionField): string {
   const doc = field.ownerDocument;
 
   // 1. <label for="...">
@@ -183,7 +210,11 @@ function resolveQuestionText(field: QuestionField): string {
     if (t) return t;
   }
 
-  // 3. aria-labelledby
+  // 3. aria-label
+  const ariaLabel = cleanText(field.getAttribute("aria-label"));
+  if (ariaLabel) return ariaLabel;
+
+  // 4. aria-labelledby
   const labelledBy = field.getAttribute("aria-labelledby");
   if (labelledBy) {
     const t = cleanText(
@@ -195,10 +226,6 @@ function resolveQuestionText(field: QuestionField): string {
     if (t) return t;
   }
 
-  // 4. aria-label
-  const ariaLabel = cleanText(field.getAttribute("aria-label"));
-  if (ariaLabel) return ariaLabel;
-
   // 5. Workday: label inside the same data-automation-id container
   const wdContainer = field.closest("[data-automation-id]");
   if (wdContainer) {
@@ -207,16 +234,11 @@ function resolveQuestionText(field: QuestionField): string {
     if (t) return t;
   }
 
-  // 6. Fieldset legend
-  const legend = field.closest("fieldset")?.querySelector("legend");
-  const legendText = cleanText(legend?.textContent);
-  if (legendText) return legendText;
-
-  // 7. Nearest preceding heading/paragraph/label within the form group
+  // 6. Nearest child label/paragraph within the form group.
   const group = field.closest("div, li, td, section, fieldset");
   if (group) {
     const candidates = Array.from(
-      group.querySelectorAll("h1, h2, h3, h4, h5, h6, p, label, legend, span[class*='label' i]")
+      group.querySelectorAll("p, label, span[class*='label' i]")
     ).filter(
       (el) =>
         !el.contains(field) &&
@@ -228,13 +250,17 @@ function resolveQuestionText(field: QuestionField): string {
     }
   }
 
+  // 7. Stable field metadata is preferable to a broad section heading.
+  const metadata = humanizeMetadata(field.name || field.id);
+  if (metadata && !/^\d+$/.test(metadata)) return metadata;
+
   // 8. Preceding sibling walk (generic forms without grouping wrappers)
   let node: Element | null = field.parentElement;
   let hops = 0;
   while (node && hops < 4) {
     let sib: Element | null = (hops === 0 ? field : node).previousElementSibling;
     while (sib) {
-      if (/^(H[1-6]|P|LABEL|LEGEND|DIV|SPAN)$/.test(sib.tagName)) {
+      if (/^(P|LABEL|DIV|SPAN)$/.test(sib.tagName)) {
         const t = cleanText(sib.textContent);
         if (t.length >= 4 && t.length <= 500) return t;
       }
@@ -248,20 +274,22 @@ function resolveQuestionText(field: QuestionField): string {
   return cleanText(field.getAttribute("placeholder"));
 }
 
-function fallbackQuestionText(field: QuestionField, defaultText = "Application response"): string {
-  const text = cleanText(
-    field.getAttribute("aria-label") ||
-      field.getAttribute("placeholder") ||
-      field.name ||
-      field.id,
-  );
-  if (!text) return defaultText;
-  return text
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .replace(/[_-]+/g, " ")
-    .replace(/\b(textarea|longtext|long text|answer|response)\b/gi, "")
-    .replace(/\s+/g, " ")
-    .trim() || defaultText;
+function sectionContext(field: QuestionField): string {
+  const fieldset = field.closest("fieldset");
+  const legend = cleanText(fieldset?.querySelector(":scope > legend")?.textContent);
+  if (legend) return legend;
+  const section = field.closest("section, [class*='section' i], [class*='group' i]");
+  return cleanText(section?.querySelector("h1, h2, h3, h4, h5, h6, legend")?.textContent);
+}
+
+function resolveQuestionText(field: QuestionField, defaultText = "Application response"): string {
+  const child = explicitFieldLabel(field) || defaultText;
+  const context = sectionContext(field);
+  if (isInput(field) && field.type === "radio") {
+    return context || child;
+  }
+  if (!context || context.toLowerCase() === child.toLowerCase()) return child;
+  return `${context} — ${child}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -307,34 +335,84 @@ function stableFieldSignature(
     normalized(field.id),
     normalized(field.getAttribute("data-automation-id") ?? ""),
   ].join("|");
-  const candidates = Array.from(root.querySelectorAll("textarea, input[type='text'], input:not([type])"));
+  const candidates = Array.from(root.querySelectorAll("textarea, input, select"));
   const ordinal = Math.max(0, candidates.indexOf(field));
   return `${base}|${field.tagName.toLowerCase()}|${ordinal}`;
 }
 
+function isLongTextInput(field: QuestionField): boolean {
+  if (!isInput(field) || field.type !== "text") return false;
+  const maxLen = field.maxLength > 0 ? field.maxLength : undefined;
+  const size = field.size > 0 ? field.size : undefined;
+  return (maxLen !== undefined && maxLen >= 200) || (size !== undefined && size >= 60);
+}
+
+function classifyField(
+  field: QuestionField,
+  question: string,
+  hostname: string,
+  root: Document | Element,
+): QuestionBucket | null {
+  const meta = `${question} ${field.name} ${field.id} ${field.getAttribute("data-automation-id") ?? ""}`;
+  if (isPersonalField(field, question) || LEAVE_ALONE_PATTERN.test(meta)) return null;
+  if (requiresCandidateConfirmation(meta)) return "confirmation";
+  if (isTextArea(field) || isLongTextInput(field) || isDedicatedField(field, hostname)) {
+    return "generate";
+  }
+  const context = sectionContext(field);
+  if (STRUCTURED_CONTEXT_PATTERN.test(`${context} ${meta}`) || STRUCTURED_FIELD_PATTERN.test(meta)) {
+    return "structured";
+  }
+  if (isPinpointPage(field.ownerDocument, hostname)) {
+    const questionSection = field.closest("fieldset, section, [class*='question' i], [data-testid*='question' i]");
+    const sectionText = cleanText(questionSection?.textContent).slice(0, 500);
+    if (/\bquestions?\b/i.test(`${sectionText} ${context}`)) return "structured";
+  }
+  return null;
+}
+
 function scanRoot(root: Document | Element, hostname: string): DetectedQuestion[] {
   const results: DetectedQuestion[] = [];
-  const fields = Array.from(root.querySelectorAll("textarea, input[type='text'], input:not([type])"));
+  const fields = Array.from(root.querySelectorAll("textarea, input, select"));
+  const seenRadioGroups = new Set<string>();
 
   for (const el of fields) {
     if (!isCandidateField(el)) continue;
     const field = el;
+    if (isInput(field) && field.type === "radio") {
+      const radioKey = field.name || field.closest("[role='radiogroup']")?.getAttribute("aria-labelledby") || field.id;
+      if (radioKey && seenRadioGroups.has(radioKey)) continue;
+      if (radioKey) seenRadioGroups.add(radioKey);
+    }
     const dedicated = isDedicatedField(field, hostname);
-    const question =
-      resolveQuestionText(field) ||
-      fallbackQuestionText(field, dedicated ? "Supporting statement" : "Application response");
-    if (isPersonalField(field, question)) continue;
+    const question = resolveQuestionText(field, dedicated ? "Supporting statement" : "Application response");
+    const bucket = classifyField(field, question, hostname, root);
+    if (!bucket) continue;
 
-    const maxLength = field.maxLength > 0 ? field.maxLength : undefined;
+    const maxLength = "maxLength" in field && field.maxLength > 0 ? field.maxLength : undefined;
     const restrictionText = `${question} ${field.name} ${field.id} ${field.getAttribute("data-automation-id") ?? ""}`;
     results.push({
       id: ensureId(field),
       question: question.length > 300 ? `${question.slice(0, 300)}…` : question,
       maxLength,
       wordLimit: resolveWordLimit(field),
-      restricted: requiresCandidateConfirmation(restrictionText),
+      restricted: bucket === "confirmation" || requiresCandidateConfirmation(restrictionText),
+      bucket,
       signature: stableFieldSignature(field, question, root),
     });
+  }
+  const totals = new Map<string, number>();
+  for (const result of results) {
+    const key = result.question.toLowerCase();
+    totals.set(key, (totals.get(key) ?? 0) + 1);
+  }
+  const seen = new Map<string, number>();
+  for (const result of results) {
+    const key = result.question.toLowerCase();
+    if ((totals.get(key) ?? 0) < 2) continue;
+    const occurrence = (seen.get(key) ?? 0) + 1;
+    seen.set(key, occurrence);
+    result.question = `${result.question} (${occurrence})`;
   }
   return results;
 }
@@ -388,6 +466,7 @@ export function setQuestionFieldValue(
 ): boolean {
   const field = fieldRegistry.get(questionId)?.deref();
   if (!field || !field.isConnected) return false;
+  if (isSelect(field) || (isInput(field) && field.type === "radio")) return false;
 
   const proto =
     isTextArea(field)
