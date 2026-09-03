@@ -18,6 +18,7 @@ import { prefillPersonalDetails, type CandidateProfile, type PrefillResult } fro
 import { attachCvToForm, type CandidateCv, type CvAttachResult } from "./lib/cvAttachment";
 import { scrapeJobContext, hasApplicationForm, type JobContext } from "./lib/scraper";
 import { hideRawPhpRuntimeWarnings, watchRawPhpRuntimeWarnings } from "./lib/pageWarnings";
+import { isJobSageFirstPartyPage } from "./lib/trustedOrigin";
 
 const JOBSAGE_HOST_ID = "jobsage-extension-root";
 const PILL_POSITION_KEY = "jobsage_pill_position";
@@ -27,15 +28,8 @@ const PILL_POSITION_KEY = "jobsage_pill_position";
 let sidebarMounted = false;
 let openSidebarFn: (() => void) | null = null;
 
-/** Hostnames that are part of the JOBSAGE platform itself. */
-const JOBSAGE_HOSTNAMES = new Set(["jobsage.co.uk", "www.jobsage.co.uk", "localhost"]);
-
 function isJobSageHost(): boolean {
-  const { hostname } = window.location;
-  if (JOBSAGE_HOSTNAMES.has(hostname)) return true;
-  if (hostname.endsWith(".jobsage.co.uk")) return true;
-  if (hostname.endsWith(".replit.dev") || hostname.endsWith(".repl.co")) return true;
-  return false;
+  return isJobSageFirstPartyPage(window.location.href);
 }
 
 function hasJobSageRef(): boolean {
@@ -394,12 +388,9 @@ function makeDismissHandler(tracked = false): (scope: "site" | "session") => voi
 
 async function init(): Promise<void> {
   const firstParty = isJobSageHost();
-  // The main JOBSAGE site must not wait for background-worker messaging before
-  // the assistant is visible. A cold or temporarily stalled service worker
-  // should never make candidates reach for the extension toolbar.
-  const firstPartyShadowRoot = firstParty
-    ? mountSidebar(null, makeDismissHandler(false), /* startOpen */ true, false)
-    : null;
+  // First-party JOBSAGE pages own their UI. Only the lightweight outbound
+  // application event bridge remains active there.
+  if (firstParty) return;
 
   const [activated, trackingContext, suppression, pillPosition] = await Promise.all([
     checkTabActivation(),
@@ -417,19 +408,6 @@ async function init(): Promise<void> {
   // A tracked application must always retain a minimizable helper so a
   // previous site-wide launcher dismissal cannot break an in-progress apply.
   if (!firstParty && !tracked && (suppression === "site" || suppression === "session")) return;
-
-  if (firstParty) {
-    // The visible assistant is already mounted above. Only wire submission
-    // confirmation when this first-party page also carries a trusted context.
-    if (tracked && firstPartyShadowRoot) {
-      watchForSubmissionConfirmation(() => {
-        mountAutomaticConfirmationToast(firstPartyShadowRoot, {
-          onConfirm: confirmTrackedApplication,
-        });
-      });
-    }
-    return;
-  }
 
   const shadowRoot = mountSidebar(
     pillPosition,
@@ -456,6 +434,10 @@ chrome.runtime.onMessage.addListener((msg: unknown, _sender, sendResponse) => {
     return false;
   }
   (async () => {
+    if (isJobSageHost()) {
+      sendResponse({ ok: false, reason: "first-party" });
+      return;
+    }
     const [suppression, trackingContext] = await Promise.all([checkSuppression(), getTrackingContext()]);
     const tracked = !!trackingContext?.applicationUrl;
     if (!isJobSageHost() && !tracked && (suppression === "site" || suppression === "session")) {
@@ -470,7 +452,7 @@ chrome.runtime.onMessage.addListener((msg: unknown, _sender, sendResponse) => {
 });
 
 registerFirstPartyOutboundApplication();
-cleanEmployerPageWarnings();
+if (!isJobSageHost()) cleanEmployerPageWarnings();
 
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", () => void init());

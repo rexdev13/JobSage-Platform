@@ -18,7 +18,7 @@
 - [Smart Apply navigation correlation](smart-apply-navigation-correlation.md) — exact session-backed, per-tab URL collections keep trusted multi-tab activation safe and reliable.
 - [Smart Apply structured prefill](smart-apply-structured-prefill.md) — map only exact profile/CV facts; leave ambiguous history blank and keep sensitive controls candidate-owned.
 - [Automatic submission confirmation](automatic-submission-confirmation.md) — promote an existing click only; share its lock and retry a short-lived post-navigation 404.
-- [Extension launcher visibility](extension-launcher-visibility.md) — a mounted content-script root can be empty by design; first-party JOBSAGE pages must not use the minimal hidden state.
+- [Extension launcher visibility](extension-launcher-visibility.md) — first-party pages keep only the outbound bridge; mount Smart Apply UI and observers on external application destinations.
 - [Candidate region preferences](candidate-region-preferences.md) — Professional Profile and Opportunities now share one account-wide saved region preference.
 - [Candidate sponsor matching](candidate-sponsor-matching.md) — candidate-wide board searches need stricter employer identity matching than employer-scoped background searches.
 - [Marketing lead performance](marketing-lead-performance.md) — registered performance uses converted-user attribution; contacted uses the current contacted status.

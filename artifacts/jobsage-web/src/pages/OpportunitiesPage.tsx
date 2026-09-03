@@ -3,7 +3,7 @@ import { useAuth } from "@workspace/auth-web";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, Button, PageTransition } from "@/components/ui-enhanced";
 import {
-  useListMatchedRoles,
+  listMatchedRoles,
   useListMyApplications,
   useGenerateCoverLetter,
   useGetMyProfile,
@@ -69,6 +69,24 @@ import {
 } from "lucide-react";
 import { DisclaimerBanner } from "@/components/ui/DisclaimerBanner";
 import { SponsorVacancyApplyModal } from "@/components/SponsorVacancyApplyModal";
+
+const OPPORTUNITIES_TIMEOUT_MS = 15_000;
+
+async function listMatchedRolesWithTimeout(
+  source: "job_board" | "company_site" | undefined,
+  parentSignal: AbortSignal,
+) {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort("Opportunities request timed out"), OPPORTUNITIES_TIMEOUT_MS);
+  const abortFromParent = () => controller.abort(parentSignal.reason);
+  parentSignal.addEventListener("abort", abortFromParent, { once: true });
+  try {
+    return await listMatchedRoles({ source }, { signal: controller.signal });
+  } finally {
+    window.clearTimeout(timeout);
+    parentSignal.removeEventListener("abort", abortFromParent);
+  }
+}
 import {
   SmartApplyExtensionBanner,
   SmartApplyExtensionNudge,
@@ -1546,10 +1564,19 @@ export default function OpportunitiesPage() {
   const isVacancyTab = activeTab === "board" || activeTab === "employers" || activeTab === "sendcv";
   const isCompanySiteTab = activeTab === "employers";
   const resultsSectionId = isCompanySiteTab ? "company-site-section" : "job-board-section";
-  const { data, isLoading, isError } = useListMatchedRoles(
-    { source: opportunitySource },
-    { query: { queryKey: getListMatchedRolesQueryKey({ source: opportunitySource }), enabled: isVacancyTab } },
-  );
+  const {
+    data,
+    isLoading,
+    isError,
+    isFetching,
+    refetch: refetchRoles,
+  } = useQuery({
+    queryKey: getListMatchedRolesQueryKey({ source: opportunitySource }),
+    enabled: isVacancyTab,
+    queryFn: ({ signal }) => listMatchedRolesWithTimeout(opportunitySource, signal),
+    retry: 1,
+    placeholderData: (previousData) => previousData,
+  });
   const { data: applicationsData } = useListMyApplications();
   const { data: sponsorData, isLoading: sponsorsLoading, isError: sponsorsError } = useListSponsorLicences(
     {
@@ -1772,8 +1799,8 @@ export default function OpportunitiesPage() {
                 : "All vacancies ranked by how well they match your profile."}
             </p>
             {(vacancyStatsData?.totalVacanciesFound ?? 0) > 0 && (
-              <p className="text-xs text-primary/80 mt-0.5 font-medium">
-                {vacancyStatsData!.totalVacanciesFound} sponsor vacancies found across {vacancyStatsData!.companiesWithVacancies} employer{vacancyStatsData!.companiesWithVacancies !== 1 ? "s" : ""}
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Historical discovery records: {vacancyStatsData!.totalVacanciesFound} vacancies across {vacancyStatsData!.companiesWithVacancies} employer{vacancyStatsData!.companiesWithVacancies !== 1 ? "s" : ""}. Only verified live vacancies appear below.
                 {" · "}
                 <a href="/sponsor-licences" className="underline underline-offset-2 hover:text-primary transition-colors">View sponsors</a>
               </p>
@@ -1813,7 +1840,7 @@ export default function OpportunitiesPage() {
         </div>
 
         {/* Loading / error states */}
-        {isLoading && isVacancyTab && (
+        {isLoading && !data && isVacancyTab && (
           <Card className="p-8 text-center">
             <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
             <p className="text-muted-foreground text-sm">Loading opportunities…</p>
@@ -1824,15 +1851,20 @@ export default function OpportunitiesPage() {
           <Card className="p-8 text-center border-destructive/20">
             <AlertCircle className="w-10 h-10 text-destructive mx-auto mb-3" />
             <p className="text-sm text-destructive font-medium">Could not load opportunities.</p>
-            <p className="text-xs text-muted-foreground mt-1">Complete your profile and run an eligibility check to see matched roles.</p>
-            <Button size="sm" className="mt-4" onClick={() => setLocation("/eligibility")}>
-              Run Eligibility Check <ArrowRight className="w-4 h-4 ml-2" />
+            <p className="text-xs text-muted-foreground mt-1">
+              {data
+                ? "The last loaded list is still shown below. Retry when your connection is stable."
+                : "The server did not respond in time. Please retry."}
+            </p>
+            <Button size="sm" className="mt-4" onClick={() => void refetchRoles()} disabled={isFetching}>
+              {isFetching ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+              Retry
             </Button>
           </Card>
         )}
 
         {/* Ranked vacancy tabs */}
-        {!isLoading && !isError && isVacancyTab && activeTab !== "sendcv" && (
+        {(!isLoading || !!data) && isVacancyTab && activeTab !== "sendcv" && (
           <div className="space-y-8">
             {/* No-profile nudge */}
             {noProfile && (
