@@ -24,6 +24,13 @@ export interface DetectedQuestion {
   signature: string;
 }
 
+export interface StructuredFieldDescriptor {
+  id: string;
+  label: string;
+  controlType: "text" | "textarea" | "number" | "date" | "select" | "radio";
+  options: string[];
+}
+
 type QuestionField = HTMLTextAreaElement | HTMLInputElement | HTMLSelectElement;
 
 const FIELD_ID_ATTR = "data-jobsage-qid";
@@ -50,14 +57,14 @@ const PERSONAL_AUTOCOMPLETE = new Set([
 ]);
 
 const CANDIDATE_CONFIRMATION_PATTERN =
-  /\b(caution(?:s)?|criminal|conviction|convicted|criminal record|disclosure|dbs|declaration|consent|agree(?:ment)?|payroll|tax declaration|health|medical|disab(?:ility|led)|ethnicity|religion|sexual orientation|gender|trans(?:gender)?|diversity|equal opportunit(?:y|ies)|right to work|require(?:s|d)? sponsorship|sponsorship required|currently work|current employee)\b/i;
+  /\b(caution(?:s)?|criminal|conviction|convicted|criminal record|asbo|disclosure|dbs|declaration|consent|agree(?:ment)?|payroll|tax declaration|health|medical|disab(?:ility|led)|ethnic(?:ity| group)?|sex|religion|sexual orientation|gender|trans(?:gender)?|diversity|equal opportunit(?:y|ies)|national insurance|ni number|passport|date of birth|dob|birth date|right to work|require(?:s|d)? sponsorship|sponsorship required|currently work|current employee)\b/i;
 
 const STRUCTURED_CONTEXT_PATTERN =
   /\b(training|course|qualification|education|employment|work history|current\s*\/?\s*last job|previous job|career history)\b/i;
 const STRUCTURED_FIELD_PATTERN =
   /\b(course title|tutored by|trainer|number of days|days|year attended|qualification|employer|job title|position|start date|end date|from date|to date|duties)\b/i;
 const LEAVE_ALONE_PATTERN =
-  /\b(add fields?|remove fields?|find address|linkedin|save|submit|upload)\b/i;
+  /\b(add fields?|remove fields?|find address|search|linkedin|save|submit|upload)\b/i;
 
 /**
  * Long-form fields are named differently by each ATS and frequently do not
@@ -147,7 +154,7 @@ function isCandidateField(el: Element): el is QuestionField {
   if (isInput(el)) {
     const input = el as HTMLInputElement;
     if (input.disabled || input.readOnly) return false;
-    if (!["text", "number", "date", "month", "radio"].includes(input.type)) return false;
+    if (!["text", "email", "tel", "number", "date", "month", "radio"].includes(input.type)) return false;
     return isVisible(input);
   }
   if (isSelect(el)) {
@@ -179,12 +186,49 @@ function cleanText(text: string | null | undefined): string {
 }
 
 function humanizeMetadata(value: string): string {
-  return cleanText(value)
+  const cleaned = cleanText(value)
+    .replace(/\[(\d+)\]/g, " $1 ")
+    .replace(/\[([^\]]+)\]/g, " $1 ")
     .replace(/([a-z])([A-Z])/g, "$1 $2")
     .replace(/[_-]+/g, " ")
     .replace(/\b(textarea|longtext|long text|answer|response)\b/gi, "")
     .replace(/\s+/g, " ")
     .trim();
+  const tokens = cleaned.split(/\s+/).filter(Boolean);
+  const semantic = tokens.filter((token) => !/^\d+$/.test(token));
+  const last = semantic.at(-1) ?? "";
+  const aliases: Record<string, string> = {
+    from: "From",
+    to: "To",
+    sex: "Sex",
+    employer: "Employer",
+    position: "Position held",
+    duties: "Duties",
+    course: "Course title",
+    tutor: "Tutored by",
+    tutored: "Tutored by",
+    days: "Number of days",
+    year: "Year attended",
+  };
+  if (aliases[last.toLowerCase()]) return aliases[last.toLowerCase()];
+  if (/\[|^(?:eq|employment|training|qualification|education|reference)[_\s-]/i.test(value)) {
+    return last.replace(/\b\w/g, (char) => char.toUpperCase());
+  }
+  return cleaned.replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function metadataContext(field: QuestionField): string {
+  const raw = cleanText(field.name || field.id).toLowerCase();
+  const indexMatch = raw.match(/\[(\d+)\]/);
+  const index = indexMatch ? Number(indexMatch[1]) + 1 : null;
+  let context = "";
+  if (/\beq(?:ual)?[_\s\[]|equal.?opportun/i.test(raw)) context = "Equal Opportunities";
+  else if (/employment|work.?history/i.test(raw)) context = "Employment History";
+  else if (/current.?job|last.?job/i.test(raw)) context = "Current / Last Job";
+  else if (/training|course/i.test(raw)) context = "Training";
+  else if (/qualification|education/i.test(raw)) context = "Qualifications";
+  else if (/reference/i.test(raw)) context = "References";
+  return context && index ? `${context} ${index}` : context;
 }
 
 function explicitFieldLabel(field: QuestionField): string {
@@ -234,11 +278,11 @@ function explicitFieldLabel(field: QuestionField): string {
     if (t) return t;
   }
 
-  // 6. Nearest child label/paragraph within the form group.
+  // 6. A nearby paragraph often carries the control-specific prompt.
   const group = field.closest("div, li, td, section, fieldset");
   if (group) {
     const candidates = Array.from(
-      group.querySelectorAll("p, label, span[class*='label' i]")
+      group.querySelectorAll("p, span[class*='label' i]")
     ).filter(
       (el) =>
         !el.contains(field) &&
@@ -249,6 +293,10 @@ function explicitFieldLabel(field: QuestionField): string {
       if (t.length >= 4) return t;
     }
   }
+
+  const row = field.closest("tr");
+  const rowLabel = cleanText(row?.querySelector("th, td:first-child")?.textContent);
+  if (rowLabel && !rowLabel.includes(cleanText(field.value))) return rowLabel;
 
   // 7. Stable field metadata is preferable to a broad section heading.
   const metadata = humanizeMetadata(field.name || field.id);
@@ -276,10 +324,19 @@ function explicitFieldLabel(field: QuestionField): string {
 
 function sectionContext(field: QuestionField): string {
   const fieldset = field.closest("fieldset");
-  const legend = cleanText(fieldset?.querySelector(":scope > legend")?.textContent);
-  if (legend) return legend;
-  const section = field.closest("section, [class*='section' i], [class*='group' i]");
-  return cleanText(section?.querySelector("h1, h2, h3, h4, h5, h6, legend")?.textContent);
+  let context = cleanText(fieldset?.querySelector(":scope > legend")?.textContent);
+  if (!context) {
+    const section = field.closest("section, [class*='section' i], [class*='group' i], table");
+    context = cleanText(section?.querySelector("h1, h2, h3, h4, h5, h6, legend, caption")?.textContent);
+  }
+  if (/^(application( for employment)?|apply|application form)$/i.test(context)) context = "";
+  const inferred = metadataContext(field);
+  if (!context) return inferred;
+  const indexMatch = cleanText(field.name || field.id).match(/\[(\d+)\]/);
+  if (indexMatch && !/\b\d+\b/.test(context)) {
+    return `${context} ${Number(indexMatch[1]) + 1}`;
+  }
+  return context;
 }
 
 function resolveQuestionText(field: QuestionField, defaultText = "Application response"): string {
@@ -354,8 +411,9 @@ function classifyField(
   root: Document | Element,
 ): QuestionBucket | null {
   const meta = `${question} ${field.name} ${field.id} ${field.getAttribute("data-automation-id") ?? ""}`;
-  if (isPersonalField(field, question) || LEAVE_ALONE_PATTERN.test(meta)) return null;
+  if (LEAVE_ALONE_PATTERN.test(meta)) return null;
   if (requiresCandidateConfirmation(meta)) return "confirmation";
+  if (isPersonalField(field, question)) return "structured";
   if (isTextArea(field) || isLongTextInput(field) || isDedicatedField(field, hostname)) {
     return "generate";
   }
@@ -368,7 +426,9 @@ function classifyField(
     const sectionText = cleanText(questionSection?.textContent).slice(0, 500);
     if (/\bquestions?\b/i.test(`${sectionText} ${context}`)) return "structured";
   }
-  return null;
+  // Any remaining visible, writable and labelled application control is still
+  // actionable structured data. Missing one is worse than showing a safe row.
+  return question !== "Application response" ? "structured" : null;
 }
 
 function scanRoot(root: Document | Element, hostname: string): DetectedQuestion[] {
@@ -516,8 +576,75 @@ function sameQuestions(a: DetectedQuestion[], b: DetectedQuestion[]): boolean {
       q.maxLength === b[i].maxLength &&
         q.wordLimit === b[i].wordLimit &&
       q.restricted === b[i].restricted &&
+      q.bucket === b[i].bucket &&
       q.signature === b[i].signature
   );
+}
+
+function optionLabel(option: HTMLOptionElement): string {
+  return cleanText(option.textContent || option.value);
+}
+
+function radioOptions(field: HTMLInputElement): string[] {
+  if (!field.name) return [];
+  const escaped = typeof CSS !== "undefined" && CSS.escape ? CSS.escape(field.name) : field.name.replace(/["\\]/g, "\\$&");
+  return Array.from(field.ownerDocument.querySelectorAll<HTMLInputElement>(`input[type="radio"][name="${escaped}"]`))
+    .map((radio) => cleanText(radio.closest("label")?.textContent || radio.getAttribute("aria-label") || radio.value))
+    .filter(Boolean);
+}
+
+export function getStructuredFieldDescriptors(questions: DetectedQuestion[]): StructuredFieldDescriptor[] {
+  return questions.flatMap((question) => {
+    if (question.bucket !== "structured") return [];
+    const field = getQuestionField(question.id);
+    if (!field || cleanText(field.value)) return [];
+    const controlType: StructuredFieldDescriptor["controlType"] =
+      isTextArea(field) ? "textarea"
+      : isSelect(field) ? "select"
+      : field.type === "radio" ? "radio"
+      : field.type === "number" ? "number"
+      : ["date", "month"].includes(field.type) ? "date"
+      : "text";
+    const options = isSelect(field)
+      ? Array.from(field.options).map(optionLabel).filter(Boolean)
+      : isInput(field) && field.type === "radio" ? radioOptions(field)
+      : [];
+    return [{ id: question.id, label: question.question, controlType, options }];
+  });
+}
+
+function normalizedChoice(value: string): string {
+  return cleanText(value).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+export function fillStructuredField(questionId: string, value: string): boolean {
+  const field = getQuestionField(questionId);
+  const cleanValue = cleanText(value);
+  if (!field || !cleanValue || cleanText(field.value)) return false;
+  if (isSelect(field)) {
+    const wanted = normalizedChoice(cleanValue);
+    const option = Array.from(field.options).find((candidate) =>
+      [candidate.value, optionLabel(candidate)].some((candidateValue) => normalizedChoice(candidateValue) === wanted),
+    );
+    if (!option) return false;
+    field.value = option.value;
+  } else if (isInput(field) && field.type === "radio") {
+    if (!field.name) return false;
+    const escaped = typeof CSS !== "undefined" && CSS.escape ? CSS.escape(field.name) : field.name.replace(/["\\]/g, "\\$&");
+    const wanted = normalizedChoice(cleanValue);
+    const radio = Array.from(field.ownerDocument.querySelectorAll<HTMLInputElement>(`input[type="radio"][name="${escaped}"]`))
+      .find((candidate) => normalizedChoice(candidate.closest("label")?.textContent || candidate.getAttribute("aria-label") || candidate.value) === wanted);
+    if (!radio || radio.checked) return false;
+    radio.checked = true;
+    radio.dispatchEvent(new Event("input", { bubbles: true }));
+    radio.dispatchEvent(new Event("change", { bubbles: true }));
+    return true;
+  } else {
+    return setQuestionFieldValue(questionId, cleanValue, { focus: false });
+  }
+  field.dispatchEvent(new Event("input", { bubbles: true }));
+  field.dispatchEvent(new Event("change", { bubbles: true }));
+  return true;
 }
 
 /**

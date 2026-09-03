@@ -66,6 +66,7 @@ const { authMiddleware } = await import("../../middlewares/authMiddleware");
 function buildApp() {
   const app = express();
   app.use(cookieParser());
+  app.use(express.json());
   app.use(authMiddleware);
   app.use(smartApplyRouter);
   return app;
@@ -110,6 +111,16 @@ describe("Smart Apply extension endpoints", () => {
       city: null,
       postcode: null,
       country: "United Kingdom",
+      profession: null,
+      specialty: null,
+      qualificationCountry: null,
+      qualificationType: null,
+      qualificationYear: null,
+      experienceYears: null,
+      registrationStatus: null,
+      residencyStatus: null,
+      preferredStartDate: null,
+      languages: null,
     });
     expect(response.body).not.toHaveProperty("passwordHash");
   });
@@ -181,5 +192,20 @@ describe("Smart Apply extension endpoints", () => {
 
     expect(response.status).toBe(403);
     expect(storage.downloadObject).not.toHaveBeenCalled();
+  });
+
+  it("refuses to map sensitive structured fields from the profile or CV", async () => {
+    const response = await request(buildApp())
+      .post("/smart-apply/structured-prefill")
+      .set("Authorization", AUTH_HEADER)
+      .send({
+        fields: [
+          { id: "health", label: "Health Details", controlType: "textarea", options: [] },
+          { id: "sex", label: "Equal Opportunities — Sex", controlType: "select", options: ["Female", "Male"] },
+        ],
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ values: [] });
   });
 });

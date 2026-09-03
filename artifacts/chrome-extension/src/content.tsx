@@ -5,7 +5,12 @@ import {
   retryTrackedApplicationConfirmation,
   watchForSubmissionConfirmation,
 } from "./lib/trackerDetector";
-import { createQuestionWatcher } from "./lib/questionDetector";
+import {
+  createQuestionWatcher,
+  fillStructuredField,
+  getStructuredFieldDescriptors,
+  type DetectedQuestion,
+} from "./lib/questionDetector";
 import { createAnswerMemoryController } from "./lib/answerMemory";
 import { ensureBrandFonts } from "./lib/brand";
 import type { PillPos } from "./lib/types";
@@ -212,21 +217,54 @@ async function confirmTrackedApplication(): Promise<void> {
   return retryTrackedApplicationConfirmation(requestConfirmation);
 }
 
-async function prefillApplicationDetails(): Promise<PrefillResult> {
+async function prefillApplicationDetails(questions: DetectedQuestion[] = []): Promise<PrefillResult> {
   const response = await sendMessage<{ data?: { profile?: CandidateProfile } | CandidateProfile; error?: string }>({
     type: "API_REQUEST",
     endpoint: "/smart-apply/candidate-prefill",
   });
   if (response.error || !response.data) {
-    return { filled: [], missing: ["your profile details"], skipped: [] };
+    return { filled: [], missing: ["your profile details"], skipped: [], fieldResults: {} };
   }
   const payload = response.data as { profile?: CandidateProfile };
   const trackingContext = await getTrackingContext();
-  return prefillPersonalDetails(
+  const result = prefillPersonalDetails(
     payload.profile ?? (response.data as CandidateProfile),
     document,
     { jobTitle: trackingContext?.jobTitle },
   );
+  const fields = getStructuredFieldDescriptors(questions);
+  if (fields.length === 0) return result;
+  const mapped = await sendMessage<{
+    data?: { values?: Array<{ id: string; value: string | null }> };
+    error?: string;
+  }>({
+    type: "API_REQUEST",
+    endpoint: "/smart-apply/structured-prefill",
+    method: "POST",
+    body: {
+      fields,
+      jobTitle: trackingContext?.jobTitle,
+      employer: trackingContext?.employer,
+      roleId: trackingContext?.roleId,
+    },
+  });
+  const values = new Map((mapped.data?.values ?? []).map((entry) => [entry.id, entry.value]));
+  for (const field of fields) {
+    const value = values.get(field.id);
+    if (value && fillStructuredField(field.id, value)) {
+      result.filled.push(field.label);
+      result.fieldResults[field.id] = { status: "filled", message: "Filled from your JOBSAGE profile or CV" };
+    } else {
+      result.missing.push(field.label);
+      result.fieldResults[field.id] = {
+        status: "missing",
+        message: mapped.error ? "Could not read your CV — retry" : "Not found in your JOBSAGE profile or CV",
+      };
+    }
+  }
+  result.filled = Array.from(new Set(result.filled));
+  result.missing = Array.from(new Set(result.missing));
+  return result;
 }
 
 async function attachApplicationCv(): Promise<CvAttachResult & { downloaded?: boolean }> {
@@ -289,6 +327,7 @@ function mountSidebar(
     jobContext = scrapeJobContext();
     if (trustedContext?.jobTitle) jobContext.jobTitle = trustedContext.jobTitle;
     if (trustedContext?.employer) jobContext.companyName = trustedContext.employer;
+    if (trustedContext?.roleId) jobContext.roleId = trustedContext.roleId;
   } catch (error) {
     console.warn("[JOBSAGE] Could not scrape job context; opening the helper without page details.", error);
   }

@@ -82,3 +82,17 @@ mtime_ms = 1788413130956
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/6fbb45e6-1a0a-4c6b-8afa-b766d17074b0/c18c4de8-a406-422e-b997-ee6450250e74"
 storage_version_token = "1788413209264500"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "vhB1jIVb8tDICAYp-eaUE"
+uri = "file://artifacts/chrome-extension/release/jobsage-smart-apply-extension-v0.4.16.zip"
+type = "unspecified"
+title = "JOBSAGE Smart Apply v0.4.16"
+description = "Chrome extension ZIP with complete visible-field detection, safe profile/CV structured prefill, sensitive-field protections, Pinpoint support, and trusted vacancy context."
+logical_id = "19b5826a-5104-477c-8a58-3d3840b1fa74"
+content_hash = "sha256:3a8b6c6a4cae91b1e5825fec5b5760f989b829f689b006ebff0ad50d72ee52c4"
+size = 151276
+mtime_ms = 1788420921039
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/19b5826a-5104-477c-8a58-3d3840b1fa74/2ca97840-5c2c-4363-9571-4ae8f1a3d244"
+storage_version_token = "1788421082867598"
+content_type = "application/octet-stream"

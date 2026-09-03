@@ -32,6 +32,16 @@ router.get("/smart-apply/candidate-prefill", requireAuthenticated, async (req: R
       city: profilesTable.city,
       postcode: profilesTable.postcode,
       country: profilesTable.country,
+      profession: profilesTable.profession,
+      specialty: profilesTable.specialty,
+      qualificationCountry: profilesTable.qualificationCountry,
+      qualificationType: profilesTable.qualificationType,
+      qualificationYear: profilesTable.qualificationYear,
+      experienceYears: profilesTable.experienceYears,
+      registrationStatus: profilesTable.registrationStatus,
+      residencyStatus: profilesTable.residencyStatus,
+      preferredStartDate: profilesTable.preferredStartDate,
+      languages: profilesTable.languages,
     })
     .from(profilesTable)
     .where(eq(profilesTable.userId, user.id));
@@ -46,7 +56,121 @@ router.get("/smart-apply/candidate-prefill", requireAuthenticated, async (req: R
     city: profile?.city ?? null,
     postcode: profile?.postcode ?? null,
     country: profile?.country ?? "United Kingdom",
+    profession: profile?.profession ?? null,
+    specialty: profile?.specialty ?? null,
+    qualificationCountry: profile?.qualificationCountry ?? null,
+    qualificationType: profile?.qualificationType ?? null,
+    qualificationYear: profile?.qualificationYear ?? null,
+    experienceYears: profile?.experienceYears ?? null,
+    registrationStatus: profile?.registrationStatus ?? null,
+    residencyStatus: profile?.residencyStatus ?? null,
+    preferredStartDate: profile?.preferredStartDate ?? null,
+    languages: profile?.languages ?? null,
   });
+});
+
+const STRUCTURED_PREFILL_SENSITIVE_PATTERN =
+  /\b(caution|criminal|conviction|asbo|disclosure|dbs|health|medical|disab|ethnic|sex|gender|religion|sexual orientation|diversity|equal opportunit|national insurance|ni number|passport|date of birth|dob|declaration|consent|right to work|sponsorship|current employee|currently work)\b/i;
+
+router.post("/smart-apply/structured-prefill", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
+  const rawFields = Array.isArray(req.body?.fields) ? req.body.fields : [];
+  const fields = rawFields
+    .slice(0, 120)
+    .flatMap((field: unknown) => {
+      if (!field || typeof field !== "object") return [];
+      const candidate = field as Record<string, unknown>;
+      const id = typeof candidate.id === "string" ? candidate.id.slice(0, 120) : "";
+      const label = typeof candidate.label === "string" ? candidate.label.trim().slice(0, 500) : "";
+      const controlType = typeof candidate.controlType === "string" ? candidate.controlType.slice(0, 20) : "text";
+      const options = Array.isArray(candidate.options)
+        ? candidate.options.filter((option): option is string => typeof option === "string").slice(0, 80).map((option) => option.slice(0, 200))
+        : [];
+      if (!id || !label || STRUCTURED_PREFILL_SENSITIVE_PATTERN.test(label)) return [];
+      return [{ id, label, controlType, options }];
+    });
+  if (fields.length === 0) {
+    res.json({ values: [] });
+    return;
+  }
+
+  const [profile] = await db.select().from(profilesTable).where(eq(profilesTable.userId, req.user!.id));
+  if (!profile) {
+    res.status(400).json({ error: "Profile not found. Please complete your profile first." });
+    return;
+  }
+  const cvText = await fetchSmartApplyCvText(req.user!.id);
+  const firstName = req.user!.firstName ?? "";
+  const lastName = req.user!.lastName ?? "";
+  const roleTitle = typeof req.body?.jobTitle === "string" ? req.body.jobTitle.trim().slice(0, 300) : "";
+  const employer = typeof req.body?.employer === "string" ? req.body.employer.trim().slice(0, 300) : "";
+  const evidence = `
+Candidate:
+- Name: ${[firstName, lastName].filter(Boolean).join(" ")}
+- Email: ${req.user!.email ?? ""}
+- Phone: ${profile.phone ?? ""}
+- Address: ${[profile.streetAddress, profile.city, profile.postcode, profile.country].filter(Boolean).join(", ")}
+- Profession: ${profile.profession}
+- Specialty: ${profile.specialty}
+- Qualification: ${profile.qualificationType}, ${profile.qualificationCountry}, ${profile.qualificationYear}
+- Experience: ${profile.experienceYears} years
+- Registration status: ${profile.registrationStatus}
+- Residency status: ${profile.residencyStatus}
+- Preferred start date: ${profile.preferredStartDate ?? ""}
+- Languages: ${profile.languages?.join(", ") ?? ""}
+- Vacancy: ${roleTitle}${employer ? ` at ${employer}` : ""}
+
+CV extract:
+${cvText ?? "Unavailable"}`.trim();
+
+  const prompt = `Map the supplied candidate evidence into these empty job-application controls.
+
+Rules:
+- Return a value only when it is explicitly supported by the profile or CV.
+- Never invent an employer, role, duty, qualification, course, trainer, date, reason for leaving, reference, achievement, or sick-day count.
+- For repeated employment, education, qualification, or training groups, map records newest-first and respect the row number in the label.
+- Use concise factual values, not essay prose.
+- For select/radio controls, use one option exactly as written or null.
+- Return null when evidence is missing or ambiguous.
+
+Fields:
+${JSON.stringify(fields)}
+
+Evidence:
+${evidence}
+
+Return only JSON: {"values":[{"id":"field id","value":"exact value or null"}]}`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      max_completion_tokens: 3000,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: "You extract structured job-application facts. Never fabricate missing candidate history." },
+        { role: "user", content: prompt },
+      ],
+    });
+    let parsed: { values?: unknown[] } = {};
+    try {
+      parsed = JSON.parse(response.choices[0]?.message?.content ?? "{}") as { values?: unknown[] };
+    } catch {
+      parsed = {};
+    }
+    const allowedIds = new Set(fields.map((field: { id: string }) => field.id));
+    const values = Array.isArray(parsed.values)
+      ? parsed.values.flatMap((entry) => {
+          if (!entry || typeof entry !== "object") return [];
+          const candidate = entry as Record<string, unknown>;
+          const id = typeof candidate.id === "string" ? candidate.id : "";
+          const value = typeof candidate.value === "string" ? candidate.value.trim().slice(0, 4000) : null;
+          return allowedIds.has(id) ? [{ id, value: value || null }] : [];
+        })
+      : [];
+    res.json({ values });
+  } catch (error) {
+    console.error("[smart-apply-structured-prefill] mapping error:", error);
+    res.status(503).json({ error: "Could not read structured details from the CV. Please retry." });
+  }
 });
 
 async function fetchSmartApplyCvText(userId: string): Promise<string | null> {
@@ -286,7 +410,7 @@ router.post("/smart-apply/assistant", requireAuthenticated, async (req: Request,
     return;
   }
   const exactQuestion = (questionText ?? question ?? userMessage).trim();
-  if (/\b(criminal|conviction|convicted|criminal record|disclosure|declaration|consent|agree(?:ment)?|payroll|tax declaration)\b/i.test(exactQuestion)) {
+  if (/\b(caution|criminal|conviction|convicted|criminal record|asbo|disclosure|dbs|health|medical|disab|ethnic|sex|gender|religion|sexual orientation|diversity|equal opportunit|declaration|consent|agree(?:ment)?|payroll|tax declaration|national insurance|ni number|passport|date of birth|dob)\b/i.test(exactQuestion)) {
     res.status(422).json({
       error: "This declaration needs your own review and confirmation, so JOBSAGE will not generate an answer for it.",
     });
@@ -351,7 +475,7 @@ Guidelines:
 - Keep responses concise and actionable
 - Use only facts explicitly stated in the profile, CV extract, and role context. Never invent employers, duties, registrations, qualifications, achievements, dates, or personal circumstances.
 - If the information does not support a specific claim, say what the candidate needs to add instead of drafting a fictional claim.
-- Never produce an answer for criminal-record, conviction, disclosure, declaration, consent, agreement, payroll, or tax-confirmation fields; those require the candidate's own confirmation.`;
+- Never produce an answer for cautions, criminal records, DBS, health/medical, disability, diversity/equal-opportunities, declarations, consent, payroll, National Insurance, passport, or date-of-birth fields; those require the candidate's own confirmation.`;
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
