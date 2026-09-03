@@ -16,7 +16,8 @@ import { startApplyUrlBackfillScheduler } from "./lib/applyUrlBackfillScheduler"
 import { startContactBackfill } from "./lib/contactBackfillRunner";
 import { runStartupSchemaDriftCheck } from "./lib/schemaDriftCheck";
 import { bootstrapSuperAdmins } from "./lib/bootstrapSuperAdmins";
-import { db, sponsorLicenceSyncLogTable } from "@workspace/db";
+import { runVacancyPipelineCatchupsIfStale } from "./lib/vacancyPipelineCatchup";
+import { db, pool, sponsorLicenceSyncLogTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 
 const rawPort = process.env["PORT"];
@@ -32,6 +33,13 @@ const port = Number(rawPort);
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
+
+// node-postgres emits idle-client connection failures on the Pool itself.
+// Without a listener, a database restart or deployment shutdown becomes an
+// uncaught EventEmitter error and terminates the entire API process.
+pool.on("error", (error) => {
+  console.error("[database-pool] Idle client error:", error.message);
+});
 
 const STALE_SYNC_THRESHOLD_MS = 2 * 24 * 60 * 60 * 1000; // 2 days
 
@@ -78,6 +86,12 @@ app.listen(port, () => {
   startVacancyLivenessSweepScheduler();
   startSponsorVacancyCleanupScheduler();
   startApplyUrlBackfillScheduler();
+  const catchupTimer = setTimeout(() => {
+    runVacancyPipelineCatchupsIfStale().catch((err) => {
+      console.error("[pipeline-catchup] Post-boot catch-up failed:", err);
+    });
+  }, 5_000);
+  catchupTimer.unref();
   if (process.env.ENABLE_CONTACT_BACKFILL === "true") {
     const contactBackfillResult = startContactBackfill(500);
     if (contactBackfillResult.started) {

@@ -38,6 +38,14 @@ export type CompanySiteCheckOutcome =
       transientFailure: boolean;
     };
 
+export type CompanySiteBatchSummary = {
+  selected: number;
+  checked: number;
+  skipped: number;
+  errors: number;
+  upserted: number;
+};
+
 let batchInProgress = false;
 
 function getBatchSize(): number {
@@ -204,10 +212,10 @@ export async function runCompanySiteCheck(
   };
 }
 
-export async function runCompanySiteDiscoveryBatch(): Promise<void> {
+export async function runCompanySiteDiscoveryBatch(): Promise<CompanySiteBatchSummary | null> {
   if (batchInProgress) {
     console.log("[company-site-scheduler] Previous batch still running — skipping this tick");
-    return;
+    return null;
   }
   batchInProgress = true;
   const startedAt = Date.now();
@@ -221,6 +229,7 @@ export async function runCompanySiteDiscoveryBatch(): Promise<void> {
     let errors = 0;
     let adverts = 0;
     let inserted = 0;
+    let revived = 0;
     let nextIndex = 0;
 
     async function worker(): Promise<void> {
@@ -235,6 +244,7 @@ export async function runCompanySiteDiscoveryBatch(): Promise<void> {
             checked += 1;
             adverts += outcome.adverts;
             inserted += outcome.inserted;
+            revived += outcome.revived;
           }
         } catch (error) {
           errors += 1;
@@ -255,6 +265,9 @@ export async function runCompanySiteDiscoveryBatch(): Promise<void> {
     console.log(
       `[company-site-scheduler] Complete checked=${checked} skipped=${skipped} errors=${errors} adverts=${adverts} inserted=${inserted} duration_ms=${Date.now() - startedAt}`,
     );
+    const upserted = inserted + revived;
+    console.log(`[pipeline-tick] env=${process.env.NODE_ENV ?? "unknown"} job=company_site selected=${rows.length} upserted=${upserted} live=0 dead=0 inconclusive=0 errors=${errors}`);
+    return { selected: rows.length, checked, skipped, errors, upserted };
   } finally {
     batchInProgress = false;
   }
@@ -266,6 +279,7 @@ export function startCompanySiteDiscoveryScheduler(): void {
     () => {
       runCompanySiteDiscoveryBatch().catch((error) => {
         console.error("[company-site-scheduler] Unhandled batch error:", error);
+        console.log(`[pipeline-tick] env=${process.env.NODE_ENV ?? "unknown"} job=company_site selected=0 upserted=0 live=0 dead=0 inconclusive=0 errors=1`);
       });
     },
     { timezone: "Europe/London" },

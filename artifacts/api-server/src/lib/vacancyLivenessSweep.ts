@@ -72,7 +72,11 @@ async function selectSweepBatch(limit: number, staleThresholdMs: number): Promis
     ) all_links
     ORDER BY
       CASE WHEN last_verified_at IS NULL THEN 0 ELSE 1 END,
-      CASE WHEN source_type IN ('job_board', 'company_site') THEN 0 ELSE 1 END,
+      CASE
+        WHEN source_type = 'job_board' THEN 0
+        WHEN source_type = 'company_site' THEN 1
+        ELSE 2
+      END,
       last_verified_at ASC NULLS FIRST,
       id ASC
     LIMIT ${limit}
@@ -202,6 +206,7 @@ export async function runVacancyLivenessSweep(
 
     if (rows.length === 0 && blocked.length === 0) {
       console.log("[vacancy-liveness] Nothing stale to verify");
+      console.log(`[pipeline-tick] env=${process.env.NODE_ENV ?? "unknown"} job=liveness selected=0 upserted=0 live=0 dead=0 inconclusive=0 errors=0`);
       return { checked: 0, live: 0, dead: 0, inconclusive: 0 };
     }
 
@@ -249,6 +254,7 @@ export async function runVacancyLivenessSweep(
     console.log(
       `[vacancy-liveness] Sweep complete — checked: ${counters.checked}, live: ${counters.live}, dead: ${counters.dead}, inconclusive: ${counters.inconclusive}, ${Date.now() - startMs}ms`,
     );
+    console.log(`[pipeline-tick] env=${process.env.NODE_ENV ?? "unknown"} job=liveness selected=${rawRows.length} upserted=0 live=${counters.live} dead=${counters.dead} inconclusive=${counters.inconclusive} errors=0`);
     return counters;
   } finally {
     sweepRunning = false;
@@ -330,40 +336,6 @@ export async function runFullLivenessScan(): Promise<SweepCounters> {
 }
 
 export function startVacancyLivenessSweepScheduler(): void {
-  // On startup: if the last successful sweep is overdue (> 7 h ago — meaning at
-  // least one scheduled 6-hour tick was missed, e.g. due to a dev-server
-  // restart or a deploy), kick off an immediate sweep rather than waiting for
-  // the next scheduled tick. This keeps the deployed environment self-healing
-  // even after restarts during active development.
-  (async () => {
-    try {
-      const result = await db.execute<{ most_recent: string | null }>(sql`
-        SELECT MAX(t.lva)::text AS most_recent FROM (
-          SELECT MAX(last_verified_at) AS lva FROM sponsor_licence_vacancies
-          UNION ALL
-          SELECT MAX(last_verified_at) FROM roles
-          UNION ALL
-          SELECT MAX(last_verified_at) FROM job_listings
-        ) t
-      `);
-      const raw = result.rows[0]?.most_recent ?? null;
-      const OVERDUE_MS = 7 * 60 * 60 * 1000; // 7 h — at least one 6-hour tick missed
-      const ageMs = raw ? Date.now() - new Date(raw).getTime() : Infinity;
-      if (ageMs > OVERDUE_MS) {
-        const hoursAgo = (ageMs / 3_600_000).toFixed(1);
-        console.log(`[vacancy-liveness] Sweep overdue (last ran ${hoursAgo}h ago) — starting immediate startup sweep`);
-        runVacancyLivenessSweep().catch((err) => {
-          console.error("[vacancy-liveness] Startup sweep error:", err);
-        });
-      } else {
-        const minsAgo = (ageMs / 60_000).toFixed(0);
-        console.log(`[vacancy-liveness] Sweep is recent (${minsAgo}m ago) — no startup kickoff needed`);
-      }
-    } catch (err) {
-      console.error("[vacancy-liveness] Startup overdue-check failed:", err);
-    }
-  })();
-
   // Every 6 hours, offset from the AI vacancy-check batches (06/14/22) so the
   // sweep verifies the snapshots those batches produce.
   cron.schedule(
@@ -371,6 +343,7 @@ export function startVacancyLivenessSweepScheduler(): void {
     () => {
       runVacancyLivenessSweep().catch((err) => {
         console.error("[vacancy-liveness] Unhandled sweep error:", err);
+        console.log(`[pipeline-tick] env=${process.env.NODE_ENV ?? "unknown"} job=liveness selected=0 upserted=0 live=0 dead=0 inconclusive=0 errors=1`);
       });
     },
     { timezone: "Europe/London" },
