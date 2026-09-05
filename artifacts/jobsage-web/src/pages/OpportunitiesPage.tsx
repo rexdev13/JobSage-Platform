@@ -10,19 +10,15 @@ import {
   useUpsertMyProfile,
   useGetMyMatches,
   useDismissMatch,
-  useListSponsorLicences,
-  useListSpeculativeApplications,
   useListMyDocuments,
   getListMyApplicationsQueryKey,
   getListMatchedRolesQueryKey,
   getGetMyProfileQueryKey,
   getGetMyMatchesQueryKey,
-  getListSponsorLicencesQueryKey,
   type MatchedRole,
   type ApplicationList,
   type CandidateMatchItem,
   type CandidateMatchList,
-  type SponsorLicenceCompany,
 } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
 import { SmartApplyModal } from "@/components/SmartApplyModal";
@@ -96,7 +92,6 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import {
   defaultSponsorshipOnly,
-  filterSendCvSponsors,
   filterOpportunities,
   getOpportunityApplyAction,
   groupRankedOpportunities,
@@ -1355,7 +1350,7 @@ function ApplicationsTab({ data }: { data: ApplicationList | undefined }) {
             {subTab === "platform" ? "No platform applications yet." : subTab === "website" ? "No website applications logged yet." : "No speculative CVs sent yet."}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            {subTab === "platform" ? "Use \"Smart Apply\" on a role to track it here." : subTab === "website" ? "Log an application made on an employer's website from the Applications page." : "Send your CV speculatively to a sponsor licence company."}
+            {subTab === "platform" ? "Use \"Smart Apply\" on a role to track it here." : subTab === "website" ? "Log an application made on an employer's website from the Applications page." : "Send your CV for a matched vacancy to track the outreach here."}
           </p>
         </Card>
       ) : (
@@ -1369,67 +1364,99 @@ function ApplicationsTab({ data }: { data: ApplicationList | undefined }) {
   );
 }
 
-function SendCvSponsorCard({
-  company,
-  alreadySent,
+function SendCvEmployerGroup({
+  employer,
+  vacancies,
+  cvSentRoleIds,
   hasCv,
   onSend,
   onUploadCv,
 }: {
-  company: SponsorLicenceCompany;
-  alreadySent: boolean;
+  employer: string;
+  vacancies: MatchedRole[];
+  cvSentRoleIds: number[];
   hasCv: boolean;
-  onSend: () => void;
+  onSend: (vacancy: MatchedRole) => void;
   onUploadCv: () => void;
 }) {
-  const location = [company.townCity, company.region ?? company.county].filter(Boolean).join(", ");
   return (
-    <Card className="p-5">
-      <div className="flex items-start gap-4">
-        <div className="w-11 h-11 rounded-xl bg-sky-500/10 flex items-center justify-center shrink-0">
+    <Card className="overflow-hidden">
+      <div className="flex items-center gap-3 border-b border-border bg-muted/30 px-5 py-4">
+        <div className="w-10 h-10 rounded-xl bg-sky-500/10 flex items-center justify-center shrink-0">
           <Building2 className="w-5 h-5 text-sky-700" />
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3 className="font-semibold text-foreground leading-snug">{company.organisationName}</h3>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
-                {location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{location}</span>}
-                {company.industry && <span>{company.industry}</span>}
-                {company.storedVacancyCount ? (
-                  <span className="flex items-center gap-1"><Briefcase className="w-3 h-3" />{company.storedVacancyCount} live {company.storedVacancyCount === 1 ? "vacancy" : "vacancies"}</span>
-                ) : null}
+        <div className="min-w-0">
+          <h3 className="font-semibold text-foreground leading-snug">{employer}</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {vacancies.length} matched {vacancies.length === 1 ? "vacancy" : "vacancies"} available for direct CV outreach
+          </p>
+        </div>
+      </div>
+
+      <div className="divide-y divide-border">
+        {vacancies.map((item) => {
+          const { role } = item;
+          const cvSent = cvSentRoleIds.includes(role.id);
+          const sourceLabel = !item.applyUrl
+            ? "Email only"
+            : role.sourceType === "job_board"
+              ? role.boardName?.trim() || "Job board"
+              : role.sourceType === "company_site"
+                ? "Company site"
+                : "Vacancy link";
+          const regions = Array.isArray(role.targetRegions)
+            ? role.targetRegions.filter((region) => region && region !== role.location)
+            : [];
+
+          return (
+            <div key={role.id} className="px-5 py-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <h4 className="text-sm font-semibold text-foreground leading-snug">{role.title}</h4>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-xs text-muted-foreground">
+                    {role.location && (
+                      <span className="inline-flex items-center gap-1">
+                        <MapPin className="w-3 h-3" /> {role.location}
+                      </span>
+                    )}
+                    {regions.length > 0 && <span>{regions.join(", ")}</span>}
+                    <span className="inline-flex items-center gap-1">
+                      {item.applyUrl ? <ExternalLink className="w-3 h-3" /> : <Mail className="w-3 h-3" />}
+                      {sourceLabel}
+                    </span>
+                  </div>
+                  {item.applyUrl && (
+                    <a
+                      href={item.applyUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 mt-2 text-xs font-medium text-primary hover:underline"
+                    >
+                      View live vacancy <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </div>
+                {item.aiScore != null && <AiScoreBadge score={item.aiScore} />}
+              </div>
+
+              <div className="mt-3">
+                {hasCv ? (
+                  <Button
+                    size="sm"
+                    variant={cvSent ? "outline" : "default"}
+                    onClick={() => onSend(item)}
+                  >
+                    <Send className="w-4 h-4 mr-1.5" /> {cvSent ? "Resend CV" : "Send CV"}
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={onUploadCv}>
+                    <FileText className="w-4 h-4 mr-1.5" /> Upload CV to send
+                  </Button>
+                )}
               </div>
             </div>
-            {company.matchScore != null ? (
-              <AiScoreBadge score={company.matchScore} />
-            ) : (
-              <span className="shrink-0 rounded-full border border-border bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
-                Fit not yet scored
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
-            {company.matchScore != null
-              ? `Ranked from this sponsor's strongest matching vacancy${company.matchIsEligible === false ? " — review the eligibility requirements before sending" : ""}.`
-              : "This licensed sponsor has no scored vacancy evidence yet, so JOBSAGE has not invented a match percentage."}
-          </p>
-          <div className="flex items-center gap-2 mt-4">
-            {alreadySent ? (
-              <Button size="sm" variant="outline" disabled>
-                <CheckCircle2 className="w-4 h-4 mr-1.5 text-emerald-600" /> CV sent
-              </Button>
-            ) : hasCv ? (
-              <Button size="sm" onClick={onSend}>
-                <Send className="w-4 h-4 mr-1.5" /> Send CV
-              </Button>
-            ) : (
-              <Button size="sm" variant="outline" onClick={onUploadCv}>
-                <FileText className="w-4 h-4 mr-1.5" /> Upload CV to send
-              </Button>
-            )}
-          </div>
-        </div>
+          );
+        })}
       </div>
     </Card>
   );
@@ -1483,9 +1510,8 @@ export default function OpportunitiesPage() {
     return (t === "employers" || t === "board" || t === "sendcv") ? t as Tab : "board";
   });
   const [selectedRole, setSelectedRole] = useState<MatchedRole | null>(null);
-  const [sponsorSearch, setSponsorSearch] = useState("");
+  const [sendCvSearch, setSendCvSearch] = useState("");
   const [sendCvTarget, setSendCvTarget] = useState<MatchedRole | null>(null);
-  const [sendCvCompanyTarget, setSendCvCompanyTarget] = useState<SponsorLicenceCompany | null>(null);
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
   const [smartApplyRole, setSmartApplyRole] = useState<{ id: number; title: string } | null>(null);
   const [coverLetterRole, setCoverLetterRole] = useState<MatchedRole["role"] | null>(null);
@@ -1578,28 +1604,6 @@ export default function OpportunitiesPage() {
     placeholderData: (previousData) => previousData,
   });
   const { data: applicationsData } = useListMyApplications();
-  const { data: sponsorData, isLoading: sponsorsLoading, isError: sponsorsError } = useListSponsorLicences(
-    {
-      search: sponsorSearch || undefined,
-      region: selectedRegions.length > 0 ? selectedRegions : undefined,
-      directContactOnly: true,
-      page: 1,
-      limit: 100,
-    },
-    {
-      query: {
-        queryKey: getListSponsorLicencesQueryKey({
-          search: sponsorSearch || undefined,
-          region: selectedRegions.length > 0 ? selectedRegions : undefined,
-          directContactOnly: true,
-          page: 1,
-          limit: 100,
-        }),
-        enabled: activeTab === "sendcv",
-      },
-    },
-  );
-  const { data: speculativeData } = useListSpeculativeApplications();
   const { data: documentsData } = useListMyDocuments();
   const { data: myProfile } = useGetMyProfile();
   const profileMutation = useUpsertMyProfile();
@@ -1747,10 +1751,28 @@ export default function OpportunitiesPage() {
     remaining: remainingRoles,
   } = groupRankedOpportunities(filteredRoles);
 
-  // The server filter is authoritative. The boolean check is defensive against
-  // stale cached responses from before direct-contact eligibility was added.
-  const sponsorCompanies = filterSendCvSponsors(sponsorData?.companies ?? []);
-  const sentSponsorNames = new Set((speculativeData?.applications ?? []).map((application) => application.companyName.toLowerCase()));
+  const normalizedSendCvSearch = sendCvSearch.trim().toLowerCase();
+  const sendCvVacancies = filteredRoles.filter((item) => {
+    if (!shouldShowSendCv(item.sendCvEligible)) return false;
+    // URL-bearing vacancy rows must be verified live. A missing URL is still
+    // valid for direct email outreach when the server resolved an employer email.
+    if (item.applyUrl && item.linkVerified !== true) return false;
+    if (!normalizedSendCvSearch) return true;
+    return [item.role.employer, item.role.title, item.role.location]
+      .some((value) => value?.toLowerCase().includes(normalizedSendCvSearch));
+  });
+  const sendCvGroups = Array.from(
+    sendCvVacancies.reduce((groups, vacancy) => {
+      const key = vacancy.role.employer.trim().toLowerCase();
+      const existing = groups.get(key);
+      if (existing) {
+        existing.vacancies.push(vacancy);
+      } else {
+        groups.set(key, { employer: vacancy.role.employer, vacancies: [vacancy] });
+      }
+      return groups;
+    }, new Map<string, { employer: string; vacancies: MatchedRole[] }>()),
+  ).map(([, group]) => group);
   const hasCvUploaded = (documentsData?.documents ?? []).some((document) => document.documentType === "cv");
 
   function handleSmartApply(roleId: number, roleTitle: string) {
@@ -2129,7 +2151,7 @@ export default function OpportunitiesPage() {
                 <div>
                   <h2 className="text-sm font-semibold">Contact licensed sponsors directly</h2>
                   <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                    Sponsors are ordered by their strongest real vacancy match. A missing score means there is not enough vacancy evidence yet—not a poor match.
+                    Matched vacancies are grouped by employer. Send your CV for a specific role using JOBSAGE&apos;s stored direct employer contact.
                   </p>
                 </div>
               </div>
@@ -2138,43 +2160,44 @@ export default function OpportunitiesPage() {
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="search"
-                value={sponsorSearch}
-                onChange={(event) => setSponsorSearch(event.target.value)}
-                placeholder="Search sponsor organisations…"
+                value={sendCvSearch}
+                onChange={(event) => setSendCvSearch(event.target.value)}
+                placeholder="Search employers or vacancy titles…"
                 className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </div>
-            {sponsorsLoading ? (
+            {isLoading ? (
               <Card className="p-8 text-center">
                 <Loader2 className="w-8 h-8 text-primary animate-spin mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground">Ranking sponsors by your best vacancy fit…</p>
+                <p className="text-sm text-muted-foreground">Loading matched vacancies with direct employer contacts…</p>
               </Card>
-            ) : sponsorsError ? (
+            ) : isError ? (
               <Card className="p-8 text-center border-destructive/20">
                 <AlertCircle className="w-9 h-9 text-destructive mx-auto mb-3" />
-                <p className="text-sm font-medium text-destructive">Could not load sponsor organisations.</p>
+                <p className="text-sm font-medium text-destructive">Could not load matched vacancies.</p>
               </Card>
-            ) : sponsorCompanies.length === 0 ? (
+            ) : sendCvGroups.length === 0 ? (
               <Card className="p-8 text-center">
-                <Building2 className="w-9 h-9 text-muted-foreground/40 mx-auto mb-3" />
-                <p className="text-sm font-medium text-foreground">No sponsors with a direct email match these filters.</p>
+                <Briefcase className="w-9 h-9 text-muted-foreground/40 mx-auto mb-3" />
+                <p className="text-sm font-medium text-foreground">No matched vacancies you can email a CV for.</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Send CV is only available when JOBSAGE has a stored employer contact email.
+                  Try changing your search or region filters. Send CV only appears when JOBSAGE has a usable employer email.
                 </p>
               </Card>
             ) : (
               <>
                 <p className="text-xs text-muted-foreground">
-                  {sponsorData?.total ?? sponsorCompanies.length} licensed sponsor {(sponsorData?.total ?? sponsorCompanies.length) === 1 ? "organisation" : "organisations"} available
+                  {sendCvVacancies.length} matched {sendCvVacancies.length === 1 ? "vacancy" : "vacancies"} across {sendCvGroups.length} {sendCvGroups.length === 1 ? "employer" : "employers"}
                 </p>
                 <div className="space-y-3">
-                  {sponsorCompanies.map((company) => (
-                    <SendCvSponsorCard
-                      key={company.id}
-                      company={company}
-                      alreadySent={sentSponsorNames.has(company.organisationName.toLowerCase())}
+                  {sendCvGroups.map((group) => (
+                    <SendCvEmployerGroup
+                      key={group.employer.trim().toLowerCase()}
+                      employer={group.employer}
+                      vacancies={group.vacancies}
+                      cvSentRoleIds={cvSentRoleIds}
                       hasCv={hasCvUploaded}
-                      onSend={() => setSendCvCompanyTarget(company)}
+                      onSend={setSendCvTarget}
                       onUploadCv={() => setLocation("/documents")}
                     />
                   ))}
@@ -2199,7 +2222,7 @@ export default function OpportunitiesPage() {
             companyName={sendCvTarget.role.employer}
             vacancyTitle={sendCvTarget.role.title}
             roleId={sendCvTarget.role.id}
-            externalUrl={sendCvTarget.applyUrl ?? sendCvTarget.contactWebsite ?? null}
+            externalUrl={sendCvTarget.applyUrl ?? null}
             sourceType={sendCvTarget.role.sourceType ?? null}
             boardName={sendCvTarget.role.boardName ?? null}
             onClose={() => setSendCvTarget(null)}
@@ -2208,25 +2231,6 @@ export default function OpportunitiesPage() {
               void queryClient.invalidateQueries({ queryKey: ["listSpeculativeApplications"] });
               void queryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
               void queryClient.invalidateQueries({ queryKey: getListMatchedRolesQueryKey() });
-            }}
-          />
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {sendCvCompanyTarget && (
-          <SponsorVacancyApplyModal
-            speculative
-            requireDirectContact
-            companyName={sendCvCompanyTarget.organisationName}
-            companyId={sendCvCompanyTarget.id}
-            location={[sendCvCompanyTarget.townCity, sendCvCompanyTarget.region ?? sendCvCompanyTarget.county].filter(Boolean).join(", ") || null}
-            onClose={() => setSendCvCompanyTarget(null)}
-            onSuccess={() => {
-              setSendCvCompanyTarget(null);
-              void queryClient.invalidateQueries({ queryKey: ["listSpeculativeApplications"] });
-              void queryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
-              void queryClient.invalidateQueries({ queryKey: getListSponsorLicencesQueryKey() });
             }}
           />
         )}

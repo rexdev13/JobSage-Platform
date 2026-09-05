@@ -22,12 +22,12 @@ misrepresents both the recipient and delivery outcome.
 hide Send CV unless it is true, and have the send endpoint reject an operations
 resolution when the UI's direct-contact requirement is set.
 
-When a Send CV sponsor has no specific live vacancy, open the company-level
-Smart Apply outreach assistant rather than fabricating or selecting a role.
+The Opportunities Send CV tab is vacancy-specific: group matched vacancies by
+employer and never offer a company-general send from that tab.
 
-**Why:** Direct-contact sponsors can still receive a truthful speculative CV
-outreach, but vacancy-specific questions and claims require real vacancy evidence.
+**Why:** Candidates need to know which exact role receives their CV, and the
+tracker/email must retain the vacancy title, role identity, and exact link.
 
-**How to apply:** Give the assistant the real company and speculative-outreach
-context, keep CV delivery and tracking intact, and do not require the browser
-extension for this first-party company outreach flow.
+**How to apply:** Build the tab from the shared matched-role feed, retain
+email-only vacancy rows with direct contacts, and pass the vacancy title, role
+ID, source metadata, and exact vacancy URL into every send.
