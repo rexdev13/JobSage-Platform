@@ -11,12 +11,14 @@ const HTTP_DEFAULT_LIMITS: Record<VacancyJobKind, number> = {
   job_board: 50,
   company_site: 30,
   liveness: 100,
+  contact: 5,
 };
 
 const HTTP_MAX_LIMITS: Record<VacancyJobKind, number> = {
   job_board: 50,
   company_site: 40,
   liveness: 120,
+  contact: 5,
 };
 
 router.post("/internal/vacancy-jobs", async (req: Request, res: Response): Promise<void> => {
@@ -38,9 +40,10 @@ router.post("/internal/vacancy-jobs", async (req: Request, res: Response): Promi
   if (
     requestedKind !== "job_board" &&
     requestedKind !== "company_site" &&
-    requestedKind !== "liveness"
+    requestedKind !== "liveness" &&
+    requestedKind !== "contact"
   ) {
-    res.status(400).json({ error: "kind must be job_board, company_site, or liveness." });
+    res.status(400).json({ error: "kind must be job_board, company_site, liveness, or contact." });
     return;
   }
   const kind: VacancyJobKind = requestedKind;

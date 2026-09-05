@@ -114,6 +114,56 @@ export const sponsorLicenceCompanySiteChecksTable = pgTable(
 export type SponsorLicenceCompanySiteCheck = typeof sponsorLicenceCompanySiteChecksTable.$inferSelect;
 export type InsertSponsorLicenceCompanySiteCheck = typeof sponsorLicenceCompanySiteChecksTable.$inferInsert;
 
+/**
+ * Per-employer, resumable state for the deliberately separate website/contact
+ * enrichment worker.  This is not tied to a licence row because an employer can
+ * occur more than once in the sponsor register.
+ */
+export const sponsorLicenceContactEnrichmentsTable = pgTable(
+  "sponsor_licence_contact_enrichments",
+  {
+    id: serial("id").primaryKey(),
+    organisationName: text("organisation_name").notNull(),
+    stage: varchar("stage", { enum: ["website", "contact"] }).notNull().default("website"),
+    status: varchar("status", { enum: ["pending", "retry", "complete", "failed"] }).notNull().default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    retryAfter: timestamp("retry_after", { withTimezone: true }),
+    websiteUrl: text("website_url"),
+    websiteLookupSource: varchar("website_lookup_source", { enum: ["stored", "vacancy", "web_search"] }),
+    websiteLookupAt: timestamp("website_lookup_at", { withTimezone: true }),
+    websiteCitedAt: timestamp("website_cited_at", { withTimezone: true }),
+    websiteVerifiedAt: timestamp("website_verified_at", { withTimezone: true }),
+    websiteEvidenceUrl: text("website_evidence_url"),
+    contactEmail: text("contact_email"),
+    contactEvidenceUrl: text("contact_evidence_url"),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("contact_enrichments_org_unique").on(t.organisationName),
+    index("contact_enrichments_due_idx").on(t.status, t.retryAfter),
+  ],
+);
+
+export type SponsorLicenceContactEnrichment = typeof sponsorLicenceContactEnrichmentsTable.$inferSelect;
+export type InsertSponsorLicenceContactEnrichment = typeof sponsorLicenceContactEnrichmentsTable.$inferInsert;
+
+export const contactWebSearchUsageTable = pgTable(
+  "contact_web_search_usage",
+  {
+    id: serial("id").primaryKey(),
+    utcDate: date("utc_date").notNull(),
+    organisationName: text("organisation_name").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("contact_web_search_usage_org_day_unique").on(t.utcDate, t.organisationName),
+    index("contact_web_search_usage_day_idx").on(t.utcDate),
+  ],
+);
+
 export const companySiteHostStatesTable = pgTable(
   "company_site_host_states",
   {

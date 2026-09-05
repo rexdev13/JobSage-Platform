@@ -34,6 +34,7 @@ Kinds and safe HTTP defaults:
 | `job_board` | 50 employers | 50 |
 | `company_site` | 30 employers | 40 |
 | `liveness` | 100 URLs | 120 |
+| `contact` | 5 employers | 5 |
 
 The response is returned only after that batch finishes:
 
@@ -72,7 +73,7 @@ curl --fail-with-body \
   --data '{"kind":"job_board","limit":50}'
 ```
 
-Company-site and liveness:
+Company-site, liveness, and resumable official-contact enrichment:
 
 ```sh
 curl --fail-with-body -X POST https://jobsage.co.uk/api/internal/vacancy-jobs \
@@ -84,6 +85,11 @@ curl --fail-with-body -X POST https://jobsage.co.uk/api/internal/vacancy-jobs \
   -H "Content-Type: application/json" \
   -H "x-jobsage-job-secret: ${VACANCY_JOB_SECRET}" \
   --data '{"kind":"liveness","limit":100}'
+
+curl --fail-with-body -X POST https://jobsage.co.uk/api/internal/vacancy-jobs \
+  -H "Content-Type: application/json" \
+  -H "x-jobsage-job-secret: ${VACANCY_JOB_SECRET}" \
+  --data '{"kind":"contact","limit":5}'
 ```
 
 Wait for each response before sending the next request. A `409` means another
@@ -98,11 +104,18 @@ Create POST jobs using the endpoint, JSON body, and
 - Board: `0 2,8,14,20 * * *`
 - Company site: `17 * * * *`
 - Liveness: `30 1,7,13,19 * * *`
+- Contact: `47 3 * * *` (one authenticated, non-overlapping daily batch)
 
 cron-job.org sends one request per trigger. To drain more than one short batch,
 use multiple sequential jobs with enough spacing for the previous request to
 finish, or use a looping runner such as GitHub Actions. Never overlap kinds; they
 share one writer lock.
+
+The contact worker has its own persisted UTC daily web-search allowance
+(`CONTACT_WEB_SEARCH_DAILY_CAP`, default 50, maximum 100). A zero-selected
+contact response may still report backlog because rows are awaiting their retry
+time or tomorrow's allowance; stop that loop rather than hammering the endpoint,
+and let the daily contact schedule run again.
 
 ## GitHub Actions loop
 
@@ -114,7 +127,7 @@ The loop must await every curl and stop when the JSON response reports
 `done=true` or `selected=0`:
 
 ```sh
-for kind in job_board company_site liveness; do
+for kind in job_board company_site liveness contact; do
   while true; do
     response="$(curl --fail-with-body \
       -X POST https://jobsage.co.uk/api/internal/vacancy-jobs \
@@ -131,7 +144,10 @@ for kind in job_board company_site liveness; do
 done
 ```
 
-Keep `VACANCY_AI_WEB_SEARCH_DAILY_CAP=0`. The HTTP route uses the existing
+Keep `VACANCY_AI_WEB_SEARCH_DAILY_CAP=0`. The contact worker is separate and
+resumable per organisation: it only uses corroborated official employer pages,
+honours company-site robots/SSRF/pacing protections, never guesses an address,
+and never overwrites register contact data. The HTTP route uses the existing
 NHS/Reed, company-site, and liveness workers with their leases, robots rules,
 backoff, pacing, and shared advisory lock. It does not run a boot catch-up or
 full-database scan.
