@@ -8,6 +8,7 @@ import { computeSmartApplyReady } from "../lib/profileCompleteness";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { ObjectPermission } from "../lib/objectAcl";
+import { ensureCanonicalJobsageAlias } from "../lib/jobsageEmailGen";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -25,6 +26,7 @@ router.get("/smart-apply/candidate-prefill", requireAuthenticated, async (req: R
   const firstName = user.firstName ?? null;
   const lastName = user.lastName ?? null;
   const fullName = [firstName, lastName].filter((name): name is string => Boolean(name)).join(" ");
+  const jobsageEmail = await ensureCanonicalJobsageAlias(user.id, firstName, lastName);
   const [profile] = await db
     .select({
       phone: profilesTable.phone,
@@ -50,7 +52,7 @@ router.get("/smart-apply/candidate-prefill", requireAuthenticated, async (req: R
     firstName,
     lastName,
     fullName,
-    email: user.email ?? null,
+    email: jobsageEmail,
     phone: profile?.phone ?? null,
     streetAddress: profile?.streetAddress ?? null,
     city: profile?.city ?? null,
@@ -101,12 +103,13 @@ router.post("/smart-apply/structured-prefill", requireAuthenticated, async (req:
   const cvText = await fetchSmartApplyCvText(req.user!.id);
   const firstName = req.user!.firstName ?? "";
   const lastName = req.user!.lastName ?? "";
+  const jobsageEmail = await ensureCanonicalJobsageAlias(req.user!.id, firstName, lastName);
   const roleTitle = typeof req.body?.jobTitle === "string" ? req.body.jobTitle.trim().slice(0, 300) : "";
   const employer = typeof req.body?.employer === "string" ? req.body.employer.trim().slice(0, 300) : "";
   const evidence = `
 Candidate:
 - Name: ${[firstName, lastName].filter(Boolean).join(" ")}
-- Email: ${req.user!.email ?? ""}
+- Email: ${jobsageEmail}
 - Phone: ${profile.phone ?? ""}
 - Address: ${[profile.streetAddress, profile.city, profile.postcode, profile.country].filter(Boolean).join(", ")}
 - Profession: ${profile.profession}

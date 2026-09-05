@@ -3,7 +3,7 @@ import cookieParser from "cookie-parser";
 import express from "express";
 import request from "supertest";
 
-const { queryResults, storage, createCompletion } = vi.hoisted(() => ({
+const { queryResults, storage, createCompletion, ensureCanonicalJobsageAlias } = vi.hoisted(() => ({
   queryResults: [] as any[],
   storage: {
     getObjectEntityFile: vi.fn(),
@@ -11,6 +11,7 @@ const { queryResults, storage, createCompletion } = vi.hoisted(() => ({
     downloadObject: vi.fn(),
   },
   createCompletion: vi.fn(),
+  ensureCanonicalJobsageAlias: vi.fn().mockResolvedValue("jane.doe.abc123@mail.jobsage.app"),
 }));
 
 vi.mock("@workspace/db", () => {
@@ -52,6 +53,10 @@ vi.mock("@workspace/integrations-openai-ai-server", () => ({
       },
     },
   },
+}));
+
+vi.mock("../../lib/jobsageEmailGen", () => ({
+  ensureCanonicalJobsageAlias,
 }));
 
 vi.mock("../../lib/auth", async () => {
@@ -119,7 +124,7 @@ describe("Smart Apply extension endpoints", () => {
       firstName: "Jane",
       lastName: "Doe",
       fullName: "Jane Doe",
-      email: "jane@example.com",
+      email: "jane.doe.abc123@mail.jobsage.app",
       phone: null,
       streetAddress: null,
       city: null,
@@ -139,7 +144,7 @@ describe("Smart Apply extension endpoints", () => {
     expect(response.body).not.toHaveProperty("passwordHash");
   });
 
-  it("uses the signed-in account email while returning contact fields from the profile", async () => {
+  it("uses the JOBSAGE alias without exposing the signed-in email", async () => {
     queryResults.push([{
       phone: "+44 7700 900123",
       streetAddress: "10 Example Road",
@@ -154,14 +159,15 @@ describe("Smart Apply extension endpoints", () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toMatchObject({
-      email: "jane@example.com",
+      email: "jane.doe.abc123@mail.jobsage.app",
       phone: "+44 7700 900123",
       streetAddress: "10 Example Road",
       city: "Leeds",
       postcode: "LS1 1AA",
       country: "United Kingdom",
     });
-    expect(response.body).not.toHaveProperty("jobsageEmail");
+    expect(JSON.stringify(response.body)).not.toContain("jane@example.com");
+    expect(ensureCanonicalJobsageAlias).toHaveBeenCalledWith("candidate-1", "Jane", "Doe");
   });
 
   it("returns 404 when the candidate has no CV", async () => {
@@ -270,5 +276,7 @@ describe("Smart Apply extension endpoints", () => {
     expect(createCompletion).toHaveBeenCalledTimes(2);
     expect(createCompletion.mock.calls[0]?.[0]).toMatchObject({ model: "gpt-4o-mini" });
     expect(createCompletion.mock.calls[1]?.[0]).toMatchObject({ model: "gpt-4o-mini" });
+    expect(JSON.stringify(createCompletion.mock.calls)).toContain("jane.doe.abc123@mail.jobsage.app");
+    expect(JSON.stringify(createCompletion.mock.calls)).not.toContain("jane@example.com");
   });
 });

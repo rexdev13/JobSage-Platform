@@ -22,6 +22,7 @@ export interface CandidateProfile {
 
 export interface TrustedVacancyContext {
   jobTitle?: string | null;
+  preserveExistingEmail?: boolean;
 }
 
 export interface PrefillResult {
@@ -87,6 +88,28 @@ const FIELD_RULES: Array<{ key: DetailKey; label: string; pattern: RegExp }> = [
 
 function clean(value: string | null | undefined): string {
   return value?.replace(/\s+/g, " ").trim() ?? "";
+}
+
+function isJobsageAlias(value: string): boolean {
+  return /^[^\s@]+@mail\.jobsage\.app$/i.test(clean(value));
+}
+
+export function isConfidentAuthenticatedAccountPage(doc: Document, pageUrl: string): boolean {
+  let pathname = "";
+  try {
+    pathname = new URL(pageUrl).pathname;
+  } catch {
+    return false;
+  }
+  if (!/(?:^|\/)(?:account|settings|profile|my-details|personal-details)(?:\/|$)/i.test(pathname)) {
+    return false;
+  }
+  const pageText = clean(
+    Array.from(doc.body?.querySelectorAll("h1, h2, h3, button, a, label") ?? [])
+      .map((element) => element.textContent ?? "")
+      .join(" "),
+  ).slice(0, 20_000);
+  return /\b(sign out|log out|change password|account settings|profile settings|security settings)\b/i.test(pageText);
 }
 
 function isVisible(field: DetailField): boolean {
@@ -210,8 +233,26 @@ export function prefillPersonalDetails(
       continue;
     }
 
-    const currentValue = clean(field.value);
     const candidateValue = valueFor(profile, rule.key);
+    const currentValue = clean(field.value);
+    if (rule.key === "email") {
+      if (!isJobsageAlias(candidateValue)) {
+        missing.add(rule.label);
+        if (questionId) fieldResults[questionId] = { status: "missing", message: "No JOBSAGE alias is available" };
+        continue;
+      }
+      if (currentValue.toLowerCase() === candidateValue.toLowerCase()) continue;
+      if (currentValue && vacancyContext?.preserveExistingEmail) {
+        skipped.push(rule.label);
+        if (questionId) fieldResults[questionId] = { status: "skipped", message: "Existing account email preserved" };
+        continue;
+      }
+      if (isSelect(field)) continue;
+      setTextValue(field, candidateValue);
+      filled.add(rule.label);
+      if (questionId) fieldResults[questionId] = { status: "filled", message: "Filled with your JOBSAGE alias" };
+      continue;
+    }
     if (currentValue) continue;
     if (!candidateValue) {
       missing.add(rule.label);
@@ -235,5 +276,13 @@ export function prefillPersonalDetails(
     if (questionId) fieldResults[questionId] = { status: "filled", message: "Filled from JOBSAGE" };
   }
 
-  return { filled: Array.from(filled), missing: Array.from(missing), skipped, fieldResults };
+  return {
+    filled: Array.from(filled),
+    missing: Array.from(missing),
+    skipped,
+    fieldResults,
+    warning: vacancyContext?.preserveExistingEmail && skipped.includes("email")
+      ? "This account email was left unchanged. Applications sent to it may not be monitored by JOBSAGE."
+      : undefined,
+  };
 }

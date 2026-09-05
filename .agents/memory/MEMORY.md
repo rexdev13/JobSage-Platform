@@ -31,3 +31,4 @@
 - [Smart Apply profile gate](smart-apply-profile-gate.md) — search preferences such as preferred region are optional and must not block application drafting.
 - [Vacancy sponsorship evidence](vacancy-sponsorship-evidence.md) — sponsor-register membership and vacancy-confirmed sponsorship are separate facts; never infer one from the other.
 - [Production vacancy schedulers](production-vacancy-schedulers.md) — keep web on Autoscale; external Scheduled workers own capped discovery/liveness jobs and production has no boot crawl.
+- [Smart Apply alias privacy](smart-apply-alias-privacy.md) — external ATS prefill and tracking use the canonical JOBSAGE alias; personal login email stays out of extension evidence.

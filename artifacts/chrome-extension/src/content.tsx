@@ -14,7 +14,12 @@ import {
 import { createAnswerMemoryController } from "./lib/answerMemory";
 import { ensureBrandFonts } from "./lib/brand";
 import type { PillPos } from "./lib/types";
-import { prefillPersonalDetails, type CandidateProfile, type PrefillResult } from "./lib/prefill";
+import {
+  isConfidentAuthenticatedAccountPage,
+  prefillPersonalDetails,
+  type CandidateProfile,
+  type PrefillResult,
+} from "./lib/prefill";
 import { attachCvToForm, type CandidateCv, type CvAttachResult } from "./lib/cvAttachment";
 import { scrapeJobContext, hasApplicationForm, type JobContext } from "./lib/scraper";
 import { hideRawPhpRuntimeWarnings, watchRawPhpRuntimeWarnings } from "./lib/pageWarnings";
@@ -236,10 +241,13 @@ async function prefillApplicationDetails(questions: DetectedQuestion[] = []): Pr
   }
   const payload = response.data as { profile?: CandidateProfile };
   const trackingContext = await getTrackingContext();
+  const preserveExistingEmail =
+    !hasApplicationForm()
+    && isConfidentAuthenticatedAccountPage(document, window.location.href);
   const result = prefillPersonalDetails(
     payload.profile ?? (response.data as CandidateProfile),
     document,
-    { jobTitle: trackingContext?.jobTitle },
+    { jobTitle: trackingContext?.jobTitle, preserveExistingEmail },
   );
   const fields = getStructuredFieldDescriptors(questions);
   if (fields.length === 0) return result;

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from "vitest";
-import { prefillPersonalDetails } from "../lib/prefill";
+import { isConfidentAuthenticatedAccountPage, prefillPersonalDetails } from "../lib/prefill";
 import { findCvFileInput } from "../lib/cvAttachment";
 
 beforeEach(() => {
@@ -21,12 +21,12 @@ describe("prefillPersonalDetails", () => {
     const result = prefillPersonalDetails({
       firstName: "Ada",
       lastName: "Lovelace",
-      email: "ada@example.test",
+      email: "ada.lovelace.abc123@mail.jobsage.app",
     });
 
     expect((document.getElementById("first") as HTMLInputElement).value).toBe("Ada");
     expect((document.getElementById("last") as HTMLInputElement).value).toBe("Already entered");
-    expect((document.getElementById("mail") as HTMLInputElement).value).toBe("ada@example.test");
+    expect((document.getElementById("mail") as HTMLInputElement).value).toBe("ada.lovelace.abc123@mail.jobsage.app");
     expect((document.getElementById("password") as HTMLInputElement).value).toBe("");
     expect((document.getElementById("ni") as HTMLInputElement).value).toBe("");
     expect(result.filled).toEqual(["first name", "email"]);
@@ -73,6 +73,45 @@ describe("prefillPersonalDetails", () => {
     expect((document.getElementById("phone-confirm") as HTMLInputElement).value).toBe("07123456789");
     expect((document.getElementById("phone-existing") as HTMLInputElement).value).toBe("Keep me");
     expect((document.getElementById("password-again") as HTMLInputElement).value).toBe("");
+  });
+
+  it("fills an empty email, replaces a different application email, and leaves the matching alias unchanged", () => {
+    const alias = "ada.lovelace.abc123@mail.jobsage.app";
+    document.body.innerHTML = `
+      <label for="empty-email">Email</label><input id="empty-email" type="email">
+      <label for="personal-email">Email address</label><input id="personal-email" type="email" value="ada@example.test">
+      <label for="alias-email">Confirm email</label><input id="alias-email" type="email" value="${alias}">
+    `;
+
+    const result = prefillPersonalDetails({ email: alias });
+
+    expect((document.getElementById("empty-email") as HTMLInputElement).value).toBe(alias);
+    expect((document.getElementById("personal-email") as HTMLInputElement).value).toBe(alias);
+    expect((document.getElementById("alias-email") as HTMLInputElement).value).toBe(alias);
+    expect(result.filled).toEqual(["email"]);
+  });
+
+  it("preserves a different email on a confirmed account settings page and warns about monitoring", () => {
+    document.body.innerHTML = `
+      <h1>Account settings</h1><button>Sign out</button>
+      <label for="account-email">Email</label><input id="account-email" type="email" value="ada@example.test">
+    `;
+    expect(isConfidentAuthenticatedAccountPage(document, "https://ats.example.test/account/settings")).toBe(true);
+
+    const result = prefillPersonalDetails(
+      { email: "ada.lovelace.abc123@mail.jobsage.app" },
+      document,
+      { preserveExistingEmail: true },
+    );
+
+    expect((document.getElementById("account-email") as HTMLInputElement).value).toBe("ada@example.test");
+    expect(result.warning).toMatch(/may not be monitored by JOBSAGE/i);
+    expect(result.skipped).toContain("email");
+  });
+
+  it("does not classify an application URL as authenticated account settings", () => {
+    document.body.innerHTML = `<h1>Apply now</h1><button>Sign out</button>`;
+    expect(isConfidentAuthenticatedAccountPage(document, "https://ats.example.test/jobs/42/apply")).toBe(false);
   });
 
   it("fills an empty position field only from trusted vacancy context", () => {

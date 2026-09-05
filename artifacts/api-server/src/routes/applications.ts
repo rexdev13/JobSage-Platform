@@ -4,6 +4,7 @@ import { applicationsTable, speculativeApplicationsTable, ApplicationStatus } fr
 import { eq, and, inArray, desc, sql } from "drizzle-orm";
 import { requireAuthenticated } from "../middlewares/requireRole";
 import { createApplicationReceivedMessage } from "../lib/systemMessages";
+import { resolveJobsageAlias } from "../lib/jobsageEmailGen";
 
 const router: IRouter = Router();
 
@@ -240,6 +241,7 @@ router.post("/applications", requireAuthenticated, async (req: Request, res: Res
         if (existing) {
           const shouldUpgrade = requestedStatus === "applied" && existing.status === "link_clicked";
           const isFirstPartyClick = requestedStatus === "link_clicked";
+          const jobsageEmail = existing.jobsageEmail ?? await resolveJobsageAlias(userId);
           const [updated] = await tx
             .update(applicationsTable)
             .set({
@@ -261,6 +263,7 @@ router.post("/applications", requireAuthenticated, async (req: Request, res: Res
               notes: typeof notes === "string" ? notes : existing.notes,
               status: shouldUpgrade ? "applied" : existing.status,
               cvDocumentId: cvDocumentId ?? existing.cvDocumentId,
+              jobsageEmail,
             })
             .where(eq(applicationsTable.id, existing.id))
             .returning();
@@ -269,6 +272,7 @@ router.post("/applications", requireAuthenticated, async (req: Request, res: Res
         }
       }
 
+      const jobsageEmail = await resolveJobsageAlias(userId);
       const [application] = await tx
         .insert(applicationsTable)
         .values({
@@ -281,6 +285,7 @@ router.post("/applications", requireAuthenticated, async (req: Request, res: Res
           notes: notes ?? null,
           status: requestedStatus,
           cvDocumentId: cvDocumentId ?? null,
+          jobsageEmail,
         })
         .returning();
 
@@ -391,9 +396,10 @@ router.post("/applications/confirm-submission", requireAuthenticated, async (req
       return { application: existing, updated: false };
     }
 
+    const jobsageEmail = existing.jobsageEmail ?? await resolveJobsageAlias(userId);
     const [updated] = await tx
       .update(applicationsTable)
-      .set({ status: "applied" })
+      .set({ status: "applied", jobsageEmail })
       .where(eq(applicationsTable.id, existing.id))
       .returning();
 
