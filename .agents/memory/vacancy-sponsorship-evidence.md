@@ -7,4 +7,4 @@ An employer appearing on the Home Office sponsor register means only that the or
 
 **Why:** Candidates may otherwise receive a “Sponsorship Available” promise and inflated match guidance for a vacancy whose advert never offers sponsorship.
 
-**How to apply:** Represent sponsor-register membership separately. Confirm vacancy sponsorship only from explicit advert or trusted structured-source evidence; explicit negative wording wins, and absent or ambiguous wording stays unknown.
+**How to apply:** Candidate UI shows only the Home Office licensed-sponsor signal with a warning that the job may not sponsor. Keep vacancy classification for admin/API use, but do not display vacancy sponsorship badges, feasibility claims, or filters unless evidence coverage materially improves. Explicit negative wording wins, and absent or ambiguous wording stays unknown.
