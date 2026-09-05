@@ -21,3 +21,13 @@ misrepresents both the recipient and delivery outcome.
 **How to apply:** Return only a boolean eligibility signal to candidate clients,
 hide Send CV unless it is true, and have the send endpoint reject an operations
 resolution when the UI's direct-contact requirement is set.
+
+When a Send CV sponsor has no specific live vacancy, open the company-level
+Smart Apply outreach assistant rather than fabricating or selecting a role.
+
+**Why:** Direct-contact sponsors can still receive a truthful speculative CV
+outreach, but vacancy-specific questions and claims require real vacancy evidence.
+
+**How to apply:** Give the assistant the real company and speculative-outreach
+context, keep CV delivery and tracking intact, and do not require the browser
+extension for this first-party company outreach flow.

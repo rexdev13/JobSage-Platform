@@ -60,6 +60,24 @@ export function isExtensionInstalled(): boolean {
   return !!document.getElementById(EXTENSION_MARKER_ID);
 }
 
+async function waitForExtensionMarker(timeoutMs = 4_000): Promise<boolean> {
+  if (isExtensionInstalled()) return true;
+  const startedAt = Date.now();
+  return await new Promise((resolve) => {
+    const timer = window.setInterval(() => {
+      if (isExtensionInstalled()) {
+        window.clearInterval(timer);
+        resolve(true);
+        return;
+      }
+      if (Date.now() - startedAt >= timeoutMs) {
+        window.clearInterval(timer);
+        resolve(false);
+      }
+    }, 200);
+  });
+}
+
 function downloadUrl(): string {
   return `${import.meta.env.BASE_URL}jobsage-smart-apply-extension.zip`;
 }
@@ -236,19 +254,17 @@ export function ExtensionRequiredModal({
 
   if (!open) return null;
 
-  function handleRecheck() {
+  async function handleRecheck() {
     setChecking(true);
     setNotFound(false);
-    // Give the content script a brief moment in case it was just installed.
-    setTimeout(() => {
-      setChecking(false);
-      if (isExtensionInstalled()) {
-        onClose();
-        onProceed?.();
-      } else {
-        setNotFound(true);
-      }
-    }, 600);
+    const installed = await waitForExtensionMarker();
+    setChecking(false);
+    if (installed) {
+      onClose();
+      onProceed?.();
+    } else {
+      setNotFound(true);
+    }
   }
 
   return (
