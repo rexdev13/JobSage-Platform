@@ -1753,24 +1753,10 @@ export default function OpportunitiesPage() {
   const sentSponsorNames = new Set((speculativeData?.applications ?? []).map((application) => application.companyName.toLowerCase()));
   const hasCvUploaded = (documentsData?.documents ?? []).some((document) => document.documentType === "cv");
 
-  const keyFieldsComplete = !!(
-    p?.profession && p?.specialty && p?.qualificationCountry && p?.qualificationType &&
-    p?.qualificationYear && (p?.qualificationYear as number) > 0 &&
-    p?.experienceYears && (p?.experienceYears as number) > 0 &&
-    p?.registrationStatus && p?.residencyStatus && p?.preferredRegion &&
-    p?.preferredStartDate &&
-    Array.isArray(p?.languages) && (p?.languages as unknown[]).length > 0
-  );
-
   function handleSmartApply(roleId: number, roleTitle: string) {
-    if (!keyFieldsComplete) {
-      toast({
-        title: "Complete your profile first",
-        description: "Please fill in all key profile fields (profession, qualifications, experience, preferred region, start date, and languages) before using Smart Apply.",
-        variant: "destructive",
-      });
-      return;
-    }
+    // The server owns Smart Apply readiness and returns the exact missing
+    // application-critical fields. A duplicate client gate previously blocked
+    // valid profiles on optional preferences and stale profile-query state.
     requireExtension(() => setSmartApplyRole({ id: roleId, title: roleTitle }));
   }
 
