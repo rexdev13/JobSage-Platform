@@ -1,0 +1,97 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import express from "express";
+import request from "supertest";
+
+const { runVacancyJobMock } = vi.hoisted(() => ({
+  runVacancyJobMock: vi.fn(),
+}));
+
+vi.mock("../../lib/vacancyJobRunner", () => ({
+  runVacancyJob: runVacancyJobMock,
+}));
+
+vi.mock("../../lib/vacancyAiBudget", () => ({
+  getVacancyAiWebSearchDailyCap: () => 0,
+}));
+
+const { default: router } = await import("../../routes/internalVacancyJobs");
+
+const app = express();
+app.use(express.json());
+app.use(router);
+
+describe("POST /internal/vacancy-jobs", () => {
+  const originalSecret = process.env.VACANCY_JOB_SECRET;
+
+  beforeEach(() => {
+    process.env.VACANCY_JOB_SECRET = "test-job-secret";
+    runVacancyJobMock.mockReset();
+    runVacancyJobMock.mockResolvedValue({
+      selected: 2,
+      upserted: 1,
+      live: 0,
+      dead: 0,
+      inconclusive: 0,
+      errors: 0,
+      done: true,
+    });
+  });
+
+  afterEach(() => {
+    if (originalSecret == null) delete process.env.VACANCY_JOB_SECRET;
+    else process.env.VACANCY_JOB_SECRET = originalSecret;
+  });
+
+  it("fails closed when the production secret is unset", async () => {
+    delete process.env.VACANCY_JOB_SECRET;
+
+    const response = await request(app)
+      .post("/internal/vacancy-jobs")
+      .send({ kind: "job_board" });
+
+    expect(response.status).toBe(503);
+    expect(runVacancyJobMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a missing or incorrect header", async () => {
+    const response = await request(app)
+      .post("/internal/vacancy-jobs")
+      .send({ kind: "job_board" });
+
+    expect(response.status).toBe(401);
+    expect(runVacancyJobMock).not.toHaveBeenCalled();
+  });
+
+  it("awaits the worker and returns its final summary", async () => {
+    const response = await request(app)
+      .post("/internal/vacancy-jobs")
+      .set("x-jobsage-job-secret", "test-job-secret")
+      .send({ kind: "job_board" });
+
+    expect(runVacancyJobMock).toHaveBeenCalledWith("job_board", 50);
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      selected: 2,
+      upserted: 1,
+      live: 0,
+      dead: 0,
+      inconclusive: 0,
+      errors: 0,
+      done: true,
+    });
+  });
+
+  it.each([
+    ["job_board", 999, 50],
+    ["company_site", 999, 40],
+    ["liveness", 999, 120],
+  ] as const)("caps %s HTTP batches", async (kind, requested, expected) => {
+    const response = await request(app)
+      .post("/internal/vacancy-jobs")
+      .set("x-jobsage-job-secret", "test-job-secret")
+      .send({ kind, limit: requested });
+
+    expect(response.status).toBe(200);
+    expect(runVacancyJobMock).toHaveBeenCalledWith(kind, expected);
+  });
+});

@@ -84,7 +84,7 @@ app.listen(port, () => {
   startSponsorVacancyCleanupScheduler();
   startApplyUrlBackfillScheduler();
   if (process.env.NODE_ENV === "production") {
-    console.log("[vacancy-scheduling] External Scheduled deployments own job_board, company_site, and liveness");
+    console.log("[vacancy-scheduling] External HTTP cron owns short job_board, company_site, and liveness batches");
   } else {
     startVacancyCheckScheduler();
     startCompanySiteDiscoveryScheduler();

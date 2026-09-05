@@ -212,7 +212,9 @@ export async function runCompanySiteCheck(
   };
 }
 
-export async function runCompanySiteDiscoveryBatch(): Promise<CompanySiteBatchSummary | null> {
+export async function runCompanySiteDiscoveryBatch(
+  options: { batchSize?: number } = {},
+): Promise<CompanySiteBatchSummary | null> {
   if (batchInProgress) {
     console.log("[company-site-scheduler] Previous batch still running — skipping this tick");
     return null;
@@ -220,7 +222,10 @@ export async function runCompanySiteDiscoveryBatch(): Promise<CompanySiteBatchSu
   batchInProgress = true;
   const startedAt = Date.now();
   try {
-    const rows = await selectCompanySiteBatch();
+    const batchSize = options.batchSize == null
+      ? getBatchSize()
+      : Math.max(1, Math.min(Math.floor(options.batchSize), COMPANY_SITE_DISCOVERY_BATCH_SIZE));
+    const rows = await selectCompanySiteBatch(batchSize);
     console.log(
       `[company-site-scheduler] Starting hourly batch size=${rows.length} concurrency=${COMPANY_SITE_DISCOVERY_CONCURRENCY}`,
     );

@@ -1,4 +1,9 @@
-# Vacancy jobs Scheduled deployments
+# Legacy Scheduled deployment approach
+
+> Superseded by [`vacancy-jobs-http-cron.md`](./vacancy-jobs-http-cron.md).
+> Keep the public application on Autoscale and use the authenticated short-batch
+> HTTP endpoint. Do not create the separate Scheduled deployments described
+> below.
 
 The public `jobsage.co.uk` deployment remains **Autoscale**. Production vacancy
 discovery and liveness are owned by separate Replit **Scheduled** deployments,
