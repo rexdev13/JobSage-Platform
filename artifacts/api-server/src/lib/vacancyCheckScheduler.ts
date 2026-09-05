@@ -154,6 +154,7 @@ export async function selectBatch(batchSize: number): Promise<{ id: number; orga
 
 export async function runVacancyCheckBatch(
   triggeredBy: VacancySyncTriggeredBy = "scheduler",
+  options: { batchSize?: number } = {},
 ): Promise<VacancyCheckBatchSummary | null> {
   if (batchInProgress) {
     console.log("[vacancy-scheduler] Previous batch still running — skipping this tick");
@@ -162,7 +163,9 @@ export async function runVacancyCheckBatch(
   batchInProgress = true;
 
   try {
-    const batchSize = getBatchSize();
+    const batchSize = options.batchSize == null
+      ? getBatchSize()
+      : Math.max(1, Math.min(Math.floor(options.batchSize), MAX_VACANCY_CHECK_BATCH_SIZE));
     const startMs = Date.now();
     console.log(`[vacancy-scheduler] Starting batch (size: ${batchSize}, concurrency: ${VACANCY_CHECK_CONCURRENCY}, triggered by: ${triggeredBy})`);
 

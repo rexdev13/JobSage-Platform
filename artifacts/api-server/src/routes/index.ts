@@ -36,6 +36,7 @@ import leadsRouter from "./leads";
 import vacancyLinkCheckRouter from "./vacancyLinkCheck";
 import cvEnhancementRouter from "./cvEnhancement";
 import readinessClaimsRouter from "./readinessClaims";
+import internalVacancyJobsRouter from "./internalVacancyJobs";
 
 const router: IRouter = Router();
 
@@ -76,5 +77,6 @@ router.use(leadsRouter);
 router.use(vacancyLinkCheckRouter);
 router.use(cvEnhancementRouter);
 router.use(readinessClaimsRouter);
+router.use(internalVacancyJobsRouter);
 
 export default router;

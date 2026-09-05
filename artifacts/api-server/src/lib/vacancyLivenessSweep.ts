@@ -148,7 +148,12 @@ function sleep(ms: number): Promise<void> {
 }
 
 export async function runVacancyLivenessSweep(
-  options: { staleThresholdMs?: number; batchLimit?: number; domainConcurrency?: number } = {},
+  options: {
+    staleThresholdMs?: number;
+    batchLimit?: number;
+    domainConcurrency?: number;
+    onSelected?: (count: number) => void;
+  } = {},
 ): Promise<SweepCounters | null> {
   if (sweepRunning) {
     console.log("[vacancy-liveness] Sweep already running — skipping");
@@ -161,6 +166,7 @@ export async function runVacancyLivenessSweep(
       options.batchLimit ?? VACANCY_LIVENESS_BATCH_LIMIT,
       options.staleThresholdMs ?? STALE_THRESHOLD_MS,
     );
+    options.onSelected?.(rawRows.length);
     // Dedupe within the batch: one check per (source, url) — markResult
     // propagates sponsor verdicts to every snapshot row sharing the URL.
     const seen = new Set<string>();
