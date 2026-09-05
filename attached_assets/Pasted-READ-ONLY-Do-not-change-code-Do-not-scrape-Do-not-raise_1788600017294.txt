@@ -1,0 +1,39 @@
+READ ONLY. Do not change code. Do not scrape. Do not raise VACANCY_AI_WEB_SEARCH_DAILY_CAP. Do not republish.
+
+We must fact-check a message to the Replit/project owner (Dr Dina’s partner) before we send it. For EACH claim: FOUND / PARTIAL / NOT FOUND, with paths or log/SQL evidence. If PARTIAL, say what is true vs still unshipped (preview only / not republished / prod unread).
+
+## A. Numbers / banners
+1. Different screens counted different things (register vs stored non-dead rows vs last check vs email-able sponsors vs live matched cards).
+2. `/vacancy-stats` and “has vacancies” NOW count only live + source_type NOT NULL + url NOT NULL.
+3. That banner code is on jobsage.co.uk today, or only in workspace pending Republish?
+4. Preview cleanup ran; production cleanup did not (or did — give current prod live typed counts vs total rows).
+
+## B. Send CV
+5. Opportunities Send CV still renders GET /sponsor-licences (company cards), not vacancies grouped under the employer.
+6. PDF attach is real; Send CV does not mark Applied / disable Apply.
+
+## C. Licensed sponsor vs this advert sponsors
+7. We never set vacancy sponsorship=yes only because the employer is on sponsor_licences.
+8. How yes/no/uncertain is set (NHS/Reed/company_site). Why cards would all show uncertain.
+9. Give preview+prod counts if readable: live typed vacancies by sponsorship flag.
+
+## D. Discovery (what we told them we built)
+10. Indeed/LinkedIn not used as discovery; AI web_search daily cap is 0.
+11. Board = NHS + Reed, batched, 24h cache; not full register in one run.
+12. Company-site = separate hourly-style batch, robots/backoff, not NHS-only industries.
+13. Liveness: dead vs inconclusive (timeout/bot ≠ dead); soft-404 → dead.
+14. Candidate GET /roles does not run the 250-employer board batch (note live job_board refresh if still fire-and-forget).
+15. 9.7k region backfill does not run on production boot.
+
+## E. Why prod looked full then empty
+16. Preview and production are different DATABASE_URLs.
+17. Production Autoscale: in-process vacancy cron + boot catch-up GATED OFF in current source.
+18. Is jobsage.co.uk still on Autoscale? Still missing POST /api/internal/vacancy-jobs until Republish?
+19. VACANCY_JOB_SECRET present in production Publishing secrets? (do not print the value)
+
+## F. Replit hosting
+20. Cannot add Scheduled worker beside Autoscale in THIS project.
+21. Must not change this publication to Scheduled (would drop the public site).
+22. Reserved VM would replace Autoscale; second Repl Scheduled is the other real split.
+
+End with: “SAFE TO TELL THE OWNER” vs “DO NOT SAY” bullet lists (short). Stop after the report.
