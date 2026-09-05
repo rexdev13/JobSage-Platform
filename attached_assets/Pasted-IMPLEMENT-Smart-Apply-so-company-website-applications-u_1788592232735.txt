@@ -1,0 +1,48 @@
+IMPLEMENT Smart Apply so company-website applications use the JOBSAGE alias. Cap stays 0. Do not change Send CV From/Reply-To (already correct). Do not change alert/login email (users.email). Do not add plus-addressing. Do not rewrite CV PDFs in this task. Do not add a new consent CMS. Do not change vacancy discovery.
+
+## Goal
+On other companies’ ATS pages (NHS Jobs, Trac, Workday, Pinpoint, generic), Smart Apply must fill the JOBSAGE alias (users.jobsageEmail / resolveJobsageAlias), never the personal login email.
+
+## Canonical alias
+- resolveJobsageAlias already exists. Use it.
+- Treat users.jobsageEmail as canonical. If profiles.jobsageEmail differs, sync profile to users (do not invent a third generator).
+- If a candidate has no alias yet, generate one the same way Send CV does, persist it, then use it.
+
+## 1. Smart Apply API
+In artifacts/api-server/src/routes/smartApply.ts:
+- The profile payload field `email` MUST be the JOBSAGE alias, not req.user.email.
+- Do not put the personal login email in the extension payload at all.
+- Optionally also send applicationEmail with the same alias if that is a tiny additive change; the extension must still map ATS email fields to this alias.
+- Keep phone/address/name as they are.
+
+## 2. Extension fill rules
+In chrome-extension prefill (FIELD_RULES / prefillPersonalDetails / valueFor):
+- Email fields still match labels/name/id/autocomplete=email.
+- If the email input is EMPTY: fill the alias.
+- If the email input is NON-EMPTY and equals the personal login email, or is clearly not the alias: REPLACE with the alias. Current `if (currentValue) continue` must NOT protect a personal email sitting in an email field.
+- If the field already contains the JOBSAGE alias: leave it.
+- If replacing would clearly break a logged-in ATS identity (optional heuristic: value looks like an email AND page is an authenticated account profile rather than an apply form) then do not smash it blindly — warn in the sidebar: “This site is using a different email. Application may not be monitored.” Prefer replace on apply forms; be conservative only if you can distinguish account-settings pages. Document the rule you shipped.
+- Do not let this change affect non-email fields. Other filled fields may still skip as today.
+
+## 3. Tracker snapshot
+On POST /applications and POST /applications/confirm-submission:
+- Persist jobsageEmail (the alias actually intended/submitted) on the applications row.
+- Additive migration. Do not drop columns.
+- Existing rows: nullable is fine; new rows must store it.
+
+## 4. Tests
+- Smart Apply profile JSON email === jobsageEmail, not users.email.
+- Candidate with only personal email and no alias: alias is created and returned.
+- Prefill: empty email → alias; email field containing users.email → replaced with alias; email field already alias → unchanged.
+- Creating an external application stores jobsageEmail.
+- Send CV still From/Reply-To alias. Alerts still go to users.email.
+- Cap 0. No AI vacancy search.
+
+## Reply with
+- files changed
+- exact payload key(s) the extension now uses for email
+- overwrite rule for non-empty email fields
+- whether users vs profiles alias sync is now canonical
+- migration name
+
+Stop. Do not do per-application aliases, inbound vacancy matching, CV masking, or mailto Contact HR in this task.
