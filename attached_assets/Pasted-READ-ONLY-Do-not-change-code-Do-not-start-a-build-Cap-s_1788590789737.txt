@@ -1,0 +1,53 @@
+READ ONLY. Do not change code. Do not start a build. Cap stays 0.
+
+We want candidates to ALWAYS apply using a JOBSAGE-controlled email so we can monitor employer replies. Personal email stays for JOBSAGE login only.
+
+FOUND / PARTIAL / NOT FOUND with file paths. Quote the functions. Do not guess.
+
+## 1. Where candidate email lives today
+Find every place a candidate email is stored or sent:
+- user / profile / auth tables
+- CV parser
+- Smart Apply profile payload to the extension
+- application tracker
+- Send CV / speculative apply
+- cover letters
+- alerts (JOBSAGE → candidate)
+
+For each: field name, table, whether it is login email vs “email used on applications”.
+
+## 2. Smart Apply / extension
+How does the extension choose the value for email / e-mail / work email fields?
+- Does it use profile.email, parsed CV email, or something else?
+- Can the candidate override it?
+- Is there already an applicationEmail / contactEmail / proxy email field?
+- List the exact keys in the Smart Apply profile JSON.
+
+## 3. Send CV / email apply
+When JOBSAGE emails an employer (Send CV, speculative, contact HR):
+- From address
+- Reply-To
+- Candidate email in the body
+Say whether the employer would reply to the candidate personally or to us.
+
+## 4. Applications tracker
+When an external apply is logged, do we store the email that was submitted? Could we match an inbound employer reply to a candidate or vacancy?
+
+## 5. Mail infrastructure
+Any existing Resend / Google / catch-all / plus-address / inbound webhook?
+Env vars related to mail. Can we receive mail at apply+{id}@jobsage.co.uk today, or only send?
+
+## 6. NHS Jobs / Trac / ATS
+Anything that assumes the candidate’s personal email must be used, or that blocks a different apply email.
+
+## 7. Recommend v1 (do not implement)
+Given the code, what is the smallest safe design:
+- unique JOBSAGE application email per candidate (plus-address or alias)
+- Smart Apply always fills that, never personal email
+- Send CV From/Reply-To uses that
+- personal email unchanged for login and JOBSAGE alerts
+- inbound replies attached to the candidate
+
+Flag blockers: email verification, existing NHS accounts, missing inbound mail, GDPR/consent UI missing.
+
+Stop after the report.
