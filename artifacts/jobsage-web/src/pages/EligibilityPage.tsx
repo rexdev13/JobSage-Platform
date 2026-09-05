@@ -44,7 +44,6 @@ type RecommendedRole = {
   matchScore: number;
   isEligible: boolean;
   matchReason?: string | null;
-  sponsorshipOffered?: boolean;
 };
 
 function useEligibleVacancies(enabled: boolean) {
@@ -291,13 +290,13 @@ type GapWithRoles = {
   timelineRange: string;
   stepSource: string;
   estimatedMonths: number;
-  sampleRolesUnlocked: Array<{ id: number; title: string; employer: string; location: string; sponsorshipOffered: boolean }>;
+  sampleRolesUnlocked: Array<{ id: number; title: string; employer: string; location: string }>;
 };
 
 type ForwardEligibilityData = {
   timeToEligibilityLabel?: string;
   timeToEligibilityMonths?: number;
-  newlyUnlockedRoles?: Array<{ id: number; title: string; employer: string; location: string; sponsorshipOffered: boolean }>;
+  newlyUnlockedRoles?: Array<{ id: number; title: string; employer: string; location: string }>;
   gapsWithRoles?: GapWithRoles[];
 };
 
@@ -380,11 +379,6 @@ function UnlockMoreSection({ outcome }: { outcome: EligibilityOutcome }) {
                           {role.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{role.location}</span>}
                         </div>
                       </div>
-                      {role.sponsorshipOffered && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200 shrink-0">
-                          Sponsors
-                        </span>
-                      )}
                     </div>
                   ))}
                 </div>
@@ -411,11 +405,6 @@ function UnlockMoreSection({ outcome }: { outcome: EligibilityOutcome }) {
                 </div>
                 <p className="text-xs text-blue-700 mt-1">Complete your career path to unlock this role</p>
               </div>
-              {role.sponsorshipOffered && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200 shrink-0">
-                  Sponsors
-                </span>
-              )}
             </div>
           ))}
         </div>

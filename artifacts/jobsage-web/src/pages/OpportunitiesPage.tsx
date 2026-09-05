@@ -32,8 +32,6 @@ import {
   MapPin,
   Building2,
   CheckCircle2,
-  XCircle,
-  HelpCircle,
   AlertCircle,
   ArrowRight,
   Star,
@@ -91,7 +89,6 @@ import {
 } from "@/components/SmartApplyExtensionPrompt";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  defaultSponsorshipOnly,
   filterOpportunities,
   getOpportunityApplyAction,
   groupRankedOpportunities,
@@ -297,27 +294,6 @@ function BestMatchesStrip({
   );
 }
 
-function SponsorshipBadge({ outcome }: { outcome: "feasible" | "not_feasible" | "uncertain" | undefined }) {
-  if (!outcome) return null;
-  if (outcome === "feasible")
-    return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-        <CheckCircle2 className="w-3 h-3" /> Sponsorship: Feasible
-      </span>
-    );
-  if (outcome === "not_feasible")
-    return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">
-        <XCircle className="w-3 h-3" /> Sponsorship: Not Feasible
-      </span>
-    );
-  return (
-    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
-      <HelpCircle className="w-3 h-3" /> Sponsorship: Uncertain
-    </span>
-  );
-}
-
 function SafeguardingBadge({
   safeguarding,
 }: {
@@ -355,29 +331,15 @@ function MatchScoreBadge({ score }: { score: number }) {
   );
 }
 
-function VacancySponsorshipBadges({
-  licensedSponsor,
-  sponsorshipOffered,
-}: {
-  licensedSponsor?: boolean;
-  sponsorshipOffered: boolean;
-}) {
+function LicensedSponsorBadge({ licensedSponsor }: { licensedSponsor?: boolean }) {
+  if (!licensedSponsor) return null;
   return (
-    <>
-      {licensedSponsor && (
-        <span
-          className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200"
-          title="The employer appears on the Home Office sponsor register. This does not confirm sponsorship for this vacancy."
-        >
-          <ShieldCheck className="w-3 h-3" /> Licensed Sponsor
-        </span>
-      )}
-      {sponsorshipOffered && (
-        <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-          Sponsorship Available
-        </span>
-      )}
-    </>
+    <span
+      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200"
+      title="This employer appears on the Home Office sponsor register. This job may or may not offer sponsorship — check the employer's advert."
+    >
+      <ShieldCheck className="w-3 h-3" /> Licensed Sponsor
+    </span>
   );
 }
 
@@ -388,7 +350,7 @@ function RoleDetailModal({ item, appliedRoleIds, onClose, aiScore }: {
   aiScore?: number;
 }) {
   const [, setLocation] = useLocation();
-  const { role, isEligible, matchScore, eligibilityGaps, sponsorshipFeasibility, safeguarding } = item;
+  const { role, isEligible, matchScore, eligibilityGaps, safeguarding } = item;
   const applied = appliedRoleIds.includes(role.id);
 
   return (
@@ -426,11 +388,7 @@ function RoleDetailModal({ item, appliedRoleIds, onClose, aiScore }: {
               </span>
             )}
             {aiScore != null ? <AiScoreBadge score={aiScore} /> : <MatchScoreBadge score={matchScore} />}
-            <SponsorshipBadge outcome={sponsorshipFeasibility?.outcome} />
-            <VacancySponsorshipBadges
-              licensedSponsor={role.licensedSponsor}
-              sponsorshipOffered={role.sponsorshipOffered}
-            />
+            <LicensedSponsorBadge licensedSponsor={role.licensedSponsor} />
             <SafeguardingBadge safeguarding={safeguarding} />
           </div>
 
@@ -443,16 +401,6 @@ function RoleDetailModal({ item, appliedRoleIds, onClose, aiScore }: {
               <div className="p-3 rounded-lg bg-muted/40">
                 <p className="text-xs text-muted-foreground mb-0.5">Required Registration</p>
                 <p className="font-semibold text-xs leading-tight">{role.requiredRegistration}</p>
-              </div>
-              <div className="p-3 rounded-lg bg-muted/40">
-                <p className="text-xs text-muted-foreground mb-0.5">Vacancy sponsorship</p>
-                <p className="font-semibold">
-                  {role.sponsorshipStatus === "unknown"
-                    ? "Not confirmed"
-                    : role.sponsorshipOffered
-                      ? "Confirmed"
-                      : "Not offered"}
-                </p>
               </div>
             </div>
           </div>
@@ -467,16 +415,6 @@ function RoleDetailModal({ item, appliedRoleIds, onClose, aiScore }: {
                   </li>
                 ))}
               </ul>
-            </div>
-          )}
-
-          {sponsorshipFeasibility && (
-            <div className="mb-4 p-3 rounded-xl bg-blue-50 border border-blue-100 text-xs text-blue-800">
-              <p className="font-semibold mb-0.5">Sponsorship note:</p>
-              <p>{sponsorshipFeasibility.explanation}</p>
-              {sponsorshipFeasibility.disclaimer && (
-                <p className="mt-1 italic text-blue-700">{sponsorshipFeasibility.disclaimer}</p>
-              )}
             </div>
           )}
 
@@ -771,7 +709,7 @@ function RoleCard({
   sendCvOnly?: boolean;
 }) {
   const [, setLocation] = useLocation();
-  const { role, isEligible, matchScore, eligibilityGaps, sponsorshipFeasibility, safeguarding, contactEmail, contactPhone, contactWebsite, applyUrl, linkVerified, linkCheckedAt, matchReason } = item;
+  const { role, isEligible, matchScore, eligibilityGaps, safeguarding, contactEmail, contactPhone, contactWebsite, applyUrl, linkVerified, linkCheckedAt, matchReason } = item;
   const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(false);
   const [deadLink, setDeadLink] = useState(false);
@@ -934,12 +872,8 @@ function RoleCard({
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2">
-        <SponsorshipBadge outcome={sponsorshipFeasibility?.outcome} />
         <SafeguardingBadge safeguarding={safeguarding} />
-        <VacancySponsorshipBadges
-          licensedSponsor={role.licensedSponsor}
-          sponsorshipOffered={role.sponsorshipOffered}
-        />
+        <LicensedSponsorBadge licensedSponsor={role.licensedSponsor} />
       </div>
 
       {/* Company contact row */}
@@ -1609,7 +1543,6 @@ export default function OpportunitiesPage() {
   const profileMutation = useUpsertMyProfile();
   const { toast } = useToast();
   const [regionSaveState, setRegionSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
-  const [sponsorshipOnly, setSponsorshipOnly] = useState<boolean | undefined>(undefined);
   const regionSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [localDismissedIds, setLocalDismissedIds] = useState<Set<number>>(new Set());
@@ -1657,16 +1590,6 @@ export default function OpportunitiesPage() {
   const cvSentRoleIds = data?.cvSentRoleIds ?? [];
   const eligibilityOutcome = data?.eligibilityOutcome;
   const noProfile = data?.noProfile === true;
-  const p = myProfile as unknown as Record<string, unknown> | undefined;
-
-  // Sponsorship is preselected only for candidates who say they need it. The
-  // explicit state keeps the choice under the candidate's control afterwards.
-  useEffect(() => {
-    if (sponsorshipOnly === undefined && p) {
-      setSponsorshipOnly(defaultSponsorshipOnly(p.requiresSponsorship === true));
-    }
-  }, [p, sponsorshipOnly]);
-
   useEffect(() => {
     const profileRegions = myProfile?.preferredRegion;
     setSelectedRegions(
@@ -1735,8 +1658,7 @@ export default function OpportunitiesPage() {
     }, 300);
   };
 
-  const effectiveSponsorshipOnly = sponsorshipOnly ?? defaultSponsorshipOnly(p?.requiresSponsorship === true);
-  const filters = { selectedRegions, sponsorshipOnly: effectiveSponsorshipOnly };
+  const filters = { selectedRegions };
   const filteredRoles = roles.filter((item) => filterOpportunities([item.role], filters).length > 0);
   const filteredAiMatchesData = aiMatchesData
     ? { ...aiMatchesData, matches: filterOpportunities(aiMatchesData.matches, filters) }
@@ -1893,11 +1815,11 @@ export default function OpportunitiesPage() {
               </Card>
             )}
 
-            {/* Region and sponsorship filters stay above ranked results so candidates
-                can set the scope before reviewing their matches. */}
+            {/* Region filters stay above ranked results so candidates can set the
+                location scope before reviewing their matches. */}
             {!noProfile && roles.length > 0 && (
               <Card className="p-4 border-primary/15 bg-primary/[0.02]">
-                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-4">
                   <div className="flex items-start justify-between gap-3 flex-wrap">
                     <div>
                       <h2 className="text-sm font-semibold text-foreground">Refine opportunities</h2>
@@ -1905,15 +1827,6 @@ export default function OpportunitiesPage() {
                         Region filters keep roles with an unknown or national location visible.
                       </p>
                     </div>
-                    <label className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={effectiveSponsorshipOnly}
-                        onChange={(event) => setSponsorshipOnly(event.target.checked)}
-                        className="w-4 h-4 rounded border-primary/30 text-primary focus:ring-primary accent-primary"
-                      />
-                      Visa sponsorship offered
-                    </label>
                   </div>
                   <div>
                     <p className="text-xs font-medium text-muted-foreground mb-2">UK region</p>
@@ -2000,7 +1913,7 @@ export default function OpportunitiesPage() {
                   <Card className="p-7 text-center">
                     <Briefcase className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
                     <h2 className="text-base font-semibold">No opportunities match these filters</h2>
-                    <p className="text-sm text-muted-foreground mt-1">Try another region or turn off the sponsorship filter to broaden your results.</p>
+                    <p className="text-sm text-muted-foreground mt-1">Try another region to broaden your results.</p>
                   </Card>
                 )}
                 {/* Match score info note */}
