@@ -37,6 +37,7 @@ export const applicationsTable = pgTable("applications", {
   interviewDate: timestamp("interview_date", { withTimezone: true }),
   interviewNotes: text("interview_notes"),
   cvDocumentId: integer("cv_document_id"),
+  jobsageEmail: text("jobsage_email"),
 });
 
 export const applicationStatusValues = z.enum(["link_clicked", "applied", "shortlisted", "interview", "interview_invited", "under_review", "offer", "rejected", "no_response"]);

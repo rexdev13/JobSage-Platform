@@ -1,0 +1,48 @@
+Use Alias in Smart Apply
+What & Why
+Make company-website applications submitted through Smart Apply use the candidate’s JOBSAGE-controlled alias rather than their personal login email. Reuse the existing alias generator/resolver, make the user-level alias canonical while synchronizing the profile copy, and snapshot the intended alias on tracked external applications so the application record reflects what Smart Apply submitted.
+
+Done looks like
+Smart Apply’s candidate profile payload contains the JOBSAGE alias in its email field and never exposes the personal login email to the extension
+Candidates without an alias receive one through the existing generation path, persisted to the user and synchronized to the profile before prefill
+Empty ATS email fields are filled with the alias, non-alias email values on application forms are replaced, and an existing matching alias is left unchanged
+Non-email fields retain their current fill-only-when-empty behavior
+When the extension can confidently identify an authenticated account/settings page rather than an application form, it preserves a different email and warns that the application may not be monitored; the shipped distinction is covered and documented in tests
+Newly created external application records and confirmed submissions retain a nullable snapshot of the JOBSAGE alias, while existing records remain valid
+Automated coverage proves Smart Apply never supplies the personal email, alias creation/synchronization works, all three email-field fill cases work, and application tracking stores the alias
+Existing Send CV From/Reply-To behavior and personal-email delivery for login and alerts remain unchanged
+Out of scope
+Per-application aliases or plus-addressing
+Inbound reply-to-vacancy matching
+Rewriting or masking email addresses inside CV PDFs
+Changes to Send CV From/Reply-To, login email, or candidate alert recipients
+A new consent CMS or broader consent redesign
+Plain Contact HR mailto behavior
+Vacancy discovery or AI vacancy search
+Steps
+Canonical alias resolution — Extend the Smart Apply candidate-prefill flow to resolve or generate the existing JOBSAGE alias, persist it as the canonical user alias, and synchronize the profile copy when it is absent or different.
+Privacy-safe profile payload — Return the alias through the payload’s email contract without including the personal login email anywhere in the extension response; keep all other candidate fields unchanged.
+Email-specific extension behavior — Update prefill matching so ATS email fields use the alias even when a different email is already present on an application form, while preserving the existing non-email overwrite protections and leaving an already-correct alias untouched.
+Conservative account-page warning — Reuse the extension sidebar feedback path to preserve a different email only where the page can confidently be identified as authenticated account/profile settings, and show the specified monitoring warning instead of silently claiming success.
+Application alias snapshot — Add a nullable JOBSAGE alias column through an additive database migration and include the resolved alias when external applications are created or promoted from clicked to applied, without invalidating historical rows.
+Regression coverage — Add API, extension, application-route, and mail-recipient regression tests for alias generation/synchronization, payload privacy, email overwrite rules, tracker persistence, unchanged Send CV addressing, and unchanged personal-email alerts.
+Relevant files
+artifacts/api-server/src/routes/smartApply.ts
+artifacts/api-server/src/lib/jobsageEmailGen.ts
+artifacts/api-server/src/routes/profiles.ts
+artifacts/api-server/src/routes/applications.ts
+artifacts/api-server/src/routes/speculativeApplications.ts
+artifacts/api-server/src/lib/email.ts
+artifacts/api-server/src/lib/alertScheduler.ts
+artifacts/api-server/src/__tests__/routes/smartApply.test.ts
+artifacts/api-server/src/__tests__/routes/profiles.test.ts
+artifacts/api-server/src/__tests__/routes/applications.test.ts
+artifacts/chrome-extension/src/content.tsx
+artifacts/chrome-extension/src/lib/prefill.ts
+artifacts/chrome-extension/src/components/Sidebar.tsx
+artifacts/chrome-extension/src/lib/questionDetector.ts
+lib/db/src/schema/applications.ts
+lib/db/src/schema/auth.ts
+lib/db/src/schema/profiles.ts
+lib/db/drizzle/0015_application_click_tracking.sql
+lib/db/drizzle/0025_vacancy_aware_send_cv.sql

@@ -5,7 +5,7 @@
  */
 
 import { db, usersTable, profilesTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 /**
  * Centralized alias resolver: reads the JOBSAGE alias for a given userId.
@@ -25,6 +25,43 @@ export async function resolveJobsageAlias(userId: string): Promise<string | null
     .from(profilesTable)
     .where(eq(profilesTable.userId, userId));
   return profileRow?.jobsageEmail ?? null;
+}
+
+/**
+ * Resolves the stable user-level alias, creating it when necessary, and keeps
+ * the profile copy synchronized. The users-table value is canonical whenever
+ * it already exists; a legacy profile-only alias is promoted rather than
+ * generating a second address.
+ */
+export async function ensureCanonicalJobsageAlias(
+  userId: string,
+  firstName?: string | null,
+  lastName?: string | null,
+): Promise<string> {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`jobsage-alias:${userId}`}))`);
+    const [userRow] = await tx
+      .select({ jobsageEmail: usersTable.jobsageEmail })
+      .from(usersTable)
+      .where(eq(usersTable.id, userId));
+    const [profileRow] = await tx
+      .select({ jobsageEmail: profilesTable.jobsageEmail })
+      .from(profilesTable)
+      .where(eq(profilesTable.userId, userId));
+
+    const alias = userRow?.jobsageEmail
+      ?? profileRow?.jobsageEmail
+      ?? generateJobsageEmail(firstName, lastName);
+
+    if (userRow?.jobsageEmail !== alias) {
+      await tx.update(usersTable).set({ jobsageEmail: alias }).where(eq(usersTable.id, userId));
+    }
+    if (profileRow && profileRow.jobsageEmail !== alias) {
+      await tx.update(profilesTable).set({ jobsageEmail: alias }).where(eq(profilesTable.userId, userId));
+    }
+
+    return alias;
+  });
 }
 
 const JOBSAGE_MAIL_DOMAIN = "mail.jobsage.app";
