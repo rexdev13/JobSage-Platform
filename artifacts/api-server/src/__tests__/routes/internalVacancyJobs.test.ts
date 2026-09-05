@@ -85,6 +85,7 @@ describe("POST /internal/vacancy-jobs", () => {
     ["job_board", 999, 50],
     ["company_site", 999, 40],
     ["liveness", 999, 120],
+    ["contact", 999, 5],
   ] as const)("caps %s HTTP batches", async (kind, requested, expected) => {
     const response = await request(app)
       .post("/internal/vacancy-jobs")

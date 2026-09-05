@@ -12,8 +12,12 @@ import {
   VACANCY_LIVENESS_BATCH_LIMIT,
   VACANCY_LIVENESS_DOMAIN_CONCURRENCY,
 } from "./vacancyLivenessSweep";
+import {
+  runContactEnrichmentBatch,
+  CONTACT_ENRICHMENT_BATCH_SIZE,
+} from "./contactEnrichmentRunner";
 
-export type VacancyJobKind = "job_board" | "company_site" | "liveness";
+export type VacancyJobKind = "job_board" | "company_site" | "liveness" | "contact";
 
 export type VacancyJobSummary = {
   selected: number;
@@ -31,6 +35,7 @@ export const CLI_JOB_LIMITS: Record<VacancyJobKind, number> = {
   job_board: DEFAULT_VACANCY_CHECK_BATCH_SIZE,
   company_site: COMPANY_SITE_DISCOVERY_BATCH_SIZE,
   liveness: VACANCY_LIVENESS_BATCH_LIMIT,
+  contact: CONTACT_ENRICHMENT_BATCH_SIZE,
 };
 
 async function withPipelineWriter<T>(
@@ -97,6 +102,9 @@ export async function runVacancyJob(
         errors: summary?.errors ?? 0,
         done: selected < batchLimit,
       };
+    }
+    if (job === "contact") {
+      return runContactEnrichmentBatch({ batchSize: batchLimit });
     }
 
     let selected = 0;

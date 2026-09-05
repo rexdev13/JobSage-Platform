@@ -72,6 +72,8 @@ AI_DISABLED = "Jobsage001"
 
 [userenv.production]
 INTERNAL_SYNC_KEY = "dd1e3f9cbdc1ddb63409835bad58e09de58c0b73f5f0dd461cada94a6b4ae03e"
+CONTACT_WEB_SEARCH_DAILY_CAP = "50"
+VACANCY_AI_WEB_SEARCH_DAILY_CAP = "0"
 
 [userenv.development]
 
