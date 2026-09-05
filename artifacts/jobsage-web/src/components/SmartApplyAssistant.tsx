@@ -10,8 +10,12 @@ interface Message {
 }
 
 interface SmartApplyAssistantProps {
-  roleId: number;
+  roleId?: number;
   roleTitle: string;
+  jobTitle?: string;
+  employer?: string;
+  jobDescription?: string | null;
+  initiallyOpen?: boolean;
   currentQuestion?: { id: string; question: string };
   onUseAnswer: (text: string) => void;
   triggerQuestion?: { id: string; question: string } | null;
@@ -25,12 +29,16 @@ const AI_PROFESSION_KEY = "jobsage_ai_profession";
 export function SmartApplyAssistant({
   roleId,
   roleTitle,
+  jobTitle,
+  employer,
+  jobDescription,
+  initiallyOpen = false,
   currentQuestion,
   onUseAnswer,
   triggerQuestion,
   onTriggerConsumed,
 }: SmartApplyAssistantProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(initiallyOpen);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -130,6 +138,9 @@ export function SmartApplyAssistant({
         signal: ctrl.signal,
         body: JSON.stringify({
           roleId,
+          jobTitle,
+          employer,
+          jobDescription,
           message: msg,
           questionId: currentQuestion?.id,
           questionText: currentQuestion?.question,

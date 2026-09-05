@@ -61,6 +61,15 @@ function registerFirstPartyOutboundApplication(): void {
   });
 }
 
+function markExtensionInstalled(): void {
+  if (document.getElementById(JOBSAGE_HOST_ID)) return;
+  const marker = document.createElement("span");
+  marker.id = JOBSAGE_HOST_ID;
+  marker.hidden = true;
+  marker.dataset.jobsageExtensionMarker = "installed";
+  document.documentElement.appendChild(marker);
+}
+
 function cleanEmployerPageWarnings(): void {
   if (isJobSageHost()) return;
   hideRawPhpRuntimeWarnings();
@@ -398,8 +407,11 @@ function makeDismissHandler(tracked = false): (scope: "site" | "session") => voi
 async function init(): Promise<void> {
   const firstParty = isJobSageHost();
   // First-party JOBSAGE pages own their UI. Only the lightweight outbound
-  // application event bridge remains active there.
-  if (firstParty) return;
+  // application event bridge and installation marker remain active there.
+  if (firstParty) {
+    markExtensionInstalled();
+    return;
+  }
 
   const [activated, trackingContext, suppression, pillPosition] = await Promise.all([
     checkTabActivation(),
