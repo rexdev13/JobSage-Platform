@@ -1,0 +1,62 @@
+Audit only. Do not change code, do not migrate, do not run enrichment, do not publish, do not call paid AI search.
+
+I need a precise report of how Send CV gets an employer email today, and whether JOBSAGE already stores emails that never reach Send CV. Use real file paths, function names, table/column names, and SQL counts from the development database. If something is missing, write NOT FOUND. Do not guess.
+
+Return the report under these exact headings.
+
+## 1. Send CV gate
+Find the candidate Send CV control on Opportunities (and any other candidate vacancy UI).
+Say exactly when the button is shown vs hidden vs disabled.
+Quote the condition that requires a stored contact email.
+Say whether a live apply URL, phone, or website is enough to show Send CV.
+Name the exact field(s) the UI reads (employer contact email vs vacancy contact email vs something else).
+
+## 2. What happens on click
+Trace Send CV from click to send.
+Does it email the employer directly, open an apply URL, send to a JOBSAGE operations inbox, or fail?
+Name the mailer, from-address, template, and logging table.
+Is there any fallback if the employer email is blank? Quote it or say NOT FOUND.
+
+## 3. Email fields in the data model
+List every column that can store an employer/vacancy contact email, including:
+- sponsor / employer records
+- sponsor_licence_vacancies
+- curated roles / job_listings
+- employer-published jobs
+- contact-enrichment state table from migration 0027
+For each: table, column, when it is written, whether Send CV reads it.
+
+## 4. Counts from development DB
+Run read-only counts. Use current non-dead vacancies only where a liveness field exists.
+
+A. Employers with at least one current non-dead vacancy
+B. Of A, how many have a non-blank Send CV / employer contact email
+C. Of A, how many have a blank Send CV email
+D. Of C, how many have a non-blank email on at least one of their vacancy rows
+E. Of C, how many have an email-looking string in stored vacancy description/HTML (count rows, not unique emails; do not print the addresses)
+F. Of C, how many already have an email on a sponsor/employer field that Send CV does not use
+G. Vacancy rows that already have contactEmail populated, grouped by sourceType / boardName if those columns exist
+
+Paste the SQL you ran and the numbers. Do not print actual email addresses.
+
+## 5. Existing extraction / copy logic
+Find any code that:
+- copies a vacancy email onto the employer
+- extracts emails from vacancy HTML/description
+- extracts emails during NHS Jobs / Reed / ATS / company-site scrape
+- writes contact-enrichment pipeline results
+Say whether harvest-from-stored-data already exists as stage 0, or whether the contact worker only starts after website discovery / AI search.
+If extractors exist, say which sources they cover and which they skip (LinkedIn, Indeed, personal inboxes, noreply).
+
+## 6. Apply URL vs email
+For current non-dead vacancies:
+- how many have apply URL only
+- how many have email only
+- how many have both
+- how many have neither
+Say whether the UI shows Apply / Smart Apply separately from Send CV.
+
+## 7. Contact pipeline status
+Confirm whether kind:"contact" exists on the internal vacancy-jobs endpoint, what stage 0 actually does, and whether it already reads stored vacancy text before paid search. One short paragraph plus file paths.
+
+Do not implement a harvest. Stop after the report.
