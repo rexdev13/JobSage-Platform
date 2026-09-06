@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   citedWebsiteFromResponse,
+  chooseStoredContactCandidate,
   corroboratesEmployer,
   extractPublishedContactEmails,
   getContactWebSearchDailyCap,
+  shouldRunPaidContactEnrichment,
 } from "../../lib/contactEnrichmentRunner";
 
 describe("extractPublishedContactEmails", () => {
@@ -34,6 +36,65 @@ describe("extractPublishedContactEmails", () => {
       'Site by support@agency.example <a href="mailto:jobs@agency.example">recruitment</a>',
       "https://acme.co.uk/",
     )).toEqual(["jobs@agency.example"]);
+  });
+});
+
+describe("stored contact harvest", () => {
+  it("prefers an explicit vacancy contact field on a current vacancy", () => {
+    expect(chooseStoredContactCandidate([{
+      contactEmail: "jobs@acme.example",
+      description: "Email info@acme.example",
+      url: "https://acme.example/jobs/1",
+      liveness: "live",
+    }], null)).toEqual({
+      email: "jobs@acme.example",
+      source: "vacancy_field",
+      evidenceUrl: "https://acme.example/jobs/1",
+    });
+  });
+
+  it("extracts a stored description mailto without constructing an address", () => {
+    expect(chooseStoredContactCandidate([{
+      description: '<a href="mailto:careers@acme.example">Apply by email</a>',
+      url: "https://acme.example/jobs/1",
+      liveness: "unverified",
+    }], null)).toEqual({
+      email: "careers@acme.example",
+      source: "vacancy_text",
+      evidenceUrl: "https://acme.example/jobs/1",
+    });
+  });
+
+  it("rejects free-provider contacts and Indeed-only evidence", () => {
+    expect(chooseStoredContactCandidate([{
+      contactEmail: "person@gmail.com",
+      description: "Email jobs@acme.example",
+      url: "https://indeed.com/viewjob?id=1",
+      liveness: "live",
+    }], null)).toBeNull();
+  });
+
+  it("skips dead vacancies", () => {
+    expect(chooseStoredContactCandidate([{
+      contactEmail: "jobs@acme.example",
+      description: "jobs@acme.example",
+      url: "https://acme.example/jobs/closed",
+      liveness: "dead",
+    }], null)).toBeNull();
+  });
+
+  it("falls back to a persisted employer-profile contact", () => {
+    expect(chooseStoredContactCandidate([], "HR@Acme.example", "https://acme.example")).toEqual({
+      email: "hr@acme.example",
+      source: "sponsor_record",
+      evidenceUrl: "https://acme.example",
+    });
+  });
+
+  it("does not permit paid enrichment until the stored-data pass is drained", () => {
+    expect(shouldRunPaidContactEnrichment(1)).toBe(false);
+    expect(shouldRunPaidContactEnrichment(845)).toBe(false);
+    expect(shouldRunPaidContactEnrichment(0)).toBe(true);
   });
 });
 

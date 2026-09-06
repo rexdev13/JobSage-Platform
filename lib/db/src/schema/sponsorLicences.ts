@@ -135,7 +135,12 @@ export const sponsorLicenceContactEnrichmentsTable = pgTable(
     websiteVerifiedAt: timestamp("website_verified_at", { withTimezone: true }),
     websiteEvidenceUrl: text("website_evidence_url"),
     contactEmail: text("contact_email"),
+    contactSource: varchar("contact_source", {
+      enum: ["vacancy_field", "vacancy_text", "sponsor_record", "website"],
+    }),
     contactEvidenceUrl: text("contact_evidence_url"),
+    contactExtractedAt: timestamp("contact_extracted_at", { withTimezone: true }),
+    storedHarvestedAt: timestamp("stored_harvested_at", { withTimezone: true }),
     lastError: text("last_error"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
