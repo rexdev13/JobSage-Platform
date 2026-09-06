@@ -1,0 +1,31 @@
+Implement unpaid contact harvest from data JOBSAGE already stores. Do not guess emails. Do not scrape LinkedIn or Indeed. Do not raise VACANCY_AI_WEB_SEARCH_DAILY_CAP. Do not overwrite an employer contact email that is already set.
+
+Goal
+Fill blank employer Send CV contact emails using evidence already in the database, BEFORE any paid website search.
+
+Why
+Send CV is gated on the employer contact email. Vacancy rows may already contain published emails in contactEmail / description / HTML, and those values may never have been copied to the employer. The contact pipeline currently spends effort discovering websites and fetching a few pages; it should first harvest from stored vacancies.
+
+Audit first (no writes). Report counts:
+1. Employers with current non-dead vacancies and blank Send CV/contact email.
+2. Of those, how many already have a usable email on at least one of their vacancy rows (contactEmail or similar).
+3. How many vacancy descriptions/HTML bodies contain a published email pattern.
+4. How many sponsor/employer records already have an email that is not copied to the Send CV contact field.
+Name the exact tables and columns you used.
+
+Then implement harvest as stage 0 of the existing contact worker (kind: "contact"), not a new public endpoint:
+- Run it before AI web search.
+- Use no paid lookup and no new crawl in this stage. Read stored rows only.
+- Sources, in order:
+  a) vacancy.contactEmail (or equivalent) on current non-dead vacancies for that employer
+  b) emails visibly present in stored vacancy description / HTML / mailto, with evidence URL = that vacancy URL
+  c) existing sponsor/employer email fields that are already stored but not used for Send CV
+- Reuse the existing contact-email validator: prefer recruitment/jobs/careers/HR; reject guessed shapes, gmail/outlook/yahoo, noreply, LinkedIn, Indeed, social, directories, ATS/platform addresses, and emails whose only evidence URL is LinkedIn/Indeed.
+- Write only if the employer contact email is still blank. Never overwrite.
+- Record provenance: source=vacancy_text|vacancy_field|sponsor_record, evidence URL, extracted_at.
+- Same writer lock, same no-overwrite semantics, same robots/SSRF rules if you later fetch; this stage must not fetch.
+- Batches can be larger than 5 because this is unpaid DB work, but keep a hard time budget so an HTTP job cannot hang (stay well under 25s if this runs through the awaited internal endpoint).
+- Return summary fields: harvested, skippedExisting, noEmailInStore, remaining.
+- Tests: copy vacancy email to blank employer; do not overwrite; reject gmail; reject Indeed-only evidence; extract from description mailto; skip dead vacancies; do not call AI search when harvest succeeds.
+
+Run one bounded development batch after tests. Do not publish. Do not start a full production run. Paste the audit counts, files changed, test results, and the one-batch summary.
