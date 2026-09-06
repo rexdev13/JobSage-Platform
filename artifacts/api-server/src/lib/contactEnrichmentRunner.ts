@@ -10,6 +10,8 @@ import { normaliseSponsorWebsite } from "./companySiteDiscovery";
 
 export const CONTACT_ENRICHMENT_BATCH_SIZE = 5;
 export const CONTACT_ENRICHMENT_MAX_PAGES = 4;
+export const STORED_CONTACT_HARVEST_BATCH_SIZE = 250;
+export const STORED_CONTACT_HARVEST_BUDGET_MS = 20_000;
 export const CONTACT_WEB_SEARCH_DEFAULT_DAILY_CAP = 50;
 export const CONTACT_WEB_SEARCH_MAX_DAILY_CAP = 100;
 const WEBSITE_LOOKUP_TIMEOUT_MS = 20_000;
@@ -24,6 +26,12 @@ const BLOCKED_OFFICIAL_HOSTS = [
   "twitter.com", "find-and-update.company-information.service.gov.uk", "gov.uk",
   "yell.com", "glassdoor.com", "reed.co.uk", "jobs.nhs.uk",
 ];
+const BLOCKED_CONTACT_DOMAINS = [
+  ...BLOCKED_OFFICIAL_HOSTS,
+  "greenhouse.io", "lever.co", "myworkdayjobs.com", "workday.com",
+  "smartrecruiters.com", "teamtailor.com", "jobvite.com", "bamboohr.com",
+];
+const BLOCKED_VACANCY_EVIDENCE_HOSTS = ["linkedin.com", "indeed.com"];
 const GENERIC_ORGANISATION_WORDS = new Set([
   "limited", "ltd", "plc", "llp", "group", "care", "services", "service",
   "health", "healthcare", "uk", "company", "the", "and", "for", "with",
@@ -65,6 +73,30 @@ export type ContactEnrichmentSummary = {
   errors: number;
   done: boolean;
   remaining: number;
+  harvested: number;
+  skippedExisting: number;
+  noEmailInStore: number;
+  harvestRemaining: number;
+};
+
+export type StoredContactCandidate = {
+  email: string;
+  source: "vacancy_field" | "vacancy_text" | "sponsor_record";
+  evidenceUrl: string | null;
+};
+
+export type StoredVacancyContactRow = {
+  contactEmail?: string | null;
+  description: string | null;
+  url: string | null;
+  liveness: string;
+};
+
+type StoredHarvestTarget = {
+  organisationName: string;
+  profileEmail: string | null;
+  profileWebsite: string | null;
+  vacancies: StoredVacancyContactRow[];
 };
 
 type ContactEnrichmentOutcome = "stored" | "existing" | "inconclusive" | "budget_exhausted";
@@ -113,6 +145,63 @@ function chooseEmail(emails: string[]): string | null {
       /\b(info|contact|admin)\b/i.test(email) ? 1 : 0;
     return score(b) - score(a) || a.localeCompare(b);
   })[0] ?? null;
+}
+
+function hostnameIsBlocked(hostname: string, blockedHosts: readonly string[]): boolean {
+  const host = hostname.toLowerCase().replace(/^www\./, "");
+  return blockedHosts.some((blocked) => host === blocked || host.endsWith(`.${blocked}`));
+}
+
+function evidenceUrlAllowed(value: string | null): boolean {
+  if (!value) return false;
+  try {
+    return !hostnameIsBlocked(new URL(value).hostname, BLOCKED_VACANCY_EVIDENCE_HOSTS);
+  } catch {
+    return false;
+  }
+}
+
+export function validateStoredContactEmail(value: string | null | undefined): string | null {
+  const email = value?.trim().toLowerCase().replace(/^mailto:/, "").replace(/[)>.,;:]+$/, "") ?? "";
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return null;
+  const [local, domain] = email.split("@");
+  if (!local || !domain || FREE_EMAIL_DOMAINS.has(domain)) return null;
+  if (/^(?:no-?reply|donotreply|do-not-reply)$/i.test(local)) return null;
+  if (hostnameIsBlocked(domain, BLOCKED_CONTACT_DOMAINS)) return null;
+  return email;
+}
+
+function emailsFromStoredText(value: string): string[] {
+  const mailtos = [...value.matchAll(/\bhref\s*=\s*["']mailto:([^"'?#\s]+)/gi)].map((match) => match[1] ?? "");
+  const visible = cleanText(value).match(EMAIL) ?? [];
+  return [...new Set([...mailtos, ...visible].map(validateStoredContactEmail).filter((email): email is string => !!email))];
+}
+
+/** Chooses only persisted evidence; this function never fetches and never constructs an address. */
+export function chooseStoredContactCandidate(
+  vacancies: readonly StoredVacancyContactRow[],
+  profileEmail: string | null,
+  profileWebsite: string | null = null,
+): StoredContactCandidate | null {
+  const current = vacancies.filter((vacancy) => vacancy.liveness !== "dead" && evidenceUrlAllowed(vacancy.url));
+  for (const vacancy of current) {
+    const email = validateStoredContactEmail(vacancy.contactEmail);
+    if (email) return { email, source: "vacancy_field", evidenceUrl: vacancy.url };
+  }
+  const textCandidates = current.flatMap((vacancy) =>
+    emailsFromStoredText(vacancy.description ?? "").map((email) => ({ email, evidenceUrl: vacancy.url })));
+  const textEmail = chooseEmail(textCandidates.map((candidate) => candidate.email));
+  if (textEmail) {
+    return {
+      email: textEmail,
+      source: "vacancy_text",
+      evidenceUrl: textCandidates.find((candidate) => candidate.email === textEmail)?.evidenceUrl ?? null,
+    };
+  }
+  const storedEmail = validateStoredContactEmail(profileEmail);
+  return storedEmail
+    ? { email: storedEmail, source: "sponsor_record", evidenceUrl: profileWebsite }
+    : null;
 }
 
 function contactLinkPriority(value: string): number {
@@ -238,7 +327,8 @@ export async function selectContactEnrichmentBatch(limit = CONTACT_ENRICHMENT_BA
       COALESCE(e.attempts, 0) AS attempts
     FROM organisations o
     LEFT JOIN sponsor_licence_contact_enrichments e ON lower(btrim(e.organisation_name)) = o.organisation_key
-    WHERE e.status IS NULL OR (e.status IN ('pending', 'retry') AND (e.retry_after IS NULL OR e.retry_after <= NOW()))
+    WHERE e.stored_harvested_at IS NOT NULL
+      AND (e.status IN ('pending', 'retry') AND (e.retry_after IS NULL OR e.retry_after <= NOW()))
     ORDER BY (e.website_cited_at IS NULL), COALESCE(e.updated_at, to_timestamp(0)), o.organisation_name
     LIMIT ${Math.max(1, Math.floor(limit))}
   `);
@@ -251,10 +341,12 @@ export async function selectContactEnrichmentBatch(limit = CONTACT_ENRICHMENT_BA
 async function saveState(target: ContactEnrichmentTarget, state: Record<string, unknown>): Promise<void> {
   await db.execute(sql`
     INSERT INTO sponsor_licence_contact_enrichments
-      (organisation_name, stage, status, attempts, retry_after, website_url, website_lookup_source, website_lookup_at, website_cited_at, website_verified_at, website_evidence_url, contact_email, contact_evidence_url, last_error, completed_at, updated_at)
+      (organisation_name, stage, status, attempts, retry_after, website_url, website_lookup_source, website_lookup_at, website_cited_at, website_verified_at, website_evidence_url,
+       contact_email, contact_source, contact_evidence_url, contact_extracted_at, last_error, completed_at, updated_at)
     VALUES (${target.organisationName}, ${state.stage ?? target.stage}, ${state.status ?? "pending"}, ${target.attempts + 1},
       ${state.retryAfter ?? null}, ${state.websiteUrl ?? null}, ${state.websiteLookupSource ?? null}, ${state.websiteLookupAt ?? null}, ${state.websiteCitedAt ?? null}, ${state.websiteVerifiedAt ?? null}, ${state.websiteEvidenceUrl ?? null},
-      ${state.contactEmail ?? null}, ${state.contactEvidenceUrl ?? null}, ${state.lastError ?? null}, ${state.completedAt ?? null}, NOW())
+      ${state.contactEmail ?? null}, ${state.contactSource ?? null}, ${state.contactEvidenceUrl ?? null}, ${state.contactExtractedAt ?? null},
+      ${state.lastError ?? null}, ${state.completedAt ?? null}, NOW())
     ON CONFLICT (organisation_name) DO UPDATE SET
       stage = EXCLUDED.stage, status = EXCLUDED.status, attempts = EXCLUDED.attempts, retry_after = EXCLUDED.retry_after,
       website_url = COALESCE(EXCLUDED.website_url, sponsor_licence_contact_enrichments.website_url),
@@ -264,9 +356,155 @@ async function saveState(target: ContactEnrichmentTarget, state: Record<string, 
       website_verified_at = COALESCE(EXCLUDED.website_verified_at, sponsor_licence_contact_enrichments.website_verified_at),
       website_evidence_url = COALESCE(EXCLUDED.website_evidence_url, sponsor_licence_contact_enrichments.website_evidence_url),
       contact_email = COALESCE(EXCLUDED.contact_email, sponsor_licence_contact_enrichments.contact_email),
+      contact_source = COALESCE(EXCLUDED.contact_source, sponsor_licence_contact_enrichments.contact_source),
       contact_evidence_url = COALESCE(EXCLUDED.contact_evidence_url, sponsor_licence_contact_enrichments.contact_evidence_url),
+      contact_extracted_at = COALESCE(EXCLUDED.contact_extracted_at, sponsor_licence_contact_enrichments.contact_extracted_at),
       last_error = EXCLUDED.last_error, completed_at = EXCLUDED.completed_at, updated_at = NOW()
   `);
+}
+
+async function selectStoredHarvestBatch(limit: number): Promise<StoredHarvestTarget[]> {
+  const result = await db.execute<any>(sql`
+    WITH target_organisations AS (
+      SELECT lower(btrim(sl.organisation_name)) AS organisation_key,
+        min(btrim(sl.organisation_name)) AS organisation_name
+      FROM sponsor_licences sl
+      JOIN sponsor_licence_vacancies v
+        ON lower(btrim(v.organisation_name)) = lower(btrim(sl.organisation_name))
+      LEFT JOIN sponsor_licence_contact_enrichments e
+        ON lower(btrim(e.organisation_name)) = lower(btrim(sl.organisation_name))
+      WHERE NULLIF(btrim(sl.contact_email), '') IS NULL
+        AND v.liveness <> 'dead'
+        AND e.stored_harvested_at IS NULL
+      GROUP BY lower(btrim(sl.organisation_name))
+      ORDER BY lower(btrim(sl.organisation_name))
+      LIMIT ${limit}
+    )
+    SELECT target.organisation_name,
+      profile.contact_email AS profile_email,
+      profile.contact_website AS profile_website,
+      json_agg(json_build_object(
+        'description', vacancy.description,
+        'url', vacancy.url,
+        'liveness', vacancy.liveness
+      ) ORDER BY vacancy.id) AS vacancies
+    FROM target_organisations target
+    JOIN sponsor_licence_vacancies vacancy
+      ON lower(btrim(vacancy.organisation_name)) = target.organisation_key
+      AND vacancy.liveness <> 'dead'
+    LEFT JOIN LATERAL (
+      SELECT ep.contact_email, ep.contact_website
+      FROM employer_profiles ep
+      WHERE lower(btrim(ep.company_name)) = target.organisation_key
+      ORDER BY ep.updated_at DESC, ep.id
+      LIMIT 1
+    ) profile ON true
+    GROUP BY target.organisation_key, target.organisation_name,
+      profile.contact_email, profile.contact_website
+    ORDER BY target.organisation_key
+  `);
+  return result.rows.map((row: any) => ({
+    organisationName: row.organisation_name,
+    profileEmail: row.profile_email ?? null,
+    profileWebsite: row.profile_website ?? null,
+    vacancies: Array.isArray(row.vacancies) ? row.vacancies : [],
+  }));
+}
+
+async function markStoredHarvested(
+  target: StoredHarvestTarget,
+  candidate: StoredContactCandidate | null,
+): Promise<"harvested" | "skippedExisting" | "noEmailInStore"> {
+  if (!candidate) {
+    await db.execute(sql`
+      INSERT INTO sponsor_licence_contact_enrichments
+        (organisation_name, stage, status, attempts, stored_harvested_at, updated_at)
+      VALUES (${target.organisationName}, 'website', 'pending', 0, NOW(), NOW())
+      ON CONFLICT (organisation_name) DO UPDATE SET
+        stored_harvested_at = NOW(), updated_at = NOW()
+    `);
+    return "noEmailInStore";
+  }
+
+  const updated = await db.execute<any>(sql`
+    UPDATE sponsor_licences
+    SET contact_email = COALESCE(NULLIF(btrim(contact_email), ''), ${candidate.email})
+    WHERE lower(btrim(organisation_name)) = lower(btrim(${target.organisationName}))
+      AND NULLIF(btrim(contact_email), '') IS NULL
+    RETURNING id
+  `);
+  const harvested = updated.rows.length > 0;
+  await db.execute(sql`
+    INSERT INTO sponsor_licence_contact_enrichments
+      (organisation_name, stage, status, attempts, stored_harvested_at,
+       contact_email, contact_source, contact_evidence_url, contact_extracted_at,
+       completed_at, updated_at)
+    VALUES (${target.organisationName}, 'contact', 'complete', 0, NOW(),
+      ${harvested ? candidate.email : null}, ${harvested ? candidate.source : null},
+      ${harvested ? candidate.evidenceUrl : null}, ${harvested ? new Date() : null},
+      NOW(), NOW())
+    ON CONFLICT (organisation_name) DO UPDATE SET
+      stage = 'contact', status = 'complete', retry_after = NULL,
+      stored_harvested_at = NOW(),
+      contact_email = COALESCE(EXCLUDED.contact_email, sponsor_licence_contact_enrichments.contact_email),
+      contact_source = COALESCE(EXCLUDED.contact_source, sponsor_licence_contact_enrichments.contact_source),
+      contact_evidence_url = COALESCE(EXCLUDED.contact_evidence_url, sponsor_licence_contact_enrichments.contact_evidence_url),
+      contact_extracted_at = COALESCE(EXCLUDED.contact_extracted_at, sponsor_licence_contact_enrichments.contact_extracted_at),
+      last_error = NULL, completed_at = NOW(), updated_at = NOW()
+  `);
+  return harvested ? "harvested" : "skippedExisting";
+}
+
+async function countStoredHarvestRemaining(): Promise<number> {
+  const result = await db.execute<any>(sql`
+    SELECT count(DISTINCT lower(btrim(sl.organisation_name)))::int AS remaining
+    FROM sponsor_licences sl
+    JOIN sponsor_licence_vacancies v
+      ON lower(btrim(v.organisation_name)) = lower(btrim(sl.organisation_name))
+    LEFT JOIN sponsor_licence_contact_enrichments e
+      ON lower(btrim(e.organisation_name)) = lower(btrim(sl.organisation_name))
+    WHERE NULLIF(btrim(sl.contact_email), '') IS NULL
+      AND v.liveness <> 'dead'
+      AND e.stored_harvested_at IS NULL
+  `);
+  return Number(result.rows[0]?.remaining ?? 0);
+}
+
+async function runStoredContactHarvestBatch(): Promise<{
+  selected: number;
+  harvested: number;
+  skippedExisting: number;
+  noEmailInStore: number;
+  remaining: number;
+}> {
+  const startedAt = Date.now();
+  const targets = await selectStoredHarvestBatch(STORED_CONTACT_HARVEST_BATCH_SIZE);
+  let selected = 0;
+  let harvested = 0;
+  let skippedExisting = 0;
+  let noEmailInStore = 0;
+  for (const target of targets) {
+    if (Date.now() - startedAt >= STORED_CONTACT_HARVEST_BUDGET_MS) break;
+    const outcome = await markStoredHarvested(
+      target,
+      chooseStoredContactCandidate(target.vacancies, target.profileEmail, target.profileWebsite),
+    );
+    selected++;
+    if (outcome === "harvested") harvested++;
+    else if (outcome === "skippedExisting") skippedExisting++;
+    else noEmailInStore++;
+  }
+  return {
+    selected,
+    harvested,
+    skippedExisting,
+    noEmailInStore,
+    remaining: await countStoredHarvestRemaining(),
+  };
+}
+
+export function shouldRunPaidContactEnrichment(harvestRemaining: number): boolean {
+  return harvestRemaining === 0;
 }
 
 async function retry(
@@ -372,7 +610,12 @@ async function enrichTarget(target: ContactEnrichmentTarget): Promise<ContactEnr
     const stored = await storeContactIfBlank(target.organisationName, email);
     await saveState(target, {
       stage: "contact", status: "complete", websiteUrl: website, websiteEvidenceUrl: home.url, websiteVerifiedAt: new Date(),
-      ...(stored ? { contactEmail: email, contactEvidenceUrl: page.url } : {}),
+      ...(stored ? {
+        contactEmail: email,
+        contactSource: "website",
+        contactEvidenceUrl: page.url,
+        contactExtractedAt: new Date(),
+      } : {}),
       completedAt: new Date(),
     });
     return stored ? "stored" : "existing";
@@ -390,6 +633,24 @@ async function enrichTarget(target: ContactEnrichmentTarget): Promise<ContactEnr
 
 export async function runContactEnrichmentBatch(options: { batchSize?: number } = {}): Promise<ContactEnrichmentSummary> {
   const batchSize = Math.min(5, Math.max(1, Math.floor(options.batchSize ?? CONTACT_ENRICHMENT_BATCH_SIZE)));
+  const harvest = await runStoredContactHarvestBatch();
+  if (!shouldRunPaidContactEnrichment(harvest.remaining)) {
+    const remaining = await countContactEnrichmentRemaining();
+    return {
+      selected: harvest.selected,
+      upserted: harvest.harvested,
+      live: 0,
+      dead: 0,
+      inconclusive: harvest.noEmailInStore,
+      errors: 0,
+      done: false,
+      remaining,
+      harvested: harvest.harvested,
+      skippedExisting: harvest.skippedExisting,
+      noEmailInStore: harvest.noEmailInStore,
+      harvestRemaining: harvest.remaining,
+    };
+  }
   const targets = await selectContactEnrichmentBatch(batchSize);
   let selected = 0; let upserted = 0; let inconclusive = 0; let errors = 0;
   for (const target of targets) {
@@ -405,6 +666,24 @@ export async function runContactEnrichmentBatch(options: { batchSize?: number } 
       await retry(target, error instanceof Error ? error.message : String(error));
     }
   }
+  const remaining = await countContactEnrichmentRemaining();
+  return {
+    selected: harvest.selected + selected,
+    upserted: harvest.harvested + upserted,
+    live: 0,
+    dead: 0,
+    inconclusive: harvest.noEmailInStore + inconclusive,
+    errors,
+    done: remaining === 0,
+    remaining,
+    harvested: harvest.harvested,
+    skippedExisting: harvest.skippedExisting,
+    noEmailInStore: harvest.noEmailInStore,
+    harvestRemaining: harvest.remaining,
+  };
+}
+
+async function countContactEnrichmentRemaining(): Promise<number> {
   const pending = await db.execute<any>(sql`
     SELECT count(DISTINCT lower(btrim(sl.organisation_name)))::int AS remaining
     FROM sponsor_licences sl JOIN sponsor_licence_vacancies v
@@ -414,6 +693,5 @@ export async function runContactEnrichmentBatch(options: { batchSize?: number } 
     WHERE NULLIF(trim(sl.contact_email), '') IS NULL AND v.liveness <> 'dead'
       AND (e.status IS NULL OR e.status IN ('pending', 'retry'))
   `);
-  const remaining = Number(pending.rows[0]?.remaining ?? 0);
-  return { selected, upserted, live: 0, dead: 0, inconclusive, errors, done: remaining === 0, remaining };
+  return Number(pending.rows[0]?.remaining ?? 0);
 }

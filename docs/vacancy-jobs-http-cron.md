@@ -117,6 +117,13 @@ contact response may still report backlog because rows are awaiting their retry
 time or tomorrow's allowance; stop that loop rather than hammering the endpoint,
 and let the daily contact schedule run again.
 
+Before any paid lookup, the contact worker drains a database-only harvest in
+batches of up to 250 employers with a 20-second time budget. It checks current,
+non-dead stored vacancies and matching employer-profile contacts, never fetches
+a page, and never overwrites an existing sponsor contact. Responses expose
+`harvested`, `skippedExisting`, `noEmailInStore`, and `harvestRemaining`.
+Paid website discovery remains disabled until `harvestRemaining` reaches zero.
+
 ## GitHub Actions loop
 
 Store the value as the repository secret `VACANCY_JOB_SECRET`. Schedule times in

@@ -12,7 +12,10 @@ CREATE TABLE IF NOT EXISTS "sponsor_licence_contact_enrichments" (
   "website_verified_at" timestamp with time zone,
   "website_evidence_url" text,
   "contact_email" text,
+  "contact_source" varchar,
   "contact_evidence_url" text,
+  "contact_extracted_at" timestamp with time zone,
+  "stored_harvested_at" timestamp with time zone,
   "last_error" text,
   "created_at" timestamp with time zone NOT NULL DEFAULT now(),
   "updated_at" timestamp with time zone NOT NULL DEFAULT now(),
@@ -22,7 +25,10 @@ ALTER TABLE "sponsor_licence_contact_enrichments"
   ADD COLUMN IF NOT EXISTS "website_lookup_source" varchar,
   ADD COLUMN IF NOT EXISTS "website_lookup_at" timestamp with time zone,
   ADD COLUMN IF NOT EXISTS "website_cited_at" timestamp with time zone,
-  ADD COLUMN IF NOT EXISTS "website_verified_at" timestamp with time zone;
+  ADD COLUMN IF NOT EXISTS "website_verified_at" timestamp with time zone,
+  ADD COLUMN IF NOT EXISTS "contact_source" varchar,
+  ADD COLUMN IF NOT EXISTS "contact_extracted_at" timestamp with time zone,
+  ADD COLUMN IF NOT EXISTS "stored_harvested_at" timestamp with time zone;
 CREATE UNIQUE INDEX IF NOT EXISTS "contact_enrichments_org_unique"
   ON "sponsor_licence_contact_enrichments" ("organisation_name");
 CREATE INDEX IF NOT EXISTS "contact_enrichments_due_idx"
