@@ -27,9 +27,13 @@ export type VacancyJobSummary = {
   inconclusive: number;
   errors: number;
   done: boolean;
+  remaining?: number;
+  remainingIsLowerBound?: boolean;
+  durationMs?: number;
 };
 
 export const PIPELINE_WRITER_LOCK = "jobsage:external-vacancy-pipeline-writer";
+export const COMPANY_SITE_HTTP_BUDGET_MS = 20_000;
 
 export const CLI_JOB_LIMITS: Record<VacancyJobKind, number> = {
   job_board: DEFAULT_VACANCY_CHECK_BATCH_SIZE,
@@ -91,7 +95,10 @@ export async function runVacancyJob(
     }
 
     if (job === "company_site") {
-      const summary = await runCompanySiteDiscoveryBatch({ batchSize: batchLimit });
+      const summary = await runCompanySiteDiscoveryBatch({
+        batchSize: batchLimit,
+        deadlineMs: Date.now() + COMPANY_SITE_HTTP_BUDGET_MS,
+      });
       const selected = summary?.selected ?? 0;
       return {
         selected,
@@ -100,7 +107,10 @@ export async function runVacancyJob(
         dead: 0,
         inconclusive: 0,
         errors: summary?.errors ?? 0,
-        done: selected < batchLimit,
+        done: summary?.done ?? selected < batchLimit,
+        remaining: summary?.remaining,
+        remainingIsLowerBound: summary?.remainingIsLowerBound,
+        durationMs: summary?.durationMs,
       };
     }
     if (job === "contact") {

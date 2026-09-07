@@ -1,0 +1,29 @@
+Implement a smaller, timeout-safe company_site batch for the free cron-job.org 30-second HTTP limit. Do not raise VACANCY_AI_WEB_SEARCH_DAILY_CAP. Do not scrape LinkedIn or Indeed. Do not change job_board or liveness batch sizes unless required for lock safety. Do not publish.
+
+Context
+Production cron + VACANCY_JOB_SECRET works. job_board completes (~50 employers, often <20s, 200 OK). company_site starts with ~23 employers and never completes: cron-job.org Failed (timeout) at 30s, and production logs show starts with 0 completion lines. We will call company_site more often / via multiple staggered crons after this change. Overlapping calls already return 409 from the shared writer lock.
+
+Goal
+Make one authenticated POST { "kind": "company_site" } reliably finish and return JSON well under 25 seconds on production Autoscale, even under normal host pacing.
+
+Requirements
+1. Reduce the company_site HTTP batch size so a typical run completes in <25s. Prefer a configurable env/config such as COMPANY_SITE_BATCH_SIZE with a safe production default of 5 (or whatever measured size consistently finishes under 25s). Document the chosen default and why.
+2. Keep the shared writer lock. If another vacancy job is running, keep returning 409 quickly without starting work.
+3. Always emit a clear completion / pipeline-tick summary for company_site when a batch starts (selected, upserted, errors, done, remaining, duration_ms) so timeouts vs real failures are distinguishable in logs.
+4. Prefer finishing fewer employers cleanly over starting many and dying mid-batch. Partial progress must persist so the next cron call resumes (existing state/retry tables).
+5. Do not require the HTTP client to wait longer than 30s. Do not convert Autoscale to Scheduled. Optional only if already easy: early return is fine as long as the awaited batch truly completes before the response.
+6. Tests: batch size is respected; lock still returns busy/409 behaviour; a simulated slow path does not leave the run unmarked; existing company-site discovery tests still pass.
+
+Verification
+- Typecheck + relevant API tests
+- One bounded development company_site run with the new size; report selected / upserted / errors / duration_ms (no secrets, no emails)
+- Confirm the response returns before 25s in that run
+
+Return
+- files changed
+- old vs new company_site batch size
+- measured duration of the verification run
+- how remaining employers are resumed on the next call
+- recommended cron spacing for N parallel-but-staggered company_site jobs without lock collisions (e.g. every 10–15 min, offset by a few minutes)
+
+Do not create the cron-job.org jobs yourself. Stop after the report.

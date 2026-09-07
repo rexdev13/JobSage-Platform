@@ -44,6 +44,10 @@ export type CompanySiteBatchSummary = {
   skipped: number;
   errors: number;
   upserted: number;
+  done: boolean;
+  remaining: number;
+  remainingIsLowerBound: boolean;
+  durationMs: number;
 };
 
 let batchInProgress = false;
@@ -151,6 +155,7 @@ export async function runCompanySiteCheck(
     CompanySiteBatchRow,
     "organisationName" | "website" | "genericCheckedAt" | "atsCheckedAt" | "careersUrl" | "atsProvider"
   >,
+  options: { deadlineMs?: number } = {},
 ): Promise<CompanySiteCheckOutcome> {
   if (!row.website.trim()) return { status: "skipped", reason: "no website" };
   const checkGeneric = isDue(row.genericCheckedAt, COMPANY_SITE_GENERIC_TTL_MS);
@@ -163,6 +168,7 @@ export async function runCompanySiteCheck(
     knownCareersUrl: row.careersUrl,
     checkGeneric,
     checkAts: checkAts || checkGeneric,
+    deadlineMs: options.deadlineMs,
   });
   const persisted =
     result.adverts.length > 0
@@ -213,7 +219,7 @@ export async function runCompanySiteCheck(
 }
 
 export async function runCompanySiteDiscoveryBatch(
-  options: { batchSize?: number } = {},
+  options: { batchSize?: number; deadlineMs?: number } = {},
 ): Promise<CompanySiteBatchSummary | null> {
   if (batchInProgress) {
     console.log("[company-site-scheduler] Previous batch still running — skipping this tick");
@@ -225,7 +231,12 @@ export async function runCompanySiteDiscoveryBatch(
     const batchSize = options.batchSize == null
       ? getBatchSize()
       : Math.max(1, Math.min(Math.floor(options.batchSize), COMPANY_SITE_DISCOVERY_BATCH_SIZE));
-    const rows = await selectCompanySiteBatch(batchSize);
+    // Fetch one extra candidate instead of running an expensive full queue
+    // count after the batch. This keeps the HTTP response bounded while still
+    // distinguishing an empty queue from resumable work.
+    const candidates = await selectCompanySiteBatch(batchSize + 1);
+    const rows = candidates.slice(0, batchSize);
+    const hasMore = candidates.length > rows.length;
     console.log(
       `[company-site-scheduler] Starting hourly batch size=${rows.length} concurrency=${COMPANY_SITE_DISCOVERY_CONCURRENCY}`,
     );
@@ -235,14 +246,22 @@ export async function runCompanySiteDiscoveryBatch(
     let adverts = 0;
     let inserted = 0;
     let revived = 0;
+    let deferred = 0;
     let nextIndex = 0;
 
     async function worker(): Promise<void> {
       while (true) {
+        if (options.deadlineMs != null && Date.now() >= options.deadlineMs) {
+          deferred += Math.max(0, rows.length - nextIndex);
+          nextIndex = rows.length;
+          return;
+        }
         const row = rows[nextIndex++];
         if (!row) return;
         try {
-          const outcome = await runCompanySiteCheck(row);
+          const outcome = await runCompanySiteCheck(row, {
+            deadlineMs: options.deadlineMs,
+          });
           if (outcome.status === "skipped") {
             skipped += 1;
           } else {
@@ -267,12 +286,27 @@ export async function runCompanySiteDiscoveryBatch(
         () => worker(),
       ),
     );
-    console.log(
-      `[company-site-scheduler] Complete checked=${checked} skipped=${skipped} errors=${errors} adverts=${adverts} inserted=${inserted} duration_ms=${Date.now() - startedAt}`,
-    );
+    const durationMs = Date.now() - startedAt;
     const upserted = inserted + revived;
-    console.log(`[pipeline-tick] env=${process.env.NODE_ENV ?? "unknown"} job=company_site selected=${rows.length} upserted=${upserted} live=0 dead=0 inconclusive=0 errors=${errors}`);
-    return { selected: rows.length, checked, skipped, errors, upserted };
+    const remaining = errors + deferred + (hasMore ? 1 : 0);
+    const remainingIsLowerBound = hasMore;
+    const done = remaining === 0;
+    const remainingLog = remainingIsLowerBound ? `>=${remaining}` : String(remaining);
+    console.log(
+      `[company-site-scheduler] Complete selected=${rows.length} checked=${checked} skipped=${skipped} upserted=${upserted} errors=${errors} done=${done} remaining=${remainingLog} adverts=${adverts} inserted=${inserted} duration_ms=${durationMs}`,
+    );
+    console.log(`[pipeline-tick] env=${process.env.NODE_ENV ?? "unknown"} job=company_site selected=${rows.length} upserted=${upserted} live=0 dead=0 inconclusive=0 errors=${errors} done=${done} remaining=${remainingLog} duration_ms=${durationMs}`);
+    return {
+      selected: rows.length,
+      checked,
+      skipped,
+      errors,
+      upserted,
+      done,
+      remaining,
+      remainingIsLowerBound,
+      durationMs,
+    };
   } finally {
     batchInProgress = false;
   }

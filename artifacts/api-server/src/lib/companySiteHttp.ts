@@ -10,6 +10,7 @@ export const COMPANY_SITE_PAGE_TIMEOUT_MS = 9_000;
 export const COMPANY_SITE_EMPLOYER_BUDGET_MS = 25_000;
 export const COMPANY_SITE_HOST_DELAY_MS = 1_750;
 export const COMPANY_SITE_ROBOTS_TTL_MS = 36 * 60 * 60 * 1000;
+export const COMPANY_SITE_DNS_TIMEOUT_MS = 3_000;
 
 const HOST_LEASE_MS = COMPANY_SITE_PAGE_TIMEOUT_MS + 3_000;
 const MAX_REDIRECTS = 3;
@@ -73,6 +74,28 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function awaitWithDeadline<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  message: string,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          const error = new Error(message);
+          error.name = "AbortError";
+          reject(error);
+        }, Math.max(1, timeoutMs));
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export async function resolveAndPinPublicAddress(
   hostname: string,
   resolver: AddressResolver = async (host) => dnsLookup(host, { all: true, verbatim: true }),
@@ -124,6 +147,20 @@ async function requestPinned(
   maxBytes: number,
 ): Promise<PinnedResponse> {
   return new Promise((resolve, reject) => {
+    let settled = false;
+    let wallTimer: ReturnType<typeof setTimeout> | undefined;
+    const resolveOnce = (value: PinnedResponse) => {
+      if (settled) return;
+      settled = true;
+      if (wallTimer) clearTimeout(wallTimer);
+      resolve(value);
+    };
+    const rejectOnce = (error: unknown) => {
+      if (settled) return;
+      settled = true;
+      if (wallTimer) clearTimeout(wallTimer);
+      reject(error);
+    };
     const client = url.protocol === "https:" ? https : http;
     const request = client.request(
       url,
@@ -150,7 +187,7 @@ async function requestPinned(
           if (bytes >= maxBytes) response.destroy();
         });
         response.on("end", () => {
-          resolve({
+          resolveOnce({
             status: response.statusCode ?? 0,
             headers: response.headers,
             body: Buffer.concat(chunks).toString("utf8"),
@@ -158,23 +195,29 @@ async function requestPinned(
         });
         response.on("error", (error) => {
           if (bytes >= maxBytes) {
-            resolve({
+            resolveOnce({
               status: response.statusCode ?? 0,
               headers: response.headers,
               body: Buffer.concat(chunks).toString("utf8"),
             });
           } else {
-            reject(error);
+            rejectOnce(error);
           }
         });
       },
     );
+    wallTimer = setTimeout(() => {
+      const error = new Error("request timed out");
+      error.name = "AbortError";
+      request.destroy(error);
+      rejectOnce(error);
+    }, Math.max(1, timeoutMs));
     request.setTimeout(timeoutMs, () => {
       const error = new Error("request timed out");
       error.name = "AbortError";
       request.destroy(error);
     });
-    request.on("error", reject);
+    request.on("error", rejectOnce);
     request.end();
   });
 }
@@ -380,7 +423,11 @@ async function fetchWithoutRobots(
     }
     let pinned: PinnedAddress;
     try {
-      pinned = await resolveAndPinPublicAddress(parsed.hostname);
+      pinned = await awaitWithDeadline(
+        resolveAndPinPublicAddress(parsed.hostname),
+        Math.min(COMPANY_SITE_DNS_TIMEOUT_MS, Math.max(1, deadlineMs - Date.now())),
+        "DNS lookup timed out",
+      );
     } catch {
       return { ok: false, kind: "unsafe", reason: `non-public hostname: ${parsed.hostname}` };
     }
