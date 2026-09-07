@@ -7,19 +7,37 @@ import { getVacancyAiWebSearchDailyCap } from "../lib/vacancyAiBudget";
 
 const router = Router();
 
-const HTTP_DEFAULT_LIMITS: Record<VacancyJobKind, number> = {
-  job_board: 50,
-  company_site: 30,
-  liveness: 100,
-  contact: 5,
-};
+/**
+ * Company-site checks can involve several politely paced requests per employer.
+ * Keep the awaited HTTP batch at five so free cron clients with a 30-second
+ * timeout receive the final response comfortably before their deadline.
+ */
+export const DEFAULT_COMPANY_SITE_HTTP_BATCH_SIZE = 5;
 
-const HTTP_MAX_LIMITS: Record<VacancyJobKind, number> = {
-  job_board: 50,
-  company_site: 40,
-  liveness: 120,
-  contact: 5,
-};
+export function getCompanySiteHttpBatchSize(): number {
+  const configured = Number.parseInt(process.env["COMPANY_SITE_BATCH_SIZE"] ?? "", 10);
+  return Number.isFinite(configured) && configured >= 1 && configured <= DEFAULT_COMPANY_SITE_HTTP_BATCH_SIZE
+    ? configured
+    : DEFAULT_COMPANY_SITE_HTTP_BATCH_SIZE;
+}
+
+function getHttpDefaultLimits(): Record<VacancyJobKind, number> {
+  return {
+    job_board: 50,
+    company_site: getCompanySiteHttpBatchSize(),
+    liveness: 100,
+    contact: 5,
+  };
+}
+
+function getHttpMaxLimits(): Record<VacancyJobKind, number> {
+  return {
+    job_board: 50,
+    company_site: getCompanySiteHttpBatchSize(),
+    liveness: 120,
+    contact: 5,
+  };
+}
 
 router.post("/internal/vacancy-jobs", async (req: Request, res: Response): Promise<void> => {
   const secret = process.env["VACANCY_JOB_SECRET"];
@@ -57,8 +75,8 @@ router.post("/internal/vacancy-jobs", async (req: Request, res: Response): Promi
     return;
   }
   const limit = Math.min(
-    requestedLimit ?? HTTP_DEFAULT_LIMITS[kind],
-    HTTP_MAX_LIMITS[kind],
+    requestedLimit ?? getHttpDefaultLimits()[kind],
+    getHttpMaxLimits()[kind],
   );
 
   try {

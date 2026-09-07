@@ -22,9 +22,11 @@ app.use(router);
 
 describe("POST /internal/vacancy-jobs", () => {
   const originalSecret = process.env.VACANCY_JOB_SECRET;
+  const originalCompanySiteBatchSize = process.env.COMPANY_SITE_BATCH_SIZE;
 
   beforeEach(() => {
     process.env.VACANCY_JOB_SECRET = "test-job-secret";
+    delete process.env.COMPANY_SITE_BATCH_SIZE;
     runVacancyJobMock.mockReset();
     runVacancyJobMock.mockResolvedValue({
       selected: 2,
@@ -40,6 +42,8 @@ describe("POST /internal/vacancy-jobs", () => {
   afterEach(() => {
     if (originalSecret == null) delete process.env.VACANCY_JOB_SECRET;
     else process.env.VACANCY_JOB_SECRET = originalSecret;
+    if (originalCompanySiteBatchSize == null) delete process.env.COMPANY_SITE_BATCH_SIZE;
+    else process.env.COMPANY_SITE_BATCH_SIZE = originalCompanySiteBatchSize;
   });
 
   it("fails closed when the production secret is unset", async () => {
@@ -83,7 +87,7 @@ describe("POST /internal/vacancy-jobs", () => {
 
   it.each([
     ["job_board", 999, 50],
-    ["company_site", 999, 40],
+    ["company_site", 999, 5],
     ["liveness", 999, 120],
     ["contact", 999, 5],
   ] as const)("caps %s HTTP batches", async (kind, requested, expected) => {
@@ -94,5 +98,29 @@ describe("POST /internal/vacancy-jobs", () => {
 
     expect(response.status).toBe(200);
     expect(runVacancyJobMock).toHaveBeenCalledWith(kind, expected);
+  });
+
+  it("uses the timeout-safe company-site default and respects a smaller configured size", async () => {
+    process.env.COMPANY_SITE_BATCH_SIZE = "3";
+
+    const response = await request(app)
+      .post("/internal/vacancy-jobs")
+      .set("x-jobsage-job-secret", "test-job-secret")
+      .send({ kind: "company_site" });
+
+    expect(response.status).toBe(200);
+    expect(runVacancyJobMock).toHaveBeenCalledWith("company_site", 3);
+  });
+
+  it("returns 409 immediately when the shared writer is busy", async () => {
+    runVacancyJobMock.mockResolvedValue(null);
+
+    const response = await request(app)
+      .post("/internal/vacancy-jobs")
+      .set("x-jobsage-job-secret", "test-job-secret")
+      .send({ kind: "company_site" });
+
+    expect(response.status).toBe(409);
+    expect(response.body).toEqual({ error: "Another vacancy pipeline batch is already running." });
   });
 });

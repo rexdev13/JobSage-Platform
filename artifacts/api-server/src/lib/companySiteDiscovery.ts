@@ -44,6 +44,7 @@ export type CompanySiteDiscoveryOptions = {
   checkGeneric?: boolean;
   checkAts?: boolean;
   now?: () => number;
+  deadlineMs?: number;
 };
 
 function decodeHtml(value: string): string {
@@ -307,7 +308,10 @@ export async function discoverCompanySiteVacancies(
     };
   }
   const now = options.now ?? Date.now;
-  const deadlineMs = now() + COMPANY_SITE_EMPLOYER_BUDGET_MS;
+  const deadlineMs = Math.min(
+    options.deadlineMs ?? Number.POSITIVE_INFINITY,
+    now() + COMPANY_SITE_EMPLOYER_BUDGET_MS,
+  );
   const originHostname = new URL(sourceUrl).hostname;
   const checkGeneric = options.checkGeneric !== false;
   const checkAts = options.checkAts !== false;
