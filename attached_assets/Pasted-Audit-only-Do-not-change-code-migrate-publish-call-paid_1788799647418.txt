@@ -1,0 +1,38 @@
+Audit only. Do not change code, migrate, publish, call paid AI search, or start a new full scrape.
+
+Today we fixed production VACANCY_JOB_SECRET, enabled three cron-job.org jobs, and triggered production batches against POST /api/internal/vacancy-jobs with kinds job_board, company_site, and liveness. cron-job.org showed board and liveness as 200 OK; company_site often Failed (timeout) because the free client limit is 30s.
+
+I need proof from production (or the production DB / production logs) that those jobs actually ran and did useful work. Do not print secrets or email addresses.
+
+Return under these exact headings.
+
+## 1. Production config
+Confirm production has VACANCY_JOB_SECRET set (yes/no only — do not print the value).
+Confirm VACANCY_AI_WEB_SEARCH_DAILY_CAP and CONTACT_WEB_SEARCH_DAILY_CAP values.
+Confirm the internal vacancy-jobs route is deployed and accepts kind job_board | company_site | liveness | contact.
+
+## 2. Did the jobs run today?
+From production logs / vacancy job runner / writer-lock / pipeline-tick records for UTC today (2026-09-07) and especially after ~10:00 UTC:
+- Each kind that ran: job_board, company_site, liveness (and contact if any)
+- Start/finish timestamps
+- selected / upserted / live / dead / inconclusive / errors / done / remaining if available
+- Any 401/503/409 overlap / lock-skip outcomes
+
+If company_site timed out on the HTTP client but the server kept working, say so and show server-side completion.
+
+## 3. Vacancy data impact
+Compare production vacancy state before vs after today’s successful runs if possible, otherwise report current production counts:
+- Current non-dead sponsor_licence_vacancies (total)
+- How many were inserted or updated today (discovered_at / last_checked_at / upsert timestamps — use whatever columns exist)
+- Breakdown by source_type / board_name if available (NHS Jobs, Reed, company_site, ATS)
+- Liveness: how many marked live / dead / inconclusive today
+
+## 4. Contact scrape impact
+- New sponsor_licence_contact_enrichments with contact_source = 'vacancy_scrape' today
+- Hiring employers with usable Send CV email now vs the earlier baseline of 62 (exact name match to current non-dead vacancies)
+- Do not print addresses
+
+## 5. Verdict
+One short paragraph: did the cron + secret + republish setup actually populate / refresh production vacancies today? Quote the numbers. Separately say whether company_site server-side batches completed despite cron-job.org 30s timeouts.
+
+Do not implement fixes. Stop after the report.
