@@ -62,7 +62,7 @@ describe("tracked outbound navigation", () => {
     expect(openMock).toHaveBeenCalledOnce();
   });
 
-  it("keeps the raw sponsor vacancy id in its click record and extension event", async () => {
+  it("uses the unified sponsor role id in its click record and extension event", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 201 }));
     vi.stubGlobal("fetch", fetchMock);
     const eventListener = vi.fn();
@@ -70,13 +70,14 @@ describe("tracked outbound navigation", () => {
 
     await openTrackedSponsorVacancy({
       vacancyId: 73,
+      roleId: 2_000_073,
       url: "https://employer.example/vacancy",
       title: "Carer",
       employer: "Sponsor Ltd",
     });
 
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual(expect.objectContaining({ roleId: 73 }));
-    expect(eventListener.mock.calls[0][0].detail.roleId).toBe(73);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual(expect.objectContaining({ roleId: 2_000_073 }));
+    expect(eventListener.mock.calls[0][0].detail.roleId).toBe(2_000_073);
     window.removeEventListener("jobsage:outbound-application", eventListener);
   });
 });

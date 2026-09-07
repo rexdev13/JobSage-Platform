@@ -402,6 +402,7 @@ export function GapAnalysisSheet({
                 if (trackVacancyIntent) {
                   void openTrackedSponsorVacancy({
                     vacancyId,
+                    roleId: analysisSource === "sponsor_vacancy" ? vacancyId + 2_000_000 : vacancyId,
                     url: vacancyUrl,
                     title: vacancyTitle,
                     employer: companyName,
