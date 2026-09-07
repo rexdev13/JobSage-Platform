@@ -124,3 +124,17 @@ mtime_ms = 1788422212565
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/7f74f2a2-bd33-49ce-ac73-9a7c101b0ac3/fdf75746-d2d7-4483-8039-0b380bde42df"
 storage_version_token = "1788422235920855"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "zBxAlTpHdJDZn5wuiP-Eh"
+uri = "file://audit/opportunities-sponsor-licences-parity.md"
+type = "text"
+title = "Opportunities to Sponsor Licences parity audit"
+description = "Read-only 914-line inventory, parity matrix, implementation map, open questions, and backlog."
+logical_id = "da1640da-641a-4f55-ad79-aae6a0a3ff92"
+content_hash = "sha256:f799ac85ed18e686afa33b4d3a2fb478a39ca1efc6c5880ff14e9c06c1bd7f12"
+size = 34000
+mtime_ms = 1788806066231
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/da1640da-641a-4f55-ad79-aae6a0a3ff92/4bf6091f-9a42-44fb-9d8c-3f6393f4a94d"
+storage_version_token = "1788806082036730"
+content_type = "text/markdown"
