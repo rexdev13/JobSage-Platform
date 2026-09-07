@@ -11,6 +11,7 @@ vi.mock("@/hooks/use-toast", () => ({
 
 vi.mock("@/lib/trackedOutbound", () => ({
   openTrackedSponsorVacancy: vi.fn(),
+  openTrackedOutbound: vi.fn(),
 }));
 
 vi.mock("@/components/ui/sheet", () => ({
@@ -54,7 +55,6 @@ function renderSheet(queryClient = new QueryClient({
         analysisEndpoint="/opportunities/roles/42/gap-analysis"
         analysisSource="role"
         onApply={vi.fn()}
-        onWebsiteApply={vi.fn()}
       />
     </QueryClientProvider>,
   );

@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { sponsorLicencesTable, sponsorLicenceSyncLogTable, sponsorLicenceVacancyChecksTable, sponsorLicenceBookmarksTable, sponsorLicenceVacanciesTable, sponsorLicenceVacancyScoresTable, sponsorLicenceGapAnalysesTable, roleGapAnalysesTable } from "@workspace/db";
+import { GetSponsorLicenceVacanciesParams, GetSponsorLicenceVacanciesResponse } from "@workspace/api-zod";
+import { sponsorLicencesTable, sponsorLicenceSyncLogTable, sponsorLicenceVacancyChecksTable, sponsorLicenceBookmarksTable, sponsorLicenceVacanciesTable, sponsorLicenceVacancyScoresTable, sponsorLicenceGapAnalysesTable, roleGapAnalysesTable, applicationsTable, speculativeApplicationsTable, profilesTable } from "@workspace/db";
 import { eq, ilike, and, desc, sql, isNotNull, inArray, gte } from "drizzle-orm";
 import { countyToRegion } from "../lib/countyToRegion";
 import { getVacancyLinkStatus, RECENT_VERIFY_SKIP_MS } from "../lib/vacancyLiveness";
@@ -11,6 +12,10 @@ import { scoreVacanciesForCompany } from "../lib/sponsorVacancyScoring";
 import { getOrGenerateGapAnalysis, LimitReachedError } from "../lib/vacancyGapAnalysis";
 import { getNextReadinessReset, getReadinessMonthStart, READINESS_CHECK_LIMIT } from "../lib/readinessQuota";
 import { getDirectContactEligibility } from "../lib/employerRecipient";
+import { SPONSOR_VACANCY_ID_OFFSET, classifyVacancyCategory, inferSafeguardingRequirements, inferVacancySponsorshipStatus } from "../lib/sponsorVacancyRoles";
+import { opportunityRegistrationLabel } from "../lib/opportunityProfession";
+import { assessSafeguarding } from "../lib/safeguarding";
+import { regionsFromLocationText } from "../lib/regionMatching";
 
 const router: IRouter = Router();
 
@@ -196,9 +201,9 @@ router.get("/sponsor-licences/check-all-vacancies/status", requireAuthenticated,
 router.get("/sponsor-licences/:id/vacancies", requireAuthenticated, async (req, res) => {
   try {
     const userId = req.user!.id;
-    const rawId = typeof req.params["id"] === "string" ? req.params["id"] : "";
-    const id = parseInt(rawId, 10);
-    if (!id || isNaN(id)) {
+    const parsedParams = GetSponsorLicenceVacanciesParams.safeParse(req.params);
+    const id = parsedParams.success ? parsedParams.data.id : Number.NaN;
+    if (!id || !Number.isInteger(id)) {
       res.status(400).json({ error: "Invalid company ID." });
       return;
     }
@@ -215,16 +220,16 @@ router.get("/sponsor-licences/:id/vacancies", requireAuthenticated, async (req, 
     }
 
     // Expanded actionable vacancies use the same confirmed-live bar as counts.
-    const vacancyRows = await db
+    const allVacancyRows = await db
       .select()
       .from(sponsorLicenceVacanciesTable)
-      .where(
-        and(
-          eq(sponsorLicenceVacanciesTable.organisationName, company.organisationName),
-          eq(sponsorLicenceVacanciesTable.liveness, "live"),
-          gte(sponsorLicenceVacanciesTable.lastVerifiedAt, new Date(Date.now() - RECENT_VERIFY_SKIP_MS)),
-        ),
-      );
+      .where(eq(sponsorLicenceVacanciesTable.organisationName, company.organisationName));
+    const vacancyRows = allVacancyRows.filter(
+      (vacancy) =>
+        vacancy.liveness === "live" &&
+        vacancy.lastVerifiedAt != null &&
+        new Date(vacancy.lastVerifiedAt).getTime() >= Date.now() - RECENT_VERIFY_SKIP_MS,
+    );
 
     let scoreRows = await db
       .select()
@@ -260,32 +265,94 @@ router.get("/sponsor-licences/:id/vacancies", requireAuthenticated, async (req, 
       }
     }
 
-    const [lastCheck] = await db
-      .select({ checkedAt: sponsorLicenceVacancyChecksTable.checkedAt })
-      .from(sponsorLicenceVacancyChecksTable)
-      .where(eq(sponsorLicenceVacancyChecksTable.organisationName, company.organisationName))
-      .orderBy(desc(sponsorLicenceVacancyChecksTable.checkedAt))
-      .limit(1);
+    const [[lastCheck], [profile], appliedApps, cvSends] = await Promise.all([
+      db
+        .select({ checkedAt: sponsorLicenceVacancyChecksTable.checkedAt })
+        .from(sponsorLicenceVacancyChecksTable)
+        .where(eq(sponsorLicenceVacancyChecksTable.organisationName, company.organisationName))
+        .orderBy(desc(sponsorLicenceVacancyChecksTable.checkedAt))
+        .limit(1),
+      db
+        .select({
+          dbsClearanceLevel: profilesTable.dbsClearanceLevel,
+          safeguardingTrainingLevel: profilesTable.safeguardingTrainingLevel,
+        })
+        .from(profilesTable)
+        .where(eq(profilesTable.userId, userId))
+        .limit(1),
+      db
+        .select({ roleId: applicationsTable.roleId, status: applicationsTable.status })
+        .from(applicationsTable)
+        .where(eq(applicationsTable.userId, userId)),
+      db
+        .select({
+          roleId: speculativeApplicationsTable.roleId,
+          vacancyRef: speculativeApplicationsTable.vacancyRef,
+          vacancyTitle: speculativeApplicationsTable.vacancyTitle,
+        })
+        .from(speculativeApplicationsTable)
+        .where(eq(speculativeApplicationsTable.userId, userId)),
+    ]);
+    const appliedRoleIds = new Set(
+      appliedApps
+        .filter((application) => application.status !== "link_clicked")
+        .map((application) => application.roleId),
+    );
+    const cvSentRoleIds = new Set(
+      cvSends.flatMap((application) => {
+        if (application.roleId != null) return [application.roleId];
+        const vacancyId = application.vacancyRef?.match(/^sponsor-vacancy:(\d+)$/)?.[1];
+        return vacancyId ? [Number(vacancyId) + SPONSOR_VACANCY_ID_OFFSET] : [];
+      }),
+    );
 
     const vacancies = vacancyRows
       .map((v) => {
         const s = scoreMap.get(v.id);
+        const inferredRequirements =
+          v.requiredDbsClearanceLevel == null || v.requiredSafeguardingLevel == null
+            ? inferSafeguardingRequirements(v.title, v.description)
+            : null;
+        const requiredDbsClearanceLevel = v.requiredDbsClearanceLevel ?? inferredRequirements?.requiredDbsClearanceLevel ?? null;
+        const requiredSafeguardingLevel = v.requiredSafeguardingLevel ?? inferredRequirements?.requiredSafeguardingLevel ?? null;
+        const category = classifyVacancyCategory(v.title, v.description);
+        const linkStatus = getVacancyLinkStatus(v.url, v.liveness, v.lastVerifiedAt, v.livenessReason);
+        const roleId = v.id + SPONSOR_VACANCY_ID_OFFSET;
         return {
           id: v.id,
+          roleId,
           title: v.title,
+          sponsorshipStatus: inferVacancySponsorshipStatus(v.title, v.description),
+          requiredRegistration: category ? opportunityRegistrationLabel(category) : "Not specified",
+          requiredDbsClearanceLevel,
+          requiredSafeguardingLevel,
+          safeguarding: assessSafeguarding(
+            {
+              dbsClearanceLevel: profile?.dbsClearanceLevel ?? null,
+              safeguardingTrainingLevel: profile?.safeguardingTrainingLevel ?? null,
+            },
+            { requiredDbsClearanceLevel, requiredSafeguardingLevel },
+          ),
           location: v.location,
           salary: v.salary,
           url: v.url,
-          linkStatus: getVacancyLinkStatus(v.url, v.liveness, v.lastVerifiedAt, v.livenessReason),
-          linkVerified: getVacancyLinkStatus(v.url, v.liveness, v.lastVerifiedAt, v.livenessReason) === "live",
-          linkCheckedAt: v.lastVerifiedAt ? v.lastVerifiedAt.toISOString() : null,
+          linkStatus,
+          linkVerified: linkStatus === "live",
+          linkCheckedAt: v.lastVerifiedAt ?? null,
           description: v.description,
           postedDate: v.postedDate,
-          targetRegions: v.targetRegions ?? null,
+          targetRegions:
+            Array.isArray(v.targetRegions) && v.targetRegions.length > 0
+              ? v.targetRegions
+              : regionsFromLocationText(v.location),
+          sourceType: v.sourceType,
+          boardName: v.boardName,
           matchScore: s?.score ?? null,
           isEligible: s?.isEligible ?? null,
           missingRequirements: (s?.missingRequirements as string[] | null) ?? [],
           matchExplanation: s?.explanation ?? null,
+          applied: appliedRoleIds.has(roleId),
+          cvSent: cvSentRoleIds.has(roleId),
         };
       })
       .sort((a, b) => {
@@ -299,11 +366,22 @@ router.get("/sponsor-licences/:id/vacancies", requireAuthenticated, async (req, 
         return (a.title ?? "").localeCompare(b.title ?? "", "en", { sensitivity: "base" });
       });
 
-    res.json({
+    const nonLiveReasons = [...new Set(
+      allVacancyRows
+        .filter((vacancy) => getVacancyLinkStatus(vacancy.url, vacancy.liveness, vacancy.lastVerifiedAt, vacancy.livenessReason) !== "live")
+        .map((vacancy) => vacancy.livenessReason?.trim() || getVacancyLinkStatus(vacancy.url, vacancy.liveness, vacancy.lastVerifiedAt, vacancy.livenessReason))
+        .filter(Boolean),
+    )].slice(0, 5);
+
+    res.json(GetSponsorLicenceVacanciesResponse.parse({
       organisationName: company.organisationName,
       vacancies,
       lastCheckedAt: lastCheck?.checkedAt ?? null,
-    });
+      nonLiveEvidence: {
+        count: allVacancyRows.length - vacancyRows.length,
+        reasons: nonLiveReasons,
+      },
+    }));
   } catch (err) {
     console.error("[sponsor-licences] /:id/vacancies error:", err);
     res.status(500).json({ error: "Failed to fetch vacancies." });

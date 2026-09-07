@@ -1,0 +1,124 @@
+mplement: Full Opportunities → Sponsor Licences parity
+Goal
+Bring Sponsor Licences candidate behavior in line with Opportunities for trust, actions, and discovery — without flattening the employer directory or reusing paid AI web-search enrichment.
+
+Use the completed parity audit as source of truth. Implement all backlog items below. Do not enrich, migrate, publish, or add a new URL checker.
+
+Hard constraints
+Reuse existing liveness (getVacancyLinkStatus, six-hour fresh-live). No new checker.
+Do not call or expand POST /sponsor-licences/:id/enrich (paid gpt-4o + web_search_preview). Leave it alone or gate it off if touched; do not use it for parity.
+Keep employer-first browsing, pagination, bookmarks, speculative CV, careers fallback, register metadata, admin/check controls.
+Dead URL evidence must never become email-only.
+Vacancy apply navigation must stay non-blocking (open first; background check after).
+Product decisions (implement these; don’t re-ask)
+Eligibility: Align both surfaces to Opportunities policy — gaps are advisory. Do not disable vacancy Send CV / Apply solely because isEligible === false; show badges/notes and keep actions available (label may change). Still enforce server Send CV contact + live URL rules.
+Smart Apply: Add Smart Apply on Sponsor vacancy rows when the same readiness/extension gates Opportunities uses are met; otherwise keep tracked external Apply.
+Tracker: Vacancy apply clicks create link_clicked application records (like main RoleCard). Careers-homepage visits = outbound navigation only (extension event + ref=jobsage), not vacancy applications.
+Click freshness: Align client skip window to six hours (match server), not twelve.
+Non-live evidence: Show a compact non-actionable summary when useful (e.g. “N closed / unverified stored links”) — never clickable apply/Send CV, never email-only inference.
+Sponsorship: Show vacancy-level sponsorshipStatus (confirmed / not_offered / unknown) separately from employer licence badge; reuse LicensedSponsorBadge semantics.
+Regions: Keep register-region filters. Additionally consume Professional Profile preferred regions as an optional vacancy-region filter inside expanded panels / vacancy ranking — do not replace register region.
+Board exclusions: Apply shared LinkedIn/Indeed (and existing Send CV apply-route) exclusions to Sponsor vacancy apply/Send CV routes.
+directContactOnly: Expose the existing server filter in the Sponsor Licences UI.
+Dismiss/hide: Defer employer/vacancy dismiss UI (P2 backlog item “consider separately”) — skip unless trivial; do not port Best Matches dismiss queue onto the directory.
+P0 — Trust and consistency
+1. Unify outbound tracking
+
+Centralize in trackedOutbound.ts (or shared helper used by RoleCard + Sponsor).
+Vacancy intent → create link_clicked tracker record + extension event + open URL.
+Careers / employer website → extension event + open only; distinct analytics/type so it isn’t counted as vacancy apply.
+Prevent double-posts where RoleCard already records manually.
+Apply to: Sponsor vacancy apply, Opportunities Best Matches, Send CV apply-only rows, any other openTrackedOutbound apply paths that currently skip the tracker.
+2. Background liveness on Sponsor vacancy clicks
+
+After open, call checkApplyLinkInBackground.
+On dead: invalidate sponsor vacancy queries / counts / employer list vacancy badges.
+Timeouts/network → inconclusive; do not block or mark dead.
+3. Freshness window
+
+Change click helper skip/FRESH_LINK_WINDOW_MS (or equivalent) to six hours everywhere candidate-facing.
+4. Copy separation
+
+Discovery “checked within 24h” ≠ “link verified”.
+Audit Sponsor Licences strings/badges so discovery cache and URL verification cannot be confused.
+5. Sponsorship presentation
+
+Employer: licence membership badge + existing disclaimer.
+Vacancy rows: explicit sponsorship status from stored/inferred vacancy evidence only.
+6. Enrichment
+
+No parity work via paid search enrichment.
+P1 — Action parity
+7. Eligibility UI
+
+Port Opportunities-style eligibility badges/notes to Sponsor vacancy rows (Eligible Now / Not Yet Eligible, gaps, safeguarding where fields exist).
+Stop blocking Sponsor vacancy CV/Apply on isEligible === false (per decision above).
+8. Requirements fields
+
+Return and display on Sponsor vacancies: required registration, DBS/safeguarding levels, safeguarding summary — same fields Opportunities already uses where scoring/API already has them; extend vacancy response if missing.
+9. Per-vacancy Applied / CV Sent
+
+Use unified ID space (sponsorVacancy.id + 2_000_000).
+Show vacancy-level state on rows; keep employer-level “CV Sent” separate and labeled.
+10. Source / board labels
+
+Show source type / board name on vacancy rows (NHS Jobs, Reed, company site, etc.).
+Enforce shared board exclusions on apply/Send CV routes.
+11. Smart Apply
+
+Wire SmartApplyModal (and extension gate/nudge as on Opportunities) for eligible Sponsor vacancy deep links.
+Keep external Apply and vacancy Send CV.
+12. Cover letter convenience
+
+If Opportunities has standalone cover-letter entry that’s easy to reuse from Sponsor vacancy detail/sheet, add it; otherwise keep modal-only (acceptable partial).
+P2 — Discovery parity
+13. Vacancy search
+
+Within employer expansion (and/or list if feasible): filter vacancies by title/location text while keeping employer name search + pagination.
+14. Vacancy-region filter
+
+Optional filter using saved Professional Profile regions against vacancy target regions; do not remove register-region filtering.
+15. directContactOnly
+
+Add UI control bound to existing server query param.
+16. Non-actionable evidence summary
+
+When live rows are empty but non-live stored evidence exists, show count/reason summary without CTAs that imply open vacancies.
+Intentionally do NOT change
+Sector-first navigation
+Employer bookmarks
+Register route/rating/sync UI
+Employer-level speculative Send CV
+Careers-site fallback (label clearly as employer site, not verified vacancy)
+Admin global scan / batch check controls
+Employer pagination
+Opportunities self-promo / dormant Applications tab revival
+AI Best Matches strip on Sponsor Licences
+Share/report
+Implementation order
+Shared tracking + click-check + 6h window + copy fixes
+Sponsor vacancy response field expansion (registration, safeguarding, sponsorship, applied state)
+Sponsor row UI parity (badges, source, eligibility, Smart Apply, Applied/CV Sent)
+Filters (directContactOnly, vacancy search, optional vacancy-region)
+Non-live evidence summary
+Opportunities side-paths that also skipped tracker (Best Matches / Send CV apply-only) so tracking is consistent everywhere
+Tests
+Vacancy click creates one link_clicked; careers click does not
+Sponsor click triggers background check; dead invalidates panel/counts
+Client freshness skip = 6h
+Discovery copy ≠ verified copy
+Dead/stale/unverified never actionable; never email-only
+Eligibility false still allows actions but shows advisory UI
+Smart Apply opens only when gates pass
+LinkedIn/Indeed excluded from Sponsor apply/Send CV routes
+Vacancy vs employer CV Sent distinction
+directContactOnly filter works
+Vacancy title/location filter works
+Profile vacancy-region filter does not break register-region filter
+Existing liveness/Send CV suites still pass
+Typecheck + web/api build pass
+Done when
+Sponsor Licences vacancy actions match Opportunities trust/action semantics; directory structure remains employer-first; paid enrichment unused; all P0–P2 items above are implemented or explicitly marked deferred only if blocked by missing API fields (list any such blockers in the summary).
+
+Cite changed files/symbols in the final summary.
+

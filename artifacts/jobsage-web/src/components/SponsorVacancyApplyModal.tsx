@@ -627,7 +627,12 @@ export function SponsorVacancyApplyModal({
                   <button
                     type="button"
                     onClick={() =>
-                      void openTrackedSponsorVacancy({ vacancyId, url: externalUrl })
+                      void openTrackedSponsorVacancy({
+                        vacancyId,
+                        url: externalUrl,
+                        title: vacancyTitle,
+                        employer: companyName,
+                      })
                     }
                     className="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors font-medium"
                   >

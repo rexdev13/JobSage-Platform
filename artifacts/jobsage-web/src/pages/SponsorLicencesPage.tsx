@@ -2,10 +2,12 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, PageTransition, Button } from "@/components/ui-enhanced";
 import { SponsorVacancyApplyModal } from "@/components/SponsorVacancyApplyModal";
-import { shouldShowSendCv } from "@/lib/opportunityFilters";
+import { SmartApplyModal } from "@/components/SmartApplyModal";
+import { hasRegionOverlap, hasUsableSendCvApplyRoute, shouldShowSendCv } from "@/lib/opportunityFilters";
+import { checkApplyLinkInBackground, isFreshLiveApplyLink } from "@/lib/vacancyApply";
 import { GapAnalysisSheet } from "@/components/GapAnalysisSheet";
 import { getListMyApplicationsQueryKey } from "@workspace/api-client-react";
-import { openTrackedSponsorVacancy, openTrackedOutbound, normalizeWebsiteUrl } from "@/lib/trackedOutbound";
+import { openTrackedOutbound, normalizeWebsiteUrl } from "@/lib/trackedOutbound";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { useExtensionGate } from "@/components/SmartApplyExtensionPrompt";
 import {
@@ -26,6 +28,7 @@ import {
   useBookmarkSponsorLicence,
   useUnbookmarkSponsorLicence,
   useListMyDocuments,
+  useGetMyProfile,
   getListSponsorLicencesQueryKey,
   getGetSponsorLicenceIndustryCountsQueryKey,
   getGetCheckAllSponsorLicenceVacanciesStatusQueryKey,
@@ -88,38 +91,25 @@ import { Link } from "wouter";
  * Why the "Apply with JOBSAGE" button is disabled for a vacancy, if it is.
  * Missing CV takes priority since the candidate can fix it themselves.
  */
-function getApplyDisabledReason(
-  hasCvUploaded: boolean,
-  isEligible: boolean | null | undefined,
-): "no-cv" | "not-eligible" | null {
+function getApplyDisabledReason(hasCvUploaded: boolean): "no-cv" | null {
   if (!hasCvUploaded) return "no-cv";
-  if (isEligible === false) return "not-eligible";
   return null;
 }
 
-const APPLY_DISABLED_TITLES: Record<"no-cv" | "not-eligible", string> = {
+const APPLY_DISABLED_TITLES: Record<"no-cv", string> = {
   "no-cv": "Upload a CV to apply — go to CV & Supporting Documents",
-  "not-eligible": "Not yet eligible for this role, so JOBSAGE applications are disabled",
 };
 
-function ApplyDisabledHint({ reason }: { reason: "no-cv" | "not-eligible" }) {
-  if (reason === "no-cv") {
-    return (
-      <Link
-        href="/documents"
-        onClick={(e) => e.stopPropagation()}
-        className="inline-flex items-center gap-1 text-[11px] text-primary font-medium hover:underline"
-      >
-        Upload a CV to apply
-        <ChevronRight className="w-3 h-3" />
-      </Link>
-    );
-  }
+function ApplyDisabledHint({ reason }: { reason: "no-cv" }) {
   return (
-    <span className="inline-flex items-center gap-1 text-[11px] text-amber-700 font-medium">
-      <AlertTriangle className="w-3 h-3" />
-      Not yet eligible
-    </span>
+    <Link
+      href="/documents"
+      onClick={(e) => e.stopPropagation()}
+      className="inline-flex items-center gap-1 text-[11px] text-primary font-medium hover:underline"
+    >
+      Upload a CV to apply
+      <ChevronRight className="w-3 h-3" />
+    </Link>
   );
 }
 
@@ -209,6 +199,9 @@ function VacancyMatchPanel({
   onScoresReady,
   onViewAnalysis,
   requireExtension,
+  preferredRegions,
+  onVacancyOutbound,
+  onSmartApply,
 }: {
   companyId: number;
   companyName: string;
@@ -225,11 +218,20 @@ function VacancyMatchPanel({
   onScoresReady: (score: number | null) => void;
   onViewAnalysis: (v: SelectedVacancy) => void;
   requireExtension: (action: () => void) => void;
+  preferredRegions: string[];
+  onVacancyOutbound: (v: SelectedVacancy) => void;
+  onSmartApply: (v: SelectedVacancy) => void;
 }) {
   const { data, isLoading } = useGetSponsorLicenceVacancies(companyId);
   const { toast: panelToast } = useToast();
   const panelQueryClient = useQueryClient();
-  const vacancies = (data?.vacancies ?? []).filter((v) => v.linkStatus === "live" && v.linkVerified);
+  const [vacancySearch, setVacancySearch] = useState("");
+  const [preferredRegionOnly, setPreferredRegionOnly] = useState(false);
+  const nonLiveEvidence = data?.nonLiveEvidence;
+  const vacancies = (data?.vacancies ?? [])
+    .filter((v) => v.linkStatus === "live" && v.linkVerified)
+    .filter((v) => !preferredRegionOnly || hasRegionOverlap(v.targetRegions, preferredRegions))
+    .filter((v) => `${v.title} ${v.location ?? ""}`.toLowerCase().includes(vacancySearch.trim().toLowerCase()));
   const noApplyLinks = vacancies.length > 0 && vacancies.every((v) => !v.url);
 
   // On-demand vacancy check: if this employer has never been checked, kick
@@ -310,6 +312,11 @@ function VacancyMatchPanel({
       ) : vacancies.length === 0 ? (
         <div className="rounded-xl border border-border bg-muted/30 px-4 py-2.5 flex items-center gap-2 flex-wrap">
           <span className="text-xs text-muted-foreground">No current vacancies found on job boards.</span>
+          {(nonLiveEvidence?.count ?? 0) > 0 && (
+            <span data-testid={`status-sponsor-non-live-evidence-${companyId}`} className="text-[11px] text-muted-foreground">
+              {nonLiveEvidence?.count} stored listing{nonLiveEvidence?.count === 1 ? "" : "s"} not currently live: {nonLiveEvidence?.reasons?.join(", ")}
+            </span>
+          )}
           <button
             onClick={onWebsiteApply}
             className="ml-auto text-xs text-primary font-medium hover:underline flex items-center gap-1"
@@ -343,9 +350,21 @@ function VacancyMatchPanel({
             </div>
           </div>
           <div className="border-t border-green-200 dark:border-green-800/40 px-4 py-3 space-y-1.5">
+            <div className="flex gap-2 pb-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                <input data-testid={`input-sponsor-vacancy-search-${companyId}`} value={vacancySearch} onChange={(e) => setVacancySearch(e.target.value)} placeholder="Search title or location" className="w-full pl-7 pr-2 py-1.5 rounded-lg border border-border bg-background text-xs" />
+              </div>
+              {preferredRegions.length > 0 && <button data-testid={`button-sponsor-preferred-region-${companyId}`} type="button" onClick={() => setPreferredRegionOnly((value) => !value)} className={`text-xs px-2 rounded-lg border ${preferredRegionOnly ? "bg-primary text-primary-foreground border-primary" : "border-border"}`}>My regions</button>}
+            </div>
             {vacancies.map((v) => {
               const score = v.matchScore ?? null;
               const eligible = v.isEligible ?? null;
+              const hasAllowedVacancyRoute = hasUsableSendCvApplyRoute({
+                applyUrl: v.url,
+                linkVerified: v.linkVerified,
+                linkStatus: v.linkStatus,
+              });
               return (
                 <div
                   key={v.id}
@@ -357,14 +376,16 @@ function VacancyMatchPanel({
                       <p className="text-sm font-medium text-foreground truncate">{v.title}</p>
                       {v.url && v.linkStatus === "live" && (v.linkVerified ? (
                         <span
+                          data-testid={`status-sponsor-link-verified-${v.id}`}
                           className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 shrink-0"
                           title={v.linkCheckedAt ? `Link checked ${new Date(v.linkCheckedAt).toLocaleString("en-GB")}` : "Apply link confirmed live"}
                         >
                           <BadgeCheck className="w-3 h-3" />
-                          Link verified
+                          {isFreshLiveApplyLink(v.linkVerified, v.linkCheckedAt) ? "Live checked <6h ago" : "Link verified"}
                         </span>
                       ) : (
                         <span
+                          data-testid={`status-sponsor-link-unverified-${v.id}`}
                           className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-700 shrink-0"
                           title="This apply link has not been health-checked yet — it will be verified shortly"
                         >
@@ -384,12 +405,13 @@ function VacancyMatchPanel({
                           {Math.round(score)}% Match
                         </span>
                       )}
-                      {eligible === false && (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-700 shrink-0">
-                          <AlertTriangle className="w-3 h-3" />
-                          Not yet eligible
-                        </span>
-                      )}
+                      <span data-testid={`status-sponsor-eligibility-${v.id}`} className={`inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full shrink-0 ${eligible === false ? "bg-amber-500/10 text-amber-700" : "bg-emerald-500/10 text-emerald-700"}`}>
+                        <BadgeCheck className="w-3 h-3" /> {eligible === false ? "Not Yet Eligible" : "Eligible Now"}
+                      </span>
+                      <span data-testid={`status-sponsor-sponsorship-${v.id}`} className="text-[11px] px-1.5 py-0.5 rounded-full bg-slate-500/10 text-slate-700">
+                        Sponsorship: {v.sponsorshipStatus === "confirmed" ? "confirmed" : v.sponsorshipStatus === "not_offered" ? "not offered" : "not confirmed"}
+                      </span>
+                      {v.sourceType && <span data-testid={`status-sponsor-source-${v.id}`} className="text-[11px] px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-700">{v.sourceType === "job_board" ? v.boardName ?? "Job board" : "Employer site"}</span>}
                     </div>
                     <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground flex-wrap">
                       {v.location && (
@@ -416,6 +438,18 @@ function VacancyMatchPanel({
                         Missing: {v.missingRequirements.join(", ")}
                       </p>
                     )}
+                    {(v.requiredRegistration !== "Not specified" || v.requiredDbsClearanceLevel || v.requiredSafeguardingLevel) && (
+                      <p data-testid={`status-sponsor-requirements-${v.id}`} className="text-xs text-muted-foreground mt-1">
+                        Registration: {v.requiredRegistration}{v.requiredDbsClearanceLevel ? ` · DBS: ${v.requiredDbsClearanceLevel}` : ""}{v.requiredSafeguardingLevel ? ` · Safeguarding: ${v.requiredSafeguardingLevel}` : ""}
+                      </p>
+                    )}
+                    {(v.safeguarding.dbsStatus !== "unknown" || v.safeguarding.safeguardingStatus !== "unknown") && (
+                      <p data-testid={`status-sponsor-safeguarding-${v.id}`} className="text-xs text-muted-foreground mt-1">
+                        DBS assessment: {v.safeguarding.dbsStatus.replaceAll("_", " ")} · Safeguarding: {v.safeguarding.safeguardingStatus.replaceAll("_", " ")}
+                      </p>
+                    )}
+                    {v.applied && <span data-testid={`status-sponsor-applied-${v.id}`} className="text-xs text-emerald-700">Applied</span>}
+                    {v.cvSent && <span data-testid={`status-sponsor-cv-sent-${v.id}`} className="ml-2 text-xs text-blue-700">CV Sent for this vacancy</span>}
                     {v.matchExplanation && (
                       <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{v.matchExplanation}</p>
                     )}
@@ -435,26 +469,26 @@ function VacancyMatchPanel({
                   </div>
                   <div className="flex flex-col items-end gap-1 shrink-0">
                     <div className="flex items-center gap-1.5">
-                    <FavoriteButton vacancyId={v.id + 2_000_000} className="p-1" />
-                    {v.url && (
+                    <FavoriteButton vacancyId={v.roleId} className="p-1" />
+                    {hasAllowedVacancyRoute && (
                       <Button
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
-                          void openTrackedSponsorVacancy({
-                            vacancyId: v.id,
-                            url: v.url!,
-                            title: v.title,
-                            employer: companyName,
-                          });
+                          onVacancyOutbound({ ...v, companyName, companyId, sendCvEligible });
                         }}
                       >
-                        Apply on company's website
+                        Apply
                         <ExternalLink className="w-3.5 h-3.5 opacity-60" />
                       </Button>
                     )}
-                    {sendCvEligible && (() => {
-                      const disabledReason = getApplyDisabledReason(hasCvUploaded, eligible);
+                    {hasAllowedVacancyRoute && (
+                      <Button data-testid={`button-sponsor-smart-apply-${v.id}`} size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); requireExtension(() => onSmartApply({ ...v, companyName, companyId, sendCvEligible })); }}>
+                        <Sparkles className="w-3.5 h-3.5" /> Smart Apply
+                      </Button>
+                    )}
+                    {sendCvEligible && hasAllowedVacancyRoute && (() => {
+                      const disabledReason = getApplyDisabledReason(hasCvUploaded);
                       return (
                         <span
                           title={disabledReason ? APPLY_DISABLED_TITLES[disabledReason] : undefined}
@@ -462,7 +496,8 @@ function VacancyMatchPanel({
                         >
                           <Button
                             size="sm"
-                          onClick={(e) => { e.stopPropagation(); onApply({ ...v, companyName, companyId, sendCvEligible }); }}
+                            data-testid={`button-sponsor-send-cv-${v.id}`}
+                            onClick={(e) => { e.stopPropagation(); onApply({ ...v, companyName, companyId, sendCvEligible }); }}
                             disabled={disabledReason != null}
                           >
                             <Send className="w-3.5 h-3.5" />
@@ -473,7 +508,7 @@ function VacancyMatchPanel({
                     })()}
                     </div>
                     {(() => {
-                      const disabledReason = getApplyDisabledReason(hasCvUploaded, eligible);
+                      const disabledReason = getApplyDisabledReason(hasCvUploaded);
                       return disabledReason ? <ApplyDisabledHint reason={disabledReason} /> : null;
                     })()}
                   </div>
@@ -481,6 +516,11 @@ function VacancyMatchPanel({
               );
             })}
           </div>
+          {(nonLiveEvidence?.count ?? 0) > 0 && (
+            <p data-testid={`status-sponsor-non-live-evidence-${companyId}`} className="mx-4 mb-3 text-[11px] text-muted-foreground">
+              {nonLiveEvidence?.count} stored listing{nonLiveEvidence?.count === 1 ? "" : "s"} not currently live: {nonLiveEvidence?.reasons?.join(", ")}
+            </p>
+          )}
           {noApplyLinks && (
             <div className="px-4 pb-2 flex items-start gap-2">
               <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
@@ -545,12 +585,14 @@ export default function SponsorLicencesPage() {
   const [regionDropdownOpen, setRegionDropdownOpen] = useState(false);
   const [hasVacancies, setHasVacancies] = useState(false);
   const [bookmarkedOnly, setBookmarkedOnly] = useState(false);
+  const [directContactOnly, setDirectContactOnly] = useState(false);
   const [page, setPage] = useState(1);
   const [localBookmarks, setLocalBookmarks] = useState<Set<number>>(new Set());
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: speculativeData, refetch: refetchSpeculative } = useListSpeculativeApplications();
   const { data: documentsData } = useListMyDocuments();
+  const { data: profile } = useGetMyProfile();
   const hasCvUploaded = (documentsData?.documents ?? []).some((d) => d.documentType === "cv");
   const sentCompanyNames = new Set((speculativeData?.applications ?? []).map((a) => a.companyName));
 
@@ -562,6 +604,7 @@ export default function SponsorLicencesPage() {
 
   const [selectedVacancy, setSelectedVacancy] = useState<SelectedVacancy | null>(null);
   const [applyModalVacancy, setApplyModalVacancy] = useState<SelectedVacancy | null>(null);
+  const [smartApplyVacancy, setSmartApplyVacancy] = useState<SelectedVacancy | null>(null);
   const [speculativeModalTarget, setSpeculativeModalTarget] = useState<{ companyName: string; companyId: number } | null>(null);
   const [gapAnalysisVacancy, setGapAnalysisVacancy] = useState<SelectedVacancy | null>(null);
   // Tracks live best-fit score per company once the VacancyMatchPanel scores vacancies
@@ -583,6 +626,28 @@ export default function SponsorLicencesPage() {
     requireExtension(() => {
       setSelectedVacancy(null);
       setApplyModalVacancy(vacancy);
+    });
+  }
+
+  function handleVacancyOutbound(vacancy: SelectedVacancy) {
+    if (!vacancy.url) return;
+    const vacancyUrl = vacancy.url;
+    requireExtension(() => {
+      void openTrackedOutbound({
+        url: vacancyUrl,
+        vacancy: { title: vacancy.title, employer: vacancy.companyName, roleId: vacancy.roleId, canonicalUrl: vacancyUrl },
+      });
+      void checkApplyLinkInBackground({
+        url: vacancyUrl,
+        endpoint: `${base}/api/vacancy-link-check`,
+        linkVerified: vacancy.linkVerified,
+        linkCheckedAt: vacancy.linkCheckedAt,
+        onDead: () => {
+          void queryClient.invalidateQueries({ queryKey: getGetSponsorLicenceVacanciesQueryKey(vacancy.companyId) });
+          void queryClient.invalidateQueries({ queryKey: [getListSponsorLicencesQueryKey()[0]] });
+          void queryClient.invalidateQueries({ queryKey: getGetSponsorLicenceIndustryCountsQueryKey() });
+        },
+      });
     });
   }
 
@@ -664,7 +729,7 @@ export default function SponsorLicencesPage() {
         if (res.newChecks === 0 && res.cacheHits > 0) {
           toast({
             title: "Already up to date",
-            description: `⚡ All ${res.cacheHits} visible employers were checked within the last 24 hours — job listings are completely up to date!`,
+            description: `⚡ All ${res.cacheHits} visible employers were checked for vacancy discovery within the last 24 hours.`,
           });
         } else {
           toast({
@@ -831,6 +896,7 @@ export default function SponsorLicencesPage() {
     region: selectedRegions.length > 0 ? selectedRegions : undefined,
     hasVacancies: hasVacancies || undefined,
     bookmarkedOnly: bookmarkedOnly || undefined,
+    directContactOnly: directContactOnly || undefined,
     page,
     limit: LIMIT,
   };
@@ -872,6 +938,7 @@ export default function SponsorLicencesPage() {
     setSelectedRoute("");
     setHasVacancies(false);
     setBookmarkedOnly(false);
+    setDirectContactOnly(false);
     setSelectedRegions([]);
     setRegionDropdownOpen(false);
     setPage(1);
@@ -899,6 +966,11 @@ export default function SponsorLicencesPage() {
 
   function handleBookmarkedToggle() {
     setBookmarkedOnly((v) => !v);
+    setPage(1);
+  }
+
+  function handleDirectContactToggle() {
+    setDirectContactOnly((value) => !value);
     setPage(1);
   }
 
@@ -1285,6 +1357,16 @@ export default function SponsorLicencesPage() {
                   </button>
 
                   <button
+                    data-testid="button-filter-direct-contact"
+                    onClick={handleDirectContactToggle}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
+                      directContactOnly ? "bg-primary text-primary-foreground border-primary" : "border-border text-foreground hover:bg-accent"
+                    }`}
+                  >
+                    <Mail className="w-4 h-4" /> Direct contact
+                  </button>
+
+                  <button
                     onClick={() => handleRefreshVisible(companies.map((c) => c.id))}
                     disabled={batchCheckMutation.isPending || companies.length === 0}
                     title="Check vacancies for the sponsor cards currently on this page (takes ~5–15 seconds)"
@@ -1428,8 +1510,8 @@ export default function SponsorLicencesPage() {
                                     </button>
                                   ) : null}
                                   {sentCompanyNames.has(c.organisationName) && (
-                                    <span className="inline-flex items-center gap-1 text-xs bg-blue-500/10 text-blue-700 px-2 py-0.5 rounded-full font-medium">
-                                      <CheckCircle2 className="w-3 h-3" /> CV Sent
+                                    <span data-testid={`status-sponsor-employer-cv-sent-${c.id}`} className="inline-flex items-center gap-1 text-xs bg-blue-500/10 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                                      <CheckCircle2 className="w-3 h-3" /> Employer-level CV Sent
                                     </span>
                                   )}
                                 </div>
@@ -1470,9 +1552,9 @@ export default function SponsorLicencesPage() {
                                   {isWithinCacheTtl(c.lastVacancyCheckedAt) && (
                                     <span
                                       className="inline-flex items-center gap-1 text-[11px] font-medium bg-green-500/10 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full"
-                                      title="Checked within the last 24 hours — results are served from cache"
+                                      title="Vacancy discovery checked within the last 24 hours — results are served from cache"
                                     >
-                                      ⚡ Up to date (Cached)
+                                      ⚡ Discovery cached (24h)
                                     </span>
                                   )}
                                 </div>
@@ -1698,6 +1780,9 @@ export default function SponsorLicencesPage() {
                               }
                               onViewAnalysis={setGapAnalysisVacancy}
                               requireExtension={requireExtension}
+                               preferredRegions={profile?.preferredRegion ?? []}
+                               onVacancyOutbound={handleVacancyOutbound}
+                               onSmartApply={(vacancy) => setSmartApplyVacancy(vacancy)}
                             />
                           )}
                         </Card>
@@ -1778,7 +1863,7 @@ export default function SponsorLicencesPage() {
                   <div>
                     <div className="flex items-center gap-1.5">
                       <h2 className="text-base font-bold text-foreground">{selectedVacancy.title}</h2>
-                      <FavoriteButton vacancyId={selectedVacancy.id + 2_000_000} />
+                      <FavoriteButton vacancyId={selectedVacancy.roleId} />
                     </div>
                     <p className="text-sm text-muted-foreground">{selectedVacancy.companyName}</p>
                   </div>
@@ -1823,17 +1908,11 @@ export default function SponsorLicencesPage() {
               </p>
 
               <div className="flex items-center gap-3 flex-wrap">
-                {selectedVacancy.url && (
+                {hasUsableSendCvApplyRoute({ applyUrl: selectedVacancy.url, linkVerified: selectedVacancy.linkVerified, linkStatus: selectedVacancy.linkStatus }) && (
                   <button
                     type="button"
-                    onClick={() =>
-                      void openTrackedSponsorVacancy({
-                        vacancyId: selectedVacancy.id,
-                        url: selectedVacancy.url!,
-                        title: selectedVacancy.title,
-                        employer: selectedVacancy.companyName,
-                      })
-                    }
+                    data-testid={`button-sponsor-apply-${selectedVacancy.id}`}
+                    onClick={() => handleVacancyOutbound(selectedVacancy)}
                     className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-medium text-foreground hover:bg-accent transition-colors"
                   >
                     <ExternalLink className="w-4 h-4" />
@@ -1848,8 +1927,13 @@ export default function SponsorLicencesPage() {
                   <Sparkles className="w-4 h-4" />
                   View Readiness Check
                 </button>
-                {selectedVacancy.sendCvEligible && (() => {
-                  const disabledReason = getApplyDisabledReason(hasCvUploaded, selectedVacancy.isEligible);
+                {hasUsableSendCvApplyRoute({ applyUrl: selectedVacancy.url, linkVerified: selectedVacancy.linkVerified, linkStatus: selectedVacancy.linkStatus }) && (
+                  <Button data-testid={`button-sponsor-detail-smart-apply-${selectedVacancy.id}`} variant="outline" className="gap-2" onClick={() => requireExtension(() => { setSelectedVacancy(null); setSmartApplyVacancy(selectedVacancy); })}>
+                    <Sparkles className="w-4 h-4" /> Smart Apply
+                  </Button>
+                )}
+                {selectedVacancy.sendCvEligible && hasUsableSendCvApplyRoute({ applyUrl: selectedVacancy.url, linkVerified: selectedVacancy.linkVerified, linkStatus: selectedVacancy.linkStatus }) && (() => {
+                  const disabledReason = getApplyDisabledReason(hasCvUploaded);
                   return (
                     <span title={disabledReason ? APPLY_DISABLED_TITLES[disabledReason] : undefined}>
                       <Button
@@ -1865,7 +1949,7 @@ export default function SponsorLicencesPage() {
                 })()}
               </div>
               {(() => {
-                const disabledReason = getApplyDisabledReason(hasCvUploaded, selectedVacancy.isEligible);
+                const disabledReason = getApplyDisabledReason(hasCvUploaded);
                 if (!disabledReason) return null;
                 return disabledReason === "no-cv" ? (
                   <p className="mt-3 text-xs text-muted-foreground flex items-center gap-1.5 flex-wrap">
@@ -1879,22 +1963,33 @@ export default function SponsorLicencesPage() {
                       <ChevronRight className="w-3 h-3" />
                     </Link>
                   </p>
-                ) : (
-                  <p className="mt-3 text-xs text-amber-700 flex items-center gap-1.5">
-                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                    Not yet eligible for this role — JOBSAGE applications are disabled until your eligibility improves.
-                  </p>
-                );
+                ) : null;
               })()}
             </motion.div>
           </>
         )}
       </AnimatePresence>
       <AnimatePresence>
+        {smartApplyVacancy && (
+          <SmartApplyModal
+            roleId={smartApplyVacancy.roleId}
+            roleTitle={smartApplyVacancy.title}
+            onClose={() => setSmartApplyVacancy(null)}
+            onSuccess={() => {
+              setSmartApplyVacancy(null);
+              void queryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
+              void queryClient.invalidateQueries({ queryKey: getGetSponsorLicenceVacanciesQueryKey(smartApplyVacancy.companyId) });
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {applyModalVacancy && (
           <SponsorVacancyApplyModal
             requireDirectContact
             vacancyId={applyModalVacancy.id}
+            roleId={applyModalVacancy.roleId}
             vacancyTitle={applyModalVacancy.title}
             companyName={applyModalVacancy.companyName}
             companyId={applyModalVacancy.companyId}
@@ -1940,13 +2035,6 @@ export default function SponsorLicencesPage() {
           analysisSource="sponsor_vacancy"
           hasCvUploaded={hasCvUploaded}
           onApply={() => handleOpenApplyModal(gapAnalysisVacancy)}
-          onWebsiteApply={() =>
-            handleWebsiteApply(
-              gapAnalysisVacancy.companyName,
-              gapAnalysisVacancy.companyId,
-              gapAnalysisVacancy.url ?? null,
-            )
-          }
         />
       )}
 

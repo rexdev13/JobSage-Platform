@@ -40,6 +40,9 @@ vi.mock("@workspace/db", () => {
     sponsorLicenceBookmarksTable: {},
     sponsorLicenceVacanciesTable: {},
     sponsorLicenceVacancyScoresTable: {},
+    applicationsTable: {},
+    speculativeApplicationsTable: {},
+    profilesTable: {},
   };
 });
 
@@ -212,5 +215,83 @@ describe("POST /sponsor-licences/check-batch", () => {
     expect(res.body.cacheHits).toBe(1);
     const bad = res.body.results.find((r: any) => r.organisationName === "Bad Org");
     expect(bad.error).toContain("AI timeout");
+  });
+});
+
+describe("GET /sponsor-licences/:id/vacancies", () => {
+  beforeEach(() => {
+    dbResults.length = 0;
+    sessionUser.current = { id: "cand-1", role: "candidate" };
+  });
+
+  it("returns only fresh-live actionable vacancies with Opportunities-compatible state and compact non-live evidence", async () => {
+    const now = new Date();
+    dbResults.push(
+      [{ organisationName: "Acme Care" }],
+      [
+        {
+          id: 7,
+          organisationName: "Acme Care",
+          title: "Cardiology Nurse",
+          location: "Manchester",
+          salary: null,
+          url: "https://employer.example/live",
+          description: "Visa sponsorship is available. Enhanced DBS and safeguarding level 2 required.",
+          postedDate: null,
+          targetRegions: ["North West"],
+          sourceType: "job_board",
+          boardName: "NHS Jobs",
+          requiredDbsClearanceLevel: null,
+          requiredSafeguardingLevel: null,
+          liveness: "live",
+          lastVerifiedAt: now,
+          livenessReason: null,
+        },
+        {
+          id: 8,
+          organisationName: "Acme Care",
+          title: "Expired Nurse",
+          location: "Manchester",
+          salary: null,
+          url: "https://employer.example/expired",
+          description: null,
+          targetRegions: [],
+          sourceType: "job_board",
+          boardName: "NHS Jobs",
+          requiredDbsClearanceLevel: null,
+          requiredSafeguardingLevel: null,
+          liveness: "dead",
+          lastVerifiedAt: now,
+          livenessReason: "Advert expired",
+        },
+      ],
+      [{ vacancyId: 7, score: 91, isEligible: true, missingRequirements: [], explanation: "Strong fit" }],
+      [{ checkedAt: now }],
+      [{ dbsClearanceLevel: "enhanced", safeguardingTrainingLevel: "level_2" }],
+      [{ roleId: 2_000_007, status: "applied" }],
+      [{ vacancyRef: "sponsor-vacancy:7", roleId: null, vacancyTitle: "Cardiology Nurse" }],
+    );
+
+    const res = await request(buildApp()).get("/sponsor-licences/1/vacancies").set(...AUTH);
+
+    expect(res.status).toBe(200);
+    expect(res.body.vacancies).toHaveLength(1);
+    expect(res.body.vacancies[0]).toMatchObject({
+      id: 7,
+      roleId: 2_000_007,
+      sponsorshipStatus: "confirmed",
+      requiredRegistration: "NMC registration pathway",
+      requiredDbsClearanceLevel: "enhanced",
+      requiredSafeguardingLevel: "level_2",
+      safeguarding: { dbsStatus: "met", safeguardingStatus: "met" },
+      targetRegions: ["North West"],
+      sourceType: "job_board",
+      boardName: "NHS Jobs",
+      applied: true,
+      cvSent: true,
+      linkStatus: "live",
+    });
+    expect(res.body.nonLiveEvidence).toEqual({ count: 1, reasons: ["Advert expired"] });
+    expect(JSON.stringify(res.body)).not.toContain("https://employer.example/expired");
   });
 });

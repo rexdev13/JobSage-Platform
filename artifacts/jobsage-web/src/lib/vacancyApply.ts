@@ -1,4 +1,4 @@
-export const FRESH_LINK_WINDOW_MS = 12 * 60 * 60 * 1000;
+export const FRESH_LINK_WINDOW_MS = 6 * 60 * 60 * 1000;
 export const CLICK_HEALTH_TIMEOUT_MS = 1500;
 
 type LinkHealthResponse = { verdict?: string };

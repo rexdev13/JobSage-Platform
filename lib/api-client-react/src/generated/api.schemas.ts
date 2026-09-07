@@ -1626,6 +1626,18 @@ export interface CheckAllVacanciesStatus {
 }
 
 /**
+ * Vacancy-level sponsorship evidence inferred only from the vacancy title and description; sponsor-register membership alone is not confirmation.
+ */
+export type SponsorLicenceVacancyMatchSponsorshipStatus =
+  (typeof SponsorLicenceVacancyMatchSponsorshipStatus)[keyof typeof SponsorLicenceVacancyMatchSponsorshipStatus];
+
+export const SponsorLicenceVacancyMatchSponsorshipStatus = {
+  confirmed: "confirmed",
+  not_offered: "not_offered",
+  unknown: "unknown",
+} as const;
+
+/**
  * True when the apply link was health-checked and confirmed live
  */
 export type SponsorLicenceVacancyMatchLinkStatus =
@@ -1640,30 +1652,64 @@ export const SponsorLicenceVacancyMatchLinkStatus = {
   stale: "stale",
 } as const;
 
+export type SponsorLicenceVacancyMatchSourceType =
+  | (typeof SponsorLicenceVacancyMatchSourceType)[keyof typeof SponsorLicenceVacancyMatchSourceType]
+  | null;
+
+export const SponsorLicenceVacancyMatchSourceType = {
+  job_board: "job_board",
+  company_site: "company_site",
+} as const;
+
 export interface SponsorLicenceVacancyMatch {
+  /** Persistent sponsor_licence_vacancies row ID. */
   id: number;
+  /** Unified Opportunities role ID (id + 2,000,000) for application and CV-send state. */
+  roleId: number;
   title: string;
+  /** Vacancy-level sponsorship evidence inferred only from the vacancy title and description; sponsor-register membership alone is not confirmation. */
+  sponsorshipStatus: SponsorLicenceVacancyMatchSponsorshipStatus;
+  /** Registration pathway inferred from the vacancy professional category, or Not specified when it cannot be classified. */
+  requiredRegistration: string;
+  requiredDbsClearanceLevel?: DbsClearanceLevel | null;
+  requiredSafeguardingLevel?: SafeguardingTrainingLevel | null;
+  safeguarding: SafeguardingAssessment;
   location?: string | null;
   salary?: string | null;
   url?: string | null;
-  linkVerified?: boolean;
+  linkVerified: boolean;
   /** True when the apply link was health-checked and confirmed live */
-  linkStatus?: SponsorLicenceVacancyMatchLinkStatus;
+  linkStatus: SponsorLicenceVacancyMatchLinkStatus;
   /** When the apply link was last health-checked */
   linkCheckedAt?: string | null;
   description?: string | null;
   postedDate?: string | null;
+  sourceType?: SponsorLicenceVacancyMatchSourceType;
+  boardName?: string | null;
   targetRegions?: string[] | null;
   matchScore?: number | null;
   isEligible?: boolean | null;
-  missingRequirements?: string[];
+  missingRequirements: string[];
   matchExplanation?: string | null;
+  /** Whether the current candidate has recorded a non-click application for roleId. */
+  applied: boolean;
+  /** Whether the current candidate has sent a speculative CV for this vacancy. */
+  cvSent: boolean;
+}
+
+/**
+ * Compact, non-actionable evidence for stored vacancies that are not currently fresh-live.
+ */
+export interface SponsorLicenceNonLiveVacancyEvidence {
+  count: number;
+  reasons: string[];
 }
 
 export interface SponsorLicenceVacanciesResponse {
   organisationName: string;
   vacancies: SponsorLicenceVacancyMatch[];
   lastCheckedAt?: string | null;
+  nonLiveEvidence: SponsorLicenceNonLiveVacancyEvidence;
 }
 
 export interface BoostProfileRequest {

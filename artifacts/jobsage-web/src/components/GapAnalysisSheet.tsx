@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui-enhanced";
 import { useToast } from "@/hooks/use-toast";
 import { Send, ExternalLink, CheckCircle2, XCircle, Lightbulb, Loader2, AlertTriangle, Sparkles, UserRoundCog } from "lucide-react";
-import { openTrackedSponsorVacancy } from "@/lib/trackedOutbound";
+import { openTrackedOutbound, openTrackedSponsorVacancy } from "@/lib/trackedOutbound";
 import {
   normalizeReadinessClaim,
   requiresStructuredProfileUpdate,
@@ -36,7 +36,8 @@ interface GapAnalysisSheetProps {
   vacancyUrl: string | null | undefined;
   hasCvUploaded: boolean;
   onApply: () => void;
-  onWebsiteApply: () => void;
+  /** Whether this URL is a vacancy apply URL, rather than an employer website. */
+  trackVacancyIntent?: boolean;
   /** Override the API path (relative to /api). Defaults to /sponsor-licences/vacancies/:vacancyId/gap-analysis */
   analysisEndpoint?: string;
   analysisSource?: "role" | "sponsor_vacancy";
@@ -53,7 +54,7 @@ export function GapAnalysisSheet({
   vacancyUrl,
   hasCvUploaded,
   onApply,
-  onWebsiteApply,
+  trackVacancyIntent = true,
   analysisEndpoint,
   analysisSource = "sponsor_vacancy",
 }: GapAnalysisSheetProps) {
@@ -398,8 +399,16 @@ export function GapAnalysisSheet({
             <Button
               className="w-full"
               onClick={() => {
-                void openTrackedSponsorVacancy({ vacancyId, url: vacancyUrl });
-                onWebsiteApply();
+                if (trackVacancyIntent) {
+                  void openTrackedSponsorVacancy({
+                    vacancyId,
+                    url: vacancyUrl,
+                    title: vacancyTitle,
+                    employer: companyName,
+                  });
+                } else {
+                  void openTrackedOutbound({ url: vacancyUrl });
+                }
               }}
             >
               Apply on company's website
