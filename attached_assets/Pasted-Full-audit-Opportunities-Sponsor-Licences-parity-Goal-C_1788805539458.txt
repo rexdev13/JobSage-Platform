@@ -1,0 +1,95 @@
+Full audit: Opportunities → Sponsor Licences parity
+Goal
+Catalog everything the Opportunities page does today (UI, API, filters, actions, tracking, eligibility, presentation, edge cases), then map what Sponsor Licences already has, what’s missing, and how each feature could be brought across. Read-only. Do not implement, enrich, migrate, publish, or change code.
+
+Be exhaustive. Do not limit to liveness. If Opportunities has a behavior, document it.
+
+Part 1 — Complete Opportunities inventory
+Walk the full Opportunities surface end-to-end:
+
+Pages / components / hooks / libs
+
+Main page and every related modal, card, tab, filter bar, badge, empty state, alert, CTA
+Shared helpers used only here or shared with other pages
+Data loading
+
+Every API route/query used
+Merge logic across roles, sponsor vacancies, job listings, or other sources
+Pagination, sorting, caching, refresh
+Auth / entitlement gating
+Filtering & ranking
+
+Region, visa, eligibility, profession, source, board exclusions (LinkedIn/Indeed/etc.), live-only, Send CV tab, Smart Apply, search, saved/hidden, alerts — list all of them
+Client vs server filters
+Vacancy / link quality
+
+linkStatus and related fields
+Live / dead / stale / unverified / inconclusive / none
+Freshness windows
+Company-site vs job-board vs aggregator handling
+Soft-closed detection usage
+URL presentation / mutation / tracking params
+Actions
+
+Apply, Smart Apply, Send CV (vacancy-specific and email-only), speculative, tracked outbound, background link check, share/save/hide/report — every button and what it requires
+Submission endpoints and server gates
+Presentation / UX
+
+Badges, labels, copy, panels, empty states, error states
+How “verified”, “checked”, “closed”, “email-only” are communicated
+Mobile vs desktop differences if any
+Policies & exclusions
+
+Role policy, employer policy, safeguarding, manual labour, registration, candidate decisions
+Anything that decides whether a row appears or an action is enabled
+Background systems Opportunities depends on
+
+Liveness sweep, contact enrichment, recipient resolution, outbound tracking, analytics — only as they affect what Opportunities shows/does
+For each feature, record:
+
+Name
+What it does for the user
+Exact files/symbols/routes
+Data fields required
+Server-enforced vs UI-only
+Whether it is Opportunities-specific or already shared
+Part 2 — Complete Sponsor Licences inventory
+Same depth for Visa Sponsoring Employers / Sponsor Licences:
+
+Employer list, expand panel, vacancy rows, counts, filters
+Apply, Send CV vacancy-specific, employer speculative, careers-site fallback
+Current liveness/freshness behavior after recent work
+Tracking, badges, copy, eligibility, contact resolution
+Anything else the page already does
+Part 3 — Full gap / parity matrix
+One row per Opportunities feature (and any Sponsor-only feature):
+
+Feature	Opportunities behavior	Sponsor Licences today	Gap	Suggested parity approach	Risk / design note
+Gap values: missing | partial | different-by-design | already aligned
+
+Suggested approach values: reuse shared helper | port Opportunities logic | adapt for employer context | keep different | not applicable
+
+Do not skip “small” features (badges, copy, exclusions, empty states, tracking). Include them.
+
+Part 4 — Implementation map (recommendations only)
+Group gaps into a practical rollout order:
+
+Must-match — quality/trust (live-only, Send CV gates, no dead-as-email-only, tracking/health checks)
+Should-match — filters, badges, exclusions, apply flows that users expect to work the same
+Adapt — features that need employer-page semantics (speculative CV, careers homepage, licence metadata)
+Defer / skip — Opportunities-only concepts that don’t belong on Sponsor Licences, with why
+For each must/should item, name the Opportunities symbols to reuse and the Sponsor Licences files that would change — still no code.
+
+Part 5 — Open questions
+List ambiguities where product intent is unclear (e.g. should Sponsor Licences get Smart Apply, region filters, Send CV tab semantics, alert prep, etc.).
+
+Constraints
+Exhaustive > short
+Cite real paths/symbols
+Prefer current code after recent liveness work
+No implementation in this pass
+End with a clear “parity backlog” the next implementation prompt can consume
+Start from
+OpportunitiesPage, opportunityFilters, RoleCard, Send CV / Smart Apply modals, roles.ts, sponsorVacancyRoles, presentApplyLink, getVacancyLinkStatus, vacancyApply, trackedOutbound, SponsorLicencesPage, sponsorLicences.ts, OpenAPI role/vacancy fields, and any related tests that document intended behavior.
+
+That version pulls all Opportunities features, compares them to Sponsor Licences, and produces an implementation map — still audit-only.
