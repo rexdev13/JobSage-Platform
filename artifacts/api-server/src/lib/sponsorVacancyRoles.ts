@@ -5,6 +5,7 @@ import { isManualLabourTitle } from "./vacancyTitlePolicy";
 import { isValidVacancyUrlForSource } from "./vacancyUrlPolicy";
 import type { DbsClearanceLevel, SafeguardingTrainingLevel } from "./safeguarding";
 import { regionsFromLocationText } from "./regionMatching";
+import { getVacancyLinkStatus, type VacancyLinkStatus } from "./vacancyLiveness";
 import {
   opportunityRegistrationLabel,
 } from "./opportunityProfession";
@@ -25,22 +26,21 @@ import {
 export const SPONSOR_VACANCY_ID_OFFSET = 2_000_000;
 
 /**
- * Candidate-facing apply-link presentation: dead links are never surfaced
- * (the record may still appear if it has other contact info), and each link
- * carries a verification status the UI badges consistently.
+ * Candidate-facing apply-link presentation preserves stored URL evidence.
+ * Product actions use linkStatus; dead evidence must never collapse to "none".
  */
 export function presentApplyLink(
   applyUrl: string | null | undefined,
   liveness: string | null | undefined,
   lastVerifiedAt: Date | null | undefined,
-): { applyUrl: string | null; linkVerified: boolean; linkCheckedAt: string | null } {
+  livenessReason?: string | null,
+): { applyUrl: string | null; linkStatus: VacancyLinkStatus; linkVerified: boolean; linkCheckedAt: string | null } {
   const url = applyUrl?.trim() || null;
-  if (!url || liveness === "dead") {
-    return { applyUrl: null, linkVerified: false, linkCheckedAt: null };
-  }
+  const linkStatus = getVacancyLinkStatus(url, liveness, lastVerifiedAt, livenessReason);
   return {
     applyUrl: url,
-    linkVerified: liveness === "live",
+    linkStatus,
+    linkVerified: linkStatus === "live",
     linkCheckedAt: lastVerifiedAt ? new Date(lastVerifiedAt).toISOString() : null,
   };
 }
@@ -152,6 +152,7 @@ export interface SponsorVacancyAsRole {
   livenessReason: string | null;
   applyUrl: string | null;
   linkVerified: boolean;
+  linkStatus: VacancyLinkStatus;
   linkCheckedAt: string | null;
   contactEmail: string | null;
   contactPhone: string | null;
@@ -293,12 +294,12 @@ export async function fetchSponsorVacanciesAsRoles(
     if (classified !== null && !opportunityCategoriesMatch(category, classified)) continue;
     if (classified === null && !industrySupportsCategory(category, lic?.industry)) continue;
 
-    const link = presentApplyLink(vac.url, vac.liveness, vac.lastVerifiedAt);
+    const link = presentApplyLink(vac.url, vac.liveness, vac.lastVerifiedAt, vac.livenessReason);
     if (
       vac.sourceType === "company_site" &&
       !isValidVacancyUrlForSource(link.applyUrl, "company_site")
     ) continue;
-    if (options.requireSpecificVacancyUrl && !link.applyUrl) continue;
+    if (options.requireSpecificVacancyUrl && (!link.applyUrl || link.linkStatus !== "live")) continue;
     if (
       options.requireSpecificVacancyUrl &&
       !isValidVacancyUrlForSource(link.applyUrl, vac.sourceType)
@@ -339,6 +340,7 @@ export async function fetchSponsorVacanciesAsRoles(
       livenessReason: vac.livenessReason,
       applyUrl: link.applyUrl,
       linkVerified: link.linkVerified,
+      linkStatus: link.linkStatus,
       linkCheckedAt: link.linkCheckedAt,
       contactEmail,
       contactPhone,

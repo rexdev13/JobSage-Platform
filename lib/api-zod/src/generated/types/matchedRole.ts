@@ -5,6 +5,7 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { MatchedRoleLinkStatus } from "./matchedRoleLinkStatus";
 import type { Role } from "./role";
 import type { SafeguardingAssessment } from "./safeguardingAssessment";
 import type { SponsorshipFeasibility } from "./sponsorshipFeasibility";
@@ -32,8 +33,9 @@ export interface MatchedRole {
   recommended?: boolean;
   /** Direct application URL for this specific role, if available. Dead links are never returned. */
   applyUrl?: string | null;
-  /** True when the apply link was health-checked and confirmed live */
   linkVerified?: boolean;
+  /** True when the apply link was health-checked and confirmed live */
+  linkStatus?: MatchedRoleLinkStatus;
   /** When the apply link was last health-checked */
   linkCheckedAt?: Date | null;
   /** Company contact email from employer profile, where available */

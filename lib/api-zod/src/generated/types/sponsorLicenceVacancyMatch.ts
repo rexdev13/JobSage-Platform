@@ -5,6 +5,7 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { SponsorLicenceVacancyMatchLinkStatus } from "./sponsorLicenceVacancyMatchLinkStatus";
 
 export interface SponsorLicenceVacancyMatch {
   id: number;
@@ -12,8 +13,9 @@ export interface SponsorLicenceVacancyMatch {
   location?: string | null;
   salary?: string | null;
   url?: string | null;
-  /** True when the apply link was health-checked and confirmed live */
   linkVerified?: boolean;
+  /** True when the apply link was health-checked and confirmed live */
+  linkStatus?: SponsorLicenceVacancyMatchLinkStatus;
   /** When the apply link was last health-checked */
   linkCheckedAt?: Date | null;
   description?: string | null;

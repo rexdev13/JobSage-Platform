@@ -40,6 +40,7 @@ const {
   classifyVacancyCategory,
   fetchSponsorVacanciesAsRoles,
   inferVacancySponsorshipStatus,
+  presentApplyLink,
 } = await import("../../lib/sponsorVacancyRoles");
 
 const NHS_URL = "https://www.jobs.nhs.uk/candidate/jobadvert/C9000-26-0001?language=en";
@@ -58,7 +59,7 @@ function vacancyRow(overrides: Record<string, unknown> = {}) {
       description: null,
       createdAt: new Date("2026-08-24T06:30:00.000Z"),
       liveness: "live",
-      lastVerifiedAt: new Date("2026-08-24T06:35:00.000Z"),
+      lastVerifiedAt: new Date(),
       livenessReason: null,
       ...overrides,
     },
@@ -77,6 +78,27 @@ describe("fetchSponsorVacanciesAsRoles alert options", () => {
     selectMock.mockClear();
     eqMock.mockClear();
     gtMock.mockClear();
+  });
+
+  it("preserves dead URL evidence and distinguishes none, stale, and live", () => {
+    expect(presentApplyLink(NHS_URL, "dead", new Date(), "soft_closed")).toMatchObject({
+      applyUrl: NHS_URL,
+      linkStatus: "dead",
+      linkVerified: false,
+    });
+    expect(presentApplyLink(null, "dead", new Date())).toMatchObject({
+      applyUrl: null,
+      linkStatus: "none",
+    });
+    expect(presentApplyLink(NHS_URL, "live", new Date(0))).toMatchObject({
+      applyUrl: NHS_URL,
+      linkStatus: "stale",
+      linkVerified: false,
+    });
+    expect(presentApplyLink(NHS_URL, "live", new Date())).toMatchObject({
+      linkStatus: "live",
+      linkVerified: true,
+    });
   });
 
   it.each([

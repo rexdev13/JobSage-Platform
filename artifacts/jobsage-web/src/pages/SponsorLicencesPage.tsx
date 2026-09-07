@@ -229,7 +229,7 @@ function VacancyMatchPanel({
   const { data, isLoading } = useGetSponsorLicenceVacancies(companyId);
   const { toast: panelToast } = useToast();
   const panelQueryClient = useQueryClient();
-  const vacancies = data?.vacancies ?? [];
+  const vacancies = (data?.vacancies ?? []).filter((v) => v.linkStatus === "live" && v.linkVerified);
   const noApplyLinks = vacancies.length > 0 && vacancies.every((v) => !v.url);
 
   // On-demand vacancy check: if this employer has never been checked, kick
@@ -355,7 +355,7 @@ function VacancyMatchPanel({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm font-medium text-foreground truncate">{v.title}</p>
-                      {v.url && (v.linkVerified ? (
+                      {v.url && v.linkStatus === "live" && (v.linkVerified ? (
                         <span
                           className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 shrink-0"
                           title={v.linkCheckedAt ? `Link checked ${new Date(v.linkCheckedAt).toLocaleString("en-GB")}` : "Apply link confirmed live"}

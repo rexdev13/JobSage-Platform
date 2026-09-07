@@ -1,0 +1,79 @@
+## Implement: Vacancy liveness enforcement for Send CV + Visa Sponsoring Employers
+
+### Do not
+- Build a new URL checker
+- Validate email inboxes / bounce health
+- Remove employer-level speculative Send CV (no vacancy required)
+- Treat careers-site / homepage fallbacks as vacancy liveness
+
+### Reuse
+- vacancyLivenessSweep.ts, vacancyLiveness.ts, companySiteVerification.ts, vacancyUrlPolicy.ts
+- Existing statuses: unverified | live | dead (+ inconclusive via reason)
+- Opportunities background check helpers where appropriate (checkApplyLinkInBackground / vacancyLinkCheck)
+
+### Shared API contract
+Preserve explicit vacancy URL evidence state everywhere roles/vacancies are presented (sponsorVacancyRoles presentApplyLink, sponsor-licences vacancies endpoint, roles merge):
+
+- applyUrl: real stored URL when present; null only if never stored
+- linkStatus: none | live | dead | unverified | inconclusive | stale
+- Keep linkVerified / linkCheckedAt for compatibility, but product rules must use linkStatus (or equivalent), not “null URL == email-only”
+
+Rules:
+- dead ≠ email-only / no-URL
+- email-only / employer speculative CV only when there was never vacancy URL evidence (or action is explicitly employer-level, not vacancy-specific)
+- stale = previously live but older than existing sweep freshness (e.g. 12h)
+
+### A) Opportunities Send CV
+1. Server eligibility: known-dead vacancy evidence → not Send CV eligible; do not collapse to email-only
+2. speculativeApplications.ts gate:
+   - resolve role/source by id
+   - match submitted vacancyUrl to stored evidence (reject mismatch)
+   - reject dead
+   - for unverified/stale/inconclusive: either one source-aware recheck via existing helpers, or reject attaching that URL with a clear error — pick one policy and document it; propagate dead via shared liveness
+3. UI (OpportunitiesPage / opportunityFilters / SponsorVacancyApplyModal):
+   - dead → hide/disable Send CV; never show as email-only
+   - unverified/inconclusive → do not label “closed”
+   - genuine none → email-only Send CV allowed
+
+### B) Visa Sponsoring Employers (SponsorLicencesPage + sponsorLicences vacancies API)
+1. Align list semantics with employer counts:
+   - Expanded vacancy panel default: only confirmed-live vacancy URLs (same bar as hasVacancies / storedVacancyCount), OR clearly separate sections: “Verified openings” vs “Unverified links”
+   Prefer: only return/show live for apply actions; keep unverified out of apply/Send-CV CTAs
+2. Apply on company’s website:
+   - Require linkVerified / linkStatus === live for vacancy apply buttons
+   - Unverified: show badge + no direct apply CTA (or disabled with explanation)
+3. Click path:
+   - Vacancy apply should use the same health-check pattern as Opportunities (at least background check after open; prefer pre-check if feasible without breaking popup rules)
+4. Vacancy-specific “Send my CV”:
+   - Require live vacancy URL evidence (same bar as Opportunities URL-backed Send CV)
+   - Do not allow vacancy-specific Send CV on unverified/dead evidence
+5. Employer-level speculative Send CV:
+   - Keep available when direct contact exists
+   - Must not imply a specific vacancy is open
+6. Copy:
+   - “checked [date]” must not read as “all links verified live”
+   - Careers-site fallback labels must not imply a direct live vacancy apply URL
+7. Still exclude dead at API (keep liveness <> 'dead'); additionally stop treating unverified as actionable apply/Send-CV targets
+
+### C) Optional same PR
+Prioritize Send CV-eligible + sponsor-licence vacancy URLs that are never-checked/stale in vacancyLivenessSweep without changing batch/pacing/SSRF/aggregator controls.
+
+### Tests
+- Dead job-board/company-site + email → not vacancy Send CV; submit rejected; not shown as email-only
+- Soft-closed 200 → dead → blocked
+- Stale live / never-checked / inconclusive / aggregator attempted → not actionable apply / vacancy Send CV
+- Genuine email-only Opportunities → still allowed
+- Employer-level speculative CV without vacancies → still allowed
+- Sponsor licences: employer count live-only matches expanded actionable list (or verified section)
+- Unverified sponsor vacancy: no apply CTA / no vacancy Send CV
+- Submitted URL mismatch → reject
+- URL-wide dead propagation still works
+
+### Done when
+1. Dead vacancy evidence cannot become email-only Send CV
+2. Vacancy-specific Send CV (Opportunities + Sponsor Licences) requires non-dead, policy-approved evidence; submit enforces it
+3. Sponsor Licences vacancy apply CTAs are not clickable for unverified links
+4. Employer speculative CV and careers fallback remain, without implying live vacancy links
+5. No parallel checker introduced
+
+Cite changed files/symbols in the PR summary.

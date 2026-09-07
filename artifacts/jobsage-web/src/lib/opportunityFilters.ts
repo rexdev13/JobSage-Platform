@@ -30,6 +30,21 @@ export function shouldShowSendCv(sendCvEligible: boolean | null | undefined): bo
   return sendCvEligible === true;
 }
 
+export type VacancyLinkStatus = "none" | "live" | "dead" | "unverified" | "inconclusive" | "stale";
+
+export function canSendCvForVacancy({
+  sendCvEligible,
+  applyUrl,
+  linkStatus,
+}: {
+  sendCvEligible?: boolean | null;
+  applyUrl?: string | null;
+  linkStatus?: VacancyLinkStatus | null;
+}): boolean {
+  const effectiveStatus = linkStatus ?? (applyUrl ? "unverified" : "none");
+  return shouldShowSendCv(sendCvEligible) && (effectiveStatus === "none" || effectiveStatus === "live");
+}
+
 function isDisallowedSendCvApplyUrl(url: string): boolean {
   try {
     const host = new URL(url).hostname.toLowerCase();
@@ -44,24 +59,29 @@ function isDisallowedSendCvApplyUrl(url: string): boolean {
 export function hasUsableSendCvApplyRoute({
   applyUrl,
   linkVerified,
+  linkStatus,
 }: {
   applyUrl?: string | null;
   linkVerified?: boolean | null;
+  linkStatus?: VacancyLinkStatus | null;
 }): boolean {
-  return !!applyUrl && linkVerified === true && !isDisallowedSendCvApplyUrl(applyUrl);
+  const effectiveStatus = linkStatus ?? (linkVerified ? "live" : "unverified");
+  return !!applyUrl && effectiveStatus === "live" && linkVerified === true && !isDisallowedSendCvApplyUrl(applyUrl);
 }
 
 export function shouldShowOnSendCvTab({
   sendCvEligible,
   applyUrl,
   linkVerified,
+  linkStatus,
 }: {
   sendCvEligible?: boolean | null;
   applyUrl?: string | null;
   linkVerified?: boolean | null;
+  linkStatus?: VacancyLinkStatus | null;
 }): boolean {
-  if (shouldShowSendCv(sendCvEligible)) return true;
-  return hasUsableSendCvApplyRoute({ applyUrl, linkVerified });
+  if (canSendCvForVacancy({ sendCvEligible, applyUrl, linkStatus })) return true;
+  return hasUsableSendCvApplyRoute({ applyUrl, linkVerified, linkStatus });
 }
 export const CONSIDER_MIN_SCORE = 40;
 

@@ -27,6 +27,8 @@ vi.mock("@workspace/db", () => {
     documentsTable: {},
     candidateMessagesTable: {},
     usersTable: {},
+    sponsorLicenceVacanciesTable: {},
+    rolesTable: {},
   };
 });
 
@@ -39,6 +41,7 @@ const {
   isUsableEmployerEmail,
   resolveEmployerRecipient,
   shouldRejectOperationsFallback,
+  getVacancySubmissionError,
 } = await import("../../routes/speculativeApplications");
 
 beforeEach(() => {
@@ -47,6 +50,16 @@ beforeEach(() => {
 });
 
 describe("resolveEmployerRecipient", () => {
+  it("enforces stored vacancy identity and live evidence without blocking genuine email-only outreach", () => {
+    const url = "https://jobs.nhs.uk/candidate/jobadvert/C1234";
+    expect(getVacancySubmissionError(url, "https://example.com/other", "live"))
+      .toContain("does not match");
+    expect(getVacancySubmissionError(url, url, "dead")).toContain("no longer open");
+    expect(getVacancySubmissionError(url, url, "stale")).toContain("not currently verified live");
+    expect(getVacancySubmissionError(url, url, "inconclusive")).toContain("not currently verified live");
+    expect(getVacancySubmissionError(url, url, "live")).toBeNull();
+    expect(getVacancySubmissionError(null, null, "none")).toBeNull();
+  });
   it("rejects operations fallback only for direct-contact UI requests", () => {
     expect(shouldRejectOperationsFallback(true, "ops_fallback")).toBe(true);
     expect(shouldRejectOperationsFallback(false, "ops_fallback")).toBe(false);

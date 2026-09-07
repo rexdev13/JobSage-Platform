@@ -4451,6 +4451,9 @@ components:
           description: Direct application URL for this specific role, if available. Dead links are never returned.
         linkVerified:
           type: boolean
+        linkStatus:
+          type: string
+          enum: [none, live, dead, unverified, inconclusive, stale]
           description: True when the apply link was health-checked and confirmed live
         linkCheckedAt:
           type: string
@@ -6099,6 +6102,9 @@ components:
           nullable: true
         linkVerified:
           type: boolean
+        linkStatus:
+          type: string
+          enum: [none, live, dead, unverified, inconclusive, stale]
           description: True when the apply link was health-checked and confirmed live
         linkCheckedAt:
           type: string
