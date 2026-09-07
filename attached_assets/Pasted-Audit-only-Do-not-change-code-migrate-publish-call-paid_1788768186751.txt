@@ -1,0 +1,32 @@
+Audit only. Do not change code, migrate, publish, call paid AI search, or start a full scrape.
+
+I need to know how effective scrape-time contact capture has been in development since it was implemented. Do not print any email addresses.
+
+Return the report under these exact headings.
+
+## 1. Did any real scrape run?
+After the scrape-time capture change and API restart, did the automatic company-site catch-up (or any NHS/Reed/company-site batch) actually complete?
+Give timestamps, job kind, selected/upserted/errors if logged.
+If no real batch ran, say so clearly.
+
+## 2. Provenance counts
+From sponsor_licence_contact_enrichments (and any equivalent):
+- rows with contact_source = 'vacancy_scrape'
+- how many of those have a non-blank contact_email
+- how many were written since the scrape-time change (use extracted_at / stored timestamps)
+- breakdown by evidence host if possible (NHS Jobs vs Reed vs company/ATS), without printing URLs that contain emails
+
+## 3. Sponsor fill rate
+Among employers with current non-dead vacancies:
+- how many now have a usable sponsor_licences.contact_email
+- how many of those newly filled contacts have contact_source = 'vacancy_scrape'
+- how many were already present before this change (other sources, or no provenance)
+Compare to the earlier audit baseline of 62 eligible hiring employers if that is still measurable.
+
+## 4. Misses
+If batch logs or enrichment state exist, count employers/adverts where HTML was fetched but no contact was stored, grouped by reason if recorded (no email on page, rejected gmail, LinkedIn/Indeed evidence, sponsor already had email, name match miss). Do not invent reasons.
+
+## 5. Effectiveness
+One short verdict: scrape-time capture has / has not produced a meaningful number of new Send CV contacts in development. Quote the numbers. Do not start another scrape unless the only way to know is a single bounded development batch of existing catch-up size; if you run that, keep it unpaid, print counters only, and do not publish.
+
+Do not implement anything else. Stop after the report.
