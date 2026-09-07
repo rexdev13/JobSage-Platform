@@ -41,8 +41,22 @@ describe("NHS Jobs HTML parser", () => {
         description: null,
         postedDate: "24 August 2026",
         targetRegions: null,
+        contactEmail: null,
+        contactEvidenceUrl: "https://www.jobs.nhs.uk/candidate/jobadvert/C0001-260001?search=test",
       },
     ]);
+  });
+
+  it("captures a published recruitment email from the fetched advert card", () => {
+    const html = RESULTS_HTML.replace(
+      "</li>",
+      '<a href="mailto:info@example.org">General</a> Careers: recruitment@example.org</li>',
+    );
+
+    expect(parseNhsJobsHtml(html, "Example London NHS Foundation Trust")[0]).toMatchObject({
+      contactEmail: "recruitment@example.org",
+      contactEvidenceUrl: "https://www.jobs.nhs.uk/candidate/jobadvert/C0001-260001?search=test",
+    });
   });
 
   it("requires distinctive employer-name overlap", () => {

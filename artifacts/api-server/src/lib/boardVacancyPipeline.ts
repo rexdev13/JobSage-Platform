@@ -18,6 +18,10 @@ import {
   failReedVacancyProbe,
   reserveReedVacancyProbe,
 } from "./reedOutageBackoff";
+import {
+  choosePreferredPublishedEmail,
+  validatePublishedContactEmail,
+} from "./publishedContactEmail";
 
 export interface BoardAdvert {
   organisationName: string;
@@ -32,6 +36,8 @@ export interface BoardAdvert {
   boardName: string | null;
   externalId: string | null;
   sourceType?: "job_board" | "company_site";
+  contactEmail?: string | null;
+  contactEvidenceUrl?: string | null;
 }
 
 export interface BoardAdapterSearchResult {
@@ -84,6 +90,8 @@ export const nhsEmployerBoardAdapter: BoardAdapter = {
         targetRegions: vacancy.targetRegions,
         boardName: sourceNameForUrl(vacancy.url, "NHS Jobs"),
         externalId: classifyVacancySource(vacancy.url).externalListingId,
+        contactEmail: vacancy.contactEmail,
+        contactEvidenceUrl: vacancy.contactEvidenceUrl,
       })),
     };
   },
@@ -112,6 +120,8 @@ export const reedHtmlBoardAdapter: BoardAdapter = {
         targetRegions: vacancy.targetRegions,
         boardName: vacancy.boardName,
         externalId: vacancy.externalListingId,
+        contactEmail: vacancy.contactEmail,
+        contactEvidenceUrl: vacancy.contactEvidenceUrl,
       })),
     };
   },
@@ -225,6 +235,66 @@ export function normaliseAndDedupeBoardAdverts(adverts: readonly BoardAdvert[]):
 export interface UpsertBoardVacanciesOptions {
   verifiedLive?: boolean;
   organisationName?: string;
+}
+
+type ContactWriteExecutor = {
+  execute(query: unknown): Promise<unknown>;
+};
+
+export async function persistScrapedAdvertContacts(
+  executor: ContactWriteExecutor,
+  adverts: readonly BoardAdvert[],
+): Promise<{ upserted: number; skippedExisting: number; rejected: number }> {
+  const contactsByOrganisation = new Map<string, BoardAdvert[]>();
+  let rejected = 0;
+  for (const advert of adverts) {
+    const contactEmail = validatePublishedContactEmail(advert.contactEmail);
+    if (!contactEmail || !advert.contactEvidenceUrl) {
+      if (advert.contactEmail) rejected++;
+      continue;
+    }
+    const key = advert.organisationName.trim().toLowerCase();
+    const current = contactsByOrganisation.get(key) ?? [];
+    current.push({ ...advert, contactEmail });
+    contactsByOrganisation.set(key, current);
+  }
+
+  let upserted = 0;
+  let skippedExisting = 0;
+  for (const candidates of contactsByOrganisation.values()) {
+    const selectedEmail = choosePreferredPublishedEmail(
+      candidates.flatMap((advert) => advert.contactEmail ? [advert.contactEmail] : []),
+    );
+    const advert = candidates.find((candidate) => candidate.contactEmail === selectedEmail);
+    if (!advert || !selectedEmail) continue;
+    const updated = await executor.execute(sql`
+      UPDATE sponsor_licences
+      SET contact_email = COALESCE(NULLIF(btrim(contact_email), ''), ${selectedEmail})
+      WHERE lower(btrim(organisation_name)) = lower(btrim(${advert.organisationName}))
+        AND NULLIF(btrim(contact_email), '') IS NULL
+      RETURNING id
+    `);
+    if (((updated as any)?.rows?.length ?? 0) === 0) {
+      skippedExisting++;
+      continue;
+    }
+    upserted++;
+    await executor.execute(sql`
+      INSERT INTO sponsor_licence_contact_enrichments
+        (organisation_name, stage, status, attempts, contact_email, contact_source,
+         contact_evidence_url, contact_extracted_at, completed_at, updated_at)
+      VALUES (${advert.organisationName}, 'contact', 'complete', 0, ${selectedEmail},
+        'vacancy_scrape', ${advert.contactEvidenceUrl}, NOW(), NOW(), NOW())
+      ON CONFLICT (organisation_name) DO UPDATE SET
+        stage = 'contact', status = 'complete', retry_after = NULL,
+        contact_email = EXCLUDED.contact_email,
+        contact_source = 'vacancy_scrape',
+        contact_evidence_url = EXCLUDED.contact_evidence_url,
+        contact_extracted_at = NOW(),
+        last_error = NULL, completed_at = NOW(), updated_at = NOW()
+    `);
+  }
+  return { upserted, skippedExisting, rejected };
 }
 
 export async function upsertSharedBoardVacancies(
@@ -418,6 +488,8 @@ export async function upsertSharedBoardVacancies(
       }
     }
   }
+
+  await persistScrapedAdvertContacts(tx as ContactWriteExecutor, adverts);
 
   return { inserted, revived, toVerify };
   });

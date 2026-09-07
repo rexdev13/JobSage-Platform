@@ -1,5 +1,6 @@
 import { isValidVacancyDeepLink } from "./vacancyUrlPolicy";
 import { isManualLabourTitle } from "./vacancyTitlePolicy";
+import { extractAdvertContactEmail } from "./publishedContactEmail";
 
 const NHS_JOBS_ORIGIN = "https://www.jobs.nhs.uk";
 const REQUEST_TIMEOUT_MS = 8_000;
@@ -17,6 +18,8 @@ export type NhsJobsVacancy = {
   description: null;
   postedDate: string | null;
   targetRegions: null;
+  contactEmail: string | null;
+  contactEvidenceUrl: string | null;
 };
 
 export type NhsJobsCandidateVacancy = NhsJobsVacancy & {
@@ -206,6 +209,8 @@ export function parseNhsJobsCandidateHtml(html: string): NhsJobsCandidateVacancy
       description: null,
       postedDate: stripFieldLabel(extractTagText(block, "search-result-publicationDate"), "Date posted"),
       targetRegions: null,
+      contactEmail: extractAdvertContactEmail(block, titleAndUrl.url),
+      contactEvidenceUrl: titleAndUrl.url,
     });
   }
   return vacancies;
@@ -254,6 +259,8 @@ export function parseNhsJobsHtml(html: string, organisationName: string): NhsJob
       description: null,
       postedDate: stripFieldLabel(extractTagText(block, "search-result-publicationDate"), "Date posted"),
       targetRegions: null,
+      contactEmail: extractAdvertContactEmail(block, titleAndUrl.url),
+      contactEvidenceUrl: titleAndUrl.url,
     });
     if (vacancies.length >= MAX_VACANCIES_PER_EMPLOYER) break;
   }
@@ -317,6 +324,8 @@ function parseStructuredFeed(text: string, organisationName: string): NhsJobsVac
       description: null,
       postedDate: read("pubDate") ?? read("postedDate"),
       targetRegions: null,
+      contactEmail: extractAdvertContactEmail(record, url),
+      contactEvidenceUrl: url,
     });
     if (vacancies.length >= MAX_VACANCIES_PER_EMPLOYER) break;
   }

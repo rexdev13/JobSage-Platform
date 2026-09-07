@@ -15,6 +15,7 @@ const {
   reserveReedVacancyProbeMock,
   completeReedVacancyProbeMock,
   failReedVacancyProbeMock,
+  updateMock,
 } = vi.hoisted(() => ({
   openaiCreateMock: vi.fn(),
   searchNhsJobsMock: vi.fn(),
@@ -30,6 +31,7 @@ const {
   reserveReedVacancyProbeMock: vi.fn(),
   completeReedVacancyProbeMock: vi.fn(),
   failReedVacancyProbeMock: vi.fn(),
+  updateMock: vi.fn(),
 }));
 
 vi.mock("@workspace/integrations-openai-ai-server", () => ({
@@ -41,7 +43,7 @@ vi.mock("@workspace/db", () => {
     select: selectMock,
     insert: () => ({ values: insertValuesMock }),
     delete: () => ({ where: deleteWhereMock }),
-    update: vi.fn(),
+    update: updateMock,
   };
   return {
   db: {
@@ -112,6 +114,7 @@ describe("runVacancyCheck HTTP-first discovery", () => {
     reserveReedVacancyProbeMock.mockReset();
     completeReedVacancyProbeMock.mockReset();
     failReedVacancyProbeMock.mockReset();
+    updateMock.mockReset();
 
     selectMock
       .mockReturnValueOnce({
@@ -147,6 +150,18 @@ describe("runVacancyCheck HTTP-first discovery", () => {
     });
     completeReedVacancyProbeMock.mockResolvedValue(undefined);
     failReedVacancyProbeMock.mockResolvedValue(new Date("2026-08-24T08:45:00.000Z"));
+    updateMock.mockReturnValue({
+      set: () => ({
+        where: () => ({
+          returning: () => Promise.resolve([{
+            id: 1,
+            contactEmail: "recruitment@example.org",
+            contactPhone: null,
+            website: null,
+          }]),
+        }),
+      }),
+    });
   });
 
   afterEach(() => {
@@ -202,6 +217,32 @@ describe("runVacancyCheck HTTP-first discovery", () => {
     expect(insertValuesMock.mock.calls[1]?.[0]).toEqual(expect.arrayContaining([
       expect.objectContaining({ title: "Staff Nurse", targetRegions: ["London"] }),
     ]));
+  });
+
+  it("assigns a captured board contact without calling paid AI search", async () => {
+    process.env["VACANCY_AI_WEB_SEARCH_DAILY_CAP"] = "0";
+    searchNhsJobsMock.mockResolvedValue({
+      sourceUrl: "https://www.jobs.nhs.uk/candidate/search/results?employer=Example",
+      vacancies: [{
+        title: "Staff Nurse",
+        location: "London",
+        salary: null,
+        url: "https://jobs.nhs.uk/candidate/jobadvert/C124",
+        description: null,
+        postedDate: null,
+        targetRegions: ["London"],
+        contactEmail: "recruitment@example.org",
+        contactEvidenceUrl: "https://jobs.nhs.uk/candidate/jobadvert/C124",
+      }],
+      structuredFeedWorked: false,
+      resultsRequestSucceeded: true,
+    });
+
+    const result = await runVacancyCheck("Example NHS Trust");
+
+    expect(result.discoveredContactEmail).toBe("recruitment@example.org");
+    expect(updateMock).toHaveBeenCalledTimes(1);
+    expect(openaiCreateMock).not.toHaveBeenCalled();
   });
 
   it("does not cache an NHS 5xx as an empty result when AI fallback is capped", async () => {

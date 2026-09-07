@@ -11,6 +11,7 @@ import {
   isAllowedCompanyDestination,
   knownAtsProvider,
 } from "./companySiteHttp";
+import { extractAdvertContactEmail } from "./publishedContactEmail";
 
 export const MAX_COMPANY_SITE_DISCOVERY_PAGES = 4;
 export const MAX_COMPANY_SITE_VACANCIES_PER_EMPLOYER = 12;
@@ -176,6 +177,7 @@ function extractJsonLdAdverts(
         const title = typeof record.title === "string" ? cleanTitle(record.title, url) : null;
         if (!title) continue;
         const jobLocation = Array.isArray(record.jobLocation) ? record.jobLocation[0] : record.jobLocation;
+        const descriptionHtml = typeof record.description === "string" ? record.description : "";
         adverts.push({
           organisationName,
           employer: organisationName,
@@ -183,12 +185,17 @@ function extractJsonLdAdverts(
           location: jsonLdLocation(jobLocation),
           salary: null,
           url,
-          description: typeof record.description === "string" ? textFromHtml(record.description).slice(0, 8_000) : null,
+          description: descriptionHtml ? textFromHtml(descriptionHtml).slice(0, 8_000) : null,
           postedDate: typeof record.datePosted === "string" ? record.datePosted : null,
           targetRegions: null,
           boardName: null,
           externalId: null,
           sourceType: "company_site",
+          contactEmail: extractAdvertContactEmail(
+            `${descriptionHtml} ${canonicalVacancyUrl(pageUrl) === canonicalVacancyUrl(url) ? html : ""}`,
+            url,
+          ),
+          contactEvidenceUrl: url,
         });
       }
     } catch {

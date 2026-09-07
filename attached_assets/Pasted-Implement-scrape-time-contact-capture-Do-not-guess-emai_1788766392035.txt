@@ -1,0 +1,42 @@
+Implement scrape-time contact capture. Do not guess emails. Do not scrape LinkedIn or Indeed. Do not raise VACANCY_AI_WEB_SEARCH_DAILY_CAP. Do not overwrite a non-blank sponsor_licences.contact_email. Do not add fuzzy employer-name matching. Do not change the Send CV product gate in this pass.
+
+Context from audit
+Send CV reads sponsor_licences.contact_email (then employer_profiles.contact_email, then the matching employer users.email). Vacancies have no email column. Stored-description harvest already exists and found almost nothing. NHS/Reed discovery in vacancyCheckHelper.ts initializes discoveredContactEmail / discoveredContactPhone / discoveredWebsite and never assigns them, so later sponsor contact updates do not run. That is the gap.
+
+Goal
+When a vacancy is discovered from NHS Jobs, Reed, or an official company/ATS page, extract any visibly published contact email from that advert (page HTML, mailto, or structured contact field) and, if valid, copy it onto a still-blank sponsor_licences.contact_email.
+
+Rules
+- Extract only from the advert JOBSAGE is already fetching for vacancy discovery. No extra crawl of homepages, LinkedIn, or Indeed.
+- Evidence URL must be the vacancy/apply URL just scraped.
+- Reject: guessed shapes, gmail/outlook/hotmail/live/yahoo, noreply, LinkedIn, Indeed, social, directories, known ATS/platform inboxes, and any email whose evidence URL is LinkedIn/Indeed.
+- Prefer recruitment/jobs/careers/HR addresses when several valid ones appear.
+- Write sponsor_licences.contact_email only when it is still blank, using the existing no-overwrite pattern:
+  SET contact_email = COALESCE(NULLIF(btrim(contact_email), ''), candidate_email)
+  AND NULLIF(btrim(contact_email), '') IS NULL
+- Match the employer with the same exact case-insensitive organisation-name rule Send CV already uses. Do not invent aliases.
+- Record provenance in sponsor_licence_contact_enrichments (or the existing equivalent): source=vacancy_scrape, evidence URL, extracted_at.
+- Reuse validateStoredContactEmail / extractPublishedContactEmails if they fit; do not create a weaker validator.
+- Keep company-site robots/SSRF/pacing/DNS pinning. Do not fetch new hosts for this feature.
+- Batches must stay inside the existing vacancy job time budget. Extraction is in-process on HTML already downloaded.
+
+Also fix the small match bug only if it is a one-line change: SQL that uses lower(organisation_name) without btrim() should btrim() so leading/trailing whitespace cannot drop an otherwise exact match. Do not broaden matching beyond that.
+
+Tests
+- NHS/Reed/company-site advert HTML with a recruitment mailto fills blank sponsor_licences.contact_email
+- Does not overwrite an existing sponsor email
+- Rejects gmail
+- Rejects Indeed/LinkedIn evidence URLs even if an email is present
+- Prefers recruitment@ over a random footer address when both are valid
+- Does not call paid AI search
+- discoveredContactEmail is actually assigned on the current board path (not left null)
+
+Verification
+Run the API test suite. Then one bounded development scrape/harvest of already-fetched or one small live board/company-site batch if that is the only way to prove assignment — do not start a full production run, do not publish, do not raise AI caps.
+
+Return
+- files changed
+- how NHS/Reed/company-site now assign discoveredContactEmail
+- whether the sponsor update path now runs
+- test results
+- if a tiny live batch ran: selected / upserted / skippedExisting / rejected, with no email addresses printed
