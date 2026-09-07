@@ -184,7 +184,11 @@ export function SponsorVacancyApplyModal({
           companyName,
           sponsorLicenceId: companyId ?? undefined,
           vacancyTitle: vacancyTitleProp ? vacancyTitle : undefined,
-          vacancyRef: roleId ? `role:${roleId}` : undefined,
+          vacancyRef: roleId
+            ? `role:${roleId}`
+            : vacancyId != null
+              ? `sponsor-vacancy:${vacancyId}`
+              : undefined,
           roleId: roleId ?? undefined,
           vacancyUrl: externalUrl ?? undefined,
           sourceType: sourceType ?? undefined,

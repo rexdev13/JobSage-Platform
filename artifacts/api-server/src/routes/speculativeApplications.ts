@@ -9,6 +9,8 @@ import {
   documentsTable,
   candidateMessagesTable,
   usersTable,
+  sponsorLicenceVacanciesTable,
+  rolesTable,
 } from "@workspace/db";
 import { eq, and, desc, ilike, gte, count, sql } from "drizzle-orm";
 import { writeAuditEvent } from "../lib/audit";
@@ -21,6 +23,8 @@ import {
   type DeliveryRoute,
   type RecipientResolution,
 } from "../lib/employerRecipient";
+import { SPONSOR_VACANCY_ID_OFFSET } from "../lib/sponsorVacancyRoles";
+import { getVacancyLinkStatus } from "../lib/vacancyLiveness";
 
 const APP_URL = process.env.APP_URL ?? "https://jobsage.co.uk";
 
@@ -32,6 +36,20 @@ export function shouldRejectOperationsFallback(
   deliveryRoute: DeliveryRoute,
 ): boolean {
   return requireDirectContact === true && deliveryRoute === "ops_fallback";
+}
+
+export function getVacancySubmissionError(
+  storedUrl: string | null,
+  submittedUrl: string | null,
+  linkStatus: ReturnType<typeof getVacancyLinkStatus>,
+): string | null {
+  if (storedUrl !== submittedUrl) {
+    return "The submitted vacancy link does not match the stored vacancy. Please refresh and try again.";
+  }
+  if (linkStatus === "none" || linkStatus === "live") return null;
+  return linkStatus === "dead"
+    ? "This vacancy is no longer open, so a vacancy-specific CV cannot be sent."
+    : "This vacancy link is not currently verified live. Please refresh after it has been checked.";
 }
 
 const router: IRouter = Router();
@@ -98,6 +116,51 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
   const normalizedVacancyRef =
     vacancyRef?.trim() ||
     (roleId ? `role:${roleId}` : sponsorLicenceId ? `sponsor:${sponsorLicenceId}:general` : `company:${normalizedCompanyName.toLowerCase()}`);
+
+  if (roleId != null || vacancyUrl != null || vacancyRef?.startsWith("sponsor-vacancy:")) {
+    let storedUrl: string | null = null;
+    let linkStatus: ReturnType<typeof getVacancyLinkStatus> = "none";
+    const rawSponsorVacancyId = vacancyRef?.startsWith("sponsor-vacancy:")
+      ? Number(vacancyRef.slice("sponsor-vacancy:".length))
+      : roleId != null && roleId > SPONSOR_VACANCY_ID_OFFSET
+        ? roleId - SPONSOR_VACANCY_ID_OFFSET
+        : null;
+    if (rawSponsorVacancyId != null && Number.isInteger(rawSponsorVacancyId) && rawSponsorVacancyId > 0) {
+      const [stored] = await db
+        .select({
+          url: sponsorLicenceVacanciesTable.url,
+          liveness: sponsorLicenceVacanciesTable.liveness,
+          lastVerifiedAt: sponsorLicenceVacanciesTable.lastVerifiedAt,
+          livenessReason: sponsorLicenceVacanciesTable.livenessReason,
+        })
+        .from(sponsorLicenceVacanciesTable)
+        .where(eq(sponsorLicenceVacanciesTable.id, rawSponsorVacancyId))
+        .limit(1);
+      if (!stored) {
+        res.status(422).json({ error: "This vacancy could not be found. Please refresh and try again." });
+        return;
+      }
+      storedUrl = stored.url?.trim() || null;
+      linkStatus = getVacancyLinkStatus(storedUrl, stored.liveness, stored.lastVerifiedAt, stored.livenessReason);
+    } else if (roleId != null) {
+      const [stored] = await db
+        .select({ applyUrl: rolesTable.applyUrl })
+        .from(rolesTable)
+        .where(eq(rolesTable.id, roleId))
+        .limit(1);
+      storedUrl = stored?.applyUrl?.trim() || null;
+      linkStatus = storedUrl ? "unverified" : "none";
+    }
+    const submissionError = getVacancySubmissionError(
+      storedUrl,
+      vacancyUrl?.trim() || null,
+      linkStatus,
+    );
+    if (submissionError) {
+      res.status(422).json({ error: submissionError });
+      return;
+    }
+  }
 
   const user = req.user!;
   const candidateName =

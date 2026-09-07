@@ -580,6 +580,21 @@ export interface Role {
   externalListingId?: string | null;
 }
 
+/**
+ * True when the apply link was health-checked and confirmed live
+ */
+export type MatchedRoleLinkStatus =
+  (typeof MatchedRoleLinkStatus)[keyof typeof MatchedRoleLinkStatus];
+
+export const MatchedRoleLinkStatus = {
+  none: "none",
+  live: "live",
+  dead: "dead",
+  unverified: "unverified",
+  inconclusive: "inconclusive",
+  stale: "stale",
+} as const;
+
 export type SponsorshipFeasibilityOutcome =
   (typeof SponsorshipFeasibilityOutcome)[keyof typeof SponsorshipFeasibilityOutcome];
 
@@ -620,8 +635,9 @@ export interface MatchedRole {
   recommended?: boolean;
   /** Direct application URL for this specific role, if available. Dead links are never returned. */
   applyUrl?: string | null;
-  /** True when the apply link was health-checked and confirmed live */
   linkVerified?: boolean;
+  /** True when the apply link was health-checked and confirmed live */
+  linkStatus?: MatchedRoleLinkStatus;
   /** When the apply link was last health-checked */
   linkCheckedAt?: string | null;
   /** Company contact email from employer profile, where available */
@@ -1609,14 +1625,30 @@ export interface CheckAllVacanciesStatus {
   regions?: string[] | null;
 }
 
+/**
+ * True when the apply link was health-checked and confirmed live
+ */
+export type SponsorLicenceVacancyMatchLinkStatus =
+  (typeof SponsorLicenceVacancyMatchLinkStatus)[keyof typeof SponsorLicenceVacancyMatchLinkStatus];
+
+export const SponsorLicenceVacancyMatchLinkStatus = {
+  none: "none",
+  live: "live",
+  dead: "dead",
+  unverified: "unverified",
+  inconclusive: "inconclusive",
+  stale: "stale",
+} as const;
+
 export interface SponsorLicenceVacancyMatch {
   id: number;
   title: string;
   location?: string | null;
   salary?: string | null;
   url?: string | null;
-  /** True when the apply link was health-checked and confirmed live */
   linkVerified?: boolean;
+  /** True when the apply link was health-checked and confirmed live */
+  linkStatus?: SponsorLicenceVacancyMatchLinkStatus;
   /** When the apply link was last health-checked */
   linkCheckedAt?: string | null;
   description?: string | null;

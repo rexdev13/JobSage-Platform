@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { sponsorLicencesTable, sponsorLicenceSyncLogTable, sponsorLicenceVacancyChecksTable, sponsorLicenceBookmarksTable, sponsorLicenceVacanciesTable, sponsorLicenceVacancyScoresTable, sponsorLicenceGapAnalysesTable, roleGapAnalysesTable } from "@workspace/db";
 import { eq, ilike, and, desc, sql, isNotNull, inArray, gte } from "drizzle-orm";
 import { countyToRegion } from "../lib/countyToRegion";
+import { getVacancyLinkStatus, RECENT_VERIFY_SKIP_MS } from "../lib/vacancyLiveness";
 import { requireAuthenticated, requireRole } from "../middlewares/requireRole";
 import { runVacancyCheck } from "../lib/vacancyCheckHelper";
 import { startCheckAllVacancies, getCheckAllStatus } from "../lib/vacancyCheckAllRunner";
@@ -213,15 +214,15 @@ router.get("/sponsor-licences/:id/vacancies", requireAuthenticated, async (req, 
       return;
     }
 
-    // Candidates only see live or not-yet-verified vacancies; dead ones are
-    // hidden pending an admin review/restore flow.
+    // Expanded actionable vacancies use the same confirmed-live bar as counts.
     const vacancyRows = await db
       .select()
       .from(sponsorLicenceVacanciesTable)
       .where(
         and(
           eq(sponsorLicenceVacanciesTable.organisationName, company.organisationName),
-          sql`${sponsorLicenceVacanciesTable.liveness} <> 'dead'`,
+          eq(sponsorLicenceVacanciesTable.liveness, "live"),
+          gte(sponsorLicenceVacanciesTable.lastVerifiedAt, new Date(Date.now() - RECENT_VERIFY_SKIP_MS)),
         ),
       );
 
@@ -275,7 +276,8 @@ router.get("/sponsor-licences/:id/vacancies", requireAuthenticated, async (req, 
           location: v.location,
           salary: v.salary,
           url: v.url,
-          linkVerified: v.liveness === "live" && !!v.url,
+          linkStatus: getVacancyLinkStatus(v.url, v.liveness, v.lastVerifiedAt, v.livenessReason),
+          linkVerified: getVacancyLinkStatus(v.url, v.liveness, v.lastVerifiedAt, v.livenessReason) === "live",
           linkCheckedAt: v.lastVerifiedAt ? v.lastVerifiedAt.toISOString() : null,
           description: v.description,
           postedDate: v.postedDate,
@@ -389,6 +391,7 @@ router.get("/sponsor-licences/vacancy-stats", requireAuthenticated, async (_req,
       .where(
         and(
           eq(sponsorLicenceVacanciesTable.liveness, "live"),
+          gte(sponsorLicenceVacanciesTable.lastVerifiedAt, new Date(Date.now() - RECENT_VERIFY_SKIP_MS)),
           isNotNull(sponsorLicenceVacanciesTable.sourceType),
           isNotNull(sponsorLicenceVacanciesTable.url),
         ),
@@ -615,6 +618,7 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
           FROM sponsor_licence_vacancies
           WHERE organisation_name = ${sponsorLicencesTable.organisationName}
             AND liveness = 'live'
+            AND last_verified_at >= now() - interval '6 hours'
             AND source_type IS NOT NULL
             AND url IS NOT NULL
         )`,
@@ -651,6 +655,7 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
                  cast(count(*) as integer) AS vacancy_count
           FROM sponsor_licence_vacancies
           WHERE liveness = 'live'
+            AND last_verified_at >= now() - interval '6 hours'
             AND source_type IS NOT NULL
             AND url IS NOT NULL
           GROUP BY lower(trim(organisation_name))`,

@@ -4,6 +4,7 @@ import {
   filterOpportunities,
   getOpportunityApplyAction,
   groupRankedOpportunities,
+  canSendCvForVacancy,
   hasUsableSendCvApplyRoute,
   shouldShowOpportunityApplyActions,
   shouldShowOnSendCvTab,
@@ -95,6 +96,7 @@ describe("opportunity filters", () => {
       sendCvEligible: false,
       applyUrl: "https://jobs.nhs.uk/candidate/jobadvert/C1234",
       linkVerified: true,
+      linkStatus: "live",
     })).toBe(true);
     expect(shouldShowSendCv(false)).toBe(false);
   });
@@ -104,20 +106,24 @@ describe("opportunity filters", () => {
       sendCvEligible: false,
       applyUrl: "https://jobs.nhs.uk/candidate/jobadvert/C1234",
       linkVerified: false,
+      linkStatus: "dead",
     })).toBe(false);
     expect(hasUsableSendCvApplyRoute({
       applyUrl: "https://linkedin.com/jobs/view/123",
       linkVerified: true,
+      linkStatus: "live",
     })).toBe(false);
     expect(shouldShowOnSendCvTab({
       sendCvEligible: false,
       applyUrl: "https://linkedin.com/jobs/view/123",
       linkVerified: true,
+      linkStatus: "live",
     })).toBe(false);
     expect(shouldShowOnSendCvTab({
       sendCvEligible: false,
       applyUrl: "https://uk.indeed.com/viewjob?jk=abc",
       linkVerified: true,
+      linkStatus: "live",
     })).toBe(false);
   });
 
@@ -126,7 +132,11 @@ describe("opportunity filters", () => {
       sendCvEligible: true,
       applyUrl: null,
       linkVerified: false,
+      linkStatus: "none",
     })).toBe(true);
+    expect(canSendCvForVacancy({ sendCvEligible: true, applyUrl: null, linkStatus: "none" })).toBe(true);
+    expect(canSendCvForVacancy({ sendCvEligible: true, applyUrl: "https://example.com/job", linkStatus: "dead" })).toBe(false);
+    expect(canSendCvForVacancy({ sendCvEligible: true, applyUrl: "https://example.com/job", linkStatus: "stale" })).toBe(false);
   });
 
   it("excludes operations-only and stale sponsor records from the Send CV feed", () => {

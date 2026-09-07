@@ -90,6 +90,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import {
   filterOpportunities,
+  canSendCvForVacancy,
   getOpportunityApplyAction,
   groupRankedOpportunities,
   hasUsableSendCvApplyRoute,
@@ -1046,7 +1047,7 @@ function RoleCard({
           >
             <FileText className="w-3 h-3" /> Cover Letter
           </Button>
-          {shouldShowSendCv(item.sendCvEligible) && (
+          {canSendCvForVacancy(item) && (
             <Button
               size="sm"
               variant={cvSent ? "outline" : "accent"}
@@ -1337,7 +1338,7 @@ function SendCvEmployerGroup({
         {vacancies.map((item) => {
           const { role } = item;
           const cvSent = cvSentRoleIds.includes(role.id);
-          const canEmailCv = shouldShowSendCv(item.sendCvEligible);
+          const canEmailCv = canSendCvForVacancy(item);
           const hasVerifiedApplyRoute = hasUsableSendCvApplyRoute(item);
           const sourceLabel = !item.applyUrl
             ? "Email only"

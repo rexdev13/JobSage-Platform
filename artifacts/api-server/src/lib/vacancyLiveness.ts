@@ -11,6 +11,32 @@ import { and, eq, gt } from "drizzle-orm";
 // click time.
 export const RECENT_VERIFY_SKIP_MS = 6 * 60 * 60 * 1000;
 
+export type VacancyLinkStatus =
+  | "none"
+  | "live"
+  | "dead"
+  | "unverified"
+  | "inconclusive"
+  | "stale";
+
+export function getVacancyLinkStatus(
+  url: string | null | undefined,
+  liveness: string | null | undefined,
+  lastVerifiedAt: Date | string | null | undefined,
+  livenessReason?: string | null,
+): VacancyLinkStatus {
+  if (!url?.trim()) return "none";
+  if (liveness === "dead") return "dead";
+  if (liveness === "live") {
+    const checkedAt = lastVerifiedAt ? new Date(lastVerifiedAt).getTime() : Number.NaN;
+    return Number.isFinite(checkedAt) && Date.now() - checkedAt <= RECENT_VERIFY_SKIP_MS
+      ? "live"
+      : "stale";
+  }
+  if (livenessReason?.toLowerCase().includes("inconclusive")) return "inconclusive";
+  return "unverified";
+}
+
 /** True if any stored sponsor vacancy with this exact URL was verified live recently. */
 export async function isRecentlyVerifiedLive(url: string): Promise<boolean> {
   const cutoff = new Date(Date.now() - RECENT_VERIFY_SKIP_MS);
