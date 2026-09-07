@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { Readable } from "stream";
-import { db, profilesTable, jobListingsTable, smartApplyDraftsTable, documentsTable } from "@workspace/db";
+import { db, profilesTable, jobListingsTable, smartApplyDraftsTable, documentsTable, sponsorLicenceVacanciesTable, sponsorLicencesTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { requireAuthenticated } from "../middlewares/requireRole";
 import { getStandardQuestions, prefillApplicationAnswers } from "../lib/smartApply";
@@ -9,6 +9,13 @@ import { openai } from "@workspace/integrations-openai-ai-server";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { ObjectPermission } from "../lib/objectAcl";
 import { ensureCanonicalJobsageAlias } from "../lib/jobsageEmailGen";
+import {
+  classifyVacancyCategory,
+  inferVacancySponsorshipStatus,
+  isSponsorVacancyRoleId,
+  sponsorVacancyIdFromRoleId,
+} from "../lib/sponsorVacancyRoles";
+import { statutoryRegulatorForCategory } from "../lib/professionCategory";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -296,7 +303,27 @@ router.post("/roles/:id/smart-apply/prefill", requireAuthenticated, async (req: 
     sponsorshipOffered: false,
   };
 
-  if (roleId > 1_000_000) {
+  if (isSponsorVacancyRoleId(roleId)) {
+    const sponsorVacancyId = sponsorVacancyIdFromRoleId(roleId)!;
+    const [row] = await db
+      .select({ vacancy: sponsorLicenceVacanciesTable, licence: sponsorLicencesTable })
+      .from(sponsorLicenceVacanciesTable)
+      .leftJoin(
+        sponsorLicencesTable,
+        eq(sponsorLicenceVacanciesTable.organisationName, sponsorLicencesTable.organisationName),
+      )
+      .where(eq(sponsorLicenceVacanciesTable.id, sponsorVacancyId));
+    if (row) {
+      const category = classifyVacancyCategory(row.vacancy.title, row.vacancy.description);
+      roleContext = {
+        title: row.vacancy.title,
+        description: row.vacancy.description,
+        regulator: category ? (statutoryRegulatorForCategory(category) ?? "GMC/NMC/HCPC") : "GMC/NMC/HCPC",
+        location: row.vacancy.location?.trim() || "United Kingdom",
+        sponsorshipOffered: inferVacancySponsorshipStatus(row.vacancy.title, row.vacancy.description) === "confirmed",
+      };
+    }
+  } else if (roleId > 1_000_000) {
     const jobId = roleId - 1_000_000;
     const [job] = await db
       .select()
@@ -447,7 +474,37 @@ router.post("/smart-apply/assistant", requireAuthenticated, async (req: Request,
       jobDescription?.trim() ? `Job description excerpt: ${jobDescription.trim().slice(0, 1500)}` : null,
     ].filter(Boolean).join("\n");
   }
-  if (roleId && roleId > 1_000_000) {
+  if (roleId && isSponsorVacancyRoleId(roleId)) {
+    const sponsorVacancyId = sponsorVacancyIdFromRoleId(roleId)!;
+    const [row] = await db
+      .select({ vacancy: sponsorLicenceVacanciesTable, licence: sponsorLicencesTable })
+      .from(sponsorLicenceVacanciesTable)
+      .leftJoin(
+        sponsorLicencesTable,
+        eq(sponsorLicenceVacanciesTable.organisationName, sponsorLicencesTable.organisationName),
+      )
+      .where(eq(sponsorLicenceVacanciesTable.id, sponsorVacancyId));
+    if (row) {
+      const category = classifyVacancyCategory(row.vacancy.title, row.vacancy.description);
+      roleContext = {
+        title: row.vacancy.title,
+        location: row.vacancy.location?.trim() || "United Kingdom",
+        regulator: category ? (statutoryRegulatorForCategory(category) ?? "GMC/NMC/HCPC") : "GMC/NMC/HCPC",
+        description: row.vacancy.description,
+        sponsorshipOffered: inferVacancySponsorshipStatus(row.vacancy.title, row.vacancy.description) === "confirmed",
+      };
+      scrapedSummary = [
+        `Role: ${row.vacancy.title}`,
+        `Employer: ${row.licence?.organisationName ?? row.vacancy.organisationName}`,
+        `Location: ${row.vacancy.location?.trim() || "United Kingdom"}`,
+        row.vacancy.description ? `Job description excerpt: ${row.vacancy.description.slice(0, 1500)}` : null,
+        row.vacancy.url ? `Vacancy source URL: ${row.vacancy.url}` : null,
+        row.licence?.contactEmail ? `Employer contact email: ${row.licence.contactEmail}` : null,
+        row.licence?.contactPhone ? `Employer contact phone: ${row.licence.contactPhone}` : null,
+        row.licence?.website ? `Employer website: ${row.licence.website}` : null,
+      ].filter(Boolean).join("\n");
+    }
+  } else if (roleId && roleId > 1_000_000) {
     const jobId = roleId - 1_000_000;
     const [job] = await db.select().from(jobListingsTable).where(eq(jobListingsTable.id, jobId));
     if (job) {

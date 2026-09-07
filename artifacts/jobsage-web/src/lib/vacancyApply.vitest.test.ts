@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   checkApplyLinkInBackground,
   CLICK_HEALTH_TIMEOUT_MS,
+  FRESH_LINK_WINDOW_MS,
+  isFreshLiveApplyLink,
 } from "./vacancyApply";
 
 describe("vacancy Apply link checks", () => {
@@ -9,17 +11,22 @@ describe("vacancy Apply link checks", () => {
     vi.useRealTimers();
   });
 
-  it("does not call the health API for a live link verified within 12 hours", async () => {
+  it("does not call the health API for a live link verified within six hours", async () => {
     const fetchImpl = vi.fn<typeof fetch>();
     await checkApplyLinkInBackground({
       url: "https://jobs.example.com/123",
       endpoint: "/api/vacancy-link-check",
       linkVerified: true,
-      linkCheckedAt: new Date(Date.now() - 11 * 60 * 60 * 1000).toISOString(),
+      linkCheckedAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
       fetchImpl,
       onDead: vi.fn(),
     });
     expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("treats a link checked six hours ago as stale", () => {
+    const now = Date.now();
+    expect(isFreshLiveApplyLink(true, new Date(now - FRESH_LINK_WINDOW_MS).toISOString(), now)).toBe(false);
   });
 
   it("aborts an unverified link check after 1.5 seconds so it cannot stay pending", async () => {

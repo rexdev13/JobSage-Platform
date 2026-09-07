@@ -6085,12 +6085,33 @@ components:
 
     SponsorLicenceVacancyMatch:
       type: object
-      required: [id, title]
+      required: [id, roleId, title, sponsorshipStatus, requiredRegistration, safeguarding, linkVerified, linkStatus, missingRequirements, applied, cvSent]
       properties:
         id:
           type: integer
+          description: Persistent sponsor_licence_vacancies row ID.
+        roleId:
+          type: integer
+          description: Unified Opportunities role ID (id + 2,000,000) for application and CV-send state.
         title:
           type: string
+        sponsorshipStatus:
+          type: string
+          enum: [confirmed, not_offered, unknown]
+          description: Vacancy-level sponsorship evidence inferred only from the vacancy title and description; sponsor-register membership alone is not confirmation.
+        requiredRegistration:
+          type: string
+          description: Registration pathway inferred from the vacancy professional category, or Not specified when it cannot be classified.
+        requiredDbsClearanceLevel:
+          allOf:
+            - $ref: "#/components/schemas/DbsClearanceLevel"
+          nullable: true
+        requiredSafeguardingLevel:
+          allOf:
+            - $ref: "#/components/schemas/SafeguardingTrainingLevel"
+          nullable: true
+        safeguarding:
+          $ref: "#/components/schemas/SafeguardingAssessment"
         location:
           type: string
           nullable: true
@@ -6117,6 +6138,13 @@ components:
         postedDate:
           type: string
           nullable: true
+        sourceType:
+          type: string
+          enum: [job_board, company_site]
+          nullable: true
+        boardName:
+          type: string
+          nullable: true
         targetRegions:
           type: array
           nullable: true
@@ -6135,10 +6163,28 @@ components:
         matchExplanation:
           type: string
           nullable: true
+        applied:
+          type: boolean
+          description: Whether the current candidate has recorded a non-click application for roleId.
+        cvSent:
+          type: boolean
+          description: Whether the current candidate has sent a speculative CV for this vacancy.
+
+    SponsorLicenceNonLiveVacancyEvidence:
+      type: object
+      required: [count, reasons]
+      description: Compact, non-actionable evidence for stored vacancies that are not currently fresh-live.
+      properties:
+        count:
+          type: integer
+        reasons:
+          type: array
+          items:
+            type: string
 
     SponsorLicenceVacanciesResponse:
       type: object
-      required: [organisationName, vacancies]
+      required: [organisationName, vacancies, nonLiveEvidence]
       properties:
         organisationName:
           type: string
@@ -6150,6 +6196,8 @@ components:
           type: string
           format: date-time
           nullable: true
+        nonLiveEvidence:
+          $ref: "#/components/schemas/SponsorLicenceNonLiveVacancyEvidence"
 
     BoostProfileRequest:
       type: object

@@ -1,7 +1,3 @@
-// Outbound apply/company-website links: simply open the destination in a new
-// tab. Click-logging was retired — no application record is created and no
-// toast is shown when a candidate clicks through to an employer site.
-
 type ToastFn = (opts: { title: string; description: string; variant?: "default" | "destructive" }) => void;
 
 export type TrackedOutboundSource = "sponsor" | "careers" | "role-website";
@@ -39,8 +35,9 @@ function appendJobSageRef(raw: string): string {
 export async function openTrackedOutbound({
   url,
   vacancy,
+  onTracked,
 }: {
-  /** Id in the id-space implied by `source` (kept for call-site compatibility; no longer used). */
+  /** Id in the id-space implied by `source` (kept for company-site call-site compatibility). */
   id?: number | null | undefined;
   source?: TrackedOutboundSource;
   url: string;
@@ -49,6 +46,26 @@ export async function openTrackedOutbound({
   vacancy?: TrackedVacancyContext;
 }): Promise<void> {
   const outboundUrl = appendJobSageRef(url);
+  // A vacancy context is the explicit intent signal. Employer/careers-site
+  // navigation deliberately omits it, so it never creates a vacancy record.
+  if (vacancy) {
+    const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+    void fetch(`${base}/api/applications`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        applicationType: "website",
+        status: "link_clicked",
+        roleId: vacancy.roleId,
+        companyName: vacancy.employer,
+        jobTitle: vacancy.title,
+        applicationUrl: outboundUrl,
+      }),
+    }).catch(() => {
+      // Navigation and extension hand-off must never wait for tracker logging.
+    });
+  }
   window.dispatchEvent(new CustomEvent("jobsage:outbound-application", {
     detail: {
       applicationUrl: outboundUrl,
@@ -59,6 +76,7 @@ export async function openTrackedOutbound({
     },
   }));
   window.open(outboundUrl, "_blank", "noopener,noreferrer");
+  onTracked?.();
 }
 
 export async function openTrackedSponsorVacancy({
@@ -66,8 +84,12 @@ export async function openTrackedSponsorVacancy({
   title,
   employer,
   vacancyId,
+  roleId,
+  onTracked,
 }: {
   vacancyId?: number | null | undefined;
+  /** Unified Opportunities role ID. Prefer this when it is available. */
+  roleId?: number | null | undefined;
   url: string;
   title?: string;
   employer?: string;
@@ -76,10 +98,11 @@ export async function openTrackedSponsorVacancy({
 }): Promise<void> {
   return openTrackedOutbound({
     url,
+    onTracked,
     vacancy: {
       title,
       employer,
-      roleId: vacancyId ?? undefined,
+      roleId: roleId ?? vacancyId ?? undefined,
       canonicalUrl: url,
     },
   });

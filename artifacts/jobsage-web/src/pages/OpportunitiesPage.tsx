@@ -134,7 +134,7 @@ function BestMatchesStrip({
   appliedRoleIds: number[];
   localDismissedIds: Set<number>;
   onSmartApply: (roleId: number, roleTitle: string) => void;
-  onOpenApplication: (url: string, match: CandidateMatchItem) => void;
+  onOpenApplication: (url: string, match: CandidateMatchItem, vacancyIntent: boolean) => void;
   onDismiss: (roleId: number) => void;
   sourceType: "job_board" | "company_site";
 }) {
@@ -243,7 +243,7 @@ function BestMatchesStrip({
                     size="sm"
                     variant="outline"
                     className="flex-1 min-w-[9rem] text-xs h-8 gap-1"
-                    onClick={() => onOpenApplication(normalizeWebsiteUrl(match.applyUrl!), match)}
+                    onClick={() => onOpenApplication(normalizeWebsiteUrl(match.applyUrl!), match, true)}
                   >
                     <ExternalLink className="w-3 h-3" /> {sourceType === "job_board" ? "Apply Via Job Board" : "Apply on company's website"}
                   </Button>
@@ -253,7 +253,7 @@ function BestMatchesStrip({
                     size="sm"
                     variant="outline"
                     className="flex-1 min-w-[9rem] text-xs h-8 gap-1"
-                    onClick={() => onOpenApplication(normalizeWebsiteUrl(match.contactWebsite!), match)}
+                    onClick={() => onOpenApplication(normalizeWebsiteUrl(match.contactWebsite!), match, false)}
                   >
                     <Globe className="w-3 h-3" /> Visit company website
                   </Button>
@@ -717,58 +717,17 @@ function RoleCard({
   const [expanded, setExpanded] = useState(false);
   const [deadLink, setDeadLink] = useState(false);
 
-  // Apply links always open immediately. Fresh live links skip the health API;
-  // stale or unverified links get a bounded background check that can remove a
-  // dead URL globally without ever holding the candidate's tab or button.
-  // All outbound clicks (apply links AND company-website fallbacks) are gated
-  // behind the Smart Apply extension so every application is tracked.
-
   const trackAndOpen = (targetUrl: string): void => {
-    let outboundUrl = targetUrl;
-    try {
-      const url = new URL(targetUrl);
-      // The reference lets the extension retain this exact first-party click
-      // through employer-site redirects, so confirmation upgrades this row.
-      url.searchParams.set("ref", "jobsage");
-      outboundUrl = url.toString();
-    } catch {
-      // The existing apply action can still open a malformed legacy URL; the
-      // click-time link check is responsible for deciding whether it is usable.
-    }
-    const base = import.meta.env.BASE_URL.replace(/\/$/, "");
-    // Tracking is deliberately independent from the extension sidebar. A
-    // candidate may hide the sidebar on the employer site, but the JOBSAGE
-    // outbound click remains part of their tracker.
-    void fetch(`${base}/api/applications`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({
-        applicationType: "website",
-        status: "link_clicked",
-        roleId: role.id,
-        companyName: role.employer,
-        jobTitle: role.title,
-        applicationUrl: outboundUrl,
-      }),
-    }).catch((error: unknown) => {
-      console.warn("[applications] Could not track outbound apply click", error);
-    });
-
-    // The extension only treats an application tab as eligible for automatic
-    // prefill after this first-party event. A public `ref=jobsage` query
-    // parameter by itself is deliberately not trusted.
-    window.dispatchEvent(new CustomEvent("jobsage:outbound-application", {
-      detail: {
-        applicationUrl: outboundUrl,
-        canonicalUrl: targetUrl,
-        jobTitle: role.title,
+    void openTrackedOutbound({
+      url: targetUrl,
+      vacancy: {
+        title: role.title,
         employer: role.employer,
         roleId: role.id,
+        canonicalUrl: targetUrl,
       },
-    }));
-    window.open(outboundUrl, "_blank", "noopener,noreferrer");
-    onExternalApply?.();
+      onTracked: onExternalApply,
+    });
   };
 
   const doApplyClick = (destinationUrl?: string): void => {
@@ -777,7 +736,7 @@ function RoleCard({
 
     // Company-website fallback has no vacancy URL to health-check.
     if (destinationUrl !== undefined) {
-      trackAndOpen(targetUrl);
+      void openTrackedOutbound({ url: targetUrl, onTracked: onExternalApply });
       return;
     }
 
@@ -1485,16 +1444,16 @@ export default function OpportunitiesPage() {
     if (shouldShowExtensionNudge()) setShowExtensionNudge(true);
   }
 
-  function handleBestMatchOpenApplication(url: string, match: CandidateMatchItem) {
+  function handleBestMatchOpenApplication(url: string, match: CandidateMatchItem, vacancyIntent: boolean) {
     requireExtension(() => {
       void openTrackedOutbound({
         url,
-        vacancy: {
+        vacancy: vacancyIntent ? {
           title: match.title,
           employer: match.employer,
           roleId: match.roleId,
           canonicalUrl: url,
-        },
+        } : undefined,
       });
       handleExternalApply();
     });
@@ -1514,51 +1473,6 @@ export default function OpportunitiesPage() {
       });
       handleExternalApply();
     });
-  }
-
-  function trackGapAnalysisWebsiteClick(item: MatchedRole) {
-    const rawUrl = item.applyUrl ?? item.contactWebsite;
-    if (!rawUrl) return;
-
-    const targetUrl = rawUrl.startsWith("http") ? rawUrl : `https://${rawUrl}`;
-    let outboundUrl = targetUrl;
-    try {
-      const url = new URL(targetUrl);
-      url.searchParams.set("ref", "jobsage");
-      outboundUrl = url.toString();
-    } catch {
-      // Keep the existing destination for a legacy malformed URL. The role-card
-      // link validation flow remains responsible for rejecting unusable links.
-    }
-
-    const base = import.meta.env.BASE_URL.replace(/\/$/, "");
-    void fetch(`${base}/api/applications`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({
-        applicationType: "website",
-        status: "link_clicked",
-        roleId: item.role.id,
-        companyName: item.role.employer,
-        jobTitle: item.role.title,
-        applicationUrl: outboundUrl,
-      }),
-    }).catch((error: unknown) => {
-      console.warn("[applications] Could not track Gap Analysis apply click", error);
-    });
-
-    window.dispatchEvent(new CustomEvent("jobsage:outbound-application", {
-      detail: {
-        applicationUrl: outboundUrl,
-        canonicalUrl: targetUrl,
-        jobTitle: item.role.title,
-        employer: item.role.employer,
-        roleId: item.role.id,
-      },
-    }));
-    window.open(outboundUrl, "_blank", "noopener,noreferrer");
-    handleExternalApply();
   }
 
   const queryClient = useQueryClient();
@@ -2253,11 +2167,11 @@ export default function OpportunitiesPage() {
             vacancyTitle={gapAnalysisRole.role.title}
             companyName={gapAnalysisRole.role.employer}
             vacancyUrl={gapAnalysisRole.applyUrl ?? gapAnalysisRole.contactWebsite ?? null}
+            trackVacancyIntent={!!gapAnalysisRole.applyUrl}
             hasCvUploaded={!!myProfile}
             analysisEndpoint={endpoint}
             analysisSource={isSponsorVacancy ? "sponsor_vacancy" : "role"}
             onApply={() => handleSmartApply(gapAnalysisRole.role.id, gapAnalysisRole.role.title)}
-            onWebsiteApply={() => trackGapAnalysisWebsiteClick(gapAnalysisRole)}
           />
         );
       })()}

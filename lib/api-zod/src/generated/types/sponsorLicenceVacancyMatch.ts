@@ -5,24 +5,45 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { DbsClearanceLevel } from "./dbsClearanceLevel";
+import type { SafeguardingAssessment } from "./safeguardingAssessment";
+import type { SafeguardingTrainingLevel } from "./safeguardingTrainingLevel";
 import type { SponsorLicenceVacancyMatchLinkStatus } from "./sponsorLicenceVacancyMatchLinkStatus";
+import type { SponsorLicenceVacancyMatchSourceType } from "./sponsorLicenceVacancyMatchSourceType";
+import type { SponsorLicenceVacancyMatchSponsorshipStatus } from "./sponsorLicenceVacancyMatchSponsorshipStatus";
 
 export interface SponsorLicenceVacancyMatch {
+  /** Persistent sponsor_licence_vacancies row ID. */
   id: number;
+  /** Unified Opportunities role ID (id + 2,000,000) for application and CV-send state. */
+  roleId: number;
   title: string;
+  /** Vacancy-level sponsorship evidence inferred only from the vacancy title and description; sponsor-register membership alone is not confirmation. */
+  sponsorshipStatus: SponsorLicenceVacancyMatchSponsorshipStatus;
+  /** Registration pathway inferred from the vacancy professional category, or Not specified when it cannot be classified. */
+  requiredRegistration: string;
+  requiredDbsClearanceLevel?: DbsClearanceLevel | null;
+  requiredSafeguardingLevel?: SafeguardingTrainingLevel | null;
+  safeguarding: SafeguardingAssessment;
   location?: string | null;
   salary?: string | null;
   url?: string | null;
-  linkVerified?: boolean;
+  linkVerified: boolean;
   /** True when the apply link was health-checked and confirmed live */
-  linkStatus?: SponsorLicenceVacancyMatchLinkStatus;
+  linkStatus: SponsorLicenceVacancyMatchLinkStatus;
   /** When the apply link was last health-checked */
   linkCheckedAt?: Date | null;
   description?: string | null;
   postedDate?: string | null;
+  sourceType?: SponsorLicenceVacancyMatchSourceType;
+  boardName?: string | null;
   targetRegions?: string[] | null;
   matchScore?: number | null;
   isEligible?: boolean | null;
-  missingRequirements?: string[];
+  missingRequirements: string[];
   matchExplanation?: string | null;
+  /** Whether the current candidate has recorded a non-click application for roleId. */
+  applied: boolean;
+  /** Whether the current candidate has sent a speculative CV for this vacancy. */
+  cvSent: boolean;
 }

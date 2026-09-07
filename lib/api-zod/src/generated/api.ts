@@ -3259,15 +3259,55 @@ export const GetSponsorLicenceVacanciesResponse = zod.object({
   organisationName: zod.string(),
   vacancies: zod.array(
     zod.object({
-      id: zod.number(),
+      id: zod.number().describe("Persistent sponsor_licence_vacancies row ID."),
+      roleId: zod
+        .number()
+        .describe(
+          "Unified Opportunities role ID (id + 2,000,000) for application and CV-send state.",
+        ),
       title: zod.string(),
+      sponsorshipStatus: zod
+        .enum(["confirmed", "not_offered", "unknown"])
+        .describe(
+          "Vacancy-level sponsorship evidence inferred only from the vacancy title and description; sponsor-register membership alone is not confirmation.",
+        ),
+      requiredRegistration: zod
+        .string()
+        .describe(
+          "Registration pathway inferred from the vacancy professional category, or Not specified when it cannot be classified.",
+        ),
+      requiredDbsClearanceLevel: zod
+        .enum(["unknown", "none", "basic", "standard", "enhanced"])
+        .nullish(),
+      requiredSafeguardingLevel: zod
+        .enum(["unknown", "none", "level_1", "level_2"])
+        .nullish(),
+      safeguarding: zod.object({
+        requiredDbsClearanceLevel: zod
+          .enum(["unknown", "none", "basic", "standard", "enhanced"])
+          .nullable(),
+        requiredSafeguardingLevel: zod
+          .enum(["unknown", "none", "level_1", "level_2"])
+          .nullable(),
+        dbsStatus: zod.enum([
+          "unknown",
+          "unknown_needs_profile",
+          "missing",
+          "met",
+        ]),
+        safeguardingStatus: zod.enum([
+          "unknown",
+          "unknown_needs_profile",
+          "missing",
+          "met",
+        ]),
+      }),
       location: zod.string().nullish(),
       salary: zod.string().nullish(),
       url: zod.string().nullish(),
-      linkVerified: zod.boolean().optional(),
+      linkVerified: zod.boolean(),
       linkStatus: zod
         .enum(["none", "live", "dead", "unverified", "inconclusive", "stale"])
-        .optional()
         .describe(
           "True when the apply link was health-checked and confirmed live",
         ),
@@ -3277,14 +3317,34 @@ export const GetSponsorLicenceVacanciesResponse = zod.object({
         .describe("When the apply link was last health-checked"),
       description: zod.string().nullish(),
       postedDate: zod.string().nullish(),
+      sourceType: zod.enum(["job_board", "company_site"]).nullish(),
+      boardName: zod.string().nullish(),
       targetRegions: zod.array(zod.string()).nullish(),
       matchScore: zod.number().nullish(),
       isEligible: zod.boolean().nullish(),
-      missingRequirements: zod.array(zod.string()).optional(),
+      missingRequirements: zod.array(zod.string()),
       matchExplanation: zod.string().nullish(),
+      applied: zod
+        .boolean()
+        .describe(
+          "Whether the current candidate has recorded a non-click application for roleId.",
+        ),
+      cvSent: zod
+        .boolean()
+        .describe(
+          "Whether the current candidate has sent a speculative CV for this vacancy.",
+        ),
     }),
   ),
   lastCheckedAt: zod.date().nullish(),
+  nonLiveEvidence: zod
+    .object({
+      count: zod.number(),
+      reasons: zod.array(zod.string()),
+    })
+    .describe(
+      "Compact, non-actionable evidence for stored vacancies that are not currently fresh-live.",
+    ),
 });
 
 /**

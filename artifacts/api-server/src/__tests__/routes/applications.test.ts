@@ -17,6 +17,7 @@ vi.mock("@workspace/db", () => {
   function makeChain(): any {
     const chain: any = {
       from() { return chain; },
+      leftJoin() { return chain; },
       where() { return chain; },
       orderBy() { return chain; },
       limit() { return chain; },
@@ -48,6 +49,7 @@ vi.mock("@workspace/db", () => {
     candidateMessagesTable: {},
     employerProfilesTable: {},
     sponsorLicenceVacanciesTable: {},
+    sponsorLicencesTable: {},
   };
 });
 
@@ -114,6 +116,33 @@ describe("GET /applications", () => {
     expect(res.body.applications).toHaveLength(0);
     expect(res.body.stats).toBeDefined();
     expect(res.body.stats.total).toBe(0);
+  });
+
+  it("enriches a sponsor-vacancy unified role ID from the sponsor vacancy source", async () => {
+    const appliedAt = new Date("2025-02-01T12:00:00Z");
+    appResults.push(
+      [{ id: 8, userId: "cand-1", roleId: 2_000_123, applicationType: "platform", companyName: null, appliedAt, cvDocumentId: null, status: "applied" }],
+      [],
+      [{
+        id: 123,
+        title: "Registered Nurse",
+        location: "Leeds",
+        organisationName: "Sponsor NHS Trust",
+        companyName: "Sponsor NHS Trust",
+      }],
+    );
+
+    const res = await request(buildApp())
+      .get("/applications")
+      .set("Authorization", `Bearer ${SESS}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.applications[0]).toMatchObject({
+      roleId: 2_000_123,
+      roleTitle: "Registered Nurse",
+      roleLocation: "Leeds",
+      companyName: "Sponsor NHS Trust",
+    });
   });
 });
 

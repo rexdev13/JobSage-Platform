@@ -5,10 +5,12 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { SponsorLicenceNonLiveVacancyEvidence } from "./sponsorLicenceNonLiveVacancyEvidence";
 import type { SponsorLicenceVacancyMatch } from "./sponsorLicenceVacancyMatch";
 
 export interface SponsorLicenceVacanciesResponse {
   organisationName: string;
   vacancies: SponsorLicenceVacancyMatch[];
   lastCheckedAt?: Date | null;
+  nonLiveEvidence: SponsorLicenceNonLiveVacancyEvidence;
 }

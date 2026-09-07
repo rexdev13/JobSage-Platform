@@ -25,6 +25,20 @@ import {
  */
 export const SPONSOR_VACANCY_ID_OFFSET = 2_000_000;
 
+/** Whether a candidate-facing unified role ID belongs to a sponsor vacancy. */
+export function isSponsorVacancyRoleId(roleId: number): boolean {
+  return roleId > SPONSOR_VACANCY_ID_OFFSET;
+}
+
+/**
+ * Converts a candidate-facing sponsor vacancy role ID to its persisted vacancy
+ * ID. Returning null keeps callers from accidentally querying this source for
+ * catalogue roles or employer jobs.
+ */
+export function sponsorVacancyIdFromRoleId(roleId: number): number | null {
+  return isSponsorVacancyRoleId(roleId) ? roleId - SPONSOR_VACANCY_ID_OFFSET : null;
+}
+
 /**
  * Candidate-facing apply-link presentation preserves stored URL evidence.
  * Product actions use linkStatus; dead evidence must never collapse to "none".
