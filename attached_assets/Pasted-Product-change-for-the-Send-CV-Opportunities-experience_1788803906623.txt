@@ -1,0 +1,35 @@
+Product change for the Send CV / Opportunities experience. Do not guess emails. Do not scrape LinkedIn or Indeed. Do not raise VACANCY_AI_WEB_SEARCH_DAILY_CAP. Do not enable a contact cron or startup contact backfill in this pass. Do not publish unless you normally would for a verified UI change; prefer development verification first.
+
+Clarification
+“Send CV tab / page” must show vacancies, not only employers that already have a stored contact email. Candidates should see current non-dead opportunities there even when the only usable route is an apply URL. Finding emails is a separate pipeline; this task is UI + send-path behaviour.
+
+Current problem (from audit)
+- shouldShowSendCv / sendCvEligible is true only when getDirectContactEligibility finds a direct email.
+- The Send CV tab filters with shouldShowSendCv, so apply-URL-only vacancies are hidden.
+- Opportunities Send CV button is hidden the same way.
+- requireDirectContact: true makes ops_fallback return 422.
+
+Goal
+On the candidate Opportunities experience (including the Send CV tab/section):
+1. Show current, relevant, non-dead vacancies that have at least one usable route:
+   - live/verified apply URL, and/or
+   - stored direct employer email
+2. Do not require a stored email merely to appear in the list/tab.
+3. Primary action labelling must be honest:
+   - If a direct email exists: keep “Send CV” / Resend CV and email the PDF as today.
+   - If there is no direct email but a usable apply URL: show Apply and/or Smart Apply (existing flows). Do not show a Send CV button that will 422.
+   - Optional later: ops inbox fallback — only if you can do it cleanly with clear copy; otherwise leave requireDirectContact behaviour for true email sends and do not silently email ops from the main button.
+4. Keep profession/regulator filtering and dead-link hiding as they are today.
+5. Do not invent or display fake emails.
+
+Implementation notes
+- Update OpportunitiesPage, SendCvEmployerGroup / Send CV tab filters, and shouldShowSendCv (or split into shouldShowOnSendCvTab vs canEmailCv) so “visible on tab” ≠ “can email CV”.
+- API may need a clearer flag such as canEmailCv vs hasApplyRoute instead of overloading sendCvEligible.
+- Tests for: vacancy with apply URL only appears on the tab; vacancy with email still shows Send CV; dead vacancies stay hidden; email send still requires direct contact; no LinkedIn/Indeed.
+
+Verification
+- Tests + typecheck
+- Describe before/after: roughly how many current non-dead vacancies become visible on the Send CV tab in development (counts only, no emails)
+- Screenshots or short UI description of the two button states (email available vs apply-only)
+
+Return files changed, behaviour summary, and counts. Do not start contact enrichment.

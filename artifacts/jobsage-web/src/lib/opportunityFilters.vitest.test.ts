@@ -4,7 +4,9 @@ import {
   filterOpportunities,
   getOpportunityApplyAction,
   groupRankedOpportunities,
+  hasUsableSendCvApplyRoute,
   shouldShowOpportunityApplyActions,
+  shouldShowOnSendCvTab,
   shouldShowSendCv,
 } from "./opportunityFilters";
 
@@ -86,6 +88,45 @@ describe("opportunity filters", () => {
     expect(shouldShowSendCv(true)).toBe(true);
     expect(shouldShowSendCv(false)).toBe(false);
     expect(shouldShowSendCv(undefined)).toBe(false);
+  });
+
+  it("shows verified apply-only vacancies on the Send CV tab without enabling email", () => {
+    expect(shouldShowOnSendCvTab({
+      sendCvEligible: false,
+      applyUrl: "https://jobs.nhs.uk/candidate/jobadvert/C1234",
+      linkVerified: true,
+    })).toBe(true);
+    expect(shouldShowSendCv(false)).toBe(false);
+  });
+
+  it("keeps dead, unverified, LinkedIn, and Indeed-only vacancies off the Send CV tab", () => {
+    expect(shouldShowOnSendCvTab({
+      sendCvEligible: false,
+      applyUrl: "https://jobs.nhs.uk/candidate/jobadvert/C1234",
+      linkVerified: false,
+    })).toBe(false);
+    expect(hasUsableSendCvApplyRoute({
+      applyUrl: "https://linkedin.com/jobs/view/123",
+      linkVerified: true,
+    })).toBe(false);
+    expect(shouldShowOnSendCvTab({
+      sendCvEligible: false,
+      applyUrl: "https://linkedin.com/jobs/view/123",
+      linkVerified: true,
+    })).toBe(false);
+    expect(shouldShowOnSendCvTab({
+      sendCvEligible: false,
+      applyUrl: "https://uk.indeed.com/viewjob?jk=abc",
+      linkVerified: true,
+    })).toBe(false);
+  });
+
+  it("keeps direct-email vacancies visible even when no verified apply route exists", () => {
+    expect(shouldShowOnSendCvTab({
+      sendCvEligible: true,
+      applyUrl: null,
+      linkVerified: false,
+    })).toBe(true);
   });
 
   it("excludes operations-only and stale sponsor records from the Send CV feed", () => {
