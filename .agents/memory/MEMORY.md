@@ -35,3 +35,4 @@
 - [Contact enrichment source order](contact-enrichment-source-order.md) — exhaust stored vacancy/employer evidence before any paid website lookup; preserve provenance and no-overwrite behavior.
 - [Company-site wall-clock deadlines](company-site-wall-clock-deadlines.md) — socket inactivity timeouts alone do not bound DNS/connect phases; HTTP cron work needs an absolute request deadline.
 - [Vacancy action liveness](vacancy-action-liveness.md) — vacancy-specific Apply/Send CV requires fresh live stored evidence; employer-level email outreach remains independent.
+- [Unified role ID routing](unified-role-id-routing.md) — resolve sponsor-vacancy IDs before the broader employer-job range or Smart Apply and tracker attribution use the wrong source.

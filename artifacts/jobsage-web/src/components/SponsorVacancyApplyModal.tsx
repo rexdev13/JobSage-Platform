@@ -629,6 +629,7 @@ export function SponsorVacancyApplyModal({
                     onClick={() =>
                       void openTrackedSponsorVacancy({
                         vacancyId,
+                        roleId,
                         url: externalUrl,
                         title: vacancyTitle,
                         employer: companyName,

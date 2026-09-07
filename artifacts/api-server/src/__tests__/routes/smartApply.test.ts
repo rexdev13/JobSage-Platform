@@ -18,6 +18,7 @@ vi.mock("@workspace/db", () => {
   function makeChain(): any {
     const chain: any = {
       from: () => chain,
+      leftJoin: () => chain,
       where: () => chain,
       orderBy: () => chain,
       then: (resolve: (value: any[]) => unknown, reject?: (reason: unknown) => unknown) =>
@@ -32,6 +33,8 @@ vi.mock("@workspace/db", () => {
     jobListingsTable: {},
     smartApplyDraftsTable: {},
     documentsTable: {},
+    sponsorLicenceVacanciesTable: {},
+    sponsorLicencesTable: {},
   };
 });
 
@@ -278,5 +281,99 @@ describe("Smart Apply extension endpoints", () => {
     expect(createCompletion.mock.calls[1]?.[0]).toMatchObject({ model: "gpt-4o-mini" });
     expect(JSON.stringify(createCompletion.mock.calls)).toContain("jane.doe.abc123@mail.jobsage.app");
     expect(JSON.stringify(createCompletion.mock.calls)).not.toContain("jane@example.com");
+  });
+
+  it("resolves sponsor-vacancy unified role IDs for Smart Apply prefill", async () => {
+    queryResults.push(
+      [{
+        profession: "Registered Nurse",
+        specialty: "Adult Nursing",
+        qualificationCountry: "Nigeria",
+        qualificationType: "BSc Nursing",
+        qualificationYear: 2020,
+        experienceYears: 4,
+        registrationStatus: "NMC registered",
+        residencyStatus: "Skilled Worker",
+        preferredStartDate: "Immediately",
+        languages: ["English"],
+        requiresSponsorship: true,
+      }],
+      [{
+        vacancy: {
+          id: 123,
+          title: "Registered Nurse",
+          organisationName: "Sponsor NHS Trust",
+          location: "Leeds",
+          description: "Skilled Worker sponsorship is available for this nursing role.",
+        },
+        licence: {
+          organisationName: "Sponsor NHS Trust",
+          contactEmail: "recruitment@sponsor.example",
+        },
+      }],
+      [],
+    );
+
+    const response = await request(buildApp())
+      .post("/roles/2000123/smart-apply/prefill")
+      .set("Authorization", AUTH_HEADER);
+
+    expect(response.status).toBe(200);
+    expect(response.body.roleContext).toEqual({
+      title: "Registered Nurse",
+      location: "Leeds",
+      regulator: "NMC",
+      sponsorshipOffered: true,
+    });
+  });
+
+  it("uses sponsor vacancy and licence context for the Smart Apply assistant", async () => {
+    queryResults.push(
+      [{
+        profession: "Registered Nurse",
+        specialty: "Adult Nursing",
+        qualificationCountry: "Nigeria",
+        qualificationType: "BSc Nursing",
+        qualificationYear: 2020,
+        experienceYears: 4,
+        registrationStatus: "NMC registered",
+        requiresSponsorship: true,
+        preferredRegion: ["Yorkshire"],
+        languages: ["English"],
+        additionalNotes: null,
+      }],
+      [{
+        vacancy: {
+          id: 123,
+          title: "Registered Nurse",
+          organisationName: "Sponsor NHS Trust",
+          location: "Leeds",
+          description: "Ward role with Skilled Worker sponsorship available.",
+          url: "https://careers.sponsor.example/nurse",
+        },
+        licence: {
+          organisationName: "Sponsor NHS Trust",
+          contactEmail: "recruitment@sponsor.example",
+          contactPhone: "0113 555 0100",
+          website: "https://sponsor.example",
+        },
+      }],
+      [],
+    );
+    async function* stream() {
+      yield { choices: [{ delta: { content: "Draft answer" } }] };
+    }
+    createCompletion.mockResolvedValue(stream());
+
+    const response = await request(buildApp())
+      .post("/smart-apply/assistant")
+      .set("Authorization", AUTH_HEADER)
+      .send({ roleId: 2_000_123, message: "Help me answer this question." });
+
+    expect(response.status).toBe(200);
+    const prompt = JSON.stringify(createCompletion.mock.calls[0]?.[0]);
+    expect(prompt).toContain("Sponsor NHS Trust");
+    expect(prompt).toContain("https://careers.sponsor.example/nurse");
+    expect(prompt).toContain("recruitment@sponsor.example");
   });
 });

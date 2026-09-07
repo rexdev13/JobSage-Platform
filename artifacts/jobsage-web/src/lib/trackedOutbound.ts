@@ -84,9 +84,12 @@ export async function openTrackedSponsorVacancy({
   title,
   employer,
   vacancyId,
+  roleId,
   onTracked,
 }: {
   vacancyId?: number | null | undefined;
+  /** Unified Opportunities role ID. Prefer this when it is available. */
+  roleId?: number | null | undefined;
   url: string;
   title?: string;
   employer?: string;
@@ -99,7 +102,7 @@ export async function openTrackedSponsorVacancy({
     vacancy: {
       title,
       employer,
-      roleId: vacancyId ?? undefined,
+      roleId: roleId ?? vacancyId ?? undefined,
       canonicalUrl: url,
     },
   });

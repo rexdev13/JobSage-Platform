@@ -3,7 +3,8 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, PageTransition, Button } from "@/components/ui-enhanced";
 import { SponsorVacancyApplyModal } from "@/components/SponsorVacancyApplyModal";
 import { SmartApplyModal } from "@/components/SmartApplyModal";
-import { hasRegionOverlap, hasUsableSendCvApplyRoute, shouldShowSendCv } from "@/lib/opportunityFilters";
+import { hasUsableSendCvApplyRoute, shouldShowSendCv } from "@/lib/opportunityFilters";
+import { filterSponsorPanelVacancies } from "@/lib/sponsorVacancyFilters";
 import { checkApplyLinkInBackground, isFreshLiveApplyLink } from "@/lib/vacancyApply";
 import { GapAnalysisSheet } from "@/components/GapAnalysisSheet";
 import { getListMyApplicationsQueryKey } from "@workspace/api-client-react";
@@ -228,10 +229,10 @@ function VacancyMatchPanel({
   const [vacancySearch, setVacancySearch] = useState("");
   const [preferredRegionOnly, setPreferredRegionOnly] = useState(false);
   const nonLiveEvidence = data?.nonLiveEvidence;
-  const vacancies = (data?.vacancies ?? [])
-    .filter((v) => v.linkStatus === "live" && v.linkVerified)
-    .filter((v) => !preferredRegionOnly || hasRegionOverlap(v.targetRegions, preferredRegions))
-    .filter((v) => `${v.title} ${v.location ?? ""}`.toLowerCase().includes(vacancySearch.trim().toLowerCase()));
+  const vacancies = filterSponsorPanelVacancies(
+    (data?.vacancies ?? []).filter((v) => v.linkStatus === "live" && v.linkVerified),
+    { search: vacancySearch, preferredRegions, preferredRegionOnly },
+  );
   const noApplyLinks = vacancies.length > 0 && vacancies.every((v) => !v.url);
 
   // On-demand vacancy check: if this employer has never been checked, kick

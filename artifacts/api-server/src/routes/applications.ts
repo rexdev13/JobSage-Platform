@@ -1,10 +1,11 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, jobListingsTable, rolesTable, candidateMessagesTable, documentsTable, employerProfilesTable } from "@workspace/db";
+import { db, jobListingsTable, rolesTable, candidateMessagesTable, documentsTable, employerProfilesTable, sponsorLicenceVacanciesTable, sponsorLicencesTable } from "@workspace/db";
 import { applicationsTable, speculativeApplicationsTable, ApplicationStatus } from "@workspace/db";
 import { eq, and, inArray, desc, sql } from "drizzle-orm";
 import { requireAuthenticated } from "../middlewares/requireRole";
 import { createApplicationReceivedMessage } from "../lib/systemMessages";
 import { resolveJobsageAlias } from "../lib/jobsageEmailGen";
+import { SPONSOR_VACANCY_ID_OFFSET, isSponsorVacancyRoleId, sponsorVacancyIdFromRoleId } from "../lib/sponsorVacancyRoles";
 
 const router: IRouter = Router();
 
@@ -31,15 +32,18 @@ router.get("/applications", requireAuthenticated, async (req: Request, res: Resp
   ]);
 
   const platformApps = applications.filter((a) => (a.applicationType ?? "platform") === "platform" && a.roleId > 0);
+  const sponsorVacancyIds = platformApps
+    .filter((a) => isSponsorVacancyRoleId(a.roleId))
+    .map((a) => sponsorVacancyIdFromRoleId(a.roleId)!);
   const employerRoleIds = platformApps
-    .filter((a) => a.roleId > 1_000_000)
+    .filter((a) => a.roleId > 1_000_000 && !isSponsorVacancyRoleId(a.roleId))
     .map((a) => a.roleId - 1_000_000);
   const normalRoleIds = platformApps
     .filter((a) => a.roleId > 0 && a.roleId <= 1_000_000)
     .map((a) => a.roleId);
 
   const jobTitleMap: Record<number, { title: string; companyName?: string; location?: string }> = {};
-  const [jobListingResults, normalRoleResults] = await Promise.all([
+  const [jobListingResults, normalRoleResults, sponsorVacancyResults] = await Promise.all([
     employerRoleIds.length > 0
       ? db
           .select({ id: jobListingsTable.id, title: jobListingsTable.title, location: jobListingsTable.location, employerProfileId: jobListingsTable.employerProfileId })
@@ -51,6 +55,22 @@ router.get("/applications", requireAuthenticated, async (req: Request, res: Resp
           .select({ id: rolesTable.id, title: rolesTable.title, employer: rolesTable.employer })
           .from(rolesTable)
           .where(inArray(rolesTable.id, normalRoleIds))
+      : Promise.resolve([]),
+    sponsorVacancyIds.length > 0
+      ? db
+          .select({
+            id: sponsorLicenceVacanciesTable.id,
+            title: sponsorLicenceVacanciesTable.title,
+            location: sponsorLicenceVacanciesTable.location,
+            organisationName: sponsorLicenceVacanciesTable.organisationName,
+            companyName: sponsorLicencesTable.organisationName,
+          })
+          .from(sponsorLicenceVacanciesTable)
+          .leftJoin(
+            sponsorLicencesTable,
+            eq(sponsorLicenceVacanciesTable.organisationName, sponsorLicencesTable.organisationName),
+          )
+          .where(inArray(sponsorLicenceVacanciesTable.id, sponsorVacancyIds))
       : Promise.resolve([]),
   ]);
 
@@ -76,6 +96,13 @@ router.get("/applications", requireAuthenticated, async (req: Request, res: Resp
   }
   for (const role of normalRoleResults) {
     jobTitleMap[role.id] = { title: role.title, companyName: role.employer };
+  }
+  for (const vacancy of sponsorVacancyResults) {
+    jobTitleMap[vacancy.id + SPONSOR_VACANCY_ID_OFFSET] = {
+      title: vacancy.title,
+      location: vacancy.location ?? undefined,
+      companyName: vacancy.companyName ?? vacancy.organisationName,
+    };
   }
 
   // Fetch labels for CVs used in all application types
@@ -317,7 +344,14 @@ router.post("/applications", requireAuthenticated, async (req: Request, res: Res
     .returning();
 
   let roleTitle = `Role #${roleId}`;
-  if (roleId > 1_000_000) {
+  if (isSponsorVacancyRoleId(roleId)) {
+    const sponsorVacancyId = sponsorVacancyIdFromRoleId(roleId)!;
+    const [vacancy] = await db
+      .select({ title: sponsorLicenceVacanciesTable.title })
+      .from(sponsorLicenceVacanciesTable)
+      .where(eq(sponsorLicenceVacanciesTable.id, sponsorVacancyId));
+    if (vacancy) roleTitle = vacancy.title;
+  } else if (roleId > 1_000_000) {
     const [job] = await db.select({ title: jobListingsTable.title }).from(jobListingsTable).where(eq(jobListingsTable.id, roleId - 1_000_000));
     if (job) roleTitle = job.title;
   } else {
