@@ -6,7 +6,7 @@ import {
   searchReedJobsForCandidate,
 } from "../../lib/reedJobsClient";
 
-function card(id: number, title: string, employer: string): string {
+function card(id: number, title: string, employer: string, contact = ""): string {
   return `<article data-qa="job-card" data-id="job${id}">
     <a href="/jobs/${title.toLowerCase().replace(/\s+/g, "-")}/${id}?source=searchResults"
        data-id="${id}" data-qa="job-card-title">${title}</a>
@@ -14,6 +14,7 @@ function card(id: number, title: string, employer: string): string {
     <li data-qa="job-metadata-salary"><svg></svg>£35,000 - £42,000</li>
     <li data-qa="job-metadata-location"><svg></svg>London</li>
     <a data-qa="company-name-link">${employer}</a>
+    ${contact}
   </article>`;
 }
 
@@ -47,6 +48,23 @@ describe("Reed public HTML discovery", () => {
       "Example Finance Ltd",
       "Another Sponsor LLP",
     ]);
+  });
+
+  it("captures a recruitment mailto but rejects a free inbox", () => {
+    const recruitment = parseReedJobsHtml(
+      card(57262903, "Staff Nurse", "Example Trust", '<a href="mailto:recruitment@example.org">Apply</a>'),
+      "Example Trust",
+    );
+    const personal = parseReedJobsHtml(
+      card(57262904, "Staff Nurse", "Example Trust", '<a href="mailto:person@gmail.com">Apply</a>'),
+      "Example Trust",
+    );
+
+    expect(recruitment[0]).toMatchObject({
+      contactEmail: "recruitment@example.org",
+      contactEvidenceUrl: "https://www.reed.co.uk/jobs/staff-nurse/57262903",
+    });
+    expect(personal[0]?.contactEmail).toBeNull();
   });
 
   it("treats rate limits as transient failures instead of empty success", async () => {

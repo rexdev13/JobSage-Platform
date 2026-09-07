@@ -92,6 +92,33 @@ describe("company-site vacancy discovery", () => {
     ]);
   });
 
+  it("captures a published recruitment email from fetched JobPosting HTML without another request", async () => {
+    fetchCompanySitePageMock.mockResolvedValueOnce({
+      ok: true,
+      url: "https://acme.example/jobs/nurse",
+      status: 200,
+      contentType: "text/html",
+      body: `<script type="application/ld+json">${JSON.stringify({
+        "@type": "JobPosting",
+        title: "Registered Nurse",
+        url: "https://acme.example/jobs/nurse",
+        description: 'Email info@acme.example or <a href="mailto:recruitment@acme.example">Recruitment</a>',
+      })}</script>`,
+    });
+
+    const result = await discoverCompanySiteVacancies(
+      "Acme Care Limited",
+      "https://acme.example/jobs/nurse",
+    );
+
+    expect(result.pagesFetched).toBe(1);
+    expect(fetchCompanySitePageMock).toHaveBeenCalledTimes(1);
+    expect(result.adverts[0]).toMatchObject({
+      contactEmail: "recruitment@acme.example",
+      contactEvidenceUrl: "https://acme.example/jobs/nurse",
+    });
+  });
+
   it("normalises bare sponsor domains and rejects non-http schemes", () => {
     expect(normaliseSponsorWebsite("example.org")).toBe("https://example.org/");
     expect(normaliseSponsorWebsite("ftp://example.org")).toBeNull();

@@ -1,6 +1,7 @@
 import { employerNamesCloselyMatch } from "./nhsJobsClient";
 import { canonicalVacancyUrl } from "./vacancySource";
 import { isValidJobBoardVacancyDeepLink } from "./vacancyUrlPolicy";
+import { extractAdvertContactEmail } from "./publishedContactEmail";
 
 const REED_BASE_URL = "https://www.reed.co.uk";
 const REQUEST_TIMEOUT_MS = 12_000;
@@ -20,6 +21,8 @@ export interface ReedVacancy {
   sourceType: "job_board";
   boardName: "Reed";
   externalListingId: string;
+  contactEmail: string | null;
+  contactEvidenceUrl: string | null;
 }
 
 export interface ReedSearchResult {
@@ -98,6 +101,8 @@ function parseReedJobsCards(
       sourceType: "job_board",
       boardName: "Reed",
       externalListingId,
+      contactEmail: extractAdvertContactEmail(card, url),
+      contactEvidenceUrl: url,
     });
     if (vacancies.length >= limit) break;
   }

@@ -113,8 +113,8 @@ export async function getDirectContactEligibility(
   // JavaScript call stack before either query could execute.
   const normalizedNames = names.map(normalizedCompanyName);
   const namesParameter = sql.param(normalizedNames);
-  const sponsorNameWhere = sql`lower(${sponsorLicencesTable.organisationName}) = any(${namesParameter}::text[])`;
-  const profileNameWhere = sql`lower(${employerProfilesTable.companyName}) = any(${namesParameter}::text[])`;
+  const sponsorNameWhere = sql`lower(btrim(${sponsorLicencesTable.organisationName})) = any(${namesParameter}::text[])`;
+  const profileNameWhere = sql`lower(btrim(${employerProfilesTable.companyName})) = any(${namesParameter}::text[])`;
 
   const [sponsorRows, profileRows] = await Promise.all([
     db

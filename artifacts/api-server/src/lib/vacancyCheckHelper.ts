@@ -16,6 +16,7 @@ import {
   normaliseAndDedupeBoardAdverts,
   upsertSharedBoardVacancies,
 } from "./boardVacancyPipeline";
+import { choosePreferredPublishedEmail } from "./publishedContactEmail";
 import {
   type VacancySourceType,
 } from "./vacancySource";
@@ -142,6 +143,9 @@ export async function runVacancyCheck(
   const discovery = await discoverEmployerBoardVacancies(organisationName);
   sourceUrl = discovery.sourceUrl;
   const normalized = normaliseAndDedupeBoardAdverts(discovery.adverts);
+  discoveredContactEmail = choosePreferredPublishedEmail(
+    normalized.flatMap((advert) => advert.contactEmail ? [advert.contactEmail] : []),
+  );
   vacancyList = normalized.slice(0, MAX_QUALITY_VACANCIES_PER_EMPLOYER).map((advert) => ({
     title: advert.title,
     location: advert.location,

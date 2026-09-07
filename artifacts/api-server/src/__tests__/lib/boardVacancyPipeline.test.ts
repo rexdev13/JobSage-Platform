@@ -3,6 +3,7 @@ import {
   boardVacancyFingerprint,
   discoverEmployerBoardVacancies,
   normaliseAndDedupeBoardAdverts,
+  persistScrapedAdvertContacts,
   type BoardAdapter,
   type BoardAdvert,
 } from "../../lib/boardVacancyPipeline";
@@ -88,5 +89,35 @@ describe("shared board vacancy pipeline", () => {
         location: "LONDON!",
       })),
     );
+  });
+
+  it("does not overwrite an existing sponsor contact or write false provenance", async () => {
+    const execute = vi.fn().mockResolvedValue({ rows: [] });
+
+    await expect(persistScrapedAdvertContacts({ execute }, [advert({
+      contactEmail: "recruitment@example.org",
+      contactEvidenceUrl: "https://www.jobs.nhs.uk/candidate/jobadvert/C123",
+    })])).resolves.toEqual({
+      upserted: 0,
+      skippedExisting: 1,
+      rejected: 0,
+    });
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
+  it("records provenance only after a blank sponsor contact was filled", async () => {
+    const execute = vi.fn()
+      .mockResolvedValueOnce({ rows: [{ id: 1 }] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    await expect(persistScrapedAdvertContacts({ execute }, [advert({
+      contactEmail: "recruitment@example.org",
+      contactEvidenceUrl: "https://www.jobs.nhs.uk/candidate/jobadvert/C123",
+    })])).resolves.toEqual({
+      upserted: 1,
+      skippedExisting: 0,
+      rejected: 0,
+    });
+    expect(execute).toHaveBeenCalledTimes(2);
   });
 });

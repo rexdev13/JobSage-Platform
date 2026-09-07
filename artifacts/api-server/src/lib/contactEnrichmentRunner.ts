@@ -7,6 +7,10 @@ import {
   knownAtsProvider,
 } from "./companySiteHttp";
 import { normaliseSponsorWebsite } from "./companySiteDiscovery";
+import {
+  choosePreferredPublishedEmail,
+  validatePublishedContactEmail,
+} from "./publishedContactEmail";
 
 export const CONTACT_ENRICHMENT_BATCH_SIZE = 5;
 export const CONTACT_ENRICHMENT_MAX_PAGES = 4;
@@ -25,11 +29,6 @@ const BLOCKED_OFFICIAL_HOSTS = [
   "linkedin.com", "indeed.com", "facebook.com", "instagram.com", "x.com",
   "twitter.com", "find-and-update.company-information.service.gov.uk", "gov.uk",
   "yell.com", "glassdoor.com", "reed.co.uk", "jobs.nhs.uk",
-];
-const BLOCKED_CONTACT_DOMAINS = [
-  ...BLOCKED_OFFICIAL_HOSTS,
-  "greenhouse.io", "lever.co", "myworkdayjobs.com", "workday.com",
-  "smartrecruiters.com", "teamtailor.com", "jobvite.com", "bamboohr.com",
 ];
 const BLOCKED_VACANCY_EVIDENCE_HOSTS = ["linkedin.com", "indeed.com"];
 const GENERIC_ORGANISATION_WORDS = new Set([
@@ -140,11 +139,7 @@ export function extractPublishedContactEmails(html: string, website: string): st
 }
 
 function chooseEmail(emails: string[]): string | null {
-  return emails.sort((a, b) => {
-    const score = (email: string) => /\b(recruit|jobs?|careers?|hr)\b/i.test(email) ? 2 :
-      /\b(info|contact|admin)\b/i.test(email) ? 1 : 0;
-    return score(b) - score(a) || a.localeCompare(b);
-  })[0] ?? null;
+  return choosePreferredPublishedEmail(emails);
 }
 
 function hostnameIsBlocked(hostname: string, blockedHosts: readonly string[]): boolean {
@@ -162,13 +157,7 @@ function evidenceUrlAllowed(value: string | null): boolean {
 }
 
 export function validateStoredContactEmail(value: string | null | undefined): string | null {
-  const email = value?.trim().toLowerCase().replace(/^mailto:/, "").replace(/[)>.,;:]+$/, "") ?? "";
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return null;
-  const [local, domain] = email.split("@");
-  if (!local || !domain || FREE_EMAIL_DOMAINS.has(domain)) return null;
-  if (/^(?:no-?reply|donotreply|do-not-reply)$/i.test(local)) return null;
-  if (hostnameIsBlocked(domain, BLOCKED_CONTACT_DOMAINS)) return null;
-  return email;
+  return validatePublishedContactEmail(value);
 }
 
 function emailsFromStoredText(value: string): string[] {
