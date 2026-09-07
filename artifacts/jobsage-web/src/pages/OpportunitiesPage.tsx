@@ -92,8 +92,10 @@ import {
   filterOpportunities,
   getOpportunityApplyAction,
   groupRankedOpportunities,
+  hasUsableSendCvApplyRoute,
   hasRegionOverlap,
   shouldShowOpportunityApplyActions,
+  shouldShowOnSendCvTab,
   shouldShowSendCv,
   UK_REGIONS,
 } from "@/lib/opportunityFilters";
@@ -1304,6 +1306,8 @@ function SendCvEmployerGroup({
   cvSentRoleIds,
   hasCv,
   onSend,
+  onApply,
+  onSmartApply,
   onUploadCv,
 }: {
   employer: string;
@@ -1311,6 +1315,8 @@ function SendCvEmployerGroup({
   cvSentRoleIds: number[];
   hasCv: boolean;
   onSend: (vacancy: MatchedRole) => void;
+  onApply: (vacancy: MatchedRole) => void;
+  onSmartApply: (roleId: number, roleTitle: string) => void;
   onUploadCv: () => void;
 }) {
   return (
@@ -1322,7 +1328,7 @@ function SendCvEmployerGroup({
         <div className="min-w-0">
           <h3 className="font-semibold text-foreground leading-snug">{employer}</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {vacancies.length} matched {vacancies.length === 1 ? "vacancy" : "vacancies"} available for direct CV outreach
+            {vacancies.length} matched {vacancies.length === 1 ? "vacancy" : "vacancies"} with an available application route
           </p>
         </div>
       </div>
@@ -1331,6 +1337,8 @@ function SendCvEmployerGroup({
         {vacancies.map((item) => {
           const { role } = item;
           const cvSent = cvSentRoleIds.includes(role.id);
+          const canEmailCv = shouldShowSendCv(item.sendCvEligible);
+          const hasVerifiedApplyRoute = hasUsableSendCvApplyRoute(item);
           const sourceLabel = !item.applyUrl
             ? "Email only"
             : role.sourceType === "job_board"
@@ -1359,22 +1367,21 @@ function SendCvEmployerGroup({
                       {sourceLabel}
                     </span>
                   </div>
-                  {item.applyUrl && (
-                    <a
-                      href={item.applyUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                  {hasVerifiedApplyRoute && (
+                    <button
+                      type="button"
+                      onClick={() => onApply(item)}
                       className="inline-flex items-center gap-1 mt-2 text-xs font-medium text-primary hover:underline"
                     >
                       View live vacancy <ExternalLink className="w-3 h-3" />
-                    </a>
+                    </button>
                   )}
                 </div>
                 {item.aiScore != null && <AiScoreBadge score={item.aiScore} />}
               </div>
 
-              <div className="mt-3">
-                {hasCv ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {canEmailCv && hasCv ? (
                   <Button
                     size="sm"
                     variant={cvSent ? "outline" : "default"}
@@ -1382,9 +1389,28 @@ function SendCvEmployerGroup({
                   >
                     <Send className="w-4 h-4 mr-1.5" /> {cvSent ? "Resend CV" : "Send CV"}
                   </Button>
-                ) : (
+                ) : canEmailCv ? (
                   <Button size="sm" variant="outline" onClick={onUploadCv}>
                     <FileText className="w-4 h-4 mr-1.5" /> Upload CV to send
+                  </Button>
+                ) : null}
+                {hasVerifiedApplyRoute && (
+                  <Button
+                    size="sm"
+                    variant={canEmailCv ? "outline" : "default"}
+                    onClick={() => onApply(item)}
+                  >
+                    <ExternalLink className="w-4 h-4 mr-1.5" />
+                    {role.sourceType === "company_site" ? "Apply on company website" : "Apply via job board"}
+                  </Button>
+                )}
+                {hasVerifiedApplyRoute && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onSmartApply(role.id, role.title)}
+                  >
+                    <Sparkles className="w-4 h-4 mr-1.5" /> Smart Apply
                   </Button>
                 )}
               </div>
@@ -1467,6 +1493,22 @@ export default function OpportunitiesPage() {
           employer: match.employer,
           roleId: match.roleId,
           canonicalUrl: url,
+        },
+      });
+      handleExternalApply();
+    });
+  }
+
+  function handleSendCvTabApply(item: MatchedRole) {
+    if (!item.applyUrl || !hasUsableSendCvApplyRoute(item)) return;
+    requireExtension(() => {
+      void openTrackedOutbound({
+        url: item.applyUrl!,
+        vacancy: {
+          title: item.role.title,
+          employer: item.role.employer,
+          roleId: item.role.id,
+          canonicalUrl: item.applyUrl!,
         },
       });
       handleExternalApply();
@@ -1675,10 +1717,7 @@ export default function OpportunitiesPage() {
 
   const normalizedSendCvSearch = sendCvSearch.trim().toLowerCase();
   const sendCvVacancies = filteredRoles.filter((item) => {
-    if (!shouldShowSendCv(item.sendCvEligible)) return false;
-    // URL-bearing vacancy rows must be verified live. A missing URL is still
-    // valid for direct email outreach when the server resolved an employer email.
-    if (item.applyUrl && item.linkVerified !== true) return false;
+    if (!shouldShowOnSendCvTab(item)) return false;
     if (!normalizedSendCvSearch) return true;
     return [item.role.employer, item.role.title, item.role.location]
       .some((value) => value?.toLowerCase().includes(normalizedSendCvSearch));
@@ -2064,7 +2103,7 @@ export default function OpportunitiesPage() {
                 <div>
                   <h2 className="text-sm font-semibold">Contact licensed sponsors directly</h2>
                   <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                    Matched vacancies are grouped by employer. Send your CV for a specific role using JOBSAGE&apos;s stored direct employer contact.
+                    Matched vacancies are grouped by employer. Send your CV when a direct employer email is available, or use the verified application route.
                   </p>
                 </div>
               </div>
@@ -2082,7 +2121,7 @@ export default function OpportunitiesPage() {
             {isLoading ? (
               <Card className="p-8 text-center">
                 <Loader2 className="w-8 h-8 text-primary animate-spin mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground">Loading matched vacancies with direct employer contacts…</p>
+                <p className="text-sm text-muted-foreground">Loading matched vacancies with available application routes…</p>
               </Card>
             ) : isError ? (
               <Card className="p-8 text-center border-destructive/20">
@@ -2092,9 +2131,9 @@ export default function OpportunitiesPage() {
             ) : sendCvGroups.length === 0 ? (
               <Card className="p-8 text-center">
                 <Briefcase className="w-9 h-9 text-muted-foreground/40 mx-auto mb-3" />
-                <p className="text-sm font-medium text-foreground">No matched vacancies you can email a CV for.</p>
+                <p className="text-sm font-medium text-foreground">No matched vacancies with a usable application route.</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Try changing your search or region filters. Send CV only appears when JOBSAGE has a usable employer email.
+                  Try changing your search or region filters. Vacancies appear here when JOBSAGE has a verified apply link or a usable employer email.
                 </p>
               </Card>
             ) : (
@@ -2111,6 +2150,8 @@ export default function OpportunitiesPage() {
                       cvSentRoleIds={cvSentRoleIds}
                       hasCv={hasCvUploaded}
                       onSend={setSendCvTarget}
+                      onApply={handleSendCvTabApply}
+                      onSmartApply={handleSmartApply}
                       onUploadCv={() => setLocation("/documents")}
                     />
                   ))}

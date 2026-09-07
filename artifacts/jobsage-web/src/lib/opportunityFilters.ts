@@ -29,6 +29,40 @@ export function shouldShowOpportunityApplyActions(sendCvOnly: boolean | undefine
 export function shouldShowSendCv(sendCvEligible: boolean | null | undefined): boolean {
   return sendCvEligible === true;
 }
+
+function isDisallowedSendCvApplyUrl(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return ["linkedin.com", "indeed.com"].some(
+      (domain) => host === domain || host.endsWith(`.${domain}`),
+    );
+  } catch {
+    return true;
+  }
+}
+
+export function hasUsableSendCvApplyRoute({
+  applyUrl,
+  linkVerified,
+}: {
+  applyUrl?: string | null;
+  linkVerified?: boolean | null;
+}): boolean {
+  return !!applyUrl && linkVerified === true && !isDisallowedSendCvApplyUrl(applyUrl);
+}
+
+export function shouldShowOnSendCvTab({
+  sendCvEligible,
+  applyUrl,
+  linkVerified,
+}: {
+  sendCvEligible?: boolean | null;
+  applyUrl?: string | null;
+  linkVerified?: boolean | null;
+}): boolean {
+  if (shouldShowSendCv(sendCvEligible)) return true;
+  return hasUsableSendCvApplyRoute({ applyUrl, linkVerified });
+}
 export const CONSIDER_MIN_SCORE = 40;
 
 export function getOpportunityApplyAction({

@@ -1,0 +1,55 @@
+Audit prompt: Send CV closed-link checking
+Context
+Vacancy URL liveness already covers:
+
+sponsor_licence_vacancies (url) — job boards + company/ATS sites
+roles (apply_url)
+job_listings (apply_url)
+It does not directly validate Send CV. Users still see closed/dead vacancy links on the Send CV tab. We need to find why, and how to fix it.
+
+Goal
+Audit how Send CV builds its candidate list, why closed links still appear, and propose a concrete implementation to detect/exclude them — without inventing behavior.
+
+Investigate
+Send CV data path
+
+Where the Send CV tab/API loads candidates
+Filters for eligibility (contact email, vacancy evidence, live/dead flags, policies)
+Exact fields shown as “links” on that tab (vacancy URL, company page, apply URL, etc.)
+Liveness coupling
+
+Whether Send CV excludes dead vacancies today
+Whether inconclusive / never-checked links are still shown
+Whether company-site vs job-board vacancies are treated differently
+Whether contact enrichment ignores dead vacancies but the UI still shows the dead URL
+Closed-link failure modes
+
+Dead vacancy still eligible because email exists
+Link never scanned / stale (>12h or never verified)
+Aggregator / inconclusive stamped but still displayed
+Role/listing URL dead while sponsor vacancy URL is live (or reverse)
+Soft-closed pages (200 OK but “no longer accepting applications”)
+Existing primitives to reuse
+
+Liveness scanner, company-site verifier, result stamps (live / dead / inconclusive)
+Cron/batch limits and priority queues
+Any Send CV delivery bounce/email health (separate from URL liveness)
+Deliverables
+Root cause: why closed links appear on Send CV (cite files/functions/queries)
+Gap analysis: what is checked vs what Send CV shows
+Recommended implementation (prefer smallest safe change), covering:
+Eligibility filter: hide/disable Send CV when vacancy evidence URL is dead
+Optional: prioritize Send CV-eligible vacancies in the liveness sweep
+Optional: “recheck before send” for never-checked / stale links
+UI: badge or remove closed links; distinguish dead vs inconclusive
+Non-goals: do not try to validate email inbox existence via vacancy liveness
+Test plan: job-board dead, company-site dead, inconclusive, never-checked, email-only evidence
+Constraints
+Read the actual Replit code; do not assume from docs alone
+Cite concrete file paths and symbols
+Prefer filtering + reuse of existing liveness over a parallel checker
+Call out if Send CV links are not vacancy URLs at all (e.g. mailto / company homepage)
+Start with
+Search: send cv, sendCv, send_cv, liveness, dead, apply_url, sponsor_licence_vacancies, contact enrichment, Send CV eligibility/policy.
+
+If you want, I can also make a shorter implementation-only prompt once the audit comes back.
