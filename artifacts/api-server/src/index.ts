@@ -17,7 +17,7 @@ import { startContactBackfill } from "./lib/contactBackfillRunner";
 import { runStartupSchemaDriftCheck } from "./lib/schemaDriftCheck";
 import { bootstrapSuperAdmins } from "./lib/bootstrapSuperAdmins";
 import { runVacancyPipelineCatchupsIfStale } from "./lib/vacancyPipelineCatchup";
-import { db, pool, sponsorLicenceSyncLogTable } from "@workspace/db";
+import { db, sponsorLicenceSyncLogTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 
 const rawPort = process.env["PORT"];
@@ -33,13 +33,6 @@ const port = Number(rawPort);
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
-
-// node-postgres emits idle-client connection failures on the Pool itself.
-// Without a listener, a database restart or deployment shutdown becomes an
-// uncaught EventEmitter error and terminates the entire API process.
-pool.on("error", (error) => {
-  console.error("[database-pool] Idle client error:", error.message);
-});
 
 const STALE_SYNC_THRESHOLD_MS = 2 * 24 * 60 * 60 * 1000; // 2 days
 
@@ -69,7 +62,7 @@ async function triggerSyncIfStale(): Promise<void> {
   }
 }
 
-app.listen(port, () => {
+const server = app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
   void runStartupSchemaDriftCheck();
   seedRulesets().catch((err) => {
@@ -131,4 +124,9 @@ app.listen(port, () => {
   runProfilePhotoAclBackfill().catch((err) => {
     console.error("[photo-acl-backfill] Startup backfill failed:", err);
   });
+});
+
+server.once("error", (error) => {
+  console.error("[startup] API failed to listen:", error);
+  process.exit(1);
 });
