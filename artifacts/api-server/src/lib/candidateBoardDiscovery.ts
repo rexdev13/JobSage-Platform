@@ -200,14 +200,24 @@ export async function refreshCandidateBoardVacancies(
   });
   const entry = { expiresAt: Date.now() + CANDIDATE_BOARD_CACHE_TTL_MS, promise };
   cache.set(key, entry);
-  void promise.then((result) => {
-    if (result.failed) {
-      entry.expiresAt = Math.min(
-        entry.expiresAt,
-        Date.now() + CANDIDATE_BOARD_FAILURE_CACHE_TTL_MS,
+  void promise
+    .then((result) => {
+      if (result.failed) {
+        entry.expiresAt = Math.min(
+          entry.expiresAt,
+          Date.now() + CANDIDATE_BOARD_FAILURE_CACHE_TTL_MS,
+        );
+      }
+    })
+    .catch((error) => {
+      // `promise` is deliberately fail-soft above. Keep this terminal catch so
+      // future bookkeeping changes cannot turn a board refresh into an
+      // unhandled rejection.
+      console.error(
+        "[candidate-board] refresh bookkeeping failed:",
+        error instanceof Error ? error.message : error,
       );
-    }
-  });
+    });
   return promise;
 }
 

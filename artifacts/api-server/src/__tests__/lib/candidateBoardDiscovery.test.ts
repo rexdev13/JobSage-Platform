@@ -1,21 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { searchNhsJobsForCandidateMock, searchReedJobsForCandidateMock } = vi.hoisted(() => ({
+const { dbSelectMock, searchNhsJobsForCandidateMock, searchReedJobsForCandidateMock } = vi.hoisted(() => ({
+  dbSelectMock: vi.fn(),
   searchNhsJobsForCandidateMock: vi.fn(),
   searchReedJobsForCandidateMock: vi.fn(),
 }));
 
 vi.mock("@workspace/db", () => {
-  const select = vi.fn(() => {
-    const builder = {
-      where: vi.fn(() => Promise.resolve([])),
-      then: (resolve: (value: unknown[]) => unknown) => Promise.resolve([]).then(resolve),
-    };
-    return { from: vi.fn(() => builder) };
-  });
   return {
     db: {
-      select,
+      select: dbSelectMock,
       insert: vi.fn(),
       update: vi.fn(),
     },
@@ -47,6 +41,14 @@ const {
 describe("candidate board shared cache", () => {
   beforeEach(() => {
     clearCandidateBoardDiscoveryCache();
+    dbSelectMock.mockReset();
+    dbSelectMock.mockImplementation(() => {
+      const builder = {
+        where: vi.fn(() => Promise.resolve([])),
+        then: (resolve: (value: unknown[]) => unknown) => Promise.resolve([]).then(resolve),
+      };
+      return { from: vi.fn(() => builder) };
+    });
     searchNhsJobsForCandidateMock.mockReset();
     searchReedJobsForCandidateMock.mockReset();
   });
@@ -141,6 +143,34 @@ describe("candidate board shared cache", () => {
     expect(CANDIDATE_BOARD_FAILURE_CACHE_TTL_MS).toBe(20 * 60 * 1000);
     expect(CANDIDATE_BOARD_CACHE_TTL_MS).toBe(20 * 60 * 1000);
     expect(MAX_CANDIDATE_BOARD_RESULTS).toBe(300);
+  });
+
+  it("fails soft when Postgres terminates during an NHS refresh", async () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    searchNhsJobsForCandidateMock.mockResolvedValue({
+      vacancies: [],
+      resultsRequestSucceeded: true,
+      transientFailure: false,
+      sourceUrl: "https://www.jobs.nhs.uk/candidate/search/results",
+    });
+    dbSelectMock.mockImplementationOnce(() => ({
+      from: vi.fn(() => Promise.reject(new Error("Connection terminated unexpectedly"))),
+    }));
+
+    await expect(refreshCandidateBoardVacancies({
+      profession: "Nurse",
+      preferredRegion: "London",
+    })).resolves.toMatchObject({
+      searched: true,
+      failed: true,
+      discovered: 0,
+      inserted: 0,
+    });
+    expect(warning).toHaveBeenCalledWith(
+      "[candidate-board] nhs live refresh failed:",
+      "Connection terminated unexpectedly",
+    );
+    warning.mockRestore();
   });
 
   it("uses Reed rather than NHS for an accountant live refresh", async () => {
