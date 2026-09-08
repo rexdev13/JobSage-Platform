@@ -26,6 +26,7 @@ async function writeDead(id: number, reason: string): Promise<"dead"> {
 export async function verifyCompanySiteStoredLink(
   id: number,
   url: string | null | undefined,
+  deadlineMs?: number,
 ): Promise<VerificationOutcome> {
   if (!url || !isValidVacancyUrlForSource(url, "company_site") || isBlockedVacancyUrl(url)) {
     return url ? writeDead(id, "invalid or blocked company-site vacancy URL") : "skipped";
@@ -34,7 +35,10 @@ export async function verifyCompanySiteStoredLink(
   const result = await fetchCompanySitePage(
     url,
     originHostname,
-    Date.now() + COMPANY_SITE_EMPLOYER_BUDGET_MS,
+    Math.min(
+      Date.now() + COMPANY_SITE_EMPLOYER_BUDGET_MS,
+      deadlineMs ?? Number.POSITIVE_INFINITY,
+    ),
   );
   if (!result.ok) {
     if (

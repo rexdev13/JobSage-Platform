@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import {
+  LIVENESS_HTTP_BUDGET_MS,
   runVacancyJob,
   type VacancyJobKind,
 } from "../lib/vacancyJobRunner";
@@ -25,7 +26,7 @@ function getHttpDefaultLimits(): Record<VacancyJobKind, number> {
   return {
     job_board: 50,
     company_site: getCompanySiteHttpBatchSize(),
-    liveness: 100,
+    liveness: 40,
     contact: 5,
   };
 }
@@ -34,7 +35,7 @@ function getHttpMaxLimits(): Record<VacancyJobKind, number> {
   return {
     job_board: 50,
     company_site: getCompanySiteHttpBatchSize(),
-    liveness: 120,
+    liveness: 50,
     contact: 5,
   };
 }
@@ -80,7 +81,10 @@ router.post("/internal/vacancy-jobs", async (req: Request, res: Response): Promi
   );
 
   try {
-    const summary = await runVacancyJob(kind, limit);
+    const deadlineMs = kind === "liveness"
+      ? Date.now() + LIVENESS_HTTP_BUDGET_MS
+      : undefined;
+    const summary = await runVacancyJob(kind, limit, { deadlineMs });
     if (!summary) {
       res.status(409).json({ error: "Another vacancy pipeline batch is already running." });
       return;

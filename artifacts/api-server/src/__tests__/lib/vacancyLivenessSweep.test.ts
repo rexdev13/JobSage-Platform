@@ -16,6 +16,7 @@ const { executeMock, updateMock, dbUpdateState } = vi.hoisted(() => {
 vi.mock("@workspace/db", () => {
   function updateChain(table: any) {
     const captured: { set?: any; whereArg?: any } = {};
+    let pending: Promise<unknown> = Promise.resolve();
     const chain: any = {
       set: (s: any) => {
         captured.set = s;
@@ -23,14 +24,14 @@ vi.mock("@workspace/db", () => {
       },
       where: (w: any) => {
         captured.whereArg = w;
-        updateMock(table, captured.set, w);
+        pending = Promise.resolve(updateMock(table, captured.set, w));
         return chain;
       },
       catch: (fn: any) => {
-        // noop — swallow errors like prod code does
+        pending = pending.catch(fn);
         return chain;
       },
-      then: (resolve: any) => Promise.resolve(undefined).then(resolve),
+      then: (resolve: any, reject: any) => pending.then(resolve, reject),
     };
     return chain;
   }
@@ -109,7 +110,7 @@ describe("runVacancyLivenessSweep", () => {
     setExecuteRows([]);
     const { runVacancyLivenessSweep } = await import("../../lib/vacancyLivenessSweep");
     const result = await runVacancyLivenessSweep();
-    expect(result).toEqual({ checked: 0, live: 0, dead: 0, inconclusive: 0 });
+    expect(result).toEqual({ checked: 0, live: 0, dead: 0, inconclusive: 0, remaining: 0 });
     expect(checkDestinationDeadMock).not.toHaveBeenCalled();
   });
 
@@ -131,6 +132,7 @@ describe("runVacancyLivenessSweep", () => {
     expect(verifyCompanySiteStoredLinkMock).toHaveBeenCalledWith(
       70,
       "https://careers.example.org/jobs/nurse-70",
+      undefined,
     );
     expect(checkDestinationDeadMock).not.toHaveBeenCalled();
     expect(result).toMatchObject({ checked: 1, live: 1 });
@@ -150,7 +152,7 @@ describe("runVacancyLivenessSweep", () => {
     const { runVacancyLivenessSweep } = await import("../../lib/vacancyLivenessSweep");
     const result = await runVacancyLivenessSweep({ domainConcurrency: 1 });
 
-    expect(executeMock).toHaveBeenCalledOnce();
+    expect(executeMock).toHaveBeenCalledTimes(2);
     // Both rows processed
     expect(result?.checked).toBe(2);
     expect(result?.live).toBe(2);
@@ -403,6 +405,58 @@ describe("runVacancyLivenessSweep", () => {
     setExecuteRows([]);
     const third = await runVacancyLivenessSweep({ domainConcurrency: 1 });
     expect(third).not.toBeNull();
+  });
+
+  it("stops an in-flight verification at the outer deadline and reports deferred work", async () => {
+    setExecuteRows([makeSweepRow("role", 1, "https://slow.example.com/apply")]);
+    checkDestinationDeadMock.mockImplementation(() => new Promise(() => {}));
+
+    const { runVacancyLivenessSweep } = await import("../../lib/vacancyLivenessSweep");
+    const startedAt = Date.now();
+    const result = await runVacancyLivenessSweep({
+      domainConcurrency: 1,
+      batchLimit: 1,
+      deadlineMs: startedAt + 30,
+    });
+
+    expect(Date.now() - startedAt).toBeLessThan(250);
+    expect(result).toMatchObject({
+      checked: 0,
+      deadlineStopped: true,
+      remaining: 2,
+      remainingIsLowerBound: true,
+    });
+  });
+
+  it("stops at the outer deadline when the inconclusive timestamp write stalls", async () => {
+    setExecuteRows([makeSweepRow("role", 2, "https://failing.example.com/apply")]);
+    checkDestinationDeadMock.mockRejectedValue(new Error("network failure"));
+    updateMock.mockImplementation(() => new Promise(() => {}));
+
+    const { runVacancyLivenessSweep } = await import("../../lib/vacancyLivenessSweep");
+    const startedAt = Date.now();
+    const result = await runVacancyLivenessSweep({
+      domainConcurrency: 1,
+      deadlineMs: startedAt + 30,
+    });
+
+    expect(Date.now() - startedAt).toBeLessThan(250);
+    expect(result).toMatchObject({
+      checked: 0,
+      deadlineStopped: true,
+      remaining: 1,
+      remainingIsLowerBound: true,
+    });
+  });
+
+  it("returns an exact zero remaining count for an empty queue", async () => {
+    setExecuteRows([]);
+    const { runVacancyLivenessSweep } = await import("../../lib/vacancyLivenessSweep");
+
+    await expect(runVacancyLivenessSweep({ deadlineMs: Date.now() + 100 })).resolves.toMatchObject({
+      checked: 0,
+      remaining: 0,
+    });
   });
 });
 

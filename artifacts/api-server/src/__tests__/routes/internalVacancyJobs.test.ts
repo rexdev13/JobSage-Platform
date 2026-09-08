@@ -7,6 +7,7 @@ const { runVacancyJobMock } = vi.hoisted(() => ({
 }));
 
 vi.mock("../../lib/vacancyJobRunner", () => ({
+  LIVENESS_HTTP_BUDGET_MS: 18_000,
   runVacancyJob: runVacancyJobMock,
 }));
 
@@ -72,7 +73,7 @@ describe("POST /internal/vacancy-jobs", () => {
       .set("x-jobsage-job-secret", "test-job-secret")
       .send({ kind: "job_board" });
 
-    expect(runVacancyJobMock).toHaveBeenCalledWith("job_board", 50);
+    expect(runVacancyJobMock).toHaveBeenCalledWith("job_board", 50, { deadlineMs: undefined });
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
       selected: 2,
@@ -88,7 +89,7 @@ describe("POST /internal/vacancy-jobs", () => {
   it.each([
     ["job_board", 999, 50],
     ["company_site", 999, 5],
-    ["liveness", 999, 120],
+    ["liveness", 999, 50],
     ["contact", 999, 5],
   ] as const)("caps %s HTTP batches", async (kind, requested, expected) => {
     const response = await request(app)
@@ -97,7 +98,11 @@ describe("POST /internal/vacancy-jobs", () => {
       .send({ kind, limit: requested });
 
     expect(response.status).toBe(200);
-    expect(runVacancyJobMock).toHaveBeenCalledWith(kind, expected);
+    expect(runVacancyJobMock).toHaveBeenCalledWith(
+      kind,
+      expected,
+      kind === "liveness" ? { deadlineMs: expect.any(Number) } : { deadlineMs: undefined },
+    );
   });
 
   it("uses the timeout-safe company-site default and respects a smaller configured size", async () => {
@@ -109,7 +114,7 @@ describe("POST /internal/vacancy-jobs", () => {
       .send({ kind: "company_site" });
 
     expect(response.status).toBe(200);
-    expect(runVacancyJobMock).toHaveBeenCalledWith("company_site", 3);
+    expect(runVacancyJobMock).toHaveBeenCalledWith("company_site", 3, { deadlineMs: undefined });
   });
 
   it("returns 409 immediately when the shared writer is busy", async () => {

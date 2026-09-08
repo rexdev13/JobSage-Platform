@@ -24,7 +24,7 @@ import { verifyCompanySiteStoredLink } from "./companySiteVerification";
  * of domains are checked concurrently.
  */
 
-const STALE_THRESHOLD_MS = 12 * 60 * 60 * 1000; // re-verify at most twice a day
+const STALE_THRESHOLD_MS = 6 * 60 * 60 * 1000; // re-verify within the UI freshness window
 export const VACANCY_LIVENESS_BATCH_LIMIT = 600;
 export const VACANCY_LIVENESS_DOMAIN_CONCURRENCY = 24;
 const PER_DOMAIN_DELAY_MS = 1500;
@@ -41,7 +41,45 @@ type SweepSqlRow = Omit<SweepRow, "sourceType"> & {
   source_type: "job_board" | "company_site" | null;
 };
 
-export type SweepCounters = { checked: number; live: number; dead: number; inconclusive: number };
+export type SweepCounters = {
+  checked: number;
+  live: number;
+  dead: number;
+  inconclusive: number;
+  remaining?: number;
+  remainingIsLowerBound?: boolean;
+  deadlineStopped?: boolean;
+};
+
+class SweepDeadlineError extends Error {
+  constructor() {
+    super("Vacancy liveness sweep deadline reached");
+  }
+}
+
+function remainingBudget(deadlineMs?: number): number {
+  return deadlineMs ? Math.max(0, deadlineMs - Date.now()) : Number.POSITIVE_INFINITY;
+}
+
+async function withinDeadline<T>(
+  promise: PromiseLike<T>,
+  deadlineMs?: number,
+): Promise<T> {
+  const budget = remainingBudget(deadlineMs);
+  if (!Number.isFinite(budget)) return await promise;
+  if (budget <= 0) throw new SweepDeadlineError();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      Promise.resolve(promise),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new SweepDeadlineError()), budget);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 let sweepRunning = false;
 
@@ -111,34 +149,54 @@ async function markResult(
     );
 }
 
-async function verifyOne(row: SweepRow): Promise<"live" | "dead" | "inconclusive"> {
+async function verifyOne(
+  row: SweepRow,
+  deadlineMs?: number,
+): Promise<"live" | "dead" | "inconclusive"> {
   if (row.source === "sponsor_vacancy" && row.sourceType === "company_site") {
-    const outcome = await verifyCompanySiteStoredLink(row.id, row.url);
+    const outcome = await withinDeadline(
+      verifyCompanySiteStoredLink(row.id, row.url, deadlineMs),
+      deadlineMs,
+    );
     return outcome === "live" || outcome === "dead" ? outcome : "inconclusive";
   }
   try {
-    const result = await checkDestinationDead(row.url, { timeoutMs: SWEEP_TIMEOUT_MS });
+    const timeoutMs = Math.max(
+      1,
+      Math.min(SWEEP_TIMEOUT_MS, remainingBudget(deadlineMs)),
+    );
+    const result = await withinDeadline(
+      checkDestinationDead(row.url, { timeoutMs }),
+      deadlineMs,
+    );
     if (result.verdict === "dead" || result.verdict === "unsafe") {
       // "unsafe" = not a legitimate employer destination — treat as dead so
       // candidates never see it.
-      await markResult(row, "dead", result.reason);
+      await withinDeadline(markResult(row, "dead", result.reason), deadlineMs);
       return "dead";
     }
-    await markResult(row, "live", null);
+    await withinDeadline(markResult(row, "live", null), deadlineMs);
     return "live";
-  } catch {
+  } catch (error) {
+    if (error instanceof SweepDeadlineError) throw error;
     // Timeout / network / bot-block — inconclusive. Stamp last_verified_at so
     // the sweep doesn't hot-loop on the same unreachable URL, but keep status.
     const table = tableFor(row.source);
-    await db
-      .update(table)
-      .set({ lastVerifiedAt: new Date() })
-      .where(
-        row.source === "sponsor_vacancy"
-          ? eq(sponsorLicenceVacanciesTable.url, row.url)
-          : eq(table.id, row.id),
-      )
-      .catch(() => {});
+    try {
+      await withinDeadline(
+        db
+          .update(table)
+          .set({ lastVerifiedAt: new Date() })
+          .where(
+            row.source === "sponsor_vacancy"
+              ? eq(sponsorLicenceVacanciesTable.url, row.url)
+              : eq(table.id, row.id),
+          ),
+        deadlineMs,
+      );
+    } catch (writeError) {
+      if (writeError instanceof SweepDeadlineError) throw writeError;
+    }
     return "inconclusive";
   }
 }
@@ -152,6 +210,7 @@ export async function runVacancyLivenessSweep(
     staleThresholdMs?: number;
     batchLimit?: number;
     domainConcurrency?: number;
+    deadlineMs?: number;
     onSelected?: (count: number) => void;
   } = {},
 ): Promise<SweepCounters | null> {
@@ -162,9 +221,13 @@ export async function runVacancyLivenessSweep(
   sweepRunning = true;
   const startMs = Date.now();
   try {
-    const rawRows = await selectSweepBatch(
-      options.batchLimit ?? VACANCY_LIVENESS_BATCH_LIMIT,
-      options.staleThresholdMs ?? STALE_THRESHOLD_MS,
+    const batchLimit = options.batchLimit ?? VACANCY_LIVENESS_BATCH_LIMIT;
+    const rawRows = await withinDeadline(
+      selectSweepBatch(
+        batchLimit,
+        options.staleThresholdMs ?? STALE_THRESHOLD_MS,
+      ),
+      options.deadlineMs,
     );
     options.onSelected?.(rawRows.length);
     // Dedupe within the batch: one check per (source, url) — markResult
@@ -197,15 +260,19 @@ export async function runVacancyLivenessSweep(
       }
       for (const [source, group] of bySource) {
         const table = tableFor(source);
-        await db
-          .update(table)
-          .set({ lastVerifiedAt: now, livenessReason: "aggregator domain — not verifiable" })
-          .where(
-            source === "sponsor_vacancy"
-              ? inArray(sponsorLicenceVacanciesTable.url, group.map((g) => g.url))
-              : inArray(table.id, group.map((g) => g.id)),
-          )
-          .catch(() => {});
+        await withinDeadline(
+          db
+            .update(table)
+            .set({ lastVerifiedAt: now, livenessReason: "aggregator domain — not verifiable" })
+            .where(
+              source === "sponsor_vacancy"
+                ? inArray(sponsorLicenceVacanciesTable.url, group.map((g) => g.url))
+                : inArray(table.id, group.map((g) => g.id)),
+            ),
+          options.deadlineMs,
+        ).catch((error) => {
+          if (error instanceof SweepDeadlineError) throw error;
+        });
       }
       console.log(`[vacancy-liveness] Bulk-stamped ${blocked.length} unverifiable aggregator links`);
     }
@@ -213,7 +280,7 @@ export async function runVacancyLivenessSweep(
     if (rows.length === 0 && blocked.length === 0) {
       console.log("[vacancy-liveness] Nothing stale to verify");
       console.log(`[pipeline-tick] env=${process.env.NODE_ENV ?? "unknown"} job=liveness selected=0 upserted=0 live=0 dead=0 inconclusive=0 errors=0`);
-      return { checked: 0, live: 0, dead: 0, inconclusive: 0 };
+      return { checked: 0, live: 0, dead: 0, inconclusive: 0, remaining: 0 };
     }
 
     // Group per domain for politeness.
@@ -224,7 +291,10 @@ export async function runVacancyLivenessSweep(
         host = new URL(row.url).hostname.toLowerCase();
       } catch {
         // Malformed stored URL — mark dead with a reason.
-        await markResult(row, "dead", "malformed URL").catch(() => {});
+        await withinDeadline(
+          markResult(row, "dead", "malformed URL"),
+          options.deadlineMs,
+        ).catch(() => {});
         continue;
       }
       const list = byDomain.get(host) ?? [];
@@ -235,17 +305,30 @@ export async function runVacancyLivenessSweep(
     const counters: SweepCounters = { checked: blocked.length, live: 0, dead: 0, inconclusive: blocked.length };
     const domainQueues = [...byDomain.values()];
     let nextIdx = 0;
+    const deadline = options.deadlineMs ?? 0;
 
     async function worker(): Promise<void> {
       while (true) {
+        if (deadline && Date.now() >= deadline) return;
         const idx = nextIdx++;
         const queue = domainQueues[idx];
         if (!queue) return;
         for (let i = 0; i < queue.length; i++) {
-          const outcome = await verifyOne(queue[i]!);
+          if (deadline && Date.now() >= deadline) return;
+          let outcome: "live" | "dead" | "inconclusive";
+          try {
+            outcome = await verifyOne(queue[i]!, options.deadlineMs);
+          } catch (error) {
+            if (error instanceof SweepDeadlineError) return;
+            throw error;
+          }
           counters.checked++;
           counters[outcome === "live" ? "live" : outcome === "dead" ? "dead" : "inconclusive"]++;
-          if (i < queue.length - 1) await sleep(PER_DOMAIN_DELAY_MS);
+          if (i < queue.length - 1) {
+            const delay = Math.min(PER_DOMAIN_DELAY_MS, remainingBudget(options.deadlineMs));
+            if (delay <= 0) return;
+            await sleep(delay);
+          }
         }
       }
     }
@@ -257,8 +340,47 @@ export async function runVacancyLivenessSweep(
       ),
     );
 
+    // Fast remaining-stale count so callers can monitor catch-up progress.
+    const staleThresholdMs = options.staleThresholdMs ?? STALE_THRESHOLD_MS;
+    const staleSecs = staleThresholdMs / 1000;
+    let remaining: number | undefined;
+    try {
+      // The full scan controls completion by starting another selection batch;
+      // avoid adding a redundant count query to that unchanged internal path.
+      if (!options.deadlineMs && options.staleThresholdMs !== undefined) {
+        throw new Error("remaining count not requested for full scan");
+      }
+      const countResult = await withinDeadline(db.execute<{ cnt: string }>(sql`
+        SELECT COUNT(*) AS cnt FROM (
+          SELECT 1 FROM sponsor_licence_vacancies v
+          WHERE v.url IS NOT NULL AND v.liveness <> 'dead'
+            AND (v.last_verified_at IS NULL OR v.last_verified_at < NOW() - make_interval(secs => ${staleSecs}))
+          UNION ALL
+          SELECT 1 FROM roles r
+          WHERE r.apply_url IS NOT NULL AND r.apply_url <> '' AND r.active = true AND r.liveness <> 'dead'
+            AND (r.last_verified_at IS NULL OR r.last_verified_at < NOW() - make_interval(secs => ${staleSecs}))
+          UNION ALL
+          SELECT 1 FROM job_listings j
+          WHERE j.apply_url IS NOT NULL AND j.apply_url <> '' AND j.status = 'published' AND j.liveness <> 'dead'
+            AND (j.last_verified_at IS NULL OR j.last_verified_at < NOW() - make_interval(secs => ${staleSecs}))
+        ) stale
+      `), options.deadlineMs);
+      remaining = Number(countResult.rows[0]?.cnt ?? 0);
+      counters.remaining = remaining;
+    } catch {
+      // Non-critical — don't fail the sweep if the count query errors.
+    }
+
+    const elapsed = Date.now() - startMs;
+    const hitDeadline = Boolean(deadline && Date.now() >= deadline);
+    if (remaining == null) {
+      const deferredFromBatch = Math.max(0, deduped.length - counters.checked);
+      counters.remaining = deferredFromBatch + (rawRows.length >= batchLimit ? 1 : 0);
+      counters.remainingIsLowerBound = true;
+    }
+    counters.deadlineStopped = hitDeadline;
     console.log(
-      `[vacancy-liveness] Sweep complete — checked: ${counters.checked}, live: ${counters.live}, dead: ${counters.dead}, inconclusive: ${counters.inconclusive}, ${Date.now() - startMs}ms`,
+      `[vacancy-liveness] Sweep ${hitDeadline ? "deadline-stopped" : "complete"} — checked: ${counters.checked}, live: ${counters.live}, dead: ${counters.dead}, inconclusive: ${counters.inconclusive}${remaining != null ? `, remaining: ${remaining}` : ""}, ${elapsed}ms`,
     );
     console.log(`[pipeline-tick] env=${process.env.NODE_ENV ?? "unknown"} job=liveness selected=${rawRows.length} upserted=0 live=${counters.live} dead=${counters.dead} inconclusive=${counters.inconclusive} errors=0`);
     return counters;
