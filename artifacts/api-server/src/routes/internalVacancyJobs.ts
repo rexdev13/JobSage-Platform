@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import {
+  LIVENESS_HTTP_BUDGET_MS,
   runVacancyJob,
   type VacancyJobKind,
 } from "../lib/vacancyJobRunner";
@@ -80,7 +81,10 @@ router.post("/internal/vacancy-jobs", async (req: Request, res: Response): Promi
   );
 
   try {
-    const summary = await runVacancyJob(kind, limit);
+    const deadlineMs = kind === "liveness"
+      ? Date.now() + LIVENESS_HTTP_BUDGET_MS
+      : undefined;
+    const summary = await runVacancyJob(kind, limit, { deadlineMs });
     if (!summary) {
       res.status(409).json({ error: "Another vacancy pipeline batch is already running." });
       return;
