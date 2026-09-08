@@ -34,6 +34,7 @@ export type VacancyJobSummary = {
 
 export const PIPELINE_WRITER_LOCK = "jobsage:external-vacancy-pipeline-writer";
 export const COMPANY_SITE_HTTP_BUDGET_MS = 20_000;
+export const LIVENESS_HTTP_BUDGET_MS = 18_000;
 
 export const CLI_JOB_LIMITS: Record<VacancyJobKind, number> = {
   job_board: DEFAULT_VACANCY_CHECK_BATCH_SIZE,
@@ -121,6 +122,7 @@ export async function runVacancyJob(
     const summary = await runVacancyLivenessSweep({
       batchLimit,
       domainConcurrency: VACANCY_LIVENESS_DOMAIN_CONCURRENCY,
+      deadlineMs: Date.now() + LIVENESS_HTTP_BUDGET_MS,
       onSelected: (count) => {
         selected = count;
       },
@@ -133,6 +135,7 @@ export async function runVacancyJob(
       inconclusive: summary?.inconclusive ?? 0,
       errors: 0,
       done: selected < batchLimit,
+      remaining: summary?.remaining,
     };
   });
 }

@@ -88,7 +88,7 @@ describe("POST /internal/vacancy-jobs", () => {
   it.each([
     ["job_board", 999, 50],
     ["company_site", 999, 5],
-    ["liveness", 999, 120],
+    ["liveness", 999, 50],
     ["contact", 999, 5],
   ] as const)("caps %s HTTP batches", async (kind, requested, expected) => {
     const response = await request(app)

@@ -24,7 +24,7 @@ import { verifyCompanySiteStoredLink } from "./companySiteVerification";
  * of domains are checked concurrently.
  */
 
-const STALE_THRESHOLD_MS = 12 * 60 * 60 * 1000; // re-verify at most twice a day
+const STALE_THRESHOLD_MS = 6 * 60 * 60 * 1000; // re-verify within the UI freshness window
 export const VACANCY_LIVENESS_BATCH_LIMIT = 600;
 export const VACANCY_LIVENESS_DOMAIN_CONCURRENCY = 24;
 const PER_DOMAIN_DELAY_MS = 1500;
@@ -41,7 +41,7 @@ type SweepSqlRow = Omit<SweepRow, "sourceType"> & {
   source_type: "job_board" | "company_site" | null;
 };
 
-export type SweepCounters = { checked: number; live: number; dead: number; inconclusive: number };
+export type SweepCounters = { checked: number; live: number; dead: number; inconclusive: number; remaining?: number };
 
 let sweepRunning = false;
 
@@ -152,6 +152,7 @@ export async function runVacancyLivenessSweep(
     staleThresholdMs?: number;
     batchLimit?: number;
     domainConcurrency?: number;
+    deadlineMs?: number;
     onSelected?: (count: number) => void;
   } = {},
 ): Promise<SweepCounters | null> {
@@ -235,13 +236,16 @@ export async function runVacancyLivenessSweep(
     const counters: SweepCounters = { checked: blocked.length, live: 0, dead: 0, inconclusive: blocked.length };
     const domainQueues = [...byDomain.values()];
     let nextIdx = 0;
+    const deadline = options.deadlineMs ?? 0;
 
     async function worker(): Promise<void> {
       while (true) {
+        if (deadline && Date.now() >= deadline) return;
         const idx = nextIdx++;
         const queue = domainQueues[idx];
         if (!queue) return;
         for (let i = 0; i < queue.length; i++) {
+          if (deadline && Date.now() >= deadline) return;
           const outcome = await verifyOne(queue[i]!);
           counters.checked++;
           counters[outcome === "live" ? "live" : outcome === "dead" ? "dead" : "inconclusive"]++;
@@ -257,8 +261,36 @@ export async function runVacancyLivenessSweep(
       ),
     );
 
+    // Fast remaining-stale count so callers can monitor catch-up progress.
+    const staleThresholdMs = options.staleThresholdMs ?? STALE_THRESHOLD_MS;
+    const staleSecs = staleThresholdMs / 1000;
+    let remaining: number | undefined;
+    try {
+      const countResult = await db.execute<{ cnt: string }>(sql`
+        SELECT COUNT(*) AS cnt FROM (
+          SELECT 1 FROM sponsor_licence_vacancies v
+          WHERE v.url IS NOT NULL AND v.liveness <> 'dead'
+            AND (v.last_verified_at IS NULL OR v.last_verified_at < NOW() - make_interval(secs => ${staleSecs}))
+          UNION ALL
+          SELECT 1 FROM roles r
+          WHERE r.apply_url IS NOT NULL AND r.apply_url <> '' AND r.active = true AND r.liveness <> 'dead'
+            AND (r.last_verified_at IS NULL OR r.last_verified_at < NOW() - make_interval(secs => ${staleSecs}))
+          UNION ALL
+          SELECT 1 FROM job_listings j
+          WHERE j.apply_url IS NOT NULL AND j.apply_url <> '' AND j.status = 'published' AND j.liveness <> 'dead'
+            AND (j.last_verified_at IS NULL OR j.last_verified_at < NOW() - make_interval(secs => ${staleSecs}))
+        ) stale
+      `);
+      remaining = Number(countResult.rows[0]?.cnt ?? 0);
+      counters.remaining = remaining;
+    } catch {
+      // Non-critical — don't fail the sweep if the count query errors.
+    }
+
+    const elapsed = Date.now() - startMs;
+    const hitDeadline = deadline && Date.now() >= deadline;
     console.log(
-      `[vacancy-liveness] Sweep complete — checked: ${counters.checked}, live: ${counters.live}, dead: ${counters.dead}, inconclusive: ${counters.inconclusive}, ${Date.now() - startMs}ms`,
+      `[vacancy-liveness] Sweep ${hitDeadline ? "deadline-stopped" : "complete"} — checked: ${counters.checked}, live: ${counters.live}, dead: ${counters.dead}, inconclusive: ${counters.inconclusive}${remaining != null ? `, remaining: ${remaining}` : ""}, ${elapsed}ms`,
     );
     console.log(`[pipeline-tick] env=${process.env.NODE_ENV ?? "unknown"} job=liveness selected=${rawRows.length} upserted=0 live=${counters.live} dead=${counters.dead} inconclusive=${counters.inconclusive} errors=0`);
     return counters;

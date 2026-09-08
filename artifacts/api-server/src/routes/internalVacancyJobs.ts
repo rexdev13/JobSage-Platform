@@ -25,7 +25,7 @@ function getHttpDefaultLimits(): Record<VacancyJobKind, number> {
   return {
     job_board: 50,
     company_site: getCompanySiteHttpBatchSize(),
-    liveness: 100,
+    liveness: 40,
     contact: 5,
   };
 }
@@ -34,7 +34,7 @@ function getHttpMaxLimits(): Record<VacancyJobKind, number> {
   return {
     job_board: 50,
     company_site: getCompanySiteHttpBatchSize(),
-    liveness: 120,
+    liveness: 50,
     contact: 5,
   };
 }
