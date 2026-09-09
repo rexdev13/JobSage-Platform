@@ -10,14 +10,12 @@ import { and, eq, gt } from "drizzle-orm";
 // A URL verified live by the sweep within this window is not re-checked at
 // click time.
 export const RECENT_VERIFY_SKIP_MS = 6 * 60 * 60 * 1000;
-export const COMPANY_SITE_VISIBLE_WINDOW_MS = 48 * 60 * 60 * 1000;
+export const VACANCY_VISIBLE_WINDOW_MS = 48 * 60 * 60 * 1000;
 
 export function vacancyVisibilityWindowMs(
-  sourceType: "job_board" | "company_site" | null | undefined,
+  _sourceType: "job_board" | "company_site" | null | undefined,
 ): number {
-  return sourceType === "company_site"
-    ? COMPANY_SITE_VISIBLE_WINDOW_MS
-    : RECENT_VERIFY_SKIP_MS;
+  return VACANCY_VISIBLE_WINDOW_MS;
 }
 
 export type VacancyLinkStatus =

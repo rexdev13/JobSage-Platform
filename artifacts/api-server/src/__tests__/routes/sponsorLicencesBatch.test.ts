@@ -302,6 +302,7 @@ describe("GET /sponsor-licences/:id/vacancies", () => {
       [
         { vacancyId: 7, score: 91, isEligible: true, missingRequirements: [], explanation: "Strong fit" },
         { vacancyId: 9, score: 80, isEligible: true, missingRequirements: [], explanation: "Good fit" },
+        { vacancyId: 10, score: 70, isEligible: true, missingRequirements: [], explanation: "Relevant fit" },
       ],
       [{ checkedAt: now }],
       [{ dbsClearanceLevel: "enhanced", safeguardingTrainingLevel: "level_2" }],
@@ -312,8 +313,8 @@ describe("GET /sponsor-licences/:id/vacancies", () => {
     const res = await request(buildApp()).get("/sponsor-licences/1/vacancies").set(...AUTH);
 
     expect(res.status).toBe(200);
-    expect(res.body.vacancies).toHaveLength(2);
-    expect(res.body.vacancies[0]).toMatchObject({
+    expect(res.body.vacancies).toHaveLength(3);
+    expect(res.body.vacancies.find((vacancy: { id: number }) => vacancy.id === 7)).toMatchObject({
       id: 7,
       roleId: 2_000_007,
       sponsorshipStatus: "confirmed",
@@ -328,14 +329,19 @@ describe("GET /sponsor-licences/:id/vacancies", () => {
       cvSent: true,
       linkStatus: "live",
     });
-    expect(res.body.vacancies[1]).toMatchObject({
+    expect(res.body.vacancies.find((vacancy: { id: number }) => vacancy.id === 9)).toMatchObject({
       id: 9,
       sourceType: "company_site",
       linkStatus: "live",
     });
+    expect(res.body.vacancies.find((vacancy: { id: number }) => vacancy.id === 10)).toMatchObject({
+      id: 10,
+      sourceType: "job_board",
+      linkStatus: "live",
+    });
     expect(res.body.nonLiveEvidence).toEqual({
-      count: 2,
-      reasons: ["Advert expired", "stale"],
+      count: 1,
+      reasons: ["Advert expired"],
     });
     expect(JSON.stringify(res.body)).not.toContain("https://employer.example/expired");
   });

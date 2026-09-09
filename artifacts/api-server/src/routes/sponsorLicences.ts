@@ -6,8 +6,7 @@ import { eq, ilike, and, desc, sql, isNotNull, inArray, gte, ne, or } from "driz
 import { countyToRegion } from "../lib/countyToRegion";
 import {
   getVacancyLinkStatus,
-  RECENT_VERIFY_SKIP_MS,
-  COMPANY_SITE_VISIBLE_WINDOW_MS,
+  VACANCY_VISIBLE_WINDOW_MS,
   vacancyVisibilityWindowMs,
 } from "../lib/vacancyLiveness";
 import { requireAuthenticated, requireRole } from "../middlewares/requireRole";
@@ -495,21 +494,9 @@ router.get("/sponsor-licences/vacancy-stats", requireAuthenticated, async (_req,
       .where(
         and(
           eq(sponsorLicenceVacanciesTable.liveness, "live"),
-          or(
-            and(
-              eq(sponsorLicenceVacanciesTable.sourceType, "company_site"),
-              gte(
-                sponsorLicenceVacanciesTable.lastVerifiedAt,
-                new Date(Date.now() - COMPANY_SITE_VISIBLE_WINDOW_MS),
-              ),
-            ),
-            and(
-              ne(sponsorLicenceVacanciesTable.sourceType, "company_site"),
-              gte(
-                sponsorLicenceVacanciesTable.lastVerifiedAt,
-                new Date(Date.now() - RECENT_VERIFY_SKIP_MS),
-              ),
-            ),
+          gte(
+            sponsorLicenceVacanciesTable.lastVerifiedAt,
+            new Date(Date.now() - VACANCY_VISIBLE_WINDOW_MS),
           ),
           isNotNull(sponsorLicenceVacanciesTable.sourceType),
           isNotNull(sponsorLicenceVacanciesTable.url),
@@ -737,10 +724,7 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
           FROM sponsor_licence_vacancies
           WHERE organisation_name = ${sponsorLicencesTable.organisationName}
             AND liveness = 'live'
-            AND last_verified_at >= now() - CASE
-              WHEN source_type = 'company_site' THEN interval '48 hours'
-              ELSE interval '6 hours'
-            END
+            AND last_verified_at >= now() - interval '48 hours'
             AND source_type IS NOT NULL
             AND url IS NOT NULL
         )`,
@@ -777,10 +761,7 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
                  cast(count(*) as integer) AS vacancy_count
           FROM sponsor_licence_vacancies
           WHERE liveness = 'live'
-            AND last_verified_at >= now() - CASE
-              WHEN source_type = 'company_site' THEN interval '48 hours'
-              ELSE interval '6 hours'
-            END
+            AND last_verified_at >= now() - interval '48 hours'
             AND source_type IS NOT NULL
             AND url IS NOT NULL
           GROUP BY lower(trim(organisation_name))`,
@@ -804,7 +785,7 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
           JOIN sponsor_licence_vacancies v ON s.vacancy_id = v.id
           WHERE s.user_id = ${userId}
             AND v.liveness = 'live'
-            AND v.last_verified_at >= now() - interval '6 hours'
+            AND v.last_verified_at >= now() - interval '48 hours'
             AND v.source_type IS NOT NULL
             AND v.url IS NOT NULL
           ORDER BY s.organisation_name, s.score DESC`,
