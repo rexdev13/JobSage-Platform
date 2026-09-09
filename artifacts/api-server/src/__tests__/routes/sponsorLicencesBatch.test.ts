@@ -264,8 +264,45 @@ describe("GET /sponsor-licences/:id/vacancies", () => {
           lastVerifiedAt: now,
           livenessReason: "Advert expired",
         },
+        {
+          id: 9,
+          organisationName: "Acme Care",
+          title: "Company-site Nurse",
+          location: "Manchester",
+          salary: null,
+          url: "https://employer.example/jobs/company-site-nurse",
+          description: "Nurse vacancy",
+          targetRegions: ["North West"],
+          sourceType: "company_site",
+          boardName: null,
+          requiredDbsClearanceLevel: null,
+          requiredSafeguardingLevel: null,
+          liveness: "live",
+          lastVerifiedAt: new Date(now.getTime() - 24 * 60 * 60 * 1000),
+          livenessReason: null,
+        },
+        {
+          id: 10,
+          organisationName: "Acme Care",
+          title: "Stale job-board Nurse",
+          location: "Manchester",
+          salary: null,
+          url: "https://jobs.example/stale",
+          description: "Nurse vacancy",
+          targetRegions: ["North West"],
+          sourceType: "job_board",
+          boardName: "NHS Jobs",
+          requiredDbsClearanceLevel: null,
+          requiredSafeguardingLevel: null,
+          liveness: "live",
+          lastVerifiedAt: new Date(now.getTime() - 7 * 60 * 60 * 1000),
+          livenessReason: null,
+        },
       ],
-      [{ vacancyId: 7, score: 91, isEligible: true, missingRequirements: [], explanation: "Strong fit" }],
+      [
+        { vacancyId: 7, score: 91, isEligible: true, missingRequirements: [], explanation: "Strong fit" },
+        { vacancyId: 9, score: 80, isEligible: true, missingRequirements: [], explanation: "Good fit" },
+      ],
       [{ checkedAt: now }],
       [{ dbsClearanceLevel: "enhanced", safeguardingTrainingLevel: "level_2" }],
       [{ roleId: 2_000_007, status: "applied" }],
@@ -275,7 +312,7 @@ describe("GET /sponsor-licences/:id/vacancies", () => {
     const res = await request(buildApp()).get("/sponsor-licences/1/vacancies").set(...AUTH);
 
     expect(res.status).toBe(200);
-    expect(res.body.vacancies).toHaveLength(1);
+    expect(res.body.vacancies).toHaveLength(2);
     expect(res.body.vacancies[0]).toMatchObject({
       id: 7,
       roleId: 2_000_007,
@@ -291,7 +328,15 @@ describe("GET /sponsor-licences/:id/vacancies", () => {
       cvSent: true,
       linkStatus: "live",
     });
-    expect(res.body.nonLiveEvidence).toEqual({ count: 1, reasons: ["Advert expired"] });
+    expect(res.body.vacancies[1]).toMatchObject({
+      id: 9,
+      sourceType: "company_site",
+      linkStatus: "live",
+    });
+    expect(res.body.nonLiveEvidence).toEqual({
+      count: 2,
+      reasons: ["Advert expired", "stale"],
+    });
     expect(JSON.stringify(res.body)).not.toContain("https://employer.example/expired");
   });
 });

@@ -2,9 +2,14 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { GetSponsorLicenceVacanciesParams, GetSponsorLicenceVacanciesResponse } from "@workspace/api-zod";
 import { sponsorLicencesTable, sponsorLicenceSyncLogTable, sponsorLicenceVacancyChecksTable, sponsorLicenceBookmarksTable, sponsorLicenceVacanciesTable, sponsorLicenceVacancyScoresTable, sponsorLicenceGapAnalysesTable, roleGapAnalysesTable, applicationsTable, speculativeApplicationsTable, profilesTable } from "@workspace/db";
-import { eq, ilike, and, desc, sql, isNotNull, inArray, gte } from "drizzle-orm";
+import { eq, ilike, and, desc, sql, isNotNull, inArray, gte, ne, or } from "drizzle-orm";
 import { countyToRegion } from "../lib/countyToRegion";
-import { getVacancyLinkStatus, RECENT_VERIFY_SKIP_MS } from "../lib/vacancyLiveness";
+import {
+  getVacancyLinkStatus,
+  RECENT_VERIFY_SKIP_MS,
+  COMPANY_SITE_VISIBLE_WINDOW_MS,
+  vacancyVisibilityWindowMs,
+} from "../lib/vacancyLiveness";
 import { requireAuthenticated, requireRole } from "../middlewares/requireRole";
 import { runVacancyCheck } from "../lib/vacancyCheckHelper";
 import { startCheckAllVacancies, getCheckAllStatus } from "../lib/vacancyCheckAllRunner";
@@ -225,10 +230,13 @@ router.get("/sponsor-licences/:id/vacancies", requireAuthenticated, async (req, 
       .from(sponsorLicenceVacanciesTable)
       .where(eq(sponsorLicenceVacanciesTable.organisationName, company.organisationName));
     const vacancyRows = allVacancyRows.filter(
-      (vacancy) =>
-        vacancy.liveness === "live" &&
-        vacancy.lastVerifiedAt != null &&
-        new Date(vacancy.lastVerifiedAt).getTime() >= Date.now() - RECENT_VERIFY_SKIP_MS,
+      (vacancy) => getVacancyLinkStatus(
+        vacancy.url,
+        vacancy.liveness,
+        vacancy.lastVerifiedAt,
+        vacancy.livenessReason,
+        vacancyVisibilityWindowMs(vacancy.sourceType),
+      ) === "live",
     );
 
     let scoreRows = await db
@@ -316,7 +324,13 @@ router.get("/sponsor-licences/:id/vacancies", requireAuthenticated, async (req, 
         const requiredDbsClearanceLevel = v.requiredDbsClearanceLevel ?? inferredRequirements?.requiredDbsClearanceLevel ?? null;
         const requiredSafeguardingLevel = v.requiredSafeguardingLevel ?? inferredRequirements?.requiredSafeguardingLevel ?? null;
         const category = classifyVacancyCategory(v.title, v.description);
-        const linkStatus = getVacancyLinkStatus(v.url, v.liveness, v.lastVerifiedAt, v.livenessReason);
+        const linkStatus = getVacancyLinkStatus(
+          v.url,
+          v.liveness,
+          v.lastVerifiedAt,
+          v.livenessReason,
+          vacancyVisibilityWindowMs(v.sourceType),
+        );
         const roleId = v.id + SPONSOR_VACANCY_ID_OFFSET;
         return {
           id: v.id,
@@ -368,8 +382,20 @@ router.get("/sponsor-licences/:id/vacancies", requireAuthenticated, async (req, 
 
     const nonLiveReasons = [...new Set(
       allVacancyRows
-        .filter((vacancy) => getVacancyLinkStatus(vacancy.url, vacancy.liveness, vacancy.lastVerifiedAt, vacancy.livenessReason) !== "live")
-        .map((vacancy) => vacancy.livenessReason?.trim() || getVacancyLinkStatus(vacancy.url, vacancy.liveness, vacancy.lastVerifiedAt, vacancy.livenessReason))
+        .filter((vacancy) => getVacancyLinkStatus(
+          vacancy.url,
+          vacancy.liveness,
+          vacancy.lastVerifiedAt,
+          vacancy.livenessReason,
+          vacancyVisibilityWindowMs(vacancy.sourceType),
+        ) !== "live")
+        .map((vacancy) => vacancy.livenessReason?.trim() || getVacancyLinkStatus(
+          vacancy.url,
+          vacancy.liveness,
+          vacancy.lastVerifiedAt,
+          vacancy.livenessReason,
+          vacancyVisibilityWindowMs(vacancy.sourceType),
+        ))
         .filter(Boolean),
     )].slice(0, 5);
 
@@ -469,7 +495,22 @@ router.get("/sponsor-licences/vacancy-stats", requireAuthenticated, async (_req,
       .where(
         and(
           eq(sponsorLicenceVacanciesTable.liveness, "live"),
-          gte(sponsorLicenceVacanciesTable.lastVerifiedAt, new Date(Date.now() - RECENT_VERIFY_SKIP_MS)),
+          or(
+            and(
+              eq(sponsorLicenceVacanciesTable.sourceType, "company_site"),
+              gte(
+                sponsorLicenceVacanciesTable.lastVerifiedAt,
+                new Date(Date.now() - COMPANY_SITE_VISIBLE_WINDOW_MS),
+              ),
+            ),
+            and(
+              ne(sponsorLicenceVacanciesTable.sourceType, "company_site"),
+              gte(
+                sponsorLicenceVacanciesTable.lastVerifiedAt,
+                new Date(Date.now() - RECENT_VERIFY_SKIP_MS),
+              ),
+            ),
+          ),
           isNotNull(sponsorLicenceVacanciesTable.sourceType),
           isNotNull(sponsorLicenceVacanciesTable.url),
         ),
@@ -696,7 +737,10 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
           FROM sponsor_licence_vacancies
           WHERE organisation_name = ${sponsorLicencesTable.organisationName}
             AND liveness = 'live'
-            AND last_verified_at >= now() - interval '6 hours'
+            AND last_verified_at >= now() - CASE
+              WHEN source_type = 'company_site' THEN interval '48 hours'
+              ELSE interval '6 hours'
+            END
             AND source_type IS NOT NULL
             AND url IS NOT NULL
         )`,
@@ -733,7 +777,10 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
                  cast(count(*) as integer) AS vacancy_count
           FROM sponsor_licence_vacancies
           WHERE liveness = 'live'
-            AND last_verified_at >= now() - interval '6 hours'
+            AND last_verified_at >= now() - CASE
+              WHEN source_type = 'company_site' THEN interval '48 hours'
+              ELSE interval '6 hours'
+            END
             AND source_type IS NOT NULL
             AND url IS NOT NULL
           GROUP BY lower(trim(organisation_name))`,
