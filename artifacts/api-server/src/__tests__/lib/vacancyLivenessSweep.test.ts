@@ -163,7 +163,7 @@ describe("runVacancyLivenessSweep", () => {
     expect(calls[1]).toBe("https://nhs.uk/job/2");
   });
 
-  it("uses the 600-link default, prioritises candidate-facing sources, and excludes dead rows", async () => {
+  it("uses the 600-link default, fairly interleaves sources, and excludes dead rows", async () => {
     setExecuteRows([]);
     const {
       runVacancyLivenessSweep,
@@ -179,11 +179,11 @@ describe("runVacancyLivenessSweep", () => {
       | { queryChunks?: Array<{ value?: string[] }> }
       | undefined;
     const sqlText = query?.queryChunks?.map((chunk) => chunk.value?.join("") ?? "").join("") ?? String(query);
-    expect(sqlText).toContain("WHEN source_type = 'job_board' THEN 0");
-    expect(sqlText).toContain("WHEN source_type = 'company_site' THEN 1");
-    expect(sqlText.indexOf("source_type = 'job_board'")).toBeLessThan(
-      sqlText.indexOf("source_type = 'company_site'"),
-    );
+    expect(sqlText).toContain("ROW_NUMBER() OVER");
+    expect(sqlText).toContain("PARTITION BY CASE");
+    expect(sqlText).toContain("WHEN source_type = 'job_board' THEN 'job_board'");
+    expect(sqlText).toContain("WHEN source_type = 'company_site' THEN 'company_site'");
+    expect(sqlText).toContain("source_rank ASC");
     expect(sqlText.match(/liveness <> 'dead'/g)).toHaveLength(3);
   });
 

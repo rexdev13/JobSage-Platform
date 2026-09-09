@@ -92,7 +92,7 @@ let sweepRunning = false;
 async function selectSweepBatch(limit: number, staleThresholdMs: number): Promise<SweepRow[]> {
   const staleSecs = staleThresholdMs / 1000;
   const result = await db.execute<SweepSqlRow>(sql`
-    SELECT * FROM (
+    WITH all_links AS (
       SELECT 'sponsor_vacancy' AS source, v.source_type, v.id, v.url, v.last_verified_at
       FROM sponsor_licence_vacancies v
       WHERE v.url IS NOT NULL AND v.liveness <> 'dead'
@@ -107,14 +107,33 @@ async function selectSweepBatch(limit: number, staleThresholdMs: number): Promis
       FROM job_listings j
       WHERE j.apply_url IS NOT NULL AND j.apply_url <> '' AND j.status = 'published' AND j.liveness <> 'dead'
         AND (j.last_verified_at IS NULL OR j.last_verified_at < NOW() - make_interval(secs => ${staleSecs}))
-    ) all_links
+    ),
+    ranked AS (
+      SELECT
+        all_links.*,
+        CASE
+          WHEN source_type = 'job_board' THEN 0
+          WHEN source_type = 'company_site' THEN 1
+          ELSE 2
+        END AS source_priority,
+        ROW_NUMBER() OVER (
+          PARTITION BY CASE
+            WHEN source_type = 'job_board' THEN 'job_board'
+            WHEN source_type = 'company_site' THEN 'company_site'
+            ELSE 'other'
+          END
+          ORDER BY
+            CASE WHEN last_verified_at IS NULL THEN 0 ELSE 1 END,
+            last_verified_at ASC NULLS FIRST,
+            id ASC
+        ) AS source_rank
+      FROM all_links
+    )
+    SELECT source, source_type, id, url, last_verified_at
+    FROM ranked
     ORDER BY
-      CASE WHEN last_verified_at IS NULL THEN 0 ELSE 1 END,
-      CASE
-        WHEN source_type = 'job_board' THEN 0
-        WHEN source_type = 'company_site' THEN 1
-        ELSE 2
-      END,
+      source_rank ASC,
+      source_priority ASC,
       last_verified_at ASC NULLS FIRST,
       id ASC
     LIMIT ${limit}

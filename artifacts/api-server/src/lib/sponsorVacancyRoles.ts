@@ -5,7 +5,11 @@ import { isManualLabourTitle } from "./vacancyTitlePolicy";
 import { isValidVacancyUrlForSource } from "./vacancyUrlPolicy";
 import type { DbsClearanceLevel, SafeguardingTrainingLevel } from "./safeguarding";
 import { regionsFromLocationText } from "./regionMatching";
-import { getVacancyLinkStatus, type VacancyLinkStatus } from "./vacancyLiveness";
+import {
+  getVacancyLinkStatus,
+  vacancyVisibilityWindowMs,
+  type VacancyLinkStatus,
+} from "./vacancyLiveness";
 import {
   opportunityRegistrationLabel,
 } from "./opportunityProfession";
@@ -48,9 +52,16 @@ export function presentApplyLink(
   liveness: string | null | undefined,
   lastVerifiedAt: Date | null | undefined,
   livenessReason?: string | null,
+  sourceType?: "job_board" | "company_site" | null,
 ): { applyUrl: string | null; linkStatus: VacancyLinkStatus; linkVerified: boolean; linkCheckedAt: string | null } {
   const url = applyUrl?.trim() || null;
-  const linkStatus = getVacancyLinkStatus(url, liveness, lastVerifiedAt, livenessReason);
+  const linkStatus = getVacancyLinkStatus(
+    url,
+    liveness,
+    lastVerifiedAt,
+    livenessReason,
+    vacancyVisibilityWindowMs(sourceType),
+  );
   return {
     applyUrl: url,
     linkStatus,
@@ -308,7 +319,13 @@ export async function fetchSponsorVacanciesAsRoles(
     if (classified !== null && !opportunityCategoriesMatch(category, classified)) continue;
     if (classified === null && !industrySupportsCategory(category, lic?.industry)) continue;
 
-    const link = presentApplyLink(vac.url, vac.liveness, vac.lastVerifiedAt, vac.livenessReason);
+    const link = presentApplyLink(
+      vac.url,
+      vac.liveness,
+      vac.lastVerifiedAt,
+      vac.livenessReason,
+      vac.sourceType,
+    );
     if (
       vac.sourceType === "company_site" &&
       !isValidVacancyUrlForSource(link.applyUrl, "company_site")

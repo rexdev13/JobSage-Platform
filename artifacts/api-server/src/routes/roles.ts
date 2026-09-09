@@ -401,7 +401,13 @@ router.get("/roles", async (req, res): Promise<void> => {
       return true;
     })
     .map((row) => {
-      const link = presentApplyLink(row.job.applyUrl, row.job.liveness, row.job.lastVerifiedAt);
+      const link = presentApplyLink(
+        row.job.applyUrl,
+        row.job.liveness,
+        row.job.lastVerifiedAt,
+        row.job.livenessReason,
+        "company_site",
+      );
       return {
         id: row.job.id + 1_000_000,
         title: row.job.title,
@@ -462,7 +468,13 @@ router.get("/roles", async (req, res): Promise<void> => {
          roleMatchesPreferredRegions(role.targetRegions, profile.preferredRegion)
        )
        .map((r) => {
-      const link = presentApplyLink(r.applyUrl, r.liveness, r.lastVerifiedAt);
+      const link = presentApplyLink(
+        r.applyUrl,
+        r.liveness,
+        r.lastVerifiedAt,
+        r.livenessReason,
+        "company_site",
+      );
       return {
         ...r,
         opportunityCategory: categoryForStatutoryRegulator(r.regulator),
@@ -816,7 +828,13 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
       return true;
     })
     .map((row) => {
-      const link = presentApplyLink(row.job.applyUrl, row.job.liveness, row.job.lastVerifiedAt);
+      const link = presentApplyLink(
+        row.job.applyUrl,
+        row.job.liveness,
+        row.job.lastVerifiedAt,
+        row.job.livenessReason,
+        "company_site",
+      );
       return {
         id: row.job.id + 1_000_000,
         title: row.job.title,
@@ -869,7 +887,13 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
          && roleMatchesPreferredRegions(r.targetRegions, profile.preferredRegion)
        )
        .map((r) => {
-      const link = presentApplyLink(r.applyUrl, r.liveness, r.lastVerifiedAt);
+      const link = presentApplyLink(
+        r.applyUrl,
+        r.liveness,
+        r.lastVerifiedAt,
+        r.livenessReason,
+        "company_site",
+      );
       return {
         id: r.id, title: r.title, employer: r.employer, location: r.location,
         regulator: r.regulator, sponsorshipOffered: r.sponsorshipOffered,
@@ -1199,7 +1223,13 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
       return true;
     })
     .map((row) => {
-      const link = presentApplyLink(row.job.applyUrl, row.job.liveness, row.job.lastVerifiedAt);
+      const link = presentApplyLink(
+        row.job.applyUrl,
+        row.job.liveness,
+        row.job.lastVerifiedAt,
+        row.job.livenessReason,
+        "company_site",
+      );
       return {
         id: row.job.id + 1_000_000,
         title: row.job.title,
@@ -1308,7 +1338,13 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
         && !speculativeCompanies.has(r.employer.toLowerCase())
       )
       .map((r) => {
-        const link = presentApplyLink(r.applyUrl, r.liveness, r.lastVerifiedAt);
+        const link = presentApplyLink(
+          r.applyUrl,
+          r.liveness,
+          r.lastVerifiedAt,
+          r.livenessReason,
+          "company_site",
+        );
         return {
           id: r.id, title: r.title, employer: r.employer, location: r.location,
           regulator: r.regulator, sponsorshipOffered: r.sponsorshipOffered,
