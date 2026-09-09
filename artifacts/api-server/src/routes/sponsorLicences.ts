@@ -799,10 +799,15 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
 
     // Top vacancy match score/eligibility per org for the current candidate.
     const matchScoreRows = await db.execute<{ organisation_name: string; score: number; is_eligible: boolean }>(
-      sql`SELECT DISTINCT ON (organisation_name) organisation_name, score, is_eligible
-          FROM sponsor_licence_vacancy_scores
-          WHERE user_id = ${userId}
-          ORDER BY organisation_name, score DESC`,
+      sql`SELECT DISTINCT ON (s.organisation_name) s.organisation_name, s.score, s.is_eligible
+          FROM sponsor_licence_vacancy_scores s
+          JOIN sponsor_licence_vacancies v ON s.vacancy_id = v.id
+          WHERE s.user_id = ${userId}
+            AND v.liveness = 'live'
+            AND v.last_verified_at >= now() - interval '6 hours'
+            AND v.source_type IS NOT NULL
+            AND v.url IS NOT NULL
+          ORDER BY s.organisation_name, s.score DESC`,
     );
     const matchScoresByOrg = new Map<string, { score: number; isEligible: boolean }>(
       matchScoreRows.rows.map((r) => [r.organisation_name.toLowerCase().trim(), { score: r.score, isEligible: r.is_eligible }]),
