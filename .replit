@@ -95,3 +95,100 @@ externalPort = 3000
 [[ports]]
 localPort = 18557
 externalPort = 80
+modules = ["nodejs-24", "python-3.11", "postgresql-16"]
+
+[[artifacts]]
+id = "artifacts/api-server"
+
+[[artifacts]]
+id = "artifacts/mockup-sandbox"
+
+[deployment]
+router = "application"
+deploymentTarget = "autoscale"
+
+[deployment.postBuild]
+args = ["pnpm", "store", "prune"]
+env = { "CI" = "true" }
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "web-build"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "web-bundle-fresh"
+
+[[workflows.workflow]]
+name = "web-build"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "PORT=3000 BASE_PATH=/ pnpm --filter @workspace/jobsage-web run build"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "web-bundle-fresh"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash scripts/check-web-bundle-freshness.sh"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[agent]
+stack = "PNPM_WORKSPACE"
+expertMode = true
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 180000
+
+[nix]
+channel = "stable-25_05"
+
+[userenv]
+
+[userenv.shared]
+EMAIL_FROM = "noreply@jobsage.co.uk"
+APP_URL = "https://jobsage.co.uk"
+AI_DISABLED = "Jobsage001"
+
+[userenv.production]
+INTERNAL_SYNC_KEY = "dd1e3f9cbdc1ddb63409835bad58e09de58c0b73f5f0dd461cada94a6b4ae03e"
+CONTACT_WEB_SEARCH_DAILY_CAP = "50"
+VACANCY_AI_WEB_SEARCH_DAILY_CAP = "0"
+
+[userenv.development]
+
+[objectStorage]
+defaultBucketID = "replit-objstore-3694d154-80c4-44e1-a65d-b87607e9f95e"
+
+[[ports]]
+localPort = 8080
+externalPort = 8080
+
+[[ports]]
+localPort = 8081
+externalPort = 8081
+
+[[ports]]
+localPort = 18286
+externalPort = 3000
+
+[[ports]]
+localPort = 18557
+externalPort = 80
