@@ -3,7 +3,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, PageTransition, Button } from "@/components/ui-enhanced";
 import { SponsorVacancyApplyModal } from "@/components/SponsorVacancyApplyModal";
 import { SmartApplyModal } from "@/components/SmartApplyModal";
-import { hasUsableSendCvApplyRoute, shouldShowSendCv } from "@/lib/opportunityFilters";
+import { canSendCvForVacancy, hasUsableSendCvApplyRoute, shouldShowSendCv } from "@/lib/opportunityFilters";
 import { filterSponsorPanelVacancies } from "@/lib/sponsorVacancyFilters";
 import { checkApplyLinkInBackground, isFreshLiveApplyLink } from "@/lib/vacancyApply";
 import { GapAnalysisSheet } from "@/components/GapAnalysisSheet";
@@ -1933,7 +1933,11 @@ export default function SponsorLicencesPage() {
                     <Sparkles className="w-4 h-4" /> Smart Apply
                   </Button>
                 )}
-                {selectedVacancy.sendCvEligible && hasUsableSendCvApplyRoute({ applyUrl: selectedVacancy.url, linkVerified: selectedVacancy.linkVerified, linkStatus: selectedVacancy.linkStatus }) && (() => {
+                {canSendCvForVacancy({
+                  sendCvEligible: selectedVacancy.sendCvEligible,
+                  applyUrl: selectedVacancy.url,
+                  linkStatus: selectedVacancy.linkStatus,
+                }) && (() => {
                   const disabledReason = getApplyDisabledReason(hasCvUploaded);
                   return (
                     <span title={disabledReason ? APPLY_DISABLED_TITLES[disabledReason] : undefined}>
