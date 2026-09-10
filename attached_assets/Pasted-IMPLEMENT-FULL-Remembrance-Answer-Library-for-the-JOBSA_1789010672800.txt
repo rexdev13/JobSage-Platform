@@ -1,0 +1,164 @@
+IMPLEMENT FULL Remembrance / Answer Library for the JOBSAGE Chrome extension.
+This is a client-requested full feature: when a candidate enters a value the extension didn’t have, save it and reuse it on future applications for similar questions. Not page-only memory.
+
+Extend existing answerMemory.ts + related UI/detector/prefill code. Do not force-push.
+
+==================================================
+PRODUCT GOAL
+==================================================
+When a candidate fills a form field that JOBSAGE had no value for:
+1) Automatically remember that answer (with clear UX)
+2) On later job applications (different pages/employers/ATS forms), detect similar questions
+3) Prefill from remembered answers
+4) Let the candidate review, edit, and delete remembered answers
+
+This must feel like a real answer library, not “same page cache.”
+
+==================================================
+NON-NEGOTIABLE SAFETY (still required for full feature)
+==================================================
+- Save ONLY candidate-authored input (not profile autofill, not AI insert, not memory restore echoing itself)
+- NEVER remember: passwords, OTP, NI/SSN/passport, bank/tax, health/disability, criminal/DBS, equality/diversity, RTW/sponsorship, consent/declarations, files
+- Unknown/ambiguous sensitivity => do not auto-remember
+- Never overwrite a non-empty field
+- Candidate typing always wins
+- Show when a value came from memory: “Saved from a previous application”
+- Provide clear manage/delete controls
+
+==================================================
+DATA MODEL
+==================================================
+Replace/upgrade raw string storage to versioned Answer Library records, e.g.:
+
+RememberedAnswer {
+  id
+  version
+  value
+  normalizedQuestion
+  questionSignature
+  labelVariants[]
+  controlType
+  category: "safe_free_text" | "safe_structured" | ...
+  source: "candidate"
+  scope: "global" | "employer" | "ats"
+  originHost?
+  employerKey?
+  atsKey?
+  createdAt
+  updatedAt
+  lastUsedAt
+  useCount
+  expiresAt? (optional long TTL or none for library items explicitly saved)
+  explicitSave: boolean
+}
+
+Storage:
+- Local extension storage first (chrome.storage.local), new prefix jobsage_answer_library_v1
+- Keep page-memory and library distinct if needed
+- Bound max entries / value length
+- Migration from old answerMemory keys where possible
+
+Optional backend sync (if feasible in-repo without huge scope):
+- If auth + API patterns exist, add remembered-answer endpoints and sync
+- Otherwise ship full local cross-application library now, with sync stub/TODO clearly marked
+- Do NOT dump into smart_apply_drafts or application notes
+
+==================================================
+CAPTURE / SAVE BEHAVIOR
+==================================================
+- Detect candidate input via input/change/blur
+- Suppress extension-driven writes with provenance markers
+- Auto-save eligible safe answers when:
+  - field had no prior JOBSAGE value, AND
+  - candidate entered a meaningful value, AND
+  - field passes eligibility policy
+- For long narrative answers, auto-save is OK if safe; show subtle “Saved for future applications”
+- For borderline structured fields (e.g. professional registration if classified safe), allow save
+- Selects/radios: include if safely classified and value is stable text option label/value
+- Checkboxes/files: do not store files; consent checkboxes excluded
+
+==================================================
+RECALL / MATCHING (FULL FEATURE)
+==================================================
+Prefill precedence:
+1. existing non-empty DOM value
+2. current candidate typing
+3. Answer Library high-confidence match
+4. exact profile value
+5. structured-prefill API
+6. AI generate
+7. empty
+
+Matching strategy (implement now):
+1) Exact normalized question + control type
+2) Exact signature match across pages
+3) High-confidence fuzzy/similar question text match
+   - normalize punctuation/case/whitespace
+   - compare label similarity (token overlap / Levenshtein / equivalent)
+   - require confidence threshold (e.g. >= 0.86) before autofill
+4) Optional synonym map for common application questions:
+   - “why do you want this role”
+   - “motivation for applying”
+   - “supporting statement”
+   - etc.
+
+Rules:
+- If multiple candidates match, pick best confidence; if close collision, do not autofill — show chooser or skip
+- Prefer same employer/ATS match as slight boost, but allow cross-employer for generic questions
+- Employer-specific answers (detected by org names in value or highly specific wording) should prefer same-employer scope or require higher confidence
+- Recalculate on each scan/step change
+
+==================================================
+UI / UX (MUST INCLUDE)
+==================================================
+Sidebar:
+- Toggle: “Remember answers for future applications” (default ON if client insists on full feature, but make it visible and disable-able)
+- When saved: subtle confirmation “Saved for future applications”
+- When prefilling from memory: badge/note “From previous application”
+- Required-field integration: remembered value can satisfy required gap when filled
+- Manage panel:
+  - list remembered answers (question, snippet, last used)
+  - edit value
+  - delete one
+  - delete all
+- Page clear remains, plus global clear
+
+Do not clutter; keep JOBSAGE visual language.
+
+==================================================
+INTEGRATION POINTS
+==================================================
+Update as needed:
+- artifacts/chrome-extension/src/lib/answerMemory.ts (core)
+- questionDetector.ts (classification/eligibility hooks)
+- prefill.ts / content.tsx (precedence + suppression)
+- Sidebar.tsx (controls + manage UI)
+- tests: answerMemory + new library matching tests
+
+Do not send remembered answers into AI prompts just for storage.
+Do not weaken restricted/sensitive exclusions.
+
+==================================================
+TESTS
+==================================================
+Must cover:
+- candidate typing saved; extension/AI/profile fills NOT saved
+- cross-page / cross-host reuse for similar questions
+- high-confidence fuzzy match prefills
+- low-confidence / collision does NOT prefill wrongly
+- sensitive fields never saved/restored
+- non-overwrite + typing wins
+- manage/edit/delete/global delete
+- SPA + iframe rebind
+- migration from old page memory if applicable
+- required gap cleared when remembered value applied
+
+==================================================
+DELIVERABLE
+==================================================
+1) Working full Answer Library remembrance in the extension
+2) Files changed + how matching works
+3) Manual test script for 2 different application pages with similar questions
+4) Any deferred items only if truly blocked (e.g. backend sync), with exact reason
+
+Ship the client feature: remember new candidate values and reuse them on future applications.
