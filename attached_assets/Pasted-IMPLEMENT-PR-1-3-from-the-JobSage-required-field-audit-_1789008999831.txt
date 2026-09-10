@@ -1,0 +1,66 @@
+IMPLEMENT PR 1–3 from the JobSage required-field audit. Keep scope tight.
+
+Context:
+- Requiredness is currently not implemented.
+- Trailing * is stripped by cleanText and its meaning is lost.
+- PrefillResult.missing means “no matching data”, NOT “required and empty”.
+- Do NOT send requiredness to the AI model / structured-prefill API yet.
+- Do NOT force-push. Do NOT change unrelated files.
+
+Goals:
+1) Detect required vs unknown cleanly from the DOM.
+2) Carry that through DetectedQuestion (and structured descriptors optionally for UI/prefill summaries).
+3) Show a subtle * on confirmed required fields in Sidebar.
+4) Differentiate required-missing from generic missing in prefill summary.
+
+Implement:
+
+A) questionDetector.ts
+- Add RequiredSource + requiredness fields to DetectedQuestion:
+  required: boolean
+  requiredSource: "dom"|"aria"|"label"|"hint"|"group"|"api"|"heuristic"|"unknown"
+  requiredConfidence: number
+  requiredKnown: boolean
+- Add getRequiredness(field) with precedence:
+  1. native required
+  2. aria-required="true"
+  3. aria-required="false" => known optional
+  4. clear label/hint: required / mandatory / (required)
+  5. recognized required marker/class near label
+  6. otherwise unknown (requiredKnown=false; do NOT treat as optional)
+- Capture trailing * evidence BEFORE cleanText removes it.
+- Recompute requiredness on every scan (no permanent cache by id).
+- Keep existing classification/buckets unchanged.
+- Do not broaden checkbox/file scanning in this PR.
+
+B) Structured + prefill plumbing
+- Optionally pass required metadata on StructuredFieldDescriptor for UI only; do not change backend API contract.
+- Update PrefillResult so UI can show:
+  - requiredMissing count/list separately from generic missing
+- Do not change autofill fill logic beyond reporting.
+
+C) Sidebar.tsx
+- For requiredKnown && required: show small * after question label + accessible “Required”.
+- Add tiny legend when any confirmed required fields exist: “* Required”
+- After prefill, if required gaps remain: “N required fields still need your attention.”
+- Restricted/confirmation + required => “Required — complete this yourself”
+- Unknown requiredness: no star, no “Optional”
+
+D) Tests
+- Extend questionDetector tests for:
+  required attr, aria-required true/false, label *, (required) hint, unknown state, iframe, dynamic required change
+- Add/adjust Sidebar/prefill assertions for star visibility and required-missing separation
+- Ensure existing behavior still passes
+
+Constraints:
+- Extension-side only for required decisions
+- Advisory only; do not block submit
+- No new design system / no purple glow / keep existing colors
+- Prefer small helpers over rewrite
+- Commit with a clear message if asked; otherwise leave changes ready
+
+Deliverable:
+1. Summary of files changed
+2. How required vs unknown is represented
+3. How to manually verify in sidebar
+4. What was intentionally deferred (checkboxes, files, groups, backend, validation)
