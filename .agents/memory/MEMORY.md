@@ -39,3 +39,4 @@
 - [Postgres pool error containment](postgres-pool-error-containment.md) — attach idle-client error handling where the shared pool is constructed, not in individual process entry points.
 - [Liveness source fairness](liveness-source-fairness.md) — short deadline batches must reserve capacity per source or a large job-board backlog can starve company-site verification indefinitely.
 - [Priority quota backfill](priority-quota-backfill.md) — reserved batch slots must backfill from other eligible work or N+1 completion checks can falsely report an empty queue.
+- [Smart Apply requiredness](smart-apply-requiredness.md) — unknown is not optional; DOM requiredness stays extension-side and advisory until a trusted API source exists.

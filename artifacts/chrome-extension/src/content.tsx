@@ -8,6 +8,7 @@ import {
 import {
   createQuestionWatcher,
   fillStructuredField,
+  getQuestionField,
   getStructuredFieldDescriptors,
   type DetectedQuestion,
 } from "./lib/questionDetector";
@@ -225,6 +226,36 @@ async function confirmTrackedApplication(): Promise<void> {
   return retryTrackedApplicationConfirmation(requestConfirmation);
 }
 
+function requiredQuestionGaps(questions: DetectedQuestion[]): string[] {
+  return questions
+    .filter((question) => question.requiredKnown && question.required)
+    .filter((question) => {
+      const field = getQuestionField(question.id);
+      if (!field) return false;
+      if (field instanceof HTMLInputElement && field.type === "radio") {
+        if (!field.name) return !field.checked;
+        const escaped =
+          typeof CSS !== "undefined" && CSS.escape
+            ? CSS.escape(field.name)
+            : field.name.replace(/["\\]/g, "\\$&");
+        return !field.ownerDocument.querySelector(`input[type="radio"][name="${escaped}"]:checked`);
+      }
+      return !field.value.trim();
+    })
+    .map((question) => question.question);
+}
+
+function reconcileRequiredGaps(
+  result: PrefillResult,
+  questions: DetectedQuestion[],
+): PrefillResult {
+  const gaps = requiredQuestionGaps(questions);
+  result.requiredMissing = Array.from(new Set([...result.requiredMissing, ...gaps]));
+  const gapLabels = new Set(gaps);
+  result.missing = result.missing.filter((label) => !gapLabels.has(label));
+  return result;
+}
+
 async function prefillApplicationDetails(questions: DetectedQuestion[] = []): Promise<PrefillResult> {
   const response = await sendMessage<{ data?: { profile?: CandidateProfile } | CandidateProfile; error?: string }>({
     type: "API_REQUEST",
@@ -234,6 +265,7 @@ async function prefillApplicationDetails(questions: DetectedQuestion[] = []): Pr
     return {
       filled: [],
       missing: ["your profile details"],
+      requiredMissing: requiredQuestionGaps(questions),
       skipped: [],
       fieldResults: {},
       warning: "Could not load your JOBSAGE profile. Check your connection and try again.",
@@ -250,7 +282,9 @@ async function prefillApplicationDetails(questions: DetectedQuestion[] = []): Pr
     { jobTitle: trackingContext?.jobTitle, preserveExistingEmail },
   );
   const fields = getStructuredFieldDescriptors(questions);
-  if (fields.length === 0) return result;
+  if (fields.length === 0) {
+    return reconcileRequiredGaps(result, questions);
+  }
   const mapped = await sendMessage<{
     data?: { values?: Array<{ id: string; value: string | null }> };
     error?: string;
@@ -284,7 +318,8 @@ async function prefillApplicationDetails(questions: DetectedQuestion[] = []): Pr
   }
   result.filled = Array.from(new Set(result.filled));
   result.missing = Array.from(new Set(result.missing));
-  return result;
+  result.requiredMissing = Array.from(new Set(result.requiredMissing));
+  return reconcileRequiredGaps(result, questions);
 }
 
 async function attachApplicationCv(): Promise<CvAttachResult & { downloaded?: boolean }> {

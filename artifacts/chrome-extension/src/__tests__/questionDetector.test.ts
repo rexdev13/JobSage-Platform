@@ -95,6 +95,98 @@ describe("detectQuestions — Workday style forms", () => {
   });
 });
 
+describe("detectQuestions — requiredness", () => {
+  it("treats native required and aria-required true as confirmed required", () => {
+    setBody(`
+      <label for="native">Supporting statement</label>
+      <textarea id="native" required></textarea>
+      <label for="aria">Professional registration</label>
+      <input id="aria" aria-required="true">
+    `);
+
+    const questions = detectQuestions();
+    expect(questions.map(({ required, requiredKnown, requiredSource }) => ({
+      required,
+      requiredKnown,
+      requiredSource,
+    }))).toEqual([
+      { required: true, requiredKnown: true, requiredSource: "dom" },
+      { required: true, requiredKnown: true, requiredSource: "aria" },
+    ]);
+  });
+
+  it("keeps explicit aria optional separate from unknown requiredness", () => {
+    setBody(`
+      <label for="optional">Preferred name</label>
+      <input id="optional" aria-required="false">
+      <label for="unknown">Portfolio URL</label>
+      <input id="unknown">
+      <label for="not-required">References not required</label>
+      <input id="not-required">
+    `);
+
+    const questions = detectQuestions();
+    expect(questions[0]).toMatchObject({
+      required: false,
+      requiredKnown: true,
+      requiredSource: "aria",
+    });
+    expect(questions[1]).toMatchObject({
+      required: false,
+      requiredKnown: false,
+      requiredSource: "unknown",
+      requiredConfidence: 0,
+    });
+    expect(questions[2]).toMatchObject({
+      required: false,
+      requiredKnown: false,
+      requiredSource: "unknown",
+    });
+  });
+
+  it("captures label asterisks, required hints, and marker classes before cleaning the label", () => {
+    setBody(`
+      <label for="star">Why are you suitable? *</label>
+      <textarea id="star"></textarea>
+      <label for="hinted">Employment history</label>
+      <span id="required-hint">(required)</span>
+      <textarea id="hinted" aria-describedby="required-hint"></textarea>
+      <label class="field-required" for="classed">Qualification</label>
+      <input id="classed">
+    `);
+
+    const questions = detectQuestions();
+    expect(questions[0]).toMatchObject({
+      question: "Why are you suitable?",
+      required: true,
+      requiredSource: "label",
+    });
+    expect(questions[1]).toMatchObject({
+      required: true,
+      requiredSource: "hint",
+    });
+    expect(questions[2]).toMatchObject({
+      required: true,
+      requiredSource: "group",
+    });
+  });
+
+  it("detects requiredness inside an accessible same-origin iframe", () => {
+    const iframe = document.createElement("iframe");
+    document.body.appendChild(iframe);
+    iframe.contentDocument!.body.innerHTML = `
+      <label for="iframe-required">Supporting information</label>
+      <textarea id="iframe-required" required></textarea>
+    `;
+
+    expect(detectQuestions()[0]).toMatchObject({
+      required: true,
+      requiredKnown: true,
+      requiredSource: "dom",
+    });
+  });
+});
+
 describe("detectQuestions — dedicated ATS selectors", () => {
   it("detects a labelled NHS Jobs supporting statement from the NHS selector", () => {
     setBody(`<textarea id="supportingInformation"></textarea>`);
@@ -397,6 +489,25 @@ describe("insertAnswer", () => {
 });
 
 describe("createQuestionWatcher — live re-scanning", () => {
+  it("notifies when an existing field becomes required", async () => {
+    setBody(`<label for="dynamic">Supporting information</label><textarea id="dynamic"></textarea>`);
+    const watcher = createQuestionWatcher();
+    expect(watcher.getSnapshot()[0]).toMatchObject({ requiredKnown: false, required: false });
+    let notified = 0;
+    watcher.subscribe(() => notified++);
+
+    (document.getElementById("dynamic") as HTMLTextAreaElement).required = true;
+    await new Promise((resolve) => setTimeout(resolve, 600));
+
+    expect(notified).toBe(1);
+    expect(watcher.getSnapshot()[0]).toMatchObject({
+      requiredKnown: true,
+      required: true,
+      requiredSource: "dom",
+    });
+    watcher.stop();
+  });
+
   it("notifies subscribers when new questions appear (debounced)", async () => {
     setBody(`<div id="step"></div>`);
     const watcher = createQuestionWatcher();

@@ -31,6 +31,19 @@ describe("prefillPersonalDetails", () => {
     expect((document.getElementById("ni") as HTMLInputElement).value).toBe("");
     expect(result.filled).toEqual(["first name", "email"]);
     expect(result.missing).toEqual(expect.arrayContaining(["phone", "postcode"]));
+    expect(result.requiredMissing).toEqual([]);
+  });
+
+  it("reports required missing fields separately from generic missing profile data", () => {
+    document.body.innerHTML = `
+      <label for="phone">Mobile phone</label><input id="phone" required>
+      <label for="postcode">Postcode</label><input id="postcode">
+    `;
+
+    const result = prefillPersonalDetails({});
+
+    expect(result.requiredMissing).toEqual(["phone"]);
+    expect(result.missing).toEqual(["postcode"]);
   });
 
   it("does not fill an ambiguous bare name field", () => {
