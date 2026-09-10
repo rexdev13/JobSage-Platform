@@ -241,7 +241,7 @@ export async function sendJobAlertEmail(
       ? `JOBSAGE: ${totalRoles} new role${totalRoles !== 1 ? "s" : ""} matching your profile`
       : `JOBSAGE: Your ${frequencyLabel} job alert`;
 
-  await resend.emails.send({
+  const result = await resend.emails.send({
     from: `JOBSAGE <${FROM}>`,
     to,
     subject,
@@ -329,6 +329,15 @@ export async function sendCandidateContactEmail(opts: {
 
 export const OPS_INBOX = process.env.EMAIL_OPS ?? "ops@jobsage.co.uk";
 
+export function escapeEmailHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export async function sendSpeculativeCVToOps(opts: {
   candidateEmail: string;
   candidateName: string;
@@ -337,6 +346,8 @@ export async function sendSpeculativeCVToOps(opts: {
   applicationId: number;
   cvFilename?: string | null;
   cvContent?: Buffer | null;
+  coverLetterFilename?: string | null;
+  coverLetterContent?: Buffer | null;
   vacancyTitle?: string | null;
   vacancyUrl?: string | null;
   notes?: string | null;
@@ -356,15 +367,33 @@ export async function sendSpeculativeCVToOps(opts: {
   if (opts.cvContent && opts.cvFilename) {
     attachments.push({ filename: opts.cvFilename, content: opts.cvContent });
   }
+  if (opts.coverLetterContent && opts.coverLetterFilename) {
+    attachments.push({ filename: opts.coverLetterFilename, content: opts.coverLetterContent });
+  }
+
+  const safeCandidateName = escapeEmailHtml(opts.candidateName);
+  const safeCandidateUserId = escapeEmailHtml(opts.candidateUserId);
+  const safeCompanyName = escapeEmailHtml(opts.companyName);
+  const safeJobsageEmail = escapeEmailHtml(contactEmail);
+  const safeVacancyTitle = opts.vacancyTitle ? escapeEmailHtml(opts.vacancyTitle) : null;
+  const safeVacancyUrl =
+    opts.vacancyUrl && /^https?:\/\//i.test(opts.vacancyUrl)
+      ? escapeEmailHtml(opts.vacancyUrl)
+      : null;
+  const safeCvFilename = opts.cvFilename ? escapeEmailHtml(opts.cvFilename) : null;
+  const safeCoverLetterFilename = opts.coverLetterFilename
+    ? escapeEmailHtml(opts.coverLetterFilename)
+    : null;
+  const safeNotes = opts.notes ? escapeEmailHtml(opts.notes).replace(/\n/g, "<br>") : null;
 
   // Send FROM the candidate's JOBSAGE alias — requires mail.jobsage.app DNS verification.
   // TO the resolved employer address (or OPS_INBOX as fallback when employer has no account).
   // Until DNS is verified Resend rejects this; emailDelivered stays false → inbox not created.
-  await resend.emails.send({
-    from: `${opts.candidateName} <${opts.jobsageEmail}>`,
+  const result = await resend.emails.send({
+    from: `${opts.candidateName.replace(/[\r\n<>]/g, " ").trim()} <${opts.jobsageEmail}>`,
     to: recipientEmail,
     replyTo: opts.jobsageEmail,
-    subject: `[CV] ${opts.candidateName} → ${opts.vacancyTitle ?? opts.companyName}`,
+    subject: `[CV] ${opts.candidateName.replace(/[\r\n]/g, " ")} → ${(opts.vacancyTitle ?? opts.companyName).replace(/[\r\n]/g, " ")}`,
     attachments,
     html: `<!DOCTYPE html>
 <html lang="en">
@@ -375,23 +404,27 @@ export async function sendSpeculativeCVToOps(opts: {
       <h2 style="color:#0f172a;margin:0 0 16px;">Speculative CV Submission</h2>
       <table width="100%" cellpadding="4" cellspacing="0" style="font-size:14px;color:#334155;">
         <tr><td style="width:160px;font-weight:600;">Application ID</td><td>#${opts.applicationId}</td></tr>
-        <tr><td style="font-weight:600;">Candidate</td><td>${opts.candidateName} &lt;${contactEmail}&gt;</td></tr>
-        <tr><td style="font-weight:600;">User ID</td><td>${opts.candidateUserId}</td></tr>
-        <tr><td style="font-weight:600;">Target company</td><td>${opts.companyName}</td></tr>
-        <tr><td style="font-weight:600;">Vacancy</td><td>${opts.vacancyTitle ?? "General CV submission"}</td></tr>
-        <tr><td style="font-weight:600;">Vacancy link</td><td>${opts.vacancyUrl ? `<a href="${opts.vacancyUrl}">${opts.vacancyUrl}</a>` : "—"}</td></tr>
-        <tr><td style="font-weight:600;">CV document</td><td>${opts.cvFilename ?? "not attached"}</td></tr>
-        <tr><td style="font-weight:600;">Cover note</td><td>${opts.notes ? opts.notes.replace(/\n/g, "<br>") : "—"}</td></tr>
+        <tr><td style="font-weight:600;">Candidate</td><td>${safeCandidateName} &lt;${safeJobsageEmail}&gt;</td></tr>
+        <tr><td style="font-weight:600;">User ID</td><td>${safeCandidateUserId}</td></tr>
+        <tr><td style="font-weight:600;">Target company</td><td>${safeCompanyName}</td></tr>
+        <tr><td style="font-weight:600;">Vacancy</td><td>${safeVacancyTitle ?? "General CV submission"}</td></tr>
+        <tr><td style="font-weight:600;">Vacancy link</td><td>${safeVacancyUrl ? `<a href="${safeVacancyUrl}">${safeVacancyUrl}</a>` : "—"}</td></tr>
+        <tr><td style="font-weight:600;">CV document</td><td>${safeCvFilename ?? "not attached"}</td></tr>
+        <tr><td style="font-weight:600;">Cover letter</td><td>${safeCoverLetterFilename ?? "not attached"}</td></tr>
+        <tr><td style="font-weight:600;">Note</td><td>${safeNotes ?? "—"}</td></tr>
       </table>
-      ${opts.jobsageEmail ? `<p style="margin:16px 0 0;font-size:12px;color:#64748b;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;padding:10px;">⚠️ Contact this candidate via their JOBSAGE alias only: <strong>${opts.jobsageEmail}</strong>. Any personal contact info in the attached file should be disregarded.</p>` : ""}
+      ${opts.jobsageEmail ? `<p style="margin:16px 0 0;font-size:12px;color:#64748b;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;padding:10px;">Contact this candidate via their JOBSAGE alias only: <strong>${safeJobsageEmail}</strong>. Any personal contact info in the attached file should be disregarded.</p>` : ""}
       <p style="margin:16px 0 0;font-size:12px;color:#94a3b8;">
-        Sent by JOBSAGE platform. Please follow up with ${opts.companyName} on behalf of the candidate if appropriate.
+        Sent by JOBSAGE platform. Please follow up with ${safeCompanyName} on behalf of the candidate if appropriate.
       </p>
     </td></tr>
   </table>
 </body>
 </html>`,
   });
+  if (result.error) {
+    throw new Error(result.error.message || "Email provider rejected the CV delivery.");
+  }
 }
 
 export async function sendSpeculativeCVNotification(opts: {

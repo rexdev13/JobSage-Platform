@@ -2682,6 +2682,7 @@ export const GenerateCoverLetterBody = zod.object({
   location: zod.string().nullish(),
   regulator: zod.string().nullish(),
   roleId: zod.number().nullish(),
+  cvDocumentId: zod.number().nullish(),
 });
 
 export const GenerateCoverLetterResponse = zod.object({
@@ -2960,6 +2961,9 @@ export const ListSpeculativeApplicationsResponse = zod.object({
       sourceType: zod.enum(["job_board", "company_site"]).nullish(),
       boardName: zod.string().nullish(),
       cvDocumentId: zod.number().nullish(),
+      coverLetterDocumentId: zod.number().nullish(),
+      coverLetterFilename: zod.string().nullish(),
+      coverLetterIncluded: zod.boolean().optional(),
       deliveryStatus: zod.enum(["pending", "delivered", "failed"]).optional(),
       deliveryError: zod.string().nullish(),
       deliveryAttempts: zod.number().optional(),
@@ -3001,6 +3005,14 @@ export const SendSpeculativeApplicationBody = zod.object({
     .describe(
       "Reject the request instead of using the legacy operations fallback when no direct employer email is stored.",
     ),
+  includeCoverLetter: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Attach the finalized cover letter as a PDF alongside the selected CV.",
+    ),
+  coverLetterGeneratedText: zod.string().nullish(),
+  coverLetterText: zod.string().nullish(),
 });
 
 export const SendSpeculativeApplicationResponse = zod.object({
@@ -3018,6 +3030,9 @@ export const SendSpeculativeApplicationResponse = zod.object({
     sourceType: zod.enum(["job_board", "company_site"]).nullish(),
     boardName: zod.string().nullish(),
     cvDocumentId: zod.number().nullish(),
+    coverLetterDocumentId: zod.number().nullish(),
+    coverLetterFilename: zod.string().nullish(),
+    coverLetterIncluded: zod.boolean().optional(),
     deliveryStatus: zod.enum(["pending", "delivered", "failed"]).optional(),
     deliveryError: zod.string().nullish(),
     deliveryAttempts: zod.number().optional(),

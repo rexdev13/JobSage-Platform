@@ -20,4 +20,8 @@ export interface SendSpeculativeApplicationRequest {
   cvDocumentId?: number | null;
   /** Reject the request instead of using the legacy operations fallback when no direct employer email is stored. */
   requireDirectContact?: boolean;
+  /** Attach the finalized cover letter as a PDF alongside the selected CV. */
+  includeCoverLetter?: boolean;
+  coverLetterGeneratedText?: string | null;
+  coverLetterText?: string | null;
 }

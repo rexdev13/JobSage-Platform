@@ -41,7 +41,14 @@ function useCoverLetterStream() {
     setError(null);
   }
 
-  async function generate(payload: { jobTitle: string; employer?: string; location?: string | null }) {
+  async function generate(payload: {
+    jobTitle: string;
+    employer?: string;
+    location?: string | null;
+    jobDescription?: string | null;
+    roleId?: number | null;
+    cvDocumentId?: number | null;
+  }) {
     reset();
     setStreaming(true);
     const base = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -159,6 +166,7 @@ export function SponsorVacancyApplyModal({
   const coverLetter = useCoverLetterStream();
   const [clEditable, setClEditable] = useState("");
   const [clCopied, setClCopied] = useState(false);
+  const [includeCoverLetter, setIncludeCoverLetter] = useState(true);
   const [step, setStep] = useState<"details" | "coverletter" | "submitting" | "done" | "nextMatches">("details");
   const [aiAnswer, setAiAnswer] = useState("");
   const [nextMatchRoles, setNextMatchRoles] = useState<Array<{
@@ -169,14 +177,16 @@ export function SponsorVacancyApplyModal({
   useEffect(() => {
     if (coverLetter.done && !clEditable) {
       setClEditable(coverLetter.text);
+      setIncludeCoverLetter(true);
     }
   }, [coverLetter.done, coverLetter.text, clEditable]);
 
   async function handleApply() {
     setStep("submitting");
-    const notes = clEditable.trim()
-      ? `Cover letter for ${vacancyTitle}:\n\n${clEditable}`
-      : `Speculative application for the role: ${vacancyTitle}`;
+    const attachingCoverLetter = includeCoverLetter && coverLetter.done && clEditable.trim().length > 0;
+    const notes = attachingCoverLetter
+      ? `CV and cover letter submitted for ${vacancyTitle}.`
+      : `CV submitted for ${vacancyTitle}.`;
 
     sendCVMutation.mutate(
       {
@@ -196,6 +206,9 @@ export function SponsorVacancyApplyModal({
            requireDirectContact,
           notes,
           cvDocumentId: selectedCvId ?? null,
+          includeCoverLetter: attachingCoverLetter,
+          coverLetterGeneratedText: attachingCoverLetter ? coverLetter.text : undefined,
+          coverLetterText: attachingCoverLetter ? clEditable.trim() : undefined,
         },
       },
       {
@@ -350,11 +363,13 @@ export function SponsorVacancyApplyModal({
                   <CheckCircle2 className="w-8 h-8 text-emerald-600" />
                 </div>
                 <h3 className="text-lg font-bold text-foreground mb-1">
-                  {speculative ? "CV sent!" : "Application submitted!"}
+                  {includeCoverLetter && coverLetter.done && clEditable.trim()
+                    ? "CV and cover letter sent!"
+                    : speculative ? "CV sent!" : "Application submitted!"}
                 </h3>
                 <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
                   {speculative
-                    ? <>Your speculative CV has been sent to <strong>{companyName}</strong>. You can track it in your Application Tracker.</>
+                    ? <>Your {includeCoverLetter && coverLetter.done && clEditable.trim() ? "CV and cover letter have" : "CV has"} been sent to <strong>{companyName}</strong>. You can track it in your Application Tracker.</>
                     : <>Your application for <strong>{vacancyTitle}</strong> at <strong>{companyName}</strong> has been recorded. You can track it in your Application Tracker.</>
                   }
                 </p>
@@ -367,7 +382,11 @@ export function SponsorVacancyApplyModal({
             {step === "submitting" && (
               <div className="flex flex-col items-center justify-center py-10">
                 <Loader2 className="w-9 h-9 text-primary animate-spin mb-3" />
-                <p className="text-sm font-medium text-foreground">Submitting your application…</p>
+                <p className="text-sm font-medium text-foreground">
+                  {includeCoverLetter && coverLetter.done && clEditable.trim()
+                    ? "Preparing and sending both PDFs…"
+                    : "Submitting your application…"}
+                </p>
               </div>
             )}
 
@@ -480,7 +499,15 @@ export function SponsorVacancyApplyModal({
                               </p>
                               <Button
                                 size="sm"
-                                onClick={() => void coverLetter.generate({ jobTitle: vacancyTitle, employer: companyName, location })}
+                                disabled={selectedCvId == null}
+                                onClick={() => void coverLetter.generate({
+                                  jobTitle: vacancyTitle,
+                                  employer: companyName,
+                                  location,
+                                  jobDescription: description,
+                                  roleId,
+                                  cvDocumentId: selectedCvId,
+                                })}
                                 className="gap-2"
                               >
                                 <Sparkles className="w-4 h-4" /> Generate Cover Letter
@@ -495,7 +522,15 @@ export function SponsorVacancyApplyModal({
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => void coverLetter.generate({ jobTitle: vacancyTitle, employer: companyName, location })}
+                                disabled={selectedCvId == null}
+                                onClick={() => void coverLetter.generate({
+                                  jobTitle: vacancyTitle,
+                                  employer: companyName,
+                                  location,
+                                  jobDescription: description,
+                                  roleId,
+                                  cvDocumentId: selectedCvId,
+                                })}
                               >
                                 Try Again
                               </Button>
@@ -557,8 +592,12 @@ export function SponsorVacancyApplyModal({
                     {cvDocuments.length >= 2 ? (
                       <div className="relative">
                         <select
-                          value={selectedCvId ?? ""}
-                          onChange={(e) => setSelectedCvId(e.target.value ? parseInt(e.target.value, 10) : null)}
+                           value={selectedCvId ?? ""}
+                           onChange={(e) => {
+                             setSelectedCvId(e.target.value ? parseInt(e.target.value, 10) : null);
+                             coverLetter.reset();
+                             setClEditable("");
+                           }}
                           className="w-full appearance-none text-sm rounded-lg border border-border bg-muted/40 px-3 py-2 pr-8 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                         >
                           {cvDocuments.map((cv) => {
@@ -584,6 +623,25 @@ export function SponsorVacancyApplyModal({
                       );
                     })()}
                   </div>
+                )}
+
+                {coverLetter.done && clEditable.trim() && (
+                  <label className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50/60 px-4 py-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includeCoverLetter}
+                      onChange={(event) => setIncludeCoverLetter(event.target.checked)}
+                      className="mt-0.5"
+                    />
+                    <span>
+                      <span className="block text-sm font-semibold text-emerald-900">
+                        Ready to attach as PDF
+                      </span>
+                      <span className="block text-xs text-emerald-800/80 mt-0.5">
+                        Send this edited cover letter together with the selected CV.
+                      </span>
+                    </span>
+                  </label>
                 )}
 
                 {/* Info notice */}
@@ -653,10 +711,10 @@ export function SponsorVacancyApplyModal({
                   disabled={sendCVMutation.isPending}
                 >
                   <Send className="w-3.5 h-3.5" />
-                  {speculative
-                    ? (alreadySent ? "Resend CV" : "Send CV")
-                    : (alreadySent ? "Resend CV" : "Send CV")
-                  }
+                   {alreadySent ? "Resend " : "Send "}
+                   {includeCoverLetter && coverLetter.done && clEditable.trim()
+                     ? "CV + cover letter"
+                     : "CV only"}
                 </Button>
               </div>
             </div>

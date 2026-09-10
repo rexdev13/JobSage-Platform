@@ -25,6 +25,7 @@ import {
 } from "../lib/employerRecipient";
 import { SPONSOR_VACANCY_ID_OFFSET } from "../lib/sponsorVacancyRoles";
 import { getVacancyLinkStatus } from "../lib/vacancyLiveness";
+import { buildCoverLetterPdf, safeCoverLetterFilename } from "../lib/coverLetterPdf";
 
 const APP_URL = process.env.APP_URL ?? "https://jobsage.co.uk";
 
@@ -79,6 +80,9 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
     sourceType,
     boardName,
     requireDirectContact,
+    includeCoverLetter,
+    coverLetterGeneratedText,
+    coverLetterText,
   } = req.body as {
     companyName?: string;
     sponsorLicenceId?: number | null;
@@ -91,6 +95,9 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
     sourceType?: "job_board" | "company_site" | null;
     boardName?: string | null;
     requireDirectContact?: boolean;
+    includeCoverLetter?: boolean;
+    coverLetterGeneratedText?: string | null;
+    coverLetterText?: string | null;
   };
 
   if (!companyName || typeof companyName !== "string" || companyName.trim().length === 0) {
@@ -99,6 +106,17 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
   }
   if (sourceType != null && sourceType !== "job_board" && sourceType !== "company_site") {
     res.status(400).json({ error: "sourceType must be job_board or company_site." });
+    return;
+  }
+  if (includeCoverLetter === true && (typeof coverLetterText !== "string" || !coverLetterText.trim())) {
+    res.status(400).json({ error: "A completed cover letter is required when includeCoverLetter is true." });
+    return;
+  }
+  if (
+    (coverLetterText != null && typeof coverLetterText !== "string") ||
+    (coverLetterGeneratedText != null && typeof coverLetterGeneratedText !== "string")
+  ) {
+    res.status(400).json({ error: "Cover letter text must be a string." });
     return;
   }
   if (vacancyUrl) {
@@ -283,6 +301,9 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
         sourceType: sourceType ?? null,
         boardName: boardName ?? null,
         cvDocumentId: cvDocument.id,
+        coverLetterDocumentId: null,
+        coverLetterFilename: null,
+        coverLetterIncluded: false,
         jobsageEmail,
         deliveryStatus: "pending" as const,
         deliveryError: null,
@@ -314,6 +335,11 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
   }
 
   let cvContent: Buffer | null = null;
+  let coverLetterContent: Buffer | null = null;
+  let coverLetterDocumentId: number | null = null;
+  let coverLetterFilename: string | null = null;
+  let persistedGeneratedCoverLetterText: string | null = null;
+  let persistedFinalCoverLetterText: string | null = null;
   let deliveryFailure: string | null = null;
   if (cvDocument.storageKey) {
     try {
@@ -324,6 +350,76 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
     } catch (err: unknown) {
       console.error("[speculative] Could not fetch CV from storage:", err);
       deliveryFailure = "The selected PDF CV could not be loaded from secure storage.";
+    }
+  }
+
+  if (!deliveryFailure && cvContent && includeCoverLetter === true) {
+    try {
+      const storage = new ObjectStorageService();
+      persistedFinalCoverLetterText = maskPersonalContactInfo(coverLetterText!.trim(), jobsageEmail);
+      persistedGeneratedCoverLetterText = coverLetterGeneratedText?.trim()
+        ? maskPersonalContactInfo(coverLetterGeneratedText.trim(), jobsageEmail)
+        : persistedFinalCoverLetterText;
+      coverLetterFilename = safeCoverLetterFilename(normalizedCompanyName, normalizedVacancyTitle);
+      coverLetterContent = await buildCoverLetterPdf({
+        candidateName,
+        jobsageEmail,
+        companyName: normalizedCompanyName,
+        vacancyTitle: normalizedVacancyTitle,
+        finalText: persistedFinalCoverLetterText,
+        date: new Date(),
+      });
+
+      if (
+        coverLetterContent.length > 2 * 1024 * 1024 ||
+        cvContent.length + coverLetterContent.length > 10 * 1024 * 1024
+      ) {
+        throw new Error("The CV and cover letter exceed the safe email attachment size.");
+      }
+
+      const storageKey = await storage.saveFileBuffer({
+        buffer: coverLetterContent,
+        contentType: "application/pdf",
+      });
+      await storage.trySetObjectEntityAclPolicy(storageKey, {
+        owner: userId,
+        visibility: "private",
+      });
+      const [coverLetterDocument] = await db
+        .insert(documentsTable)
+        .values({
+          userId,
+          filename: coverLetterFilename,
+          mimeType: "application/pdf",
+          storageKey,
+          fileSize: coverLetterContent.length,
+          documentType: "cover_letter",
+          label: `Cover letter for ${normalizedVacancyTitle ?? normalizedCompanyName}`,
+          isPrimary: false,
+          parsedData: {
+            generatedText: persistedGeneratedCoverLetterText,
+            finalText: persistedFinalCoverLetterText,
+            sourceCvDocumentId: cvDocument.id,
+            companyName: normalizedCompanyName,
+            sponsorLicenceId: sponsorLicenceId ?? null,
+            vacancyTitle: normalizedVacancyTitle,
+            vacancyRef: normalizedVacancyRef,
+            roleId: roleId ?? null,
+            applicationId: app.id,
+            includedInSend: false,
+          },
+        } as any)
+        .returning({ id: documentsTable.id });
+      coverLetterDocumentId = coverLetterDocument?.id ?? null;
+      if (coverLetterDocumentId == null) {
+        throw new Error("The cover letter could not be persisted.");
+      }
+    } catch (err: unknown) {
+      console.error("[speculative] Could not build the cover letter attachment:", err);
+      deliveryFailure = err instanceof Error
+        ? err.message
+        : "The cover letter attachment could not be prepared.";
+      coverLetterContent = null;
     }
   }
 
@@ -347,6 +443,8 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
       applicationId: app.id,
       cvFilename: cvDocument.filename,
       cvContent,
+       coverLetterFilename,
+       coverLetterContent,
       vacancyTitle: normalizedVacancyTitle,
       vacancyUrl: vacancyUrl ?? null,
       notes: maskedNotes,
@@ -382,6 +480,9 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
     .update(speculativeApplicationsTable)
     .set({
       cvDocumentId: cvDocument.id,
+      coverLetterDocumentId,
+      coverLetterFilename,
+      coverLetterIncluded: emailDelivered && coverLetterDocumentId != null,
       emailSent: emailDelivered,
       emailSentAt: emailDelivered ? now : null,
       emailRecipient: employerContactEmail,
@@ -392,6 +493,35 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
     })
     .where(eq(speculativeApplicationsTable.id, app.id))
     .returning();
+  if (
+    coverLetterDocumentId != null &&
+    persistedGeneratedCoverLetterText != null &&
+    persistedFinalCoverLetterText != null
+  ) {
+    await db
+      .update(documentsTable)
+      .set({
+        parsedData: {
+          generatedText: persistedGeneratedCoverLetterText,
+          finalText: persistedFinalCoverLetterText,
+          sourceCvDocumentId: cvDocument.id,
+          companyName: normalizedCompanyName,
+          sponsorLicenceId: sponsorLicenceId ?? null,
+          vacancyTitle: normalizedVacancyTitle,
+          vacancyRef: normalizedVacancyRef,
+          roleId: roleId ?? null,
+          applicationId: app.id,
+          includedInSend: emailDelivered,
+          sentAt: emailDelivered ? now.toISOString() : null,
+        },
+      } as any)
+      .where(
+        and(
+          eq(documentsTable.id, coverLetterDocumentId),
+          eq(documentsTable.userId, userId),
+        ),
+      );
+  }
   await db
     .update(speculativeApplicationDeliveryAttemptsTable)
     .set({

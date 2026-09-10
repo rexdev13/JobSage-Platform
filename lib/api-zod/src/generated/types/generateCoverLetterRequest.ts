@@ -13,4 +13,5 @@ export interface GenerateCoverLetterRequest {
   location?: string | null;
   regulator?: string | null;
   roleId?: number | null;
+  cvDocumentId?: number | null;
 }

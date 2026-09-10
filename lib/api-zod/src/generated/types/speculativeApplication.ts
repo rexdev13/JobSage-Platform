@@ -25,6 +25,9 @@ export interface SpeculativeApplication {
   sourceType?: SpeculativeApplicationSourceType;
   boardName?: string | null;
   cvDocumentId?: number | null;
+  coverLetterDocumentId?: number | null;
+  coverLetterFilename?: string | null;
+  coverLetterIncluded?: boolean;
   deliveryStatus?: SpeculativeApplicationDeliveryStatus;
   deliveryError?: string | null;
   deliveryAttempts?: number;
