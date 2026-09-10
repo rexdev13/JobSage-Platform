@@ -1288,8 +1288,11 @@ function SendCvEmployerGroup({
         <div className="min-w-0">
           <h3 className="font-semibold text-foreground leading-snug">{employer}</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {vacancies.length} matched {vacancies.length === 1 ? "vacancy" : "vacancies"} with an available application route
+             {vacancies.length} matched {vacancies.length === 1 ? "vacancy" : "vacancies"} available for Send CV
           </p>
+           <p className="text-[11px] text-muted-foreground mt-1">
+             No destination email is required — submissions without contact details stay pending.
+           </p>
         </div>
       </div>
 
@@ -1297,10 +1300,10 @@ function SendCvEmployerGroup({
         {vacancies.map((item) => {
           const { role } = item;
           const cvSent = cvSentRoleIds.includes(role.id);
-          const canEmailCv = canSendCvForVacancy(item);
+           const canSendCv = canSendCvForVacancy(item);
           const hasVerifiedApplyRoute = hasUsableSendCvApplyRoute(item);
           const sourceLabel = !item.applyUrl
-            ? "Email only"
+             ? item.contactEmail ? "Employer email" : "No destination yet"
             : role.sourceType === "job_board"
               ? role.boardName?.trim() || "Job board"
               : role.sourceType === "company_site"
@@ -1341,7 +1344,7 @@ function SendCvEmployerGroup({
               </div>
 
               <div className="mt-3 flex flex-wrap gap-2">
-                {canEmailCv && hasCv ? (
+                 {canSendCv && hasCv ? (
                   <Button
                     size="sm"
                     variant={cvSent ? "outline" : "default"}
@@ -1349,15 +1352,15 @@ function SendCvEmployerGroup({
                   >
                     <Send className="w-4 h-4 mr-1.5" /> {cvSent ? "Resend CV" : "Send CV"}
                   </Button>
-                ) : canEmailCv ? (
+                 ) : canSendCv ? (
                   <Button size="sm" variant="outline" onClick={onUploadCv}>
-                    <FileText className="w-4 h-4 mr-1.5" /> Upload CV to send
+                     <FileText className="w-4 h-4 mr-1.5" /> Upload CV for Send CV
                   </Button>
                 ) : null}
                 {hasVerifiedApplyRoute && (
                   <Button
                     size="sm"
-                    variant={canEmailCv ? "outline" : "default"}
+                     variant={canSendCv ? "outline" : "default"}
                     onClick={() => onApply(item)}
                   >
                     <ExternalLink className="w-4 h-4 mr-1.5" />
