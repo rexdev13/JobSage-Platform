@@ -105,6 +105,17 @@ export async function selectCompanySiteBatch(
           )
         )
     ),
+    priority_bookmarks AS (
+      SELECT *
+      FROM eligible
+      WHERE bookmarked = true
+      ORDER BY
+        CASE WHEN generic_checked_at IS NULL THEN 0 ELSE 1 END,
+        generic_checked_at ASC NULLS FIRST,
+        ats_checked_at ASC NULLS FIRST,
+        id ASC
+      LIMIT ${bookmarkLimit}
+    ),
     oldest_unbookmarked AS (
       SELECT *
       FROM eligible
@@ -116,23 +127,34 @@ export async function selectCompanySiteBatch(
         id ASC
       LIMIT ${guaranteedOldestSlots}
     ),
-    priority_bookmarks AS (
-      SELECT *
+    overflow AS (
+      SELECT eligible.*
       FROM eligible
-      WHERE bookmarked = true
+      WHERE NOT EXISTS (
+        SELECT 1 FROM priority_bookmarks
+        WHERE priority_bookmarks.id = eligible.id
+      )
+        AND NOT EXISTS (
+          SELECT 1 FROM oldest_unbookmarked
+          WHERE oldest_unbookmarked.id = eligible.id
+        )
       ORDER BY
         CASE WHEN generic_checked_at IS NULL THEN 0 ELSE 1 END,
         generic_checked_at ASC NULLS FIRST,
         ats_checked_at ASC NULLS FIRST,
         id ASC
-      LIMIT LEAST(
-        ${bookmarkLimit},
-        ${batchSize} - (SELECT count(*) FROM oldest_unbookmarked)
+      LIMIT GREATEST(
+        0,
+        ${batchSize}
+          - (SELECT count(*) FROM priority_bookmarks)
+          - (SELECT count(*) FROM oldest_unbookmarked)
       )
     )
     SELECT * FROM oldest_unbookmarked
     UNION ALL
     SELECT * FROM priority_bookmarks
+    UNION ALL
+    SELECT * FROM overflow
   `);
   return result.rows.map((row) => ({
     id: Number(row.id),

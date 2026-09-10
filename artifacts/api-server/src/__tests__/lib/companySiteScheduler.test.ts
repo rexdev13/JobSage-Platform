@@ -169,4 +169,38 @@ describe("company-site scheduler", () => {
     ));
     logSpy.mockRestore();
   });
+
+  it("reports resumable work when the lookahead finds another eligible employer", async () => {
+    executeMock.mockResolvedValue({
+      rows: Array.from({ length: 6 }, (_, index) => ({
+        id: index + 1,
+        organisation_name: `Employer ${index + 1}`,
+        website: `https://employer-${index + 1}.example`,
+        generic_checked_at: null,
+        ats_checked_at: null,
+        careers_url: null,
+        ats_provider: null,
+        bookmarked: false,
+      })),
+    });
+    discoverCompanySiteVacanciesMock.mockResolvedValue({
+      adverts: [],
+      pagesFetched: 1,
+      genericCompleted: true,
+      atsCompleted: false,
+      transientFailure: false,
+    });
+
+    const summary = await runCompanySiteDiscoveryBatch({ batchSize: 5 });
+
+    expect(summary).toEqual(expect.objectContaining({
+      selected: 5,
+      checked: 5,
+      errors: 0,
+      done: false,
+      remaining: 1,
+      remainingIsLowerBound: true,
+    }));
+    expect(discoverCompanySiteVacanciesMock).toHaveBeenCalledTimes(5);
+  });
 });
