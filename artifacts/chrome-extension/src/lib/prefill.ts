@@ -1,4 +1,5 @@
 import { getRequiredness } from "./questionDetector";
+import { runExtensionFieldWrite } from "./fieldWriteProvenance";
 
 export interface CandidateProfile {
   firstName?: string | null;
@@ -59,9 +60,11 @@ function setTextValue(field: HTMLInputElement | HTMLTextAreaElement, value: stri
     ? view.HTMLTextAreaElement.prototype
     : view.HTMLInputElement.prototype;
   const setter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
-  if (setter) setter.call(field, value);
-  else field.value = value;
-  notifyValueChange(field);
+  runExtensionFieldWrite(field, () => {
+    if (setter) setter.call(field, value);
+    else field.value = value;
+    notifyValueChange(field);
+  });
 }
 
 const SENSITIVE_FIELD_PATTERN =
@@ -280,11 +283,13 @@ export function prefillPersonalDetails(
         recordMissing(field, rule.label);
         continue;
       }
-      field.value = selectValue;
+      runExtensionFieldWrite(field, () => {
+        field.value = selectValue;
+        notifyValueChange(field);
+      });
     } else {
       setTextValue(field, candidateValue);
     }
-    if (isSelect(field)) notifyValueChange(field);
     filled.add(rule.label);
     if (questionId) fieldResults[questionId] = { status: "filled", message: "Filled from JOBSAGE" };
   }
