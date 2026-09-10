@@ -3,7 +3,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, PageTransition, Button } from "@/components/ui-enhanced";
 import { SponsorVacancyApplyModal } from "@/components/SponsorVacancyApplyModal";
 import { SmartApplyModal } from "@/components/SmartApplyModal";
-import { canSendCvForVacancy, hasUsableSendCvApplyRoute, shouldShowSendCv } from "@/lib/opportunityFilters";
+import { hasUsableSendCvApplyRoute, shouldShowSendCv } from "@/lib/opportunityFilters";
 import { filterSponsorPanelVacancies } from "@/lib/sponsorVacancyFilters";
 import { checkApplyLinkInBackground, isFreshLiveApplyLink } from "@/lib/vacancyApply";
 import { GapAnalysisSheet } from "@/components/GapAnalysisSheet";
@@ -305,7 +305,7 @@ function VacancyMatchPanel({
                 disabled={isSent || sendCVPending}
                 className="text-xs text-primary font-medium hover:underline disabled:opacity-50 flex items-center gap-1"
               >
-                {isSent ? "CV Sent ✓" : "Send CV"}
+                {isSent ? "CV Sent ✓" : "Send CV speculatively"}
               </button>
             )}
           </div>
@@ -331,7 +331,7 @@ function VacancyMatchPanel({
               disabled={isSent || sendCVPending}
               className="text-xs text-primary font-medium hover:underline disabled:opacity-50 flex items-center gap-1"
             >
-              {isSent ? "CV Sent ✓" : "Send CV"}
+              {isSent ? "CV Sent ✓" : "Send CV speculatively"}
             </button>
           )}
         </div>
@@ -563,7 +563,7 @@ function VacancyMatchPanel({
                 {isSent ? (
                   <><CheckCircle2 className="w-3.5 h-3.5" /> CV Sent</>
                 ) : (
-                  <><Send className="w-3.5 h-3.5" /> Send CV</>
+                  <><Send className="w-3.5 h-3.5" /> Send CV speculatively</>
                 )}
               </Button>
             )}
@@ -830,7 +830,7 @@ export default function SponsorLicencesPage() {
     if (!hasCvUploaded) {
       toast({
         title: "No CV uploaded",
-        description: "Please upload your CV in 'CV & Supporting Documents' before using Send CV.",
+        description: "Please upload your CV in 'CV & Supporting Documents' before sending a speculative application.",
         variant: "destructive",
       });
       return;
@@ -1905,7 +1905,7 @@ export default function SponsorLicencesPage() {
               )}
 
               <p className="text-xs text-muted-foreground mb-5 bg-muted/40 rounded-lg px-3 py-2 border border-border leading-relaxed">
-                Send CV records this vacancy and your selected documents in JOBSAGE so you can track delivery.
+                This vacancy lead was discovered via web scraping. Sending your CV creates a speculative application record in JOBSAGE so you can track your outreach.
               </p>
 
               <div className="flex items-center gap-3 flex-wrap">
@@ -1933,11 +1933,7 @@ export default function SponsorLicencesPage() {
                     <Sparkles className="w-4 h-4" /> Smart Apply
                   </Button>
                 )}
-                {canSendCvForVacancy({
-                  sendCvEligible: selectedVacancy.sendCvEligible,
-                  applyUrl: selectedVacancy.url,
-                  linkStatus: selectedVacancy.linkStatus,
-                }) && (() => {
+                {selectedVacancy.sendCvEligible && hasUsableSendCvApplyRoute({ applyUrl: selectedVacancy.url, linkVerified: selectedVacancy.linkVerified, linkStatus: selectedVacancy.linkStatus }) && (() => {
                   const disabledReason = getApplyDisabledReason(hasCvUploaded);
                   return (
                     <span title={disabledReason ? APPLY_DISABLED_TITLES[disabledReason] : undefined}>

@@ -27,10 +27,7 @@ export function shouldShowOpportunityApplyActions(sendCvOnly: boolean | undefine
 }
 
 export function shouldShowSendCv(sendCvEligible: boolean | null | undefined): boolean {
-  // TEMP: allow Send CV without destination for client call; restore recipient
-  // eligibility gating after call.
-  void sendCvEligible;
-  return true;
+  return sendCvEligible === true;
 }
 
 export type VacancyLinkStatus = "none" | "live" | "dead" | "unverified" | "inconclusive" | "stale";
