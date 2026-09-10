@@ -40,7 +40,7 @@ vi.mock("@workspace/integrations-openai-ai-server", () => ({
 const {
   isUsableEmployerEmail,
   resolveEmployerRecipient,
-  shouldQueueSendCvWithoutRecipient,
+  shouldRejectOperationsFallback,
   getVacancySubmissionError,
 } = await import("../../routes/speculativeApplications");
 
@@ -60,13 +60,13 @@ describe("resolveEmployerRecipient", () => {
     expect(getVacancySubmissionError(url, url, "live")).toBeNull();
     expect(getVacancySubmissionError(null, null, "none")).toBeNull();
   });
-  it("queues Send CV only when the temporary client-call flow has no direct recipient", () => {
-    expect(shouldQueueSendCvWithoutRecipient(true, "ops_fallback")).toBe(true);
-    expect(shouldQueueSendCvWithoutRecipient(false, "ops_fallback")).toBe(false);
-    expect(shouldQueueSendCvWithoutRecipient(undefined, "ops_fallback")).toBe(false);
-    expect(shouldQueueSendCvWithoutRecipient(true, "employer_contact_email")).toBe(false);
-    expect(shouldQueueSendCvWithoutRecipient(true, "employer_account")).toBe(false);
-    expect(shouldQueueSendCvWithoutRecipient(true, "sponsor_contact_email")).toBe(false);
+  it("rejects operations fallback only for direct-contact UI requests", () => {
+    expect(shouldRejectOperationsFallback(true, "ops_fallback")).toBe(true);
+    expect(shouldRejectOperationsFallback(false, "ops_fallback")).toBe(false);
+    expect(shouldRejectOperationsFallback(undefined, "ops_fallback")).toBe(false);
+    expect(shouldRejectOperationsFallback(true, "employer_contact_email")).toBe(false);
+    expect(shouldRejectOperationsFallback(true, "employer_account")).toBe(false);
+    expect(shouldRejectOperationsFallback(true, "sponsor_contact_email")).toBe(false);
   });
 
   it("prefers a stored sponsor contact email", async () => {

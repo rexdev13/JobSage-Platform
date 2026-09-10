@@ -85,23 +85,23 @@ describe("opportunity filters", () => {
     );
   });
 
-  it("temporarily shows Send CV even when no direct contact is available", () => {
+  it("shows Send CV only for server-approved direct contacts", () => {
     expect(shouldShowSendCv(true)).toBe(true);
-    expect(shouldShowSendCv(false)).toBe(true);
-    expect(shouldShowSendCv(undefined)).toBe(true);
+    expect(shouldShowSendCv(false)).toBe(false);
+    expect(shouldShowSendCv(undefined)).toBe(false);
   });
 
-  it("shows verified apply-only vacancies on the Send CV tab", () => {
+  it("shows verified apply-only vacancies on the Send CV tab without enabling email", () => {
     expect(shouldShowOnSendCvTab({
       sendCvEligible: false,
       applyUrl: "https://jobs.nhs.uk/candidate/jobadvert/C1234",
       linkVerified: true,
       linkStatus: "live",
     })).toBe(true);
-    expect(shouldShowSendCv(false)).toBe(true);
+    expect(shouldShowSendCv(false)).toBe(false);
   });
 
-  it("keeps dead vacancy links off the Send CV tab while the temporary Send CV gate is active", () => {
+  it("keeps dead, unverified, LinkedIn, and Indeed-only vacancies off the Send CV tab", () => {
     expect(shouldShowOnSendCvTab({
       sendCvEligible: false,
       applyUrl: "https://jobs.nhs.uk/candidate/jobadvert/C1234",
@@ -118,13 +118,13 @@ describe("opportunity filters", () => {
       applyUrl: "https://linkedin.com/jobs/view/123",
       linkVerified: true,
       linkStatus: "live",
-    })).toBe(true);
+    })).toBe(false);
     expect(shouldShowOnSendCvTab({
       sendCvEligible: false,
       applyUrl: "https://uk.indeed.com/viewjob?jk=abc",
       linkVerified: true,
       linkStatus: "live",
-    })).toBe(true);
+    })).toBe(false);
   });
 
   it("keeps direct-email vacancies visible even when no verified apply route exists", () => {
@@ -139,15 +139,11 @@ describe("opportunity filters", () => {
     expect(canSendCvForVacancy({ sendCvEligible: true, applyUrl: "https://example.com/job", linkStatus: "stale" })).toBe(false);
   });
 
-  it("temporarily includes sponsors without direct contact in the Send CV feed", () => {
+  it("excludes operations-only and stale sponsor records from the Send CV feed", () => {
     expect(filterSendCvSponsors([
       { id: 1, sendCvEligible: true },
       { id: 2, sendCvEligible: false },
       { id: 3 },
-    ])).toEqual([
-      { id: 1, sendCvEligible: true },
-      { id: 2, sendCvEligible: false },
-      { id: 3 },
-    ]);
+    ])).toEqual([{ id: 1, sendCvEligible: true }]);
   });
 });
