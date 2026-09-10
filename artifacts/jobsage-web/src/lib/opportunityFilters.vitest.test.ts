@@ -135,6 +135,11 @@ describe("opportunity filters", () => {
       linkStatus: "none",
     })).toBe(true);
     expect(canSendCvForVacancy({ sendCvEligible: true, applyUrl: null, linkStatus: "none" })).toBe(true);
+    expect(canSendCvForVacancy({
+      sendCvEligible: true,
+      applyUrl: "https://example.com/job",
+      linkVerified: true,
+    })).toBe(true);
     expect(canSendCvForVacancy({ sendCvEligible: true, applyUrl: "https://example.com/job", linkStatus: "dead" })).toBe(false);
     expect(canSendCvForVacancy({ sendCvEligible: true, applyUrl: "https://example.com/job", linkStatus: "stale" })).toBe(false);
   });

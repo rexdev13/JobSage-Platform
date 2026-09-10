@@ -35,13 +35,18 @@ export type VacancyLinkStatus = "none" | "live" | "dead" | "unverified" | "incon
 export function canSendCvForVacancy({
   sendCvEligible,
   applyUrl,
+  linkVerified,
   linkStatus,
 }: {
   sendCvEligible?: boolean | null;
   applyUrl?: string | null;
+  linkVerified?: boolean | null;
   linkStatus?: VacancyLinkStatus | null;
 }): boolean {
-  const effectiveStatus = linkStatus ?? (applyUrl ? "unverified" : "none");
+  // Older /roles responses expose linkVerified but not linkStatus. Treat a
+  // verified link as live so the Send CV action is not hidden on the Send CV
+  // tab while the apply route remains independently usable.
+  const effectiveStatus = linkStatus ?? (applyUrl ? (linkVerified ? "live" : "unverified") : "none");
   return shouldShowSendCv(sendCvEligible) && (effectiveStatus === "none" || effectiveStatus === "live");
 }
 

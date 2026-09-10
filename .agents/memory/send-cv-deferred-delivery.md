@@ -7,4 +7,4 @@ Candidate-facing Send CV must not guess an employer address or route CV document
 
 **Why:** A missing contact is an operational follow-up state, not a candidate error, and sending personal documents to an operations fallback is not equivalent to employer delivery.
 
-**How to apply:** Keep Send CV visible without direct-contact evidence, preserve Apply/Smart Apply liveness gates, and distinguish pending no-destination records from failed provider delivery.
+**How to apply:** Keep Send CV visible without direct-contact evidence, preserve Apply/Smart Apply liveness gates, and distinguish pending no-destination records from failed provider delivery. When a matched-role response has `linkVerified` but omits `linkStatus`, treat the verified link as live instead of hiding Send CV.
