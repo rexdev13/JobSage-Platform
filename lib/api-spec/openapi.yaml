@@ -6233,6 +6233,9 @@ components:
         roleId:
           type: integer
           nullable: true
+        cvDocumentId:
+          type: integer
+          nullable: true
 
     CoverLetterResponse:
       type: object
@@ -6564,6 +6567,14 @@ components:
         cvDocumentId:
           type: integer
           nullable: true
+        coverLetterDocumentId:
+          type: integer
+          nullable: true
+        coverLetterFilename:
+          type: string
+          nullable: true
+        coverLetterIncluded:
+          type: boolean
         deliveryStatus:
           type: string
           enum: [pending, delivered, failed]
@@ -6642,6 +6653,15 @@ components:
         requireDirectContact:
           type: boolean
           description: Reject the request instead of using the legacy operations fallback when no direct employer email is stored.
+        includeCoverLetter:
+          type: boolean
+          description: Attach the finalized cover letter as a PDF alongside the selected CV.
+        coverLetterGeneratedText:
+          type: string
+          nullable: true
+        coverLetterText:
+          type: string
+          nullable: true
 
     SpeculativeApplicationResult:
       type: object

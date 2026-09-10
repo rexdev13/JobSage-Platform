@@ -1727,6 +1727,7 @@ export interface GenerateCoverLetterRequest {
   location?: string | null;
   regulator?: string | null;
   roleId?: number | null;
+  cvDocumentId?: number | null;
 }
 
 export interface CoverLetterResponse {
@@ -1942,6 +1943,9 @@ export interface SpeculativeApplication {
   sourceType?: SpeculativeApplicationSourceType;
   boardName?: string | null;
   cvDocumentId?: number | null;
+  coverLetterDocumentId?: number | null;
+  coverLetterFilename?: string | null;
+  coverLetterIncluded?: boolean;
   deliveryStatus?: SpeculativeApplicationDeliveryStatus;
   deliveryError?: string | null;
   deliveryAttempts?: number;
@@ -1980,6 +1984,10 @@ export interface SendSpeculativeApplicationRequest {
   cvDocumentId?: number | null;
   /** Reject the request instead of using the legacy operations fallback when no direct employer email is stored. */
   requireDirectContact?: boolean;
+  /** Attach the finalized cover letter as a PDF alongside the selected CV. */
+  includeCoverLetter?: boolean;
+  coverLetterGeneratedText?: string | null;
+  coverLetterText?: string | null;
 }
 
 export interface SpeculativeApplicationResult {

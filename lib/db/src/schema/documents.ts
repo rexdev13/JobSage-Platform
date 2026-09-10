@@ -6,6 +6,7 @@ export const DOCUMENT_DISCLAIMER = "Documents are uploaded for reference only an
 
 export const DOCUMENT_TYPES = [
   "cv",
+  "cover_letter",
   "qualification",
   "cpd_certificate",
   "recommendation_letter",
@@ -18,6 +19,7 @@ export type DocumentType = (typeof DOCUMENT_TYPES)[number];
 
 export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   cv: "CV / Résumé",
+  cover_letter: "Cover Letter",
   qualification: "Qualification",
   cpd_certificate: "CPD Certificate",
   recommendation_letter: "Recommendation Letter",

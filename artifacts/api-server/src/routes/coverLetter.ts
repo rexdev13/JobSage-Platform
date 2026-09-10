@@ -13,16 +13,26 @@ const objectStorage = new ObjectStorageService();
 const COVER_LETTER_DISCLAIMER =
   "This cover letter is AI-generated for guidance only. Review and personalise before sending to any employer.";
 
-async function fetchCvText(userId: string, objectStorageSvc: ObjectStorageService): Promise<string | null> {
+async function fetchCvText(
+  userId: string,
+  objectStorageSvc: ObjectStorageService,
+  cvDocumentId?: number | null,
+): Promise<string | null> {
   try {
+    const conditions = [
+      eq(documentsTable.userId, userId),
+      eq(documentsTable.documentType, "cv"),
+    ];
+    if (cvDocumentId != null) conditions.push(eq(documentsTable.id, cvDocumentId));
     const docs = await db
       .select()
       .from(documentsTable)
-      .where(and(eq(documentsTable.userId, userId), eq(documentsTable.documentType, "cv")))
+      .where(and(...conditions))
       .orderBy(desc(documentsTable.isPrimary), desc(documentsTable.uploadedAt));
 
     if (docs.length > 0) {
       const doc = docs[0]!;
+      if (doc.mimeType !== "application/pdf") return null;
       const objectFile = await objectStorageSvc.getObjectEntityFile(doc.storageKey);
       const response = await objectStorageSvc.downloadObject(objectFile);
       const arrayBuf = await response.arrayBuffer();
@@ -43,13 +53,14 @@ async function fetchCvText(userId: string, objectStorageSvc: ObjectStorageServic
 
 router.post("/cover-letter/generate", requireAuthenticated, async (req, res): Promise<void> => {
   const userId = req.user!.id;
-  const { jobTitle, employer, jobDescription, location, regulator, roleId } = req.body as {
+  const { jobTitle, employer, jobDescription, location, regulator, roleId, cvDocumentId } = req.body as {
     jobTitle?: string;
     employer?: string;
     jobDescription?: string | null;
     location?: string | null;
     regulator?: string | null;
     roleId?: number;
+    cvDocumentId?: number | null;
   };
 
   if (!jobTitle || !employer) {
@@ -67,7 +78,15 @@ router.post("/cover-letter/generate", requireAuthenticated, async (req, res): Pr
     return;
   }
 
-  const cvText = await fetchCvText(userId, objectStorage);
+  if (cvDocumentId != null && (!Number.isInteger(cvDocumentId) || cvDocumentId <= 0)) {
+    res.status(400).json({ error: "cvDocumentId must identify an owned PDF CV." });
+    return;
+  }
+  const cvText = await fetchCvText(userId, objectStorage, cvDocumentId);
+  if (cvDocumentId != null && !cvText) {
+    res.status(404).json({ error: "Selected PDF CV was not found or could not be read." });
+    return;
+  }
 
   const user = req.user!;
   const candidateName =
@@ -111,13 +130,14 @@ router.post("/cover-letter/generate", requireAuthenticated, async (req, res): Pr
 // SSE streaming endpoint for real-time cover letter generation
 router.post("/cover-letter/generate-stream", requireAuthenticated, async (req, res): Promise<void> => {
   const userId = req.user!.id;
-  const { jobTitle, employer, jobDescription, location, regulator, roleId } = req.body as {
+  const { jobTitle, employer, jobDescription, location, regulator, roleId, cvDocumentId } = req.body as {
     jobTitle?: string;
     employer?: string;
     jobDescription?: string | null;
     location?: string | null;
     regulator?: string | null;
     roleId?: number;
+    cvDocumentId?: number | null;
   };
 
   if (!jobTitle || !employer) {
@@ -131,7 +151,15 @@ router.post("/cover-letter/generate-stream", requireAuthenticated, async (req, r
     return;
   }
 
-  const cvText = await fetchCvText(userId, objectStorage);
+  if (cvDocumentId != null && (!Number.isInteger(cvDocumentId) || cvDocumentId <= 0)) {
+    res.status(400).json({ error: "cvDocumentId must identify an owned PDF CV." });
+    return;
+  }
+  const cvText = await fetchCvText(userId, objectStorage, cvDocumentId);
+  if (cvDocumentId != null && !cvText) {
+    res.status(404).json({ error: "Selected PDF CV was not found or could not be read." });
+    return;
+  }
 
   const user = req.user!;
   const candidateName =
