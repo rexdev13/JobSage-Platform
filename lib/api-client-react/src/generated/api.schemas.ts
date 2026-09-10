@@ -1887,9 +1887,14 @@ export type SpeculativeApplicationStatus =
   (typeof SpeculativeApplicationStatus)[keyof typeof SpeculativeApplicationStatus];
 
 export const SpeculativeApplicationStatus = {
+  cv_sent: "cv_sent",
   sent: "sent",
   acknowledged: "acknowledged",
   no_account: "no_account",
+  under_review: "under_review",
+  interview_invited: "interview_invited",
+  offer: "offer",
+  rejected: "rejected",
 } as const;
 
 export type SpeculativeApplicationSourceType =
@@ -1982,7 +1987,7 @@ export interface SendSpeculativeApplicationRequest {
   boardName?: string | null;
   notes?: string | null;
   cvDocumentId?: number | null;
-  /** Reject the request instead of using the legacy operations fallback when no direct employer email is stored. */
+  /** Legacy compatibility field. A missing direct contact now saves Send CV as pending instead of rejecting or guessing a recipient. */
   requireDirectContact?: boolean;
   /** Attach the finalized cover letter as a PDF alongside the selected CV. */
   includeCoverLetter?: boolean;

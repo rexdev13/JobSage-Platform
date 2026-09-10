@@ -41,6 +41,7 @@ const {
   isUsableEmployerEmail,
   resolveEmployerRecipient,
   shouldRejectOperationsFallback,
+  getSendCvDeliveryState,
   getVacancySubmissionError,
 } = await import("../../routes/speculativeApplications");
 
@@ -67,6 +68,24 @@ describe("resolveEmployerRecipient", () => {
     expect(shouldRejectOperationsFallback(true, "employer_contact_email")).toBe(false);
     expect(shouldRejectOperationsFallback(true, "employer_account")).toBe(false);
     expect(shouldRejectOperationsFallback(true, "sponsor_contact_email")).toBe(false);
+  });
+
+  it("keeps Send CV pending when no destination exists", () => {
+    expect(getSendCvDeliveryState({
+      hasEmailDestination: false,
+      emailDelivered: false,
+      deliveryFailure: null,
+    })).toBe("pending");
+    expect(getSendCvDeliveryState({
+      hasEmailDestination: true,
+      emailDelivered: false,
+      deliveryFailure: "Provider unavailable",
+    })).toBe("failed");
+    expect(getSendCvDeliveryState({
+      hasEmailDestination: true,
+      emailDelivered: true,
+      deliveryFailure: null,
+    })).toBe("delivered");
   });
 
   it("prefers a stored sponsor contact email", async () => {

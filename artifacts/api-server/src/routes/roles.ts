@@ -73,7 +73,6 @@ import {
   filterAcknowledgedGaps,
   getCandidateReadinessClaims,
 } from "../lib/readinessClaims";
-import { getDirectContactEligibility } from "../lib/employerRecipient";
 import {
   getNextReadinessReset,
   getReadinessMonthStart,
@@ -622,10 +621,6 @@ router.get("/roles", async (req, res): Promise<void> => {
     appliedApps,
     regulatorRoles,
   );
-  const sendCvEligibility = await getDirectContactEligibility(
-    regulatorRoles.map((role) => ({ companyName: role.employer })),
-  );
-
   // Build a lookup from the persisted AI scores so the roles response can
   // sort and badge each card with the same value the /my-matches strip uses.
   const aiScoreMap = new Map<number, { score: number; explanation: string | null }>(
@@ -743,7 +738,10 @@ router.get("/roles", async (req, res): Promise<void> => {
       contactEmail: role.contactEmail ?? null,
       contactPhone: role.contactPhone ?? null,
       contactWebsite: role.contactWebsite ?? null,
-      sendCvEligible: sendCvEligibility[index] === true,
+      // Send CV may be saved while recipient resolution is pending. The
+      // server never guesses an email; a missing destination becomes a
+      // pending Send CV record instead.
+      sendCvEligible: true,
       applyUrl: role.applyUrl ?? null,
       linkVerified: role.linkVerified ?? false,
       linkCheckedAt: role.linkCheckedAt ?? null,

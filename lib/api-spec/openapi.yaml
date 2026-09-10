@@ -6541,7 +6541,7 @@ components:
           nullable: true
         status:
           type: string
-          enum: [sent, acknowledged, no_account]
+          enum: [cv_sent, sent, acknowledged, no_account, under_review, interview_invited, offer, rejected]
         notes:
           type: string
           nullable: true
@@ -6652,7 +6652,7 @@ components:
           nullable: true
         requireDirectContact:
           type: boolean
-          description: Reject the request instead of using the legacy operations fallback when no direct employer email is stored.
+          description: Legacy compatibility field. A missing direct contact now saves Send CV as pending instead of rejecting or guessing a recipient.
         includeCoverLetter:
           type: boolean
           description: Attach the finalized cover letter as a PDF alongside the selected CV.

@@ -1013,7 +1013,7 @@ function RoleCard({
               className="text-xs h-8 gap-1"
               onClick={(e) => { e.stopPropagation(); onSendCv(item); }}
             >
-              <Send className="w-3 h-3" /> {cvSent ? "Resend CV" : "Send CV"}
+              <Send className="w-3 h-3" /> {cvSent ? "Send CV again" : "Send CV"}
             </Button>
           )}
           {isEligible && !applied && (
@@ -1091,7 +1091,7 @@ const APP_STATUS_CONFIG: Record<string, { label: string; className: string }> = 
   offer: { label: "Offer", className: "bg-emerald-100 text-emerald-800" },
   rejected: { label: "Rejected", className: "bg-red-100 text-red-700" },
   no_response: { label: "No Response", className: "bg-muted text-muted-foreground" },
-  cv_sent: { label: "CV Sent", className: "bg-sky-100 text-sky-800" },
+  cv_sent: { label: "Send CV sent", className: "bg-sky-100 text-sky-800" },
   sent: { label: "Sent", className: "bg-sky-100 text-sky-800" },
   acknowledged: { label: "Acknowledged", className: "bg-emerald-100 text-emerald-800" },
 };
@@ -1103,7 +1103,7 @@ function AppCard({ app }: { app: RichApplication }) {
   const config = APP_STATUS_CONFIG[app.status] ?? APP_STATUS_CONFIG.applied!;
 
   const title = isSpeculative
-    ? (app.vacancyTitle ?? app.companyName ?? "Speculative Application")
+    ? (app.vacancyTitle ?? app.companyName ?? "Send CV")
     : isWebsite
     ? (app.companyName ?? "Website Application")
     : (app.roleTitle ?? app.companyName ?? "Application");
@@ -1129,7 +1129,7 @@ function AppCard({ app }: { app: RichApplication }) {
             )}
             {isSpeculative && (
               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold border bg-sky-50 text-sky-700 border-sky-200">
-                <Send className="w-2.5 h-2.5" /> Speculative CV
+                <Send className="w-2.5 h-2.5" /> Send CV
               </span>
             )}
           </div>
@@ -1198,7 +1198,7 @@ function ApplicationsTab({ data }: { data: ApplicationList | undefined }) {
   const subTabs: { id: AppSubTab; label: string; icon: React.ElementType; count: number }[] = [
     { id: "platform", label: "Platform Applications", icon: Building2, count: stats.platformCount ?? platformApps.length },
     { id: "website", label: "Website Applications", icon: Globe, count: stats.websiteCount ?? websiteApps.length },
-    { id: "speculative", label: "Speculative CVs", icon: Send, count: stats.speculativeCount ?? speculativeApps.length },
+    { id: "speculative", label: "Send CV", icon: Send, count: stats.speculativeCount ?? speculativeApps.length },
   ];
 
   const visibleApps = subTab === "platform" ? platformApps : subTab === "website" ? websiteApps : speculativeApps;
@@ -1209,7 +1209,7 @@ function ApplicationsTab({ data }: { data: ApplicationList | undefined }) {
         {[
           { label: "Platform", value: stats.platformCount ?? platformApps.length, color: "text-foreground" },
           { label: "Website", value: stats.websiteCount ?? websiteApps.length, color: "text-blue-700" },
-          { label: "Speculative CVs", value: stats.speculativeCount ?? speculativeApps.length, color: "text-sky-700" },
+          { label: "Send CV", value: stats.speculativeCount ?? speculativeApps.length, color: "text-sky-700" },
           { label: "Interviews", value: stats.interviews ?? 0, color: "text-teal-700" },
         ].map(({ label, value, color }) => (
           <Card key={label} className="p-3 text-center">
@@ -1243,7 +1243,7 @@ function ApplicationsTab({ data }: { data: ApplicationList | undefined }) {
         <Card className="p-8 text-center">
           <ClipboardList className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
           <p className="text-sm text-muted-foreground">
-            {subTab === "platform" ? "No platform applications yet." : subTab === "website" ? "No website applications logged yet." : "No speculative CVs sent yet."}
+            {subTab === "platform" ? "No platform applications yet." : subTab === "website" ? "No website applications logged yet." : "No Send CV records yet."}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
             {subTab === "platform" ? "Use \"Smart Apply\" on a role to track it here." : subTab === "website" ? "Log an application made on an employer's website from the Applications page." : "Send your CV for a matched vacancy to track the outreach here."}
@@ -1347,7 +1347,7 @@ function SendCvEmployerGroup({
                     variant={cvSent ? "outline" : "default"}
                     onClick={() => onSend(item)}
                   >
-                    <Send className="w-4 h-4 mr-1.5" /> {cvSent ? "Resend CV" : "Send CV"}
+                    <Send className="w-4 h-4 mr-1.5" /> {cvSent ? "Send CV again" : "Send CV"}
                   </Button>
                 ) : canEmailCv ? (
                   <Button size="sm" variant="outline" onClick={onUploadCv}>
@@ -1675,7 +1675,7 @@ export default function OpportunitiesPage() {
             <h1 className="text-2xl font-display font-bold text-foreground">Job Opportunities</h1>
             <p className="text-muted-foreground mt-1 text-sm">
               {activeTab === "sendcv"
-                ? "Licensed sponsors ranked by the strongest available match evidence for your profile."
+                ? "Licensed sponsors ranked by the strongest available match evidence. Send CV is saved as pending when no stored employer contact is available."
                 : noProfile
                 ? "Complete your profile to see a personalised ranked list."
                 : data
