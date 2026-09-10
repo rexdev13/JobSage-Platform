@@ -1,0 +1,68 @@
+AUDIT ONLY — do not change code yet.
+
+Goal:
+We want the JobSage Chrome extension to clearly show which application/form questions are REQUIRED vs NOT REQUIRED (e.g. a small star/asterisk on required fields), and to pull + classify that state cleanly from the page/form/API so autofill and UI stay consistent.
+
+Please fully scan the extension codebase (especially anything under artifacts/chrome-extension, content scripts, question detection, form parsers, autofill, popup/sidepanel UI) and produce an audit report.
+
+Investigate and answer:
+
+1) Current required detection
+- How does the extension currently decide a field/question is required vs optional?
+- List exact files/functions (with paths) involved, e.g. questionDetector, form scanners, schema mappers, ATS adapters (Greenhouse, Lever, Workday, LinkedIn, etc.).
+- What signals are used today?
+  - HTML required attribute
+  - aria-required
+  - asterisk in label
+  - “required” text
+  - surrounding DOM class/patterns
+  - API/job application schema
+  - backend JobSage field metadata
+- Where is this unreliable or missing?
+
+2) Data model
+- What is the current question/field object shape?
+- Is there already a field like `required`, `isRequired`, `optional`, `validation`?
+- If yes: where is it set, transformed, stored, and consumed?
+- If no: where should it be added end-to-end with least disruption?
+
+3) Pull / sync path
+- When the extension “pulls” questions/fields (from page DOM, backend, vacancy application config), how does that flow work?
+- Can required vs not-required be differentiated cleanly in that pull?
+- Any places where required info is dropped, overwritten, or defaulted incorrectly?
+
+4) UI surfaces
+- Where are questions/fields rendered in the extension UI?
+- Best place(s) to show a subtle required indicator (small star/asterisk), without clutter.
+- Any existing required styling we should reuse?
+
+5) Autofill / apply behavior
+- Does autofill currently treat required and optional differently?
+- Should required gaps block submit / show stronger warnings?
+- Any risk that a wrong required flag breaks apply flow?
+
+6) Edge cases
+- Conditional required fields
+- Hidden fields
+- Multi-step forms
+- Custom questions
+- File uploads / CV / cover letter
+- Checkbox/radio groups
+- Fields marked required in UI but not in DOM, and vice versa
+
+Deliverable format:
+A) Executive summary (what exists vs what’s missing)
+B) File map (path → responsibility for required detection)
+C) Current detection rules + confidence level (high/med/low)
+D) Gaps / bugs
+E) Recommended implementation plan (small PR-sized steps)
+F) Proposed field contract, e.g.:
+   { id, label, type, required: boolean, requiredSource: 'dom'|'label'|'aria'|'api'|'heuristic', confidence: number }
+G) Suggested UI behavior for the star (when shown, tooltip text, accessibility)
+H) Test plan (sites/cases to verify)
+
+Constraints:
+- Audit only; no code edits
+- Be specific with file paths and function names
+- Prefer extending existing detection over rewriting
+- Call out anything Replit/backend-dependent vs extension-only
