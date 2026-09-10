@@ -40,3 +40,4 @@
 - [Liveness source fairness](liveness-source-fairness.md) — short deadline batches must reserve capacity per source or a large job-board backlog can starve company-site verification indefinitely.
 - [Priority quota backfill](priority-quota-backfill.md) — reserved batch slots must backfill from other eligible work or N+1 completion checks can falsely report an empty queue.
 - [Smart Apply requiredness](smart-apply-requiredness.md) — unknown is not optional; DOM requiredness stays extension-side and advisory until a trusted API source exists.
+- [Answer Library safety](answer-library-safety.md) — remember only candidate-authored, allowlisted values; never import provenance-free page memory or reuse draft/application storage.

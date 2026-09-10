@@ -4,6 +4,7 @@
  * answers back into the right field.
  */
 import { isPinpointPage, isWorkdayHostname } from "./scraper";
+import { runExtensionFieldWrite } from "./fieldWriteProvenance";
 
 export type QuestionBucket = "generate" | "structured" | "confirmation";
 export type RequiredSource =
@@ -664,16 +665,19 @@ export function setQuestionFieldValue(
       ? (field.ownerDocument.defaultView ?? window).HTMLTextAreaElement.prototype
       : (field.ownerDocument.defaultView ?? window).HTMLInputElement.prototype;
   const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
-  if (setter) {
-    setter.call(field, answer);
-  } else {
-    field.value = answer;
-  }
+  const ViewEvent = field.ownerDocument.defaultView?.Event ?? Event;
+  return runExtensionFieldWrite(field, () => {
+    if (setter) {
+      setter.call(field, answer);
+    } else {
+      field.value = answer;
+    }
 
-  field.dispatchEvent(new Event("input", { bubbles: true }));
-  field.dispatchEvent(new Event("change", { bubbles: true }));
-  if (options.focus !== false) field.focus?.();
-  return true;
+    field.dispatchEvent(new ViewEvent("input", { bubbles: true }));
+    field.dispatchEvent(new ViewEvent("change", { bubbles: true }));
+    if (options.focus !== false) field.focus?.();
+    return true;
+  });
 }
 
 /** Scroll the field into view and briefly highlight it. */
@@ -762,7 +766,13 @@ export function fillStructuredField(questionId: string, value: string): boolean 
       [candidate.value, optionLabel(candidate)].some((candidateValue) => normalizedChoice(candidateValue) === wanted),
     );
     if (!option) return false;
-    field.value = option.value;
+    const ViewEvent = field.ownerDocument.defaultView?.Event ?? Event;
+    return runExtensionFieldWrite(field, () => {
+      field.value = option.value;
+      field.dispatchEvent(new ViewEvent("input", { bubbles: true }));
+      field.dispatchEvent(new ViewEvent("change", { bubbles: true }));
+      return true;
+    });
   } else if (isInput(field) && field.type === "radio") {
     if (!field.name) return false;
     const escaped = typeof CSS !== "undefined" && CSS.escape ? CSS.escape(field.name) : field.name.replace(/["\\]/g, "\\$&");
@@ -770,16 +780,16 @@ export function fillStructuredField(questionId: string, value: string): boolean 
     const radio = Array.from(field.ownerDocument.querySelectorAll<HTMLInputElement>(`input[type="radio"][name="${escaped}"]`))
       .find((candidate) => normalizedChoice(candidate.closest("label")?.textContent || candidate.getAttribute("aria-label") || candidate.value) === wanted);
     if (!radio || radio.checked) return false;
-    radio.checked = true;
-    radio.dispatchEvent(new Event("input", { bubbles: true }));
-    radio.dispatchEvent(new Event("change", { bubbles: true }));
-    return true;
+    const ViewEvent = radio.ownerDocument.defaultView?.Event ?? Event;
+    return runExtensionFieldWrite(radio, () => {
+      radio.checked = true;
+      radio.dispatchEvent(new ViewEvent("input", { bubbles: true }));
+      radio.dispatchEvent(new ViewEvent("change", { bubbles: true }));
+      return true;
+    });
   } else {
     return setQuestionFieldValue(questionId, cleanValue, { focus: false });
   }
-  field.dispatchEvent(new Event("input", { bubbles: true }));
-  field.dispatchEvent(new Event("change", { bubbles: true }));
-  return true;
 }
 
 /**

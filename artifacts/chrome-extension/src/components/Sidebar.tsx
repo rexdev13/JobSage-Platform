@@ -6,6 +6,7 @@ import { BRAND } from "../lib/brand";
 import type { PillPos } from "../lib/types";
 import type { PrefillResult } from "../lib/prefill";
 import type { CvAttachResult } from "../lib/cvAttachment";
+import type { AnswerLibrarySnapshot, AnswerMemoryController } from "../lib/answerMemory";
 
 const COLORS = {
   bg: BRAND.bg,
@@ -62,9 +63,17 @@ interface SidebarProps {
   onPrefill?: (questions: DetectedQuestion[]) => Promise<PrefillResult>;
   onAttachCv?: () => Promise<CvAttachResult & { downloaded?: boolean }>;
   onClearAnswerMemory?: () => Promise<number>;
+  answerMemory?: AnswerMemoryController;
 }
 
 const EMPTY_QUESTIONS: DetectedQuestion[] = [];
+const EMPTY_LIBRARY_SNAPSHOT: AnswerLibrarySnapshot = {
+  ready: false,
+  enabled: true,
+  answers: [],
+  restoredQuestionIds: [],
+  lastEvent: null,
+};
 
 // ---------------------------------------------------------------------------
 // Streaming assistant hook
@@ -254,6 +263,7 @@ export function Sidebar({
   onPrefill,
   onAttachCv,
   onClearAnswerMemory,
+  answerMemory,
 }: SidebarProps) {
   const [open, setOpen] = useState(startOpen);
   const [sidebarWidth, setSidebarWidth] = useState(() =>
@@ -265,6 +275,11 @@ export function Sidebar({
   const [cvResult, setCvResult] = useState<(CvAttachResult & { downloaded?: boolean }) | null>(null);
   const [clearingMemory, setClearingMemory] = useState(false);
   const [memoryClearResult, setMemoryClearResult] = useState<number | null>(null);
+  const [managingAnswers, setManagingAnswers] = useState(false);
+  const [editingAnswerId, setEditingAnswerId] = useState<string | null>(null);
+  const [editingAnswerValue, setEditingAnswerValue] = useState("");
+  const [memoryNotice, setMemoryNotice] = useState<string | null>(null);
+  const [confirmClearAll, setConfirmClearAll] = useState(false);
   const autoPrefilledRef = useRef(false);
 
   // Expose an imperative open handle so the content script can open the
@@ -300,15 +315,17 @@ export function Sidebar({
   }, [onAttachCv, attachingCv]);
 
   const handleClearAnswerMemory = useCallback(async () => {
-    if (!onClearAnswerMemory || clearingMemory) return;
+    if ((!onClearAnswerMemory && !answerMemory) || clearingMemory) return;
     setClearingMemory(true);
     setMemoryClearResult(null);
     try {
-      setMemoryClearResult(await onClearAnswerMemory());
+      setMemoryClearResult(
+        await (answerMemory?.clearPage() ?? onClearAnswerMemory?.() ?? Promise.resolve(0)),
+      );
     } finally {
       setClearingMemory(false);
     }
-  }, [clearingMemory, onClearAnswerMemory]);
+  }, [answerMemory, clearingMemory, onClearAnswerMemory]);
 
   useEffect(() => {
     if (tracked && onPrefill && !autoPrefilledRef.current) {
@@ -335,6 +352,21 @@ export function Sidebar({
     [questionWatcher],
   );
   const detected = useSyncExternalStore(subscribe, getSnapshot);
+  const subscribeToLibrary = useCallback(
+    (listener: () => void) => answerMemory?.subscribe(listener) ?? (() => {}),
+    [answerMemory],
+  );
+  const getLibrarySnapshot = useCallback(
+    () => answerMemory?.getSnapshot() ?? EMPTY_LIBRARY_SNAPSHOT,
+    [answerMemory],
+  );
+  const library = useSyncExternalStore(subscribeToLibrary, getLibrarySnapshot);
+  useEffect(() => {
+    if (!library.lastEvent) return;
+    setMemoryNotice(library.lastEvent.message);
+    const timeout = setTimeout(() => setMemoryNotice(null), 3500);
+    return () => clearTimeout(timeout);
+  }, [library.lastEvent]);
   const selectedQuestion = selectedId ? detected.find((q) => q.id === selectedId) ?? null : null;
   const hasConfirmedRequired = detected.some((question) => question.requiredKnown && question.required);
 
@@ -1028,7 +1060,7 @@ export function Sidebar({
                    : "No CV upload field was found on this page. Use the button again to download your CV."}
                </div>
              )}
-              {onClearAnswerMemory && (
+               {(onClearAnswerMemory || answerMemory) && (
                 <>
                   <button
                     onClick={() => void handleClearAnswerMemory()}
@@ -1056,6 +1088,271 @@ export function Sidebar({
                 </>
               )}
            </section>
+            {answerMemory && (
+              <section
+                style={{
+                  padding: "10px 12px",
+                  border: `1px solid ${COLORS.border}`,
+                  borderRadius: RADIUS,
+                  background: COLORS.inputBg,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.text }}>Answer library</div>
+                    <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>
+                      Remember safe answers for future applications
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={library.enabled}
+                    aria-label="Remember answers for future applications"
+                    onClick={() => void answerMemory.setEnabled(!library.enabled)}
+                    style={{
+                      width: 38,
+                      height: 22,
+                      padding: 2,
+                      border: "none",
+                      borderRadius: 999,
+                      background: library.enabled ? COLORS.primary : COLORS.border,
+                      cursor: "pointer",
+                      display: "flex",
+                      justifyContent: library.enabled ? "flex-end" : "flex-start",
+                      alignItems: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <span
+                      aria-hidden="true"
+                      style={{ width: 18, height: 18, borderRadius: "50%", background: "#fff", display: "block" }}
+                    />
+                  </button>
+                </div>
+                {memoryNotice && (
+                  <div role="status" style={{ fontSize: 11, color: COLORS.successText }}>
+                    {memoryNotice}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setManagingAnswers((current) => !current)}
+                  style={{
+                    padding: 0,
+                    alignSelf: "flex-start",
+                    background: "none",
+                    color: COLORS.primary,
+                    border: "none",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    textDecoration: "underline",
+                  }}
+                >
+                  {managingAnswers
+                    ? "Close answer library"
+                    : `Manage remembered answers${library.answers.length ? ` (${library.answers.length})` : ""}`}
+                </button>
+                {managingAnswers && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {library.answers.length === 0 ? (
+                      <div style={{ fontSize: 11, color: COLORS.textMuted }}>
+                        No saved answers yet. Safe answers you type will appear here.
+                      </div>
+                    ) : (
+                      <>
+                        {library.answers.map((remembered) => (
+                          <div
+                            key={remembered.id}
+                            style={{
+                              border: `1px solid ${COLORS.border}`,
+                              borderRadius: RADIUS,
+                              padding: 8,
+                              background: COLORS.bg,
+                            }}
+                          >
+                            <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.text }}>
+                              {remembered.labelVariants.at(-1) ?? remembered.normalizedQuestion}
+                            </div>
+                            {editingAnswerId === remembered.id ? (
+                              <>
+                                <textarea
+                                  aria-label={`Edit remembered answer for ${remembered.labelVariants.at(-1) ?? remembered.normalizedQuestion}`}
+                                  value={editingAnswerValue}
+                                  onChange={(event) => setEditingAnswerValue(event.target.value)}
+                                  rows={3}
+                                  maxLength={8000}
+                                  style={{
+                                    width: "100%",
+                                    boxSizing: "border-box",
+                                    marginTop: 6,
+                                    padding: 6,
+                                    border: `1px solid ${COLORS.border}`,
+                                    borderRadius: RADIUS,
+                                    font: "inherit",
+                                    fontSize: 11,
+                                    color: COLORS.text,
+                                    background: COLORS.inputBg,
+                                  }}
+                                />
+                                <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      void answerMemory.updateAnswer(remembered.id, editingAnswerValue).then((saved) => {
+                                        if (saved) setEditingAnswerId(null);
+                                      });
+                                    }}
+                                    style={{
+                                      border: "none",
+                                      background: COLORS.primary,
+                                      color: "#fff",
+                                      borderRadius: RADIUS,
+                                      padding: "5px 8px",
+                                      fontSize: 11,
+                                      cursor: "pointer",
+                                    }}
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingAnswerId(null)}
+                                    style={{
+                                      border: "none",
+                                      background: "none",
+                                      color: COLORS.textMuted,
+                                      padding: "5px 0",
+                                      fontSize: 11,
+                                      cursor: "pointer",
+                                    }}
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 4, lineHeight: 1.4 }}>
+                                  {remembered.value.length > 140 ? `${remembered.value.slice(0, 140)}…` : remembered.value}
+                                </div>
+                                <div style={{ fontSize: 10, color: COLORS.textMuted, marginTop: 4 }}>
+                                  {remembered.lastUsedAt
+                                    ? `Last used ${new Date(remembered.lastUsedAt).toLocaleDateString()}`
+                                    : "Not reused yet"}
+                                </div>
+                                <div style={{ display: "flex", gap: 10, marginTop: 5 }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingAnswerId(remembered.id);
+                                      setEditingAnswerValue(remembered.value);
+                                    }}
+                                    style={{
+                                      border: "none",
+                                      background: "none",
+                                      color: COLORS.primary,
+                                      padding: 0,
+                                      fontSize: 11,
+                                      cursor: "pointer",
+                                      textDecoration: "underline",
+                                    }}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => void answerMemory.deleteAnswer(remembered.id)}
+                                    style={{
+                                      border: "none",
+                                      background: "none",
+                                      color: COLORS.errorText,
+                                      padding: 0,
+                                      fontSize: 11,
+                                      cursor: "pointer",
+                                      textDecoration: "underline",
+                                    }}
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        ))}
+                        {confirmClearAll ? (
+                          <div
+                            style={{
+                              padding: 8,
+                              border: `1px solid ${COLORS.errorText}`,
+                              borderRadius: RADIUS,
+                              fontSize: 11,
+                              color: COLORS.text,
+                            }}
+                          >
+                            This permanently removes every answer in your local JOBSAGE library.
+                            <div style={{ display: "flex", gap: 8, marginTop: 7 }}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  void answerMemory.clearAll().then(() => setConfirmClearAll(false));
+                                }}
+                                style={{
+                                  border: "none",
+                                  borderRadius: RADIUS,
+                                  padding: "5px 8px",
+                                  background: COLORS.errorText,
+                                  color: "#fff",
+                                  fontSize: 11,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Confirm delete all
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmClearAll(false)}
+                                style={{
+                                  border: "none",
+                                  background: "none",
+                                  color: COLORS.textMuted,
+                                  padding: "5px 0",
+                                  fontSize: 11,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmClearAll(true)}
+                            style={{
+                              border: "none",
+                              background: "none",
+                              color: COLORS.errorText,
+                              padding: 0,
+                              alignSelf: "flex-start",
+                              fontSize: 11,
+                              cursor: "pointer",
+                              textDecoration: "underline",
+                            }}
+                          >
+                            Delete all remembered answers
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+              </section>
+            )}
             <section
               style={{
                 padding: "10px 12px",
@@ -1084,6 +1381,7 @@ export function Sidebar({
                 {detected.map((dq) => {
                   const active = dq.id === selectedId;
                   const hint = limitHint(dq);
+                  const restoredFromMemory = library.restoredQuestionIds.includes(dq.id);
                   return (
                     <button
                       key={dq.id}
@@ -1118,6 +1416,11 @@ export function Sidebar({
                             border: 0,
                           }}> Required</span>
                         </>
+                      )}
+                      {restoredFromMemory && (
+                        <span style={{ display: "block", marginTop: 2, fontSize: 11, color: COLORS.successText }}>
+                          From previous application
+                        </span>
                       )}
                          {dq.bucket !== "generate" && (
                             <span style={{

@@ -12,7 +12,10 @@ import {
   getStructuredFieldDescriptors,
   type DetectedQuestion,
 } from "./lib/questionDetector";
-import { createAnswerMemoryController } from "./lib/answerMemory";
+import {
+  createAnswerMemoryController,
+  type AnswerMemoryController,
+} from "./lib/answerMemory";
 import { ensureBrandFonts } from "./lib/brand";
 import type { PillPos } from "./lib/types";
 import {
@@ -256,18 +259,38 @@ function reconcileRequiredGaps(
   return result;
 }
 
-async function prefillApplicationDetails(questions: DetectedQuestion[] = []): Promise<PrefillResult> {
+function rememberedFields(
+  answerMemory: AnswerMemoryController | undefined,
+  questions: DetectedQuestion[],
+): DetectedQuestion[] {
+  if (!answerMemory) return [];
+  const restoredIds = new Set(answerMemory.getSnapshot().restoredQuestionIds);
+  return questions.filter((question) => restoredIds.has(question.id));
+}
+
+async function prefillApplicationDetails(
+  questions: DetectedQuestion[] = [],
+  answerMemory?: AnswerMemoryController,
+): Promise<PrefillResult> {
+  await answerMemory?.recall(questions);
+  const restored = rememberedFields(answerMemory, questions);
+  const memoryFieldResults = Object.fromEntries(
+    restored.map((question) => [
+      question.id,
+      { status: "filled" as const, message: "Saved from a previous application" },
+    ]),
+  );
   const response = await sendMessage<{ data?: { profile?: CandidateProfile } | CandidateProfile; error?: string }>({
     type: "API_REQUEST",
     endpoint: "/smart-apply/candidate-prefill",
   });
   if (response.error || !response.data) {
     return {
-      filled: [],
+      filled: restored.map((question) => question.question),
       missing: ["your profile details"],
       requiredMissing: requiredQuestionGaps(questions),
       skipped: [],
-      fieldResults: {},
+      fieldResults: memoryFieldResults,
       warning: "Could not load your JOBSAGE profile. Check your connection and try again.",
     };
   }
@@ -281,6 +304,11 @@ async function prefillApplicationDetails(questions: DetectedQuestion[] = []): Pr
     document,
     { jobTitle: trackingContext?.jobTitle, preserveExistingEmail },
   );
+  result.filled = Array.from(new Set([
+    ...restored.map((question) => question.question),
+    ...result.filled,
+  ]));
+  result.fieldResults = { ...memoryFieldResults, ...result.fieldResults };
   const fields = getStructuredFieldDescriptors(questions);
   if (fields.length === 0) {
     return reconcileRequiredGaps(result, questions);
@@ -391,7 +419,12 @@ function mountSidebar(
   let answerMemory: ReturnType<typeof createAnswerMemoryController> | undefined;
   try {
     questionWatcher = createQuestionWatcher();
-    answerMemory = createAnswerMemoryController(questionWatcher);
+    answerMemory = createAnswerMemoryController(
+      questionWatcher,
+      () => window.location.href,
+      undefined,
+      { getEmployer: () => jobContext.companyName },
+    );
   } catch (error) {
     console.warn("[JOBSAGE] Could not start question detection; opening the helper without detected questions.", error);
   }
@@ -421,9 +454,10 @@ function mountSidebar(
       onDismiss={onDismiss}
       startOpen={startOpen}
       tracked={tracked}
-      onPrefill={prefillApplicationDetails}
+      onPrefill={(questions) => prefillApplicationDetails(questions, answerMemory)}
       onAttachCv={attachApplicationCv}
       onClearAnswerMemory={() => answerMemory?.clearPage() ?? Promise.resolve(0)}
+      answerMemory={answerMemory}
       onOpen={(fn) => { openSidebarFn = fn; }}
     />,
   );
