@@ -1,0 +1,44 @@
+conflict check before any new enrichment run.
+Context:
+- Company-tab enrichment is already running.
+- I need real contact emails saved for sponsors so Send CV can work for real.
+- Home Office register has no emails.
+- Never invent/guess emails (no hr@, info@, constructed addresses).
+- Prefer published vacancy emails and corroborated official website/careers contacts with evidence.
+STEP 0 — REQUIRED conflict assessment:
+1. Inspect currently running company-tab enrichment and any contact/vacancy/backfill jobs.
+2. Check shared DB rows, locks, runners, rate limits, in-memory progress, and overwrite behavior.
+3. Answer:
+   - Will starting contact enrichment/backfill conflict?
+   - Can it cause errors, duplicate work, rate-limit failures, or overwrite good contacts?
+   - What is the safest way to run contact enrichment now?
+4. Do not start anything until you report that and I can proceed with your safest plan.
+   If risk is material, wait / queue / run a non-overlapping subset only.
+THEN (once safe):
+GOAL:
+Persist real trustworthy contactEmail values onto sponsors that lack them, with source/evidence, so Send CV eligibility works for real users.
+Use existing production-intended paths:
+1. Contact backfill / NHS Jobs + Reed published emails
+2. Controlled contactEnrichmentRunner (website/careers/contact pages)
+3. Fix wiring if contact job/backfill is broken, incomplete, or not scheduled
+4. Do NOT use the unsafe AI overwrite enrich path unless absolutely necessary, and never overwrite a valid existing email with null/unverified data
+Make it actually work:
+- Repair any broken endpoint/worker wiring for contact enrichment/backfill
+- Ensure progress is durable where possible
+- Non-destructive writes only
+- Reject free-mail/no-reply/junk where existing filters already require that
+- Store source + evidence URL
+- Verify Send CV recipient resolution picks up newly saved emails
+- Leave sponsors with no published contact as unresolved (no guessing)
+Execution:
+- If company-tab is still running, use the non-conflicting plan from Step 0
+- Process missing-contact sponsors systematically (start with ones that have vacancies if that improves hit rate)
+- Keep going until the pipeline is confirmed working end-to-end, not just one sample
+- Report coverage: attempted / found / unresolved / errors
+Output:
+1) Conflict assessment
+2) What you fixed/wired
+3) What ran
+4) Results: how many emails found, examples with source/evidence
+5) Confirmation that Send CV can use those stored emails
+6) What remains unresolved and why
