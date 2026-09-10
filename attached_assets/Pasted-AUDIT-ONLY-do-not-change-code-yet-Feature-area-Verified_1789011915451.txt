@@ -1,0 +1,105 @@
+AUDIT ONLY — do not change code yet.
+
+Feature area: Verified employer/sponsor contact discovery for Send CV
+
+Context:
+- The Home Office/GOV.UK sponsor register is a compliance dataset (org name, town/city, county, route/sub-route, licence rating). It is NOT a contact directory and has no emails/phones/recruitment contacts.
+- Send CV needs a trustworthy recipient email.
+- “Apply via Job Board” is separate and uses the vacancy external application URL; do not confuse the two.
+- We believe JOBSAGE already has an enrichment path that tries to find published contacts from vacancy fields, employer profiles, official websites, and careers/contact pages, storing source/evidence rather than inventing addresses.
+
+Goal of this audit:
+Map exactly what contact enrichment we already have, what it stores, how Send CV is gated, where it fails, and what is missing before any “one-time enrichment” or scraping ideas.
+
+Scan the whole relevant codebase (web, API, workers/jobs, scrapers, sponsor import, employer profiles, Send CV / outbound email flows, ops/admin queues). Be specific with file paths and function names.
+
+Investigate and answer:
+
+1) Current data sources
+- Where does sponsor register data get imported?
+- Exact fields stored from the register
+- Confirm absence of email/phone/website in that import (or note any exceptions)
+- Separate vacancy/job board models and whether they carry contact emails/URLs
+
+2) Existing enrichment path
+- End-to-end flow for discovering employer/sponsor emails today
+- Exact sources consulted, in order:
+  - live vacancy fields/descriptions
+  - existing employer profiles
+  - official website discovery
+  - careers/jobs/contact/recruitment pages
+  - any other source (Clearbit-like, hunter, manual, ops, etc.)
+- Which jobs/workers/services/routes implement this?
+- Is enrichment automatic, on-demand, batch, or manual?
+
+3) Storage / data model
+- Where are discovered emails stored?
+- Schema fields for:
+  - email
+  - type (hiring/general/recruitment/personal?)
+  - source
+  - evidence/snippet/URL
+  - confidence
+  - verified status / verified_by / verified_at
+  - bounce status
+- Can one employer have multiple contacts?
+- Deduping / overwrite rules
+
+4) Matching quality
+- How is a website/contact matched to a sponsor org name?
+- Handling of groups, NHS trusts, councils, universities, trading names, duplicates
+- False-positive risks (wrong company website/email)
+
+5) Send CV gating
+- Exact conditions that enable/disable Send CV
+- What happens when no trustworthy email exists?
+- Any guessing/fallback patterns (info@, hr@, constructed domains)?
+- Difference between:
+  - Send CV
+  - Apply via Job Board
+  - Ops/outbound queue fallback
+
+6) Ops / admin review
+- Is there already an enrichment queue, ops inbox, or admin review for unresolved sponsors?
+- What can admins add/edit/verify today?
+- Is Ops used as primary path or fallback?
+
+7) Quality / coverage metrics (if available in code or logs)
+- How often enrichment finds an email
+- Bounce / failure handling
+- Any confidence thresholds
+
+8) Legal/safety controls already present
+- Any “never invent email” rules in code
+- Source/evidence requirements
+- Suppression lists / do-not-contact
+- GDPR/PECR related comments or checks
+
+9) Gaps vs desired state
+Desired direction:
+- Improve verified contact discovery/matching
+- Show source + confidence internally
+- Never guess emails
+- Keep Send CV disabled without trustworthy recipient
+- Admin review/enrichment queue for unresolved high-value sponsors
+- Ops queue only as controlled fallback for reviewed cases
+
+Call out what already matches this and what does not.
+
+Deliverable format:
+A) Executive summary (what exists / partial / missing)
+B) File map (import, enrichment, storage, Send CV, ops/admin)
+C) Current enrichment flow diagram
+D) Data model for contacts/emails
+E) Send CV enablement rules
+F) Failure modes and known weak points
+G) What we can reuse vs what must be built
+H) Recommended next implementation plan in small PRs
+I) Explicit answer: is there any existing bulk scrape/source that already collects sponsor emails? (yes/no + where)
+J) Test plan for auditing accuracy on a sample of sponsors
+
+Constraints:
+- Audit only; no code changes
+- Do not propose inventing or guessing emails
+- Distinguish clearly: sponsor register data vs vacancy contacts vs enriched employer contacts vs ops fallback vs apply-via-job-board
+- Be concrete with paths, tables/models, routes, and workers
