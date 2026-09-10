@@ -1103,12 +1103,12 @@ function AppCard({ app }: { app: RichApplication }) {
   const config = APP_STATUS_CONFIG[app.status] ?? APP_STATUS_CONFIG.applied!;
 
   const title = isSpeculative
-    ? (app.vacancyTitle ?? app.companyName ?? "Speculative Application")
+    ? (app.vacancyTitle ?? app.companyName ?? "Send CV")
     : isWebsite
     ? (app.companyName ?? "Website Application")
     : (app.roleTitle ?? app.companyName ?? "Application");
 
-  const dateLabel = isSpeculative ? "Sent" : "Applied";
+  const dateLabel = isSpeculative ? "Submitted" : "Applied";
   const dateStr = new Date(app.appliedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
   const hasInterview = app.interviewDate != null;
@@ -1129,7 +1129,7 @@ function AppCard({ app }: { app: RichApplication }) {
             )}
             {isSpeculative && (
               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold border bg-sky-50 text-sky-700 border-sky-200">
-                <Send className="w-2.5 h-2.5" /> Speculative CV
+                <Send className="w-2.5 h-2.5" /> Send CV
               </span>
             )}
           </div>
@@ -1198,7 +1198,7 @@ function ApplicationsTab({ data }: { data: ApplicationList | undefined }) {
   const subTabs: { id: AppSubTab; label: string; icon: React.ElementType; count: number }[] = [
     { id: "platform", label: "Platform Applications", icon: Building2, count: stats.platformCount ?? platformApps.length },
     { id: "website", label: "Website Applications", icon: Globe, count: stats.websiteCount ?? websiteApps.length },
-    { id: "speculative", label: "Speculative CVs", icon: Send, count: stats.speculativeCount ?? speculativeApps.length },
+    { id: "speculative", label: "Send CV", icon: Send, count: stats.speculativeCount ?? speculativeApps.length },
   ];
 
   const visibleApps = subTab === "platform" ? platformApps : subTab === "website" ? websiteApps : speculativeApps;
@@ -1209,7 +1209,7 @@ function ApplicationsTab({ data }: { data: ApplicationList | undefined }) {
         {[
           { label: "Platform", value: stats.platformCount ?? platformApps.length, color: "text-foreground" },
           { label: "Website", value: stats.websiteCount ?? websiteApps.length, color: "text-blue-700" },
-          { label: "Speculative CVs", value: stats.speculativeCount ?? speculativeApps.length, color: "text-sky-700" },
+          { label: "Send CV", value: stats.speculativeCount ?? speculativeApps.length, color: "text-sky-700" },
           { label: "Interviews", value: stats.interviews ?? 0, color: "text-teal-700" },
         ].map(({ label, value, color }) => (
           <Card key={label} className="p-3 text-center">
@@ -1243,7 +1243,7 @@ function ApplicationsTab({ data }: { data: ApplicationList | undefined }) {
         <Card className="p-8 text-center">
           <ClipboardList className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
           <p className="text-sm text-muted-foreground">
-            {subTab === "platform" ? "No platform applications yet." : subTab === "website" ? "No website applications logged yet." : "No speculative CVs sent yet."}
+            {subTab === "platform" ? "No platform applications yet." : subTab === "website" ? "No website applications logged yet." : "No Send CV submissions yet."}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
             {subTab === "platform" ? "Use \"Smart Apply\" on a role to track it here." : subTab === "website" ? "Log an application made on an employer's website from the Applications page." : "Send your CV for a matched vacancy to track the outreach here."}
@@ -2016,9 +2016,9 @@ export default function OpportunitiesPage() {
               <div className="flex items-start gap-3">
                 <Send className="w-5 h-5 text-sky-700 mt-0.5" />
                 <div>
-                  <h2 className="text-sm font-semibold">Contact licensed sponsors directly</h2>
+                  <h2 className="text-sm font-semibold">Send CV</h2>
                   <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                    Matched vacancies are grouped by employer. Send your CV when a direct employer email is available, or use the verified application route.
+                    Choose a matched vacancy and submit Send CV. If contact details are not yet available, JOBSAGE will save it with delivery pending.
                   </p>
                 </div>
               </div>
@@ -2036,7 +2036,7 @@ export default function OpportunitiesPage() {
             {isLoading ? (
               <Card className="p-8 text-center">
                 <Loader2 className="w-8 h-8 text-primary animate-spin mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground">Loading matched vacancies with available application routes…</p>
+                <p className="text-sm text-muted-foreground">Loading Send CV matches…</p>
               </Card>
             ) : isError ? (
               <Card className="p-8 text-center border-destructive/20">
@@ -2046,9 +2046,9 @@ export default function OpportunitiesPage() {
             ) : sendCvGroups.length === 0 ? (
               <Card className="p-8 text-center">
                 <Briefcase className="w-9 h-9 text-muted-foreground/40 mx-auto mb-3" />
-                <p className="text-sm font-medium text-foreground">No matched vacancies with a usable application route.</p>
+                <p className="text-sm font-medium text-foreground">No matched Send CV vacancies.</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Try changing your search or region filters. Vacancies appear here when JOBSAGE has a verified apply link or a usable employer email.
+                  Try changing your search or region filters.
                 </p>
               </Card>
             ) : (

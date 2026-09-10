@@ -314,7 +314,7 @@ function ApplicationCard({ application, onStatusUpdated }: { application: Enrich
               )}
               <span className="flex items-center gap-1">
                 <Calendar className="w-3 h-3" />
-                {isSpeculative ? "Sent" : isWebsite && application.status === "link_clicked" ? "Started" : "Applied"} {format(new Date(application.appliedAt), "MMM d, yyyy")}
+                {isSpeculative ? "Submitted" : isWebsite && application.status === "link_clicked" ? "Started" : "Applied"} {format(new Date(application.appliedAt), "MMM d, yyyy")}
               </span>
               <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold border ${kindBadge.className}`}>
                 <KindIcon className="w-2.5 h-2.5" />
@@ -330,10 +330,16 @@ function ApplicationCard({ application, onStatusUpdated }: { application: Enrich
           />
         </div>
 
-        {isSpeculative && application.jobsageEmail && (
+        {isSpeculative && application.jobsageEmail && application.emailSent && (
           <div className="flex items-center gap-1.5 text-xs text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-lg px-3 py-2">
             <Send className="w-3 h-3 shrink-0" />
             <span>Sent via <span className="font-mono font-medium">{application.jobsageEmail}</span></span>
+          </div>
+        )}
+
+        {isSpeculative && application.deliveryStatus === "pending" && (
+          <div className="text-xs border rounded-lg px-3 py-2 bg-amber-50 text-amber-800 border-amber-200">
+            <span className="font-semibold">Send CV submitted.</span> Delivery is pending while JOBSAGE awaits contact details.
           </div>
         )}
 
@@ -388,7 +394,7 @@ function ApplicationCard({ application, onStatusUpdated }: { application: Enrich
         {application.cvLabel && (
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/40 border border-border rounded-lg px-3 py-2">
             <FileText className="w-3 h-3 shrink-0 text-primary" />
-            <span>{isSpeculative ? "CV sent" : "CV used"}: <span className="font-medium text-foreground">{application.cvLabel}</span></span>
+            <span>{isSpeculative ? (application.emailSent ? "CV sent" : "CV selected") : "CV used"}: <span className="font-medium text-foreground">{application.cvLabel}</span></span>
           </div>
         )}
 
@@ -642,7 +648,7 @@ export default function ApplicationsPage() {
               { label: "Total", value: stats.total ?? applications.length, color: "text-foreground" },
               { label: "Interviews", value: stats.interviews ?? 0, color: "text-teal-600" },
               { label: "Offers", value: stats.offers ?? 0, color: "text-amber-600" },
-              { label: "CV Sends", value: stats.speculativeCount ?? 0, color: "text-sky-600" },
+              { label: "Send CV", value: stats.speculativeCount ?? 0, color: "text-sky-600" },
             ].map(({ label, value, color }) => (
               <Card key={label} className="p-4 text-center">
                 <p className={`text-2xl font-bold ${color}`}>{value}</p>

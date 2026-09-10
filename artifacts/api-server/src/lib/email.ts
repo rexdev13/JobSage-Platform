@@ -401,7 +401,7 @@ export async function sendSpeculativeCVToOps(opts: {
 <body style="margin:0;padding:24px;font-family:'Segoe UI',Arial,sans-serif;background:#f4f7fb;">
   <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:10px;padding:32px;border:1px solid #e2e8f0;">
     <tr><td>
-      <h2 style="color:#0f172a;margin:0 0 16px;">Speculative CV Submission</h2>
+      <h2 style="color:#0f172a;margin:0 0 16px;">Send CV</h2>
       <table width="100%" cellpadding="4" cellspacing="0" style="font-size:14px;color:#334155;">
         <tr><td style="width:160px;font-weight:600;">Application ID</td><td>#${opts.applicationId}</td></tr>
         <tr><td style="font-weight:600;">Candidate</td><td>${safeCandidateName} &lt;${safeJobsageEmail}&gt;</td></tr>
@@ -442,7 +442,7 @@ export async function sendSpeculativeCVNotification(opts: {
   await resend.emails.send({
     from: `JOBSAGE <${FROM}>`,
     to: opts.candidateEmail,
-    subject: `JOBSAGE: Your speculative CV to ${opts.companyName} has been ${isDirectSend ? "delivered" : "sent"}`,
+    subject: `JOBSAGE: Your Send CV submission to ${opts.companyName} has been ${isDirectSend ? "delivered" : "sent"}`,
     html: `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
@@ -456,7 +456,7 @@ export async function sendSpeculativeCVNotification(opts: {
         <tr><td style="padding:36px 40px 24px;">
           <h1 style="color:#0f172a;font-size:20px;font-weight:700;margin:0 0 8px;">Hi ${opts.candidateName},</h1>
           <p style="color:#475569;font-size:15px;line-height:1.6;margin:0 0 16px;">
-            Your speculative CV has been submitted for <strong>${opts.companyName}</strong>.
+            Your Send CV submission has been completed for <strong>${opts.companyName}</strong>.
           </p>
           <div style="background:${isDirectSend ? "#f0fdf4" : "#fffbeb"};border-left:4px solid ${isDirectSend ? "#16a34a" : "#d97706"};border-radius:0 8px 8px 0;padding:14px 18px;margin:0 0 20px;">
             <p style="color:#1e293b;font-size:14px;line-height:1.6;margin:0;">${deliveryLine}</p>

@@ -135,7 +135,7 @@ export function SponsorVacancyApplyModal({
   onClose,
   onSuccess,
 }: SponsorVacancyApplyModalProps) {
-  const vacancyTitle = vacancyTitleProp ?? "Speculative Application";
+  const vacancyTitle = vacancyTitleProp ?? "Send CV";
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const sendCVMutation = useSendSpeculativeApplication();
@@ -253,13 +253,13 @@ export function SponsorVacancyApplyModal({
           } else if (status === 422) {
             toast({
               title: "PDF required",
-              description: "Your CV must be in PDF format to send a speculative application. Please upload a PDF CV.",
+              description: "Your CV must be in PDF format to use Send CV. Please upload a PDF CV.",
               variant: "destructive",
             });
           } else {
             toast({
-              title: "Error",
-              description: "Could not submit application. Please try again.",
+              title: "Send CV failed",
+              description: "Could not complete Send CV. Please try again.",
               variant: "destructive",
             });
           }
@@ -316,7 +316,7 @@ export function SponsorVacancyApplyModal({
               </div>
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-primary mb-0.5">
-                  Smart Apply · Send CV
+                  Send CV
                 </p>
                 <h2 className="text-base font-bold text-foreground leading-snug">{vacancyTitle}</h2>
                 <div className="flex items-center gap-1.5 mt-0.5">
@@ -364,14 +364,11 @@ export function SponsorVacancyApplyModal({
                 </div>
                 <h3 className="text-lg font-bold text-foreground mb-1">
                   {includeCoverLetter && coverLetter.done && clEditable.trim()
-                    ? "CV and cover letter sent!"
-                    : speculative ? "CV sent!" : "Application submitted!"}
+                    ? "Send CV submitted!"
+                    : "Send CV submitted!"}
                 </h3>
                 <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
-                  {speculative
-                    ? <>Your {includeCoverLetter && coverLetter.done && clEditable.trim() ? "CV and cover letter have" : "CV has"} been sent to <strong>{companyName}</strong>. You can track it in your Application Tracker.</>
-                    : <>Your application for <strong>{vacancyTitle}</strong> at <strong>{companyName}</strong> has been recorded. You can track it in your Application Tracker.</>
-                  }
+                  Your Send CV submission for <strong>{companyName}</strong> has been recorded. You can track its delivery in your Application Tracker.
                 </p>
                 <Button className="mt-6 gap-2" onClick={onClose}>
                   Close
@@ -384,8 +381,8 @@ export function SponsorVacancyApplyModal({
                 <Loader2 className="w-9 h-9 text-primary animate-spin mb-3" />
                 <p className="text-sm font-medium text-foreground">
                   {includeCoverLetter && coverLetter.done && clEditable.trim()
-                    ? "Preparing and sending both PDFs…"
-                    : "Submitting your application…"}
+                    ? "Preparing your Send CV documents…"
+                    : "Submitting Send CV…"}
                 </p>
               </div>
             )}
@@ -396,7 +393,7 @@ export function SponsorVacancyApplyModal({
                   <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center mb-3">
                     <CheckCircle2 className="w-8 h-8 text-emerald-600" />
                   </div>
-                  <h4 className="text-base font-bold text-foreground">Application submitted!</h4>
+                  <h4 className="text-base font-bold text-foreground">Send CV submitted!</h4>
                   <p className="text-sm text-muted-foreground mt-1 max-w-xs">
                     Great work. Keep the momentum going — here are your next 3 best matches:
                   </p>
