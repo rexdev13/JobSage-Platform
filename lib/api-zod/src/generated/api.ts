@@ -2952,7 +2952,16 @@ export const ListSpeculativeApplicationsResponse = zod.object({
       userId: zod.string(),
       companyName: zod.string(),
       sponsorLicenceId: zod.number().nullish(),
-      status: zod.enum(["sent", "acknowledged", "no_account"]),
+      status: zod.enum([
+        "cv_sent",
+        "sent",
+        "acknowledged",
+        "no_account",
+        "under_review",
+        "interview_invited",
+        "offer",
+        "rejected",
+      ]),
       notes: zod.string().nullish(),
       vacancyTitle: zod.string().nullish(),
       vacancyRef: zod.string().nullish(),
@@ -3003,7 +3012,7 @@ export const SendSpeculativeApplicationBody = zod.object({
     .boolean()
     .optional()
     .describe(
-      "Reject the request instead of using the legacy operations fallback when no direct employer email is stored.",
+      "Legacy compatibility field. A missing direct contact now saves Send CV as pending instead of rejecting or guessing a recipient.",
     ),
   includeCoverLetter: zod
     .boolean()
@@ -3021,7 +3030,16 @@ export const SendSpeculativeApplicationResponse = zod.object({
     userId: zod.string(),
     companyName: zod.string(),
     sponsorLicenceId: zod.number().nullish(),
-    status: zod.enum(["sent", "acknowledged", "no_account"]),
+    status: zod.enum([
+      "cv_sent",
+      "sent",
+      "acknowledged",
+      "no_account",
+      "under_review",
+      "interview_invited",
+      "offer",
+      "rejected",
+    ]),
     notes: zod.string().nullish(),
     vacancyTitle: zod.string().nullish(),
     vacancyRef: zod.string().nullish(),

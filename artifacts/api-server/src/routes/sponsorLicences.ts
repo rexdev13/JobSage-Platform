@@ -807,7 +807,9 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
         matchScore: match?.score ?? null,
         matchIsEligible: match?.isEligible ?? null,
         lastVacancyCheckedAt: lastVacancyCheckedAtByOrg.get(key) ?? null,
-        sendCvEligible: directContactEligibility[index] === true,
+        // Send CV remains available without a stored contact. The server
+        // persists the request as pending until a real destination exists.
+        sendCvEligible: true,
       };
     });
 

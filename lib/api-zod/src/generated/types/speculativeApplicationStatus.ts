@@ -10,7 +10,12 @@ export type SpeculativeApplicationStatus =
   (typeof SpeculativeApplicationStatus)[keyof typeof SpeculativeApplicationStatus];
 
 export const SpeculativeApplicationStatus = {
+  cv_sent: "cv_sent",
   sent: "sent",
   acknowledged: "acknowledged",
   no_account: "no_account",
+  under_review: "under_review",
+  interview_invited: "interview_invited",
+  offer: "offer",
+  rejected: "rejected",
 } as const;

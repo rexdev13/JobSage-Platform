@@ -135,7 +135,7 @@ export function SponsorVacancyApplyModal({
   onClose,
   onSuccess,
 }: SponsorVacancyApplyModalProps) {
-  const vacancyTitle = vacancyTitleProp ?? "Speculative Application";
+  const vacancyTitle = vacancyTitleProp ?? "Send CV";
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const sendCVMutation = useSendSpeculativeApplication();
@@ -167,6 +167,7 @@ export function SponsorVacancyApplyModal({
   const [clEditable, setClEditable] = useState("");
   const [clCopied, setClCopied] = useState(false);
   const [includeCoverLetter, setIncludeCoverLetter] = useState(true);
+  const [deliveryDeferred, setDeliveryDeferred] = useState(false);
   const [step, setStep] = useState<"details" | "coverletter" | "submitting" | "done" | "nextMatches">("details");
   const [aiAnswer, setAiAnswer] = useState("");
   const [nextMatchRoles, setNextMatchRoles] = useState<Array<{
@@ -212,8 +213,9 @@ export function SponsorVacancyApplyModal({
         },
       },
       {
-        onSuccess: async () => {
+        onSuccess: async (result) => {
           void queryClient.invalidateQueries({ queryKey: ["listSpeculativeApplications"] });
+          setDeliveryDeferred((result as { application?: { deliveryStatus?: string } })?.application?.deliveryStatus === "pending");
           setStep("done");
 
           // In speculative-only mode skip the next-matches step
@@ -245,21 +247,21 @@ export function SponsorVacancyApplyModal({
           const status = (err as { response?: { status?: number }; status?: number })?.response?.status
             ?? (err as { status?: number })?.status;
           if (status === 400) {
-            toast({
-              title: "Profile incomplete",
-              description: "Please visit your Profile page to set up your JOBSAGE email alias before sending a CV.",
+              toast({
+                title: "Send CV needs your JOBSAGE alias",
+                description: "Please visit your Profile page to set up your JOBSAGE email alias before using Send CV.",
               variant: "destructive",
             });
           } else if (status === 422) {
             toast({
-              title: "PDF required",
-              description: "Your CV must be in PDF format to send a speculative application. Please upload a PDF CV.",
+                title: "Send CV needs a PDF",
+                description: "Your CV must be in PDF format. Please upload a PDF CV and try Send CV again.",
               variant: "destructive",
             });
           } else {
             toast({
-              title: "Error",
-              description: "Could not submit application. Please try again.",
+                title: "Send CV failed",
+                description: "Could not save Send CV. Please try again.",
               variant: "destructive",
             });
           }
@@ -316,7 +318,7 @@ export function SponsorVacancyApplyModal({
               </div>
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-primary mb-0.5">
-                  Smart Apply · Send CV
+                   Send CV
                 </p>
                 <h2 className="text-base font-bold text-foreground leading-snug">{vacancyTitle}</h2>
                 <div className="flex items-center gap-1.5 mt-0.5">
@@ -363,15 +365,16 @@ export function SponsorVacancyApplyModal({
                   <CheckCircle2 className="w-8 h-8 text-emerald-600" />
                 </div>
                 <h3 className="text-lg font-bold text-foreground mb-1">
-                  {includeCoverLetter && coverLetter.done && clEditable.trim()
-                    ? "CV and cover letter sent!"
-                    : speculative ? "CV sent!" : "Application submitted!"}
+                  {deliveryDeferred
+                    ? "Send CV saved — awaiting employer contact"
+                    : includeCoverLetter && coverLetter.done && clEditable.trim()
+                      ? "Send CV sent with cover letter"
+                      : "Send CV sent"}
                 </h3>
                 <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
-                  {speculative
-                    ? <>Your {includeCoverLetter && coverLetter.done && clEditable.trim() ? "CV and cover letter have" : "CV has"} been sent to <strong>{companyName}</strong>. You can track it in your Application Tracker.</>
-                    : <>Your application for <strong>{vacancyTitle}</strong> at <strong>{companyName}</strong> has been recorded. You can track it in your Application Tracker.</>
-                  }
+                  {deliveryDeferred
+                    ? <>Your Send CV record for <strong>{companyName}</strong> is saved. No email was sent yet because no stored employer contact was available. It will remain pending in your Application Tracker.</>
+                    : <>Your Send CV record for <strong>{vacancyTitle}</strong> at <strong>{companyName}</strong> has been recorded. You can track it in your Application Tracker.</>}
                 </p>
                 <Button className="mt-6 gap-2" onClick={onClose}>
                   Close
@@ -384,8 +387,8 @@ export function SponsorVacancyApplyModal({
                 <Loader2 className="w-9 h-9 text-primary animate-spin mb-3" />
                 <p className="text-sm font-medium text-foreground">
                   {includeCoverLetter && coverLetter.done && clEditable.trim()
-                    ? "Preparing and sending both PDFs…"
-                    : "Submitting your application…"}
+                    ? "Preparing your Send CV and both PDFs…"
+                    : "Saving and sending your Send CV…"}
                 </p>
               </div>
             )}
@@ -646,17 +649,17 @@ export function SponsorVacancyApplyModal({
 
                 {/* Info notice */}
                 <p className="text-xs text-muted-foreground bg-muted/40 rounded-lg px-3 py-2 border border-border leading-relaxed">
-                  {vacancyTitleProp
-                    ? "Sending creates a tracked CV outreach in JOBSAGE linked to this vacancy. You can follow up and track progress from your Application Tracker."
-                    : "Sending creates a tracked company-level CV outreach in JOBSAGE. You can follow up and track progress from your Application Tracker."}
+                   {vacancyTitleProp
+                     ? "Send CV creates a tracked record in JOBSAGE linked to this vacancy. If no stored employer contact is available, it stays pending until one is found."
+                     : "Send CV creates a tracked company-level record in JOBSAGE. If no stored employer contact is available, it stays pending until one is found."}
                 </p>
 
                 {alreadySent && (
                   <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-500/10 border border-blue-200 text-xs text-blue-700">
                     <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                     {vacancyTitleProp
-                      ? `You already sent your CV for this vacancy at ${companyName}.`
-                      : `You already sent your CV to ${companyName}.`}
+                       ? `You already used Send CV for this vacancy at ${companyName}.`
+                       : `You already used Send CV for ${companyName}.`}
                   </div>
                 )}
               </>
@@ -711,10 +714,10 @@ export function SponsorVacancyApplyModal({
                   disabled={sendCVMutation.isPending}
                 >
                   <Send className="w-3.5 h-3.5" />
-                   {alreadySent ? "Resend " : "Send "}
+                    {alreadySent ? "Send CV again" : "Send CV"}
                    {includeCoverLetter && coverLetter.done && clEditable.trim()
-                     ? "CV + cover letter"
-                     : "CV only"}
+                      ? " + cover letter"
+                      : " only"}
                 </Button>
               </div>
             </div>

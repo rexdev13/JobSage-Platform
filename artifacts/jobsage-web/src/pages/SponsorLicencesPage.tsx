@@ -305,7 +305,7 @@ function VacancyMatchPanel({
                 disabled={isSent || sendCVPending}
                 className="text-xs text-primary font-medium hover:underline disabled:opacity-50 flex items-center gap-1"
               >
-                {isSent ? "CV Sent ✓" : "Send CV speculatively"}
+                {isSent ? "Send CV sent ✓" : "Send CV"}
               </button>
             )}
           </div>
@@ -331,7 +331,7 @@ function VacancyMatchPanel({
               disabled={isSent || sendCVPending}
               className="text-xs text-primary font-medium hover:underline disabled:opacity-50 flex items-center gap-1"
             >
-              {isSent ? "CV Sent ✓" : "Send CV speculatively"}
+              {isSent ? "Send CV sent ✓" : "Send CV"}
             </button>
           )}
         </div>
@@ -450,7 +450,7 @@ function VacancyMatchPanel({
                       </p>
                     )}
                     {v.applied && <span data-testid={`status-sponsor-applied-${v.id}`} className="text-xs text-emerald-700">Applied</span>}
-                    {v.cvSent && <span data-testid={`status-sponsor-cv-sent-${v.id}`} className="ml-2 text-xs text-blue-700">CV Sent for this vacancy</span>}
+                    {v.cvSent && <span data-testid={`status-sponsor-cv-sent-${v.id}`} className="ml-2 text-xs text-blue-700">Send CV sent for this vacancy</span>}
                     {v.matchExplanation && (
                       <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{v.matchExplanation}</p>
                     )}
@@ -502,7 +502,7 @@ function VacancyMatchPanel({
                             disabled={disabledReason != null}
                           >
                             <Send className="w-3.5 h-3.5" />
-                            Send my CV
+                            Send CV
                           </Button>
                         </span>
                       );
@@ -561,9 +561,9 @@ function VacancyMatchPanel({
                 disabled={sendCVPending}
               >
                 {isSent ? (
-                  <><CheckCircle2 className="w-3.5 h-3.5" /> CV Sent</>
+                  <><CheckCircle2 className="w-3.5 h-3.5" /> Send CV sent</>
                 ) : (
-                  <><Send className="w-3.5 h-3.5" /> Send CV speculatively</>
+                  <><Send className="w-3.5 h-3.5" /> Send CV</>
                 )}
               </Button>
             )}
@@ -830,7 +830,7 @@ export default function SponsorLicencesPage() {
     if (!hasCvUploaded) {
       toast({
         title: "No CV uploaded",
-        description: "Please upload your CV in 'CV & Supporting Documents' before sending a speculative application.",
+         description: "Please upload your CV in 'CV & Supporting Documents' before using Send CV.",
         variant: "destructive",
       });
       return;
@@ -1512,7 +1512,7 @@ export default function SponsorLicencesPage() {
                                   ) : null}
                                   {sentCompanyNames.has(c.organisationName) && (
                                     <span data-testid={`status-sponsor-employer-cv-sent-${c.id}`} className="inline-flex items-center gap-1 text-xs bg-blue-500/10 text-blue-700 px-2 py-0.5 rounded-full font-medium">
-                                      <CheckCircle2 className="w-3 h-3" /> Employer-level CV Sent
+                                      <CheckCircle2 className="w-3 h-3" /> Employer-level Send CV sent
                                     </span>
                                   )}
                                 </div>
@@ -1905,7 +1905,7 @@ export default function SponsorLicencesPage() {
               )}
 
               <p className="text-xs text-muted-foreground mb-5 bg-muted/40 rounded-lg px-3 py-2 border border-border leading-relaxed">
-                This vacancy lead was discovered via web scraping. Sending your CV creates a speculative application record in JOBSAGE so you can track your outreach.
+                This vacancy lead was discovered via web scraping. Send CV creates a tracked record in JOBSAGE so you can track your outreach.
               </p>
 
               <div className="flex items-center gap-3 flex-wrap">

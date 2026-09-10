@@ -88,7 +88,7 @@ const STATUS_CONFIG: Record<
     className: "bg-muted text-muted-foreground",
   },
   cv_sent: {
-    label: "CV Sent",
+    label: "Send CV sent",
     icon: Send,
     className: "bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300",
   },
@@ -333,7 +333,7 @@ function ApplicationCard({ application, onStatusUpdated }: { application: Enrich
         {isSpeculative && application.jobsageEmail && (
           <div className="flex items-center gap-1.5 text-xs text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-lg px-3 py-2">
             <Send className="w-3 h-3 shrink-0" />
-            <span>Sent via <span className="font-mono font-medium">{application.jobsageEmail}</span></span>
+             <span>Send CV via <span className="font-mono font-medium">{application.jobsageEmail}</span></span>
           </div>
         )}
 
@@ -359,8 +359,8 @@ function ApplicationCard({ application, onStatusUpdated }: { application: Enrich
               className: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800",
             },
             ops_fallback: {
-              label: "Via JOBSAGE team",
-              description: "No direct email found — the JOBSAGE team will follow up on your behalf",
+              label: "Send CV via JOBSAGE team",
+              description: "No direct email was found — the JOBSAGE team will follow up on your behalf",
               className: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800",
             },
           };
@@ -373,9 +373,16 @@ function ApplicationCard({ application, onStatusUpdated }: { application: Enrich
           );
         })()}
 
-        {isSpeculative && application.deliveryStatus === "failed" && (
+         {isSpeculative && application.deliveryStatus === "pending" && !application.emailSent && (
+           <div className="text-xs border rounded-lg px-3 py-2 bg-amber-50 text-amber-800 border-amber-200">
+             <span className="font-semibold">Send CV saved — awaiting employer contact.</span>{" "}
+             No email has been sent yet because no stored contact was available.
+           </div>
+         )}
+
+         {isSpeculative && application.deliveryStatus === "failed" && (
           <div className="text-xs border rounded-lg px-3 py-2 bg-rose-50 text-rose-700 border-rose-200">
-            <span className="font-semibold">Delivery failed.</span> {application.deliveryError ?? "You can retry Send CV from Opportunities."}
+             <span className="font-semibold">Send CV delivery failed.</span> {application.deliveryError ?? "You can retry Send CV from Opportunities."}
           </div>
         )}
 
@@ -388,7 +395,7 @@ function ApplicationCard({ application, onStatusUpdated }: { application: Enrich
         {application.cvLabel && (
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/40 border border-border rounded-lg px-3 py-2">
             <FileText className="w-3 h-3 shrink-0 text-primary" />
-            <span>{isSpeculative ? "CV sent" : "CV used"}: <span className="font-medium text-foreground">{application.cvLabel}</span></span>
+             <span>{isSpeculative ? "CV used for Send CV" : "CV used"}: <span className="font-medium text-foreground">{application.cvLabel}</span></span>
           </div>
         )}
 
@@ -619,7 +626,7 @@ export default function ApplicationsPage() {
               Application Tracker
             </h1>
             <p className="text-muted-foreground text-sm mt-1">
-              Track applications from job boards, CV sends, and company websites.
+               Track applications from job boards, Send CV, and company websites.
             </p>
           </div>
           <div className="flex flex-col items-end gap-1.5">
@@ -642,7 +649,7 @@ export default function ApplicationsPage() {
               { label: "Total", value: stats.total ?? applications.length, color: "text-foreground" },
               { label: "Interviews", value: stats.interviews ?? 0, color: "text-teal-600" },
               { label: "Offers", value: stats.offers ?? 0, color: "text-amber-600" },
-              { label: "CV Sends", value: stats.speculativeCount ?? 0, color: "text-sky-600" },
+               { label: "Send CV", value: stats.speculativeCount ?? 0, color: "text-sky-600" },
             ].map(({ label, value, color }) => (
               <Card key={label} className="p-4 text-center">
                 <p className={`text-2xl font-bold ${color}`}>{value}</p>
@@ -705,8 +712,8 @@ export default function ApplicationsPage() {
               {activeTab === "website"
                 ? "Applied on an employer's website? Use 'Log an application made elsewhere' above to record it here."
                 : activeTab === "speculative"
-                ? "Send your CV directly to a sponsor licence company to create a record here."
-                : "Use Smart Apply, send your CV directly to sponsor licence companies, or log an application you made elsewhere."}
+                 ? "Use Send CV to create a tracked record with a sponsor licence company."
+                 : "Use Smart Apply, Send CV, or log an application you made elsewhere."}
             </p>
             <Button variant="outline" onClick={() => setLocation(activeTab === "speculative" || activeTab === "website" ? "/sponsor-licences" : "/opportunities")}>
               {activeTab === "speculative" || activeTab === "website" ? "Browse Sponsors" : "Browse Jobs"}

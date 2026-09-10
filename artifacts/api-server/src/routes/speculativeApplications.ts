@@ -39,6 +39,16 @@ export function shouldRejectOperationsFallback(
   return requireDirectContact === true && deliveryRoute === "ops_fallback";
 }
 
+export function getSendCvDeliveryState(input: {
+  hasEmailDestination: boolean;
+  emailDelivered: boolean;
+  deliveryFailure: string | null;
+}): "delivered" | "pending" | "failed" {
+  if (input.emailDelivered) return "delivered";
+  if (!input.deliveryFailure && !input.hasEmailDestination) return "pending";
+  return "failed";
+}
+
 export function getVacancySubmissionError(
   storedUrl: string | null,
   submittedUrl: string | null,
@@ -79,7 +89,6 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
     vacancyUrl,
     sourceType,
     boardName,
-    requireDirectContact,
     includeCoverLetter,
     coverLetterGeneratedText,
     coverLetterText,
@@ -197,18 +206,14 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
     return;
   }
 
-  // The candidate-facing Send CV flow opts out of the legacy operations
-  // fallback. Other API callers retain the existing fallback behaviour.
+  // Resolve only persisted employer/sponsor contact evidence. When no
+  // destination exists, the Send CV record is retained and left pending
+  // rather than guessing an address or routing the candidate's documents to
+  // the operations inbox.
   const resolvedRecipient = await resolveEmployerRecipient(
     normalizedCompanyName,
     sponsorLicenceId,
   );
-  if (shouldRejectOperationsFallback(requireDirectContact, resolvedRecipient.route)) {
-    res.status(422).json({
-      error: "This company has no stored direct contact email, so Send CV is unavailable.",
-    });
-    return;
-  }
 
   // Resolve the candidate's CV document:
   // 1. If the caller explicitly chose a CV (cvDocumentId), use that document.
@@ -427,13 +432,14 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
   const maskedNotes = notes && jobsageEmail ? maskPersonalContactInfo(notes, jobsageEmail) : (notes ?? null);
 
   const { email: employerContactEmail, route: deliveryRoute } = resolvedRecipient;
+  const hasEmailDestination = deliveryRoute !== "ops_fallback";
 
   // Fire outbound emails and persist delivery metadata.
   // Step 1: Send the CV to the employer/ops — this determines actual delivery.
   // Step 2: Only after confirming success, send the candidate confirmation with accurate wording.
   const now = new Date();
   let emailDelivered = false;
-  if (!deliveryFailure && cvContent) {
+  if (!deliveryFailure && cvContent && hasEmailDestination) {
     try {
       await sendSpeculativeCVToOps({
       candidateEmail: user.email as string,
@@ -456,11 +462,17 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
       console.error("[speculative] Failed to send CV to employer/ops:", err);
       deliveryFailure = err instanceof Error ? err.message : "Email delivery failed.";
     }
-  } else if (!deliveryFailure) {
+  } else if (!deliveryFailure && !cvContent) {
     deliveryFailure = "The selected PDF CV was empty.";
   }
+  const deliveryState = getSendCvDeliveryState({
+    hasEmailDestination,
+    emailDelivered,
+    deliveryFailure,
+  });
+  const deliveryDeferred = deliveryState === "pending";
 
-  // Candidate confirmation: only sent when the employer/ops email actually succeeded.
+  // Candidate confirmation: only sent when the employer email actually succeeded.
   // If delivery failed we do not send a confirmation — the application is persisted in the
   // tracker and the candidate can retry. Wording reflects the confirmed delivery route.
   if (emailDelivered) {
@@ -485,11 +497,11 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
       coverLetterIncluded: emailDelivered && coverLetterDocumentId != null,
       emailSent: emailDelivered,
       emailSentAt: emailDelivered ? now : null,
-      emailRecipient: employerContactEmail,
+      emailRecipient: hasEmailDestination ? employerContactEmail : null,
       jobsageEmail,
-      deliveryRoute,
-      deliveryStatus: emailDelivered ? "delivered" : "failed",
-      deliveryError: emailDelivered ? null : deliveryFailure,
+      deliveryRoute: hasEmailDestination ? deliveryRoute : null,
+      deliveryStatus: deliveryState,
+      deliveryError: emailDelivered || deliveryDeferred ? null : deliveryFailure,
     })
     .where(eq(speculativeApplicationsTable.id, app.id))
     .returning();
@@ -525,9 +537,9 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
   await db
     .update(speculativeApplicationDeliveryAttemptsTable)
     .set({
-      outcome: emailDelivered ? "delivered" : "failed",
-      completedAt: now,
-      error: emailDelivered ? null : deliveryFailure,
+      outcome: deliveryState,
+      completedAt: deliveryDeferred ? null : now,
+      error: emailDelivered || deliveryDeferred ? null : deliveryFailure,
     })
     .where(eq(speculativeApplicationDeliveryAttemptsTable.id, attemptId));
 
@@ -627,7 +639,7 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
     // Notification logging is best-effort — don't fail the main request
   }
 
-  if (!emailDelivered) {
+  if (deliveryState === "failed") {
     res.status(502).json({
       error: "CV delivery failed. The attempt is saved and can be retried.",
       application: finalApp ?? app,
