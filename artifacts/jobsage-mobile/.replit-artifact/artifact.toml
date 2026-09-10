@@ -18,9 +18,6 @@ localPort = 18557
 [services.development]
 run = "pnpm --filter @workspace/jobsage-mobile run dev"
 
-[services.production]
-build = [ "pnpm", "--filter", "@workspace/jobsage-mobile", "run", "build" ]
-run = [ "pnpm", "--filter", "@workspace/jobsage-mobile", "run", "serve" ]
 
 [services.env]
 PORT = "18557"
