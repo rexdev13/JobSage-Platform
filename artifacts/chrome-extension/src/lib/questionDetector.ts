@@ -6,6 +6,15 @@
 import { isPinpointPage, isWorkdayHostname } from "./scraper";
 
 export type QuestionBucket = "generate" | "structured" | "confirmation";
+export type RequiredSource =
+  | "dom"
+  | "aria"
+  | "label"
+  | "hint"
+  | "group"
+  | "api"
+  | "heuristic"
+  | "unknown";
 
 export interface DetectedQuestion {
   /** Stable identity for the field across re-scans. */
@@ -22,6 +31,14 @@ export interface DetectedQuestion {
   bucket: QuestionBucket;
   /** Stable label/name/id signature used for page-scoped answer memory. */
   signature: string;
+  /** True only when the current page exposes affirmative required evidence. */
+  required: boolean;
+  /** Strongest source used to determine requiredness. */
+  requiredSource: RequiredSource;
+  /** Confidence in the requiredness decision, from 0 to 1. */
+  requiredConfidence: number;
+  /** False means requiredness is unknown, not that the field is optional. */
+  requiredKnown: boolean;
 }
 
 export interface StructuredFieldDescriptor {
@@ -175,6 +192,118 @@ function isPersonalField(field: QuestionField, question = ""): boolean {
 
 function requiresCandidateConfirmation(question: string): boolean {
   return CANDIDATE_CONFIRMATION_PATTERN.test(question);
+}
+
+export interface Requiredness {
+  required: boolean;
+  requiredSource: RequiredSource;
+  requiredConfidence: number;
+  requiredKnown: boolean;
+}
+
+function hasAffirmativeRequiredText(text: string): boolean {
+  if (/\bnot\s+required\b|\boptional\b/i.test(text)) return false;
+  return /(?:\*\s*$|\(\s*required\s*\)|\b(?:required|mandatory)\b)/i.test(text);
+}
+
+function associatedLabelElements(field: QuestionField): Element[] {
+  const labels: Element[] = [];
+  const doc = field.ownerDocument;
+  if (field.id) {
+    const escaped =
+      typeof CSS !== "undefined" && CSS.escape
+        ? CSS.escape(field.id)
+        : field.id.replace(/["\\]/g, "\\$&");
+    const external = doc.querySelector(`label[for="${escaped}"]`);
+    if (external) labels.push(external);
+  }
+  const wrapping = field.closest("label");
+  if (wrapping && !labels.includes(wrapping)) labels.push(wrapping);
+  return labels;
+}
+
+function referencedText(field: QuestionField, attribute: "aria-labelledby" | "aria-describedby"): string {
+  const references = field.getAttribute(attribute);
+  if (!references) return "";
+  return references
+    .split(/\s+/)
+    .map((id) => field.ownerDocument.getElementById(id)?.textContent ?? "")
+    .join(" ");
+}
+
+function nearbyRequiredMarker(field: QuestionField): boolean {
+  const markerSelector =
+    "[class*='required' i], [class*='mandatory' i], [data-required='true'], [data-mandatory='true']";
+  const associatedLabels = associatedLabelElements(field);
+  const containers = [
+    ...associatedLabels,
+    field.closest("fieldset, [role='group'], [role='radiogroup'], div, li, td"),
+  ].filter((element): element is Element => element !== null);
+  return containers.some((container) => {
+    if (
+      !associatedLabels.includes(container) &&
+      container.querySelectorAll("input, textarea, select").length > 1
+    ) {
+      return false;
+    }
+    const markers = [
+      ...(container.matches(markerSelector) ? [container] : []),
+      ...Array.from(container.querySelectorAll(markerSelector)),
+    ];
+    return markers.some((marker) => {
+      const text = marker.textContent?.trim() ?? "";
+      if (/\bnot\s+required\b|\boptional\b/i.test(text)) return false;
+      if (marker.getAttribute("data-required") === "true" || marker.getAttribute("data-mandatory") === "true") {
+        return true;
+      }
+      const className = marker.getAttribute("class") ?? "";
+      if (
+        /(?:^|[\s_-])(?:required|mandatory)(?:$|[\s_-])/i.test(className) &&
+        !/(?:^|[\s_-])(?:not-required|optional)(?:$|[\s_-])/i.test(className)
+      ) {
+        return true;
+      }
+      return text === "*" || hasAffirmativeRequiredText(text);
+    });
+  });
+}
+
+/**
+ * Resolve the page's current requiredness evidence. Unknown is intentionally
+ * distinct from optional and is recalculated on every scan.
+ */
+export function getRequiredness(field: QuestionField): Requiredness {
+  if (field.required) {
+    return { required: true, requiredSource: "dom", requiredConfidence: 1, requiredKnown: true };
+  }
+
+  const ariaRequired = field.getAttribute("aria-required")?.trim().toLowerCase();
+  if (ariaRequired === "true") {
+    return { required: true, requiredSource: "aria", requiredConfidence: 1, requiredKnown: true };
+  }
+  if (ariaRequired === "false") {
+    return { required: false, requiredSource: "aria", requiredConfidence: 1, requiredKnown: true };
+  }
+
+  const labelText = [
+    ...associatedLabelElements(field).map((label) => label.textContent ?? ""),
+    field.getAttribute("aria-label") ?? "",
+    referencedText(field, "aria-labelledby"),
+  ].join(" ");
+  if (hasAffirmativeRequiredText(labelText)) {
+    return { required: true, requiredSource: "label", requiredConfidence: 0.9, requiredKnown: true };
+  }
+
+  const hintText = referencedText(field, "aria-describedby");
+  if (hasAffirmativeRequiredText(hintText)) {
+    return { required: true, requiredSource: "hint", requiredConfidence: 0.85, requiredKnown: true };
+  }
+
+  if (nearbyRequiredMarker(field)) {
+    return { required: true, requiredSource: "group", requiredConfidence: 0.75, requiredKnown: true };
+  }
+
+  return { required: false, requiredSource: "unknown", requiredConfidence: 0, requiredKnown: false };
 }
 
 // ---------------------------------------------------------------------------
@@ -451,6 +580,7 @@ function scanRoot(root: Document | Element, hostname: string): DetectedQuestion[
 
     const maxLength = "maxLength" in field && field.maxLength > 0 ? field.maxLength : undefined;
     const restrictionText = `${question} ${field.name} ${field.id} ${field.getAttribute("data-automation-id") ?? ""}`;
+    const requiredness = getRequiredness(field);
     results.push({
       id: ensureId(field),
       question: question.length > 300 ? `${question.slice(0, 300)}…` : question,
@@ -459,6 +589,7 @@ function scanRoot(root: Document | Element, hostname: string): DetectedQuestion[
       restricted: bucket === "confirmation" || requiresCandidateConfirmation(restrictionText),
       bucket,
       signature: stableFieldSignature(field, question, root),
+      ...requiredness,
     });
   }
   const totals = new Map<string, number>();
@@ -577,7 +708,11 @@ function sameQuestions(a: DetectedQuestion[], b: DetectedQuestion[]): boolean {
         q.wordLimit === b[i].wordLimit &&
       q.restricted === b[i].restricted &&
       q.bucket === b[i].bucket &&
-      q.signature === b[i].signature
+      q.signature === b[i].signature &&
+      q.required === b[i].required &&
+      q.requiredSource === b[i].requiredSource &&
+      q.requiredConfidence === b[i].requiredConfidence &&
+      q.requiredKnown === b[i].requiredKnown
   );
 }
 
@@ -704,7 +839,19 @@ export function createQuestionWatcher(doc: Document = document): QuestionWatcher
         childList: true,
         subtree: true,
         attributes: true,
-        attributeFilter: ["hidden", "disabled", "style", "class", "aria-hidden"],
+        attributeFilter: [
+          "hidden",
+          "disabled",
+          "style",
+          "class",
+          "aria-hidden",
+          "required",
+          "aria-required",
+          "aria-describedby",
+          "aria-labelledby",
+          "data-required",
+          "data-mandatory",
+        ],
       });
       observers.set(currentDoc, observer);
     }

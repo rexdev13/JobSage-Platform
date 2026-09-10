@@ -336,6 +336,7 @@ export function Sidebar({
   );
   const detected = useSyncExternalStore(subscribe, getSnapshot);
   const selectedQuestion = selectedId ? detected.find((q) => q.id === selectedId) ?? null : null;
+  const hasConfirmedRequired = detected.some((question) => question.requiredKnown && question.required);
 
   // ---------------------------------------------------------------------------
   // Draggable pill state
@@ -993,6 +994,11 @@ export function Sidebar({
                         {prefillResult.missing.length} {prefillResult.missing.length === 1 ? "field was" : "fields were"} left blank because no exact saved detail was available.
                       </span>
                     )}
+                    {prefillResult.requiredMissing.length > 0 && (
+                      <span style={{ display: "block", marginTop: 4, color: COLORS.errorText }}>
+                        {prefillResult.requiredMissing.length} required {prefillResult.requiredMissing.length === 1 ? "field still needs" : "fields still need"} your attention.
+                      </span>
+                    )}
                   </div>
                 </>
              )}
@@ -1066,8 +1072,13 @@ export function Sidebar({
             </section>
           {detected.length > 0 && (
             <div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.text, marginBottom: 6 }}>
-                Detected questions
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: COLORS.text }}>
+                  Detected questions
+                </span>
+                {hasConfirmedRequired && (
+                  <span style={{ fontSize: 11, color: COLORS.textMuted }}>* Required</span>
+                )}
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {detected.map((dq) => {
@@ -1092,6 +1103,22 @@ export function Sidebar({
                       }}
                     >
                       {dq.question}
+                      {dq.requiredKnown && dq.required && (
+                        <>
+                          <span aria-hidden="true" style={{ marginLeft: 3, color: COLORS.errorText }}>*</span>
+                          <span style={{
+                            position: "absolute",
+                            width: 1,
+                            height: 1,
+                            padding: 0,
+                            margin: -1,
+                            overflow: "hidden",
+                            clip: "rect(0, 0, 0, 0)",
+                            whiteSpace: "nowrap",
+                            border: 0,
+                          }}> Required</span>
+                        </>
+                      )}
                          {dq.bucket !== "generate" && (
                             <span style={{
                               display: "block",
@@ -1100,7 +1127,9 @@ export function Sidebar({
                               color: dq.bucket === "confirmation" ? COLORS.errorText : COLORS.textMuted,
                             }}>
                               {dq.bucket === "confirmation"
-                                ? "Complete this yourself"
+                                ? dq.requiredKnown && dq.required
+                                  ? "Required — complete this yourself"
+                                  : "Complete this yourself"
                                 : prefillResult?.fieldResults[dq.id]?.message ?? "Fill from JOBSAGE profile + CV"}
                            </span>
                          )}

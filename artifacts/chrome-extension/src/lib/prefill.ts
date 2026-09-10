@@ -1,3 +1,5 @@
+import { getRequiredness } from "./questionDetector";
+
 export interface CandidateProfile {
   firstName?: string | null;
   lastName?: string | null;
@@ -28,6 +30,7 @@ export interface TrustedVacancyContext {
 export interface PrefillResult {
   filled: string[];
   missing: string[];
+  requiredMissing: string[];
   skipped: string[];
   fieldResults: Record<string, { status: "filled" | "missing" | "skipped"; message: string }>;
   warning?: string;
@@ -192,6 +195,7 @@ export function prefillPersonalDetails(
 ): PrefillResult {
   const filled = new Set<string>();
   const missing = new Set<string>();
+  const requiredMissing = new Set<string>();
   const skipped: string[] = [];
   const fieldResults: PrefillResult["fieldResults"] = {};
   const documents: Document[] = [doc];
@@ -205,6 +209,11 @@ export function prefillPersonalDetails(
     }
   }
   const fields = documents.flatMap((currentDoc) => Array.from(currentDoc.querySelectorAll<DetailField>("input, textarea, select")));
+  const recordMissing = (field: DetailField, label: string) => {
+    const requiredness = getRequiredness(field);
+    if (requiredness.requiredKnown && requiredness.required) requiredMissing.add(label);
+    else missing.add(label);
+  };
   for (const field of fields) {
     if (!isVisible(field)) continue;
     if (isInput(field) && ["hidden", "password", "file", "submit", "button", "checkbox", "radio"].includes(field.type)) {
@@ -215,6 +224,10 @@ export function prefillPersonalDetails(
     const questionId = field.getAttribute("data-jobsage-qid");
     if (SENSITIVE_FIELD_PATTERN.test(label)) {
       skipped.push(label || "sensitive field");
+      const requiredness = getRequiredness(field);
+      if (requiredness.requiredKnown && requiredness.required) {
+        requiredMissing.add(label || "required field");
+      }
       if (questionId) fieldResults[questionId] = { status: "skipped", message: "Complete this yourself" };
       continue;
     }
@@ -237,7 +250,7 @@ export function prefillPersonalDetails(
     const currentValue = clean(field.value);
     if (rule.key === "email") {
       if (!isJobsageAlias(candidateValue)) {
-        missing.add(rule.label);
+        recordMissing(field, rule.label);
         if (questionId) fieldResults[questionId] = { status: "missing", message: "No JOBSAGE alias is available" };
         continue;
       }
@@ -255,7 +268,7 @@ export function prefillPersonalDetails(
     }
     if (currentValue) continue;
     if (!candidateValue) {
-      missing.add(rule.label);
+      recordMissing(field, rule.label);
       if (questionId) fieldResults[questionId] = { status: "missing", message: "Not in your JOBSAGE profile or CV" };
       continue;
     }
@@ -264,7 +277,7 @@ export function prefillPersonalDetails(
       if (rule.key !== "country") continue;
       const selectValue = ukSelectValue(field, candidateValue);
       if (!selectValue) {
-        missing.add(rule.label);
+        recordMissing(field, rule.label);
         continue;
       }
       field.value = selectValue;
@@ -279,6 +292,7 @@ export function prefillPersonalDetails(
   return {
     filled: Array.from(filled),
     missing: Array.from(missing),
+    requiredMissing: Array.from(requiredMissing),
     skipped,
     fieldResults,
     warning: vacancyContext?.preserveExistingEmail && skipped.includes("email")
