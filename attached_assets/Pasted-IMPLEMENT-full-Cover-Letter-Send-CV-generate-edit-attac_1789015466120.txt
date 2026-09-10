@@ -1,0 +1,90 @@
+IMPLEMENT full Cover Letter + Send CV: generate, edit, attach as PDF with the CV, and email both together.
+
+Audit summary to follow:
+- Generation exists (stream + edit in SponsorVacancyApplyModal)
+- Send CV emails employer with CV PDF attachment
+- Cover letter currently goes in HTML body / notes only — NOT as attachment
+- Mailer already supports attachments[] but only pushes CV
+- Generation uses primary CV, not always the selected Send CV document
+- Send CV modal omits rich vacancy description in generate call
+- No cover_letter document type / persistence yet
+- Smart Apply ≠ Send CV (do not change Smart Apply into email)
+
+Do NOT force-push. Do not invent employer emails. Keep recipient gating unchanged.
+
+==================================================
+GOAL
+==================================================
+Candidate can:
+1) Select CV
+2) Generate cover letter from THAT CV + vacancy/employer context
+3) Edit/preview
+4) Send CV email with:
+   - CV PDF attachment
+   - Cover letter PDF attachment
+5) Persist what was sent
+
+==================================================
+PR / IMPLEMENTATION STEPS
+==================================================
+
+1) Align generation with selected context
+- From SponsorVacancyApplyModal, pass to /cover-letter/generate-stream:
+  - cvDocumentId (selected CV)
+  - vacancy title, employer, location
+  - full vacancy description when available
+  - roleId / regulator if available
+- Backend must load/parse that exact owned CV (not always primary)
+- Keep masking of personal contact details
+
+2) Persist cover letter
+- Add cover_letter support (document type and/or dedicated record)
+- Store generated + final edited text
+- Link: candidate, vacancy/company, sourceCvDocumentId, timestamps
+- On send, persist reference of exactly what was sent on speculative application
+
+3) Render attachable PDF
+- After candidate confirms edited text, server-render cover letter PDF
+  (reuse existing PDF tooling in repo)
+- Include candidate name, JOBSAGE alias, date, employer, vacancy, body, sign-off
+- Validate size; keep within email-safe limits with the CV
+
+4) Extend Send CV email
+- Update sendSpeculativeCVToOps / speculativeApplications route to accept cover letter PDF
+- attachments = [CV PDF, Cover letter PDF]
+- Body: short intro + optional abbreviated note; do NOT rely on body-only letter anymore
+- HTML-escape all candidate/employer-controlled strings in email HTML
+- Persist delivery metadata: coverLetterDocumentId/filename/included flag + cv version/id
+
+5) UI states in SponsorVacancyApplyModal
+- Generate / Regenerating / Edit / Ready to attach
+- Clear indication: “Send CV + cover letter”
+- If client requires letter with every send: disable Send until letter PDF is ready
+- If optional: explicit “Send CV only” vs “Send CV + cover letter”
+- Default to including cover letter when generated successfully
+- Do not claim success if attachment build fails
+
+6) Tests
+- Selected cvDocumentId used for generation
+- Two attachments present in mail payload
+- Ownership checks for CV + cover letter docs
+- Non-PDF CV still rejected
+- Escape/XSS safety in email body
+- Delivery status only after provider success
+- Smart Apply and Apply-via-Job-Board unchanged
+
+==================================================
+OUT OF SCOPE
+==================================================
+- Turning Smart Apply into employer email
+- Extension cover-letter emailing
+- DOCX unless PDF path is done
+- Changing contact enrichment / recipient rules
+
+==================================================
+DELIVERABLE
+==================================================
+1) Working Send CV with CV PDF + cover letter PDF
+2) Files changed
+3) How to verify on Replit (generate → edit → send → confirm both attachments)
+4) Any deferred items

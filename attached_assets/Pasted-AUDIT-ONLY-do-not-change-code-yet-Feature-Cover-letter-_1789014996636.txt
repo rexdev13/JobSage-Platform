@@ -1,0 +1,96 @@
+AUDIT ONLY — do not change code yet.
+
+Feature: Cover letter generation + send with CV (Send CV / speculative applications)
+
+Client ask:
+- Generate a cover letter
+- Send it together with the CV in the Send CV flow
+- Full feature, not a stub
+
+Goal of this audit:
+Map what already exists for cover letters and CV email delivery, what is missing, and how generation + attachment should plug into the current Send CV path.
+
+Scan the whole relevant stack:
+- artifacts/jobsage-web (Send CV modals, opportunities, applications, sponsor flows)
+- artifacts/api-server (speculative applications, email sending, AI generation routes)
+- extension if it participates in cover letters
+- DB schemas for applications, documents, CVs, drafts, email payloads
+Be specific with file paths, routes, models, and function names.
+
+Investigate and answer:
+
+1) Current Send CV flow
+- Exact UI entry points (SponsorVacancyApplyModal, Opportunities, Sponsor Licences, etc.)
+- API route(s) used (e.g. POST /speculative-applications)
+- What gets sent today: CV PDF only? body text? both?
+- How recipient is resolved
+- Attachment handling in email.ts / delivery code
+- Delivery status tracking fields
+
+2) Cover letter — what exists today
+- Is there any cover letter generation already?
+- Smart Apply answers / assistant / draft flows that could be reused?
+- Document types in storage (CV, cover letter, other)?
+- Any UI to write/edit/generate a cover letter?
+- Any prompt templates for cover letters?
+- Extension generate-answer flows related to cover letters?
+
+3) Documents / storage
+- How CVs are stored and selected for Send CV
+- Can a cover letter document be stored the same way?
+- File types supported for email attachments (PDF/DOCX?)
+- Whether multiple attachments are already supported by the mailer
+
+4) Generation requirements (current capability vs gap)
+For a proper feature, we likely need:
+- Generate cover letter from candidate profile + CV + vacancy/employer context
+- Preview/edit before send
+- Save generated letter (per vacancy / reusable?)
+- Attach alongside CV in the outbound email
+- Optionally include letter text in email body
+Identify what is already possible vs missing for each.
+
+5) Email package shape
+What is currently composed:
+- subject
+- body
+- attachments[]
+Does the mailer support 2 attachments (CV + cover letter)?
+Any size limits?
+Any templating for employer-facing email copy?
+
+6) Product rules / edge cases
+- Send CV blocked when no verified contact — does cover letter UI still appear?
+- Apply via Job Board path — should cover letter apply there too, or only email Send CV?
+- Missing profile data / weak vacancy description
+- Regeneration / versioning
+- User edits after generation
+- Failure: CV attaches but cover letter generation fails — current or desired behavior?
+
+7) Permissions / credits / AI
+- Which model/route would generation use?
+- Any credit metering / rate limits?
+- Auth requirements
+
+Deliverable format:
+A) Executive summary (exists / partial / missing)
+B) File map for Send CV + any cover-letter-related code
+C) Current Send CV sequence diagram
+D) Document/attachment model
+E) What generation building blocks can be reused
+F) Gaps vs client ask: “generate cover letter and send with CV”
+G) Recommended implementation plan in small PRs
+H) Explicit answer:
+   - Can we already attach more than one file to Send CV?
+   - Is there any cover letter generation already?
+   - Fastest path to a working end-to-end feature on Replit
+I) Test plan
+
+Constraints:
+- Audit only; no code edits
+- Distinguish clearly:
+  - Send CV email flow
+  - Apply via Job Board
+  - Smart Apply on-platform answers
+  - Extension answer generation
+- Do not assume cover letters exist — prove with paths
