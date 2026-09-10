@@ -22,7 +22,12 @@ const STAGE_BADGE: Record<string, { label: string; className: string }> = {
   "Application status update":              { label: "Update",        className: "bg-muted text-muted-foreground" },
   "Your profile was viewed by an employer": { label: "Profile viewed", className: "bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300" },
   "Speculative CV sent":                    { label: "CV Sent",        className: "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300" },
+  "Send CV completed":                      { label: "Send CV",        className: "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300" },
 };
+
+function isSendCvSubject(subject: string): boolean {
+  return subject === "Send CV completed" || subject === "Speculative CV sent";
+}
 
 /** Classify an employer reply message for display purposes */
 function getEmployerReplyMeta(subject: string): { icon: React.ElementType; badge: { label: string; className: string } } {
@@ -186,7 +191,7 @@ export default function InboxPage() {
                     >
                       <div className="flex items-start gap-2">
                         <div className="mt-0.5 shrink-0">
-                          {latest.messageType === "system" && latest.subject === "Speculative CV sent" ? (
+                          {latest.messageType === "system" && isSendCvSubject(latest.subject) ? (
                             <div className="w-7 h-7 rounded-full bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center">
                               <Send className="w-4 h-4 text-teal-600" />
                             </div>
@@ -288,7 +293,7 @@ export default function InboxPage() {
                               "w-7 h-7 rounded-full flex items-center justify-center",
                               isEmployerReply
                                 ? "bg-violet-100 dark:bg-violet-900/30"
-                                : isSystem && msg.subject === "Speculative CV sent"
+                                : isSystem && isSendCvSubject(msg.subject)
                                 ? "bg-teal-100 dark:bg-teal-900/30"
                                 : isSystem
                                 ? "bg-blue-100 dark:bg-blue-900/30"
@@ -296,7 +301,7 @@ export default function InboxPage() {
                             )}>
                               {isEmployerReply && ReplyIcon
                                 ? <ReplyIcon className="w-4 h-4 text-violet-600" />
-                                : isSystem && msg.subject === "Speculative CV sent"
+                                : isSystem && isSendCvSubject(msg.subject)
                                 ? <Send className="w-4 h-4 text-teal-600" />
                                 : isSystem
                                 ? <Info className="w-4 h-4 text-blue-500" />

@@ -32,7 +32,7 @@ const APP_URL = process.env.APP_URL ?? "https://jobsage.co.uk";
 export { isUsableEmployerEmail, resolveEmployerRecipient };
 export type { DeliveryRoute, RecipientResolution };
 
-export function shouldRejectOperationsFallback(
+export function shouldQueueSendCvWithoutRecipient(
   requireDirectContact: boolean | undefined,
   deliveryRoute: DeliveryRoute,
 ): boolean {
@@ -192,7 +192,7 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
   const jobsageEmail = await resolveJobsageAlias(userId);
   if (!jobsageEmail) {
     res.status(400).json({
-      error: "No JOBSAGE email alias found. Please visit your Profile page to set one up before sending a speculative application.",
+      error: "No JOBSAGE email alias found. Please visit your Profile page to set one up before using Send CV.",
     });
     return;
   }
@@ -203,12 +203,12 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
     normalizedCompanyName,
     sponsorLicenceId,
   );
-  if (shouldRejectOperationsFallback(requireDirectContact, resolvedRecipient.route)) {
-    res.status(422).json({
-      error: "This company has no stored direct contact email, so Send CV is unavailable.",
-    });
-    return;
-  }
+  // TEMP: allow Send CV without destination for client call; restore recipient
+  // gating + real email dispatch after call.
+  const queueWithoutRecipient = shouldQueueSendCvWithoutRecipient(
+    requireDirectContact,
+    resolvedRecipient.route,
+  );
 
   // Resolve the candidate's CV document:
   // 1. If the caller explicitly chose a CV (cvDocumentId), use that document.
@@ -433,7 +433,7 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
   // Step 2: Only after confirming success, send the candidate confirmation with accurate wording.
   const now = new Date();
   let emailDelivered = false;
-  if (!deliveryFailure && cvContent) {
+  if (!queueWithoutRecipient && !deliveryFailure && cvContent) {
     try {
       await sendSpeculativeCVToOps({
       candidateEmail: user.email as string,
@@ -456,7 +456,7 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
       console.error("[speculative] Failed to send CV to employer/ops:", err);
       deliveryFailure = err instanceof Error ? err.message : "Email delivery failed.";
     }
-  } else if (!deliveryFailure) {
+  } else if (!queueWithoutRecipient && !deliveryFailure) {
     deliveryFailure = "The selected PDF CV was empty.";
   }
 
@@ -485,11 +485,11 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
       coverLetterIncluded: emailDelivered && coverLetterDocumentId != null,
       emailSent: emailDelivered,
       emailSentAt: emailDelivered ? now : null,
-      emailRecipient: employerContactEmail,
+      emailRecipient: queueWithoutRecipient ? null : employerContactEmail,
       jobsageEmail,
       deliveryRoute,
-      deliveryStatus: emailDelivered ? "delivered" : "failed",
-      deliveryError: emailDelivered ? null : deliveryFailure,
+      deliveryStatus: queueWithoutRecipient ? "pending" : emailDelivered ? "delivered" : "failed",
+      deliveryError: queueWithoutRecipient || emailDelivered ? null : deliveryFailure,
     })
     .where(eq(speculativeApplicationsTable.id, app.id))
     .returning();
@@ -522,14 +522,16 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
         ),
       );
   }
-  await db
-    .update(speculativeApplicationDeliveryAttemptsTable)
-    .set({
-      outcome: emailDelivered ? "delivered" : "failed",
-      completedAt: now,
-      error: emailDelivered ? null : deliveryFailure,
-    })
-    .where(eq(speculativeApplicationDeliveryAttemptsTable.id, attemptId));
+  if (!queueWithoutRecipient) {
+    await db
+      .update(speculativeApplicationDeliveryAttemptsTable)
+      .set({
+        outcome: emailDelivered ? "delivered" : "failed",
+        completedAt: now,
+        error: emailDelivered ? null : deliveryFailure,
+      })
+      .where(eq(speculativeApplicationDeliveryAttemptsTable.id, attemptId));
+  }
 
   // Create inbox notification only when email was actually delivered —
   // guards against false "sent" confirmations on delivery failure.
@@ -545,7 +547,7 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
       await db.insert(candidateMessagesTable).values({
         recipientUserId: userId,
         messageType: "system",
-        subject: "Speculative CV sent",
+        subject: "Send CV completed",
         messageText: [
           `Your CV has been submitted to ${normalizedCompanyName}${normalizedVacancyTitle ? ` for the role "${normalizedVacancyTitle}"` : ""}.`,
           ``,
@@ -575,7 +577,25 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
       .where(ilike(employerProfilesTable.companyName, normalizedCompanyName))
       .limit(1);
 
-    if (empProfile) {
+    if (queueWithoutRecipient) {
+      // TEMP: allow Send CV without destination for client call; restore
+      // recipient gating + real email dispatch after call.
+      await writeAuditEvent(
+        `user:${userId}`,
+        "send_cv_awaiting_contact",
+        undefined,
+        {
+          companyName: normalizedCompanyName,
+          applicationId: app.id,
+          vacancyRef: normalizedVacancyRef,
+          hasEmployerAccount: Boolean(empProfile),
+          deliveryRoute,
+          needsAdminAction: true,
+          lookupStepsAttempted: ["sponsor_contact_email", "employer_contact_email", "employer_account"],
+          adminNote: `Send CV was submitted for "${normalizedCompanyName}" without a destination email. Delivery remains pending until contact details are available.`,
+        },
+      );
+    } else if (empProfile) {
       // Employer has a JOBSAGE account — log for their future dashboard
       await writeAuditEvent(
         `user:${userId}`,
@@ -627,9 +647,9 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
     // Notification logging is best-effort — don't fail the main request
   }
 
-  if (!emailDelivered) {
+  if (!emailDelivered && !queueWithoutRecipient) {
     res.status(502).json({
-      error: "CV delivery failed. The attempt is saved and can be retried.",
+      error: "Send CV delivery failed. The attempt is saved and can be retried.",
       application: finalApp ?? app,
     });
     return;
@@ -659,7 +679,7 @@ router.patch("/speculative-applications/:id/status", requireAuthenticated, async
     .where(and(eq(speculativeApplicationsTable.id, id), eq(speculativeApplicationsTable.userId, userId)));
 
   if (!existing) {
-    res.status(404).json({ error: "Speculative application not found" });
+    res.status(404).json({ error: "Send CV record not found" });
     return;
   }
 
