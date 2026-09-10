@@ -1,0 +1,52 @@
+do not start any new enrichment until you answer the conflict question.
+Context:
+- I am already running company-tab enrichment.
+- I need a short demo of contact/email enrichment for Send CV on this Replit app.
+- I do NOT have prod access; work only in this Replit environment.
+- Do not invent emails. Do not guess hr@/info@ addresses.
+STEP 0 — Conflict / safety check (REQUIRED before any write/enrichment):
+1. Inspect currently running jobs/workers related to:
+   - company tab enrichment
+   - contact enrichment
+   - contact backfill
+   - vacancy jobs / sponsor enrich
+2. Check shared locks, tables, in-memory progress, queues, and endpoints involved:
+   - contactBackfillRunner
+   - contactEnrichmentRunner
+   - sponsor enrich route
+   - internal vacancy-jobs kind=contact
+   - any company-tab enrichment runner
+3. Tell me clearly:
+   A) Will starting contact backfill/enrichment CONFLICT with the company-tab enrichment already running?
+   B) Can it cause errors, duplicate writes, rate-limit hits, overwritten contacts, or corrupted progress?
+   C) Safe options right now:
+      - wait until company-tab finishes
+      - run contact enrichment in parallel safely
+      - run only on a small allowlisted set of sponsors
+      - do not run at all yet
+4. Do NOT start enrichment until you give this assessment.
+ONLY IF SAFE (or after proposing a non-conflicting plan), then:
+DEMO GOAL:
+Get real published contact emails onto a few sponsors so Send CV can unlock.
+Preferred order:
+1) Use existing contact-backfill / vacancy-published-email path first
+2) Then controlled contact enrichment worker if safe
+3) Avoid the old AI overwrite enrich path unless no safer option exists; if used, only on 1–2 named sponsors and never overwrite a good existing email with null
+Execution rules:
+- Start tiny (e.g. 5–20 sponsors missing contactEmail, ideally ones with NHS/Reed vacancies)
+- Prefer sponsors that will demo well
+- Persist evidence/source when available
+- Show me:
+  - exact endpoints/commands you will call
+  - before/after contactEmail for sample sponsors
+  - whether Send CV eligibility flips to true
+  - any errors
+If conflict risk is non-trivial:
+- Do not run bulk backfill
+- Propose waiting, or a tiny one-sponsor enrich that cannot collide
+- Ask me to confirm before proceeding
+Output format:
+1) Conflict assessment (yes/no + why)
+2) Recommended action now
+3) If proceeding: commands/endpoints + results
+4) Demo script I can show the client in 2 minutes
