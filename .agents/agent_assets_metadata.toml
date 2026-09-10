@@ -115,14 +115,14 @@ content_type = "application/octet-stream"
 id = "rQ4JC7CHsJdiT_BW_ggYl"
 uri = "file://artifacts/chrome-extension/release/jobsage-smart-apply-extension-v0.4.18.zip"
 type = "unspecified"
-title = "JOBSAGE Smart Apply v0.4.18"
-description = "Fixes repeated false CV-read errors, summarizes unmapped fields once, and keeps sensitive employment-form fields candidate-controlled."
+title = "JOBSAGE Smart Apply extension v0.4.18"
+description = "Production Chrome extension bundle with the full local Answer Library: candidate-only capture, cross-application matching, sensitive-field exclusions, management controls, and iframe/SPA support."
 logical_id = "7f74f2a2-bd33-49ce-ac73-9a7c101b0ac3"
-content_hash = "sha256:aac98e1ee6b4ba78dc1d22d59ad8a37e6ccf533296f4d66181148fd42879004f"
-size = 151492
-mtime_ms = 1788422212565
-storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/7f74f2a2-bd33-49ce-ac73-9a7c101b0ac3/fdf75746-d2d7-4483-8039-0b380bde42df"
-storage_version_token = "1788422235920855"
+content_hash = "sha256:8475e1790c886f414f2152cb2321086b314d3442e5329be3880c40eb406e1324"
+size = 158237
+mtime_ms = 1789011442964
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/7f74f2a2-bd33-49ce-ac73-9a7c101b0ac3/4e305302-0c45-4cf3-b983-3eedeaa1081b"
+storage_version_token = "1789011448340966"
 content_type = "application/octet-stream"
 
 [[outputs]]
