@@ -1,0 +1,109 @@
+AUDIT ONLY — do not change code yet.
+
+Feature to investigate: REMEMBRANCE / auto-save of candidate-entered values
+
+Goal:
+If a candidate types/selects a value into an application form field that JOBSAGE currently has no saved value for, the extension should automatically remember that answer and reuse it for future prefills on similar fields/questions.
+
+Please fully scan:
+- artifacts/chrome-extension
+- any related Smart Apply / profile / memory API routes in artifacts/api-server
+and produce an audit of current “memory / remembrance / learned answers” behavior.
+
+Investigate and answer:
+
+1) What already exists
+- Is there already answer memory, learned answers, saved responses, profile updates, or similar?
+- Exact files/functions/paths (content.tsx mentioned answer memory earlier — verify).
+- What is stored today, where (chrome.storage / backend profile / IndexedDB / elsewhere), and for how long?
+- What triggers a save today (manual button, blur, submit, explicit “save answer”, generate flow, etc.)?
+- What is reused on later pages, and how is matching done (exact label, signature, field name, embedding, heuristics)?
+
+2) Current gaps vs desired behavior
+Desired:
+- Candidate enters a NEW value into a field the extension had no value for
+- Extension auto-saves it (with sensible constraints)
+- Next time a similar field appears, extension can prefill it automatically
+
+Audit whether this already happens fully, partially, or not at all.
+
+3) Data model
+- Current memory/profile record shape
+- Keys used for recall (question text, signature, control type, ATS, hostname, etc.)
+- Whether requiredness, restricted/sensitive flags, or bucket (generate/structured/confirmation) affect save/recall
+- Deduping / overwrite rules if candidate later changes the answer
+
+4) Capture path
+- How can we detect candidate-entered values reliably?
+  - input/change/blur events
+  - filled-by-user vs filled-by-extension distinction
+  - SPA re-renders / controlled inputs
+  - iframes
+  - select / radio / checkbox / textarea / file (file probably should NOT be remembered as binary)
+- How do we avoid saving values the extension itself just prefilling?
+- Race conditions with mutation watcher / rescans
+
+5) Safety / privacy / compliance
+Identify fields that must NEVER auto-remember, or only with explicit confirmation:
+- passwords
+- NI / SSN / passport / bank details
+- health / disability / criminal / equality monitoring
+- right-to-work / sponsorship sensitive answers
+- one-time codes, OTPs
+- consent/declaration checkboxes that are application-specific
+- employer-specific free text that shouldn’t become global profile defaults
+Propose a sensitivity policy.
+
+6) Scope of remembrance
+Clarify current and recommended scope:
+- Global candidate profile vs per-employer vs per-ATS vs per-question-signature
+- Short answers / structured fields vs long generated narrative answers
+- Whether generated AI answers are already saved and how that differs from typed answers
+
+7) Prefill integration
+- Where remembered values should plug into:
+  - prefillPersonalDetails
+  - structured-prefill API
+  - local answer memory lookup before/after API
+- Precedence order recommendation, e.g.:
+  1. existing non-empty field value
+  2. explicit profile field
+  3. remembered exact signature match
+  4. remembered fuzzy label match
+  5. API/AI mapping
+- How this interacts with required-field work (remembered value can clear a required gap)
+
+8) UI/UX
+- Is remembrance currently visible to the candidate?
+- Should there be:
+  - silent auto-save?
+  - toast: “Saved for next time”?
+  - way to view/edit/delete remembered answers?
+- Risks of surprising overwrites
+
+9) Backend involvement
+- Can this stay extension-only for v1?
+- Or must it sync to JobSAGE profile/backend for cross-device?
+- Existing endpoints that already store answers/profile facts?
+- What should NOT be sent to the model just for memory
+
+Deliverable format:
+A) Executive summary (exists / partial / missing)
+B) File map for memory/save/recall/prefill
+C) Current save + recall flow diagram
+D) Gaps vs desired auto-remembrance
+E) Safety exclusions list
+F) Recommended data contract for remembered answers
+G) Suggested precedence rules for prefill
+H) Implementation plan in small PRs (extension-first if possible)
+I) Test plan (events, iframes, don’t-save-extension-fills, sensitive fields, overwrite, recall match quality)
+J) Explicit recommendation for v1:
+   - silent auto-save on blur for safe structured fields only?
+   - or require opt-in?
+   - local-only vs synced?
+
+Constraints:
+- Audit only; no code edits
+- Be specific with paths and function names
+- Call out anything already implemented that we should extend instead of rebuilding
+- Separate clearly: answer memory vs profile autofill vs structured API mapping vs generated-answer history
