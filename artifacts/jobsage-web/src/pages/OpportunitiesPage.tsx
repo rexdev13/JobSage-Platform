@@ -1264,20 +1264,14 @@ function SendCvEmployerGroup({
   employer,
   vacancies,
   cvSentRoleIds,
-  hasCv,
   onSend,
-  onApply,
   onSmartApply,
-  onUploadCv,
 }: {
   employer: string;
   vacancies: MatchedRole[];
   cvSentRoleIds: number[];
-  hasCv: boolean;
   onSend: (vacancy: MatchedRole) => void;
-  onApply: (vacancy: MatchedRole) => void;
   onSmartApply: (roleId: number, roleTitle: string) => void;
-  onUploadCv: () => void;
 }) {
   return (
     <Card className="overflow-hidden">
@@ -1297,7 +1291,6 @@ function SendCvEmployerGroup({
         {vacancies.map((item) => {
           const { role } = item;
           const cvSent = cvSentRoleIds.includes(role.id);
-          const canEmailCv = canSendCvForVacancy(item);
           const hasVerifiedApplyRoute = hasUsableSendCvApplyRoute(item);
           const sourceLabel = !item.applyUrl
             ? "Email only"
@@ -1327,43 +1320,18 @@ function SendCvEmployerGroup({
                       {sourceLabel}
                     </span>
                   </div>
-                  {hasVerifiedApplyRoute && (
-                    <button
-                      type="button"
-                      onClick={() => onApply(item)}
-                      className="inline-flex items-center gap-1 mt-2 text-xs font-medium text-primary hover:underline"
-                    >
-                      View live vacancy <ExternalLink className="w-3 h-3" />
-                    </button>
-                  )}
                 </div>
                 {item.aiScore != null && <AiScoreBadge score={item.aiScore} />}
               </div>
 
               <div className="mt-3 flex flex-wrap gap-2">
-                {canEmailCv && hasCv ? (
-                  <Button
-                    size="sm"
-                    variant={cvSent ? "outline" : "default"}
-                    onClick={() => onSend(item)}
-                  >
-                    <Send className="w-4 h-4 mr-1.5" /> {cvSent ? "Send CV again" : "Send CV"}
-                  </Button>
-                ) : canEmailCv ? (
-                  <Button size="sm" variant="outline" onClick={onUploadCv}>
-                    <FileText className="w-4 h-4 mr-1.5" /> Upload CV to send
-                  </Button>
-                ) : null}
-                {hasVerifiedApplyRoute && (
-                  <Button
-                    size="sm"
-                    variant={canEmailCv ? "outline" : "default"}
-                    onClick={() => onApply(item)}
-                  >
-                    <ExternalLink className="w-4 h-4 mr-1.5" />
-                    {role.sourceType === "company_site" ? "Apply on company website" : "Apply via job board"}
-                  </Button>
-                )}
+                <Button
+                  size="sm"
+                  variant={cvSent ? "outline" : "default"}
+                  onClick={() => onSend(item)}
+                >
+                  <Send className="w-4 h-4 mr-1.5" /> {cvSent ? "Send CV again" : "Send CV"}
+                </Button>
                 {hasVerifiedApplyRoute && (
                   <Button
                     size="sm"
