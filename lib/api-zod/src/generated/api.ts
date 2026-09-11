@@ -1415,6 +1415,18 @@ export const ListMyApplicationsResponse = zod.object({
       jobTitle: zod.string().nullish(),
       interviewDate: zod.string().nullish(),
       interviewNotes: zod.string().nullish(),
+      isClosed: zod
+        .boolean()
+        .optional()
+        .describe(
+          "Whether the underlying vacancy is closed or its application link is no longer live.",
+        ),
+      livenessReason: zod
+        .string()
+        .nullish()
+        .describe(
+          "The latest reason recorded for a dead application link, when available.",
+        ),
     }),
   ),
   stats: zod.object({
@@ -1488,6 +1500,29 @@ export const MarkApplicationResponse = zod.object({
   jobTitle: zod.string().nullish(),
   interviewDate: zod.string().nullish(),
   interviewNotes: zod.string().nullish(),
+  isClosed: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Whether the underlying vacancy is closed or its application link is no longer live.",
+    ),
+  livenessReason: zod
+    .string()
+    .nullish()
+    .describe(
+      "The latest reason recorded for a dead application link, when available.",
+    ),
+});
+
+/**
+ * @summary Delete one of the current candidate's tracked applications
+ */
+export const DeleteApplicationParams = zod.object({
+  id: zod.coerce
+    .number()
+    .describe(
+      "Positive IDs identify regular applications; negative IDs identify speculative applications.",
+    ),
 });
 
 /**
@@ -1526,6 +1561,18 @@ export const ConfirmApplicationSubmissionResponse = zod.object({
     jobTitle: zod.string().nullish(),
     interviewDate: zod.string().nullish(),
     interviewNotes: zod.string().nullish(),
+    isClosed: zod
+      .boolean()
+      .optional()
+      .describe(
+        "Whether the underlying vacancy is closed or its application link is no longer live.",
+      ),
+    livenessReason: zod
+      .string()
+      .nullish()
+      .describe(
+        "The latest reason recorded for a dead application link, when available.",
+      ),
   }),
   updated: zod
     .boolean()

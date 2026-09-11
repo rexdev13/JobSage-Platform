@@ -129,6 +129,8 @@ describe("GET /applications", () => {
         location: "Leeds",
         organisationName: "Sponsor NHS Trust",
         companyName: "Sponsor NHS Trust",
+        liveness: "dead",
+        livenessReason: "The vacancy closing date has passed.",
       }],
     );
 
@@ -142,7 +144,104 @@ describe("GET /applications", () => {
       roleTitle: "Registered Nurse",
       roleLocation: "Leeds",
       companyName: "Sponsor NHS Trust",
+      isClosed: true,
+      livenessReason: "The vacancy closing date has passed.",
     });
+  });
+
+  it("marks a closed job-board listing as closed with its liveness reason", async () => {
+    appResults.push(
+      [{ id: 9, userId: "cand-1", roleId: 1_000_321, applicationType: "platform", companyName: null, appliedAt: new Date(), cvDocumentId: null, status: "applied" }],
+      [],
+      [{
+        id: 321,
+        title: "Staff Nurse",
+        location: "York",
+        employerProfileId: 4,
+        status: "closed",
+        liveness: "live",
+        livenessReason: null,
+      }],
+      [{ id: 4, companyName: "York Hospital" }],
+    );
+
+    const res = await request(buildApp())
+      .get("/applications")
+      .set("Authorization", `Bearer ${SESS}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.applications[0]).toMatchObject({
+      isClosed: true,
+      livenessReason: null,
+      companyName: "York Hospital",
+    });
+  });
+
+  it("marks an inactive normal role as closed with its liveness reason", async () => {
+    appResults.push(
+      [{ id: 10, userId: "cand-1", roleId: 77, applicationType: "platform", companyName: null, appliedAt: new Date(), cvDocumentId: null, status: "applied" }],
+      [],
+      [{
+        id: 77,
+        title: "Clinical Specialist",
+        employer: "North Trust",
+        active: false,
+        liveness: "live",
+        livenessReason: "Role withdrawn by the employer.",
+      }],
+    );
+
+    const res = await request(buildApp())
+      .get("/applications")
+      .set("Authorization", `Bearer ${SESS}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.applications[0]).toMatchObject({
+      isClosed: true,
+      livenessReason: "Role withdrawn by the employer.",
+    });
+  });
+});
+
+describe("DELETE /applications/:id", () => {
+  beforeEach(() => { appResults.length = 0; });
+
+  it("deletes an owned regular application", async () => {
+    appResults.push([{ id: 12 }]);
+
+    const res = await request(buildApp())
+      .delete("/applications/12")
+      .set("Authorization", `Bearer ${SESS}`);
+
+    expect(res.status).toBe(204);
+  });
+
+  it("deletes an owned speculative application using its negative tracker ID", async () => {
+    appResults.push([{ id: 12 }]);
+
+    const res = await request(buildApp())
+      .delete("/applications/-12")
+      .set("Authorization", `Bearer ${SESS}`);
+
+    expect(res.status).toBe(204);
+  });
+
+  it("returns 404 when the application is missing or owned by another candidate", async () => {
+    appResults.push([]);
+
+    const res = await request(buildApp())
+      .delete("/applications/12")
+      .set("Authorization", `Bearer ${SESS}`);
+
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 400 for invalid application IDs", async () => {
+    const res = await request(buildApp())
+      .delete("/applications/0")
+      .set("Authorization", `Bearer ${SESS}`);
+
+    expect(res.status).toBe(400);
   });
 });
 

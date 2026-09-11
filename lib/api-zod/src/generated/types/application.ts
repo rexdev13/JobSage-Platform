@@ -22,4 +22,8 @@ export interface Application {
   jobTitle?: string | null;
   interviewDate?: string | null;
   interviewNotes?: string | null;
+  /** Whether the underlying vacancy is closed or its application link is no longer live. */
+  isClosed?: boolean;
+  /** The latest reason recorded for a dead application link, when available. */
+  livenessReason?: string | null;
 }
