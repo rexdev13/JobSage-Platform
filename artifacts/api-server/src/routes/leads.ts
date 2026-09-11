@@ -206,6 +206,34 @@ router.get(
   },
 );
 
+router.get(
+  "/leads/my-performance",
+  requireRole("marketing"),
+  async (req: Request, res: Response): Promise<void> => {
+    const [row] = await db
+      .select({
+        assignedCount: count(socialLeadsTable.id),
+        contactedCount: sql<number>`count(*) filter (where ${socialLeadsTable.status} = 'contacted')`,
+        registeredCount: sql<number>`count(*) filter (where ${socialLeadsTable.convertedUserId} is not null)`,
+        averageResponseTimeMinutes: sql<number | null>`avg(extract(epoch from (${socialLeadsTable.contactedAt} - ${socialLeadsTable.createdAt})) / 60) filter (where ${socialLeadsTable.contactedAt} is not null)`,
+      })
+      .from(socialLeadsTable)
+      .where(eq(socialLeadsTable.marketingUserId, req.user!.id));
+    const assignedCount = Number(row?.assignedCount ?? 0);
+    const contactedCount = Number(row?.contactedCount ?? 0);
+    const registeredCount = Number(row?.registeredCount ?? 0);
+    res.json({
+      assignedCount,
+      contactedCount,
+      registeredCount,
+      conversionRate: assignedCount > 0 ? Math.round((registeredCount / assignedCount) * 1000) / 10 : 0,
+      averageResponseTimeMinutes: row?.averageResponseTimeMinutes == null
+        ? null
+        : Number(row.averageResponseTimeMinutes),
+    });
+  },
+);
+
 // ---------------------------------------------------------------------------
 // GET /api/leads/assignees — marketing users available for lead assignment.
 // Admin and super_admin only; marketing sees the resolved assignee on each lead.
@@ -232,6 +260,42 @@ router.get(
         name: assignee.name?.trim() || assignee.email,
       })),
     });
+  },
+);
+
+router.post(
+  "/leads/:id/claim",
+  requireRole("marketing"),
+  async (req: Request, res: Response): Promise<void> => {
+    const id = parseInt(String(req.params.id), 10);
+    if (isNaN(id)) {
+      res.status(400).json({ error: "Invalid lead ID." });
+      return;
+    }
+    const now = new Date();
+    const [claimed] = await db
+      .update(socialLeadsTable)
+      .set({
+        marketingUserId: req.user!.id,
+        claimedAt: now,
+        contactedAt: sql`coalesce(${socialLeadsTable.contactedAt}, now())`,
+        status: sql`case when ${socialLeadsTable.status} = 'new' then 'contacted' else ${socialLeadsTable.status} end`,
+      })
+      .where(and(eq(socialLeadsTable.id, id), isNull(socialLeadsTable.marketingUserId)))
+      .returning({
+        id: socialLeadsTable.id,
+        status: socialLeadsTable.status,
+        marketingUserId: socialLeadsTable.marketingUserId,
+        claimedAt: socialLeadsTable.claimedAt,
+        contactedAt: socialLeadsTable.contactedAt,
+      });
+    if (!claimed) {
+      const [existing] = await db.select({ id: socialLeadsTable.id, marketingUserId: socialLeadsTable.marketingUserId })
+        .from(socialLeadsTable).where(eq(socialLeadsTable.id, id)).limit(1);
+      res.status(existing ? 409 : 404).json({ error: existing ? "Lead is already claimed." : "Lead not found." });
+      return;
+    }
+    res.json(claimed);
   },
 );
 
@@ -548,7 +612,7 @@ router.delete(
       return;
     }
 
-    const parsed = ids.map(Number).filter((n) => !isNaN(n) && n > 0);
+    const parsed = [...new Set(ids.map(Number).filter((n) => !isNaN(n) && n > 0))];
     if (parsed.length === 0) {
       res.status(400).json({ error: "No valid IDs provided." });
       return;
@@ -584,45 +648,57 @@ router.patch(
       return;
     }
 
-    const parsed = ids.map(Number).filter((n) => !isNaN(n) && n > 0);
+    const parsed = [...new Set(ids.map(Number).filter((n) => !isNaN(n) && n > 0))];
     if (parsed.length === 0) {
       res.status(400).json({ error: "No valid IDs provided." });
       return;
     }
 
     const { inArray } = await import("drizzle-orm");
-    let statusWhere = inArray(socialLeadsTable.id, parsed);
-
     if (req.user?.role === "marketing") {
-      const existingLeads = await db
-        .select({
-          id: socialLeadsTable.id,
-          marketingUserId: socialLeadsTable.marketingUserId,
-        })
-        .from(socialLeadsTable)
-        .where(inArray(socialLeadsTable.id, parsed));
-
-      const hasForbiddenLead = existingLeads.some(
-        (lead) => !isMarketingLeadVisible(lead.marketingUserId, req.user!.id),
-      );
-      if (hasForbiddenLead) {
-        res.status(403).json({ error: "You can only update unassigned leads or leads assigned to you." });
+      const result = await db.transaction(async (tx) => {
+        const existingLeads = await tx
+          .select({
+            id: socialLeadsTable.id,
+            marketingUserId: socialLeadsTable.marketingUserId,
+          })
+          .from(socialLeadsTable)
+          .where(inArray(socialLeadsTable.id, parsed))
+          .for("update");
+        if (existingLeads.length !== parsed.length) return "missing" as const;
+        if (existingLeads.some((lead) => lead.marketingUserId !== req.user!.id)) return "forbidden" as const;
+        await tx
+          .update(socialLeadsTable)
+          .set({
+            status: status as (typeof VALID)[number],
+            contactedAt: status === "contacted"
+              ? sql`coalesce(${socialLeadsTable.contactedAt}, now())`
+              : socialLeadsTable.contactedAt,
+          })
+          .where(inArray(socialLeadsTable.id, parsed));
+        return "updated" as const;
+      });
+      if (result === "missing") {
+        res.status(404).json({ error: "One or more leads were not found." });
         return;
       }
-
-      statusWhere = and(
-        statusWhere,
-        or(
-          isNull(socialLeadsTable.marketingUserId),
-          eq(socialLeadsTable.marketingUserId, req.user.id),
-        ),
-      )!;
+      if (result === "forbidden") {
+        res.status(403).json({ error: "You can only update leads assigned to you." });
+        return;
+      }
+      res.json({ updated: parsed.length });
+      return;
     }
 
     const updated = await db
       .update(socialLeadsTable)
-      .set({ status: status as (typeof VALID)[number] })
-      .where(statusWhere)
+      .set({
+        status: status as (typeof VALID)[number],
+        contactedAt: status === "contacted"
+          ? sql`coalesce(${socialLeadsTable.contactedAt}, now())`
+          : socialLeadsTable.contactedAt,
+      })
+      .where(inArray(socialLeadsTable.id, parsed))
       .returning({ id: socialLeadsTable.id });
 
     res.json({ updated: updated.length });
@@ -655,7 +731,6 @@ router.patch(
       statusWhere = and(
         statusWhere,
         or(
-          isNull(socialLeadsTable.marketingUserId),
           eq(socialLeadsTable.marketingUserId, req.user.id),
         ),
       )!;
@@ -663,7 +738,12 @@ router.patch(
 
     const [updated] = await db
       .update(socialLeadsTable)
-      .set({ status: status as (typeof VALID)[number] })
+      .set({
+        status: status as (typeof VALID)[number],
+        contactedAt: status === "contacted"
+          ? sql`coalesce(${socialLeadsTable.contactedAt}, now())`
+          : socialLeadsTable.contactedAt,
+      })
       .where(statusWhere)
       .returning({ id: socialLeadsTable.id, status: socialLeadsTable.status });
 
@@ -675,8 +755,8 @@ router.patch(
           .where(eq(socialLeadsTable.id, id))
           .limit(1);
 
-        if (existingLead && !isMarketingLeadVisible(existingLead.marketingUserId, req.user.id)) {
-          res.status(403).json({ error: "You can only update unassigned leads or leads assigned to you." });
+        if (existingLead && existingLead.marketingUserId !== req.user.id) {
+          res.status(403).json({ error: "You can only update leads assigned to you." });
           return;
         }
       }

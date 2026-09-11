@@ -152,6 +152,7 @@ router.get(
           assignedCount: count(socialLeadsTable.id),
           contactedCount: sql<number>`count(*) filter (where ${socialLeadsTable.status} = 'contacted')`,
           registeredCount: sql<number>`count(*) filter (where ${socialLeadsTable.convertedUserId} IS NOT NULL)`,
+           averageResponseTimeMinutes: sql<number | null>`avg(extract(epoch from (${socialLeadsTable.contactedAt} - ${socialLeadsTable.createdAt})) / 60) filter (where ${socialLeadsTable.contactedAt} IS NOT NULL)`,
         })
         .from(socialLeadsTable)
         .where(industryCondition)
@@ -188,6 +189,12 @@ router.get(
           assignedCount: Number(row.assignedCount),
           contactedCount: Number(row.contactedCount),
           registeredCount: Number(row.registeredCount),
+           conversionRate: Number(row.assignedCount) > 0
+             ? Math.round((Number(row.registeredCount) / Number(row.assignedCount)) * 1000) / 10
+             : 0,
+           averageResponseTimeMinutes: row.averageResponseTimeMinutes == null
+             ? null
+             : Number(row.averageResponseTimeMinutes),
         },
       ]),
     );
@@ -211,6 +218,8 @@ router.get(
             assignedCount: 0,
             contactedCount: 0,
             registeredCount: 0,
+            conversionRate: 0,
+            averageResponseTimeMinutes: null,
           }
         ),
         byIndustry: marketerIndustries.get(user.id) ?? [],
@@ -223,6 +232,8 @@ router.get(
           assignedCount: 0,
           contactedCount: 0,
           registeredCount: 0,
+          conversionRate: 0,
+          averageResponseTimeMinutes: null,
         }),
         byIndustry: marketerIndustries.get("__unassigned__") ?? [],
       },

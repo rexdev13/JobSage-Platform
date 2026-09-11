@@ -64,6 +64,8 @@ export const socialLeadsTable = pgTable(
     convertedUserId: varchar("converted_user_id"),
     /** Nullable CRM owner. Only users with role='marketing' may be assigned by the API. */
     marketingUserId: varchar("marketing_user_id").references(() => usersTable.id, { onDelete: "set null" }),
+    claimedAt: timestamp("claimed_at", { withTimezone: true }),
+    contactedAt: timestamp("contacted_at", { withTimezone: true }),
 
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

@@ -40,6 +40,7 @@ import type {
   CheckAllVacanciesBody,
   CheckAllVacanciesStartResponse,
   CheckAllVacanciesStatus,
+  ClaimedLead,
   ConfirmApplicationSubmissionRequest,
   ConsentLogList,
   ConsentRecord,
@@ -104,6 +105,7 @@ import type {
   MarketingCalendlyUrlResponse,
   MatchedRoleList,
   MessageEnvelope,
+  MyLeadPerformance,
   OkResponse,
   ProfessionListResponse,
   ProgressReportResponse,
@@ -8049,6 +8051,165 @@ export function useListLeadAssignees<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Get the signed-in marketing user's lead performance
+ */
+export const getGetMyLeadPerformanceUrl = () => {
+  return `/api/leads/my-performance`;
+};
+
+export const getMyLeadPerformance = async (
+  options?: RequestInit,
+): Promise<MyLeadPerformance> => {
+  return customFetch<MyLeadPerformance>(getGetMyLeadPerformanceUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMyLeadPerformanceQueryKey = () => {
+  return [`/api/leads/my-performance`] as const;
+};
+
+export const getGetMyLeadPerformanceQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMyLeadPerformance>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyLeadPerformance>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMyLeadPerformanceQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getMyLeadPerformance>>
+  > = ({ signal }) => getMyLeadPerformance({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMyLeadPerformance>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMyLeadPerformanceQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMyLeadPerformance>>
+>;
+export type GetMyLeadPerformanceQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Get the signed-in marketing user's lead performance
+ */
+
+export function useGetMyLeadPerformance<
+  TData = Awaited<ReturnType<typeof getMyLeadPerformance>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyLeadPerformance>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMyLeadPerformanceQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Atomically claim an unassigned lead
+ */
+export const getClaimLeadUrl = (id: number) => {
+  return `/api/leads/${id}/claim`;
+};
+
+export const claimLead = async (
+  id: number,
+  options?: RequestInit,
+): Promise<ClaimedLead> => {
+  return customFetch<ClaimedLead>(getClaimLeadUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getClaimLeadMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof claimLead>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof claimLead>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["claimLead"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof claimLead>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return claimLead(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ClaimLeadMutationResult = NonNullable<
+  Awaited<ReturnType<typeof claimLead>>
+>;
+
+export type ClaimLeadMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Atomically claim an unassigned lead
+ */
+export const useClaimLead = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof claimLead>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof claimLead>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getClaimLeadMutationOptions(options));
+};
 
 /**
  * @summary Get the signed-in marketing user's Calendly URL

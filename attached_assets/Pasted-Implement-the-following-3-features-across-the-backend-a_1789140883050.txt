@@ -1,0 +1,20 @@
+Implement the following 3 features across the backend and frontend, and ensure all tests and typechecks pass:
+
+1. Performance per Marketers:
+   - Provide an individual KPI breakdown per marketer (leads assigned, contacted, converted/registered, conversion rate %, and average response time) instead of just global totals.
+   - On the Waitlist Leads page (`AdminLeadsPage.tsx`), show a live KPI banner for marketers displaying their personal metrics: Assigned to Me, Contacted, Registered, Conversion Rate, and Avg Response Time (via `GET /api/leads/my-performance`).
+   - On the Super Admin dashboard (`SuperAdminPage.tsx`), add "Conv. Rate" and "Avg Response" columns to the "Performance by marketer" table (via `GET /api/admin/super/stats`).
+
+2. Marketers Claim a Lead:
+   - Provide a self-service "Claim Lead" button in the leads table for marketers to claim unassigned leads directly.
+   - Implement `POST /api/leads/:id/claim` with atomic concurrency control (`WHERE id = :id AND marketing_user_id IS NULL`).
+   - If already claimed by another team member, return a `409 Conflict` error.
+   - Upon claim, lock the lead to the marketer, auto-transition status from "new" to "contacted", stamp `claimedAt` and `contactedAt` timestamps, and refresh the UI so the button becomes "Claimed by you".
+
+3. Role-Based Access Hierarchy ("Admins see everything, Marketers see only theirs"):
+   - Marketers must strictly only see leads assigned to them or unassigned leads.
+   - Marketers must NEVER see leads assigned to other marketers. When a lead is claimed by another marketer, it must completely disappear from other marketers' tables.
+   - Marketers cannot view, update, or delete other marketers' leads.
+   - Super Admins and Admins retain global visibility across all leads and all marketers.
+
+Run all tests and typechecks (`npx tsc -p artifacts/api-server/tsconfig.json --noEmit` and `npx tsc -p artifacts/jobsage-web/tsconfig.json --noEmit`) to confirm everything works cleanly without errors.

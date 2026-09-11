@@ -2447,6 +2447,79 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /leads/my-performance:
+    get:
+      operationId: getMyLeadPerformance
+      tags: [AdminPortal]
+      summary: Get the signed-in marketing user's lead performance
+      responses:
+        "200":
+          description: Marketing performance metrics for the signed-in user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyLeadPerformance"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Only marketing users may access this endpoint.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /leads/{id}/claim:
+    post:
+      operationId: claimLead
+      tags: [AdminPortal]
+      summary: Atomically claim an unassigned lead
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Claimed lead.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClaimedLead"
+        "400":
+          description: Invalid lead ID.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Lead not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Lead is already claimed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Only marketing users may claim leads.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
   /me/calendly-url:
     get:
       operationId: getMyMarketingCalendlyUrl
@@ -7020,7 +7093,7 @@ components:
           type: array
           items:
             type: object
-            required: [id, email, name, assignedCount, contactedCount, registeredCount, byIndustry]
+            required: [id, email, name, assignedCount, contactedCount, registeredCount, conversionRate, averageResponseTimeMinutes, byIndustry]
             properties:
               id:
                 type: string
@@ -7036,6 +7109,10 @@ components:
                 type: integer
               registeredCount:
                 type: integer
+              conversionRate:
+                type: number
+              averageResponseTimeMinutes:
+                type: ["number", "null"]
               byIndustry:
                 type: array
                 items:
@@ -7046,6 +7123,38 @@ components:
                       type: string
                     count:
                       type: integer
+    
+    MyLeadPerformance:
+      type: object
+      required: [assignedCount, contactedCount, registeredCount, conversionRate, averageResponseTimeMinutes]
+      properties:
+        assignedCount:
+          type: integer
+        contactedCount:
+          type: integer
+        registeredCount:
+          type: integer
+        conversionRate:
+          type: number
+        averageResponseTimeMinutes:
+          type: ["number", "null"]
+
+    ClaimedLead:
+      type: object
+      required: [id, status, marketingUserId, claimedAt, contactedAt]
+      properties:
+        id:
+          type: integer
+        status:
+          type: string
+        marketingUserId:
+          type: string
+        claimedAt:
+          type: string
+          format: date-time
+        contactedAt:
+          type: string
+          format: date-time
 
     SuperAdminUser:
       type: object
