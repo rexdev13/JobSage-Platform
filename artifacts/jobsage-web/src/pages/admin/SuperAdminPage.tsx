@@ -47,6 +47,8 @@ interface MarketingPerformance {
     assignedCount: number;
     contactedCount: number;
     registeredCount: number;
+    conversionRate: number;
+    averageResponseTimeMinutes: number | null;
     byIndustry: { industrySector: string; count: number }[];
   }[];
 }
@@ -344,6 +346,8 @@ function MarketingPerformanceTab() {
                     <th className="text-right px-4 py-3 font-medium text-muted-foreground">Assigned</th>
                     <th className="text-right px-4 py-3 font-medium text-muted-foreground">Contacted</th>
                     <th className="text-right px-4 py-3 font-medium text-muted-foreground">Registered</th>
+                    <th className="text-right px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">Conv. Rate</th>
+                    <th className="text-right px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">Avg Response</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Industries</th>
                   </tr>
                 </thead>
@@ -359,6 +363,10 @@ function MarketingPerformanceTab() {
                       <td className="px-4 py-3 text-right font-semibold">{marketer.assignedCount}</td>
                       <td className="px-4 py-3 text-right font-semibold">{marketer.contactedCount}</td>
                       <td className="px-4 py-3 text-right font-semibold">{marketer.registeredCount}</td>
+                      <td className="px-4 py-3 text-right font-semibold">{marketer.conversionRate.toFixed(1)}%</td>
+                      <td className="px-4 py-3 text-right font-semibold">
+                        {marketer.averageResponseTimeMinutes == null ? "—" : `${marketer.averageResponseTimeMinutes.toFixed(1)} min`}
+                      </td>
                       <td className="px-4 py-3">
                         {marketer.byIndustry.length === 0 ? (
                           <span className="text-xs text-muted-foreground">None</span>

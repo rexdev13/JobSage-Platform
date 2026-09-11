@@ -3,7 +3,10 @@ import cookieParser from "cookie-parser";
 import express from "express";
 import request from "supertest";
 
-const { queryResults } = vi.hoisted(() => ({ queryResults: [] as unknown[] }));
+const { queryResults, setCalls } = vi.hoisted(() => ({
+  queryResults: [] as unknown[],
+  setCalls: [] as unknown[],
+}));
 
 vi.mock("@workspace/db", () => {
   function makeChain(): any {
@@ -15,7 +18,11 @@ vi.mock("@workspace/db", () => {
       groupBy: () => chain,
       limit: () => chain,
       offset: () => chain,
-      set: () => chain,
+      for: () => chain,
+      set: (values: unknown) => {
+        setCalls.push(values);
+        return chain;
+      },
       returning: () => Promise.resolve(queryResults.shift() ?? []),
       then: (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) =>
         Promise.resolve(queryResults.shift() ?? []).then(resolve, reject),
@@ -29,6 +36,10 @@ vi.mock("@workspace/db", () => {
       update: () => makeChain(),
       delete: () => makeChain(),
       insert: () => makeChain(),
+      transaction: async (callback: (tx: any) => Promise<unknown>) => callback({
+        select: () => makeChain(),
+        update: () => makeChain(),
+      }),
     },
     socialLeadsTable: {
       id: "id",
@@ -43,6 +54,8 @@ vi.mock("@workspace/db", () => {
       desiredRole: "desired_role",
       additionalMessage: "additional_message",
       marketingUserId: "marketing_user_id",
+      claimedAt: "claimed_at",
+      contactedAt: "contacted_at",
     },
     usersTable: {
       id: "id",
@@ -116,6 +129,7 @@ const candidateSession = {
 describe("marketing lead access", () => {
   beforeEach(() => {
     queryResults.length = 0;
+    setCalls.length = 0;
     mockGetSession.mockResolvedValue(marketingSession);
   });
 
@@ -198,6 +212,111 @@ describe("marketing lead access", () => {
     expect(response.body.stats.createdLast7Days).toBe(1);
   });
 
+  it("returns performance metrics scoped to the signed-in marketer", async () => {
+    queryResults.push([{
+      assignedCount: 4,
+      contactedCount: 2,
+      registeredCount: 1,
+      averageResponseTimeMinutes: 37.5,
+    }]);
+
+    const response = await request(buildApp())
+      .get("/leads/my-performance")
+      .set("Authorization", "Bearer marketing-session");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      assignedCount: 4,
+      contactedCount: 2,
+      registeredCount: 1,
+      conversionRate: 25,
+      averageResponseTimeMinutes: 37.5,
+    });
+  });
+
+  it("denies personal performance to non-marketing users", async () => {
+    mockGetSession.mockResolvedValue(candidateSession);
+
+    const response = await request(buildApp())
+      .get("/leads/my-performance")
+      .set("Authorization", "Bearer candidate-session");
+
+    expect(response.status).toBe(403);
+  });
+
+  it("claims an unassigned lead and stamps its first contact", async () => {
+    const claimedAt = new Date("2026-08-21T12:00:00.000Z");
+    queryResults.push([{
+      id: 9,
+      status: "contacted",
+      marketingUserId: "marketing-1",
+      claimedAt,
+      contactedAt: claimedAt,
+    }]);
+
+    const response = await request(buildApp())
+      .post("/leads/9/claim")
+      .set("Authorization", "Bearer marketing-session");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      id: 9,
+      status: "contacted",
+      marketingUserId: "marketing-1",
+      claimedAt: claimedAt.toISOString(),
+      contactedAt: claimedAt.toISOString(),
+    });
+    expect(setCalls[0]).toEqual(expect.objectContaining({ contactedAt: expect.anything() }));
+    expect(JSON.stringify(setCalls[0])).toContain("coalesce");
+  });
+
+  it("returns conflict when claiming an assigned lead", async () => {
+    queryResults.push([], [{ id: 9, marketingUserId: "marketing-2" }]);
+
+    const response = await request(buildApp())
+      .post("/leads/9/claim")
+      .set("Authorization", "Bearer marketing-session");
+
+    expect(response.status).toBe(409);
+  });
+
+  it("returns not found when claiming an absent lead", async () => {
+    queryResults.push([], []);
+
+    const response = await request(buildApp())
+      .post("/leads/999/claim")
+      .set("Authorization", "Bearer marketing-session");
+
+    expect(response.status).toBe(404);
+  });
+
+  it("denies non-marketing users from claiming leads", async () => {
+    mockGetSession.mockResolvedValue(candidateSession);
+
+    const response = await request(buildApp())
+      .post("/leads/9/claim")
+      .set("Authorization", "Bearer candidate-session");
+
+    expect(response.status).toBe(403);
+  });
+
+  it("rejects an invalid claim lead ID", async () => {
+    const response = await request(buildApp())
+      .post("/leads/not-a-number/claim")
+      .set("Authorization", "Bearer marketing-session");
+
+    expect(response.status).toBe(400);
+  });
+
+  it("requires authentication to claim a lead", async () => {
+    mockGetSession.mockResolvedValue(null);
+
+    const response = await request(buildApp())
+      .post("/leads/9/claim");
+
+    expect(response.status).toBe(401);
+  });
+
   it("allows marketing to update one lead status", async () => {
     queryResults.push([{ id: 9, status: "contacted" }]);
 
@@ -212,17 +331,42 @@ describe("marketing lead access", () => {
 
   it("allows marketing to update statuses in bulk", async () => {
     queryResults.push(
-      [{ id: 9, marketingUserId: "marketing-1" }, { id: 10, marketingUserId: null }],
-      [{ id: 9 }, { id: 10 }],
+      [{ id: 9, marketingUserId: "marketing-1" }],
+      [{ id: 9, marketingUserId: "marketing-1" }],
     );
+
+    const response = await request(buildApp())
+      .patch("/leads/bulk-status")
+      .set("Authorization", "Bearer marketing-session")
+      .send({ ids: [9], status: "contacted" });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ updated: 1 });
+  });
+
+  it("does not partially update a bulk request with a missing lead", async () => {
+    queryResults.push([{ id: 9, marketingUserId: "marketing-1" }]);
 
     const response = await request(buildApp())
       .patch("/leads/bulk-status")
       .set("Authorization", "Bearer marketing-session")
       .send({ ids: [9, 10], status: "contacted" });
 
-    expect(response.status).toBe(200);
-    expect(response.body).toEqual({ updated: 2 });
+    expect(response.status).toBe(404);
+  });
+
+  it("does not partially update a bulk request with forbidden ownership", async () => {
+    queryResults.push([
+      { id: 9, marketingUserId: "marketing-1" },
+      { id: 10, marketingUserId: "marketing-2" },
+    ]);
+
+    const response = await request(buildApp())
+      .patch("/leads/bulk-status")
+      .set("Authorization", "Bearer marketing-session")
+      .send({ ids: [9, 10], status: "contacted" });
+
+    expect(response.status).toBe(403);
   });
 
   it("returns 403 when marketing tries to update another marketer's lead", async () => {
@@ -230,6 +374,17 @@ describe("marketing lead access", () => {
       [],
       [{ marketingUserId: "marketing-2" }],
     );
+
+    const response = await request(buildApp())
+      .patch("/leads/9/status")
+      .set("Authorization", "Bearer marketing-session")
+      .send({ status: "contacted" });
+
+    expect(response.status).toBe(403);
+  });
+
+  it("returns 403 when marketing tries to update an unassigned lead", async () => {
+    queryResults.push([], [{ marketingUserId: null }]);
 
     const response = await request(buildApp())
       .patch("/leads/9/status")

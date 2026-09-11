@@ -14,5 +14,8 @@ export type MarketingPerformanceByMarketerItem = {
   assignedCount: number;
   contactedCount: number;
   registeredCount: number;
+  conversionRate: number;
+  /** @nullable */
+  averageResponseTimeMinutes: number | null;
   byIndustry: MarketingPerformanceByMarketerItemByIndustryItem[];
 };

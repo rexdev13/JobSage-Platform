@@ -2870,6 +2870,32 @@ export const ListLeadAssigneesResponse = zod.object({
 });
 
 /**
+ * @summary Get the signed-in marketing user's lead performance
+ */
+export const GetMyLeadPerformanceResponse = zod.object({
+  assignedCount: zod.number(),
+  contactedCount: zod.number(),
+  registeredCount: zod.number(),
+  conversionRate: zod.number(),
+  averageResponseTimeMinutes: zod.number().nullable(),
+});
+
+/**
+ * @summary Atomically claim an unassigned lead
+ */
+export const ClaimLeadParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ClaimLeadResponse = zod.object({
+  id: zod.number(),
+  status: zod.string(),
+  marketingUserId: zod.string(),
+  claimedAt: zod.date(),
+  contactedAt: zod.date(),
+});
+
+/**
  * @summary Get the signed-in marketing user's Calendly URL
  */
 export const GetMyMarketingCalendlyUrlResponse = zod.object({
@@ -3593,6 +3619,8 @@ export const GetSuperAdminStatsResponse = zod.object({
         assignedCount: zod.number(),
         contactedCount: zod.number(),
         registeredCount: zod.number(),
+        conversionRate: zod.number(),
+        averageResponseTimeMinutes: zod.number().nullable(),
         byIndustry: zod.array(
           zod.object({
             industrySector: zod.string(),

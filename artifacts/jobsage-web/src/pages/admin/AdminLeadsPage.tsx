@@ -72,6 +72,13 @@ interface LeadsResponse {
     createdLast7Days: number;
   };
 }
+interface MyPerformance {
+  assignedCount: number;
+  contactedCount: number;
+  registeredCount: number;
+  conversionRate: number;
+  averageResponseTimeMinutes: number | null;
+}
 
 // ---------------------------------------------------------------------------
 // Status config
@@ -222,7 +229,7 @@ function BookingActions({ url, guidance }: { url: string | null; guidance: strin
 // Inline status selector
 // ---------------------------------------------------------------------------
 
-function StatusSelect({ lead }: { lead: Lead }) {
+function StatusSelect({ lead, disabled = false, refreshPerformance = false }: { lead: Lead; disabled?: boolean; refreshPerformance?: boolean }) {
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
 
@@ -239,14 +246,17 @@ function StatusSelect({ lead }: { lead: Lead }) {
     },
     onMutate: () => setSaving(true),
     onSettled: () => setSaving(false),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-leads"] }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["admin-leads"] });
+      if (refreshPerformance) await queryClient.invalidateQueries({ queryKey: ["my-performance"] });
+    },
   });
 
   return (
     <div className="relative inline-flex items-center">
       <select
         value={lead.status}
-        disabled={saving}
+        disabled={saving || disabled}
         onChange={(e) => mutation.mutate(e.target.value as LeadStatus)}
         className={`text-xs font-medium rounded-full pl-2.5 pr-6 py-0.5 border-0 cursor-pointer appearance-none focus:outline-none focus:ring-2 focus:ring-primary/30 transition disabled:opacity-60 ${
           STATUS_CLASSES[lead.status]
@@ -271,10 +281,12 @@ function AssigneeSelect({
   lead,
   assignees,
   canAssign,
+  currentUserId,
 }: {
   lead: Lead;
   assignees: LeadAssignee[];
   canAssign: boolean;
+  currentUserId?: string;
 }) {
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
@@ -298,9 +310,12 @@ function AssigneeSelect({
   });
 
   if (!canAssign) {
+    const assignedToYou = Boolean(currentUserId && lead.assignee?.id === currentUserId);
     return (
       <div className="min-w-32">
-        <p className="text-xs font-medium text-foreground">{lead.assignee?.name ?? "Unassigned"}</p>
+        <p className={`text-xs font-medium ${assignedToYou ? "text-green-600" : "text-foreground"}`}>
+          {assignedToYou ? "Claimed by you" : lead.assignee?.name ?? "Unassigned"}
+        </p>
         {lead.assignee?.email && (
           <p className="text-[10px] text-muted-foreground">{lead.assignee.email}</p>
         )}
@@ -326,6 +341,41 @@ function AssigneeSelect({
       ))}
     </select>
   );
+}
+
+function ClaimLeadAction({ lead }: { lead: Lead }) {
+  const queryClient = useQueryClient();
+  const [message, setMessage] = useState<string | null>(null);
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`${BASE}/api/leads/${lead.id}/claim`, { method: "POST", credentials: "include" });
+      const body = await res.json().catch(() => ({})) as { error?: string; message?: string };
+      if (!res.ok) throw new Error(body.error ?? body.message ?? "Could not claim this lead.");
+      return body;
+    },
+    onMutate: () => setMessage(null),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["admin-leads"] }),
+        queryClient.invalidateQueries({ queryKey: ["my-performance"] }),
+      ]);
+    },
+    onError: async (error) => {
+      setMessage(error instanceof Error ? error.message : "Could not claim this lead.");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["admin-leads"] }),
+        queryClient.invalidateQueries({ queryKey: ["my-performance"] }),
+      ]);
+    },
+  });
+  return <div className="flex flex-col items-start gap-1">
+    <Button type="button" size="sm" variant="outline" disabled={mutation.isPending}
+      onClick={() => mutation.mutate()} className="h-7 px-2.5 text-xs"
+      data-testid={`button-claim-lead-${lead.id}`}>
+      {mutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Claim"}
+    </Button>
+    {message && <span className="max-w-40 text-[10px] text-destructive">{message}</span>}
+  </div>;
 }
 
 // ---------------------------------------------------------------------------
@@ -356,6 +406,14 @@ export default function AdminLeadsPage() {
   const queryClient = useQueryClient();
   const { data: industryData } = useGetSponsorLicenceIndustries();
   const industries = industryData?.industries ?? [];
+  const { data: myPerformance } = useQuery<MyPerformance>({
+    queryKey: ["my-performance"], enabled: isMarketing, refetchInterval: 30_000,
+    queryFn: async () => {
+      const res = await fetch(`${BASE}/api/leads/my-performance`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load your lead performance");
+      return res.json() as Promise<MyPerformance>;
+    },
+  });
 
   const { data: assigneeData } = useQuery<{ assignees: LeadAssignee[] }>({
     queryKey: ["lead-assignees"],
@@ -389,7 +447,8 @@ export default function AdminLeadsPage() {
 
   const totalPages = data ? Math.ceil(data.total / LIMIT) : 0;
   const leads = data?.leads ?? [];
-  const allSelected = leads.length > 0 && leads.every((l) => selected.has(l.id));
+  const selectableLeads = isMarketing ? leads.filter((lead) => lead.assignee?.id === user?.id) : leads;
+  const allSelected = selectableLeads.length > 0 && selectableLeads.every((l) => selected.has(l.id));
   const someSelected = selected.size > 0;
 
   function handleSearch(e: React.ChangeEvent<HTMLInputElement>) {
@@ -399,6 +458,7 @@ export default function AdminLeadsPage() {
   }
 
   function toggleOne(id: number) {
+    if (isMarketing && !selectableLeads.some((lead) => lead.id === id)) return;
     setSelected((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
@@ -410,7 +470,7 @@ export default function AdminLeadsPage() {
     if (allSelected) {
       setSelected(new Set());
     } else {
-      setSelected(new Set(leads.map((l) => l.id)));
+      setSelected(new Set(selectableLeads.map((l) => l.id)));
     }
   }
 
@@ -431,6 +491,7 @@ export default function AdminLeadsPage() {
       setBulkAssignee("");
       setBulkAssignmentMessage(null);
       await queryClient.invalidateQueries({ queryKey: ["admin-leads"] });
+      if (isMarketing) await queryClient.invalidateQueries({ queryKey: ["my-performance"] });
     } catch {
       // silent — user stays on the page
     } finally {
@@ -454,6 +515,7 @@ export default function AdminLeadsPage() {
       setBulkAssignee("");
       setBulkAssignmentMessage(null);
       await queryClient.invalidateQueries({ queryKey: ["admin-leads"] });
+      if (isMarketing) await queryClient.invalidateQueries({ queryKey: ["my-performance"] });
     } catch {
       alert("Failed to update statuses. Please try again.");
     } finally {
@@ -600,6 +662,22 @@ export default function AdminLeadsPage() {
         )}
 
         {isMarketing && <CalendlyLinkCard onUrlChange={setMyCalendlyUrl} />}
+        {isMarketing && (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5" data-testid="banner-my-performance">
+            {[
+              { label: "Assigned to Me", value: myPerformance?.assignedCount ?? "—" },
+              { label: "Contacted", value: myPerformance?.contactedCount ?? "—" },
+              { label: "Registered", value: myPerformance?.registeredCount ?? "—" },
+              { label: "Conversion Rate", value: myPerformance ? `${myPerformance.conversionRate.toFixed(1)}%` : "—" },
+              { label: "Avg Response Time", value: myPerformance?.averageResponseTimeMinutes == null ? "—" : `${myPerformance.averageResponseTimeMinutes.toFixed(1)} min` },
+            ].map(({ label, value }) => (
+              <div key={label} className="rounded-xl border border-border bg-card p-3">
+                <p className="text-lg font-bold leading-none text-foreground">{value}</p>
+                <p className="mt-1 truncate text-[10px] text-muted-foreground">{label}</p>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* ── Search + filters ── */}
         <div className="flex items-center gap-3 flex-wrap">
@@ -669,7 +747,7 @@ export default function AdminLeadsPage() {
           )}
         </div>
 
-        {data?.stats && (
+        {!isMarketing && data?.stats && (
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             {[
               { label: "New", value: data.stats.statusTotals.new, icon: UserPlus, color: "text-primary" },
@@ -742,6 +820,7 @@ export default function AdminLeadsPage() {
                       <input
                         type="checkbox"
                         checked={selected.has(lead.id)}
+                        disabled={isMarketing && lead.assignee?.id !== user?.id}
                         onChange={() => toggleOne(lead.id)}
                         className="rounded border-input accent-primary cursor-pointer"
                       />
@@ -782,10 +861,12 @@ export default function AdminLeadsPage() {
                       />
                     </td>
                     <td className="px-4 py-3">
-                      <AssigneeSelect lead={lead} assignees={assignees} canAssign={canAssign} />
+                      {isMarketing && !lead.assignee ? <ClaimLeadAction lead={lead} /> : (
+                        <AssigneeSelect lead={lead} assignees={assignees} canAssign={canAssign} currentUserId={user?.id} />
+                      )}
                     </td>
                     <td className="px-4 py-3">
-                      <StatusSelect lead={lead} />
+                      <StatusSelect lead={lead} disabled={isMarketing && !lead.assignee} refreshPerformance={isMarketing} />
                     </td>
                     <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
                       {new Date(lead.createdAt).toLocaleDateString("en-GB", {

@@ -323,12 +323,14 @@ describe("Super admin marketing performance", () => {
           assignedCount: 3,
           contactedCount: 1,
           registeredCount: 1,
+          averageResponseTimeMinutes: 42.5,
         },
         {
           marketingUserId: null,
           assignedCount: 2,
           contactedCount: 0,
           registeredCount: 1,
+          averageResponseTimeMinutes: null,
         },
       ],
       [
@@ -359,12 +361,16 @@ describe("Super admin marketing performance", () => {
         assignedCount: 3,
         contactedCount: 1,
         registeredCount: 1,
+        conversionRate: 33.3,
+        averageResponseTimeMinutes: 42.5,
       }),
       expect.objectContaining({
         id: null,
         name: "Unassigned",
         assignedCount: 2,
         registeredCount: 1,
+        conversionRate: 50,
+        averageResponseTimeMinutes: null,
       }),
     ]);
   });

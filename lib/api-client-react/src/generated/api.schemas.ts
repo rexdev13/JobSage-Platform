@@ -2178,6 +2178,9 @@ export type MarketingPerformanceByMarketerItem = {
   assignedCount: number;
   contactedCount: number;
   registeredCount: number;
+  conversionRate: number;
+  /** @nullable */
+  averageResponseTimeMinutes: number | null;
   byIndustry: MarketingPerformanceByMarketerItemByIndustryItem[];
 };
 
@@ -2200,6 +2203,23 @@ export interface SuperAdminStats {
   sponsorLicences: number;
   lastSponsorSync?: string | null;
   marketingPerformance: MarketingPerformance;
+}
+
+export interface MyLeadPerformance {
+  assignedCount: number;
+  contactedCount: number;
+  registeredCount: number;
+  conversionRate: number;
+  /** @nullable */
+  averageResponseTimeMinutes: number | null;
+}
+
+export interface ClaimedLead {
+  id: number;
+  status: string;
+  marketingUserId: string;
+  claimedAt: string;
+  contactedAt: string;
 }
 
 export interface SuperAdminUser {
