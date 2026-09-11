@@ -44,3 +44,4 @@
 - [Send CV deferred delivery](send-cv-deferred-delivery.md) — missing employer contact is a pending follow-up state, never an operations-inbox delivery.
 - [Artifact preview route refresh](artifact-preview-route-refresh.md) — a healthy service can still show Replit’s plain `Running` placeholder until its manifest is revalidated.
 - [Serialize codegen and UI agents](serialize-codegen-ui-agents.md) — codegen/backend subagents can replace concurrent UI edits from older snapshots; run them before UI agents.
+- [OpenAPI path parameters](openapi-path-parameters.md) — generated clients require path parameters in the OpenAPI path key itself, such as `/resource/{id}`, not only in the operation parameter list.

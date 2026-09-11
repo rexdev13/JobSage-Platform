@@ -42,17 +42,38 @@ router.get("/applications", requireAuthenticated, async (req: Request, res: Resp
     .filter((a) => a.roleId > 0 && a.roleId <= 1_000_000)
     .map((a) => a.roleId);
 
-  const jobTitleMap: Record<number, { title: string; companyName?: string; location?: string }> = {};
+  const jobTitleMap: Record<number, {
+    title: string;
+    companyName?: string;
+    location?: string;
+    isClosed: boolean;
+    livenessReason: string | null;
+  }> = {};
   const [jobListingResults, normalRoleResults, sponsorVacancyResults] = await Promise.all([
     employerRoleIds.length > 0
       ? db
-          .select({ id: jobListingsTable.id, title: jobListingsTable.title, location: jobListingsTable.location, employerProfileId: jobListingsTable.employerProfileId })
+          .select({
+            id: jobListingsTable.id,
+            title: jobListingsTable.title,
+            location: jobListingsTable.location,
+            employerProfileId: jobListingsTable.employerProfileId,
+            status: jobListingsTable.status,
+            liveness: jobListingsTable.liveness,
+            livenessReason: jobListingsTable.livenessReason,
+          })
           .from(jobListingsTable)
           .where(inArray(jobListingsTable.id, employerRoleIds))
       : Promise.resolve([]),
     normalRoleIds.length > 0
       ? db
-          .select({ id: rolesTable.id, title: rolesTable.title, employer: rolesTable.employer })
+          .select({
+            id: rolesTable.id,
+            title: rolesTable.title,
+            employer: rolesTable.employer,
+            active: rolesTable.active,
+            liveness: rolesTable.liveness,
+            livenessReason: rolesTable.livenessReason,
+          })
           .from(rolesTable)
           .where(inArray(rolesTable.id, normalRoleIds))
       : Promise.resolve([]),
@@ -64,6 +85,8 @@ router.get("/applications", requireAuthenticated, async (req: Request, res: Resp
             location: sponsorLicenceVacanciesTable.location,
             organisationName: sponsorLicenceVacanciesTable.organisationName,
             companyName: sponsorLicencesTable.organisationName,
+            liveness: sponsorLicenceVacanciesTable.liveness,
+            livenessReason: sponsorLicenceVacanciesTable.livenessReason,
           })
           .from(sponsorLicenceVacanciesTable)
           .leftJoin(
@@ -92,16 +115,25 @@ router.get("/applications", requireAuthenticated, async (req: Request, res: Resp
       title: job.title,
       location: job.location,
       companyName: employerCompanyMap[job.employerProfileId],
+      isClosed: job.status === "closed" || job.liveness === "dead",
+      livenessReason: job.livenessReason ?? null,
     };
   }
   for (const role of normalRoleResults) {
-    jobTitleMap[role.id] = { title: role.title, companyName: role.employer };
+    jobTitleMap[role.id] = {
+      title: role.title,
+      companyName: role.employer,
+      isClosed: role.active === false || role.liveness === "dead",
+      livenessReason: role.livenessReason ?? null,
+    };
   }
   for (const vacancy of sponsorVacancyResults) {
     jobTitleMap[vacancy.id + SPONSOR_VACANCY_ID_OFFSET] = {
       title: vacancy.title,
       location: vacancy.location ?? undefined,
       companyName: vacancy.companyName ?? vacancy.organisationName,
+      isClosed: vacancy.liveness === "dead",
+      livenessReason: vacancy.livenessReason ?? null,
     };
   }
 
@@ -132,6 +164,8 @@ router.get("/applications", requireAuthenticated, async (req: Request, res: Resp
     emailSentAt: null as string | null,
     emailRecipient: null as string | null,
     cvLabel: a.cvDocumentId ? (cvLabelMap[a.cvDocumentId] ?? null) : null,
+    isClosed: jobTitleMap[a.roleId]?.isClosed ?? false,
+    livenessReason: jobTitleMap[a.roleId]?.livenessReason ?? null,
   }));
 
   const enrichedWebsite = applications
@@ -147,6 +181,8 @@ router.get("/applications", requireAuthenticated, async (req: Request, res: Resp
       emailSentAt: null as string | null,
       emailRecipient: null as string | null,
       cvLabel: a.cvDocumentId ? (cvLabelMap[a.cvDocumentId] ?? null) : null,
+    isClosed: false,
+    livenessReason: null as string | null,
     }));
 
   const enrichedSpeculative = speculativeApps.map((s) => ({
@@ -176,6 +212,8 @@ router.get("/applications", requireAuthenticated, async (req: Request, res: Resp
     sourceType: s.sourceType ?? null,
     vacancyRef: s.vacancyRef ?? null,
     cvLabel: s.cvDocumentId ? (cvLabelMap[s.cvDocumentId] ?? null) : null,
+    isClosed: false,
+    livenessReason: null as string | null,
   }));
 
   const merged = [...enrichedPlatform, ...enrichedWebsite, ...enrichedSpeculative].sort(
@@ -199,6 +237,41 @@ router.get("/applications", requireAuthenticated, async (req: Request, res: Resp
   };
 
   res.json({ applications: merged, stats });
+});
+
+router.delete("/applications/:id", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user!.id;
+  const rawId = String(req.params.id);
+  const id = Number(rawId);
+
+  if (!/^-?\d+$/.test(rawId) || !Number.isSafeInteger(id) || id === 0) {
+    res.status(400).json({ error: "Invalid application ID" });
+    return;
+  }
+
+  if (id < 0) {
+    const [deleted] = await db
+      .delete(speculativeApplicationsTable)
+      .where(and(eq(speculativeApplicationsTable.id, Math.abs(id)), eq(speculativeApplicationsTable.userId, userId)))
+      .returning({ id: speculativeApplicationsTable.id });
+
+    if (!deleted) {
+      res.status(404).json({ error: "Application not found" });
+      return;
+    }
+  } else {
+    const [deleted] = await db
+      .delete(applicationsTable)
+      .where(and(eq(applicationsTable.id, id), eq(applicationsTable.userId, userId)))
+      .returning({ id: applicationsTable.id });
+
+    if (!deleted) {
+      res.status(404).json({ error: "Application not found" });
+      return;
+    }
+  }
+
+  res.status(204).send();
 });
 
 router.post("/applications", requireAuthenticated, async (req: Request, res: Response): Promise<void> => {

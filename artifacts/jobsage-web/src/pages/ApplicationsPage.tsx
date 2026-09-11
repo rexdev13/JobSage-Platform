@@ -6,6 +6,7 @@ import {
   useListVacancyFavorites,
   useUnfavoriteVacancy,
   getListVacancyFavoritesQueryKey,
+  useDeleteApplication,
   type VacancyFavorite,
 } from "@workspace/api-client-react";
 import { MarkWebsiteApplicationModal } from "@/components/MarkWebsiteApplicationModal";
@@ -32,6 +33,8 @@ import {
   ExternalLink,
   FileText,
   Heart,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import { format } from "date-fns";
 import { getListMyApplicationsQueryKey } from "@workspace/api-client-react";
@@ -151,6 +154,8 @@ type EnrichedApplication = {
   deliveryError?: string | null;
   boardName?: string | null;
   sourceType?: "job_board" | "company_site" | null;
+  isClosed?: boolean;
+  livenessReason?: string | null;
 };
 
 type CategoryTab = "all" | "platform" | "speculative" | "website" | "favorites";
@@ -261,6 +266,10 @@ function ApplicationCard({ application, onStatusUpdated }: { application: Enrich
   const kind = application.applicationKind ?? "formal";
   const isSpeculative = kind === "speculative";
   const isWebsite = kind === "website";
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const { mutateAsync: deleteApplication, isPending: isDeleting } = useDeleteApplication();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const kindBadge = isSpeculative
     ? { label: "Send CV", icon: Send, className: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-900/20 dark:text-sky-400" }
@@ -270,6 +279,18 @@ function ApplicationCard({ application, onStatusUpdated }: { application: Enrich
 
   const KindIcon = kindBadge.icon;
   const isInterviewInvited = application.status === "interview_invited" || application.status === "interview";
+
+  async function handleDelete() {
+    try {
+      await deleteApplication({ id: application.id });
+      await queryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
+      toast({ title: "Application deleted", description: "The application was removed from your tracker." });
+      onStatusUpdated();
+    } catch {
+      toast({ title: "Error", description: "Could not delete this application. Please try again.", variant: "destructive" });
+      setConfirmingDelete(false);
+    }
+  }
 
   return (
     <motion.div
@@ -322,13 +343,63 @@ function ApplicationCard({ application, onStatusUpdated }: { application: Enrich
               </span>
             </div>
           </div>
-          <StatusDropdown
-            current={application.status}
-            kind={kind}
-            applicationId={application.id}
-            onUpdated={onStatusUpdated}
-          />
+          <div className="flex items-center gap-2 shrink-0">
+            {application.isClosed && (
+              <span
+                title={application.livenessReason ?? "This vacancy is no longer available."}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+              >
+                <AlertTriangle className="w-3 h-3" />
+                Closed / expired
+              </span>
+            )}
+            <StatusDropdown
+              current={application.status}
+              kind={kind}
+              applicationId={application.id}
+              onUpdated={onStatusUpdated}
+            />
+            {!confirmingDelete ? (
+              <button
+                type="button"
+                onClick={() => setConfirmingDelete(true)}
+                disabled={isDeleting}
+                aria-label="Delete application"
+                title="Delete application"
+                className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors disabled:opacity-50"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-muted-foreground">Delete?</span>
+                <button
+                  type="button"
+                  onClick={() => void handleDelete()}
+                  disabled={isDeleting}
+                  className="px-2 py-1 rounded-md text-[11px] font-semibold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50"
+                >
+                  {isDeleting ? "Deleting…" : "Yes"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDelete(false)}
+                  disabled={isDeleting}
+                  className="px-2 py-1 rounded-md text-[11px] font-semibold text-muted-foreground bg-muted hover:bg-muted/80 disabled:opacity-50"
+                >
+                  No
+                </button>
+              </div>
+            )}
+          </div>
         </div>
+
+        {application.isClosed && application.livenessReason && (
+          <div className="flex items-start gap-1.5 text-xs text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+            <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
+            <span>{application.livenessReason}</span>
+          </div>
+        )}
 
         {isSpeculative && application.jobsageEmail && (
           <div className="flex items-center gap-1.5 text-xs text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-lg px-3 py-2">

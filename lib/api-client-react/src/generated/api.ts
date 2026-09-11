@@ -4244,6 +4244,90 @@ export const useMarkApplication = <
 };
 
 /**
+ * @summary Delete one of the current candidate's tracked applications
+ */
+export const getDeleteApplicationUrl = (id: number) => {
+  return `/api/applications/${id}`;
+};
+
+export const deleteApplication = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteApplicationUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteApplicationMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteApplication>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteApplication>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteApplication"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteApplication>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteApplication(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteApplicationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteApplication>>
+>;
+
+export type DeleteApplicationMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Delete one of the current candidate's tracked applications
+ */
+export const useDeleteApplication = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteApplication>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteApplication>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteApplicationMutationOptions(options));
+};
+
+/**
  * @summary Upgrade a tracked outbound click after the extension detects a confirmed submission
  */
 export const getConfirmApplicationSubmissionUrl = () => {

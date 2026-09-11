@@ -1353,6 +1353,40 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
 
+  /applications/{id}:
+    delete:
+      tags: [Applications]
+      operationId: deleteApplication
+      summary: Delete one of the current candidate's tracked applications
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Positive IDs identify regular applications; negative IDs identify speculative applications.
+      responses:
+        '204':
+          description: Application deleted.
+        '400':
+          description: Invalid application ID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Application not found or not owned by the current candidate.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
   /applications/confirm-submission:
     post:
       tags: [Applications]
@@ -4787,6 +4821,13 @@ components:
         interviewNotes:
           type: string
           nullable: true
+        isClosed:
+          type: boolean
+          description: Whether the underlying vacancy is closed or its application link is no longer live.
+        livenessReason:
+          type: string
+          nullable: true
+          description: The latest reason recorded for a dead application link, when available.
 
     ApplicationList:
       type: object
