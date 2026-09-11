@@ -42,3 +42,4 @@
 - [Smart Apply requiredness](smart-apply-requiredness.md) — unknown is not optional; DOM requiredness stays extension-side and advisory until a trusted API source exists.
 - [Answer Library safety](answer-library-safety.md) — remember only candidate-authored, allowlisted values; never import provenance-free page memory or reuse draft/application storage.
 - [Send CV deferred delivery](send-cv-deferred-delivery.md) — missing employer contact is a pending follow-up state, never an operations-inbox delivery.
+- [Artifact preview route refresh](artifact-preview-route-refresh.md) — a healthy service can still show Replit’s plain `Running` placeholder until its manifest is revalidated.
