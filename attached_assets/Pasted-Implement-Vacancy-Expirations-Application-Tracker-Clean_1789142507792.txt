@@ -1,0 +1,35 @@
+Implement Vacancy Expirations & Application Tracker Cleanup across the backend and frontend:
+
+### 1. Backend: Expiration & Closed Detection on Applications (`artifacts/api-server/src/routes/applications.ts`)
+- In `GET /api/applications`:
+  - When querying the underlying job/vacancy records for platform applications:
+    - From `jobListingsTable` (`roleId > 1_000_000`): include `status` and `liveness`. The vacancy is closed/expired if `status === 'closed'` OR `liveness === 'dead'`.
+    - From `rolesTable` (`roleId <= 1_000_000`): include `active` and `liveness`. The vacancy is closed/expired if `active === false` OR `liveness === 'dead'`.
+    - From `sponsorLicenceVacanciesTable`: include `liveness` and `livenessReason`. The vacancy is closed/expired if `liveness === 'dead'`.
+  - For each returned application (platform and speculative), include:
+    - `isClosed: boolean`
+    - `livenessReason: string | null`
+- Add `DELETE /api/applications/:id` (authenticated):
+  - If `id > 0`: delete from `applicationsTable` where `id = :id AND userId = req.user.id`.
+  - If `id < 0`: delete from `speculativeApplicationsTable` where `id = Math.abs(:id) AND userId = req.user.id`.
+  - Return `200 OK` with `{ success: true, deletedId: id }`, or `404 Not Found` if not found/not owned.
+
+---
+
+### 2. Frontend: Closed Vacancy Badge & Delete Action (`artifacts/jobsage-web/src/pages/ApplicationsPage.tsx`)
+- In `ApplicationCard`:
+  - **Closed / Expired Badge**:
+    - If `application.isClosed` is true, render a prominent badge:
+      `[ Vacancy Closed / Expired ]` (with red/amber styling and optional `application.livenessReason` tooltip).
+  - **Delete / Remove Application**:
+    - Add a delete button (Trash icon) to each application card.
+    - When clicked, prompt confirmation (or confirm dialog): *"Remove this application from your tracker?"*.
+    - On confirm, call `DELETE /api/applications/${application.id}`, display a success toast, and invalidate `getListMyApplicationsQueryKey()` to refresh the tracker immediately.
+
+---
+
+### 3. Verification & Typecheck
+- Run typechecks:
+  - `npx tsc -p artifacts/api-server/tsconfig.json --noEmit`
+  - `npx tsc -p artifacts/jobsage-web/tsconfig.json --noEmit`
+- Verify that closed vacancies display the "Vacancy Closed / Expired" badge and candidates can successfully delete applications from their tracker.
