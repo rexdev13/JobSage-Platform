@@ -1,0 +1,83 @@
+
+
+```markdown
+### Feature: Connect Smart Apply Questionnaire to "Send CV"
+
+#### Objective
+Replace the generic "Send CV" cover letter modal with the interactive **Smart Apply** questionnaire. When a candidate clicks **"Send CV"** anywhere on the platform, open the Smart Apply 6-question questionnaire, prefill the answers with AI based on the candidate's profile and CV, and compile those answers into the body of the outreach message sent to the employer with the selected CV.
+
+---
+
+### 1. Trigger "Smart Apply" from every "Send CV" Button
+- In `artifacts/jobsage-web/src/pages/SponsorLicencesPage.tsx` and `artifacts/jobsage-web/src/pages/OpportunitiesPage.tsx`:
+  - Whenever a candidate clicks **"Send CV"**, open the **Smart Apply modal** for that vacancy instead of the old generic cover letter modal.
+  - Pass the vacancy context: `title`, `companyName`, `location`, `salary`, `description`, `externalUrl`, and `vacancyId`/`roleId`.
+
+---
+
+### 2. Smart Apply Questionnaire UI (Matching the Design)
+In `SmartApplyModal.tsx`:
+- **Header**: Display the role title, employer name, location, and regulator badge (e.g. `Staff Nurse`, `Wirral University Teaching Hospitals NHS Trust`, `NMC`).
+- **Question Pagination (1 of 6)** with indicator dots:
+  1. *Why are you applying for this role and what motivates you?*
+  2. *Summarise your relevant clinical experience for this role.*
+  3. *What is your current UK regulatory registration status?*
+  4. *Do you currently have the right to work in the UK?*
+  5. *What are your greatest professional strengths relevant to this position?*
+  6. *When can you start and what is your current notice period?*
+- **AI Prefill & Editing**:
+  - Automatically load AI-drafted answers generated from the candidate's profile and uploaded CV.
+  - Show the `AI: High confidence` badge and an **"Ask AI"** button.
+  - Editable textarea for each question so the candidate can tweak their response.
+- **Controls**:
+  - **"Accept all AI answers & submit now"** shortcut button.
+  - **CV Selector dropdown**: `"Which CV should we send? / CV to record"` (defaults to primary CV).
+  - Navigation footer: `< Back`, `Cover Letter` (toggle/preview compiled letter), and `Next >` / `Send CV`.
+  - Fully mobile-responsive across all screen sizes.
+
+---
+
+### 3. Compile Answers into the Message Body on Send
+When the candidate clicks **"Send CV"** (or *"Accept all AI answers & submit now"*):
+- Automatically compile the 6 question answers into a professional, structured outreach email / cover letter body:
+
+```text
+Dear Hiring Team at [Employer Name],
+
+I am writing to express my sincere interest in the [Job Title] position. Please find my screening details and qualifications below:
+
+• Motivation:
+[Answer to Question 1]
+
+• Relevant Clinical Experience:
+[Answer to Question 2]
+
+• UK Regulatory Registration Status:
+[Answer to Question 3]
+
+• Right to Work & Sponsorship Status:
+[Answer to Question 4]
+
+• Key Professional Strengths:
+[Answer to Question 5]
+
+• Availability & Notice Period:
+[Answer to Question 6]
+
+Please find my CV attached. I look forward to hearing from you.
+
+Kind regards,
+[Candidate Full Name]
+```
+
+- Pass this compiled text as `coverLetterText` and `notes` to `POST /api/speculative-applications` (or `POST /api/applications`), along with the selected `cvDocumentId`.
+- Record the application in the candidate's Application Tracker and show a confirmation toast.
+
+---
+
+### 4. Verification
+- Confirm that clicking **"Send CV"** on any vacancy card opens the 6-question Smart Apply flow.
+- Confirm that submitting sends the compiled answers as the message body with the selected CV.
+- Run `npm run typecheck` across `jobsage-web` and `api-server` (0 errors).
+- Run all vitest suites (`npm test`) to ensure regression tests pass.
+```
