@@ -244,14 +244,14 @@ describe("marketing lead access", () => {
     expect(response.status).toBe(403);
   });
 
-  it("claims an unassigned lead and stamps its first contact", async () => {
+  it("claims an unassigned lead without marking it contacted", async () => {
     const claimedAt = new Date("2026-08-21T12:00:00.000Z");
     queryResults.push([{
       id: 9,
-      status: "contacted",
+      status: "new",
       marketingUserId: "marketing-1",
       claimedAt,
-      contactedAt: claimedAt,
+      contactedAt: null,
     }]);
 
     const response = await request(buildApp())
@@ -261,13 +261,17 @@ describe("marketing lead access", () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
       id: 9,
-      status: "contacted",
+      status: "new",
       marketingUserId: "marketing-1",
       claimedAt: claimedAt.toISOString(),
-      contactedAt: claimedAt.toISOString(),
+      contactedAt: null,
     });
-    expect(setCalls[0]).toEqual(expect.objectContaining({ contactedAt: expect.anything() }));
-    expect(JSON.stringify(setCalls[0])).toContain("coalesce");
+    expect(setCalls[0]).toEqual({
+      marketingUserId: "marketing-1",
+      claimedAt: expect.any(Date),
+    });
+    expect(JSON.stringify(setCalls[0])).not.toContain("contactedAt");
+    expect(JSON.stringify(setCalls[0])).not.toContain("status");
   });
 
   it("returns conflict when claiming an assigned lead", async () => {

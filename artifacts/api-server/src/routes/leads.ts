@@ -278,8 +278,6 @@ router.post(
       .set({
         marketingUserId: req.user!.id,
         claimedAt: now,
-        contactedAt: sql`coalesce(${socialLeadsTable.contactedAt}, now())`,
-        status: sql`case when ${socialLeadsTable.status} = 'new' then 'contacted' else ${socialLeadsTable.status} end`,
       })
       .where(and(eq(socialLeadsTable.id, id), isNull(socialLeadsTable.marketingUserId)))
       .returning({

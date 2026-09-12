@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@workspace/auth-web";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { canDeleteLeads } from "@/lib/roleAccess";
 import { useGetSponsorLicenceIndustries } from "@workspace/api-client-react";
-import { CalendarDays, Copy, ExternalLink, Loader2, Search, Users, Trash2, ChevronDown, UserPlus, UserCheck, UserX } from "lucide-react";
+import { CalendarDays, CheckCircle2, Copy, ExternalLink, Loader2, Search, Users, Trash2, ChevronDown, UserPlus, UserCheck, UserX } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -376,6 +376,99 @@ function ClaimLeadAction({ lead }: { lead: Lead }) {
     </Button>
     {message && <span className="max-w-40 text-[10px] text-destructive">{message}</span>}
   </div>;
+}
+
+function LeadContactProcessStatusBar({ lead }: { lead: Lead }) {
+  const isUnqualified = lead.status === "unqualified";
+  const isRegistered = lead.status === "registered";
+  const isContacted = lead.status === "contacted" || isRegistered;
+  const isClaimed = Boolean(lead.assignee);
+  const activeStep = isRegistered ? 4 : isContacted ? 3 : isClaimed ? 2 : 1;
+  const progress = isUnqualified ? 0 : (activeStep - 1) * 33.33;
+  const firstName = lead.assignee?.name?.trim().split(/\s+/)[0];
+  const createdAt = new Date(lead.createdAt).toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  const stages = [
+    {
+      title: "Captured",
+      subtitle: `${lead.source === "chat" ? "AI Chat Lead" : "Inbound Form"} · ${createdAt}`,
+      completed: true,
+    },
+    {
+      title: "Claimed",
+      subtitle: isClaimed ? `Owned by ${firstName || "marketer"}` : "Unassigned",
+      completed: isClaimed,
+    },
+    {
+      title: "Contacted",
+      subtitle: isContacted
+        ? lead.status === "registered" ? "Booking link shared" : "Outreach initiated"
+        : "Pending outreach",
+      completed: isContacted,
+    },
+    {
+      title: "Registered",
+      subtitle: isRegistered ? "Converted to User" : "Awaiting registration",
+      completed: isRegistered,
+    },
+  ];
+
+  return (
+    <div className={`border-t px-2 py-4 sm:px-8 ${isUnqualified ? "bg-rose-50/50 dark:bg-rose-950/10" : "bg-muted/20"}`}>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold sm:text-xs ${
+          isUnqualified
+            ? "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300"
+            : isRegistered
+              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+              : "bg-primary/10 text-primary"
+        }`}>
+          {isUnqualified
+            ? "Unqualified / Disqualified"
+            : isRegistered
+              ? "✓ Converted to User"
+              : activeStep === 3
+                ? "In Contact / Follow-up"
+                : activeStep === 2
+                  ? "Claimed • Pending First Outreach"
+                  : "New Inbound • Ready to Claim"}
+        </span>
+      </div>
+
+      <div className="relative grid grid-cols-4 gap-1 sm:gap-4">
+        <div className="pointer-events-none absolute left-[12.5%] right-[12.5%] top-4 h-0.5 bg-border sm:left-[10%] sm:right-[10%]">
+          <div
+            className={`h-full transition-all ${isUnqualified ? "bg-rose-400" : "bg-emerald-500"}`}
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+        {stages.map((stage, index) => {
+          const step = index + 1;
+          const isActive = !stage.completed && step === activeStep;
+          return (
+            <div key={stage.title} className="relative z-10 flex min-w-0 flex-col items-center text-center">
+              <div className={`flex h-8 w-8 items-center justify-center rounded-full border-2 bg-background text-[11px] font-semibold ${
+                isUnqualified
+                  ? stage.completed ? "border-rose-400 text-rose-600" : isActive ? "border-rose-500 ring-4 ring-rose-100 dark:ring-rose-900/30" : "border-border text-muted-foreground"
+                  : stage.completed ? "border-emerald-500 text-emerald-600" : isActive ? "border-primary text-primary ring-4 ring-primary/10" : "border-border text-muted-foreground"
+              }`}>
+                {stage.completed ? <CheckCircle2 className="h-4 w-4" /> : step}
+              </div>
+              <p className="mt-2 text-[10px] font-semibold text-foreground sm:text-[11px]">{stage.title}</p>
+              <p className="mt-0.5 max-w-20 truncate text-[9px] text-muted-foreground sm:max-w-40 sm:text-[10px]" title={stage.subtitle}>
+                {stage.subtitle}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -810,72 +903,78 @@ export default function AdminLeadsPage() {
               </thead>
               <tbody className="divide-y divide-border">
                 {leads.map((lead) => (
-                  <tr
-                    key={lead.id}
-                    className={`transition-colors ${
-                      selected.has(lead.id) ? "bg-primary/5" : "hover:bg-muted/30"
-                    }`}
-                  >
-                    <td className="px-4 py-3">
-                      <input
-                        type="checkbox"
-                        checked={selected.has(lead.id)}
-                        disabled={isMarketing && lead.assignee?.id !== user?.id}
-                        onChange={() => toggleOne(lead.id)}
-                        className="rounded border-input accent-primary cursor-pointer"
-                      />
-                    </td>
-                    <td className="px-4 py-3 font-medium text-foreground whitespace-nowrap">
-                      {lead.name ?? `${lead.firstName ?? ""} ${lead.lastName ?? ""}`.trim()}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">{lead.email}</td>
-                    <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                      {lead.phone || <span className="text-muted-foreground/40 italic">—</span>}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {lead.sector ?? lead.industrySector ?? (
-                        <span className="text-muted-foreground/40 italic">Not provided</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                          lead.source === "chat"
-                            ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                            : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                        }`}
-                      >
-                        {lead.source === "chat" ? "AI Chat" : "Form"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <BookingActions
-                        url={lead.assignee?.calendlyUrl ?? (!lead.assignee && isMarketing ? myCalendlyUrl : null)}
-                        guidance={
-                          lead.assignee
-                            ? "The assigned marketer has not added a Calendly link."
-                            : isMarketing
-                              ? "Add your Calendly link above."
-                              : "Assign a marketer first."
-                        }
-                      />
-                    </td>
-                    <td className="px-4 py-3">
-                      {isMarketing && !lead.assignee ? <ClaimLeadAction lead={lead} /> : (
-                        <AssigneeSelect lead={lead} assignees={assignees} canAssign={canAssign} currentUserId={user?.id} />
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusSelect lead={lead} disabled={isMarketing && !lead.assignee} refreshPerformance={isMarketing} />
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                      {new Date(lead.createdAt).toLocaleDateString("en-GB", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </td>
-                  </tr>
+                  <Fragment key={lead.id}>
+                    <tr
+                      className={`transition-colors ${
+                        selected.has(lead.id) ? "bg-primary/5" : "hover:bg-muted/30"
+                      }`}
+                    >
+                      <td className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={selected.has(lead.id)}
+                          disabled={isMarketing && lead.assignee?.id !== user?.id}
+                          onChange={() => toggleOne(lead.id)}
+                          className="rounded border-input accent-primary cursor-pointer"
+                        />
+                      </td>
+                      <td className="px-4 py-3 font-medium text-foreground whitespace-nowrap">
+                        {lead.name ?? `${lead.firstName ?? ""} ${lead.lastName ?? ""}`.trim()}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">{lead.email}</td>
+                      <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                        {lead.phone || <span className="text-muted-foreground/40 italic">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {lead.sector ?? lead.industrySector ?? (
+                          <span className="text-muted-foreground/40 italic">Not provided</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                            lead.source === "chat"
+                              ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                              : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                          }`}
+                        >
+                          {lead.source === "chat" ? "AI Chat" : "Form"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <BookingActions
+                          url={lead.assignee?.calendlyUrl ?? (!lead.assignee && isMarketing ? myCalendlyUrl : null)}
+                          guidance={
+                            lead.assignee
+                              ? "The assigned marketer has not added a Calendly link."
+                              : isMarketing
+                                ? "Add your Calendly link above."
+                                : "Assign a marketer first."
+                          }
+                        />
+                      </td>
+                      <td className="px-4 py-3">
+                        {isMarketing && !lead.assignee ? <ClaimLeadAction lead={lead} /> : (
+                          <AssigneeSelect lead={lead} assignees={assignees} canAssign={canAssign} currentUserId={user?.id} />
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <StatusSelect lead={lead} disabled={isMarketing && !lead.assignee} refreshPerformance={isMarketing} />
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                        {new Date(lead.createdAt).toLocaleDateString("en-GB", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td colSpan={10} className="p-0">
+                        <LeadContactProcessStatusBar lead={lead} />
+                      </td>
+                    </tr>
+                  </Fragment>
                 ))}
               </tbody>
             </table>
