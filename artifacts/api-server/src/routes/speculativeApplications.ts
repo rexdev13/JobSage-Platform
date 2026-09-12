@@ -171,12 +171,22 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
       linkStatus = getVacancyLinkStatus(storedUrl, stored.liveness, stored.lastVerifiedAt, stored.livenessReason);
     } else if (roleId != null) {
       const [stored] = await db
-        .select({ applyUrl: rolesTable.applyUrl })
+        .select({
+          applyUrl: rolesTable.applyUrl,
+          liveness: rolesTable.liveness,
+          lastVerifiedAt: rolesTable.lastVerifiedAt,
+          livenessReason: rolesTable.livenessReason,
+        })
         .from(rolesTable)
         .where(eq(rolesTable.id, roleId))
         .limit(1);
       storedUrl = stored?.applyUrl?.trim() || null;
-      linkStatus = storedUrl ? "unverified" : "none";
+      linkStatus = getVacancyLinkStatus(
+        storedUrl,
+        stored?.liveness,
+        stored?.lastVerifiedAt,
+        stored?.livenessReason,
+      );
     }
     const submissionError = getVacancySubmissionError(
       storedUrl,
