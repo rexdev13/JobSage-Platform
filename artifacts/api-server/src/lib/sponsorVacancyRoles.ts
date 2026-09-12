@@ -27,6 +27,7 @@ import {
  *   employer jobs:    1,000,001 .. 2,000,000  (jobListings.id + 1,000,000)
  *   sponsor vacancies: > 2,000,000            (sponsor_licence_vacancies.id + 2,000,000)
  */
+export const EMPLOYER_JOB_ID_OFFSET = 1_000_000;
 export const SPONSOR_VACANCY_ID_OFFSET = 2_000_000;
 
 /** Whether a candidate-facing unified role ID belongs to a sponsor vacancy. */
@@ -41,6 +42,15 @@ export function isSponsorVacancyRoleId(roleId: number): boolean {
  */
 export function sponsorVacancyIdFromRoleId(roleId: number): number | null {
   return isSponsorVacancyRoleId(roleId) ? roleId - SPONSOR_VACANCY_ID_OFFSET : null;
+}
+
+/** Whether a candidate-facing unified role ID belongs to an employer job listing. */
+export function isEmployerJobRoleId(roleId: number): boolean {
+  return roleId > EMPLOYER_JOB_ID_OFFSET && roleId <= SPONSOR_VACANCY_ID_OFFSET;
+}
+
+export function employerJobIdFromRoleId(roleId: number): number | null {
+  return isEmployerJobRoleId(roleId) ? roleId - EMPLOYER_JOB_ID_OFFSET : null;
 }
 
 /**
