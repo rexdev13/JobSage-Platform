@@ -1,0 +1,86 @@
+### Feature: Marketer Calendar & Scheduled Calls Dashboard
+
+Please implement a fully functional **Marketer Calendar & Scheduling System** on the Marketer dashboard (`artifacts/jobsage-web/src/pages/admin/AdminLeadsPage.tsx`) directly below the Waitlist Leads table, along with supporting backend routes and schema.
+
+---
+
+#### 1. Database Schema (`lib/db/src/schema/marketerEvents.ts`)
+Create a table for scheduled marketer calls and meetings:
+- `id`: serial primary key
+- `marketingUserId`: varchar referencing `usersTable.id` (onDelete: cascade, notNull)
+- `leadId`: integer referencing `socialLeadsTable.id` (onDelete: set null, nullable)
+- `title`: text, not null (e.g. "Discovery Call with Jane Doe")
+- `scheduledAt`: timestamp with timezone, not null
+- `endTime`: timestamp with timezone (default: scheduledAt + 30 mins)
+- `meetingUrl`: text (defaults to marketer's Calendly URL or custom Google Meet / Zoom link)
+- `status`: varchar enum: `['scheduled', 'completed', 'cancelled', 'rescheduled', 'no_show']` (default: `'scheduled'`)
+- `notes`: text (pre-call agenda or post-call notes)
+- `source`: varchar enum: `['manual', 'calendly']` (default: `'manual'`)
+- `createdAt`: timestamp with timezone, default now
+
+Export the table and register it in `lib/db/src/schema/index.ts`. Run migrations / push schema as appropriate.
+
+---
+
+#### 2. Backend Routes (`artifacts/api-server/src/routes/marketerCalendar.ts`)
+Create endpoints protected by `requireAuthenticated`:
+1. `GET /api/marketer/calendar/events`:
+   - Query params: `start` (ISO date), `end` (ISO date), `marketingUserId` (optional).
+   - Scoping:
+     - Marketers (`role === 'marketing'`) can **only** fetch their own events (`marketingUserId === req.user.id`).
+     - Admins / Super Admins (`role in ['admin', 'super_admin']`) can view events for any specific marketer or all marketers if `marketingUserId` is omitted.
+   - Join with `socialLeadsTable` to return lead details (`firstName`, `lastName`, `email`, `phone`, `industrySector`, `status`).
+2. `POST /api/marketer/calendar/events`:
+   - Body: `{ leadId?, title, scheduledAt, endTime?, meetingUrl?, notes? }`.
+   - Creates the event for `req.user.id` (or specified marketer if Admin).
+   - If `leadId` is provided, automatically set `socialLeads.status = 'contacted'` and update `contactedAt = now()` if the lead was previously `'new'`.
+3. `PATCH /api/marketer/calendar/events/:id`:
+   - Body: `{ scheduledAt?, endTime?, status?, notes?, meetingUrl? }`.
+   - Marketers can update their own events; Admins can update any.
+4. `DELETE /api/marketer/calendar/events/:id`:
+   - Cancels or deletes the event.
+5. (Bonus) `POST /api/webhooks/calendly`:
+   - Webhook endpoint that receives Calendly `invitee.created` payloads:
+     - Matches `invitee.email` against `social_leads.email`.
+     - Automatically creates a `scheduled` event and links it to the lead.
+
+Register these routes in `artifacts/api-server/src/app.ts`.
+
+---
+
+#### 3. Frontend Implementation (`artifacts/jobsage-web/src/pages/admin/AdminLeadsPage.tsx`)
+
+Add a **"Calendar & Scheduled Calls"** section directly below the Waitlist Leads table:
+
+1. **Section Header & Controls:**
+   - Title: **"Schedule & Upcoming Calls"** with calendar icon.
+   - View toggle: **Month View** | **Week View** | **Upcoming Agenda List** | **Live Calendly**.
+   - If Admin / Super Admin: Show a dropdown to filter by marketer: `[All Marketers]`, `[Rex Ife]`, etc.
+   - **"Schedule New Call"** button:
+     - Opens a clean modal to book a call:
+       - Select Lead (typeahead / dropdown of assigned leads).
+       - Date & Time picker.
+       - Meeting link (pre-filled with the marketer's saved Calendly URL).
+       - Notes / Agenda.
+
+2. **Interactive Calendar UI (using `date-fns`):**
+   - Month/Week grid with previous/next month navigation, displaying scheduled call badges on each day.
+   - Badges color-coded by status (Blue for `scheduled`, Emerald for `completed`, Amber for `rescheduled`, Rose for `cancelled`).
+   - Clicking a day or event opens a slide-over / details modal:
+     - Lead contact info (`Name`, `Email`, `Phone`, `Sector`).
+     - Time & duration.
+     - "Join Meeting" external link button.
+     - Call outcome selector (`Completed`, `No show`, `Rescheduled`) with a notes input to log what was discussed.
+     - Quick shortcut: "View in Leads Table".
+
+3. **Lead Table Integration:**
+   - In the Waitlist Leads table rows above, add a quick **"Book Call"** action icon (next to Copy Booking Link) that immediately opens the Schedule Modal pre-populated with that lead!
+
+4. **Live Calendly Tab:**
+   - When switching to the "Live Calendly" tab, render an embedded iframe of the marketer's saved Calendly link (from `CalendlyLinkCard`) with an empty state prompt if no link is configured yet.
+
+---
+
+#### 4. Verification & Polish
+- Ensure mobile responsiveness: calendar day view and list view collapse cleanly on narrow screens.
+- Run `pnpm check` and tests in `artifacts/api-server` to confirm zero type or build errors.
