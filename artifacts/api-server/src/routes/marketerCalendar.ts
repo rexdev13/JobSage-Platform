@@ -112,12 +112,15 @@ router.get(
 
     const isAdmin = isAdminRole(req.user?.role);
     const requestedMarketer = String(req.query.marketingUserId ?? "").trim();
-    const marketingUserId = isAdmin && requestedMarketer ? requestedMarketer : req.user!.id;
-    const where = and(
-      eq(marketerEventsTable.marketingUserId, marketingUserId),
+    const dateRange = and(
       gte(marketerEventsTable.scheduledAt, start),
       lte(marketerEventsTable.scheduledAt, end),
     );
+    const where = isAdmin
+      ? requestedMarketer
+        ? and(eq(marketerEventsTable.marketingUserId, requestedMarketer), dateRange)
+        : dateRange
+      : and(eq(marketerEventsTable.marketingUserId, req.user!.id), dateRange);
 
     const rows = await db
       .select(eventFields)
