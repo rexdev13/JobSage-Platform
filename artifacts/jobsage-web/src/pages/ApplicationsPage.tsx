@@ -41,6 +41,16 @@ import { getListMyApplicationsQueryKey } from "@workspace/api-client-react";
 import { useGetMyAnalytics } from "@workspace/api-client-react";
 import { WeeklyApplicationStats } from "@/components/WeeklyApplicationStats";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   excludeClosedApplications,
   filterApplicationsByTimeframe,
   getApplicationProcessStage,
@@ -271,6 +281,56 @@ function StatusDropdown({
   );
 }
 
+function DeleteConfirmationDialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  pending,
+  onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description: string;
+  pending: boolean;
+  onConfirm: () => void;
+}) {
+  return (
+    <AlertDialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!pending) onOpenChange(nextOpen);
+      }}
+    >
+      <AlertDialogContent className="w-[calc(100%-2rem)] max-w-md rounded-2xl p-5 sm:p-6">
+        <AlertDialogHeader className="text-left">
+          <div className="mb-1 flex h-10 w-10 items-center justify-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-300">
+            <Trash2 className="h-5 w-5" />
+          </div>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription>{description}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="gap-2 sm:gap-2">
+          <AlertDialogCancel disabled={pending} className="mt-0 w-full sm:w-auto">
+            Cancel
+          </AlertDialogCancel>
+          <AlertDialogAction
+            disabled={pending}
+            onClick={(event) => {
+              event.preventDefault();
+              onConfirm();
+            }}
+            className="w-full bg-rose-600 text-white hover:bg-rose-700 focus:ring-rose-500 sm:w-auto"
+          >
+            {pending ? "Deleting…" : "Delete"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 function ApplicationProcessStatusBar({ application }: { application: EnrichedApplication }) {
   const activeStage = getApplicationProcessStage(application.status);
   const rejected = isRejectedApplicationStatus(application.status);
@@ -362,7 +422,7 @@ function ApplicationCard({
   const kind = application.applicationKind ?? "formal";
   const isSpeculative = kind === "speculative";
   const isWebsite = kind === "website";
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const { mutateAsync: deleteApplication, isPending: isDeleting } = useDeleteApplication();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -380,11 +440,11 @@ function ApplicationCard({
     try {
       await deleteApplication({ id: application.id });
       await queryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
+      setDeleteDialogOpen(false);
       toast({ title: "Application deleted", description: "The application was removed from your tracker." });
       onStatusUpdated();
     } catch {
       toast({ title: "Error", description: "Could not delete this application. Please try again.", variant: "destructive" });
-      setConfirmingDelete(false);
     }
   }
 
@@ -462,38 +522,16 @@ function ApplicationCard({
               applicationId={application.id}
               onUpdated={onStatusUpdated}
             />
-            {!confirmingDelete ? (
-              <button
-                type="button"
-                onClick={() => setConfirmingDelete(true)}
-                disabled={isDeleting}
-                aria-label="Delete application"
-                title="Delete application"
-                className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors disabled:opacity-50"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            ) : (
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-muted-foreground">Delete?</span>
-                <button
-                  type="button"
-                  onClick={() => void handleDelete()}
-                  disabled={isDeleting}
-                  className="px-2 py-1 rounded-md text-[11px] font-semibold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50"
-                >
-                  {isDeleting ? "Deleting…" : "Yes"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmingDelete(false)}
-                  disabled={isDeleting}
-                  className="px-2 py-1 rounded-md text-[11px] font-semibold text-muted-foreground bg-muted hover:bg-muted/80 disabled:opacity-50"
-                >
-                  No
-                </button>
-              </div>
-            )}
+            <button
+              type="button"
+              onClick={() => setDeleteDialogOpen(true)}
+              disabled={isDeleting}
+              aria-label="Delete application"
+              title="Delete application"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-900/20 disabled:opacity-50"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
           </div>
         </div>
 
@@ -615,6 +653,14 @@ function ApplicationCard({
           </div>
         )}
       </Card>
+      <DeleteConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete this application?"
+        description={`This will permanently remove ${application.roleTitle ?? application.companyName ?? "this application"} from your Application Tracker. This action cannot be undone.`}
+        pending={isDeleting}
+        onConfirm={() => void handleDelete()}
+      />
     </motion.div>
   );
 }
@@ -970,39 +1016,15 @@ export default function ApplicationsPage() {
             </label>
             {selectedVisibleApplications.length > 0 && (
               <div className="flex flex-wrap items-center justify-end gap-2">
-                {confirmingBulkDelete ? (
-                  <>
-                    <span className="text-xs font-medium text-rose-700 dark:text-rose-300">
-                      Delete {selectedVisibleApplications.length} selected application{selectedVisibleApplications.length === 1 ? "" : "s"}?
-                    </span>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={isBulkDeleting}
-                      onClick={() => setConfirmingBulkDelete(false)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      disabled={isBulkDeleting}
-                      onClick={() => void handleBulkDelete()}
-                    >
-                      {isBulkDeleting ? "Deleting…" : "Confirm delete"}
-                    </Button>
-                  </>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    className="gap-1.5"
-                    onClick={() => setConfirmingBulkDelete(true)}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                    Delete selected ({selectedVisibleApplications.length})
-                  </Button>
-                )}
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  className="gap-1.5"
+                  onClick={() => setConfirmingBulkDelete(true)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete selected ({selectedVisibleApplications.length})
+                </Button>
               </div>
             )}
           </div>
@@ -1096,6 +1118,15 @@ export default function ApplicationsPage() {
           isPending={logExternalPending}
         />
       )}
+
+      <DeleteConfirmationDialog
+        open={confirmingBulkDelete}
+        onOpenChange={setConfirmingBulkDelete}
+        title={`Delete ${selectedVisibleApplications.length} selected application${selectedVisibleApplications.length === 1 ? "" : "s"}?`}
+        description="The selected applications will be permanently removed from your Application Tracker. This action cannot be undone."
+        pending={isBulkDeleting}
+        onConfirm={() => void handleBulkDelete()}
+      />
     </AppLayout>
   );
 }
