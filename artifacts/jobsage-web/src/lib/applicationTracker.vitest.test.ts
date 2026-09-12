@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  excludeClosedApplications,
   filterApplicationsByTimeframe,
   getApplicationProcessStage,
   isRejectedApplicationStatus,
@@ -22,6 +23,16 @@ describe("application tracker helpers", () => {
   it("returns all applications for full history", () => {
     const applications = [{ appliedAt: "invalid" }, { appliedAt: null }];
     expect(filterApplicationsByTimeframe(applications, "all", NOW)).toBe(applications);
+  });
+
+  it("removes closed vacancies from the tracker entirely", () => {
+    const applications = [
+      { id: "active", isClosed: false },
+      { id: "unknown" },
+      { id: "closed", isClosed: true },
+    ];
+
+    expect(excludeClosedApplications(applications).map((a) => a.id)).toEqual(["active", "unknown"]);
   });
 
   it("maps application statuses to the four process stages", () => {
