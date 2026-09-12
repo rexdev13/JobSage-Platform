@@ -93,9 +93,12 @@ export async function prefillApplicationAnswers(
   },
   roleContext: {
     title: string;
+    employer?: string | null;
     description?: string | null;
     regulator: string;
     location: string;
+    salary?: string | null;
+    externalUrl?: string | null;
     sponsorshipOffered?: boolean;
   }
 ): Promise<PrefillResult[]> {
@@ -115,10 +118,13 @@ ${profile.cvText ? `CV extract (use only facts explicitly stated here): ${profil
 
   const roleText = `
 Job title: ${roleContext.title}
+${roleContext.employer ? `Employer: ${roleContext.employer}` : ""}
 Regulator: ${roleContext.regulator}
 Location: ${roleContext.location}
+${roleContext.salary ? `Salary: ${roleContext.salary}` : ""}
 Sponsorship offered: ${roleContext.sponsorshipOffered ? "Yes" : "No"}
 ${roleContext.description ? `Description: ${roleContext.description.slice(0, 600)}` : ""}
+${roleContext.externalUrl ? `Vacancy URL: ${roleContext.externalUrl}` : ""}
 `.trim();
 
   const questionsText = STANDARD_QUESTIONS.map(

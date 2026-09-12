@@ -968,6 +968,12 @@ paths:
           required: true
           schema:
             type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmartApplyVacancyContext'
       responses:
         '200':
           description: Pre-filled answers with gap indicators.
@@ -4698,6 +4704,25 @@ components:
           enum: [high, medium, low, none]
         needsReview:
           type: boolean
+
+    SmartApplyVacancyContext:
+      type: object
+      description: Optional vacancy context used when the role is not fully represented in the internal catalogue.
+      properties:
+        title:
+          type: string
+        employer:
+          type: string
+        location:
+          type: [string, "null"]
+        salary:
+          type: [string, "null"]
+        description:
+          type: [string, "null"]
+        externalUrl:
+          type: [string, "null"]
+        regulator:
+          type: [string, "null"]
 
     SmartApplyQuestionsResponse:
       type: object

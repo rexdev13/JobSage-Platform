@@ -6,11 +6,15 @@ import {
   useSaveSmartApplyDraft,
   useDeleteSmartApplyDraft,
   useGetSmartApplyDraft,
+  useGetSmartApplyCandidatePrefill,
   useListMyDocuments,
+  useSendSpeculativeApplication,
   getListMyApplicationsQueryKey,
+  getListSpeculativeApplicationsQueryKey,
   type ApplicationQuestion,
   type SmartApplyPrefill,
   type SmartApplyPrefillResponse,
+  type SmartApplyVacancyContext,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -36,6 +40,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { SmartApplyAssistant } from "./SmartApplyAssistant";
 import { isExtensionInstalled, ExtensionRequiredModal } from "./SmartApplyExtensionPrompt";
+import { compileSmartApplyOutreach, SEND_CV_QUESTION_IDS } from "@/lib/smartApplyOutreach";
 
 function useCoverLetterStream() {
   const [text, setText] = useState("");
@@ -83,9 +88,19 @@ function useCoverLetterStream() {
   return { text, setText, disclaimer, streaming, done, error, generate, reset };
 }
 
+export interface SmartApplySendCvContext extends SmartApplyVacancyContext {
+  companyName: string;
+  sponsorLicenceId?: number | null;
+  vacancyId?: number | null;
+  sourceType?: "job_board" | "company_site" | null;
+  boardName?: string | null;
+}
+
 interface SmartApplyModalProps {
   roleId: number;
   roleTitle: string;
+  vacancyContext?: SmartApplyVacancyContext;
+  sendCvContext?: SmartApplySendCvContext;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -140,6 +155,8 @@ interface NextMatchRole {
 export function SmartApplyModal({
   roleId,
   roleTitle,
+  vacancyContext,
+  sendCvContext,
   onClose,
   onSuccess,
 }: SmartApplyModalProps) {
@@ -148,7 +165,9 @@ export function SmartApplyModal({
   // Applying requires the Smart Apply extension so every outbound application
   // is tracked. Pages gate before opening this modal, but guard here too in
   // case the modal is opened directly.
-  const [extensionOk, setExtensionOk] = useState(isExtensionInstalled);
+  const isSendCv = sendCvContext != null;
+  const effectiveVacancyContext = sendCvContext ?? vacancyContext ?? { title: roleTitle };
+  const [extensionOk, setExtensionOk] = useState(() => isSendCv || isExtensionInstalled());
   const [step, setStep] = useState<"loading" | "error" | "review" | "submitting" | "coverLetter" | "nextMatches">("loading");
   const [nextMatchRoles, setNextMatchRoles] = useState<NextMatchRole[]>([]);
   const coverLetter = useCoverLetterStream();
@@ -166,9 +185,11 @@ export function SmartApplyModal({
 
   const prefillMutation = useSmartApplyPrefill();
   const markApplicationMutation = useMarkApplication();
+  const sendCvMutation = useSendSpeculativeApplication();
   const saveDraftMutation = useSaveSmartApplyDraft();
   const deleteDraftMutation = useDeleteSmartApplyDraft();
   const serverDraftQuery = useGetSmartApplyDraft(roleId);
+  const candidatePrefillQuery = useGetSmartApplyCandidatePrefill();
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: documentsData } = useListMyDocuments();
@@ -209,7 +230,7 @@ export function SmartApplyModal({
   useEffect(() => {
     if (!extensionOk) return;
     prefillMutation.mutate(
-      { id: roleId },
+      { id: roleId, data: effectiveVacancyContext },
       {
         onSuccess: (data) => {
           setPrefillError(null);
@@ -261,8 +282,69 @@ export function SmartApplyModal({
   const isFirstQuestion = currentQuestion === 0;
 
   async function handleSubmit() {
+    if (
+      isSendCv &&
+      SEND_CV_QUESTION_IDS.some((questionId) => !answers[questionId]?.trim())
+    ) {
+      const firstMissingIndex = questions.findIndex(
+        (question) => !answers[question.id]?.trim(),
+      );
+      if (firstMissingIndex >= 0) setCurrentQuestion(firstMissingIndex);
+      toast({
+        title: "Complete all six answers",
+        description: "Please review and complete every Smart Apply answer before sending your CV.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setStep("submitting");
     try {
+      if (sendCvContext) {
+        if (selectedCvId == null) {
+          throw new Error("A CV is required.");
+        }
+        const compiledOutreach = compileSmartApplyOutreach({
+          answers,
+          employerName: sendCvContext.companyName,
+          jobTitle: roleTitle,
+          candidateName: candidatePrefillQuery.data?.fullName ?? "",
+        });
+        const result = await sendCvMutation.mutateAsync({
+          data: {
+            companyName: sendCvContext.companyName,
+            sponsorLicenceId: sendCvContext.sponsorLicenceId ?? undefined,
+            vacancyTitle: roleTitle,
+            vacancyRef: sendCvContext.vacancyId != null
+              ? `sponsor-vacancy:${sendCvContext.vacancyId}`
+              : `role:${roleId}`,
+            roleId,
+            vacancyUrl: sendCvContext.externalUrl ?? undefined,
+            sourceType: sendCvContext.sourceType ?? undefined,
+            boardName: sendCvContext.boardName ?? undefined,
+            notes: compiledOutreach,
+            cvDocumentId: selectedCvId,
+            requireDirectContact: true,
+            includeCoverLetter: false,
+            coverLetterText: compiledOutreach,
+          },
+        });
+
+        clearDraft(roleId);
+        deleteDraftMutation.mutate({ roleId });
+        void queryClient.invalidateQueries({ queryKey: getListSpeculativeApplicationsQueryKey() });
+        void queryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
+        const pending = result.application.deliveryStatus === "pending";
+        toast({
+          title: pending ? "Send CV saved" : "CV sent successfully",
+          description: pending
+            ? `Your outreach for ${roleTitle} is in your Application Tracker and awaits a verified employer contact.`
+            : `Your CV and Smart Apply responses were sent to ${sendCvContext.companyName}.`,
+        });
+        onSuccess();
+        return;
+      }
+
       const answersJson = JSON.stringify({
         answers,
         summary: `Application for ${roleTitle} — ${totalQuestions} questions answered`,
@@ -298,10 +380,12 @@ export function SmartApplyModal({
       }
 
       onSuccess();
-    } catch {
+    } catch (error) {
       toast({
-        title: "Submission failed",
-        description: "Please try again.",
+        title: isSendCv ? "Send CV failed" : "Submission failed",
+        description: error instanceof Error && error.message === "A CV is required."
+          ? "Please upload or select a CV before continuing."
+          : "Please try again.",
         variant: "destructive",
       });
       setStep("review");
@@ -319,10 +403,13 @@ export function SmartApplyModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:p-4">
       <SmartApplyAssistant
         roleId={roleId}
         roleTitle={roleTitle}
+        jobTitle={roleTitle}
+        employer={sendCvContext?.companyName ?? effectiveVacancyContext.employer ?? undefined}
+        jobDescription={effectiveVacancyContext.description ?? undefined}
         currentQuestion={currentQ ? { id: currentQ.id, question: currentQ.question } : undefined}
         onUseAnswer={(text) => {
           if (currentQ) {
@@ -336,10 +423,10 @@ export function SmartApplyModal({
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="w-full max-w-2xl bg-background rounded-2xl shadow-2xl border border-border overflow-hidden"
+        className="flex max-h-[95vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border border-border bg-background shadow-2xl sm:max-h-[90vh] sm:rounded-2xl"
       >
-        <div className="flex items-start justify-between p-6 pb-4 border-b border-border">
-          <div>
+        <div className="flex items-start justify-between border-b border-border p-4 pb-3 sm:p-6 sm:pb-4">
+          <div className="min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <Sparkles className="w-5 h-5 text-primary" />
               <h2 className="text-lg font-bold text-foreground">Smart Apply</h2>
@@ -354,13 +441,22 @@ export function SmartApplyModal({
                 </span>
               )}
             </div>
-            {roleContext && (
-              <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+            {(roleContext || sendCvContext) && (
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                {(sendCvContext?.companyName ?? effectiveVacancyContext.employer) && (
+                  <span className="flex min-w-0 items-center gap-1">
+                    <Building2 className="w-3 h-3 shrink-0" />
+                    <span className="truncate">
+                      {sendCvContext?.companyName ?? effectiveVacancyContext.employer}
+                    </span>
+                  </span>
+                )}
                 <span className="flex items-center gap-1">
-                  <MapPin className="w-3 h-3" /> {roleContext.location}
+                  <MapPin className="w-3 h-3" />
+                  {effectiveVacancyContext.location ?? roleContext?.location ?? "UK"}
                 </span>
-                <span className="flex items-center gap-1">
-                  <Building2 className="w-3 h-3" /> {roleContext.regulator}
+                <span className="rounded bg-primary/10 px-1.5 py-0.5 font-medium text-primary">
+                  {effectiveVacancyContext.regulator ?? roleContext?.regulator ?? "Professional"}
                 </span>
               </div>
             )}
@@ -373,7 +469,7 @@ export function SmartApplyModal({
           </button>
         </div>
 
-        <div className="p-6 max-h-[60vh] overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
           {step === "loading" && (
             <div className="flex flex-col items-center justify-center py-12">
               <Loader2 className="w-10 h-10 text-primary animate-spin mb-4" />
@@ -486,7 +582,9 @@ export function SmartApplyModal({
           {step === "submitting" && (
             <div className="flex flex-col items-center justify-center py-12">
               <Loader2 className="w-10 h-10 text-primary animate-spin mb-4" />
-              <p className="text-sm font-medium text-foreground">Submitting your application…</p>
+              <p className="text-sm font-medium text-foreground">
+                {isSendCv ? "Sending your CV and responses…" : "Submitting your application…"}
+              </p>
             </div>
           )}
 
@@ -536,6 +634,23 @@ export function SmartApplyModal({
 
           {step === "coverLetter" && (
             <div className="space-y-3">
+              {isSendCv && (
+                <div className="space-y-3">
+                  <div>
+                    <h4 className="text-sm font-semibold text-foreground">Compiled outreach message</h4>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      This message is built from your six reviewed answers and will accompany your selected CV.
+                    </p>
+                  </div>
+                  <textarea
+                    className="w-full min-h-[320px] p-3 text-sm text-foreground leading-relaxed bg-muted/40 rounded-xl border border-border resize-y focus:outline-none focus:ring-2 focus:ring-primary/30 font-sans"
+                    value={clEditable}
+                    readOnly
+                  />
+                </div>
+              )}
+              {!isSendCv && (
+                <>
               {!coverLetter.text && !coverLetter.streaming && !coverLetter.error && (
                 <div className="text-center py-8">
                   <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
@@ -586,14 +701,15 @@ export function SmartApplyModal({
                   )}
                 </div>
               )}
+                </>
+              )}
             </div>
           )}
         </div>
 
         {step === "review" && (
           <div className="flex flex-col border-t border-border bg-muted/30">
-            {!isLastQuestion && (
-              <div className="flex items-center justify-center px-6 pt-3">
+            <div className="flex items-center justify-center px-4 pt-3 sm:px-6">
                 <button
                   onClick={handleSubmit}
                   className="flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
@@ -601,8 +717,7 @@ export function SmartApplyModal({
                   <Sparkles className="w-3.5 h-3.5" />
                   Accept all AI answers &amp; submit now
                 </button>
-              </div>
-            )}
+            </div>
             {cvDocuments.length >= 1 && (
               <div className="px-6 pt-3 flex items-center gap-2">
                 <span className="text-xs text-muted-foreground shrink-0">CV to record:</span>
@@ -637,7 +752,7 @@ export function SmartApplyModal({
                 })()}
               </div>
             )}
-            <div className="flex items-center justify-between px-6 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-4 sm:px-6">
               <Button
                 variant="ghost"
                 size="sm"
@@ -648,19 +763,29 @@ export function SmartApplyModal({
                 <ChevronLeft className="w-4 h-4 mr-1" /> Back
               </Button>
 
-              <div className="flex items-center gap-2">
+              <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
                 <Button
                   variant="outline"
                   size="sm"
                   className="gap-1.5 text-xs"
-                  onClick={() => setStep("coverLetter")}
+                  onClick={() => {
+                    if (sendCvContext) {
+                      setClEditable(compileSmartApplyOutreach({
+                        answers,
+                        employerName: sendCvContext.companyName,
+                        jobTitle: roleTitle,
+                        candidateName: candidatePrefillQuery.data?.fullName ?? "",
+                      }));
+                    }
+                    setStep("coverLetter");
+                  }}
                 >
                   <FileText className="w-3.5 h-3.5" /> Cover Letter
                 </Button>
 
                 {isLastQuestion ? (
                   <Button onClick={handleSubmit} size="sm" className="gap-1.5">
-                    <Send className="w-4 h-4" /> Submit Application
+                    <Send className="w-4 h-4" /> {isSendCv ? "Send CV" : "Submit Application"}
                   </Button>
                 ) : (
                   <Button
@@ -678,12 +803,12 @@ export function SmartApplyModal({
         )}
 
         {step === "coverLetter" && (
-          <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-muted/30 flex-wrap gap-2">
+          <div className="flex items-center justify-between border-t border-border bg-muted/30 px-4 py-4 flex-wrap gap-2 sm:px-6">
             <Button variant="ghost" size="sm" onClick={() => setStep("review")} className="gap-1 text-sm">
               <ChevronLeft className="w-4 h-4" /> Back to Questions
             </Button>
             <div className="flex items-center gap-2">
-              {(coverLetter.text || clEditable) && (
+               {!isSendCv && (coverLetter.text || clEditable) && (
                 <>
                   <Button
                     size="sm"
@@ -722,7 +847,7 @@ export function SmartApplyModal({
                 </>
               )}
               <Button onClick={handleSubmit} size="sm" className="gap-1.5">
-                <Send className="w-4 h-4" /> Submit Application
+                <Send className="w-4 h-4" /> {isSendCv ? "Send CV" : "Submit Application"}
               </Button>
             </div>
           </div>

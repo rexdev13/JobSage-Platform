@@ -134,6 +134,7 @@ import type {
   SmartApplyDraftResponse,
   SmartApplyPrefillResponse,
   SmartApplyQuestionsResponse,
+  SmartApplyVacancyContext,
   SpeculativeApplicationListResponse,
   SpeculativeApplicationResult,
   SponsorLicenceBatchCheckRequest,
@@ -3041,11 +3042,14 @@ export const getSmartApplyPrefillUrl = (id: number) => {
 
 export const smartApplyPrefill = async (
   id: number,
+  smartApplyVacancyContext?: SmartApplyVacancyContext,
   options?: RequestInit,
 ): Promise<SmartApplyPrefillResponse> => {
   return customFetch<SmartApplyPrefillResponse>(getSmartApplyPrefillUrl(id), {
     ...options,
     method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(smartApplyVacancyContext),
   });
 };
 
@@ -3056,14 +3060,14 @@ export const getSmartApplyPrefillMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof smartApplyPrefill>>,
     TError,
-    { id: number },
+    { id: number; data: BodyType<SmartApplyVacancyContext> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof smartApplyPrefill>>,
   TError,
-  { id: number },
+  { id: number; data: BodyType<SmartApplyVacancyContext> },
   TContext
 > => {
   const mutationKey = ["smartApplyPrefill"];
@@ -3077,11 +3081,11 @@ export const getSmartApplyPrefillMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof smartApplyPrefill>>,
-    { id: number }
+    { id: number; data: BodyType<SmartApplyVacancyContext> }
   > = (props) => {
-    const { id } = props ?? {};
+    const { id, data } = props ?? {};
 
-    return smartApplyPrefill(id, requestOptions);
+    return smartApplyPrefill(id, data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -3090,7 +3094,7 @@ export const getSmartApplyPrefillMutationOptions = <
 export type SmartApplyPrefillMutationResult = NonNullable<
   Awaited<ReturnType<typeof smartApplyPrefill>>
 >;
-
+export type SmartApplyPrefillMutationBody = BodyType<SmartApplyVacancyContext>;
 export type SmartApplyPrefillMutationError = ErrorType<ErrorEnvelope>;
 
 /**
@@ -3103,14 +3107,14 @@ export const useSmartApplyPrefill = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof smartApplyPrefill>>,
     TError,
-    { id: number },
+    { id: number; data: BodyType<SmartApplyVacancyContext> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof smartApplyPrefill>>,
   TError,
-  { id: number },
+  { id: number; data: BodyType<SmartApplyVacancyContext> },
   TContext
 > => {
   return useMutation(getSmartApplyPrefillMutationOptions(options));

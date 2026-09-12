@@ -855,6 +855,20 @@ export const SmartApplyPrefillParams = zod.object({
   id: zod.coerce.number(),
 });
 
+export const SmartApplyPrefillBody = zod
+  .object({
+    title: zod.string().optional(),
+    employer: zod.string().optional(),
+    location: zod.string().nullish(),
+    salary: zod.string().nullish(),
+    description: zod.string().nullish(),
+    externalUrl: zod.string().nullish(),
+    regulator: zod.string().nullish(),
+  })
+  .describe(
+    "Optional vacancy context used when the role is not fully represented in the internal catalogue.",
+  );
+
 export const SmartApplyPrefillResponse = zod.object({
   questions: zod.array(
     zod.object({
