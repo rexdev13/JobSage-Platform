@@ -4,7 +4,7 @@ import { useAuth } from "@workspace/auth-web";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { canDeleteLeads } from "@/lib/roleAccess";
 import { useGetSponsorLicenceIndustries } from "@workspace/api-client-react";
-import { CalendarDays, CheckCircle2, Copy, ExternalLink, Loader2, Search, Users, Trash2, ChevronDown, UserPlus, UserCheck, UserX } from "lucide-react";
+import { CalendarDays, CheckCircle2, Copy, ExternalLink, Loader2, Search, Users, Trash2, ChevronDown, UserPlus, UserCheck, UserX, PhoneCall } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -23,6 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { MarketerCalendar, type CalendarLead, type CalendarMarketer } from "@/components/admin/MarketerCalendar";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -178,24 +179,46 @@ function CalendlyLinkCard({ onUrlChange }: { onUrlChange: (url: string | null) =
   );
 }
 
-function BookingActions({ url, guidance }: { url: string | null; guidance: string }) {
+function BookingActions({ url, guidance, onBookCall }: { url: string | null; guidance: string; onBookCall?: () => void }) {
   const [copied, setCopied] = useState(false);
 
   if (!url) {
     return (
-      <button
-        type="button"
-        disabled
-        title={guidance}
-        className="whitespace-nowrap rounded-lg border border-input px-2 py-1 text-[11px] text-muted-foreground opacity-60"
-      >
-        No booking link
-      </button>
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          title="Book a call"
+          aria-label="Book a call"
+          className="rounded-lg border border-input p-1.5 text-muted-foreground hover:bg-muted hover:text-primary"
+          onClick={onBookCall}
+        >
+          <PhoneCall className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          disabled
+          title={guidance}
+          className="whitespace-nowrap rounded-lg border border-input px-2 py-1 text-[11px] text-muted-foreground opacity-60"
+        >
+          No booking link
+        </button>
+      </div>
     );
   }
 
   return (
     <div className="flex items-center gap-1">
+      {onBookCall && (
+        <button
+          type="button"
+          title="Book a call"
+          aria-label="Book a call"
+          className="rounded-lg border border-input p-1.5 text-muted-foreground hover:bg-muted hover:text-primary"
+          onClick={onBookCall}
+        >
+          <PhoneCall className="h-3.5 w-3.5" />
+        </button>
+      )}
       <button
         type="button"
         title="Copy booking link"
@@ -481,6 +504,7 @@ export default function AdminLeadsPage() {
   const canAssign = user?.role === "admin" || user?.role === "super_admin";
   const isMarketing = user?.role === "marketing";
   const [myCalendlyUrl, setMyCalendlyUrl] = useState<string | null>(null);
+  const [calendarLeadId, setCalendarLeadId] = useState<number | null>(null);
   const [search, setSearch]           = useState("");
   const [sector, setSector]           = useState("");
   const [assignedTo, setAssignedTo]   = useState("");
@@ -944,6 +968,7 @@ export default function AdminLeadsPage() {
                       <td className="px-4 py-3">
                         <BookingActions
                           url={lead.assignee?.calendlyUrl ?? (!lead.assignee && isMarketing ? myCalendlyUrl : null)}
+                          onBookCall={() => setCalendarLeadId(lead.id)}
                           guidance={
                             lead.assignee
                               ? "The assigned marketer has not added a Calendly link."
@@ -1005,6 +1030,16 @@ export default function AdminLeadsPage() {
             </div>
           </div>
         )}
+
+        <MarketerCalendar
+          leads={leads as CalendarLead[]}
+          assignees={assignees as CalendarMarketer[]}
+          isAdmin={canAssign}
+          currentUserId={user?.id}
+          myCalendlyUrl={myCalendlyUrl}
+          initialLeadId={calendarLeadId}
+          onInitialLeadHandled={() => setCalendarLeadId(null)}
+        />
 
       </div>
 
