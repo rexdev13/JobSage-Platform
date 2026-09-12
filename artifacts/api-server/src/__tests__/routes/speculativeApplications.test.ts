@@ -44,6 +44,10 @@ const {
   getSendCvDeliveryState,
   getVacancySubmissionError,
 } = await import("../../routes/speculativeApplications");
+const {
+  employerJobIdFromRoleId,
+  isEmployerJobRoleId,
+} = await import("../../lib/sponsorVacancyRoles");
 
 beforeEach(() => {
   dbSelectResults.length = 0;
@@ -51,6 +55,12 @@ beforeEach(() => {
 });
 
 describe("resolveEmployerRecipient", () => {
+  it("keeps employer-job unified IDs separate from sponsor-vacancy IDs", () => {
+    expect(isEmployerJobRoleId(1_000_123)).toBe(true);
+    expect(employerJobIdFromRoleId(1_000_123)).toBe(123);
+    expect(isEmployerJobRoleId(2_000_123)).toBe(false);
+  });
+
   it("enforces stored vacancy identity and live evidence without blocking genuine email-only outreach", () => {
     const url = "https://jobs.nhs.uk/candidate/jobadvert/C1234";
     expect(getVacancySubmissionError(url, "https://example.com/other", "live"))

@@ -10,6 +10,7 @@ import {
   candidateMessagesTable,
   usersTable,
   sponsorLicenceVacanciesTable,
+  jobListingsTable,
   rolesTable,
 } from "@workspace/db";
 import { eq, and, desc, ilike, gte, count, sql } from "drizzle-orm";
@@ -23,7 +24,11 @@ import {
   type DeliveryRoute,
   type RecipientResolution,
 } from "../lib/employerRecipient";
-import { SPONSOR_VACANCY_ID_OFFSET } from "../lib/sponsorVacancyRoles";
+import {
+  SPONSOR_VACANCY_ID_OFFSET,
+  employerJobIdFromRoleId,
+  isEmployerJobRoleId,
+} from "../lib/sponsorVacancyRoles";
 import { getVacancyLinkStatus } from "../lib/vacancyLiveness";
 import { buildCoverLetterPdf, safeCoverLetterFilename } from "../lib/coverLetterPdf";
 
@@ -169,6 +174,25 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
       }
       storedUrl = stored.url?.trim() || null;
       linkStatus = getVacancyLinkStatus(storedUrl, stored.liveness, stored.lastVerifiedAt, stored.livenessReason);
+    } else if (roleId != null && isEmployerJobRoleId(roleId)) {
+      const employerJobId = employerJobIdFromRoleId(roleId);
+      const [stored] = await db
+        .select({
+          applyUrl: jobListingsTable.applyUrl,
+          liveness: jobListingsTable.liveness,
+          lastVerifiedAt: jobListingsTable.lastVerifiedAt,
+          livenessReason: jobListingsTable.livenessReason,
+        })
+        .from(jobListingsTable)
+        .where(eq(jobListingsTable.id, employerJobId!))
+        .limit(1);
+      storedUrl = stored?.applyUrl?.trim() || null;
+      linkStatus = getVacancyLinkStatus(
+        storedUrl,
+        stored?.liveness,
+        stored?.lastVerifiedAt,
+        stored?.livenessReason,
+      );
     } else if (roleId != null) {
       const [stored] = await db
         .select({

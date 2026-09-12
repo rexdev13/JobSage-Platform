@@ -385,7 +385,9 @@ export function SmartApplyModal({
         title: isSendCv ? "Send CV failed" : "Submission failed",
         description: error instanceof Error && error.message === "A CV is required."
           ? "Please upload or select a CV before continuing."
-          : "Please try again.",
+          : error instanceof Error
+            ? error.message.replace(/^HTTP \d+ [^:]+:\s*/, "")
+            : "Please try again.",
         variant: "destructive",
       });
       setStep("review");

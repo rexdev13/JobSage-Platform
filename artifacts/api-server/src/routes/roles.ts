@@ -36,6 +36,7 @@ import {
   presentApplyLink,
   roleDedupKey,
   specialtyBoost,
+  EMPLOYER_JOB_ID_OFFSET,
   SPONSOR_VACANCY_ID_OFFSET,
 } from "../lib/sponsorVacancyRoles";
 import {
@@ -408,7 +409,7 @@ router.get("/roles", async (req, res): Promise<void> => {
         "company_site",
       );
       return {
-        id: row.job.id + 1_000_000,
+        id: row.job.id + EMPLOYER_JOB_ID_OFFSET,
         title: row.job.title,
         employer: row.emp.companyName,
         location: row.job.location,
@@ -834,7 +835,7 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
         "company_site",
       );
       return {
-        id: row.job.id + 1_000_000,
+        id: row.job.id + EMPLOYER_JOB_ID_OFFSET,
         title: row.job.title,
         employer: row.emp.companyName,
         location: row.job.location,
@@ -1229,7 +1230,7 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
         "company_site",
       );
       return {
-        id: row.job.id + 1_000_000,
+        id: row.job.id + EMPLOYER_JOB_ID_OFFSET,
         title: row.job.title,
         employer: row.emp.companyName,
         location: row.job.location,
