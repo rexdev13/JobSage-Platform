@@ -59,7 +59,7 @@ const eventFields = {
   marketerEmail: usersTable.email,
 };
 
-const isAdminRole = (role: string | undefined): boolean =>
+const isAdminRole = (role: string | null | undefined): boolean =>
   role === "admin" || role === "super_admin";
 
 function parseEventId(value: string): number | null {
