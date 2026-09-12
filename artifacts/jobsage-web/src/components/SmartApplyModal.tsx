@@ -310,6 +310,23 @@ export function SmartApplyModal({
           jobTitle: roleTitle,
           candidateName: candidatePrefillQuery.data?.fullName ?? "",
         });
+        if (sendCvContext.externalUrl) {
+          const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+          const checkResponse = await fetch(
+            `${base}/api/vacancy-link-check?url=${encodeURIComponent(sendCvContext.externalUrl)}`,
+            { credentials: "include" },
+          );
+          const checkResult = (await checkResponse.json().catch(() => ({}))) as {
+            verdict?: string;
+            reason?: string | null;
+          };
+          if (!checkResponse.ok || checkResult.verdict !== "alive") {
+            if (checkResult.verdict === "dead") {
+              throw new Error("This vacancy is no longer open, so a vacancy-specific CV cannot be sent.");
+            }
+            throw new Error("This vacancy link could not be verified live. Please try again in a moment.");
+          }
+        }
         const result = await sendCvMutation.mutateAsync({
           data: {
             companyName: sendCvContext.companyName,
@@ -768,16 +785,24 @@ export function SmartApplyModal({
               </Button>
 
               <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-                {!isSendCv && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 text-xs"
-                    onClick={() => setStep("coverLetter")}
-                  >
-                    <FileText className="w-3.5 h-3.5" /> Cover Letter
-                  </Button>
-                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 text-xs"
+                  onClick={() => {
+                    if (sendCvContext) {
+                      setClEditable(compileSmartApplyOutreach({
+                        answers,
+                        employerName: sendCvContext.companyName,
+                        jobTitle: roleTitle,
+                        candidateName: candidatePrefillQuery.data?.fullName ?? "",
+                      }));
+                    }
+                    setStep("coverLetter");
+                  }}
+                >
+                  <FileText className="w-3.5 h-3.5" /> Cover Letter
+                </Button>
 
                 {isLastQuestion ? (
                   <Button onClick={handleSubmit} size="sm" className="gap-1.5">
