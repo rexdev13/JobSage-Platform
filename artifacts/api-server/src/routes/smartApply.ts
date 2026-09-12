@@ -276,6 +276,17 @@ router.post("/roles/:id/smart-apply/prefill", requireAuthenticated, async (req: 
   }
 
   const userId = req.user!.id;
+  const suppliedContext = (req.body ?? {}) as {
+    title?: unknown;
+    employer?: unknown;
+    location?: unknown;
+    salary?: unknown;
+    description?: unknown;
+    externalUrl?: unknown;
+    regulator?: unknown;
+  };
+  const optionalText = (value: unknown, maxLength: number): string | null =>
+    typeof value === "string" && value.trim() ? value.trim().slice(0, maxLength) : null;
 
   const [profile] = await db
     .select()
@@ -296,10 +307,13 @@ router.post("/roles/:id/smart-apply/prefill", requireAuthenticated, async (req: 
   }
 
   let roleContext = {
-    title: `Role #${roleId}`,
-    description: null as string | null,
-    regulator: "GMC/NMC/HCPC",
-    location: "UK",
+    title: optionalText(suppliedContext.title, 300) ?? `Role #${roleId}`,
+    employer: optionalText(suppliedContext.employer, 300),
+    description: optionalText(suppliedContext.description, 6000),
+    regulator: optionalText(suppliedContext.regulator, 100) ?? "GMC/NMC/HCPC",
+    location: optionalText(suppliedContext.location, 300) ?? "UK",
+    salary: optionalText(suppliedContext.salary, 200),
+    externalUrl: optionalText(suppliedContext.externalUrl, 2000),
     sponsorshipOffered: false,
   };
 
@@ -317,9 +331,12 @@ router.post("/roles/:id/smart-apply/prefill", requireAuthenticated, async (req: 
       const category = classifyVacancyCategory(row.vacancy.title, row.vacancy.description);
       roleContext = {
         title: row.vacancy.title,
+        employer: row.licence?.organisationName ?? row.vacancy.organisationName,
         description: row.vacancy.description,
         regulator: category ? (statutoryRegulatorForCategory(category) ?? "GMC/NMC/HCPC") : "GMC/NMC/HCPC",
         location: row.vacancy.location?.trim() || "United Kingdom",
+        salary: optionalText(suppliedContext.salary, 200),
+        externalUrl: row.vacancy.url ?? optionalText(suppliedContext.externalUrl, 2000),
         sponsorshipOffered: inferVacancySponsorshipStatus(row.vacancy.title, row.vacancy.description) === "confirmed",
       };
     }
@@ -333,9 +350,12 @@ router.post("/roles/:id/smart-apply/prefill", requireAuthenticated, async (req: 
     if (job) {
       roleContext = {
         title: job.title,
+        employer: optionalText(suppliedContext.employer, 300),
         description: job.description,
         regulator: job.regulator,
         location: job.location,
+        salary: optionalText(suppliedContext.salary, 200),
+        externalUrl: job.applyUrl ?? optionalText(suppliedContext.externalUrl, 2000),
         sponsorshipOffered: job.sponsorshipOffered ?? false,
       };
     }

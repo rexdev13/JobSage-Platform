@@ -327,6 +327,50 @@ describe("Smart Apply extension endpoints", () => {
     });
   });
 
+  it("uses supplied vacancy context when a role is not fully represented internally", async () => {
+    queryResults.push(
+      [{
+        profession: "Registered Nurse",
+        specialty: "Adult Nursing",
+        qualificationCountry: "Nigeria",
+        qualificationType: "BSc Nursing",
+        qualificationYear: 2020,
+        experienceYears: 4,
+        registrationStatus: "NMC registered",
+        residencyStatus: "Skilled Worker",
+        preferredStartDate: "Immediately",
+        requiresSponsorship: true,
+        preferredRegion: ["North West"],
+        languages: ["English"],
+        additionalNotes: null,
+      }],
+      [],
+    );
+
+    const response = await request(buildApp())
+      .post("/roles/42/smart-apply/prefill")
+      .set("Authorization", AUTH_HEADER)
+      .send({
+        title: "Staff Nurse",
+        employer: "Example NHS Trust",
+        location: "Liverpool",
+        salary: "£31,000",
+        description: "Provide safe, compassionate ward care.",
+        externalUrl: "https://example.test/jobs/42",
+        regulator: "NMC",
+      });
+
+    expect(response.status).toBe(200);
+    const prompt = JSON.stringify(createCompletion.mock.calls[0]?.[0]);
+    expect(prompt).toContain("Staff Nurse");
+    expect(prompt).toContain("Example NHS Trust");
+    expect(prompt).toContain("Liverpool");
+    expect(prompt).toContain("£31,000");
+    expect(prompt).toContain("Provide safe, compassionate ward care.");
+    expect(prompt).toContain("https://example.test/jobs/42");
+    expect(prompt).toContain("NMC");
+  });
+
   it("uses sponsor vacancy and licence context for the Smart Apply assistant", async () => {
     queryResults.push(
       [{

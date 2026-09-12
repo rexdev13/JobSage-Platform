@@ -725,6 +725,24 @@ export interface SmartApplyPrefill {
   needsReview: boolean;
 }
 
+/**
+ * Optional vacancy context used when the role is not fully represented in the internal catalogue.
+ */
+export interface SmartApplyVacancyContext {
+  title?: string;
+  employer?: string;
+  /** @nullable */
+  location?: string | null;
+  /** @nullable */
+  salary?: string | null;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  externalUrl?: string | null;
+  /** @nullable */
+  regulator?: string | null;
+}
+
 export interface SmartApplyQuestionsResponse {
   questions: ApplicationQuestion[];
 }

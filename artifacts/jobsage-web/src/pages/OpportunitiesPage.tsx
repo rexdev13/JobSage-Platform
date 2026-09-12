@@ -62,7 +62,6 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { DisclaimerBanner } from "@/components/ui/DisclaimerBanner";
-import { SponsorVacancyApplyModal } from "@/components/SponsorVacancyApplyModal";
 
 const OPPORTUNITIES_TIMEOUT_MS = 15_000;
 
@@ -2085,15 +2084,19 @@ export default function OpportunitiesPage() {
       {/* Role detail modal */}
       <AnimatePresence>
         {sendCvTarget && (
-          <SponsorVacancyApplyModal
-            speculative
-            requireDirectContact
-            companyName={sendCvTarget.role.employer}
-            vacancyTitle={sendCvTarget.role.title}
+          <SmartApplyModal
             roleId={sendCvTarget.role.id}
-            externalUrl={sendCvTarget.applyUrl ?? null}
-            sourceType={sendCvTarget.role.sourceType ?? null}
-            boardName={sendCvTarget.role.boardName ?? null}
+            roleTitle={sendCvTarget.role.title}
+            sendCvContext={{
+              title: sendCvTarget.role.title,
+              companyName: sendCvTarget.role.employer,
+              employer: sendCvTarget.role.employer,
+              location: sendCvTarget.role.location,
+              regulator: sendCvTarget.role.statutoryRegulator ?? sendCvTarget.role.regulator ?? sendCvTarget.role.opportunityCategory ?? null,
+              externalUrl: sendCvTarget.applyUrl ?? null,
+              sourceType: sendCvTarget.role.sourceType ?? null,
+              boardName: sendCvTarget.role.boardName ?? null,
+            }}
             onClose={() => setSendCvTarget(null)}
             onSuccess={() => {
               setSendCvTarget(null);

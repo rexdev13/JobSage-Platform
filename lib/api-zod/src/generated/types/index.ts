@@ -233,6 +233,7 @@ export * from "./smartApplyPrefillResponse";
 export * from "./smartApplyQuestionsResponse";
 export * from "./smartApplyRoleContext";
 export * from "./smartApplyRoleContextSponsorshipStatus";
+export * from "./smartApplyVacancyContext";
 export * from "./speculativeApplication";
 export * from "./speculativeApplicationAttachmentType";
 export * from "./speculativeApplicationDeliveryRoute";

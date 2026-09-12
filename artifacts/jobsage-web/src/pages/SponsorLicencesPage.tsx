@@ -624,10 +624,8 @@ export default function SponsorLicencesPage() {
       });
       return;
     }
-    requireExtension(() => {
-      setSelectedVacancy(null);
-      setApplyModalVacancy(vacancy);
-    });
+    setSelectedVacancy(null);
+    setApplyModalVacancy(vacancy);
   }
 
   function handleVacancyOutbound(vacancy: SelectedVacancy) {
@@ -1975,6 +1973,14 @@ export default function SponsorLicencesPage() {
           <SmartApplyModal
             roleId={smartApplyVacancy.roleId}
             roleTitle={smartApplyVacancy.title}
+            vacancyContext={{
+              title: smartApplyVacancy.title,
+              employer: smartApplyVacancy.companyName,
+              location: smartApplyVacancy.location,
+              salary: smartApplyVacancy.salary,
+              description: smartApplyVacancy.description,
+              externalUrl: smartApplyVacancy.url,
+            }}
             onClose={() => setSmartApplyVacancy(null)}
             onSuccess={() => {
               setSmartApplyVacancy(null);
@@ -1987,18 +1993,20 @@ export default function SponsorLicencesPage() {
 
       <AnimatePresence>
         {applyModalVacancy && (
-          <SponsorVacancyApplyModal
-            requireDirectContact
-            vacancyId={applyModalVacancy.id}
+          <SmartApplyModal
             roleId={applyModalVacancy.roleId}
-            vacancyTitle={applyModalVacancy.title}
-            companyName={applyModalVacancy.companyName}
-            companyId={applyModalVacancy.companyId}
-            location={applyModalVacancy.location}
-            salary={applyModalVacancy.salary}
-            postedDate={applyModalVacancy.postedDate}
-            description={applyModalVacancy.description}
-            externalUrl={applyModalVacancy.url}
+            roleTitle={applyModalVacancy.title}
+            sendCvContext={{
+              title: applyModalVacancy.title,
+              companyName: applyModalVacancy.companyName,
+              employer: applyModalVacancy.companyName,
+              sponsorLicenceId: applyModalVacancy.companyId,
+              vacancyId: applyModalVacancy.id,
+              location: applyModalVacancy.location,
+              salary: applyModalVacancy.salary,
+              description: applyModalVacancy.description,
+              externalUrl: applyModalVacancy.url,
+            }}
             onClose={() => setApplyModalVacancy(null)}
             onSuccess={() => {
               setApplyModalVacancy(null);
