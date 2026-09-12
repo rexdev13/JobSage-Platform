@@ -1,0 +1,54 @@
+Please implement the following two features in the Leads module:
+
+### 1. Fix the Claim Lead Endpoint (Do NOT Auto-Mark as Contacted)
+In `artifacts/api-server/src/routes/leads.ts`:
+- Currently, `POST /api/leads/:id/claim` automatically updates `status` from `'new'` to `'contacted'` and sets `contactedAt = now()`.
+- Fix: Claiming a lead must ONLY assign ownership to the marketer (`marketingUserId = req.user.id`) and set `claimedAt = now()`.
+- Do NOT mutate `status` to `'contacted'` (it must remain `'new'`).
+- Do NOT stamp `contactedAt` during claim (`contactedAt` should only be stamped when the lead status is actually changed to `'contacted'`).
+- In `artifacts/api-server/src/__tests__/routes/leads.test.ts`: update the claim test to verify that claiming assigns `marketingUserId` and `claimedAt` without prematurely mutating status to `'contacted'`.
+
+---
+
+### 2. Add Mobile-Responsive Lead Contact Process Status Bar
+In `artifacts/jobsage-web/src/pages/admin/AdminLeadsPage.tsx`:
+Add a horizontal, mobile-responsive **Lead Contact Process Status Bar** directly underneath each lead row in the table (span across `colSpan={10}` in a sub-row using `<Fragment key={lead.id}>`).
+
+#### Requirements & Stages:
+The progress bar must reflect the 4 chronological stages of contacting a lead:
+1. **Captured**:
+   - Shows inbound source ("AI Chat Lead" if `lead.source === 'chat'` else "Inbound Form") and formatted creation date/time from `lead.createdAt`.
+   - Always marked completed.
+2. **Claimed**:
+   - Shows assignee ("Owned by [First Name]" if assigned, or "Unassigned").
+   - Completed if `Boolean(lead.assignee)`. Active if claimed but status is still `'new'`.
+3. **Contacted**:
+   - Shows outreach status (e.g. "Booking link shared" / "Outreach initiated" vs "Pending outreach").
+   - Completed when `lead.status === 'contacted' || lead.status === 'registered'`.
+4. **Registered**:
+   - Shows "Converted to User" when `lead.status === 'registered'`, otherwise "Awaiting registration".
+   - Completed when `lead.status === 'registered'`.
+
+#### Visual Styling & Status Indicators:
+- Include a top badge indicating the overall stage:
+  - `New Inbound • Ready to Claim` (Step 1)
+  - `Claimed • Pending First Outreach` (Step 2)
+  - `In Contact / Follow-up` (Step 3)
+  - `✓ Converted to User` (Step 4 - Emerald)
+  - `Unqualified / Disqualified` (Rose styling if `lead.status === 'unqualified'`)
+- Connecting line between steps showing progress percentage (`(activeStep - 1) * 33.33%`), with emerald fill for normal progress and rose fill for unqualified.
+- Circular step nodes displaying a checkmark (`CheckCircle2`) when completed, and step numbers with a ring highlight when active.
+
+#### Mobile Responsiveness:
+- On desktop: Full-width horizontal track with spaced nodes, step numbers, titles, and timestamps.
+- On mobile (`< sm` / screens under 640px):
+  - Use flexible responsive layout: wrap labels neatly, shrink horizontal paddings (`px-2 sm:px-8`), and adjust track positioning so lines and nodes don't overflow or break alignment.
+  - Subtitle text truncated with responsive max-width (`max-w-20 sm:max-w-40`).
+  - Text sizes optimized for small screens (`text-[9px]` to `text-[11px]`).
+  - Table container has horizontal scroll protection (`overflow-x-auto`).
+
+---
+
+### 3. Verification
+- Run `npm run typecheck` across `jobsage-web` and `api-server` to confirm 0 TypeScript errors.
+- Run `npm test -- src/__tests__/routes/leads.test.ts` to confirm all unit tests pass.
