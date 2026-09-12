@@ -245,6 +245,7 @@ export function MarketerCalendar({
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["marketer-calendar-events"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin-leads"] });
       setScheduleOpen(false);
       setMessage(null);
     },
