@@ -278,9 +278,9 @@ function ApplicationProcessStatusBar({ application }: { application: EnrichedApp
     : null;
 
   const badge = rejected
-    ? { label: "Not Progressing", detail: "Closed", className: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/20 dark:text-rose-300 dark:border-rose-800" }
+    ? { label: "Not Progressing / Closed", detail: "", className: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/20 dark:text-rose-300 dark:border-rose-800" }
     : activeStage === 3
-      ? { label: "Offer Received", detail: "🎉", className: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800" }
+      ? { label: "Offer Received 🎉", detail: "", className: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800" }
       : activeStage === 2
         ? { label: "Interviewing", detail: "In Progress", className: "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800" }
         : activeStage === 1
@@ -301,7 +301,8 @@ function ApplicationProcessStatusBar({ application }: { application: EnrichedApp
     <div className={`rounded-xl border px-2 py-3 sm:px-6 ${rejected ? "border-rose-200 bg-rose-50/40 dark:border-rose-900/60 dark:bg-rose-950/10" : "border-border bg-muted/20"}`}>
       <div className="flex items-center justify-between gap-2 mb-3">
         <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-bold sm:text-xs ${badge.className}`}>
-          {badge.label} <span className="mx-1 opacity-50">•</span> {badge.detail}
+          {badge.label}
+          {badge.detail && <><span className="mx-1 opacity-50">•</span>{badge.detail}</>}
         </span>
         {rejected && <XCircle className="w-4 h-4 text-rose-600 shrink-0" />}
       </div>
@@ -314,7 +315,7 @@ function ApplicationProcessStatusBar({ application }: { application: EnrichedApp
         />
         <div className="relative grid grid-cols-4 gap-1">
           {stages.map((stage, index) => {
-            const completed = index < activeStage && !rejected;
+            const completed = index < activeStage;
             const active = index === activeStage;
             return (
               <div key={stage.label} className="flex min-w-0 flex-col items-center text-center">
