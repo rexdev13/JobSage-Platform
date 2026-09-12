@@ -39,6 +39,19 @@ async function markUrlDeadGlobally(url: string, reason: string | null): Promise<
   ]);
 }
 
+async function markUrlLiveGlobally(url: string): Promise<void> {
+  const update = {
+    liveness: "live" as const,
+    lastVerifiedAt: new Date(),
+    livenessReason: null,
+  };
+  await Promise.all([
+    db.update(sponsorLicenceVacanciesTable).set(update).where(eq(sponsorLicenceVacanciesTable.url, url)),
+    db.update(rolesTable).set(update).where(eq(rolesTable.applyUrl, url)),
+    db.update(jobListingsTable).set(update).where(eq(jobListingsTable.applyUrl, url)),
+  ]);
+}
+
 function pruneCache(): void {
   if (linkCheckCache.size <= CACHE_MAX_SIZE) return;
   // Remove the oldest 20% of entries
@@ -69,6 +82,9 @@ router.get(
     // Return cached result if fresh enough
     const cached = linkCheckCache.get(url);
     if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
+      if (cached.verdict === "alive") {
+        await markUrlLiveGlobally(url);
+      }
       res.json({ verdict: cached.verdict, reason: cached.reason, cached: true });
       return;
     }
@@ -82,6 +98,8 @@ router.get(
       pruneCache();
       if (verdict === "dead") {
         await markUrlDeadGlobally(url, entry.reason);
+      } else if (verdict === "alive") {
+        await markUrlLiveGlobally(url);
       }
       res.json({ verdict: entry.verdict, reason: entry.reason, cached: false });
     } catch {
