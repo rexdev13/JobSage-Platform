@@ -26,3 +26,4 @@ export * from "./alertDeliveries";
 export * from "./vacancyAiUsage";
 export * from "./nhsVacancyOutageBackoffs";
 export * from "./readinessClaims";
+export * from "./marketerEvents";

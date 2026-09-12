@@ -37,6 +37,7 @@ import vacancyLinkCheckRouter from "./vacancyLinkCheck";
 import cvEnhancementRouter from "./cvEnhancement";
 import readinessClaimsRouter from "./readinessClaims";
 import internalVacancyJobsRouter from "./internalVacancyJobs";
+import marketerCalendarRouter from "./marketerCalendar";
 
 const router: IRouter = Router();
 
@@ -78,5 +79,6 @@ router.use(vacancyLinkCheckRouter);
 router.use(cvEnhancementRouter);
 router.use(readinessClaimsRouter);
 router.use(internalVacancyJobsRouter);
+router.use(marketerCalendarRouter);
 
 export default router;
