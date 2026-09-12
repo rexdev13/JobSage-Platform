@@ -348,7 +348,17 @@ function ApplicationProcessStatusBar({ application }: { application: EnrichedApp
   );
 }
 
-function ApplicationCard({ application, onStatusUpdated }: { application: EnrichedApplication; onStatusUpdated: () => void }) {
+function ApplicationCard({
+  application,
+  onStatusUpdated,
+  selected,
+  onSelectedChange,
+}: {
+  application: EnrichedApplication;
+  onStatusUpdated: () => void;
+  selected: boolean;
+  onSelectedChange: (selected: boolean) => void;
+}) {
   const kind = application.applicationKind ?? "formal";
   const isSpeculative = kind === "speculative";
   const isWebsite = kind === "website";
@@ -388,6 +398,13 @@ function ApplicationCard({ application, onStatusUpdated }: { application: Enrich
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
+              <input
+                type="checkbox"
+                checked={selected}
+                onChange={(event) => onSelectedChange(event.target.checked)}
+                aria-label={`Select ${application.roleTitle ?? application.companyName ?? "application"}`}
+                className="h-4 w-4 shrink-0 cursor-pointer rounded border-border accent-primary"
+              />
               <h3 className="font-semibold text-foreground truncate">
                 {isSpeculative
                   ? application.roleTitle ?? application.companyName ?? "CV Send"
@@ -716,10 +733,13 @@ export default function ApplicationsPage() {
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState<CategoryTab>("all");
   const [timeframe, setTimeframe] = useState<TimeframeFilter>("all");
+  const [selectedApplications, setSelectedApplications] = useState<Set<string>>(() => new Set());
+  const [confirmingBulkDelete, setConfirmingBulkDelete] = useState(false);
   const [logExternalOpen, setLogExternalOpen] = useState(false);
   const [logExternalPending, setLogExternalPending] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { mutateAsync: deleteApplication, isPending: isBulkDeleting } = useDeleteApplication();
   const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
   async function handleLogExternalSubmit({ companyName, applicationUrl, notes, cvDocumentId }: { companyName: string; applicationUrl: string; notes: string; cvDocumentId?: number | null }) {
@@ -769,6 +789,69 @@ export default function ApplicationsPage() {
 
   const repliedApps = filtered.filter(isReplied);
   const otherApps = filtered.filter((a) => !isReplied(a));
+  const applicationKey = (application: EnrichedApplication) =>
+    `${application.applicationKind ?? "formal"}-${application.id}`;
+  const visibleApplicationKeys = filtered.map(applicationKey);
+  const selectedVisibleApplications = filtered.filter((application) =>
+    selectedApplications.has(applicationKey(application)),
+  );
+  const allVisibleSelected = filtered.length > 0 && selectedVisibleApplications.length === filtered.length;
+
+  function setApplicationSelected(application: EnrichedApplication, selected: boolean) {
+    const key = applicationKey(application);
+    setSelectedApplications((current) => {
+      const next = new Set(current);
+      if (selected) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+    setConfirmingBulkDelete(false);
+  }
+
+  function toggleSelectAllVisible() {
+    setSelectedApplications((current) => {
+      const next = new Set(current);
+      if (allVisibleSelected) {
+        visibleApplicationKeys.forEach((key) => next.delete(key));
+      } else {
+        visibleApplicationKeys.forEach((key) => next.add(key));
+      }
+      return next;
+    });
+    setConfirmingBulkDelete(false);
+  }
+
+  async function handleBulkDelete() {
+    if (selectedVisibleApplications.length === 0) return;
+    const deleting = [...selectedVisibleApplications];
+    const results = await Promise.allSettled(
+      deleting.map((application) => deleteApplication({ id: application.id })),
+    );
+    const deleted = deleting.filter((_, index) => results[index]?.status === "fulfilled");
+    const failed = deleting.length - deleted.length;
+    const deletedKeys = new Set(deleted.map(applicationKey));
+    setSelectedApplications((current) =>
+      new Set([...current].filter((key) => !deletedKeys.has(key))),
+    );
+    setConfirmingBulkDelete(false);
+    await queryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
+    await refetch();
+
+    if (failed === 0) {
+      toast({
+        title: `${deleted.length} application${deleted.length === 1 ? "" : "s"} deleted`,
+        description: "The selected applications were removed from your tracker.",
+      });
+    } else {
+      toast({
+        title: `${failed} application${failed === 1 ? "" : "s"} could not be deleted`,
+        description: deleted.length > 0
+          ? `${deleted.length} application${deleted.length === 1 ? " was" : "s were"} deleted. Failed items remain selected so you can retry.`
+          : "The selected applications remain selected so you can try again.",
+        variant: "destructive",
+      });
+    }
+  }
 
   const tabs: { id: CategoryTab; label: string; icon: React.ElementType; count: number }[] = [
     { id: "all", label: "All", icon: ClipboardList, count: timeframeApplications.length },
@@ -831,7 +914,11 @@ export default function ApplicationsPage() {
             <button
               key={option.id}
               type="button"
-              onClick={() => setTimeframe(option.id)}
+              onClick={() => {
+                setTimeframe(option.id);
+                setSelectedApplications(new Set());
+                setConfirmingBulkDelete(false);
+              }}
               className={`whitespace-nowrap rounded-lg px-3 py-2 transition-all ${
                 timeframe === option.id
                   ? "bg-background text-foreground shadow-sm"
@@ -848,7 +935,11 @@ export default function ApplicationsPage() {
           {tabs.map(({ id, label, icon: Icon, count }) => (
             <button
               key={id}
-              onClick={() => setActiveTab(id)}
+              onClick={() => {
+                setActiveTab(id);
+                setSelectedApplications(new Set());
+                setConfirmingBulkDelete(false);
+              }}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
                 activeTab === id
                   ? "bg-background shadow-sm text-foreground"
@@ -865,6 +956,57 @@ export default function ApplicationsPage() {
             </button>
           ))}
         </div>
+
+        {activeTab !== "favorites" && filtered.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/20 px-3 py-2.5">
+            <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-foreground">
+              <input
+                type="checkbox"
+                checked={allVisibleSelected}
+                onChange={toggleSelectAllVisible}
+                className="h-4 w-4 cursor-pointer rounded border-border accent-primary"
+              />
+              Select all visible
+            </label>
+            {selectedVisibleApplications.length > 0 && (
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                {confirmingBulkDelete ? (
+                  <>
+                    <span className="text-xs font-medium text-rose-700 dark:text-rose-300">
+                      Delete {selectedVisibleApplications.length} selected application{selectedVisibleApplications.length === 1 ? "" : "s"}?
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={isBulkDeleting}
+                      onClick={() => setConfirmingBulkDelete(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      disabled={isBulkDeleting}
+                      onClick={() => void handleBulkDelete()}
+                    >
+                      {isBulkDeleting ? "Deleting…" : "Confirm delete"}
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="gap-1.5"
+                    onClick={() => setConfirmingBulkDelete(true)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete selected ({selectedVisibleApplications.length})
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {activeTab === "favorites" ? (
           <FavoritesList favorites={favorites} />
@@ -915,6 +1057,8 @@ export default function ApplicationsPage() {
                     key={`${app.applicationKind ?? "formal"}-${app.id}`}
                     application={app}
                     onStatusUpdated={() => void refetch()}
+                    selected={selectedApplications.has(applicationKey(app))}
+                    onSelectedChange={(selected) => setApplicationSelected(app, selected)}
                   />
                 ))}
               </section>
@@ -935,6 +1079,8 @@ export default function ApplicationsPage() {
                     key={`${app.applicationKind ?? "formal"}-${app.id}`}
                     application={app}
                     onStatusUpdated={() => void refetch()}
+                    selected={selectedApplications.has(applicationKey(app))}
+                    onSelectedChange={(selected) => setApplicationSelected(app, selected)}
                   />
                 ))}
               </section>
