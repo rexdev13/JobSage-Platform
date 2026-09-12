@@ -709,7 +709,8 @@ export function SmartApplyModal({
 
         {step === "review" && (
           <div className="flex flex-col border-t border-border bg-muted/30">
-            <div className="flex items-center justify-center px-4 pt-3 sm:px-6">
+            {!isSendCv && (
+              <div className="flex items-center justify-center px-4 pt-3 sm:px-6">
                 <button
                   onClick={handleSubmit}
                   className="flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
@@ -717,7 +718,8 @@ export function SmartApplyModal({
                   <Sparkles className="w-3.5 h-3.5" />
                   Accept all AI answers &amp; submit now
                 </button>
-            </div>
+              </div>
+            )}
             {cvDocuments.length >= 1 && (
               <div className="px-6 pt-3 flex items-center gap-2">
                 <span className="text-xs text-muted-foreground shrink-0">CV to record:</span>
@@ -764,24 +766,16 @@ export function SmartApplyModal({
               </Button>
 
               <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5 text-xs"
-                  onClick={() => {
-                    if (sendCvContext) {
-                      setClEditable(compileSmartApplyOutreach({
-                        answers,
-                        employerName: sendCvContext.companyName,
-                        jobTitle: roleTitle,
-                        candidateName: candidatePrefillQuery.data?.fullName ?? "",
-                      }));
-                    }
-                    setStep("coverLetter");
-                  }}
-                >
-                  <FileText className="w-3.5 h-3.5" /> Cover Letter
-                </Button>
+                {!isSendCv && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 text-xs"
+                    onClick={() => setStep("coverLetter")}
+                  >
+                    <FileText className="w-3.5 h-3.5" /> Cover Letter
+                  </Button>
+                )}
 
                 {isLastQuestion ? (
                   <Button onClick={handleSubmit} size="sm" className="gap-1.5">

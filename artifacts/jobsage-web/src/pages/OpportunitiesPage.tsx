@@ -92,7 +92,6 @@ import {
   canSendCvForVacancy,
   getOpportunityApplyAction,
   groupRankedOpportunities,
-  hasUsableSendCvApplyRoute,
   hasRegionOverlap,
   shouldShowOpportunityApplyActions,
   shouldShowOnSendCvTab,
@@ -1265,8 +1264,6 @@ function SendCvEmployerGroup({
   cvSentRoleIds,
   hasCv,
   onSend,
-  onApply,
-  onSmartApply,
   onUploadCv,
 }: {
   employer: string;
@@ -1274,8 +1271,6 @@ function SendCvEmployerGroup({
   cvSentRoleIds: number[];
   hasCv: boolean;
   onSend: (vacancy: MatchedRole) => void;
-  onApply: (vacancy: MatchedRole) => void;
-  onSmartApply: (roleId: number, roleTitle: string) => void;
   onUploadCv: () => void;
 }) {
   return (
@@ -1297,7 +1292,6 @@ function SendCvEmployerGroup({
           const { role } = item;
           const cvSent = cvSentRoleIds.includes(role.id);
           const canEmailCv = canSendCvForVacancy(item);
-          const hasVerifiedApplyRoute = hasUsableSendCvApplyRoute(item);
           const sourceLabel = !item.applyUrl
             ? "Email only"
             : role.sourceType === "job_board"
@@ -1326,15 +1320,6 @@ function SendCvEmployerGroup({
                       {sourceLabel}
                     </span>
                   </div>
-                  {hasVerifiedApplyRoute && (
-                    <button
-                      type="button"
-                      onClick={() => onApply(item)}
-                      className="inline-flex items-center gap-1 mt-2 text-xs font-medium text-primary hover:underline"
-                    >
-                      View live vacancy <ExternalLink className="w-3 h-3" />
-                    </button>
-                  )}
                 </div>
                 {item.aiScore != null && <AiScoreBadge score={item.aiScore} />}
               </div>
@@ -1353,25 +1338,6 @@ function SendCvEmployerGroup({
                     <FileText className="w-4 h-4 mr-1.5" /> Upload CV to send
                   </Button>
                 ) : null}
-                {hasVerifiedApplyRoute && (
-                  <Button
-                    size="sm"
-                    variant={canEmailCv ? "outline" : "default"}
-                    onClick={() => onApply(item)}
-                  >
-                    <ExternalLink className="w-4 h-4 mr-1.5" />
-                    {role.sourceType === "company_site" ? "Apply on company website" : "Apply via job board"}
-                  </Button>
-                )}
-                {hasVerifiedApplyRoute && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => onSmartApply(role.id, role.title)}
-                  >
-                    <Sparkles className="w-4 h-4 mr-1.5" /> Smart Apply
-                  </Button>
-                )}
               </div>
             </div>
           );
@@ -1453,22 +1419,6 @@ export default function OpportunitiesPage() {
           roleId: match.roleId,
           canonicalUrl: url,
         } : undefined,
-      });
-      handleExternalApply();
-    });
-  }
-
-  function handleSendCvTabApply(item: MatchedRole) {
-    if (!item.applyUrl || !hasUsableSendCvApplyRoute(item)) return;
-    requireExtension(() => {
-      void openTrackedOutbound({
-        url: item.applyUrl!,
-        vacancy: {
-          title: item.role.title,
-          employer: item.role.employer,
-          roleId: item.role.id,
-          canonicalUrl: item.applyUrl!,
-        },
       });
       handleExternalApply();
     });
@@ -2064,8 +2014,6 @@ export default function OpportunitiesPage() {
                       cvSentRoleIds={cvSentRoleIds}
                       hasCv={hasCvUploaded}
                       onSend={setSendCvTarget}
-                      onApply={handleSendCvTabApply}
-                      onSmartApply={handleSmartApply}
                       onUploadCv={() => setLocation("/documents")}
                     />
                   ))}
