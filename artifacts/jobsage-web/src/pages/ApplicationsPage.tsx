@@ -40,6 +40,13 @@ import { format } from "date-fns";
 import { getListMyApplicationsQueryKey } from "@workspace/api-client-react";
 import { useGetMyAnalytics } from "@workspace/api-client-react";
 import { WeeklyApplicationStats } from "@/components/WeeklyApplicationStats";
+import {
+  filterApplicationsByTimeframe,
+  getApplicationProcessStage,
+  isRejectedApplicationStatus,
+  TIMEFRAME_OPTIONS,
+  type TimeframeFilter,
+} from "@/lib/applicationTracker";
 
 const STATUS_CONFIG: Record<
   string,
@@ -156,6 +163,7 @@ type EnrichedApplication = {
   sourceType?: "job_board" | "company_site" | null;
   isClosed?: boolean;
   livenessReason?: string | null;
+  createdAt?: string | null;
 };
 
 type CategoryTab = "all" | "platform" | "speculative" | "website" | "favorites";
@@ -258,6 +266,82 @@ function StatusDropdown({
           </>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+function ApplicationProcessStatusBar({ application }: { application: EnrichedApplication }) {
+  const activeStage = getApplicationProcessStage(application.status);
+  const rejected = isRejectedApplicationStatus(application.status);
+  const dateSubmitted = application.appliedAt
+    ? format(new Date(application.appliedAt), "d MMM")
+    : null;
+
+  const badge = rejected
+    ? { label: "Not Progressing", detail: "Closed", className: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/20 dark:text-rose-300 dark:border-rose-800" }
+    : activeStage === 3
+      ? { label: "Offer Received", detail: "🎉", className: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800" }
+      : activeStage === 2
+        ? { label: "Interviewing", detail: "In Progress", className: "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800" }
+        : activeStage === 1
+          ? { label: "Applied", detail: "Awaiting Review", className: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800" }
+          : { label: "Started", detail: "Application in draft", className: "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-900/20 dark:text-slate-300 dark:border-slate-700" };
+
+  const stages = [
+    { label: "Started", subtitle: activeStage === 0 ? "In draft" : "Started" },
+    { label: "Applied", subtitle: dateSubmitted ? `Submitted ${dateSubmitted}` : "Submitted" },
+    {
+      label: "Interview",
+      subtitle: application.status === "interview_invited" ? "Invited to interview" : activeStage >= 2 ? "Interview stage" : "Next stage",
+    },
+    { label: "Offers", subtitle: activeStage === 3 ? "Offer Received 🎉" : "Next stage" },
+  ];
+
+  return (
+    <div className={`rounded-xl border px-2 py-3 sm:px-6 ${rejected ? "border-rose-200 bg-rose-50/40 dark:border-rose-900/60 dark:bg-rose-950/10" : "border-border bg-muted/20"}`}>
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-bold sm:text-xs ${badge.className}`}>
+          {badge.label} <span className="mx-1 opacity-50">•</span> {badge.detail}
+        </span>
+        {rejected && <XCircle className="w-4 h-4 text-rose-600 shrink-0" />}
+      </div>
+      <div className="relative">
+        <div className="absolute left-[12.5%] right-[12.5%] top-3 h-1 rounded-full bg-border" aria-hidden="true" />
+        <div
+          className={`absolute left-[12.5%] top-3 h-1 rounded-full ${rejected ? "bg-rose-400" : "bg-emerald-500"}`}
+          style={{ width: `${activeStage * 25}%` }}
+          aria-hidden="true"
+        />
+        <div className="relative grid grid-cols-4 gap-1">
+          {stages.map((stage, index) => {
+            const completed = index < activeStage && !rejected;
+            const active = index === activeStage;
+            return (
+              <div key={stage.label} className="flex min-w-0 flex-col items-center text-center">
+                <div
+                  className={`z-10 flex h-6 w-6 items-center justify-center rounded-full border-2 bg-background text-[10px] font-bold ${
+                    completed
+                      ? "border-emerald-500 bg-emerald-500 text-white"
+                      : active
+                        ? rejected
+                          ? "border-rose-500 bg-rose-100 text-rose-700 ring-2 ring-rose-200 dark:bg-rose-900/40 dark:text-rose-300 dark:ring-rose-900"
+                          : "border-primary bg-background text-primary ring-2 ring-primary/20"
+                        : "border-border text-muted-foreground"
+                  }`}
+                >
+                  {completed ? <CheckCircle2 className="h-4 w-4" /> : index + 1}
+                </div>
+                <span className={`mt-1.5 max-w-20 truncate text-[9px] font-semibold sm:max-w-32 sm:text-[11px] ${active ? "text-foreground" : "text-muted-foreground"}`}>
+                  {stage.label}
+                </span>
+                <span className="max-w-20 truncate text-[9px] text-muted-foreground sm:max-w-32 sm:text-[10px]">
+                  {stage.subtitle}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
@@ -393,6 +477,8 @@ function ApplicationCard({ application, onStatusUpdated }: { application: Enrich
             )}
           </div>
         </div>
+
+        <ApplicationProcessStatusBar application={application} />
 
         {application.isClosed && application.livenessReason && (
           <div className="flex items-start gap-1.5 text-xs text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
@@ -627,6 +713,7 @@ export default function ApplicationsPage() {
   const { data: analyticsData, isLoading: analyticsLoading } = useGetMyAnalytics();
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState<CategoryTab>("all");
+  const [timeframe, setTimeframe] = useState<TimeframeFilter>("all");
   const [logExternalOpen, setLogExternalOpen] = useState(false);
   const [logExternalPending, setLogExternalPending] = useState(false);
   const queryClient = useQueryClient();
@@ -668,22 +755,23 @@ export default function ApplicationsPage() {
     speculativeCount?: number;
   } | undefined;
 
+  const timeframeApplications = filterApplicationsByTimeframe(applications, timeframe);
   const filtered = activeTab === "all"
-    ? applications
+    ? timeframeApplications
     : activeTab === "platform"
-    ? applications.filter((a) => a.applicationKind === "formal")
+    ? timeframeApplications.filter((a) => a.applicationKind === "formal")
     : activeTab === "speculative"
-    ? applications.filter((a) => a.applicationKind === "speculative")
-    : applications.filter((a) => a.applicationKind === "website");
+    ? timeframeApplications.filter((a) => a.applicationKind === "speculative")
+    : timeframeApplications.filter((a) => a.applicationKind === "website");
 
   const repliedApps = filtered.filter(isReplied);
   const otherApps = filtered.filter((a) => !isReplied(a));
 
   const tabs: { id: CategoryTab; label: string; icon: React.ElementType; count: number }[] = [
-    { id: "all", label: "All", icon: ClipboardList, count: applications.length },
-    { id: "platform", label: "Apply Via Job Board", icon: Building2, count: stats?.platformCount ?? applications.filter((a) => a.applicationKind === "formal").length },
-    { id: "speculative", label: "Send CV", icon: Send, count: stats?.speculativeCount ?? applications.filter((a) => a.applicationKind === "speculative").length },
-    { id: "website", label: "Apply on company websites", icon: Globe, count: stats?.websiteCount ?? applications.filter((a) => a.applicationKind === "website").length },
+    { id: "all", label: "All", icon: ClipboardList, count: timeframeApplications.length },
+    { id: "platform", label: "Apply Via Job Board", icon: Building2, count: timeframeApplications.filter((a) => a.applicationKind === "formal").length },
+    { id: "speculative", label: "Send CV", icon: Send, count: timeframeApplications.filter((a) => a.applicationKind === "speculative").length },
+    { id: "website", label: "Apply on company websites", icon: Globe, count: timeframeApplications.filter((a) => a.applicationKind === "website").length },
     { id: "favorites", label: "Favorites", icon: Heart, count: favorites.length },
   ];
 
@@ -714,13 +802,13 @@ export default function ApplicationsPage() {
           </div>
         </div>
 
-        {stats && applications.length > 0 && (
+        {stats && timeframeApplications.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {[
-              { label: "Total", value: stats.total ?? applications.length, color: "text-foreground" },
-              { label: "Interviews", value: stats.interviews ?? 0, color: "text-teal-600" },
-              { label: "Offers", value: stats.offers ?? 0, color: "text-amber-600" },
-               { label: "Send CV", value: stats.speculativeCount ?? 0, color: "text-sky-600" },
+              { label: "Total", value: timeframeApplications.length, color: "text-foreground" },
+              { label: "Interviews", value: timeframeApplications.filter((a) => a.status === "interview" || a.status === "interview_invited").length, color: "text-teal-600" },
+              { label: "Offers", value: timeframeApplications.filter((a) => a.status === "offer").length, color: "text-amber-600" },
+              { label: "Send CV", value: timeframeApplications.filter((a) => a.applicationKind === "speculative").length, color: "text-sky-600" },
             ].map(({ label, value, color }) => (
               <Card key={label} className="p-4 text-center">
                 <p className={`text-2xl font-bold ${color}`}>{value}</p>
@@ -734,6 +822,23 @@ export default function ApplicationsPage() {
           stats={analyticsData?.applicationsLast7Days}
           isLoading={analyticsLoading}
         />
+
+        <div className="flex items-center gap-1 overflow-x-auto rounded-xl bg-muted p-1 text-xs font-medium">
+          {TIMEFRAME_OPTIONS.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => setTimeframe(option.id)}
+              className={`whitespace-nowrap rounded-lg px-3 py-2 transition-all ${
+                timeframe === option.id
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
 
         {/* Category tabs */}
         <div className="flex gap-1 p-1 bg-muted rounded-xl overflow-x-auto">

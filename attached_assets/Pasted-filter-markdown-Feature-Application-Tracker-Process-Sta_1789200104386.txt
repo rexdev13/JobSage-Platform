@@ -1,0 +1,73 @@
+filter:
+```markdown
+### Feature: Application Tracker — Process Status Bar & Multi-Timeframe Filter (7 Days, Month, Year, All)
+
+#### Objective
+In `artifacts/jobsage-web/src/pages/ApplicationsPage.tsx`:
+1. Add a **Timeframe Filter Toggle** allowing candidates to filter applications by **Last 7 Days**, **Last 30 Days (Month)**, **Last 12 Months (Year)**, and **Full History**.
+2. Add a visual 4-stage pipeline **Process Status Bar** directly on each tracked application card:  
+   **Started → Applied → Interview → Offers** (with handling for *Not Progressing / Rejected*).
+
+---
+
+### 1. Add Multi-Timeframe Filter (7 Days, Month, Year, Full History)
+In `ApplicationsPage.tsx`:
+- Define timeframe filter state:
+  ```ts
+  type TimeframeFilter = "7d" | "30d" | "1y" | "all";
+  const [timeframe, setTimeframe] = useState<TimeframeFilter>("all");
+  ```
+- Position a clean segmented pill button group above or alongside the Category Tabs:
+  - **"7 Days"**: Applications where `appliedAt` or `createdAt` $\ge$ `Date.now() - 7 * 24 * 60 * 60 * 1000`.
+  - **"Month"**: Applications within the last 30 days ($\ge$ `Date.now() - 30 * 24 * 60 * 60 * 1000`).
+  - **"Year"**: Applications within the last 365 days ($\ge$ `Date.now() - 365 * 24 * 60 * 60 * 1000`).
+  - **"Full History"**: All applications (default).
+- Filter the application list and update card counts and category tab counters dynamically according to the selected timeframe.
+- Visual styling: Compact, mobile-friendly toggle group (`flex items-center p-1 bg-muted rounded-xl text-xs font-medium gap-1 overflow-x-auto`).
+
+---
+
+### 2. Add Application Process Status Bar Component
+Create a dedicated `<ApplicationProcessStatusBar />` component rendered inside each `<ApplicationCard />`:
+
+#### 4 Stages & Progression Logic:
+1. **Stage 1: Started**
+   - Active when status is `"link_clicked"`.
+   - Completed when the application has progressed to any subsequent status (`applied`, `cv_sent`, `sent`, `under_review`, `shortlisted`, `interview`, `interview_invited`, `offer`).
+2. **Stage 2: Applied**
+   - Active when status is `"applied"`, `"cv_sent"`, `"sent"`, `"under_review"`, or `"shortlisted"`.
+   - Completed when application reaches `interview`, `interview_invited`, or `offer`.
+   - Subtitle: Date submitted (e.g. `format(new Date(app.appliedAt), "d MMM")`).
+3. **Stage 3: Interview**
+   - Active when status is `"interview"` or `"interview_invited"`.
+   - Completed when application reaches `offer`.
+   - Subtitle: "Interview Stage" / "Invited to Interview".
+4. **Stage 4: Offers**
+   - Active & Completed when status is `"offer"`.
+   - Subtitle: "Offer Received 🎉".
+
+#### Status Indicator Pill & Handling Rejections:
+- At the top of the bar, display a status badge:
+  - `Started • Application in draft` (Stage 1)
+  - `Applied • Awaiting Review` (Stage 2)
+  - `Interviewing • In Progress` (Stage 3)
+  - `Offer Received 🎉` (Stage 4 - Emerald/Gold)
+  - `Not Progressing / Closed` (Rose styling if status is `"rejected"`)
+- If status is `"rejected"`, display the rose/red badge and tint the active node to show that this opportunity is closed.
+
+#### Visual Styling:
+- **Connecting track line**: Horizontal bar with background and fill width proportional to stage `(activeStage - 1) * 33.33%`.
+- **Step circle nodes**:
+  - Completed nodes show a green checkmark (`CheckCircle2`).
+  - Active node shows the step number with an accent ring.
+  - Inactive nodes remain muted.
+- **Mobile responsiveness**:
+  - Compact padding (`px-2 sm:px-6`), truncated text (`max-w-20 sm:max-w-32`), scalable font sizes (`text-[9px]` to `text-[11px]`).
+
+---
+
+### 3. Verification
+- Confirm that toggling between **7 Days**, **Month**, **Year**, and **Full History** filters the application list accurately.
+- Confirm that every application card displays the 4-stage pipeline progress bar corresponding to its status.
+- Run `npm run typecheck` in `artifacts/jobsage-web` to confirm 0 TypeScript errors.
+```
