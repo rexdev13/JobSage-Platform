@@ -32,6 +32,12 @@ export function filterApplicationsByTimeframe<T extends {
   });
 }
 
+export function excludeClosedApplications<T extends { isClosed?: boolean | null }>(
+  applications: T[],
+): T[] {
+  return applications.filter((application) => application.isClosed !== true);
+}
+
 export type ApplicationProcessStage = 0 | 1 | 2 | 3;
 
 export function getApplicationProcessStage(status: string): ApplicationProcessStage {

@@ -41,6 +41,7 @@ import { getListMyApplicationsQueryKey } from "@workspace/api-client-react";
 import { useGetMyAnalytics } from "@workspace/api-client-react";
 import { WeeklyApplicationStats } from "@/components/WeeklyApplicationStats";
 import {
+  excludeClosedApplications,
   filterApplicationsByTimeframe,
   getApplicationProcessStage,
   isRejectedApplicationStatus,
@@ -246,7 +247,7 @@ function StatusDropdown({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -4, scale: 0.97 }}
               transition={{ duration: 0.12 }}
-              className="absolute right-0 top-full mt-1 z-20 bg-background border border-border rounded-xl shadow-lg overflow-hidden min-w-[170px]"
+              className="absolute right-0 top-full mt-1 z-20 max-h-64 min-w-[170px] overflow-y-auto overscroll-contain rounded-xl border border-border bg-background shadow-lg"
             >
               {options.map((s) => {
                 const c = STATUS_CONFIG[s] ?? STATUS_CONFIG.applied!;
@@ -383,7 +384,7 @@ function ApplicationCard({ application, onStatusUpdated }: { application: Enrich
       animate={{ opacity: 1, y: 0 }}
       className="w-full"
     >
-      <Card className={`p-5 flex flex-col gap-3 hover:shadow-md transition-all ${isInterviewInvited ? "border-teal-200 dark:border-teal-800/50" : ""}`}>
+      <Card className={`p-5 flex flex-col gap-3 overflow-visible hover:shadow-md transition-all ${isInterviewInvited ? "border-teal-200 dark:border-teal-800/50" : ""}`}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
@@ -756,7 +757,8 @@ export default function ApplicationsPage() {
     speculativeCount?: number;
   } | undefined;
 
-  const timeframeApplications = filterApplicationsByTimeframe(applications, timeframe);
+  const activeApplications = excludeClosedApplications(applications);
+  const timeframeApplications = filterApplicationsByTimeframe(activeApplications, timeframe);
   const filtered = activeTab === "all"
     ? timeframeApplications
     : activeTab === "platform"
