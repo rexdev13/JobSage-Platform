@@ -132,11 +132,13 @@ export function createPinnedLookup(pinned: PinnedAddress): LookupFunction {
       options !== null &&
       "all" in options &&
       (options as { all?: boolean }).all === true;
-    if (wantsAll) {
-      callback(null, [{ address: pinned.address, family: pinned.family }]);
-    } else {
-      callback(null, pinned.address, pinned.family);
-    }
+    queueMicrotask(() => {
+      if (wantsAll) {
+        callback(null, [{ address: pinned.address, family: pinned.family }]);
+      } else {
+        callback(null, pinned.address, pinned.family);
+      }
+    });
   }) as LookupFunction;
 }
 
