@@ -1,4 +1,4 @@
-import { Fragment, useState } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@workspace/auth-web";
 import { useLocation } from "wouter";
@@ -790,9 +790,9 @@ export default function AdminLeadsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {leads.map((lead) => (
-                  <Fragment key={lead.id}>
-                    <tr
+                {leads.flatMap((lead) => [
+                    (<tr
+                      key={`lead-${lead.id}`}
                       className={`transition-colors ${
                         selected.has(lead.id) ? "bg-primary/5" : "hover:bg-muted/30"
                       }`}
@@ -849,14 +849,13 @@ export default function AdminLeadsPage() {
                           year: "numeric",
                         })}
                       </td>
-                    </tr>
-                    <tr>
+                    </tr>),
+                    (<tr key={`status-${lead.id}`}>
                       <td colSpan={10} className="p-0">
                         <LeadContactProcessStatusBar lead={lead} />
                       </td>
-                    </tr>
-                  </Fragment>
-                ))}
+                    </tr>),
+                ])}
               </tbody>
             </table>
           </div>
