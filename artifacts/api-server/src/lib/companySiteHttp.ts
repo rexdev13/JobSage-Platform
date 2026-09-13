@@ -140,7 +140,7 @@ export function createPinnedLookup(pinned: PinnedAddress): LookupFunction {
   }) as LookupFunction;
 }
 
-async function requestPinned(
+export async function requestPinned(
   url: URL,
   pinned: PinnedAddress,
   timeoutMs: number,
