@@ -80,6 +80,7 @@ describe("company-site DNS pinning", () => {
     const callback = vi.fn();
 
     lookup("rebind.example", { family: 0 }, callback);
+    await new Promise<void>((resolve) => queueMicrotask(resolve));
 
     expect(resolver).toHaveBeenCalledTimes(1);
     expect(callback).toHaveBeenCalledWith(null, "8.8.8.8", 4);
