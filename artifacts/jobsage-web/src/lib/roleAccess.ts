@@ -5,6 +5,7 @@ export const LEADS_ROLES: readonly WebAppRole[] = ["admin", "super_admin", "mark
 
 export const MARKETING_NAVIGATION = [
   { name: "Waitlist Leads", href: "/admin/leads" },
+  { name: "Calendar", href: "/admin/calendar" },
 ] as const;
 
 export function isAdminRole(role: unknown): boolean {

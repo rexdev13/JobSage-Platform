@@ -8,9 +8,12 @@ describe("marketing role access", () => {
     expect(isAdminRole("marketing")).toBe(false);
   });
 
-  it("exposes only Waitlist Leads to marketing navigation", () => {
+  it("exposes leads and calendar to marketing navigation", () => {
     expect(canAccessLeads("marketing")).toBe(true);
     expect(canDeleteLeads("marketing")).toBe(false);
-    expect(MARKETING_NAVIGATION).toEqual([{ name: "Waitlist Leads", href: "/admin/leads" }]);
+    expect(MARKETING_NAVIGATION).toEqual([
+      { name: "Waitlist Leads", href: "/admin/leads" },
+      { name: "Calendar", href: "/admin/calendar" },
+    ]);
   });
 });

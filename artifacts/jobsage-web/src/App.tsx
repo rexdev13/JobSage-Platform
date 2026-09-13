@@ -23,6 +23,7 @@ const SuperAdminPage        = lazy(() => import("@/pages/admin/SuperAdminPage"))
 const SuperAdminUsersPage  = lazy(() => import("@/pages/admin/SuperAdminPage").then((module) => ({ default: module.SuperAdminUsersPage })));
 const AdminSyncPage         = lazy(() => import("@/pages/admin/AdminSyncPage"));
 const AdminLeadsPage        = lazy(() => import("@/pages/admin/AdminLeadsPage"));
+const AdminCalendarPage     = lazy(() => import("@/pages/admin/AdminCalendarPage"));
 const AdminLoginPage        = lazy(() => import("@/pages/admin/AdminLoginPage"));
 const ImpersonatePage       = lazy(() => import("@/pages/ImpersonatePage"));
 const EmployerOnboardingPage = lazy(() => import("@/pages/employer/EmployerOnboardingPage"));
@@ -298,6 +299,9 @@ function Router() {
                 </Route>
                 <Route path="/admin/leads">
                   <LeadsGuard><AdminLeadsPage /></LeadsGuard>
+                </Route>
+                <Route path="/admin/calendar">
+                  <LeadsGuard><AdminCalendarPage /></LeadsGuard>
                 </Route>
                 <Route path="/admin/super">
                   <SuperAdminGuard><SuperAdminPage /></SuperAdminGuard>

@@ -1,10 +1,11 @@
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@workspace/auth-web";
+import { useLocation } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { canDeleteLeads } from "@/lib/roleAccess";
 import { useGetSponsorLicenceIndustries } from "@workspace/api-client-react";
-import { CalendarDays, CheckCircle2, Copy, ExternalLink, Loader2, Search, Users, Trash2, ChevronDown, UserPlus, UserCheck, UserX, PhoneCall } from "lucide-react";
+import { CheckCircle2, Loader2, Search, Users, Trash2, ChevronDown, UserPlus, UserCheck, UserX, PhoneCall } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -23,7 +24,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { MarketerCalendar, type CalendarLead, type CalendarMarketer } from "@/components/admin/MarketerCalendar";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -99,152 +99,18 @@ const STATUS_OPTIONS: { value: LeadStatus; label: string }[] = [
   { value: "unqualified", label: "Unqualified" },
 ];
 
-function CalendlyLinkCard({ onUrlChange }: { onUrlChange: (url: string | null) => void }) {
-  const queryClient = useQueryClient();
-  const [value, setValue] = useState("");
-  const [message, setMessage] = useState<string | null>(null);
-
-  const { data, isLoading } = useQuery<{ calendlyUrl: string | null }>({
-    queryKey: ["my-marketing-calendly-url"],
-    queryFn: async () => {
-      const res = await fetch(`${BASE}/api/me/calendly-url`, { credentials: "include" });
-      if (!res.ok) throw new Error("Could not load your Calendly link.");
-      return res.json() as Promise<{ calendlyUrl: string | null }>;
-    },
-  });
-
-  useEffect(() => {
-    if (data) {
-      setValue(data.calendlyUrl ?? "");
-      onUrlChange(data.calendlyUrl);
-    }
-  }, [data, onUrlChange]);
-
-  const mutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetch(`${BASE}/api/me/calendly-url`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ calendlyUrl: value.trim() }),
-      });
-      const body = await res.json().catch(() => ({})) as { calendlyUrl?: string | null; error?: string };
-      if (!res.ok) throw new Error(body.error ?? "Could not save your Calendly link.");
-      return body;
-    },
-    onSuccess: async (body) => {
-      const savedUrl = body.calendlyUrl ?? null;
-      setValue(savedUrl ?? "");
-      setMessage(savedUrl ? "Calendly link saved." : "Calendly link cleared.");
-      onUrlChange(savedUrl);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["my-marketing-calendly-url"] }),
-        queryClient.invalidateQueries({ queryKey: ["admin-leads"] }),
-      ]);
-    },
-    onError: (error) => setMessage(error instanceof Error ? error.message : "Could not save your Calendly link."),
-  });
-
+function BookingActions({ onBookCall }: { onBookCall: () => void }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
-      <div className="flex items-start gap-3">
-        <CalendarDays className="mt-0.5 h-5 w-5 text-primary" />
-        <div className="flex-1 space-y-3">
-          <div>
-            <h2 className="text-sm font-semibold text-foreground">My Calendly link</h2>
-            <p className="text-xs text-muted-foreground">
-              Used for unassigned leads and leads assigned to you. Saving or opening it never changes lead status.
-            </p>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <input
-              type="url"
-              placeholder="https://calendly.com/your-name"
-              value={value}
-              disabled={isLoading || mutation.isPending}
-              onChange={(event) => {
-                setValue(event.target.value);
-                setMessage(null);
-              }}
-              className="min-w-0 flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-            />
-            <Button type="button" disabled={isLoading || mutation.isPending} onClick={() => mutation.mutate()}>
-              {mutation.isPending ? "Saving..." : "Save link"}
-            </Button>
-          </div>
-          {message && <p className="text-xs text-muted-foreground">{message}</p>}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function BookingActions({ url, guidance, onBookCall }: { url: string | null; guidance: string; onBookCall?: () => void }) {
-  const [copied, setCopied] = useState(false);
-
-  if (!url) {
-    return (
-      <div className="flex items-center gap-1">
-        <button
-          type="button"
-          title="Book a call"
-          aria-label="Book a call"
-          className="rounded-lg border border-input p-1.5 text-muted-foreground hover:bg-muted hover:text-primary"
-          onClick={onBookCall}
-        >
-          <PhoneCall className="h-3.5 w-3.5" />
-        </button>
-        <button
-          type="button"
-          disabled
-          title={guidance}
-          className="whitespace-nowrap rounded-lg border border-input px-2 py-1 text-[11px] text-muted-foreground opacity-60"
-        >
-          No booking link
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-1">
-      {onBookCall && (
-        <button
-          type="button"
-          title="Book a call"
-          aria-label="Book a call"
-          className="rounded-lg border border-input p-1.5 text-muted-foreground hover:bg-muted hover:text-primary"
-          onClick={onBookCall}
-        >
-          <PhoneCall className="h-3.5 w-3.5" />
-        </button>
-      )}
-      <button
-        type="button"
-        title="Copy booking link"
-        aria-label="Copy booking link"
-        className="rounded-lg border border-input p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-        onClick={() => {
-          void navigator.clipboard.writeText(url).then(() => {
-            setCopied(true);
-            window.setTimeout(() => setCopied(false), 1500);
-          });
-        }}
-      >
-        <Copy className="h-3.5 w-3.5" />
-      </button>
-      <a
-        href={url}
-        target="_blank"
-        rel="noopener noreferrer"
-        title="Open booking page"
-        aria-label="Open booking page"
-        className="rounded-lg border border-input p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-      >
-        <ExternalLink className="h-3.5 w-3.5" />
-      </a>
-      {copied && <span className="text-[10px] text-green-600">Copied</span>}
-    </div>
+    <button
+      type="button"
+      title="Book a call in Calendar"
+      aria-label="Book a call in Calendar"
+      className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-input px-2 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-primary"
+      onClick={onBookCall}
+    >
+      <PhoneCall className="h-3.5 w-3.5" />
+      Calendar
+    </button>
   );
 }
 
@@ -500,11 +366,10 @@ function LeadContactProcessStatusBar({ lead }: { lead: Lead }) {
 
 export default function AdminLeadsPage() {
   const { user } = useAuth();
+  const [, setLocation] = useLocation();
   const canDelete = canDeleteLeads(user?.role);
   const canAssign = user?.role === "admin" || user?.role === "super_admin";
   const isMarketing = user?.role === "marketing";
-  const [myCalendlyUrl, setMyCalendlyUrl] = useState<string | null>(null);
-  const [calendarLeadId, setCalendarLeadId] = useState<number | null>(null);
   const [search, setSearch]           = useState("");
   const [sector, setSector]           = useState("");
   const [assignedTo, setAssignedTo]   = useState("");
@@ -778,7 +643,6 @@ export default function AdminLeadsPage() {
           </p>
         )}
 
-        {isMarketing && <CalendlyLinkCard onUrlChange={setMyCalendlyUrl} />}
         {isMarketing && (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-5" data-testid="banner-my-performance">
             {[
@@ -967,15 +831,7 @@ export default function AdminLeadsPage() {
                       </td>
                       <td className="px-4 py-3">
                         <BookingActions
-                          url={lead.assignee?.calendlyUrl ?? (!lead.assignee && isMarketing ? myCalendlyUrl : null)}
-                          onBookCall={() => setCalendarLeadId(lead.id)}
-                          guidance={
-                            lead.assignee
-                              ? "The assigned marketer has not added a Calendly link."
-                              : isMarketing
-                                ? "Add your Calendly link above."
-                                : "Assign a marketer first."
-                          }
+                          onBookCall={() => setLocation(`/admin/calendar?leadId=${lead.id}`)}
                         />
                       </td>
                       <td className="px-4 py-3">
@@ -1030,16 +886,6 @@ export default function AdminLeadsPage() {
             </div>
           </div>
         )}
-
-        <MarketerCalendar
-          leads={leads as CalendarLead[]}
-          assignees={assignees as CalendarMarketer[]}
-          isAdmin={canAssign}
-          currentUserId={user?.id}
-          myCalendlyUrl={myCalendlyUrl}
-          initialLeadId={calendarLeadId}
-          onInitialLeadHandled={() => setCalendarLeadId(null)}
-        />
 
       </div>
 
