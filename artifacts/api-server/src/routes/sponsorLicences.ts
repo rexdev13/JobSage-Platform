@@ -593,7 +593,10 @@ router.get("/sponsor-licences/industry-counts", requireAuthenticated, async (req
 
 // ── Industries ───────────────────────────────────────────────────────────────
 
-router.get("/sponsor-licences/industries", requireAuthenticated, async (_req, res) => {
+router.get(
+  "/sponsor-licences/industries",
+  requireRole("candidate", "reviewer", "admin", "super_admin", "employer", "marketing"),
+  async (_req, res) => {
   try {
     const rows = await db
       .selectDistinct({ industry: sponsorLicencesTable.industry })
@@ -607,7 +610,8 @@ router.get("/sponsor-licences/industries", requireAuthenticated, async (_req, re
     console.error("[sponsor-licences] /industries error:", err);
     res.status(500).json({ error: "Failed to fetch industries." });
   }
-});
+  },
+);
 
 // ── Bookmarks ─────────────────────────────────────────────────────────────────
 

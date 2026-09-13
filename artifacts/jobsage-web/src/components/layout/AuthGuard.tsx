@@ -10,6 +10,7 @@ import {
 import { isMarketingRole } from "@/lib/roleAccess";
 
 const PUBLIC_PATHS = ["/login", "/register", "/employer/register", "/forgot-password", "/reset-password", "/"];
+const MARKETING_PATHS = ["/admin/leads", "/admin/calendar"];
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
@@ -56,7 +57,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isLoading) return;
 
-    if (isAuthenticated && isMarketing && location !== "/admin/leads") {
+    if (isAuthenticated && isMarketing && !MARKETING_PATHS.includes(location)) {
       setLocation("/admin/leads");
       return;
     }
@@ -125,7 +126,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     !isPublic
   )
     return null;
-  if (isAuthenticated && isMarketing && location !== "/admin/leads") return null;
+  if (isAuthenticated && isMarketing && !MARKETING_PATHS.includes(location)) return null;
 
   return <>{children}</>;
 }

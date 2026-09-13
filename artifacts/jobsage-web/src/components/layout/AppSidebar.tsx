@@ -32,18 +32,23 @@ export function AppSidebar() {
   const [location] = useLocation();
   const { user, logout } = useAuth();
 
-  const role = user?.role || "candidate";
+  const role = user?.role;
 
   const { data: inboxData } = useGetInboxUnreadCount({
     query: {
       queryKey: getGetInboxUnreadCountQueryKey(),
       refetchInterval: 30_000,
-      enabled: role === "candidate" || role === "reviewer" || role === "admin",
+      enabled: !!user && (role === "candidate" || role === "reviewer" || role === "admin"),
     },
   });
   const inboxUnread = inboxData?.unreadCount ?? 0;
 
-  const { data: myProfile } = useGetMyProfile({ query: { queryKey: getGetMyProfileQueryKey(), enabled: role === "candidate" } });
+  const { data: myProfile } = useGetMyProfile({
+    query: {
+      queryKey: getGetMyProfileQueryKey(),
+      enabled: !!user && role === "candidate",
+    },
+  });
   const profilePhotoUrl = myProfile?.profilePhotoKey
     ? `${BASE}/api/storage/objects/${myProfile.profilePhotoKey.replace(/^\/objects\//, "")}`
     : null;
@@ -138,7 +143,7 @@ export function AppSidebar() {
   const isCandidateLike = role === "candidate" || role === "reviewer" || role === "admin";
 
   function renderNavItem(item: NavItem) {
-    if (!item.roles.includes(role)) return null;
+    if (!role || !item.roles.includes(role)) return null;
     const isActive = location === item.href;
     const badge = item.badge;
     return (
@@ -190,7 +195,7 @@ export function AppSidebar() {
           })
         ) : (
           <div className="space-y-0.5">
-            {flatNavForOtherRoles.filter(item => item.roles.includes(role)).map(renderNavItem)}
+            {flatNavForOtherRoles.filter(item => !!role && item.roles.includes(role)).map(renderNavItem)}
           </div>
         )}
         {role === "candidate" && <AnalyticsMiniWidget />}
@@ -211,7 +216,7 @@ export function AppSidebar() {
             <p className="text-sm font-semibold truncate text-foreground">
               {user?.firstName ? `${user.firstName} ${user.lastName || ''}` : user?.email}
             </p>
-            <p className="text-xs text-muted-foreground capitalize">{role}</p>
+            <p className="text-xs text-muted-foreground capitalize">{role ?? ""}</p>
           </div>
         </div>
         <button
