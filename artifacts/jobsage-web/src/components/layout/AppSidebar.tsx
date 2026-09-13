@@ -108,6 +108,7 @@ export function AppSidebar() {
         { name: "Audit Logs", href: "/admin/audit", icon: Shield, roles: ["admin"] },
         { name: "User Management", href: "/admin/users", icon: UserCog, roles: ["admin"] },
         { name: "Waitlist Leads", href: "/admin/leads", icon: Inbox, roles: ["admin"] },
+        { name: "Calendar", href: "/admin/calendar", icon: CalendarDays, roles: ["admin"] },
       ],
     },
   ];
@@ -124,7 +125,12 @@ export function AppSidebar() {
     { name: "Audit Logs", href: "/admin/audit", icon: Shield, roles: ["admin", "super_admin"] },
     { name: "User Management", href: "/admin/users", icon: UserCog, roles: ["admin", "super_admin"] },
     { name: "Waitlist Leads", href: "/admin/leads", icon: Inbox, roles: ["admin", "super_admin"] },
-    ...MARKETING_NAVIGATION.map((item) => ({ ...item, icon: Inbox, roles: ["marketing"] })),
+    { name: "Calendar", href: "/admin/calendar", icon: CalendarDays, roles: ["admin", "super_admin"] },
+    ...MARKETING_NAVIGATION.map((item) => ({
+      ...item,
+      icon: item.href === "/admin/calendar" ? CalendarDays : Inbox,
+      roles: ["marketing"],
+    })),
     { name: "Super Admin", href: "/admin/super", icon: ShieldAlert, roles: ["super_admin"] },
     { name: "Sync Management", href: "/admin/sync", icon: RefreshCw, roles: ["super_admin"] },
   ];
