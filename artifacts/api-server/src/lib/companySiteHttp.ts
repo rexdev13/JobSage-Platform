@@ -217,6 +217,9 @@ async function requestPinned(
       error.name = "AbortError";
       request.destroy(error);
     });
+    request.on("socket", (socket) => {
+      socket.on("error", rejectOnce);
+    });
     request.on("error", rejectOnce);
     request.end();
   });
