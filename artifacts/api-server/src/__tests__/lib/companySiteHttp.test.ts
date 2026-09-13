@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
+import http from "node:http";
+import { EventEmitter } from "node:events";
 
 vi.mock("@workspace/db", () => ({
   db: {},
@@ -7,6 +9,7 @@ vi.mock("@workspace/db", () => ({
 
 const {
   createPinnedLookup,
+  requestPinned,
   resolveAndPinPublicAddress,
   robotsAllows,
 } = await import("../../lib/companySiteHttp");
@@ -80,5 +83,37 @@ describe("company-site DNS pinning", () => {
 
     expect(resolver).toHaveBeenCalledTimes(1);
     expect(callback).toHaveBeenCalledWith(null, "8.8.8.8", 4);
+  });
+
+  it("contains errors emitted by the underlying socket", async () => {
+    const request = new EventEmitter() as unknown as import("node:http").ClientRequest;
+    const socket = new EventEmitter();
+    const socketError = new Error("connect EAFNOSUPPORT");
+
+    Object.assign(request, {
+      setTimeout: vi.fn(),
+      destroy: vi.fn(),
+      end: vi.fn(),
+    });
+
+    const requestSpy = vi.spyOn(http, "request").mockImplementation((...args: any[]) => {
+      queueMicrotask(() => {
+        request.emit("socket", socket);
+        socket.emit("error", socketError);
+      });
+      return request;
+    });
+
+    await expect(
+      requestPinned(
+        new URL("http://example.com"),
+        { address: "8.8.8.8", family: 4 },
+        100,
+        1_000,
+      ),
+    ).rejects.toBe(socketError);
+
+    expect(requestSpy).toHaveBeenCalledOnce();
+    requestSpy.mockRestore();
   });
 });
