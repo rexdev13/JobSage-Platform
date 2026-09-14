@@ -47,3 +47,6 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Review-first sponsor contact discovery outputs
+/data/sponsor_contacts_*.csv
