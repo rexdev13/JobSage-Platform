@@ -180,3 +180,45 @@ mtime_ms = 1789373847784
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/9bfaf0cf-b246-4f11-8936-8df1de01b68e/af6363c5-2adb-4117-8751-74efb54c0cd4"
 storage_version_token = "1789373872162967"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "q2z7CmyAI0lZ0rqTLq4Xe"
+uri = "file://scripts/data/sponsor_contacts_pilot_v2.csv"
+type = "table"
+title = "Sponsor contacts pilot v2 CSV"
+description = "200-company v2 pilot with normalized matching, evidence URLs, candidate counts, and verified contact results."
+logical_id = "1e74d09e-35ec-45c1-850a-7d35fcccbaf4"
+content_hash = "sha256:a52c09f15cd471288391aa8a93a0c0ea0b28b689567b56c8fc55bd088ac78ff8"
+size = 38129
+mtime_ms = 1789374962980
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/1e74d09e-35ec-45c1-850a-7d35fcccbaf4/dd12317f-d289-4c1d-bc50-f48c1d395763"
+storage_version_token = "1789375033519202"
+content_type = "text/csv"
+
+[[outputs]]
+id = "dv8TnzOm-rkrdjA4kibts"
+uri = "file://scripts/data/sponsor_contacts_pilot_v2_rejected.csv"
+type = "table"
+title = "Sponsor contacts pilot v2 rejected CSV"
+description = "Rows not currently eligible for import, with explicit status and reason codes."
+logical_id = "ab758604-2c1a-4436-b1bf-851d706d5dd7"
+content_hash = "sha256:d05f812a14b1c47c04048a6aea1e30d83f12a0966881da4518cd9700df7211f4"
+size = 21557
+mtime_ms = 1789374962980
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/ab758604-2c1a-4436-b1bf-851d706d5dd7/7c53e128-6f6b-467b-8aa4-e36edf4b8c43"
+storage_version_token = "1789375034463609"
+content_type = "text/csv"
+
+[[outputs]]
+id = "cwEPJ-PzYTfJVjRt_7Af_"
+uri = "file://scripts/data/sponsor_contacts_pilot_v2_summary.json"
+type = "unspecified"
+title = "Sponsor contacts pilot v2 summary"
+description = "Machine-readable v1/v2 review inputs: status counts, source contribution, warnings, and sample rows."
+logical_id = "bc2362fd-d6c6-44c1-b543-e48044a80855"
+content_hash = "sha256:f8e650fb3a0fce70a82ebb4c2e1b40c53db17dd7a29a6b914f92e83d613ec660"
+size = 5079
+mtime_ms = 1789374962980
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/bc2362fd-d6c6-44c1-b543-e48044a80855/6f2c29be-db6a-47a6-8737-b9a1f5351297"
+storage_version_token = "1789375035056013"
+content_type = "application/octet-stream"

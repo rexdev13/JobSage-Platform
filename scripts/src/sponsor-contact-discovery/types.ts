@@ -13,6 +13,7 @@ export const OUTPUT_COLUMNS = [
   "status",
   "match_method",
   "match_confidence",
+  "match_candidates_count",
   "found_at",
   "notes",
 ] as const;
@@ -42,6 +43,7 @@ export type DiscoveryRow = {
   status: DiscoveryStatus;
   match_method: string;
   match_confidence: Confidence;
+  match_candidates_count: string;
   found_at: string;
   notes: string;
   [key: string]: string;
@@ -54,6 +56,7 @@ export type SponsorInput = {
   industry: string;
   website: string;
   contactEmail: string;
+  postcode: string;
 };
 
 export type OfficialRecord = {
@@ -63,4 +66,7 @@ export type OfficialRecord = {
   email: string;
   source: string;
   evidenceUrl: string;
+  county?: string;
+  postcode?: string;
+  role?: "provider" | "location" | "education" | "charity";
 };
