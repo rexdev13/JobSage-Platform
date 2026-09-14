@@ -8,12 +8,13 @@ import {
   usersTable,
 } from "@workspace/db";
 import { requireRole } from "../middlewares/requireRole";
+import { getCalendlySyncStatus, syncCalendlyEvents } from "../lib/calendlySync";
 
 const router: IRouter = Router();
 const calendarRoles = requireRole("marketing", "admin", "super_admin");
+const calendarAdminRoles = requireRole("admin", "super_admin");
 
 const eventStatusSchema = z.enum(["scheduled", "completed", "cancelled", "rescheduled", "no_show"]);
-const eventSourceSchema = z.enum(["manual", "calendly"]);
 const dateSchema = z.coerce.date();
 
 const eventCreateSchema = z.object({
@@ -24,7 +25,6 @@ const eventCreateSchema = z.object({
   endTime: dateSchema.optional(),
   meetingUrl: z.union([z.string().trim().url(), z.literal("")]).optional(),
   notes: z.string().trim().max(5000).optional(),
-  source: eventSourceSchema.optional(),
 });
 
 const eventPatchSchema = z.object({
@@ -48,6 +48,7 @@ const eventFields = {
   notes: marketerEventsTable.notes,
   source: marketerEventsTable.source,
   createdAt: marketerEventsTable.createdAt,
+  calendlySyncedAt: marketerEventsTable.calendlySyncedAt,
   leadFirstName: socialLeadsTable.firstName,
   leadLastName: socialLeadsTable.lastName,
   leadEmail: socialLeadsTable.email,
@@ -196,11 +197,49 @@ router.post(
         endTime,
         meetingUrl: parsed.data.meetingUrl || null,
         notes: parsed.data.notes || null,
-        source: parsed.data.source ?? "manual",
+        source: "manual",
       })
       .returning();
 
     res.status(201).json({ event: created });
+  },
+);
+
+router.get(
+  "/marketer/calendar/calendly/status",
+  calendarRoles,
+  async (req: Request, res: Response): Promise<void> => {
+    const isAdmin = isAdminRole(req.user?.role);
+    const requestedMarketer = String(req.query.marketingUserId ?? "").trim();
+    const marketingUserId = isAdmin
+      ? requestedMarketer || undefined
+      : req.user!.id;
+    res.json(await getCalendlySyncStatus(marketingUserId));
+  },
+);
+
+router.post(
+  "/marketer/calendar/calendly/sync",
+  calendarAdminRoles,
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const summary = await syncCalendlyEvents();
+      const isAdmin = isAdminRole(req.user?.role);
+      const requestedMarketer = String(req.body?.marketingUserId ?? "").trim();
+      const marketingUserId = isAdmin
+        ? requestedMarketer || undefined
+        : req.user!.id;
+      const status = await getCalendlySyncStatus(marketingUserId);
+      res.json({ summary, status });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Calendly synchronization failed.";
+      const unavailable = /\(401\)|\(403\)|not connected|unauthenticated/i.test(message);
+      res.status(unavailable ? 503 : 502).json({
+        error: unavailable
+          ? "Calendly is not connected with permission to read scheduled events."
+          : "Calendly could not be synchronized right now. Please try again.",
+      });
+    }
   },
 );
 
@@ -226,6 +265,23 @@ router.patch(
     if (!existing) {
       res.status(404).json({ error: "Calendar event not found." });
       return;
+    }
+    if (existing.source === "calendly") {
+      const forbiddenKeys = Object.keys(req.body ?? {}).filter(
+        (key) => key !== "notes" && key !== "status",
+      );
+      if (forbiddenKeys.length > 0) {
+        res.status(409).json({
+          error: "Calendly controls this event's title, time, and meeting link. Change those details in Calendly.",
+        });
+        return;
+      }
+      if (parsed.data.status && !["scheduled", "completed", "no_show"].includes(parsed.data.status)) {
+        res.status(409).json({
+          error: "Calendly controls cancellation and rescheduling. Only the call outcome can be changed in JOBSAGE.",
+        });
+        return;
+      }
     }
 
     const scheduledAt = parsed.data.scheduledAt ?? existing.scheduledAt;
@@ -263,6 +319,21 @@ router.delete(
     const where = isAdminRole(req.user?.role)
       ? eq(marketerEventsTable.id, id)
       : and(eq(marketerEventsTable.id, id), eq(marketerEventsTable.marketingUserId, req.user!.id));
+    const [existing] = await db
+      .select({ source: marketerEventsTable.source })
+      .from(marketerEventsTable)
+      .where(where)
+      .limit(1);
+    if (!existing) {
+      res.status(404).json({ error: "Calendar event not found." });
+      return;
+    }
+    if (existing.source === "calendly") {
+      res.status(409).json({
+        error: "Calendly events cannot be deleted in JOBSAGE. Cancel the booking in Calendly instead.",
+      });
+      return;
+    }
     const [deleted] = await db.delete(marketerEventsTable).where(where).returning({ id: marketerEventsTable.id });
     if (!deleted) {
       res.status(404).json({ error: "Calendar event not found." });
