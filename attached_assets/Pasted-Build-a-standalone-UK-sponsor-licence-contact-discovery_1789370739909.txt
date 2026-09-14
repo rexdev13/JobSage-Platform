@@ -1,0 +1,111 @@
+Build a standalone UK sponsor-licence contact discovery batch. Output a CSV for later import into JOBSAGE. Do not invent emails. Do not guess firstname.lastname addresses. Do not use Hunter/Apollo as email sources.
+
+## Goal
+For each sponsor company, find:
+sponsor → corroborated official website → published employer-domain email → evidence URL
+
+If none is published, record a clear terminal status. Better no email than a wrong one.
+
+## Output CSV columns
+organisation_name,town_city,county,industry,
+website,website_source,website_evidence_url,
+contact_email,contact_source,contact_evidence_url,
+confidence,status,found_at,notes
+
+status values:
+- verified_email
+- website_no_email
+- no_website
+- unmatched
+- no_public_contact
+- skipped_existing
+
+confidence:
+- high = official website / Charity Commission / GIAS establishment mailbox / employer-domain vacancy email
+- medium = admin review only, never for Send CV
+
+## Hard rules
+1. Never invent or construct emails from names.
+2. Accept only emails that appear in page text, mailto:, or published obfuscation like "recruitment [at] company.co.uk".
+3. Reject: noreply, gmail/yahoo/outlook/hotmail, LinkedIn/Indeed/Yell/Glassdoor as official site.
+4. Prefer recruitment@ / careers@ / jobs@ / hr@ over info@ / contact@.
+5. Email domain must match the corroborated employer website (or subdomain), except Charity Commission / GIAS establishment mailboxes which are already official register contacts.
+6. Never overwrite: if input already has contact_email, set status=skipped_existing and keep it.
+7. Save evidence URL for every accepted email/website.
+8. Stay on the confirmed company domain when fetching. Timeouts, redirect checks, robots.txt, polite pacing, no SSRF to private IPs.
+
+## Pipeline (in order)
+
+### Stage 0 — inputs
+- Download latest Home Office Register of Licensed Sponsors (workers) CSV from GOV.UK if no input file is provided.
+- Optional input CSV may include: organisation_name, town_city, county, industry, website, contact_email.
+- Start with a PILOT of 200 companies stratified roughly: 50 Social Care, 50 Education, 50 NHS/Public, 50 Other. Make the limit configurable.
+
+### Stage 1 — stored / input reuse
+If website or contact_email already present and valid, keep them. Do not rediscover.
+
+### Stage 2 — official register matching (preferred over web search)
+Match by normalised organisation name + town when possible. Ambiguous matches → status=unmatched.
+
+Sources:
+1. CQC care directory (weekly CSV, Open Government Licence)
+   - Use for Social Care / Healthcare
+   - Gives websites, NOT emails
+   - website_source=cqc
+2. GIAS (Get Information About Schools) daily establishment download
+   - Use for Education
+   - Use SchoolWebsite + MainEmail / establishment mailbox
+   - Skip HeadEmail (personal)
+   - contact_source=gias
+3. Charity Commission API (if CHARITY_COMMISSION_API_KEY is set)
+   - Public email + website
+   - contact_source=charity_commission
+4. Companies House API (if COMPANIES_HOUSE_API_KEY is set)
+   - Identity only: company number, status, SIC, town
+   - No emails. Use only to corroborate matches.
+5. NHS / public: if vacancy/input text contains recruitment@*.nhs.uk, accept employer-domain mailbox; reject jobs.nhs.uk / reed.co.uk as the mailbox itself.
+
+### Stage 3 — find published email on confirmed domain
+If website is known but no email yet:
+1. Prefer Bing Web Search API if BING_SEARCH_API_KEY is set:
+   query: site:{domain} ("recruitment@" OR "careers@" OR "jobs@" OR "hr@" OR mailto:)
+2. Fetch only result URLs on that same host.
+3. Extract visible emails / mailto / [at] obfuscation.
+4. Fallback if no search key: fetch homepage, /contact, /careers, and sitemap.xml contact-like URLs. Max 4 pages. Then stop.
+5. If website works but no email → status=website_no_email (terminal, not endless retry).
+
+### Stage 4 — validation + write
+Write results incrementally to /data/sponsor_contacts_pilot.csv so progress survives restarts.
+Also write /data/sponsor_contacts_rejected.csv for near-misses with reasons.
+Print a summary: matched websites, emails found, unmatched, no_email, error rates.
+
+## Project layout
+- README.md with setup, env vars, how to run pilot vs full
+- package.json or requirements.txt
+- src/download_register.ts (or .py)
+- src/match_registers.ts
+- src/extract_emails.ts
+- src/run_pilot.ts
+- data/ outputs gitignored except sample
+- .env.example:
+  BING_SEARCH_API_KEY=
+  CHARITY_COMMISSION_API_KEY=
+  COMPANIES_HOUSE_API_KEY=
+  PILOT_LIMIT=200
+
+## Implementation notes
+- Prefer Python or Node — pick one and keep it simple.
+- Normalise names: lowercase, strip Ltd/Limited/PLC/punctuation for matching, but keep original organisation_name in output.
+- Rate-limit fetches (~1.5–2s per host).
+- Resume support: skip organisations already present in the output CSV.
+- Do not build a web UI. CLI only.
+- Do not email anyone. Discovery only.
+
+## First milestone
+1. Download Home Office register
+2. Sample 200 rows
+3. Match CQC + GIAS where possible
+4. Extract emails where websites exist
+5. Produce the pilot CSV + summary stats
+
+After the pilot CSV looks good, add a --full mode. Do not run full register until pilot quality is reviewed.
