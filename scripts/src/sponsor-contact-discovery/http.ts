@@ -70,7 +70,7 @@ async function getRobots(origin: string, delayMs: number): Promise<string | null
       redirect: "error",
       signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
     });
-    const body = response.ok ? await response.text() : null;
+    const body = response.ok ? await response.text() : response.status === 404 ? "" : null;
     robotsCache.set(origin, body);
     return body;
   } catch {

@@ -9,7 +9,7 @@ import type {
 } from "./types";
 
 export const DEFAULT_HOME_OFFICE_URL =
-  "https://www.gov.uk/csv-preview/6a86dc008d785493a9c89864/SP_-_Worker_and_Temporary_Worker_Web_Register_-_2026-08-20.csv";
+  "https://www.gov.uk/government/publications/register-of-licensed-sponsors-workers";
 
 const EMAIL =
   /[a-z0-9.!#$%&'*+/=?^_`{|}~-]+\s*(?:@|\[at\]|\(at\))\s*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\s*(?:\.|\[dot\]|\(dot\))\s*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+/gi;
@@ -118,7 +118,8 @@ async function officialRecordsFromFile(path: string, source: string): Promise<Of
     website: normaliseWebsite(value(row, "website", "website_url", "schoolwebsite", "school website")),
     email: normaliseEmail(value(row, "contact_email", "contact email", "mainemail", "main email")),
     source,
-    evidenceUrl: value(row, "website_evidence_url", "evidence_url", "source_url"),
+    evidenceUrl: value(row, "website_evidence_url", "evidence_url", "source_url") ||
+      normaliseWebsite(value(row, "website", "website_url", "schoolwebsite", "school website")),
   })).filter((record) => record.organisationName);
 }
 
@@ -206,9 +207,20 @@ export async function loadSponsorInputs(
   inputPath: string | undefined,
   homeOfficeUrl = DEFAULT_HOME_OFFICE_URL,
 ): Promise<SponsorInput[]> {
-  const rows = inputPath
-    ? await readCsvFile(inputPath)
-    : parseCsvObjects(await (await fetch(homeOfficeUrl, { signal: AbortSignal.timeout(30_000) })).text());
+  let rows: Array<Record<string, string>>;
+  if (inputPath) {
+    rows = await readCsvFile(inputPath);
+  } else {
+    const response = await fetch(homeOfficeUrl, { signal: AbortSignal.timeout(30_000) });
+    if (!response.ok) throw new Error(`Home Office register request failed: HTTP ${response.status}`);
+    const body = await response.text();
+    const csvUrl = body.match(
+      /https?:\/\/assets\.publishing\.service\.gov\.uk\/[^"'\s]+\.csv/i,
+    )?.[0];
+    const csvResponse = await fetch(csvUrl ?? homeOfficeUrl, { signal: AbortSignal.timeout(60_000) });
+    if (!csvResponse.ok) throw new Error(`Home Office CSV request failed: HTTP ${csvResponse.status}`);
+    rows = parseCsvObjects(await csvResponse.text());
+  }
   return rows.map(inputFromRow).filter((input) => input.organisationName);
 }
 
@@ -281,7 +293,7 @@ export async function runDiscovery(options: {
       base.website_source = match.source;
       base.website_evidence_url = match.evidenceUrl;
     }
-    if (match?.email) {
+    if (match?.email && (match.evidenceUrl || base.website_evidence_url)) {
       base.contact_email = normaliseEmail(match.email, base.website);
       base.contact_source = match.source;
       base.contact_evidence_url = match.evidenceUrl || base.website_evidence_url;
