@@ -1,0 +1,118 @@
+You are working in my Replit repo where the `sponsor-contacts` CLI already exists.
+Do not rebuild from scratch. Improve it so a 200-company pilot does not return all `unmatched` when only Home Office data is present.
+
+## Problem
+Current run:
+- command succeeded
+- output: `Wrote 200 rows { unmatched: 200 }`
+Cause:
+- no local CQC/GIAS/Charity files
+- pipeline currently depends on those files and does not auto-fetch official datasets
+
+## Goal
+Add reliable official-data acquisition + normalization so pilot can match sponsors to official websites/emails without manual file prep.
+
+## Constraints (must keep)
+1. Never invent or guess emails.
+2. Never construct firstname.lastname addresses.
+3. Accept only published evidence (register field, page text, mailto, or clear obfuscation).
+4. Reject free-mail/personal domains and blocked job-board/social domains.
+5. Preserve existing JOBSAGE values on import (no overwrite).
+6. Discovery must not write to JOBSAGE DB.
+7. Import remains dry-run unless `--apply`.
+8. Keep review-first flow (`review_status=approved` with `--require-review`).
+9. No web UI. CLI only.
+
+## Implement now
+
+### A) Auto-download official datasets (new)
+Add optional auto-fetch when files are missing:
+- Home Office register (already supported)
+- CQC care directory CSV (official CQC source)
+- GIAS establishment download CSV (official GOV source)
+- Charity Commission data source (API if key provided, else skip with clear warning)
+
+Behavior:
+- If `--cqc/--gias/--charity` file path is provided and exists, use it.
+- Else attempt auto-download into `data/cache/` with dated filenames.
+- If download fails, continue with remaining sources and log a structured warning.
+- Add `--no-auto-fetch` flag to disable this behavior.
+
+### B) Add source adapters + normalization
+Create/extend parsers that normalize each source to a common model:
+- orgName (raw + normalized)
+- town/county/postcode (if available)
+- website (normalized URL)
+- contactEmail (if source has one)
+- source + sourceEvidenceUrl
+
+Normalization rules:
+- lowercase compare keys, strip punctuation and suffixes (`ltd`, `limited`, `plc`, etc.) for matching only
+- preserve original strings in output
+- validate website URL shape
+- validate email with existing safety filters
+
+### C) Better matching (reduce false unmatched, avoid false positives)
+Implement deterministic matching tiers:
+1. exact normalized name
+2. exact normalized name + town/city agreement
+3. strong fuzzy name within strict threshold + location agreement
+If multiple candidates remain ambiguous -> keep `unmatched` (safety first).
+
+Log `match_method` and `match_confidence` into output for auditability.
+
+### D) Optional domain-focused discovery for matched websites
+For rows with confirmed website but no email:
+- fetch same-domain pages with current safety checks (robots, timeout, size, redirects, DNS/public IP guard, pacing)
+- optionally run Bing domain query if key present:
+  `site:{domain} ("recruitment@" OR "careers@" OR "jobs@" OR "hr@" OR "mailto:")`
+- extract only published emails from fetched pages
+- evidence URL required for accepted email
+
+No domain brute forcing, no directory/social as official website.
+
+### E) Improve pilot observability
+At end of pilot print:
+- total rows
+- counts by status
+- matched websites count
+- verified_email count
+- unmatched count
+- website_no_email count
+- per-source contribution (cqc/gias/charity/home_office/web)
+- sample rows (good + problematic)
+
+Write:
+- main CSV
+- rejected CSV with reason codes
+- optional JSON summary report
+
+## CLI updates
+Document and support flags:
+- `--limit`
+- `--output`
+- `--cqc`
+- `--gias`
+- `--charity`
+- `--home-office-url`
+- `--delay-ms`
+- `--no-auto-fetch`
+- `--cache-dir` (default `data/cache`)
+- `--summary-json`
+
+## Deliverables
+1. Code changes
+2. Updated README with setup and data-source behavior
+3. `.env.example` entries for optional keys (Bing, Charity API, Companies House if used)
+4. Run and show:
+   - pilot 200 command
+   - resulting status distribution
+   - dry-run import command and output (no `--apply`)
+
+## Acceptance criteria
+- Running pilot with no manual CQC/GIAS/Charity files no longer blindly returns 200 unmatched (unless upstream sources truly unavailable).
+- No guessed/invented emails.
+- Every accepted email has evidence URL.
+- Dry-run import still safe and unchanged behavior.
+
+Start by locating current sponsor-contacts code, then implement incrementally with commits or clear patch summaries.
