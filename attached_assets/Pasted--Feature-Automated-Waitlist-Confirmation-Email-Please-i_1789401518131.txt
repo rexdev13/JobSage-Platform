@@ -1,0 +1,80 @@
+### Feature: Automated Waitlist Confirmation Email
+Please implement the automated waitlist confirmation email based on the audit findings.
+---
+#### 1. Schema Update (`lib/db/src/schema/socialLeads.ts`)
+Add dedicated email tracking columns to `socialLeadsTable`:
+- `waitlistConfirmationSentAt`: timestamp with time zone (nullable)
+- `waitlistConfirmationProviderId`: text (nullable)
+- `waitlistConfirmationLastError`: text (nullable)
+Push the database schema update or run drizzle migrations so the development database is in sync.
+---
+#### 2. Email Helper & Template (`artifacts/api-server/src/lib/email.ts`)
+Add `sendWaitlistWelcomeEmail`:
+- **Signature:**
+  ```ts
+  export async function sendWaitlistWelcomeEmail(opts: {
+    to: string;
+    firstName: string;
+    industrySector?: string | null;
+    desiredRole?: string | null;
+  }): Promise<{ success: boolean; messageId?: string; error?: string }>
+Template Details:
+Sender: JOBSAGE <${FROM}>
+Subject: Welcome to JOBSAGE — We've received your details!
+Card container with JobSage dark header logo (#0f172a), clean responsive typography, and branded footer.
+Copy:
+Greeting: Hi {firstName},
+Body paragraph 1: Thank you for joining the JOBSAGE waitlist! We have received your details${opts.industrySector ? and interest in ${opts.industrySector} opportunities : ""}.
+Body paragraph 2: Our advisory team reviews each profile to identify suitable UK sponsorship pathways and relevant vacancies. A dedicated team member will reach out to you shortly to guide you on next steps.
+Secondary CTA: In the meantime, you can create your free account to track your progress and browse licensed sponsor employers.
+Primary CTA Button: Create Free Account pointing to ${APP_URL}/register?email=${encodeURIComponent(opts.to)}.
+Sign-off: Best regards,<br>The JOBSAGE Team
+Error handling:
+Check both thrown errors and Resend's structured result.error.
+Return { success: true, messageId: result.data.id } or { success: false, error: errorMessage }.
+3. Lead Submission Trigger (artifacts/api-server/src/routes/leads.ts)
+In POST /api/leads/submit:
+After saving the lead (where source === "form" and status === "new"):
+Retrieve the saved lead ID.
+Return HTTP 201 { success: true } without blocking on email delivery.
+Asynchronously trigger the email dispatch in the background:
+ts
+
+
+void (async () => {
+  try {
+    const res = await sendWaitlistWelcomeEmail({
+      to: d.email,
+      firstName: d.firstName,
+      industrySector: d.industrySector,
+      desiredRole: d.desiredRole,
+    });
+    if (res.success) {
+      await db
+        .update(socialLeadsTable)
+        .set({
+          waitlistConfirmationSentAt: new Date(),
+          waitlistConfirmationProviderId: res.messageId ?? null,
+          waitlistConfirmationLastError: null,
+        })
+        .where(eq(socialLeadsTable.id, leadId));
+    } else {
+      await db
+        .update(socialLeadsTable)
+        .set({
+          waitlistConfirmationLastError: res.error ?? "Failed to send",
+        })
+        .where(eq(socialLeadsTable.id, leadId));
+    }
+  } catch (err) {
+    console.error("[leads] Background waitlist email dispatch failed:", err);
+  }
+})();
+Ensure partial chat saves (POST /api/leads/chat) do not trigger this email.
+4. Verification & Tests
+Add tests in artifacts/api-server/src/__tests__/routes/leads.test.ts:
+Submitting the form triggers sendWaitlistWelcomeEmail with correct recipient and name.
+If Resend succeeds, waitlistConfirmationSentAt and provider ID are saved.
+If Resend throws or fails, POST /api/leads/submit still returns HTTP 201 successfully and records the error in waitlistConfirmationLastError.
+Partial chat lead creation does not trigger the welcome email.
+Run pnpm --filter @workspace/api-server test and ensure all tests pass.
