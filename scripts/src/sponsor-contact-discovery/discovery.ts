@@ -462,6 +462,7 @@ export async function runDiscovery(options: {
       match_candidates_count: "0",
       found_at: foundAt,
       notes: "",
+      review_status: "",
     };
     if (input.contactEmail) {
       base.status = "skipped_existing";

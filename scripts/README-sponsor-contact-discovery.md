@@ -70,7 +70,9 @@ If `BING_SEARCH_API_KEY` is present, Bing is used only to discover a candidate o
 
 ## Review and import
 
-Inspect and edit the CSV first. You may add:
+Inspect and edit the CSV first. The discovery output includes a blank `review_status` column.
+Only clearly invalid rows with missing evidence are auto-marked `rejected`; good candidates
+remain blank for human approval. You may also add or change:
 
 ```text
 review_status

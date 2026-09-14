@@ -1,0 +1,74 @@
+I need a complete technical dump of how the waitlist form works on this JobSage site, so I can replicate the exact same system on another website (SellBuyLink). Do not rewrite or improve it. Document what already exists.
+
+Please inspect the whole codebase (frontend, backend, DB, emails, env, third-party services) and return a single structured spec covering ALL of the following.
+
+## 1. Where it lives
+- Exact files/components/routes for the waitlist UI (landing page, modal, footer, dedicated /waitlist page, etc.)
+- Which pages/sections the form appears on
+- Copy/headlines/button labels/placeholder text, as-is
+- Success state, error state, loading state, duplicate/already-signed-up state
+
+## 2. Form fields
+- Every field name, type, required vs optional, validation rules (client + server)
+- Hidden fields, UTM/source/referrer capture, page URL, user agent
+- Default values
+- What gets stored vs what is display-only
+
+## 3. Frontend wiring
+- Submit handler: fetch/axios, endpoint URL, method, headers, body shape
+- CSRF / CORS / cookies if any
+- Client-side validation
+- Disable-button / debounce / double-submit protection
+- Analytics events on submit (GA, Mixpanel, PostHog, Pixel, etc.)
+- Feature flags or env that turn the form on/off
+
+## 4. Backend API
+- Exact route(s), method, request/response JSON examples (success + error)
+- Status codes
+- Rate limiting
+- Duplicate email handling (reject, update, silently succeed)
+- Auth (none / API key / session)
+- Any middleware
+
+## 5. Database / storage
+- Table/collection name and full schema (columns, types, indexes, unique constraints)
+- ORM/migrations if any
+- Where waitlist rows are stored (Postgres, SQLite, Replit DB, Google Sheet, Airtable, etc.)
+- How to query / export the list
+
+## 6. Email / notifications
+- Welcome/confirmation email? From whom, subject, template, provider (Resend, SendGrid, Mailgun, SMTP)
+- Internal notify email when someone joins?
+- Unsubscribe / double opt-in?
+- Exact env vars for mail
+
+## 7. Third-party integrations
+- Anything else the submit hits: Mailchimp, ConvertKit, Loops, HubSpot, Slack webhook, Google Sheets, Discord, etc.
+- Webhooks, API keys, which env vars, payload sent
+
+## 8. Environment variables
+- Full list of env vars this feature uses, what each does, which are required
+- Do NOT print secret values, just names + purpose
+
+## 9. Admin / ops
+- Is there an admin UI to view signups?
+- Export CSV?
+- Count displayed on the site (“X people waiting”)?
+- How is that count computed?
+
+## 10. Edge cases
+- Invalid email, empty submit, bot/honeypot, spam
+- Network failure UX
+- What happens if email provider is down but DB write succeeded (or vice versa)
+
+## Output format
+Return:
+1. A “how it works” flow in 8–15 bullet steps from page load → stored row → email
+2. File map (path → what it does)
+3. API contract with real request/response examples from this repo
+4. Schema
+5. Env var list
+6. Exact UI copy
+7. A “porting checklist” of every piece I must rebuild on another site
+
+Be exhaustive. Quote real code paths and payloads. If something does not exist, say “not implemented” — do not invent it.
