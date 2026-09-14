@@ -143,12 +143,40 @@ content_type = "text/markdown"
 id = "7w4tQwKrnaezbI9eIhtZF"
 uri = "file://scripts/data/sponsor_contacts_pilot.csv"
 type = "table"
-title = "Sponsor contacts 200-company pilot CSV"
-description = "Home Office-only pilot output. 200 rows, all marked unmatched because no local CQC, GIAS, or Charity Commission files were available. No JOBSAGE database writes were made."
+title = "Sponsor contacts pilot CSV"
+description = "200-company pilot with official-source match fields, evidence URLs, statuses, and match audit columns."
 logical_id = "563c2740-a183-4b94-8437-327d4dc5f1a1"
-content_hash = "sha256:cc23c24bfc388ee754d9bae8ff4c51a5fd4c1752fbac56da07c1110961901ee7"
-size = 33939
-mtime_ms = 1789372891240
-storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/563c2740-a183-4b94-8437-327d4dc5f1a1/e733deb9-ae23-4a55-b186-d5de074a7ba6"
-storage_version_token = "1789372934219966"
+content_hash = "sha256:9bdaeae79fd15467418422e0ddbb74f15dfce271cd96a34b40d0c9a361e3aefd"
+size = 36031
+mtime_ms = 1789373847780
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/563c2740-a183-4b94-8437-327d4dc5f1a1/09028f97-002b-43f0-866b-03857d70742f"
+storage_version_token = "1789373870946277"
 content_type = "text/csv"
+
+[[outputs]]
+id = "rGRyMDtSUcvqdoo11JR8t"
+uri = "file://scripts/data/sponsor_contacts_pilot_rejected.csv"
+type = "table"
+title = "Sponsor contacts rejected review CSV"
+description = "Rows not currently eligible for import, with explicit status and reason codes."
+logical_id = "2e1464c1-129b-41c4-9a23-6ef9a4299ad6"
+content_hash = "sha256:07f7d5b7bb6d5e0eca97577f36043a6f768e89ecbb95be5436d9503efade25f4"
+size = 21508
+mtime_ms = 1789373847780
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/2e1464c1-129b-41c4-9a23-6ef9a4299ad6/6086261f-9280-4b60-ae2e-48bf4511471e"
+storage_version_token = "1789373871568969"
+content_type = "text/csv"
+
+[[outputs]]
+id = "HhHi9q0GomgUWNLJOvHbb"
+uri = "file://scripts/data/sponsor_contacts_pilot_summary.json"
+type = "unspecified"
+title = "Sponsor contacts pilot summary"
+description = "Machine-readable status distribution, source contribution, warnings, and sample rows."
+logical_id = "9bfaf0cf-b246-4f11-8936-8df1de01b68e"
+content_hash = "sha256:4614b801049b83266079ce452e4942e3b7b8590b6a019cd6c7af11a83363c1be"
+size = 4721
+mtime_ms = 1789373847784
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/9bfaf0cf-b246-4f11-8936-8df1de01b68e/af6363c5-2adb-4117-8751-74efb54c0cd4"
+storage_version_token = "1789373872162967"
+content_type = "application/octet-stream"

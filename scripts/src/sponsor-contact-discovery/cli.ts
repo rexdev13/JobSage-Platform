@@ -1,4 +1,7 @@
+import { writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { runDiscovery, writeDiscoveryOutput } from "./discovery";
+import { writeCsvFile } from "./csv";
 
 function optionsFrom(args: string[]): Record<string, string | boolean> {
   const options: Record<string, string | boolean> = {};
@@ -36,6 +39,9 @@ Optional inputs:
   --cqc FILE         CQC CSV with organisation and website columns
   --gias FILE        GIAS CSV with establishment name, SchoolWebsite, and MainEmail
   --charity FILE     Charity Commission export with name, website, and email
+  --no-auto-fetch     Do not download missing official datasets
+  --cache-dir DIR     Official dataset cache directory (default data/cache)
+  --summary-json FILE Write a JSON pilot summary
   --delay-ms N       Minimum delay per employer host (default 1500)
 
 Review/import:
@@ -58,7 +64,7 @@ async function main(): Promise<void> {
   }
   if (command === "pilot" || command === "full") {
     const limit = command === "full" ? Number.MAX_SAFE_INTEGER : numberOption(options, "limit", 200);
-    const rows = await runDiscovery({
+    const result = await runDiscovery({
       inputPath: stringOption(options, "input") || undefined,
       cqcPath: stringOption(options, "cqc") || undefined,
       giasPath: stringOption(options, "gias") || undefined,
@@ -66,17 +72,37 @@ async function main(): Promise<void> {
       homeOfficeUrl: stringOption(options, "home-office-url") || undefined,
       limit,
       delayMs: numberOption(options, "delay-ms", 1_500),
+      cacheDir: stringOption(options, "cache-dir", "data/cache"),
+      noAutoFetch: options["no-auto-fetch"] === true,
     });
     const output = stringOption(options, "output", command === "pilot"
       ? "data/sponsor_contacts_pilot.csv"
       : "data/sponsor_contacts_full.csv");
-    await writeDiscoveryOutput(output, rows);
-    const counts = rows.reduce<Record<string, number>>((result, row) => {
-      result[row.status] = (result[row.status] ?? 0) + 1;
-      return result;
-    }, {});
-    console.log(`Wrote ${rows.length} rows to ${output}`);
-    console.log(counts);
+    await writeDiscoveryOutput(output, result.rows);
+    const rejectedOutput = join(
+      dirname(output),
+      `${output.slice(output.lastIndexOf("/") + 1).replace(/\.csv$/i, "")}_rejected.csv`,
+    );
+    await writeCsvFile(rejectedOutput, result.rejected, [
+      "organisation_name", "status", "reason_code", "reason",
+    ]);
+    for (const warning of result.warnings) {
+      console.warn(JSON.stringify({ type: "source_warning", message: warning }));
+    }
+    const summary = {
+      ...result.summary,
+      output,
+      rejectedOutput,
+      sourceUrls: result.sourceUrls,
+      warnings: result.warnings,
+    };
+    const summaryJson = stringOption(options, "summary-json");
+    if (summaryJson) {
+      await writeFile(summaryJson, `${JSON.stringify(summary, null, 2)}\n`, "utf8");
+    }
+    console.log(`Wrote ${result.rows.length} rows to ${output}`);
+    console.log(`Wrote ${result.rejected.length} rejected rows to ${rejectedOutput}`);
+    console.log(JSON.stringify(summary, null, 2));
     return;
   }
   if (command === "import") {

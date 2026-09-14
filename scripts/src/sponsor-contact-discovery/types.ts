@@ -11,6 +11,8 @@ export const OUTPUT_COLUMNS = [
   "contact_evidence_url",
   "confidence",
   "status",
+  "match_method",
+  "match_confidence",
   "found_at",
   "notes",
 ] as const;
@@ -38,6 +40,8 @@ export type DiscoveryRow = {
   contact_evidence_url: string;
   confidence: Confidence;
   status: DiscoveryStatus;
+  match_method: string;
+  match_confidence: Confidence;
   found_at: string;
   notes: string;
   [key: string]: string;

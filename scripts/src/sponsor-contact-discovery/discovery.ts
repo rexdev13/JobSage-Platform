@@ -1,7 +1,8 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { parseCsvObjects, readCsvFile, writeCsvFile } from "./csv";
+import { parseCsv, parseCsvObjects, readCsvFile, writeCsvFile } from "./csv";
 import { PublicSiteFetcher } from "./http";
+import { acquireOfficialSources } from "./officialSources";
 import type {
   DiscoveryRow,
   OfficialRecord,
@@ -30,7 +31,7 @@ function value(row: Record<string, string>, ...names: string[]): string {
   return found?.[1]?.trim() ?? "";
 }
 
-function normaliseName(valueToNormalise: string): string {
+export function normaliseName(valueToNormalise: string): string {
   return valueToNormalise.toLowerCase()
     .replace(/\b(the|limited|ltd|plc|llp|company|co)\b/g, " ")
     .replace(/[^a-z0-9]+/g, " ")
@@ -110,26 +111,92 @@ function inputFromRow(row: Record<string, string>): SponsorInput {
   };
 }
 
-async function officialRecordsFromFile(path: string, source: string): Promise<OfficialRecord[]> {
-  const rows = await readCsvFile(path);
+export async function officialRecordsFromFile(
+  path: string,
+  source: string,
+  defaultEvidenceUrl = "",
+): Promise<OfficialRecord[]> {
+  const rows = await readOfficialRows(path);
   return rows.map((row) => ({
-    organisationName: value(row, "organisation_name", "organisation name", "organisation", "establishmentname", "establishment name", "name"),
-    townCity: value(row, "town_city", "town/city", "town", "city", "town/city"),
-    website: normaliseWebsite(value(row, "website", "website_url", "schoolwebsite", "school website")),
+    organisationName: value(
+      row,
+      "organisation_name",
+      "organisation name",
+      "organisation",
+      "provider name",
+      "establishmentname",
+      "establishment name",
+      "name",
+    ),
+    townCity: value(row, "town_city", "town/city", "town", "city", "local authority"),
+    website: normaliseWebsite(value(
+      row,
+      "website",
+      "website_url",
+      "schoolwebsite",
+      "school website",
+      "service's website (if available)",
+    )),
     email: normaliseEmail(value(row, "contact_email", "contact email", "mainemail", "main email")),
     source,
     evidenceUrl: value(row, "website_evidence_url", "evidence_url", "source_url") ||
-      normaliseWebsite(value(row, "website", "website_url", "schoolwebsite", "school website")),
+      value(row, "location url", "locationurl", "school website") ||
+      normaliseWebsite(value(row, "website", "website_url", "schoolwebsite", "school website")) ||
+      defaultEvidenceUrl,
   })).filter((record) => record.organisationName);
 }
 
-function findOfficialMatch(input: SponsorInput, records: readonly OfficialRecord[]): OfficialRecord | null {
+async function readOfficialRows(path: string): Promise<Array<Record<string, string>>> {
+  const rows = parseCsv(await readFile(path, "utf8"));
+  const headerIndex = rows.findIndex((row) => {
+    const headers = new Set(row.map((cell) => cell.trim().toLowerCase()));
+    return headers.has("organisation_name") ||
+      headers.has("provider name") ||
+      headers.has("establishmentname") ||
+      headers.has("establishment name") ||
+      (headers.has("name") && (headers.has("website") || headers.has("service's website (if available)")));
+  });
+  if (headerIndex < 0) return [];
+  const headers = rows[headerIndex]!.map((header, index) =>
+    (index === 0 ? header.replace(/^\uFEFF/, "") : header).trim(),
+  );
+  return rows.slice(headerIndex + 1).map((values) =>
+    Object.fromEntries(headers.map((header, index) => [header, values[index]?.trim() ?? ""])),
+  );
+}
+
+type OfficialMatch = {
+  record: OfficialRecord;
+  method: "exact_name" | "exact_name_town" | "fuzzy_name_town";
+  confidence: "high" | "medium";
+};
+
+function tokenSimilarity(left: string, right: string): number {
+  const a = new Set(left.split(" ").filter(Boolean));
+  const b = new Set(right.split(" ").filter(Boolean));
+  const intersection = [...a].filter((token) => b.has(token)).length;
+  return intersection / Math.max(a.size, b.size, 1);
+}
+
+function findOfficialMatch(input: SponsorInput, records: readonly OfficialRecord[]): OfficialMatch | null {
   const name = normaliseName(input.organisationName);
   const exact = records.filter((record) => normaliseName(record.organisationName) === name);
-  if (exact.length === 1) return exact[0]!;
+  if (exact.length === 1) {
+    return { record: exact[0]!, method: "exact_name", confidence: "high" };
+  }
   const town = normaliseTown(input.townCity);
   const townMatches = exact.filter((record) => town && normaliseTown(record.townCity) === town);
-  return townMatches.length === 1 ? townMatches[0]! : null;
+  if (townMatches.length === 1) {
+    return { record: townMatches[0]!, method: "exact_name_town", confidence: "high" };
+  }
+  if (!town) return null;
+  const fuzzy = records
+    .filter((record) => normaliseTown(record.townCity) === town)
+    .map((record) => ({ record, score: tokenSimilarity(name, normaliseName(record.organisationName)) }))
+    .filter((candidate) => candidate.score >= 0.88)
+    .sort((a, b) => b.score - a.score);
+  if (fuzzy.length === 0 || (fuzzy[1] && fuzzy[0]!.score - fuzzy[1].score < 0.05)) return null;
+  return { record: fuzzy[0]!.record, method: "fuzzy_name_town", confidence: "medium" };
 }
 
 function category(input: SponsorInput): "social-care" | "education" | "nhs-public" | "other" {
@@ -232,19 +299,35 @@ export async function runDiscovery(options: {
   homeOfficeUrl?: string;
   limit: number;
   delayMs: number;
-}): Promise<DiscoveryRow[]> {
+  cacheDir: string;
+  noAutoFetch: boolean;
+}): Promise<{
+  rows: DiscoveryRow[];
+  rejected: Array<Record<string, string>>;
+  warnings: string[];
+  sourceUrls: Record<string, string>;
+  summary: Record<string, unknown>;
+}> {
+  const sources = await acquireOfficialSources({
+    cacheDir: options.cacheDir,
+    cqcPath: options.cqcPath,
+    giasPath: options.giasPath,
+    charityPath: options.charityPath,
+    noAutoFetch: options.noAutoFetch,
+  });
   const inputs = choosePilot(
     await loadSponsorInputs(options.inputPath, options.homeOfficeUrl),
     options.limit,
   );
   const official = [
-    ...(options.cqcPath ? await officialRecordsFromFile(options.cqcPath, "cqc") : []),
-    ...(options.giasPath ? await officialRecordsFromFile(options.giasPath, "gias") : []),
-    ...(options.charityPath ? await officialRecordsFromFile(options.charityPath, "charity_commission") : []),
+    ...(sources.cqcPath ? await officialRecordsFromFile(sources.cqcPath, "cqc", sources.sourceUrls.cqc) : []),
+    ...(sources.giasPath ? await officialRecordsFromFile(sources.giasPath, "gias", sources.sourceUrls.gias) : []),
+    ...(sources.charityPath ? await officialRecordsFromFile(sources.charityPath, "charity_commission", sources.sourceUrls.charity) : []),
   ];
   const fetcher = new PublicSiteFetcher(options.delayMs);
   const foundAt = new Date().toISOString();
   const output: DiscoveryRow[] = [];
+  const rejected: Array<Record<string, string>> = [];
 
   for (const input of inputs) {
     const base: DiscoveryRow = {
@@ -260,6 +343,8 @@ export async function runDiscovery(options: {
       contact_evidence_url: "",
       confidence: "",
       status: "no_website",
+      match_method: "",
+      match_confidence: "",
       found_at: foundAt,
       notes: "",
     };
@@ -279,24 +364,32 @@ export async function runDiscovery(options: {
         base.website_source = "bing";
         base.website_evidence_url = searched.evidenceUrl;
         match = {
-          organisationName: input.organisationName,
-          townCity: input.townCity,
-          website: searched.website,
-          email: "",
-          source: "bing",
-          evidenceUrl: searched.evidenceUrl,
+          record: {
+            organisationName: input.organisationName,
+            townCity: input.townCity,
+            website: searched.website,
+            email: "",
+            source: "bing",
+            evidenceUrl: searched.evidenceUrl,
+          },
+          method: "exact_name",
+          confidence: "high",
         };
       }
     }
-    if (!base.website && match?.website) {
-      base.website = match.website;
-      base.website_source = match.source;
-      base.website_evidence_url = match.evidenceUrl;
+    if (match) {
+      base.match_method = match.method;
+      base.match_confidence = match.confidence;
     }
-    if (match?.email && (match.evidenceUrl || base.website_evidence_url)) {
-      base.contact_email = normaliseEmail(match.email, base.website);
-      base.contact_source = match.source;
-      base.contact_evidence_url = match.evidenceUrl || base.website_evidence_url;
+    if (!base.website && match?.record.website) {
+      base.website = match.record.website;
+      base.website_source = match.record.source;
+      base.website_evidence_url = match.record.evidenceUrl;
+    }
+    if (match?.record.email && (match.record.evidenceUrl || base.website_evidence_url)) {
+      base.contact_email = normaliseEmail(match.record.email, base.website);
+      base.contact_source = match.record.source;
+      base.contact_evidence_url = match.record.evidenceUrl || base.website_evidence_url;
     }
     if (!base.website) {
       base.status = match ? "no_website" : "unmatched";
@@ -304,6 +397,12 @@ export async function runDiscovery(options: {
       base.notes = match
         ? "Official record matched, but no corroborated website was published."
         : "No unambiguous official-register match; no website guessed.";
+      rejected.push({
+        organisation_name: base.organisation_name,
+        status: base.status,
+        reason_code: match ? "no_website" : "unmatched",
+        reason: base.notes,
+      });
       output.push(base);
       continue;
     }
@@ -330,9 +429,42 @@ export async function runDiscovery(options: {
       base.status = "verified_email";
       base.notes ||= "Accepted email from an official register source.";
     }
+    if (base.status !== "verified_email") {
+      rejected.push({
+        organisation_name: base.organisation_name,
+        status: base.status,
+        reason_code: base.status,
+        reason: base.notes,
+      });
+    }
     output.push(base);
   }
-  return output;
+  const statusCounts = output.reduce<Record<string, number>>((counts, row) => {
+    counts[row.status] = (counts[row.status] ?? 0) + 1;
+    return counts;
+  }, {});
+  const sourceCounts = output.reduce<Record<string, number>>((counts, row) => {
+    const source = row.contact_source || row.website_source || "none";
+    counts[source] = (counts[source] ?? 0) + 1;
+    return counts;
+  }, {});
+  return {
+    rows: output,
+    rejected,
+    warnings: sources.warnings,
+    sourceUrls: sources.sourceUrls,
+    summary: {
+      totalRows: output.length,
+      matchedWebsites: output.filter((row) => row.website).length,
+      verifiedEmail: output.filter((row) => row.status === "verified_email").length,
+      unmatched: output.filter((row) => row.status === "unmatched").length,
+      websiteNoEmail: output.filter((row) => row.status === "website_no_email").length,
+      statusCounts,
+      sourceCounts,
+      sampleGood: output.filter((row) => row.status === "verified_email").slice(0, 3),
+      sampleProblematic: output.filter((row) => row.status !== "verified_email").slice(0, 3),
+    },
+  };
 }
 
 export async function writeDiscoveryOutput(path: string, rows: readonly DiscoveryRow[]): Promise<void> {
@@ -340,6 +472,6 @@ export async function writeDiscoveryOutput(path: string, rows: readonly Discover
   await writeCsvFile(path, rows, [
     "organisation_name", "town_city", "county", "industry", "website", "website_source",
     "website_evidence_url", "contact_email", "contact_source", "contact_evidence_url",
-    "confidence", "status", "found_at", "notes",
+    "confidence", "status", "match_method", "match_confidence", "found_at", "notes",
   ]);
 }
