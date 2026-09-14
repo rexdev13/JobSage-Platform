@@ -66,6 +66,9 @@ export const socialLeadsTable = pgTable(
     marketingUserId: varchar("marketing_user_id").references(() => usersTable.id, { onDelete: "set null" }),
     claimedAt: timestamp("claimed_at", { withTimezone: true }),
     contactedAt: timestamp("contacted_at", { withTimezone: true }),
+    waitlistConfirmationSentAt: timestamp("waitlist_confirmation_sent_at", { withTimezone: true }),
+    waitlistConfirmationProviderId: text("waitlist_confirmation_provider_id"),
+    waitlistConfirmationLastError: text("waitlist_confirmation_last_error"),
 
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

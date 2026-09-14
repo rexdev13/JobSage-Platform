@@ -8,6 +8,100 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = process.env.EMAIL_FROM ?? "noreply@jobsage.co.uk";
 const APP_URL = process.env.APP_URL ?? "https://jobsage.co.uk";
 
+export async function sendWaitlistWelcomeEmail(opts: {
+  to: string;
+  firstName: string;
+  industrySector?: string | null;
+  desiredRole?: string | null;
+}): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  const safeFirstName = escapeEmailHtml(opts.firstName);
+  const safeIndustrySector = opts.industrySector
+    ? escapeEmailHtml(opts.industrySector)
+    : null;
+  const registerUrl = escapeHtmlAttribute(
+    `${APP_URL}/register?email=${encodeURIComponent(opts.to)}`,
+  );
+
+  try {
+    const result = await resend.emails.send({
+      from: `JOBSAGE <${FROM}>`,
+      to: opts.to,
+      subject: "Welcome to JOBSAGE — We've received your details!",
+      html: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Welcome to JOBSAGE</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f7fb;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#f4f7fb;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="background:#0f172a;padding:28px 40px;text-align:center;">
+              <span style="color:#ffffff;font-size:22px;font-weight:800;letter-spacing:-0.5px;">JOBSAGE</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:40px 40px 28px;">
+              <h1 style="color:#0f172a;font-size:22px;font-weight:700;margin:0 0 18px;">Hi ${safeFirstName},</h1>
+              <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 18px;">
+                Thank you for joining the JOBSAGE waitlist! We have received your details${safeIndustrySector ? ` and interest in ${safeIndustrySector} opportunities` : ""}.
+              </p>
+              <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 18px;">
+                Our advisory team reviews each profile to identify suitable UK sponsorship pathways and relevant vacancies. A dedicated team member will reach out to you shortly to guide you on next steps.
+              </p>
+              <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 26px;">
+                In the meantime, you can create your free account to track your progress and browse licensed sponsor employers.
+              </p>
+              <table cellpadding="0" cellspacing="0" role="presentation" style="margin:0 auto 28px;">
+                <tr>
+                  <td style="background:#0f172a;border-radius:8px;padding:14px 30px;text-align:center;">
+                    <a href="${registerUrl}" style="color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;display:inline-block;">Create Free Account</a>
+                  </td>
+                </tr>
+              </table>
+              <p style="color:#475569;font-size:15px;line-height:1.7;margin:0;">
+                Best regards,<br />The JOBSAGE Team
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#f8fafc;padding:20px 40px;border-top:1px solid #e2e8f0;text-align:center;">
+              <p style="color:#94a3b8;font-size:12px;margin:0;">
+                &copy; ${new Date().getFullYear()} JOBSAGE. Decision intelligence for regulated professionals.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`,
+    });
+
+    if (result.error) {
+      return {
+        success: false,
+        error: result.error.message || "Email provider rejected the waitlist confirmation.",
+      };
+    }
+
+    return {
+      success: true,
+      ...(result.data?.id ? { messageId: result.data.id } : {}),
+    };
+  } catch (error: unknown) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to send waitlist confirmation.",
+    };
+  }
+}
+
 function verificationEmailHtml(verifyUrl: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
