@@ -1,0 +1,110 @@
+```text
+Next step only: stratified 200-company pilot + Charity input. Do not rebuild. Do not change matching logic unless a clear bug blocks this run. No `--apply`.
+
+## Context
+v3 proved CQC + GIAS work, but the current pilot sample is alphabetically skewed and Charity contributed 0 because no key/file was used. We need a fairer sample and Charity coverage.
+
+## Goal
+Produce `sponsor_contacts_pilot_v4.csv` from a stratified 200-row sample with Charity included.
+
+Targets for this run (best effort):
+- Charity contribution > 0
+- Education/GIAS contribution > 0
+- Care/CQC contribution remains
+- Clear per-sector metrics
+- Still no invented emails
+
+## Step 1 — Prepare Charity input
+Do one of these, in order of preference:
+
+1. If `CHARITY_COMMISSION_API_KEY` is available in Secrets, use the API path.
+2. Else create/download a local Charity file at:
+
+```text
+data/cache/charity.csv
+```
+
+Minimum columns:
+
+```text
+organisation_name,website,contact_email,evidence_url
+```
+
+Aliases already supported (`charity_name`, `name`, `email`) are fine.
+If you cannot obtain Charity data, stop and tell me exactly what is missing. Do not fake it.
+
+## Step 2 — Stratified sample of 200
+Do NOT take the first 200 alphabetical Home Office rows.
+
+Build a stratified sample:
+- 50 Social Care / Healthcare-like
+- 50 Education-like
+- 50 likely Charity / voluntary / trust / foundation names
+- 50 Other
+
+Use existing industry/name heuristics already in the repo if present. Keep it deterministic and logged.
+Write the sample list to:
+
+```text
+data/sponsor_contacts_pilot_v4_sample.csv
+```
+
+## Step 3 — Run pilot v4
+Run with Charity included (and GIAS/CQC auto-fetch/cache as already implemented):
+
+```bash
+pnpm --filter @workspace/scripts sponsor-contacts pilot \
+  --limit 200 \
+  --charity data/cache/charity.csv \
+  --output data/sponsor_contacts_pilot_v4.csv \
+  --summary-json data/sponsor_contacts_pilot_v4_summary.json
+```
+
+If the CLI needs the stratified sample via `--input`, use:
+
+```bash
+--input data/sponsor_contacts_pilot_v4_sample.csv
+```
+
+Use whichever flag the existing CLI already supports. Do not invent unsupported flags.
+
+## Step 4 — Sector report
+From v4 output, report:
+
+| Sector bucket | rows | unmatched | websites | verified emails | sources used |
+|---|---:|---:|---:|---:|---|
+
+Also overall:
+- unmatched rate
+- websites by source: CQC / GIAS / Charity / website
+- verified emails count
+- remaining warnings
+
+Include 10 example matched rows across care/education/charity if available.
+
+## Step 5 — Review helpers (no auto-approve everything)
+Add/ensure `review_status` column exists.
+Auto-mark only clearly bad rows as `rejected` (free-mail, blocked domain, missing evidence).
+Leave good candidates blank for human approval.
+Do NOT set all rows to `approved`.
+
+## Step 6 — Dry-run import only
+```bash
+pnpm --filter @workspace/scripts sponsor-contacts import \
+  --input data/sponsor_contacts_pilot_v4.csv \
+  --require-review
+```
+
+No `--apply`.
+
+## Final response format
+1. How Charity data was obtained
+2. How stratification was done
+3. v3 vs v4 metrics table
+4. Per-sector breakdown
+5. 10 example matched rows
+6. Exact files to download
+7. What I should manually approve next
+
+Start now.
+```
