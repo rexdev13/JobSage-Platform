@@ -1,5 +1,4 @@
 import { runDiscovery, writeDiscoveryOutput } from "./discovery";
-import { importReviewCsv } from "./importer";
 
 function optionsFrom(args: string[]): Record<string, string | boolean> {
   const options: Record<string, string | boolean> = {};
@@ -49,7 +48,9 @@ Only verified_email rows are imported by default, and existing JOBSAGE website/c
 }
 
 async function main(): Promise<void> {
-  const [command = "help", ...args] = process.argv.slice(2);
+  const argv = process.argv.slice(2);
+  if (argv[0] === "--") argv.shift();
+  const [command = "help", ...args] = argv;
   const options = optionsFrom(args);
   if (command === "help" || options.help) {
     help();
@@ -79,6 +80,7 @@ async function main(): Promise<void> {
     return;
   }
   if (command === "import") {
+    const { importReviewCsv } = await import("./importer");
     const input = stringOption(options, "input");
     if (!input) throw new Error("import requires --input FILE");
     const summary = await importReviewCsv(input, {
