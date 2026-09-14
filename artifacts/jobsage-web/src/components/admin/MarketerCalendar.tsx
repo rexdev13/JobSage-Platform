@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   addMonths,
@@ -65,6 +65,18 @@ export type CalendarMarketer = {
 
 type CalendarView = "month" | "week" | "agenda" | "calendly";
 type EventStatus = "scheduled" | "completed" | "cancelled" | "rescheduled" | "no_show";
+type CalendlySyncStatus = {
+  lastSyncedAt: string | null;
+  importedEvents: number;
+};
+type CalendlySyncSummary = {
+  imported: number;
+  updated: number;
+  skippedUnmappedHost: number;
+  scanned: number;
+  scope: "organization" | "user";
+  alreadyRunning?: boolean;
+};
 
 type CalendarEvent = {
   id: number;
@@ -173,6 +185,8 @@ export function MarketerCalendar({
   const [eventNotes, setEventNotes] = useState("");
   const [eventStatus, setEventStatus] = useState<EventStatus>("scheduled");
   const [message, setMessage] = useState<string | null>(null);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const autoSyncStarted = useRef(false);
 
   const range = useMemo(() => {
     if (view === "week") {
@@ -205,6 +219,57 @@ export function MarketerCalendar({
     staleTime: 15_000,
   });
   const events = eventQuery.data?.events ?? [];
+
+  const calendlyStatusQuery = useQuery<CalendlySyncStatus>({
+    queryKey: ["marketer-calendly-sync-status", selectedMarketerId || (isAdmin ? "all" : currentUserId)],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (isAdmin && selectedMarketerId) params.set("marketingUserId", selectedMarketerId);
+      return readJson<CalendlySyncStatus>(
+        await fetch(`${BASE}/api/marketer/calendar/calendly/status?${params}`, { credentials: "include" }),
+      );
+    },
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+
+  const syncMutation = useMutation({
+    mutationFn: async () => readJson<{
+      summary: CalendlySyncSummary;
+      status: CalendlySyncStatus;
+    }>(
+      await fetch(`${BASE}/api/marketer/calendar/calendly/sync`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          marketingUserId: isAdmin && selectedMarketerId ? selectedMarketerId : undefined,
+        }),
+      }),
+    ),
+    onSuccess: async ({ summary }) => {
+      if (summary.alreadyRunning) {
+        setSyncMessage("A Calendly synchronization is already running.");
+        return;
+      }
+      const imported = summary.imported > 0 ? `${summary.imported} new` : "no new";
+      const unmapped = summary.skippedUnmappedHost > 0
+        ? ` ${summary.skippedUnmappedHost} could not be assigned because the Calendly host email or link does not match a JOBSAGE marketer.`
+        : "";
+      setSyncMessage(`Calendly synchronized: ${imported} event${summary.imported === 1 ? "" : "s"}.${unmapped}`);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["marketer-calendar-events"] }),
+        queryClient.invalidateQueries({ queryKey: ["marketer-calendly-sync-status"] }),
+      ]);
+    },
+    onError: (error: Error) => setSyncMessage(error.message),
+  });
+
+  useEffect(() => {
+    if (!isAdmin || autoSyncStarted.current) return;
+    autoSyncStarted.current = true;
+    syncMutation.mutate();
+  }, [isAdmin, syncMutation]);
 
   const selectedCalendarUrl = selectedMarketerId
     ? assignees.find((assignee) => assignee.id === selectedMarketerId)?.calendlyUrl ?? null
@@ -346,11 +411,18 @@ export function MarketerCalendar({
 
     setMessage(null);
     updateMutation.mutate({
-      title,
-      scheduledAt: scheduledAt.toISOString(),
-      endTime: endTime.toISOString(),
-      meetingUrl: eventMeetingUrl.trim(),
-      status: eventStatus,
+      ...(selectedEvent?.source === "calendly" ? {} : {
+        title,
+        scheduledAt: scheduledAt.toISOString(),
+        endTime: endTime.toISOString(),
+        meetingUrl: eventMeetingUrl.trim(),
+      }),
+      ...(
+        selectedEvent?.source !== "calendly"
+        || (selectedEvent.status !== "cancelled" && selectedEvent.status !== "rescheduled")
+          ? { status: eventStatus }
+          : {}
+      ),
       notes: eventNotes,
     });
   }
@@ -387,11 +459,41 @@ export function MarketerCalendar({
               {assignees.map((assignee) => <option key={assignee.id} value={assignee.id}>{assignee.name || assignee.email}</option>)}
             </select>
           )}
+          {isAdmin && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              disabled={syncMutation.isPending}
+              onClick={() => {
+                setSyncMessage(null);
+                syncMutation.mutate();
+              }}
+            >
+              <RefreshCw className={`h-4 w-4 ${syncMutation.isPending ? "animate-spin" : ""}`} />
+              {syncMutation.isPending ? "Syncing…" : "Sync Calendly"}
+            </Button>
+          )}
           <Button size="sm" onClick={() => openSchedule()} className="gap-1.5">
             <Plus className="h-4 w-4" /> Schedule New Call
           </Button>
         </div>
       </div>
+
+      <div className="flex flex-col gap-1 rounded-lg border border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+        <span>
+          {calendlyStatusQuery.data?.lastSyncedAt
+            ? `Last Calendly sync ${format(new Date(calendlyStatusQuery.data.lastSyncedAt), "d MMM yyyy, h:mm a")} · ${calendlyStatusQuery.data.importedEvents} synced event${calendlyStatusQuery.data.importedEvents === 1 ? "" : "s"}`
+            : "Calendly has not imported any events for this calendar yet."}
+        </span>
+        <span>Automatic sync runs every 10 minutes.</span>
+      </div>
+      {syncMessage && (
+        <p className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground" role="status">
+          {syncMessage}
+        </p>
+      )}
 
       <div className="flex flex-col gap-3 border-b border-border pb-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex gap-1 overflow-x-auto rounded-lg bg-muted p-1">
@@ -534,6 +636,7 @@ export function MarketerCalendar({
                     <input
                       value={eventTitle}
                       onChange={(event) => setEventTitle(event.target.value)}
+                      disabled={selectedEvent.source === "calendly"}
                       className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
                     />
                   </label>
@@ -544,6 +647,7 @@ export function MarketerCalendar({
                         type="datetime-local"
                         value={eventScheduledAt}
                         onChange={(event) => setEventScheduledAt(event.target.value)}
+                        disabled={selectedEvent.source === "calendly"}
                         className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
                       />
                     </label>
@@ -553,6 +657,7 @@ export function MarketerCalendar({
                         type="datetime-local"
                         value={eventEndTime}
                         onChange={(event) => setEventEndTime(event.target.value)}
+                        disabled={selectedEvent.source === "calendly"}
                         className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
                       />
                     </label>
@@ -563,14 +668,30 @@ export function MarketerCalendar({
                       type="url"
                       value={eventMeetingUrl}
                       onChange={(event) => setEventMeetingUrl(event.target.value)}
+                      disabled={selectedEvent.source === "calendly"}
                       placeholder="Calendly, Google Meet, or Zoom link"
                       className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
                     />
                   </label>
+                  {selectedEvent.source === "calendly" && (
+                    <p className="rounded-lg bg-blue-50 px-3 py-2 text-[11px] text-blue-700 dark:bg-blue-950/30 dark:text-blue-300">
+                      This booking is managed by Calendly. Change its time, meeting link, or cancellation in Calendly; JOBSAGE will import the update automatically. Call outcome and notes remain editable here.
+                    </p>
+                  )}
                 </div>
                 <label className="grid gap-1.5 text-xs font-medium">Call outcome
-                  <select value={eventStatus} onChange={(event) => setEventStatus(event.target.value as EventStatus)} className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal">
-                    {(Object.keys(STATUS_LABELS) as EventStatus[]).map((status) => <option key={status} value={status}>{STATUS_LABELS[status]}</option>)}
+                  <select
+                    value={eventStatus}
+                    onChange={(event) => setEventStatus(event.target.value as EventStatus)}
+                    disabled={selectedEvent.source === "calendly" && (selectedEvent.status === "cancelled" || selectedEvent.status === "rescheduled")}
+                    className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
+                  >
+                    {(selectedEvent.source === "calendly"
+                      ? (selectedEvent.status === "cancelled" || selectedEvent.status === "rescheduled"
+                          ? [selectedEvent.status]
+                          : ["scheduled", "completed", "no_show"] as EventStatus[])
+                      : Object.keys(STATUS_LABELS) as EventStatus[]
+                    ).map((status) => <option key={status} value={status}>{STATUS_LABELS[status]}</option>)}
                   </select>
                 </label>
                 <label className="grid gap-1.5 text-xs font-medium">Notes<textarea value={eventNotes} onChange={(event) => setEventNotes(event.target.value)} rows={4} placeholder="What was discussed?" className="rounded-lg border border-input bg-background px-3 py-2 text-sm font-normal" /></label>
@@ -581,7 +702,11 @@ export function MarketerCalendar({
               </div>
               {message && <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">{message}</p>}
               <DialogFooter className="gap-2 sm:justify-between">
-                <Button variant="outline" className="text-rose-600 hover:text-rose-700" onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending}>Delete event</Button>
+                {selectedEvent.source === "manual" ? (
+                  <Button variant="outline" className="text-rose-600 hover:text-rose-700" onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending}>Delete event</Button>
+                ) : (
+                  <span className="self-center text-xs text-muted-foreground">Synced from Calendly</span>
+                )}
                 <Button onClick={saveEventChanges} disabled={updateMutation.isPending}>
                   {updateMutation.isPending ? "Saving…" : "Save changes"}
                 </Button>

@@ -17,6 +17,7 @@ import { startContactBackfill } from "./lib/contactBackfillRunner";
 import { runStartupSchemaDriftCheck } from "./lib/schemaDriftCheck";
 import { bootstrapSuperAdmins } from "./lib/bootstrapSuperAdmins";
 import { runVacancyPipelineCatchupsIfStale } from "./lib/vacancyPipelineCatchup";
+import { startCalendlySyncScheduler } from "./lib/calendlySyncScheduler";
 import { db, sponsorLicenceSyncLogTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 
@@ -76,6 +77,7 @@ const server = app.listen(port, () => {
   startDailyVacancySyncScheduler();
   startSponsorVacancyCleanupScheduler();
   startApplyUrlBackfillScheduler();
+  startCalendlySyncScheduler();
   if (process.env.NODE_ENV === "production") {
     console.log("[vacancy-scheduling] External HTTP cron owns short job_board, company_site, and liveness batches");
   } else {
