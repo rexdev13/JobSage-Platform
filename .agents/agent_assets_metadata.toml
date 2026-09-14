@@ -138,3 +138,17 @@ mtime_ms = 1788806066231
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/da1640da-641a-4f55-ad79-aae6a0a3ff92/4bf6091f-9a42-44fb-9d8c-3f6393f4a94d"
 storage_version_token = "1788806082036730"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "7w4tQwKrnaezbI9eIhtZF"
+uri = "file://scripts/data/sponsor_contacts_pilot.csv"
+type = "table"
+title = "Sponsor contacts 200-company pilot CSV"
+description = "Home Office-only pilot output. 200 rows, all marked unmatched because no local CQC, GIAS, or Charity Commission files were available. No JOBSAGE database writes were made."
+logical_id = "563c2740-a183-4b94-8437-327d4dc5f1a1"
+content_hash = "sha256:cc23c24bfc388ee754d9bae8ff4c51a5fd4c1752fbac56da07c1110961901ee7"
+size = 33939
+mtime_ms = 1789372891240
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/563c2740-a183-4b94-8437-327d4dc5f1a1/e733deb9-ae23-4a55-b186-d5de074a7ba6"
+storage_version_token = "1789372934219966"
+content_type = "text/csv"
