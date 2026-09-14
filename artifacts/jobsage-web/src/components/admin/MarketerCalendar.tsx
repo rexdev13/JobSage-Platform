@@ -166,6 +166,10 @@ export function MarketerCalendar({
   const [scheduleEnd, setScheduleEnd] = useState("");
   const [scheduleUrl, setScheduleUrl] = useState("");
   const [scheduleNotes, setScheduleNotes] = useState("");
+  const [eventTitle, setEventTitle] = useState("");
+  const [eventScheduledAt, setEventScheduledAt] = useState("");
+  const [eventEndTime, setEventEndTime] = useState("");
+  const [eventMeetingUrl, setEventMeetingUrl] = useState("");
   const [eventNotes, setEventNotes] = useState("");
   const [eventStatus, setEventStatus] = useState<EventStatus>("scheduled");
   const [message, setMessage] = useState<string | null>(null);
@@ -253,7 +257,14 @@ export function MarketerCalendar({
   });
 
   const updateMutation = useMutation({
-    mutationFn: async (update: { status?: EventStatus; notes?: string; meetingUrl?: string }) => {
+    mutationFn: async (update: {
+      title?: string;
+      scheduledAt?: string;
+      endTime?: string;
+      status?: EventStatus;
+      notes?: string;
+      meetingUrl?: string;
+    }) => {
       if (!selectedEvent) throw new Error("No event selected.");
       return readJson<{ event: CalendarEvent }>(
         await fetch(`${BASE}/api/marketer/calendar/events/${selectedEvent.id}`, {
@@ -301,9 +312,47 @@ export function MarketerCalendar({
 
   function openEvent(event: CalendarEvent) {
     setSelectedEvent(event);
+    setEventTitle(event.title);
+    setEventScheduledAt(inputDateValue(new Date(event.scheduledAt)));
+    setEventEndTime(inputDateValue(new Date(event.endTime)));
+    setEventMeetingUrl(event.meetingUrl ?? "");
     setEventStatus(event.status);
     setEventNotes(event.notes ?? "");
     setMessage(null);
+  }
+
+  function saveEventChanges() {
+    const title = eventTitle.trim();
+    const scheduledAt = new Date(eventScheduledAt);
+    const endTime = new Date(eventEndTime);
+
+    if (!title) {
+      setMessage("Enter an event title.");
+      return;
+    }
+    if (
+      !eventScheduledAt ||
+      !eventEndTime ||
+      Number.isNaN(scheduledAt.getTime()) ||
+      Number.isNaN(endTime.getTime())
+    ) {
+      setMessage("Enter valid start and end times.");
+      return;
+    }
+    if (endTime <= scheduledAt) {
+      setMessage("The end time must be after the start time.");
+      return;
+    }
+
+    setMessage(null);
+    updateMutation.mutate({
+      title,
+      scheduledAt: scheduledAt.toISOString(),
+      endTime: endTime.toISOString(),
+      meetingUrl: eventMeetingUrl.trim(),
+      status: eventStatus,
+      notes: eventNotes,
+    });
   }
 
   function moveCursor(direction: number) {
@@ -473,6 +522,52 @@ export function MarketerCalendar({
                     {selectedEvent.lead?.industrySector && <span className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5" />{selectedEvent.lead.industrySector}</span>}
                   </div>
                 </div>
+                <div className="space-y-3 rounded-xl border border-border p-3">
+                  <div>
+                    <p className="text-xs font-semibold text-foreground">Edit schedule</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      Change the call details, date, time, or meeting link.
+                    </p>
+                  </div>
+                  <label className="grid gap-1.5 text-xs font-medium">
+                    Title
+                    <input
+                      value={eventTitle}
+                      onChange={(event) => setEventTitle(event.target.value)}
+                      className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
+                    />
+                  </label>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="grid gap-1.5 text-xs font-medium">
+                      Start
+                      <input
+                        type="datetime-local"
+                        value={eventScheduledAt}
+                        onChange={(event) => setEventScheduledAt(event.target.value)}
+                        className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
+                      />
+                    </label>
+                    <label className="grid gap-1.5 text-xs font-medium">
+                      End
+                      <input
+                        type="datetime-local"
+                        value={eventEndTime}
+                        onChange={(event) => setEventEndTime(event.target.value)}
+                        className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
+                      />
+                    </label>
+                  </div>
+                  <label className="grid gap-1.5 text-xs font-medium">
+                    Meeting link
+                    <input
+                      type="url"
+                      value={eventMeetingUrl}
+                      onChange={(event) => setEventMeetingUrl(event.target.value)}
+                      placeholder="Calendly, Google Meet, or Zoom link"
+                      className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
+                    />
+                  </label>
+                </div>
                 <label className="grid gap-1.5 text-xs font-medium">Call outcome
                   <select value={eventStatus} onChange={(event) => setEventStatus(event.target.value as EventStatus)} className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal">
                     {(Object.keys(STATUS_LABELS) as EventStatus[]).map((status) => <option key={status} value={status}>{STATUS_LABELS[status]}</option>)}
@@ -487,7 +582,9 @@ export function MarketerCalendar({
               {message && <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">{message}</p>}
               <DialogFooter className="gap-2 sm:justify-between">
                 <Button variant="outline" className="text-rose-600 hover:text-rose-700" onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending}>Delete event</Button>
-                <Button onClick={() => updateMutation.mutate({ status: eventStatus, notes: eventNotes })} disabled={updateMutation.isPending}>{updateMutation.isPending ? "Saving…" : "Save outcome"}</Button>
+                <Button onClick={saveEventChanges} disabled={updateMutation.isPending}>
+                  {updateMutation.isPending ? "Saving…" : "Save changes"}
+                </Button>
               </DialogFooter>
             </>
           )}
