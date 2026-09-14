@@ -47,3 +47,4 @@
 - [OpenAPI path parameters](openapi-path-parameters.md) — generated clients require path parameters in the OpenAPI path key itself, such as `/resource/{id}`, not only in the operation parameter list.
 - [Deployment pnpm CI mode](deployment-pnpm-ci.md) — publishing installs without a TTY, so project-level `ci=true` must be available before artifact builds.
 - [Calendly connector runtime](calendly-connector-runtime.md) — a healthy Calendly OAuth connection can still return a runtime 404; after one reauth retry, repair attachment or use a secure PAT fallback.
+- [Official sponsor source adapters](official-sponsor-source-adapters.md) — CQC and GIAS public downloads have source-specific metadata/async flows; cache them and warn explicitly when unavailable.

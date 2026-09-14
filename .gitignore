@@ -50,4 +50,8 @@ Thumbs.db
 
 # Review-first sponsor contact discovery outputs
 /data/sponsor_contacts_*.csv
+/data/sponsor_contacts_*.json
+/data/cache/
 /scripts/data/sponsor_contacts_*.csv
+/scripts/data/sponsor_contacts_*.json
+/scripts/data/cache/
