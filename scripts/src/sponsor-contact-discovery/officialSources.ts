@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -82,6 +82,21 @@ function hiddenInputs(html: string): Record<string, string> {
 }
 
 async function discoverGias(cacheDir: string): Promise<SourceDownload> {
+  try {
+    const cached = (await readdir(cacheDir))
+      .filter((name) => /^gias-establishments-\d{4}-\d{2}-\d{2}\.csv$/.test(name))
+      .sort()
+      .reverse();
+    for (const name of cached) {
+      const path = join(cacheDir, name);
+      const sample = (await readFile(path)).subarray(0, 512).toString("utf8");
+      if (!/<html|<!doctype/i.test(sample) && /establishment|urn|school/i.test(sample)) {
+        return { path, sourceUrl: GIAS_DOWNLOADS_PAGE };
+      }
+    }
+  } catch {
+    // Cache directory may not exist yet.
+  }
   const pageResponse = await fetch(GIAS_DOWNLOADS_PAGE, {
     headers: { "User-Agent": "JOBSAGE sponsor contact discovery/1.0", Accept: "text/html" },
     signal: AbortSignal.timeout(30_000),
@@ -127,8 +142,8 @@ async function discoverGias(cacheDir: string): Promise<SourceDownload> {
     const generatedIndex = finalUrl.toLowerCase().indexOf("/generated/");
     const generatedId = finalUrl.slice(generatedIndex + "/generated/".length).split("?")[0];
     const pollingUrl = new URL(`/Downloads/GenerateAjax/${generatedId}`, GIAS_DOWNLOADS_PAGE);
-    let downloadUrl = "";
-    for (let attempt = 0; attempt < 90; attempt += 1) {
+    let completed = false;
+    for (let attempt = 0; attempt < 150; attempt += 1) {
       const poll = await fetch(pollingUrl, {
         headers: {
           "User-Agent": "JOBSAGE sponsor contact discovery/1.0",
@@ -176,23 +191,12 @@ async function discoverGias(cacheDir: string): Promise<SourceDownload> {
         body = Buffer.from(await extracted.arrayBuffer());
         finalUrl = extracted.url;
         contentType = extracted.headers.get("content-type") ?? "";
+        completed = true;
         break;
       }
       await new Promise((resolve) => setTimeout(resolve, 2_000));
     }
-    if (!downloadUrl) throw new Error("GIAS CSV generation timed out");
-    const download = await fetch(downloadUrl, {
-      headers: {
-        "User-Agent": "JOBSAGE sponsor contact discovery/1.0",
-        Accept: "*/*",
-        ...(cookieHeader ? { Cookie: cookieHeader } : {}),
-      },
-      signal: AbortSignal.timeout(120_000),
-    });
-    if (!download.ok) throw new Error(`GIAS generated download HTTP ${download.status}`);
-    body = Buffer.from(await download.arrayBuffer());
-    finalUrl = download.url;
-    contentType = download.headers.get("content-type") ?? "";
+    if (!completed) throw new Error("GIAS CSV generation timed out");
   }
   if (body.byteLength < 1000 || body.byteLength > MAX_SOURCE_BYTES) {
     throw new Error("GIAS download response was not a valid bounded CSV/archive");

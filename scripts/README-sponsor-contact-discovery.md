@@ -48,7 +48,7 @@ Matching is deterministic and audit-friendly:
 - strict fuzzy name match with town/city agreement
 - ambiguous matches remain `unmatched`
 
-The output includes `match_method` and `match_confidence`. Each run also writes a rejected CSV beside the main CSV. Use `--summary-json` for a JSON report with source contributions, status counts, warnings, and sample rows.
+The output includes `match_method`, `match_confidence`, and `match_candidates_count`. Each run also writes a rejected CSV beside the main CSV. Use `--summary-json` for a JSON report with source contributions, status counts, warnings, and sample rows.
 
 If `BING_SEARCH_API_KEY` is present, Bing is used only to discover a candidate official website. The same-domain checks still apply.
 

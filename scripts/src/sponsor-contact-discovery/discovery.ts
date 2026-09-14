@@ -33,10 +33,19 @@ function value(row: Record<string, string>, ...names: string[]): string {
 
 export function normaliseName(valueToNormalise: string): string {
   return valueToNormalise.toLowerCase()
-    .replace(/\b(the|limited|ltd|plc|llp|company|co)\b/g, " ")
+    .replace(/\b(?:t\/a|trading\s+as|formerly)\b/g, " ")
+    .replace(/\b(the|limited|ltd|plc|llp|cic|cio|group|uk|england|services|care|company|co|trade|name)\b/g, " ")
+    .replace(/\s*&\s*|\band\b/g, " and ")
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function nameVariants(raw: string): string[] {
+  return [...new Set(raw
+    .split(/\b(?:t\/a|trading\s+as|formerly)\b/i)
+    .map((part) => normaliseName(part))
+    .filter(Boolean))];
 }
 
 function normaliseTown(valueToNormalise: string): string {
@@ -63,8 +72,10 @@ function blockedHost(hostname: string): boolean {
 }
 
 function normaliseEmail(raw: string, website = ""): string {
-  const cleaned = raw.toLowerCase().replace(/\s+/g, "").replace(/\[at\]|\(at\)/g, "@")
-    .replace(/\[dot\]|\(dot\)/g, ".");
+  const cleaned = raw.toLowerCase().trim()
+    .replace(/\[at\]|\(at\)|\{at\}|\s+at\s+/g, "@")
+    .replace(/\[dot\]|\(dot\)|\{dot\}|\s+dot\s+/g, ".")
+    .replace(/\s+/g, "");
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(cleaned)) return "";
   const [local, domain] = cleaned.split("@");
   if (!local || !domain || FREE_EMAILS.has(domain) || /^(?:no-?reply|donotreply)$/i.test(local)) return "";
@@ -108,6 +119,7 @@ function inputFromRow(row: Record<string, string>): SponsorInput {
     industry: value(row, "industry", "sector", "type & rating", "type and rating"),
     website: normaliseWebsite(value(row, "website", "website_url", "schoolwebsite", "school website")),
     contactEmail: normaliseEmail(value(row, "contact_email", "contact email", "mainemail", "main email")),
+    postcode: value(row, "postcode", "post code"),
   };
 }
 
@@ -117,33 +129,59 @@ export async function officialRecordsFromFile(
   defaultEvidenceUrl = "",
 ): Promise<OfficialRecord[]> {
   const rows = await readOfficialRows(path);
-  return rows.map((row) => ({
-    organisationName: value(
+  const records: OfficialRecord[] = [];
+  for (const row of rows) {
+    const providerName = value(row, "provider name");
+    const locationName = value(row, "name");
+    const organisationName = value(
       row,
       "organisation_name",
       "organisation name",
       "organisation",
-      "provider name",
       "establishmentname",
       "establishment name",
-      "name",
-    ),
-    townCity: value(row, "town_city", "town/city", "town", "city", "local authority"),
-    website: normaliseWebsite(value(
+    ) || providerName || locationName;
+    const townCity = value(row, "town_city", "town/city", "town", "city", "local authority") ||
+      value(row, "address");
+    const website = normaliseWebsite(value(
       row,
       "website",
       "website_url",
       "schoolwebsite",
       "school website",
       "service's website (if available)",
-    )),
-    email: normaliseEmail(value(row, "contact_email", "contact email", "mainemail", "main email")),
-    source,
-    evidenceUrl: value(row, "website_evidence_url", "evidence_url", "source_url") ||
+    ));
+    const email = normaliseEmail(value(row, "contact_email", "contact email", "mainemail", "main email"), website);
+    const evidenceUrl = value(row, "website_evidence_url", "evidence_url", "source_url") ||
       value(row, "location url", "locationurl", "school website") ||
       normaliseWebsite(value(row, "website", "website_url", "schoolwebsite", "school website")) ||
-      defaultEvidenceUrl,
-  })).filter((record) => record.organisationName);
+      defaultEvidenceUrl;
+    const county = value(row, "county", "local authority");
+    const postcode = value(row, "postcode", "post code");
+    const makeRecord = (name: string, role: OfficialRecord["role"]): void => {
+      if (!name) return;
+      records.push({
+        organisationName: name,
+        townCity,
+        county,
+        postcode,
+        website,
+        email,
+        source,
+        evidenceUrl,
+        role,
+      });
+    };
+    if (source === "cqc" && providerName) {
+      makeRecord(providerName, "provider");
+      if (locationName && normaliseName(locationName) !== normaliseName(providerName)) {
+        makeRecord(locationName, "location");
+      }
+    } else {
+      makeRecord(organisationName, source === "gias" ? "education" : source.includes("charity") ? "charity" : undefined);
+    }
+  }
+  return records;
 }
 
 async function readOfficialRows(path: string): Promise<Array<Record<string, string>>> {
@@ -167,8 +205,9 @@ async function readOfficialRows(path: string): Promise<Array<Record<string, stri
 
 type OfficialMatch = {
   record: OfficialRecord;
-  method: "exact_name" | "exact_name_town" | "fuzzy_name_town";
+  method: "exact_name" | "exact_name_town" | "fuzzy_name_town" | "provider_name" | "location_name";
   confidence: "high" | "medium";
+  candidatesCount: number;
 };
 
 function tokenSimilarity(left: string, right: string): number {
@@ -178,25 +217,65 @@ function tokenSimilarity(left: string, right: string): number {
   return intersection / Math.max(a.size, b.size, 1);
 }
 
+function locationAgrees(input: SponsorInput, record: OfficialRecord): boolean {
+  const town = normaliseTown(input.townCity);
+  const county = normaliseTown(input.county);
+  const postcode = normaliseTown(input.postcode);
+  const sourceLocation = normaliseTown(`${record.townCity} ${record.county} ${record.postcode}`);
+  return Boolean(
+    (town && sourceLocation.includes(town)) ||
+    (county && sourceLocation.includes(county)) ||
+    (postcode && sourceLocation.includes(postcode)),
+  );
+}
+
+function preferCandidate(candidates: OfficialRecord[]): OfficialRecord | null {
+  const deduped = [...new Map(candidates.map((record) => [
+    `${normaliseName(record.organisationName)}|${record.website}|${record.email}`,
+    record,
+  ])).values()];
+  if (deduped.length === 1) return deduped[0]!;
+  const providers = deduped.filter((record) => record.role === "provider");
+  if (providers.length === 1) return providers[0]!;
+  return null;
+}
+
 function findOfficialMatch(input: SponsorInput, records: readonly OfficialRecord[]): OfficialMatch | null {
-  const name = normaliseName(input.organisationName);
-  const exact = records.filter((record) => normaliseName(record.organisationName) === name);
-  if (exact.length === 1) {
-    return { record: exact[0]!, method: "exact_name", confidence: "high" };
+  const inputNames = nameVariants(input.organisationName);
+  const exact = records.filter((record) =>
+    nameVariants(record.organisationName).some((name) => inputNames.includes(name)),
+  );
+  const candidate = preferCandidate(exact);
+  if (candidate) {
+    const method = candidate.role === "provider" ? "provider_name" :
+      candidate.role === "location" ? "location_name" :
+        locationAgrees(input, candidate) ? "exact_name_town" : "exact_name";
+    return {
+      record: candidate,
+      method,
+      confidence: "high",
+      candidatesCount: exact.length,
+    };
   }
   const town = normaliseTown(input.townCity);
-  const townMatches = exact.filter((record) => town && normaliseTown(record.townCity) === town);
-  if (townMatches.length === 1) {
-    return { record: townMatches[0]!, method: "exact_name_town", confidence: "high" };
-  }
-  if (!town) return null;
+  if (!town && !normaliseTown(input.county) && !normaliseTown(input.postcode)) return null;
   const fuzzy = records
-    .filter((record) => normaliseTown(record.townCity) === town)
-    .map((record) => ({ record, score: tokenSimilarity(name, normaliseName(record.organisationName)) }))
+    .filter((record) => locationAgrees(input, record))
+    .map((record) => ({
+      record,
+      score: Math.max(...nameVariants(record.organisationName).map((name) =>
+        Math.max(...inputNames.map((inputName) => tokenSimilarity(inputName, name))),
+      )),
+    }))
     .filter((candidate) => candidate.score >= 0.88)
     .sort((a, b) => b.score - a.score);
   if (fuzzy.length === 0 || (fuzzy[1] && fuzzy[0]!.score - fuzzy[1].score < 0.05)) return null;
-  return { record: fuzzy[0]!.record, method: "fuzzy_name_town", confidence: "medium" };
+  return {
+    record: fuzzy[0]!.record,
+    method: "fuzzy_name_town",
+    confidence: "medium",
+    candidatesCount: fuzzy.length,
+  };
 }
 
 function category(input: SponsorInput): "social-care" | "education" | "nhs-public" | "other" {
@@ -254,7 +333,7 @@ async function discoverOnWebsite(
   fetcher: PublicSiteFetcher,
 ): Promise<{ email: string; evidenceUrl: string; pages: number; error?: string }> {
   const site = new URL(website);
-  const paths = ["", "/contact", "/careers", "/jobs"];
+  const paths = ["", "/contact", "/careers", "/about"];
   let lastError = "";
   let pages = 0;
   for (const path of paths) {
@@ -268,6 +347,33 @@ async function discoverOnWebsite(
     }
   }
   return { email: "", evidenceUrl: "", pages, error: lastError || undefined };
+}
+
+async function bingDomainEmail(
+  website: string,
+): Promise<{ email: string; evidenceUrl: string } | null> {
+  const key = process.env.BING_SEARCH_API_KEY;
+  if (!key) return null;
+  const domain = new URL(website).hostname.replace(/^www\./, "");
+  const query = `site:${domain} ("recruitment@" OR "careers@" OR "jobs@" OR "hr@" OR mailto:)`;
+  const response = await fetch(`https://api.bing.microsoft.com/v7.0/search?${new URLSearchParams({
+    q: query,
+    count: "10",
+    safeSearch: "Strict",
+  })}`, {
+    headers: { "Ocp-Apim-Subscription-Key": key, Accept: "application/json" },
+    signal: AbortSignal.timeout(12_000),
+  });
+  if (!response.ok) return null;
+  const json = await response.json() as {
+    webPages?: { value?: Array<{ url?: string; name?: string; snippet?: string }> };
+  };
+  for (const result of json.webPages?.value ?? []) {
+    const evidenceUrl = result.url ?? "";
+    const email = chooseEmail(extractEmails(`${result.name ?? ""} ${result.snippet ?? ""}`, website));
+    if (email && evidenceUrl) return { email, evidenceUrl };
+  }
+  return null;
 }
 
 export async function loadSponsorInputs(
@@ -345,6 +451,7 @@ export async function runDiscovery(options: {
       status: "no_website",
       match_method: "",
       match_confidence: "",
+      match_candidates_count: "0",
       found_at: foundAt,
       notes: "",
     };
@@ -374,12 +481,14 @@ export async function runDiscovery(options: {
           },
           method: "exact_name",
           confidence: "high",
+          candidatesCount: 1,
         };
       }
     }
     if (match) {
       base.match_method = match.method;
       base.match_confidence = match.confidence;
+      base.match_candidates_count = String(match.candidatesCount);
     }
     if (!base.website && match?.record.website) {
       base.website = match.record.website;
@@ -416,9 +525,19 @@ export async function runDiscovery(options: {
         base.status = "verified_email";
         base.notes = `Accepted published employer-domain email after checking ${discovered.pages} page(s).`;
       } else if (discovered.pages > 0) {
-        base.status = "website_no_email";
-        base.confidence = "medium";
-        base.notes = "Confirmed website fetched, but no accepted public employer-domain email was found.";
+        const bing = await bingDomainEmail(base.website);
+        if (bing) {
+          base.contact_email = bing.email;
+          base.contact_source = "bing";
+          base.contact_evidence_url = bing.evidenceUrl;
+          base.confidence = "high";
+          base.status = "verified_email";
+          base.notes = `Accepted published employer-domain email from a same-domain search result after checking ${discovered.pages} page(s).`;
+        } else {
+          base.status = "website_no_email";
+          base.confidence = "medium";
+          base.notes = "Confirmed website fetched, but no accepted public employer-domain email was found.";
+        }
       } else {
         base.status = "no_public_contact";
         base.confidence = "medium";
@@ -472,6 +591,7 @@ export async function writeDiscoveryOutput(path: string, rows: readonly Discover
   await writeCsvFile(path, rows, [
     "organisation_name", "town_city", "county", "industry", "website", "website_source",
     "website_evidence_url", "contact_email", "contact_source", "contact_evidence_url",
-    "confidence", "status", "match_method", "match_confidence", "found_at", "notes",
+    "confidence", "status", "match_method", "match_confidence", "match_candidates_count",
+    "found_at", "notes",
   ]);
 }
