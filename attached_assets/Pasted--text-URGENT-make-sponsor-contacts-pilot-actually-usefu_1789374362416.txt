@@ -1,0 +1,135 @@
+```text
+URGENT: make sponsor-contacts pilot actually useful. Do not rebuild. Do not add fluff. Fix yield.
+
+## Current failure
+200-row pilot got:
+- unmatched: 182 (91%)
+- matched websites: 11
+- verified emails: 4
+
+This is not acceptable. The blocker is matching quality + missing GIAS/Charity coverage, not email invention rules.
+
+## Non-negotiable safety (keep)
+- Never invent/guess emails
+- Never construct firstname.lastname
+- Evidence URL required for accepted website/email
+- Ambiguous match => unmatched
+- No JOBSAGE writes unless I later say `--apply`
+- Keep review gate
+
+## Mission
+Get a NEW 200-company pilot to roughly:
+- unmatched < 40%
+- websites matched >= 80
+- verified emails >= 25
+
+If you cannot hit those numbers, explain exactly why with evidence from unmatched samples, and still deliver the best improved run.
+
+## Do this in order. No wandering.
+
+### 1) Diagnose the 182 unmatched NOW
+From `scripts/data/sponsor_contacts_pilot.csv` + rejected CSV + summary JSON:
+- Sample 40 unmatched rows
+- Classify each into reason codes:
+  - name_only_no_location
+  - legal_suffix_mismatch
+  - trading_as_mismatch
+  - care_provider_vs_location_mismatch
+  - education_missed_because_gias_timeout
+  - charity_missed_no_api_key
+  - true_no_official_source
+  - other
+- Print top failure reasons with counts
+- Patch matching based on the top 3 reasons only
+
+### 2) Fix matching hard (highest priority)
+Implement these immediately:
+1. Stronger name normalization:
+   - strip ltd/limited/plc/llp/cic/cio/group/uk/england/services/care/the
+   - normalize &, and, t/a, trading as, formerly
+   - collapse whitespace/punctuation
+2. Location-aware matching:
+   - use town/city + county + postcode when available
+   - if Home Office town matches CQC/GIAS town/postcode area, boost confidence
+3. Care-sector specific:
+   - match sponsor org to CQC provider name first
+   - if no provider match, try CQC location/service name carefully
+   - prefer provider website over location website when both exist
+4. Keep deterministic tiers:
+   - exact normalized
+   - exact + town
+   - strict fuzzy + town/postcode
+   - if >=2 strong candidates => unmatched (do not guess)
+5. Write `match_method`, `match_confidence`, `match_candidates_count` for every row
+
+### 3) Make GIAS actually complete
+GIAS timeout is killing education coverage.
+Fix with one of these (prefer first that works):
+- increase poll timeout + resume from cache
+- retry generation request
+- support manual GIAS file path AND auto-download
+- if async generation fails, fall back to latest cached GIAS file if present
+
+Do not silently skip education.
+
+### 4) Charity source
+If `CHARITY_COMMISSION_API_KEY` exists, use it.
+If missing:
+- support a local Charity CSV/export path
+- clearly warn
+- do not block the rest of the pipeline
+
+### 5) Once website is matched, extract emails better
+For matched websites with no email:
+- fetch homepage + contact/careers/about (max 4)
+- also check footer/mailto
+- decode published obfuscation: `[at]`, `(at)`, `{at}`, ` at `
+- optional Bing domain query if key present:
+  site:{domain} ("recruitment@" OR "careers@" OR "jobs@" OR "hr@" OR mailto:)
+- still only accept same-domain published emails
+
+### 6) Re-run pilot and prove improvement
+Run:
+
+```bash
+pnpm --filter @workspace/scripts sponsor-contacts pilot \
+  --limit 200 \
+  --output data/sponsor_contacts_pilot_v2.csv \
+  --summary-json data/sponsor_contacts_pilot_v2_summary.json
+```
+
+Compare v1 vs v2 side-by-side:
+- unmatched
+- websites
+- verified emails
+- contribution by source (CQC/GIAS/Charity)
+
+Then dry-run import only:
+
+```bash
+pnpm --filter @workspace/scripts sponsor-contacts import \
+  --input data/sponsor_contacts_pilot_v2.csv \
+  --require-review
+```
+
+Do NOT `--apply`.
+
+## Output I need in your final message
+1. Top unmatched reasons from diagnosis
+2. Exact code changes made
+3. v1 vs v2 metrics table
+4. 10 example newly matched rows (org, website, email, source, evidence)
+5. Why dry-run selected/matched counts look the way they do
+6. Remaining blockers ranked by impact
+7. Download paths for v2 CSV / rejected / summary
+
+## Speed rules
+- Prefer fixing matching over new architecture
+- Prefer using CQC/GIAS/Charity over web guessing
+- No UI
+- No Hunter/Apollo
+- No email sending
+- Ship a better pilot in this session
+
+Start with diagnosis of the existing unmatched rows immediately.
+```
