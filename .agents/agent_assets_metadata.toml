@@ -264,3 +264,73 @@ mtime_ms = 1789376122264
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/706c2536-4d35-48b0-9ce0-811da41afbe6/5ce4902f-cc85-4689-9f4c-5bfaefb17a18"
 storage_version_token = "1789376181985600"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "89d8DYI0xM1s_0wNR1PfU"
+uri = "file://scripts/data/sponsor_contacts_pilot_v4_sample.csv"
+type = "table"
+title = "Sponsor contacts pilot v4 stratified sample"
+description = "Deterministic 200-row sample with 50 social care/healthcare, 50 education, 50 charity/voluntary/trust, and 50 other rows."
+logical_id = "7f712ce0-2963-47c3-9d0e-24c651c8ee76"
+content_hash = "sha256:2ea636426af37540825e988850fc32e175e7e64d02607b14581bdf829e8afa11"
+size = 19504
+mtime_ms = 1789399483673
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/7f712ce0-2963-47c3-9d0e-24c651c8ee76/f06d7f0a-90c7-439d-b415-a166baac2bd1"
+storage_version_token = "1789400048783174"
+content_type = "text/csv"
+
+[[outputs]]
+id = "VlsCf3nEM6r7INHa8g3xY"
+uri = "file://scripts/data/cache/charity.csv"
+type = "table"
+title = "Charity Commission local input"
+description = "Normalized public Charity Commission extract with organization name, website, contact email, and evidence URL."
+logical_id = "c0133c3a-d4b4-4367-b2af-d494237951a7"
+content_hash = "sha256:249d34428b77d6f0c31ba07f18e9ae47e90b2e1eec709ff5b79539199fea000b"
+size = 27031096
+mtime_ms = 1789399299016
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/c0133c3a-d4b4-4367-b2af-d494237951a7/b2f406b2-f1cf-4051-92af-5eb61cf70897"
+storage_version_token = "1789400050684607"
+content_type = "text/csv"
+
+[[outputs]]
+id = "QmRSlKqeyn2gWx0t3JaHk"
+uri = "file://scripts/data/sponsor_contacts_pilot_v4.csv"
+type = "table"
+title = "Sponsor contacts pilot v4 CSV"
+description = "Final stratified pilot output with CQC, GIAS, Charity Commission evidence, and review_status values."
+logical_id = "afcb3897-6340-4d13-a543-45701a78c9c4"
+content_hash = "sha256:c1704c7aca46399faa3da0f75143a0dde3750d68959c1978751dcfe87217fcec"
+size = 45814
+mtime_ms = 1789400006485
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/afcb3897-6340-4d13-a543-45701a78c9c4/595dab54-add3-4956-bc88-1236b54484c5"
+storage_version_token = "1789400051399028"
+content_type = "text/csv"
+
+[[outputs]]
+id = "DiTvOFriSt1nSZufPjq7G"
+uri = "file://scripts/data/sponsor_contacts_pilot_v4_rejected.csv"
+type = "table"
+title = "Sponsor contacts pilot v4 rejected CSV"
+description = "Rows not currently eligible for import, with discovery status and reason codes."
+logical_id = "8dafb1d7-49a4-4322-863b-0d986c94da3b"
+content_hash = "sha256:23877f84bada2d41b2784646017ffb227456524568f1fa1c001d66b5643b6fe2"
+size = 20400
+mtime_ms = 1789399760109
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/8dafb1d7-49a4-4322-863b-0d986c94da3b/1773d4b1-bacd-4b61-b11f-b5d75446cde6"
+storage_version_token = "1789400052101522"
+content_type = "text/csv"
+
+[[outputs]]
+id = "YQz4os8dZVEGJcHbrEqC-"
+uri = "file://scripts/data/sponsor_contacts_pilot_v4_summary.json"
+type = "unspecified"
+title = "Sponsor contacts pilot v4 summary"
+description = "Overall v4 metrics, source warnings, and representative rows."
+logical_id = "487f8112-4072-4826-bc5c-d606e539e7b8"
+content_hash = "sha256:e082cb9bd73120f205d00e743936eb5a584ea4939e9a64c6bd27997164f519a6"
+size = 5182
+mtime_ms = 1789399760109
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/487f8112-4072-4826-bc5c-d606e539e7b8/ec0a9ca7-3f4f-4793-9503-986d93669f60"
+storage_version_token = "1789400052749614"
+content_type = "application/octet-stream"

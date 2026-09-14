@@ -16,6 +16,7 @@ export const OUTPUT_COLUMNS = [
   "match_candidates_count",
   "found_at",
   "notes",
+  "review_status",
 ] as const;
 
 export type OutputColumn = (typeof OUTPUT_COLUMNS)[number];
@@ -46,6 +47,7 @@ export type DiscoveryRow = {
   match_candidates_count: string;
   found_at: string;
   notes: string;
+  review_status: string;
   [key: string]: string;
 };
 
