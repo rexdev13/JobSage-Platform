@@ -1,0 +1,80 @@
+```text
+Focus only on GIAS 429 and Charity coverage. Do not rebuild. Do not touch matching, import, or unrelated features.
+
+## Problem
+v2 pilot was almost entirely CQC-only:
+- GIAS auto-fetch failed with HTTP 429
+- Charity skipped because CHARITY_COMMISSION_API_KEY is not set
+- Result: unmatched still 81%, websites 22, emails 6
+
+## Goal
+Make the next 200-row pilot include GIAS and Charity contributions.
+
+Success criteria:
+1. GIAS website contribution > 0
+2. Charity contribution > 0 OR clear local-file path that works without API key
+3. Unmatched rate materially lower than 81%
+4. No invented emails, no `--apply`
+
+## Implement only these fixes
+
+### A) GIAS 429 resilience
+Fix `officialSources.ts` GIAS flow:
+- Persist generation request ID in cache
+- Resume existing generation instead of always starting a new one
+- Exponential backoff on 429/5xx
+- Longer poll budget
+- Prefer latest valid cached GIAS CSV if generation is blocked
+- Log clear status: started / resumed / cached / failed
+
+If official async export remains blocked, support a manual `--gias FILE` path and document the exact download steps in README.
+
+### B) Charity coverage without blocking
+Support both:
+1. API key path if `CHARITY_COMMISSION_API_KEY` exists
+2. Local file path `--charity FILE` for a Charity Commission export/CSV
+
+If neither exists:
+- keep warning
+- continue pipeline
+- do not crash
+
+Normalize Charity rows to: name, website, email, evidence URL.
+Use existing email safety filters. Prefer official public email when present.
+
+### C) Re-run pilot
+Run:
+
+```bash
+pnpm --filter @workspace/scripts sponsor-contacts pilot \
+  --limit 200 \
+  --output data/sponsor_contacts_pilot_v3.csv \
+  --summary-json data/sponsor_contacts_pilot_v3_summary.json
+```
+
+If you need local files, download/prepare them and pass:
+
+```bash
+--gias data/cache/<gias-file>.csv \
+--charity data/cache/<charity-file>.csv
+```
+
+### D) Dry-run only
+```bash
+pnpm --filter @workspace/scripts sponsor-contacts import \
+  --input data/sponsor_contacts_pilot_v3.csv \
+  --require-review
+```
+
+No `--apply`.
+
+## Final response must include
+1. Exact GIAS fix (resume/backoff/cache behavior)
+2. Exact Charity path used (API key and/or local file)
+3. v2 vs v3 table: unmatched, websites, emails, CQC/GIAS/Charity counts
+4. Source warnings remaining
+5. 10 example newly matched education/charity rows if any
+6. Download paths for v3 CSV / rejected / summary
+
+Start now. Do not expand scope.
+```
