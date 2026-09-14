@@ -3,9 +3,18 @@ import cookieParser from "cookie-parser";
 import express from "express";
 import request from "supertest";
 
-const { queryResults, setCalls } = vi.hoisted(() => ({
+const {
+  queryResults,
+  setCalls,
+  valueCalls,
+  sendWaitlistWelcomeEmailMock,
+  openAiCreateMock,
+} = vi.hoisted(() => ({
   queryResults: [] as unknown[],
   setCalls: [] as unknown[],
+  valueCalls: [] as unknown[],
+  sendWaitlistWelcomeEmailMock: vi.fn(),
+  openAiCreateMock: vi.fn(),
 }));
 
 vi.mock("@workspace/db", () => {
@@ -21,6 +30,10 @@ vi.mock("@workspace/db", () => {
       for: () => chain,
       set: (values: unknown) => {
         setCalls.push(values);
+        return chain;
+      },
+      values: (values: unknown) => {
+        valueCalls.push(values);
         return chain;
       },
       returning: () => Promise.resolve(queryResults.shift() ?? []),
@@ -56,6 +69,9 @@ vi.mock("@workspace/db", () => {
       marketingUserId: "marketing_user_id",
       claimedAt: "claimed_at",
       contactedAt: "contacted_at",
+      waitlistConfirmationSentAt: "waitlist_confirmation_sent_at",
+      waitlistConfirmationProviderId: "waitlist_confirmation_provider_id",
+      waitlistConfirmationLastError: "waitlist_confirmation_last_error",
     },
     usersTable: {
       id: "id",
@@ -76,7 +92,11 @@ vi.mock("../../lib/auth", async () => {
 });
 
 vi.mock("@workspace/integrations-openai-ai-server", () => ({
-  openai: { chat: { completions: { create: vi.fn() } } },
+  openai: { chat: { completions: { create: openAiCreateMock } } },
+}));
+
+vi.mock("../../lib/email", () => ({
+  sendWaitlistWelcomeEmail: sendWaitlistWelcomeEmailMock,
 }));
 
 const {
@@ -125,6 +145,122 @@ const candidateSession = {
     profileImageUrl: null,
   },
 };
+
+const validLeadSubmission = {
+  firstName: "Ada",
+  lastName: "Lovelace",
+  email: "Ada@Example.com",
+  phone: "+44 7700 900123",
+  industrySector: "Technology",
+  desiredRole: "Software Engineer",
+  gdprConsent: true,
+};
+
+describe("waitlist lead submission", () => {
+  beforeEach(() => {
+    queryResults.length = 0;
+    setCalls.length = 0;
+    valueCalls.length = 0;
+    mockGetSession.mockResolvedValue(null);
+    sendWaitlistWelcomeEmailMock.mockReset().mockResolvedValue({
+      success: true,
+      messageId: "email-123",
+    });
+    openAiCreateMock.mockReset();
+  });
+
+  it("returns 201, sends the welcome email, and records provider attribution", async () => {
+    queryResults.push([], [{ id: 42 }], []);
+
+    const response = await request(buildApp())
+      .post("/leads/submit")
+      .send(validLeadSubmission);
+
+    expect(response.status).toBe(201);
+    expect(response.body).toEqual({ success: true });
+    await vi.waitFor(() => {
+      expect(sendWaitlistWelcomeEmailMock).toHaveBeenCalledWith({
+        to: "ada@example.com",
+        firstName: "Ada",
+        industrySector: "Technology",
+        desiredRole: "Software Engineer",
+      });
+      expect(setCalls).toContainEqual({
+        waitlistConfirmationSentAt: expect.any(Date),
+        waitlistConfirmationProviderId: "email-123",
+        waitlistConfirmationLastError: null,
+      });
+    });
+  });
+
+  it("keeps the submission successful and records a provider failure", async () => {
+    queryResults.push([], [{ id: 43 }], []);
+    sendWaitlistWelcomeEmailMock.mockResolvedValueOnce({
+      success: false,
+      error: "Resend unavailable",
+    });
+
+    const response = await request(buildApp())
+      .post("/leads/submit")
+      .send(validLeadSubmission);
+
+    expect(response.status).toBe(201);
+    await vi.waitFor(() => {
+      expect(setCalls).toContainEqual({
+        waitlistConfirmationLastError: "Resend unavailable",
+      });
+    });
+  });
+
+  it("keeps the submission successful and records an unexpected dispatch error", async () => {
+    queryResults.push([], [{ id: 44 }], []);
+    sendWaitlistWelcomeEmailMock.mockRejectedValueOnce(new Error("Email worker failed"));
+
+    const response = await request(buildApp())
+      .post("/leads/submit")
+      .send(validLeadSubmission);
+
+    expect(response.status).toBe(201);
+    await vi.waitFor(() => {
+      expect(setCalls).toContainEqual({
+        waitlistConfirmationLastError: "Email worker failed",
+      });
+    });
+  });
+
+  it("does not send a welcome email for a partial chat lead", async () => {
+    async function* streamResponse() {
+      yield { choices: [{ delta: { content: "Thanks, Ada." } }] };
+    }
+    openAiCreateMock
+      .mockResolvedValueOnce(streamResponse())
+      .mockResolvedValueOnce({
+        choices: [{
+          message: {
+            content: JSON.stringify({
+              name: "Ada Lovelace",
+              email: "ada@example.com",
+            }),
+          },
+        }],
+      });
+    queryResults.push([], []);
+
+    const response = await request(buildApp())
+      .post("/leads/chat")
+      .send({
+        message: "My email is ada@example.com",
+        history: [{ role: "user", content: "My name is Ada Lovelace" }],
+      });
+
+    expect(response.status).toBe(200);
+    expect(valueCalls).toContainEqual(expect.objectContaining({
+      email: "ada@example.com",
+      source: "chat",
+    }));
+    expect(sendWaitlistWelcomeEmailMock).not.toHaveBeenCalled();
+  });
+});
 
 describe("marketing lead access", () => {
   beforeEach(() => {

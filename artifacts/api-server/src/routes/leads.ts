@@ -7,6 +7,7 @@ import { sql, ilike, or, desc, count, eq, and, gte, isNull } from "drizzle-orm";
 import { requireRole } from "../middlewares/requireRole";
 import { buildLeadStats, getRollingWeekStart } from "../lib/weeklyStats";
 import { OptionalCalendlyUrlSchema } from "../lib/marketingCalendly";
+import { sendWaitlistWelcomeEmail } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -511,6 +512,7 @@ router.post(
 
     try {
       const d = parsed.data;
+      const normalizedEmail = d.email.toLowerCase();
 
       // Hash the client IP for dedup/geo without storing PII.
       // Same approach as consent_logs.ip_hash.
@@ -537,8 +539,9 @@ router.post(
         )
         .limit(1);
 
+      let leadId: number;
       if (existingChatLead) {
-        await db
+        const [updatedLead] = await db
           .update(socialLeadsTable)
           .set({
             firstName: d.firstName,
@@ -559,12 +562,17 @@ router.post(
             source: "form",
             status: "new",
           })
-          .where(eq(socialLeadsTable.id, existingChatLead.id));
+          .where(eq(socialLeadsTable.id, existingChatLead.id))
+          .returning({ id: socialLeadsTable.id });
+        if (!updatedLead) {
+          throw new Error("Failed to upgrade the existing chat lead.");
+        }
+        leadId = updatedLead.id;
       } else {
-        await db.insert(socialLeadsTable).values({
+        const [createdLead] = await db.insert(socialLeadsTable).values({
           firstName: d.firstName,
           lastName: d.lastName,
-          email: d.email.toLowerCase(),
+          email: normalizedEmail,
           phone: d.phone,
 
           industrySector: d.industrySector ?? null,
@@ -584,10 +592,53 @@ router.post(
 
           source: "form",
           status: "new",
-        });
+        }).returning({ id: socialLeadsTable.id });
+        if (!createdLead) {
+          throw new Error("Failed to create the lead.");
+        }
+        leadId = createdLead.id;
       }
 
       res.status(201).json({ success: true });
+
+      void (async () => {
+        try {
+          const result = await sendWaitlistWelcomeEmail({
+            to: normalizedEmail,
+            firstName: d.firstName,
+            industrySector: d.industrySector,
+            desiredRole: d.desiredRole,
+          });
+
+          await db
+            .update(socialLeadsTable)
+            .set(
+              result.success
+                ? {
+                    waitlistConfirmationSentAt: new Date(),
+                    waitlistConfirmationProviderId: result.messageId ?? null,
+                    waitlistConfirmationLastError: null,
+                  }
+                : {
+                    waitlistConfirmationLastError: result.error ?? "Failed to send",
+                  },
+            )
+            .where(eq(socialLeadsTable.id, leadId));
+        } catch (error: unknown) {
+          const message = error instanceof Error
+            ? error.message
+            : "Background waitlist email dispatch failed.";
+          console.error("[leads] Background waitlist email dispatch failed:", error);
+          try {
+            await db
+              .update(socialLeadsTable)
+              .set({ waitlistConfirmationLastError: message })
+              .where(eq(socialLeadsTable.id, leadId));
+          } catch (updateError) {
+            console.error("[leads] Failed to record waitlist email error:", updateError);
+          }
+        }
+      })();
     } catch (err) {
       console.error("[leads] POST /leads/submit error:", err);
       res.status(500).json({ error: "Failed to submit your details. Please try again." });
