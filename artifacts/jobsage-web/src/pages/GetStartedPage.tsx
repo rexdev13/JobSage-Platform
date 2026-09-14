@@ -703,7 +703,6 @@ export default function GetStartedPage() {
             onClick={() => setActiveTab("chat")}
             icon={<MessageCircle className="h-4 w-4" />}
             label="Chat with AI"
-            badge="Recommended"
           />
           <TabButton
             active={activeTab === "form"}
