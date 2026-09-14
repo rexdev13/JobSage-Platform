@@ -12,7 +12,7 @@ pnpm --filter @workspace/scripts sponsor-contacts pilot \
   --output data/sponsor_contacts_pilot.csv
 ```
 
-Without `--input`, the CLI downloads the latest Home Office Worker and Temporary Worker sponsor register. When CQC/GIAS/Charity files are not supplied, it also attempts to cache current official CQC and GIAS datasets under `data/cache/`. The Charity Commission source is used only when an API key is configured; otherwise the run emits a structured warning.
+Without `--input`, the CLI downloads the latest Home Office Worker and Temporary Worker sponsor register. When CQC/GIAS/Charity files are not supplied, it attempts to cache current official CQC and GIAS datasets under `data/cache/`. If `CHARITY_COMMISSION_API_KEY` is configured, it queries the Charity Commission API for the selected pilot sponsor names and caches the normalized result. Otherwise the run emits a structured warning.
 
 Disable automatic optional-source downloads with:
 
@@ -30,6 +30,22 @@ pnpm --filter @workspace/scripts sponsor-contacts pilot \
   --gias data/gias.csv \
   --charity data/charity.csv
 ```
+
+The local `--gias FILE` and `--charity FILE` paths work without API credentials. Charity files should expose a name column (`organisation_name`, `charity_name`, or `name`), plus optional `website`, `contact_email`/`email`, and `evidence_url` columns.
+
+GIAS manual download fallback:
+
+1. Open https://get-information-schools.service.gov.uk/Downloads.
+2. Select **Establishment fields CSV** and submit the download form.
+3. Wait for the generated download page to finish, then use its protected CSV download action.
+4. Save the CSV under the repository, for example `data/cache/gias-manual.csv`.
+5. Run the pilot with `--gias data/cache/gias-manual.csv`.
+
+The automatic GIAS flow saves its generation ID and session cookie in
+`<cache-dir>/gias-generation-state.json`. A later run resumes that generation instead of
+starting another one. HTTP 429 and 5xx responses use exponential backoff, valid cached
+GIAS CSVs are preferred before creating a generation, and a failed generation remains
+resumable. The CLI logs `started`, `resumed`, `cached`, or `failed` source status.
 
 Additional operational flags:
 

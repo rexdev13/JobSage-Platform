@@ -138,6 +138,8 @@ export async function officialRecordsFromFile(
       "organisation_name",
       "organisation name",
       "organisation",
+      "charity_name",
+      "charity name",
       "establishmentname",
       "establishment name",
     ) || providerName || locationName;
@@ -151,7 +153,10 @@ export async function officialRecordsFromFile(
       "school website",
       "service's website (if available)",
     ));
-    const email = normaliseEmail(value(row, "contact_email", "contact email", "mainemail", "main email"), website);
+    const email = normaliseEmail(
+      value(row, "contact_email", "contact email", "mainemail", "main email", "email", "email_address", "email address"),
+      website,
+    );
     const evidenceUrl = value(row, "website_evidence_url", "evidence_url", "source_url") ||
       value(row, "location url", "locationurl", "school website") ||
       normaliseWebsite(value(row, "website", "website_url", "schoolwebsite", "school website")) ||
@@ -192,6 +197,8 @@ async function readOfficialRows(path: string): Promise<Array<Record<string, stri
       headers.has("provider name") ||
       headers.has("establishmentname") ||
       headers.has("establishment name") ||
+      headers.has("charity_name") ||
+      headers.has("charity name") ||
       (headers.has("name") && (headers.has("website") || headers.has("service's website (if available)")));
   });
   if (headerIndex < 0) return [];
@@ -414,17 +421,18 @@ export async function runDiscovery(options: {
   sourceUrls: Record<string, string>;
   summary: Record<string, unknown>;
 }> {
+  const inputs = choosePilot(
+    await loadSponsorInputs(options.inputPath, options.homeOfficeUrl),
+    options.limit,
+  );
   const sources = await acquireOfficialSources({
     cacheDir: options.cacheDir,
     cqcPath: options.cqcPath,
     giasPath: options.giasPath,
     charityPath: options.charityPath,
+    charityNames: inputs.map((input) => input.organisationName),
     noAutoFetch: options.noAutoFetch,
   });
-  const inputs = choosePilot(
-    await loadSponsorInputs(options.inputPath, options.homeOfficeUrl),
-    options.limit,
-  );
   const official = [
     ...(sources.cqcPath ? await officialRecordsFromFile(sources.cqcPath, "cqc", sources.sourceUrls.cqc) : []),
     ...(sources.giasPath ? await officialRecordsFromFile(sources.giasPath, "gias", sources.sourceUrls.gias) : []),
