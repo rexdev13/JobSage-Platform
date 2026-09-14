@@ -44,6 +44,9 @@ Optional inputs:
   --summary-json FILE Write a JSON pilot summary
   --delay-ms N       Minimum delay per employer host (default 1500)
 
+When GIAS auto-generation is rate-limited, the generation ID is saved under --cache-dir
+and resumed on the next run. A downloaded GIAS CSV can always be supplied with --gias FILE.
+
 Review/import:
   pnpm --filter @workspace/scripts sponsor-contacts import --input data/sponsor_contacts_pilot.csv
   pnpm --filter @workspace/scripts sponsor-contacts import --input data/sponsor_contacts_pilot.csv --apply --require-review

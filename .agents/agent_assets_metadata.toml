@@ -222,3 +222,45 @@ mtime_ms = 1789374962980
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/bc2362fd-d6c6-44c1-b543-e48044a80855/6f2c29be-db6a-47a6-8737-b9a1f5351297"
 storage_version_token = "1789375035056013"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "rp-31gYyLTvth2BwvDMj4"
+uri = "file://scripts/data/sponsor_contacts_pilot_v3.csv"
+type = "table"
+title = "Sponsor contacts pilot v3 CSV"
+description = "200-row pilot with GIAS resume/backoff support, CQC results, evidence URLs, and verified public employer emails."
+logical_id = "a7cf7d0e-5d3d-4b36-8e52-ad47b2e9ff66"
+content_hash = "sha256:0f1e8f465d4f62dddf7545a4edc863cea1aa3d3767581a3b6f814015f40049cd"
+size = 38808
+mtime_ms = 1789376122260
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/a7cf7d0e-5d3d-4b36-8e52-ad47b2e9ff66/b602dfb4-9cb7-4e4c-aae9-996f2edabdeb"
+storage_version_token = "1789376180736609"
+content_type = "text/csv"
+
+[[outputs]]
+id = "7p0gW9CxPdnQamnUshpsW"
+uri = "file://scripts/data/sponsor_contacts_pilot_v3_rejected.csv"
+type = "table"
+title = "Sponsor contacts pilot v3 rejected CSV"
+description = "Rows excluded from the verified-contact result with explicit status and reason codes."
+logical_id = "4674f09a-10b9-47ec-ab49-b4937d002393"
+content_hash = "sha256:1568586328efb69c10d7eb80f09dd9c7630a28417470ca01aa90aab2e08dafb2"
+size = 21469
+mtime_ms = 1789376122263
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/4674f09a-10b9-47ec-ab49-b4937d002393/60c473de-5a2c-428e-b256-cf629ffd7a5b"
+storage_version_token = "1789376181410025"
+content_type = "text/csv"
+
+[[outputs]]
+id = "mWzr9g1CPLAfDOmYC80MD"
+uri = "file://scripts/data/sponsor_contacts_pilot_v3_summary.json"
+type = "unspecified"
+title = "Sponsor contacts pilot v3 summary"
+description = "Machine-readable v3 metrics, source contributions, warnings, and representative rows."
+logical_id = "706c2536-4d35-48b0-9ce0-811da41afbe6"
+content_hash = "sha256:70955995497e414ec68aed3db1408ab10c7cdd5f14ec94b4f1ee154d32af36a1"
+size = 5087
+mtime_ms = 1789376122264
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/706c2536-4d35-48b0-9ce0-811da41afbe6/5ce4902f-cc85-4689-9f4c-5bfaefb17a18"
+storage_version_token = "1789376181985600"
+content_type = "application/octet-stream"
