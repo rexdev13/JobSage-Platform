@@ -239,7 +239,9 @@ describe("fetchSponsorVacanciesAsRoles alert options", () => {
 
   it.each([
     ["Consultant Dentist", "DENTAL"],
+    ["Dental Nurses", "DENTAL"],
     ["Clinical Pharmacist", "PHARMACY"],
+    ["Nurse Pharmacist Practitioner", "PHARMACY"],
     ["Senior Social Worker", "SOCIAL_WORK"],
     ["Management Accountant", "ACCOUNTING"],
     ["Software Engineer", "IT"],
@@ -251,6 +253,23 @@ describe("fetchSponsorVacanciesAsRoles alert options", () => {
     ["University Lecturer", "EDUCATION"],
     ["Clinical Research Administrator", "GMC"],
   ])("classifies %s as %s", (title, expected) => {
+    expect(classifyVacancyCategory(title, null)).toBe(expected);
+  });
+
+  it.each([
+    ["Apply to the Prep School Nursery"],
+    ["Nursing Assistant Job In UK. CoS Available"],
+    ["Healthcare Support Worker"],
+    ["Careers Why I chose a job in social care for my first nursing role"],
+  ])("does not classify non-NMC title %s as a nursing vacancy", (title) => {
+    expect(classifyVacancyCategory(title, null)).toBeNull();
+  });
+
+  it.each([
+    ["Registered Nurse RGN/RMN", "NMC"],
+    ["Care Home Manager Nursing", "NMC"],
+    ["Senior Ward Sister", "NMC"],
+  ])("retains genuine nursing title %s as %s", (title, expected) => {
     expect(classifyVacancyCategory(title, null)).toBe(expected);
   });
 

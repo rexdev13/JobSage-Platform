@@ -11,7 +11,7 @@
 - [OpenAPI generated-client drift](openapi-generated-drift.md) — regen can drop hand-added members missing from openapi.yaml; diff generated files after codegen and restore via the spec.
 - [Link liveness scans](link-liveness-scans.md) — aggregator links must be bulk-stamped or scans loop forever; verdicts per URL not per row; run long jobs via admin endpoint, not shell background.
 - [Prod DB read-only; array migration](prod-db-readonly-array-migration.md) — agent can't run DDL on prod; scalar→array needs user-run USING cast before republish.
-- [Vacancy regulator classifier](vacancy-regulator-classifier.md) — sponsor register spans all industries; regex stems must not have a trailing \b; verify classifier changes against real data.
+- [Vacancy regulator classifier](vacancy-regulator-classifier.md) — use boundaries on complete words, not stems; verify profession precedence and false positives against real data.
 - [api-server test patterns](api-server-test-patterns.md) — Auth via `Authorization: Bearer` (not cookie); db.execute must be mocked; employer/profile response shapes; Zod schema needs Date fields.
 - [pdf-parse v2 ESM class API](pdf-parse-v2-esm.md) — pdf-parse v2.x ESM exports `PDFParse` class (not a bare function); use `new PDFParse({ data: buf })` then `.getText()` — no separate `init()` call needed.
 - [NHS Jobs employer search](nhs-jobs-employer-search.md) — the legacy XML endpoint currently returns HTML; use the public results form’s `employer` parameter and retain only close employer matches.

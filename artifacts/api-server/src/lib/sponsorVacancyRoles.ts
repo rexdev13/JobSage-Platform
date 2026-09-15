@@ -81,7 +81,16 @@ export function presentApplyLink(
 }
 
 const NMC_TITLE_PATTERN =
-  /\b(nurse|nursing|midwif|health\s*visitor|rgn\b|rmn\b|rnld\b|matron|ward\s*sister)/i;
+  /\b(nurs(?:e|es|ing)\b|midwif|health\s*visitor|rgn\b|rmn\b|rnld\b|matron|ward\s*sister)/i;
+
+// These titles contain nursing words but target a different profession, a
+// support-grade role, or editorial content rather than an NMC vacancy.
+const DENTAL_NURSE_TITLE_PATTERN = /\bdental\s+nurs(?:e|es|ing)\b/i;
+const PHARMACIST_TITLE_PATTERN = /\bpharmacist\b/i;
+const NURSING_SUPPORT_TITLE_PATTERN =
+  /\b(?:nursing|health\s*care|healthcare)\s+(?:assistant|support\s*(?:worker|assistant))\b/i;
+const NON_VACANCY_CONTENT_TITLE_PATTERN =
+  /(?:^careers?\b.*\b(?:why|story|guide)\b|\bwhy\s+i\s+chose\s+a\s+job\b|\bemployee\s+stor(?:y|ies)\b)/i;
 
 const HCPC_TITLE_PATTERN =
   /\b(physiotherap|occupational\s*therap|radiograph|paramedic|optometr|dietitian|dietician|podiatr|chiropod|speech\s*(and|&)\s*language|speech\s*therap|biomedical\s*scientist|clinical\s*scientist|orthoptist|prosthetist|orthotist|operating\s*department\s*practitioner|\bodp\b|art\s*therap|drama\s*therap|music\s*therap|hearing\s*aid\s*dispenser|practitioner\s*psycholog|clinical\s*psycholog)/i;
@@ -122,6 +131,11 @@ export function classifyVacancyCategory(
   title: string,
   description: string | null | undefined,
 ): OpportunityCategory | null {
+  if (NON_VACANCY_CONTENT_TITLE_PATTERN.test(title)) return null;
+  if (DENTAL_NURSE_TITLE_PATTERN.test(title)) return "DENTAL";
+  if (PHARMACIST_TITLE_PATTERN.test(title)) return "PHARMACY";
+  if (NURSING_SUPPORT_TITLE_PATTERN.test(title)) return null;
+
   for (const text of [title, description ?? ""]) {
     if (!text.trim()) continue;
     if (NMC_TITLE_PATTERN.test(text)) return "NMC";
