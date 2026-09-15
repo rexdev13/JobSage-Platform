@@ -852,7 +852,19 @@ router.post(
     const { message, history } = req.body as {
       message?: string;
       history?: Array<{ role: "user" | "assistant"; content: string }>;
+      knownQualifiers?: {
+        name?: string | null;
+        email?: string | null;
+        phone?: string | null;
+        industrySector?: string | null;
+        desiredRole?: string | null;
+      };
     };
+    const knownQualifiers = (
+      req.body as {
+        knownQualifiers?: Record<string, unknown>;
+      }
+    ).knownQualifiers;
 
     if (!message?.trim()) {
       res.status(400).json({ error: "message is required." });
@@ -893,7 +905,21 @@ router.post(
       // After streaming, extract structured qualifying data from the full conversation.
       // Only run the extraction once we have at least 2 user turns (enough signal).
       const userTurns = chatHistory.filter((m) => m.role === "user").length + 1;
-      let extracted: Record<string, string | null> = {};
+      const qualifierKeys = [
+        "name",
+        "email",
+        "phone",
+        "industrySector",
+        "desiredRole",
+      ] as const;
+      let extracted: Record<string, string | null> = Object.fromEntries(
+        qualifierKeys.flatMap((key) => {
+          const value = knownQualifiers?.[key];
+          return typeof value === "string" && value.trim()
+            ? [[key, value.trim().slice(0, 500)]]
+            : [];
+        }),
+      );
 
       if (userTurns >= 2) {
         try {
@@ -929,9 +955,10 @@ router.post(
           const raw = extractResp.choices[0]?.message?.content ?? "{}";
           const parsed = JSON.parse(raw) as Record<string, string | null>;
           // Only keep fields with non-null values
-          extracted = Object.fromEntries(
+          const newlyExtracted = Object.fromEntries(
             Object.entries(parsed).filter(([, v]) => v !== null && v !== ""),
           );
+          extracted = { ...extracted, ...newlyExtracted };
         } catch {
           // extraction failure is non-critical — continue without it
         }
@@ -941,7 +968,7 @@ router.post(
       // The chat is a full alternative to the form — every extracted field is logged.
       // We upsert by email: create on first contact, then update progressively
       // as more details come in across turns.
-      let waitlistConfirmationQueued = false;
+      let waitlistConfirmationStatus: "queued" | "already_sent" | null = null;
       if (extracted.name && extracted.email) {
         try {
           const nameParts = String(extracted.name).trim().split(/\s+/);
@@ -986,25 +1013,32 @@ router.post(
               .returning({ id: socialLeadsTable.id });
             chatLeadId = created?.id ?? null;
             shouldSendWaitlistConfirmation = !!phone;
-          } else if (existing.source === "chat") {
-            // Update the chat record as more info is collected
-            await db
-              .update(socialLeadsTable)
-              .set({
-                firstName,
-                lastName,
-                ...(phone          ? { phone }          : {}),
-                ...(industrySector ? { industrySector } : {}),
-                ...(desiredRole    ? { desiredRole }    : {}),
-              })
-              .where(eq(socialLeadsTable.id, existing.id));
+          } else {
             chatLeadId = existing.id;
-            shouldSendWaitlistConfirmation = !!phone && !existing.waitlistConfirmationSentAt;
+            if (existing.source === "chat") {
+              // Update the chat record as more info is collected
+              await db
+                .update(socialLeadsTable)
+                .set({
+                  firstName,
+                  lastName,
+                  ...(phone          ? { phone }          : {}),
+                  ...(industrySector ? { industrySector } : {}),
+                  ...(desiredRole    ? { desiredRole }    : {}),
+                })
+                .where(eq(socialLeadsTable.id, existing.id));
+            }
+
+            if (phone && existing.waitlistConfirmationSentAt) {
+              waitlistConfirmationStatus = "already_sent";
+            } else {
+              shouldSendWaitlistConfirmation =
+                !!phone && !existing.waitlistConfirmationSentAt;
+            }
           }
-          // If existing.source === "form", the user already submitted fully — leave it alone.
 
           if (chatLeadId && shouldSendWaitlistConfirmation) {
-            waitlistConfirmationQueued = true;
+            waitlistConfirmationStatus = "queued";
             void (async () => {
               try {
                 const result = await sendWaitlistWelcomeEmail({
@@ -1062,7 +1096,7 @@ router.post(
         `data: ${JSON.stringify({
           done: true,
           extracted,
-          waitlistConfirmationQueued,
+          waitlistConfirmationStatus,
         })}\n\n`,
       );
       res.end();

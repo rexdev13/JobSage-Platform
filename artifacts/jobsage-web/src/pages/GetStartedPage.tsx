@@ -522,7 +522,22 @@ export default function GetStartedPage() {
       const resp = await fetch("/api/leads/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMsg, history }),
+        body: JSON.stringify({
+          message: userMsg,
+          history,
+          knownQualifiers: {
+            name:
+              [form.firstName, form.lastName].filter(Boolean).join(" ") ||
+              undefined,
+            email: form.email || undefined,
+            phone: form.phone || undefined,
+            industrySector:
+              form.industrySector === "Other"
+                ? form.sectorOther || undefined
+                : form.industrySector || undefined,
+            desiredRole: form.desiredRole || undefined,
+          },
+        }),
       });
 
       if (!resp.ok || !resp.body) {
@@ -549,7 +564,7 @@ export default function GetStartedPage() {
               text?: string;
               done?: boolean;
               extracted?: ExtractedQualifiers;
-              waitlistConfirmationQueued?: boolean;
+              waitlistConfirmationStatus?: "queued" | "already_sent" | null;
               error?: string;
             };
 
@@ -579,11 +594,19 @@ export default function GetStartedPage() {
                 const next = prev.map((m, i) =>
                   i === prev.length - 1 ? { ...m, streaming: false } : m,
                 );
-                if (payload.waitlistConfirmationQueued) {
+                if (payload.waitlistConfirmationStatus === "queued") {
                   next.push({
                     role: "assistant",
                     content:
                       "Your details are all set. You’ll receive an email from JOBSAGE now.",
+                  });
+                } else if (
+                  payload.waitlistConfirmationStatus === "already_sent"
+                ) {
+                  next.push({
+                    role: "assistant",
+                    content:
+                      "Your JOBSAGE confirmation email has already been sent. Please check your inbox and spam folder.",
                   });
                 }
                 return next;
