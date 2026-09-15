@@ -941,6 +941,7 @@ router.post(
       // The chat is a full alternative to the form — every extracted field is logged.
       // We upsert by email: create on first contact, then update progressively
       // as more details come in across turns.
+      let waitlistConfirmationQueued = false;
       if (extracted.name && extracted.email) {
         try {
           const nameParts = String(extracted.name).trim().split(/\s+/);
@@ -954,25 +955,37 @@ router.post(
 
           // Check for an existing chat lead for this email
           const [existing] = await db
-            .select({ id: socialLeadsTable.id, source: socialLeadsTable.source })
+            .select({
+              id: socialLeadsTable.id,
+              source: socialLeadsTable.source,
+              waitlistConfirmationSentAt: socialLeadsTable.waitlistConfirmationSentAt,
+            })
             .from(socialLeadsTable)
             .where(eq(socialLeadsTable.email, email))
             .limit(1);
 
+          let chatLeadId: number | null = null;
+          let shouldSendWaitlistConfirmation = false;
+
           if (!existing) {
             // First time we've seen this email — create the record
-            await db.insert(socialLeadsTable).values({
-              firstName,
-              lastName,
-              email,
-              phone,
-              industrySector,
-              desiredRole,
-              gdprConsent: false,
-              gdprConsentedAt: now,
-              source: "chat",
-              status: "new",
-            });
+            const [created] = await db
+              .insert(socialLeadsTable)
+              .values({
+                firstName,
+                lastName,
+                email,
+                phone,
+                industrySector,
+                desiredRole,
+                gdprConsent: false,
+                gdprConsentedAt: now,
+                source: "chat",
+                status: "new",
+              })
+              .returning({ id: socialLeadsTable.id });
+            chatLeadId = created?.id ?? null;
+            shouldSendWaitlistConfirmation = !!phone;
           } else if (existing.source === "chat") {
             // Update the chat record as more info is collected
             await db
@@ -985,15 +998,73 @@ router.post(
                 ...(desiredRole    ? { desiredRole }    : {}),
               })
               .where(eq(socialLeadsTable.id, existing.id));
+            chatLeadId = existing.id;
+            shouldSendWaitlistConfirmation = !!phone && !existing.waitlistConfirmationSentAt;
           }
           // If existing.source === "form", the user already submitted fully — leave it alone.
+
+          if (chatLeadId && shouldSendWaitlistConfirmation) {
+            waitlistConfirmationQueued = true;
+            void (async () => {
+              try {
+                const result = await sendWaitlistWelcomeEmail({
+                  to: email,
+                  firstName,
+                  industrySector,
+                  desiredRole,
+                });
+
+                await db
+                  .update(socialLeadsTable)
+                  .set(
+                    result.success
+                      ? {
+                          waitlistConfirmationSentAt: new Date(),
+                          waitlistConfirmationProviderId: result.messageId ?? null,
+                          waitlistConfirmationLastError: null,
+                        }
+                      : {
+                          waitlistConfirmationLastError:
+                            result.error ?? "Failed to send",
+                        },
+                  )
+                  .where(eq(socialLeadsTable.id, chatLeadId));
+              } catch (sendError: unknown) {
+                const errorMessage =
+                  sendError instanceof Error
+                    ? sendError.message
+                    : "Background waitlist email dispatch failed.";
+                console.error(
+                  "[leads/chat] Background waitlist email dispatch failed:",
+                  sendError,
+                );
+                try {
+                  await db
+                    .update(socialLeadsTable)
+                    .set({ waitlistConfirmationLastError: errorMessage })
+                    .where(eq(socialLeadsTable.id, chatLeadId));
+                } catch (updateError) {
+                  console.error(
+                    "[leads/chat] Failed to record waitlist email error:",
+                    updateError,
+                  );
+                }
+              }
+            })();
+          }
         } catch (saveErr) {
           // Non-critical — never let a DB error break the chat stream
           console.error("[leads/chat] lead save error:", saveErr);
         }
       }
 
-      res.write(`data: ${JSON.stringify({ done: true, extracted })}\n\n`);
+      res.write(
+        `data: ${JSON.stringify({
+          done: true,
+          extracted,
+          waitlistConfirmationQueued,
+        })}\n\n`,
+      );
       res.end();
     } catch (err) {
       console.error("[leads/chat] SSE error:", err);
