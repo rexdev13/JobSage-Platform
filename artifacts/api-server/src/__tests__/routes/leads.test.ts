@@ -244,7 +244,7 @@ describe("waitlist lead submission", () => {
           },
         }],
       });
-    queryResults.push([], []);
+    queryResults.push([], [{ id: 98 }]);
 
     const response = await request(buildApp())
       .post("/leads/chat")
@@ -259,6 +259,51 @@ describe("waitlist lead submission", () => {
       source: "chat",
     }));
     expect(sendWaitlistWelcomeEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("sends the welcome email after chat collects the required contact details", async () => {
+    async function* streamResponse() {
+      yield { choices: [{ delta: { content: "Thanks, Ada. You are all set." } }] };
+    }
+    openAiCreateMock
+      .mockResolvedValueOnce(streamResponse())
+      .mockResolvedValueOnce({
+        choices: [{
+          message: {
+            content: JSON.stringify({
+              name: "Ada Lovelace",
+              email: "ada@example.com",
+              phone: "+44 7700 900123",
+              industrySector: "Technology",
+              desiredRole: "Software Engineer",
+            }),
+          },
+        }],
+      });
+    queryResults.push([], [{ id: 99 }], []);
+
+    const response = await request(buildApp())
+      .post("/leads/chat")
+      .send({
+        message: "My phone is +44 7700 900123",
+        history: [{ role: "user", content: "My name is Ada Lovelace and my email is ada@example.com" }],
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.text).toContain('"waitlistConfirmationQueued":true');
+    await vi.waitFor(() => {
+      expect(sendWaitlistWelcomeEmailMock).toHaveBeenCalledWith({
+        to: "ada@example.com",
+        firstName: "Ada",
+        industrySector: "Technology",
+        desiredRole: "Software Engineer",
+      });
+      expect(setCalls).toContainEqual({
+        waitlistConfirmationSentAt: expect.any(Date),
+        waitlistConfirmationProviderId: "email-123",
+        waitlistConfirmationLastError: null,
+      });
+    });
   });
 });
 

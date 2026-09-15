@@ -549,6 +549,7 @@ export default function GetStartedPage() {
               text?: string;
               done?: boolean;
               extracted?: ExtractedQualifiers;
+              waitlistConfirmationQueued?: boolean;
               error?: string;
             };
 
@@ -574,11 +575,19 @@ export default function GetStartedPage() {
             }
 
             if (payload.done) {
-              setMessages((prev) =>
-                prev.map((m, i) =>
+              setMessages((prev) => {
+                const next = prev.map((m, i) =>
                   i === prev.length - 1 ? { ...m, streaming: false } : m,
-                ),
-              );
+                );
+                if (payload.waitlistConfirmationQueued) {
+                  next.push({
+                    role: "assistant",
+                    content:
+                      "Your details are all set. You’ll receive an email from JOBSAGE now.",
+                  });
+                }
+                return next;
+              });
               // Pre-fill the form with any qualifying data the AI extracted
               if (payload.extracted) {
                 applyExtracted(payload.extracted);
