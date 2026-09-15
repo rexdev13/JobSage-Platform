@@ -290,7 +290,7 @@ describe("waitlist lead submission", () => {
       });
 
     expect(response.status).toBe(200);
-    expect(response.text).toContain('"waitlistConfirmationQueued":true');
+    expect(response.text).toContain('"waitlistConfirmationStatus":"queued"');
     await vi.waitFor(() => {
       expect(sendWaitlistWelcomeEmailMock).toHaveBeenCalledWith({
         to: "ada@example.com",
@@ -304,6 +304,46 @@ describe("waitlist lead submission", () => {
         waitlistConfirmationLastError: null,
       });
     });
+  });
+
+  it("uses carried chat details and reports when confirmation was already sent", async () => {
+    async function* streamResponse() {
+      yield { choices: [{ delta: { content: "Thanks, Ada. You are all set." } }] };
+    }
+    openAiCreateMock
+      .mockResolvedValueOnce(streamResponse())
+      .mockResolvedValueOnce({
+        choices: [{
+          message: {
+            content: JSON.stringify({
+              industrySector: "Technology",
+            }),
+          },
+        }],
+      });
+    queryResults.push([{
+      id: 100,
+      source: "form",
+      waitlistConfirmationSentAt: new Date("2026-09-15T07:00:00Z"),
+    }]);
+
+    const response = await request(buildApp())
+      .post("/leads/chat")
+      .send({
+        message: "I work in technology",
+        history: [{ role: "user", content: "Let me tell you about my sector" }],
+        knownQualifiers: {
+          name: "Ada Lovelace",
+          email: "ada@example.com",
+          phone: "+44 7700 900123",
+        },
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.text).toContain(
+      '"waitlistConfirmationStatus":"already_sent"',
+    );
+    expect(sendWaitlistWelcomeEmailMock).not.toHaveBeenCalled();
   });
 });
 
