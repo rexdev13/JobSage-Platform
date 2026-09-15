@@ -119,6 +119,88 @@ describe("company-site vacancy discovery", () => {
     });
   });
 
+  it("falls back to a sitemap when the employer homepage has no careers links", async () => {
+    fetchCompanySitePageMock
+      .mockResolvedValueOnce({
+        ok: true,
+        url: "https://acme-care.example/",
+        status: 200,
+        contentType: "text/html",
+        body: "<html><body>Welcome to Acme Care</body></html>",
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        url: "https://acme-care.example/sitemap.xml",
+        status: 200,
+        contentType: "application/xml",
+        body: "<urlset><url><loc>https://acme-care.example/jobs/registered-nurse</loc></url></urlset>",
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        url: "https://acme-care.example/jobs/registered-nurse",
+        status: 200,
+        contentType: "text/html",
+        body: `<script type="application/ld+json">${JSON.stringify({
+          "@type": "JobPosting",
+          title: "Registered Nurse",
+          url: "https://acme-care.example/jobs/registered-nurse",
+        })}</script>`,
+      });
+
+    const result = await discoverCompanySiteVacancies(
+      "Acme Care Limited",
+      "https://acme-care.example",
+    );
+
+    expect(result.pagesFetched).toBe(3);
+    expect(result.adverts).toEqual([
+      expect.objectContaining({
+        title: "Registered Nurse",
+        url: "https://acme-care.example/jobs/registered-nurse",
+      }),
+    ]);
+  });
+
+  it("follows a paginated careers listing", async () => {
+    fetchCompanySitePageMock
+      .mockResolvedValueOnce({
+        ok: true,
+        url: "https://acme-care.example/",
+        status: 200,
+        contentType: "text/html",
+        body: '<a href="/careers">Careers</a>',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        url: "https://acme-care.example/careers",
+        status: 200,
+        contentType: "text/html",
+        body: '<a href="/jobs?page=2">Next</a>',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        url: "https://acme-care.example/jobs?page=2",
+        status: 200,
+        contentType: "text/html",
+        body: `<script type="application/ld+json">${JSON.stringify({
+          "@type": "JobPosting",
+          title: "Senior Staff Nurse",
+          url: "https://acme-care.example/jobs/senior-staff-nurse",
+        })}</script>`,
+      });
+
+    const result = await discoverCompanySiteVacancies(
+      "Acme Care Limited",
+      "https://acme-care.example",
+    );
+
+    expect(result.pagesFetched).toBe(3);
+    expect(result.adverts[0]).toMatchObject({
+      title: "Senior Staff Nurse",
+      url: "https://acme-care.example/jobs/senior-staff-nurse",
+    });
+  });
+
   it("normalises bare sponsor domains and rejects non-http schemes", () => {
     expect(normaliseSponsorWebsite("example.org")).toBe("https://example.org/");
     expect(normaliseSponsorWebsite("ftp://example.org")).toBeNull();

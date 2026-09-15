@@ -10,10 +10,10 @@ const router = Router();
 
 /**
  * Company-site checks can involve several politely paced requests per employer.
- * Keep the awaited HTTP batch at five so free cron clients with a 30-second
- * timeout receive the final response comfortably before their deadline.
+ * Ten concurrent employer slots fit inside the bounded API-side HTTP window
+ * while giving this slower source materially more coverage than board search.
  */
-export const DEFAULT_COMPANY_SITE_HTTP_BATCH_SIZE = 5;
+export const DEFAULT_COMPANY_SITE_HTTP_BATCH_SIZE = 10;
 
 export function getCompanySiteHttpBatchSize(): number {
   const configured = Number.parseInt(process.env["COMPANY_SITE_BATCH_SIZE"] ?? "", 10);

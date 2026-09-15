@@ -15,6 +15,7 @@ export const COMPANY_SITE_DISCOVERY_CONCURRENCY = 8;
 export const COMPANY_SITE_GENERIC_TTL_MS = 48 * 60 * 60 * 1000;
 export const COMPANY_SITE_ATS_TTL_MS = 24 * 60 * 60 * 1000;
 export const COMPANY_SITE_BOOKMARK_SHARE = 0.25;
+export const COMPANY_SITE_HEALTHCARE_SHARE = 0.5;
 
 export type CompanySiteBatchRow = {
   id: number;
@@ -64,6 +65,8 @@ export async function selectCompanySiteBatch(
 ): Promise<CompanySiteBatchRow[]> {
   const bookmarkLimit = Math.floor(batchSize * COMPANY_SITE_BOOKMARK_SHARE);
   const guaranteedOldestSlots = batchSize - bookmarkLimit;
+  const healthcareLimit = Math.floor(guaranteedOldestSlots * COMPANY_SITE_HEALTHCARE_SHARE);
+  const generalLimit = guaranteedOldestSlots - healthcareLimit;
   const genericCutoff = new Date(Date.now() - COMPANY_SITE_GENERIC_TTL_MS);
   const atsCutoff = new Date(Date.now() - COMPANY_SITE_ATS_TTL_MS);
   const result = await db.execute<{
@@ -81,6 +84,7 @@ export async function selectCompanySiteBatch(
         sl.id,
         sl.organisation_name,
         trim(sl.website) AS website,
+        sl.industry,
         cs.generic_checked_at,
         cs.ats_checked_at,
         cs.careers_url,
@@ -116,16 +120,32 @@ export async function selectCompanySiteBatch(
         id ASC
       LIMIT ${bookmarkLimit}
     ),
-    oldest_unbookmarked AS (
+    healthcare_unbookmarked AS (
       SELECT *
       FROM eligible
       WHERE bookmarked = false
+        AND LOWER(COALESCE(industry, '')) ~ '(health|hospital|medical|nursing|care|clinic)'
       ORDER BY
         CASE WHEN generic_checked_at IS NULL THEN 0 ELSE 1 END,
         generic_checked_at ASC NULLS FIRST,
         ats_checked_at ASC NULLS FIRST,
         id ASC
-      LIMIT ${guaranteedOldestSlots}
+      LIMIT ${healthcareLimit}
+    ),
+    oldest_unbookmarked AS (
+      SELECT *
+      FROM eligible
+      WHERE bookmarked = false
+        AND NOT EXISTS (
+          SELECT 1 FROM healthcare_unbookmarked
+          WHERE healthcare_unbookmarked.id = eligible.id
+        )
+      ORDER BY
+        CASE WHEN generic_checked_at IS NULL THEN 0 ELSE 1 END,
+        generic_checked_at ASC NULLS FIRST,
+        ats_checked_at ASC NULLS FIRST,
+        id ASC
+      LIMIT ${generalLimit}
     ),
     overflow AS (
       SELECT eligible.*
@@ -134,6 +154,10 @@ export async function selectCompanySiteBatch(
         SELECT 1 FROM priority_bookmarks
         WHERE priority_bookmarks.id = eligible.id
       )
+        AND NOT EXISTS (
+          SELECT 1 FROM healthcare_unbookmarked
+          WHERE healthcare_unbookmarked.id = eligible.id
+        )
         AND NOT EXISTS (
           SELECT 1 FROM oldest_unbookmarked
           WHERE oldest_unbookmarked.id = eligible.id
@@ -146,11 +170,14 @@ export async function selectCompanySiteBatch(
       LIMIT GREATEST(
         0,
         ${batchSize}
+          - (SELECT count(*) FROM healthcare_unbookmarked)
           - (SELECT count(*) FROM priority_bookmarks)
           - (SELECT count(*) FROM oldest_unbookmarked)
       )
     )
     SELECT * FROM oldest_unbookmarked
+    UNION ALL
+    SELECT * FROM healthcare_unbookmarked
     UNION ALL
     SELECT * FROM priority_bookmarks
     UNION ALL
