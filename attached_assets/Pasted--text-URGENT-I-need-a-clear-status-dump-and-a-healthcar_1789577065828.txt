@@ -1,0 +1,85 @@
+
+
+---
+
+```text
+URGENT: I need a clear status dump and a healthcare-only path that works in the next hour.
+
+Do not rebuild. Do not touch Charity/GIAS/Other unless needed for status. No `--apply` unless I explicitly say so after I see numbers.
+
+## Step 0 — Where are we right now?
+Inspect the repo and report:
+
+1. Latest pilot outputs that exist under `scripts/data/`:
+   - list files with timestamps
+   - which is newest: v1/v2/v3/v4/other
+2. From the newest summary JSON/CSV:
+   - total rows
+   - unmatched
+   - websites
+   - verified_email count
+   - by source: CQC / GIAS / Charity / website
+3. How many rows are:
+   - `status=verified_email`
+   - `review_status=approved`
+   - `review_status=rejected`
+   - blank review
+4. Exact import command that would be used
+5. Any broken commands / missing cache files / obvious blockers
+
+Be blunt. If the latest run is weak, say so.
+
+## Step 1 — Healthcare-only focus for the demo
+My demo is healthcare / social care. Ignore education/charity/other for this hour.
+
+Create and run a healthcare-only batch:
+
+- Sample or filter sponsors that look like healthcare/social care (use existing industry/name heuristics + CQC-relevant names)
+- Prefer CQC auto-fetch/cache (already implemented)
+- Limit: start with 100 healthcare sponsors if full care set is too slow; otherwise do all care-like sponsors up to 300 max
+- Output:
+
+```text
+data/sponsor_contacts_healthcare_demo.csv
+data/sponsor_contacts_healthcare_demo_summary.json
+data/sponsor_contacts_healthcare_demo_rejected.csv
+```
+
+Rules stay strict:
+- no invented emails
+- evidence URL required
+- CQC provider/location matching as already implemented
+- extract published same-domain emails from matched websites when possible
+
+## Step 2 — Make demo-ready rows obvious
+In the healthcare CSV:
+- Ensure `review_status` column exists
+- Auto-reject only clearly bad rows (free-mail, blocked domain, missing evidence)
+- Do NOT auto-approve everything
+- Print a short “DEMO CANDIDATES” table of the best `verified_email` rows:
+  organisation_name | website | contact_email | evidence_url | source
+
+I need at least ~15–25 solid healthcare emails if possible. If fewer, give me whatever is real and say the count honestly.
+
+## Step 3 — Dry-run import only
+```bash
+pnpm --filter @workspace/scripts sponsor-contacts import \
+  --input data/sponsor_contacts_healthcare_demo.csv \
+  --require-review
+```
+
+Explain selected/matched counts. No `--apply`.
+
+## Final response format (keep tight)
+1. **Current status** (newest file + key metrics)
+2. **Healthcare demo run metrics**
+3. **Top 20 verified healthcare emails** (copy-pasteable)
+4. **Exact files to download**
+5. **Exact next command after I approve rows**
+6. **What will / won’t be ready for tomorrow’s demo**
+
+Start with Step 0 immediately.
+```
+
+---
+

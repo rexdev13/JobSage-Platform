@@ -598,14 +598,12 @@ export async function sendSpeculativeCVToOps(opts: {
   const safeCandidateSubject = normalizeEmailSubject(opts.candidateName);
   const safeVacancySubject = normalizeEmailSubject(opts.vacancyTitle ?? opts.companyName);
   const safeCompanySubject = normalizeEmailSubject(opts.companyName);
-  const subject = `Job Application: ${safeCandidateSubject} — ${safeVacancySubject || safeCompanySubject} (via JOBSAGE)`;
-  const candidateRole = safeVacancyTitle ?? "General Application";
-  const attachedDocuments = [
-    safeCvFilename ? `📄 ${safeCvFilename}` : null,
-    safeCoverLetterFilename ? `📄 ${safeCoverLetterFilename}` : null,
-  ].filter((document): document is string => Boolean(document));
-  const documentsMarkup =
-    attachedDocuments.length > 0 ? attachedDocuments.join("<br />") : "None attached";
+  const subject = `Application: ${safeCandidateSubject} — ${safeVacancySubject || safeCompanySubject}`;
+  const formalPosition = safeVacancyTitle ?? "position";
+  const attachmentLabel = `📎 Attached: ${safeCvFilename ?? "Curriculum Vitae (PDF)"}${
+    safeCoverLetterFilename ? ` · ${safeCoverLetterFilename}` : ""
+  }`;
+  const safeJobsageEmailAttribute = escapeHtmlAttribute(contactEmail);
 
   // Always send FROM the approved/configured JOBSAGE sender. The candidate's
   // alias is a Reply-To only: alias domains may not be verified as outbound
