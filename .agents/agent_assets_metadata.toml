@@ -362,3 +362,31 @@ mtime_ms = 1789588778482
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/027fa62a-0f16-4430-80d0-690b778bf6ec/198c9cfc-a47b-484f-b512-86e9a2f6fdfd"
 storage_version_token = "1789588853069452"
 content_type = "text/csv"
+
+[[outputs]]
+id = "zOnuysKhykgsNuwDYWd6d"
+uri = "file://scripts/data/healthcare_contact_identity_audit.csv"
+type = "table"
+title = "Healthcare contact identity audit CSV"
+description = "Development-only identity audit of 1,288 applied vacancy-derived healthcare contacts from heliumdb, with shared-email, duplicate-name, evidence, and classification fields."
+logical_id = "e643de63-011d-4090-9916-fa491e6eda9f"
+content_hash = "sha256:c29a4d0f694d71b418e5312bcdb8d9e3adb5e2c31bd7c317290ce64326f49080"
+size = 767091
+mtime_ms = 1789589237108
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/e643de63-011d-4090-9916-fa491e6eda9f/8a606759-397b-402d-8a36-a48ebb171f2a"
+storage_version_token = "1789589257773307"
+content_type = "text/csv"
+
+[[outputs]]
+id = "zw8mAywDnEXDsOQejmAHz"
+uri = "file://scripts/data/healthcare_contact_identity_audit_summary.json"
+type = "unspecified"
+title = "Healthcare contact identity audit summary"
+description = "Development-only summary, classifications, 30-row manual-style sample, remaining missing count, and NOT_READY production verdict."
+logical_id = "d481128c-c434-408d-80f8-3fc049ed310e"
+content_hash = "sha256:ac7df5cb48680edc574c2fad361145c36a735718b355193427d355dcaacb62d0"
+size = 31942
+mtime_ms = 1789589237110
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/d481128c-c434-408d-80f8-3fc049ed310e/898d773d-65b1-4907-b59f-b79a5f2c0178"
+storage_version_token = "1789589258350541"
+content_type = "application/octet-stream"
