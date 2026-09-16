@@ -1,0 +1,52 @@
+### Redesign: Make "Send CV" Email Look Like a Formal Candidate Application Letter
+The current email still looks like an automated third-party software notification with dark banners, third-person summaries ("A candidate has shared their profile..."), and clunky box grids. 
+An employer should open this email and read **a direct, formal job application written by the candidate**, not an email from a SaaS platform. JobSage should only appear discreetly as the secure messaging relay.
+Please rewrite the HTML in `sendSpeculativeCVToOps` (`artifacts/api-server/src/lib/email.ts`) to match this exact format:
+---
+#### 1. Email Structure (Formal Letter Format)
+- **Container:** Clean, white letter style (`#ffffff`, max-width `620px`, subtle border `#e2e8f0`, ample padding, clean system font like Arial / Helvetica / -apple-system).
+- **No Dark SaaS Banners:** Remove the large dark "JOBSAGE" banner and the "CANDIDATE / TARGET ROLE" grid boxes.
+---
+#### 2. The Body (Candidate's Direct Voice)
+Format the email as a formal letter from the applicant:
+1. **Salutation:**
+   `Dear Hiring Team at ${safeCompanyName},`
+2. **Opening:**
+   `I am writing to formally submit my application for the ${safeVacancyTitle ?? "position"} at ${safeCompanyName}. Please find my CV attached for your consideration.`
+3. **Candidate’s Content / Screening Answers:**
+   Render the candidate’s cover letter / notes (`notes`) naturally in the body with clean typography, clear paragraph spacing, and formatted bullet points for their qualifications (Motivation, Right to Work, Clinical Experience, Notice Period).
+4. **Closing:**
+   `Thank you for taking the time to review my application. I would welcome the opportunity to speak with you further and look forward to hearing from you.`
+5. **Formal Candidate Sign-Off:**
+   ```html
+   <p style="margin: 24px 0 4px; font-size: 15px;">Kind regards,</p>
+   <p style="margin: 0; font-weight: 700; font-size: 16px; color: #0f172a;">${safeCandidateName}</p>
+   <p style="margin: 2px 0 0; font-size: 13px; color: #64748b;">
+     Applicant &middot; <a href="mailto:${safeJobsageEmail}" style="color: #2563eb; text-decoration: none;">${safeJobsageEmail}</a>
+   </p>
+3. Attachment Bar & JobSage Relay Notice
+Place these cleanly below the candidate’s signature:
+
+Attachment Bar: A simple gray pill box: 📎 Attached: ${safeCvFilename ?? "Curriculum Vitae (PDF)"} ${safeCoverLetterFilename ?· ${safeCoverLetterFilename} : ""}
+
+Discreet Footer (JobSage Relay): Separated by a light divider line (<hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 24px 0 16px;" />):
+
+html
+
+
+<div style="font-size: 12px; color: #94a3b8; line-height: 1.5;">
+  <p style="margin: 0 0 4px;">
+    📩 <strong>To reply:</strong> Simply click <strong>Reply</strong> in your email client. Your message will be securely delivered to ${safeCandidateName} via their JOBSAGE candidate messaging channel.
+  </p>
+  <p style="margin: 0;">
+    Sent via <strong>JOBSAGE</strong> &middot; UK Healthcare & Regulated Professions Talent Network
+  </p>
+</div>
+4. Subject Line
+Ensure the subject line reads like a real applicant's submission:
+
+ts
+
+
+subject: `Application: ${safeCandidateName} — ${safeVacancyTitle ?? safeCompanyName}`
+Please update the template and send a test email to ifeo55394@gmail.com using the test vacancy so we can verify the final look in Gmail.
