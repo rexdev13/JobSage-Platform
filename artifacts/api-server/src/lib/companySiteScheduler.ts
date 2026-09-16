@@ -305,6 +305,9 @@ export async function runCompanySiteDiscoveryBatch(
   }
   batchInProgress = true;
   const startedAt = Date.now();
+  const workDeadlineMs = options.deadlineMs == null
+    ? undefined
+    : Math.max(startedAt, options.deadlineMs - COMPANY_SITE_BATCH_WRITE_RESERVE_MS);
   try {
     const batchSize = options.batchSize == null
       ? getBatchSize()
@@ -329,7 +332,7 @@ export async function runCompanySiteDiscoveryBatch(
 
     async function worker(): Promise<void> {
       while (true) {
-        if (options.deadlineMs != null && Date.now() >= options.deadlineMs) {
+        if (workDeadlineMs != null && Date.now() >= workDeadlineMs) {
           deferred += Math.max(0, rows.length - nextIndex);
           nextIndex = rows.length;
           return;
@@ -338,7 +341,7 @@ export async function runCompanySiteDiscoveryBatch(
         if (!row) return;
         try {
           const outcome = await runCompanySiteCheck(row, {
-            deadlineMs: options.deadlineMs,
+            deadlineMs: workDeadlineMs,
           });
           if (outcome.status === "skipped") {
             skipped += 1;

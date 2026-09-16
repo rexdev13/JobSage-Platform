@@ -1,0 +1,50 @@
+### Task: Audit Send CV Email Mechanism & Seed Test Vacancy for Live Email Proof
+
+We need to prove to the client that clicking "Send CV" actually sends an email and demonstrate what it looks like in a real inbox. 
+
+Please perform this in 2 steps:
+1. Confirm the live email sending mechanism and ensure it won't fail.
+2. Seed a test vacancy named **"Test JobSage Email"** at the very top of Opportunities with contact email **`ifeo55394@gmail.com`**.
+
+---
+
+### Step 1: Confirm the Sending Mechanism (`artifacts/api-server/src/lib/email.ts`)
+1. **Verify Resend API Key & Environment:**
+   - Confirm `RESEND_API_KEY` is set and loaded in the API server environment.
+2. **Domain Verification Check:**
+   - In `sendSpeculativeCVToOps`: check the `from` field in `resend.emails.send`.
+   - Currently, it attempts to send `from: candidateName <candidateAlias@mail.jobsage.app>`. If the domain `mail.jobsage.app` is not fully verified with DKIM/SPF on Resend, Resend will reject the email!
+   - **Fix/Guard:** Ensure that if `mail.jobsage.app` is unverified, it safely falls back to sending `from: JOBSAGE <${FROM}>` (e.g. `noreply@jobsage.co.uk` or Resend's default verified sender) while keeping `replyTo: candidateAlias@mail.jobsage.app`. This guarantees Resend actually accepts and delivers the email to the recipient's inbox.
+3. **Verify Recipient Resolution (`artifacts/api-server/src/lib/employerRecipient.ts`):**
+   - Confirm that `resolveEmployerRecipient` matches `contactEmail` from `sponsorLicencesTable` or `rolesTable` and routes it via `sponsor_contact_email` / `employer_contact_email`.
+
+---
+
+### Step 2: Seed the Test Vacancy & Sponsor Licence
+Create and run a one-time seed script (e.g. `scripts/seed-test-email-vacancy.ts`):
+1. **Sponsor Licence (`sponsorLicencesTable`):**
+   - `organisationName`: `"Test JobSage Email"`
+   - `contactEmail`: `"ifeo55394@gmail.com"`
+   - `townCity`: `"London"`
+   - `industry`: `"Healthcare"`
+   - `rating`: `"Worker (A rating)"`
+2. **Live Vacancy / Role (`rolesTable`):**
+   - `title`: `"Test JobSage Email"`
+   - `employer`: `"Test JobSage Email"`
+   - `contactEmail`: `"ifeo55394@gmail.com"`
+   - `location`: `"London, UK"`
+   - `regulator`: `"NMC"`
+   - `sponsorshipOffered`: `true`
+   - `requiredRegistration`: `"Active registration"`
+   - `active`: `true`
+   - `liveness`: `"live"`
+   - `applyUrl`: `"https://jobsage.co.uk/opportunities"`
+   - `importedAt`: Set to `new Date()` (or a future timestamp so it ranks at the very top of `/opportunities`).
+
+Run the script to insert or update these records in the database.
+
+---
+
+### Step 3: Verification & How to Test
+1. Confirm the seed completed and output the ID and details of the seeded vacancy.
+2. Provide exact steps for me to log in as a candidate, find **"Test JobSage Email"** at the top of Opportunities, click **"Send CV"**, and see the live email delivered to `ifeo55394@gmail.com`.
