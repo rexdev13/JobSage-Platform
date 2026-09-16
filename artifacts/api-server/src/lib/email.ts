@@ -621,101 +621,41 @@ export async function sendSpeculativeCVToOps(opts: {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${escapeEmailHtml(subject)}</title>
-  <style>
-    @media only screen and (max-width: 620px) {
-      .email-shell { width:100% !important; }
-      .email-padding { padding-left:20px !important; padding-right:20px !important; }
-      .snapshot-cell { display:block !important; width:100% !important; padding-right:0 !important; }
-      .snapshot-cell + .snapshot-cell { padding-top:12px !important; }
-    }
-  </style>
 </head>
-<body style="margin:0;padding:0;background:#f8fafc;font-family:'Segoe UI',Arial,sans-serif;color:#0f172a;">
+<body style="margin:0;padding:0;background:#f8fafc;font-family:Arial,Helvetica,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#334155;">
   <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#f8fafc;padding:32px 12px;">
     <tr>
       <td align="center">
-        <table class="email-shell" width="600" cellpadding="0" cellspacing="0" role="presentation" style="width:100%;max-width:600px;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
+        <table width="620" cellpadding="0" cellspacing="0" role="presentation" style="width:100%;max-width:620px;background:#ffffff;border:1px solid #e2e8f0;">
           <tr>
-            <td class="email-padding" style="background:#0f172a;padding:28px 36px;">
-              <div style="color:#ffffff;font-size:24px;font-weight:800;letter-spacing:-0.6px;">JOBSAGE</div>
-              <div style="color:#cbd5e1;font-size:13px;line-height:1.5;margin-top:6px;">Candidate Introduction &amp; Speculative Application</div>
-            </td>
-          </tr>
-          <tr>
-            <td class="email-padding" style="padding:32px 36px 12px;">
-              <h1 style="color:#0f172a;font-size:22px;line-height:1.3;font-weight:700;margin:0 0 6px;">Candidate Application</h1>
-              <p style="color:#64748b;font-size:14px;line-height:1.6;margin:0;">A candidate has shared their profile for your consideration.</p>
-            </td>
-          </tr>
-          <tr>
-            <td class="email-padding" style="padding:12px 36px 28px;">
-              <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="border:1px solid #e2e8f0;border-radius:12px;background:#ffffff;">
-                <tr>
-                  <td style="padding:20px 20px 8px;">
-                    <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
-                      <tr>
-                        <td class="snapshot-cell" width="50%" valign="top" style="width:50%;padding:0 16px 12px 0;">
-                          <div style="color:#64748b;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;">Candidate</div>
-                          <div style="color:#0f172a;font-size:15px;font-weight:600;line-height:1.5;margin-top:4px;">${safeCandidateName}</div>
-                        </td>
-                        <td class="snapshot-cell" width="50%" valign="top" style="width:50%;padding:0 0 12px 0;">
-                          <div style="color:#64748b;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;">Target Role / Dept</div>
-                          <div style="color:#0f172a;font-size:15px;font-weight:600;line-height:1.5;margin-top:4px;">${candidateRole}</div>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td class="snapshot-cell" width="50%" valign="top" style="width:50%;padding:4px 16px 12px 0;">
-                          <div style="color:#64748b;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;">Target Organisation</div>
-                          <div style="color:#0f172a;font-size:15px;font-weight:600;line-height:1.5;margin-top:4px;">${safeCompanyName}</div>
-                        </td>
-                        <td class="snapshot-cell" width="50%" valign="top" style="width:50%;padding:4px 0 12px 0;">
-                          <div style="color:#64748b;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;">Attached Documents</div>
-                          <div style="color:#334155;font-size:14px;line-height:1.6;margin-top:4px;">${documentsMarkup}</div>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-          ${safeVacancyUrl ? `
-          <tr>
-            <td class="email-padding" style="padding:0 36px 28px;">
-              <p style="color:#64748b;font-size:13px;line-height:1.6;margin:0;">Related vacancy: <a href="${safeVacancyUrl}" style="color:#2563eb;text-decoration:underline;">View role details</a></p>
-            </td>
-          </tr>` : ""}
-          ${renderedNotes ? `
-          <tr>
-            <td class="email-padding" style="padding:0 36px 28px;">
-              <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#f8fafc;border:1px solid #e2e8f0;border-left:4px solid #3b82f6;border-radius:0 10px 10px 0;">
-                <tr>
-                  <td style="padding:20px;">
-                    <h2 style="color:#0f172a;font-size:16px;line-height:1.4;margin:0 0 12px;">Message &amp; Qualifications from Candidate</h2>
-                    ${renderedNotes}
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>` : ""}
-          <tr>
-            <td class="email-padding" style="padding:0 36px 32px;">
-              <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;">
-                <tr>
-                  <td style="padding:20px;text-align:center;">
-                    <div style="color:#1e3a8a;font-size:16px;font-weight:700;line-height:1.4;">Reply to this email to contact ${safeCandidateName}</div>
-                    <div style="color:#475569;font-size:13px;line-height:1.6;margin-top:8px;">Hit &ldquo;Reply&rdquo; to send a message directly to ${safeCandidateName}. Your response will be securely routed to their JOBSAGE candidate portal.</div>
-                    <div style="color:#64748b;font-size:12px;line-height:1.5;margin-top:12px;">Candidate reply address: <strong style="color:#334155;">${safeJobsageEmail}</strong></div>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-          <tr>
-            <td class="email-padding" style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 36px;text-align:center;">
-              <p style="color:#64748b;font-size:12px;line-height:1.6;margin:0;">Please handle candidate information in accordance with applicable privacy requirements.</p>
-              <p style="color:#94a3b8;font-size:11px;line-height:1.6;margin:8px 0 0;">Ref: JS-${opts.applicationId} &nbsp;|&nbsp; JOBSAGE UK</p>
-              <p style="color:#94a3b8;font-size:11px;line-height:1.6;margin:4px 0 0;">&copy; ${new Date().getFullYear()} JOBSAGE</p>
+            <td style="padding:48px 44px 40px;">
+              <p style="margin:0 0 24px;font-size:15px;line-height:1.7;color:#334155;">Dear Hiring Team at ${safeCompanyName},</p>
+              <p style="margin:0 0 20px;font-size:15px;line-height:1.8;color:#334155;">
+                I am writing to formally submit my application for the ${formalPosition} at ${safeCompanyName}. Please find my CV attached for your consideration.
+              </p>
+              ${renderedNotes ? `<div style="margin:0 0 4px;">${renderedNotes}</div>` : ""}
+              <p style="margin:20px 0 0;font-size:15px;line-height:1.8;color:#334155;">
+                Thank you for taking the time to review my application. I would welcome the opportunity to speak with you further and look forward to hearing from you.
+              </p>
+              <p style="margin:24px 0 4px;font-size:15px;line-height:1.5;color:#334155;">Kind regards,</p>
+              <p style="margin:0;font-weight:700;font-size:16px;line-height:1.5;color:#0f172a;">${safeCandidateName}</p>
+              <p style="margin:2px 0 0;font-size:13px;line-height:1.5;color:#64748b;">
+                Applicant &middot; <a href="mailto:${safeJobsageEmailAttribute}" style="color:#2563eb;text-decoration:none;">${safeJobsageEmail}</a>
+              </p>
+              <div style="margin-top:24px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;font-size:13px;line-height:1.5;color:#475569;">
+                ${attachmentLabel}
+              </div>
+              ${safeVacancyUrl ? `<p style="margin:16px 0 0;font-size:12px;line-height:1.5;color:#94a3b8;">Role details: <a href="${safeVacancyUrl}" style="color:#2563eb;text-decoration:none;">View the vacancy</a></p>` : ""}
+              <hr style="border:0;border-top:1px solid #e2e8f0;margin:24px 0 16px;" />
+              <div style="font-size:12px;color:#94a3b8;line-height:1.5;">
+                <p style="margin:0 0 4px;">
+                  📩 <strong>To reply:</strong> Simply click <strong>Reply</strong> in your email client. Your message will be securely delivered to ${safeCandidateName} via their JOBSAGE candidate messaging channel.
+                </p>
+                <p style="margin:0;">
+                  Sent via <strong>JOBSAGE</strong> &middot; UK Healthcare &amp; Regulated Professions Talent Network
+                </p>
+                <p style="margin:6px 0 0;color:#cbd5e1;">Ref: JS-${opts.applicationId}</p>
+              </div>
             </td>
           </tr>
         </table>

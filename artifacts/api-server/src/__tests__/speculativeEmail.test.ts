@@ -42,18 +42,25 @@ describe("speculative CV email", () => {
     expect(payload.from).not.toContain("amara@jobsage.app");
     expect(payload.replyTo).toBe("amara@jobsage.app");
     expect(payload.to).toBe("recruitment@example.test");
-    expect(payload.subject).toBe("Job Application: Amara Okafor — Senior Nurse (via JOBSAGE)");
+    expect(payload.subject).toBe("Application: Amara Okafor — Senior Nurse");
     expect(payload.attachments).toEqual([
       { filename: "Amara CV.pdf", content: Buffer.from("cv") },
       { filename: "Cover Letter - Senior Nurse.pdf", content: Buffer.from("letter") },
     ]);
-    expect(payload.html).toContain("Candidate Introduction &amp; Speculative Application");
-    expect(payload.html).toContain("Attached Documents");
-    expect(payload.html).toContain("📄 Amara CV.pdf");
+    expect(payload.html).toContain("Dear Hiring Team at North Health Trust,");
+    expect(payload.html).toContain(
+      "I am writing to formally submit my application for the Senior Nurse at North Health Trust.",
+    );
+    expect(payload.html).toContain("📎 Attached: Amara CV.pdf · Cover Letter - Senior Nurse.pdf");
+    expect(payload.html).toContain("Kind regards,");
+    expect(payload.html).toContain("To reply:</strong> Simply click <strong>Reply</strong>");
     expect(payload.html).toContain("Ref: JS-42");
     expect(payload.html).not.toContain("User ID");
     expect(payload.html).not.toContain("candidate-1");
     expect(payload.html).not.toContain("Sent by JOBSAGE platform");
+    expect(payload.html).not.toContain("Candidate Introduction &amp; Speculative Application");
+    expect(payload.html).not.toContain("Target Role / Dept");
+    expect(payload.html).not.toContain("background:#0f172a");
   });
 
   it("escapes candidate and employer-controlled HTML", async () => {
@@ -77,11 +84,11 @@ describe("speculative CV email", () => {
     expect(html).not.toContain("<img src=x>");
     expect(html).toContain("&lt;script&gt;");
     expect(html).toContain("&lt;img src=x&gt;");
-    expect(html).toContain("Message &amp; Qualifications from Candidate");
     expect(html).toContain("<ul");
     expect(html).toContain("<li style=");
     expect(html).toContain("Ref: JS-43");
     expect(html).not.toContain("candidate-1");
+    expect(html).not.toContain("<script>");
   });
 
   it("escapes all HTML metacharacters", () => {
