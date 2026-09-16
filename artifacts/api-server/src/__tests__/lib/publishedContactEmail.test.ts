@@ -19,6 +19,11 @@ describe("scrape-time published contact extraction", () => {
     expect(validatePublishedContactEmail("nhsbsa.nhsjobs@nhsbsa.nhs.uk")).toBeNull();
   });
 
+  it("removes punctuation attached to the start of a visible email", () => {
+    expect(validatePublishedContactEmail("-medicalrecruitment@sabp.nhs.uk"))
+      .toBe("medicalrecruitment@sabp.nhs.uk");
+  });
+
   it("rejects LinkedIn and Indeed evidence even when the email is otherwise valid", () => {
     expect(extractAdvertContactEmail(
       "recruitment@example.org",
