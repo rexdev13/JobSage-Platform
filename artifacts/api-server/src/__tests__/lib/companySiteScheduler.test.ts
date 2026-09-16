@@ -41,8 +41,10 @@ vi.mock("../../lib/companySiteDiscovery", () => ({
 
 const {
   COMPANY_SITE_DISCOVERY_BATCH_SIZE,
+  COMPANY_SITE_BATCH_WRITE_RESERVE_MS,
   COMPANY_SITE_DISCOVERY_CONCURRENCY,
   COMPANY_SITE_DISCOVERY_CRON,
+  COMPANY_SITE_SECTOR_COUNT,
   runCompanySiteCheck,
   runCompanySiteDiscoveryBatch,
   selectCompanySiteBatch,
@@ -75,6 +77,8 @@ describe("company-site scheduler", () => {
   it("uses its own hourly schedule and bounded worker settings", () => {
     expect(COMPANY_SITE_DISCOVERY_BATCH_SIZE).toBe(100);
     expect(COMPANY_SITE_DISCOVERY_CONCURRENCY).toBe(8);
+    expect(COMPANY_SITE_SECTOR_COUNT).toBe(8);
+    expect(COMPANY_SITE_BATCH_WRITE_RESERVE_MS).toBe(3_000);
     startCompanySiteDiscoveryScheduler();
     expect(scheduleMock).toHaveBeenCalledWith(
       COMPANY_SITE_DISCOVERY_CRON,
@@ -202,5 +206,79 @@ describe("company-site scheduler", () => {
       remainingIsLowerBound: true,
     }));
     expect(discoverCompanySiteVacanciesMock).toHaveBeenCalledTimes(5);
+  });
+
+  it("finishes a ten-employer HTTP batch while reserving time for final writes", async () => {
+    executeMock.mockResolvedValue({
+      rows: Array.from({ length: 10 }, (_, index) => ({
+        id: index + 1,
+        organisation_name: `Employer ${index + 1}`,
+        website: `https://employer-${index + 1}.example`,
+        generic_checked_at: null,
+        ats_checked_at: null,
+        careers_url: null,
+        ats_provider: null,
+        bookmarked: false,
+      })),
+    });
+    discoverCompanySiteVacanciesMock.mockResolvedValue({
+      adverts: [],
+      pagesFetched: 1,
+      genericCompleted: true,
+      atsCompleted: false,
+      transientFailure: false,
+    });
+    const deadlineMs = Date.now() + 20_000;
+
+    const summary = await runCompanySiteDiscoveryBatch({
+      batchSize: 10,
+      deadlineMs,
+    });
+
+    expect(summary).toEqual(expect.objectContaining({
+      selected: 10,
+      checked: 10,
+      errors: 0,
+      done: true,
+      remaining: 0,
+    }));
+    expect(discoverCompanySiteVacanciesMock).toHaveBeenCalledTimes(10);
+    expect(discoverCompanySiteVacanciesMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      expect.objectContaining({
+        deadlineMs: deadlineMs - COMPANY_SITE_BATCH_WRITE_RESERVE_MS,
+      }),
+    );
+  });
+
+  it("defers selected employers when only the database-write reserve remains", async () => {
+    executeMock.mockResolvedValue({
+      rows: [{
+        id: 1,
+        organisation_name: "Deferred Employer",
+        website: "https://deferred.example",
+        generic_checked_at: null,
+        ats_checked_at: null,
+        careers_url: null,
+        ats_provider: null,
+        bookmarked: false,
+      }],
+    });
+
+    const summary = await runCompanySiteDiscoveryBatch({
+      batchSize: 10,
+      deadlineMs: Date.now() + COMPANY_SITE_BATCH_WRITE_RESERVE_MS,
+    });
+
+    expect(summary).toEqual(expect.objectContaining({
+      selected: 1,
+      checked: 0,
+      errors: 0,
+      done: false,
+      remaining: 1,
+      remainingIsLowerBound: false,
+    }));
+    expect(discoverCompanySiteVacanciesMock).not.toHaveBeenCalled();
   });
 });
