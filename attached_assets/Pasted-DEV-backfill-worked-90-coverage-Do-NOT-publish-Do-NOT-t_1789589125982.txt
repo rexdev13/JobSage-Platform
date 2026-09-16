@@ -1,0 +1,67 @@
+DEV backfill worked (90% coverage). Do NOT publish. Do NOT touch production.
+
+Next job: identity QA on the applied healthcare contacts, then either clear us for prod or fix the mapping bugs first.
+
+## Context
+Dev DB heliumdb now has ~423 newly applied vacancy-derived contacts.
+Risks called out:
+- same email on multiple sponsors (e.g. recruitment@conduso.co.uk on 4 sponsors)
+- casing duplicates (Cora Health)
+- sponsor name vs vacancy employer mismatch (e.g. Triunion / Royal Berkshire style)
+
+Extraction is fine. Sponsor↔vacancy identity may not be.
+
+## Step 1 — Audit applied contacts on DEV only
+From the DB + `scripts/data/healthcare_vacancy_emails_full_dev.csv`, produce a report:
+
+1. Emails shared by 2+ different organisation_name values
+2. Near-duplicate org names (case/punctuation only)
+3. Rows where evidence host / email domain looks unrelated to organisation_name
+4. Sample 30 random applied rows for manual-style checks:
+   organisation_name | contact_email | vacancy URL | why it looks OK or suspicious
+
+Write:
+- `scripts/data/healthcare_contact_identity_audit.csv`
+- `scripts/data/healthcare_contact_identity_audit_summary.json`
+
+## Step 2 — Classify
+For each suspicious cluster, label:
+- `ok_shared_group` (legitimate group shared recruitment inbox)
+- `wrong_mapping` (vacancy attached to wrong sponsor)
+- `duplicate_sponsor_row`
+- `needs_human_review`
+
+Be strict. If unsure → `needs_human_review`.
+
+## Step 3 — Fix only clear wrong mappings on DEV
+If you find clear `wrong_mapping` rows:
+- clear those bad sponsor contact_email values on DEV only (or mark them rejected in a review table if that exists)
+- do not invent replacements
+- keep good contacts
+
+If the root bug is vacancy→sponsor association, patch that path (related to task #445 if present) with a minimal safe guard:
+- prefer exact employer-name corroboration from advert before COALESCE
+- skip apply when advert employer identity does not corroborate sponsor name
+
+## Step 4 — Verdict for prod
+Return one of:
+- `READY_FOR_PROD` — identity risk low; publish + prod backfill OK
+- `NOT_READY` — list blockers and exact fixes still needed
+
+## Hard rules
+- DEV only
+- No Publish
+- No production DB writes
+- No invented emails
+- Keep COALESCE / no-overwrite behavior for good rows
+
+## Final response format
+1. Shared-email count + worst examples
+2. Suspicious mismatch count + examples
+3. What you fixed on DEV (if anything)
+4. Remaining missing healthcare contacts count
+5. Clear verdict: READY_FOR_PROD or NOT_READY
+6. If READY: exact publish + prod backfill commands
+7. File paths for audit CSV/summary
+
+Start with the audit immediately.

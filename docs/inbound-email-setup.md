@@ -1,4 +1,4 @@
-# Inbound Email Setup — `mail.jobsage.app`
+# Inbound Email Setup — `mail.jobsage.co.uk`
 
 This document describes the one-time DNS and Resend configuration required to route
 employer reply emails into the JOBSAGE platform inbox.
@@ -8,7 +8,7 @@ employer reply emails into the JOBSAGE platform inbox.
 ## How it works
 
 1. When a candidate sends a speculative CV, the email is sent **from** their unique
-   JOBSAGE alias (e.g. `john.smith.a1b2c3@mail.jobsage.app`).
+   JOBSAGE alias (e.g. `john.smith.a1b2c3@mail.jobsage.co.uk`).
 2. The employer's reply goes back **to** that alias.
 3. Resend receives the inbound email (via MX records pointing at Resend's servers),
    then POSTs the parsed email to our webhook endpoint.
@@ -20,25 +20,25 @@ employer reply emails into the JOBSAGE platform inbox.
 ## Step 1 — Resend domain setup
 
 1. Log into the [Resend dashboard](https://resend.com/domains).
-2. Click **Add Domain** and enter `mail.jobsage.app`.
+2. Click **Add Domain** and enter `mail.jobsage.co.uk`.
 3. Choose **Inbound** as the domain purpose (or enable inbound after adding the domain).
 4. Resend will show you the DNS records to add (SPF, DKIM, and MX).
 
 ---
 
-## Step 2 — DNS records for `mail.jobsage.app`
+## Step 2 — DNS records for `mail.jobsage.co.uk`
 
-Add the following DNS records to your DNS provider for the subdomain `mail.jobsage.app`:
+Add the following DNS records to your DNS provider for the subdomain `mail.jobsage.co.uk`:
 
 ### MX record (route inbound mail to Resend)
 | Type | Name              | Value                     | Priority |
 |------|-------------------|---------------------------|----------|
-| MX   | mail.jobsage.app  | inbound.resend.com        | 10       |
+| MX   | mail.jobsage.co.uk  | inbound.resend.com        | 10       |
 
 ### SPF record (allow Resend to send outbound on your behalf)
 | Type | Name              | Value                                              |
 |------|-------------------|----------------------------------------------------|
-| TXT  | mail.jobsage.app  | v=spf1 include:_spf.resend.com ~all               |
+| TXT  | mail.jobsage.co.uk  | v=spf1 include:_spf.resend.com ~all               |
 
 ### DKIM record (domain key for signing — Resend provides the value)
 Resend generates a unique DKIM key per domain. Copy the TXT record value from the
@@ -106,7 +106,7 @@ curl -X POST https://jobsage.co.uk/api/webhooks/inbound-email \
     "type": "email.inbound_received",
     "data": {
       "from": "Hiring Manager <hr@testcompany.com>",
-      "to": ["john.smith.a1b2c3@mail.jobsage.app"],
+      "to": ["john.smith.a1b2c3@mail.jobsage.co.uk"],
       "subject": "Re: [Speculative CV] John Smith → Test Company",
       "text": "Thank you for your application. We would love to invite you for an interview.",
       "messageId": "<test-12345@testcompany.com>"
@@ -121,6 +121,66 @@ Expected response:
 
 ---
 
+## Repeatable inbound employer-reply smoke test
+
+The repository includes a non-mutating-fixture end-to-end runner at
+`scripts/test-inbound-reply.ts`. It resolves the existing **john dev** candidate,
+  requires the exact alias `john.dev.8b8431@mail.jobsage.co.uk`, posts a fixed
+interview invitation from the test employer, and verifies both the durable inbox
+message and the linked speculative-application status.
+
+### Safe prerequisites
+
+- Run against a local or staging API and database only. Do not point this test
+  at production unless the single-use test fixture has been deliberately
+  provisioned there.
+- `DATABASE_URL` must point to the database containing the existing `john dev`
+  candidate and exactly one open `Test JobSage Email` speculative application
+  whose employer recipient is `ifeo55394@gmail.com` (or whose company name is
+  `Test JobSage Email`).
+- `API_BASE_URL` (or `INBOUND_EMAIL_API_URL`) must be the API origin, for
+  example `http://localhost:5000`; the runner adds
+  `/api/webhooks/inbound-email`.
+- Set `NODE_ENV=development` or `NODE_ENV=test` when intentionally using the
+  API's unsigned non-production bypass. When
+  `INBOUND_EMAIL_WEBHOOK_SECRET` is set, the runner generates valid Svix
+  `svix-id`, `svix-timestamp`, and HMAC signature headers without printing the
+  secret or signature.
+- The fixed external message ID is single-use because the webhook deduplicates
+  it. The runner checks this before posting and never deletes an existing test
+  row or changes fixtures to make the test pass.
+
+Run it from the repository root:
+
+```bash
+API_BASE_URL=http://localhost:5000 \
+NODE_ENV=development \
+pnpm --filter @workspace/scripts test:inbound-reply
+```
+
+The command exits non-zero for missing fixtures, a reused message ID, a failed
+HTTP response, malformed JSON, or any durable-state assertion. A successful
+run prints only the API URL, non-secret row IDs, the application status
+transition, and the fixed test alias/message ID. Example:
+
+```text
+PASS: inbound employer reply end-to-end smoke test
+  API: http://localhost:5000/api/webhooks/inbound-email
+  Candidate: john dev (candidate-id), alias john.dev.8b8431@mail.jobsage.co.uk
+  Application: #42 (Test JobSage Email)
+  Status: cv_sent -> interview_invited
+  Inbox message: #99, external ID <inbound-e2e-test@testhospital.nhs.uk>
+  HTTP: 200, ok=true, category=interview_invited
+```
+
+After a pass, sign in as **john dev**, open `/inbox`, and inspect the
+**Test JobSage Email Recruitment** reply. Then open `/applications` and confirm the
+**Interview Invited** badge. To run the scenario again, provision a new
+controlled fixture and update the fixed message ID in the script; do not delete
+the previous message to bypass webhook deduplication.
+
+---
+
 ## Webhook payload format
 
 Resend delivers inbound emails with this shape:
@@ -131,7 +191,7 @@ Resend delivers inbound emails with this shape:
   "created_at": "2025-01-01T12:00:00.000Z",
   "data": {
     "from": "Sender Name <sender@company.com>",
-    "to": ["alias@mail.jobsage.app"],
+    "to": ["alias@mail.jobsage.co.uk"],
     "subject": "Re: ...",
     "text": "Plain text body",
     "html": "<p>HTML body</p>",
@@ -188,7 +248,7 @@ a real candidate CV or an uncontrolled employer address.
 - Company B has no stored direct contact and therefore resolves only to the
   operations fallback mailbox.
 - The controlled employer mailbox can reply to the candidate's generated
-  `@mail.jobsage.app` alias.
+  `@mail.jobsage.co.uk` alias.
 - Resend sending-domain DNS, inbound-domain MX records, `RESEND_API_KEY`, and
   `INBOUND_EMAIL_WEBHOOK_SECRET` are configured for staging. Record any
   infrastructure changes separately from application-code results.

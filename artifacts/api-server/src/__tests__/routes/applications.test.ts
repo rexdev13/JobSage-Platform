@@ -10,7 +10,7 @@ const { appResults, insertValues, updateSets } = vi.hoisted(() => ({
 }));
 
 vi.mock("../../lib/jobsageEmailGen", () => ({
-  resolveJobsageAlias: vi.fn().mockResolvedValue("jane.doe.abc123@mail.jobsage.app"),
+  resolveJobsageAlias: vi.fn().mockResolvedValue("jane.doe.abc123@mail.jobsage.co.uk"),
 }));
 
 vi.mock("@workspace/db", () => {
@@ -329,7 +329,7 @@ describe("POST /applications", () => {
       jobTitle: "Band 5 Nurse",
       applicationUrl: "https://jobs.example.nhs.uk/roles/42",
       status: "link_clicked",
-      jobsageEmail: "jane.doe.abc123@mail.jobsage.app",
+      jobsageEmail: "jane.doe.abc123@mail.jobsage.co.uk",
     })]);
   });
 
@@ -366,7 +366,7 @@ describe("POST /applications", () => {
       jobTitle: "Clinical Pharmacist",
       applicationUrl: "https://apply.example.org/confirmation",
       status: "applied",
-      jobsageEmail: "jane.doe.abc123@mail.jobsage.app",
+      jobsageEmail: "jane.doe.abc123@mail.jobsage.co.uk",
     })]);
   });
 
@@ -384,7 +384,7 @@ describe("POST /applications", () => {
       appliedAt: new Date(),
       cvDocumentId: null,
       notes: null,
-      jobsageEmail: "jane.doe.abc123@mail.jobsage.app",
+      jobsageEmail: "jane.doe.abc123@mail.jobsage.co.uk",
     };
     appResults.push(
       [],
@@ -422,7 +422,7 @@ describe("POST /applications", () => {
       applicationUrl: url,
       jobTitle: "Band 5 Nurse",
       status: "applied",
-      jobsageEmail: "jane.doe.abc123@mail.jobsage.app",
+      jobsageEmail: "jane.doe.abc123@mail.jobsage.co.uk",
     })]);
   });
 
@@ -468,7 +468,7 @@ describe("POST /applications", () => {
       jobTitle: "Band 5 Nurse",
       applicationUrl: outboundUrl,
       status: "applied",
-      jobsageEmail: "jane.doe.abc123@mail.jobsage.app",
+      jobsageEmail: "jane.doe.abc123@mail.jobsage.co.uk",
     })]);
     expect(insertValues).toHaveLength(0);
   });
@@ -487,7 +487,7 @@ describe("POST /applications", () => {
       appliedAt: new Date(),
       cvDocumentId: null,
       notes: null,
-      jobsageEmail: "jane.doe.abc123@mail.jobsage.app",
+      jobsageEmail: "jane.doe.abc123@mail.jobsage.co.uk",
     };
     appResults.push(
       [],
@@ -575,7 +575,7 @@ describe("POST /applications/confirm-submission", () => {
     expect(response.body.application.status).toBe("applied");
     expect(updateSets).toEqual([{
       status: "applied",
-      jobsageEmail: "jane.doe.abc123@mail.jobsage.app",
+      jobsageEmail: "jane.doe.abc123@mail.jobsage.co.uk",
     }]);
     expect(insertValues).toHaveLength(0);
   });

@@ -49,24 +49,24 @@ describe("ensureCanonicalJobsageAlias", () => {
 
   it("keeps the user alias canonical and repairs a different profile copy", async () => {
     selectResults.push(
-      [{ jobsageEmail: "canonical@mail.jobsage.app" }],
-      [{ jobsageEmail: "old-profile@mail.jobsage.app" }],
+      [{ jobsageEmail: "canonical@mail.jobsage.co.uk" }],
+      [{ jobsageEmail: "old-profile@mail.jobsage.co.uk" }],
     );
 
     await expect(ensureCanonicalJobsageAlias("candidate-1", "Jane", "Doe"))
-      .resolves.toBe("canonical@mail.jobsage.app");
-    expect(updateSets).toEqual([{ jobsageEmail: "canonical@mail.jobsage.app" }]);
+      .resolves.toBe("canonical@mail.jobsage.co.uk");
+    expect(updateSets).toEqual([{ jobsageEmail: "canonical@mail.jobsage.co.uk" }]);
   });
 
   it("promotes a legacy profile-only alias to the user record", async () => {
     selectResults.push(
       [{ jobsageEmail: null }],
-      [{ jobsageEmail: "legacy@mail.jobsage.app" }],
+      [{ jobsageEmail: "legacy@mail.jobsage.co.uk" }],
     );
 
     await expect(ensureCanonicalJobsageAlias("candidate-1", "Jane", "Doe"))
-      .resolves.toBe("legacy@mail.jobsage.app");
-    expect(updateSets).toEqual([{ jobsageEmail: "legacy@mail.jobsage.app" }]);
+      .resolves.toBe("legacy@mail.jobsage.co.uk");
+    expect(updateSets).toEqual([{ jobsageEmail: "legacy@mail.jobsage.co.uk" }]);
   });
 
   it("generates one alias and synchronizes both records when neither has one", async () => {
@@ -77,7 +77,7 @@ describe("ensureCanonicalJobsageAlias", () => {
 
     const alias = await ensureCanonicalJobsageAlias("candidate-1", "Jane", "Doe");
 
-    expect(alias).toMatch(/^jane\.doe\.[a-f0-9]{6}@mail\.jobsage\.app$/);
+    expect(alias).toMatch(/^jane\.doe\.[a-f0-9]{6}@mail\.jobsage\.co\.uk$/);
     expect(updateSets).toEqual([
       { jobsageEmail: alias },
       { jobsageEmail: alias },

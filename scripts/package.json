@@ -7,6 +7,7 @@
     "hello": "tsx ./src/hello.ts",
     "sponsor-contacts": "tsx ./src/sponsor-contact-discovery/cli.ts",
     "sponsor-contacts:test": "tsx ./src/sponsor-contact-discovery/selfTest.ts",
+    "test:inbound-reply": "tsx ./test-inbound-reply.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

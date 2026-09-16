@@ -171,7 +171,7 @@ describe("POST /webhooks/inbound-email", () => {
       type: "email.inbound_received",
       data: {
         from: "employer@company.com",
-        to: ["john.smith.abc@mail.jobsage.app"],
+        to: ["john.smith.abc@mail.jobsage.co.uk"],
         subject: "Re: your application",
         text: "Thank you",
       },
@@ -217,7 +217,7 @@ describe("POST /webhooks/inbound-email", () => {
       type: "email.inbound_received",
       data: {
         from: "HR <hr@company.com>",
-        to: ["jane.smith.aaa@mail.jobsage.app"],
+        to: ["jane.smith.aaa@mail.jobsage.co.uk"],
         subject: "Re: [Speculative CV]",
         text: "Thanks for applying!",
         messageId: "<duplicate-msg-id@company.com>",
@@ -258,7 +258,7 @@ describe("POST /webhooks/inbound-email", () => {
       type: "email.inbound_received",
       data: {
         from: "Sarah Recruiter <sarah@acme.com>",
-        to: ["jane.smith.abc@mail.jobsage.app"],
+        to: ["jane.smith.abc@mail.jobsage.co.uk"],
         subject: "Your application at Acme",
         text: "Thank you for your application. We will be in touch.",
         messageId: "<new-msg-id@acme.com>",
@@ -305,7 +305,7 @@ describe("POST /webhooks/inbound-email", () => {
       type: "email.inbound_received",
       data: {
         from: "HR Team <hr@acme.com>",
-        to: ["jane.smith.abc@mail.jobsage.app"],
+        to: ["jane.smith.abc@mail.jobsage.co.uk"],
         subject: "Interview invitation",
         text: "We would like to invite you for an interview next week.",
         messageId: "<interview-msg@acme.com>",
@@ -335,7 +335,7 @@ describe("POST /webhooks/inbound-email", () => {
       type: "email.inbound_received",
       data: {
         from: "someone@company.com",
-        to: ["unknown.alias.xyz@mail.jobsage.app"],
+        to: ["unknown.alias.xyz@mail.jobsage.co.uk"],
         subject: "Hello",
         text: "Hi there",
       },
@@ -361,7 +361,7 @@ describe("POST /webhooks/inbound-email", () => {
       type: "email.inbound_received",
       data: {
         from: "noreply@company.com",
-        to: ["jane.smith.abc@mail.jobsage.app"],
+        to: ["jane.smith.abc@mail.jobsage.co.uk"],
         subject: "Auto-reply",
         text: "This is an automated response.",
       },
