@@ -13,6 +13,12 @@ const BLOCKED_CONTACT_DOMAINS = [
 
 const BLOCKED_EVIDENCE_HOSTS = ["linkedin.com", "indeed.com"];
 const EMAIL = /[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+/gi;
+const BLOCKED_BOARD_MAILBOX_LOCALS = new Set([
+  "nhsjobs",
+  "nhsbsanhsjobs",
+  "reedjobs",
+  "reedrecruitment",
+]);
 
 function hostnameIsBlocked(hostname: string, blockedHosts: readonly string[]): boolean {
   const host = hostname.toLowerCase().replace(/^www\./, "");
@@ -35,6 +41,7 @@ export function validatePublishedContactEmail(value: string | null | undefined):
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return null;
   const [local, domain] = email.split("@");
   if (!local || !domain || FREE_EMAIL_DOMAINS.has(domain)) return null;
+  if (BLOCKED_BOARD_MAILBOX_LOCALS.has(local.replace(/[^a-z0-9]/gi, ""))) return null;
   if (/^(?:no-?reply|donotreply|do-not-reply)$/i.test(local)) return null;
   if (hostnameIsBlocked(domain, BLOCKED_CONTACT_DOMAINS)) return null;
   return email;

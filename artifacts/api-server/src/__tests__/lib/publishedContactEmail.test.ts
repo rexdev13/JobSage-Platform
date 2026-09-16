@@ -16,6 +16,7 @@ describe("scrape-time published contact extraction", () => {
     expect(validatePublishedContactEmail("person@gmail.com")).toBeNull();
     expect(validatePublishedContactEmail("noreply@example.org")).toBeNull();
     expect(validatePublishedContactEmail("jobs@greenhouse.io")).toBeNull();
+    expect(validatePublishedContactEmail("nhsbsa.nhsjobs@nhsbsa.nhs.uk")).toBeNull();
   });
 
   it("rejects LinkedIn and Indeed evidence even when the email is otherwise valid", () => {
