@@ -9,6 +9,7 @@
     "start": "node dist/index.cjs",
     "vacancy:jobs": "NODE_ENV=production node ./dist/vacancyJobs.cjs",
     "seed:test-email-vacancy": "tsx src/scripts/seedTestEmailVacancy.ts",
+    "backfill:healthcare-vacancy-contacts": "tsx src/scripts/healthcareVacancyContactBackfill.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --config vitest.config.ts",
     "test:watch": "vitest --config vitest.config.ts",

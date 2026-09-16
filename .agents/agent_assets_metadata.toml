@@ -334,3 +334,17 @@ mtime_ms = 1789399760109
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/487f8112-4072-4826-bc5c-d606e539e7b8/ec0a9ca7-3f4f-4793-9503-986d93669f60"
 storage_version_token = "1789400052749614"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "AnTeQSciYLC06raqZI8Lo"
+uri = "file://.agents/outputs/healthcare-vacancy-contact-backfill.csv"
+type = "table"
+title = "Healthcare vacancy contact backfill report"
+description = "CSV report for the 100 most recent live healthcare vacancy URLs re-fetched with the existing published-email extractor. Includes accepted contact/evidence outcomes and no invented addresses."
+logical_id = "c9cc6f4a-d153-474d-84bb-38e575e02bf3"
+content_hash = "sha256:db549c25d9a227034561a51168320ea86511832f74c82e6e4d73397e2af8095d"
+size = 42575
+mtime_ms = 1789583172019
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/c9cc6f4a-d153-474d-84bb-38e575e02bf3/f0b13fc3-8438-46b9-a73a-20f139f3bc0f"
+storage_version_token = "1789583236870006"
+content_type = "text/csv"

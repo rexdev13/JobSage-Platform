@@ -22,6 +22,7 @@ import {
   choosePreferredPublishedEmail,
   validatePublishedContactEmail,
 } from "./publishedContactEmail";
+import { enrichAdvertContacts } from "./vacancyAdvertContact";
 
 export interface BoardAdvert {
   organisationName: string;
@@ -301,7 +302,8 @@ export async function upsertSharedBoardVacancies(
   input: readonly BoardAdvert[],
   options: UpsertBoardVacanciesOptions = {},
 ): Promise<{ inserted: number; revived: number }> {
-  const adverts = normaliseAndDedupeBoardAdverts(input);
+  const normalizedAdverts = normaliseAndDedupeBoardAdverts(input);
+  const adverts = await enrichAdvertContacts(normalizedAdverts);
   if (adverts.length === 0) return { inserted: 0, revived: 0 };
 
   const transactionResult = await db.transaction(async (tx) => {
