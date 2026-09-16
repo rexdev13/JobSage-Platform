@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { pool } from "@workspace/db";
 import {
+  HEALTHCARE_CONTACT_BACKFILL_LIMIT,
   runHealthcareVacancyContactBackfill,
   type HealthcareVacancyContactBackfillRow,
 } from "../lib/healthcareVacancyContactBackfill";
@@ -40,24 +41,51 @@ function toCsv(rows: readonly HealthcareVacancyContactBackfillRow[]): string {
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2).filter((argument) => argument !== "--");
-  const requestedLimit = Number.parseInt(args[0] ?? "100", 10);
-  const requestedOutput = args[1] ??
+  let all = false;
+  let apply = false;
+  let requestedLimit: number | null = HEALTHCARE_CONTACT_BACKFILL_LIMIT;
+  let requestedOutput: string | undefined;
+  const positional: string[] = [];
+  for (let index = 0; index < args.length; index++) {
+    const argument = args[index]!;
+    if (argument === "--all") {
+      all = true;
+    } else if (argument === "--apply") {
+      apply = true;
+    } else if (argument === "--output") {
+      requestedOutput = args[++index];
+    } else if (argument.startsWith("--output=")) {
+      requestedOutput = argument.slice("--output=".length);
+    } else if (/^\d+$/.test(argument)) {
+      positional.push(argument);
+    } else {
+      throw new Error(`Unknown argument: ${argument}`);
+    }
+  }
+  if (!all && positional[0]) {
+    requestedLimit = Number.parseInt(positional[0], 10);
+  }
+  if (all) requestedLimit = null;
+  requestedOutput ??= positional[1] ??
     `.agents/outputs/healthcare-vacancy-contact-backfill-${new Date().toISOString().slice(0, 10)}.csv`;
   const outputPath = resolve(requestedOutput);
   try {
     const summary = await runHealthcareVacancyContactBackfill(
-      Number.isFinite(requestedLimit) ? requestedLimit : 100,
+      { limit: requestedLimit, apply },
     );
     await mkdir(dirname(outputPath), { recursive: true });
     await writeFile(outputPath, toCsv(summary.rows), "utf8");
     console.log(JSON.stringify({
       selected: summary.selected,
+      apply: summary.apply,
+      sponsorsScanned: summary.sponsorsScanned,
+      vacanciesFetched: summary.vacanciesFetched,
       found: summary.found,
       applied: summary.applied,
       skippedExisting: summary.skippedExisting,
       notFound: summary.notFound,
       errors: summary.errors,
-      topEmails: summary.topEmails,
+      topAppliedEmails: summary.topAppliedEmails,
       report: outputPath,
     }, null, 2));
   } finally {

@@ -18,6 +18,11 @@ type FetchedAdvert = {
   url: string;
 };
 
+export type EnrichedAdvertContactResult = {
+  advert: BoardAdvert;
+  fetched: boolean;
+};
+
 async function fetchAdvertHtml(
   url: string,
   sourceType: BoardAdvert["sourceType"],
@@ -65,30 +70,45 @@ async function fetchAdvertHtml(
  * extractor only accepts addresses actually present in the advert and the
  * validator rejects free, no-reply, ATS, and board mailboxes.
  */
-export async function enrichAdvertContact(advert: BoardAdvert): Promise<BoardAdvert> {
+export async function enrichAdvertContactWithStats(
+  advert: BoardAdvert,
+): Promise<EnrichedAdvertContactResult> {
   const inlineEmail = extractAdvertContactEmail(advert.description ?? "", advert.url);
   const suppliedEmail = validatePublishedContactEmail(advert.contactEmail);
   if (suppliedEmail && advert.contactEvidenceUrl) {
-    return { ...advert, contactEmail: suppliedEmail };
+    return {
+      advert: { ...advert, contactEmail: suppliedEmail },
+      fetched: false,
+    };
   }
   if (inlineEmail) {
     return {
-      ...advert,
-      contactEmail: inlineEmail,
-      contactEvidenceUrl: advert.url,
+      advert: {
+        ...advert,
+        contactEmail: inlineEmail,
+        contactEvidenceUrl: advert.url,
+      },
+      fetched: false,
     };
   }
 
   const fetched = await fetchAdvertHtml(advert.url, advert.sourceType);
-  if (!fetched) return advert;
+  if (!fetched) return { advert, fetched: true };
   const fetchedEmail = extractAdvertContactEmail(fetched.body, fetched.url);
-  return fetchedEmail
-    ? {
-        ...advert,
-        contactEmail: fetchedEmail,
-        contactEvidenceUrl: fetched.url,
-      }
-    : advert;
+  return {
+    advert: fetchedEmail
+      ? {
+          ...advert,
+          contactEmail: fetchedEmail,
+          contactEvidenceUrl: fetched.url,
+        }
+      : advert,
+    fetched: true,
+  };
+}
+
+export async function enrichAdvertContact(advert: BoardAdvert): Promise<BoardAdvert> {
+  return (await enrichAdvertContactWithStats(advert)).advert;
 }
 
 async function mapWithConcurrency<T, R>(
@@ -118,5 +138,13 @@ export async function enrichAdvertContacts(
   adverts: readonly BoardAdvert[],
   concurrency = ADVERT_CONTACT_CONCURRENCY,
 ): Promise<BoardAdvert[]> {
-  return mapWithConcurrency(adverts, concurrency, enrichAdvertContact);
+  const enriched = await enrichAdvertContactsWithStats(adverts, concurrency);
+  return enriched.map(({ advert }) => advert);
+}
+
+export async function enrichAdvertContactsWithStats(
+  adverts: readonly BoardAdvert[],
+  concurrency = ADVERT_CONTACT_CONCURRENCY,
+): Promise<EnrichedAdvertContactResult[]> {
+  return mapWithConcurrency(adverts, concurrency, enrichAdvertContactWithStats);
 }
