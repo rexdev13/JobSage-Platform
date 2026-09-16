@@ -42,10 +42,18 @@ describe("speculative CV email", () => {
     expect(payload.from).not.toContain("amara@jobsage.app");
     expect(payload.replyTo).toBe("amara@jobsage.app");
     expect(payload.to).toBe("recruitment@example.test");
+    expect(payload.subject).toBe("Job Application: Amara Okafor — Senior Nurse (via JOBSAGE)");
     expect(payload.attachments).toEqual([
       { filename: "Amara CV.pdf", content: Buffer.from("cv") },
       { filename: "Cover Letter - Senior Nurse.pdf", content: Buffer.from("letter") },
     ]);
+    expect(payload.html).toContain("Candidate Introduction &amp; Speculative Application");
+    expect(payload.html).toContain("Attached Documents");
+    expect(payload.html).toContain("📄 Amara CV.pdf");
+    expect(payload.html).toContain("Ref: JS-42");
+    expect(payload.html).not.toContain("User ID");
+    expect(payload.html).not.toContain("candidate-1");
+    expect(payload.html).not.toContain("Sent by JOBSAGE platform");
   });
 
   it("escapes candidate and employer-controlled HTML", async () => {
@@ -59,7 +67,7 @@ describe("speculative CV email", () => {
       cvContent: Buffer.from("cv"),
       vacancyTitle: "Nurse <b>Lead</b>",
       vacancyUrl: "https://example.test/job?x=<unsafe>",
-      notes: "Hello <script>bad()</script>",
+      notes: "Motivation\n- Hello <script>bad()</script>\n- Ready to start",
       jobsageEmail: "candidate@jobsage.app",
       recipientEmail: "recruitment@example.test",
     });
@@ -69,6 +77,11 @@ describe("speculative CV email", () => {
     expect(html).not.toContain("<img src=x>");
     expect(html).toContain("&lt;script&gt;");
     expect(html).toContain("&lt;img src=x&gt;");
+    expect(html).toContain("Message &amp; Qualifications from Candidate");
+    expect(html).toContain("<ul");
+    expect(html).toContain("<li style=");
+    expect(html).toContain("Ref: JS-43");
+    expect(html).not.toContain("candidate-1");
   });
 
   it("escapes all HTML metacharacters", () => {
