@@ -1,0 +1,58 @@
+## 17. Admin oversight of marketers (required — do not skip)
+
+Admins/super-admins can see “many things about marketers.” Document ALL of that as its own product surface, not as a footnote on the marketing inbox.
+
+If a screen, field, chart, email, or API exists only for admin looking *at* marketers, it belongs here. Quote paths, copy, payloads. If it does not exist, **not implemented**.
+
+### 17.1 Admin surfaces about marketers
+
+For each, path + file + who can open it + what it shows:
+
+- List of marketing users (name, email, role, active, Calendly URL, assigned-lead counts, last login)
+- Create / invite / edit / deactivate / delete a marketer
+- Change someone’s role to/from `marketing`
+- Impersonate a marketer
+- Per-marketer performance (not `my-performance` — admin looking at one or all marketers)
+- Leaderboard / comparison of marketers
+- Filter leads by assignee (including Unassigned)
+- Assign / unassign / bulk-assign from the admin leads page
+- Admin calendar: all marketers’ events vs one marketer (`marketingUserId` query)
+- Any admin dashboard widgets (today’s claims, unclaimed queue, conversion by marketer)
+- Reports / CSV / audit log of marketing actions
+- Settings for marketing (default Calendly, notify emails)
+
+### 17.2 What admin sees that marketing does not
+
+Explicit two-column list:
+
+| Data / action | Admin / super_admin | Marketing |
+|---|---|---|
+| Full lead projection (UTM, ipHash, GDPR, …) | | |
+| Assignee filter | | |
+| Assign / unassign / bulk assign | | |
+| Delete leads | | |
+| Create marketers | | |
+| View other marketers’ leads | | |
+| View other marketers’ calendars | | |
+| View other marketers’ performance | | |
+| User admin / roles | | |
+| Impersonation | | |
+
+Add every extra admin-only field or button you find.
+
+### 17.3 APIs admin uses to manage marketers
+
+Contract for each (or **not implemented**):
+
+- List users filtered by role=marketing
+- Create user with role marketing
+- PATCH user (role, active, name, calendly)
+- Delete / deactivate marketer and what happens to `marketing_user_id` on leads
+- Admin performance-by-marketer (if any exists besides `GET /api/leads/my-performance`)
+- Admin calendar `marketingUserId` query
+- Impersonation start/stop
+- Any notify-on-assign email to the marketer
+
+### 17.4 Exact admin copy about marketers
+
+Labels, table headers, empty states, confirm dialogs, “Assign selected…”, “

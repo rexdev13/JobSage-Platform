@@ -1,0 +1,46 @@
+## ADDENDUM — admin visibility INTO marketers (required)
+
+The first spec is not complete unless it also documents every place an **admin or super_admin** can see, compare, or manage **marketing users** themselves — not only leads.
+
+Search the whole repo for: marketing role, assignees, marketer, claimed_at, marketing_user_id, my-performance, Calendly URL, impersonation, “Waitlist”, assign, claim. Include admin dashboards, user-management pages, reports, and sidebar items that only admin sees.
+
+### A. Admin surfaces about marketers
+
+For each, path + file + who can open + exact copy:
+
+- List of marketing users (name, email, role, active, Calendly, lead counts)
+- Create / invite / edit / deactivate / change role to or from `marketing`
+- Assign or unassign leads to a named marketer (single + bulk)
+- Filter leads by assignee (All / Unassigned / specific marketer)
+- Open one marketer’s book of leads
+- Compare marketers (performance table, conversion, response time, claimed vs contacted)
+- View or sync another marketer’s calendar (`marketingUserId` query)
+- Impersonate a marketer
+- Any admin home widgets (“X unassigned”, “Y per marketer”)
+
+If there is **no** dedicated “Marketers” page, say **not implemented** and list every admin UI that still shows marketer data (leads table Assigned column, assignee dropdown, calendar picker, user admin).
+
+### B. What admin sees that marketing cannot
+
+Table: field or action → admin/super_admin → marketing.
+
+Must cover: UTM, ipHash, GDPR, assignee filter, assign/unassign, delete, create marketer, other people’s leads, other people’s performance, other people’s calendars, user admin, exports.
+
+### C. Admin APIs about marketers
+
+Document even if unused by the marketing UI:
+
+- List users with `role=marketing`
+- Create/update/deactivate marketer
+- Assignees endpoint
+- Admin performance-by-marketer (if any — not only `my-performance`)
+- Admin calendar `?marketingUserId=`
+- Impersonation start/stop
+
+Payloads, status codes, role gates.
+
+### D. Data admin uses
+
+How admin gets “things about marketers”: join on `marketing_user_id`, assignees list, aggregations, stored Calendly URL. Column-level. **Not implemented** if admin only sees a name on the lead row and nothing else.
+
+Do not skip this addendum. SellBuyLink needs both: the marketer’s own inbox AND the admin overview of marketers.

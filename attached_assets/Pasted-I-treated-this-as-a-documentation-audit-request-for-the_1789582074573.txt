@@ -1,0 +1,212 @@
+I treated this as a documentation / audit request for the existing JOBSAGE product, not as a request to modify the implementation. Do not add, rewrite, or “improve” anything. Produce a single read-only spec of EVERYTHING that exists for marketing accounts and anything related: roles, auth, invites, login, nav, lead inbox, permissions, APIs, calendar, performance, emails, schema, env, copy, and edge cases.
+
+This is separate from (but overlapping with) the waitlist dump. The waitlist spec already mentioned marketing on `/admin/leads`. Now go deeper: the marketing *account* as a product — how someone becomes a marketer, what they can log into, what they see, what they cannot do, and every file/route/table involved.
+
+If something does not exist, write **not implemented**. Do not invent it. Quote real file paths, line ranges, payloads, and UI copy.
+
+---
+
+# JOBSAGE marketing-account technical specification
+
+**Status:** read-only reproduction of the existing implementation. SellBuyLink will recreate this behavior, including omissions and surprising rules.
+
+## 0. Product snapshot
+
+- One-sentence: what is a “marketing account” in this app?
+- How it differs from `admin`, `super_admin`, candidate/user, and any other roles.
+- Is marketing a first-class role on `users`, a flag, a separate table, or something else?
+
+## 1. How it works (8–15 steps)
+
+From “someone should be a marketer” → they can see leads and act. Include:
+
+- Who creates the marketing account (admin UI, seed, SQL, invite email, register-as-marketer)?
+- Login path (same `/login`? separate URL?)
+- Session/cookie vs Bearer
+- Landing page after login
+- What they see first (leads, calendar, dashboard)
+- What they can do to a lead (view, claim, status, calendar, delete?)
+- What happens if they open an admin-only route
+
+## 2. Surfaces (implemented vs not)
+
+Table every marketing-related UI:
+
+| Surface | Path | Who can open it | What it does |
+|---|---|---|---|
+
+Check specifically:
+
+- Marketing login / register / invite / activate / forgot password
+- Sidebar items shown only to marketing (e.g. Waitlist Leads, Calendar)
+- `/admin/leads` as seen by marketing vs admin
+- `/admin/calendar`
+- Performance banner / my-performance
+- User management: create marketing user, edit role, deactivate
+- Impersonation (if marketing is blocked from writes while impersonating)
+- Any marketing dashboard, reports, export
+
+Then **not implemented** list: marketing-only login page, self-serve signup as marketer, CSV export, etc.
+
+## 3. File map
+
+Path → responsibility, for:
+
+- Role constants / `roleAccess` / guards
+- Router (`App.tsx` or equivalent) and `LeadsGuard` / calendar guards
+- Sidebar
+- Admin leads page (marketing vs admin branches)
+- Calendar / Calendly / marketer calendar
+- User/admin “create marketer” UI if any
+- Auth register/login that assigns or checks role
+- `requireRole` / auth middleware
+- All marketing-related API routes
+- Schema: users.role, marketing_user_id, claimed_at, calendly URL, etc.
+- Tests
+- Emails that mention marketers (assignment notify, etc.)
+
+## 4. Account lifecycle
+
+Document the real flow, with request/response examples:
+
+- How a marketing user row is created (fields: email, name, password, role, calendlyUrl, active flag)
+- Default role value
+- Invite vs admin-created vs seed
+- Password set / reset
+- Can a marketer change their own email/password/Calendly URL?
+- Can they be deactivated? What happens to assigned leads (`ON DELETE SET NULL` etc.)?
+- Can role be changed later (user → marketing → admin)?
+- Unique email? Same `users` table as candidates?
+
+## 5. Auth and route guards
+
+- Frontend: which wrappers allow `marketing`? Exact role arrays.
+- Backend: every route that includes `marketing` in `requireRole(...)`, and every related route that **excludes** marketing (admin-only).
+- 401 vs 403 copy/body
+- Session cookie name, `credentials: "include"`
+- Impersonation: does it block marketing writes?
+
+Produce a full matrix:
+
+| Method / path | admin | super_admin | marketing | other |
+|---|---|---|---|---|
+
+Include waitlist CRM, calendar, Calendly URL, assignees, bulk ops, delete, user admin, everything else marketing might hit.
+
+## 6. Lead inbox as marketing sees it
+
+This is the “nice things just to see leads” surface. Be exhaustive.
+
+- URL
+- Exact copy (heading, subtitle, empty, errors, buttons)
+- Which columns/fields are returned vs hidden (JOBSAGE already hides UTM/ipHash from marketing — confirm and list BOTH projections)
+- Default scope: own + unassigned? own only?
+- “Including unassigned” checkbox
+- Search, sector filter, assignee filter (can marketing use assignee filter?)
+- Status counts / process bar (Captured, Claimed, Contacted, Registered)
+- Claim button: who, when, 409 already claimed
+- Status update: allowed values; can they set unqualified/registered; contactedAt rules
+- Bulk status / bulk assign: marketing allowed or not
+- Delete: marketing allowed or not
+- Calendar button / `?leadId=`
+- Performance banner: metrics, API, how calculated (assignedCount, contactedCount, registeredCount, conversionRate, averageResponseTimeMinutes)
+- Pagination
+- Loading/error/empty states
+
+## 7. Calendar / follow-up call (related)
+
+Anything a marketer uses to follow up:
+
+- `/admin/calendar`
+- Calendly URL get/patch (`/api/me/calendly-url` or equivalent)
+- Creating an event for a lead → status `contacted`
+- What marketing cannot edit (Calendly-owned fields)
+- Admin viewing another marketer’s calendar
+
+If a piece is admin-only, say so.
+
+## 8. Schema
+
+Column-level for every table involved:
+
+- `users` (or equivalent): role enum values, calendly fields, marketing-specific columns
+- `social_leads`: `marketing_user_id`, `claimed_at`, `contacted_at`, FK, indexes
+- Calendar/events tables
+- Any `marketing_users` join table — or **not implemented**
+
+Migrations that added marketing assignment. Inconsistencies vs current Drizzle.
+
+## 9. APIs (full contract)
+
+For each marketing-related endpoint: auth, roles, query/body, success JSON, 400/403/404/409, side effects.
+
+Must include (implemented or **not implemented**):
+
+- `GET /api/leads`
+- `GET /api/leads/assignees`
+- `GET /api/leads/my-performance`
+- `POST /api/leads/:id/claim`
+- `PATCH /api/leads/:id/assignee`
+- `PATCH /api/leads/bulk-assignee`
+- `PATCH /api/leads/:id/status`
+- `PATCH /api/leads/bulk-status`
+- `DELETE /api/leads`
+- Calendar event CRUD + Calendly sync/status
+- `GET/PATCH` Calendly URL
+- User-admin: list/create/update/delete users with role marketing
+- Any notify-email-on-assign
+
+Quote representative responses (marketing projection vs admin projection).
+
+## 10. Permissions surprises (explicit)
+
+Answer each:
+
+- Can marketing see another marketer’s leads?
+- Can they unclaim / reassign?
+- Can they see UTM, IP hash, GDPR timestamps?
+- Can they delete leads?
+- Can they create/invite other marketers?
+- Can they open `/admin` dashboard, users, settings, billing?
+- Can they export?
+- Does claiming set `contacted`? (JOBSAGE waitlist spec said no — confirm)
+- Does opening calendar set `contacted`? (spec said only creating a linked event does — confirm)
+
+## 11. Email / notifications
+
+Assignment email, “you were claimed”, digest, Calendly — or **not implemented**. Provider, templates, env names not values.
+
+## 12. Environment variables
+
+Names + purpose only, anything used by marketing accounts (none is a valid answer).
+
+## 13. Exact UI copy
+
+Every string a marketer sees: login, sidebar, leads page, claim, performance, calendar, errors, delete (if they see it), empty states. Admin-only copy should be labelled admin-only.
+
+## 14. Edge / failure matrix
+
+Unauthorized, wrong role, claim race, assigned lead claimed by other, impersonation, deactivated marketer, missing Calendly URL, calendar 409, empty inbox, search no match, bulk on leads they don’t own.
+
+## 15. SellBuyLink porting checklist
+
+SellBuyLink today: `admin` + `super_admin` only; no `marketing` role; `/admin/leads` is `sales_leads`; waitlist/get-started (if present) is a separate table. Do not assume JOBSAGE paths exist there.
+
+Checklist of every piece required to recreate marketing accounts on another site:
+
+- Role on the user/admin table
+- Create/invite marketer
+- Login + guards
+- Reduced lead projection
+- Own/unassigned scope + claim
+- Performance endpoint
+- Status updates without delete/assign
+- Calendar/follow-up if in scope
+- Nav visibility
+- What NOT to copy (candidate users, sponsor sectors, JOBSAGE copy)
+
+## 16. Verification notes
+
+List files/routes/tables searched. Confirm no application code, schema, env, or product behavior was modified.
+
+Be exhaustive. Quote real paths and payloads. If something does not exist, say **not implemented**.
