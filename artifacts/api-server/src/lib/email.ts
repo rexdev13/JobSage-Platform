@@ -493,6 +493,61 @@ export function escapeEmailHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
+function normalizeEmailSubject(value: string): string {
+  return value.replace(/[\r\n]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function renderCandidateNotes(notes: string | null | undefined): string | null {
+  const normalizedNotes = notes?.replace(/\r\n?/g, "\n").trim();
+  if (!normalizedNotes) return null;
+
+  const renderedParts: string[] = [];
+  let paragraphLines: string[] = [];
+  let bulletItems: string[] = [];
+
+  const flushParagraph = () => {
+    if (paragraphLines.length === 0) return;
+    renderedParts.push(
+      `<p style="margin:0 0 12px;color:#334155;font-size:14px;line-height:1.7;">${paragraphLines
+        .map((line) => escapeEmailHtml(line))
+        .join("<br />")}</p>`,
+    );
+    paragraphLines = [];
+  };
+
+  const flushBullets = () => {
+    if (bulletItems.length === 0) return;
+    renderedParts.push(
+      `<ul style="margin:0 0 12px;padding-left:20px;color:#334155;font-size:14px;line-height:1.7;">${bulletItems
+        .map((item) => `<li style="padding-left:4px;">${escapeEmailHtml(item)}</li>`)
+        .join("")}</ul>`,
+    );
+    bulletItems = [];
+  };
+
+  for (const line of normalizedNotes.split("\n")) {
+    const trimmedLine = line.trim();
+    if (!trimmedLine) {
+      flushParagraph();
+      flushBullets();
+      continue;
+    }
+
+    const bulletMatch = trimmedLine.match(/^(?:[-*•]|\d+[.)])\s+(.+)$/);
+    if (bulletMatch) {
+      flushParagraph();
+      bulletItems.push(bulletMatch[1]);
+    } else {
+      flushBullets();
+      paragraphLines.push(trimmedLine);
+    }
+  }
+
+  flushParagraph();
+  flushBullets();
+  return renderedParts.join("");
+}
+
 export async function sendSpeculativeCVToOps(opts: {
   candidateEmail: string;
   candidateName: string;
@@ -528,19 +583,29 @@ export async function sendSpeculativeCVToOps(opts: {
   }
 
   const safeCandidateName = escapeEmailHtml(opts.candidateName);
-  const safeCandidateUserId = escapeEmailHtml(opts.candidateUserId);
   const safeCompanyName = escapeEmailHtml(opts.companyName);
   const safeJobsageEmail = escapeEmailHtml(contactEmail);
   const safeVacancyTitle = opts.vacancyTitle ? escapeEmailHtml(opts.vacancyTitle) : null;
   const safeVacancyUrl =
     opts.vacancyUrl && /^https?:\/\//i.test(opts.vacancyUrl)
-      ? escapeEmailHtml(opts.vacancyUrl)
+      ? escapeHtmlAttribute(opts.vacancyUrl)
       : null;
   const safeCvFilename = opts.cvFilename ? escapeEmailHtml(opts.cvFilename) : null;
   const safeCoverLetterFilename = opts.coverLetterFilename
     ? escapeEmailHtml(opts.coverLetterFilename)
     : null;
-  const safeNotes = opts.notes ? escapeEmailHtml(opts.notes).replace(/\n/g, "<br>") : null;
+  const renderedNotes = renderCandidateNotes(opts.notes);
+  const safeCandidateSubject = normalizeEmailSubject(opts.candidateName);
+  const safeVacancySubject = normalizeEmailSubject(opts.vacancyTitle ?? opts.companyName);
+  const safeCompanySubject = normalizeEmailSubject(opts.companyName);
+  const subject = `Job Application: ${safeCandidateSubject} — ${safeVacancySubject || safeCompanySubject} (via JOBSAGE)`;
+  const candidateRole = safeVacancyTitle ?? "General Application";
+  const attachedDocuments = [
+    safeCvFilename ? `📄 ${safeCvFilename}` : null,
+    safeCoverLetterFilename ? `📄 ${safeCoverLetterFilename}` : null,
+  ].filter((document): document is string => Boolean(document));
+  const documentsMarkup =
+    attachedDocuments.length > 0 ? attachedDocuments.join("<br />") : "None attached";
 
   // Always send FROM the approved/configured JOBSAGE sender. The candidate's
   // alias is a Reply-To only: alias domains may not be verified as outbound
@@ -550,31 +615,114 @@ export async function sendSpeculativeCVToOps(opts: {
     from: `JOBSAGE <${FROM}>`,
     to: recipientEmail,
     replyTo: opts.jobsageEmail,
-    subject: `[CV] ${opts.candidateName.replace(/[\r\n]/g, " ")} → ${(opts.vacancyTitle ?? opts.companyName).replace(/[\r\n]/g, " ")}`,
+    subject,
     attachments,
     html: `<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8" /></head>
-<body style="margin:0;padding:24px;font-family:'Segoe UI',Arial,sans-serif;background:#f4f7fb;">
-  <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:10px;padding:32px;border:1px solid #e2e8f0;">
-    <tr><td>
-      <h2 style="color:#0f172a;margin:0 0 16px;">Speculative CV Submission</h2>
-      <table width="100%" cellpadding="4" cellspacing="0" style="font-size:14px;color:#334155;">
-        <tr><td style="width:160px;font-weight:600;">Application ID</td><td>#${opts.applicationId}</td></tr>
-        <tr><td style="font-weight:600;">Candidate</td><td>${safeCandidateName} &lt;${safeJobsageEmail}&gt;</td></tr>
-        <tr><td style="font-weight:600;">User ID</td><td>${safeCandidateUserId}</td></tr>
-        <tr><td style="font-weight:600;">Target company</td><td>${safeCompanyName}</td></tr>
-        <tr><td style="font-weight:600;">Vacancy</td><td>${safeVacancyTitle ?? "General CV submission"}</td></tr>
-        <tr><td style="font-weight:600;">Vacancy link</td><td>${safeVacancyUrl ? `<a href="${safeVacancyUrl}">${safeVacancyUrl}</a>` : "—"}</td></tr>
-        <tr><td style="font-weight:600;">CV document</td><td>${safeCvFilename ?? "not attached"}</td></tr>
-        <tr><td style="font-weight:600;">Cover letter</td><td>${safeCoverLetterFilename ?? "not attached"}</td></tr>
-        <tr><td style="font-weight:600;">Note</td><td>${safeNotes ?? "—"}</td></tr>
-      </table>
-      ${opts.jobsageEmail ? `<p style="margin:16px 0 0;font-size:12px;color:#64748b;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;padding:10px;">Contact this candidate via their JOBSAGE alias only: <strong>${safeJobsageEmail}</strong>. Any personal contact info in the attached file should be disregarded.</p>` : ""}
-      <p style="margin:16px 0 0;font-size:12px;color:#94a3b8;">
-        Sent by JOBSAGE platform. Please follow up with ${safeCompanyName} on behalf of the candidate if appropriate.
-      </p>
-    </td></tr>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${escapeEmailHtml(subject)}</title>
+  <style>
+    @media only screen and (max-width: 620px) {
+      .email-shell { width:100% !important; }
+      .email-padding { padding-left:20px !important; padding-right:20px !important; }
+      .snapshot-cell { display:block !important; width:100% !important; padding-right:0 !important; }
+      .snapshot-cell + .snapshot-cell { padding-top:12px !important; }
+    }
+  </style>
+</head>
+<body style="margin:0;padding:0;background:#f8fafc;font-family:'Segoe UI',Arial,sans-serif;color:#0f172a;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#f8fafc;padding:32px 12px;">
+    <tr>
+      <td align="center">
+        <table class="email-shell" width="600" cellpadding="0" cellspacing="0" role="presentation" style="width:100%;max-width:600px;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
+          <tr>
+            <td class="email-padding" style="background:#0f172a;padding:28px 36px;">
+              <div style="color:#ffffff;font-size:24px;font-weight:800;letter-spacing:-0.6px;">JOBSAGE</div>
+              <div style="color:#cbd5e1;font-size:13px;line-height:1.5;margin-top:6px;">Candidate Introduction &amp; Speculative Application</div>
+            </td>
+          </tr>
+          <tr>
+            <td class="email-padding" style="padding:32px 36px 12px;">
+              <h1 style="color:#0f172a;font-size:22px;line-height:1.3;font-weight:700;margin:0 0 6px;">Candidate Application</h1>
+              <p style="color:#64748b;font-size:14px;line-height:1.6;margin:0;">A candidate has shared their profile for your consideration.</p>
+            </td>
+          </tr>
+          <tr>
+            <td class="email-padding" style="padding:12px 36px 28px;">
+              <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="border:1px solid #e2e8f0;border-radius:12px;background:#ffffff;">
+                <tr>
+                  <td style="padding:20px 20px 8px;">
+                    <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+                      <tr>
+                        <td class="snapshot-cell" width="50%" valign="top" style="width:50%;padding:0 16px 12px 0;">
+                          <div style="color:#64748b;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;">Candidate</div>
+                          <div style="color:#0f172a;font-size:15px;font-weight:600;line-height:1.5;margin-top:4px;">${safeCandidateName}</div>
+                        </td>
+                        <td class="snapshot-cell" width="50%" valign="top" style="width:50%;padding:0 0 12px 0;">
+                          <div style="color:#64748b;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;">Target Role / Dept</div>
+                          <div style="color:#0f172a;font-size:15px;font-weight:600;line-height:1.5;margin-top:4px;">${candidateRole}</div>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td class="snapshot-cell" width="50%" valign="top" style="width:50%;padding:4px 16px 12px 0;">
+                          <div style="color:#64748b;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;">Target Organisation</div>
+                          <div style="color:#0f172a;font-size:15px;font-weight:600;line-height:1.5;margin-top:4px;">${safeCompanyName}</div>
+                        </td>
+                        <td class="snapshot-cell" width="50%" valign="top" style="width:50%;padding:4px 0 12px 0;">
+                          <div style="color:#64748b;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;">Attached Documents</div>
+                          <div style="color:#334155;font-size:14px;line-height:1.6;margin-top:4px;">${documentsMarkup}</div>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          ${safeVacancyUrl ? `
+          <tr>
+            <td class="email-padding" style="padding:0 36px 28px;">
+              <p style="color:#64748b;font-size:13px;line-height:1.6;margin:0;">Related vacancy: <a href="${safeVacancyUrl}" style="color:#2563eb;text-decoration:underline;">View role details</a></p>
+            </td>
+          </tr>` : ""}
+          ${renderedNotes ? `
+          <tr>
+            <td class="email-padding" style="padding:0 36px 28px;">
+              <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#f8fafc;border:1px solid #e2e8f0;border-left:4px solid #3b82f6;border-radius:0 10px 10px 0;">
+                <tr>
+                  <td style="padding:20px;">
+                    <h2 style="color:#0f172a;font-size:16px;line-height:1.4;margin:0 0 12px;">Message &amp; Qualifications from Candidate</h2>
+                    ${renderedNotes}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>` : ""}
+          <tr>
+            <td class="email-padding" style="padding:0 36px 32px;">
+              <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;">
+                <tr>
+                  <td style="padding:20px;text-align:center;">
+                    <div style="color:#1e3a8a;font-size:16px;font-weight:700;line-height:1.4;">Reply to this email to contact ${safeCandidateName}</div>
+                    <div style="color:#475569;font-size:13px;line-height:1.6;margin-top:8px;">Hit &ldquo;Reply&rdquo; to send a message directly to ${safeCandidateName}. Your response will be securely routed to their JOBSAGE candidate portal.</div>
+                    <div style="color:#64748b;font-size:12px;line-height:1.5;margin-top:12px;">Candidate reply address: <strong style="color:#334155;">${safeJobsageEmail}</strong></div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td class="email-padding" style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 36px;text-align:center;">
+              <p style="color:#64748b;font-size:12px;line-height:1.6;margin:0;">Please handle candidate information in accordance with applicable privacy requirements.</p>
+              <p style="color:#94a3b8;font-size:11px;line-height:1.6;margin:8px 0 0;">Ref: JS-${opts.applicationId} &nbsp;|&nbsp; JOBSAGE UK</p>
+              <p style="color:#94a3b8;font-size:11px;line-height:1.6;margin:4px 0 0;">&copy; ${new Date().getFullYear()} JOBSAGE</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
   </table>
 </body>
 </html>`,
