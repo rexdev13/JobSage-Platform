@@ -1,5 +1,5 @@
 /**
- * Inbound email webhook for JOBSAGE aliases (@mail.jobsage.app).
+ * Inbound email webhook for JOBSAGE aliases (@mail.jobsage.co.uk).
  *
  * Resend delivers inbound emails to this endpoint when an employer replies
  * to a candidate's JOBSAGE alias. The handler:
@@ -316,7 +316,7 @@ router.post("/webhooks/inbound-email", async (req: Request & { rawBody?: Buffer 
   }
 
   // --- 4. Find the JOBSAGE alias among the recipients ------------------
-  const MAIL_DOMAIN = "mail.jobsage.app";
+  const MAIL_DOMAIN = process.env.JOBSAGE_MAIL_DOMAIN ?? "mail.jobsage.co.uk";
   const aliasRecipient = toAddresses
     .map((a) => parseEmailAddress(a).email)
     .find((e) => e.endsWith(`@${MAIL_DOMAIN}`));

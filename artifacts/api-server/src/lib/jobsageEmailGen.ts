@@ -1,6 +1,6 @@
 /**
  * Generates and manages JOBSAGE communication email aliases.
- * Each candidate gets a unique @mail.jobsage.app address used in place of
+ * Each candidate gets a unique @mail.jobsage.co.uk address used in place of
  * their personal email when CVs and cover letters are sent to employers.
  */
 
@@ -64,7 +64,7 @@ export async function ensureCanonicalJobsageAlias(
   });
 }
 
-const JOBSAGE_MAIL_DOMAIN = "mail.jobsage.app";
+const JOBSAGE_MAIL_DOMAIN = process.env.JOBSAGE_MAIL_DOMAIN ?? "mail.jobsage.co.uk";
 
 function slugify(str: string): string {
   return str
@@ -83,7 +83,7 @@ function randomHex(bytes = 3): string {
 
 /**
  * Generate a JOBSAGE email alias from a candidate's name.
- * Format: firstname.lastname.randomhex6@mail.jobsage.app
+ * Format: firstname.lastname.randomhex6@mail.jobsage.co.uk
  * Falls back to a random alias if no name is available.
  */
 export function generateJobsageEmail(firstName?: string | null, lastName?: string | null): string {
@@ -109,7 +109,7 @@ export function generateJobsageEmail(firstName?: string | null, lastName?: strin
  * Used when preparing CVs and cover letters to send to employers.
  */
 export function maskPersonalContactInfo(text: string, jobsageEmail: string): string {
-  const emailRegex = /[a-zA-Z0-9._%+\-]+@(?!mail\.jobsage\.app)[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
+  const emailRegex = /[a-zA-Z0-9._%+\-]+@(?!mail\.jobsage\.co\.uk)[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
   const ukPhoneRegex = /(?:(?:\+44\s?|0)(?:7\d{9}|1\d{9}|2\d{9}|3\d{9}|\d{4}\s?\d{6}))/g;
 
   let masked = text.replace(emailRegex, jobsageEmail);

@@ -11,7 +11,7 @@ const { queryResults, storage, createCompletion, ensureCanonicalJobsageAlias } =
     downloadObject: vi.fn(),
   },
   createCompletion: vi.fn(),
-  ensureCanonicalJobsageAlias: vi.fn().mockResolvedValue("jane.doe.abc123@mail.jobsage.app"),
+  ensureCanonicalJobsageAlias: vi.fn().mockResolvedValue("jane.doe.abc123@mail.jobsage.co.uk"),
 }));
 
 vi.mock("@workspace/db", () => {
@@ -127,7 +127,7 @@ describe("Smart Apply extension endpoints", () => {
       firstName: "Jane",
       lastName: "Doe",
       fullName: "Jane Doe",
-      email: "jane.doe.abc123@mail.jobsage.app",
+      email: "jane.doe.abc123@mail.jobsage.co.uk",
       phone: null,
       streetAddress: null,
       city: null,
@@ -162,7 +162,7 @@ describe("Smart Apply extension endpoints", () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toMatchObject({
-      email: "jane.doe.abc123@mail.jobsage.app",
+      email: "jane.doe.abc123@mail.jobsage.co.uk",
       phone: "+44 7700 900123",
       streetAddress: "10 Example Road",
       city: "Leeds",
@@ -279,7 +279,7 @@ describe("Smart Apply extension endpoints", () => {
     expect(createCompletion).toHaveBeenCalledTimes(2);
     expect(createCompletion.mock.calls[0]?.[0]).toMatchObject({ model: "gpt-4o-mini" });
     expect(createCompletion.mock.calls[1]?.[0]).toMatchObject({ model: "gpt-4o-mini" });
-    expect(JSON.stringify(createCompletion.mock.calls)).toContain("jane.doe.abc123@mail.jobsage.app");
+    expect(JSON.stringify(createCompletion.mock.calls)).toContain("jane.doe.abc123@mail.jobsage.co.uk");
     expect(JSON.stringify(createCompletion.mock.calls)).not.toContain("jane@example.com");
   });
 
