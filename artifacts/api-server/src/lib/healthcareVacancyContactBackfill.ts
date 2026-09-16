@@ -77,7 +77,9 @@ export async function runHealthcareVacancyContactBackfill(
   options: HealthcareVacancyContactBackfillOptions | number = {},
 ): Promise<HealthcareVacancyContactBackfillSummary> {
   const normalizedOptions = typeof options === "number" ? { limit: options, apply: true } : options;
-  const requestedLimit = normalizedOptions.limit ?? HEALTHCARE_CONTACT_BACKFILL_LIMIT;
+  const requestedLimit = normalizedOptions.limit === undefined
+    ? HEALTHCARE_CONTACT_BACKFILL_LIMIT
+    : normalizedOptions.limit;
   const limit = requestedLimit === null
     ? null
     : Math.min(
