@@ -141,8 +141,8 @@ export async function runHealthcareVacancyContactBackfill(
   const rows = sourceRows.map((source, index) => {
     const candidateIndex = candidates.indexOf(source);
     const advert = candidateIndex >= 0 ? enriched[candidateIndex]!.advert : null;
-    const contactEmail = advert.contactEmail ?? "";
-    const contactEvidenceUrl = advert.contactEvidenceUrl ?? "";
+    const contactEmail = advert?.contactEmail ?? "";
+    const contactEvidenceUrl = advert?.contactEvidenceUrl ?? "";
     const outcome: HealthcareVacancyContactBackfillRow["outcome"] =
       source.existingContactEmail?.trim()
         ? "skipped_existing"
