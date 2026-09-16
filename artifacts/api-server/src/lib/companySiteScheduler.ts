@@ -15,7 +15,8 @@ export const COMPANY_SITE_DISCOVERY_CONCURRENCY = 8;
 export const COMPANY_SITE_GENERIC_TTL_MS = 48 * 60 * 60 * 1000;
 export const COMPANY_SITE_ATS_TTL_MS = 24 * 60 * 60 * 1000;
 export const COMPANY_SITE_BOOKMARK_SHARE = 0.25;
-export const COMPANY_SITE_HEALTHCARE_SHARE = 0.5;
+export const COMPANY_SITE_SECTOR_COUNT = 8;
+export const COMPANY_SITE_BATCH_WRITE_RESERVE_MS = 3_000;
 
 export type CompanySiteBatchRow = {
   id: number;
@@ -65,8 +66,6 @@ export async function selectCompanySiteBatch(
 ): Promise<CompanySiteBatchRow[]> {
   const bookmarkLimit = Math.floor(batchSize * COMPANY_SITE_BOOKMARK_SHARE);
   const guaranteedOldestSlots = batchSize - bookmarkLimit;
-  const healthcareLimit = Math.floor(guaranteedOldestSlots * COMPANY_SITE_HEALTHCARE_SHARE);
-  const generalLimit = guaranteedOldestSlots - healthcareLimit;
   const genericCutoff = new Date(Date.now() - COMPANY_SITE_GENERIC_TTL_MS);
   const atsCutoff = new Date(Date.now() - COMPANY_SITE_ATS_TTL_MS);
   const result = await db.execute<{
@@ -120,32 +119,69 @@ export async function selectCompanySiteBatch(
         id ASC
       LIMIT ${bookmarkLimit}
     ),
-    healthcare_unbookmarked AS (
+    classified_unbookmarked AS (
       SELECT *
-      FROM eligible
-      WHERE bookmarked = false
-        AND LOWER(COALESCE(industry, '')) ~ '(health|hospital|medical|nursing|care|clinic)'
-      ORDER BY
-        CASE WHEN generic_checked_at IS NULL THEN 0 ELSE 1 END,
-        generic_checked_at ASC NULLS FIRST,
-        ats_checked_at ASC NULLS FIRST,
-        id ASC
-      LIMIT ${healthcareLimit}
+      FROM (
+        SELECT
+          eligible.*,
+          CASE
+            WHEN LOWER(COALESCE(industry, '')) ~ '(^|[^a-z])(health|hospital|medical|nursing|clinic|care|social care)([^a-z]|$)' THEN 0
+            WHEN LOWER(COALESCE(industry, '')) ~ '(^|[^a-z])(education|school|university|college|academy|training|nursery)([^a-z]|$)' THEN 1
+            WHEN LOWER(COALESCE(industry, '')) ~ '(^|[^a-z])(engineer|engineering|manufactur|construction|architect|technical)([^a-z]|$)' THEN 2
+            WHEN LOWER(COALESCE(industry, '')) ~ '(^|[^a-z])(technology|software|information technology|digital|cyber|data|telecom)([^a-z]|$)' THEN 3
+            WHEN LOWER(COALESCE(industry, '')) ~ '(^|[^a-z])(hospitality|hotel|restaurant|catering|leisure|tourism)([^a-z]|$)' THEN 4
+            WHEN LOWER(COALESCE(industry, '')) ~ '(^|[^a-z])(retail|wholesale|shop|store|logistics|transport|warehouse|distribution|postal)([^a-z]|$)' THEN 5
+            WHEN LOWER(COALESCE(industry, '')) ~ '(^|[^a-z])(finance|financial|account|legal|law|consult|marketing|property|real estate|estate agent|recruit)([^a-z]|$)' THEN 6
+            ELSE 7
+          END AS sector_order
+        FROM eligible
+        WHERE bookmarked = false
+      ) AS classified
     ),
-    oldest_unbookmarked AS (
+    ranked_unbookmarked AS (
       SELECT *
-      FROM eligible
-      WHERE bookmarked = false
-        AND NOT EXISTS (
-          SELECT 1 FROM healthcare_unbookmarked
-          WHERE healthcare_unbookmarked.id = eligible.id
-        )
+      FROM (
+        SELECT
+          classified.*,
+          ROW_NUMBER() OVER (
+            PARTITION BY sector_order
+            ORDER BY
+              CASE WHEN generic_checked_at IS NULL THEN 0 ELSE 1 END,
+              generic_checked_at ASC NULLS FIRST,
+              ats_checked_at ASC NULLS FIRST,
+              id ASC
+          ) AS sector_position
+        FROM classified_unbookmarked AS classified
+      ) AS ranked
+    ),
+    rotated_unbookmarked AS (
+      SELECT
+        id,
+        organisation_name,
+        website,
+        industry,
+        generic_checked_at,
+        ats_checked_at,
+        careers_url,
+        ats_provider,
+        bookmarked
+      FROM ranked_unbookmarked
       ORDER BY
+        sector_position ASC,
+        MOD(
+          sector_order
+          - MOD(
+              FLOOR(EXTRACT(EPOCH FROM DATE_TRUNC('hour', NOW())) / 3600)::int,
+              ${COMPANY_SITE_SECTOR_COUNT}
+            )
+          + ${COMPANY_SITE_SECTOR_COUNT},
+          ${COMPANY_SITE_SECTOR_COUNT}
+        ) ASC,
         CASE WHEN generic_checked_at IS NULL THEN 0 ELSE 1 END,
         generic_checked_at ASC NULLS FIRST,
         ats_checked_at ASC NULLS FIRST,
         id ASC
-      LIMIT ${generalLimit}
+      LIMIT ${guaranteedOldestSlots}
     ),
     overflow AS (
       SELECT eligible.*
@@ -155,12 +191,8 @@ export async function selectCompanySiteBatch(
         WHERE priority_bookmarks.id = eligible.id
       )
         AND NOT EXISTS (
-          SELECT 1 FROM healthcare_unbookmarked
-          WHERE healthcare_unbookmarked.id = eligible.id
-        )
-        AND NOT EXISTS (
-          SELECT 1 FROM oldest_unbookmarked
-          WHERE oldest_unbookmarked.id = eligible.id
+          SELECT 1 FROM rotated_unbookmarked
+          WHERE rotated_unbookmarked.id = eligible.id
         )
       ORDER BY
         CASE WHEN generic_checked_at IS NULL THEN 0 ELSE 1 END,
@@ -170,14 +202,11 @@ export async function selectCompanySiteBatch(
       LIMIT GREATEST(
         0,
         ${batchSize}
-          - (SELECT count(*) FROM healthcare_unbookmarked)
           - (SELECT count(*) FROM priority_bookmarks)
-          - (SELECT count(*) FROM oldest_unbookmarked)
+          - (SELECT count(*) FROM rotated_unbookmarked)
       )
     )
-    SELECT * FROM oldest_unbookmarked
-    UNION ALL
-    SELECT * FROM healthcare_unbookmarked
+    SELECT * FROM rotated_unbookmarked
     UNION ALL
     SELECT * FROM priority_bookmarks
     UNION ALL
