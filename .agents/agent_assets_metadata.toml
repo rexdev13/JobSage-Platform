@@ -348,3 +348,17 @@ mtime_ms = 1789583172019
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/c9cc6f4a-d153-474d-84bb-38e575e02bf3/f0b13fc3-8438-46b9-a73a-20f139f3bc0f"
 storage_version_token = "1789583236870006"
 content_type = "text/csv"
+
+[[outputs]]
+id = "dbkjJmjuANd19YOwjgg8J"
+uri = "file://scripts/data/healthcare_vacancy_emails_full_dev.csv"
+type = "table"
+title = "Full development healthcare vacancy email backfill"
+description = "Development-only heliumdb report covering 1,816 non-dead healthcare vacancy rows, reconciled to final stored contacts and evidence URLs."
+logical_id = "027fa62a-0f16-4430-80d0-690b778bf6ec"
+content_hash = "sha256:10c9d373470a3f1aad1580aab5100283b02b62c3565fae3bcbaa0c539f3b887c"
+size = 626551
+mtime_ms = 1789588778482
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/027fa62a-0f16-4430-80d0-690b778bf6ec/198c9cfc-a47b-484f-b512-86e9a2f6fdfd"
+storage_version_token = "1789588853069452"
+content_type = "text/csv"

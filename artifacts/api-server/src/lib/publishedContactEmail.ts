@@ -37,7 +37,12 @@ function cleanVisibleText(html: string): string {
 }
 
 export function validatePublishedContactEmail(value: string | null | undefined): string | null {
-  const email = value?.trim().toLowerCase().replace(/^mailto:/, "").replace(/[)>.,;:]+$/, "") ?? "";
+  const email = value
+    ?.trim()
+    .toLowerCase()
+    .replace(/^mailto:/, "")
+    .replace(/^[<(.,;:-]+/, "")
+    .replace(/[)>.,;:]+$/, "") ?? "";
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return null;
   const [local, domain] = email.split("@");
   if (!local || !domain || FREE_EMAIL_DOMAINS.has(domain)) return null;
