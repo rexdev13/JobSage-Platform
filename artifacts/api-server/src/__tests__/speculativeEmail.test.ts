@@ -8,7 +8,11 @@ vi.mock("resend", () => ({
   },
 }));
 
-const { escapeEmailHtml, sendSpeculativeCVToOps } = await import("../lib/email");
+const {
+  escapeEmailHtml,
+  getEmailConfigurationStatus,
+  sendSpeculativeCVToOps,
+} = await import("../lib/email");
 
 describe("speculative CV email", () => {
   beforeEach(() => {
@@ -34,6 +38,10 @@ describe("speculative CV email", () => {
 
     expect(sendMock).toHaveBeenCalledOnce();
     const payload = sendMock.mock.calls[0]![0];
+    expect(payload.from).toMatch(/^JOBSAGE <[^>]+>$/);
+    expect(payload.from).not.toContain("amara@jobsage.app");
+    expect(payload.replyTo).toBe("amara@jobsage.app");
+    expect(payload.to).toBe("recruitment@example.test");
     expect(payload.attachments).toEqual([
       { filename: "Amara CV.pdf", content: Buffer.from("cv") },
       { filename: "Cover Letter - Senior Nurse.pdf", content: Buffer.from("letter") },
@@ -86,5 +94,19 @@ describe("speculative CV email", () => {
       jobsageEmail: "amara@jobsage.app",
       recipientEmail: "recruitment@example.test",
     })).rejects.toThrow("Attachment rejected");
+  });
+
+  it("reports missing credentials and invalid senders without exposing credential values", () => {
+    const status = getEmailConfigurationStatus({
+      RESEND_API_KEY: "super-secret-value",
+      EMAIL_FROM: "not-an-email",
+    });
+
+    expect(status.ready).toBe(false);
+    expect(status.diagnostics).toEqual(
+      expect.arrayContaining(["EMAIL_FROM is missing or not a usable email address"]),
+    );
+    expect(status.diagnostics.join(" ")).not.toContain("super-secret-value");
+    expect(status).not.toHaveProperty("resendApiKey");
   });
 });

@@ -20,6 +20,7 @@ import { runVacancyPipelineCatchupsIfStale } from "./lib/vacancyPipelineCatchup"
 import { startCalendlySyncScheduler } from "./lib/calendlySyncScheduler";
 import { db, sponsorLicenceSyncLogTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
+import { logEmailConfiguration } from "./lib/email";
 
 const rawPort = process.env["PORT"];
 
@@ -65,6 +66,7 @@ async function triggerSyncIfStale(): Promise<void> {
 
 const server = app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
+  logEmailConfiguration();
   void runStartupSchemaDriftCheck();
   seedRulesets().catch((err) => {
     console.error("[seed] Failed to seed rulesets:", err);

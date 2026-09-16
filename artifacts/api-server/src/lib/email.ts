@@ -1,12 +1,73 @@
 import { Resend } from "resend";
 
-if (!process.env.RESEND_API_KEY) {
-  console.error("[email] CRITICAL: RESEND_API_KEY is not set — all emails will fail");
+const DEFAULT_FROM = "noreply@jobsage.co.uk";
+const EMAIL_ADDRESS_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function extractEmailAddress(value: string | undefined): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  const address = trimmed.match(/<([^<>]+)>$/)?.[1]?.trim() ?? trimmed;
+  return EMAIL_ADDRESS_PATTERN.test(address) ? address : null;
+}
+
+export interface EmailConfigurationStatus {
+  resendApiKeyPresent: boolean;
+  senderAddress: string | null;
+  senderSource: "EMAIL_FROM" | "default";
+  senderUsable: boolean;
+  ready: boolean;
+  diagnostics: string[];
+}
+
+/** Safe startup diagnostics: reports configuration state, never credential values. */
+export function getEmailConfigurationStatus(
+  env: NodeJS.ProcessEnv = process.env,
+): EmailConfigurationStatus {
+  const configuredFrom = env.EMAIL_FROM?.trim();
+  const senderSource = configuredFrom ? "EMAIL_FROM" : "default";
+  const senderAddress = extractEmailAddress(configuredFrom || DEFAULT_FROM);
+  const resendApiKeyPresent = Boolean(env.RESEND_API_KEY?.trim());
+  const diagnostics: string[] = [];
+  if (!resendApiKeyPresent) diagnostics.push("RESEND_API_KEY is missing");
+  if (!senderAddress) diagnostics.push("EMAIL_FROM is missing or not a usable email address");
+  return {
+    resendApiKeyPresent,
+    senderAddress,
+    senderSource,
+    senderUsable: senderAddress !== null,
+    ready: resendApiKeyPresent && senderAddress !== null,
+    diagnostics,
+  };
+}
+
+export function logEmailConfiguration(): void {
+  const status = getEmailConfigurationStatus();
+  if (!status.ready) {
+    console.error(`[email] CRITICAL: outbound email is not ready — ${status.diagnostics.join("; ")}`);
+    return;
+  }
+  console.log(
+    `[email] Resend outbound email configured; approved sender ${status.senderAddress} (${status.senderSource})`,
+  );
 }
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM = process.env.EMAIL_FROM ?? "noreply@jobsage.co.uk";
+const initialEmailConfig = getEmailConfigurationStatus();
+// Keep a safe syntactic fallback for non-Send-CV templates. The Send CV path
+// calls assertEmailConfiguration before reaching Resend and will fail clearly
+// when this fallback represents invalid configuration.
+const FROM = initialEmailConfig.senderAddress ?? DEFAULT_FROM;
 const APP_URL = process.env.APP_URL ?? "https://jobsage.co.uk";
+
+function assertEmailConfiguration(context: string): void {
+  const status = getEmailConfigurationStatus();
+  // Local tests and development can use a mocked/provider-local Resend client,
+  // but a production request must never be reported as sent with missing
+  // credentials or an unusable configured sender.
+  if (process.env.NODE_ENV === "production" && !status.ready) {
+    throw new Error(`${context} is unavailable: ${status.diagnostics.join("; ")}.`);
+  }
+}
 
 export async function sendWaitlistWelcomeEmail(opts: {
   to: string;
@@ -454,6 +515,7 @@ export async function sendSpeculativeCVToOps(opts: {
    */
   recipientEmail?: string;
 }): Promise<void> {
+  assertEmailConfiguration("Send CV email");
   const contactEmail = opts.jobsageEmail;
   const recipientEmail = opts.recipientEmail ?? OPS_INBOX;
 
@@ -480,11 +542,12 @@ export async function sendSpeculativeCVToOps(opts: {
     : null;
   const safeNotes = opts.notes ? escapeEmailHtml(opts.notes).replace(/\n/g, "<br>") : null;
 
-  // Send FROM the candidate's JOBSAGE alias — requires mail.jobsage.app DNS verification.
-  // TO the resolved employer address (or OPS_INBOX as fallback when employer has no account).
-  // Until DNS is verified Resend rejects this; emailDelivered stays false → inbox not created.
+  // Always send FROM the approved/configured JOBSAGE sender. The candidate's
+  // alias is a Reply-To only: alias domains may not be verified as outbound
+  // Resend domains, and using one as From would make a real send fail.
+  // TO the resolved employer address (or OPS_INBOX for legacy callers).
   const result = await resend.emails.send({
-    from: `${opts.candidateName.replace(/[\r\n<>]/g, " ").trim()} <${opts.jobsageEmail}>`,
+    from: `JOBSAGE <${FROM}>`,
     to: recipientEmail,
     replyTo: opts.jobsageEmail,
     subject: `[CV] ${opts.candidateName.replace(/[\r\n]/g, " ")} → ${(opts.vacancyTitle ?? opts.companyName).replace(/[\r\n]/g, " ")}`,

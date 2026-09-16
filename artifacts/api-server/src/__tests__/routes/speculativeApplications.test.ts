@@ -128,6 +128,16 @@ describe("resolveEmployerRecipient", () => {
     });
   });
 
+  it("uses the persisted role contact when the Send CV request carries a role ID", async () => {
+    dbSelectResults.push([]);
+    dbSelectResults.push([{ contactEmail: "ifeo55394@gmail.com" }]);
+
+    await expect(resolveEmployerRecipient("Test JobSage Email", null, undefined, 1234)).resolves.toEqual({
+      email: "ifeo55394@gmail.com",
+      route: "employer_contact_email",
+    });
+  });
+
   it("falls back to ops without invoking AI contact enrichment", async () => {
     dbSelectResults.push([]);
     dbSelectResults.push([]);
