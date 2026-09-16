@@ -41,4 +41,12 @@ describe("opportunity ranking", () => {
     expect(qualifiesForApplyFirst(opportunity({ aiScore: 55, isEligible: true }))).toBe(true);
     expect(effectiveOpportunityScore(opportunity({ aiScore: null, matchScore: 68 }))).toBe(68);
   });
+
+  it("puts the seeded proof role above unscored opportunities using the persisted score", () => {
+    const proofRole = opportunity({ id: 9001, aiScore: 100, linkVerified: true });
+    const pendingRole = opportunity({ id: 1, aiScore: 50, linkVerified: true });
+
+    expect([pendingRole, proofRole].sort(compareOpportunityRanking).map((item) => item.role.id))
+      .toEqual([9001, 1]);
+  });
 });

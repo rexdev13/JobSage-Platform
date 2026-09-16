@@ -247,6 +247,8 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
   const resolvedRecipient = await resolveEmployerRecipient(
     normalizedCompanyName,
     sponsorLicenceId,
+    undefined,
+    roleId,
   );
 
   // Resolve the candidate's CV document:

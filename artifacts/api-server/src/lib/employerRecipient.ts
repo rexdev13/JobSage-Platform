@@ -1,10 +1,11 @@
 import { db } from "@workspace/db";
 import {
   employerProfilesTable,
+  rolesTable,
   sponsorLicencesTable,
   usersTable,
 } from "@workspace/db";
-import { eq, ilike, inArray, sql } from "drizzle-orm";
+import { and, eq, ilike, inArray, sql } from "drizzle-orm";
 import { OPS_INBOX } from "./email";
 
 export type DeliveryRoute =
@@ -39,6 +40,7 @@ export async function resolveEmployerRecipient(
   companyName: string,
   sponsorLicenceId: number | null | undefined,
   _legacyEnrichmentTimeoutMs?: number,
+  roleId?: number | null,
 ): Promise<RecipientResolution> {
   try {
     const [licenceRow] = await db
@@ -55,6 +57,26 @@ export async function resolveEmployerRecipient(
     }
   } catch {
     // Best-effort. Employer profile lookup and ops fallback remain available.
+  }
+
+  if (roleId != null) {
+    try {
+      const [roleRow] = await db
+        .select({ contactEmail: rolesTable.contactEmail })
+        .from(rolesTable)
+        .where(
+          and(
+            eq(rolesTable.id, roleId),
+            ilike(rolesTable.employer, companyName),
+          ),
+        )
+        .limit(1);
+      if (isUsableEmployerEmail(roleRow?.contactEmail)) {
+        return { email: roleRow.contactEmail.trim(), route: "employer_contact_email" };
+      }
+    } catch {
+      // Best-effort. Employer profile lookup and ops fallback remain available.
+    }
   }
 
   try {
