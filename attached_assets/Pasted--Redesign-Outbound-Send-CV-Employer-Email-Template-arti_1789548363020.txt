@@ -1,0 +1,73 @@
+### Redesign Outbound "Send CV" Employer Email Template (`artifacts/api-server/src/lib/email.ts`)
+The email received by employers when a candidate clicks "Send CV" currently looks like an unstyled database debug dump (exposing raw user UUIDs, application IDs, and cramming notes into an ugly table). 
+Please redesign the `sendSpeculativeCVToOps` email template in `artifacts/api-server/src/lib/email.ts` to look like a premium, executive candidate presentation:
+---
+#### 1. Professional Subject Line
+Change the subject from `[CV] candidate → company` to:
+```ts
+subject: `Job Application: ${safeCandidateName} — ${safeVacancyTitle ?? safeCompanyName} (via JOBSAGE)`
+2. Remove Internal Database Leaks
+Completely remove: User ID: ${safeCandidateUserId}. Employers must never see internal database UUIDs.
+Move Application ID to a subtle reference tag in the footer: Ref: JS-${opts.applicationId}.
+Remove the awkward wording "Sent by JOBSAGE platform. Please follow up with [Company] on behalf of the candidate if appropriate."
+3. Modern Branded Email HTML Layout
+Build a clean, responsive HTML email (600px max-width, neutral slate background #f8fafc):
+
+Header:
+
+Dark navy banner (#0f172a) with the JOBSAGE wordmark / logo in white.
+Subtitle: Candidate Introduction & Speculative Application.
+Hero Candidate Snapshot Card:
+
+White card container (#ffffff) with subtle border (#e2e8f0) and rounded corners (12px).
+Title: Candidate Application
+Two-column / clean grid overview:
+Candidate: ${safeCandidateName}
+Target Role / Dept: ${safeVacancyTitle ?? "General Application"}
+Target Organisation: ${safeCompanyName}
+Attached Documents: 📄 
+s
+a
+f
+e
+C
+v
+F
+i
+l
+e
+n
+a
+m
+e
+?
+?
+"
+C
+V
+A
+t
+t
+a
+c
+h
+e
+d
+"
+safeCvFilename??"CVAttached"{safeCoverLetterFilename ? | 📄 ${safeCoverLetterFilename} : ""}
+Cover Note / Screening Questionnaire Section:
+
+If notes exist:
+Render inside a dedicated, styled card (#f8fafc background with a subtle #3b82f6 left accent border).
+Heading: Message & Qualifications from Candidate
+Render the text cleanly with proper line breaks, paragraphs, and list bullet formatting so answers to screening questions (Motivation, Right to Work, Notice Period) are easy to read.
+Clear Employer Call-to-Action:
+
+A styled primary button or highlighted banner:
+"Reply to this email to contact ${safeCandidateName}"
+Explain clearly: "Hit 'Reply' to send a message directly to ${safeCandidateName}. Your response will be securely routed to their JOBSAGE candidate portal."
+Footer:
+
+Subtle, professional footer with JobSage copyright, privacy notice, and reference code: Ref: JS-${opts.applicationId} | JOBSAGE UK.
+4. Verification
+Test sending another test email to ifeo55394@gmail.com using the test vacancy to confirm the new layout renders beautifully in Gmail desktop and mobile.
