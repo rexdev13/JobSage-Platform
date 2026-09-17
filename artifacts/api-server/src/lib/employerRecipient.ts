@@ -49,7 +49,8 @@ export async function resolveEmployerRecipient(
       .where(
         sponsorLicenceId
           ? eq(sponsorLicencesTable.id, sponsorLicenceId)
-          : ilike(sponsorLicencesTable.organisationName, companyName),
+          : sql`lower(btrim(${sponsorLicencesTable.organisationName})) =
+              lower(btrim(${companyName}))`,
       )
       .limit(1);
     if (isUsableEmployerEmail(licenceRow?.contactEmail)) {
