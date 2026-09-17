@@ -1,6 +1,6 @@
 import { db } from "@workspace/db";
 import { sponsorLicenceVacanciesTable, sponsorLicencesTable } from "@workspace/db";
-import { and, eq, gt, ne } from "drizzle-orm";
+import { and, eq, gt, ne, sql } from "drizzle-orm";
 import { isManualLabourTitle } from "./vacancyTitlePolicy";
 import { isValidVacancyUrlForSource } from "./vacancyUrlPolicy";
 import type { DbsClearanceLevel, SafeguardingTrainingLevel } from "./safeguarding";
@@ -320,7 +320,12 @@ export async function fetchSponsorVacanciesAsRoles(
     .from(sponsorLicenceVacanciesTable)
     .leftJoin(
       sponsorLicencesTable,
-      eq(sponsorLicenceVacanciesTable.organisationName, sponsorLicencesTable.organisationName),
+      // Persistence resolves sponsor identities case-insensitively after
+      // trimming. Use the same strict identity here so a stored contact does
+      // not disappear from Opportunities solely because casing/whitespace
+      // differs between the vacancy and sponsor-register rows.
+      sql`lower(btrim(${sponsorLicenceVacanciesTable.organisationName})) =
+          lower(btrim(${sponsorLicencesTable.organisationName}))`,
     )
     .where(and(...conditions));
 

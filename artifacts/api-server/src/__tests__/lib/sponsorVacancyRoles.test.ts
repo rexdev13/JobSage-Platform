@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { selectMock, eqMock, gtMock } = vi.hoisted(() => ({
+const { selectMock, leftJoinMock, eqMock, gtMock, sqlMock } = vi.hoisted(() => ({
   selectMock: vi.fn(),
+  leftJoinMock: vi.fn(),
   eqMock: vi.fn(),
   gtMock: vi.fn(),
+  sqlMock: vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values })),
 }));
 
 let rows: unknown[] = [];
@@ -11,7 +13,10 @@ let rows: unknown[] = [];
 vi.mock("@workspace/db", () => {
   const chain: any = {
     from: () => chain,
-    leftJoin: () => chain,
+    leftJoin: (...args: unknown[]) => {
+      leftJoinMock(...args);
+      return chain;
+    },
     where: () => chain,
     then: (resolve: (value: unknown[]) => unknown, reject?: (reason: unknown) => unknown) =>
       Promise.resolve(rows).then(resolve, reject),
@@ -20,12 +25,12 @@ vi.mock("@workspace/db", () => {
     db: { select: selectMock.mockImplementation(() => chain) },
     sponsorLicenceVacanciesTable: {
       id: "id",
-      organisationName: "organisationName",
+      organisationName: "vacancyOrganisationName",
       liveness: "liveness",
       createdAt: "createdAt",
       sourceType: "sourceType",
     },
-    sponsorLicencesTable: { organisationName: "organisationName" },
+    sponsorLicencesTable: { organisationName: "sponsorOrganisationName" },
   };
 });
 
@@ -34,6 +39,7 @@ vi.mock("drizzle-orm", () => ({
   eq: eqMock,
   gt: gtMock,
   ne: vi.fn(),
+  sql: sqlMock,
 }));
 
 const {
@@ -76,8 +82,28 @@ describe("fetchSponsorVacanciesAsRoles alert options", () => {
   beforeEach(() => {
     rows = [];
     selectMock.mockClear();
+    leftJoinMock.mockClear();
     eqMock.mockClear();
     gtMock.mockClear();
+    sqlMock.mockClear();
+  });
+
+  it("joins vacancy contacts to sponsors using trimmed case-insensitive identity", async () => {
+    rows = [vacancyRow()];
+
+    await fetchSponsorVacanciesAsRoles("NMC");
+
+    expect(sqlMock).toHaveBeenCalledWith(
+      expect.any(Array),
+      "vacancyOrganisationName",
+      "sponsorOrganisationName",
+    );
+    expect(leftJoinMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        values: ["vacancyOrganisationName", "sponsorOrganisationName"],
+      }),
+    );
   });
 
   it("preserves dead URL evidence and distinguishes none, stale, and live", () => {
