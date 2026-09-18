@@ -1,0 +1,244 @@
+I need you to audit the JobSage project specifically around how vacancies are discovered, crawled, refreshed, validated, and stored.
+
+IMPORTANT:
+
+* Do NOT modify code yet.
+* Do NOT refactor anything.
+* Do NOT “fix” issues yet.
+* This is an investigation/audit only.
+* Inspect the actual codebase and infrastructure configuration. Do not guess how things work.
+
+Context:
+
+JobSage is a job platform focused on vacancies from our sponsor companies.
+
+For each sponsor company, vacancies can currently be discovered through two sources:
+
+1. JOB BOARDS
+
+   * We search/crawl job boards for vacancies belonging to our sponsor companies.
+   * Example: if Company X is a sponsor, we want to find current Company X vacancies on relevant job boards.
+
+2. COMPANY WEBSITES
+
+   * We crawl the sponsor company's own careers/jobs page to find current vacancies.
+   * Example: Company X's website may have its own careers page with open positions.
+
+Once a vacancy exists in JobSage, users can either:
+
+* Apply through the original application route, OR
+* Send their CV for that vacancy through JobSage.
+
+"Send CV" is NOT a vacancy source. It is an application method for vacancies we have already discovered.
+
+The major business requirement is:
+
+JOB SAGE MUST SHOW REAL, CURRENT, OPEN VACANCIES.
+
+We do NOT want old/closed/expired vacancies being presented as active vacancies.
+
+Current infrastructure appears to involve:
+
+* an autoscaling VM
+* external schedulers hitting/waking the system
+* crawlers
+* vacancy processing/AI
+* database/storage
+
+I need you to trace the ENTIRE pipeline.
+
+Investigate and report:
+
+A. SOURCE DISCOVERY
+
+* Where are sponsor companies stored?
+* How does the system know which companies to crawl/search?
+* How are company websites discovered?
+* How are job-board searches generated?
+* What job boards are currently supported?
+* Are there hardcoded sources or dynamically discovered sources?
+* What happens when a company has no known careers URL?
+
+B. SCHEDULING
+
+* Identify every scheduler involved.
+* Identify every cron/external scheduling mechanism.
+* Show exactly what each scheduled job triggers.
+* Show the frequency of each job.
+* Determine whether schedules actually execute reliably.
+* Determine whether the autoscaling VM can be asleep/unavailable when a scheduler attempts to trigger work.
+* Identify duplicate scheduling or race conditions.
+
+C. CRAWL EXECUTION
+For both company websites and job boards:
+
+* Trace the code from scheduler → crawler → extraction → processing → database.
+* Identify which parts require a browser/Playwright/Puppeteer/etc.
+* Identify timeout/retry behavior.
+* Identify rate limits.
+* Identify concurrency.
+* Identify failures that are swallowed or poorly logged.
+* Determine whether a failed crawl can silently result in zero vacancies.
+
+D. VACANCY EXTRACTION
+
+* Show exactly how raw pages become vacancy records.
+* Identify where AI/LLMs are used.
+* Identify what fields are extracted.
+* Identify how missing fields are handled.
+* Identify whether the system can accidentally create garbage/duplicate vacancies.
+
+E. DEDUPLICATION
+
+* Explain how the same vacancy found on:
+
+  * multiple job boards
+  * a job board + company website
+  * repeated crawls
+    is deduplicated.
+* Identify the actual deduplication key.
+* Determine whether small title/company/location differences can create duplicates.
+
+F. LIVE / CLOSED VACANCY LOGIC — THIS IS CRITICAL
+Trace exactly how JobSage determines whether a vacancy is active.
+
+Answer:
+
+* What makes a vacancy ACTIVE?
+* What makes it CLOSED?
+* What makes it EXPIRED?
+* What happens when a vacancy disappears from a source?
+* How long can a disappeared vacancy remain visible?
+* Is last_seen_at tracked?
+* Is last_verified_at tracked?
+* Is the original source URL checked again?
+* Is the application URL checked?
+* Are HTTP 404/410 responses handled?
+* Are explicit "closed", "filled", "no longer accepting applications" messages detected?
+* What happens when the source temporarily fails?
+* Does a crawler failure incorrectly cause a vacancy to be marked closed?
+* Does a successful crawl that returns zero jobs cause previous jobs to be deleted/closed?
+
+G. DATABASE
+Inspect the vacancy schema/model and report all relevant fields.
+
+Specifically look for:
+
+* source
+* source URL
+* application URL
+* published date
+* expiry date
+* created date
+* updated date
+* last seen
+* last verified
+* status
+* company ID
+* external/source job ID
+* hash/fingerprint
+* timestamps
+
+Identify anything missing that makes reliable vacancy freshness difficult.
+
+H. AUTOSCALING / INFRASTRUCTURE
+I need you to understand the actual deployment architecture.
+
+Determine:
+
+* What starts the VM?
+* What stops/scales the VM?
+* What service runs on it?
+* What port/API endpoint do external schedulers hit?
+* What happens during cold start?
+* What happens if the scheduler hits the VM before the application is ready?
+* What happens if two crawl jobs start simultaneously?
+* Are jobs queued or executed immediately?
+* Can work be killed when the VM scales down?
+* Is there persistent job state outside the VM?
+* Are crawl jobs resumable?
+
+I. OBSERVABILITY
+Find:
+
+* logs
+* crawl run records
+* error tracking
+* metrics
+* failed job records
+* scheduler execution records
+
+Tell me how I can answer:
+
+"How many sponsor companies were successfully crawled today?"
+
+"How many sources failed today?"
+
+"How many new vacancies were discovered today?"
+
+"How many existing vacancies were successfully re-verified today?"
+
+"How many vacancies are currently active?"
+
+"How many vacancies have not been verified recently?"
+
+If the system currently cannot answer these, explain why.
+
+J. REAL CURRENT FAILURE
+Look through recent logs, database records, crawl results, scheduler results, and error handling to identify the ACTUAL failure modes.
+
+Do not give generic advice like "improve reliability."
+
+I want concrete findings such as:
+
+* Scheduler X is firing but endpoint Y returns 503.
+* Company crawler runs but extracts zero jobs because selector Z changed.
+* Job-board crawler is succeeding but vacancies aren't being persisted.
+* Vacancies are persisted but never refreshed.
+* Closed jobs are never invalidated.
+* Autoscaling kills crawl workers before completion.
+* Duplicate crawls are running.
+* AI extraction is failing on X% of pages.
+* Company careers URLs are incorrect/outdated.
+* etc.
+
+For every issue, provide:
+
+1. Evidence from the code/logs/data.
+2. Severity: CRITICAL / HIGH / MEDIUM / LOW.
+3. Exact component responsible.
+4. What happens to the user because of it.
+5. What you recommend changing.
+
+K. FINAL OUTPUT
+
+At the end, produce:
+
+1. CURRENT ARCHITECTURE
+   A concise text diagram showing the real current pipeline.
+
+2. TOP 5 PROBLEMS
+   Ordered by technical/business impact, NOT by how easy they are to fix.
+
+3. LAUNCH BLOCKERS
+   What absolutely needs fixing before launch in approximately one week.
+
+4. NON-BLOCKERS
+   What can safely wait until after launch.
+
+5. MINIMUM RELIABLE LAUNCH ARCHITECTURE
+   Based on the existing codebase, describe the smallest set of changes required to reliably populate JobSage with CURRENT vacancies.
+
+6. DATA FRESHNESS STRATEGY
+   Recommend a concrete strategy for:
+
+   * initial discovery
+   * recurring crawling
+   * re-verification
+   * stale vacancy handling
+   * closed vacancy handling
+
+7. DO NOT REBUILD
+   Explicitly identify parts of the current system that are already good enough and should NOT be unnecessarily rewritten.
+
+Again: DO NOT CHANGE CODE. I want the diagnosis first.
