@@ -1,0 +1,274 @@
+We now have the company-site coverage investigation.
+
+Do NOT implement anything yet.
+
+I want you to translate the investigation findings into an exact code-level implementation plan for the next one week.
+
+The goal is:
+
+> Maximize the number of REAL, CURRENT sponsor-company vacancies JobSage can reliably surface before launch, without rebuilding the existing crawler.
+
+The existing findings are:
+
+* 127,332 distinct sponsor organisations.
+* 6,844 have non-empty website fields.
+* 2,327 have recorded generic company-site checks.
+* 851 have recorded careers URLs.
+* 28 recognised ATS detections.
+* 236 organisations have company-site vacancy rows.
+* 230 organisations have live company-site rows.
+* 411 Communications has a current vacancy visible on its careers page that JobSage missed.
+* Hopscotch has a BambooHR careers link that JobSage does not currently recognise.
+* Several employers have current careers pages but stored crawler errors.
+* Some company-site rows are false positives such as news articles and generic application pages.
+* Job-board ingestion is currently much healthier, particularly NHS Jobs.
+* The company-site queue is processing only 10 per production HTTP invocation and repeatedly reports `done=false`.
+* Production uses external HTTP scheduling rather than an in-process production cron.
+* Existing crawler has strict robots, SSRF, URL and liveness protections that MUST NOT be removed.
+
+## PART 1 — Trace the exact code
+
+Inspect these components and their dependencies:
+
+* companySiteDiscovery.ts
+* companySiteHttp.ts
+* companySiteVerification.ts
+* vacancyJobRunner.ts
+* internalVacancyJobs.ts
+* boardVacancyPipeline.ts
+* sponsor licence/company schema
+* vacancy schema
+* any scheduler-related code
+* any source classification code
+* candidate-facing vacancy filtering
+
+For each, explain:
+
+1. What it currently does.
+2. What part of the launch problem it contributes to.
+3. What exact function/file would need modification.
+4. Whether the change is REQUIRED or OPTIONAL.
+
+Do not give generic recommendations.
+
+## PART 2 — Company-site throughput
+
+Find the exact code responsible for:
+
+* selecting company-site work
+* limiting it to 10
+* marking work complete
+* determining `done=false`
+* selecting the next batch
+* handling writer locks
+* retrying failed companies
+
+Explain exactly how many companies can realistically be processed per hour/day under the current system.
+
+Then determine:
+
+* What is the smallest safe change that lets us drain the existing company-site backlog quickly?
+* Can the current HTTP batch endpoint safely accept a larger batch?
+* If not, why?
+* What prevents us from processing, for example, 25, 50, or 100 companies per invocation?
+* Is the real bottleneck HTTP timeout, crawler concurrency, database writes, host pacing, or something else?
+
+Do not simply increase the limit without evidence.
+
+## PART 3 — Scheduler
+
+Trace exactly what happens when the external scheduler sends:
+
+POST /internal/vacancy-jobs
+
+Determine:
+
+* expected frequency
+* actual frequency visible from logs
+* maximum useful batch size
+* request timeout
+* lock behavior
+* whether HTTP 409 is retryable
+* whether a request can be interrupted while crawling
+* whether work is lost when that happens
+
+Then propose the minimum launch-safe scheduler change.
+
+Do NOT implement a separate worker yet unless the current architecture fundamentally cannot meet the launch target.
+
+## PART 4 — Careers discovery
+
+Inspect the actual company-site discovery algorithm.
+
+Show the exact order in which it tries:
+
+* homepage
+* careers links
+* sitemap
+* anchors
+* JSON-LD
+* known ATS hosts
+* other paths
+
+Identify where it fails for the known missed cases.
+
+Specifically reproduce/trace:
+
+### 411 Communications
+
+Why does the current crawler fail to capture the visible Freelance Content Creator vacancy?
+
+### Hopscotch
+
+Why does it fail to follow:
+
+hopscotch.bamboohr.com/careers
+
+What exact change would allow BambooHR vacancies to be discovered safely?
+
+### Greenhouse example
+
+Why did Assured Guaranty have a Greenhouse opening link but no stored vacancy?
+
+### Budget failures
+
+Why did Ashcroft Pharma / Aspatria Medical Group / Assured Guaranty hit:
+
+`employer request budget exhausted`
+
+even though their current careers pages expose job evidence?
+
+## PART 5 — ATS/provider strategy
+
+Do NOT add every ATS.
+
+Inspect the existing provider detection and extraction code.
+
+Determine:
+
+* what is already supported
+* what is detected but not extracted
+* what is extracted but not persisted
+* what provider-specific adapters exist
+
+Then implement-plan:
+
+1. BambooHR support.
+2. A generic external-ATS fallback if appropriate.
+3. Any other provider that the actual sponsor data proves is high-impact.
+
+If provider frequency cannot be measured reliably yet, say so.
+
+## PART 6 — False-positive protection
+
+Inspect exactly how company-site pages become vacancy records.
+
+Find why these were persisted:
+
+* 2H Offshore → news article
+* Astorg → corporate news
+* A1 Transport → generic Apply Online page
+
+Then design the smallest safe validation improvement.
+
+The rule should be:
+
+A company-site vacancy must have actual evidence that it represents a specific vacancy.
+
+Examples of weak evidence:
+
+* `/news/`
+* `/blog/`
+* `/about/`
+* corporate announcements
+* generic careers pages
+* generic "apply online" pages
+
+Do not simply blacklist URLs by path. Use the existing extraction/evidence system where possible.
+
+## PART 7 — Freshness
+
+Inspect the current liveness and vacancy state implementation.
+
+Determine exactly what can currently cause an old vacancy to remain candidate-visible.
+
+Design the minimum launch-safe freshness model.
+
+I want explicit semantics for:
+
+* discovered
+* verified live
+* source-observed
+* missing from source
+* stale
+* closed
+
+Do not make a vacancy closed merely because one crawl fails.
+
+Do not make a vacancy live merely because its URL returns HTTP 200.
+
+## PART 8 — Instrumentation
+
+Design the smallest instrumentation required to answer:
+
+1. How many company sources were attempted today?
+2. How many completed?
+3. How many failed?
+4. How many were partial?
+5. How many careers pages were found?
+6. How many ATS providers were found?
+7. How many adverts were found?
+8. How many were rejected?
+9. How many vacancies were inserted?
+10. How many were updated?
+11. How many were verified live?
+12. How many source observations were empty?
+13. How old is the oldest unchecked sponsor website?
+
+Tell me exactly where these metrics should be stored.
+
+Prefer existing tables/log infrastructure if possible.
+
+## PART 9 — ONE-WEEK IMPLEMENTATION PLAN
+
+Produce a concrete sequence:
+
+DAY 1
+DAY 2
+DAY 3
+...
+DAY 7
+
+But prioritize by dependency rather than artificially forcing one day per task.
+
+For each change provide:
+
+* file(s)
+* function(s)
+* exact behavior change
+* risk
+* estimated effort
+* expected effect on vacancy coverage
+
+## PART 10 — MOST IMPORTANT
+
+At the end give me the exact implementation order:
+
+1.
+2.
+3.
+4.
+5.
+
+And explicitly tell me:
+
+### "If we only have time to implement THREE things before launch, implement these."
+
+The answer must be based on the actual code and production evidence.
+
+DO NOT MODIFY CODE.
+DO NOT create migrations.
+DO NOT change infrastructure.
+DO NOT install dependencies.
+
+This is the final planning/investigation stage before implementation.
