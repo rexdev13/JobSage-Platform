@@ -1,0 +1,245 @@
+We now know the main JobSage issue is company-vacancy coverage.
+
+DO NOT modify code.
+
+I want a data-driven investigation of why JobSage is failing to populate enough CURRENT vacancies from sponsor companies.
+
+The goal is to identify the exact bottleneck between:
+
+SPONSOR COMPANY → WEBSITE → CAREERS PAGE → JOB LISTINGS → EXTRACTION → DATABASE → ACTIVE VACANCY
+
+Focus on COMPANY-SITE discovery first.
+
+## 1. Take a representative sample
+
+Select approximately 30–50 sponsor companies from the current database.
+
+Prefer a mixture of:
+
+* companies with known live vacancies
+* companies with zero vacancies
+* companies whose website crawl has succeeded
+* companies whose crawl returns zero
+* companies with crawl errors
+* companies with dead/missing websites
+* different industries
+* different website/ATS providers
+
+Show the actual companies and classify each one.
+
+## 2. For each company determine:
+
+### Website
+
+* What website is stored for the sponsor?
+* Does the domain actually belong to the company?
+* Does it resolve?
+* Does it redirect?
+* Does it lead to a careers/jobs section?
+* Is the stored URL stale or incorrect?
+
+### Careers discovery
+
+Determine:
+
+* Did our crawler find a careers page?
+* If yes, which URL?
+* If no, why not?
+* Is the careers page linked from the homepage?
+* Is it discoverable through sitemap.xml?
+* Is it using an ATS?
+* Which ATS/provider is being used if detectable?
+
+### Rendering
+
+Determine whether the job listings are:
+
+* static HTML
+* JSON-LD
+* embedded structured data
+* API-loaded
+* client-side JavaScript rendered
+* iframe-based
+* hosted on another domain
+
+If the page requires JavaScript to display jobs, explicitly record that.
+
+### Extraction
+
+If jobs exist on the company's website:
+
+* How many jobs are actually visible?
+* How many did JobSage extract?
+* What caused any missing jobs?
+* Which selectors/parsers/extractors failed?
+
+### Persistence
+
+If jobs were extracted:
+
+* Were they written to the database?
+* If not, why?
+* Were they rejected by validation?
+* Were they deduplicated?
+* Were they subsequently marked dead?
+
+## 3. Compare JobSage against reality
+
+For each sampled sponsor, determine:
+
+REAL JOBS CURRENTLY ON COMPANY SITE
+vs
+JOBSAGE JOBS
+
+Create a table:
+
+Company | Website | Careers URL | Provider/ATS | Real jobs | JobSage jobs | Crawl result | Main failure
+
+Do not invent numbers. Use actual evidence from the code, database, logs, and accessible source pages where available.
+
+## 4. Identify the dominant failure mode
+
+After examining the sample, quantify approximately:
+
+* % with incorrect/dead sponsor websites
+* % where careers page cannot be discovered
+* % where jobs require JavaScript
+* % where ATS is unsupported
+* % where crawler finds the page but extraction fails
+* % where extraction succeeds but persistence fails
+* % where persistence succeeds but vacancy becomes incorrectly inactive
+* % where the source genuinely has zero vacancies
+
+I care much more about this than generic architecture recommendations.
+
+## 5. Investigate the six-page / 25-second company crawl limits
+
+Determine whether the current:
+
+* six-page maximum
+* ~25-second employer budget
+* ~9-second page timeout
+
+are actually causing missed vacancies.
+
+Give concrete examples if possible.
+
+Do NOT recommend increasing these limits unless the evidence shows they are the bottleneck.
+
+## 6. Investigate ATS coverage
+
+List every ATS/provider currently recognized by the code.
+
+Then determine:
+
+* which providers are working
+* which providers are failing
+* which providers appear frequently among sponsor companies
+* which missing provider support would produce the biggest increase in coverage
+
+Do not recommend supporting every ATS. Identify the highest-impact ones based on the actual sponsor population.
+
+## 7. Investigate browser fallback
+
+Determine how many sampled companies genuinely require browser rendering.
+
+Do NOT conclude that Playwright/browser crawling should replace the current HTTP crawler.
+
+Instead determine whether a small bounded browser fallback would materially improve coverage.
+
+For example:
+
+HTTP crawler
+↓
+jobs found → done
+
+HTTP crawler
+↓
+zero jobs / JS detected
+↓
+browser fallback
+↓
+extract jobs
+
+Tell me whether the evidence supports this architecture.
+
+## 8. Investigate job-board coverage separately
+
+Do the same type of investigation for the current job-board sources.
+
+Remember:
+
+JobSage's source model is:
+
+Sponsor company
+→ discover vacancies on job boards
+OR
+→ discover vacancies on the company's own website
+
+The "Send CV" feature is NOT a vacancy source. It is an application method for an already-discovered vacancy.
+
+Determine:
+
+* which boards are actually active
+* how many sponsor companies have board vacancies
+* whether employer matching is working
+* whether board searches are returning zero because of search logic
+* whether board vacancies are being persisted
+* whether board vacancies are becoming stale
+
+## 9. Produce the final diagnosis
+
+Return:
+
+### A. Biggest actual bottleneck
+
+One concrete statement.
+
+Example:
+"The main problem is not extraction; X% of sponsor websites use ATS Y which the current crawler doesn't support."
+
+Only make this kind of statement if the evidence supports it.
+
+### B. Coverage funnel
+
+Show:
+
+Sponsor companies
+↓
+have valid website
+↓
+careers page discovered
+↓
+job listings accessible
+↓
+jobs extracted
+↓
+jobs persisted
+↓
+jobs verified live
+
+Use actual counts where possible.
+
+### C. Top 3 fixes
+
+Only recommend fixes supported by the evidence.
+
+For each:
+
+* expected coverage improvement
+* implementation difficulty
+* launch priority
+
+Do not rewrite the existing crawler unless the evidence specifically justifies it.
+
+### D. One-week launch plan
+
+Give me the minimum changes required to materially improve live vacancy coverage before launch.
+
+Separate:
+
+* MUST DO
+* SHOULD DO
+* AFTER LAUNCH
+
+Again: investigation only. Do not modify anything.
