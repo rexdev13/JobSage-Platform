@@ -390,3 +390,17 @@ mtime_ms = 1789589237110
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/d481128c-c434-408d-80f8-3fc049ed310e/898d773d-65b1-4907-b59f-b79a5f2c0178"
 storage_version_token = "1789589258350541"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "Nwoe_mw-TIZWchagQXRdS"
+uri = "file://docs/company-site-one-week-implementation-plan.md"
+type = "text"
+title = "JOBSAGE Company-Site One-Week Implementation Plan"
+description = "The complete code-level plan covering throughput, scheduling, discovery, ATS support, false-positive protection, freshness, instrumentation, and implementation order."
+logical_id = "c9c01339-99c1-45fc-ba11-5073506d361d"
+content_hash = "sha256:8d719889c84923b88fb9e28059f75e2ed1d263dcfcb384e7dec34fd658fba798"
+size = 39616
+mtime_ms = 1789729738442
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/c9c01339-99c1-45fc-ba11-5073506d361d/da712867-8af1-48d4-ac74-d0cd816ee538"
+storage_version_token = "1789729744578244"
+content_type = "text/markdown"
