@@ -42,6 +42,7 @@ vi.mock("../../lib/companySiteDiscovery", () => ({
 const {
   COMPANY_SITE_DISCOVERY_BATCH_SIZE,
   COMPANY_SITE_FAILED_RETRY_MS,
+  COMPANY_SITE_PARTIAL_RETRY_MS,
   COMPANY_SITE_BATCH_WRITE_RESERVE_MS,
   COMPANY_SITE_DISCOVERY_CONCURRENCY,
   COMPANY_SITE_DISCOVERY_CRON,
@@ -160,6 +161,43 @@ describe("company-site scheduler", () => {
     expect(persisted?.genericCheckedAt).toBeNull();
     expect((persisted?.retryAfter as Date).getTime()).toBeGreaterThanOrEqual(
       before + COMPANY_SITE_FAILED_RETRY_MS,
+    );
+  });
+
+  it("briefly defers a partial employer so frequent batches make queue progress", async () => {
+    const before = Date.now();
+    let persisted: Record<string, unknown> | undefined;
+    insertMock.mockReturnValue({
+      values: (values: Record<string, unknown>) => {
+        persisted = values;
+        return {
+          onConflictDoUpdate: () => Promise.resolve(),
+        };
+      },
+    });
+    discoverCompanySiteVacanciesMock.mockResolvedValue({
+      adverts: [],
+      pagesFetched: 6,
+      genericCompleted: true,
+      atsCompleted: false,
+      transientFailure: false,
+      completion: "partial_page_limit",
+      advertsExtracted: 0,
+      advertsRejected: 0,
+    });
+
+    await runCompanySiteCheck({
+      organisationName: "Partial Employer",
+      website: "https://partial.example",
+      genericCheckedAt: null,
+      atsCheckedAt: null,
+      careersUrl: null,
+      atsProvider: null,
+    });
+
+    expect(persisted?.lastOutcome).toBe("partial_page_limit");
+    expect((persisted?.retryAfter as Date).getTime()).toBeGreaterThanOrEqual(
+      before + COMPANY_SITE_PARTIAL_RETRY_MS,
     );
   });
 
