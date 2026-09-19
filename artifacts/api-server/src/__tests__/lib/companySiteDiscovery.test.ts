@@ -357,6 +357,32 @@ describe("company-site vacancy discovery", () => {
     ]));
   });
 
+  it("rejects a BambooHR talent-pool posting without rejecting real job titles", async () => {
+    fetchCompanySitePageMock
+      .mockResolvedValueOnce({
+        ok: true,
+        url: "https://www.bluefield.example/",
+        status: 200,
+        contentType: "text/html",
+        body: '<a href="https://bluefield.bamboohr.com/careers">Careers</a>',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        url: "https://bluefield.bamboohr.com/careers",
+        status: 200,
+        contentType: "text/html",
+        body: '<a href="https://bluefield.bamboohr.com/careers/60">Join our Talent Pool</a>',
+      });
+
+    const result = await discoverCompanySiteVacancies(
+      "Bluefield Services Limited",
+      "https://www.bluefield.example",
+    );
+
+    expect(result.adverts).toEqual([]);
+    expect(result.rejectionReasons.non_specific_bamboohr_posting).toBe(1);
+  });
+
   it("normalises bare sponsor domains and rejects non-http schemes", () => {
     expect(normaliseSponsorWebsite("example.org")).toBe("https://example.org/");
     expect(normaliseSponsorWebsite("ftp://example.org")).toBeNull();
