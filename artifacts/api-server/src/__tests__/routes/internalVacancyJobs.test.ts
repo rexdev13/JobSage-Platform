@@ -126,6 +126,8 @@ describe("POST /internal/vacancy-jobs", () => {
       .send({ kind: "company_site" });
 
     expect(response.status).toBe(409);
+    expect(response.headers["retry-after"]).toBe("30");
     expect(response.body).toEqual({ error: "Another vacancy pipeline batch is already running." });
+    expect(runVacancyJobMock).toHaveBeenCalledOnce();
   });
 });

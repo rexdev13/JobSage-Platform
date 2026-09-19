@@ -413,6 +413,8 @@ It:
 - Validates job kind and requested limit.
 - Caps company-site requests at 10.
 - Returns HTTP 409 when the global writer lock is held.
+- Includes `Retry-After: 30` on HTTP 409 so callers can retry safely; lock
+  contention does not select or mark any employer failed.
 - Returns HTTP 500 with `done: false` on an unhandled error.
 
 Exact cap:
@@ -436,6 +438,25 @@ Retry-After: 30
 
 - Include the richer job summary.
 - Ensure the external scheduler treats 409 as retryable.
+
+### Phase 2 external cron cadence
+
+Increase coverage by invoking more bounded batches, not by increasing crawl
+limits. Keep each `company_site` request at 10 employers and retain the
+20-second endpoint deadline and all robots, SSRF, DNS, host-pacing, and writer
+lock protections.
+
+With four callers on repeating 10-minute schedules, use these minute offsets:
+
+- Caller A: `0,10,20,30,40,50 * * * *`
+- Caller B: `2,12,22,32,42,52 * * * *`
+- Caller C: `5,15,25,35,45,55 * * * *`
+- Caller D: `7,17,27,37,47,57 * * * *`
+
+This produces one `company_site` invocation every 2–3 minutes. Continue while
+the response has `done: false`; stop the catch-up sequence when `done: true`.
+Treat HTTP 409 as retryable and retry after the response's `Retry-After`
+interval. Do not treat 409 as a failed batch or failed employer.
 
 After instrumentation, a later change may allow a configured maximum above 10.
 
