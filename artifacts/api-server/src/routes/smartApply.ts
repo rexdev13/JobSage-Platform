@@ -16,6 +16,7 @@ import {
   sponsorVacancyIdFromRoleId,
 } from "../lib/sponsorVacancyRoles";
 import { statutoryRegulatorForCategory } from "../lib/professionCategory";
+import { getCandidateVacancyStatus } from "../lib/vacancyLiveness";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -327,7 +328,27 @@ router.post("/roles/:id/smart-apply/prefill", requireAuthenticated, async (req: 
         eq(sponsorLicenceVacanciesTable.organisationName, sponsorLicencesTable.organisationName),
       )
       .where(eq(sponsorLicenceVacanciesTable.id, sponsorVacancyId));
+    if (!row) {
+      res.status(404).json({ error: "Sponsor vacancy not found." });
+      return;
+    }
     if (row) {
+      if (getCandidateVacancyStatus({
+        sourceType: row.vacancy.sourceType,
+        liveness: row.vacancy.liveness,
+        lastVerifiedAt: row.vacancy.lastVerifiedAt,
+        lastDiscoveredAt: row.vacancy.lastDiscoveredAt,
+        sourceMissingSince: row.vacancy.sourceMissingSince,
+        sourceMissingObservations: row.vacancy.sourceMissingObservations,
+        closesAt: row.vacancy.closesAt,
+        expiresAt: row.vacancy.expiresAt,
+        closedReason: row.vacancy.closedReason,
+        companyVacancyEvidence: row.vacancy.companyVacancyEvidence,
+        companyEvidenceLegacyUntil: row.vacancy.companyEvidenceLegacyUntil,
+      }) !== "visible") {
+        res.status(409).json({ error: "This vacancy is no longer available for Smart Apply." });
+        return;
+      }
       const category = classifyVacancyCategory(row.vacancy.title, row.vacancy.description);
       roleContext = {
         title: row.vacancy.title,
@@ -504,7 +525,27 @@ router.post("/smart-apply/assistant", requireAuthenticated, async (req: Request,
         eq(sponsorLicenceVacanciesTable.organisationName, sponsorLicencesTable.organisationName),
       )
       .where(eq(sponsorLicenceVacanciesTable.id, sponsorVacancyId));
+    if (!row) {
+      res.status(404).json({ error: "Sponsor vacancy not found." });
+      return;
+    }
     if (row) {
+      if (getCandidateVacancyStatus({
+        sourceType: row.vacancy.sourceType,
+        liveness: row.vacancy.liveness,
+        lastVerifiedAt: row.vacancy.lastVerifiedAt,
+        lastDiscoveredAt: row.vacancy.lastDiscoveredAt,
+        sourceMissingSince: row.vacancy.sourceMissingSince,
+        sourceMissingObservations: row.vacancy.sourceMissingObservations,
+        closesAt: row.vacancy.closesAt,
+        expiresAt: row.vacancy.expiresAt,
+        closedReason: row.vacancy.closedReason,
+        companyVacancyEvidence: row.vacancy.companyVacancyEvidence,
+        companyEvidenceLegacyUntil: row.vacancy.companyEvidenceLegacyUntil,
+      }) !== "visible") {
+        res.status(409).json({ error: "This vacancy is no longer available for Smart Apply." });
+        return;
+      }
       const category = classifyVacancyCategory(row.vacancy.title, row.vacancy.description);
       roleContext = {
         title: row.vacancy.title,

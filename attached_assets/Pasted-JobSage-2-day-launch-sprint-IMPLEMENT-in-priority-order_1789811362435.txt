@@ -1,0 +1,262 @@
+JobSage 2-day launch sprint — IMPLEMENT in priority order.
+
+Do NOT redesign JobSage. Do NOT rewrite the crawler. Do NOT increase page limits, employer timeout, page timeout, or company-site batch size yet.
+
+Context:
+- External cron-job.org hits POST /api/internal/vacancy-jobs (kinds: job_board, company_site, liveness, contact).
+- Free cron timeout = 30s. Company-site batch stays at 10, ~20s deadline + 3s write reserve.
+- Writer lock → 409 on overlap. Keep robots/SSRF/DNS/host-pacing/byte limits.
+- Launch problem: junk/false positives, “found nothing” vs “crawl failed” unclear, URL HTTP 200 treated as live, coverage too slow, AND closed jobs still shown (especially NHS) because closing date passed but the link is still active.
+
+============================================================
+PHASE 1 — IMPLEMENT NOW (quality + closed-date). STOP after this and report.
+============================================================
+
+Implement these four things in this exact order:
+
+A) Crawl completion / outcome instrumentation
+B) Vacancy evidence / false-positive protection
+C) Closed / expired date enforcement (CRITICAL — includes NHS Jobs)
+D) Source-aware freshness + one central candidate-visibility rule
+
+Files to touch as needed (use existing names if they differ slightly):
+- companySiteDiscovery.ts
+- companySiteScheduler.ts
+- vacancyJobRunner.ts
+- internalVacancyJobs.ts
+- vacancyLiveness.ts
+- job-board ingest / NHS Jobs parsers / normalizers
+- candidate Opportunities / matches / alerts / counts paths
+
+----------------------------------------
+A) Crawl completion instrumentation
+----------------------------------------
+
+Make company-site discovery distinguish:
+
+type CompanySiteDiscoveryCompletion =
+  | "complete"
+  | "partial_page_limit"
+  | "partial_deadline"
+  | "failed";
+
+Return metrics including:
+{
+  completion,
+  pagesAttempted,
+  pagesFetched,
+  advertsExtracted,
+  advertsRejected,
+  rejectionReasons,
+  discoveredUrls
+}
+
+At scheduler/batch level aggregate:
+{
+  selected, attempted, completed, partial, failed, empty,
+  careersFound, atsFound, pagesFetched, advertsExtracted, advertsRejected,
+  inserted, updated, revived, done, remaining
+}
+
+Rules:
+- An exception must NOT look like a successful empty crawl.
+- A completed timestamp advances ONLY when the source observation was genuinely complete.
+- Track latest attempt separately from latest completed observation.
+- Persist useful batch metrics in existing vacancy_sync_log (no new event system).
+
+----------------------------------------
+B) Vacancy evidence / false-positive protection
+----------------------------------------
+
+A company-site vacancy requires explicit positive vacancy evidence:
+
+type CompanyVacancyEvidence =
+  | { kind: "json_ld_job_posting" }
+  | { kind: "known_ats_posting"; provider: string }
+  | { kind: "careers_listing_link"; listingUrl: string }
+  | { kind: "structured_job_card"; listingUrl: string };
+
+Do NOT only blacklist /news/, /blog/. Require positive evidence; use negative context to reduce acceptance.
+
+Regression tests:
+- 2H Offshore news article → REJECT
+- Astorg corporate news → REJECT
+- A1 Transport generic Apply Online → REJECT
+- 411 Communications Freelance Content Creator → ACCEPT
+- A.S. Kooner real vacancies → ACCEPT
+- Aaseya real vacancies → ACCEPT
+- Greenhouse posting → ACCEPT
+- BambooHR fixture → ACCEPT once provider support is added later
+
+Return rejection counts + reasons. Do not reject legitimate direct vacancy links like 411 Communications.
+
+----------------------------------------
+C) Closed / expired date enforcement (CRITICAL)
+----------------------------------------
+
+Problem to fix:
+Candidates still see jobs that are already closed. The advert text / structured fields include a closing date that has passed, but the apply URL still returns HTTP 200 / “page exists”. This is especially common on NHS Jobs / NHS-related sources, and also appears on Reed and other boards. HTTP 200 must NEVER keep an expired job candidate-visible.
+
+Requirements:
+
+1) Persist closing/expiry when extracted:
+   - closesAt / expiresAt / closingDate / applicationCloseDate (use existing field names if present; add additive columns only if needed)
+   - Parse UK date formats from listing + detail pages and structured data (JSON-LD validThrough, NHS closing date fields, “Closing date:”, “Apply by”, “Closes on”, etc.)
+   - Store timezone-safe UTC; treat date-only values as end of that UK calendar day unless source gives a time.
+
+2) Hard rule for candidate visibility:
+   If closesAt/expiresAt is present AND now > closesAt/expiresAt → status = "expired" / hide from candidates.
+   Do this even if:
+   - liveness = live
+   - URL returns 200
+   - page still loads
+   - last_verified_at is recent
+
+3) During liveness / board refresh / company-site upsert:
+   - Re-parse closing date from page when present.
+   - If page text clearly says closed/filled/no longer accepting applications → mark dead/closed and hide.
+   - If closing date has passed → mark expired and hide (prefer expired over dead when only the date passed).
+   - If no closing date found → fall back to existing freshness/missing rules (do NOT invent a fake expiry).
+
+4) Apply this to ALL candidate-facing paths, especially:
+   - NHS Jobs / job_board vacancies
+   - company-site vacancies
+   - Opportunities list + counts
+   - matches / alerts
+   - vacancy detail pages
+
+5) Backfill / cleanup on deploy:
+   - One-time pass (or first successful board/liveness runs) to hide already-stored vacancies whose stored closing date is in the past.
+   - Log how many were hidden as expired.
+
+6) Tests (must add):
+   - NHS vacancy with past closing date + live URL → NOT candidate-visible
+   - NHS vacancy with future closing date + live URL → visible (if other rules pass)
+   - Board vacancy with validThrough / closesAt in the past → expired/hidden
+   - Vacancy with no closing date + live + recent verification → still uses freshness rules only
+   - Page says “This vacancy has closed” / “no longer accepting applications” → hidden
+   - Company-site vacancy whose listing still 200 but closing date passed → hidden
+
+----------------------------------------
+D) Source-aware freshness + central candidate visibility
+----------------------------------------
+
+Smallest additive schema for company-site checks:
+- lastAttemptedAt, lastCompletedAt, lastPartialAt, lastOutcome
+- lastPagesFetched, lastAdvertsFound, lastRejectedCount
+
+For company-site vacancies:
+- sourceMissingSince, sourceMissingObservations
+
+Do NOT add "stale" to persisted liveness enum. Derive stale for visibility only.
+
+Create one central function (e.g. in vacancyLiveness.ts):
+
+getCandidateVacancyStatus({
+  sourceType,
+  liveness,
+  lastVerifiedAt,
+  lastDiscoveredAt,
+  sourceMissingSince,
+  sourceMissingObservations,
+  closesAt,          // REQUIRED in this signature now
+  expiresAt,         // if separate
+  closedReason,      // optional
+})
+
+Returning:
+"visible" | "stale" | "missing" | "dead" | "expired" | "unverified"
+
+Visibility rules (all must pass for "visible"):
+1. Has specific vacancy evidence (company-site) OR is a valid board vacancy
+2. Observed in latest COMPLETED source crawl (company-site) / recently refreshed (board)
+3. liveness = live
+4. last_verified_at is recent enough for that source type
+5. source_missing_since IS NULL
+6. closesAt/expiresAt is NULL OR now <= closesAt/expiresAt
+7. page does not explicitly say closed/filled
+
+Priority of negative states:
+- explicit closed/dead on page → dead
+- closing date passed → expired
+- missing from completed crawl → missing
+- not recently verified → stale / unverified
+
+Partial / failed / robots / timeout crawls MUST NOT mark existing vacancies missing.
+Only completed absence increments source_missing_observations and sets source_missing_since.
+Use liveness=dead only for hard URL evidence or repeated completed-absence rule.
+
+Update ALL candidate-facing paths to use getCandidateVacancyStatus:
+- sponsor-company vacancy details
+- sponsor vacancy role aggregation
+- opportunity counts
+- matches
+- alerts
+- application-opening checks
+
+Goal: eliminate paths where an old URL-live vacancy stays visible just because HTTP 200, including expired NHS posts.
+
+----------------------------------------
+Preserve existing protections
+----------------------------------------
+
+Do NOT change:
+SSRF, public DNS validation, pinned DNS, private-IP rejection, robots, redirect validation, host pacing, byte limits, page timeout, employer budget, six-page limit, 12-advert limit, global PostgreSQL writer lock, company-site HTTP batch cap of 10.
+
+----------------------------------------
+Tests + production safety
+----------------------------------------
+
+Run relevant existing suites. Add the regression tests listed in B and C, plus:
+- complete empty / partial page-limit / partial deadline / failed crawl
+- missing after complete observation hides; partial/failed does NOT hide
+- rediscovered clears missing
+- candidate visibility requires recent verification + completed observation
+- expired NHS/board jobs hidden even when URL live
+- existing legitimate vacancies still pass
+
+Before deploy:
+- inspect migration
+- inspect every changed candidate query/path
+- verify vacancies are not accidentally deleted
+- verify partial/failed crawls cannot close vacancies
+- verify expired-date logic cannot fail the crawl transaction
+- verify job-board behavior otherwise unchanged except expired hiding
+
+Then deploy.
+
+After Phase 1 deploy, DO NOT increase limits yet.
+
+Report back with:
+- exact files changed
+- exact schema changes
+- tests added / passed
+- behavior changes
+- migration concerns
+- how many existing vacancies became hidden because expired/closed (especially NHS)
+- sample production metrics from first successful runs
+- whether any previously visible vacancies became hidden and why
+
+STOP AFTER PHASE 1.
+Do not implement Phase 2 or Phase 3 until I review Phase 1.
+
+============================================================
+PHASE 2 — ONLY AFTER I SAY SO (scheduler acceleration)
+============================================================
+
+Keep company-site batch = 10 and 20s deadline.
+Increase external invocation frequency (~every 2–3 minutes while done=false).
+Retry HTTP 409.
+Do not overlap manual runs.
+Do not raise crawler limits.
+
+============================================================
+PHASE 3 — ONLY AFTER PHASE 2 (BambooHR)
+============================================================
+
+Add BambooHR provider support (confirmed miss: Hopscotch).
+Do not add a pile of other ATS providers yet.
+
+============================================================
+END
+============================================================

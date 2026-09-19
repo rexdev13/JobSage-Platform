@@ -372,6 +372,7 @@ describe("GET /roles — vacancy-specific speculative CV matching (appliedRoleId
           lastDiscoveredAt: new Date(),
           liveness: "live",
           lastVerifiedAt: new Date(),
+          companyEvidenceLegacyUntil: new Date(Date.now() + 86400000),
           livenessReason: null,
           targetRegions: ["London"],
           requiredDbsClearanceLevel: null,

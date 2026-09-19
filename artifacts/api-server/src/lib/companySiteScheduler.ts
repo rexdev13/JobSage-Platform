@@ -3,6 +3,7 @@ import {
   db,
   sponsorLicenceCompanySiteChecksTable,
 } from "@workspace/db";
+import * as dbSchema from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import {
   discoverCompanySiteVacancies,
@@ -10,7 +11,7 @@ import {
 } from "./companySiteDiscovery";
 
 export const COMPANY_SITE_DISCOVERY_CRON = "17 * * * *";
-export const COMPANY_SITE_DISCOVERY_BATCH_SIZE = 100;
+export const COMPANY_SITE_DISCOVERY_BATCH_SIZE = 10;
 export const COMPANY_SITE_DISCOVERY_CONCURRENCY = 8;
 export const COMPANY_SITE_GENERIC_TTL_MS = 48 * 60 * 60 * 1000;
 export const COMPANY_SITE_ATS_TTL_MS = 24 * 60 * 60 * 1000;
@@ -35,9 +36,14 @@ export type CompanySiteCheckOutcome =
       status: "checked";
       adverts: number;
       inserted: number;
+      updated: number;
       revived: number;
       pagesFetched: number;
+      careersFound: number;
+      atsFound: number;
       transientFailure: boolean;
+      completion: "complete" | "partial_page_limit" | "partial_deadline" | "failed";
+      advertsRejected: number;
     };
 
 export type CompanySiteBatchSummary = {
@@ -50,13 +56,26 @@ export type CompanySiteBatchSummary = {
   remaining: number;
   remainingIsLowerBound: boolean;
   durationMs: number;
+  attempted: number;
+  completed: number;
+  partial: number;
+  failed: number;
+  empty: number;
+  careersFound: number;
+  atsFound: number;
+  pagesFetched: number;
+  advertsExtracted: number;
+  advertsRejected: number;
+  inserted: number;
+  updated: number;
+  revived: number;
 };
 
 let batchInProgress = false;
 
 function getBatchSize(): number {
   const raw = Number.parseInt(process.env["COMPANY_SITE_DISCOVERY_BATCH_SIZE"] ?? "", 10);
-  return Number.isFinite(raw) && raw >= 75 && raw <= 100
+  return Number.isFinite(raw) && raw >= 1 && raw <= COMPANY_SITE_DISCOVERY_BATCH_SIZE
     ? raw
     : COMPANY_SITE_DISCOVERY_BATCH_SIZE;
 }
@@ -242,16 +261,55 @@ export async function runCompanySiteCheck(
     isDue(row.atsCheckedAt, COMPANY_SITE_ATS_TTL_MS);
   if (!checkGeneric && !checkAts) return { status: "skipped", reason: "fresh cache" };
 
-  const result = await discoverCompanySiteVacancies(row.organisationName, row.website, {
-    knownCareersUrl: row.careersUrl,
-    checkGeneric,
-    checkAts: checkAts || checkGeneric,
-    deadlineMs: options.deadlineMs,
-  });
+  let result;
+  try {
+    result = await discoverCompanySiteVacancies(row.organisationName, row.website, {
+      knownCareersUrl: row.careersUrl,
+      checkGeneric,
+      checkAts: checkAts || checkGeneric,
+      deadlineMs: options.deadlineMs,
+    });
+  } catch (error) {
+    const now = new Date();
+    await db.insert(sponsorLicenceCompanySiteChecksTable)
+      .values({
+        organisationName: row.organisationName,
+        lastAttemptedAt: now,
+        lastOutcome: "failed",
+        lastError: error instanceof Error ? error.message.slice(0, 1_000) : "discovery failed",
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: sponsorLicenceCompanySiteChecksTable.organisationName,
+        set: {
+          lastAttemptedAt: now,
+          lastOutcome: "failed",
+          lastError: error instanceof Error ? error.message.slice(0, 1_000) : "discovery failed",
+          updatedAt: now,
+        },
+      });
+    throw error;
+  }
   const persisted =
     result.adverts.length > 0
       ? await persistCompanySiteVacancies(result.adverts)
-      : { inserted: 0, revived: 0 };
+      : { inserted: 0, updated: 0, revived: 0 };
+  if (result.completion === "complete") {
+    await db.execute(sql`
+      UPDATE sponsor_licence_vacancies
+      SET source_missing_since = COALESCE(source_missing_since, NOW()),
+          source_missing_observations = COALESCE(source_missing_observations, 0) + 1
+      WHERE lower(btrim(organisation_name)) = lower(btrim(${row.organisationName}))
+        AND source_type = 'company_site'
+        AND last_discovered_at < NOW()
+        AND NOT EXISTS (
+          SELECT 1
+          FROM jsonb_array_elements_text(${JSON.stringify(result.observedAdvertUrls ?? result.adverts.map((advert) => advert.url))}::jsonb) AS current(url)
+          WHERE lower(split_part(split_part(sponsor_licence_vacancies.url, '?', 1), '#', 1))
+              = lower(split_part(split_part(current.url, '?', 1), '#', 1))
+        )
+    `);
+  }
   const now = new Date();
   const retryAfter = result.transientFailure
     ? result.retryAt ?? new Date(now.getTime() + 15 * 60 * 1000)
@@ -265,17 +323,24 @@ export async function runCompanySiteCheck(
   const values = {
     organisationName: row.organisationName,
     genericCheckedAt:
-      result.genericCompleted || (checkGeneric && !result.transientFailure)
+      result.completion === "complete" && (result.genericCompleted || checkGeneric)
         ? now
         : existing?.genericCheckedAt ?? null,
     atsCheckedAt:
-      result.atsCompleted || (checkAts && !result.transientFailure)
+      result.completion === "complete" && (result.atsCompleted || checkAts)
         ? now
         : existing?.atsCheckedAt ?? null,
     careersUrl: result.careersUrl ?? existing?.careersUrl ?? null,
     atsProvider: result.atsProvider ?? existing?.atsProvider ?? null,
     retryAfter,
     lastError: result.error?.slice(0, 1_000) ?? null,
+    lastAttemptedAt: now,
+    lastCompletedAt: result.completion === "complete" ? now : existing?.lastCompletedAt ?? null,
+    lastPartialAt: result.completion?.startsWith("partial") ? now : existing?.lastPartialAt ?? null,
+    lastOutcome: result.completion,
+    lastPagesFetched: result.pagesFetched,
+    lastAdvertsFound: result.advertsExtracted,
+    lastRejectedCount: result.advertsRejected,
     updatedAt: now,
   };
   await db
@@ -290,9 +355,14 @@ export async function runCompanySiteCheck(
     status: "checked",
     adverts: result.adverts.length,
     inserted: persisted.inserted,
+    updated: persisted.updated,
     revived: persisted.revived,
     pagesFetched: result.pagesFetched,
+    careersFound: result.careersUrl && !existing?.careersUrl ? 1 : 0,
+    atsFound: result.atsProvider && !existing?.atsProvider ? 1 : 0,
     transientFailure: result.transientFailure,
+    completion: result.completion,
+    advertsRejected: result.advertsRejected,
   };
 }
 
@@ -327,7 +397,15 @@ export async function runCompanySiteDiscoveryBatch(
     let adverts = 0;
     let inserted = 0;
     let revived = 0;
+    let updated = 0;
     let deferred = 0;
+    let partial = 0;
+    let failed = 0;
+    let empty = 0;
+    let pagesFetched = 0;
+    let advertsRejected = 0;
+    let careersFound = 0;
+    let atsFound = 0;
     let nextIndex = 0;
 
     async function worker(): Promise<void> {
@@ -348,7 +426,22 @@ export async function runCompanySiteDiscoveryBatch(
           } else {
             checked += 1;
             adverts += outcome.adverts;
+            pagesFetched += outcome.pagesFetched;
+            advertsRejected += outcome.advertsRejected;
+            careersFound += outcome.careersFound ?? 0;
+            atsFound += outcome.atsFound ?? 0;
+            const completion = outcome.completion ?? "complete";
+            if (completion.startsWith("partial")) {
+              partial += 1;
+              errors += 1;
+            }
+            if (completion === "failed") {
+              failed += 1;
+              errors += 1;
+            }
+            if (completion === "complete" && outcome.adverts === 0) empty += 1;
             inserted += outcome.inserted;
+            updated += outcome.updated;
             revived += outcome.revived;
           }
         } catch (error) {
@@ -377,8 +470,21 @@ export async function runCompanySiteDiscoveryBatch(
       `[company-site-scheduler] Complete selected=${rows.length} checked=${checked} skipped=${skipped} upserted=${upserted} errors=${errors} done=${done} remaining=${remainingLog} adverts=${adverts} inserted=${inserted} duration_ms=${durationMs}`,
     );
     console.log(`[pipeline-tick] env=${process.env.NODE_ENV ?? "unknown"} job=company_site selected=${rows.length} upserted=${upserted} live=0 dead=0 inconclusive=0 errors=${errors} done=${done} remaining=${remainingLog} duration_ms=${durationMs}`);
-    return {
+    const summary = {
       selected: rows.length,
+      attempted: checked + errors,
+      completed: checked - partial - failed,
+      partial,
+      failed,
+      empty,
+      careersFound,
+      atsFound,
+      pagesFetched,
+      advertsExtracted: adverts,
+      advertsRejected,
+      inserted,
+      updated,
+      revived,
       checked,
       skipped,
       errors,
@@ -388,6 +494,23 @@ export async function runCompanySiteDiscoveryBatch(
       remainingIsLowerBound,
       durationMs,
     };
+    let syncLogTable: typeof dbSchema.vacancySyncLogTable | undefined;
+    try {
+      syncLogTable = dbSchema.vacancySyncLogTable;
+    } catch {
+      syncLogTable = undefined;
+    }
+    if (syncLogTable) await db.insert(syncLogTable).values({
+      status: errors > 0 ? "error" : "success",
+      batchSize: rows.length,
+      checkedCount: checked,
+      errorCount: errors,
+      durationMs,
+      triggeredBy: "scheduler",
+      jobKind: "company_site",
+      metrics: summary,
+    });
+    return summary;
   } finally {
     batchInProgress = false;
   }

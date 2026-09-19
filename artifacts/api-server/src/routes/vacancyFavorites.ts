@@ -1,4 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
+import { getCandidateVacancyStatus } from "../lib/vacancyLiveness";
 import {
   db,
   vacancyFavoritesTable,
@@ -74,6 +75,17 @@ router.get("/vacancy-favorites", requireAuthenticated, async (req: Request, res:
               organisationName: sponsorLicenceVacanciesTable.organisationName,
               location: sponsorLicenceVacanciesTable.location,
               url: sponsorLicenceVacanciesTable.url,
+              sourceType: sponsorLicenceVacanciesTable.sourceType,
+              liveness: sponsorLicenceVacanciesTable.liveness,
+              lastVerifiedAt: sponsorLicenceVacanciesTable.lastVerifiedAt,
+              lastDiscoveredAt: sponsorLicenceVacanciesTable.lastDiscoveredAt,
+              sourceMissingSince: sponsorLicenceVacanciesTable.sourceMissingSince,
+              sourceMissingObservations: sponsorLicenceVacanciesTable.sourceMissingObservations,
+              closesAt: sponsorLicenceVacanciesTable.closesAt,
+              expiresAt: sponsorLicenceVacanciesTable.expiresAt,
+              closedReason: sponsorLicenceVacanciesTable.closedReason,
+              companyVacancyEvidence: sponsorLicenceVacanciesTable.companyVacancyEvidence,
+              companyEvidenceLegacyUntil: sponsorLicenceVacanciesTable.companyEvidenceLegacyUntil,
             })
             .from(sponsorLicenceVacanciesTable)
             .where(inArray(sponsorLicenceVacanciesTable.id, sponsorVacancyIds))
@@ -90,7 +102,7 @@ router.get("/vacancy-favorites", requireAuthenticated, async (req: Request, res:
       for (const p of profiles) companyByProfileId[p.id] = p.companyName;
     }
 
-    type Detail = { title: string | null; company: string | null; location: string | null; applyUrl: string | null };
+    type Detail = { title: string | null; company: string | null; location: string | null; applyUrl: string | null; closed?: boolean };
     const detailByVacancyId = new Map<number, Detail>();
     for (const r of roleRows) {
       detailByVacancyId.set(r.id, {
@@ -109,11 +121,13 @@ router.get("/vacancy-favorites", requireAuthenticated, async (req: Request, res:
       });
     }
     for (const s of sponsorRows) {
+      const status = getCandidateVacancyStatus(s);
       detailByVacancyId.set(s.id + SPONSOR_VACANCY_OFFSET, {
         title: s.title,
         company: s.organisationName,
         location: s.location ?? null,
-        applyUrl: s.url ?? null,
+        applyUrl: status === "visible" ? (s.url ?? null) : null,
+        closed: status !== "visible",
       });
     }
 
@@ -127,6 +141,7 @@ router.get("/vacancy-favorites", requireAuthenticated, async (req: Request, res:
           company: d?.company ?? null,
           location: d?.location ?? null,
           applyUrl: d?.applyUrl ?? null,
+          closed: d?.closed ?? false,
         };
       }),
     });

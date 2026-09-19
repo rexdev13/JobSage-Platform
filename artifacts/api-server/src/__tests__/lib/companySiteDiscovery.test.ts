@@ -13,6 +13,8 @@ vi.mock("../../lib/companySiteHttp", () => ({
       ? "Lever"
       : value.includes("jobs.ashbyhq.com")
         ? "Ashby"
+        : value.includes("boards.greenhouse.io")
+          ? "Greenhouse"
         : null,
 }));
 
@@ -93,7 +95,7 @@ describe("company-site vacancy discovery", () => {
   });
 
   it("captures a published recruitment email from fetched JobPosting HTML without another request", async () => {
-    fetchCompanySitePageMock.mockResolvedValueOnce({
+    fetchCompanySitePageMock.mockResolvedValue({
       ok: true,
       url: "https://acme.example/jobs/nurse",
       status: 200,
@@ -199,6 +201,123 @@ describe("company-site vacancy discovery", () => {
       title: "Senior Staff Nurse",
       url: "https://acme-care.example/jobs/senior-staff-nurse",
     });
+  });
+
+  it.each([
+    ["2H Offshore news is rejected", "2H Offshore News", "/news/company-update", false],
+    ["Astorg news is rejected", "Astorg News", "/news/people", false],
+    ["A1 generic Apply Online is rejected", "Apply Online", "/apply-online", false],
+    ["411 direct listing is accepted", "Freelance Content Creator", "/jobs/freelance-content-creator", true],
+    ["A.S. Kooner direct listing is accepted", "Registered Nurse", "/careers/registered-nurse", true],
+    ["Aaseya direct listing is accepted", "Senior Consultant", "/opportunities/senior-consultant", true],
+  ])("%s", async (_name, text, path, accepted) => {
+    fetchCompanySitePageMock.mockResolvedValue({
+      ok: true,
+      url: "https://fixture.example/careers",
+      status: 200,
+      contentType: "text/html",
+      body: `<a href="${path}">${text}</a>`,
+    });
+    const result = await discoverCompanySiteVacancies("Fixture Employer", "https://fixture.example");
+    expect(result.adverts.length > 0).toBe(accepted);
+    if (!accepted) {
+      expect(result.advertsRejected).toBeGreaterThan(0);
+      expect(Object.values(result.rejectionReasons).reduce((sum, count) => sum + count, 0)).toBeGreaterThan(0);
+    }
+  });
+
+  it("rejects generic culture content linked from a careers page", async () => {
+    fetchCompanySitePageMock.mockResolvedValue({
+      ok: true,
+      url: "https://fixture.example/careers",
+      status: 200,
+      contentType: "text/html",
+      body: '<a href="/careers/our-culture">Our culture</a>',
+    });
+
+    const result = await discoverCompanySiteVacancies("Fixture Employer", "https://fixture.example/careers");
+
+    expect(result.adverts).toEqual([]);
+    expect(result.rejectionReasons.generic_careers_content).toBeGreaterThan(0);
+  });
+
+  it("reports a complete empty observation", async () => {
+    fetchCompanySitePageMock
+      .mockResolvedValueOnce({
+        ok: true,
+        url: "https://empty.example/",
+        status: 200,
+        contentType: "text/html",
+        body: "<p>No vacancies currently listed.</p>",
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        url: "https://empty.example/sitemap.xml",
+        status: 200,
+        contentType: "application/xml",
+        body: "<urlset></urlset>",
+      });
+
+    const result = await discoverCompanySiteVacancies("Empty Employer", "https://empty.example");
+
+    expect(result.completion).toBe("complete");
+    expect(result.adverts).toEqual([]);
+  });
+
+  it("reports a failed observation when an attempted page fails", async () => {
+    fetchCompanySitePageMock.mockResolvedValue({
+      ok: false,
+      kind: "http",
+      reason: "HTTP 500",
+    });
+
+    const result = await discoverCompanySiteVacancies("Failed Employer", "https://failed.example");
+
+    expect(result.completion).toBe("failed");
+    expect(result.pagesAttempted).toBeGreaterThan(0);
+  });
+
+  it("reports a partial deadline when queued work remains after the deadline", async () => {
+    let clock = 0;
+    fetchCompanySitePageMock.mockImplementation(async () => {
+      clock = 30_000;
+      return {
+        ok: true,
+        url: "https://deadline.example/",
+        status: 200,
+        contentType: "text/html",
+        body: '<a href="/careers">Careers</a>',
+      };
+    });
+
+    const result = await discoverCompanySiteVacancies("Deadline Employer", "https://deadline.example", {
+      now: () => clock,
+      deadlineMs: 20_000,
+    });
+
+    expect(result.completion).toBe("partial_deadline");
+  });
+
+  it("accepts a structured Greenhouse posting", async () => {
+    fetchCompanySitePageMock
+      .mockResolvedValueOnce({
+        ok: true,
+        url: "https://fixture.example/careers",
+        status: 200,
+        contentType: "text/html",
+        body: '<a href="https://boards.greenhouse.io/fixture">Greenhouse</a>',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        url: "https://boards.greenhouse.io/fixture",
+        status: 200,
+        contentType: "text/html",
+        body: '<a href="https://boards.greenhouse.io/fixture/jobs/123">Content Creator</a>',
+      });
+    const result = await discoverCompanySiteVacancies("Fixture Employer", "https://fixture.example");
+    expect(result.adverts).toEqual(expect.arrayContaining([
+      expect.objectContaining({ title: "Content Creator", url: "https://boards.greenhouse.io/fixture/jobs/123" }),
+    ]));
   });
 
   it("normalises bare sponsor domains and rejects non-http schemes", () => {

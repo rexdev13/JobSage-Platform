@@ -3,6 +3,7 @@ import { sponsorLicenceVacanciesTable, sponsorLicencesTable } from "@workspace/d
 import { and, eq, gt, ne, sql } from "drizzle-orm";
 import { isManualLabourTitle } from "./vacancyTitlePolicy";
 import { isValidVacancyUrlForSource } from "./vacancyUrlPolicy";
+import { getCandidateVacancyStatus } from "./vacancyLiveness";
 import type { DbsClearanceLevel, SafeguardingTrainingLevel } from "./safeguarding";
 import { regionsFromLocationText } from "./regionMatching";
 import {
@@ -341,7 +342,20 @@ export async function fetchSponsorVacanciesAsRoles(
     // Company-site discovery is allowed to populate rows asynchronously, but
     // candidate feeds must not expose them until the post-commit verifier has
     // confirmed the exact deep link.
-    if (vac.sourceType === "company_site" && vac.liveness !== "live") continue;
+    const candidateStatus = getCandidateVacancyStatus({
+      sourceType: vac.sourceType,
+      liveness: vac.liveness,
+      lastVerifiedAt: vac.lastVerifiedAt,
+      lastDiscoveredAt: vac.lastDiscoveredAt,
+      sourceMissingSince: vac.sourceMissingSince,
+      sourceMissingObservations: vac.sourceMissingObservations,
+      closesAt: vac.closesAt,
+      expiresAt: vac.expiresAt,
+      closedReason: vac.closedReason,
+      companyVacancyEvidence: vac.companyVacancyEvidence,
+      companyEvidenceLegacyUntil: vac.companyEvidenceLegacyUntil,
+    });
+    if (candidateStatus !== "visible") continue;
     if (isManualLabourTitle(vac.title)) continue;
 
     const classified = classifyVacancyCategory(vac.title, vac.description);

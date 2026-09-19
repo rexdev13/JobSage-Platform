@@ -12,6 +12,7 @@ import {
   getCandidateReadinessClaims,
 } from "./readinessClaims";
 import { getReadinessMonthStart, READINESS_CHECK_LIMIT } from "./readinessQuota";
+import { getCandidateVacancyStatus } from "./vacancyLiveness";
 
 export interface GapAnalysisResult {
   matchedRequirements: string[];
@@ -107,6 +108,21 @@ export async function getOrGenerateGapAnalysis(
 
   if (!vacancy) {
     throw new Error("Vacancy not found.");
+  }
+  if (getCandidateVacancyStatus({
+    sourceType: vacancy.sourceType,
+    liveness: vacancy.liveness,
+    lastVerifiedAt: vacancy.lastVerifiedAt,
+    lastDiscoveredAt: vacancy.lastDiscoveredAt,
+    sourceMissingSince: vacancy.sourceMissingSince,
+    sourceMissingObservations: vacancy.sourceMissingObservations,
+    closesAt: vacancy.closesAt,
+    expiresAt: vacancy.expiresAt,
+    closedReason: vacancy.closedReason,
+    companyVacancyEvidence: vacancy.companyVacancyEvidence,
+    companyEvidenceLegacyUntil: vacancy.companyEvidenceLegacyUntil,
+  }) !== "visible") {
+    throw new Error("Vacancy is no longer available for gap analysis.");
   }
 
   // ── 5. Build rich prompt ──────────────────────────────────────────────────

@@ -26,6 +26,56 @@ export type VacancyLinkStatus =
   | "inconclusive"
   | "stale";
 
+export type CandidateVacancyStatus = "visible" | "stale" | "missing" | "dead" | "expired" | "unverified";
+
+export function getCandidateVacancyStatus(input: {
+  sourceType: "job_board" | "company_site" | null | undefined;
+  liveness: string | null | undefined;
+  lastVerifiedAt?: Date | string | null;
+  lastDiscoveredAt?: Date | string | null;
+  sourceMissingSince?: Date | string | null;
+  sourceMissingObservations?: number | null;
+  closesAt?: Date | string | null;
+  expiresAt?: Date | string | null;
+  closedReason?: string | null;
+  companyVacancyEvidence?: unknown;
+  companyEvidenceLegacyUntil?: Date | string | null;
+  now?: Date;
+}): CandidateVacancyStatus {
+  const now = input.now ?? new Date();
+  if (/(closed|filled|no longer accepting|closing date has passed)/i.test(input.closedReason ?? "")) return "dead";
+  if (input.liveness === "dead") return "dead";
+  const pastClose = [input.closesAt, input.expiresAt]
+    .filter(Boolean)
+    .map((date) => new Date(date as Date | string))
+    .some((date) => !Number.isNaN(date.getTime()) && now.getTime() > date.getTime());
+  if (pastClose) return "expired";
+  if (input.sourceMissingSince || (input.sourceMissingObservations ?? 0) > 0) return "missing";
+  // Legacy adapters that predate liveness fields are treated as compatible
+  // records; persisted NULL values are still handled conservatively below.
+  if (input.sourceType === undefined && input.liveness === undefined && input.lastVerifiedAt === undefined) return "visible";
+  // Rows created before evidence tracking have a verified URL and remain visible
+  // during the staged backfill; newly ingested rows always carry evidence.
+  if (input.sourceType === "company_site" && !input.companyVacancyEvidence) {
+    const legacyUntil = input.companyEvidenceLegacyUntil
+      ? new Date(input.companyEvidenceLegacyUntil)
+      : null;
+    const boundedLegacy = legacyUntil
+      ? now.getTime() <= legacyUntil.getTime()
+      : input.sourceType === undefined && input.liveness === "live";
+    if (!boundedLegacy) return "unverified";
+  }
+  if (input.liveness !== "live") return "unverified";
+  // Undefined denotes a legacy adapter/mocked row that predates the column;
+  // an explicit NULL from the database remains stale and cannot be opened.
+  if (input.lastVerifiedAt === undefined && input.sourceType === undefined) return "visible";
+  const verified = input.lastVerifiedAt ? new Date(input.lastVerifiedAt).getTime() : Number.NaN;
+  if (!Number.isFinite(verified) || now.getTime() - verified > vacancyVisibilityWindowMs(input.sourceType)) {
+    return "stale";
+  }
+  return "visible";
+}
+
 export function getVacancyLinkStatus(
   url: string | null | undefined,
   liveness: string | null | undefined,

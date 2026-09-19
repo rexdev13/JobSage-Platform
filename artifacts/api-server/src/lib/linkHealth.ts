@@ -180,7 +180,7 @@ const BROWSER_USER_AGENT =
 
 const MAX_REDIRECT_HOPS = 5;
 
-export type HealthVerdict = { verdict: "alive" | "dead" | "unsafe"; reason: string };
+export type HealthVerdict = { verdict: "alive" | "dead" | "unsafe"; reason: string; body?: string };
 
 const SOFT_NOT_FOUND_PATH_SEGMENTS = new Set([
   "404",
@@ -282,6 +282,7 @@ export async function checkDestinationDead(
       }
 
       const contentType = resp.headers.get("content-type") ?? "";
+      let responseBody = "";
       if (contentType.includes("html") || contentType.includes("text")) {
         let text = "";
         let bytesRead = 0;
@@ -296,6 +297,7 @@ export async function checkDestinationDead(
           }
           reader.cancel().catch(() => {});
         }
+        responseBody = text;
         const lower = text.toLowerCase();
         const softNotFoundPage = softNotFoundReason(currentUrl, text);
         if (softNotFoundPage) {
@@ -314,7 +316,7 @@ export async function checkDestinationDead(
       } else {
         resp.body?.cancel().catch(() => {});
       }
-      return { verdict: "alive", reason: "" };
+      return { verdict: "alive", reason: "", body: responseBody };
     }
     return { verdict: "dead", reason: "too many redirects" };
   } finally {

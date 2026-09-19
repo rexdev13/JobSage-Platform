@@ -6,6 +6,7 @@ import { requireAuthenticated } from "../middlewares/requireRole";
 import { createApplicationReceivedMessage } from "../lib/systemMessages";
 import { resolveJobsageAlias } from "../lib/jobsageEmailGen";
 import { SPONSOR_VACANCY_ID_OFFSET, isSponsorVacancyRoleId, sponsorVacancyIdFromRoleId } from "../lib/sponsorVacancyRoles";
+import { getCandidateVacancyStatus } from "../lib/vacancyLiveness";
 
 const router: IRouter = Router();
 
@@ -86,7 +87,16 @@ router.get("/applications", requireAuthenticated, async (req: Request, res: Resp
             organisationName: sponsorLicenceVacanciesTable.organisationName,
             companyName: sponsorLicencesTable.organisationName,
             liveness: sponsorLicenceVacanciesTable.liveness,
+            lastVerifiedAt: sponsorLicenceVacanciesTable.lastVerifiedAt,
+            sourceType: sponsorLicenceVacanciesTable.sourceType,
             livenessReason: sponsorLicenceVacanciesTable.livenessReason,
+            closesAt: sponsorLicenceVacanciesTable.closesAt,
+            expiresAt: sponsorLicenceVacanciesTable.expiresAt,
+            closedReason: sponsorLicenceVacanciesTable.closedReason,
+            sourceMissingSince: sponsorLicenceVacanciesTable.sourceMissingSince,
+            sourceMissingObservations: sponsorLicenceVacanciesTable.sourceMissingObservations,
+            companyVacancyEvidence: sponsorLicenceVacanciesTable.companyVacancyEvidence,
+            companyEvidenceLegacyUntil: sponsorLicenceVacanciesTable.companyEvidenceLegacyUntil,
           })
           .from(sponsorLicenceVacanciesTable)
           .leftJoin(
@@ -132,7 +142,18 @@ router.get("/applications", requireAuthenticated, async (req: Request, res: Resp
       title: vacancy.title,
       location: vacancy.location ?? undefined,
       companyName: vacancy.companyName ?? vacancy.organisationName,
-      isClosed: vacancy.liveness === "dead",
+       isClosed: getCandidateVacancyStatus({
+         sourceType: vacancy.sourceType,
+         lastVerifiedAt: vacancy.lastVerifiedAt,
+         liveness: vacancy.liveness,
+         closesAt: vacancy.closesAt,
+         expiresAt: vacancy.expiresAt,
+         closedReason: vacancy.closedReason,
+         sourceMissingSince: vacancy.sourceMissingSince,
+         sourceMissingObservations: vacancy.sourceMissingObservations,
+         companyVacancyEvidence: vacancy.companyVacancyEvidence,
+         companyEvidenceLegacyUntil: vacancy.companyEvidenceLegacyUntil,
+       }) !== "visible",
       livenessReason: vacancy.livenessReason ?? null,
     };
   }
@@ -291,6 +312,31 @@ router.post("/applications", requireAuthenticated, async (req: Request, res: Res
 
   const isWebsite = applicationType === "website";
 
+  if (typeof roleId === "number" && isSponsorVacancyRoleId(roleId)) {
+    const sponsorVacancyId = sponsorVacancyIdFromRoleId(roleId);
+    const [sponsorVacancy] = await db
+      .select({
+        sourceType: sponsorLicenceVacanciesTable.sourceType,
+        liveness: sponsorLicenceVacanciesTable.liveness,
+        lastVerifiedAt: sponsorLicenceVacanciesTable.lastVerifiedAt,
+        lastDiscoveredAt: sponsorLicenceVacanciesTable.lastDiscoveredAt,
+        sourceMissingSince: sponsorLicenceVacanciesTable.sourceMissingSince,
+        sourceMissingObservations: sponsorLicenceVacanciesTable.sourceMissingObservations,
+        closesAt: sponsorLicenceVacanciesTable.closesAt,
+        expiresAt: sponsorLicenceVacanciesTable.expiresAt,
+        closedReason: sponsorLicenceVacanciesTable.closedReason,
+        companyVacancyEvidence: sponsorLicenceVacanciesTable.companyVacancyEvidence,
+        companyEvidenceLegacyUntil: sponsorLicenceVacanciesTable.companyEvidenceLegacyUntil,
+      })
+      .from(sponsorLicenceVacanciesTable)
+      .where(eq(sponsorLicenceVacanciesTable.id, sponsorVacancyId!))
+      .limit(1);
+    if (!sponsorVacancy || getCandidateVacancyStatus(sponsorVacancy) !== "visible") {
+      res.status(409).json({ error: "This vacancy is no longer available for applications." });
+      return;
+    }
+  }
+
   // Verify cvDocumentId belongs to the authenticated user (prevent IDOR / metadata disclosure)
   if (cvDocumentId) {
     const [cvDoc] = await db
@@ -399,6 +445,30 @@ router.post("/applications", requireAuthenticated, async (req: Request, res: Res
   if (!roleId || typeof roleId !== "number") {
     res.status(400).json({ error: "roleId is required and must be a number." });
     return;
+  }
+
+  if (isSponsorVacancyRoleId(roleId)) {
+    const sponsorVacancyId = sponsorVacancyIdFromRoleId(roleId)!;
+    const [vacancy] = await db
+      .select({
+        sourceType: sponsorLicenceVacanciesTable.sourceType,
+        liveness: sponsorLicenceVacanciesTable.liveness,
+        lastVerifiedAt: sponsorLicenceVacanciesTable.lastVerifiedAt,
+        lastDiscoveredAt: sponsorLicenceVacanciesTable.lastDiscoveredAt,
+        sourceMissingSince: sponsorLicenceVacanciesTable.sourceMissingSince,
+        sourceMissingObservations: sponsorLicenceVacanciesTable.sourceMissingObservations,
+        closesAt: sponsorLicenceVacanciesTable.closesAt,
+        expiresAt: sponsorLicenceVacanciesTable.expiresAt,
+        closedReason: sponsorLicenceVacanciesTable.closedReason,
+        companyVacancyEvidence: sponsorLicenceVacanciesTable.companyVacancyEvidence,
+        companyEvidenceLegacyUntil: sponsorLicenceVacanciesTable.companyEvidenceLegacyUntil,
+      })
+      .from(sponsorLicenceVacanciesTable)
+      .where(eq(sponsorLicenceVacanciesTable.id, sponsorVacancyId));
+    if (!vacancy || getCandidateVacancyStatus({ ...vacancy }) !== "visible") {
+      res.status(409).json({ error: "This vacancy is no longer available for applications." });
+      return;
+    }
   }
 
   const [existing] = await db

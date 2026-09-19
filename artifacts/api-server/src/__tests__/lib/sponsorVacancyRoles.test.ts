@@ -66,6 +66,7 @@ function vacancyRow(overrides: Record<string, unknown> = {}) {
       createdAt: new Date("2026-08-24T06:30:00.000Z"),
       liveness: "live",
       lastVerifiedAt: new Date(),
+      companyEvidenceLegacyUntil: new Date(Date.now() + 86400000),
       livenessReason: null,
       ...overrides,
     },

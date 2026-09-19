@@ -29,7 +29,7 @@ import {
   employerJobIdFromRoleId,
   isEmployerJobRoleId,
 } from "../lib/sponsorVacancyRoles";
-import { getVacancyLinkStatus } from "../lib/vacancyLiveness";
+import { getVacancyLinkStatus, getCandidateVacancyStatus } from "../lib/vacancyLiveness";
 import { buildCoverLetterPdf, safeCoverLetterFilename } from "../lib/coverLetterPdf";
 
 const APP_URL = process.env.APP_URL ?? "https://jobsage.co.uk";
@@ -164,6 +164,14 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
           liveness: sponsorLicenceVacanciesTable.liveness,
           lastVerifiedAt: sponsorLicenceVacanciesTable.lastVerifiedAt,
           livenessReason: sponsorLicenceVacanciesTable.livenessReason,
+          sourceType: sponsorLicenceVacanciesTable.sourceType,
+          closesAt: sponsorLicenceVacanciesTable.closesAt,
+          expiresAt: sponsorLicenceVacanciesTable.expiresAt,
+          closedReason: sponsorLicenceVacanciesTable.closedReason,
+          sourceMissingSince: sponsorLicenceVacanciesTable.sourceMissingSince,
+          sourceMissingObservations: sponsorLicenceVacanciesTable.sourceMissingObservations,
+          companyVacancyEvidence: sponsorLicenceVacanciesTable.companyVacancyEvidence,
+          companyEvidenceLegacyUntil: sponsorLicenceVacanciesTable.companyEvidenceLegacyUntil,
         })
         .from(sponsorLicenceVacanciesTable)
         .where(eq(sponsorLicenceVacanciesTable.id, rawSponsorVacancyId))
@@ -173,6 +181,22 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
         return;
       }
       storedUrl = stored.url?.trim() || null;
+      const candidateStatus = getCandidateVacancyStatus({
+        sourceType: stored.sourceType,
+        liveness: stored.liveness,
+        lastVerifiedAt: stored.lastVerifiedAt,
+        sourceMissingSince: stored.sourceMissingSince,
+        sourceMissingObservations: stored.sourceMissingObservations,
+        closesAt: stored.closesAt,
+        expiresAt: stored.expiresAt,
+        closedReason: stored.closedReason,
+        companyVacancyEvidence: stored.companyVacancyEvidence,
+        companyEvidenceLegacyUntil: stored.companyEvidenceLegacyUntil,
+      });
+      if (candidateStatus !== "visible") {
+        res.status(422).json({ error: "This vacancy is no longer available for applications." });
+        return;
+      }
       linkStatus = getVacancyLinkStatus(storedUrl, stored.liveness, stored.lastVerifiedAt, stored.livenessReason);
     } else if (roleId != null && isEmployerJobRoleId(roleId)) {
       const employerJobId = employerJobIdFromRoleId(roleId);

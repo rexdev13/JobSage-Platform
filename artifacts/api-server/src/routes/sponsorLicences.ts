@@ -2,12 +2,13 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { GetSponsorLicenceVacanciesParams, GetSponsorLicenceVacanciesResponse } from "@workspace/api-zod";
 import { sponsorLicencesTable, sponsorLicenceSyncLogTable, sponsorLicenceVacancyChecksTable, sponsorLicenceBookmarksTable, sponsorLicenceVacanciesTable, sponsorLicenceVacancyScoresTable, sponsorLicenceGapAnalysesTable, roleGapAnalysesTable, applicationsTable, speculativeApplicationsTable, profilesTable } from "@workspace/db";
-import { eq, ilike, and, desc, sql, isNotNull, inArray, gte, ne, or } from "drizzle-orm";
+import { eq, ilike, and, desc, sql, isNotNull, isNull, inArray, gte, ne, or } from "drizzle-orm";
 import { countyToRegion } from "../lib/countyToRegion";
 import {
   getVacancyLinkStatus,
   VACANCY_VISIBLE_WINDOW_MS,
   vacancyVisibilityWindowMs,
+  getCandidateVacancyStatus,
 } from "../lib/vacancyLiveness";
 import { requireAuthenticated, requireRole } from "../middlewares/requireRole";
 import { runVacancyCheck } from "../lib/vacancyCheckHelper";
@@ -228,14 +229,40 @@ router.get("/sponsor-licences/:id/vacancies", requireAuthenticated, async (req, 
       .select()
       .from(sponsorLicenceVacanciesTable)
       .where(eq(sponsorLicenceVacanciesTable.organisationName, company.organisationName));
+    const staleRows = allVacancyRows.filter(
+      (vacancy) => {
+        const status = getCandidateVacancyStatus({
+        sourceType: vacancy.sourceType,
+        liveness: vacancy.liveness,
+        lastVerifiedAt: vacancy.lastVerifiedAt,
+        lastDiscoveredAt: vacancy.lastDiscoveredAt,
+        sourceMissingSince: vacancy.sourceMissingSince,
+        sourceMissingObservations: vacancy.sourceMissingObservations,
+        closesAt: vacancy.closesAt,
+        expiresAt: vacancy.expiresAt,
+        closedReason: vacancy.closedReason,
+        companyVacancyEvidence: vacancy.companyVacancyEvidence,
+        companyEvidenceLegacyUntil: vacancy.companyEvidenceLegacyUntil,
+        });
+        // Detail/history may retain a stale but not closed row as evidence;
+        // expired, dead, missing, and unverified rows never become actionable.
+        return status === "stale";
+      },
+    );
     const vacancyRows = allVacancyRows.filter(
-      (vacancy) => getVacancyLinkStatus(
-        vacancy.url,
-        vacancy.liveness,
-        vacancy.lastVerifiedAt,
-        vacancy.livenessReason,
-        vacancyVisibilityWindowMs(vacancy.sourceType),
-      ) === "live",
+      (vacancy) => !staleRows.includes(vacancy) && getCandidateVacancyStatus({
+        sourceType: vacancy.sourceType,
+        liveness: vacancy.liveness,
+        lastVerifiedAt: vacancy.lastVerifiedAt,
+        lastDiscoveredAt: vacancy.lastDiscoveredAt,
+        sourceMissingSince: vacancy.sourceMissingSince,
+        sourceMissingObservations: vacancy.sourceMissingObservations,
+        closesAt: vacancy.closesAt,
+        expiresAt: vacancy.expiresAt,
+        closedReason: vacancy.closedReason,
+        companyVacancyEvidence: vacancy.companyVacancyEvidence,
+        companyEvidenceLegacyUntil: vacancy.companyEvidenceLegacyUntil,
+      }) === "visible",
     );
 
     let scoreRows = await db
@@ -403,7 +430,7 @@ router.get("/sponsor-licences/:id/vacancies", requireAuthenticated, async (req, 
       vacancies,
       lastCheckedAt: lastCheck?.checkedAt ?? null,
       nonLiveEvidence: {
-        count: allVacancyRows.length - vacancyRows.length,
+         count: allVacancyRows.length - vacancyRows.length,
         reasons: nonLiveReasons,
       },
     }));
@@ -500,6 +527,18 @@ router.get("/sponsor-licences/vacancy-stats", requireAuthenticated, async (_req,
           ),
           isNotNull(sponsorLicenceVacanciesTable.sourceType),
           isNotNull(sponsorLicenceVacanciesTable.url),
+            or(isNull(sponsorLicenceVacanciesTable.closesAt), gte(sponsorLicenceVacanciesTable.closesAt, new Date())),
+            or(isNull(sponsorLicenceVacanciesTable.expiresAt), gte(sponsorLicenceVacanciesTable.expiresAt, new Date())),
+            isNull(sponsorLicenceVacanciesTable.sourceMissingSince),
+            or(
+              ne(sponsorLicenceVacanciesTable.sourceType, "company_site"),
+              isNotNull(sponsorLicenceVacanciesTable.companyVacancyEvidence),
+              gte(sponsorLicenceVacanciesTable.companyEvidenceLegacyUntil, new Date()),
+            ),
+            or(
+              isNull(sponsorLicenceVacanciesTable.closedReason),
+              sql`${sponsorLicenceVacanciesTable.closedReason} !~* '(closed|filled|no longer accepting|closing date has passed)'`,
+            ),
         ),
       )
       .groupBy(sponsorLicenceVacanciesTable.organisationName);
@@ -731,6 +770,16 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
             AND last_verified_at >= now() - interval '48 hours'
             AND source_type IS NOT NULL
             AND url IS NOT NULL
+            AND (closes_at IS NULL OR closes_at >= now())
+            AND (expires_at IS NULL OR expires_at >= now())
+            AND source_missing_since IS NULL
+            AND (closed_reason IS NULL OR closed_reason !~* '(closed|filled|no longer accepting|closing date has passed)')
+            AND (source_type <> 'company_site' OR company_vacancy_evidence IS NOT NULL OR company_evidence_legacy_until >= now())
+            AND (closes_at IS NULL OR closes_at >= now())
+            AND (expires_at IS NULL OR expires_at >= now())
+            AND source_missing_since IS NULL
+            AND (source_type <> 'company_site' OR company_vacancy_evidence IS NOT NULL OR company_evidence_legacy_until >= now())
+            AND (closed_reason IS NULL OR closed_reason !~* '(closed|filled|no longer accepting|closing date has passed)')
         )`,
       );
     }
@@ -768,6 +817,11 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
             AND last_verified_at >= now() - interval '48 hours'
             AND source_type IS NOT NULL
             AND url IS NOT NULL
+            AND (closes_at IS NULL OR closes_at >= now())
+            AND (expires_at IS NULL OR expires_at >= now())
+            AND source_missing_since IS NULL
+            AND (closed_reason IS NULL OR closed_reason !~* '(closed|filled|no longer accepting|closing date has passed)')
+            AND (source_type <> 'company_site' OR company_vacancy_evidence IS NOT NULL OR company_evidence_legacy_until >= now())
           GROUP BY lower(trim(organisation_name))`,
     );
     const latestCheckRows = await db.execute<{ organisation_name: string; checked_at: string }>(
@@ -792,6 +846,11 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
             AND v.last_verified_at >= now() - interval '48 hours'
             AND v.source_type IS NOT NULL
             AND v.url IS NOT NULL
+            AND (v.closes_at IS NULL OR v.closes_at >= now())
+            AND (v.expires_at IS NULL OR v.expires_at >= now())
+            AND v.source_missing_since IS NULL
+            AND (v.source_type <> 'company_site' OR v.company_vacancy_evidence IS NOT NULL OR v.company_evidence_legacy_until >= now())
+            AND (v.closed_reason IS NULL OR v.closed_reason !~* '(closed|filled|no longer accepting|closing date has passed)')
           ORDER BY s.organisation_name, s.score DESC`,
     );
     const matchScoresByOrg = new Map<string, { score: number; isEligible: boolean }>(

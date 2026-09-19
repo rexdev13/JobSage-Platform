@@ -12,6 +12,7 @@ import { db, jobListingsTable, rolesTable, sponsorLicenceVacanciesTable } from "
 import { eq } from "drizzle-orm";
 import { requireAuthenticated } from "../middlewares/requireRole";
 import { checkDestinationDead } from "../lib/linkHealth";
+import { getCandidateVacancyStatus } from "../lib/vacancyLiveness";
 
 const router: IRouter = Router();
 
@@ -39,7 +40,31 @@ async function markUrlDeadGlobally(url: string, reason: string | null): Promise<
   ]);
 }
 
-async function markUrlLiveGlobally(url: string): Promise<void> {
+async function canPromoteUrl(url: string): Promise<boolean> {
+  const stored = await db
+    .select({
+      sourceType: sponsorLicenceVacanciesTable.sourceType,
+      liveness: sponsorLicenceVacanciesTable.liveness,
+      lastVerifiedAt: sponsorLicenceVacanciesTable.lastVerifiedAt,
+      lastDiscoveredAt: sponsorLicenceVacanciesTable.lastDiscoveredAt,
+      sourceMissingSince: sponsorLicenceVacanciesTable.sourceMissingSince,
+      sourceMissingObservations: sponsorLicenceVacanciesTable.sourceMissingObservations,
+      closesAt: sponsorLicenceVacanciesTable.closesAt,
+      expiresAt: sponsorLicenceVacanciesTable.expiresAt,
+      closedReason: sponsorLicenceVacanciesTable.closedReason,
+      companyVacancyEvidence: sponsorLicenceVacanciesTable.companyVacancyEvidence,
+      companyEvidenceLegacyUntil: sponsorLicenceVacanciesTable.companyEvidenceLegacyUntil,
+    })
+    .from(sponsorLicenceVacanciesTable)
+    .where(eq(sponsorLicenceVacanciesTable.url, url));
+  return !stored.some((row) => {
+    const status = getCandidateVacancyStatus({ ...row, now: new Date() });
+    return status === "expired" || status === "dead" || status === "missing" || status === "unverified";
+  });
+}
+
+async function markUrlLiveGlobally(url: string): Promise<boolean> {
+  if (!(await canPromoteUrl(url))) return false;
   const update = {
     liveness: "live" as const,
     lastVerifiedAt: new Date(),
@@ -50,6 +75,7 @@ async function markUrlLiveGlobally(url: string): Promise<void> {
     db.update(rolesTable).set(update).where(eq(rolesTable.applyUrl, url)),
     db.update(jobListingsTable).set(update).where(eq(jobListingsTable.applyUrl, url)),
   ]);
+  return true;
 }
 
 function pruneCache(): void {
@@ -83,7 +109,10 @@ router.get(
     const cached = linkCheckCache.get(url);
     if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
       if (cached.verdict === "alive") {
-        await markUrlLiveGlobally(url);
+        if (!(await markUrlLiveGlobally(url))) {
+          res.json({ verdict: "dead", reason: "vacancy is no longer available", cached: true });
+          return;
+        }
       }
       res.json({ verdict: cached.verdict, reason: cached.reason, cached: true });
       return;
@@ -99,7 +128,10 @@ router.get(
       if (verdict === "dead") {
         await markUrlDeadGlobally(url, entry.reason);
       } else if (verdict === "alive") {
-        await markUrlLiveGlobally(url);
+        if (!(await markUrlLiveGlobally(url))) {
+          res.json({ verdict: "dead", reason: "vacancy is no longer available", cached: false });
+          return;
+        }
       }
       res.json({ verdict: entry.verdict, reason: entry.reason, cached: false });
     } catch {
