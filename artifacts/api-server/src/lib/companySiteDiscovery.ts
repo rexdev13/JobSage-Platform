@@ -21,6 +21,8 @@ const CAREERS_SIGNAL = /\b(career|careers|job|jobs|vacanc|vacancies|open positio
 const VACANCY_SIGNAL =
   /\b(jobs?|vacanc(?:y|ies)|positions?|roles?|opportunit(?:y|ies)|openings?|apply)\b/i;
 const GENERIC_ANCHOR_TEXT = /^(apply|apply now|view|view job|view vacancy|details|more|read more|learn more|job details)$/i;
+const NON_SPECIFIC_BAMBOOHR_TITLE =
+  /^(?:join\s+(?:our|the)\s+)?(?:talent\s+pool|team)$/i;
 const NEGATIVE_CONTENT_PATH = /\/(?:news|blog|press|media|about|insights)(?:\/|$)/i;
 const GENERIC_CAREERS_CONTENT_PATH =
   /\/(?:careers?|jobs?)\/(?:our-culture|culture|life-at|benefits|values|why-join|meet-the-team|early-careers)(?:\/|$)/i;
@@ -117,6 +119,10 @@ function cleanTitle(value: string, url: string): string | null {
     .replace(/\s+/g, " ")
     .trim();
   return fromSlug.length >= 4 && !GENERIC_ANCHOR_TEXT.test(fromSlug) ? fromSlug : null;
+}
+
+function isNonSpecificBambooHrPosting(url: string, title: string): boolean {
+  return knownAtsProvider(url) === "BambooHR" && NON_SPECIFIC_BAMBOOHR_TITLE.test(title.trim());
 }
 
 function extractAnchors(html: string, baseUrl: string, originHostname: string): ExtractedLink[] {
@@ -251,6 +257,7 @@ function extractJsonLdAdverts(
         ) continue;
         const title = typeof record.title === "string" ? cleanTitle(record.title, url) : null;
         if (!title) continue;
+        if (isNonSpecificBambooHrPosting(url, title)) continue;
         const jobLocation = Array.isArray(record.jobLocation) ? record.jobLocation[0] : record.jobLocation;
         const descriptionHtml = typeof record.description === "string" ? record.description : "";
         adverts.push({
@@ -348,6 +355,9 @@ function advertsFromLinks(
     ) return reject("generic_careers_content");
     const title = cleanTitle(link.text, link.url);
     if (!title) return reject("missing_vacancy_title");
+    if (isNonSpecificBambooHrPosting(link.url, title)) {
+      return reject("non_specific_bamboohr_posting");
+    }
     return [{
       organisationName,
       employer: organisationName,
