@@ -1,0 +1,81 @@
+Read-only production + code investigation. Do NOT change code. Do NOT publish. No new features.
+
+I need three things:
+
+============================================================
+1) How company-site employers / sectors are selected
+============================================================
+
+Inspect the current published scheduler selection logic (sector round-robin, bookmarks, healthcare reserved slots if published, failed/partial backoff, dedupe).
+
+Explain clearly:
+- Exact order of priority (bookmarked, healthcare evidence-gap reserved slots, sector rotation, never-checked, oldest check, etc.)
+- How many sector buckets exist and their names
+- Whether selection is meant to be equal across sectors
+- How the hourly starting-sector rotation works
+- Batch size and how many slots per sector in a typical batch of 10
+- Anything that breaks equal sector coverage (healthcare reserved slots, bookmarks, backoff, missing websites, etc.)
+
+Quote the relevant functions/files.
+
+============================================================
+2) Production company-website data (current snapshot)
+============================================================
+
+From the LIVE production DB, report:
+
+A) Overall counts
+- Total sponsor organisations
+- Sponsors with a usable company website recorded
+- Sponsors that have ever received a company-site check
+- Sponsors never checked
+- Sponsors currently eligible to be selected soon (not in failed 24h / partial 15m delay if those fields exist)
+- Sponsors with ≥1 company-site vacancy stored
+- Sponsors with ≥1 candidate-visible company-site vacancy
+
+B) Sector breakdown for sponsors that have company websites
+For each sector bucket used by the scheduler:
+- sponsors with website
+- ever checked
+- never checked
+- checked in last 24h / 48h / 7d (if available)
+- with any company-site vacancy
+- with any candidate-visible company-site vacancy
+
+C) Vacancy totals by sector (company-site only)
+- stored vacancies
+- candidate-visible vacancies
+- hidden counts by top reasons if easy (evidence / expired / dead / missing)
+
+D) Healthcare specifically
+- nurse-titled / doctor-titled stored vs visible
+
+============================================================
+3) Time-to-scan estimate (based on real prod rate)
+============================================================
+
+Using REAL production metrics from the last few hours (or last 24h if needed):
+
+- Average company-site employers completed per successful batch
+- Average batches per hour actually finishing in production (from cron / vacancy_sync_log)
+- Effective employers fully checked per hour (completed only; also show attempted and failed separately)
+- Current backlog = sponsors with website that still need a fresh check under the current TTL/policy (state the TTL you use, e.g. 48h)
+
+Then calculate:
+1. Hours/days to check ALL sponsors that have company websites once
+2. Hours/days to clear the current never-checked / overdue backlog
+3. Steady-state: can current prod rate keep up with the recurring TTL, or will backlog grow?
+4. Best/expected/worst using recent p50/p95 batch timing and failure rate
+
+Show the formula and the numbers plugged in. No guessing without saying so.
+
+============================================================
+Output format
+============================================================
+
+Use clear headings and tables. Short conclusions at the end:
+- Is sector picking actually equal in practice?
+- Biggest coverage bottleneck right now
+- Realistic time to first full pass over all website sponsors at current prod rate
+
+STOP. Read-only only.
