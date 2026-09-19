@@ -17,6 +17,8 @@ export const COMPANY_SITE_GENERIC_TTL_MS = 48 * 60 * 60 * 1000;
 export const COMPANY_SITE_ATS_TTL_MS = 24 * 60 * 60 * 1000;
 export const COMPANY_SITE_FAILED_RETRY_MS = 24 * 60 * 60 * 1000;
 export const COMPANY_SITE_PARTIAL_RETRY_MS = 15 * 60 * 1000;
+export const COMPANY_SITE_HEALTHCARE_EVIDENCE_RESERVE = 2;
+export const COMPANY_SITE_HEALTHCARE_EVIDENCE_RETRY_MS = 24 * 60 * 60 * 1000;
 export const COMPANY_SITE_BOOKMARK_SHARE = 0.25;
 export const COMPANY_SITE_SECTOR_COUNT = 8;
 export const COMPANY_SITE_BATCH_WRITE_RESERVE_MS = 3_000;
@@ -30,6 +32,7 @@ export type CompanySiteBatchRow = {
   careersUrl: string | null;
   atsProvider: string | null;
   bookmarked: boolean;
+  healthcareEvidenceBackfill: boolean;
 };
 
 export type CompanySiteCheckOutcome =
@@ -89,6 +92,9 @@ export async function selectCompanySiteBatch(
   const guaranteedOldestSlots = batchSize - bookmarkLimit;
   const genericCutoff = new Date(Date.now() - COMPANY_SITE_GENERIC_TTL_MS);
   const atsCutoff = new Date(Date.now() - COMPANY_SITE_ATS_TTL_MS);
+  const healthcareEvidenceCutoff = new Date(
+    Date.now() - COMPANY_SITE_HEALTHCARE_EVIDENCE_RETRY_MS,
+  );
   const result = await db.execute<{
     id: number;
     organisation_name: string;
@@ -98,8 +104,9 @@ export async function selectCompanySiteBatch(
     careers_url: string | null;
     ats_provider: string | null;
     bookmarked: boolean;
+    healthcare_evidence_backfill: boolean;
   }>(sql`
-    WITH eligible AS (
+    WITH candidate_pool AS (
       SELECT DISTINCT ON (lower(btrim(sl.organisation_name)))
         sl.id,
         sl.organisation_name,
@@ -109,31 +116,78 @@ export async function selectCompanySiteBatch(
         cs.ats_checked_at,
         cs.careers_url,
         cs.ats_provider,
+        cs.last_attempted_at,
         EXISTS (
           SELECT 1
           FROM sponsor_licence_bookmarks b
           WHERE b.sponsor_licence_id = sl.id
-        ) AS bookmarked
+        ) AS bookmarked,
+        EXISTS (
+          SELECT 1
+          FROM sponsor_licence_vacancies v
+          WHERE lower(btrim(v.organisation_name)) = lower(btrim(sl.organisation_name))
+            AND v.source_type = 'company_site'
+            AND v.liveness = 'live'
+            AND v.url IS NOT NULL
+            AND trim(v.url) <> ''
+            AND v.company_vacancy_evidence IS NULL
+            AND (
+              v.company_evidence_legacy_until IS NULL
+              OR v.company_evidence_legacy_until < NOW()
+            )
+            AND v.source_missing_since IS NULL
+            AND COALESCE(v.source_missing_observations, 0) = 0
+            AND (v.closes_at IS NULL OR v.closes_at >= NOW())
+            AND (v.expires_at IS NULL OR v.expires_at >= NOW())
+            AND (
+              v.closed_reason IS NULL
+              OR v.closed_reason !~* '(closed|filled|no longer accepting|closing date has passed)'
+            )
+            AND lower(v.title) ~
+              '(^|[^a-z])(nurse|nurses|nursing|midwife|midwifery|doctor|physician|surgeon|registrar|general practitioner|medical officer|psychiatrist|psychiatric|anaesthetist|radiologist|cardiologist|paediatrician|oncologist|dermatologist|neurologist|specialty doctor|junior doctor)([^a-z]|$)'
+        ) AS healthcare_evidence_backfill
       FROM sponsor_licences sl
       LEFT JOIN sponsor_licence_company_site_checks cs
         ON cs.organisation_name = sl.organisation_name
       WHERE sl.website IS NOT NULL
         AND trim(sl.website) <> ''
         AND (cs.retry_after IS NULL OR cs.retry_after <= NOW())
-        AND (
-          cs.generic_checked_at IS NULL
-          OR cs.generic_checked_at < ${genericCutoff}
+      ORDER BY lower(btrim(sl.organisation_name)), sl.id
+    ),
+    eligible AS (
+      SELECT *
+      FROM candidate_pool
+      WHERE (
+          generic_checked_at IS NULL
+          OR generic_checked_at < ${genericCutoff}
           OR (
-            cs.ats_provider IS NOT NULL
-            AND (cs.ats_checked_at IS NULL OR cs.ats_checked_at < ${atsCutoff})
+            ats_provider IS NOT NULL
+            AND (ats_checked_at IS NULL OR ats_checked_at < ${atsCutoff})
+          )
+          OR (
+            healthcare_evidence_backfill = true
+            AND (
+              last_attempted_at IS NULL
+              OR last_attempted_at < ${healthcareEvidenceCutoff}
+            )
           )
         )
-      ORDER BY lower(btrim(sl.organisation_name)), sl.id
+    ),
+    priority_healthcare_evidence AS (
+      SELECT *
+      FROM eligible
+      WHERE healthcare_evidence_backfill = true
+      ORDER BY last_attempted_at ASC NULLS FIRST, id ASC
+      LIMIT ${COMPANY_SITE_HEALTHCARE_EVIDENCE_RESERVE}
     ),
     priority_bookmarks AS (
       SELECT *
       FROM eligible
       WHERE bookmarked = true
+        AND NOT EXISTS (
+          SELECT 1 FROM priority_healthcare_evidence
+          WHERE priority_healthcare_evidence.id = eligible.id
+        )
       ORDER BY
         CASE WHEN generic_checked_at IS NULL THEN 0 ELSE 1 END,
         generic_checked_at ASC NULLS FIRST,
@@ -158,6 +212,10 @@ export async function selectCompanySiteBatch(
           END AS sector_order
         FROM eligible
         WHERE bookmarked = false
+          AND NOT EXISTS (
+            SELECT 1 FROM priority_healthcare_evidence
+            WHERE priority_healthcare_evidence.id = eligible.id
+          )
       ) AS classified
     ),
     ranked_unbookmarked AS (
@@ -186,7 +244,9 @@ export async function selectCompanySiteBatch(
         ats_checked_at,
         careers_url,
         ats_provider,
-        bookmarked
+        last_attempted_at,
+        bookmarked,
+        healthcare_evidence_backfill
       FROM ranked_unbookmarked
       ORDER BY
         sector_position ASC,
@@ -203,12 +263,20 @@ export async function selectCompanySiteBatch(
         generic_checked_at ASC NULLS FIRST,
         ats_checked_at ASC NULLS FIRST,
         id ASC
-      LIMIT ${guaranteedOldestSlots}
+      LIMIT GREATEST(
+        0,
+        ${guaranteedOldestSlots}
+          - (SELECT count(*) FROM priority_healthcare_evidence)
+      )
     ),
     overflow AS (
       SELECT eligible.*
       FROM eligible
       WHERE NOT EXISTS (
+        SELECT 1 FROM priority_healthcare_evidence
+        WHERE priority_healthcare_evidence.id = eligible.id
+      )
+        AND NOT EXISTS (
         SELECT 1 FROM priority_bookmarks
         WHERE priority_bookmarks.id = eligible.id
       )
@@ -226,13 +294,24 @@ export async function selectCompanySiteBatch(
         ${batchSize}
           - (SELECT count(*) FROM priority_bookmarks)
           - (SELECT count(*) FROM rotated_unbookmarked)
+          - (SELECT count(*) FROM priority_healthcare_evidence)
       )
     )
-    SELECT * FROM rotated_unbookmarked
-    UNION ALL
-    SELECT * FROM priority_bookmarks
-    UNION ALL
-    SELECT * FROM overflow
+    SELECT selected.*
+    FROM (
+      SELECT priority_healthcare_evidence.*, 0 AS selection_priority
+      FROM priority_healthcare_evidence
+      UNION ALL
+      SELECT rotated_unbookmarked.*, 1 AS selection_priority
+      FROM rotated_unbookmarked
+      UNION ALL
+      SELECT priority_bookmarks.*, 2 AS selection_priority
+      FROM priority_bookmarks
+      UNION ALL
+      SELECT overflow.*, 3 AS selection_priority
+      FROM overflow
+    ) AS selected
+    ORDER BY selected.selection_priority ASC
   `);
   return result.rows.map((row) => ({
     id: Number(row.id),
@@ -243,6 +322,7 @@ export async function selectCompanySiteBatch(
     careersUrl: row.careers_url,
     atsProvider: row.ats_provider,
     bookmarked: row.bookmarked,
+    healthcareEvidenceBackfill: row.healthcare_evidence_backfill,
   }));
 }
 

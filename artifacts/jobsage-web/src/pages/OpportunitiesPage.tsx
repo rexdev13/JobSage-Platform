@@ -1802,7 +1802,9 @@ export default function OpportunitiesPage() {
                 <Briefcase className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
                 <h2 className="text-lg font-semibold mb-2">No roles in catalogue yet</h2>
                 <p className="text-sm text-muted-foreground mb-4">
-                  No roles have been imported for your profession yet. Check back soon.
+                  {isCompanySiteTab
+                    ? "No verified company-site vacancies currently match your profession."
+                    : "No roles have been imported for your profession yet. Check back soon."}
                 </p>
                 <Button variant="outline" onClick={() => setLocation("/eligibility")}>
                   Run Eligibility Check <ArrowRight className="w-4 h-4 ml-2" />

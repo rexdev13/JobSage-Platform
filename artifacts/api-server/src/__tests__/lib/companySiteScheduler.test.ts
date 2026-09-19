@@ -42,6 +42,7 @@ vi.mock("../../lib/companySiteDiscovery", () => ({
 const {
   COMPANY_SITE_DISCOVERY_BATCH_SIZE,
   COMPANY_SITE_FAILED_RETRY_MS,
+  COMPANY_SITE_HEALTHCARE_EVIDENCE_RESERVE,
   COMPANY_SITE_PARTIAL_RETRY_MS,
   COMPANY_SITE_BATCH_WRITE_RESERVE_MS,
   COMPANY_SITE_DISCOVERY_CONCURRENCY,
@@ -78,6 +79,7 @@ describe("company-site scheduler", () => {
 
   it("uses its own hourly schedule and bounded worker settings", () => {
     expect(COMPANY_SITE_DISCOVERY_BATCH_SIZE).toBe(10);
+    expect(COMPANY_SITE_HEALTHCARE_EVIDENCE_RESERVE).toBe(2);
     expect(COMPANY_SITE_DISCOVERY_CONCURRENCY).toBe(8);
     expect(COMPANY_SITE_SECTOR_COUNT).toBe(8);
     expect(COMPANY_SITE_BATCH_WRITE_RESERVE_MS).toBe(3_000);
@@ -100,6 +102,7 @@ describe("company-site scheduler", () => {
         careers_url: null,
         ats_provider: null,
         bookmarked: false,
+        healthcare_evidence_backfill: false,
       }],
     });
 
@@ -109,6 +112,7 @@ describe("company-site scheduler", () => {
       expect.objectContaining({
         organisationName: "Acme Engineering Limited",
         bookmarked: false,
+        healthcareEvidenceBackfill: false,
       }),
     ]);
   });
