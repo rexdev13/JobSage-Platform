@@ -15,6 +15,8 @@ vi.mock("../../lib/companySiteHttp", () => ({
         ? "Ashby"
         : value.includes("boards.greenhouse.io")
           ? "Greenhouse"
+          : value.includes("bamboohr.com")
+            ? "BambooHR"
         : null,
 }));
 
@@ -317,6 +319,41 @@ describe("company-site vacancy discovery", () => {
     const result = await discoverCompanySiteVacancies("Fixture Employer", "https://fixture.example");
     expect(result.adverts).toEqual(expect.arrayContaining([
       expect.objectContaining({ title: "Content Creator", url: "https://boards.greenhouse.io/fixture/jobs/123" }),
+    ]));
+  });
+
+  it("accepts a Hopscotch-style BambooHR posting", async () => {
+    fetchCompanySitePageMock
+      .mockResolvedValueOnce({
+        ok: true,
+        url: "https://www.hopscotch.example/",
+        status: 200,
+        contentType: "text/html",
+        body: '<a href="https://hopscotch.bamboohr.com/careers">Careers</a>',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        url: "https://hopscotch.bamboohr.com/careers",
+        status: 200,
+        contentType: "text/html",
+        body: '<a href="https://hopscotch.bamboohr.com/careers/42">Senior Product Manager</a>',
+      });
+
+    const result = await discoverCompanySiteVacancies(
+      "Hopscotch Employer",
+      "https://www.hopscotch.example",
+    );
+
+    expect(result.atsProvider).toBe("BambooHR");
+    expect(result.adverts).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        title: "Senior Product Manager",
+        url: "https://hopscotch.bamboohr.com/careers/42",
+        companyVacancyEvidence: {
+          kind: "known_ats_posting",
+          provider: "BambooHR",
+        },
+      }),
     ]));
   });
 

@@ -9,6 +9,7 @@ vi.mock("@workspace/db", () => ({
 
 const {
   createPinnedLookup,
+  knownAtsProvider,
   requestPinned,
   resolveAndPinPublicAddress,
   robotsAllows,
@@ -44,6 +45,14 @@ describe("company-site robots policy", () => {
     ].join("\n");
     expect(robotsAllows(body, "/jobs?preview=true")).toBe(false);
     expect(robotsAllows(body, "/jobs?preview=false")).toBe(true);
+  });
+});
+
+describe("known ATS providers", () => {
+  it("recognises BambooHR subdomains without accepting unrelated hosts", () => {
+    expect(knownAtsProvider("https://hopscotch.bamboohr.com/careers/42")).toBe("BambooHR");
+    expect(knownAtsProvider("bamboohr.com")).toBe("BambooHR");
+    expect(knownAtsProvider("https://bamboohr.example/careers/42")).toBeNull();
   });
 });
 

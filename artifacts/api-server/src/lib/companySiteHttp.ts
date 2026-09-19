@@ -28,6 +28,7 @@ const ATS_HOSTS: Array<{ provider: string; suffix: string }> = [
   { provider: "Pinpoint", suffix: "pinpointhq.com" },
   { provider: "SAP SuccessFactors", suffix: "successfactors.com" },
   { provider: "Ashby", suffix: "ashbyhq.com" },
+  { provider: "BambooHR", suffix: "bamboohr.com" },
 ];
 
 export type CompanySiteFetchFailure =
