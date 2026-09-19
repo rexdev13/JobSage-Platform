@@ -41,6 +41,7 @@ vi.mock("../../lib/companySiteDiscovery", () => ({
 
 const {
   COMPANY_SITE_DISCOVERY_BATCH_SIZE,
+  COMPANY_SITE_FAILED_RETRY_MS,
   COMPANY_SITE_BATCH_WRITE_RESERVE_MS,
   COMPANY_SITE_DISCOVERY_CONCURRENCY,
   COMPANY_SITE_DISCOVERY_CRON,
@@ -121,6 +122,45 @@ describe("company-site scheduler", () => {
       atsProvider: null,
     })).resolves.toEqual({ status: "skipped", reason: "no website" });
     expect(discoverCompanySiteVacanciesMock).not.toHaveBeenCalled();
+  });
+
+  it("backs off a failed employer for a full day without stamping it complete", async () => {
+    const before = Date.now();
+    let persisted: Record<string, unknown> | undefined;
+    insertMock.mockReturnValue({
+      values: (values: Record<string, unknown>) => {
+        persisted = values;
+        return {
+          onConflictDoUpdate: () => Promise.resolve(),
+        };
+      },
+    });
+    discoverCompanySiteVacanciesMock.mockResolvedValue({
+      adverts: [],
+      pagesFetched: 0,
+      genericCompleted: false,
+      atsCompleted: false,
+      transientFailure: false,
+      completion: "failed",
+      error: "robots.txt could not be checked: non-public hostname: dead.example",
+      advertsExtracted: 0,
+      advertsRejected: 0,
+    });
+
+    await runCompanySiteCheck({
+      organisationName: "Dead Employer",
+      website: "https://dead.example",
+      genericCheckedAt: null,
+      atsCheckedAt: null,
+      careersUrl: null,
+      atsProvider: null,
+    });
+
+    expect(persisted?.lastOutcome).toBe("failed");
+    expect(persisted?.genericCheckedAt).toBeNull();
+    expect((persisted?.retryAfter as Date).getTime()).toBeGreaterThanOrEqual(
+      before + COMPANY_SITE_FAILED_RETRY_MS,
+    );
   });
 
   it("waits for a slow check and emits a final marked summary", async () => {

@@ -15,6 +15,7 @@ export const COMPANY_SITE_DISCOVERY_BATCH_SIZE = 10;
 export const COMPANY_SITE_DISCOVERY_CONCURRENCY = 8;
 export const COMPANY_SITE_GENERIC_TTL_MS = 48 * 60 * 60 * 1000;
 export const COMPANY_SITE_ATS_TTL_MS = 24 * 60 * 60 * 1000;
+export const COMPANY_SITE_FAILED_RETRY_MS = 24 * 60 * 60 * 1000;
 export const COMPANY_SITE_BOOKMARK_SHARE = 0.25;
 export const COMPANY_SITE_SECTOR_COUNT = 8;
 export const COMPANY_SITE_BATCH_WRITE_RESERVE_MS = 3_000;
@@ -98,7 +99,7 @@ export async function selectCompanySiteBatch(
     bookmarked: boolean;
   }>(sql`
     WITH eligible AS (
-      SELECT
+      SELECT DISTINCT ON (lower(btrim(sl.organisation_name)))
         sl.id,
         sl.organisation_name,
         trim(sl.website) AS website,
@@ -126,6 +127,7 @@ export async function selectCompanySiteBatch(
             AND (cs.ats_checked_at IS NULL OR cs.ats_checked_at < ${atsCutoff})
           )
         )
+      ORDER BY lower(btrim(sl.organisation_name)), sl.id
     ),
     priority_bookmarks AS (
       SELECT *
@@ -311,9 +313,16 @@ export async function runCompanySiteCheck(
     `);
   }
   const now = new Date();
-  const retryAfter = result.transientFailure
-    ? result.retryAt ?? new Date(now.getTime() + 15 * 60 * 1000)
-    : null;
+  const completion = result.completion ??
+    (result.transientFailure ? "failed" : "complete");
+  const failedRetryFloor = new Date(now.getTime() + COMPANY_SITE_FAILED_RETRY_MS);
+  const retryAfter = completion === "failed"
+    ? result.retryAt && result.retryAt > failedRetryFloor
+      ? result.retryAt
+      : failedRetryFloor
+    : result.transientFailure
+      ? result.retryAt ?? new Date(now.getTime() + 15 * 60 * 1000)
+      : null;
   const [existing] = await db
     .select()
     .from(sponsorLicenceCompanySiteChecksTable)
@@ -323,11 +332,11 @@ export async function runCompanySiteCheck(
   const values = {
     organisationName: row.organisationName,
     genericCheckedAt:
-      result.completion === "complete" && (result.genericCompleted || checkGeneric)
+      completion === "complete" && (result.genericCompleted || checkGeneric)
         ? now
         : existing?.genericCheckedAt ?? null,
     atsCheckedAt:
-      result.completion === "complete" && (result.atsCompleted || checkAts)
+      completion === "complete" && (result.atsCompleted || checkAts)
         ? now
         : existing?.atsCheckedAt ?? null,
     careersUrl: result.careersUrl ?? existing?.careersUrl ?? null,
@@ -335,9 +344,9 @@ export async function runCompanySiteCheck(
     retryAfter,
     lastError: result.error?.slice(0, 1_000) ?? null,
     lastAttemptedAt: now,
-    lastCompletedAt: result.completion === "complete" ? now : existing?.lastCompletedAt ?? null,
-    lastPartialAt: result.completion?.startsWith("partial") ? now : existing?.lastPartialAt ?? null,
-    lastOutcome: result.completion,
+    lastCompletedAt: completion === "complete" ? now : existing?.lastCompletedAt ?? null,
+    lastPartialAt: completion.startsWith("partial") ? now : existing?.lastPartialAt ?? null,
+    lastOutcome: completion,
     lastPagesFetched: result.pagesFetched,
     lastAdvertsFound: result.advertsExtracted,
     lastRejectedCount: result.advertsRejected,
@@ -361,7 +370,7 @@ export async function runCompanySiteCheck(
     careersFound: result.careersUrl && !existing?.careersUrl ? 1 : 0,
     atsFound: result.atsProvider && !existing?.atsProvider ? 1 : 0,
     transientFailure: result.transientFailure,
-    completion: result.completion,
+    completion,
     advertsRejected: result.advertsRejected,
   };
 }
