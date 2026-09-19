@@ -9,6 +9,10 @@ import {
   discoverCompanySiteVacancies,
   persistCompanySiteVacancies,
 } from "./companySiteDiscovery";
+import {
+  classifyCompanySiteFailure,
+  type CompanySiteFailureClass,
+} from "./companySiteHttp";
 
 export const COMPANY_SITE_DISCOVERY_CRON = "17 * * * *";
 export const COMPANY_SITE_DISCOVERY_BATCH_SIZE = 10;
@@ -17,6 +21,7 @@ export const COMPANY_SITE_GENERIC_TTL_MS = 48 * 60 * 60 * 1000;
 export const COMPANY_SITE_ATS_TTL_MS = 24 * 60 * 60 * 1000;
 export const COMPANY_SITE_FAILED_RETRY_MS = 24 * 60 * 60 * 1000;
 export const COMPANY_SITE_PARTIAL_RETRY_MS = 15 * 60 * 1000;
+export const COMPANY_SITE_PERMANENT_RETRY_MS = 14 * 24 * 60 * 60 * 1000;
 export const COMPANY_SITE_HEALTHCARE_EVIDENCE_RESERVE = 2;
 export const COMPANY_SITE_HEALTHCARE_EVIDENCE_RETRY_MS = 24 * 60 * 60 * 1000;
 export const COMPANY_SITE_BOOKMARK_SHARE = 0.25;
@@ -47,6 +52,7 @@ export type CompanySiteCheckOutcome =
       careersFound: number;
       atsFound: number;
       transientFailure: boolean;
+      failureClass: CompanySiteFailureClass | null;
       completion: "complete" | "partial_page_limit" | "partial_deadline" | "failed";
       advertsRejected: number;
     };
@@ -74,6 +80,8 @@ export type CompanySiteBatchSummary = {
   inserted: number;
   updated: number;
   revived: number;
+  permanentFailures: number;
+  temporaryFailures: number;
 };
 
 let batchInProgress = false;
@@ -354,24 +362,50 @@ export async function runCompanySiteCheck(
     });
   } catch (error) {
     const now = new Date();
+    const errorMessage = error instanceof Error ? error.message.slice(0, 1_000) : "discovery failed";
+    const failureClass = classifyCompanySiteFailure({
+      kind: "network",
+      reason: errorMessage,
+    });
+    const retryAfter = new Date(
+      now.getTime() +
+        (failureClass === "permanent"
+          ? COMPANY_SITE_PERMANENT_RETRY_MS
+          : COMPANY_SITE_FAILED_RETRY_MS),
+    );
     await db.insert(sponsorLicenceCompanySiteChecksTable)
       .values({
         organisationName: row.organisationName,
+        retryAfter,
         lastAttemptedAt: now,
         lastOutcome: "failed",
-        lastError: error instanceof Error ? error.message.slice(0, 1_000) : "discovery failed",
+        lastError: `[${failureClass}] ${errorMessage}`,
         updatedAt: now,
       })
       .onConflictDoUpdate({
         target: sponsorLicenceCompanySiteChecksTable.organisationName,
         set: {
+          retryAfter,
           lastAttemptedAt: now,
           lastOutcome: "failed",
-          lastError: error instanceof Error ? error.message.slice(0, 1_000) : "discovery failed",
+          lastError: `[${failureClass}] ${errorMessage}`,
           updatedAt: now,
         },
       });
-    throw error;
+    return {
+      status: "checked",
+      adverts: 0,
+      inserted: 0,
+      updated: 0,
+      revived: 0,
+      pagesFetched: 0,
+      careersFound: 0,
+      atsFound: 0,
+      transientFailure: failureClass === "temporary",
+      failureClass,
+      completion: "failed",
+      advertsRejected: 0,
+    };
   }
   const persisted =
     result.adverts.length > 0
@@ -396,16 +430,31 @@ export async function runCompanySiteCheck(
   const now = new Date();
   const completion = result.completion ??
     (result.transientFailure ? "failed" : "complete");
+  const failureClass: CompanySiteFailureClass | null =
+    completion === "complete"
+      ? null
+      : result.failureClass ??
+        (completion === "failed"
+          ? result.transientFailure
+            ? "temporary"
+            : "permanent"
+          : "temporary");
   const failedRetryFloor = new Date(now.getTime() + COMPANY_SITE_FAILED_RETRY_MS);
-  const retryAfter = completion === "failed"
-    ? result.retryAt && result.retryAt > failedRetryFloor
-      ? result.retryAt
-      : failedRetryFloor
-    : completion.startsWith("partial")
-      ? result.retryAt ?? new Date(now.getTime() + COMPANY_SITE_PARTIAL_RETRY_MS)
-    : result.transientFailure
-      ? result.retryAt ?? new Date(now.getTime() + 15 * 60 * 1000)
-      : null;
+  const permanentRetryFloor = new Date(now.getTime() + COMPANY_SITE_PERMANENT_RETRY_MS);
+  const retryAfter =
+    failureClass === "permanent"
+      ? result.retryAt && result.retryAt > permanentRetryFloor
+        ? result.retryAt
+        : permanentRetryFloor
+      : completion === "failed"
+        ? result.retryAt && result.retryAt > failedRetryFloor
+          ? result.retryAt
+          : failedRetryFloor
+        : completion.startsWith("partial")
+          ? result.retryAt ?? new Date(now.getTime() + COMPANY_SITE_PARTIAL_RETRY_MS)
+          : result.transientFailure
+            ? result.retryAt ?? new Date(now.getTime() + COMPANY_SITE_PARTIAL_RETRY_MS)
+            : null;
   const [existing] = await db
     .select()
     .from(sponsorLicenceCompanySiteChecksTable)
@@ -425,7 +474,9 @@ export async function runCompanySiteCheck(
     careersUrl: result.careersUrl ?? existing?.careersUrl ?? null,
     atsProvider: result.atsProvider ?? existing?.atsProvider ?? null,
     retryAfter,
-    lastError: result.error?.slice(0, 1_000) ?? null,
+    lastError: result.error
+      ? `${failureClass ? `[${failureClass}] ` : ""}${result.error}`.slice(0, 1_000)
+      : null,
     lastAttemptedAt: now,
     lastCompletedAt: completion === "complete" ? now : existing?.lastCompletedAt ?? null,
     lastPartialAt: completion.startsWith("partial") ? now : existing?.lastPartialAt ?? null,
@@ -453,6 +504,7 @@ export async function runCompanySiteCheck(
     careersFound: result.careersUrl && !existing?.careersUrl ? 1 : 0,
     atsFound: result.atsProvider && !existing?.atsProvider ? 1 : 0,
     transientFailure: result.transientFailure,
+    failureClass,
     completion,
     advertsRejected: result.advertsRejected,
   };
@@ -498,6 +550,8 @@ export async function runCompanySiteDiscoveryBatch(
     let advertsRejected = 0;
     let careersFound = 0;
     let atsFound = 0;
+    let permanentFailures = 0;
+    let temporaryFailures = 0;
     let nextIndex = 0;
 
     async function worker(): Promise<void> {
@@ -532,12 +586,18 @@ export async function runCompanySiteDiscoveryBatch(
               errors += 1;
             }
             if (completion === "complete" && outcome.adverts === 0) empty += 1;
+            const failureClass =
+              outcome.failureClass ??
+              (completion === "complete" ? null : "temporary");
+            if (failureClass === "permanent") permanentFailures += 1;
+            if (failureClass === "temporary") temporaryFailures += 1;
             inserted += outcome.inserted;
             updated += outcome.updated;
             revived += outcome.revived;
           }
         } catch (error) {
           errors += 1;
+          temporaryFailures += 1;
           console.error(
             `[company-site-scheduler] Failed organisation="${row.organisationName}":`,
             error instanceof Error ? error.message : error,
@@ -561,7 +621,10 @@ export async function runCompanySiteDiscoveryBatch(
     console.log(
       `[company-site-scheduler] Complete selected=${rows.length} checked=${checked} skipped=${skipped} upserted=${upserted} errors=${errors} done=${done} remaining=${remainingLog} adverts=${adverts} inserted=${inserted} duration_ms=${durationMs}`,
     );
-    console.log(`[pipeline-tick] env=${process.env.NODE_ENV ?? "unknown"} job=company_site selected=${rows.length} upserted=${upserted} live=0 dead=0 inconclusive=0 errors=${errors} done=${done} remaining=${remainingLog} duration_ms=${durationMs}`);
+    console.log(
+      `[company-site-scheduler] Failures permanent=${permanentFailures} temporary=${temporaryFailures}`,
+    );
+    console.log(`[pipeline-tick] env=${process.env.NODE_ENV ?? "unknown"} job=company_site selected=${rows.length} upserted=${upserted} live=0 dead=0 inconclusive=0 errors=${errors} permanent_failures=${permanentFailures} temporary_failures=${temporaryFailures} done=${done} remaining=${remainingLog} duration_ms=${durationMs}`);
     const summary = {
       selected: rows.length,
       attempted: checked + errors,
@@ -577,6 +640,8 @@ export async function runCompanySiteDiscoveryBatch(
       inserted,
       updated,
       revived,
+      permanentFailures,
+      temporaryFailures,
       checked,
       skipped,
       errors,
