@@ -39,6 +39,8 @@ export type CompanySiteFetchFailure =
   | "http"
   | "network";
 
+export type CompanySiteFailureClass = "permanent" | "temporary";
+
 export type CompanySiteFetchResult =
   | {
       ok: true;
@@ -53,6 +55,7 @@ export type CompanySiteFetchResult =
       reason: string;
       retryAt?: Date;
       status?: number;
+      failureClass?: CompanySiteFailureClass;
     };
 
 type HostReservation =
@@ -70,6 +73,40 @@ type PinnedResponse = {
   headers: IncomingHttpHeaders;
   body: string;
 };
+
+export function classifyCompanySiteFailure(input: {
+  kind: CompanySiteFetchFailure;
+  reason: string;
+  status?: number;
+}): CompanySiteFailureClass {
+  if (input.kind === "unsafe") return "permanent";
+  if (input.status === 404 || input.status === 410) return "permanent";
+  if (
+    input.kind === "http" &&
+    input.status != null &&
+    input.status >= 400 &&
+    input.status < 500 &&
+    input.status !== 403 &&
+    input.status !== 429
+  ) {
+    return "permanent";
+  }
+  if (
+    input.kind === "network" &&
+    /(CERT_HAS_EXPIRED|ERR_TLS_CERT_ALTNAME_INVALID|DEPTH_ZERO_SELF_SIGNED_CERT|UNABLE_TO_VERIFY_LEAF_SIGNATURE|ERR_TLS_CERT_INVALID|certificate has expired|certificate.*(name|verify|authority))/i.test(
+      input.reason,
+    )
+  ) {
+    return "permanent";
+  }
+  if (
+    input.kind === "network" &&
+    /(ENOTFOUND|EAI_NONAME|NXDOMAIN|name or service not known)/i.test(input.reason)
+  ) {
+    return "permanent";
+  }
+  return "temporary";
+}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -434,8 +471,24 @@ async function fetchWithoutRobots(
         Math.min(COMPANY_SITE_DNS_TIMEOUT_MS, Math.max(1, deadlineMs - Date.now())),
         "DNS lookup timed out",
       );
-    } catch {
-      return { ok: false, kind: "unsafe", reason: `non-public hostname: ${parsed.hostname}` };
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      if (/(timed out|EAI_AGAIN|ETIMEOUT)/i.test(reason)) {
+        return {
+          ok: false,
+          kind: "timeout",
+          reason,
+          failureClass: "temporary",
+        };
+      }
+      return {
+        ok: false,
+        kind: "unsafe",
+        reason: /(?:ENOTFOUND|EAI_NONAME|NXDOMAIN|name or service not known)/i.test(reason)
+          ? `DNS lookup failed for ${parsed.hostname}: ${reason}`
+          : `non-public hostname: ${parsed.hostname}`,
+        failureClass: "permanent",
+      };
     }
 
     let reservation = await reserveHost(parsed.hostname, deadlineMs);
@@ -459,7 +512,15 @@ async function fetchWithoutRobots(
       if (response.status >= 300 && response.status < 400) {
         const location = headerValue(response.headers, "location");
         await completeHost(parsed.hostname, leaseToken);
-        if (!location) return { ok: false, kind: "http", status: response.status, reason: "redirect without Location" };
+        if (!location) {
+          return {
+            ok: false,
+            kind: "http",
+            status: response.status,
+            reason: "redirect without Location",
+            failureClass: "permanent",
+          };
+        }
         currentUrl = new URL(location, currentUrl).toString();
         continue;
       }
@@ -475,11 +536,21 @@ async function fetchWithoutRobots(
           status: response.status,
           reason: `HTTP ${response.status}`,
           retryAt: retryAt ?? undefined,
+          failureClass: "temporary",
         };
       }
       await completeHost(parsed.hostname, leaseToken);
       if (response.status < 200 || response.status >= 300) {
-        return { ok: false, kind: "http", status: response.status, reason: `HTTP ${response.status}` };
+        const failure = {
+          kind: "http" as const,
+          status: response.status,
+          reason: `HTTP ${response.status}`,
+        };
+        return {
+          ok: false,
+          ...failure,
+          failureClass: classifyCompanySiteFailure(failure),
+        };
       }
       return {
         ok: true,
@@ -495,15 +566,30 @@ async function fetchWithoutRobots(
         kind: error instanceof Error && error.name === "AbortError" ? "timeout" : "network",
         reason: error instanceof Error ? error.message : "network failure",
         retryAt: retryAt ?? undefined,
+        failureClass: classifyCompanySiteFailure({
+          kind: error instanceof Error && error.name === "AbortError" ? "timeout" : "network",
+          reason: error instanceof Error ? error.message : "network failure",
+        }),
       };
     } finally {
       await releaseHost(parsed.hostname, leaseToken);
     }
   }
-  return { ok: false, kind: "unsafe", reason: "too many redirects" };
+  return {
+    ok: false,
+    kind: "unsafe",
+    reason: "too many redirects",
+    failureClass: "permanent",
+  };
 }
 
-type RobotsPolicy = { allowed: boolean; body: string | null; retryAt?: Date; reason?: string };
+type RobotsPolicy = {
+  allowed: boolean;
+  body: string | null;
+  retryAt?: Date;
+  reason?: string;
+  failureClass?: CompanySiteFailureClass;
+};
 
 type RobotsRule = { allow: boolean; pattern: string };
 type RobotsGroup = { agents: string[]; rules: RobotsRule[] };
@@ -577,7 +663,12 @@ async function robotsPolicy(targetUrl: string, originHostname: string, deadlineM
     cached?.checkedAt &&
     cached.checkedAt.getTime() >= Date.now() - COMPANY_SITE_ROBOTS_TTL_MS
   ) {
-    return { allowed: robotsAllows(cached.body, `${target.pathname}${target.search}`), body: cached.body };
+    const allowed = robotsAllows(cached.body, `${target.pathname}${target.search}`);
+    return {
+      allowed,
+      body: cached.body,
+      failureClass: allowed ? undefined : "temporary",
+    };
   }
 
   const robotsUrl = `${target.protocol}//${target.host}/robots.txt`;
@@ -598,6 +689,7 @@ async function robotsPolicy(targetUrl: string, originHostname: string, deadlineM
       body: null,
       retryAt: result.retryAt,
       reason: `robots.txt could not be checked: ${result.reason}`,
+      failureClass: result.failureClass ?? classifyCompanySiteFailure(result),
     };
   }
   const body = result.body;
@@ -608,7 +700,12 @@ async function robotsPolicy(targetUrl: string, originHostname: string, deadlineM
       target: companySiteHostStatesTable.hostname,
       set: { robotsBody: body, robotsCheckedAt: new Date(), updatedAt: new Date() },
     });
-  return { allowed: robotsAllows(body, `${target.pathname}${target.search}`), body };
+  const allowed = robotsAllows(body, `${target.pathname}${target.search}`);
+  return {
+    allowed,
+    body,
+    failureClass: allowed ? undefined : "temporary",
+  };
 }
 
 export async function fetchCompanySitePage(
@@ -629,6 +726,7 @@ export async function fetchCompanySitePage(
       kind: "robots",
       reason: robots.reason ?? "robots.txt disallows this path",
       retryAt: robots.retryAt,
+      failureClass: robots.failureClass ?? "temporary",
     };
   }
   return fetchWithoutRobots(parsed.toString(), originHostname, deadlineMs, MAX_PAGE_BYTES, true);

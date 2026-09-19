@@ -7,9 +7,11 @@ import {
 } from "./boardVacancyPipeline";
 import {
   COMPANY_SITE_EMPLOYER_BUDGET_MS,
+  classifyCompanySiteFailure,
   fetchCompanySitePage,
   isAllowedCompanyDestination,
   knownAtsProvider,
+  type CompanySiteFailureClass,
 } from "./companySiteHttp";
 import { extractAdvertContactEmail } from "./publishedContactEmail";
 import { parseVacancyClosingDate } from "./vacancyDates";
@@ -44,6 +46,7 @@ export type CompanySiteDiscoveryResult = {
   genericCompleted: boolean;
   atsCompleted: boolean;
   transientFailure: boolean;
+  failureClass: CompanySiteFailureClass | null;
   retryAt?: Date;
   error?: string;
   pagesFetched: number;
@@ -411,10 +414,6 @@ function selectNavigationLinks(
     });
 }
 
-function isTransientFailure(kind: string): boolean {
-  return kind === "robots" || kind === "rate_limited" || kind === "timeout" || kind === "network";
-}
-
 export async function discoverCompanySiteVacancies(
   organisationName: string,
   website: string,
@@ -430,6 +429,7 @@ export async function discoverCompanySiteVacancies(
       genericCompleted: false,
       atsCompleted: false,
       transientFailure: false,
+      failureClass: "permanent",
       error: "invalid sponsor website",
       pagesFetched: 0,
       completion: "failed",
@@ -477,6 +477,8 @@ export async function discoverCompanySiteVacancies(
   let genericCompleted = false;
   let atsCompleted = false;
   let transientFailure = false;
+  let permanentFailure = false;
+  let temporaryFailure = false;
   let attemptedPageFailure = false;
   let retryAt: Date | undefined;
   let error: string | undefined;
@@ -502,7 +504,16 @@ export async function discoverCompanySiteVacancies(
       attemptedPageFailure = true;
       error ??= result.reason;
       retryAt ??= result.retryAt;
-      transientFailure ||= isTransientFailure(result.kind);
+      const failureClass =
+        result.failureClass ??
+        classifyCompanySiteFailure({
+          kind: result.kind,
+          reason: result.reason,
+          status: result.status,
+        });
+      permanentFailure ||= failureClass === "permanent";
+      temporaryFailure ||= failureClass === "temporary";
+      transientFailure ||= failureClass === "temporary";
       continue;
     }
     pagesFetched += 1;
@@ -556,10 +567,19 @@ export async function discoverCompanySiteVacancies(
   if (genericCompleted && !atsProvider) atsCompleted = true;
   if (now() >= deadlineMs && queue.length > 0) {
     transientFailure = true;
+    temporaryFailure = true;
     error ??= "employer request budget exhausted";
   }
 
   const normalizedAdverts = normaliseAndDedupeBoardAdverts(adverts);
+  const completion =
+    attemptedPageFailure && !transientFailure
+      ? "failed"
+      : transientFailure
+        ? (now() >= deadlineMs ? "partial_deadline" : "failed")
+        : queue.length > 0 || visited.size >= MAX_COMPANY_SITE_DISCOVERY_PAGES
+          ? (now() >= deadlineMs ? "partial_deadline" : "partial_page_limit")
+          : "complete";
   return {
     adverts: normalizedAdverts.slice(0, MAX_COMPANY_SITE_VACANCIES_PER_EMPLOYER),
     sourceUrl,
@@ -568,17 +588,18 @@ export async function discoverCompanySiteVacancies(
     genericCompleted,
     atsCompleted,
     transientFailure,
+    failureClass:
+      temporaryFailure
+        ? "temporary"
+        : permanentFailure
+          ? "permanent"
+          : completion !== "complete"
+            ? "temporary"
+            : null,
     retryAt,
     error,
     pagesFetched,
-    completion:
-      attemptedPageFailure && !transientFailure
-        ? "failed"
-        : transientFailure
-        ? (now() >= deadlineMs ? "partial_deadline" : "failed")
-        : queue.length > 0 || visited.size >= MAX_COMPANY_SITE_DISCOVERY_PAGES
-          ? (now() >= deadlineMs ? "partial_deadline" : "partial_page_limit")
-          : "complete",
+    completion,
     pagesAttempted,
     advertsExtracted: adverts.length,
     advertsRejected: Math.max(0, adverts.length - normalizedAdverts.length) +

@@ -6,6 +6,8 @@ const { fetchCompanySitePageMock } = vi.hoisted(() => ({
 
 vi.mock("../../lib/companySiteHttp", () => ({
   COMPANY_SITE_EMPLOYER_BUDGET_MS: 25_000,
+  classifyCompanySiteFailure: ({ kind, status }: { kind: string; status?: number }) =>
+    kind === "unsafe" || status === 404 || status === 410 ? "permanent" : "temporary",
   fetchCompanySitePage: fetchCompanySitePageMock,
   isAllowedCompanyDestination: () => true,
   knownAtsProvider: (value: string) =>

@@ -42,6 +42,7 @@ vi.mock("../../lib/companySiteDiscovery", () => ({
 const {
   COMPANY_SITE_DISCOVERY_BATCH_SIZE,
   COMPANY_SITE_FAILED_RETRY_MS,
+  COMPANY_SITE_PERMANENT_RETRY_MS,
   COMPANY_SITE_HEALTHCARE_EVIDENCE_RESERVE,
   COMPANY_SITE_PARTIAL_RETRY_MS,
   COMPANY_SITE_BATCH_WRITE_RESERVE_MS,
@@ -165,6 +166,50 @@ describe("company-site scheduler", () => {
     expect(persisted?.genericCheckedAt).toBeNull();
     expect((persisted?.retryAfter as Date).getTime()).toBeGreaterThanOrEqual(
       before + COMPANY_SITE_FAILED_RETRY_MS,
+    );
+  });
+
+  it("quarantines a permanent failure without stamping it complete", async () => {
+    const before = Date.now();
+    let persisted: Record<string, unknown> | undefined;
+    insertMock.mockReturnValue({
+      values: (values: Record<string, unknown>) => {
+        persisted = values;
+        return {
+          onConflictDoUpdate: () => Promise.resolve(),
+        };
+      },
+    });
+    discoverCompanySiteVacanciesMock.mockResolvedValue({
+      adverts: [],
+      pagesFetched: 0,
+      genericCompleted: false,
+      atsCompleted: false,
+      transientFailure: false,
+      failureClass: "permanent",
+      completion: "failed",
+      error: "redirect outside employer or approved ATS",
+      advertsExtracted: 0,
+      advertsRejected: 0,
+    });
+
+    const outcome = await runCompanySiteCheck({
+      organisationName: "Dead Employer",
+      website: "https://dead.example",
+      genericCheckedAt: null,
+      atsCheckedAt: null,
+      careersUrl: null,
+      atsProvider: null,
+    });
+
+    expect(outcome).toEqual(expect.objectContaining({
+      failureClass: "permanent",
+      completion: "failed",
+    }));
+    expect(persisted?.lastOutcome).toBe("failed");
+    expect(persisted?.genericCheckedAt).toBeNull();
+    expect((persisted?.retryAfter as Date).getTime()).toBeGreaterThanOrEqual(
+      before + COMPANY_SITE_PERMANENT_RETRY_MS,
     );
   });
 
