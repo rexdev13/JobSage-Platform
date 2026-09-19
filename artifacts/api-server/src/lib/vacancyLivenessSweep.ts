@@ -2,6 +2,7 @@ import cron from "node-cron";
 import { db, sponsorLicenceVacanciesTable, rolesTable, jobListingsTable } from "@workspace/db";
 import { eq, inArray, sql } from "drizzle-orm";
 import { checkDestinationDead } from "./linkHealth";
+import { verifyStoredLink } from "./linkVerification";
 import { isBlockedVacancyUrl, isValidJobBoardVacancyDeepLink } from "./vacancyUrlPolicy";
 import { verifyCompanySiteStoredLink } from "./companySiteVerification";
 
@@ -180,6 +181,10 @@ async function verifyOne(
     return outcome === "live" || outcome === "dead" ? outcome : "inconclusive";
   }
   try {
+    if (row.source !== "sponsor_vacancy" || row.sourceType === "job_board") {
+      const outcome = await withinDeadline(verifyStoredLink(row.source, row.id, row.url), deadlineMs);
+      return outcome === "live" || outcome === "dead" ? outcome : "inconclusive";
+    }
     const timeoutMs = Math.max(
       1,
       Math.min(SWEEP_TIMEOUT_MS, remainingBudget(deadlineMs)),

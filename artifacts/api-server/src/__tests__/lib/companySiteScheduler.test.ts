@@ -75,7 +75,7 @@ describe("company-site scheduler", () => {
   });
 
   it("uses its own hourly schedule and bounded worker settings", () => {
-    expect(COMPANY_SITE_DISCOVERY_BATCH_SIZE).toBe(100);
+    expect(COMPANY_SITE_DISCOVERY_BATCH_SIZE).toBe(10);
     expect(COMPANY_SITE_DISCOVERY_CONCURRENCY).toBe(8);
     expect(COMPANY_SITE_SECTOR_COUNT).toBe(8);
     expect(COMPANY_SITE_BATCH_WRITE_RESERVE_MS).toBe(3_000);

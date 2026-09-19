@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { EXPIRATION_PHRASES, softNotFoundReason } from "./linkHealth";
 import { fetchCompanySitePage, COMPANY_SITE_EMPLOYER_BUDGET_MS } from "./companySiteHttp";
 import { isBlockedVacancyUrl, isValidVacancyUrlForSource } from "./vacancyUrlPolicy";
+import { extractVacancyClosingDate, hasExplicitClosedPhrase } from "./vacancyDates";
 
 export type CompanySiteVerificationItem = {
   id: number;
@@ -66,6 +67,10 @@ export async function verifyCompanySiteStoredLink(
     return writeDead(id, "redirected to a blocked or non-vacancy destination");
   }
   const lowerBody = result.body.toLowerCase();
+  const closesAt = extractVacancyClosingDate(result.body);
+  if (hasExplicitClosedPhrase(result.body)) {
+    return writeDead(id, "source page explicitly closed or no longer accepting applications");
+  }
   const expirationPhrase = EXPIRATION_PHRASES.find((phrase) => lowerBody.includes(phrase));
   if (expirationPhrase) {
     return writeDead(id, `expiration phrase: "${expirationPhrase}"`);
@@ -75,7 +80,12 @@ export async function verifyCompanySiteStoredLink(
   }
   await db
     .update(sponsorLicenceVacanciesTable)
-    .set({ liveness: "live", lastVerifiedAt: new Date(), livenessReason: null })
+    .set({
+      liveness: "live",
+      lastVerifiedAt: new Date(),
+      livenessReason: null,
+      ...(closesAt ? { closesAt } : {}),
+    })
     .where(eq(sponsorLicenceVacanciesTable.id, id));
   return "live";
 }

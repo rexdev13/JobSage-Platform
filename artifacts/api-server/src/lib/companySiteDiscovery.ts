@@ -12,6 +12,7 @@ import {
   knownAtsProvider,
 } from "./companySiteHttp";
 import { extractAdvertContactEmail } from "./publishedContactEmail";
+import { parseVacancyClosingDate } from "./vacancyDates";
 
 export const MAX_COMPANY_SITE_DISCOVERY_PAGES = 6;
 export const MAX_COMPANY_SITE_VACANCIES_PER_EMPLOYER = 12;
@@ -20,6 +21,9 @@ const CAREERS_SIGNAL = /\b(career|careers|job|jobs|vacanc|vacancies|open positio
 const VACANCY_SIGNAL =
   /\b(jobs?|vacanc(?:y|ies)|positions?|roles?|opportunit(?:y|ies)|openings?|apply)\b/i;
 const GENERIC_ANCHOR_TEXT = /^(apply|apply now|view|view job|view vacancy|details|more|read more|learn more|job details)$/i;
+const NEGATIVE_CONTENT_PATH = /\/(?:news|blog|press|media|about|insights)(?:\/|$)/i;
+const GENERIC_CAREERS_CONTENT_PATH =
+  /\/(?:careers?|jobs?)\/(?:our-culture|culture|life-at|benefits|values|why-join|meet-the-team|early-careers)(?:\/|$)/i;
 const PAGINATION_SIGNAL = /\b(next|more jobs|older jobs|page\s*\d+)\b/i;
 const SITEMAP_SIGNAL = /(?:^|\/)sitemap(?:[_-][^/]+)?\.xml(?:$|\?)/i;
 const SITEMAP_LOC_PATTERN = /<loc\b[^>]*>\s*([\s\S]*?)\s*<\/loc>/gi;
@@ -41,6 +45,13 @@ export type CompanySiteDiscoveryResult = {
   retryAt?: Date;
   error?: string;
   pagesFetched: number;
+  completion: "complete" | "partial_page_limit" | "partial_deadline" | "failed";
+  pagesAttempted: number;
+  advertsExtracted: number;
+  advertsRejected: number;
+  rejectionReasons: Record<string, number>;
+  discoveredUrls: string[];
+  observedAdvertUrls: string[];
 };
 
 export type CompanySiteDiscoveryOptions = {
@@ -260,6 +271,8 @@ function extractJsonLdAdverts(
             url,
           ),
           contactEvidenceUrl: url,
+          closesAt: parseVacancyClosingDate(record.validThrough),
+          companyVacancyEvidence: { kind: "json_ld_job_posting" },
         });
       }
     } catch {
@@ -293,20 +306,48 @@ function advertsFromLinks(
   organisationName: string,
   listingPageProvider: string | null,
   listingPageUrl: string,
+  rejectionReasons?: Record<string, number>,
 ): BoardAdvert[] {
+  const reject = (reason: string): BoardAdvert[] => {
+    if (rejectionReasons) rejectionReasons[reason] = (rejectionReasons[reason] ?? 0) + 1;
+    return [];
+  };
   return links.flatMap((link) => {
-    if (!isValidVacancyDeepLink(link.url)) return [];
+    if (!isValidVacancyDeepLink(link.url)) return reject("invalid_deep_link");
     const opaqueAtsPosting = isOpaqueAtsPostingLink(
       link,
       listingPageProvider,
       listingPageUrl,
     );
+    const linkUrl = new URL(link.url);
+    const confirmedListingContext =
+      /(?:^|\/)(?:careers?|jobs?|vacancies?|opportunities?|positions?)(?:\/|$)/i.test(linkUrl.pathname) ||
+      /(?:greenhouse|lever|workday|smartrecruiters)/i.test(linkUrl.hostname);
+    const listingPageContext = /(?:^|\/)(?:careers?|jobs?|vacancies?|opportunities?|positions?)(?:\/|$)/i.test(
+      new URL(listingPageUrl).pathname,
+    );
     if (
       !opaqueAtsPosting &&
-      !VACANCY_SIGNAL.test(`${link.text} ${new URL(link.url).pathname}`)
-    ) return [];
+      (!listingPageContext || !confirmedListingContext || (GENERIC_ANCHOR_TEXT.test(link.text.trim()) &&
+        !VACANCY_SIGNAL.test(`${link.text} ${linkUrl.pathname}`)))
+    ) return reject("missing_listing_context_or_vacancy_signal");
+    if (
+      !opaqueAtsPosting &&
+      /^(?:apply(?:\s+online)?|apply now)$/i.test(link.text.trim()) &&
+      /\/apply(?:-online)?(?:\/|$)/i.test(linkUrl.pathname)
+    ) return reject("generic_apply_online");
+    if (
+      !opaqueAtsPosting &&
+      NEGATIVE_CONTENT_PATH.test(linkUrl.pathname) &&
+      !/\b(?:job|vacanc(?:y|ies)|position|role|opportunit(?:y|ies)|opening)\b/i.test(link.text)
+    ) return reject("negative_editorial_context");
+    if (
+      !opaqueAtsPosting &&
+      GENERIC_CAREERS_CONTENT_PATH.test(linkUrl.pathname) &&
+      !VACANCY_SIGNAL.test(link.text)
+    ) return reject("generic_careers_content");
     const title = cleanTitle(link.text, link.url);
-    if (!title) return [];
+    if (!title) return reject("missing_vacancy_title");
     return [{
       organisationName,
       employer: organisationName,
@@ -320,6 +361,9 @@ function advertsFromLinks(
       boardName: null,
       externalId: null,
       sourceType: "company_site" as const,
+       companyVacancyEvidence: opaqueAtsPosting
+         ? { kind: "known_ats_posting", provider: listingPageProvider ?? "unknown" }
+         : { kind: "structured_job_card", listingUrl: listingPageUrl },
     }];
   });
 }
@@ -378,8 +422,16 @@ export async function discoverCompanySiteVacancies(
       transientFailure: false,
       error: "invalid sponsor website",
       pagesFetched: 0,
+      completion: "failed",
+      pagesAttempted: 0,
+      advertsExtracted: 0,
+      advertsRejected: 0,
+      rejectionReasons: {},
+      discoveredUrls: [],
+      observedAdvertUrls: [],
     };
   }
+  const rejectionReasons: Record<string, number> = {};
   const now = options.now ?? Date.now;
   const deadlineMs = Math.min(
     options.deadlineMs ?? Number.POSITIVE_INFINITY,
@@ -415,9 +467,12 @@ export async function discoverCompanySiteVacancies(
   let genericCompleted = false;
   let atsCompleted = false;
   let transientFailure = false;
+  let attemptedPageFailure = false;
   let retryAt: Date | undefined;
   let error: string | undefined;
   let pagesFetched = 0;
+  let pagesAttempted = 0;
+  const discoveredUrls: string[] = [];
 
   while (
     queue.length > 0 &&
@@ -429,9 +484,12 @@ export async function discoverCompanySiteVacancies(
     if (visited.has(canonical)) continue;
     queued.delete(canonical);
     visited.add(canonical);
+    pagesAttempted += 1;
+    discoveredUrls.push(canonical);
     const provider = knownAtsProvider(canonical);
     const result = await fetchCompanySitePage(canonical, originHostname, deadlineMs);
     if (!result.ok) {
+      attemptedPageFailure = true;
       error ??= result.reason;
       retryAt ??= result.retryAt;
       transientFailure ||= isTransientFailure(result.kind);
@@ -459,7 +517,7 @@ export async function discoverCompanySiteVacancies(
     const links = extractAnchors(result.body, result.url, originHostname);
     adverts.push(
       ...extractJsonLdAdverts(result.body, result.url, originHostname, organisationName),
-      ...advertsFromLinks(links, organisationName, provider, result.url),
+      ...advertsFromLinks(links, organisationName, provider, result.url, rejectionReasons),
     );
     const navigation = selectNavigationLinks(links, visited, provider, result.url);
     for (const link of navigation) {
@@ -491,8 +549,9 @@ export async function discoverCompanySiteVacancies(
     error ??= "employer request budget exhausted";
   }
 
+  const normalizedAdverts = normaliseAndDedupeBoardAdverts(adverts);
   return {
-    adverts: normaliseAndDedupeBoardAdverts(adverts).slice(0, MAX_COMPANY_SITE_VACANCIES_PER_EMPLOYER),
+    adverts: normalizedAdverts.slice(0, MAX_COMPANY_SITE_VACANCIES_PER_EMPLOYER),
     sourceUrl,
     careersUrl,
     atsProvider,
@@ -502,11 +561,31 @@ export async function discoverCompanySiteVacancies(
     retryAt,
     error,
     pagesFetched,
+    completion:
+      attemptedPageFailure && !transientFailure
+        ? "failed"
+        : transientFailure
+        ? (now() >= deadlineMs ? "partial_deadline" : "failed")
+        : queue.length > 0 || visited.size >= MAX_COMPANY_SITE_DISCOVERY_PAGES
+          ? (now() >= deadlineMs ? "partial_deadline" : "partial_page_limit")
+          : "complete",
+    pagesAttempted,
+    advertsExtracted: adverts.length,
+    advertsRejected: Math.max(0, adverts.length - normalizedAdverts.length) +
+      Object.values(rejectionReasons).reduce((sum, count) => sum + count, 0),
+    rejectionReasons: {
+      ...rejectionReasons,
+      ...(adverts.length > normalizedAdverts.length
+        ? { normalization_or_duplicate: adverts.length - normalizedAdverts.length }
+        : {}),
+    },
+    discoveredUrls,
+    observedAdvertUrls: [...new Set(adverts.map((advert) => advert.url))],
   };
 }
 
 export async function persistCompanySiteVacancies(
   adverts: readonly BoardAdvert[],
-): Promise<{ inserted: number; revived: number }> {
+): Promise<{ inserted: number; updated: number; revived: number }> {
   return upsertSharedBoardVacancies(adverts);
 }

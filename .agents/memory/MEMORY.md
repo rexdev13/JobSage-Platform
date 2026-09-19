@@ -52,3 +52,4 @@
 - [Post-merge setup timeout](post-merge-setup-timeout.md) — schema verification plus the web build can exceed a 20-second hook ceiling; keep a bounded two-minute timeout.
 - [Chat waitlist confirmation](chat-waitlist-confirmation.md) — carry qualifiers outside bounded chat history and treat form/chat email delivery as one idempotent confirmation state.
 - [Company-site coverage](company-site-coverage.md) — improve slow employer-site coverage with bounded throughput and better URL discovery, never looser relevance or safety filters.
+- [Vacancy visibility enforcement](vacancy-visibility-enforcement.md) — keep one status rule aligned across SQL aggregates, detail lists, click checks, and application creation.

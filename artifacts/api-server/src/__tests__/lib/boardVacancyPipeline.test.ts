@@ -70,6 +70,10 @@ describe("shared board vacancy pipeline", () => {
         url: "https://careers.example.nhs.uk/jobs/staff-nurse-123",
         boardName: null,
         externalId: null,
+        companyVacancyEvidence: {
+          kind: "structured_job_card",
+          listingUrl: "https://careers.example.nhs.uk/jobs/staff-nurse-123",
+        },
       }),
     ]);
 

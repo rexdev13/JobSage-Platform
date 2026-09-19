@@ -2,6 +2,7 @@ import { db, rolesTable, jobListingsTable, sponsorLicenceVacanciesTable } from "
 import { eq } from "drizzle-orm";
 import { checkDestinationDead } from "./linkHealth";
 import { isBlockedVacancyUrl, isValidJobBoardVacancyDeepLink } from "./vacancyUrlPolicy";
+import { extractVacancyClosingDate, hasExplicitClosedPhrase } from "./vacancyDates";
 
 /**
  * Single-record apply-link verification, shared by:
@@ -51,10 +52,29 @@ export async function verifyStoredLink(
         .where(eq(table.id, id));
       return "dead";
     }
+    const closesAt = extractVacancyClosingDate(result.body);
+    const closed = hasExplicitClosedPhrase(result.body);
+    if (closed || (closesAt && closesAt.getTime() < Date.now())) {
+      await db.update(table).set({
+        liveness: "dead",
+        lastVerifiedAt: new Date(),
+        livenessReason: closed ? "source page explicitly closed or no longer accepting applications" : "expired closing date",
+      }).where(eq(table.id, id));
+      if (source === "sponsor_vacancy") {
+        await db.update(sponsorLicenceVacanciesTable).set({
+          ...(closesAt ? { closesAt } : {}),
+          closedReason: closed ? "source page explicitly closed or no longer accepting applications" : "expired closing date",
+        }).where(eq(sponsorLicenceVacanciesTable.id, id));
+      }
+      return "dead";
+    }
     await db
       .update(table)
       .set({ liveness: "live", lastVerifiedAt: new Date(), livenessReason: null })
       .where(eq(table.id, id));
+    if (source === "sponsor_vacancy" && closesAt) {
+      await db.update(sponsorLicenceVacanciesTable).set({ closesAt }).where(eq(sponsorLicenceVacanciesTable.id, id));
+    }
     return "live";
   } catch {
     // Timeout / network / bot-block — inconclusive. Stamp last_verified_at so

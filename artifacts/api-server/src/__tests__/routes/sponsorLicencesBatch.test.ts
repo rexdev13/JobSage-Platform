@@ -246,6 +246,7 @@ describe("GET /sponsor-licences/:id/vacancies", () => {
           liveness: "live",
           lastVerifiedAt: now,
           livenessReason: null,
+          companyEvidenceLegacyUntil: new Date(now.getTime() + 86400000),
         },
         {
           id: 8,
@@ -280,6 +281,7 @@ describe("GET /sponsor-licences/:id/vacancies", () => {
           liveness: "live",
           lastVerifiedAt: new Date(now.getTime() - 24 * 60 * 60 * 1000),
           livenessReason: null,
+          companyEvidenceLegacyUntil: new Date(now.getTime() + 86400000),
         },
         {
           id: 10,

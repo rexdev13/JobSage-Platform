@@ -55,6 +55,8 @@ export const vacancySyncLogTable = pgTable("vacancy_sync_log", {
   errorMessage: text("error_message"),
   triggeredBy: varchar("triggered_by", { enum: ["scheduler", "manual"] }),
   durationMs: integer("duration_ms"),
+  jobKind: text("job_kind"),
+  metrics: jsonb("metrics").$type<Record<string, unknown> | null>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -100,6 +102,13 @@ export const sponsorLicenceCompanySiteChecksTable = pgTable(
     atsProvider: text("ats_provider"),
     retryAfter: timestamp("retry_after", { withTimezone: true }),
     lastError: text("last_error"),
+    lastAttemptedAt: timestamp("last_attempted_at", { withTimezone: true }),
+    lastCompletedAt: timestamp("last_completed_at", { withTimezone: true }),
+    lastPartialAt: timestamp("last_partial_at", { withTimezone: true }),
+    lastOutcome: text("last_outcome"),
+    lastPagesFetched: integer("last_pages_fetched"),
+    lastAdvertsFound: integer("last_adverts_found"),
+    lastRejectedCount: integer("last_rejected_count"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -223,6 +232,17 @@ export const sponsorLicenceVacanciesTable = pgTable(
     liveness: varchar("liveness", { enum: ["unverified", "live", "dead"] }).notNull().default("unverified"),
     lastVerifiedAt: timestamp("last_verified_at", { withTimezone: true }),
     livenessReason: text("liveness_reason"),
+    closesAt: timestamp("closes_at", { withTimezone: true }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    closedReason: text("closed_reason"),
+    companyVacancyEvidence: jsonb("company_vacancy_evidence").$type<{
+      kind: string;
+      listingUrl?: string;
+      provider?: string;
+    } | null>(),
+    companyEvidenceLegacyUntil: timestamp("company_evidence_legacy_until", { withTimezone: true }),
+    sourceMissingSince: timestamp("source_missing_since", { withTimezone: true }),
+    sourceMissingObservations: integer("source_missing_observations").notNull().default(0),
   },
   (t) => [
     index("sponsor_licence_vacancies_org_date_idx").on(t.organisationName, t.checkDate),

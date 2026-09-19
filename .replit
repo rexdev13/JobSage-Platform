@@ -44,7 +44,7 @@ INTERNAL_SYNC_KEY = "dd1e3f9cbdc1ddb63409835bad58e09de58c0b73f5f0dd461cada94a6b4
 
 [[ports]]
 localPort = 8080
-externalPort = 80
+externalPort = 8080
 
 [[ports]]
 localPort = 8081
@@ -52,8 +52,8 @@ externalPort = 8081
 
 [[ports]]
 localPort = 18286
-externalPort = 3000
+externalPort = 80
 
 [[ports]]
 localPort = 18557
-externalPort = 3001
+externalPort = 3000

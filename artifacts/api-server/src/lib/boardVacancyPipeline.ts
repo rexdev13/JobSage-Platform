@@ -23,6 +23,7 @@ import {
   validatePublishedContactEmail,
 } from "./publishedContactEmail";
 import { enrichAdvertContacts } from "./vacancyAdvertContact";
+import { extractVacancyClosingDate, hasExplicitClosedPhrase } from "./vacancyDates";
 
 export interface BoardAdvert {
   organisationName: string;
@@ -39,6 +40,14 @@ export interface BoardAdvert {
   sourceType?: "job_board" | "company_site";
   contactEmail?: string | null;
   contactEvidenceUrl?: string | null;
+  closesAt?: Date | null;
+  expiresAt?: Date | null;
+  closedReason?: string | null;
+  companyVacancyEvidence?: {
+    kind: "json_ld_job_posting" | "known_ats_posting" | "structured_job_card";
+    listingUrl?: string;
+    provider?: string;
+  };
 }
 
 export interface BoardAdapterSearchResult {
@@ -93,6 +102,7 @@ export const nhsEmployerBoardAdapter: BoardAdapter = {
         externalId: classifyVacancySource(vacancy.url).externalListingId,
         contactEmail: vacancy.contactEmail,
         contactEvidenceUrl: vacancy.contactEvidenceUrl,
+        closesAt: vacancy.closesAt,
       })),
     };
   },
@@ -123,6 +133,7 @@ export const reedHtmlBoardAdapter: BoardAdapter = {
         externalId: vacancy.externalListingId,
         contactEmail: vacancy.contactEmail,
         contactEvidenceUrl: vacancy.contactEvidenceUrl,
+        closesAt: vacancy.closesAt,
       })),
     };
   },
@@ -208,10 +219,13 @@ export function normaliseAndDedupeBoardAdverts(adverts: readonly BoardAdvert[]):
     const url = canonicalVacancyUrl(advert.url);
     const source = classifyVacancySource(url);
     const sourceType = advert.sourceType ?? source.sourceType;
+    if (sourceType === "company_site" && !advert.companyVacancyEvidence) continue;
     if (!url || !sourceType || !isValidVacancyUrlForSource(url, sourceType)) continue;
     const normalized = {
       ...advert,
       url,
+      closesAt: advert.closesAt ?? extractVacancyClosingDate(advert.description),
+      closedReason: advert.closedReason ?? (hasExplicitClosedPhrase(advert.description) ? "source page explicitly closed" : null),
       sourceType,
       boardName: sourceType === "company_site" ? null : source.boardName ?? advert.boardName,
       externalId: sourceType === "company_site" ? null : source.externalListingId ?? advert.externalId,
@@ -301,10 +315,10 @@ export async function persistScrapedAdvertContacts(
 export async function upsertSharedBoardVacancies(
   input: readonly BoardAdvert[],
   options: UpsertBoardVacanciesOptions = {},
-): Promise<{ inserted: number; revived: number }> {
+): Promise<{ inserted: number; updated: number; revived: number }> {
   const normalizedAdverts = normaliseAndDedupeBoardAdverts(input);
   const adverts = await enrichAdvertContacts(normalizedAdverts);
-  if (adverts.length === 0) return { inserted: 0, revived: 0 };
+  if (adverts.length === 0) return { inserted: 0, updated: 0, revived: 0 };
 
   const transactionResult = await db.transaction(async (tx) => {
   // Deterministically lock only the canonical URLs/fingerprints in this batch.
@@ -401,6 +415,7 @@ export async function upsertSharedBoardVacancies(
   }> = [];
   let inserted = 0;
   let revived = 0;
+  let updatedCount = 0;
 
   for (const advert of adverts) {
     const sourceType = advert.sourceType ?? "job_board";
@@ -433,7 +448,15 @@ export async function upsertSharedBoardVacancies(
           sourceType,
           boardName: sourceType === "company_site" ? null : advert.boardName,
           externalListingId: advert.externalId,
+           ...(advert.closesAt !== undefined ? { closesAt: advert.closesAt } : {}),
+           ...(advert.expiresAt !== undefined ? { expiresAt: advert.expiresAt } : {}),
+           ...(advert.closedReason !== undefined ? { closedReason: advert.closedReason } : {}),
+           ...(advert.companyVacancyEvidence !== undefined
+             ? { companyVacancyEvidence: advert.companyVacancyEvidence, companyEvidenceLegacyUntil: null }
+             : {}),
           lastDiscoveredAt: now,
+           sourceMissingSince: null,
+           sourceMissingObservations: 0,
           ...(options.verifiedLive
             ? { liveness: "live" as const, lastVerifiedAt: now, livenessReason: null }
             : {}),
@@ -445,6 +468,7 @@ export async function upsertSharedBoardVacancies(
           liveness: sponsorLicenceVacanciesTable.liveness,
         });
       if (options.verifiedLive && wasDead) revived += 1;
+      if (updated) updatedCount += 1;
       if (updated && updated.liveness === "unverified") {
         toVerify.push({ source: "sponsor_vacancy", sourceType, ...updated });
       }
@@ -473,10 +497,16 @@ export async function upsertSharedBoardVacancies(
         sourceType,
         boardName: sourceType === "company_site" ? null : advert.boardName,
         externalListingId: advert.externalId,
+         closesAt: advert.closesAt ?? null,
+         expiresAt: advert.expiresAt ?? null,
+         closedReason: advert.closedReason ?? null,
+         companyVacancyEvidence: advert.companyVacancyEvidence ?? null,
         liveness: options.verifiedLive ? "live" : "unverified",
         lastVerifiedAt: options.verifiedLive ? now : null,
         livenessReason: null,
         lastDiscoveredAt: now,
+         sourceMissingSince: null,
+         sourceMissingObservations: 0,
       }])
       .returning({
         id: sponsorLicenceVacanciesTable.id,
@@ -493,7 +523,7 @@ export async function upsertSharedBoardVacancies(
 
   await persistScrapedAdvertContacts(tx as ContactWriteExecutor, adverts);
 
-  return { inserted, revived, toVerify };
+  return { inserted, updated: updatedCount, revived, toVerify };
   });
   // Do not let a separate verifier race rows that are not committed yet.
   const companySiteItems = transactionResult.toVerify
@@ -504,5 +534,5 @@ export async function upsertSharedBoardVacancies(
     .map(({ source, id, url }) => ({ source, id, url }));
   queueCompanySiteVerificationBatch(companySiteItems);
   queueLinkVerificationBatch(boardItems);
-  return { inserted: transactionResult.inserted, revived: transactionResult.revived };
+  return { inserted: transactionResult.inserted, updated: transactionResult.updated, revived: transactionResult.revived };
 }

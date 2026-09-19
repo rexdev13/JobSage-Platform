@@ -163,6 +163,7 @@ async function runRefresh(profile: CandidateBoardProfile): Promise<CandidateBoar
       targetRegions: item.targetRegions,
       boardName: item.source.boardName ?? (sourceFamily === "nhs" ? "NHS Jobs" : "Reed"),
       externalId: item.source.externalListingId,
+       closesAt: item.vacancy.closesAt ?? null,
     })),
     { verifiedLive: true },
   );
