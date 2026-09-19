@@ -16,6 +16,7 @@ export const COMPANY_SITE_DISCOVERY_CONCURRENCY = 8;
 export const COMPANY_SITE_GENERIC_TTL_MS = 48 * 60 * 60 * 1000;
 export const COMPANY_SITE_ATS_TTL_MS = 24 * 60 * 60 * 1000;
 export const COMPANY_SITE_FAILED_RETRY_MS = 24 * 60 * 60 * 1000;
+export const COMPANY_SITE_PARTIAL_RETRY_MS = 15 * 60 * 1000;
 export const COMPANY_SITE_BOOKMARK_SHARE = 0.25;
 export const COMPANY_SITE_SECTOR_COUNT = 8;
 export const COMPANY_SITE_BATCH_WRITE_RESERVE_MS = 3_000;
@@ -320,6 +321,8 @@ export async function runCompanySiteCheck(
     ? result.retryAt && result.retryAt > failedRetryFloor
       ? result.retryAt
       : failedRetryFloor
+    : completion.startsWith("partial")
+      ? result.retryAt ?? new Date(now.getTime() + COMPANY_SITE_PARTIAL_RETRY_MS)
     : result.transientFailure
       ? result.retryAt ?? new Date(now.getTime() + 15 * 60 * 1000)
       : null;
