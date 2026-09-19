@@ -86,7 +86,10 @@ router.post("/internal/vacancy-jobs", async (req: Request, res: Response): Promi
       : undefined;
     const summary = await runVacancyJob(kind, limit, { deadlineMs });
     if (!summary) {
-      res.status(409).json({ error: "Another vacancy pipeline batch is already running." });
+      res
+        .status(409)
+        .set("Retry-After", "30")
+        .json({ error: "Another vacancy pipeline batch is already running." });
       return;
     }
     res.status(200).json(summary);
