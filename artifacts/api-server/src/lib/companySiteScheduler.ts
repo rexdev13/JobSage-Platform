@@ -13,6 +13,7 @@ import {
   classifyCompanySiteFailure,
   type CompanySiteFailureClass,
 } from "./companySiteHttp";
+import { withCompanySiteDatabaseRetry } from "./companySitePersistence";
 
 export const COMPANY_SITE_DISCOVERY_CRON = "17 * * * *";
 export const COMPANY_SITE_DISCOVERY_BATCH_SIZE = 10;
@@ -373,25 +374,26 @@ export async function runCompanySiteCheck(
           ? COMPANY_SITE_PERMANENT_RETRY_MS
           : COMPANY_SITE_FAILED_RETRY_MS),
     );
-    await db.insert(sponsorLicenceCompanySiteChecksTable)
-      .values({
-        organisationName: row.organisationName,
-        retryAfter,
-        lastAttemptedAt: now,
-        lastOutcome: "failed",
-        lastError: `[${failureClass}] ${errorMessage}`,
-        updatedAt: now,
-      })
-      .onConflictDoUpdate({
-        target: sponsorLicenceCompanySiteChecksTable.organisationName,
-        set: {
+    await withCompanySiteDatabaseRetry("store failed employer check", () =>
+      db.insert(sponsorLicenceCompanySiteChecksTable)
+        .values({
+          organisationName: row.organisationName,
           retryAfter,
           lastAttemptedAt: now,
           lastOutcome: "failed",
           lastError: `[${failureClass}] ${errorMessage}`,
           updatedAt: now,
-        },
-      });
+        })
+        .onConflictDoUpdate({
+          target: sponsorLicenceCompanySiteChecksTable.organisationName,
+          set: {
+            retryAfter,
+            lastAttemptedAt: now,
+            lastOutcome: "failed",
+            lastError: `[${failureClass}] ${errorMessage}`,
+            updatedAt: now,
+          },
+        }));
     return {
       status: "checked",
       adverts: 0,
@@ -455,11 +457,12 @@ export async function runCompanySiteCheck(
           : result.transientFailure
             ? result.retryAt ?? new Date(now.getTime() + COMPANY_SITE_PARTIAL_RETRY_MS)
             : null;
-  const [existing] = await db
-    .select()
-    .from(sponsorLicenceCompanySiteChecksTable)
-    .where(eq(sponsorLicenceCompanySiteChecksTable.organisationName, row.organisationName))
-    .limit(1);
+  const [existing] = await withCompanySiteDatabaseRetry("read employer check", () =>
+    db
+      .select()
+      .from(sponsorLicenceCompanySiteChecksTable)
+      .where(eq(sponsorLicenceCompanySiteChecksTable.organisationName, row.organisationName))
+      .limit(1));
 
   const values = {
     organisationName: row.organisationName,
@@ -486,13 +489,14 @@ export async function runCompanySiteCheck(
     lastRejectedCount: result.advertsRejected,
     updatedAt: now,
   };
-  await db
-    .insert(sponsorLicenceCompanySiteChecksTable)
-    .values(values)
-    .onConflictDoUpdate({
-      target: sponsorLicenceCompanySiteChecksTable.organisationName,
-      set: values,
-    });
+  await withCompanySiteDatabaseRetry("store employer check", () =>
+    db
+      .insert(sponsorLicenceCompanySiteChecksTable)
+      .values(values)
+      .onConflictDoUpdate({
+        target: sponsorLicenceCompanySiteChecksTable.organisationName,
+        set: values,
+      }));
 
   return {
     status: "checked",
