@@ -1,0 +1,61 @@
+Development first. Fix company-site persistence PROPERLY. Do not publish until I say.
+Do NOT raise company-site batch size above 10.
+Do NOT loosen evidence/liveness/contact/sponsor-match rules.
+Do NOT start new boards or change Reed/jobs.ac.uk/Teaching Vacancies behavior.
+
+============================================================
+PROBLEM
+============================================================
+Preview and production company-site batches often:
+- select 10 employers
+- report many errors (often 6–8+/10)
+- upsert 0 vacancies
+- fail while writing company_site_host_states and/or sponsor_licence_company_site_checks
+- may involve pool/connection termination ("terminating connection due to administrator command")
+- API may stay up after the pool listener fix, but persistence is still ineffective
+
+Root-cause properly. Do not paper over with swallowed errors that mark employers "checked" when state was not saved.
+
+============================================================
+REQUIRED WORK
+============================================================
+1. Reproduce in development with detailed logging of the EXACT Postgres/driver error on those upserts.
+2. Identify true root cause(s), e.g.:
+   - checked-out client connection killed mid-transaction
+   - pool size / idle timeout / max lifetime mismatch with managed Postgres
+   - transaction held too long across network I/O (crawl then write on same client)
+   - ON CONFLICT upsert shape / lock contention
+   - statement timeout
+   - connection used after error
+3. Implement a robust minimal fix, preferably:
+   - Do not hold an open DB transaction/client across external HTTP crawl I/O
+   - Acquire short DB sessions for state reads/writes only
+   - On connection/admin-termination errors: safely discard bad client, retry the state upsert a small bounded number of times (e.g. 1–2), then mark temporary failure if still failing
+   - Ensure pool clients always have error listeners; remove dead clients from pool
+   - Keep advisory writer lock behavior and 409 semantics unchanged
+4. Successful company-site runs must again persist:
+   - host state
+   - employer check state
+   - vacancy upserts when adverts are found
+5. Add regression tests for:
+   - connection-terminated during state upsert does not crash process
+   - bounded retry then clean temporary failure
+   - no "completed" timestamp advance if state write failed
+   - happy-path host + check upsert still works
+6. Run focused tests + full API suite + typecheck.
+7. Dev verification: run at least 5 company_site batches and report:
+   - completed / partial / failed / permanent / temporary
+   - upserts inserted/updated
+   - whether company_site_host_states and sponsor_licence_company_site_checks write errors still appear
+   - confirm no API crash
+
+============================================================
+SUCCESS CRITERIA
+============================================================
+- No process crash on pool/client termination
+- Majority of selected employers no longer fail purely due to DB state-write errors
+- Upserts > 0 when extractions occur
+- Average completed per batch materially better than ~0.3 in a healthy dev run
+- job_board / liveness / reed_professions / additional_boards unchanged and still green
+
+STOP with root cause, files changed, before/after batch metrics, and whether ready to publish.
