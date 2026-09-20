@@ -56,3 +56,4 @@
 - [Company-site coverage](company-site-coverage.md) — improve slow employer-site coverage with bounded throughput and better URL discovery, never looser relevance or safety filters.
 - [Vacancy visibility enforcement](vacancy-visibility-enforcement.md) — keep one status rule aligned across SQL aggregates, detail lists, click checks, and application creation.
 - [Vacancy sync-log contract](vacancy-sync-log-contract.md) — every external vacancy batch needs an explicit kind, liveness counters, and one serialized writer path.
+- [DWP Find a Job access](dwp-find-a-job-access.md) — official search pages currently error or time out from the development server; verify runtime access before integrating.

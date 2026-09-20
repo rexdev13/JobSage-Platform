@@ -106,13 +106,13 @@ const EDUCATION_TITLE_PATTERN =
 const ENGINEERING_TITLE_PATTERN =
   /\b(engineer|engineering|engineering\s+technician|technical\s*design|structural\s*design|civil\s*design|mechanical\s*design|electronic\s*design|construction\s*(project|manager|management))/i;
 const DENTAL_TITLE_PATTERN =
-  /\b(dentist|dentistry|dental\s*(surgeon|officer|therapist|hygienist|technician)|orthodont|periodont|endodont|prosthodont)/i;
+  /\b(dentist|dentistry|dental\s*(nurse|surgeon|officer|therapist|hygienist|technician)|orthodont|periodont|endodont|prosthodont)/i;
 const PHARMACY_TITLE_PATTERN =
   /\b(pharmacist|pharmacy|pharmaceutical|dispensary|medicines\s*management)/i;
 const SOCIAL_WORK_TITLE_PATTERN =
-  /\b(social\s*work(?:er)?|social\s*care\s*(practitioner|professional)|approved\s*mental\s*health\s*professional|\bamhp\b)/i;
+  /\b(social\s*work(?:er)?|social\s*care\s*(worker|practitioner|professional)|approved\s*mental\s*health\s*professional|\bamhp\b)/i;
 const ACCOUNTING_TITLE_PATTERN =
-  /\b(accountant|accounting|auditor|audit\s*manager|financial\s*controller|chartered\s*account)/i;
+  /\b(accountant|accounting|auditor|audit\s*(?:manager|officer)|finance\s*(?:officer|accountant)|accounts?\s*(?:payable|receivable)|financial\s*controller|chartered\s*account)/i;
 const IT_TITLE_PATTERN =
   /\b(software\s*(engineer|developer)|web\s*developer|application\s*developer|programmer|developer|devops|site\s*reliability|cyber\s*security|cybersecurity|information\s*technology|\bit\s+(support|engineer|manager|analyst|consultant)|network\s*(engineer|administrator|analyst)|cloud\s*(engineer|administrator|architect)|systems?\s*(engineer|administrator|analyst)|database\s*administrator|data\s*(analyst|engineer|scientist)|technical\s*support|help\s*desk|service\s*desk)/i;
 const LEGAL_TITLE_PATTERN =

@@ -267,10 +267,17 @@ describe("fetchSponsorVacanciesAsRoles alert options", () => {
   it.each([
     ["Consultant Dentist", "DENTAL"],
     ["Dental Nurses", "DENTAL"],
+    ["Dental Hygienist", "DENTAL"],
+    ["Dentist", "DENTAL"],
     ["Clinical Pharmacist", "PHARMACY"],
     ["Nurse Pharmacist Practitioner", "PHARMACY"],
     ["Senior Social Worker", "SOCIAL_WORK"],
+    ["Social Care Worker", "SOCIAL_WORK"],
+    ["Social Care Practitioner", "SOCIAL_WORK"],
     ["Management Accountant", "ACCOUNTING"],
+    ["Finance Officer", "ACCOUNTING"],
+    ["Audit Officer", "ACCOUNTING"],
+    ["Accounts Payable Officer", "ACCOUNTING"],
     ["Software Engineer", "IT"],
     ["Construction Engineer", "ENGINEERING"],
     ["Optometrist", "HCPC"],
@@ -299,6 +306,15 @@ describe("fetchSponsorVacanciesAsRoles alert options", () => {
     ["Database Administrator", "IT"],
   ])("classifies common job-board title %s as %s", (title, expected) => {
     expect(classifyVacancyCategory(title, null)).toBe(expected);
+  });
+
+  it.each([
+    ["Apprenticeship Development Manager"],
+    ["Admissions Officer (Maternity Cover)"],
+    ["Project Coordinator (Equality, Diversity and Inclusion)"],
+    ["Catering and Hospitality Assistant"],
+  ])("keeps observed unrelated board title %s unclassified", (title) => {
+    expect(classifyVacancyCategory(title, null)).toBeNull();
   });
 
   it.each([

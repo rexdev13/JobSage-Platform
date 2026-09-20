@@ -96,6 +96,7 @@ type PersistedVisibility = {
 type ReedProfessionBackfillDependencies = {
   perCategoryLimit?: number;
   totalPersistLimit?: number;
+  targets?: readonly ReedProfessionBackfillTarget[];
   loadSponsors?: () => Promise<string[]>;
   search?: (
     keywords: string,
@@ -292,7 +293,7 @@ async function executeBackfill(
   const categories: ReedProfessionBackfillCategoryMetrics[] = [];
   let remainingPersistBudget = totalPersistLimit;
 
-  for (const target of REED_PROFESSION_BACKFILL_TARGETS) {
+  for (const target of options.targets ?? REED_PROFESSION_BACKFILL_TARGETS) {
     const categoryMetrics: ReedProfessionBackfillCategoryMetrics = {
       profession: target.profession,
       category: target.category,
