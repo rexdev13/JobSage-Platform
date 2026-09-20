@@ -13,6 +13,15 @@ export function attachUnexpectedPoolErrorHandler(
     // construction for every API, worker, and bundled entry point.
     console.error("[database-pool] Idle client error:", error.message);
   });
+  target.on("connect", (client: Pick<pg.PoolClient, "on">) => {
+    // A checked-out client emits directly on itself when the database
+    // terminates its connection. Keep a listener attached for the lifetime of
+    // the client so that the rejected query can be handled without crashing
+    // the process through EventEmitter's unhandled-error behavior.
+    client.on("error", (error: Error) => {
+      console.error("[database-pool] Checked-out client error:", error.message);
+    });
+  });
 }
 
 if (!process.env.DATABASE_URL) {
