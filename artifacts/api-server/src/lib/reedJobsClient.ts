@@ -178,6 +178,7 @@ export async function searchReedJobsForCandidate(
   keywords: string,
   region: string | null,
   limit = 40,
+  deadlineMs?: number,
 ): Promise<ReedCandidateSearchResult> {
   const params = new URLSearchParams({ keywords });
   if (region) params.set("locationName", region);
@@ -187,11 +188,15 @@ export async function searchReedJobsForCandidate(
 
   for (let page = 1; page <= MAX_REED_CANDIDATE_PAGES && vacancies.length < limit; page++) {
     if (page > 1) await new Promise((resolve) => setTimeout(resolve, POLITE_REQUEST_DELAY_MS));
+    const remainingMs = deadlineMs == null ? REQUEST_TIMEOUT_MS : deadlineMs - Date.now();
+    if (remainingMs <= 0) {
+      return { vacancies, sourceUrl, requestSucceeded: false, transientFailure: true };
+    }
     const pageParams = new URLSearchParams(params);
     if (page > 1) pageParams.set("pageno", String(page));
     const pageUrl = `${REED_BASE_URL}/jobs?${pageParams.toString()}`;
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    const timeout = setTimeout(() => controller.abort(), Math.min(REQUEST_TIMEOUT_MS, remainingMs));
     try {
       const response = await fetch(pageUrl, {
         signal: controller.signal,

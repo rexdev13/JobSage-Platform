@@ -53,33 +53,38 @@ type SearchResult = {
 
 export type AdditionalBoardSourceId = "jobs_ac_uk" | "teaching_vacancies";
 
-type SourceDefinition = {
+export type AdditionalBoardSourceDefinition = {
   id: AdditionalBoardSourceId;
   boardName: "jobs.ac.uk" | "Teaching Vacancies";
   totalLimit: number;
   targets: readonly ReedProfessionBackfillTarget[];
-  search: (keywords: string, limit: number) => Promise<SearchResult>;
+  search: (keywords: string, limit: number, deadlineMs?: number) => Promise<SearchResult>;
 };
 
 const educationTarget = REED_PROFESSION_BACKFILL_TARGETS.filter(
   (target) => target.category === "EDUCATION",
 );
 
-const SOURCES: readonly SourceDefinition[] = [
+const SOURCES: readonly AdditionalBoardSourceDefinition[] = [
   {
     id: "jobs_ac_uk",
     boardName: "jobs.ac.uk",
     totalLimit: 300,
     targets: REED_PROFESSION_BACKFILL_TARGETS,
-    search: (keywords, limit) => searchJobsAcUk(keywords, limit) as Promise<JobsAcUkSearchResult>,
+    search: (keywords, limit, deadlineMs) =>
+      searchJobsAcUk(keywords, limit, deadlineMs) as Promise<JobsAcUkSearchResult>,
   },
   {
     id: "teaching_vacancies",
     boardName: "Teaching Vacancies",
     totalLimit: 40,
     targets: educationTarget,
-    search: (keywords, limit) =>
-      searchTeachingVacancies(keywords.replace(/\s+OR\s+/gi, " "), limit) as Promise<TeachingVacanciesSearchResult>,
+    search: (keywords, limit, deadlineMs) =>
+      searchTeachingVacancies(
+        keywords.replace(/\s+OR\s+/gi, " "),
+        limit,
+        deadlineMs,
+      ) as Promise<TeachingVacanciesSearchResult>,
   },
 ];
 
@@ -123,8 +128,41 @@ export type AdditionalBoardProfessionBackfillResult = {
   sources: AdditionalBoardSourceMetrics[];
 };
 
+export type AdditionalBoardBackfillPlanItem = {
+  source: AdditionalBoardSourceId;
+  target: ReedProfessionBackfillTarget;
+};
+
+export function getAdditionalBoardBackfillPlan(): readonly AdditionalBoardBackfillPlanItem[] {
+  return SOURCES.flatMap((source) =>
+    source.targets.map((target) => ({ source: source.id, target })),
+  );
+}
+
+export function getAdditionalBoardBackfillPage(
+  cursor: number,
+  categoryLimit: number,
+): {
+  total: number;
+  selected: number;
+  sources: readonly AdditionalBoardSourceDefinition[];
+} {
+  const plan = getAdditionalBoardBackfillPlan();
+  const selectedPlan = plan.slice(cursor, cursor + categoryLimit);
+  const sources: AdditionalBoardSourceDefinition[] = [];
+  for (const source of SOURCES) {
+      const targets = selectedPlan
+        .filter((item) => item.source === source.id)
+        .map((item) => item.target);
+      if (targets.length > 0) sources.push({ ...source, targets });
+  }
+  return { total: plan.length, selected: selectedPlan.length, sources };
+}
+
 type Dependencies = {
-  sources?: readonly SourceDefinition[];
+  sources?: readonly AdditionalBoardSourceDefinition[];
+  perCategoryLimit?: number;
+  deadlineMs?: number;
   loadSponsors?: () => Promise<string[]>;
   persist?: (adverts: readonly BoardAdvert[]) => Promise<{
     inserted: number;
@@ -263,7 +301,7 @@ async function recordSourceMetrics(
 }
 
 function emptyCategory(
-  source: SourceDefinition,
+  source: AdditionalBoardSourceDefinition,
   target: ReedProfessionBackfillTarget,
 ): AdditionalBoardCategoryMetrics {
   return {
@@ -294,12 +332,20 @@ async function execute(options: Dependencies): Promise<AdditionalBoardProfession
   const visibilityReader = options.readVisibility ?? readVisibility;
   const metricsWriter = options.recordSourceMetrics ?? recordSourceMetrics;
   const sourceResults: AdditionalBoardSourceMetrics[] = [];
+  const perCategoryLimit = Math.max(
+    1,
+    Math.min(
+      ADDITIONAL_BOARD_PER_PROFESSION_LIMIT,
+      Math.floor(options.perCategoryLimit ?? ADDITIONAL_BOARD_PER_PROFESSION_LIMIT),
+    ),
+  );
 
   for (const source of options.sources ?? SOURCES) {
     const sourceStartedAt = now();
     const categories: AdditionalBoardCategoryMetrics[] = [];
     let remaining = source.totalLimit;
     for (const target of source.targets) {
+      if (options.deadlineMs != null && Date.now() >= options.deadlineMs) break;
       const metrics = emptyCategory(source, target);
       if ((cooldownUntil.get(source.id) ?? 0) > now()) {
         metrics.skippedByCooldown = true;
@@ -309,7 +355,8 @@ async function execute(options: Dependencies): Promise<AdditionalBoardProfession
       try {
         const result = await source.search(
           target.keywords,
-          Math.min(ADDITIONAL_BOARD_PER_PROFESSION_LIMIT, remaining),
+          Math.min(perCategoryLimit, remaining),
+          options.deadlineMs,
         );
         metrics.discovered = result.vacancies.length;
         metrics.status = result.status;

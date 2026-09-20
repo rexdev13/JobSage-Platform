@@ -102,6 +102,7 @@ type ReedProfessionBackfillDependencies = {
     keywords: string,
     region: string | null,
     limit: number,
+    deadlineMs?: number,
   ) => Promise<ReedCandidateSearchResult>;
   persist?: (adverts: readonly BoardAdvert[]) => Promise<PersistResult>;
   readVisibility?: (
@@ -110,6 +111,7 @@ type ReedProfessionBackfillDependencies = {
   ) => Promise<PersistedVisibility>;
   recordMetrics?: (result: ReedProfessionBackfillResult, durationMs: number) => Promise<void>;
   now?: () => number;
+  deadlineMs?: number;
 };
 
 let inFlight: Promise<ReedProfessionBackfillResult> | null = null;
@@ -294,6 +296,7 @@ async function executeBackfill(
   let remainingPersistBudget = totalPersistLimit;
 
   for (const target of options.targets ?? REED_PROFESSION_BACKFILL_TARGETS) {
+    if (options.deadlineMs != null && Date.now() >= options.deadlineMs) break;
     const categoryMetrics: ReedProfessionBackfillCategoryMetrics = {
       profession: target.profession,
       category: target.category,
@@ -312,7 +315,12 @@ async function executeBackfill(
     };
 
     try {
-      const searchResult = await search(target.keywords, null, perCategoryLimit);
+      const searchResult = await search(
+        target.keywords,
+        null,
+        perCategoryLimit,
+        options.deadlineMs,
+      );
       categoryMetrics.discovered = searchResult.vacancies.length;
       if (!searchResult.requestSucceeded) {
         categoryMetrics.failed = true;

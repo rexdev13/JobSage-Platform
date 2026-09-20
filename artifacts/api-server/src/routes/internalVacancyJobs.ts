@@ -1,6 +1,9 @@
 import { Router, type Request, type Response } from "express";
 import {
   LIVENESS_HTTP_BUDGET_MS,
+  PROFESSION_BACKFILL_HTTP_BUDGET_MS,
+  PROFESSION_BACKFILL_HTTP_CATEGORY_LIMIT,
+  PROFESSION_BACKFILL_HTTP_MAX_CATEGORY_LIMIT,
   runVacancyJob,
   type VacancyJobKind,
 } from "../lib/vacancyJobRunner";
@@ -28,6 +31,8 @@ function getHttpDefaultLimits(): Record<VacancyJobKind, number> {
     company_site: getCompanySiteHttpBatchSize(),
     liveness: 40,
     contact: 5,
+    reed_professions: PROFESSION_BACKFILL_HTTP_CATEGORY_LIMIT,
+    additional_boards: PROFESSION_BACKFILL_HTTP_CATEGORY_LIMIT,
   };
 }
 
@@ -37,6 +42,8 @@ function getHttpMaxLimits(): Record<VacancyJobKind, number> {
     company_site: getCompanySiteHttpBatchSize(),
     liveness: 50,
     contact: 5,
+    reed_professions: PROFESSION_BACKFILL_HTTP_MAX_CATEGORY_LIMIT,
+    additional_boards: PROFESSION_BACKFILL_HTTP_MAX_CATEGORY_LIMIT,
   };
 }
 
@@ -60,9 +67,13 @@ router.post("/internal/vacancy-jobs", async (req: Request, res: Response): Promi
     requestedKind !== "job_board" &&
     requestedKind !== "company_site" &&
     requestedKind !== "liveness" &&
-    requestedKind !== "contact"
+    requestedKind !== "contact" &&
+    requestedKind !== "reed_professions" &&
+    requestedKind !== "additional_boards"
   ) {
-    res.status(400).json({ error: "kind must be job_board, company_site, liveness, or contact." });
+    res.status(400).json({
+      error: "kind must be job_board, company_site, liveness, contact, reed_professions, or additional_boards.",
+    });
     return;
   }
   const kind: VacancyJobKind = requestedKind;
@@ -80,11 +91,35 @@ router.post("/internal/vacancy-jobs", async (req: Request, res: Response): Promi
     getHttpMaxLimits()[kind],
   );
 
+  const isProfessionBackfill =
+    kind === "reed_professions" || kind === "additional_boards";
+  const requestedCursor = req.body?.cursor;
+  if (
+    isProfessionBackfill &&
+    requestedCursor != null &&
+    (!Number.isInteger(requestedCursor) || requestedCursor < 0)
+  ) {
+    res.status(400).json({ error: "cursor must be a non-negative integer." });
+    return;
+  }
+  if (!isProfessionBackfill && requestedCursor != null) {
+    res.status(400).json({ error: "cursor is only supported for profession backfills." });
+    return;
+  }
+
   try {
     const deadlineMs = kind === "liveness"
       ? Date.now() + LIVENESS_HTTP_BUDGET_MS
-      : undefined;
-    const summary = await runVacancyJob(kind, limit, { deadlineMs });
+      : isProfessionBackfill
+        ? Date.now() + PROFESSION_BACKFILL_HTTP_BUDGET_MS
+        : undefined;
+    const summary = isProfessionBackfill
+      ? await runVacancyJob(kind, limit, {
+        deadlineMs,
+        cursor: requestedCursor ?? 0,
+        categoryLimit: limit,
+      })
+      : await runVacancyJob(kind, limit, { deadlineMs });
     if (!summary) {
       res
         .status(409)
