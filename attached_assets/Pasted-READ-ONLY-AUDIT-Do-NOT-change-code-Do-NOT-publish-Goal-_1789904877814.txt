@@ -1,0 +1,46 @@
+READ-ONLY AUDIT. Do NOT change code. Do NOT publish.
+
+Goal: understand how to make EVERY JobSAGE onboarding profession as well populated as healthcare (Nurses/Doctors via NHS), without rewriting the crawler.
+
+============================================================
+1) Profession catalogue
+============================================================
+List every profession/regulator/category candidates can select in onboarding/UI (all of them).
+For each: regulator/category key used in code, and how Opportunities filters vacancies for that profession today (file paths).
+
+============================================================
+2) Current population by profession (PRODUCTION)
+============================================================
+For each profession above, report:
+- Visible job-board vacancies
+- Visible company-site vacancies
+- Main sources (NHS / Reed / company-site / other)
+- Demo-ready? (strong / usable / thin / empty)
+
+Also: how many visible vacancies fall into other/unclassified.
+
+============================================================
+3) Why healthcare works and others don’t
+============================================================
+Explain concretely:
+- What source(s) feed healthcare volume
+- What is missing for Education, Engineering, IT, Accounting, Legal, Pharmacy, Architecture, Social work, Dental, Hospitality, etc.
+- Is the gap mostly: no board source, Reed broken/thin, bad classification, company-site not checking relevant employers, evidence gate, or profession filter too strict?
+
+============================================================
+4) Smallest path to “every profession populated well”
+============================================================
+Propose a ranked plan (max 8 steps) that mirrors the healthcare success pattern:
+- Preferred board/feed per profession (or shared boards)
+- Classification fixes
+- Company-site selection bias / evidence-gap reserves per profession family (not only healthcare)
+- What NOT to do (no unlimited crawl, no loosening safety)
+
+For each step: expected impact, effort (S/M/L), needs publish? Y/N
+
+============================================================
+5) DO THIS NEXT
+============================================================
+One single next implementation prompt I should run in development (no publish), optimized for fastest multi-profession demo improvement after healthcare.
+
+STOP. Read-only. Tables + blunt verdicts.

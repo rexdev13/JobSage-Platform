@@ -1,0 +1,112 @@
+Implemented in development only. No publish performed.
+
+## Why Reed coverage was tiny
+
+Production currently has:
+
+| Board | Live | Dead | Total |
+|---|---:|---:|---:|
+| NHS Jobs | 2,494 | 265 | 2,767 |
+| Reed | 7 | 1 | 8 |
+
+The main Reed failure was parser drift:
+
+- Reed still returns `data-qa="job-card"` and `data-qa="job-card-title"`.
+- The parser required `data-qa="company-name-link"`.
+- Current Reed cards now put the employer in the recruiter link inside `data-qa="job-posted-by"`.
+- As a result, current cards were discarded before the existing strict employer-name match could run.
+
+This explains why Reed has only a handful of stored rows. Liveness is not the primary blocker: 7 of the 8 production Reed rows are already live.
+
+The approximately five visible Reed vacancies are also explained by classification:
+
+- 2 live NMC
+- 2 live HCPC
+- 1 live GMC
+- 2 live but unclassified, so excluded from candidate-facing category results
+
+Production logs also show Reed rate-limit/backoff events. Those remain protected by the existing cooldown logic and were not weakened.
+
+## Minimal fix
+
+Added a fallback employer extractor that:
+
+1. Uses the existing `company-name-link` marker when available.
+2. Falls back to the recruiter link inside `job-posted-by` for current Reed markup.
+3. Keeps the existing strict employer-name matching.
+4. Keeps deep-link validation and all evidence/liveness behavior unchanged.
+
+No crawl limits were changed.
+
+## Development live-search validation
+
+After the fix, real Reed searches returned:
+
+| Sponsor search | Parsed Reed adverts |
+|---|---:|
+| HCRG Care Services Limited | 8 |
+| Hertfordshire Partnership University NHS Foundation Trust | 8 |
+| Tees, Esk & Wear Valleys NHS Trust | 2 |
+| **Total** | **18** |
+
+Before this parser fix, those current Reed cards would have been dropped because the employer marker was missing.
+
+Of the 18 sampled adverts, 7 correspond to existing production live Reed rows. The sample therefore indicates up to **11 additional stored vacancies** from these three employer cycles, subject to normal deduplication, link verification, liveness, category matching, and visibility freshness.
+
+Of those potential new rows, approximately **7 are clearly profession-classifiable** in the sample. They could become visible after the next board check and verification cycle:
+
+- HCPC: occupational therapy, speech and language therapy, clinical psychology
+- NMC: health visitor
+- Education: trainee education mental-health practitioner
+
+This is an expected sample impact, not a guaranteed production total. Full impact depends on how many sponsor employers are checked after publish and whether Reed continues accepting requests without entering cooldown.
+
+## Other development job-board professions
+
+Interpreting “other professions” as the other profession categories represented in development job-board vacancies:
+
+| Category | All rows | Live rows |
+|---|---:|---:|
+| NMC | 650 | 345 |
+| GMC | 546 | 368 |
+| HCPC | 312 | 194 |
+| Pharmacy | 141 | 75 |
+| Dental | 23 | 10 |
+| Engineering | 17 | 10 |
+| Education | 16 | 9 |
+| IT | 12 | 4 |
+| Accounting | 7 | 5 |
+| Social work | 2 | 0 |
+| Architecture | 2 | 0 |
+| Legal | 1 | 0 |
+| Unclassified | 1,257 | 661 |
+
+Development Reed rows specifically currently classify as:
+
+| Reed category | All rows |
+|---|---:|
+| GMC | 2 |
+| NMC | 2 |
+| Pharmacy | 1 |
+| Education | 1 |
+| Unclassified | 2 |
+| **Total** | **8** |
+
+## Files changed
+
+- `artifacts/api-server/src/lib/reedJobsClient.ts`
+- `artifacts/api-server/src/__tests__/lib/reedJobsClient.test.ts`
+- `.agents/memory/MEMORY.md`
+- `.agents/memory/reed-html-employer-markup.md`
+
+## Verification
+
+Passed:
+
+- Reed-focused tests: **21 passed**
+- Full API suite: **72 test files, 684 tests passed**
+- API typecheck
+- Changed-file diff check
+- API workflow restarted successfully and is listening on port 8080
+
+No evidence gates, liveness rules, batch limits, or crawler behavior were loosened.
