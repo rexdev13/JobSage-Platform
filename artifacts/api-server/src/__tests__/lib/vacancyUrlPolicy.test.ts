@@ -47,6 +47,21 @@ describe("job-board vacancy URL policy", () => {
     expect(isValidJobBoardVacancyDeepLink("https://uk.indeed.com/viewjob?jk=abc123")).toBe(true);
   });
 
+  it("allows only exact jobs.ac.uk and Teaching Vacancies adverts", () => {
+    expect(isValidJobBoardVacancyDeepLink(
+      "https://www.jobs.ac.uk/job/DSK409/lecturer-in-law",
+    )).toBe(true);
+    expect(isValidJobBoardVacancyDeepLink(
+      "https://www.jobs.ac.uk/search/?keywords=law",
+    )).toBe(false);
+    expect(isValidJobBoardVacancyDeepLink(
+      "https://teaching-vacancies.service.gov.uk/jobs/teacher-of-law-example-school",
+    )).toBe(true);
+    expect(isValidJobBoardVacancyDeepLink(
+      "https://teaching-vacancies.service.gov.uk/jobs?query=teacher",
+    )).toBe(false);
+  });
+
   it("classifies exact NHS-family adverts as job-board links", () => {
     expect(isValidJobBoardVacancyDeepLink("https://www.jobs.nhs.uk/candidate/jobadvert/C0001-260001")).toBe(true);
     expect(isValidJobBoardVacancyDeepLink("https://www.trac.jobs/job-advert/1234567")).toBe(true);

@@ -84,6 +84,18 @@ function boardMetadata(url: URL): Omit<VacancySourceMetadata, "sourceType"> | nu
       externalListingId: path.match(/\/job\/[^/]+\/([^/?#]+)/i)?.[1] ?? null,
     };
   }
+  if (hostMatches(host, "jobs.ac.uk")) {
+    return {
+      boardName: "jobs.ac.uk",
+      externalListingId: path.match(/\/job\/([a-z0-9]+)/i)?.[1] ?? null,
+    };
+  }
+  if (hostMatches(host, "teaching-vacancies.service.gov.uk")) {
+    return {
+      boardName: "Teaching Vacancies",
+      externalListingId: path.match(/\/jobs\/([^/?#]+)/i)?.[1] ?? null,
+    };
+  }
   return null;
 }
 
