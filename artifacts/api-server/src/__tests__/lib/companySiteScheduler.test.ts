@@ -408,4 +408,61 @@ describe("company-site scheduler", () => {
     }));
     expect(discoverCompanySiteVacanciesMock).not.toHaveBeenCalled();
   });
+
+  it("contains a terminated employer-state connection after one bounded retry", async () => {
+    const driverError = Object.assign(
+      new Error("terminating connection due to administrator command"),
+      { code: "57P01" },
+    );
+    const wrappedError = Object.assign(new Error("Failed query"), { cause: driverError });
+    executeMock
+      .mockResolvedValueOnce({
+        rows: [{
+          id: 1,
+          organisation_name: "Connection Test Employer",
+          website: "https://connection-test.example",
+          generic_checked_at: null,
+          ats_checked_at: null,
+          careers_url: null,
+          ats_provider: null,
+          bookmarked: false,
+          healthcare_evidence_backfill: false,
+        }],
+      })
+      .mockResolvedValue({ rows: [] });
+    discoverCompanySiteVacanciesMock.mockResolvedValue({
+      adverts: [],
+      pagesFetched: 1,
+      genericCompleted: true,
+      atsCompleted: false,
+      transientFailure: false,
+      completion: "complete",
+      advertsExtracted: 0,
+      advertsRejected: 0,
+      observedAdvertUrls: [],
+    });
+    const write = vi.fn().mockRejectedValue(wrappedError);
+    insertMock.mockReturnValue({
+      values: () => ({
+        onConflictDoUpdate: write,
+      }),
+    });
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    const summary = await runCompanySiteDiscoveryBatch({ batchSize: 1 });
+
+    expect(write).toHaveBeenCalledTimes(2);
+    expect(summary).toEqual(expect.objectContaining({
+      selected: 1,
+      checked: 0,
+      completed: 0,
+      failed: 0,
+      errors: 1,
+      temporaryFailures: 1,
+    }));
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining("code=57P01"));
+    errorSpy.mockRestore();
+    logSpy.mockRestore();
+  });
 });

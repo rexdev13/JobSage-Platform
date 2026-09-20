@@ -4,7 +4,10 @@ import http, { type IncomingHttpHeaders, type RequestOptions } from "node:http";
 import https from "node:https";
 import net from "node:net";
 import { lookup as dnsLookup } from "node:dns/promises";
+import { brotliDecompress, gunzip, inflate } from "node:zlib";
+import { promisify } from "node:util";
 import { isPrivateIp } from "./linkHealth";
+import { withCompanySiteDatabaseRetry } from "./companySitePersistence";
 
 export const COMPANY_SITE_PAGE_TIMEOUT_MS = 9_000;
 export const COMPANY_SITE_EMPLOYER_BUDGET_MS = 25_000;
@@ -17,6 +20,9 @@ const MAX_REDIRECTS = 3;
 const MAX_PAGE_BYTES = 1_000_000;
 const MAX_ROBOTS_BYTES = 128_000;
 const USER_AGENT = "JOBSAGE vacancy discovery/1.0 (+https://jobsage.co.uk)";
+const gunzipAsync = promisify(gunzip);
+const inflateAsync = promisify(inflate);
+const brotliDecompressAsync = promisify(brotliDecompress);
 
 const ATS_HOSTS: Array<{ provider: string; suffix: string }> = [
   { provider: "Greenhouse", suffix: "greenhouse.io" },
@@ -73,6 +79,34 @@ type PinnedResponse = {
   headers: IncomingHttpHeaders;
   body: string;
 };
+
+export async function decodeCompanySiteResponseBody(
+  body: Buffer,
+  contentEncoding: string | string[] | undefined,
+  maxBytes: number,
+): Promise<string> {
+  const encodings = (Array.isArray(contentEncoding) ? contentEncoding.join(",") : contentEncoding ?? "")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter((value) => value && value !== "identity");
+  let decoded = body;
+  const options = { maxOutputLength: maxBytes };
+  for (const encoding of encodings.reverse()) {
+    if (encoding === "gzip" || encoding === "x-gzip") {
+      decoded = await gunzipAsync(decoded, options);
+    } else if (encoding === "deflate") {
+      decoded = await inflateAsync(decoded, options);
+    } else if (encoding === "br") {
+      decoded = await brotliDecompressAsync(decoded, options);
+    } else {
+      throw new Error(`unsupported content encoding: ${encoding}`);
+    }
+  }
+  return decoded
+    .subarray(0, maxBytes)
+    .toString("utf8")
+    .replace(/\u0000/g, "\uFFFD");
+}
 
 export function classifyCompanySiteFailure(input: {
   kind: CompanySiteFetchFailure;
@@ -213,11 +247,36 @@ export async function requestPinned(
           "User-Agent": USER_AGENT,
           Accept: "text/html,application/xhtml+xml,text/plain;q=0.8,*/*;q=0.5",
           "Accept-Language": "en-GB,en;q=0.9",
+          "Accept-Encoding": "gzip, deflate, br",
         },
       },
       (response) => {
         const chunks: Buffer[] = [];
         let bytes = 0;
+        let finishing = false;
+        const compressed = Boolean(
+          response.headers["content-encoding"] &&
+          response.headers["content-encoding"] !== "identity",
+        );
+        const finish = () => {
+          if (finishing || settled) return;
+          finishing = true;
+          if (compressed && bytes >= maxBytes) {
+            rejectOnce(new Error(`compressed response exceeded ${maxBytes} bytes`));
+            return;
+          }
+          void decodeCompanySiteResponseBody(
+            Buffer.concat(chunks),
+            response.headers["content-encoding"],
+            maxBytes,
+          ).then((body) => {
+            resolveOnce({
+              status: response.statusCode ?? 0,
+              headers: response.headers,
+              body,
+            });
+          }, rejectOnce);
+        };
         response.on("data", (value: Buffer | string) => {
           if (bytes >= maxBytes) return;
           const chunk = Buffer.isBuffer(value) ? value : Buffer.from(value);
@@ -226,23 +285,16 @@ export async function requestPinned(
           bytes += Math.min(chunk.byteLength, remaining);
           if (bytes >= maxBytes) response.destroy();
         });
-        response.on("end", () => {
-          resolveOnce({
-            status: response.statusCode ?? 0,
-            headers: response.headers,
-            body: Buffer.concat(chunks).toString("utf8"),
-          });
-        });
+        response.on("end", finish);
         response.on("error", (error) => {
           if (bytes >= maxBytes) {
-            resolveOnce({
-              status: response.statusCode ?? 0,
-              headers: response.headers,
-              body: Buffer.concat(chunks).toString("utf8"),
-            });
+            finish();
           } else {
             rejectOnce(error);
           }
+        });
+        response.on("close", () => {
+          if (bytes >= maxBytes) finish();
         });
       },
     );
@@ -322,7 +374,8 @@ export async function reserveHost(hostname: string, deadlineMs: number): Promise
   const now = new Date();
   const leaseUntil = new Date(now.getTime() + HOST_LEASE_MS);
   const leaseToken = crypto.randomUUID();
-  const result = await db.execute<{ hostname: string }>(sql`
+  const result = await withCompanySiteDatabaseRetry("reserve host", () =>
+    db.execute<{ hostname: string }>(sql`
     INSERT INTO company_site_host_states (
       hostname, request_lease_until, request_lease_token, created_at, updated_at
     )
@@ -345,18 +398,19 @@ export async function reserveHost(hostname: string, deadlineMs: number): Promise
         OR company_site_host_states.last_request_at <= ${new Date(now.getTime() - COMPANY_SITE_HOST_DELAY_MS)}
       )
     RETURNING hostname
-  `);
+  `));
   if (result.rows.length > 0) return { allowed: true, leaseToken };
 
-  const [state] = await db
-    .select({
-      retryAfter: companySiteHostStatesTable.retryAfter,
-      requestLeaseUntil: companySiteHostStatesTable.requestLeaseUntil,
-      lastRequestAt: companySiteHostStatesTable.lastRequestAt,
-    })
-    .from(companySiteHostStatesTable)
-    .where(eq(companySiteHostStatesTable.hostname, host))
-    .limit(1);
+  const [state] = await withCompanySiteDatabaseRetry("read host reservation", () =>
+    db
+      .select({
+        retryAfter: companySiteHostStatesTable.retryAfter,
+        requestLeaseUntil: companySiteHostStatesTable.requestLeaseUntil,
+        lastRequestAt: companySiteHostStatesTable.lastRequestAt,
+      })
+      .from(companySiteHostStatesTable)
+      .where(eq(companySiteHostStatesTable.hostname, host))
+      .limit(1));
   const retryAt = state?.retryAfter ?? state?.requestLeaseUntil ?? undefined;
   const paceUntil = state?.lastRequestAt
     ? state.lastRequestAt.getTime() + COMPANY_SITE_HOST_DELAY_MS
@@ -370,7 +424,7 @@ export async function reserveHost(hostname: string, deadlineMs: number): Promise
 }
 
 export async function completeHost(hostname: string, leaseToken: string): Promise<void> {
-  await db
+  await withCompanySiteDatabaseRetry("complete host", () => db
     .update(companySiteHostStatesTable)
     .set({
       requestLeaseUntil: null,
@@ -383,11 +437,11 @@ export async function completeHost(hostname: string, leaseToken: string): Promis
     .where(
       sql`${companySiteHostStatesTable.hostname} = ${normaliseHostname(hostname)}
         AND ${companySiteHostStatesTable.requestLeaseToken} = ${leaseToken}`,
-    );
+    ));
 }
 
 export async function releaseHost(hostname: string, leaseToken: string): Promise<void> {
-  await db
+  await withCompanySiteDatabaseRetry("release host", () => db
     .update(companySiteHostStatesTable)
     .set({
       requestLeaseUntil: null,
@@ -398,7 +452,7 @@ export async function releaseHost(hostname: string, leaseToken: string): Promise
     .where(
       sql`${companySiteHostStatesTable.hostname} = ${normaliseHostname(hostname)}
         AND ${companySiteHostStatesTable.requestLeaseToken} = ${leaseToken}`,
-    )
+    ))
     .catch(() => {});
 }
 
@@ -408,7 +462,8 @@ export async function failHost(
   explicitRetryAt: Date | null,
 ): Promise<Date | null> {
   const host = normaliseHostname(hostname);
-  const result = await db.execute<{ retry_after: Date | string | null }>(sql`
+  const result = await withCompanySiteDatabaseRetry("fail host", () =>
+    db.execute<{ retry_after: Date | string | null }>(sql`
     UPDATE company_site_host_states
     SET request_lease_until = NULL,
         request_lease_token = NULL,
@@ -427,7 +482,7 @@ export async function failHost(
     WHERE hostname = ${host}
       AND request_lease_token = ${leaseToken}
     RETURNING retry_after
-  `);
+  `));
   const retryAfter = result.rows[0]?.retry_after;
   return retryAfter ? new Date(retryAfter) : null;
 }
@@ -651,14 +706,15 @@ export function robotsAllows(body: string | null, path: string): boolean {
 async function robotsPolicy(targetUrl: string, originHostname: string, deadlineMs: number): Promise<RobotsPolicy> {
   const target = new URL(targetUrl);
   const host = normaliseHostname(target.hostname);
-  const [cached] = await db
-    .select({
-      body: companySiteHostStatesTable.robotsBody,
-      checkedAt: companySiteHostStatesTable.robotsCheckedAt,
-    })
-    .from(companySiteHostStatesTable)
-    .where(eq(companySiteHostStatesTable.hostname, host))
-    .limit(1);
+  const [cached] = await withCompanySiteDatabaseRetry("read robots policy", () =>
+    db
+      .select({
+        body: companySiteHostStatesTable.robotsBody,
+        checkedAt: companySiteHostStatesTable.robotsCheckedAt,
+      })
+      .from(companySiteHostStatesTable)
+      .where(eq(companySiteHostStatesTable.hostname, host))
+      .limit(1));
   if (
     cached?.checkedAt &&
     cached.checkedAt.getTime() >= Date.now() - COMPANY_SITE_ROBOTS_TTL_MS
@@ -675,13 +731,13 @@ async function robotsPolicy(targetUrl: string, originHostname: string, deadlineM
   const result = await fetchWithoutRobots(robotsUrl, originHostname, deadlineMs, MAX_ROBOTS_BYTES);
   if (!result.ok) {
     if (result.status === 404 || result.status === 410) {
-      await db
+      await withCompanySiteDatabaseRetry("store empty robots policy", () => db
         .insert(companySiteHostStatesTable)
         .values({ hostname: host, robotsBody: "", robotsCheckedAt: new Date(), updatedAt: new Date() })
         .onConflictDoUpdate({
           target: companySiteHostStatesTable.hostname,
           set: { robotsBody: "", robotsCheckedAt: new Date(), updatedAt: new Date() },
-        });
+        }));
       return { allowed: true, body: "" };
     }
     return {
@@ -693,13 +749,13 @@ async function robotsPolicy(targetUrl: string, originHostname: string, deadlineM
     };
   }
   const body = result.body;
-  await db
+  await withCompanySiteDatabaseRetry("store robots policy", () => db
     .insert(companySiteHostStatesTable)
     .values({ hostname: host, robotsBody: body, robotsCheckedAt: new Date(), updatedAt: new Date() })
     .onConflictDoUpdate({
       target: companySiteHostStatesTable.hostname,
       set: { robotsBody: body, robotsCheckedAt: new Date(), updatedAt: new Date() },
-    });
+    }));
   const allowed = robotsAllows(body, `${target.pathname}${target.search}`);
   return {
     allowed,

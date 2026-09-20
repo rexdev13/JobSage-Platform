@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import http from "node:http";
 import { EventEmitter } from "node:events";
+import { brotliCompressSync, gzipSync } from "node:zlib";
 
 vi.mock("@workspace/db", () => ({
   db: {},
@@ -9,11 +10,41 @@ vi.mock("@workspace/db", () => ({
 
 const {
   createPinnedLookup,
+  decodeCompanySiteResponseBody,
   knownAtsProvider,
   requestPinned,
   resolveAndPinPublicAddress,
   robotsAllows,
 } = await import("../../lib/companySiteHttp");
+
+describe("company-site response decoding", () => {
+  it("decompresses gzip before the body can be persisted as PostgreSQL text", async () => {
+    const robots = "User-agent: *\nDisallow: /private\n";
+    const decoded = await decodeCompanySiteResponseBody(
+      gzipSync(Buffer.from(robots)),
+      "gzip",
+      128_000,
+    );
+
+    expect(decoded).toBe(robots);
+    expect(decoded).not.toContain("\u0000");
+  });
+
+  it("normalizes NUL characters from malformed plain-text responses", async () => {
+    await expect(
+      decodeCompanySiteResponseBody(Buffer.from("allow\u0000disallow"), undefined, 128_000),
+    ).resolves.toBe("allow\uFFFDdisallow");
+  });
+
+  it("decodes stacked content encodings in reverse application order", async () => {
+    const robots = Buffer.from("User-agent: *\nAllow: /\n");
+    const gzipThenBrotli = brotliCompressSync(gzipSync(robots));
+
+    await expect(
+      decodeCompanySiteResponseBody(gzipThenBrotli, "gzip, br", 128_000),
+    ).resolves.toBe(robots.toString("utf8"));
+  });
+});
 
 describe("company-site robots policy", () => {
   it("selects the most specific user-agent group", () => {
