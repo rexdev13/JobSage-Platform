@@ -284,6 +284,24 @@ describe("fetchSponsorVacanciesAsRoles alert options", () => {
   });
 
   it.each([
+    ["Medical Director", "GMC"],
+    ["Foundation Doctor FY1", "GMC"],
+    ["Specialty Registrar in Cardiology", "GMC"],
+    ["Physio - Musculoskeletal Outpatients", "HCPC"],
+    ["Speech and Language Therapist (SLT)", "HCPC"],
+    ["Trainee Education Mental Health Practitioner", "EDUCATION"],
+    ["Early Years Practitioner", "EDUCATION"],
+    ["Teaching Assistant", "EDUCATION"],
+    ["Engineering Technician", "ENGINEERING"],
+    ["Network Engineer", "IT"],
+    ["Cloud Engineer", "IT"],
+    ["Data Analyst", "IT"],
+    ["Database Administrator", "IT"],
+  ])("classifies common job-board title %s as %s", (title, expected) => {
+    expect(classifyVacancyCategory(title, null)).toBe(expected);
+  });
+
+  it.each([
     ["Apply to the Prep School Nursery"],
     ["Nursing Assistant Job In UK. CoS Available"],
     ["Healthcare Support Worker"],

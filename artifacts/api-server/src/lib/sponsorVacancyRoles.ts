@@ -94,17 +94,17 @@ const NON_VACANCY_CONTENT_TITLE_PATTERN =
   /(?:^careers?\b.*\b(?:why|story|guide)\b|\bwhy\s+i\s+chose\s+a\s+job\b|\bemployee\s+stor(?:y|ies)\b)/i;
 
 const HCPC_TITLE_PATTERN =
-  /\b(physiotherap|occupational\s*therap|radiograph|paramedic|optometr|dietitian|dietician|podiatr|chiropod|speech\s*(and|&)\s*language|speech\s*therap|biomedical\s*scientist|clinical\s*scientist|orthoptist|prosthetist|orthotist|operating\s*department\s*practitioner|\bodp\b|art\s*therap|drama\s*therap|music\s*therap|hearing\s*aid\s*dispenser|practitioner\s*psycholog|clinical\s*psycholog)/i;
+  /\b(physiotherap|physio\b|occupational\s*therap|radiograph|paramedic|optometr|dietitian|dietician|podiatr|chiropod|speech\s*(and|&)\s*language|speech\s*therap|\bslt\b|biomedical\s*scientist|clinical\s*scientist|orthoptist|prosthetist|orthotist|operating\s*department\s*practitioner|\bodp\b|art\s*therap|drama\s*therap|music\s*therap|hearing\s*aid\s*dispenser|practitioner\s*psycholog|clinical\s*psycholog|sonograph)/i;
 
 // NOTE: deliberately does NOT match a bare "consultant" — the sponsor register
 // spans every industry, so "Environmental Consultant" etc. must not classify
 // as GMC. Medical consultant titles always carry a specialty word that matches.
 const GMC_TITLE_PATTERN =
-  /\b(doctor|physician|surgeon|surgical|registrar\b|general\s*practitioner|gp\b|medical\s*officer|psychiatr|anaesthet|radiolog|cardiolog|paediatric|oncolog|dermatolog|neurolog|patholog|geriatric\s*medicine|urolog|gynaecolog|obstetric|ophthalmolog|clinical\s*(academic|fellow|research)|house\s*officer|sho\b|specialty\s*doctor|junior\s*doctor|emergency\s*medicine|intensivist|haematolog|rheumatolog|endocrinolog|gastroenterolog|nephrolog|histopatholog|microbiolog)/i;
+  /\b(doctor|physician|surgeon|surgical|registrar\b|general\s*practitioner|gp\b|medical\s*(director|officer|practitioner)|foundation\s+doctor|core\s+trainee|specialty\s+registrar|fy[12]\b|st[1-8]\b|psychiatr|anaesthet|radiolog|cardiolog|paediatric|oncolog|dermatolog|neurolog|patholog|geriatric\s*medicine|urolog|gynaecolog|obstetric|ophthalmolog|clinical\s*(academic|fellow|research)|house\s*officer|sho\b|specialty\s*doctor|junior\s*doctor|emergency\s*medicine|intensivist|haematolog|rheumatolog|endocrinolog|gastroenterolog|nephrolog|histopatholog|microbiolog)/i;
 const EDUCATION_TITLE_PATTERN =
-  /\b(teacher|teaching|lecturer|professor|academic|school\s*leader|headteacher|head\s*teacher|curriculum\s*lead|education\s*lead|research\s*fellow|postdoctoral|postdoc)/i;
+  /\b(teacher|teaching|teaching\s+assistant|lecturer|professor|academic|school\s*leader|headteacher|head\s*teacher|curriculum\s*lead|education\s*lead|education\s+mental\s+health|early\s+years|learning\s+support|research\s*fellow|postdoctoral|postdoc)/i;
 const ENGINEERING_TITLE_PATTERN =
-  /\b(engineer|engineering|technical\s*design|structural\s*design|civil\s*design|mechanical\s*design|electronic\s*design|construction\s*(project|manager|management))/i;
+  /\b(engineer|engineering|engineering\s+technician|technical\s*design|structural\s*design|civil\s*design|mechanical\s*design|electronic\s*design|construction\s*(project|manager|management))/i;
 const DENTAL_TITLE_PATTERN =
   /\b(dentist|dentistry|dental\s*(surgeon|officer|therapist|hygienist|technician)|orthodont|periodont|endodont|prosthodont)/i;
 const PHARMACY_TITLE_PATTERN =
@@ -114,7 +114,7 @@ const SOCIAL_WORK_TITLE_PATTERN =
 const ACCOUNTING_TITLE_PATTERN =
   /\b(accountant|accounting|auditor|audit\s*manager|financial\s*controller|chartered\s*account)/i;
 const IT_TITLE_PATTERN =
-  /\b(software\s*(engineer|developer)|web\s*developer|application\s*developer|programmer|devops|site\s*reliability|cyber\s*security|cybersecurity|information\s*technology|\bit\s+(support|engineer|manager|analyst|consultant)|systems?\s*(engineer|administrator|analyst)|data\s*(engineer|scientist))/i;
+  /\b(software\s*(engineer|developer)|web\s*developer|application\s*developer|programmer|developer|devops|site\s*reliability|cyber\s*security|cybersecurity|information\s*technology|\bit\s+(support|engineer|manager|analyst|consultant)|network\s*(engineer|administrator|analyst)|cloud\s*(engineer|administrator|architect)|systems?\s*(engineer|administrator|analyst)|database\s*administrator|data\s*(analyst|engineer|scientist)|technical\s*support|help\s*desk|service\s*desk)/i;
 const LEGAL_TITLE_PATTERN =
   /\b(lawyer|solicitor|barrister|legal\s*(counsel|adviser|advisor|executive)|paralegal|attorney)/i;
 const ARCHITECTURE_TITLE_PATTERN =
