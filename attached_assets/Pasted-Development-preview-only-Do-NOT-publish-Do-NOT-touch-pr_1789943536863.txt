@@ -1,0 +1,95 @@
+Development / preview only. Do NOT publish. Do NOT touch production data.
+
+Goal: full end-to-end verification EXACTLY as production will run after the next publish — same HTTP kinds, same caps, same writer lock, same safety rules, across ALL professions/sectors.
+
+Assume production will call:
+POST /api/internal/vacancy-jobs
+with VACANCY_JOB_SECRET and JSON bodies below.
+Honor 409 + Retry-After. Keep company-site batch 10. Do not loosen evidence/liveness.
+
+============================================================
+0) PREP
+============================================================
+1. Confirm current source includes:
+   - gzip/content-encoding decode + NUL-safe persistence fix
+   - kinds: job_board, company_site, liveness, reed_professions, additional_boards
+2. Restart API + web preview.
+3. Clear nothing destructive; use existing preview DB.
+
+============================================================
+1) RUN THE PRODUCTION SHAPE (sequential, no overlap unless testing 409)
+============================================================
+
+A. Job board (sponsor NHS/Reed path)
+{"kind":"job_board","limit":50}
+Run 2 times. Expect HTTP 200, errors 0 preferred.
+
+B. Company site (as cron A–D would)
+{"kind":"company_site"}
+Run 5 sequential batches (wait for each response).
+Report per batch + totals: selected, completed, partial, failed, permanent, temporary, extracted, inserted, updated, host/check SQL write errors, upserts.
+Expect: no API crash, no UTF8/NUL persistence errors, completed average clearly above ~0.3, upserts when extractions.
+
+C. Liveness
+{"kind":"liveness","limit":40}
+Run 2 times. Expect live/dead/inconclusive metrics + sync_log job_kind=liveness.
+
+D. Reed professions (full cursor sweep as cron will)
+For cursor=0..8:
+{"kind":"reed_professions","cursor":N,"limit":1}
+Expect done/remaining/nextCursor progression; sync_log reed backfill metrics.
+
+E. Additional boards (full cursor sweep as cron will)
+For cursor=0..9:
+{"kind":"additional_boards","cursor":N,"limit":1}
+Expect jobs.ac.uk then Teaching Vacancies coverage; sync_log metrics.
+
+F. Lock behavior
+Fire two company_site requests overlapping once → one 200, one 409 Retry-After.
+
+============================================================
+2) SOURCE EFFECTIVENESS (preview DB after those runs)
+============================================================
+Table: Source | stored | candidate-visible | PASS if visible>0
+- NHS Jobs
+- Reed
+- jobs.ac.uk
+- Teaching Vacancies
+- Company-site
+
+============================================================
+3) ALL PROFESSIONS / SECTORS (candidate-visible)
+============================================================
+For each category report stored, visible, verdict (strong≥50 / usable≥5 / thin 1–4 / empty 0):
+GMC, NMC, HCPC, DENTAL, PHARMACY, SOCIAL_WORK, EDUCATION, ENGINEERING, IT, ACCOUNTING, LEGAL, ARCHITECTURE
+
+Also sector buckets if available: Healthcare, Education, Engineering, Technology, Hospitality, Retail/logistics, Finance/professional, Other.
+
+============================================================
+4) SAFETY (must still hold)
+============================================================
+- Past closing date → not visible
+- Explicit closed/filled → not visible
+- Company-site junk/news/generic apply rejected
+- Generic manager/admin not wrongly classified into Accounting/Social Work/Dental
+- Finance Officer / Social Care Worker / Dental Nurse classify correctly
+
+============================================================
+5) UI SMOKE (web preview Opportunities)
+============================================================
+Check data/paths for: Nurse, Doctor, Teacher, Engineer or IT, Accountant, Lawyer if data exists.
+Confirm apply URLs are real vacancy deep links.
+Confirm company-site empty copy if zero matches for a profile.
+
+============================================================
+6) PROD READINESS VERDICT
+============================================================
+Answer bluntly:
+1. Is preview running EXACTLY as prod cron will? YES/NO gaps
+2. Is company-site persistence healthy now? numbers
+3. Are all professions at least usable? which still thin/empty
+4. Ready to publish gzip fix + HTTP backfill kinds together? YES/NO
+5. Exact cron-job.org bodies + Europe/London schedules to add after publish (board, company_site, liveness, reed_professions cursors, additional_boards cursors) with no minute clashes
+
+Output PASS/FAIL checklist + tables + blunt verdict.
+STOP. No production publish.
