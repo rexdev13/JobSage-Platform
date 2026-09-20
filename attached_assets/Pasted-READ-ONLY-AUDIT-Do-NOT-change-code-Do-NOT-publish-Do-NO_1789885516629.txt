@@ -1,0 +1,91 @@
+READ-ONLY AUDIT. Do NOT change code. Do NOT publish. Do NOT implement anything yet.
+
+Today is a fresh pass. I may not have run every previous prompt. Inspect the REAL current development workspace AND live production (read-only). Be concrete with file paths, counts, and timestamps. If something is unknown, say UNKNOWN — do not guess.
+
+============================================================
+A) What is implemented vs published
+============================================================
+
+For each item, say: DEV ONLY / PUBLISHED IN PROD / NOT FOUND
+
+1. Phase 1: crawl completion states (complete/partial/failed)
+2. Phase 1: positive vacancy evidence / false-positive rejection
+3. Phase 1: closing-date / expired hiding (NHS/Reed/JSON-LD/UK dates)
+4. Phase 1: central getCandidateVacancyStatus on Opportunities/matches/alerts
+5. Failed-employer 24h backoff
+6. Partial-employer 15m delay
+7. Permanent-failure 14-day quarantine + permanent vs temporary metrics
+8. Healthcare evidence-gap reserved slots
+9. Health/profession-weighted sector selection (if any)
+10. BambooHR known-ATS accept
+11. BambooHR generic “Talent Pool / Join our team” reject
+12. Company-site empty-state copy fix (“No verified company-site vacancies currently match your profession.”)
+
+============================================================
+B) Production job-board health (all professions)
+============================================================
+
+1. Stored vs candidate-visible job-board vacancies
+2. Split by board (NHS / Reed / other)
+3. Visible counts by profession/regulator JobSAGE actually offers (GMC, NMC, HCPC, and any others in code/UI)
+4. Visible counts by sector buckets
+5. Freshness: verified in last 6h / 24h / 7d
+6. Last job_board / liveness activity timestamps
+7. Verdict: which professions are demo-ready on Job Board vs thin/empty
+
+============================================================
+C) Production company-site health
+============================================================
+
+1. Sponsors total / with website / ever checked / never checked
+2. Stored vs candidate-visible company-site vacancies
+3. Hidden reasons breakdown (evidence / expired / dead / missing / etc.)
+4. Visible by sector
+5. Nurse-titled / doctor-titled / other supported professions: stored vs visible
+6. Last 6 hours company-site batches: avg completed/partial/failed per batch; permanent vs temporary if available; extracted/inserted
+7. Effective completed employers/hour
+8. Estimate days to one full pass of all website sponsors at current rate
+9. Can current rate keep up with 48h TTL? Yes/No with numbers
+
+============================================================
+D) Selection logic currently in PUBLISHED prod
+============================================================
+
+Explain exact batch=10 priority order as deployed in production right now:
+bookmarks, reserved slots (if any), sector rotation, quarantine/backoff, TTLs.
+Is sector coverage equal in practice? Why/why not?
+
+============================================================
+E) Cron / ops assumptions
+============================================================
+
+Confirm whether production relies on external cron-job.org for job_board, company_site, liveness.
+Any signs boards/liveness are inactive, erroring, or missing from sync logs?
+
+============================================================
+F) Launch readiness verdict
+============================================================
+
+Answer bluntly:
+
+1. What can we honestly demo TODAY for:
+   - Nurse
+   - Doctor
+   - HCPC / allied
+   - Education
+   - Other non-healthcare professions we offer
+2. Top 5 blockers ranked by impact
+3. Exact next implementation order (max 5 steps) to make multi-profession/multi-sector look good — smallest reliable path, no crawler rewrite
+4. What must be published before prod improves
+5. What is already good enough to stop touching
+
+============================================================
+Output format
+============================================================
+
+Use headings A–F.
+Tables where useful.
+Short bullets.
+End with: “DO THIS NEXT” — one single recommended prompt/task for me to run after this audit.
+
+STOP. Read-only only.
