@@ -134,6 +134,14 @@ export async function runCheckAllVacanciesPass(
         errorMessage: lastError ? lastError.slice(0, 2000) : null,
         triggeredBy,
         durationMs,
+         jobKind: "job_board",
+         metrics: {
+           selected: state.total,
+           checked,
+           cacheHits,
+           errors,
+           upserted: 0,
+         },
       })
       .catch((err) => console.error("[check-all-vacancies] Failed to write sync log:", err));
 

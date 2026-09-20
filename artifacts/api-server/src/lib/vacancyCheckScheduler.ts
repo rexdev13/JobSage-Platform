@@ -173,7 +173,20 @@ export async function runVacancyCheckBatch(
     console.log(`[vacancy-scheduler] ${rows.length} companies selected`);
     if (rows.length === 0) {
       console.log(`[pipeline-tick] env=${process.env.NODE_ENV ?? "unknown"} job=job_board selected=0 upserted=0 live=0 dead=0 inconclusive=0 errors=0`);
-      return { selected: 0, checked: 0, cacheHits: 0, errors: 0, upserted: 0 };
+      const summary = { selected: 0, checked: 0, cacheHits: 0, errors: 0, upserted: 0 };
+      await db.insert(vacancySyncLogTable).values({
+        status: "success",
+        batchSize,
+        checkedCount: 0,
+        cacheHitCount: 0,
+        errorCount: 0,
+        errorMessage: null,
+        triggeredBy,
+        durationMs: Date.now() - startMs,
+        jobKind: "job_board",
+        metrics: summary,
+      });
+      return summary;
     }
 
     let checked = 0;
@@ -223,6 +236,14 @@ export async function runVacancyCheckBatch(
       errorMessage: lastErrorMsg ? (lastErrorMsg as string).slice(0, 2000) : null,
       triggeredBy,
       durationMs,
+      jobKind: "job_board",
+      metrics: {
+        selected: rows.length,
+        checked,
+        cacheHits: fromCache,
+        errors,
+        upserted,
+      },
     }).catch((err) => {
       console.error("[vacancy-scheduler] Failed to write sync log:", err);
     });

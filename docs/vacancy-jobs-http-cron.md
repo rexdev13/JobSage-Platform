@@ -32,8 +32,8 @@ Kinds and safe HTTP defaults:
 | Kind | Default | Maximum |
 | --- | ---: | ---: |
 | `job_board` | 50 employers | 50 |
-| `company_site` | 30 employers | 40 |
-| `liveness` | 100 URLs | 120 |
+| `company_site` | 10 employers | 10 |
+| `liveness` | 40 URLs | 50 |
 | `contact` | 5 employers | 5 |
 
 The response is returned only after that batch finishes:
@@ -79,12 +79,12 @@ Company-site, liveness, and resumable official-contact enrichment:
 curl --fail-with-body -X POST https://jobsage.co.uk/api/internal/vacancy-jobs \
   -H "Content-Type: application/json" \
   -H "x-jobsage-job-secret: ${VACANCY_JOB_SECRET}" \
-  --data '{"kind":"company_site","limit":30}'
+  --data '{"kind":"company_site","limit":10}'
 
 curl --fail-with-body -X POST https://jobsage.co.uk/api/internal/vacancy-jobs \
   -H "Content-Type: application/json" \
   -H "x-jobsage-job-secret: ${VACANCY_JOB_SECRET}" \
-  --data '{"kind":"liveness","limit":100}'
+  --data '{"kind":"liveness","limit":40}'
 
 curl --fail-with-body -X POST https://jobsage.co.uk/api/internal/vacancy-jobs \
   -H "Content-Type: application/json" \
@@ -93,8 +93,10 @@ curl --fail-with-body -X POST https://jobsage.co.uk/api/internal/vacancy-jobs \
 ```
 
 Wait for each response before sending the next request. A `409` means another
-batch owns the shared PostgreSQL writer lock; wait and retry rather than running
-requests concurrently.
+batch owns the shared PostgreSQL writer lock; honor `Retry-After` and retry
+later rather than running requests concurrently. Company-site must have one
+active caller at a time: do not attach multiple cron jobs to the same minute
+or run a tight retry loop after a `409`.
 
 ## cron-job.org
 
@@ -106,10 +108,18 @@ Create POST jobs using the endpoint, JSON body, and
 - Liveness: `30 1,7,13,19 * * *`
 - Contact: `47 3 * * *` (one authenticated, non-overlapping daily batch)
 
-cron-job.org sends one request per trigger. To drain more than one short batch,
-use multiple sequential jobs with enough spacing for the previous request to
-finish, or use a looping runner such as GitHub Actions. Never overlap kinds; they
-share one writer lock.
+cron-job.org sends one request per trigger. The recommended baseline is one
+company-site request hourly, one board request every six hours, four liveness
+requests daily, and one contact request daily. Never overlap kinds; they share
+one writer lock and overlapping requests receive `409`.
+
+If company-site throughput later needs to approach 142 completed employers/hour,
+do not raise the batch size or add overlapping cron jobs. First remove wasted
+slots through quarantine/backoff and fix failed/partial outcomes. Then use one
+serialized runner that sends another batch only after the previous response
+completes; at ten employers per batch, roughly fifteen fully successful batches
+per hour would be needed. Staggered cron callers are safe only if they are
+strictly serialized and honor `Retry-After`.
 
 The contact worker has its own persisted UTC daily web-search allowance
 (`CONTACT_WEB_SEARCH_DAILY_CAP`, default 50, maximum 100). A zero-selected

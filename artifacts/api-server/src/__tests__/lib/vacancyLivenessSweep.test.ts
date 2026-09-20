@@ -39,6 +39,7 @@ vi.mock("@workspace/db", () => {
   const sponsorLicenceVacanciesTable = { __name: "sponsor_licence_vacancies" };
   const rolesTable = { __name: "roles" };
   const jobListingsTable = { __name: "job_listings" };
+  const vacancySyncLogTable = { __name: "vacancy_sync_log" };
 
   return {
     db: {
@@ -48,6 +49,7 @@ vi.mock("@workspace/db", () => {
     sponsorLicenceVacanciesTable,
     rolesTable,
     jobListingsTable,
+    vacancySyncLogTable,
   };
 });
 
