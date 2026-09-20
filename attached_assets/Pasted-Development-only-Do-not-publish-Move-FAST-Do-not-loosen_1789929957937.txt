@@ -1,0 +1,47 @@
+Development only. Do not publish. Move FAST. Do not loosen evidence/liveness/contact rules. Do not rewrite the company-site crawler. Do not raise company-site batch size above 10.
+
+Do BOTH of these:
+
+============================================================
+A) Fix classification for Accounting / Social Work / Dental
+============================================================
+
+Problem: jobs.ac.uk (and possibly Reed) sponsor-matched vacancies for ACCOUNTING, SOCIAL_WORK, and DENTAL but classifier produced 0 candidate-visible rows.
+
+1. Inspect why those matched titles failed classification (professionCategory / sponsorVacancyRoles classifier).
+2. Minimal safe rule updates so clear titles classify correctly, e.g.:
+   - accountant / finance officer / auditor → ACCOUNTING
+   - social worker / social care practitioner (profession-specific) → SOCIAL_WORK
+   - dentist / dental nurse / dental hygienist (as appropriate) → DENTAL
+3. Do NOT classify generic "manager", "administrator", "consultant" without profession evidence.
+4. Add regression tests with the real titles that were matched-but-dropped in the last additional-boards run.
+5. Re-run a bounded jobs.ac.uk (and Reed if needed) check for those three categories and report before/after candidate-visible counts.
+
+============================================================
+B) Add DWP Find a Job board
+============================================================
+
+1. Make Find a Job search reliable from the server environment (fix/work around the error page if possible).
+2. Implement findAJobClient (or equivalent) with:
+   - stable public search + direct /details/{id} vacancy URLs
+   - strict sponsor-employer matching
+   - direct-link validation
+   - caps, polite pacing, 403/429 cooldown
+   - upsertSharedBoardVacancies with verifiedLive where appropriate
+   - category metrics in vacancy_sync_log
+3. Wire into additionalBoardProfessionBackfill (or equivalent) for:
+   EDUCATION, ENGINEERING, IT, ACCOUNTING, LEGAL, ARCHITECTURE, SOCIAL_WORK, DENTAL, PHARMACY
+4. If Find a Job cannot be made reliable quickly, STOP on Find a Job, report the blocker, and still finish classification (A).
+
+============================================================
+C) Dev verification
+============================================================
+
+Run bounded backfill(s) and report a table:
+
+Profession | Source | Discovered | Sponsor-matched | Classified | Live | Candidate-visible
+
+Especially call out Accounting, Social Work, Dental, Architecture.
+
+Run API tests + typecheck.
+STOP. Recommend next board only if Find a Job is done or blocked.
