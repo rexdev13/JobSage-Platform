@@ -1,5 +1,11 @@
 import cron from "node-cron";
-import { db, sponsorLicenceVacanciesTable, rolesTable, jobListingsTable } from "@workspace/db";
+import {
+  db,
+  sponsorLicenceVacanciesTable,
+  rolesTable,
+  jobListingsTable,
+  vacancySyncLogTable,
+} from "@workspace/db";
 import { eq, inArray, sql } from "drizzle-orm";
 import { checkDestinationDead } from "./linkHealth";
 import { verifyStoredLink } from "./linkVerification";
@@ -30,6 +36,7 @@ export const VACANCY_LIVENESS_BATCH_LIMIT = 600;
 export const VACANCY_LIVENESS_DOMAIN_CONCURRENCY = 24;
 const PER_DOMAIN_DELAY_MS = 1500;
 const SWEEP_TIMEOUT_MS = 8000; // background sweep can afford a longer fetch than click-time
+const DEADLINE_SAFETY_MS = 5;
 
 type SweepSource = "sponsor_vacancy" | "role" | "job_listing";
 type SweepRow = {
@@ -83,6 +90,43 @@ async function withinDeadline<T>(
 }
 
 let sweepRunning = false;
+
+async function writeLivenessSyncLog(input: {
+  status: "success" | "error";
+  selected: number;
+  counters: SweepCounters;
+  durationMs: number;
+  errorMessage?: string | null;
+}): Promise<void> {
+  // Some unit tests intentionally provide a minimal database mock. Production
+  // always has both the table and insert method.
+  if (!vacancySyncLogTable || typeof (db as { insert?: unknown }).insert !== "function") return;
+  await db.insert(vacancySyncLogTable).values({
+    status: input.status,
+    batchSize: input.selected,
+    checkedCount: input.counters.checked,
+    errorCount: input.status === "error" ? 1 : 0,
+    errorMessage: input.errorMessage ?? null,
+    triggeredBy: "scheduler",
+    durationMs: input.durationMs,
+    jobKind: "liveness",
+    metrics: {
+      selected: input.selected,
+      checked: input.counters.checked,
+      live: input.counters.live,
+      dead: input.counters.dead,
+      inconclusive: input.counters.inconclusive,
+      remaining: input.counters.remaining,
+      remainingIsLowerBound: input.counters.remainingIsLowerBound,
+      deadlineStopped: input.counters.deadlineStopped,
+    },
+  }).catch((error) => {
+    console.error(
+      "[vacancy-liveness] Failed to write sync log:",
+      error instanceof Error ? error.message : error,
+    );
+  });
+}
 
 /**
  * Select stored links due for a liveness check across all sources:
@@ -244,6 +288,13 @@ export async function runVacancyLivenessSweep(
   }
   sweepRunning = true;
   const startMs = Date.now();
+  let selectedCount = 0;
+  let currentCounters: SweepCounters = {
+    checked: 0,
+    live: 0,
+    dead: 0,
+    inconclusive: 0,
+  };
   try {
     const batchLimit = options.batchLimit ?? VACANCY_LIVENESS_BATCH_LIMIT;
     const rawRows = await withinDeadline(
@@ -253,6 +304,7 @@ export async function runVacancyLivenessSweep(
       ),
       options.deadlineMs,
     );
+    selectedCount = rawRows.length;
     options.onSelected?.(rawRows.length);
     // Dedupe within the batch: one check per (source, url) — markResult
     // propagates sponsor verdicts to every snapshot row sharing the URL.
@@ -304,7 +356,14 @@ export async function runVacancyLivenessSweep(
     if (rows.length === 0 && blocked.length === 0) {
       console.log("[vacancy-liveness] Nothing stale to verify");
       console.log(`[pipeline-tick] env=${process.env.NODE_ENV ?? "unknown"} job=liveness selected=0 upserted=0 live=0 dead=0 inconclusive=0 errors=0`);
-      return { checked: 0, live: 0, dead: 0, inconclusive: 0, remaining: 0 };
+      currentCounters = { checked: 0, live: 0, dead: 0, inconclusive: 0, remaining: 0 };
+      await writeLivenessSyncLog({
+        status: "success",
+        selected: selectedCount,
+        counters: currentCounters,
+        durationMs: Date.now() - startMs,
+      });
+      return currentCounters;
     }
 
     // Group per domain for politeness.
@@ -367,6 +426,9 @@ export async function runVacancyLivenessSweep(
     // Fast remaining-stale count so callers can monitor catch-up progress.
     const staleThresholdMs = options.staleThresholdMs ?? STALE_THRESHOLD_MS;
     const staleSecs = staleThresholdMs / 1000;
+    // Treat the final few milliseconds as exhausted so a response does not
+    // claim completion after its HTTP budget has effectively elapsed.
+    const hitDeadline = Boolean(deadline && Date.now() >= deadline - DEADLINE_SAFETY_MS);
     let remaining: number | undefined;
     try {
       // The full scan controls completion by starting another selection batch;
@@ -374,6 +436,9 @@ export async function runVacancyLivenessSweep(
       if (!options.deadlineMs && options.staleThresholdMs !== undefined) {
         throw new Error("remaining count not requested for full scan");
       }
+      // Once the HTTP budget is exhausted, preserve the lower-bound fallback
+      // below rather than spending more time on an exact count query.
+      if (hitDeadline) throw new Error("deadline reached; remaining is a lower bound");
       const countResult = await withinDeadline(db.execute<{ cnt: string }>(sql`
         SELECT COUNT(*) AS cnt FROM (
           SELECT 1 FROM sponsor_licence_vacancies v
@@ -396,18 +461,33 @@ export async function runVacancyLivenessSweep(
     }
 
     const elapsed = Date.now() - startMs;
-    const hitDeadline = Boolean(deadline && Date.now() >= deadline);
     if (remaining == null) {
       const deferredFromBatch = Math.max(0, deduped.length - counters.checked);
       counters.remaining = deferredFromBatch + (rawRows.length >= batchLimit ? 1 : 0);
       counters.remainingIsLowerBound = true;
     }
     counters.deadlineStopped = hitDeadline;
+    currentCounters = counters;
     console.log(
       `[vacancy-liveness] Sweep ${hitDeadline ? "deadline-stopped" : "complete"} — checked: ${counters.checked}, live: ${counters.live}, dead: ${counters.dead}, inconclusive: ${counters.inconclusive}${remaining != null ? `, remaining: ${remaining}` : ""}, ${elapsed}ms`,
     );
     console.log(`[pipeline-tick] env=${process.env.NODE_ENV ?? "unknown"} job=liveness selected=${rawRows.length} upserted=0 live=${counters.live} dead=${counters.dead} inconclusive=${counters.inconclusive} errors=0`);
+    await writeLivenessSyncLog({
+      status: "success",
+      selected: rawRows.length,
+      counters,
+      durationMs: elapsed,
+    });
     return counters;
+  } catch (error) {
+    await writeLivenessSyncLog({
+      status: "error",
+      selected: selectedCount,
+      counters: currentCounters,
+      durationMs: Date.now() - startMs,
+      errorMessage: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
   } finally {
     sweepRunning = false;
   }

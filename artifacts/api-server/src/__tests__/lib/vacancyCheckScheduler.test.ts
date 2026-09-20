@@ -94,6 +94,13 @@ describe("runVacancyCheckBatch", () => {
     expect(log.errorCount).toBe(1);
     expect(log.errorMessage).toContain("boom");
     expect(log.triggeredBy).toBe("scheduler");
+    expect(log.jobKind).toBe("job_board");
+    expect(log.metrics).toMatchObject({
+      selected: 30,
+      checked: 28,
+      cacheHits: 1,
+      errors: 1,
+    });
   });
 
   it("does not globally exclude bookmarked engineering, accounting, or education sponsors", async () => {
@@ -142,11 +149,17 @@ describe("runVacancyCheckBatch", () => {
     expect(runVacancyCheckMock).toHaveBeenCalledTimes(2);
   });
 
-  it("writes no sync log when no companies are stale", async () => {
+  it("writes an explicit empty sync log when no companies are stale", async () => {
     executeMock.mockResolvedValue({ rows: [] });
     await runVacancyCheckBatch("scheduler");
     expect(runVacancyCheckMock).not.toHaveBeenCalled();
-    expect(insertedRows).toHaveLength(0);
+    expect(insertedRows).toHaveLength(1);
+    expect(insertedRows[0]).toMatchObject({
+      status: "success",
+      jobKind: "job_board",
+      checkedCount: 0,
+      errorCount: 0,
+    });
   });
 
   it("uses the safe high-volume batch and six-hour schedule", () => {

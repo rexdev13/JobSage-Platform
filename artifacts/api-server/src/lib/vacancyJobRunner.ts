@@ -1,4 +1,4 @@
-import { pool } from "@workspace/db";
+import { db, pool, vacancySyncLogTable } from "@workspace/db";
 import {
   runVacancyCheckBatch,
   DEFAULT_VACANCY_CHECK_BATCH_SIZE,
@@ -141,6 +141,7 @@ export async function runVacancyJob(
     return await withPipelineWriter(job, async () => {
     if (job === "job_board") {
       const summary = await runVacancyCheckBatch("scheduler", { batchSize: batchLimit });
+      if (!summary) return null;
       const selected = summary?.selected ?? 0;
       return {
         selected,
@@ -158,6 +159,7 @@ export async function runVacancyJob(
         batchSize: batchLimit,
         deadlineMs: Date.now() + COMPANY_SITE_HTTP_BUDGET_MS,
       });
+      if (!summary) return null;
       const selected = summary?.selected ?? 0;
       return {
         selected,
@@ -173,7 +175,20 @@ export async function runVacancyJob(
       };
     }
     if (job === "contact") {
-      return runContactEnrichmentBatch({ batchSize: batchLimit });
+      const startedAt = Date.now();
+      const summary = await runContactEnrichmentBatch({ batchSize: batchLimit });
+      await db.insert(vacancySyncLogTable).values({
+        status: summary.errors > 0 ? "error" : "success",
+        batchSize: batchLimit,
+        checkedCount: summary.selected,
+        errorCount: summary.errors,
+        errorMessage: null,
+        triggeredBy: "scheduler",
+        durationMs: Date.now() - startedAt,
+        jobKind: "contact",
+        metrics: summary,
+      });
+      return summary;
     }
 
     const summary = await runVacancyLivenessSweep({
@@ -184,6 +199,7 @@ export async function runVacancyJob(
         selected = count;
       },
     });
+    if (!summary) return null;
     return {
       selected,
       upserted: 0,
