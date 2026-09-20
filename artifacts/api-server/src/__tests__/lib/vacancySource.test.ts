@@ -6,7 +6,7 @@ import {
 } from "../../lib/vacancySource";
 
 describe("vacancy source metadata", () => {
-  it("classifies NHS, Trac and Reed exact adverts", () => {
+  it("classifies exact adverts from supported boards", () => {
     expect(classifyVacancySource("https://www.jobs.nhs.uk/candidate/jobadvert/C0001-260001?ref=x")).toEqual({
       sourceType: "job_board",
       boardName: "NHS Jobs",
@@ -20,6 +20,18 @@ describe("vacancy source metadata", () => {
       sourceType: "job_board",
       boardName: "Reed",
       externalListingId: "57262903",
+    });
+    expect(classifyVacancySource("https://www.jobs.ac.uk/job/DSK409/lecturer-in-law")).toEqual({
+      sourceType: "job_board",
+      boardName: "jobs.ac.uk",
+      externalListingId: "DSK409",
+    });
+    expect(classifyVacancySource(
+      "https://teaching-vacancies.service.gov.uk/jobs/teacher-of-law-example-school",
+    )).toEqual({
+      sourceType: "job_board",
+      boardName: "Teaching Vacancies",
+      externalListingId: "teacher-of-law-example-school",
     });
   });
 

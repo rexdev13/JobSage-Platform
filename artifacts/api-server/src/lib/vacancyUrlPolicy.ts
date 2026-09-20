@@ -263,6 +263,12 @@ export function isValidJobBoardVacancyDeepLink(url: string | null | undefined): 
   if (hostMatches(host, "totaljobs.com")) {
     return /^\/job\/[^/?#]+\/[^/?#]+$/i.test(path);
   }
+  if (hostMatches(host, "jobs.ac.uk")) {
+    return /^\/job\/[a-z0-9]+\/[^/?#]+$/i.test(path);
+  }
+  if (hostMatches(host, "teaching-vacancies.service.gov.uk")) {
+    return /^\/jobs\/[^/?#]+$/i.test(path);
+  }
   return false;
 }
 
