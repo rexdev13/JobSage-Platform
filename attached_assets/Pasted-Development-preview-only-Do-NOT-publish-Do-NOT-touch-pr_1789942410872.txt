@@ -1,0 +1,80 @@
+Development / preview only. Do NOT publish. Do NOT touch production.
+
+Goal: end-to-end confirmation that the WHOLE vacancy system is effective in preview — every major profession path, every source we built, safety rules, and HTTP job kinds.
+
+Run through this checklist and report PASS/FAIL with numbers. Fix only clear broken preview bugs that block the flow; do not start new boards or loosen evidence/liveness.
+
+============================================================
+A) Prep
+============================================================
+1. Restart API + web preview on current source.
+2. Confirm preview DB has recent data (or run bounded backfills if empty):
+   - reed_professions HTTP kinds (cursor 0..8, limit 1) OR backfill:reed-professions
+   - additional_boards HTTP kinds (cursor 0..9, limit 1) OR backfill:additional-boards
+   - a few company_site + job_board + liveness calls
+3. Keep caps/cooldowns. Stay under timeouts.
+
+============================================================
+B) Source effectiveness (preview DB)
+============================================================
+Table: Source | stored | candidate-visible | notes
+- NHS Jobs
+- Reed
+- jobs.ac.uk
+- Teaching Vacancies
+- Company-site
+
+Each source that we claim to support must have >0 candidate-visible rows in preview after the prep runs (NHS may already; others must after backfills).
+
+============================================================
+C) Profession effectiveness (candidate-visible)
+============================================================
+For EACH onboarding profession/category, report visible counts and verdict strong/usable/thin/empty:
+GMC, NMC, HCPC, DENTAL, PHARMACY, SOCIAL_WORK, EDUCATION, ENGINEERING, IT, ACCOUNTING, LEGAL, ARCHITECTURE
+
+Target for “effective” in preview:
+- GMC/NMC/HCPC: strong
+- Others: at least usable (>0 and ideally ≥5). If empty after backfills, explain exact blocker (sponsor match / classify / source).
+
+============================================================
+D) HTTP vacancy-jobs flow (preview)
+============================================================
+Call with the same secret pattern as cron:
+1. {"kind":"job_board", ...} — success path
+2. {"kind":"company_site"} — completes some employers; no API crash
+3. {"kind":"liveness"} — live/dead metrics logged
+4. {"kind":"reed_professions","cursor":0,"limit":1} — upserts + nextCursor
+5. {"kind":"additional_boards","cursor":0,"limit":1} — upserts + nextCursor
+6. Fire overlapping company_site twice — expect one 200 and one 409 Retry-After
+
+Confirm vacancy_sync_log rows have correct job_kind / metrics.
+
+============================================================
+E) Safety / quality
+============================================================
+1. Past closing-date vacancy → NOT candidate-visible
+2. Explicit closed/filled page behaviour still hides
+3. Company-site junk (news/generic apply) still rejected
+4. Generic manager/admin titles NOT wrongly classified into Accounting/Social Work/Dental
+5. Clear Finance Officer / Social Care Worker / Dental Nurse DO classify
+
+============================================================
+F) Preview UI smoke (Opportunities)
+============================================================
+In web preview, as profiles (or simulated category filters) for at least:
+- Nurse, Doctor, Teacher/Education, Engineer or IT, Accountant
+Confirm:
+- Job Board tab shows relevant roles when data exists
+- Company websites tab uses the new empty copy if zero matches
+- Opening an apply link is a real vacancy URL (NHS/Reed/jobs.ac.uk/TV/company), not a careers homepage junk link
+
+============================================================
+G) Final verdict
+============================================================
+1. Is the WHOLE flow effective in preview? YES/NO
+2. What’s strong vs still thin
+3. Blockers before production publish of reed_professions/additional_boards cron
+4. Exact cron bodies to use after publish
+
+Output: PASS/FAIL checklist + tables + blunt verdict.
+STOP.
