@@ -38,6 +38,19 @@ describe("Reed public HTML discovery", () => {
     ]);
   });
 
+  it("extracts the employer from Reed's current posted-by recruiter link", () => {
+    const currentMarkup = card(57262905, "Staff Nurse", "Example London NHS Foundation Trust")
+      .replace(/<a data-qa="company-name-link">[^<]*<\/a>/, "");
+
+    expect(parseReedJobsHtml(currentMarkup, "Example London NHS Foundation Trust")).toEqual([
+      expect.objectContaining({
+        title: "Staff Nurse",
+        employer: "Example London NHS Foundation Trust",
+        externalListingId: "57262905",
+      }),
+    ]);
+  });
+
   it("parses profession-search results without pre-filtering non-sponsor employers", () => {
     const parsed = parseReedCandidateJobsHtml(
       card(57262903, "Management Accountant", "Example Finance Ltd") +

@@ -13,6 +13,7 @@
 - [Prod DB read-only; array migration](prod-db-readonly-array-migration.md) — agent can't run DDL on prod; scalar→array needs user-run USING cast before republish.
 - [Vacancy regulator classifier](vacancy-regulator-classifier.md) — use boundaries on complete words, not stems; verify profession precedence and false positives against real data.
 - [Job-board profession precedence](job-board-profession-precedence.md) — classify common IT/network/cloud titles as IT before broad engineering matches; retain explicit clinical exclusions.
+- [Reed HTML employer markup](reed-html-employer-markup.md) — current Reed cards expose the employer in the posted-by recruiter link, not company-name-link.
 - [api-server test patterns](api-server-test-patterns.md) — Auth via `Authorization: Bearer` (not cookie); db.execute must be mocked; employer/profile response shapes; Zod schema needs Date fields.
 - [pdf-parse v2 ESM class API](pdf-parse-v2-esm.md) — pdf-parse v2.x ESM exports `PDFParse` class (not a bare function); use `new PDFParse({ data: buf })` then `.getText()` — no separate `init()` call needed.
 - [NHS Jobs employer search](nhs-jobs-employer-search.md) — the legacy XML endpoint currently returns HTML; use the public results form’s `employer` parameter and retain only close employer matches.

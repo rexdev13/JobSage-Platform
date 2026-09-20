@@ -56,6 +56,17 @@ function tagByQa(card: string, qa: string): string | null {
   return match?.[0] ?? null;
 }
 
+function employerFromCard(card: string): string | null {
+  const explicitEmployerTag = tagByQa(card, "company-name-link");
+  if (explicitEmployerTag) return decodeHtml(explicitEmployerTag);
+
+  // Reed's current cards place the employer in the recruiter link inside the
+  // posted-by block; keep the old company-name-link path for older markup.
+  const postedBy = tagByQa(card, "job-posted-by");
+  const recruiterLink = postedBy?.match(/<a\b[^>]*>([\s\S]*?)<\/a>/i);
+  return recruiterLink ? decodeHtml(recruiterLink[1] ?? "") || null : null;
+}
+
 function parseReedJobsCards(
   html: string,
   organisationName: string | null,
@@ -70,11 +81,10 @@ function parseReedJobsCards(
   const vacancies: ReedVacancy[] = [];
   for (const card of cards) {
     const titleTag = tagByQa(card, "job-card-title");
-    const employerTag = tagByQa(card, "company-name-link");
-    if (!titleTag || !employerTag) continue;
+    const employer = employerFromCard(card);
+    if (!titleTag || !employer) continue;
 
     const title = decodeHtml(titleTag);
-    const employer = decodeHtml(employerTag);
     if (!title || (organisationName && !employerNamesCloselyMatch(organisationName, employer))) continue;
 
     const href = titleTag.match(/\bhref=["']([^"']+)["']/i)?.[1]?.replace(/&amp;/gi, "&");
