@@ -102,9 +102,14 @@ export function parseJobsAcUkHtml(html: string): JobsAcUkVacancy[] {
   return vacancies;
 }
 
-async function fetchPage(url: string): Promise<{ html: string | null; status: number | null }> {
+async function fetchPage(
+  url: string,
+  deadlineMs?: number,
+): Promise<{ html: string | null; status: number | null }> {
+  const remainingMs = deadlineMs == null ? REQUEST_TIMEOUT_MS : deadlineMs - Date.now();
+  if (remainingMs <= 0) return { html: null, status: null };
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), Math.min(REQUEST_TIMEOUT_MS, remainingMs));
   try {
     const response = await fetch(url, {
       signal: controller.signal,
@@ -129,6 +134,7 @@ async function fetchPage(url: string): Promise<{ html: string | null; status: nu
 export async function searchJobsAcUk(
   keywords: string,
   limit = 40,
+  deadlineMs?: number,
 ): Promise<JobsAcUkSearchResult> {
   const boundedLimit = Math.max(1, Math.min(100, Math.floor(limit)));
   const vacancies: JobsAcUkVacancy[] = [];
@@ -141,11 +147,23 @@ export async function searchJobsAcUk(
   const sourceUrl = `${ORIGIN}/search/?${baseParams.toString()}`;
 
   for (let page = 0; page < MAX_PAGES && vacancies.length < boundedLimit; page++) {
-    if (page > 0) await new Promise((resolve) => setTimeout(resolve, PAGE_DELAY_MS));
+    if (page > 0) {
+      const remainingMs = deadlineMs == null ? PAGE_DELAY_MS : deadlineMs - Date.now();
+      if (remainingMs <= 0) {
+        return {
+          vacancies,
+          sourceUrl,
+          requestSucceeded: false,
+          transientFailure: true,
+          status: null,
+        };
+      }
+      await new Promise((resolve) => setTimeout(resolve, Math.min(PAGE_DELAY_MS, remainingMs)));
+    }
     const params = new URLSearchParams(baseParams);
     params.set("startIndex", String(page * PAGE_SIZE + 1));
     const pageUrl = `${ORIGIN}/search/?${params.toString()}`;
-    const response = await fetchPage(pageUrl);
+    const response = await fetchPage(pageUrl, deadlineMs);
     if (response.html === null) {
       return {
         vacancies,

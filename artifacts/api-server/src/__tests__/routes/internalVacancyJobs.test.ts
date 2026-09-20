@@ -8,6 +8,9 @@ const { runVacancyJobMock } = vi.hoisted(() => ({
 
 vi.mock("../../lib/vacancyJobRunner", () => ({
   LIVENESS_HTTP_BUDGET_MS: 18_000,
+  PROFESSION_BACKFILL_HTTP_BUDGET_MS: 22_000,
+  PROFESSION_BACKFILL_HTTP_CATEGORY_LIMIT: 1,
+  PROFESSION_BACKFILL_HTTP_MAX_CATEGORY_LIMIT: 2,
   runVacancyJob: runVacancyJobMock,
 }));
 
@@ -115,6 +118,49 @@ describe("POST /internal/vacancy-jobs", () => {
 
     expect(response.status).toBe(200);
     expect(runVacancyJobMock).toHaveBeenCalledWith("company_site", 3, { deadlineMs: undefined });
+  });
+
+  it("accepts resumable Reed profession pages", async () => {
+    const response = await request(app)
+      .post("/internal/vacancy-jobs")
+      .set("x-jobsage-job-secret", "test-job-secret")
+      .send({ kind: "reed_professions", cursor: 3, limit: 2 });
+
+    expect(response.status).toBe(200);
+    expect(runVacancyJobMock).toHaveBeenCalledWith(
+      "reed_professions",
+      2,
+      {
+        deadlineMs: expect.any(Number),
+        cursor: 3,
+        categoryLimit: 2,
+      },
+    );
+  });
+
+  it("accepts resumable additional-board pages and rejects cursor on other jobs", async () => {
+    const response = await request(app)
+      .post("/internal/vacancy-jobs")
+      .set("x-jobsage-job-secret", "test-job-secret")
+      .send({ kind: "additional_boards", cursor: 1 });
+
+    expect(response.status).toBe(200);
+    expect(runVacancyJobMock).toHaveBeenCalledWith(
+      "additional_boards",
+      1,
+      {
+        deadlineMs: expect.any(Number),
+        cursor: 1,
+        categoryLimit: 1,
+      },
+    );
+
+    const invalid = await request(app)
+      .post("/internal/vacancy-jobs")
+      .set("x-jobsage-job-secret", "test-job-secret")
+      .send({ kind: "job_board", cursor: 1 });
+    expect(invalid.status).toBe(400);
+    expect(runVacancyJobMock).toHaveBeenCalledTimes(1);
   });
 
   it("returns 409 immediately when the shared writer is busy", async () => {

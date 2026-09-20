@@ -16,8 +16,23 @@ import {
   runContactEnrichmentBatch,
   CONTACT_ENRICHMENT_BATCH_SIZE,
 } from "./contactEnrichmentRunner";
+import {
+  getAdditionalBoardBackfillPage,
+  getAdditionalBoardBackfillPlan,
+  runAdditionalBoardProfessionBackfill,
+} from "./additionalBoardProfessionBackfill";
+import {
+  REED_PROFESSION_BACKFILL_TARGETS,
+  runReedProfessionBackfill,
+} from "./reedProfessionBackfill";
 
-export type VacancyJobKind = "job_board" | "company_site" | "liveness" | "contact";
+export type VacancyJobKind =
+  | "job_board"
+  | "company_site"
+  | "liveness"
+  | "contact"
+  | "reed_professions"
+  | "additional_boards";
 
 export type VacancyJobSummary = {
   selected: number;
@@ -30,18 +45,49 @@ export type VacancyJobSummary = {
   remaining?: number;
   remainingIsLowerBound?: boolean;
   durationMs?: number;
+  cursor?: number;
+  nextCursor?: number;
+  metrics?: unknown;
 };
 
 export const PIPELINE_WRITER_LOCK = "jobsage:external-vacancy-pipeline-writer";
 export const COMPANY_SITE_HTTP_BUDGET_MS = 20_000;
 export const LIVENESS_HTTP_BUDGET_MS = 18_000;
+export const PROFESSION_BACKFILL_HTTP_BUDGET_MS = 22_000;
+export const PROFESSION_BACKFILL_HTTP_CATEGORY_LIMIT = 1;
+export const PROFESSION_BACKFILL_HTTP_MAX_CATEGORY_LIMIT = 2;
+export const PROFESSION_BACKFILL_HTTP_RESULTS_PER_CATEGORY = 8;
 
 export const CLI_JOB_LIMITS: Record<VacancyJobKind, number> = {
   job_board: DEFAULT_VACANCY_CHECK_BATCH_SIZE,
   company_site: COMPANY_SITE_DISCOVERY_BATCH_SIZE,
   liveness: VACANCY_LIVENESS_BATCH_LIMIT,
   contact: CONTACT_ENRICHMENT_BATCH_SIZE,
+  reed_professions: PROFESSION_BACKFILL_HTTP_CATEGORY_LIMIT,
+  additional_boards: PROFESSION_BACKFILL_HTTP_CATEGORY_LIMIT,
 };
+
+export type VacancyJobOptions = {
+  deadlineMs?: number;
+  cursor?: number;
+  categoryLimit?: number;
+};
+
+function getCategoryLimit(options: VacancyJobOptions): number {
+  return Math.max(
+    1,
+    Math.min(
+      PROFESSION_BACKFILL_HTTP_MAX_CATEGORY_LIMIT,
+      Math.floor(options.categoryLimit ?? PROFESSION_BACKFILL_HTTP_CATEGORY_LIMIT),
+    ),
+  );
+}
+
+function firstBlockedCategoryIndex(
+  categories: readonly { failed?: boolean; skippedByCooldown?: boolean }[],
+): number {
+  return categories.findIndex((category) => category.failed || category.skippedByCooldown);
+}
 
 async function withPipelineWriter<T>(
   job: VacancyJobKind,
@@ -133,7 +179,7 @@ async function withPipelineWriter<T>(
 export async function runVacancyJob(
   job: VacancyJobKind,
   limit = CLI_JOB_LIMITS[job],
-  options: { deadlineMs?: number } = {},
+  options: VacancyJobOptions = {},
 ): Promise<VacancyJobSummary | null> {
   const batchLimit = Math.max(1, Math.floor(limit));
   let selected = 0;
@@ -189,6 +235,69 @@ export async function runVacancyJob(
         metrics: summary,
       });
       return summary;
+    }
+
+    if (job === "reed_professions") {
+      const startedAt = Date.now();
+      const cursor = Math.max(0, Math.floor(options.cursor ?? 0));
+      const categoryLimit = getCategoryLimit(options);
+      const total = REED_PROFESSION_BACKFILL_TARGETS.length;
+      const targets = REED_PROFESSION_BACKFILL_TARGETS.slice(cursor, cursor + categoryLimit);
+      const result = await runReedProfessionBackfill({
+        targets,
+        perCategoryLimit: PROFESSION_BACKFILL_HTTP_RESULTS_PER_CATEGORY,
+        totalPersistLimit: PROFESSION_BACKFILL_HTTP_RESULTS_PER_CATEGORY * Math.max(1, targets.length),
+        deadlineMs: options.deadlineMs,
+      });
+      const blockedIndex = firstBlockedCategoryIndex(result.categories);
+      const processed = result.categories.length;
+      const nextCursor = cursor + (blockedIndex >= 0 ? blockedIndex : processed);
+      const updated = result.categories.reduce((sum, category) => sum + category.updated, 0);
+      return {
+        selected: processed,
+        upserted: result.inserted + updated + result.revived,
+        live: result.live,
+        dead: 0,
+        inconclusive: 0,
+        errors: result.categories.filter((category) => category.failed).length,
+        done: nextCursor >= total && processed >= targets.length,
+        remaining: Math.max(0, total - nextCursor),
+        cursor,
+        nextCursor,
+        durationMs: Date.now() - startedAt,
+        metrics: result,
+      };
+    }
+
+    if (job === "additional_boards") {
+      const startedAt = Date.now();
+      const cursor = Math.max(0, Math.floor(options.cursor ?? 0));
+      const categoryLimit = getCategoryLimit(options);
+      const page = getAdditionalBoardBackfillPage(cursor, categoryLimit);
+      const result = await runAdditionalBoardProfessionBackfill({
+        sources: page.sources,
+        perCategoryLimit: PROFESSION_BACKFILL_HTTP_RESULTS_PER_CATEGORY,
+        deadlineMs: options.deadlineMs,
+      });
+      const categories = result.sources.flatMap((source) => source.categories);
+      const blockedIndex = firstBlockedCategoryIndex(categories);
+      const processed = categories.length;
+      const nextCursor = cursor + (blockedIndex >= 0 ? blockedIndex : processed);
+      const total = getAdditionalBoardBackfillPlan().length;
+      return {
+        selected: processed,
+        upserted: result.inserted + result.updated + result.revived,
+        live: result.live,
+        dead: 0,
+        inconclusive: 0,
+        errors: categories.filter((category) => category.failed).length,
+        done: nextCursor >= total && processed >= page.selected,
+        remaining: Math.max(0, total - nextCursor),
+        cursor,
+        nextCursor,
+        durationMs: Date.now() - startedAt,
+        metrics: result,
+      };
     }
 
     const summary = await runVacancyLivenessSweep({
