@@ -4,11 +4,15 @@ const {
   connectMock,
   queryMock,
   releaseMock,
+  runAdditionalBoardProfessionBackfillMock,
+  runReedProfessionBackfillMock,
   runVacancyLivenessSweepMock,
 } = vi.hoisted(() => ({
   connectMock: vi.fn(),
   queryMock: vi.fn(),
   releaseMock: vi.fn(),
+  runAdditionalBoardProfessionBackfillMock: vi.fn(),
+  runReedProfessionBackfillMock: vi.fn(),
   runVacancyLivenessSweepMock: vi.fn(),
 }));
 
@@ -37,12 +41,25 @@ vi.mock("../../lib/vacancyLivenessSweep", () => ({
   runVacancyLivenessSweep: runVacancyLivenessSweepMock,
 }));
 
+vi.mock("../../lib/reedProfessionBackfill", () => ({
+  REED_PROFESSION_BACKFILL_TARGETS: Array.from({ length: 9 }),
+  runReedProfessionBackfill: runReedProfessionBackfillMock,
+}));
+
+vi.mock("../../lib/additionalBoardProfessionBackfill", () => ({
+  getAdditionalBoardBackfillPage: vi.fn(() => ({ total: 10, selected: 1, sources: [] })),
+  getAdditionalBoardBackfillPlan: vi.fn(() => Array.from({ length: 10 })),
+  runAdditionalBoardProfessionBackfill: runAdditionalBoardProfessionBackfillMock,
+}));
+
 describe("runVacancyJob liveness deadline", () => {
   beforeEach(() => {
     vi.resetModules();
     connectMock.mockReset();
     queryMock.mockReset();
     releaseMock.mockReset();
+    runAdditionalBoardProfessionBackfillMock.mockReset();
+    runReedProfessionBackfillMock.mockReset();
     runVacancyLivenessSweepMock.mockReset();
     connectMock.mockResolvedValue({
       query: queryMock,
@@ -77,5 +94,52 @@ describe("runVacancyJob liveness deadline", () => {
     expect(String(queryMock.mock.calls[1]?.[0])).toContain("pg_advisory_unlock");
     expect(releaseMock).toHaveBeenCalledOnce();
     expect(runVacancyLivenessSweepMock).not.toHaveBeenCalled();
+  });
+
+  it("uses the widened bounded result cap for Reed profession pages", async () => {
+    queryMock.mockResolvedValue({ rows: [{ acquired: true }] });
+    runReedProfessionBackfillMock.mockResolvedValue({
+      inserted: 0,
+      revived: 0,
+      categories: [{ failed: false, updated: 0 }],
+      live: 0,
+    });
+
+    const { PROFESSION_BACKFILL_HTTP_RESULTS_PER_CATEGORY, runVacancyJob } =
+      await import("../../lib/vacancyJobRunner");
+    await runVacancyJob("reed_professions", 1, {
+      cursor: 3,
+      deadlineMs: Date.now() + 5_000,
+    });
+
+    expect(PROFESSION_BACKFILL_HTTP_RESULTS_PER_CATEGORY).toBe(20);
+    expect(runReedProfessionBackfillMock).toHaveBeenCalledWith(expect.objectContaining({
+      perCategoryLimit: 20,
+      totalPersistLimit: 20,
+      targets: expect.any(Array),
+    }));
+  });
+
+  it("uses the widened bounded result cap for additional-board pages", async () => {
+    queryMock.mockResolvedValue({ rows: [{ acquired: true }] });
+    runAdditionalBoardProfessionBackfillMock.mockResolvedValue({
+      inserted: 0,
+      updated: 0,
+      revived: 0,
+      sources: [],
+      live: 0,
+      failed: false,
+    });
+
+    const { runVacancyJob } = await import("../../lib/vacancyJobRunner");
+    await runVacancyJob("additional_boards", 1, {
+      cursor: 3,
+      deadlineMs: Date.now() + 5_000,
+    });
+
+    expect(runAdditionalBoardProfessionBackfillMock).toHaveBeenCalledWith(expect.objectContaining({
+      perCategoryLimit: 20,
+      sources: [],
+    }));
   });
 });
