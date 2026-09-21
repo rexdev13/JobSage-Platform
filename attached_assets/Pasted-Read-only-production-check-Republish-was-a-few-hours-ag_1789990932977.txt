@@ -1,0 +1,46 @@
+Read-only production check. Republish was a few hours ago. Do NOT implement features. Do NOT run backfills.
+
+Context: new cron for reed_professions / additional_boards may NOT be set up yet — expect jobs.ac.uk / Teaching Vacancies still ~0 unless something else filled them. Focus on formerly live paths + the gzip/persistence fix.
+
+============================================================
+1) Build confirmation
+============================================================
+Confirm live production has:
+- gzip/content-encoding decode + NUL-safe company-site persistence
+- job_kind logging for job_board / company_site / liveness
+- quarantine / backoff
+- Reed markup fallback + classification rules
+Note whether reed_professions / additional_boards kinds exist in the live build even if unused.
+
+============================================================
+2) Last 3–6 hours health (former crons only)
+============================================================
+For job_board, company_site, liveness:
+- run count, successes, errors
+- avg duration
+- company_site: avg completed / partial / failed / permanent / temporary
+- company_site: upserts inserted/updated
+- host/check SQL write errors or UTF8/NUL errors (must be 0 if fix is live)
+- API crash/restart/pool errors
+- 409 observations if any
+
+Compare company-site completed/hour vs older ~0.3/batch degraded window.
+
+============================================================
+3) Source + profession snapshot
+============================================================
+Sources: NHS / Reed / jobs.ac.uk / Teaching Vacancies / company-site
+→ stored vs candidate-visible
+
+Professions: GMC NMC HCPC DENTAL PHARMACY SOCIAL_WORK EDUCATION ENGINEERING IT ACCOUNTING LEGAL ARCHITECTURE
+→ visible + strong/usable/thin/empty
+
+============================================================
+4) Verdict
+============================================================
+1. Did the republish improve company-site persistence/throughput? YES/NO + numbers
+2. Are board + liveness still healthy?
+3. What’s still waiting on NEW cron setup?
+4. Anything broken that needs a fix prompt?
+
+Short tables. STOP.
