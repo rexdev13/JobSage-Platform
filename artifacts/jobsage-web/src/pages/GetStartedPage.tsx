@@ -155,10 +155,11 @@ function LeadForm({
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">
+              <label htmlFor="lead-first-name" className="block text-sm font-medium text-foreground mb-1.5">
                 First name <span className="text-destructive">*</span>
               </label>
               <input
+                id="lead-first-name"
                 required
                 value={form.firstName}
                 onChange={(e) => setField("firstName", e.target.value)}
@@ -167,10 +168,11 @@ function LeadForm({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">
+              <label htmlFor="lead-last-name" className="block text-sm font-medium text-foreground mb-1.5">
                 Last name <span className="text-destructive">*</span>
               </label>
               <input
+                id="lead-last-name"
                 required
                 value={form.lastName}
                 onChange={(e) => setField("lastName", e.target.value)}
@@ -180,10 +182,11 @@ function LeadForm({
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
+            <label htmlFor="lead-email" className="block text-sm font-medium text-foreground mb-1.5">
               Email address <span className="text-destructive">*</span>
             </label>
             <input
+              id="lead-email"
               required
               type="email"
               value={form.email}
@@ -193,10 +196,11 @@ function LeadForm({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
+            <label htmlFor="lead-phone" className="block text-sm font-medium text-foreground mb-1.5">
               Phone number <span className="text-destructive">*</span>
             </label>
             <input
+              id="lead-phone"
               required
               type="tel"
               value={form.phone}
@@ -216,11 +220,12 @@ function LeadForm({
         <div className="space-y-4">
           {/* Sector dropdown */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
+            <label htmlFor="lead-sector" className="block text-sm font-medium text-foreground mb-1.5">
               Sector / Industry{" "}
               <span className="text-muted-foreground font-normal">(optional)</span>
             </label>
             <select
+              id="lead-sector"
               value={form.industrySector}
               onChange={(e) => setField("industrySector", e.target.value)}
               className={`${fieldClass} bg-background`}
@@ -256,8 +261,8 @@ function LeadForm({
             className="mt-0.5 h-4 w-4 rounded border-input accent-primary cursor-pointer"
           />
           <span className="text-sm text-muted-foreground leading-relaxed">
-            I agree to JOBSAGE storing and processing my information to assess my UK career options and send me relevant updates. I understand I can withdraw consent at any time.{" "}
-            <Link href="/extension-privacy">
+            I ask JOBSAGE to store and use these details to assess and respond to my enquiry, including a waitlist confirmation and follow-up about my JOBSAGE enquiry. I understand I can withdraw this request at any time.{" "}
+            <Link href="/privacy">
               <span className="underline underline-offset-2 text-foreground cursor-pointer">
                 Privacy Policy
               </span>
@@ -298,6 +303,8 @@ function ChatUI({
   onSend,
   streaming,
   onSwitchToForm,
+  privacyConsent,
+  setPrivacyConsent,
 }: {
   messages: ChatMessage[];
   chatInput: string;
@@ -305,6 +312,8 @@ function ChatUI({
   onSend: () => void;
   streaming: boolean;
   onSwitchToForm: () => void;
+  privacyConsent: boolean;
+  setPrivacyConsent: (value: boolean) => void;
 }) {
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -359,9 +368,26 @@ function ChatUI({
         <div ref={endRef} />
       </div>
 
+      <label id="jobsage-lead-chat-privacy" className="flex items-start gap-2 border-t border-border/60 bg-secondary/20 px-4 py-3 text-xs text-muted-foreground">
+        <input
+          type="checkbox"
+          checked={privacyConsent}
+          onChange={(event) => setPrivacyConsent(event.target.checked)}
+          className="mt-0.5 h-4 w-4 rounded border-input accent-primary"
+        />
+        <span>
+          I consent to JOBSAGE sending this conversation to its AI provider, storing contact details I provide, and sending a waitlist confirmation or enquiry follow-up.{" "}
+          <Link href="/privacy" className="text-foreground underline underline-offset-2">
+            Privacy Policy
+          </Link>
+        </span>
+      </label>
+
       {/* Input */}
       <div className="border-t border-border/60 px-4 py-3 flex gap-2 items-end bg-background">
+        <label htmlFor="jobsage-lead-chat-input" className="sr-only">Message JOBSAGE AI</label>
         <textarea
+          id="jobsage-lead-chat-input"
           value={chatInput}
           onChange={(e) => setChatInput(e.target.value)}
           onKeyDown={handleKey}
@@ -370,11 +396,13 @@ function ChatUI({
           rows={1}
           className="flex-1 resize-none rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition min-h-[42px] max-h-28 disabled:opacity-50 disabled:cursor-not-allowed"
           style={{ scrollbarWidth: "thin" }}
+          aria-describedby="jobsage-lead-chat-privacy"
         />
         <button
           type="button"
           onClick={onSend}
-          disabled={!chatInput.trim() || streaming}
+          disabled={!chatInput.trim() || streaming || !privacyConsent}
+          aria-label={streaming ? "JOBSAGE AI is responding" : "Send message"}
           className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-primary text-primary-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-accent transition"
         >
           {streaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
@@ -468,6 +496,7 @@ export default function GetStartedPage() {
   const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_MESSAGES);
   const [chatInput, setChatInput] = useState("");
   const [streaming, setStreaming] = useState(false);
+  const [chatPrivacyConsent, setChatPrivacyConsent] = useState(false);
 
   // Count how many turns the user has had — drives CTA visibility
   const userTurnCount = messages.filter((m) => m.role === "user").length;
@@ -504,7 +533,7 @@ export default function GetStartedPage() {
 
   async function handleChatSend() {
     const userMsg = chatInput.trim();
-    if (!userMsg || streaming) return;
+    if (!userMsg || streaming || !chatPrivacyConsent) return;
 
     setChatInput("");
 
@@ -537,6 +566,7 @@ export default function GetStartedPage() {
                 : form.industrySector || undefined,
             desiredRole: form.desiredRole || undefined,
           },
+          gdprConsent: chatPrivacyConsent,
         }),
       });
 
@@ -760,6 +790,8 @@ export default function GetStartedPage() {
                 onSend={handleChatSend}
                 streaming={streaming}
                 onSwitchToForm={switchToForm}
+                privacyConsent={chatPrivacyConsent}
+                setPrivacyConsent={setChatPrivacyConsent}
               />
               {showCta && <RegisterCta onSwitchToForm={switchToForm} />}
             </motion.div>
@@ -789,11 +821,15 @@ export default function GetStartedPage() {
       </main>
 
       {/* ── Footer ── */}
-      <footer className="border-t border-border/50 py-5 px-4 text-center text-xs text-muted-foreground">
-        © {new Date().getFullYear()} JOBSAGE Ltd ·{" "}
-        <Link href="/extension-privacy">
-          <span className="underline underline-offset-2 cursor-pointer hover:text-foreground">Privacy Policy</span>
-        </Link>
+      <footer className="mt-auto border-t border-border/40 py-6 px-4 bg-secondary/20">
+        <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
+          <p>© {new Date().getFullYear()} JOBSAGE. All rights reserved.</p>
+          <div className="flex items-center gap-4">
+            <Link href="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link>
+            <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
+            <Link href="/extension-privacy" className="hover:text-foreground transition-colors">Extension Privacy</Link>
+          </div>
+        </div>
       </footer>
     </div>
   );

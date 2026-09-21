@@ -7,6 +7,7 @@ import React, { useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -173,6 +174,28 @@ export default function LoginScreen() {
             <Text style={styles.hint}>
               Use the same credentials as your JOBSAGE web account.
             </Text>
+
+            <Text style={styles.legalNotice}>
+              Review the JOBSAGE{" "}
+              <Text
+                style={styles.legalLink}
+                accessibilityRole="link"
+                accessibilityLabel="Read the JOBSAGE Terms of Service"
+                onPress={() => Linking.openURL("https://jobsage.co.uk/terms")}
+              >
+                Terms of Service
+              </Text>{" "}
+               and{" "}
+              <Text
+                style={styles.legalLink}
+                accessibilityRole="link"
+                accessibilityLabel="Read the JOBSAGE Privacy Policy"
+                onPress={() => Linking.openURL("https://jobsage.co.uk/privacy")}
+              >
+                Privacy Policy
+              </Text>
+               {" "}to understand the rules for using the service and how your data is handled.
+            </Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -316,5 +339,18 @@ const styles = StyleSheet.create({
     color: "#64748b",
     textAlign: "center",
     lineHeight: 18,
+  },
+  legalNotice: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: "#94a3b8",
+    textAlign: "center",
+    lineHeight: 18,
+    marginTop: 18,
+  },
+  legalLink: {
+    color: "#7dd3fc",
+    fontFamily: "Inter_500Medium",
+    textDecorationLine: "underline",
   },
 });

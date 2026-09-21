@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { Card, Button } from "@/components/ui-enhanced";
 import { useToast } from "@/hooks/use-toast";
 import { Building2, Mail, Lock, User, Eye, EyeOff, ShieldCheck, ArrowRight } from "lucide-react";
@@ -164,6 +164,12 @@ export default function EmployerRegisterPage() {
               <p className="text-xs text-blue-800">
                 Your account will be set up as an employer. After registration you'll configure your organisation profile.
               </p>
+            </div>
+
+            <div className="text-xs text-muted-foreground leading-relaxed pt-1">
+              By creating an employer account, you agree to our{" "}
+              <Link href="/terms" className="text-primary hover:underline">Terms of Service</Link> and{" "}
+              <Link href="/privacy" className="text-primary hover:underline">Privacy Policy</Link>.
             </div>
 
             <Button type="submit" className="w-full" disabled={loading}>

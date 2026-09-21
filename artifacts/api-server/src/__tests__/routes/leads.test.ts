@@ -157,6 +157,18 @@ const validLeadSubmission = {
 };
 
 describe("waitlist lead submission", () => {
+  it("rejects AI chat before privacy consent", async () => {
+    const response = await request(buildApp())
+      .post("/leads/chat")
+      .send({ message: "I would like help with my UK career." });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: "Privacy consent is required before using chat.",
+    });
+    expect(openAiCreateMock).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     queryResults.length = 0;
     setCalls.length = 0;
@@ -251,6 +263,7 @@ describe("waitlist lead submission", () => {
       .send({
         message: "My email is ada@example.com",
         history: [{ role: "user", content: "My name is Ada Lovelace" }],
+        gdprConsent: true,
       });
 
     expect(response.status).toBe(200);
@@ -287,6 +300,7 @@ describe("waitlist lead submission", () => {
       .send({
         message: "My phone is +44 7700 900123",
         history: [{ role: "user", content: "My name is Ada Lovelace and my email is ada@example.com" }],
+        gdprConsent: true,
       });
 
     expect(response.status).toBe(200);
@@ -332,6 +346,7 @@ describe("waitlist lead submission", () => {
       .send({
         message: "I work in technology",
         history: [{ role: "user", content: "Let me tell you about my sector" }],
+        gdprConsent: true,
         knownQualifiers: {
           name: "Ada Lovelace",
           email: "ada@example.com",
