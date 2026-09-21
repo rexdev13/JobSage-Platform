@@ -67,8 +67,12 @@ zero-based:
   Teaching Vacancies education target.
 
 The response includes `cursor`, `nextCursor`, `remaining`, and `done`, plus the
-source/category metrics written to `vacancy_sync_log`. On a failed or cooldown
-category, `nextCursor` stays at that category so the caller can retry it.
+source/category metrics written to `vacancy_sync_log`. Each category reports
+`discovered`, `sponsorMatched`, `classified`, `candidateVisible`, and its
+inserted/updated/revived counters. The HTTP runner requests up to 20 results
+per category within the 22-second profession-backfill budget. On a failed or
+cooldown category, `nextCursor` stays at that category so the caller can retry
+it.
 
 ## curl
 
@@ -140,23 +144,41 @@ Create POST jobs using the endpoint, JSON body, and
 - Liveness: `30 1,7,13,19 * * *`
 - Contact: `47 3 * * *` (one authenticated, non-overlapping daily batch)
 
-For a complete daily profession sweep, create these additional POST jobs. Each
-job uses the same URL, `Content-Type` header, and secret header shown above.
-Keep the JSON body fixed; cron-job.org does not update a later job's body from a
-previous response:
+Keep the existing board, company-site, liveness, and contact jobs. For
+continuous profession coverage, create the following 19 additional POST jobs.
+Each job uses the same URL, `Content-Type` header, and secret header shown
+above. Keep the JSON body fixed; cron-job.org does not update a later job's body
+from a previous response:
 
-| Schedule (Europe/London) | Kind | JSON body |
-| --- | --- | --- |
-| `1 3 * * *` through `25 3 * * *`, every 3 minutes | `reed_professions` | `{"kind":"reed_professions","cursor":0..8,"limit":1}` — create one job per cursor |
-| `1 4 * * *` through `28 4 * * *`, every 3 minutes | `additional_boards` | `{"kind":"additional_boards","cursor":0..9,"limit":1}` — create one job per cursor |
+| Schedule (Europe/London) | Job title | Kind | JSON body |
+| --- | --- | --- | --- |
+| `6 0-22/2 * * *` | Reed profession cursor 0 | `reed_professions` | `{"kind":"reed_professions","cursor":0,"limit":1}` |
+| `10 0-22/2 * * *` | Reed profession cursor 1 | `reed_professions` | `{"kind":"reed_professions","cursor":1,"limit":1}` |
+| `18 0-22/2 * * *` | Reed profession cursor 2 | `reed_professions` | `{"kind":"reed_professions","cursor":2,"limit":1}` |
+| `22 0-22/2 * * *` | Reed profession cursor 3 | `reed_professions` | `{"kind":"reed_professions","cursor":3,"limit":1}` |
+| `30 0-22/2 * * *` | Reed profession cursor 4 | `reed_professions` | `{"kind":"reed_professions","cursor":4,"limit":1}` |
+| `34 0-22/2 * * *` | Reed profession cursor 5 | `reed_professions` | `{"kind":"reed_professions","cursor":5,"limit":1}` |
+| `42 0-22/2 * * *` | Reed profession cursor 6 | `reed_professions` | `{"kind":"reed_professions","cursor":6,"limit":1}` |
+| `46 0-22/2 * * *` | Reed profession cursor 7 | `reed_professions` | `{"kind":"reed_professions","cursor":7,"limit":1}` |
+| `54 0-22/2 * * *` | Reed profession cursor 8 | `reed_professions` | `{"kind":"reed_professions","cursor":8,"limit":1}` |
+| `58 0-22/2 * * *` | Additional boards cursor 0 | `additional_boards` | `{"kind":"additional_boards","cursor":0,"limit":1}` |
+| `6 1-23/2 * * *` | Additional boards cursor 1 | `additional_boards` | `{"kind":"additional_boards","cursor":1,"limit":1}` |
+| `10 1-23/2 * * *` | Additional boards cursor 2 | `additional_boards` | `{"kind":"additional_boards","cursor":2,"limit":1}` |
+| `18 1-23/2 * * *` | Additional boards cursor 3 | `additional_boards` | `{"kind":"additional_boards","cursor":3,"limit":1}` |
+| `22 1-23/2 * * *` | Additional boards cursor 4 | `additional_boards` | `{"kind":"additional_boards","cursor":4,"limit":1}` |
+| `34 1-23/2 * * *` | Additional boards cursor 5 | `additional_boards` | `{"kind":"additional_boards","cursor":5,"limit":1}` |
+| `42 1-23/2 * * *` | Additional boards cursor 6 | `additional_boards` | `{"kind":"additional_boards","cursor":6,"limit":1}` |
+| `46 1-23/2 * * *` | Additional boards cursor 7 | `additional_boards` | `{"kind":"additional_boards","cursor":7,"limit":1}` |
+| `54 1-23/2 * * *` | Additional boards cursor 8 | `additional_boards` | `{"kind":"additional_boards","cursor":8,"limit":1}` |
+| `58 1-23/2 * * *` | Additional boards cursor 9 | `additional_boards` | `{"kind":"additional_boards","cursor":9,"limit":1}` |
 
-The compact form above means nine Reed jobs with cursors `0` through `8` at
-03:01, 03:04, ..., 03:25, and ten additional-board jobs with cursors `0`
-through `9` at 04:01, 04:04, ..., 04:28. The three-minute spacing is
-intentional: it leaves room for the 22-second server budget, response delivery,
-and a `Retry-After: 30` retry without overlapping the next fixed page. If a
-page returns `done=false` with a different `nextCursor`, use that cursor for a
-manual catch-up request rather than changing the daily jobs mid-run.
+The even-hour Reed pass and the odd-hour additional-board pass each complete
+every two hours. Additional-board cursor 0 uses `:58` in even hours so the
+remaining odd-hour jobs avoid the existing liveness `:30` slots. The
+three-minute-or-more spacing leaves room for the 22-second server budget,
+response delivery, and a `Retry-After: 30` retry without overlapping the next
+fixed page. If a page returns `done=false` with a different `nextCursor`, use
+that cursor for a manual catch-up request rather than changing the daily jobs.
 
 In each cron-job.org job:
 
