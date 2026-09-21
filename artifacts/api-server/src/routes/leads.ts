@@ -852,6 +852,7 @@ router.post(
     const { message, history } = req.body as {
       message?: string;
       history?: Array<{ role: "user" | "assistant"; content: string }>;
+      gdprConsent?: boolean;
       knownQualifiers?: {
         name?: string | null;
         email?: string | null;
@@ -868,6 +869,10 @@ router.post(
 
     if (!message?.trim()) {
       res.status(400).json({ error: "message is required." });
+      return;
+    }
+    if (req.body?.gdprConsent !== true) {
+      res.status(400).json({ error: "Privacy consent is required before using chat." });
       return;
     }
 
@@ -1005,7 +1010,7 @@ router.post(
                 phone,
                 industrySector,
                 desiredRole,
-                gdprConsent: false,
+                gdprConsent: true,
                 gdprConsentedAt: now,
                 source: "chat",
                 status: "new",

@@ -259,6 +259,11 @@ export default function LoginPage() {
                 Create account
               </Link>
             </p>
+
+            <div className="mt-8 flex items-center justify-center gap-4 text-xs text-muted-foreground">
+              <Link href="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link>
+              <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
+            </div>
           </div>
         </motion.div>
       </main>

@@ -6,6 +6,7 @@ import React, { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -213,6 +214,38 @@ export default function ProfileScreen() {
         </View>
       )}
 
+      <View style={[styles.legalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Legal</Text>
+        <Pressable
+          style={({ pressed }) => [styles.legalRow, { opacity: pressed ? 0.65 : 1 }]}
+          onPress={() => Linking.openURL("https://jobsage.co.uk/privacy")}
+          accessibilityRole="link"
+          accessibilityLabel="Read the JOBSAGE Privacy Policy"
+        >
+          <View style={[styles.infoIcon, { backgroundColor: colors.muted }]}>
+            <Ionicons name="shield-checkmark-outline" size={16} color={colors.mutedForeground} />
+          </View>
+          <Text style={[styles.legalRowText, { color: colors.foreground }]}>Privacy Policy</Text>
+          <Ionicons name="open-outline" size={17} color={colors.mutedForeground} />
+        </Pressable>
+        <Pressable
+          style={({ pressed }) => [
+            styles.legalRow,
+            styles.legalRowLast,
+            { opacity: pressed ? 0.65 : 1 },
+          ]}
+          onPress={() => Linking.openURL("https://jobsage.co.uk/terms")}
+          accessibilityRole="link"
+          accessibilityLabel="Read the JOBSAGE Terms of Service"
+        >
+          <View style={[styles.infoIcon, { backgroundColor: colors.muted }]}>
+            <Ionicons name="document-text-outline" size={16} color={colors.mutedForeground} />
+          </View>
+          <Text style={[styles.legalRowText, { color: colors.foreground }]}>Terms of Service</Text>
+          <Ionicons name="open-outline" size={17} color={colors.mutedForeground} />
+        </Pressable>
+      </View>
+
       <Pressable
         style={({ pressed }) => [
           styles.logoutBtn,
@@ -352,6 +385,27 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     textAlign: "center",
     lineHeight: 20,
+  },
+  legalCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 18,
+    gap: 4,
+  },
+  legalRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+  },
+  legalRowLast: {
+    borderBottomWidth: 0,
+  },
+  legalRowText: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
   },
   logoutBtn: {
     flexDirection: "row",

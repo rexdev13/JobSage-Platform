@@ -271,6 +271,12 @@ export default function RegisterPage() {
                 </div>
               )}
 
+              <div className="pt-2 text-xs text-muted-foreground leading-relaxed">
+                By creating an account, you agree to our{" "}
+                <Link href="/terms" className="text-primary hover:underline">Terms of Service</Link> and{" "}
+                <Link href="/privacy" className="text-primary hover:underline">Privacy Policy</Link>.
+              </div>
+
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? "Creating account…" : "Create account"}
               </Button>

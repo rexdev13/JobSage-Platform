@@ -63,6 +63,8 @@ const RecommendationLettersPage = lazy(() => import("@/pages/RecommendationLette
 const IdentityVerificationPage  = lazy(() => import("@/pages/IdentityVerificationPage"));
 const NotFound                  = lazy(() => import("@/pages/not-found"));
 const ExtensionPrivacyPage      = lazy(() => import("@/pages/ExtensionPrivacyPage"));
+const PrivacyPolicyPage         = lazy(() => import("@/pages/PrivacyPolicyPage"));
+const TermsOfServicePage        = lazy(() => import("@/pages/TermsOfServicePage"));
 const GetStartedPage            = lazy(() => import("@/pages/GetStartedPage"));
 
 // Shared QueryClient — single instance for the whole app.
@@ -252,6 +254,10 @@ function Router() {
 
         {/* Public privacy policy for the Smart Apply Chrome extension (required by the Chrome Web Store) */}
         <Route path="/extension-privacy" component={ExtensionPrivacyPage} />
+
+        {/* Core legal and privacy pages */}
+        <Route path="/privacy" component={PrivacyPolicyPage} />
+        <Route path="/terms" component={TermsOfServicePage} />
 
         {/* Sprint release notes — public, print-ready */}
         <Route path="/release-notes" component={ReleaseNotesPage} />

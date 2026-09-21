@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useRecordConsent } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@workspace/auth-web";
@@ -59,10 +59,10 @@ export default function ConsentPage() {
               <Shield className="w-7 h-7 text-primary" />
             </div>
             <h1 className="text-2xl font-display font-bold text-foreground mb-2">
-              Data Privacy & Consent
+              Data Privacy & Terms
             </h1>
             <p className="text-muted-foreground text-sm leading-relaxed">
-              Before accessing JOBSAGE, please review how we handle your data and give your consent.
+              Before accessing JOBSAGE, please review the terms and how we handle your data.
             </p>
           </div>
 
@@ -99,8 +99,9 @@ export default function ConsentPage() {
             </div>
             <span className="text-sm text-foreground leading-relaxed select-none">
               I have read and agree to the{" "}
-              <span className="text-primary underline cursor-pointer">Terms of Service</span> and{" "}
-              <span className="text-primary underline cursor-pointer">Privacy Policy</span>. I consent to JOBSAGE processing my professional data for eligibility evaluation.
+              I agree to the{" "}
+              <Link href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary underline cursor-pointer">Terms of Service</Link> and acknowledge the{" "}
+              <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary underline cursor-pointer">Privacy Policy</Link>. I ask JOBSAGE to process the professional data I provide to deliver eligibility, matching, and application-support features.
             </span>
           </label>
 
@@ -110,7 +111,7 @@ export default function ConsentPage() {
             disabled={!checked || recordConsentMutation.isPending}
             onClick={handleContinue}
           >
-            {recordConsentMutation.isPending ? "Recording Consent..." : "Accept & Continue"}
+            {recordConsentMutation.isPending ? "Recording Agreement..." : "Agree & Continue"}
           </Button>
 
           <p className="mt-4 text-center text-xs text-muted-foreground">

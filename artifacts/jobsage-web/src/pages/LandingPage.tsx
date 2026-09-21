@@ -475,7 +475,7 @@ const FAQS = [
   },
   {
     q: "Is my data secure?",
-    a: "Yes. All data is encrypted at rest and in transit. We are GDPR-compliant and will never share your personal information with third parties without your explicit consent. You can withdraw consent and request data deletion at any time.",
+    a: "We use reasonable technical and organisational safeguards to protect personal data. We use essential service providers for hosting, storage, email, and AI processing as described in our Privacy Policy; we do not sell personal data. You can withdraw consent where it applies and request access, correction, or deletion.",
   },
 ];
 
@@ -1343,14 +1343,14 @@ export default function LandingPage() {
               <div>
                 <p className="font-semibold text-background mb-3">Legal</p>
                 <ul className="flex flex-col gap-2">
-                  <li><span className="cursor-default">Privacy Policy</span></li>
-                  <li><span className="cursor-default">Terms of Service</span></li>
+                  <li><button onClick={() => setLocation("/privacy")} className="hover:text-background transition-colors">Privacy Policy</button></li>
+                  <li><button onClick={() => setLocation("/terms")} className="hover:text-background transition-colors">Terms of Service</button></li>
                 </ul>
               </div>
             </div>
           </div>
           <div className="border-t border-background/10 pt-6 text-xs text-center">
-            © {new Date().getFullYear()} JOBSAGE Ltd. All rights reserved. JOBSAGE is a decision-support tool and does not constitute professional legal or regulatory advice.
+            © {new Date().getFullYear()} JOBSAGE. All rights reserved. JOBSAGE is a decision-support tool and does not constitute professional legal or regulatory advice.
           </div>
         </div>
       </footer>
