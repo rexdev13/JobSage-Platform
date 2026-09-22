@@ -424,10 +424,30 @@ router.post(
 router.get(
   "/marketer/calendar/google/status",
   calendarRoles,
-  async (_req: Request, res: Response): Promise<void> => {
+  async (req: Request, res: Response): Promise<void> => {
+    const isAdmin = isAdminRole(req.user?.role);
+    const requestedMarketer = String(req.query.marketingUserId ?? "").trim();
+    const marketingUserId = isAdmin ? requestedMarketer : req.user!.id;
+    if (!marketingUserId) {
+      res.json({ connected: false });
+      return;
+    }
     try {
-      const status = await getGoogleCalendarStatus();
-      res.json(status);
+      const [user] = await db
+        .select({
+          refreshToken: usersTable.googleCalendarRefreshToken,
+          accountEmail: usersTable.googleCalendarAccountEmail,
+        })
+        .from(usersTable)
+        .where(eq(usersTable.id, marketingUserId))
+        .limit(1);
+      if (!user?.refreshToken) {
+        res.json({ connected: false, accountEmail: null });
+        return;
+      }
+      const googleAuth = await getGoogleCalendarAuth(marketingUserId);
+      const status = await getGoogleCalendarStatus(googleAuth.auth);
+      res.json({ ...status, accountEmail: googleAuth.accountEmail });
     } catch (error) {
       googleCalendarErrorResponse(
         error,
@@ -435,6 +455,92 @@ router.get(
         "Google Calendar is not available for automated bookings.",
       );
     }
+  },
+);
+
+router.get(
+  "/marketer/calendar/google/connect",
+  calendarRoles,
+  async (req: Request, res: Response): Promise<void> => {
+    if (req.user?.role !== "marketing") {
+      res.status(403).json({ error: "Each marketer must connect their own Google Calendar." });
+      return;
+    }
+    try {
+      const state = createGoogleOAuthState({
+        userId: req.user.id,
+        returnPath: "/admin/calendar",
+      });
+      res.redirect(googleCalendarAuthorizationUrl(state));
+    } catch (error) {
+      console.error("[google-calendar] OAuth setup failed:", error);
+      res.status(503).json({ error: "Google Calendar OAuth is not configured yet." });
+    }
+  },
+);
+
+router.get(
+  "/marketer/calendar/google/oauth/callback",
+  async (req: Request, res: Response): Promise<void> => {
+    const stateValue = String(req.query.state ?? "");
+    let state: ReturnType<typeof verifyGoogleOAuthState>;
+    try {
+      state = verifyGoogleOAuthState(stateValue);
+    } catch {
+      res.status(400).send("Invalid or expired Google Calendar connection request.");
+      return;
+    }
+    const returnPath = state.returnPath.startsWith("/") ? state.returnPath : "/admin/calendar";
+    if (req.query.error || typeof req.query.code !== "string") {
+      res.redirect(`${returnPath}?googleCalendar=cancelled`);
+      return;
+    }
+    try {
+      const [user] = await db
+        .select({ id: usersTable.id, role: usersTable.role })
+        .from(usersTable)
+        .where(eq(usersTable.id, state.userId))
+        .limit(1);
+      if (!user || user.role !== "marketing") {
+        res.status(403).send("Only a marketer can connect a Google Calendar.");
+        return;
+      }
+      const tokens = await exchangeGoogleAuthorizationCode(req.query.code);
+      const auth = { refreshToken: tokens.refreshToken };
+      await getGoogleCalendarStatus(auth);
+      await db
+        .update(usersTable)
+        .set({
+          googleCalendarRefreshToken: encryptGoogleRefreshToken(tokens.refreshToken),
+          googleCalendarAccountEmail: tokens.accountEmail,
+          googleCalendarConnectedAt: new Date(),
+        })
+        .where(eq(usersTable.id, state.userId));
+      res.redirect(`${returnPath}?googleCalendar=connected`);
+    } catch (error) {
+      console.error("[google-calendar] OAuth callback failed:", error);
+      res.redirect(`${returnPath}?googleCalendar=error`);
+    }
+  },
+);
+
+router.delete(
+  "/marketer/calendar/google/connection",
+  calendarRoles,
+  async (req: Request, res: Response): Promise<void> => {
+    if (req.user?.role !== "marketing") {
+      res.status(403).json({ error: "Each marketer must manage their own Google Calendar connection." });
+      return;
+    }
+    await db
+      .update(usersTable)
+      .set({
+        googleCalendarRefreshToken: null,
+        googleCalendarAccountEmail: null,
+        googleCalendarConnectedAt: null,
+      })
+      .where(eq(usersTable.id, req.user.id));
+    res.json({ connected: false });
   },
 );
 
