@@ -6,7 +6,6 @@ import {
   useParseCv,
   useUpsertMyProfile,
   useGetMyProfile,
-  useListCareerProfiles,
   getListMyDocumentsQueryKey,
   getGetMyProfileQueryKey,
   type CvExtractedFields,
@@ -389,11 +388,6 @@ export default function DocumentsPage() {
   const [enhanceSheetOpen, setEnhanceSheetOpen] = useState(false);
   const [professionWarningMsg, setProfessionWarningMsg] = useState<string | null>(null);
 
-  // Career profiles — for the saved CV narrative preview
-  const { data: cpData } = useListCareerProfiles();
-  const activeCareerProfile = cpData?.profiles.find((p) => p.isActive) ?? cpData?.profiles[0];
-  const savedAiCvContent = activeCareerProfile?.aiCvContent ?? null;
-
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -734,30 +728,6 @@ export default function DocumentsPage() {
                       </button>
                     )}
                   </div>
-
-                  {/* ── Saved AI CV narrative preview ────────────────────── */}
-                  {isCvCategory && savedAiCvContent && (
-                    <div className="mb-5 rounded-xl border border-primary/20 bg-primary/5 p-4">
-                      <div className="flex items-center justify-between mb-2.5">
-                        <div className="flex items-center gap-1.5">
-                          <Sparkles className="w-3.5 h-3.5 text-primary" />
-                          <span className="text-xs font-semibold text-primary">
-                            Saved AI CV Narrative
-                            {activeCareerProfile?.name ? ` — ${activeCareerProfile.name}` : ""}
-                          </span>
-                        </div>
-                        <button
-                          onClick={() => setEnhanceSheetOpen(true)}
-                          className="text-xs text-primary hover:text-primary/80 transition-colors font-medium"
-                        >
-                          Edit
-                        </button>
-                      </div>
-                      <p className="text-sm text-foreground leading-relaxed line-clamp-4 whitespace-pre-wrap">
-                        {savedAiCvContent}
-                      </p>
-                    </div>
-                  )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {docs.map((doc) => {

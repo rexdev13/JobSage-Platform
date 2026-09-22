@@ -3,9 +3,10 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import request from "supertest";
 
-const { profileResults, conflictUpdates } = vi.hoisted(() => ({
+const { profileResults, conflictUpdates, updateSetCalls } = vi.hoisted(() => ({
   profileResults: [] as any[],
   conflictUpdates: [] as any[],
+  updateSetCalls: [] as any[],
 }));
 
 vi.mock("@workspace/db", () => {
@@ -16,7 +17,7 @@ vi.mock("@workspace/db", () => {
       orderBy() { return chain; },
       limit() { return chain; },
       values() { return chain; },
-      set() { return chain; },
+      set(config: any) { updateSetCalls.push(config); return chain; },
       onConflictDoUpdate(config: any) { conflictUpdates.push(config); return chain; },
       then(resolve: any, reject?: any) {
         return Promise.resolve(profileResults.shift() ?? []).then(resolve, reject);
@@ -36,6 +37,7 @@ vi.mock("@workspace/db", () => {
     },
     profilesTable: {},
     usersTable: {},
+    careerProfilesTable: {},
     consentLogsTable: {},
     sessionsTable: {},
   };
@@ -101,6 +103,7 @@ describe("GET /profiles/me", () => {
   beforeEach(() => {
     profileResults.length = 0;
     conflictUpdates.length = 0;
+    updateSetCalls.length = 0;
     mockGetSession.mockResolvedValue(candidateSession);
   });
 
@@ -160,6 +163,7 @@ describe("PUT /profiles/me", () => {
   beforeEach(() => {
     profileResults.length = 0;
     conflictUpdates.length = 0;
+    updateSetCalls.length = 0;
     mockGetSession.mockResolvedValue(candidateSession);
   });
 
@@ -211,6 +215,20 @@ describe("PUT /profiles/me", () => {
     const updateSet = conflictUpdates.at(-1)?.set ?? {};
     expect(updateSet).not.toHaveProperty("dbsClearanceLevel");
     expect(updateSet).not.toHaveProperty("safeguardingTrainingLevel");
+  });
+
+  it("marks existing factual CV drafts for review when a Maker fact changes", async () => {
+    profileResults.push([consentRow]);
+    profileResults.push([{ ...profileRow }]);
+    profileResults.push([{ ...profileRow, experienceYears: 6 }]);
+
+    const resp = await request(buildApp())
+      .put("/profiles/me")
+      .set("Authorization", AUTH_HEADER)
+      .send({ ...validBody, experienceYears: 6 });
+
+    expect(resp.status).toBe(200);
+    expect(updateSetCalls).toContainEqual({ aiCvReviewedAt: null });
   });
 });
 

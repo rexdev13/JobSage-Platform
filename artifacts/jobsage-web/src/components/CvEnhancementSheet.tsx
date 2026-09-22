@@ -26,6 +26,7 @@ import {
   useGetMyProfile,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { CV_ENHANCEMENT_LABEL } from "@/lib/careerProfileMakerCopy";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 const DAILY_LIMIT = 5;
@@ -221,7 +222,7 @@ export function CvEnhancementSheet({ open, onOpenChange }: CvEnhancementSheetPro
               <Sparkles className="w-5 h-5 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
-              <SheetTitle className="text-base font-semibold leading-tight">AI CV Enhancement</SheetTitle>
+              <SheetTitle className="text-base font-semibold leading-tight">{CV_ENHANCEMENT_LABEL}</SheetTitle>
               <SheetDescription className="text-xs text-muted-foreground mt-0.5">
                 {phase === "input"
                   ? "Select a CV — AI rewrites it better, all facts kept exactly as-is."
