@@ -66,6 +66,7 @@ const ExtensionPrivacyPage      = lazy(() => import("@/pages/ExtensionPrivacyPag
 const PrivacyPolicyPage         = lazy(() => import("@/pages/PrivacyPolicyPage"));
 const TermsOfServicePage        = lazy(() => import("@/pages/TermsOfServicePage"));
 const GetStartedPage            = lazy(() => import("@/pages/GetStartedPage"));
+const MarketerBookingPage       = lazy(() => import("@/pages/MarketerBookingPage"));
 
 // Shared QueryClient — single instance for the whole app.
 const queryClient = new QueryClient();
@@ -264,6 +265,7 @@ function Router() {
 
         {/* Social media lead capture — traffic from Facebook, Instagram, LinkedIn */}
         <Route path="/get-started" component={GetStartedPage} />
+        <Route path="/book/:slug" component={MarketerBookingPage} />
 
         {/* Protected routes inside AuthGuard */}
         <Route path="*">

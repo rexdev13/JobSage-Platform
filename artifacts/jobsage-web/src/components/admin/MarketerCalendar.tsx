@@ -21,6 +21,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock3,
+  Copy,
   ExternalLink,
   List,
   Mail,
@@ -69,6 +70,12 @@ type CalendlySyncStatus = {
   lastSyncedAt: string | null;
   importedEvents: number;
 };
+type GoogleCalendarStatus = {
+  connected: true;
+  calendarId: string;
+  calendarName: string;
+  accessRole: "writer" | "owner";
+};
 type CalendlySyncSummary = {
   imported: number;
   updated: number;
@@ -88,7 +95,7 @@ type CalendarEvent = {
   meetingUrl: string | null;
   status: EventStatus;
   notes: string | null;
-  source: "manual" | "calendly";
+  source: "manual" | "calendly" | "google_calendar";
   lead: {
     firstName: string | null;
     lastName: string | null;
@@ -178,6 +185,7 @@ export function MarketerCalendar({
   const [scheduleEnd, setScheduleEnd] = useState("");
   const [scheduleUrl, setScheduleUrl] = useState("");
   const [scheduleNotes, setScheduleNotes] = useState("");
+  const [scheduleProvider, setScheduleProvider] = useState<"google_calendar" | "manual">("google_calendar");
   const [eventTitle, setEventTitle] = useState("");
   const [eventScheduledAt, setEventScheduledAt] = useState("");
   const [eventEndTime, setEventEndTime] = useState("");
@@ -232,6 +240,26 @@ export function MarketerCalendar({
     staleTime: 30_000,
     refetchInterval: 60_000,
   });
+  const googleStatusQuery = useQuery<GoogleCalendarStatus>({
+    queryKey: ["marketer-google-calendar-status"],
+    queryFn: async () => readJson<GoogleCalendarStatus>(
+      await fetch(`${BASE}/api/marketer/calendar/google/status`, { credentials: "include" }),
+    ),
+    staleTime: 60_000,
+    retry: 1,
+  });
+  const bookingLinkQuery = useQuery<{ path: string; timeZone: string; enabled: boolean }>({
+    queryKey: ["marketer-google-booking-link", selectedMarketerId || currentUserId],
+    enabled: googleStatusQuery.isSuccess && (!isAdmin || !!selectedMarketerId),
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (isAdmin && selectedMarketerId) params.set("marketingUserId", selectedMarketerId);
+      return readJson<{ path: string; timeZone: string; enabled: boolean }>(
+        await fetch(`${BASE}/api/marketer/calendar/google/booking-link?${params}`, { credentials: "include" }),
+      );
+    },
+    staleTime: Infinity,
+  });
 
   const syncMutation = useMutation({
     mutationFn: async () => readJson<{
@@ -285,6 +313,7 @@ export function MarketerCalendar({
     setScheduleAt(inputDateValue());
     setScheduleEnd("");
     setScheduleNotes("");
+    setScheduleProvider("google_calendar");
     setMessage(null);
     setScheduleOpen(true);
     onInitialLeadHandled();
@@ -306,8 +335,10 @@ export function MarketerCalendar({
             title: scheduleTitle.trim() || `Call with ${selectedLead ? leadName(selectedLead) : "lead"}`,
             scheduledAt: scheduledAt.toISOString(),
             endTime: endTime?.toISOString(),
-            meetingUrl: scheduleUrl.trim() || undefined,
+            meetingUrl: scheduleProvider === "manual" ? scheduleUrl.trim() || undefined : undefined,
             notes: scheduleNotes.trim() || undefined,
+            provider: scheduleProvider,
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
           }),
         }),
       );
@@ -371,6 +402,7 @@ export function MarketerCalendar({
     setScheduleEnd("");
     setScheduleUrl(lead?.assignee?.calendlyUrl ?? selectedCalendarUrl ?? "");
     setScheduleNotes("");
+    setScheduleProvider(googleStatusQuery.isSuccess ? "google_calendar" : "manual");
     setMessage(null);
     setScheduleOpen(true);
   }
@@ -415,7 +447,7 @@ export function MarketerCalendar({
         title,
         scheduledAt: scheduledAt.toISOString(),
         endTime: endTime.toISOString(),
-        meetingUrl: eventMeetingUrl.trim(),
+        ...(selectedEvent?.source === "manual" ? { meetingUrl: eventMeetingUrl.trim() } : {}),
       }),
       ...(
         selectedEvent?.source !== "calendly"
@@ -483,11 +515,29 @@ export function MarketerCalendar({
 
       <div className="flex flex-col gap-1 rounded-lg border border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
         <span>
-          {calendlyStatusQuery.data?.lastSyncedAt
-            ? `Last Calendly sync ${format(new Date(calendlyStatusQuery.data.lastSyncedAt), "d MMM yyyy, h:mm a")} · ${calendlyStatusQuery.data.importedEvents} synced event${calendlyStatusQuery.data.importedEvents === 1 ? "" : "s"}`
-            : "Calendly has not imported any events for this calendar yet."}
+          {googleStatusQuery.isLoading
+            ? "Checking Google Calendar connection…"
+            : googleStatusQuery.data
+              ? `Google Calendar connected: ${googleStatusQuery.data.calendarName}`
+              : "Google Calendar is unavailable; manual scheduling remains available."}
         </span>
-        <span>Automatic sync runs every 10 minutes.</span>
+        {bookingLinkQuery.data ? (
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 font-semibold text-primary hover:underline"
+            onClick={() => {
+              const url = `${window.location.origin}${BASE}${bookingLinkQuery.data.path}`;
+              void navigator.clipboard.writeText(url).then(
+                () => setSyncMessage("Public booking link copied."),
+                () => setSyncMessage(`Booking link: ${url}`),
+              );
+            }}
+          >
+            <Copy className="h-3.5 w-3.5" /> Copy public booking link
+          </button>
+        ) : (
+          <span>Google Meet links and guest invitations are created automatically.</span>
+        )}
       </div>
       {syncMessage && (
         <p className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground" role="status">
@@ -598,11 +648,30 @@ export function MarketerCalendar({
               </select>
             </label>
             <label className="grid gap-1.5 text-xs font-medium">Title<input value={scheduleTitle} onChange={(event) => setScheduleTitle(event.target.value)} placeholder="Discovery Call with Jane Doe" className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal" /></label>
+            <label className="grid gap-1.5 text-xs font-medium">
+              Booking method
+              <select
+                value={scheduleProvider}
+                onChange={(event) => setScheduleProvider(event.target.value as "google_calendar" | "manual")}
+                className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
+              >
+                <option value="google_calendar" disabled={!googleStatusQuery.isSuccess}>
+                  Google Calendar + Google Meet
+                </option>
+                <option value="manual">Manual event</option>
+              </select>
+            </label>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="grid gap-1.5 text-xs font-medium">Start<input type="datetime-local" value={scheduleAt} onChange={(event) => setScheduleAt(event.target.value)} className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal" /></label>
               <label className="grid gap-1.5 text-xs font-medium">End (optional)<input type="datetime-local" value={scheduleEnd} onChange={(event) => setScheduleEnd(event.target.value)} className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal" /></label>
             </div>
-            <label className="grid gap-1.5 text-xs font-medium">Meeting link<input type="url" value={scheduleUrl} onChange={(event) => setScheduleUrl(event.target.value)} placeholder="Calendly, Google Meet, or Zoom link" className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal" /></label>
+            {scheduleProvider === "google_calendar" ? (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-300">
+                JOBSAGE will check the connected calendar for conflicts, create a Google Meet room, and email the selected lead a calendar invitation.
+              </div>
+            ) : (
+              <label className="grid gap-1.5 text-xs font-medium">Meeting link<input type="url" value={scheduleUrl} onChange={(event) => setScheduleUrl(event.target.value)} placeholder="Google Meet, Zoom, or another meeting link" className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal" /></label>
+            )}
             <label className="grid gap-1.5 text-xs font-medium">Notes / agenda<textarea value={scheduleNotes} onChange={(event) => setScheduleNotes(event.target.value)} rows={3} placeholder="What should be covered?" className="rounded-lg border border-input bg-background px-3 py-2 text-sm font-normal" /></label>
           </div>
           <DialogFooter><Button variant="outline" onClick={() => setScheduleOpen(false)}>Cancel</Button><Button onClick={() => createMutation.mutate()} disabled={createMutation.isPending || !scheduleAt || !scheduleTitle.trim()}>{createMutation.isPending ? "Saving…" : "Schedule call"}</Button></DialogFooter>
@@ -668,7 +737,7 @@ export function MarketerCalendar({
                       type="url"
                       value={eventMeetingUrl}
                       onChange={(event) => setEventMeetingUrl(event.target.value)}
-                      disabled={selectedEvent.source === "calendly"}
+                      disabled={selectedEvent.source !== "manual"}
                       placeholder="Calendly, Google Meet, or Zoom link"
                       className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
                     />
@@ -676,6 +745,11 @@ export function MarketerCalendar({
                   {selectedEvent.source === "calendly" && (
                     <p className="rounded-lg bg-blue-50 px-3 py-2 text-[11px] text-blue-700 dark:bg-blue-950/30 dark:text-blue-300">
                       This booking is managed by Calendly. Change its time, meeting link, or cancellation in Calendly; JOBSAGE will import the update automatically. Call outcome and notes remain editable here.
+                    </p>
+                  )}
+                  {selectedEvent.source === "google_calendar" && (
+                    <p className="rounded-lg bg-blue-50 px-3 py-2 text-[11px] text-blue-700 dark:bg-blue-950/30 dark:text-blue-300">
+                      This booking is linked to Google Calendar. Saving title or time changes updates Google and emails guests; cancelling it removes the Google event.
                     </p>
                   )}
                 </div>
@@ -686,7 +760,7 @@ export function MarketerCalendar({
                     disabled={selectedEvent.source === "calendly" && (selectedEvent.status === "cancelled" || selectedEvent.status === "rescheduled")}
                     className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
                   >
-                    {(selectedEvent.source === "calendly"
+                    {(selectedEvent.source !== "manual"
                       ? (selectedEvent.status === "cancelled" || selectedEvent.status === "rescheduled"
                           ? [selectedEvent.status]
                           : ["scheduled", "completed", "no_show"] as EventStatus[])
@@ -702,8 +776,10 @@ export function MarketerCalendar({
               </div>
               {message && <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">{message}</p>}
               <DialogFooter className="gap-2 sm:justify-between">
-                {selectedEvent.source === "manual" ? (
-                  <Button variant="outline" className="text-rose-600 hover:text-rose-700" onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending}>Delete event</Button>
+                {selectedEvent.source !== "calendly" ? (
+                  <Button variant="outline" className="text-rose-600 hover:text-rose-700" onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending}>
+                    {selectedEvent.source === "google_calendar" ? "Cancel booking" : "Delete event"}
+                  </Button>
                 ) : (
                   <span className="self-center text-xs text-muted-foreground">Synced from Calendly</span>
                 )}
