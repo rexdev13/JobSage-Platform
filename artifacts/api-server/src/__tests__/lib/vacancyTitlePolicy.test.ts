@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isManualLabourTitle } from "../../lib/vacancyTitlePolicy";
+import { isLikelyEditorialTitle, isManualLabourTitle } from "../../lib/vacancyTitlePolicy";
 
 describe("vacancy title professional-scope policy", () => {
   it("rejects food-service roles that must not enter a clinical feed", () => {
@@ -31,5 +31,21 @@ describe("vacancy title professional-scope policy", () => {
     "Construction Labourer",
   ])("still rejects genuine manual-labour title %s", (title) => {
     expect(isManualLabourTitle(title)).toBe(true);
+  });
+});
+
+describe("isLikelyEditorialTitle", () => {
+  it("rejects an article heading with its explanatory copy appended", () => {
+    expect(
+      isLikelyEditorialTitle(
+        "School & college studies Most people know what doctors, nurses, dentists and vets do. But many people are not sure what a research chemist does, or what a pharmacologist is.",
+      ),
+    ).toBe(true);
+  });
+
+  it("keeps concise legitimate vacancy titles", () => {
+    expect(isLikelyEditorialTitle("School Nurse")).toBe(false);
+    expect(isLikelyEditorialTitle("Research Pharmacologist")).toBe(false);
+    expect(isLikelyEditorialTitle("Senior Clinical Lecturer")).toBe(false);
   });
 });

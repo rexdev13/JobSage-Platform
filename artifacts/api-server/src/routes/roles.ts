@@ -59,7 +59,7 @@ import {
   normalizeBehaviouralEmployer,
   type BehaviouralEngagement,
 } from "../lib/behavioralRanking";
-import { isManualLabourTitle } from "../lib/vacancyTitlePolicy";
+import { isLikelyEditorialTitle, isManualLabourTitle } from "../lib/vacancyTitlePolicy";
 import {
   TOP_MATCH_MIN_SCORE,
   compareOpportunityRanking,
@@ -465,6 +465,7 @@ router.get("/roles", async (req, res): Promise<void> => {
      ...allRoles
        .filter((role) =>
          storedRegulatorMatchesCategory(role.regulator, opportunityCategory) &&
+         !isLikelyEditorialTitle(role.title) &&
          roleMatchesPreferredRegions(role.targetRegions, profile.preferredRegion)
        )
        .map((r) => {
@@ -503,7 +504,10 @@ router.get("/roles", async (req, res): Promise<void> => {
     // Do not expose ambiguous sponsor vacancies as 0% matches. They are
     // useful for internal review, but a candidate feed should contain only
     // vacancies classified for the candidate's professional category.
-    .filter((role) => sponsorRelevance.get(role.id) !== false);
+    .filter((role) =>
+      sponsorRelevance.get(role.id) !== false &&
+      !(role.sourceType === "company_site" && isLikelyEditorialTitle(role.title)),
+    );
   const regulatorRoles = [...curatedRoles, ...dedupedSponsorRoles]
     .filter((role) => sourceFilter == null || role.sourceType === sourceFilter);
 
@@ -883,6 +887,7 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
        .filter((r) =>
          storedRegulatorMatchesCategory(r.regulator, opportunityCategory)
          && r.liveness !== "dead"
+         && !isLikelyEditorialTitle(r.title)
          && roleMatchesPreferredRegions(r.targetRegions, profile.preferredRegion)
        )
        .map((r) => {
@@ -940,7 +945,10 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
       externalListingId: v.externalListingId,
     }));
   const regulatorRoles = [...curatedRoles, ...sponsorRoles]
-    .filter((role) => !isManualLabourTitle(role.title))
+    .filter((role) =>
+      !isManualLabourTitle(role.title) &&
+      !(role.sourceType === "company_site" && isLikelyEditorialTitle(role.title)),
+    )
     .filter((role) => sourceFilter == null || role.sourceType === sourceFilter);
 
   if (regulatorRoles.length === 0) {
@@ -1327,6 +1335,7 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
       .filter((r) =>
         storedRegulatorMatchesCategory(r.regulator, opportunityCategory)
         && r.liveness !== "dead"
+        && !isLikelyEditorialTitle(r.title)
         && !isManualLabourTitle(r.title)
         && !appliedIds.has(r.id)
         && (
@@ -1366,6 +1375,8 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
         };
       }),
     ...employerJobsAsRoles.filter((r) =>
+      !isLikelyEditorialTitle(r.title)
+      &&
       !isManualLabourTitle(r.title)
       && !appliedIds.has(r.id)
       && (
@@ -1378,6 +1389,7 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
     ...sponsorVacancyRoles.filter((r) =>
       r.classifiedRelevant
       && (sourceFilter === "job_board" || !curatedKeys.has(roleDedupKey(r.employer, r.title)))
+      && !(r.sourceType === "company_site" && isLikelyEditorialTitle(r.title))
       && !isManualLabourTitle(r.title)
       && !appliedIds.has(r.id)
       && (

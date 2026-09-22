@@ -230,6 +230,21 @@ describe("company-site vacancy discovery", () => {
     }
   });
 
+  it("rejects educational article cards that contain prose instead of a job title", async () => {
+    fetchCompanySitePageMock.mockResolvedValue({
+      ok: true,
+      url: "https://abpi.example/careers",
+      status: 200,
+      contentType: "text/html",
+      body: `<a href="/careers/school-college-studies">School &amp; college studies Most people know what doctors, nurses, dentists and vets do. But many people are not sure what a research chemist does, or what a pharmacologist is.</a>`,
+    });
+
+    const result = await discoverCompanySiteVacancies("ABPI", "https://abpi.example/careers");
+
+    expect(result.adverts).toEqual([]);
+    expect(result.rejectionReasons.editorial_or_non_vacancy_title).toBeGreaterThan(0);
+  });
+
   it("rejects generic culture content linked from a careers page", async () => {
     fetchCompanySitePageMock.mockResolvedValue({
       ok: true,
