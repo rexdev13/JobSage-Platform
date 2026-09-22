@@ -71,10 +71,11 @@ type CalendlySyncStatus = {
   importedEvents: number;
 };
 type GoogleCalendarStatus = {
-  connected: true;
-  calendarId: string;
-  calendarName: string;
-  accessRole: "writer" | "owner";
+  connected: boolean;
+  calendarId?: string;
+  calendarName?: string;
+  accountEmail?: string | null;
+  accessRole?: "writer" | "owner";
 };
 type CalendlySyncSummary = {
   imported: number;
@@ -241,16 +242,20 @@ export function MarketerCalendar({
     refetchInterval: 60_000,
   });
   const googleStatusQuery = useQuery<GoogleCalendarStatus>({
-    queryKey: ["marketer-google-calendar-status"],
+    queryKey: ["marketer-google-calendar-status", selectedMarketerId || currentUserId],
     queryFn: async () => readJson<GoogleCalendarStatus>(
-      await fetch(`${BASE}/api/marketer/calendar/google/status`, { credentials: "include" }),
+      await fetch(`${BASE}/api/marketer/calendar/google/status?${
+        isAdmin && selectedMarketerId
+          ? new URLSearchParams({ marketingUserId: selectedMarketerId }).toString()
+          : ""
+      }`, { credentials: "include" }),
     ),
     staleTime: 60_000,
     retry: 1,
   });
   const bookingLinkQuery = useQuery<{ path: string; timeZone: string; enabled: boolean }>({
     queryKey: ["marketer-google-booking-link", selectedMarketerId || currentUserId],
-    enabled: googleStatusQuery.isSuccess && (!isAdmin || !!selectedMarketerId),
+    enabled: googleStatusQuery.data?.connected === true && (!isAdmin || !!selectedMarketerId),
     queryFn: async () => {
       const params = new URLSearchParams();
       if (isAdmin && selectedMarketerId) params.set("marketingUserId", selectedMarketerId);
@@ -313,11 +318,11 @@ export function MarketerCalendar({
     setScheduleAt(inputDateValue());
     setScheduleEnd("");
     setScheduleNotes("");
-    setScheduleProvider("google_calendar");
+    setScheduleProvider(googleStatusQuery.data?.connected ? "google_calendar" : "manual");
     setMessage(null);
     setScheduleOpen(true);
     onInitialLeadHandled();
-  }, [initialLeadId, leads, onInitialLeadHandled, selectedCalendarUrl]);
+  }, [googleStatusQuery.data?.connected, initialLeadId, leads, onInitialLeadHandled, selectedCalendarUrl]);
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -402,7 +407,7 @@ export function MarketerCalendar({
     setScheduleEnd("");
     setScheduleUrl(lead?.assignee?.calendlyUrl ?? selectedCalendarUrl ?? "");
     setScheduleNotes("");
-    setScheduleProvider(googleStatusQuery.isSuccess ? "google_calendar" : "manual");
+    setScheduleProvider(googleStatusQuery.data?.connected ? "google_calendar" : "manual");
     setMessage(null);
     setScheduleOpen(true);
   }
@@ -517,11 +522,13 @@ export function MarketerCalendar({
         <span>
           {googleStatusQuery.isLoading
             ? "Checking Google Calendar connection…"
-            : googleStatusQuery.data
-              ? `Google Calendar connected: ${googleStatusQuery.data.calendarName}`
-              : "Google Calendar is unavailable; manual scheduling remains available."}
+            : googleStatusQuery.data?.connected
+              ? `Google Calendar connected: ${googleStatusQuery.data.accountEmail ?? googleStatusQuery.data.calendarName ?? "your account"}`
+              : isAdmin && selectedMarketerId
+                ? "This marketer has not connected Google Calendar yet."
+                : "Connect your Google Calendar to enable Google Meet bookings."}
         </span>
-        {bookingLinkQuery.data ? (
+        {googleStatusQuery.data?.connected && bookingLinkQuery.data ? (
           <button
             type="button"
             className="inline-flex items-center gap-1.5 font-semibold text-primary hover:underline"
@@ -535,8 +542,15 @@ export function MarketerCalendar({
           >
             <Copy className="h-3.5 w-3.5" /> Copy public booking link
           </button>
+        ) : !isAdmin && !googleStatusQuery.data?.connected ? (
+          <a
+            href={`${BASE}/api/marketer/calendar/google/connect`}
+            className="font-semibold text-primary hover:underline"
+          >
+            Connect my Google Calendar
+          </a>
         ) : (
-          <span>Google Meet links and guest invitations are created automatically.</span>
+          <span>Google Meet links and guest invitations use the marketer’s own account.</span>
         )}
       </div>
       {syncMessage && (
@@ -655,7 +669,7 @@ export function MarketerCalendar({
                 onChange={(event) => setScheduleProvider(event.target.value as "google_calendar" | "manual")}
                 className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal"
               >
-                <option value="google_calendar" disabled={!googleStatusQuery.isSuccess}>
+                <option value="google_calendar" disabled={!googleStatusQuery.data?.connected}>
                   Google Calendar + Google Meet
                 </option>
                 <option value="manual">Manual event</option>
