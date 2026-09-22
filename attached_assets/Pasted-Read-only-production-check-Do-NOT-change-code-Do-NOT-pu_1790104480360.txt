@@ -1,0 +1,60 @@
+Read-only production check. Do NOT change code. Do NOT publish. Do NOT run backfills manually.
+
+Goal: report how production vacancy ingestion is fairing — all cron kinds and their results.
+
+============================================================
+1) Window
+============================================================
+Use the last 12–24 hours (state exact UTC window).
+
+============================================================
+2) Which kinds ran
+============================================================
+From vacancy_sync_log / production logs, for each kind:
+- job_board
+- company_site
+- company_site_probe (if any)
+- liveness
+- reed_professions / reed_profession_backfill
+- additional_boards / profession_board_backfill:* (jobs.ac.uk, Teaching Vacancies)
+- contact (if any)
+
+For each: run count, success vs error, avg duration, last run time.
+Flag kinds with ZERO runs (cron missing or failing).
+
+============================================================
+3) Results quality
+============================================================
+Per kind where applicable:
+- selected / checked / completed / partial / failed
+- permanent vs temporary failures (company_site)
+- inserted / updated / upserted
+- discovered / sponsor-matched / classified / candidate-visible (Reed + additional boards)
+- host/check SQL or UTF8/NUL errors (expect 0)
+- 409 / 401 / 503 / 500 observations
+- API crash/restart/pool errors
+
+============================================================
+4) Catalogue snapshot NOW
+============================================================
+Sources: NHS / Reed / jobs.ac.uk / Teaching Vacancies / company-site
+→ stored vs candidate-visible
+
+Professions: GMC NMC HCPC DENTAL PHARMACY SOCIAL_WORK EDUCATION ENGINEERING IT ACCOUNTING LEGAL ARCHITECTURE
+→ visible counts + strong/usable/thin/empty
+
+============================================================
+5) Cadence sanity
+============================================================
+Observed runs/hour vs expected (board ~every 12m, company-site A–D frequent, Reed/boards every ~2h).
+Call out over-firing, missing jobs, or clash/409 storms.
+
+============================================================
+6) Blunt verdict
+============================================================
+1. What’s healthy?
+2. What’s broken/weak?
+3. Did Reed + additional-board crons start producing rows?
+4. Exact next 1–3 actions only
+
+Short tables. STOP.
