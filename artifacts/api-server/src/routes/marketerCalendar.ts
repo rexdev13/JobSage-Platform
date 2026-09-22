@@ -685,7 +685,8 @@ router.patch(
         return;
       }
       try {
-        await updateGoogleCalendarEvent(external.calendarId, external.eventId, {
+        const googleAuth = await getGoogleCalendarAuth(existing.marketingUserId);
+        await updateGoogleCalendarEvent(googleAuth.auth, external.calendarId, external.eventId, {
           title: parsed.data.title,
           start: parsed.data.scheduledAt,
           end: parsed.data.endTime,
@@ -732,6 +733,7 @@ router.delete(
       : and(eq(marketerEventsTable.id, id), eq(marketerEventsTable.marketingUserId, req.user!.id));
     const [existing] = await db
       .select({
+        marketingUserId: marketerEventsTable.marketingUserId,
         source: marketerEventsTable.source,
         externalEventUri: marketerEventsTable.externalEventUri,
       })
@@ -755,7 +757,8 @@ router.delete(
         return;
       }
       try {
-        await deleteGoogleCalendarEvent(external.calendarId, external.eventId);
+        const googleAuth = await getGoogleCalendarAuth(existing.marketingUserId);
+        await deleteGoogleCalendarEvent(googleAuth.auth, external.calendarId, external.eventId);
       } catch (error) {
         googleCalendarErrorResponse(
           error,
@@ -831,8 +834,10 @@ router.get(
       return;
     }
     try {
-      const calendar = await getGoogleCalendarStatus();
+      const googleAuth = await getGoogleCalendarAuth(marketer.id);
+      const calendar = await getGoogleCalendarStatus(googleAuth.auth);
       const slots = await listGoogleCalendarAvailableSlots({
+        auth: googleAuth.auth,
         calendarId: calendar.calendarId,
         windowStart: window.start,
         windowEnd: window.end,
@@ -933,10 +938,13 @@ router.post(
 
     let calendarId: string | null = null;
     let booking: Awaited<ReturnType<typeof createGoogleMeetBooking>> | null = null;
+    let googleAuth: GoogleCalendarAuth | null = null;
     try {
-      const calendar = await getGoogleCalendarStatus();
+      googleAuth = (await getGoogleCalendarAuth(marketer.id)).auth;
+      const calendar = await getGoogleCalendarStatus(googleAuth);
       calendarId = calendar.calendarId;
       await assertGoogleCalendarSlotAvailable(
+        googleAuth,
         calendar.calendarId,
         parsed.data.start,
         end,
@@ -944,6 +952,7 @@ router.post(
       );
       const guestName = `${parsed.data.firstName} ${parsed.data.lastName}`.trim();
       booking = await createGoogleMeetBooking({
+        auth: googleAuth,
         calendarId: calendar.calendarId,
         title: `JOBSAGE Discovery Call with ${guestName}`,
         description: [
@@ -995,8 +1004,8 @@ router.post(
         marketerName: [marketer.firstName, marketer.lastName].filter(Boolean).join(" ") || "JOBSAGE",
       });
     } catch (error) {
-      if (calendarId && booking) {
-        await deleteGoogleCalendarEvent(calendarId, booking.eventId).catch(
+      if (calendarId && booking && googleAuth) {
+        await deleteGoogleCalendarEvent(googleAuth, calendarId, booking.eventId).catch(
           (cleanupError) => console.error("[google-calendar] Could not roll back public booking:", cleanupError),
         );
       }
