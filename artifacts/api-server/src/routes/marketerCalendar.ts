@@ -342,11 +342,14 @@ router.post(
 
     let googleBooking: Awaited<ReturnType<typeof createGoogleMeetBooking>> | null = null;
     let googleCalendarId: string | null = null;
+    let googleAuth: GoogleCalendarAuth | null = null;
     if (parsed.data.provider === "google_calendar") {
       try {
-        const calendar = await getGoogleCalendarStatus();
+        googleAuth = (await getGoogleCalendarAuth(targetMarketingUserId)).auth;
+        const calendar = await getGoogleCalendarStatus(googleAuth);
         googleCalendarId = calendar.calendarId;
         await assertGoogleCalendarSlotAvailable(
+          googleAuth,
           calendar.calendarId,
           parsed.data.scheduledAt,
           endTime,
@@ -357,6 +360,7 @@ router.post(
           ? [selectedLead.firstName, selectedLead.lastName].filter(Boolean).join(" ")
           : "";
         googleBooking = await createGoogleMeetBooking({
+          auth: googleAuth,
           calendarId: calendar.calendarId,
           title: parsed.data.title,
           description: [
@@ -407,8 +411,8 @@ router.post(
       }
       res.status(201).json({ event: created });
     } catch (error) {
-      if (googleBooking && googleCalendarId) {
-        await deleteGoogleCalendarEvent(googleCalendarId, googleBooking.eventId).catch(
+      if (googleBooking && googleCalendarId && googleAuth) {
+        await deleteGoogleCalendarEvent(googleAuth, googleCalendarId, googleBooking.eventId).catch(
           (cleanupError) => console.error("[google-calendar] Could not roll back orphan event:", cleanupError),
         );
       }
