@@ -15,6 +15,7 @@ import {
 } from "./companySiteHttp";
 import { extractAdvertContactEmail } from "./publishedContactEmail";
 import { parseVacancyClosingDate } from "./vacancyDates";
+import { isLikelyEditorialTitle } from "./vacancyTitlePolicy";
 
 export const MAX_COMPANY_SITE_DISCOVERY_PAGES = 6;
 export const MAX_COMPANY_SITE_VACANCIES_PER_EMPLOYER = 12;
@@ -260,6 +261,7 @@ function extractJsonLdAdverts(
         ) continue;
         const title = typeof record.title === "string" ? cleanTitle(record.title, url) : null;
         if (!title) continue;
+        if (isLikelyEditorialTitle(title)) continue;
         if (isNonSpecificBambooHrPosting(url, title)) continue;
         const jobLocation = Array.isArray(record.jobLocation) ? record.jobLocation[0] : record.jobLocation;
         const descriptionHtml = typeof record.description === "string" ? record.description : "";
@@ -358,6 +360,7 @@ function advertsFromLinks(
     ) return reject("generic_careers_content");
     const title = cleanTitle(link.text, link.url);
     if (!title) return reject("missing_vacancy_title");
+    if (isLikelyEditorialTitle(title)) return reject("editorial_or_non_vacancy_title");
     if (isNonSpecificBambooHrPosting(link.url, title)) {
       return reject("non_specific_bamboohr_posting");
     }

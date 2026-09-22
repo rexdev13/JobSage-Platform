@@ -1,6 +1,6 @@
 import { db, sponsorLicenceVacanciesTable } from "@workspace/db";
 import { and, eq, inArray, or, sql } from "drizzle-orm";
-import { isManualLabourTitle } from "./vacancyTitlePolicy";
+import { isLikelyEditorialTitle, isManualLabourTitle } from "./vacancyTitlePolicy";
 import { canonicalVacancyUrl, classifyVacancySource } from "./vacancySource";
 import { isValidVacancyUrlForSource } from "./vacancyUrlPolicy";
 import { queueLinkVerificationBatch } from "./linkVerification";
@@ -219,6 +219,7 @@ export function normaliseAndDedupeBoardAdverts(adverts: readonly BoardAdvert[]):
     const url = canonicalVacancyUrl(advert.url);
     const source = classifyVacancySource(url);
     const sourceType = advert.sourceType ?? source.sourceType;
+    if (sourceType === "company_site" && isLikelyEditorialTitle(advert.title)) continue;
     if (sourceType === "company_site" && !advert.companyVacancyEvidence) continue;
     if (!url || !sourceType || !isValidVacancyUrlForSource(url, sourceType)) continue;
     const normalized = {
