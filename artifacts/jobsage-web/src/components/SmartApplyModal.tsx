@@ -442,7 +442,7 @@ export function SmartApplyModal({
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="flex max-h-[95vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border border-border bg-background shadow-2xl sm:max-h-[90vh] sm:rounded-2xl"
+        className="flex max-h-[95dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border border-border bg-background shadow-2xl sm:max-h-[90dvh] sm:rounded-2xl"
       >
         <div className="flex items-start justify-between border-b border-border p-4 pb-3 sm:p-6 sm:pb-4">
           <div className="min-w-0">
@@ -482,7 +482,7 @@ export function SmartApplyModal({
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+             className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           >
             <X className="w-4 h-4" />
           </button>

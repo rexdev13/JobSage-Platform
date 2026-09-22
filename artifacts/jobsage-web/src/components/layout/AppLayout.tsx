@@ -1,6 +1,6 @@
 import * as React from "react";
 import { AppSidebar } from "./AppSidebar";
-import { Menu } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui-enhanced";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
@@ -79,8 +79,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       {mobileMenuOpen && (
         <div className={`fixed inset-0 z-40 flex md:hidden ${impersonation ? "top-10" : ""}`}>
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
-          <div className="relative z-50">
-            <AppSidebar />
+          <div className="relative z-50 h-full max-h-[100dvh] overflow-y-auto">
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(false)}
+              aria-label="Close navigation menu"
+              className="absolute right-2 top-2 z-10 inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-sidebar-foreground hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <AppSidebar onNavigate={() => setMobileMenuOpen(false)} />
           </div>
         </div>
       )}
@@ -91,7 +99,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Main Content */}
-      <div className={`flex flex-col flex-1 w-full overflow-hidden ${impersonation ? "mt-10" : ""}`}>
+      <div className={`flex min-w-0 flex-col flex-1 w-full overflow-hidden ${impersonation ? "mt-10" : ""}`}>
         <header className="h-16 flex items-center justify-between px-4 border-b border-border bg-background/80 backdrop-blur-md md:hidden shrink-0 z-30">
           <img src="/logo.png" alt="JOBSAGE" className="h-9 w-auto object-contain" />
           <Button variant="ghost" size="icon" onClick={() => setMobileMenuOpen(true)}>

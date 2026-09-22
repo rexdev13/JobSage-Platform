@@ -89,7 +89,7 @@ function DecisionAuditTab() {
             {data.total} anonymised records · exported at{" "}
             {new Date(data.exportedAt).toLocaleString()}
           </p>
-          <div className="rounded-lg border border-border overflow-hidden">
+          <div className="mobile-scroll-x rounded-lg border border-border">
             <table className="w-full text-xs">
               <thead className="bg-muted/60">
                 <tr>
@@ -155,7 +155,7 @@ function ConsentLogTab() {
       {!isLoading && !isError && data && (
         <>
           <p className="text-xs text-muted-foreground">{data.total} consent records total</p>
-          <div className="rounded-lg border border-border overflow-hidden">
+          <div className="mobile-scroll-x rounded-lg border border-border">
             <table className="w-full text-xs">
               <thead className="bg-muted/60">
                 <tr>
@@ -257,7 +257,7 @@ function AdminActionsTab() {
       {!isLoading && !isError && data && typeof data !== "string" && (
         <>
           <p className="text-xs text-muted-foreground">{data.total} admin action records total</p>
-          <div className="rounded-lg border border-border overflow-hidden">
+          <div className="mobile-scroll-x rounded-lg border border-border">
             <table className="w-full text-xs">
               <thead className="bg-muted/60">
                 <tr>

@@ -308,7 +308,7 @@ export function SponsorVacancyApplyModal({
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 40 }}
           transition={{ type: "spring", damping: 28, stiffness: 300 }}
-          className="w-full max-w-xl bg-background rounded-t-2xl sm:rounded-2xl shadow-2xl border border-border overflow-hidden"
+           className="flex max-h-[95dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-2xl border border-border bg-background shadow-2xl sm:rounded-2xl"
         >
           {/* Header */}
           <div className="flex items-start justify-between p-5 pb-4 border-b border-border">
@@ -346,14 +346,14 @@ export function SponsorVacancyApplyModal({
             </div>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+               className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
           {/* Body */}
-          <div className="p-5 max-h-[60vh] overflow-y-auto space-y-4">
+           <div className="min-h-0 flex-1 max-h-[60vh] overflow-y-auto space-y-4 p-5">
             {/* Success screen */}
             {step === "done" && (
               <motion.div

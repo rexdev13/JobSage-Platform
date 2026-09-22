@@ -1203,7 +1203,7 @@ function ApplicationsTab({ data }: { data: ApplicationList | undefined }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
           { label: "Platform", value: stats.platformCount ?? platformApps.length, color: "text-foreground" },
           { label: "Website", value: stats.websiteCount ?? websiteApps.length, color: "text-blue-700" },

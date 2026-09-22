@@ -93,16 +93,16 @@ function AddLetterModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-lg bg-background rounded-2xl shadow-2xl border border-border overflow-hidden">
-        <div className="flex items-start justify-between p-5 border-b border-border">
-          <div>
+        className="flex max-h-[95dvh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-2xl">
+        <div className="flex items-start justify-between gap-3 border-b border-border p-5">
+          <div className="min-w-0">
             <h2 className="text-base font-bold text-foreground">Add Recommendation Letter</h2>
             <p className="text-xs text-muted-foreground mt-0.5">Record a reference from a professional contact.</p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"><X className="w-4 h-4" /></button>
+          <button onClick={onClose} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg hover:bg-muted text-muted-foreground"><X className="w-4 h-4" /></button>
         </div>
-        <div className="p-5 space-y-3 max-h-[60vh] overflow-y-auto">
-          <div className="grid grid-cols-2 gap-3">
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-5">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="text-xs font-semibold text-foreground mb-1 block">Author name *</label>
               <input type="text" value={form.authorName} onChange={f("authorName")} placeholder="Dr Sarah Jones" className={inputClass} />

@@ -241,7 +241,7 @@ export default function OnboardingPage() {
                     <Label htmlFor="qualificationCountry">Country of Qualification <span className="text-destructive">*</span></Label>
                     <Input name="qualificationCountry" placeholder="e.g. India, Nigeria, UK" value={data.qualificationCountry} onChange={handleChange} required />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                       <Label htmlFor="qualificationType">Degree Type <span className="text-destructive">*</span></Label>
                       <Input name="qualificationType" placeholder="e.g. MBBS, BSc" value={data.qualificationType} onChange={handleChange} required />
