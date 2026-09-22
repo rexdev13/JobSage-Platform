@@ -1,0 +1,47 @@
+You are doing a full mobile-responsiveness audit and fix of this entire website. Do not stop at a report. Find every layout that breaks on a phone, fix it in the existing styles and components, and verify each fix in the browser.
+
+Scope
+- Every route, page, modal, drawer, dropdown, table, form, nav, footer, and empty/error/loading state.
+- Shared layout, global CSS, and any component reused across pages. Fix the shared source once so every page that uses it is fixed.
+- Desktop layout must stay intact. Do not redesign the product. Only change what is required so the same UI works from 320px up.
+
+Viewports to check (all of them)
+- 320×568, 375×812, 390×844, 430×932
+- 768×1024 (tablet portrait)
+- Confirm desktop at 1280×800 still looks correct after your changes
+
+What “broken” means — fix every instance
+- Horizontal page scroll caused by content wider than the viewport (100vw mistakes, fixed widths, negative margins, long unbroken strings, images, iframes, code blocks).
+- Text, buttons, inputs, or cards cut off, overflowing, or overlapping.
+- Tap targets smaller than 44×44px, or controls jammed together.
+- Nav that does not collapse to a usable mobile menu, or a menu that cannot be closed, traps scroll, or sits under other content.
+- Fixed/sticky headers, footers, chat widgets, or cookie bars that cover content or inputs. When a field is focused, it must stay visible above the keyboard.
+- Multi-column layouts that stay side-by-side when they should stack. Tables that cannot be read: wrap them in a horizontal scroller with a visible cue, or restack rows on small screens. Do not leave a table that blows out the page.
+- Images, video, and iframes without max-width: 100% and height: auto (or an aspect-ratio box).
+- Font sizes below 16px on form inputs (iOS zoom). Body text that is unreadable or line-length that is fine only on desktop.
+- Modals, sheets, and popovers that are wider than the screen, cannot scroll, or whose close button is off-screen.
+- Flex/grid children with min-width: auto that refuse to shrink. Add min-width: 0 / overflow handling where needed.
+- Hover-only interactions with no tap equivalent.
+- Safe-area insets ignored on notched phones (padding-bottom: env(safe-area-inset-bottom) on fixed bars).
+
+How to work
+1. Inventory every route and shared layout component before changing anything. List them.
+2. Open the running app and check each route at 375px and 320px. Screenshot or describe the actual failure before editing.
+3. Fix using the project’s existing approach (Tailwind breakpoints, CSS modules, styled-components, etc.). Prefer mobile-first. Do not add a second conflicting stylesheet.
+4. Use relative units and existing spacing/type tokens. Avoid new fixed pixel widths for layout.
+5. After each cluster of fixes, recheck that route at 320, 375, and 1280. Then move to the next route.
+6. When two pages share a component, fix the component and recheck both pages.
+
+Done only when all of these are true
+- No horizontal scroll on any route at 320px and 375px.
+- Every interactive control is reachable and tappable.
+- Every form can be completed on a phone without fields hidden behind the keyboard or a fixed bar.
+- Modals, menus, and tables are usable at 320px.
+- Desktop at 1280px is unchanged in structure and still looks correct.
+- You list every route you checked, what was broken, the file you changed, and that you rechecked it at 320, 375, and 1280.
+
+Do not
+- Skip “minor” pages, admin screens, auth, settings, or error states.
+- Only add a viewport meta tag and call it done.
+- Hide overflowing content with overflow: hidden on the body as a shortcut.
+- Introduce a new UI library or rewrite pages that already work.
