@@ -14,6 +14,11 @@ import {
   type CompanySiteFailureClass,
 } from "./companySiteHttp";
 import { withCompanySiteDatabaseRetry } from "./companySitePersistence";
+import {
+  COMPANY_SITE_PROBE_BATCH_SIZE,
+  runCompanySiteProbeBatch,
+  type CompanySiteProbeSummary,
+} from "./companySiteProbe";
 
 export const COMPANY_SITE_DISCOVERY_CRON = "17 * * * *";
 export const COMPANY_SITE_DISCOVERY_BATCH_SIZE = 10;
@@ -39,6 +44,7 @@ export type CompanySiteBatchRow = {
   atsProvider: string | null;
   bookmarked: boolean;
   healthcareEvidenceBackfill: boolean;
+  lastOutcome: string | null;
 };
 
 export type CompanySiteCheckOutcome =
@@ -112,6 +118,7 @@ export async function selectCompanySiteBatch(
     ats_checked_at: Date | null;
     careers_url: string | null;
     ats_provider: string | null;
+    last_outcome: string | null;
     bookmarked: boolean;
     healthcare_evidence_backfill: boolean;
   }>(sql`
@@ -126,6 +133,7 @@ export async function selectCompanySiteBatch(
         cs.careers_url,
         cs.ats_provider,
         cs.last_attempted_at,
+         cs.last_outcome,
         EXISTS (
           SELECT 1
           FROM sponsor_licence_bookmarks b
@@ -160,6 +168,7 @@ export async function selectCompanySiteBatch(
         ON cs.organisation_name = sl.organisation_name
       WHERE sl.website IS NOT NULL
         AND trim(sl.website) <> ''
+        AND COALESCE(cs.last_outcome, '') <> 'permanent_bad'
         AND (cs.retry_after IS NULL OR cs.retry_after <= NOW())
       ORDER BY lower(btrim(sl.organisation_name)), sl.id
     ),
@@ -198,6 +207,12 @@ export async function selectCompanySiteBatch(
           WHERE priority_healthcare_evidence.id = eligible.id
         )
       ORDER BY
+        CASE
+          WHEN last_outcome = 'ok_for_crawl' THEN 0
+          WHEN last_outcome IN ('complete', 'partial_page_limit', 'partial_deadline') THEN 1
+          WHEN last_outcome IS NULL THEN 2
+          ELSE 3
+        END,
         CASE WHEN generic_checked_at IS NULL THEN 0 ELSE 1 END,
         generic_checked_at ASC NULLS FIRST,
         ats_checked_at ASC NULLS FIRST,
@@ -235,6 +250,12 @@ export async function selectCompanySiteBatch(
           ROW_NUMBER() OVER (
             PARTITION BY sector_order
             ORDER BY
+              CASE
+                WHEN last_outcome = 'ok_for_crawl' THEN 0
+                WHEN last_outcome IN ('complete', 'partial_page_limit', 'partial_deadline') THEN 1
+                WHEN last_outcome IS NULL THEN 2
+                ELSE 3
+              END,
               CASE WHEN generic_checked_at IS NULL THEN 0 ELSE 1 END,
               generic_checked_at ASC NULLS FIRST,
               ats_checked_at ASC NULLS FIRST,
@@ -254,10 +275,17 @@ export async function selectCompanySiteBatch(
         careers_url,
         ats_provider,
         last_attempted_at,
+        last_outcome,
         bookmarked,
         healthcare_evidence_backfill
       FROM ranked_unbookmarked
       ORDER BY
+        CASE
+          WHEN last_outcome = 'ok_for_crawl' THEN 0
+          WHEN last_outcome IN ('complete', 'partial_page_limit', 'partial_deadline') THEN 1
+          WHEN last_outcome IS NULL THEN 2
+          ELSE 3
+        END,
         sector_position ASC,
         MOD(
           sector_order
@@ -294,6 +322,12 @@ export async function selectCompanySiteBatch(
           WHERE rotated_unbookmarked.id = eligible.id
         )
       ORDER BY
+        CASE
+          WHEN last_outcome = 'ok_for_crawl' THEN 0
+          WHEN last_outcome IN ('complete', 'partial_page_limit', 'partial_deadline') THEN 1
+          WHEN last_outcome IS NULL THEN 2
+          ELSE 3
+        END,
         CASE WHEN generic_checked_at IS NULL THEN 0 ELSE 1 END,
         generic_checked_at ASC NULLS FIRST,
         ats_checked_at ASC NULLS FIRST,
@@ -332,7 +366,51 @@ export async function selectCompanySiteBatch(
     atsProvider: row.ats_provider,
     bookmarked: row.bookmarked,
     healthcareEvidenceBackfill: row.healthcare_evidence_backfill,
+    lastOutcome: row.last_outcome,
   }));
+}
+
+export async function selectCompanySiteProbeBatch(
+  batchSize = COMPANY_SITE_PROBE_BATCH_SIZE,
+): Promise<{ rows: Array<{ organisationName: string; website: string }>; hasMore: boolean }> {
+  const result = await db.execute<{
+    organisation_name: string;
+    website: string;
+  }>(sql`
+    WITH candidate_pool AS (
+      SELECT DISTINCT ON (lower(btrim(sl.organisation_name)))
+        sl.organisation_name,
+        trim(sl.website) AS website,
+        cs.last_outcome,
+        cs.last_attempted_at
+      FROM sponsor_licences sl
+      LEFT JOIN sponsor_licence_company_site_checks cs
+        ON cs.organisation_name = sl.organisation_name
+      WHERE sl.website IS NOT NULL
+        AND trim(sl.website) <> ''
+        AND (cs.retry_after IS NULL OR cs.retry_after <= NOW())
+        AND (
+          cs.last_outcome IS NULL
+          OR cs.last_outcome IN ('temporary_bad', 'permanent_bad')
+        )
+      ORDER BY lower(btrim(sl.organisation_name)), sl.id
+    )
+    SELECT organisation_name, website
+    FROM candidate_pool
+    ORDER BY
+      CASE WHEN last_outcome IS NULL THEN 0 ELSE 1 END,
+      last_attempted_at ASC NULLS FIRST,
+      lower(btrim(organisation_name))
+    LIMIT ${Math.max(1, Math.min(batchSize, COMPANY_SITE_PROBE_BATCH_SIZE)) + 1}
+  `);
+  const limit = Math.max(1, Math.min(batchSize, COMPANY_SITE_PROBE_BATCH_SIZE));
+  return {
+    rows: result.rows.slice(0, limit).map((row) => ({
+      organisationName: row.organisation_name,
+      website: row.website,
+    })),
+    hasMore: result.rows.length > limit,
+  };
 }
 
 function isDue(value: Date | null, ttlMs: number): boolean {
@@ -670,6 +748,42 @@ export async function runCompanySiteDiscoveryBatch(
       triggeredBy: "scheduler",
       jobKind: "company_site",
       metrics: summary,
+    });
+    return summary;
+  } finally {
+    batchInProgress = false;
+  }
+}
+
+export async function runCompanySiteProbeDiscoveryBatch(
+  options: { batchSize?: number; deadlineMs?: number } = {},
+): Promise<CompanySiteProbeSummary | null> {
+  if (batchInProgress) {
+    console.log("[company-site-probe] Previous batch still running — skipping this tick");
+    return null;
+  }
+  batchInProgress = true;
+  try {
+    const batchSize = Math.max(
+      1,
+      Math.min(Math.floor(options.batchSize ?? COMPANY_SITE_PROBE_BATCH_SIZE), COMPANY_SITE_PROBE_BATCH_SIZE),
+    );
+    const selected = await selectCompanySiteProbeBatch(batchSize);
+    const summary = await runCompanySiteProbeBatch(selected.rows, {
+      deadlineMs: options.deadlineMs,
+      hasMore: selected.hasMore,
+    });
+    const metrics = { ...summary };
+    const syncLogTable = dbSchema.vacancySyncLogTable;
+    await db.insert(syncLogTable).values({
+      status: summary.errors > 0 ? "error" : "success",
+      batchSize: summary.selected,
+      checkedCount: summary.checked,
+      errorCount: summary.errors,
+      durationMs: summary.durationMs,
+      triggeredBy: "scheduler",
+      jobKind: "company_site_probe",
+      metrics,
     });
     return summary;
   } finally {

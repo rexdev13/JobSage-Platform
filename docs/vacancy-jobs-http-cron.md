@@ -2,8 +2,10 @@
 
 The public JOBSAGE deployment remains **Autoscale**. External cron callers wake
 that deployment with short, authenticated requests. Each request awaits one
-capped batch and returns its final counters; it never returns `202` and never
-detaches work into the background.
+capped batch and normally returns its final counters; it never returns `202`.
+If a company-site probe reaches its absolute HTTP deadline, the endpoint returns
+`504` with `Retry-After: 30` while retaining the shared writer lock until any
+in-flight persistence and sync logging settle safely.
 
 ## Production secret
 
@@ -33,12 +35,13 @@ Kinds and safe HTTP defaults:
 | --- | ---: | ---: |
 | `job_board` | 50 employers | 50 |
 | `company_site` | 10 employers | 10 |
+| `company_site_probe` | 30 employers | 30 |
 | `liveness` | 40 URLs | 50 |
 | `contact` | 5 employers | 5 |
 | `reed_professions` | 1 profession category | 2 categories |
 | `additional_boards` | 1 board/profession page | 2 board/profession pages |
 
-The response is returned only after that batch finishes:
+The normal response is returned after that batch finishes:
 
 ```json
 {
@@ -104,6 +107,11 @@ curl --fail-with-body -X POST https://jobsage.co.uk/api/internal/vacancy-jobs \
 curl --fail-with-body -X POST https://jobsage.co.uk/api/internal/vacancy-jobs \
   -H "Content-Type: application/json" \
   -H "x-jobsage-job-secret: ${VACANCY_JOB_SECRET}" \
+  --data '{"kind":"company_site_probe","limit":30}'
+
+curl --fail-with-body -X POST https://jobsage.co.uk/api/internal/vacancy-jobs \
+  -H "Content-Type: application/json" \
+  -H "x-jobsage-job-secret: ${VACANCY_JOB_SECRET}" \
   --data '{"kind":"liveness","limit":40}'
 
 curl --fail-with-body -X POST https://jobsage.co.uk/api/internal/vacancy-jobs \
@@ -132,7 +140,9 @@ Wait for each response before sending the next request. A `409` means another
 batch owns the shared PostgreSQL writer lock; honor `Retry-After` and retry
 later rather than running requests concurrently. Company-site must have one
 active caller at a time: do not attach multiple cron jobs to the same minute
-or run a tight retry loop after a `409`.
+or run a tight retry loop after a `409`. A probe `504` means its HTTP budget was
+reached while final writes were still settling under the same lock; honor
+`Retry-After` exactly as for a `409`.
 
 ## cron-job.org
 
@@ -141,6 +151,7 @@ Create POST jobs using the endpoint, JSON body, and
 
 - Board: `0 2,8,14,20 * * *`
 - Company site: `17 * * * *`
+- Company-site probe: `30 3,5,9,11,15,17,21,23 * * *`
 - Liveness: `30 1,7,13,19 * * *`
 - Contact: `47 3 * * *` (one authenticated, non-overlapping daily batch)
 
@@ -149,6 +160,22 @@ continuous profession coverage, create the following 19 additional POST jobs.
 Each job uses the same URL, `Content-Type` header, and secret header shown
 above. Keep the JSON body fixed; cron-job.org does not update a later job's body
 from a previous response:
+
+Create one additional all-day probe job:
+
+| Schedule (Europe/London) | Job title | Kind | JSON body |
+| --- | --- | --- | --- |
+| `30 3,5,9,11,15,17,21,23 * * *` | Company site health probe | `company_site_probe` | `{"kind":"company_site_probe","limit":30}` |
+
+The probe uses only the requested free-minute set: minute `:30` is unused by
+the odd-hour additional-board cursor pass. The selected hours avoid liveness
+at `01:30`, `07:30`, `13:30`, and `19:30`; they also avoid board (`:00`),
+company-site (`:17`), contact (`:47`), and every even/odd-hour profession
+cursor job (`:06`, `:10`, `:18`, `:22`, `:30`, `:34`, `:42`, `:46`, `:54`,
+`:58`).
+The probe performs only one robots-aware root fetch per selected employer and
+does not crawl vacancy links. Wait for its response before any other pipeline
+request and honor `Retry-After: 30` on a `409` or `504`.
 
 | Schedule (Europe/London) | Job title | Kind | JSON body |
 | --- | --- | --- | --- |
@@ -188,8 +215,9 @@ In each cron-job.org job:
    the URL or request body.
 4. Paste the fixed JSON body for that cursor.
 5. Set the timezone to **Europe/London** and use the schedule table above.
-6. Do not run overlapping retries. A `409` is expected backpressure; retry only
-   after the response's `Retry-After` value, and keep the same cursor.
+6. Do not run overlapping retries. A `409` is expected backpressure and a probe
+   `504` means safe finalization is still in progress; retry only after the
+   response's `Retry-After` value, and keep the same cursor.
 
 These schedules are deployment instructions, not an instruction to publish or
 to run against production from this development workspace. Enable them only

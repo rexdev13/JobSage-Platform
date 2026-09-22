@@ -14,6 +14,11 @@ vi.mock("../../lib/vacancyJobRunner", () => ({
   runVacancyJob: runVacancyJobMock,
 }));
 
+vi.mock("../../lib/companySiteProbe", () => ({
+  COMPANY_SITE_PROBE_BATCH_SIZE: 30,
+  COMPANY_SITE_PROBE_HTTP_BUDGET_MS: 20_000,
+}));
+
 vi.mock("../../lib/vacancyAiBudget", () => ({
   getVacancyAiWebSearchDailyCap: () => 0,
 }));
@@ -92,6 +97,7 @@ describe("POST /internal/vacancy-jobs", () => {
   it.each([
     ["job_board", 999, 50],
     ["company_site", 999, 10],
+    ["company_site_probe", 999, 30],
     ["liveness", 999, 50],
     ["contact", 999, 5],
   ] as const)("caps %s HTTP batches", async (kind, requested, expected) => {
@@ -104,8 +110,25 @@ describe("POST /internal/vacancy-jobs", () => {
     expect(runVacancyJobMock).toHaveBeenCalledWith(
       kind,
       expected,
-      kind === "liveness" ? { deadlineMs: expect.any(Number) } : { deadlineMs: undefined },
+      kind === "liveness" || kind === "company_site_probe"
+        ? { deadlineMs: expect.any(Number) }
+        : { deadlineMs: undefined },
     );
+  });
+
+  it("gives health probes their own capped absolute deadline", async () => {
+    const before = Date.now();
+    const response = await request(app)
+      .post("/internal/vacancy-jobs")
+      .set("x-jobsage-job-secret", "test-job-secret")
+      .send({ kind: "company_site_probe", limit: 999 });
+
+    expect(response.status).toBe(200);
+    const call = runVacancyJobMock.mock.calls.at(-1);
+    expect(call?.[0]).toBe("company_site_probe");
+    expect(call?.[1]).toBe(30);
+    expect(call?.[2].deadlineMs).toBeGreaterThanOrEqual(before + 19_900);
+    expect(call?.[2].deadlineMs).toBeLessThanOrEqual(Date.now() + 20_000);
   });
 
   it("uses the timeout-safe company-site default and respects a smaller configured size", async () => {
@@ -175,5 +198,21 @@ describe("POST /internal/vacancy-jobs", () => {
     expect(response.headers["retry-after"]).toBe("30");
     expect(response.body).toEqual({ error: "Another vacancy pipeline batch is already running." });
     expect(runVacancyJobMock).toHaveBeenCalledOnce();
+  });
+
+  it("returns a bounded retryable timeout while a probe finalizes safely", async () => {
+    runVacancyJobMock.mockRejectedValue(new Error("VACANCY_JOB_DEADLINE"));
+
+    const response = await request(app)
+      .post("/internal/vacancy-jobs")
+      .set("x-jobsage-job-secret", "test-job-secret")
+      .send({ kind: "company_site_probe" });
+
+    expect(response.status).toBe(504);
+    expect(response.headers["retry-after"]).toBe("30");
+    expect(response.body).toEqual(expect.objectContaining({
+      error: "Vacancy batch reached its HTTP deadline and is finalizing safely.",
+      done: false,
+    }));
   });
 });

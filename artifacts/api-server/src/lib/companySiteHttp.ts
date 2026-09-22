@@ -768,6 +768,7 @@ export async function fetchCompanySitePage(
   url: string,
   originHostname: string,
   deadlineMs: number,
+  maxBytes = MAX_PAGE_BYTES,
 ): Promise<CompanySiteFetchResult> {
   let parsed: URL;
   try {
@@ -785,5 +786,5 @@ export async function fetchCompanySitePage(
       failureClass: robots.failureClass ?? "temporary",
     };
   }
-  return fetchWithoutRobots(parsed.toString(), originHostname, deadlineMs, MAX_PAGE_BYTES, true);
+  return fetchWithoutRobots(parsed.toString(), originHostname, deadlineMs, maxBytes, true);
 }

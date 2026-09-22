@@ -6,7 +6,12 @@ import {
 import {
   runCompanySiteDiscoveryBatch,
   COMPANY_SITE_DISCOVERY_BATCH_SIZE,
+  runCompanySiteProbeDiscoveryBatch,
 } from "./companySiteScheduler";
+import {
+  COMPANY_SITE_PROBE_BATCH_SIZE,
+  COMPANY_SITE_PROBE_HTTP_BUDGET_MS,
+} from "./companySiteProbe";
 import {
   runVacancyLivenessSweep,
   VACANCY_LIVENESS_BATCH_LIMIT,
@@ -29,6 +34,7 @@ import {
 export type VacancyJobKind =
   | "job_board"
   | "company_site"
+  | "company_site_probe"
   | "liveness"
   | "contact"
   | "reed_professions"
@@ -67,6 +73,7 @@ export const PROFESSION_BACKFILL_HTTP_RESULTS_PER_CATEGORY = 20;
 export const CLI_JOB_LIMITS: Record<VacancyJobKind, number> = {
   job_board: DEFAULT_VACANCY_CHECK_BATCH_SIZE,
   company_site: COMPANY_SITE_DISCOVERY_BATCH_SIZE,
+  company_site_probe: COMPANY_SITE_PROBE_BATCH_SIZE,
   liveness: VACANCY_LIVENESS_BATCH_LIMIT,
   contact: CONTACT_ENRICHMENT_BATCH_SIZE,
   reed_professions: PROFESSION_BACKFILL_HTTP_CATEGORY_LIMIT,
@@ -126,6 +133,19 @@ async function withPipelineWriter<T>(
   }
   let acquired = false;
   let releaseAfterUnlock = false;
+  let releaseWhenRunSettles = false;
+  const unlockAndRelease = async (): Promise<void> => {
+    try {
+      await client.query("SELECT pg_advisory_unlock(hashtext($1))", [PIPELINE_WRITER_LOCK]);
+    } catch (error) {
+      console.error(
+        "[vacancy-job] Failed to release writer lock:",
+        error instanceof Error ? error.message : error,
+      );
+    } finally {
+      client.release();
+    }
+  };
   try {
     const lockPromise = client.query<{ acquired: boolean }>(
       "SELECT pg_try_advisory_lock(hashtext($1)) AS acquired",
@@ -164,19 +184,33 @@ async function withPipelineWriter<T>(
       console.log(`[vacancy-job] job=${job} skipped=writer-lock-held`);
       return null;
     }
-    return job === "liveness" ? await run() : await wait(run());
+    if (job === "liveness") return await run();
+    const runPromise = run();
+    if (job !== "company_site_probe") return await wait(runPromise);
+    try {
+      return await wait(runPromise);
+    } catch (error) {
+      if (error instanceof Error && error.message === "VACANCY_JOB_DEADLINE") {
+        // Bound the HTTP request without releasing serialization early. The
+        // cooperative probe keeps the advisory lock until its outstanding
+        // selection/writes/logging have actually settled.
+        releaseWhenRunSettles = true;
+        releaseAfterUnlock = true;
+        void runPromise
+          .catch((lateError) => {
+            console.error(
+              "[vacancy-job] Company-site probe settled after HTTP deadline:",
+              lateError instanceof Error ? lateError.message : lateError,
+            );
+          })
+          .finally(() => unlockAndRelease());
+      }
+      throw error;
+    }
   } finally {
-    if (acquired) {
+    if (acquired && !releaseWhenRunSettles) {
       releaseAfterUnlock = true;
-      void client
-        .query("SELECT pg_advisory_unlock(hashtext($1))", [PIPELINE_WRITER_LOCK])
-        .catch((error) => {
-          console.error(
-            "[vacancy-job] Failed to release writer lock:",
-            error instanceof Error ? error.message : error,
-          );
-        })
-        .finally(() => client.release());
+      void unlockAndRelease();
     }
     if (!releaseAfterUnlock) client.release();
   }
@@ -224,6 +258,27 @@ export async function runVacancyJob(
         remaining: summary?.remaining,
         remainingIsLowerBound: summary?.remainingIsLowerBound,
         durationMs: summary?.durationMs,
+      };
+    }
+
+    if (job === "company_site_probe") {
+      const summary = await runCompanySiteProbeDiscoveryBatch({
+        batchSize: batchLimit,
+        deadlineMs: options.deadlineMs ?? Date.now() + COMPANY_SITE_PROBE_HTTP_BUDGET_MS,
+      });
+      if (!summary) return null;
+      return {
+        selected: summary.selected,
+        upserted: 0,
+        live: 0,
+        dead: 0,
+        inconclusive: 0,
+        errors: summary.errors,
+        done: summary.done,
+        remaining: summary.remaining,
+        remainingIsLowerBound: summary.remainingIsLowerBound,
+        durationMs: summary.durationMs,
+        metrics: summary,
       };
     }
     if (job === "contact") {
@@ -326,7 +381,7 @@ export async function runVacancyJob(
       remaining: summary?.remaining,
       remainingIsLowerBound: summary?.remainingIsLowerBound,
     };
-    }, job === "liveness" ? options.deadlineMs : undefined);
+    }, job === "liveness" || job === "company_site_probe" ? options.deadlineMs : undefined);
   } catch (error) {
     const deadlineReached =
       error instanceof Error &&

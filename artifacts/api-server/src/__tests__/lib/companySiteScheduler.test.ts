@@ -7,6 +7,7 @@ const {
   scheduleMock,
   discoverCompanySiteVacanciesMock,
   persistCompanySiteVacanciesMock,
+  runCompanySiteProbeBatchMock,
 } = vi.hoisted(() => ({
   executeMock: vi.fn(),
   selectMock: vi.fn(),
@@ -14,6 +15,7 @@ const {
   scheduleMock: vi.fn(),
   discoverCompanySiteVacanciesMock: vi.fn(),
   persistCompanySiteVacanciesMock: vi.fn(),
+  runCompanySiteProbeBatchMock: vi.fn(),
 }));
 
 vi.mock("@workspace/db", () => ({
@@ -25,6 +27,7 @@ vi.mock("@workspace/db", () => ({
   sponsorLicenceCompanySiteChecksTable: {
     organisationName: "organisationName",
   },
+  vacancySyncLogTable: "vacancySyncLogTable",
 }));
 
 vi.mock("drizzle-orm", () => ({
@@ -37,6 +40,10 @@ vi.mock("node-cron", () => ({ default: { schedule: scheduleMock } }));
 vi.mock("../../lib/companySiteDiscovery", () => ({
   discoverCompanySiteVacancies: discoverCompanySiteVacanciesMock,
   persistCompanySiteVacancies: persistCompanySiteVacanciesMock,
+}));
+vi.mock("../../lib/companySiteProbe", () => ({
+  COMPANY_SITE_PROBE_BATCH_SIZE: 30,
+  runCompanySiteProbeBatch: runCompanySiteProbeBatchMock,
 }));
 
 const {
@@ -51,6 +58,7 @@ const {
   COMPANY_SITE_SECTOR_COUNT,
   runCompanySiteCheck,
   runCompanySiteDiscoveryBatch,
+  runCompanySiteProbeDiscoveryBatch,
   selectCompanySiteBatch,
   startCompanySiteDiscoveryScheduler,
 } = await import("../../lib/companySiteScheduler");
@@ -63,6 +71,7 @@ describe("company-site scheduler", () => {
     scheduleMock.mockReset();
     discoverCompanySiteVacanciesMock.mockReset();
     persistCompanySiteVacanciesMock.mockReset();
+    runCompanySiteProbeBatchMock.mockReset();
     selectMock.mockReturnValue({
       from: () => ({
         where: () => ({
@@ -464,5 +473,43 @@ describe("company-site scheduler", () => {
     expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining("code=57P01"));
     errorSpy.mockRestore();
     logSpy.mockRestore();
+  });
+
+  it("logs probe classification metrics under the dedicated job kind", async () => {
+    executeMock.mockResolvedValue({
+      rows: [{
+        organisation_name: "Probe Employer",
+        website: "https://probe.example",
+      }],
+    });
+    runCompanySiteProbeBatchMock.mockResolvedValue({
+      selected: 1,
+      checked: 1,
+      okForCrawl: 1,
+      temporaryBad: 0,
+      permanentBad: 0,
+      skipped: 0,
+      deferred: 0,
+      errors: 0,
+      done: true,
+      remaining: 0,
+      remainingIsLowerBound: false,
+      durationMs: 25,
+    });
+    let logged: Record<string, unknown> | undefined;
+    insertMock.mockReturnValue({
+      values: (values: Record<string, unknown>) => {
+        logged = values;
+        return { onConflictDoUpdate: () => Promise.resolve() };
+      },
+    });
+
+    await runCompanySiteProbeDiscoveryBatch({ batchSize: 1 });
+
+    expect(logged).toEqual(expect.objectContaining({
+      jobKind: "company_site_probe",
+      checkedCount: 1,
+      metrics: expect.objectContaining({ okForCrawl: 1 }),
+    }));
   });
 });
