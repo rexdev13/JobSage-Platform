@@ -1,0 +1,228 @@
+import {
+  db,
+  sponsorLicenceCompanySiteChecksTable,
+} from "@workspace/db";
+import {
+  classifyCompanySiteFailure,
+  fetchCompanySitePage,
+  type CompanySiteFailureClass,
+} from "./companySiteHttp";
+import { normaliseSponsorWebsite } from "./companySiteDiscovery";
+import { withCompanySiteDatabaseRetry } from "./companySitePersistence";
+
+export const COMPANY_SITE_PROBE_FAILED_RETRY_MS = 24 * 60 * 60 * 1000;
+export const COMPANY_SITE_PROBE_PERMANENT_RETRY_MS = 14 * 24 * 60 * 60 * 1000;
+export const COMPANY_SITE_PROBE_BATCH_SIZE = 30;
+export const COMPANY_SITE_PROBE_CONCURRENCY = 12;
+export const COMPANY_SITE_PROBE_WRITE_RESERVE_MS = 3_000;
+export const COMPANY_SITE_PROBE_HTTP_BUDGET_MS = 20_000;
+export const COMPANY_SITE_PROBE_MAX_ROOT_BYTES = 128_000;
+
+export type CompanySiteProbeRow = {
+  organisationName: string;
+  website: string;
+};
+
+export type CompanySiteProbeClassification =
+  | "permanent_bad"
+  | "temporary_bad"
+  | "ok_for_crawl";
+
+export type CompanySiteProbeOutcome =
+  | { status: "skipped"; reason: string }
+  | {
+      status: "checked";
+      classification: CompanySiteProbeClassification;
+      failureClass: CompanySiteFailureClass | null;
+    };
+
+function retryAtFor(
+  classification: CompanySiteProbeClassification,
+  supplied: Date | undefined,
+  now: Date,
+): Date | null {
+  if (classification === "ok_for_crawl") return null;
+  const floor = new Date(
+    now.getTime() +
+      (classification === "permanent_bad"
+        ? COMPANY_SITE_PROBE_PERMANENT_RETRY_MS
+        : COMPANY_SITE_PROBE_FAILED_RETRY_MS),
+  );
+  return supplied && supplied > floor ? supplied : floor;
+}
+
+async function persistProbeOutcome(
+  row: CompanySiteProbeRow,
+  classification: CompanySiteProbeClassification,
+  error: string | null,
+  retryAt: Date | undefined,
+): Promise<void> {
+  const now = new Date();
+  const retryAfter = retryAtFor(classification, retryAt, now);
+  const values = {
+    organisationName: row.organisationName,
+    retryAfter,
+    lastError: error ? error.slice(0, 1_000) : null,
+    lastOutcome: classification,
+    updatedAt: now,
+  };
+  await withCompanySiteDatabaseRetry("store company-site probe", () =>
+    db
+      .insert(sponsorLicenceCompanySiteChecksTable)
+      .values(values)
+      .onConflictDoUpdate({
+        target: sponsorLicenceCompanySiteChecksTable.organisationName,
+        set: values,
+      }),
+  );
+}
+
+export async function runCompanySiteProbe(
+  row: CompanySiteProbeRow,
+  options: { deadlineMs?: number } = {},
+): Promise<CompanySiteProbeOutcome> {
+  const website = normaliseSponsorWebsite(row.website);
+  if (!website) {
+    await persistProbeOutcome(row, "permanent_bad", "malformed website URL", undefined);
+    return {
+      status: "checked",
+      classification: "permanent_bad",
+      failureClass: "permanent",
+    };
+  }
+  const deadlineMs = options.deadlineMs ?? Date.now() + 9_000;
+  let parsed: URL;
+  try {
+    parsed = new URL(website);
+  } catch {
+    await persistProbeOutcome(row, "permanent_bad", "malformed website URL", undefined);
+    return {
+      status: "checked",
+      classification: "permanent_bad",
+      failureClass: "permanent",
+    };
+  }
+
+  let classification: CompanySiteProbeClassification;
+  let failureClass: CompanySiteFailureClass | null;
+  let errorMessage: string | null;
+  let retryAt: Date | undefined;
+  try {
+    // This deliberately performs exactly the shared robots-aware root fetch.
+    // It does not parse links, follow vacancy pages, or write adverts.
+    const result = await fetchCompanySitePage(
+      parsed.toString(),
+      parsed.hostname,
+      deadlineMs,
+      COMPANY_SITE_PROBE_MAX_ROOT_BYTES,
+    );
+    if (result.ok) {
+      classification = "ok_for_crawl";
+      failureClass = null;
+      errorMessage = null;
+      retryAt = undefined;
+    } else {
+      failureClass =
+        result.failureClass ??
+        classifyCompanySiteFailure(result);
+      classification =
+        failureClass === "permanent" ? "permanent_bad" : "temporary_bad";
+      errorMessage = `[${failureClass}] ${result.reason}`;
+      retryAt = result.retryAt;
+    }
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "probe failed";
+    failureClass = classifyCompanySiteFailure({
+      kind: "network",
+      reason,
+    });
+    classification =
+      failureClass === "permanent" ? "permanent_bad" : "temporary_bad";
+    errorMessage = `[${failureClass}] ${reason}`;
+    retryAt = undefined;
+  }
+  // Persist outside the fetch try/catch: a database failure must remain a
+  // batch error and must never reclassify a healthy website as temporary_bad.
+  await persistProbeOutcome(row, classification, errorMessage, retryAt);
+  return { status: "checked", classification, failureClass };
+}
+
+export type CompanySiteProbeSummary = {
+  selected: number;
+  checked: number;
+  okForCrawl: number;
+  temporaryBad: number;
+  permanentBad: number;
+  skipped: number;
+  deferred: number;
+  errors: number;
+  done: boolean;
+  remaining: number;
+  remainingIsLowerBound: boolean;
+  durationMs: number;
+};
+
+export async function runCompanySiteProbeBatch(
+  rows: CompanySiteProbeRow[],
+  options: { deadlineMs?: number; hasMore?: boolean } = {},
+): Promise<CompanySiteProbeSummary> {
+  const startedAt = Date.now();
+  const workDeadlineMs =
+    options.deadlineMs == null
+      ? undefined
+      : Math.max(startedAt, options.deadlineMs - COMPANY_SITE_PROBE_WRITE_RESERVE_MS);
+  let nextIndex = 0;
+  let checked = 0;
+  let okForCrawl = 0;
+  let temporaryBad = 0;
+  let permanentBad = 0;
+  let skipped = 0;
+  let deferred = 0;
+  let errors = 0;
+
+  async function worker(): Promise<void> {
+    while (true) {
+      if (workDeadlineMs != null && Date.now() >= workDeadlineMs) {
+        deferred += Math.max(0, rows.length - nextIndex);
+        nextIndex = rows.length;
+        return;
+      }
+      const row = rows[nextIndex++];
+      if (!row) return;
+      try {
+        const outcome = await runCompanySiteProbe(row, { deadlineMs: workDeadlineMs });
+        if (outcome.status === "skipped") skipped += 1;
+        else {
+          checked += 1;
+          if (outcome.classification === "ok_for_crawl") okForCrawl += 1;
+          else if (outcome.classification === "temporary_bad") temporaryBad += 1;
+          else permanentBad += 1;
+        }
+      } catch {
+        errors += 1;
+      }
+    }
+  }
+  await Promise.all(
+    Array.from(
+      { length: Math.min(COMPANY_SITE_PROBE_CONCURRENCY, rows.length) },
+      () => worker(),
+    ),
+  );
+  const durationMs = Date.now() - startedAt;
+  const remaining = deferred + (options.hasMore ? 1 : 0) + errors;
+  return {
+    selected: rows.length,
+    checked,
+    okForCrawl,
+    temporaryBad,
+    permanentBad,
+    skipped,
+    deferred,
+    errors,
+    done: remaining === 0,
+    remaining,
+    remainingIsLowerBound: Boolean(options.hasMore),
+    durationMs,
+  };
+}

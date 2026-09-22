@@ -8,6 +8,10 @@ import {
   type VacancyJobKind,
 } from "../lib/vacancyJobRunner";
 import { getVacancyAiWebSearchDailyCap } from "../lib/vacancyAiBudget";
+import {
+  COMPANY_SITE_PROBE_BATCH_SIZE,
+  COMPANY_SITE_PROBE_HTTP_BUDGET_MS,
+} from "../lib/companySiteProbe";
 
 const router = Router();
 
@@ -29,6 +33,7 @@ function getHttpDefaultLimits(): Record<VacancyJobKind, number> {
   return {
     job_board: 50,
     company_site: getCompanySiteHttpBatchSize(),
+    company_site_probe: COMPANY_SITE_PROBE_BATCH_SIZE,
     liveness: 40,
     contact: 5,
     reed_professions: PROFESSION_BACKFILL_HTTP_CATEGORY_LIMIT,
@@ -40,6 +45,7 @@ function getHttpMaxLimits(): Record<VacancyJobKind, number> {
   return {
     job_board: 50,
     company_site: getCompanySiteHttpBatchSize(),
+    company_site_probe: COMPANY_SITE_PROBE_BATCH_SIZE,
     liveness: 50,
     contact: 5,
     reed_professions: PROFESSION_BACKFILL_HTTP_MAX_CATEGORY_LIMIT,
@@ -66,13 +72,14 @@ router.post("/internal/vacancy-jobs", async (req: Request, res: Response): Promi
   if (
     requestedKind !== "job_board" &&
     requestedKind !== "company_site" &&
+    requestedKind !== "company_site_probe" &&
     requestedKind !== "liveness" &&
     requestedKind !== "contact" &&
     requestedKind !== "reed_professions" &&
     requestedKind !== "additional_boards"
   ) {
     res.status(400).json({
-      error: "kind must be job_board, company_site, liveness, contact, reed_professions, or additional_boards.",
+      error: "kind must be job_board, company_site, company_site_probe, liveness, contact, reed_professions, or additional_boards.",
     });
     return;
   }
@@ -108,7 +115,9 @@ router.post("/internal/vacancy-jobs", async (req: Request, res: Response): Promi
   }
 
   try {
-    const deadlineMs = kind === "liveness"
+    const deadlineMs = kind === "company_site_probe"
+      ? Date.now() + COMPANY_SITE_PROBE_HTTP_BUDGET_MS
+      : kind === "liveness"
       ? Date.now() + LIVENESS_HTTP_BUDGET_MS
       : isProfessionBackfill
         ? Date.now() + PROFESSION_BACKFILL_HTTP_BUDGET_MS
@@ -129,11 +138,14 @@ router.post("/internal/vacancy-jobs", async (req: Request, res: Response): Promi
     }
     res.status(200).json(summary);
   } catch (error) {
+    const deadlineReached =
+      error instanceof Error && error.message === "VACANCY_JOB_DEADLINE";
     console.error(
       `[vacancy-job-http] kind=${kind} failed:`,
       error instanceof Error ? error.message : error,
     );
-    res.status(500).json({
+    if (deadlineReached) res.set("Retry-After", "30");
+    res.status(deadlineReached ? 504 : 500).json({
       selected: 0,
       upserted: 0,
       live: 0,
@@ -141,6 +153,9 @@ router.post("/internal/vacancy-jobs", async (req: Request, res: Response): Promi
       inconclusive: 0,
       errors: 1,
       done: false,
+      ...(deadlineReached
+        ? { error: "Vacancy batch reached its HTTP deadline and is finalizing safely." }
+        : {}),
     });
   }
 });
