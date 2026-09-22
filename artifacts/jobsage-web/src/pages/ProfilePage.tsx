@@ -14,6 +14,7 @@ import {
   useGenerateProfileCv,
   useListMyDocuments,
   type CareerProfile,
+  getCareerProfilesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetMyProfileQueryKey, getGetMyMatchesQueryKey, getListMatchedRolesQueryKey } from "@workspace/api-client-react";
@@ -439,6 +440,7 @@ export default function ProfilePage() {
     try {
       await upsertMutation.mutateAsync({ data: buildPayload() });
       queryClient.invalidateQueries({ queryKey: getGetMyProfileQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getCareerProfilesQueryKey() });
       try { localStorage.setItem("jobsage_ai_profession", fd.profession); } catch { /* ignore quota */ }
       setAutoSaveStatus("saved");
       setTimeout(() => setAutoSaveStatus("idle"), 2500);
@@ -1373,6 +1375,11 @@ function CareerProfileCard({
             )}
           </div>
           <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">{cp.aiCvContent}</p>
+            {!cp.aiCvReviewedAt && (
+              <p className="mt-2 text-[11px] leading-relaxed text-amber-800">
+                Review this draft again after changing confirmed profile details. Regenerate it if the facts or target direction have changed.
+              </p>
+            )}
         </div>
       )}
 

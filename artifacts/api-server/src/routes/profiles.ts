@@ -1,7 +1,7 @@
 import { requireAuthenticated } from "../middlewares/requireRole";
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, profilesTable, usersTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { db, profilesTable, usersTable, careerProfilesTable } from "@workspace/db";
+import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { GetMyProfileResponse, UpsertMyProfileBody, UpsertMyProfileResponse } from "@workspace/api-zod";
 import { requireConsent } from "../middlewares/consentMiddleware";
 import { computeCompletionPct, computeMissingFields } from "../lib/profileCompleteness";
@@ -11,6 +11,42 @@ import { ObjectStorageService } from "../lib/objectStorage";
 const objectStorageService = new ObjectStorageService();
 
 const router: IRouter = Router();
+
+const MAKER_PROFILE_FACT_FIELDS = [
+  "profession",
+  "specialty",
+  "qualificationCountry",
+  "qualificationType",
+  "qualificationYear",
+  "experienceYears",
+  "registrationStatus",
+  "languages",
+  "city",
+  "preferredRegion",
+] as const;
+
+type MakerProfileFactField = (typeof MAKER_PROFILE_FACT_FIELDS)[number];
+
+function comparableMakerFact(value: unknown): string {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => String(item ?? "").trim())
+      .filter(Boolean)
+      .sort()
+      .join("\u001f");
+  }
+  return value == null ? "" : String(value).trim();
+}
+
+export function hasMakerProfileFactsChanged(
+  existing: Partial<Record<MakerProfileFactField, unknown>> | null | undefined,
+  incoming: Partial<Record<MakerProfileFactField, unknown>>,
+): boolean {
+  if (!existing) return false;
+  return MAKER_PROFILE_FACT_FIELDS.some(
+    (field) => comparableMakerFact(existing[field]) !== comparableMakerFact(incoming[field]),
+  );
+}
 
 const WELL_KNOWN_PROFESSIONS = [
   "Doctor",
@@ -106,7 +142,20 @@ router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
   // Resolve a JOBSAGE email alias for this candidate.
   // Look up any existing profile first so we never overwrite an already-assigned alias.
   const [existing] = await db
-    .select({ jobsageEmail: profilesTable.jobsageEmail })
+    .select({
+      id: profilesTable.id,
+      jobsageEmail: profilesTable.jobsageEmail,
+      profession: profilesTable.profession,
+      specialty: profilesTable.specialty,
+      qualificationCountry: profilesTable.qualificationCountry,
+      qualificationType: profilesTable.qualificationType,
+      qualificationYear: profilesTable.qualificationYear,
+      experienceYears: profilesTable.experienceYears,
+      registrationStatus: profilesTable.registrationStatus,
+      languages: profilesTable.languages,
+      city: profilesTable.city,
+      preferredRegion: profilesTable.preferredRegion,
+    })
     .from(profilesTable)
     .where(eq(profilesTable.userId, req.user!.id));
 
@@ -189,6 +238,21 @@ router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
       set: updateValues as any,
     })
     .returning();
+
+  // A reviewed factual draft is no longer safe to download after any
+  // candidate-confirmed fact used by the Maker changes. Keep the text so the
+  // candidate can review it, but require review again for every career profile.
+  if (existing?.id !== undefined && hasMakerProfileFactsChanged(existing, d)) {
+    await db
+      .update(careerProfilesTable)
+      .set({ aiCvReviewedAt: null })
+      .where(
+        and(
+          eq(careerProfilesTable.userId, req.user!.id),
+          isNotNull(careerProfilesTable.aiCvContent),
+        ),
+      );
+  }
 
   // Set ACL on the profile photo so the owner can access it via GET /storage/objects/*
   if (d.profilePhotoKey) {

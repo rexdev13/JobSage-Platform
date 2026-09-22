@@ -1,9 +1,9 @@
 import { requireAuthenticated } from "../middlewares/requireRole";
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import multer from "multer";
-import { db, documentsTable, DOCUMENT_DISCLAIMER, DOCUMENT_TYPES } from "@workspace/db";
+import { db, documentsTable, careerProfilesTable, DOCUMENT_DISCLAIMER, DOCUMENT_TYPES } from "@workspace/db";
 import type { DocumentType } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, isNotNull } from "drizzle-orm";
 import {
   ListMyDocumentsResponse,
   RegisterDocumentBody,
@@ -295,7 +295,7 @@ router.patch("/documents/:id/save-parsed", requireAuthenticated, async (req: Req
   }
 
   const [existing] = await db
-    .select({ id: documentsTable.id })
+    .select({ id: documentsTable.id, parsedData: documentsTable.parsedData })
     .from(documentsTable)
     .where(and(eq(documentsTable.id, id), eq(documentsTable.userId, userId)));
 
@@ -309,6 +309,22 @@ router.patch("/documents/:id/save-parsed", requireAuthenticated, async (req: Req
     .set({ parsedData } as any)
     .where(and(eq(documentsTable.id, id), eq(documentsTable.userId, userId)))
     .returning();
+
+  // A source-CV confirmation can change Maker evidence even when the merged
+  // profile values remain the same. Invalidate only drafts that used this CV,
+  // preserving their text for candidate review or regeneration.
+  if (JSON.stringify(existing.parsedData ?? null) !== JSON.stringify(parsedData ?? null)) {
+    await db
+      .update(careerProfilesTable)
+      .set({ aiCvReviewedAt: null })
+      .where(
+        and(
+          eq(careerProfilesTable.userId, userId),
+          eq(careerProfilesTable.aiCvSourceDocumentId, id),
+          isNotNull(careerProfilesTable.aiCvContent),
+        ),
+      );
+  }
 
   res.json(updated);
 });
