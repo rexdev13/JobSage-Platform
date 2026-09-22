@@ -178,8 +178,8 @@ export default function EmployerDashboardPage() {
     <AppLayout>
       <PageTransition className="max-w-4xl mx-auto p-6 space-y-6">
         {/* Header */}
-        <div className="flex items-start justify-between gap-4">
-          <div>
+        <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-start">
+          <div className="min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <Building2 className="w-5 h-5 text-primary" />
               <h1 className="text-2xl font-display font-bold text-foreground">
@@ -191,7 +191,7 @@ export default function EmployerDashboardPage() {
               Manage your job listings and candidate pipeline.
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto">
             <Button size="sm" variant="outline" onClick={() => setLocation("/employer/profile")}>
               <Settings className="w-4 h-4 mr-1.5" /> Profile
             </Button>

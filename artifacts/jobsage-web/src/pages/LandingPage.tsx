@@ -70,7 +70,7 @@ function Navbar({ onLogin }: { onLogin: () => void }) {
           />
         </button>
 
-        <nav className="hidden md:flex items-center gap-8">
+         <nav className="hidden lg:flex items-center gap-8">
           {NAV_LINKS.map((l) => (
             <button
               key={l.href}
@@ -82,7 +82,7 @@ function Navbar({ onLogin }: { onLogin: () => void }) {
           ))}
         </nav>
 
-        <div className="hidden md:flex items-center gap-3">
+         <div className="hidden lg:flex items-center gap-3">
           <button
             onClick={() => setLocation("/admin/login")}
             className="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors px-2 py-1"
@@ -115,7 +115,7 @@ function Navbar({ onLogin }: { onLogin: () => void }) {
         </div>
 
         <button
-          className="md:hidden p-2 text-foreground"
+           className="lg:hidden inline-flex min-h-11 min-w-11 items-center justify-center text-foreground"
           onClick={() => setMobileOpen((v) => !v)}
           aria-label="Toggle menu"
         >
@@ -129,7 +129,7 @@ function Navbar({ onLogin }: { onLogin: () => void }) {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-white/95 backdrop-blur-lg border-b border-border/40 overflow-hidden"
+             className="lg:hidden bg-white/95 backdrop-blur-lg border-b border-border/40 overflow-hidden"
           >
             <div className="px-6 pb-5 pt-2 flex flex-col gap-4">
               {NAV_LINKS.map((l) => (

@@ -128,7 +128,7 @@ function RegisterSyncStatusCard({
 
         {/* Latest sync counts from most recent successful run */}
         {lastSuccess && (
-          <div className="grid grid-cols-4 gap-2">
+           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <MetricChip label="Total" value={lastSuccess.recordCount} />
             <MetricChip label="Added" value={lastSuccess.addedCount != null ? `+${lastSuccess.addedCount}` : null} color="green" />
             <MetricChip label="Updated" value={lastSuccess.updatedCount} color="sky" />
@@ -203,7 +203,7 @@ function VacancySyncStatusCard({
 
         {/* Latest vacancy check counts from most recent successful run */}
         {lastSuccess && (
-          <div className="grid grid-cols-4 gap-2">
+           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <MetricChip label="Batch" value={lastSuccess.batchSize} />
             <MetricChip label="Checked" value={lastSuccess.checkedCount} color="green" />
             <MetricChip label="Cache Hits" value={lastSuccess.cacheHitCount} color="sky" />

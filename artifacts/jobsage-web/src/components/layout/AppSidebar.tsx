@@ -28,7 +28,7 @@ type NavGroup = {
   items: NavItem[];
 };
 
-export function AppSidebar() {
+export function AppSidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
 
@@ -147,7 +147,7 @@ export function AppSidebar() {
     const isActive = location === item.href;
     const badge = item.badge;
     return (
-      <Link key={item.href} href={item.href} className={cn(
+      <Link key={item.href} href={item.href} onClick={onNavigate} className={cn(
         "flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition-colors hover-elevate",
         isActive
           ? "bg-primary text-primary-foreground shadow-sm"

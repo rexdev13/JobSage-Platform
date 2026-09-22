@@ -273,7 +273,7 @@ export default function EmployerJobFormPage() {
               <Briefcase className="w-4 h-4 text-primary" /> Role Details
             </h2>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="col-span-2">
                 <label className="block text-sm font-medium mb-1.5">Job Title <span className="text-destructive">*</span></label>
                 <input
@@ -362,7 +362,7 @@ export default function EmployerJobFormPage() {
               <Building2 className="w-4 h-4 text-primary" /> Regulatory Requirements
             </h2>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium mb-1.5">Regulator <span className="text-destructive">*</span></label>
                 <select

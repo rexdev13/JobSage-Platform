@@ -561,7 +561,7 @@ export default function EligibilityPage() {
                 <h2 className="text-sm font-semibold text-muted-foreground mb-3">Previous Checks</h2>
                 <div className="space-y-2">
                   {decisions.slice(1).map((d) => (
-                    <div key={d.id} className="rounded-xl border border-border p-4 flex items-center gap-4">
+                    <div key={d.id} className="rounded-xl border border-border p-4 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-4">
                       <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 ${
                         d.outcome === "eligible" ? "bg-emerald-100 text-emerald-800" :
                         d.outcome === "ineligible" ? "bg-red-100 text-red-800" :
