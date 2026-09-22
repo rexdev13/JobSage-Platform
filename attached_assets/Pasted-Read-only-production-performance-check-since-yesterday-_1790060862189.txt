@@ -1,0 +1,51 @@
+Read-only production performance check since yesterday’s republish. Do NOT change code. Do NOT publish. Do NOT run backfills.
+
+Context: gzip/NUL company-site persistence fix and related vacancy work were republished yesterday. I may not have set up all new crons. Report what actually happened in production.
+
+============================================================
+1) Time window
+============================================================
+Use from republish time (or last ~18–24 hours if exact time unknown) until now.
+State the exact UTC window used.
+
+============================================================
+2) Build / kinds live
+============================================================
+Confirm in production:
+- gzip/content-encoding + NUL-safe persistence
+- job_kind logging
+- reed_professions / additional_boards kinds present?
+- Any reed_professions or additional_boards RUNS in the window? (yes/no + counts)
+- Cap still 8 or already 20 for those kinds?
+
+============================================================
+3) Job health in the window
+============================================================
+For job_board, company_site, liveness (and reed_professions / additional_boards if any):
+- runs, avg duration, errors
+- company_site: completed / partial / failed / permanent / temporary totals + per-batch averages
+- company_site: inserted / updated / upserted
+- host/check SQL write errors, UTF8/NUL errors (expect 0)
+- API crash/restart/pool errors
+- 409 observations
+
+Compare company-site completed/batch and completes/hour to the pre-fix ~0.3/batch degraded level.
+
+============================================================
+4) Catalogue snapshot NOW
+============================================================
+Sources: NHS / Reed / jobs.ac.uk / Teaching Vacancies / company-site
+→ stored vs candidate-visible
+
+Professions: GMC NMC HCPC DENTAL PHARMACY SOCIAL_WORK EDUCATION ENGINEERING IT ACCOUNTING LEGAL ARCHITECTURE
+→ visible + strong/usable/thin/empty
+
+============================================================
+5) Blunt verdict
+============================================================
+1. Did yesterday’s republish improve production? YES/NO + proof numbers
+2. What is still broken or weak?
+3. What is waiting on cron setup I neglected?
+4. Exact next 1–2 actions only
+
+Short tables. STOP.
