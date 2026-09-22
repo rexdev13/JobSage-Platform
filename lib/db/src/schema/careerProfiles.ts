@@ -1,4 +1,4 @@
-import { pgTable, serial, text, boolean, timestamp, varchar } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, boolean, timestamp, varchar, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -8,6 +8,8 @@ export const careerProfilesTable = pgTable("career_profiles", {
   name: text("name").notNull(),
   focusArea: text("focus_area").notNull(),
   aiCvContent: text("ai_cv_content"),
+  aiCvReviewedAt: timestamp("ai_cv_reviewed_at", { withTimezone: true }),
+  aiCvSourceDocumentId: integer("ai_cv_source_document_id"),
   isActive: boolean("is_active").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

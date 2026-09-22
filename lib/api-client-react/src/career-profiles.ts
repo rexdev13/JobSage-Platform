@@ -7,6 +7,8 @@ export interface CareerProfile {
   name: string;
   focusArea: string;
   aiCvContent: string | null;
+  aiCvReviewedAt: string | null;
+  aiCvSourceDocumentId: number | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -25,6 +27,11 @@ export interface UpdateCareerProfileBody {
   name?: string;
   focusArea?: string;
   aiCvContent?: string | null;
+  aiCvReviewed?: boolean;
+}
+
+export interface GenerateCareerProfileCvBody {
+  sourceDocumentId?: number | null;
 }
 
 const CAREER_PROFILES_KEY = ["career-profiles"] as const;
@@ -85,9 +92,15 @@ export function useActivateCareerProfile() {
 
 export function useGenerateProfileCv() {
   const qc = useQueryClient();
-  return useMutation<CareerProfile, Error, number>({
-    mutationFn: (id) =>
-      customFetch<CareerProfile>(`/api/career-profiles/${id}/generate-cv`, { method: "POST" }),
+  return useMutation<CareerProfile, Error, number | { id: number; data?: GenerateCareerProfileCvBody }>({
+    mutationFn: (variables) => {
+      const id = typeof variables === "number" ? variables : variables.id;
+      const data = typeof variables === "number" ? undefined : variables.data;
+      return customFetch<CareerProfile>(`/api/career-profiles/${id}/generate-cv`, {
+        method: "POST",
+        body: data ? JSON.stringify(data) : undefined,
+      });
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: CAREER_PROFILES_KEY }),
   });
 }

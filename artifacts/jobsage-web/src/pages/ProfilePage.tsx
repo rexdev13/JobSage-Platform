@@ -8,18 +8,25 @@ import {
   getGetJourneyStatusQueryKey,
   useListCareerProfiles,
   useCreateCareerProfile,
+  useUpdateCareerProfile,
   useDeleteCareerProfile,
   useActivateCareerProfile,
   useGenerateProfileCv,
+  useListMyDocuments,
   type CareerProfile,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetMyProfileQueryKey, getGetMyMatchesQueryKey, getListMatchedRolesQueryKey } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, Button, Input, Select, Label, PageTransition, cn } from "@/components/ui-enhanced";
-import { Save, UserCircle, Bell, Info, Camera, Loader2, CheckCircle2, AlertCircle, Star, Trophy, Files, ShieldCheck, Send, MessageSquare, UserCheck, Plus, Trash2, Sparkles, Download, BadgeCheck, FolderOpen, Mail, Copy } from "lucide-react";
+import { Save, UserCircle, Bell, Info, Camera, Loader2, CheckCircle2, AlertCircle, AlertTriangle, Star, Trophy, Files, ShieldCheck, Send, MessageSquare, UserCheck, Plus, Trash2, Sparkles, Download, BadgeCheck, FolderOpen, Mail, Copy, X } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import {
+  CAREER_PROFILE_MAKER_DESCRIPTION,
+  CAREER_PROFILE_MAKER_LABEL,
+  CAREER_PROFILE_MAKER_REVIEW_WARNING,
+} from "@/lib/careerProfileMakerCopy";
 
 type RegistrationStatus = "registered" | "not_registered" | "in_process";
 type AlertFrequency = "daily" | "weekly" | "off";
@@ -1166,27 +1173,148 @@ export default function ProfilePage() {
 
 const MAX_PROFILES = 3;
 
+type MakerSourceDocument = {
+  id: number;
+  filename: string;
+  label?: string | null;
+  parsedData?: Record<string, unknown> | null;
+};
+
+function CareerProfileDraftReview({
+  cp,
+  onClose,
+}: {
+  cp: CareerProfile;
+  onClose: () => void;
+}) {
+  const { toast } = useToast();
+  const updateMutation = useUpdateCareerProfile();
+  const [editedContent, setEditedContent] = useState(cp.aiCvContent ?? "");
+  const [confirmed, setConfirmed] = useState(false);
+
+  async function handleSave() {
+    const content = editedContent.trim();
+    if (!content || !confirmed) return;
+    try {
+      await updateMutation.mutateAsync({
+        id: cp.id,
+        data: { aiCvContent: content, aiCvReviewed: true },
+      });
+      toast({
+        title: "Factual draft reviewed",
+        description: "Your edits and confirmation were saved. Check it again before each application.",
+      });
+      onClose();
+    } catch (err) {
+      toast({
+        title: "Could not save review",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-3xl overflow-hidden rounded-2xl border border-border bg-background shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-border p-5">
+          <div>
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              <h2 className="text-lg font-semibold text-foreground">Review {CAREER_PROFILE_MAKER_LABEL} draft</h2>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              This is a new factual draft for <span className="font-medium text-foreground">{cp.focusArea}</span>, not an uploaded-CV enhancement.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
+            aria-label="Close CV draft review"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="space-y-4 p-5">
+          <div className="flex items-start gap-2.5 rounded-xl border border-amber-300 bg-amber-50 p-3.5">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+            <p className="text-xs leading-relaxed text-amber-900">
+              <strong>{CAREER_PROFILE_MAKER_REVIEW_WARNING}</strong>{" "}
+              Add or correct missing work history, duties, dates, qualifications, registrations, skills, and metrics yourself. Do not use this draft until every statement is true.
+            </p>
+          </div>
+
+          <textarea
+            value={editedContent}
+            onChange={(e) => setEditedContent(e.target.value)}
+            className="min-h-[420px] w-full resize-y rounded-xl border border-border bg-muted/20 p-4 font-mono text-sm leading-relaxed text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+            aria-label="Edit AI CV Maker factual draft"
+          />
+
+          <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-muted/30 p-3.5">
+            <input
+              type="checkbox"
+              checked={confirmed}
+              onChange={(e) => setConfirmed(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+            />
+            <span className="text-xs leading-relaxed text-foreground">
+              I have reviewed and edited this draft where needed, and I confirm that I will verify every factual statement before using it.
+            </span>
+          </label>
+        </div>
+
+        <div className="flex justify-end gap-3 border-t border-border bg-muted/20 px-5 py-4">
+          <Button variant="ghost" size="sm" onClick={onClose} disabled={updateMutation.isPending}>
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            className="gap-1.5"
+            onClick={() => void handleSave()}
+            disabled={updateMutation.isPending || !editedContent.trim() || !confirmed}
+          >
+            {updateMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4" />
+            )}
+            Save reviewed draft
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function CareerProfileCard({
   cp,
+  sourceDocuments,
   onActivate,
   onDelete,
   onGenerateCv,
+  onReview,
   activating,
   deleting,
   generating,
 }: {
   cp: CareerProfile;
+  sourceDocuments: MakerSourceDocument[];
   onActivate: (id: number) => void;
   onDelete: (id: number) => void;
-  onGenerateCv: (id: number) => void;
+  onGenerateCv: (id: number, sourceDocumentId?: number) => void;
+  onReview: (cp: CareerProfile) => void;
   activating: boolean;
   deleting: boolean;
   generating: boolean;
 }) {
   const { toast } = useToast();
+  const [sourceDocumentId, setSourceDocumentId] = useState("");
 
   function handleDownloadCv() {
-    if (!cp.aiCvContent) return;
+    if (!cp.aiCvContent || !cp.aiCvReviewedAt) return;
     const blob = new Blob([cp.aiCvContent], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -1236,8 +1364,44 @@ function CareerProfileCard({
 
       {cp.aiCvContent && (
         <div className="p-3 rounded-lg bg-muted/40 border border-border">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <span className={`text-[10px] font-semibold uppercase tracking-wide ${cp.aiCvReviewedAt ? "text-emerald-700" : "text-amber-700"}`}>
+              {cp.aiCvReviewedAt ? "Reviewed draft" : "Draft — review required"}
+            </span>
+            {cp.aiCvSourceDocumentId && (
+              <span className="text-[10px] text-muted-foreground">Source CV used</span>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">{cp.aiCvContent}</p>
         </div>
+      )}
+
+      {sourceDocuments.length > 0 ? (
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-foreground" htmlFor={`maker-source-${cp.id}`}>
+            Optional source CV
+          </label>
+          <select
+            id={`maker-source-${cp.id}`}
+            value={sourceDocumentId}
+            onChange={(e) => setSourceDocumentId(e.target.value)}
+            className="w-full rounded-lg border border-border bg-muted/40 px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+          >
+            <option value="">Use confirmed profile fields only</option>
+            {sourceDocuments.map((doc) => (
+              <option key={doc.id} value={doc.id}>
+                {doc.label ?? doc.filename}{doc.parsedData ? "" : " — parse and confirm first"}
+              </option>
+            ))}
+          </select>
+          <p className="text-[11px] text-muted-foreground">
+            Only candidate-confirmed fields saved from a CV are used. The focus area is never treated as evidence.
+          </p>
+        </div>
+      ) : (
+        <p className="text-[11px] text-muted-foreground">
+          Optional: upload and confirm a CV on Documents to give the Maker additional source fields.
+        </p>
       )}
 
       <div className="flex flex-wrap gap-2 mt-auto">
@@ -1257,20 +1421,24 @@ function CareerProfileCard({
           size="sm"
           variant="outline"
           className="gap-1.5 h-8 text-xs"
-          onClick={() => onGenerateCv(cp.id)}
+          onClick={() => onGenerateCv(cp.id, sourceDocumentId ? Number(sourceDocumentId) : undefined)}
           disabled={generating}
         >
           {generating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-          {cp.aiCvContent ? "Regenerate CV" : "Generate AI CV"}
+          {cp.aiCvContent ? "Regenerate factual draft" : "Make factual CV draft"}
         </Button>
         {cp.aiCvContent && (
           <Button
             size="sm"
             variant="outline"
             className="gap-1.5 h-8 text-xs"
-            onClick={handleDownloadCv}
+            onClick={() => cp.aiCvReviewedAt ? handleDownloadCv() : onReview(cp)}
           >
-            <Download className="w-3 h-3" /> Download CV
+            {cp.aiCvReviewedAt ? (
+              <><Download className="w-3 h-3" /> Download reviewed draft</>
+            ) : (
+              <><CheckCircle2 className="w-3 h-3" /> Review and edit</>
+            )}
           </Button>
         )}
       </div>
@@ -1282,6 +1450,7 @@ function CareerProfilesSection() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data, isLoading } = useListCareerProfiles();
+  const { data: documentsData } = useListMyDocuments();
   const createMutation = useCreateCareerProfile();
   const deleteMutation = useDeleteCareerProfile();
   const activateMutation = useActivateCareerProfile();
@@ -1291,8 +1460,17 @@ function CareerProfilesSection() {
   const [newName, setNewName] = useState("");
   const [newFocusArea, setNewFocusArea] = useState("");
   const [actingId, setActingId] = useState<number | null>(null);
+  const [reviewingProfile, setReviewingProfile] = useState<CareerProfile | null>(null);
 
   const profiles = data?.profiles ?? [];
+  const sourceDocuments: MakerSourceDocument[] = (documentsData?.documents ?? [])
+    .filter((doc) => doc.documentType === "cv")
+    .map((doc) => ({
+      id: doc.id,
+      filename: doc.filename,
+      label: doc.label,
+      parsedData: doc.parsedData,
+    }));
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -1302,7 +1480,10 @@ function CareerProfilesSection() {
       setNewName("");
       setNewFocusArea("");
       setShowCreateForm(false);
-      toast({ title: "Profile created", description: `${newName.trim()} profile added.` });
+      toast({
+        title: "Profile created",
+        description: `${newName.trim()} profile added. Make a factual CV draft when your confirmed profile details are ready.`,
+      });
     } catch {
       toast({ title: "Error", description: "Failed to create career profile.", variant: "destructive" });
     }
@@ -1338,13 +1519,23 @@ function CareerProfilesSection() {
     }
   }
 
-  async function handleGenerateCv(id: number) {
+  async function handleGenerateCv(id: number, sourceDocumentId?: number) {
     setActingId(id);
     try {
-      await generateCvMutation.mutateAsync(id);
-      toast({ title: "CV generated", description: "Your AI-tailored CV summary is ready to download." });
-    } catch {
-      toast({ title: "Error", description: "AI CV generation failed. Please try again.", variant: "destructive" });
+      await generateCvMutation.mutateAsync({
+        id,
+        data: { sourceDocumentId: sourceDocumentId ?? null },
+      });
+      toast({
+        title: "Factual draft created",
+        description: "Review and edit the draft before downloading or using it.",
+      });
+    } catch (err) {
+      toast({
+        title: "Factual CV draft failed",
+        description: err instanceof Error ? err.message : "Complete your confirmed profile details and try again.",
+        variant: "destructive",
+      });
     } finally {
       setActingId(null);
     }
@@ -1374,7 +1565,7 @@ function CareerProfilesSection() {
       </div>
 
       <p className="text-sm text-muted-foreground mb-5">
-        Create up to {MAX_PROFILES} career profiles — each with its own focus area and AI-generated CV. Switch your active profile to tailor your opportunities and eligibility view.
+        Create up to {MAX_PROFILES} career profiles — each with its own target direction and evidence-bound {CAREER_PROFILE_MAKER_LABEL} draft. {CAREER_PROFILE_MAKER_DESCRIPTION} For rewriting an uploaded CV, use <strong>Enhance CV</strong> on Documents.
       </p>
 
       {isLoading ? (
@@ -1402,9 +1593,11 @@ function CareerProfilesSection() {
             <CareerProfileCard
               key={cp.id}
               cp={cp}
+              sourceDocuments={sourceDocuments}
               onActivate={handleActivate}
               onDelete={handleDelete}
               onGenerateCv={handleGenerateCv}
+              onReview={setReviewingProfile}
               activating={actingId === cp.id && activateMutation.isPending}
               deleting={actingId === cp.id && deleteMutation.isPending}
               generating={actingId === cp.id && generateCvMutation.isPending}
@@ -1456,8 +1649,15 @@ function CareerProfilesSection() {
         </form>
       )}
 
+      {reviewingProfile && (
+        <CareerProfileDraftReview
+          cp={reviewingProfile}
+          onClose={() => setReviewingProfile(null)}
+        />
+      )}
+
       <p className="text-xs text-muted-foreground mt-4 italic">
-        AI-generated CV content is tailored to each profile's focus area. Review and personalise before submitting applications.
+        AI CV Maker drafts are never submission-ready by default. Review, edit, and verify every detail before use.
       </p>
     </Card>
   );
