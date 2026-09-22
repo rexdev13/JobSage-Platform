@@ -1,5 +1,6 @@
+import { randomBytes } from "node:crypto";
 import { Router, type IRouter, type Request, type Response } from "express";
-import { and, asc, desc, eq, gte, isNull, lte, or } from "drizzle-orm";
+import { and, asc, desc, eq, gte, isNull, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
   db,
@@ -9,6 +10,16 @@ import {
 } from "@workspace/db";
 import { requireRole } from "../middlewares/requireRole";
 import { getCalendlySyncStatus, syncCalendlyEvents } from "../lib/calendlySync";
+import {
+  assertGoogleCalendarSlotAvailable,
+  createGoogleMeetBooking,
+  deleteGoogleCalendarEvent,
+  getGoogleCalendarStatus,
+  GoogleCalendarRequestError,
+  listGoogleCalendarAvailableSlots,
+  parseGoogleExternalEventUri,
+  updateGoogleCalendarEvent,
+} from "../lib/googleCalendar";
 
 const router: IRouter = Router();
 const calendarRoles = requireRole("marketing", "admin", "super_admin");
@@ -25,6 +36,8 @@ const eventCreateSchema = z.object({
   endTime: dateSchema.optional(),
   meetingUrl: z.union([z.string().trim().url(), z.literal("")]).optional(),
   notes: z.string().trim().max(5000).optional(),
+  provider: z.enum(["manual", "google_calendar"]).optional().default("manual"),
+  timeZone: z.string().trim().min(1).max(100).optional().default("UTC"),
 });
 
 const eventPatchSchema = z.object({
@@ -34,6 +47,14 @@ const eventPatchSchema = z.object({
   meetingUrl: z.union([z.string().trim().url(), z.literal("")]).optional(),
   notes: z.string().trim().max(5000).nullable().optional(),
   title: z.string().trim().min(1).max(300).optional(),
+});
+const publicBookingSchema = z.object({
+  firstName: z.string().trim().min(1).max(80),
+  lastName: z.string().trim().min(1).max(80),
+  email: z.string().trim().email().max(254),
+  start: z.coerce.date(),
+  notes: z.string().trim().max(2000).optional(),
+  consent: z.literal(true),
 });
 
 const eventFields = {
@@ -49,6 +70,7 @@ const eventFields = {
   source: marketerEventsTable.source,
   createdAt: marketerEventsTable.createdAt,
   calendlySyncedAt: marketerEventsTable.calendlySyncedAt,
+  googleSyncedAt: marketerEventsTable.googleSyncedAt,
   leadFirstName: socialLeadsTable.firstName,
   leadLastName: socialLeadsTable.lastName,
   leadEmail: socialLeadsTable.email,
@@ -66,6 +88,82 @@ const isAdminRole = (role: string | null | undefined): boolean =>
 function parseEventId(value: string): number | null {
   const id = Number(value);
   return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+function googleCalendarErrorResponse(
+  error: unknown,
+  res: Response,
+  fallback: string,
+): void {
+  if (error instanceof GoogleCalendarRequestError) {
+    const status = error.status === 409
+      ? 409
+      : error.status === 401 || error.status === 403
+        ? 503
+        : error.status >= 500
+          ? 502
+          : 400;
+    res.status(status).json({ error: error.message });
+    return;
+  }
+  console.error("[google-calendar] Booking operation failed:", error);
+  res.status(502).json({ error: fallback });
+}
+
+function validTimeZone(timeZone: string): boolean {
+  try {
+    Intl.DateTimeFormat("en-GB", { timeZone }).format(new Date());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function timeZoneOffsetMs(date: Date, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return Date.UTC(
+    Number(values.year),
+    Number(values.month) - 1,
+    Number(values.day),
+    Number(values.hour),
+    Number(values.minute),
+    Number(values.second),
+  ) - date.getTime();
+}
+
+function zonedDateTime(date: string, hour: number, timeZone: string): Date {
+  const [year, month, day] = date.split("-").map(Number);
+  const wallClockUtc = Date.UTC(year!, month! - 1, day!, hour, 0, 0);
+  let result = new Date(wallClockUtc - timeZoneOffsetMs(new Date(wallClockUtc), timeZone));
+  result = new Date(wallClockUtc - timeZoneOffsetMs(result, timeZone));
+  return result;
+}
+
+function publicBookingWindow(
+  date: string,
+  timeZone: string,
+): { start: Date; end: Date } | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !validTimeZone(timeZone)) return null;
+  const parsed = new Date(`${date}T12:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return null;
+  const day = parsed.getUTCDay();
+  if (day === 0 || day === 6) return null;
+  const start = zonedDateTime(date, 9, timeZone);
+  const end = zonedDateTime(date, 17, timeZone);
+  const earliest = new Date(Date.now() - 24 * 60 * 60_000);
+  const latest = new Date(Date.now() + 90 * 24 * 60 * 60_000);
+  if (start < earliest || start > latest || end <= start) return null;
+  return { start, end };
 }
 
 function normalizeEvent(row: typeof eventFields extends never ? never : Record<string, unknown>) {
@@ -156,7 +254,12 @@ router.post(
     }
 
     const [targetUser] = await db
-      .select({ id: usersTable.id })
+      .select({
+        id: usersTable.id,
+        firstName: usersTable.firstName,
+        lastName: usersTable.lastName,
+        email: usersTable.email,
+      })
       .from(usersTable)
       .where(and(eq(usersTable.id, targetMarketingUserId), eq(usersTable.role, "marketing")))
       .limit(1);
@@ -165,9 +268,24 @@ router.post(
       return;
     }
 
+    let selectedLead: {
+      id: number;
+      marketingUserId: string | null;
+      status: string;
+      firstName: string | null;
+      lastName: string | null;
+      email: string;
+    } | null = null;
     if (parsed.data.leadId) {
       const [lead] = await db
-        .select({ id: socialLeadsTable.id, marketingUserId: socialLeadsTable.marketingUserId, status: socialLeadsTable.status })
+        .select({
+          id: socialLeadsTable.id,
+          marketingUserId: socialLeadsTable.marketingUserId,
+          status: socialLeadsTable.status,
+          firstName: socialLeadsTable.firstName,
+          lastName: socialLeadsTable.lastName,
+          email: socialLeadsTable.email,
+        })
         .from(socialLeadsTable)
         .where(eq(socialLeadsTable.id, parsed.data.leadId))
         .limit(1);
@@ -175,33 +293,146 @@ router.post(
         res.status(404).json({ error: "Lead not found." });
         return;
       }
+      selectedLead = lead;
       if (!isAdmin && lead.marketingUserId && lead.marketingUserId !== req.user!.id) {
         res.status(403).json({ error: "You can only schedule calls for your own leads." });
         return;
       }
-      if (lead.status === "new") {
-        await db
-          .update(socialLeadsTable)
-          .set({ status: "contacted", contactedAt: new Date() })
-          .where(eq(socialLeadsTable.id, lead.id));
+    }
+
+    let googleBooking: Awaited<ReturnType<typeof createGoogleMeetBooking>> | null = null;
+    let googleCalendarId: string | null = null;
+    if (parsed.data.provider === "google_calendar") {
+      try {
+        const calendar = await getGoogleCalendarStatus();
+        googleCalendarId = calendar.calendarId;
+        await assertGoogleCalendarSlotAvailable(
+          calendar.calendarId,
+          parsed.data.scheduledAt,
+          endTime,
+          parsed.data.timeZone,
+        );
+        const marketerName = [targetUser.firstName, targetUser.lastName].filter(Boolean).join(" ");
+        const leadName = selectedLead
+          ? [selectedLead.firstName, selectedLead.lastName].filter(Boolean).join(" ")
+          : "";
+        googleBooking = await createGoogleMeetBooking({
+          calendarId: calendar.calendarId,
+          title: parsed.data.title,
+          description: [
+            parsed.data.notes,
+            marketerName ? `JOBSAGE marketer: ${marketerName}` : null,
+            leadName ? `Lead: ${leadName}` : null,
+          ].filter(Boolean).join("\n\n"),
+          start: parsed.data.scheduledAt,
+          end: endTime,
+          timeZone: parsed.data.timeZone,
+          attendeeEmails: [selectedLead?.email, targetUser.email],
+          marketingUserId: targetMarketingUserId,
+          leadId: selectedLead?.id ?? null,
+        });
+      } catch (error) {
+        googleCalendarErrorResponse(
+          error,
+          res,
+          "Google Calendar could not create this booking. Please try again.",
+        );
+        return;
       }
     }
 
-    const [created] = await db
-      .insert(marketerEventsTable)
-      .values({
-        marketingUserId: targetMarketingUserId,
-        leadId: parsed.data.leadId ?? null,
-        title: parsed.data.title,
-        scheduledAt: parsed.data.scheduledAt,
-        endTime,
-        meetingUrl: parsed.data.meetingUrl || null,
-        notes: parsed.data.notes || null,
-        source: "manual",
-      })
-      .returning();
+    try {
+      const [created] = await db
+        .insert(marketerEventsTable)
+        .values({
+          marketingUserId: targetMarketingUserId,
+          leadId: parsed.data.leadId ?? null,
+          title: parsed.data.title,
+          scheduledAt: parsed.data.scheduledAt,
+          endTime,
+          meetingUrl: googleBooking?.meetingUrl ?? (parsed.data.meetingUrl || null),
+          notes: parsed.data.notes || null,
+          source: parsed.data.provider,
+          externalEventUri: googleBooking?.externalEventUri ?? null,
+          externalInviteeEmail: googleBooking ? selectedLead?.email ?? null : null,
+          googleSyncedAt: googleBooking ? new Date() : null,
+        })
+        .returning();
 
-    res.status(201).json({ event: created });
+      if (selectedLead?.status === "new") {
+        await db
+          .update(socialLeadsTable)
+          .set({ status: "contacted", contactedAt: new Date() })
+          .where(eq(socialLeadsTable.id, selectedLead.id));
+      }
+      res.status(201).json({ event: created });
+    } catch (error) {
+      if (googleBooking && googleCalendarId) {
+        await deleteGoogleCalendarEvent(googleCalendarId, googleBooking.eventId).catch(
+          (cleanupError) => console.error("[google-calendar] Could not roll back orphan event:", cleanupError),
+        );
+      }
+      throw error;
+    }
+  },
+);
+
+router.get(
+  "/marketer/calendar/google/status",
+  calendarRoles,
+  async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const status = await getGoogleCalendarStatus();
+      res.json(status);
+    } catch (error) {
+      googleCalendarErrorResponse(
+        error,
+        res,
+        "Google Calendar is not available for automated bookings.",
+      );
+    }
+  },
+);
+
+router.get(
+  "/marketer/calendar/google/booking-link",
+  calendarRoles,
+  async (req: Request, res: Response): Promise<void> => {
+    const isAdmin = isAdminRole(req.user?.role);
+    const requestedMarketer = String(req.query.marketingUserId ?? "").trim();
+    const marketingUserId = isAdmin && requestedMarketer ? requestedMarketer : req.user!.id;
+    const [marketer] = await db
+      .select({
+        id: usersTable.id,
+        slug: usersTable.googleBookingSlug,
+        timeZone: usersTable.googleBookingTimezone,
+      })
+      .from(usersTable)
+      .where(and(eq(usersTable.id, marketingUserId), eq(usersTable.role, "marketing")))
+      .limit(1);
+    if (!marketer) {
+      res.status(404).json({ error: "Marketing user not found." });
+      return;
+    }
+    let slug = marketer.slug;
+    if (!slug) {
+      slug = randomBytes(18).toString("base64url");
+      await db
+        .update(usersTable)
+        .set({ googleBookingSlug: slug, googleBookingEnabled: true })
+        .where(and(eq(usersTable.id, marketer.id), isNull(usersTable.googleBookingSlug)));
+      const [saved] = await db
+        .select({ slug: usersTable.googleBookingSlug })
+        .from(usersTable)
+        .where(eq(usersTable.id, marketer.id))
+        .limit(1);
+      slug = saved?.slug ?? slug;
+    }
+    res.json({
+      path: `/book/${slug}`,
+      timeZone: marketer.timeZone,
+      enabled: true,
+    });
   },
 );
 
@@ -283,12 +514,41 @@ router.patch(
         return;
       }
     }
+    if (existing.source === "google_calendar" && parsed.data.meetingUrl !== undefined) {
+      res.status(409).json({
+        error: "Google Meet controls this event's meeting link.",
+      });
+      return;
+    }
 
     const scheduledAt = parsed.data.scheduledAt ?? existing.scheduledAt;
     const endTime = parsed.data.endTime ?? existing.endTime;
     if (endTime <= scheduledAt) {
       res.status(400).json({ error: "endTime must be after scheduledAt." });
       return;
+    }
+
+    if (existing.source === "google_calendar") {
+      const external = parseGoogleExternalEventUri(existing.externalEventUri);
+      if (!external) {
+        res.status(409).json({ error: "This Google Calendar event is missing its external identity." });
+        return;
+      }
+      try {
+        await updateGoogleCalendarEvent(external.calendarId, external.eventId, {
+          title: parsed.data.title,
+          start: parsed.data.scheduledAt,
+          end: parsed.data.endTime,
+          description: parsed.data.notes,
+        });
+      } catch (error) {
+        googleCalendarErrorResponse(
+          error,
+          res,
+          "Google Calendar could not update this booking. Please try again.",
+        );
+        return;
+      }
     }
 
     const [updated] = await db
@@ -299,6 +559,7 @@ router.patch(
         notes: parsed.data.notes === undefined ? undefined : parsed.data.notes,
         scheduledAt,
         endTime,
+        googleSyncedAt: existing.source === "google_calendar" ? new Date() : undefined,
       })
       .where(eq(marketerEventsTable.id, id))
       .returning();
@@ -320,7 +581,10 @@ router.delete(
       ? eq(marketerEventsTable.id, id)
       : and(eq(marketerEventsTable.id, id), eq(marketerEventsTable.marketingUserId, req.user!.id));
     const [existing] = await db
-      .select({ source: marketerEventsTable.source })
+      .select({
+        source: marketerEventsTable.source,
+        externalEventUri: marketerEventsTable.externalEventUri,
+      })
       .from(marketerEventsTable)
       .where(where)
       .limit(1);
@@ -334,12 +598,260 @@ router.delete(
       });
       return;
     }
+    if (existing.source === "google_calendar") {
+      const external = parseGoogleExternalEventUri(existing.externalEventUri);
+      if (!external) {
+        res.status(409).json({ error: "This Google Calendar event is missing its external identity." });
+        return;
+      }
+      try {
+        await deleteGoogleCalendarEvent(external.calendarId, external.eventId);
+      } catch (error) {
+        googleCalendarErrorResponse(
+          error,
+          res,
+          "Google Calendar could not cancel this booking. Please try again.",
+        );
+        return;
+      }
+    }
     const [deleted] = await db.delete(marketerEventsTable).where(where).returning({ id: marketerEventsTable.id });
     if (!deleted) {
       res.status(404).json({ error: "Calendar event not found." });
       return;
     }
     res.json({ id: deleted.id });
+  },
+);
+
+router.get(
+  "/public/marketer-booking/:slug",
+  async (req: Request, res: Response): Promise<void> => {
+    const slug = String(req.params.slug ?? "").trim();
+    const [marketer] = await db
+      .select({
+        firstName: usersTable.firstName,
+        lastName: usersTable.lastName,
+        timeZone: usersTable.googleBookingTimezone,
+      })
+      .from(usersTable)
+      .where(and(
+        eq(usersTable.googleBookingSlug, slug),
+        eq(usersTable.googleBookingEnabled, true),
+        eq(usersTable.role, "marketing"),
+      ))
+      .limit(1);
+    if (!marketer) {
+      res.status(404).json({ error: "This booking link is not available." });
+      return;
+    }
+    res.json({
+      marketerName: [marketer.firstName, marketer.lastName].filter(Boolean).join(" ") || "JOBSAGE",
+      timeZone: marketer.timeZone,
+      durationMinutes: 30,
+      workingHours: "09:00–17:00",
+    });
+  },
+);
+
+router.get(
+  "/public/marketer-booking/:slug/slots",
+  async (req: Request, res: Response): Promise<void> => {
+    const slug = String(req.params.slug ?? "").trim();
+    const date = String(req.query.date ?? "").trim();
+    const [marketer] = await db
+      .select({
+        id: usersTable.id,
+        timeZone: usersTable.googleBookingTimezone,
+      })
+      .from(usersTable)
+      .where(and(
+        eq(usersTable.googleBookingSlug, slug),
+        eq(usersTable.googleBookingEnabled, true),
+        eq(usersTable.role, "marketing"),
+      ))
+      .limit(1);
+    if (!marketer) {
+      res.status(404).json({ error: "This booking link is not available." });
+      return;
+    }
+    const window = publicBookingWindow(date, marketer.timeZone);
+    if (!window) {
+      res.json({ slots: [], date, timeZone: marketer.timeZone });
+      return;
+    }
+    try {
+      const calendar = await getGoogleCalendarStatus();
+      const slots = await listGoogleCalendarAvailableSlots({
+        calendarId: calendar.calendarId,
+        windowStart: window.start,
+        windowEnd: window.end,
+        durationMinutes: 30,
+        minimumStart: new Date(Date.now() + 60 * 60_000),
+        timeZone: marketer.timeZone,
+      });
+      res.json({ slots, date, timeZone: marketer.timeZone });
+    } catch (error) {
+      googleCalendarErrorResponse(
+        error,
+        res,
+        "Availability could not be loaded right now. Please try again.",
+      );
+    }
+  },
+);
+
+router.post(
+  "/public/marketer-booking/:slug/book",
+  async (req: Request, res: Response): Promise<void> => {
+    const parsed = publicBookingSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid booking details." });
+      return;
+    }
+    const slug = String(req.params.slug ?? "").trim();
+    const [marketer] = await db
+      .select({
+        id: usersTable.id,
+        email: usersTable.email,
+        firstName: usersTable.firstName,
+        lastName: usersTable.lastName,
+        timeZone: usersTable.googleBookingTimezone,
+      })
+      .from(usersTable)
+      .where(and(
+        eq(usersTable.googleBookingSlug, slug),
+        eq(usersTable.googleBookingEnabled, true),
+        eq(usersTable.role, "marketing"),
+      ))
+      .limit(1);
+    if (!marketer) {
+      res.status(404).json({ error: "This booking link is not available." });
+      return;
+    }
+
+    const dateParts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: marketer.timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(parsed.data.start);
+    const values = Object.fromEntries(dateParts.map((part) => [part.type, part.value]));
+    const localDate = `${values.year}-${values.month}-${values.day}`;
+    const window = publicBookingWindow(localDate, marketer.timeZone);
+    const end = new Date(parsed.data.start.getTime() + 30 * 60_000);
+    if (
+      !window ||
+      parsed.data.start < new Date(Date.now() + 60 * 60_000) ||
+      parsed.data.start < window.start ||
+      end > window.end ||
+      (parsed.data.start.getTime() - window.start.getTime()) % (30 * 60_000) !== 0
+    ) {
+      res.status(400).json({ error: "Choose one of the available booking times." });
+      return;
+    }
+
+    const normalizedEmail = parsed.data.email.toLowerCase();
+    const [duplicate] = await db
+      .select({ id: marketerEventsTable.id })
+      .from(marketerEventsTable)
+      .where(and(
+        eq(marketerEventsTable.marketingUserId, marketer.id),
+        eq(marketerEventsTable.scheduledAt, parsed.data.start),
+        sql`lower(${marketerEventsTable.externalInviteeEmail}) = ${normalizedEmail}`,
+      ))
+      .limit(1);
+    if (duplicate) {
+      res.status(409).json({ error: "This call is already booked." });
+      return;
+    }
+    const [lead] = await db
+      .select({
+        id: socialLeadsTable.id,
+        status: socialLeadsTable.status,
+      })
+      .from(socialLeadsTable)
+      .where(and(
+        sql`lower(${socialLeadsTable.email}) = ${normalizedEmail}`,
+        or(
+          eq(socialLeadsTable.marketingUserId, marketer.id),
+          isNull(socialLeadsTable.marketingUserId),
+        ),
+      ))
+      .orderBy(desc(socialLeadsTable.createdAt))
+      .limit(1);
+
+    let calendarId: string | null = null;
+    let booking: Awaited<ReturnType<typeof createGoogleMeetBooking>> | null = null;
+    try {
+      const calendar = await getGoogleCalendarStatus();
+      calendarId = calendar.calendarId;
+      await assertGoogleCalendarSlotAvailable(
+        calendar.calendarId,
+        parsed.data.start,
+        end,
+        marketer.timeZone,
+      );
+      const guestName = `${parsed.data.firstName} ${parsed.data.lastName}`.trim();
+      booking = await createGoogleMeetBooking({
+        calendarId: calendar.calendarId,
+        title: `JOBSAGE Discovery Call with ${guestName}`,
+        description: [
+          parsed.data.notes,
+          "Booked through the JOBSAGE scheduling page.",
+        ].filter(Boolean).join("\n\n"),
+        start: parsed.data.start,
+        end,
+        timeZone: marketer.timeZone,
+        attendeeEmails: [normalizedEmail, marketer.email],
+        marketingUserId: marketer.id,
+        leadId: lead?.id ?? null,
+      });
+    } catch (error) {
+      googleCalendarErrorResponse(
+        error,
+        res,
+        "This booking could not be completed. Please choose another time.",
+      );
+      return;
+    }
+
+    try {
+      await db
+        .insert(marketerEventsTable)
+        .values({
+          marketingUserId: marketer.id,
+          leadId: lead?.id ?? null,
+          title: `JOBSAGE Discovery Call with ${parsed.data.firstName} ${parsed.data.lastName}`,
+          scheduledAt: parsed.data.start,
+          endTime: end,
+          meetingUrl: booking.meetingUrl,
+          notes: parsed.data.notes || null,
+          source: "google_calendar",
+          externalEventUri: booking.externalEventUri,
+          externalInviteeEmail: normalizedEmail,
+          googleSyncedAt: new Date(),
+        });
+      if (lead?.status === "new") {
+        await db
+          .update(socialLeadsTable)
+          .set({ status: "contacted", contactedAt: new Date() })
+          .where(eq(socialLeadsTable.id, lead.id));
+      }
+      res.status(201).json({
+        scheduledAt: parsed.data.start.toISOString(),
+        endTime: end.toISOString(),
+        meetingUrl: booking.meetingUrl,
+        marketerName: [marketer.firstName, marketer.lastName].filter(Boolean).join(" ") || "JOBSAGE",
+      });
+    } catch (error) {
+      if (calendarId && booking) {
+        await deleteGoogleCalendarEvent(calendarId, booking.eventId).catch(
+          (cleanupError) => console.error("[google-calendar] Could not roll back public booking:", cleanupError),
+        );
+      }
+      throw error;
+    }
   },
 );
 

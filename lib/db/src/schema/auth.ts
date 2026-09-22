@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, index, jsonb, pgTable, text, timestamp, varchar } from "drizzle-orm/pg-core";
+import { boolean, index, jsonb, pgTable, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/pg-core";
 
 export const sessionsTable = pgTable(
   "user_sessions",
@@ -18,6 +18,9 @@ export const usersTable = pgTable("users", {
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
   calendlyUrl: varchar("calendly_url"),
+  googleBookingSlug: varchar("google_booking_slug"),
+  googleBookingEnabled: boolean("google_booking_enabled").notNull().default(true),
+  googleBookingTimezone: varchar("google_booking_timezone").notNull().default("Europe/London"),
   role: varchar("role", { enum: ["candidate", "admin", "reviewer", "employer", "super_admin", "marketing"] }).notNull().default("candidate"),
   passwordHash: varchar("password_hash"),
   emailVerified: boolean("email_verified").notNull().default(false),
@@ -30,7 +33,9 @@ export const usersTable = pgTable("users", {
   jobsageEmail: text("jobsage_email").unique(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
+}, (table) => [
+  uniqueIndex("users_google_booking_slug_idx").on(table.googleBookingSlug),
+]);
 
 export type UpsertUser = typeof usersTable.$inferInsert;
 export type User = typeof usersTable.$inferSelect;

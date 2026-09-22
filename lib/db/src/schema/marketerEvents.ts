@@ -18,11 +18,14 @@ export const marketerEventsTable = pgTable(
       enum: ["scheduled", "completed", "cancelled", "rescheduled", "no_show"],
     }).notNull().default("scheduled"),
     notes: text("notes"),
-    source: varchar("source", { enum: ["manual", "calendly"] }).notNull().default("manual"),
+    source: varchar("source", {
+      enum: ["manual", "calendly", "google_calendar"],
+    }).notNull().default("manual"),
     externalEventUri: text("external_event_uri"),
     externalInviteeUri: text("external_invitee_uri"),
     externalInviteeEmail: text("external_invitee_email"),
     calendlySyncedAt: timestamp("calendly_synced_at", { withTimezone: true }),
+    googleSyncedAt: timestamp("google_synced_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
