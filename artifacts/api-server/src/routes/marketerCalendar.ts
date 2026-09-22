@@ -15,11 +15,20 @@ import {
   createGoogleMeetBooking,
   deleteGoogleCalendarEvent,
   getGoogleCalendarStatus,
+  type GoogleCalendarAuth,
   GoogleCalendarRequestError,
   listGoogleCalendarAvailableSlots,
   parseGoogleExternalEventUri,
   updateGoogleCalendarEvent,
 } from "../lib/googleCalendar";
+import {
+  createGoogleOAuthState,
+  decryptGoogleRefreshToken,
+  encryptGoogleRefreshToken,
+  exchangeGoogleAuthorizationCode,
+  googleCalendarAuthorizationUrl,
+  verifyGoogleOAuthState,
+} from "../lib/googleCalendarOAuth";
 
 const router: IRouter = Router();
 const calendarRoles = requireRole("marketing", "admin", "super_admin");
@@ -108,6 +117,37 @@ function googleCalendarErrorResponse(
   }
   console.error("[google-calendar] Booking operation failed:", error);
   res.status(502).json({ error: fallback });
+}
+
+async function getGoogleCalendarAuth(marketingUserId: string): Promise<{
+  auth: GoogleCalendarAuth;
+  accountEmail: string | null;
+}> {
+  const [user] = await db
+    .select({
+      refreshToken: usersTable.googleCalendarRefreshToken,
+      accountEmail: usersTable.googleCalendarAccountEmail,
+    })
+    .from(usersTable)
+    .where(eq(usersTable.id, marketingUserId))
+    .limit(1);
+  if (!user?.refreshToken) {
+    throw new GoogleCalendarRequestError(
+      "This marketer must connect their own Google Calendar before booking.",
+      409,
+    );
+  }
+  try {
+    return {
+      auth: { refreshToken: decryptGoogleRefreshToken(user.refreshToken) },
+      accountEmail: user.accountEmail,
+    };
+  } catch {
+    throw new GoogleCalendarRequestError(
+      "This marketer's Google Calendar connection needs to be reconnected.",
+      503,
+    );
+  }
 }
 
 function validTimeZone(timeZone: string): boolean {
