@@ -23,7 +23,9 @@ export const profilesTable = pgTable("profiles", {
   residencyStatus: text("residency_status").notNull(),
   requiresSponsorship: boolean("requires_sponsorship").notNull(),
   preferredRegion: text("preferred_region").array(),
-  alertFrequency: varchar("alert_frequency", { enum: ["daily", "weekly", "off"] }).notNull().default("daily"),
+  // Daily is retained for backwards-compatible reads, but all candidate alerts
+  // are weekly and new profiles default to weekly.
+  alertFrequency: varchar("alert_frequency", { enum: ["daily", "weekly", "off"] }).notNull().default("weekly"),
   lastAlertSentAt: timestamp("last_alert_sent_at", { withTimezone: true }),
   boostProfile: boolean("boost_profile").notNull().default(false),
   preferredStartDate: date("preferred_start_date"),

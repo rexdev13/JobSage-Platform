@@ -3896,6 +3896,8 @@ components:
           type: string
           enum: [daily, weekly, off]
           nullable: true
+          default: weekly
+          description: Weekly at launch. The daily value is retained only for backwards-compatible clients and is treated as weekly.
         lastAlertSentAt:
           type: string
           format: date-time
@@ -4013,6 +4015,8 @@ components:
           type: string
           enum: [daily, weekly, off]
           nullable: true
+          default: weekly
+          description: Weekly at launch. The daily value is retained only for backwards-compatible clients and is treated as weekly.
         preferredStartDate:
           type: string
           nullable: true

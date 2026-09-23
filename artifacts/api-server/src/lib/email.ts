@@ -282,6 +282,14 @@ export interface AlertRole {
   sponsorshipOffered: boolean;
   isEligible: boolean;
   applyUrl?: string | null;
+  aiScore?: number | null;
+  matchScore?: number;
+}
+
+export interface JobAlertSendResult {
+  success: boolean;
+  messageId?: string;
+  error?: string;
 }
 
 function escapeHtmlAttribute(value: string): string {
@@ -294,11 +302,10 @@ function escapeHtmlAttribute(value: string): string {
 
 function jobAlertEmailHtml(
   firstName: string,
-  eligibleRoles: AlertRole[],
-  workTowardsRoles: AlertRole[],
-  alertFrequency: "daily" | "weekly" = "daily",
+  roles: AlertRole[],
+  alertFrequency: "weekly" = "weekly",
 ): string {
-  const frequencyLabel = alertFrequency === "weekly" ? "weekly" : "daily";
+  const frequencyLabel = alertFrequency;
   const roleRow = (role: AlertRole) => {
     const safeApplyUrl =
       role.applyUrl && /^https?:\/\//i.test(role.applyUrl) ? escapeHtmlAttribute(role.applyUrl) : null;
@@ -311,23 +318,6 @@ function jobAlertEmailHtml(
       </td>
     </tr>`;
   };
-
-  const eligibleSection =
-    eligibleRoles.length > 0
-      ? `<h3 style="color:#059669;font-size:16px;margin:24px 0 8px;">✅ Roles You Can Apply to Now (${eligibleRoles.length})</h3>
-         <table width="100%" cellpadding="0" cellspacing="0">${eligibleRoles.map(roleRow).join("")}</table>`
-      : "";
-
-  const workTowardsSection =
-    workTowardsRoles.length > 0
-      ? `<h3 style="color:#d97706;font-size:16px;margin:24px 0 8px;">🎯 Roles Worth Working Towards (${workTowardsRoles.length})</h3>
-         <table width="100%" cellpadding="0" cellspacing="0">${workTowardsRoles.map(roleRow).join("")}</table>`
-      : "";
-
-  const noRolesMsg =
-    eligibleRoles.length === 0 && workTowardsRoles.length === 0
-      ? `<p style="color:#64748b;font-size:15px;margin:16px 0;">No new matching roles were added since your last alert. We'll keep checking for you.</p>`
-      : "";
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -347,11 +337,9 @@ function jobAlertEmailHtml(
           <td style="padding:32px 40px 20px;">
             <h1 style="color:#0f172a;font-size:20px;font-weight:700;margin:0 0 8px;">Hi ${firstName},</h1>
             <p style="color:#475569;font-size:15px;line-height:1.6;margin:0 0 16px;">
-              Here's your personalised job alert based on your professional profile and eligibility status.
+              Here are your top ${roles.length} opportunities, ranked the same way as your JOBSAGE Opportunities page.
             </p>
-            ${noRolesMsg}
-            ${eligibleSection}
-            ${workTowardsSection}
+            <table width="100%" cellpadding="0" cellspacing="0">${roles.map(roleRow).join("")}</table>
             <table cellpadding="0" cellspacing="0" style="margin:28px auto 0;">
               <tr>
                 <td style="background:#0f172a;border-radius:8px;padding:14px 32px;text-align:center;">
@@ -360,7 +348,7 @@ function jobAlertEmailHtml(
               </tr>
             </table>
             <p style="color:#94a3b8;font-size:12px;margin:24px 0 0;text-align:center;">
-              You're receiving this because your alert preference is set to ${frequencyLabel}.<br/>
+              You're receiving this because your alert preference is set to ${alertFrequency}. Up to 5 new opportunities are included per alert.<br/>
               <a href="${APP_URL}/profile" style="color:#3b82f6;">Manage alert preferences</a>
             </p>
           </td>
@@ -382,23 +370,32 @@ function jobAlertEmailHtml(
 export async function sendJobAlertEmail(
   to: string,
   firstName: string,
-  eligibleRoles: AlertRole[],
-  workTowardsRoles: AlertRole[],
-  alertFrequency: "daily" | "weekly" = "daily",
-): Promise<void> {
-  const frequencyLabel = alertFrequency === "weekly" ? "weekly" : "daily";
-  const totalRoles = eligibleRoles.length + workTowardsRoles.length;
-  const subject =
-    totalRoles > 0
-      ? `JOBSAGE: ${totalRoles} new role${totalRoles !== 1 ? "s" : ""} matching your profile`
-      : `JOBSAGE: Your ${frequencyLabel} job alert`;
-
-  const result = await resend.emails.send({
-    from: `JOBSAGE <${FROM}>`,
-    to,
-    subject,
-    html: jobAlertEmailHtml(firstName, eligibleRoles, workTowardsRoles, alertFrequency),
-  });
+  roles: AlertRole[],
+  alertFrequency: "weekly" = "weekly",
+): Promise<JobAlertSendResult> {
+  try {
+    const result = await resend.emails.send({
+      from: `JOBSAGE <${FROM}>`,
+      to,
+      subject: `JOBSAGE: Your top ${roles.length} opportunities this week`,
+      html: jobAlertEmailHtml(firstName, roles, alertFrequency),
+    });
+    if (result.error) {
+      return {
+        success: false,
+        error: result.error.message || "Email provider rejected the job alert.",
+      };
+    }
+    return {
+      success: true,
+      ...(result.data?.id ? { messageId: result.data.id } : {}),
+    };
+  } catch (error: unknown) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to send the job alert.",
+    };
+  }
 }
 
 export async function sendVerificationEmail(to: string, token: string, baseUrl: string = APP_URL): Promise<void> {
