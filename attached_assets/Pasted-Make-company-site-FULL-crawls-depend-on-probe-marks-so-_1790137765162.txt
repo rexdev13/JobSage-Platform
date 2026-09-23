@@ -1,0 +1,38 @@
+Make company-site FULL crawls depend on probe marks so denser probing actually drives what we scan.
+
+Context
+- Probe job kind: company_site_probe (cron will fire often, e.g. 4×/hour, limit ~40)
+- Full crawl job kind: company_site (A–D every ~6 min)
+- Writer lock already returns 409 on overlap — keep that; do not crash or retry-storm
+- Goal: within a few hours, full crawls should mostly hit probe-approved employers and skip known-bad ones
+
+Requirements
+1) Persist probe outcomes per employer/domain with clear statuses, at least:
+   - ok_for_crawl (good enough to full-crawl)
+   - bad / skip (blocked, dead, no careers, hard fail)
+   - unknown / unscanned (no recent probe)
+   Store last_probed_at and a short reason. Prefer existing tables/columns if present; otherwise add minimal schema.
+
+2) company_site selection MUST use probe marks:
+   - Prefer employers with ok_for_crawl and oldest last_full_crawl / due for refresh
+   - Skip bad/skip unless status is older than a long TTL (e.g. 14d) so they can be re-probed later
+   - Optionally allow a small fallback % of unknown ONLY if ok_for_crawl queue is empty — default prefer 0 fallback for this launch test so we can see probe effect clearly
+   - Do NOT full-crawl something marked bad from a recent probe
+
+3) Probe path (company_site_probe):
+   - Keep light/fast (robots/careers/ATS sniff only — no deep vacancy scrape)
+   - Write/update marks reliably even on partial success
+   - Respect backoff / existing permanent-fail rules
+   - Be safe under overlap (409 is fine)
+
+4) Observability (log or metrics each run):
+   - probe: scanned, ok_for_crawl newly marked, bad newly marked
+   - company_site: selected, of which ok_for_crawl / unknown / skipped-bad, completed, failed
+   So we can see in a few hours whether completed/batch rose because of probe.
+
+5) Do not break Reed / additional_boards / NHS / job_board paths.
+6) No secrets in logs. Keep Autoscale-safe (no infinite loops, bounded limit).
+
+Deliver
+- Code changes + short summary of selection rule
+- How to verify: after probing for 1–2 hours, company_site batches should show high % ok_for_crawl selected and higher completed/batch vs before
