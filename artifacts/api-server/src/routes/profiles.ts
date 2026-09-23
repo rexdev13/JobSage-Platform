@@ -187,7 +187,7 @@ router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
     residencyStatus: d.residencyStatus,
     requiresSponsorship: d.requiresSponsorship,
     preferredRegion: d.preferredRegion ?? null,
-    alertFrequency: (d.alertFrequency ?? "daily") as "daily" | "weekly" | "off",
+    alertFrequency: (d.alertFrequency ?? "weekly") as "daily" | "weekly" | "off",
     preferredStartDate: d.preferredStartDate ?? null,
     profilePhotoKey: d.profilePhotoKey ?? null,
     // drizzle types don't fully narrow text[].array() columns in .values()/.set(); cast needed
@@ -214,7 +214,7 @@ router.put("/profiles/me", requireAuthenticated, requireConsent, async (req: Req
     residencyStatus: d.residencyStatus,
     requiresSponsorship: d.requiresSponsorship,
     preferredRegion: d.preferredRegion ?? null,
-    alertFrequency: d.alertFrequency ?? "daily",
+    alertFrequency: d.alertFrequency ?? "weekly",
     preferredStartDate: d.preferredStartDate ?? null,
     profilePhotoKey: d.profilePhotoKey ?? null,
     languages: d.languages ?? null,

@@ -325,7 +325,7 @@ export default function ProfilePage() {
     residencyStatusOther: "",
     requiresSponsorship: false,
     preferredRegion: [],
-    alertFrequency: "daily",
+    alertFrequency: "weekly",
     preferredStartDate: "",
     languages: "",
     additionalNotes: "",
@@ -377,7 +377,7 @@ export default function ProfilePage() {
         preferredRegion: Array.isArray(p.preferredRegion)
           ? (p.preferredRegion as string[])
           : (p.preferredRegion ? [(p.preferredRegion as string)] : []),
-        alertFrequency: ((p.alertFrequency as AlertFrequency) ?? "daily"),
+        alertFrequency: p.alertFrequency === "off" ? "off" : "weekly",
         preferredStartDate: (p.preferredStartDate as string) ?? "",
         languages: languagesStr,
         additionalNotes: (p.additionalNotes as string) ?? "",
@@ -1151,11 +1151,11 @@ export default function ProfilePage() {
               Job Alert Preferences
             </h3>
             <p className="text-sm text-muted-foreground mb-4">
-              Choose how often you'd like to receive personalised job alert emails listing new roles
-              that match your eligibility status and profile.
+              Receive one weekly email with up to five personalised opportunities ranked like your
+              Opportunities page.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {(["daily", "weekly", "off"] as AlertFrequency[]).map((freq) => (
+              {(["weekly", "off"] as AlertFrequency[]).map((freq) => (
                 <button
                   key={freq}
                   type="button"
@@ -1170,14 +1170,13 @@ export default function ProfilePage() {
                   }`}
                 >
                   <Bell className={`w-4 h-4 ${freq === "off" ? "opacity-40" : ""}`} />
-                  {freq === "daily" ? "Daily" : freq === "weekly" ? "Weekly" : "Off"}
+                  {freq === "weekly" ? "Weekly" : "Off"}
                 </button>
               ))}
             </div>
             {formData.alertFrequency !== "off" && (
               <p className="text-xs text-muted-foreground mt-3">
-                You'll receive {formData.alertFrequency} emails listing new roles matching your
-                eligibility status.
+                You'll receive one weekly email with up to five matching opportunities.
               </p>
             )}
             {formData.alertFrequency === "off" && (

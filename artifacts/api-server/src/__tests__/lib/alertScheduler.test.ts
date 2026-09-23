@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   selectResults,
-  selectMock,
   insertValuesMock,
   updateSetMock,
   deleteWhereMock,
@@ -10,7 +9,6 @@ const {
   sendJobAlertEmailMock,
 } = vi.hoisted(() => ({
   selectResults: [] as unknown[][],
-  selectMock: vi.fn(),
   insertValuesMock: vi.fn(),
   updateSetMock: vi.fn(),
   deleteWhereMock: vi.fn(),
@@ -19,9 +17,27 @@ const {
 }));
 
 vi.mock("@workspace/db", () => {
+  const tables = {
+    profilesTable: { userId: "profile.userId", lastAlertSentAt: "profile.lastAlertSentAt", active: "profile.active" },
+    rolesTable: { active: "roles.active" },
+    decisionRecordsTable: { userId: "decision.userId", createdAt: "decision.createdAt" },
+    usersTable: { id: "users.id" },
+    jobAlertVacancyDeliveriesTable: { userId: "delivery.userId", vacancyUrl: "delivery.vacancyUrl" },
+    jobListingsTable: { employerProfileId: "job.employerProfileId", status: "job.status" },
+    employerProfilesTable: { id: "employer.id" },
+    candidateMatchScoresTable: { userId: "score.userId" },
+    sponsorLicenceVacancyScoresTable: { userId: "sponsorScore.userId" },
+    vacancyFavoritesTable: { userId: "favourite.userId" },
+    sponsorLicenceBookmarksTable: { userId: "bookmark.userId", sponsorLicenceId: "bookmark.sponsorLicenceId" },
+    sponsorLicencesTable: { id: "licence.id", organisationName: "licence.organisationName" },
+    applicationsTable: { userId: "application.userId" },
+    careerProfilesTable: { userId: "career.userId", isActive: "career.isActive" },
+  };
+
   function chain(result: unknown[]) {
     const value: any = {
       from: () => value,
+      innerJoin: () => value,
       where: () => value,
       orderBy: () => value,
       limit: () => value,
@@ -32,19 +48,15 @@ vi.mock("@workspace/db", () => {
   }
 
   return {
+    ...tables,
     db: {
-      select: (...args: unknown[]) => {
-        selectMock(...args);
-        return chain(selectResults.shift() ?? []);
-      },
+      select: () => chain(selectResults.shift() ?? []),
       update: () => ({
         set: (values: unknown) => {
           updateSetMock(values);
           const updateChain: any = {
             where: () => updateChain,
             returning: () => Promise.resolve([{ userId: "candidate-1" }]),
-            then: (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) =>
-              Promise.resolve({ rowCount: 1 }).then(resolve, reject),
           };
           return updateChain;
         },
@@ -62,11 +74,6 @@ vi.mock("@workspace/db", () => {
       }),
       delete: () => ({ where: deleteWhereMock.mockResolvedValue({ rowCount: 1 }) }),
     },
-    profilesTable: { userId: "userId" },
-    rolesTable: { active: "active", importedAt: "importedAt" },
-    decisionRecordsTable: { userId: "userId", createdAt: "createdAt" },
-    usersTable: {},
-    jobAlertVacancyDeliveriesTable: { userId: "userId", vacancyUrl: "vacancyUrl" },
   };
 });
 
@@ -74,214 +81,198 @@ vi.mock("drizzle-orm", () => ({
   eq: vi.fn(),
   desc: vi.fn(),
   and: vi.fn(),
-  gt: vi.fn(),
   inArray: vi.fn(),
   isNull: vi.fn(),
+  gte: vi.fn(),
 }));
 
 vi.mock("../../lib/email", () => ({
   sendJobAlertEmail: sendJobAlertEmailMock,
 }));
 
-vi.mock("../../lib/sponsorVacancyRoles", () => ({
-  SPONSOR_VACANCY_ID_OFFSET: 2_000_000,
-  fetchSponsorVacanciesAsRoles: fetchSponsorVacanciesAsRolesMock,
-  roleDedupKey: (employer: string, title: string) => `${employer.trim().toLowerCase()}|${title.trim().toLowerCase()}`,
-}));
+vi.mock("../../lib/sponsorVacancyRoles", async () => {
+  const actual = await vi.importActual<typeof import("../../lib/sponsorVacancyRoles")>("../../lib/sponsorVacancyRoles");
+  return {
+    ...actual,
+    SPONSOR_VACANCY_ID_OFFSET: 2_000_000,
+    EMPLOYER_JOB_ID_OFFSET: 1_000_000,
+    fetchSponsorVacanciesAsRoles: fetchSponsorVacanciesAsRolesMock,
+  };
+});
 
-const { processUserAlert } = await import("../../lib/alertScheduler");
+const { processUserAlert, runAlerts } = await import("../../lib/alertScheduler");
 
 const LAST_ALERT_AT = new Date("2026-08-23T07:00:00.000Z");
-const NHS_URL = "https://www.jobs.nhs.uk/candidate/jobadvert/C9000-26-0001?language=en";
-
 const nurseProfile = {
   userId: "candidate-1",
   profession: "nurse",
+  specialty: "cardiology",
   registrationStatus: "registered",
   licenceReady: false,
+  requiresSponsorship: false,
+  preferredRegion: null,
+  dbsClearanceLevel: "none",
+  safeguardingTrainingLevel: "none",
   alertFrequency: "daily",
 } as any;
 
-const teacherProfile = {
-  ...nurseProfile,
-  profession: "Teacher / Lecturer",
-  registrationStatus: "not_registered",
-} as any;
-
-function sponsorVacancy(overrides: Record<string, unknown> = {}) {
+function sponsorVacancy(id: number, overrides: Record<string, unknown> = {}) {
   return {
-    id: 2_000_321,
-    title: "Senior Staff Nurse",
+    id: 2_000_000 + id,
+    title: `Senior Staff Nurse ${id}`,
     employer: "Example NHS Trust",
     location: "London",
     regulator: "NMC",
+    opportunityCategory: "NMC",
+    sourceType: "job_board",
+    boardName: "NHS Jobs",
     sponsorshipOffered: true,
     requiredRegistration: "NMC registration pathway",
-    active: true,
-    importedAt: new Date("2026-08-24T06:30:00.000Z"),
-    importedBy: "ai:sponsor-vacancy-pipeline",
-    liveness: "live",
-    lastVerifiedAt: new Date("2026-08-24T06:35:00.000Z"),
-    livenessReason: null,
-    applyUrl: NHS_URL,
+    requiredDbsClearanceLevel: null,
+    requiredSafeguardingLevel: null,
+    targetRegions: [],
+    applyUrl: `https://www.jobs.nhs.uk/candidate/jobadvert/C9000-${id}`,
     linkVerified: true,
-    linkCheckedAt: "2026-08-24T06:35:00.000Z",
     contactEmail: null,
     contactPhone: null,
     contactWebsite: null,
     classifiedRelevant: true,
-    description: null,
+    sponsorVacancyId: id,
     ...overrides,
   };
 }
 
-describe("job alert sponsor vacancies", () => {
+/**
+ * Queue the DB reads in the same order as processUserAlert:
+ * decision, catalogue roles, employer jobs, candidate scores, sponsor scores,
+ * favourites, bookmarks, applications, career profile, delivered URLs.
+ */
+function queueReads(opts: {
+  sponsorRoles: any[];
+  sponsorScores?: any[];
+  delivered?: any[];
+  roles?: any[];
+  decision?: any[];
+}) {
+  selectResults.push(
+    opts.decision ?? [{ outcome: "eligible" }],
+    opts.roles ?? [],
+    [],
+    [],
+    opts.sponsorScores ?? [],
+    [],
+    [],
+    [],
+    [],
+    opts.delivered ?? [],
+  );
+}
+
+describe("weekly candidate job alerts", () => {
   beforeEach(() => {
     selectResults.length = 0;
-    selectMock.mockClear();
     insertValuesMock.mockClear();
     updateSetMock.mockClear();
     deleteWhereMock.mockClear();
     fetchSponsorVacanciesAsRolesMock.mockReset();
-    sendJobAlertEmailMock.mockReset();
-    sendJobAlertEmailMock.mockResolvedValue(undefined);
+    sendJobAlertEmailMock.mockReset().mockResolvedValue({ success: true, messageId: "msg-1" });
   });
 
-  it("alerts on a new NHS sponsor vacancy when the roles-only query returns no role", async () => {
-    // Query order: latest decision, new roles (empty), prior delivery URLs (empty).
-    selectResults.push([{ outcome: "eligible" }], [], []);
-    fetchSponsorVacanciesAsRolesMock.mockResolvedValue([sponsorVacancy()]);
-
-    await processUserAlert("candidate-1", "nurse@example.test", "Ada", nurseProfile, LAST_ALERT_AT);
-
-    expect(fetchSponsorVacanciesAsRolesMock).toHaveBeenCalledWith("NMC", {
-      since: LAST_ALERT_AT,
-      requireSpecificVacancyUrl: true,
+  it("sends at most the Opportunities top five in the same score order", async () => {
+    const roles = Array.from({ length: 6 }, (_, index) => sponsorVacancy(index + 1));
+    queueReads({
+      sponsorRoles: roles,
+      sponsorScores: roles.map((role, index) => ({
+        vacancyId: index + 1,
+        score: index === 4 ? 98 : 70 - index,
+      })),
     });
+    fetchSponsorVacanciesAsRolesMock.mockResolvedValue(roles);
+
+    const result = await processUserAlert("candidate-1", "nurse@example.test", "Ada", nurseProfile, LAST_ALERT_AT);
+
+    expect(result).toEqual({ sent: true, rolesIncluded: 5 });
+    expect(fetchSponsorVacanciesAsRolesMock).toHaveBeenCalledWith("NMC");
     expect(sendJobAlertEmailMock).toHaveBeenCalledWith(
       "nurse@example.test",
       "Ada",
-      [
-        expect.objectContaining({
-          title: "Senior Staff Nurse",
-          employer: "Example NHS Trust",
-          location: "London",
-          sponsorshipOffered: true,
-          isEligible: true,
-          applyUrl: NHS_URL,
-        }),
-      ],
-      [],
-      "daily",
+      expect.arrayContaining([expect.objectContaining({ title: "Senior Staff Nurse 5" })]),
+      "weekly",
     );
-    expect(insertValuesMock).toHaveBeenCalledWith([
-      { userId: "candidate-1", vacancyId: 321, vacancyUrl: NHS_URL },
+    const emailedRoles = sendJobAlertEmailMock.mock.calls[0]?.[2] as Array<{ title: string }>;
+    expect(emailedRoles).toHaveLength(5);
+    expect(emailedRoles.map((role) => role.title)).toEqual([
+      "Senior Staff Nurse 5",
+      "Senior Staff Nurse 1",
+      "Senior Staff Nurse 2",
+      "Senior Staff Nurse 3",
+      "Senior Staff Nurse 4",
     ]);
   });
 
-  it("uses the shared EDUCATION category for the exact Teacher / Lecturer profile value", async () => {
-    const educationUrl = "https://careers.example.edu/jobs/lecturer-1";
-    selectResults.push([{ outcome: "eligible" }], [], []);
-    fetchSponsorVacanciesAsRolesMock.mockResolvedValue([
-      sponsorVacancy({
-        title: "University Lecturer",
-        regulator: null,
-        opportunityCategory: "EDUCATION",
-        statutoryRegulator: null,
-        applyUrl: educationUrl,
-      }),
-    ]);
+  it("treats a legacy daily preference as weekly", async () => {
+    const role = sponsorVacancy(1);
+    queueReads({ sponsorRoles: [role] });
+    fetchSponsorVacanciesAsRolesMock.mockResolvedValue([role]);
 
-    const sent = await processUserAlert(
-      "candidate-1",
-      "teacher@example.test",
-      "Ada",
-      teacherProfile,
-      LAST_ALERT_AT,
-    );
+    await processUserAlert("candidate-1", "nurse@example.test", "Ada", nurseProfile, LAST_ALERT_AT);
 
-    expect(sent).toBe(true);
-    expect(fetchSponsorVacanciesAsRolesMock).toHaveBeenCalledWith("EDUCATION", {
-      since: LAST_ALERT_AT,
-      requireSpecificVacancyUrl: true,
+    expect(sendJobAlertEmailMock.mock.calls[0]?.[3]).toBe("weekly");
+  });
+
+  it("honours the weekly checkpoint for legacy daily preferences", async () => {
+    selectResults.push([{
+      ...nurseProfile,
+      lastAlertSentAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+    }]);
+
+    await runAlerts();
+
+    expect(sendJobAlertEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("does not move beyond the current top five after durable dedupe", async () => {
+    const roles = Array.from({ length: 6 }, (_, index) => sponsorVacancy(index + 1));
+    queueReads({
+      sponsorRoles: roles,
+      sponsorScores: roles.map((_, index) => ({ vacancyId: index + 1, score: 100 - index })),
+      delivered: [{ vacancyUrl: roles[0].applyUrl }],
     });
-    expect(sendJobAlertEmailMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("does not send or claim a sponsor vacancy already delivered to this candidate", async () => {
-    selectResults.push([{ outcome: "eligible" }], [], [{ vacancyUrl: NHS_URL }]);
-    fetchSponsorVacanciesAsRolesMock.mockResolvedValue([sponsorVacancy()]);
+    fetchSponsorVacanciesAsRolesMock.mockResolvedValue(roles);
 
     await processUserAlert("candidate-1", "nurse@example.test", "Ada", nurseProfile, LAST_ALERT_AT);
 
-    expect(insertValuesMock).not.toHaveBeenCalled();
-    expect(sendJobAlertEmailMock).not.toHaveBeenCalled();
+    const emailedRoles = sendJobAlertEmailMock.mock.calls[0]?.[2] as Array<{ title: string }>;
+    expect(emailedRoles.map((role) => role.title)).toEqual([
+      "Senior Staff Nurse 2",
+      "Senior Staff Nurse 3",
+      "Senior Staff Nurse 4",
+      "Senior Staff Nurse 5",
+    ]);
+    expect(emailedRoles.map((role) => role.title)).not.toContain("Senior Staff Nurse 6");
   });
 
-  it("does not send an email-only sponsor record as a vacancy", async () => {
-    selectResults.push([{ outcome: "eligible" }], []);
-    fetchSponsorVacanciesAsRolesMock.mockResolvedValue([sponsorVacancy({ applyUrl: null, contactEmail: "hr@example.test" })]);
+  it("skips an empty week without claiming a vacancy or sending filler", async () => {
+    queueReads({ sponsorRoles: [] });
+    fetchSponsorVacanciesAsRolesMock.mockResolvedValue([]);
 
-    await processUserAlert("candidate-1", "nurse@example.test", "Ada", nurseProfile, LAST_ALERT_AT);
+    const result = await processUserAlert("candidate-1", "nurse@example.test", "Ada", nurseProfile, LAST_ALERT_AT);
 
-    expect(insertValuesMock).not.toHaveBeenCalled();
+    expect(result).toEqual({ sent: false, rolesIncluded: 0, reason: "no_top_matches" });
     expect(sendJobAlertEmailMock).not.toHaveBeenCalled();
+    expect(insertValuesMock).not.toHaveBeenCalled();
   });
 
-  it("does not send an unclassified healthcare vacancy across professions", async () => {
-    selectResults.push([{ outcome: "eligible" }], []);
-    fetchSponsorVacanciesAsRolesMock.mockResolvedValue([sponsorVacancy({ classifiedRelevant: false })]);
+  it("restores the checkpoint and releases claims when Resend returns an error", async () => {
+    const role = sponsorVacancy(1);
+    queueReads({ sponsorRoles: [role] });
+    fetchSponsorVacanciesAsRolesMock.mockResolvedValue([role]);
+    sendJobAlertEmailMock.mockResolvedValueOnce({ success: false, error: "Resend rejected the message" });
 
-    await processUserAlert("candidate-1", "nurse@example.test", "Ada", nurseProfile, LAST_ALERT_AT);
+    const result = await processUserAlert("candidate-1", "nurse@example.test", "Ada", nurseProfile, LAST_ALERT_AT);
 
-    expect(insertValuesMock).not.toHaveBeenCalled();
-    expect(sendJobAlertEmailMock).not.toHaveBeenCalled();
-  });
-
-  it("restores the alert checkpoint and releases the URL claim when delivery fails", async () => {
-    selectResults.push([{ outcome: "eligible" }], [], []);
-    fetchSponsorVacanciesAsRolesMock.mockResolvedValue([sponsorVacancy()]);
-    sendJobAlertEmailMock.mockRejectedValueOnce(new Error("Resend unavailable"));
-
-    await expect(
-      processUserAlert("candidate-1", "nurse@example.test", "Ada", nurseProfile, LAST_ALERT_AT),
-    ).rejects.toThrow("Resend unavailable");
-
+    expect(result).toEqual({ sent: false, rolesIncluded: 0, reason: "provider_rejected" });
     expect(deleteWhereMock).toHaveBeenCalledTimes(1);
-    expect(updateSetMock).toHaveBeenNthCalledWith(1, {
-      lastAlertSentAt: expect.any(Date),
-    });
-    expect(updateSetMock).toHaveBeenNthCalledWith(2, {
-      lastAlertSentAt: LAST_ALERT_AT,
-    });
-  });
-
-  it("deduplicates identical vacancy URLs within one alert payload", async () => {
-    selectResults.push([{ outcome: "eligible" }], [], []);
-    fetchSponsorVacanciesAsRolesMock.mockResolvedValue([
-      sponsorVacancy(),
-      sponsorVacancy({ id: 2_000_322, title: "Senior Staff Nurse (duplicate snapshot)" }),
-    ]);
-
-    await processUserAlert("candidate-1", "nurse@example.test", "Ada", nurseProfile, LAST_ALERT_AT);
-
-    expect(insertValuesMock).toHaveBeenCalledWith([
-      { userId: "candidate-1", vacancyId: 321, vacancyUrl: NHS_URL },
-    ]);
-    expect(sendJobAlertEmailMock).toHaveBeenCalledTimes(1);
-    expect(sendJobAlertEmailMock.mock.calls[0]?.[2]).toHaveLength(1);
-  });
-
-  it("keeps same-title vacancies at different locations", async () => {
-    const secondUrl = "https://www.jobs.nhs.uk/candidate/jobadvert/C9000-26-0002";
-    selectResults.push([{ outcome: "eligible" }], [], []);
-    fetchSponsorVacanciesAsRolesMock.mockResolvedValue([
-      sponsorVacancy(),
-      sponsorVacancy({ id: 2_000_322, location: "Manchester", applyUrl: secondUrl }),
-    ]);
-
-    await processUserAlert("candidate-1", "nurse@example.test", "Ada", nurseProfile, LAST_ALERT_AT);
-
-    expect(sendJobAlertEmailMock.mock.calls[0]?.[2]).toHaveLength(2);
+    expect(updateSetMock).toHaveBeenNthCalledWith(2, { lastAlertSentAt: LAST_ALERT_AT });
   });
 });

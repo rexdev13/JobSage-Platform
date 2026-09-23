@@ -1524,7 +1524,7 @@ export default function OpportunitiesPage() {
             residencyStatus: myProfile.residencyStatus ?? "",
             requiresSponsorship: myProfile.requiresSponsorship ?? false,
             preferredRegion: nextRegions,
-            alertFrequency: myProfile.alertFrequency ?? "daily",
+            alertFrequency: myProfile.alertFrequency === "off" ? "off" : "weekly",
             preferredStartDate: myProfile.preferredStartDate ?? null,
             profilePhotoKey: myProfile.profilePhotoKey ?? null,
             languages: myProfile.languages ?? null,
