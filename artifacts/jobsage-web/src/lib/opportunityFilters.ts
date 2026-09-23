@@ -22,10 +22,6 @@ export type OpportunityApplyAction = {
   usesWebsiteFallback: boolean;
 };
 
-export function shouldShowOpportunityApplyActions(sendCvOnly: boolean | undefined): boolean {
-  return !sendCvOnly;
-}
-
 export function shouldShowSendCv(sendCvEligible: boolean | null | undefined): boolean {
   return sendCvEligible === true;
 }
@@ -48,6 +44,22 @@ export function canSendCvForVacancy({
   // tab while the apply route remains independently usable.
   const effectiveStatus = linkStatus ?? (applyUrl ? (linkVerified ? "live" : "unverified") : "none");
   return shouldShowSendCv(sendCvEligible) && (effectiveStatus === "none" || effectiveStatus === "live");
+}
+
+export function canQueueSendCvForVacancy({
+  applyUrl,
+  linkVerified,
+  linkStatus,
+}: {
+  applyUrl?: string | null;
+  linkVerified?: boolean | null;
+  linkStatus?: VacancyLinkStatus | null;
+}): boolean {
+  // No contact email is needed up front: the server stores outreach as pending
+  // until a verified employer recipient becomes available. Vacancy liveness is
+  // still required for vacancy-specific CV submissions.
+  const effectiveStatus = linkStatus ?? (applyUrl ? (linkVerified ? "live" : "unverified") : "none");
+  return applyUrl ? effectiveStatus === "live" : effectiveStatus === "none";
 }
 
 function isDisallowedSendCvApplyUrl(url: string): boolean {
@@ -74,20 +86,6 @@ export function hasUsableSendCvApplyRoute({
   return !!applyUrl && effectiveStatus === "live" && linkVerified === true && !isDisallowedSendCvApplyUrl(applyUrl);
 }
 
-export function shouldShowOnSendCvTab({
-  sendCvEligible,
-  applyUrl,
-  linkVerified,
-  linkStatus,
-}: {
-  sendCvEligible?: boolean | null;
-  applyUrl?: string | null;
-  linkVerified?: boolean | null;
-  linkStatus?: VacancyLinkStatus | null;
-}): boolean {
-  if (canSendCvForVacancy({ sendCvEligible, applyUrl, linkStatus })) return true;
-  return hasUsableSendCvApplyRoute({ applyUrl, linkVerified, linkStatus });
-}
 export const CONSIDER_MIN_SCORE = 40;
 
 export function getOpportunityApplyAction({
@@ -148,6 +146,17 @@ export function filterOpportunities<T extends OpportunityFilterRole>(
   filters: { selectedRegions: string[] },
 ): T[] {
   return roles.filter((role) => hasRegionOverlap(role.targetRegions, filters.selectedRegions));
+}
+
+export function filterSendCvVacancies<T extends { role: { employer: string; title: string; location: string } }>(
+  vacancies: T[],
+  search: string,
+): T[] {
+  const query = search.trim().toLowerCase();
+  if (!query) return vacancies;
+  return vacancies.filter(({ role }) =>
+    [role.employer, role.title, role.location].some((value) => value?.toLowerCase().includes(query)),
+  );
 }
 
 export function filterSendCvSponsors<T extends { sendCvEligible?: boolean | null }>(

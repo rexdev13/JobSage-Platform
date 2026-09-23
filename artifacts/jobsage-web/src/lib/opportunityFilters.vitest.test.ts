@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   filterSendCvSponsors,
+  filterSendCvVacancies,
   filterOpportunities,
   getOpportunityApplyAction,
   groupRankedOpportunities,
   canSendCvForVacancy,
+  canQueueSendCvForVacancy,
   hasUsableSendCvApplyRoute,
-  shouldShowOpportunityApplyActions,
-  shouldShowOnSendCvTab,
   shouldShowSendCv,
 } from "./opportunityFilters";
 
@@ -79,63 +79,41 @@ describe("opportunity filters", () => {
     })).toBeNull();
   });
 
-  it("hides vacancy Apply actions on the Send CV view while retaining its other actions", () => {
-    expect(shouldShowOpportunityApplyActions(true)).toBe(false);
-    expect(shouldShowOpportunityApplyActions(false)).toBe(true);
-    expect(["Send CV", "Smart Apply"]).toEqual(
-      expect.arrayContaining(["Send CV", "Smart Apply"]),
-    );
-  });
-
   it("shows Send CV only for server-approved direct contacts", () => {
     expect(shouldShowSendCv(true)).toBe(true);
     expect(shouldShowSendCv(false)).toBe(false);
     expect(shouldShowSendCv(undefined)).toBe(false);
   });
 
-  it("shows verified apply-only vacancies on the Send CV tab without enabling email", () => {
-    expect(shouldShowOnSendCvTab({
-      sendCvEligible: false,
+  it("allows a pending Send CV request for live or linkless vacancies without a known employer email", () => {
+    expect(canQueueSendCvForVacancy({
       applyUrl: "https://jobs.nhs.uk/candidate/jobadvert/C1234",
       linkVerified: true,
       linkStatus: "live",
     })).toBe(true);
+    expect(canQueueSendCvForVacancy({ applyUrl: null, linkStatus: "none" })).toBe(true);
     expect(shouldShowSendCv(false)).toBe(false);
   });
 
-  it("keeps dead, unverified, LinkedIn, and Indeed-only vacancies off the Send CV tab", () => {
-    expect(shouldShowOnSendCvTab({
-      sendCvEligible: false,
+  it("does not offer Send CV for dead or unverified vacancy links", () => {
+    expect(canQueueSendCvForVacancy({
       applyUrl: "https://jobs.nhs.uk/candidate/jobadvert/C1234",
       linkVerified: false,
       linkStatus: "dead",
     })).toBe(false);
+    expect(canQueueSendCvForVacancy({
+      applyUrl: "https://jobs.nhs.uk/candidate/jobadvert/C1234",
+      linkStatus: "unverified",
+    })).toBe(false);
+    expect(canQueueSendCvForVacancy({ applyUrl: "https://example.com/job", linkStatus: "none" })).toBe(false);
     expect(hasUsableSendCvApplyRoute({
       applyUrl: "https://linkedin.com/jobs/view/123",
       linkVerified: true,
       linkStatus: "live",
     })).toBe(false);
-    expect(shouldShowOnSendCvTab({
-      sendCvEligible: false,
-      applyUrl: "https://linkedin.com/jobs/view/123",
-      linkVerified: true,
-      linkStatus: "live",
-    })).toBe(false);
-    expect(shouldShowOnSendCvTab({
-      sendCvEligible: false,
-      applyUrl: "https://uk.indeed.com/viewjob?jk=abc",
-      linkVerified: true,
-      linkStatus: "live",
-    })).toBe(false);
   });
 
-  it("keeps direct-email vacancies visible even when no verified apply route exists", () => {
-    expect(shouldShowOnSendCvTab({
-      sendCvEligible: true,
-      applyUrl: null,
-      linkVerified: false,
-      linkStatus: "none",
-    })).toBe(true);
+  it("recognizes direct-email eligibility separately from visibility in Send CV", () => {
     expect(canSendCvForVacancy({ sendCvEligible: true, applyUrl: null, linkStatus: "none" })).toBe(true);
     expect(canSendCvForVacancy({
       sendCvEligible: true,
@@ -144,6 +122,17 @@ describe("opportunity filters", () => {
     })).toBe(true);
     expect(canSendCvForVacancy({ sendCvEligible: true, applyUrl: "https://example.com/job", linkStatus: "dead" })).toBe(false);
     expect(canSendCvForVacancy({ sendCvEligible: true, applyUrl: "https://example.com/job", linkStatus: "stale" })).toBe(false);
+  });
+
+  it("keeps every matched vacancy in Send CV regardless of email or apply URL", () => {
+    const vacancies = [
+      { role: { employer: "North Trust", title: "Nurse", location: "London" }, sendCvEligible: true, applyUrl: null },
+      { role: { employer: "North Trust", title: "Doctor", location: "Leeds" }, sendCvEligible: false, applyUrl: null },
+      { role: { employer: "South Trust", title: "Teacher", location: "Bristol" }, sendCvEligible: false, applyUrl: "https://example.com" },
+    ];
+    expect(filterSendCvVacancies(vacancies, "")).toEqual(vacancies);
+    expect(filterSendCvVacancies(vacancies, "north")).toEqual(vacancies.slice(0, 2));
+    expect(filterSendCvVacancies(vacancies, "doctor")).toEqual([vacancies[1]]);
   });
 
   it("excludes operations-only and stale sponsor records from the Send CV feed", () => {

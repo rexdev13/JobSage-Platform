@@ -42,7 +42,6 @@ import {
   ClipboardList,
   Globe,
   Mail,
-  Phone,
   TrendingUp,
   Search,
   BadgeCheck,
@@ -81,7 +80,6 @@ async function listMatchedRolesWithTimeout(
   }
 }
 import {
-  SmartApplyExtensionBanner,
   SmartApplyExtensionNudge,
   shouldShowExtensionNudge,
   useExtensionGate,
@@ -89,12 +87,11 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import {
   filterOpportunities,
-  canSendCvForVacancy,
+  filterSendCvVacancies,
+  canQueueSendCvForVacancy,
   getOpportunityApplyAction,
   groupRankedOpportunities,
   hasRegionOverlap,
-  shouldShowOpportunityApplyActions,
-  shouldShowOnSendCvTab,
   shouldShowSendCv,
   UK_REGIONS,
 } from "@/lib/opportunityFilters";
@@ -122,7 +119,6 @@ function BestMatchesStrip({
   matchesLoading,
   appliedRoleIds,
   localDismissedIds,
-  onSmartApply,
   onOpenApplication,
   onDismiss,
   sourceType,
@@ -131,7 +127,6 @@ function BestMatchesStrip({
   matchesLoading: boolean;
   appliedRoleIds: number[];
   localDismissedIds: Set<number>;
-  onSmartApply: (roleId: number, roleTitle: string) => void;
   onOpenApplication: (url: string, match: CandidateMatchItem, vacancyIntent: boolean) => void;
   onDismiss: (roleId: number) => void;
   sourceType: "job_board" | "company_site";
@@ -246,15 +241,10 @@ function BestMatchesStrip({
                     <ExternalLink className="w-3 h-3" /> {sourceType === "job_board" ? "Apply Via Job Board" : "Apply on company's website"}
                   </Button>
                 )}
-                {match.isEligible ? (
-                  <Button
-                    size="sm"
-                    className="flex-1 min-w-[9rem] text-xs h-8 gap-1"
-                    onClick={() => onSmartApply(match.roleId, match.title)}
-                  >
-                    <Sparkles className="w-3 h-3" /> Smart Apply
-                  </Button>
-                ) : (
+                {!match.applyUrl && (
+                  <span className="text-xs text-muted-foreground">No vacancy application link available.</span>
+                )}
+                {!match.isEligible && (
                   <Button
                     size="sm"
                     variant="outline"
@@ -416,7 +406,7 @@ function RoleDetailModal({ item, appliedRoleIds, onClose, aiScore }: {
           )}
           {!applied && (
             <p className="mb-3 text-xs text-muted-foreground">
-              Use Smart Apply or send your CV to track this role — clicking through to the employer&apos;s site just opens it in a new tab.
+              Use the application link on this tab to open this vacancy.
             </p>
           )}
           {!isEligible && (
@@ -671,9 +661,6 @@ function CoverLetterModal({
 function RoleCard({
   item,
   appliedRoleIds,
-  cvSentRoleIds,
-  onSendCv,
-  onSmartApply,
   onViewDetail,
   onCoverLetter,
   onExternalApply,
@@ -682,13 +669,9 @@ function RoleCard({
   recommended,
   aiScore,
   aiScoring,
-  sendCvOnly,
 }: {
   item: MatchedRole;
   appliedRoleIds: number[];
-  cvSentRoleIds: number[];
-  onSendCv: (item: MatchedRole) => void;
-  onSmartApply: (roleId: number, roleTitle: string) => void;
   onViewDetail: (item: MatchedRole) => void;
   onCoverLetter: (role: MatchedRole["role"]) => void;
   onExternalApply?: () => void;
@@ -697,10 +680,9 @@ function RoleCard({
   recommended?: boolean;
   aiScore?: number;
   aiScoring?: boolean;
-  sendCvOnly?: boolean;
 }) {
   const [, setLocation] = useLocation();
-  const { role, isEligible, matchScore, eligibilityGaps, safeguarding, contactEmail, contactPhone, contactWebsite, applyUrl, linkVerified, linkCheckedAt, matchReason } = item;
+  const { role, isEligible, matchScore, eligibilityGaps, safeguarding, applyUrl, linkVerified, linkCheckedAt, matchReason } = item;
   const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(false);
   const [deadLink, setDeadLink] = useState(false);
@@ -718,15 +700,9 @@ function RoleCard({
     });
   };
 
-  const doApplyClick = (destinationUrl?: string): void => {
-    const targetUrl = destinationUrl ?? applyUrl;
+  const doApplyClick = (): void => {
+    const targetUrl = applyUrl;
     if (!targetUrl) return;
-
-    // Company-website fallback has no vacancy URL to health-check.
-    if (destinationUrl !== undefined) {
-      void openTrackedOutbound({ url: targetUrl, onTracked: onExternalApply });
-      return;
-    }
 
     // Open and record synchronously so popup blockers and health API latency
     // can never strand the candidate on a "Checking…" state.
@@ -746,14 +722,12 @@ function RoleCard({
   };
 
   // Gate every outbound click behind the extension check.
-  const handleApplyClick = (destinationUrl?: string): void => {
-    requireExtension(() => doApplyClick(destinationUrl));
+  const handleApplyClick = (): void => {
+    requireExtension(doApplyClick);
   };
 
   const applied = appliedRoleIds.includes(role.id);
-  const cvSent = cvSentRoleIds.includes(role.id);
-  const hasContactDetails = !!(contactEmail || contactPhone || contactWebsite);
-  const applyAction = getOpportunityApplyAction({ sourceType: role.sourceType, applyUrl, contactWebsite });
+  const applyAction = getOpportunityApplyAction({ sourceType: role.sourceType, applyUrl });
 
   return (
     <Card
@@ -826,42 +800,6 @@ function RoleCard({
         <LicensedSponsorBadge licensedSponsor={role.licensedSponsor} />
       </div>
 
-      {/* Company contact row */}
-      <div className="mt-3 space-y-2" onClick={(e) => e.stopPropagation()}>
-        {shouldShowOpportunityApplyActions(sendCvOnly) && role.sourceType === "company_site" && applyUrl && contactWebsite && (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); handleApplyClick(contactWebsite.startsWith("http") ? contactWebsite : `https://${contactWebsite}`); }}
-            className="flex items-center gap-2 text-xs text-primary hover:underline text-left"
-          >
-            <Globe className="w-3.5 h-3.5 shrink-0" />
-            {contactWebsite.startsWith("http") ? contactWebsite : `https://${contactWebsite}`}
-            <ExternalLink className="w-3 h-3 opacity-50" />
-          </button>
-        )}
-        {contactEmail && (
-          <a
-            href={`mailto:${contactEmail}`}
-            className="flex items-center gap-2 text-xs text-foreground hover:text-primary"
-          >
-            <Mail className="w-3.5 h-3.5 text-primary shrink-0" />
-            {contactEmail}
-          </a>
-        )}
-        {contactPhone && (
-          <a
-            href={`tel:${contactPhone}`}
-            className="flex items-center gap-2 text-xs text-foreground hover:text-primary"
-          >
-            <Phone className="w-3.5 h-3.5 text-primary shrink-0" />
-            {contactPhone}
-          </a>
-        )}
-        {!hasContactDetails && (
-          <span className="text-xs text-muted-foreground italic">Contact details not yet available</span>
-        )}
-      </div>
-
       {eligibilityGaps && eligibilityGaps.length > 0 && (
         <div className="mt-3">
           <button
@@ -873,7 +811,7 @@ function RoleCard({
           </button>
           {expanded && (
             <div className="mt-2 p-3 rounded-lg bg-amber-50 border border-amber-100">
-              <p className="text-xs text-amber-700 font-medium mb-1.5">Advisory — you can still apply and contact this employer directly:</p>
+              <p className="text-xs text-amber-700 font-medium mb-1.5">Advisory — review these notes before using this tab&apos;s application link:</p>
               <ul className="space-y-1">
                 {eligibilityGaps.map((gap, i) => (
                   <li key={i} className="text-xs text-amber-800 flex items-start gap-1.5">
@@ -886,30 +824,13 @@ function RoleCard({
         </div>
       )}
 
-      {shouldShowOpportunityApplyActions(sendCvOnly) && applyAction?.usesWebsiteFallback && !applied && (
-        <div className="mt-3 flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
-          <button
-            type="button"
-            onClick={() =>
-              handleApplyClick(applyAction.destinationUrl)
-            }
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors"
-          >
-            <Globe className="w-3.5 h-3.5" /> {applyAction.label}
-          </button>
-            <span className="text-[11px] text-muted-foreground">
-             No verified vacancy link yet — this opens the employer&apos;s website in a new tab.
-          </span>
-        </div>
-      )}
-
-      {shouldShowOpportunityApplyActions(sendCvOnly) && applyAction && !applyAction.usesWebsiteFallback && (
+      {applyAction && (
         <div className="mt-3 flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-2 flex-wrap">
             <button
               type="button"
               onClick={() => handleApplyClick()}
-              disabled={applied}
+              disabled={applied || deadLink || item.linkStatus === "dead"}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60"
             >
               <><ExternalLink className="w-3.5 h-3.5" /> {applied ? "Applied" : applyAction.label}</>
@@ -937,35 +858,16 @@ function RoleCard({
               </span>
             )}
           </div>
-          {deadLink && (
+          {(deadLink || item.linkStatus === "dead") && (
             <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-800">
               <p className="font-semibold mb-1">This listing appears to no longer be available.</p>
-              {hasContactDetails ? (
-                <p className="text-red-700 mb-1">Try contacting the employer directly:</p>
-              ) : contactWebsite ? (
-                <p className="text-red-700 mb-1">The employer&apos;s website may have more information.</p>
-              ) : null}
-              <div className="flex flex-col gap-0.5">
-                {contactEmail && (
-                  <a href={`mailto:${contactEmail}`} className="text-red-700 hover:underline">
-                    {contactEmail}
-                  </a>
-                )}
-                {role.sourceType === "company_site" && contactWebsite && (
-                  <button
-                    type="button"
-                    onClick={() => void handleApplyClick(
-                      contactWebsite.startsWith("http") ? contactWebsite : `https://${contactWebsite}`
-                    )}
-                    className="text-left text-red-700 hover:underline"
-                  >
-                    Visit company website →
-                  </button>
-                )}
-              </div>
+              <p className="text-red-700">This vacancy has no confirmed application route right now.</p>
             </div>
           )}
         </div>
+      )}
+      {!applyAction && (
+        <p className="mt-3 text-xs text-muted-foreground">No vacancy application link available for this tab.</p>
       )}
 
       <div
@@ -994,41 +896,6 @@ function RoleCard({
           >
             <FileText className="w-3 h-3" /> Cover Letter
           </Button>
-          {canSendCvForVacancy(item) && (
-            <Button
-              size="sm"
-              variant={cvSent ? "outline" : "accent"}
-              className="text-xs h-8 gap-1"
-              onClick={(e) => { e.stopPropagation(); onSendCv(item); }}
-            >
-              <Send className="w-3 h-3" /> {cvSent ? "Send CV again" : "Send CV"}
-            </Button>
-          )}
-          {isEligible && !applied && (
-            <Button
-              size="sm"
-              variant="default"
-              className="text-xs h-8 gap-1"
-              onClick={(e) => { e.stopPropagation(); onSmartApply(role.id, role.title); }}
-            >
-              <Sparkles className="w-3 h-3" /> Smart Apply
-            </Button>
-          )}
-          {isEligible && applied && (
-            <Button size="sm" variant="outline" className="text-xs h-8" disabled>
-              Applied
-            </Button>
-          )}
-          {!isEligible && !applied && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="text-xs h-8 gap-1"
-              onClick={(e) => { e.stopPropagation(); onSmartApply(role.id, role.title); }}
-            >
-              <Sparkles className="w-3 h-3" /> Apply
-            </Button>
-          )}
         </div>
       </div>
     </Card>
@@ -1171,7 +1038,7 @@ function ApplicationsTab({ data }: { data: ApplicationList | undefined }) {
       <Card className="p-8 text-center">
         <ClipboardList className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
         <p className="text-sm text-muted-foreground">No applications tracked yet.</p>
-        <p className="text-xs text-muted-foreground mt-1">Use Smart Apply or send your CV for a vacancy to track applications here.</p>
+        <p className="text-xs text-muted-foreground mt-1">Use the application route on each Opportunities tab to track your progress here.</p>
       </Card>
     );
   }
@@ -1234,7 +1101,7 @@ function ApplicationsTab({ data }: { data: ApplicationList | undefined }) {
             {subTab === "platform" ? "No platform applications yet." : subTab === "website" ? "No website applications logged yet." : "No Send CV records yet."}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            {subTab === "platform" ? "Use \"Smart Apply\" on a role to track it here." : subTab === "website" ? "Log an application made on an employer's website from the Applications page." : "Send your CV for a matched vacancy to track the outreach here."}
+            {subTab === "platform" ? "Applications opened through job boards appear here." : subTab === "website" ? "Log an application made on an employer's website from the Applications page." : "Send your CV for a matched vacancy to track the outreach here."}
           </p>
         </Card>
       ) : (
@@ -1272,7 +1139,7 @@ function SendCvEmployerGroup({
         <div className="min-w-0">
           <h3 className="font-semibold text-foreground leading-snug">{employer}</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {vacancies.length} matched {vacancies.length === 1 ? "vacancy" : "vacancies"} with an available application route
+            {vacancies.length} matched {vacancies.length === 1 ? "vacancy" : "vacancies"}
           </p>
         </div>
       </div>
@@ -1281,14 +1148,8 @@ function SendCvEmployerGroup({
         {vacancies.map((item) => {
           const { role } = item;
           const cvSent = cvSentRoleIds.includes(role.id);
-          const canEmailCv = canSendCvForVacancy(item);
-          const sourceLabel = !item.applyUrl
-            ? "Email only"
-            : role.sourceType === "job_board"
-              ? role.boardName?.trim() || "Job board"
-              : role.sourceType === "company_site"
-                ? "Company site"
-                : "Vacancy link";
+          const canQueueCv = canQueueSendCvForVacancy(item);
+          const hasDirectContact = shouldShowSendCv(item.sendCvEligible);
           const regions = Array.isArray(role.targetRegions)
             ? role.targetRegions.filter((region) => region && region !== role.location)
             : [];
@@ -1306,8 +1167,8 @@ function SendCvEmployerGroup({
                     )}
                     {regions.length > 0 && <span>{regions.join(", ")}</span>}
                     <span className="inline-flex items-center gap-1">
-                      {item.applyUrl ? <ExternalLink className="w-3 h-3" /> : <Mail className="w-3 h-3" />}
-                      {sourceLabel}
+                      <Mail className="w-3 h-3" />
+                      {hasDirectContact ? "Employer email available" : "Employer email not yet available"}
                     </span>
                   </div>
                 </div>
@@ -1315,7 +1176,7 @@ function SendCvEmployerGroup({
               </div>
 
               <div className="mt-3 flex flex-wrap gap-2">
-                {canEmailCv && hasCv ? (
+                {canQueueCv && hasCv ? (
                   <Button
                     size="sm"
                     variant={cvSent ? "outline" : "default"}
@@ -1323,11 +1184,18 @@ function SendCvEmployerGroup({
                   >
                     <Send className="w-4 h-4 mr-1.5" /> {cvSent ? "Send CV again" : "Send CV"}
                   </Button>
-                ) : canEmailCv ? (
+                ) : canQueueCv ? (
                   <Button size="sm" variant="outline" onClick={onUploadCv}>
                     <FileText className="w-4 h-4 mr-1.5" /> Upload CV to send
                   </Button>
-                ) : null}
+                ) : (
+                  <span className="text-xs text-muted-foreground">CV sending unavailable until this vacancy link is verified live.</span>
+                )}
+                {canQueueCv && !hasDirectContact && (
+                  <span className="self-center text-xs text-muted-foreground">
+                    Your CV request will be saved pending a verified employer email.
+                  </span>
+                )}
               </div>
             </div>
           );
@@ -1388,7 +1256,6 @@ export default function OpportunitiesPage() {
   const [sendCvSearch, setSendCvSearch] = useState("");
   const [sendCvTarget, setSendCvTarget] = useState<MatchedRole | null>(null);
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
-  const [smartApplyRole, setSmartApplyRole] = useState<{ id: number; title: string } | null>(null);
   const [coverLetterRole, setCoverLetterRole] = useState<MatchedRole["role"] | null>(null);
   const [gapAnalysisRole, setGapAnalysisRole] = useState<MatchedRole | null>(null);
   const [showExtensionNudge, setShowExtensionNudge] = useState(false);
@@ -1481,7 +1348,11 @@ export default function OpportunitiesPage() {
     );
   }
 
-  const roles = data?.roles ?? [];
+  // placeholderData may contain results from the previous tab during a
+  // source switch; never present those results under the new tab's action.
+  const roles = (data?.roles ?? []).filter((item) =>
+    !opportunitySource || item.role.sourceType === opportunitySource
+  );
   const appliedRoleIds = data?.appliedRoleIds ?? [];
   const cvSentRoleIds = data?.cvSentRoleIds ?? [];
   const eligibilityOutcome = data?.eligibilityOutcome;
@@ -1556,8 +1427,19 @@ export default function OpportunitiesPage() {
 
   const filters = { selectedRegions };
   const filteredRoles = roles.filter((item) => filterOpportunities([item.role], filters).length > 0);
+  const visibleRoleIds = new Set(filteredRoles.map((item) => item.role.id));
+  const roleById = new Map(filteredRoles.map((item) => [item.role.id, item]));
   const filteredAiMatchesData = aiMatchesData
-    ? { ...aiMatchesData, matches: filterOpportunities(aiMatchesData.matches, filters) }
+    ? {
+        ...aiMatchesData,
+        matches: filterOpportunities(aiMatchesData.matches, filters)
+          .filter((match) => visibleRoleIds.has(match.roleId))
+          .map((match) => ({
+            ...match,
+            // Use the same stored vacancy URL as the card, not a stale match snapshot.
+            applyUrl: roleById.get(match.roleId)?.applyUrl ?? null,
+          })),
+      }
     : aiMatchesData;
 
   // The server now embeds AI scores and sorts by the same unified key the UI
@@ -1569,13 +1451,7 @@ export default function OpportunitiesPage() {
     remaining: remainingRoles,
   } = groupRankedOpportunities(filteredRoles);
 
-  const normalizedSendCvSearch = sendCvSearch.trim().toLowerCase();
-  const sendCvVacancies = filteredRoles.filter((item) => {
-    if (!shouldShowOnSendCvTab(item)) return false;
-    if (!normalizedSendCvSearch) return true;
-    return [item.role.employer, item.role.title, item.role.location]
-      .some((value) => value?.toLowerCase().includes(normalizedSendCvSearch));
-  });
+  const sendCvVacancies = filterSendCvVacancies(filteredRoles, sendCvSearch);
   const sendCvGroups = Array.from(
     sendCvVacancies.reduce((groups, vacancy) => {
       const key = vacancy.role.employer.trim().toLowerCase();
@@ -1589,13 +1465,6 @@ export default function OpportunitiesPage() {
     }, new Map<string, { employer: string; vacancies: MatchedRole[] }>()),
   ).map(([, group]) => group);
   const hasCvUploaded = (documentsData?.documents ?? []).some((document) => document.documentType === "cv");
-
-  function handleSmartApply(roleId: number, roleTitle: string) {
-    // The server owns Smart Apply readiness and returns the exact missing
-    // application-critical fields. A duplicate client gate previously blocked
-    // valid profiles on optional preferences and stale profile-query state.
-    requireExtension(() => setSmartApplyRole({ id: roleId, title: roleTitle }));
-  }
 
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
     { id: "board", label: "Apply Via Job Board", icon: Briefcase },
@@ -1649,7 +1518,11 @@ export default function OpportunitiesPage() {
           {tabs.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
-              onClick={() => setActiveTab(id)}
+              onClick={() => {
+                setSelectedRole(null);
+                setGapAnalysisRole(null);
+                setActiveTab(id);
+              }}
               className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                 activeTab === id
                   ? "bg-background shadow-sm text-foreground"
@@ -1777,15 +1650,11 @@ export default function OpportunitiesPage() {
                 matchesLoading={aiMatchesLoading}
                 appliedRoleIds={appliedRoleIds}
                 localDismissedIds={localDismissedIds}
-                onSmartApply={handleSmartApply}
                 onOpenApplication={handleBestMatchOpenApplication}
                 onDismiss={handleDismissMatch}
                 sourceType={opportunitySource ?? "job_board"}
               />
             )}
-
-            {/* Smart Apply extension banner */}
-            {!noProfile && filteredRoles.length > 0 && <SmartApplyExtensionBanner />}
 
             {!noProfile && roles.length === 0 && (
               <Card className="p-8 text-center">
@@ -1843,15 +1712,11 @@ export default function OpportunitiesPage() {
                             aiScore={item.aiScore ?? undefined}
                             aiScoring={aiMatchesLoading}
                             appliedRoleIds={appliedRoleIds}
-                            cvSentRoleIds={cvSentRoleIds}
-                            onSendCv={setSendCvTarget}
-                            onSmartApply={handleSmartApply}
                             onViewDetail={setSelectedRole}
                             onCoverLetter={setCoverLetterRole}
                             onViewAnalysis={setGapAnalysisRole}
                             requireExtension={requireExtension}
                             onExternalApply={handleExternalApply}
-                            sendCvOnly={false}
                           />
                         </motion.div>
                       ))}
@@ -1887,15 +1752,11 @@ export default function OpportunitiesPage() {
                               aiScore={item.aiScore ?? undefined}
                               aiScoring={aiMatchesLoading}
                               appliedRoleIds={appliedRoleIds}
-                              cvSentRoleIds={cvSentRoleIds}
-                              onSendCv={setSendCvTarget}
-                              onSmartApply={handleSmartApply}
                               onViewDetail={setSelectedRole}
                               onCoverLetter={setCoverLetterRole}
                               onViewAnalysis={setGapAnalysisRole}
                               requireExtension={requireExtension}
                               onExternalApply={handleExternalApply}
-                              sendCvOnly={false}
                             />
                           </motion.div>
                         ))}
@@ -1929,15 +1790,11 @@ export default function OpportunitiesPage() {
                               aiScore={item.aiScore ?? undefined}
                               aiScoring={aiMatchesLoading}
                               appliedRoleIds={appliedRoleIds}
-                              cvSentRoleIds={cvSentRoleIds}
-                              onSendCv={setSendCvTarget}
-                              onSmartApply={handleSmartApply}
                               onViewDetail={setSelectedRole}
                               onCoverLetter={setCoverLetterRole}
                               onViewAnalysis={setGapAnalysisRole}
                               requireExtension={requireExtension}
                               onExternalApply={handleExternalApply}
-                              sendCvOnly={false}
                             />
                           </motion.div>
                         ))}
@@ -1959,7 +1816,7 @@ export default function OpportunitiesPage() {
                 <div>
                   <h2 className="text-sm font-semibold">Contact licensed sponsors directly</h2>
                   <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                    Matched vacancies are grouped by employer. Send your CV when a direct employer email is available, or use the verified application route.
+                    All matched vacancies are grouped by employer. Send your CV to a verified employer email, or save your request while JOBSAGE finds one.
                   </p>
                 </div>
               </div>
@@ -1977,7 +1834,7 @@ export default function OpportunitiesPage() {
             {isLoading ? (
               <Card className="p-8 text-center">
                 <Loader2 className="w-8 h-8 text-primary animate-spin mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground">Loading matched vacancies with available application routes…</p>
+                <p className="text-sm text-muted-foreground">Loading matched vacancies…</p>
               </Card>
             ) : isError ? (
               <Card className="p-8 text-center border-destructive/20">
@@ -1987,9 +1844,9 @@ export default function OpportunitiesPage() {
             ) : sendCvGroups.length === 0 ? (
               <Card className="p-8 text-center">
                 <Briefcase className="w-9 h-9 text-muted-foreground/40 mx-auto mb-3" />
-                <p className="text-sm font-medium text-foreground">No matched vacancies with a usable application route.</p>
+                <p className="text-sm font-medium text-foreground">No matched vacancies found.</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Try changing your search or region filters. Vacancies appear here when JOBSAGE has a verified apply link or a usable employer email.
+                  Try changing your search or region filters.
                 </p>
               </Card>
             ) : (
@@ -2059,22 +1916,6 @@ export default function OpportunitiesPage() {
         )}
       </AnimatePresence>
 
-      {/* Smart Apply modal */}
-      <AnimatePresence>
-        {smartApplyRole && (
-          <SmartApplyModal
-            roleId={smartApplyRole.id}
-            roleTitle={smartApplyRole.title}
-            onClose={() => setSmartApplyRole(null)}
-            onSuccess={() => {
-              setSmartApplyRole(null);
-              void queryClient.invalidateQueries({ queryKey: getListMyApplicationsQueryKey() });
-              void queryClient.invalidateQueries({ queryKey: getListMatchedRolesQueryKey() });
-            }}
-          />
-        )}
-      </AnimatePresence>
-
       {/* Cover Letter modal */}
       <AnimatePresence>
         {coverLetterRole && (
@@ -2109,13 +1950,12 @@ export default function OpportunitiesPage() {
             vacancyId={vacancyId}
             vacancyTitle={gapAnalysisRole.role.title}
             companyName={gapAnalysisRole.role.employer}
-            vacancyUrl={gapAnalysisRole.applyUrl ?? gapAnalysisRole.contactWebsite ?? null}
+            vacancyUrl={gapAnalysisRole.applyUrl ?? null}
             sourceType={gapAnalysisRole.role.sourceType}
             trackVacancyIntent={!!gapAnalysisRole.applyUrl}
             hasCvUploaded={!!myProfile}
             analysisEndpoint={endpoint}
             analysisSource={isSponsorVacancy ? "sponsor_vacancy" : "role"}
-            onApply={() => handleSmartApply(gapAnalysisRole.role.id, gapAnalysisRole.role.title)}
           />
         );
       })()}
