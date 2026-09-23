@@ -95,18 +95,24 @@ declared.
 ## Results from this workspace
 
 On 23 September 2026, k6 was installed in the workspace and the script passed
-static parsing. A live smoke request was deliberately not run against
-production. A local smoke run should be recorded here after the API workflow
-is available with the development database:
+static parsing and k6 inspection. The guarded local smoke ran against
+`http://127.0.0.1:8080/api` with one VU for 30 seconds:
 
-```text
-Pending: run `bash scripts/k6/run-local.sh` and commit the generated summary
-only if the local database and API test fixture are available.
-```
+| Result | Value |
+| --- | ---: |
+| Completed iterations | 30 |
+| HTTP requests | 60 |
+| HTTP request failures | 0% |
+| Checks | 60/60 passed |
+| HTTP p95 | 3.87 ms |
+| HTTP p99 threshold | Passed; maximum observed was 12.14 ms |
 
-The current authenticated journey is intentionally skipped when test
-credentials are absent; unauthenticated `/auth/user` is still checked. This
-lets the harness prove health and routing without inventing customer data.
+Raw output is saved at
+`artifacts/k6/smoke-summary.json`. This was a local health/auth-bootstrap
+smoke, not a production test. The authenticated opportunities and eligibility
+journeys were intentionally skipped because no synthetic staging credentials
+were available; unauthenticated `/auth/user` was still checked. This proves
+local health and routing without inventing customer data.
 
 ## What Replit can and cannot simulate
 

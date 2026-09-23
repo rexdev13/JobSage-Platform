@@ -11,16 +11,8 @@ const assumptions = JSON.parse(fs.readFileSync(assumptionsPath, "utf8"));
 
 const money = (value) => `£${value.toFixed(2)}`;
 const number = (value) => new Intl.NumberFormat("en-GB").format(value);
-const pct = (value) => `${value.toFixed(1)}%`;
 const sum = (values) => values.reduce((total, value) => total + value, 0);
 const aiPerMau = sum(Object.values(assumptions.variableMonthlyCostPerMau.ai));
-const variablePerMau =
-  aiPerMau +
-  assumptions.variableMonthlyCostPerMau.email +
-  assumptions.variableMonthlyCostPerMau.objectStorage +
-  assumptions.variableMonthlyCostPerMau.vacancyIngestionAndCron +
-  assumptions.variableMonthlyCostPerMau.support +
-  assumptions.variableMonthlyCostPerMau.analyticsAndObservability;
 const margins = [0.3, 0.5, 0.7];
 const categories = Object.keys(assumptions.fixedMonthlyCostByTier);
 
@@ -45,6 +37,19 @@ const rows = assumptions.scaleTiersMau.map((mau, index) => {
   const marketingCac = payingUsers *
     assumptions.conversion.marketingCacPerPayingUser /
     assumptions.conversion.cacAmortisationMonths;
+  const categoryTotals = {
+    hosting: fixed.hosting,
+    postgres: fixed.postgres,
+    objectStorage: fixed.objectStorage + variable.objectStorage,
+    email: fixed.email + variable.email,
+    vacancyIngestionAndCron:
+      fixed.vacancyIngestionAndCron + variable.vacancyIngestionAndCron,
+    ai: variable.ai,
+    support: fixed.support + variable.support,
+    analyticsAndObservability:
+      fixed.analyticsAndObservability + variable.analyticsAndObservability,
+    marketingCac,
+  };
   const subtotal = sum(Object.values(fixed)) + sum(Object.values(variable));
   const total = subtotal +
     (assumptions.conversion.includeMarketingCacInSuggestedPrice ? marketingCac : 0);
@@ -54,6 +59,7 @@ const rows = assumptions.scaleTiersMau.map((mau, index) => {
     payingUsers,
     fixed,
     variable,
+    categoryTotals,
     marketingCac,
     total,
     costPerMau: total / mau,
@@ -64,20 +70,8 @@ const rows = assumptions.scaleTiersMau.map((mau, index) => {
   };
 });
 
-const displayCategory = (category) => ({
-  hosting: "Hosting",
-  postgres: "PostgreSQL",
-  objectStorage: "Object storage",
-  email: "Email",
-  vacancyIngestionAndCron: "Vacancy ingestion / cron",
-  analyticsAndObservability: "Analytics / observability",
-  support: "Support",
-  ai: "AI / LLM",
-}[category] ?? category);
-
 const fixedTable = rows.map((row) =>
-  `| ${number(row.mau)} | ${number(row.payingUsers)} | ${categories
-    .map((category) => money(row.fixed[category])).join(" | ")} | ${money(row.variable.ai)} | ${money(row.variable.email)} | ${money(row.variable.objectStorage)} | ${money(row.variable.vacancyIngestionAndCron)} | ${money(row.variable.support)} | ${money(row.variable.analyticsAndObservability)} | ${money(row.marketingCac)} | **${money(row.total)}** |`,
+  `| ${number(row.mau)} | ${number(row.payingUsers)} | ${money(row.categoryTotals.hosting)} | ${money(row.categoryTotals.postgres)} | ${money(row.categoryTotals.objectStorage)} | ${money(row.categoryTotals.email)} | ${money(row.categoryTotals.vacancyIngestionAndCron)} | ${money(row.categoryTotals.ai)} | ${money(row.categoryTotals.support)} | ${money(row.categoryTotals.analyticsAndObservability)} | ${money(row.categoryTotals.marketingCac)} | **${money(row.total)}** |`,
 ).join("\n");
 
 const priceTable = rows.map((row) =>
@@ -234,15 +228,15 @@ const csvHeader = [
 const csvRows = rows.map((row) => [
   row.mau,
   row.payingUsers,
-  row.fixed.hosting,
-  row.fixed.postgres,
-  row.fixed.objectStorage,
-  row.fixed.email,
-  row.fixed.vacancyIngestionAndCron,
-  row.variable.ai,
-  row.variable.support,
-  row.variable.analyticsAndObservability,
-  row.marketingCac,
+  row.categoryTotals.hosting,
+  row.categoryTotals.postgres,
+  row.categoryTotals.objectStorage,
+  row.categoryTotals.email,
+  row.categoryTotals.vacancyIngestionAndCron,
+  row.categoryTotals.ai,
+  row.categoryTotals.support,
+  row.categoryTotals.analyticsAndObservability,
+  row.categoryTotals.marketingCac,
   row.total,
   row.costPerMau,
   row.costPerPayingUser,
