@@ -39,6 +39,8 @@ const ONBOARDING_PROFESSIONS = [
   "IT Professional",
   "Lawyer / Solicitor",
   "Architect",
+  "Software Engineering",
+  "Business Development Manager",
 ];
 
 type ProfileData = {

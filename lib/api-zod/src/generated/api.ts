@@ -972,6 +972,7 @@ export const ListMatchedRolesResponse = zod.object({
             "IT",
             "LEGAL",
             "ARCHITECTURE",
+            "BUSINESS_DEVELOPMENT",
           ])
           .nullish()
           .describe(
@@ -1291,6 +1292,7 @@ export const AdminListRolesResponse = zod.object({
           "IT",
           "LEGAL",
           "ARCHITECTURE",
+          "BUSINESS_DEVELOPMENT",
         ])
         .nullish()
         .describe(

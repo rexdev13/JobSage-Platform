@@ -284,6 +284,7 @@ describe("fetchSponsorVacanciesAsRoles alert options", () => {
     ["Senior Clinical Academic", "GMC"],
     ["Commercial Solicitor", "LEGAL"],
     ["Project Architect", "ARCHITECTURE"],
+    ["Business Development Manager", "BUSINESS_DEVELOPMENT"],
     ["University Lecturer", "EDUCATION"],
     ["Clinical Research Administrator", "GMC"],
   ])("classifies %s as %s", (title, expected) => {

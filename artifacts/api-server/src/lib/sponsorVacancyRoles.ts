@@ -119,6 +119,8 @@ const LEGAL_TITLE_PATTERN =
   /\b(lawyer|solicitor|barrister|legal\s*(counsel|adviser|advisor|executive)|paralegal|attorney)/i;
 const ARCHITECTURE_TITLE_PATTERN =
   /\b(architect|architectural|architecture)/i;
+const BUSINESS_DEVELOPMENT_TITLE_PATTERN =
+  /\b(business[\s-]+development(?:\s+manager|\s+executive|\s+officer)?|business[\s-]+development\s+and\s+partnerships)\b/i;
 
 /**
  * Best-effort keyword classification of an AI-discovered vacancy to the UK
@@ -149,6 +151,7 @@ export function classifyVacancyCategory(
     if (IT_TITLE_PATTERN.test(text)) return "IT";
     if (LEGAL_TITLE_PATTERN.test(text)) return "LEGAL";
     if (ARCHITECTURE_TITLE_PATTERN.test(text)) return "ARCHITECTURE";
+    if (BUSINESS_DEVELOPMENT_TITLE_PATTERN.test(text)) return "BUSINESS_DEVELOPMENT";
     if (EDUCATION_TITLE_PATTERN.test(text)) return "EDUCATION";
     if (ENGINEERING_TITLE_PATTERN.test(text)) return "ENGINEERING";
   }
@@ -171,6 +174,7 @@ const CATEGORY_INDUSTRY_PATTERNS: Partial<Record<OpportunityCategory, RegExp>> =
   IT: /software|technology|digital|information\s*technology|computer/i,
   LEGAL: /legal|law|solicitor|professional\s*services/i,
   ARCHITECTURE: /architect|design|planning|construction/i,
+  BUSINESS_DEVELOPMENT: /business[\s-]+development/i,
 };
 
 function industrySupportsCategory(

@@ -58,6 +58,8 @@ const FALLBACK_PROFESSIONS = [
   "IT Professional",
   "Lawyer / Solicitor",
   "Architect",
+  "Software Engineering",
+  "Business Development Manager",
 ];
 
 const REGULATED_PROFESSION_KEYWORDS = [

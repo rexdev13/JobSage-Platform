@@ -92,6 +92,7 @@ export type AdditionalBoardCategoryMetrics = {
   source: AdditionalBoardSourceId;
   profession: string;
   category: OpportunityCategory;
+  attempted: boolean;
   discovered: number;
   sponsorMatched: number;
   classified: number;
@@ -100,8 +101,10 @@ export type AdditionalBoardCategoryMetrics = {
   inserted: number;
   updated: number;
   revived: number;
+  upserted: number;
   skippedBySourceCap: number;
   skippedByCooldown: boolean;
+  emptySuccess: boolean;
   failed: boolean;
   status: number | null;
   error: string | null;
@@ -308,6 +311,7 @@ function emptyCategory(
     source: source.id,
     profession: target.profession,
     category: target.category,
+    attempted: false,
     discovered: 0,
     sponsorMatched: 0,
     classified: 0,
@@ -316,8 +320,10 @@ function emptyCategory(
     inserted: 0,
     updated: 0,
     revived: 0,
+    upserted: 0,
     skippedBySourceCap: 0,
     skippedByCooldown: false,
+    emptySuccess: false,
     failed: false,
     status: null,
     error: null,
@@ -353,6 +359,7 @@ async function execute(options: Dependencies): Promise<AdditionalBoardProfession
         continue;
       }
       try {
+        metrics.attempted = true;
         const result = await source.search(
           target.keywords,
           Math.min(perCategoryLimit, remaining),
@@ -377,6 +384,7 @@ async function execute(options: Dependencies): Promise<AdditionalBoardProfession
         );
         metrics.sponsorMatched = matched.sponsorMatched;
         metrics.classified = matched.adverts.length;
+        metrics.emptySuccess = matched.adverts.length === 0;
         const adverts = matched.adverts.slice(0, remaining);
         metrics.skippedBySourceCap = matched.adverts.length - adverts.length;
         if (adverts.length > 0) {
@@ -384,6 +392,7 @@ async function execute(options: Dependencies): Promise<AdditionalBoardProfession
           metrics.inserted = persisted.inserted;
           metrics.updated = persisted.updated;
           metrics.revived = persisted.revived;
+          metrics.upserted = persisted.inserted + persisted.updated + persisted.revived;
           remaining -= adverts.length;
           const visibility = await visibilityReader(
             adverts.map((advert) => advert.url),

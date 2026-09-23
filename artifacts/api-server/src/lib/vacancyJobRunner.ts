@@ -60,7 +60,7 @@ export const PIPELINE_WRITER_LOCK = "jobsage:external-vacancy-pipeline-writer";
 export const COMPANY_SITE_HTTP_BUDGET_MS = 20_000;
 export const LIVENESS_HTTP_BUDGET_MS = 18_000;
 export const PROFESSION_BACKFILL_HTTP_BUDGET_MS = 22_000;
-export const PROFESSION_BACKFILL_HTTP_CATEGORY_LIMIT = 1;
+export const PROFESSION_BACKFILL_HTTP_CATEGORY_LIMIT = 2;
 export const PROFESSION_BACKFILL_HTTP_MAX_CATEGORY_LIMIT = 2;
 /**
  * Twenty results gives each profession page materially more coverage than the

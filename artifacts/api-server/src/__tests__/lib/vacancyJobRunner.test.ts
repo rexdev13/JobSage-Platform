@@ -174,7 +174,7 @@ describe("runVacancyJob liveness deadline", () => {
     expect(PROFESSION_BACKFILL_HTTP_RESULTS_PER_CATEGORY).toBe(20);
     expect(runReedProfessionBackfillMock).toHaveBeenCalledWith(expect.objectContaining({
       perCategoryLimit: 20,
-      totalPersistLimit: 20,
+      totalPersistLimit: 40,
       targets: expect.any(Array),
     }));
   });

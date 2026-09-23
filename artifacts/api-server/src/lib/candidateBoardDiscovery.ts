@@ -97,6 +97,10 @@ export function professionKeywords(profile: CandidateBoardProfile): string {
         return "lawyer OR solicitor";
       case "it_professional":
         return "software OR IT";
+      case "software_engineering":
+        return "software engineer OR software developer";
+      case "business_development_manager":
+        return "business development manager OR business development";
       default:
         return normalized.replace(/_/g, " ") || profile.profession.trim();
     }
