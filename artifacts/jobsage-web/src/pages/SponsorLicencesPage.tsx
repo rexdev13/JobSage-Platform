@@ -480,7 +480,7 @@ function VacancyMatchPanel({
                           onVacancyOutbound({ ...v, companyName, companyId, sendCvEligible });
                         }}
                       >
-                        Apply
+                        {v.sourceType === "job_board" ? "Apply Via Job Board" : "Apply on company's website"}
                         <ExternalLink className="w-3.5 h-3.5 opacity-60" />
                       </Button>
                     )}
@@ -1969,7 +1969,7 @@ export default function SponsorLicencesPage() {
                     className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-medium text-foreground hover:bg-accent transition-colors"
                   >
                     <ExternalLink className="w-4 h-4" />
-                    View original posting
+                    {selectedVacancy.sourceType === "job_board" ? "Apply Via Job Board" : "Apply on company's website"}
                   </button>
                 )}
                 <button
@@ -2095,6 +2095,7 @@ export default function SponsorLicencesPage() {
           vacancyTitle={gapAnalysisVacancy.title}
           companyName={gapAnalysisVacancy.companyName}
           vacancyUrl={gapAnalysisVacancy.url}
+          sourceType={gapAnalysisVacancy.sourceType}
           analysisSource="sponsor_vacancy"
           hasCvUploaded={hasCvUploaded}
           onApply={() => handleOpenApplyModal(gapAnalysisVacancy)}

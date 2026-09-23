@@ -107,12 +107,10 @@ export function getOpportunityApplyAction({
     };
   }
 
-  if (!contactWebsite) return null;
-  return {
-    destinationUrl: contactWebsite.startsWith("http") ? contactWebsite : `https://${contactWebsite}`,
-    label: "Open employer website",
-    usesWebsiteFallback: true,
-  };
+  // A vacancy must keep the application route it was discovered from. An
+  // employer website is not a substitute for a missing company-site or
+  // job-board vacancy URL.
+  return null;
 }
 
 export function opportunityScore(role: RankedOpportunity): number {

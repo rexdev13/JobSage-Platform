@@ -246,16 +246,6 @@ function BestMatchesStrip({
                     <ExternalLink className="w-3 h-3" /> {sourceType === "job_board" ? "Apply Via Job Board" : "Apply on company's website"}
                   </Button>
                 )}
-                {match.contactWebsite && (sourceType === "job_board" || !match.applyUrl) && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="flex-1 min-w-[9rem] text-xs h-8 gap-1"
-                    onClick={() => onOpenApplication(normalizeWebsiteUrl(match.contactWebsite!), match, false)}
-                  >
-                    <Globe className="w-3 h-3" /> Visit company website
-                  </Button>
-                )}
                 {match.isEligible ? (
                   <Button
                     size="sm"
@@ -838,7 +828,7 @@ function RoleCard({
 
       {/* Company contact row */}
       <div className="mt-3 space-y-2" onClick={(e) => e.stopPropagation()}>
-        {shouldShowOpportunityApplyActions(sendCvOnly) && contactWebsite && (
+        {shouldShowOpportunityApplyActions(sendCvOnly) && role.sourceType === "company_site" && applyUrl && contactWebsite && (
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); handleApplyClick(contactWebsite.startsWith("http") ? contactWebsite : `https://${contactWebsite}`); }}
@@ -961,7 +951,7 @@ function RoleCard({
                     {contactEmail}
                   </a>
                 )}
-                {contactWebsite && (
+                {role.sourceType === "company_site" && contactWebsite && (
                   <button
                     type="button"
                     onClick={() => void handleApplyClick(
@@ -2120,6 +2110,7 @@ export default function OpportunitiesPage() {
             vacancyTitle={gapAnalysisRole.role.title}
             companyName={gapAnalysisRole.role.employer}
             vacancyUrl={gapAnalysisRole.applyUrl ?? gapAnalysisRole.contactWebsite ?? null}
+            sourceType={gapAnalysisRole.role.sourceType}
             trackVacancyIntent={!!gapAnalysisRole.applyUrl}
             hasCvUploaded={!!myProfile}
             analysisEndpoint={endpoint}
