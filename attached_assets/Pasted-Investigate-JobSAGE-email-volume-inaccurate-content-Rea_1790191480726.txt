@@ -1,0 +1,67 @@
+Investigate JobSAGE email volume + inaccurate content. Read-only diagnosis first; do not change production senders, templates, or cron until the report is clear. No customer PII in the output (mask emails).
+
+Problem
+- Operators / testers are getting a lot of JobSAGE emails
+- Content often feels inaccurate (wrong status, false alarms, outdated vacancy/pipeline claims, misleading success/failure, etc.)
+- We need to understand WHAT is sending, WHY, HOW OFTEN, and WHY the text is wrong
+
+Scope
+1) Transactional / product emails (auth, opportunities, eligibility, contact, CV, billing if any)
+2) Ops / admin / cron / sync failure / liveness alert emails
+3) cron-job.org native email notifications vs app-sent mail (separate them clearly)
+4) Any “notify on every batch / every 409 / every partial fail” paths
+
+Do this
+
+A. Inventory every email send path in code
+For each path list:
+| ID | Trigger (event/cron/API) | Recipient rule | Template/subject | Frequency controls (debounce, digest, severity) | Can fire on soft-fail/409? | Likely noisy? |
+Include Resend/SendGrid/Nodemailer/etc. wrapper usage.
+
+B. Production evidence (last 7 days if logs/DB allow)
+- Count of emails attempted/sent/failed by type
+- Top subjects
+- Spike times vs vacancy cron schedule (probe, company_site, Reed, boards, liveness)
+- Whether duplicates are same event retried vs new events
+Mask addresses; group by domain/role (admin vs user) if possible.
+
+C. Accuracy audit
+For the noisiest 5 email types, pick recent examples and verify against DB/logs:
+- Claim in email vs actual state (success vs 409 skip vs partial vs real fail)
+- Stale counts / wrong profession / wrong source / “0 vacancies” while data exists / “failed” when lock contention only
+- Timezone / delayed send making status look wrong
+Mark each: accurate / partially wrong / false alarm — with proof.
+
+D. Root causes (rank)
+Typical buckets to check explicitly:
+1) cron-job.org “notify on failure” treating HTTP 409 as failure
+2) App alerts on every vacancy batch error including soft skips
+3) Liveness / health emails too sensitive
+4) User product emails with bad copy or wrong query filters
+5) Missing debounce / digest (one email per error instead of summary)
+6) Wrong environment sending (staging templates, mixed prod config)
+7) Template using outdated metrics fields
+
+E. What is vs isn’t JobSAGE app mail
+Be explicit if many emails are from cron-job.org itself rather than the app. Tell us how to tell them apart (from-address, subject pattern).
+
+F. Recommendations only (do not implement yet)
+Max 7 actions, prioritized:
+- Turn off / narrow which failures email
+- Treat 409 as non-alert
+- Digest instead of per-run
+- Fix inaccurate template/query
+- Separate ops alerts from user mail
+Include “safe to change in cron UI now” vs “needs code”.
+
+Constraints
+- Read-only; no template edits, no cron changes, no mass sends, no test blasts to real users
+- No secrets or raw email bodies with PII in the report
+- If logs insufficient, say exactly what’s missing
+
+Deliverable
+1) Short verdict (10 lines): what’s going on
+2) Inventory table
+3) Accuracy findings for top noisy types
+4) Ranked root causes
+5) “Do this next” list (cron UI vs code), no implementation in this pass
