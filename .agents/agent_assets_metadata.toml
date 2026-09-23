@@ -404,3 +404,17 @@ mtime_ms = 1789729738442
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/c9c01339-99c1-45fc-ba11-5073506d361d/da712867-8af1-48d4-ac74-d0cd816ee538"
 storage_version_token = "1789729744578244"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "jdhtIftx-zIt1ozB1Bq5K"
+uri = "file://jobsage-source.zip"
+type = "unspecified"
+title = "jobsage-source.zip"
+description = "JOBSAGE source-only archive with current source, configuration, schemas, migrations, tests, scripts, and documentation. Size: 4.71 MiB. Dependencies, build output, caches, logs, large media, uploaded files, Git history, environment files, and credentials are excluded."
+logical_id = "ee17e8ad-fc1d-4d45-a160-3683b80a711a"
+content_hash = "sha256:f0e8863acb2f10f7d522dd2a2a5b19eaae0289d9b1016f7d0053135036f5bd26"
+size = 4934025
+mtime_ms = 1790195262263
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/ee17e8ad-fc1d-4d45-a160-3683b80a711a/a33178a4-1bb9-4d82-989c-a8e5ad698b63"
+storage_version_token = "1790195271148624"
+content_type = "application/octet-stream"
