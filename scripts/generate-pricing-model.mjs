@@ -96,6 +96,15 @@ const facts = assumptions.measuredFacts
   .map((item) => `- **Measured:** ${item.fact} _(${item.source})_`)
   .join("\n");
 const todos = assumptions.todoInputs.map((item) => `- ${item}`).join("\n");
+const billingSources = assumptions.billingSourceNotes
+  .map((item) => `- **${item.category}:** ${item.note} ([source](${item.source}))`)
+  .join("\n");
+const snapshotEntries = Object.entries(assumptions.measuredDevelopmentSnapshot)
+  .map(([name, value]) => `| ${name} | ${typeof value === "string" ? value : number(value)} |`)
+  .join("\n");
+const invoiceInputs = assumptions.invoiceInputs.requiredBeforePublicPricing
+  .map((item) => `- ${item}`)
+  .join("\n");
 
 const markdown = `# JOBSAGE pricing and unit economics
 
@@ -124,6 +133,26 @@ planning placeholder unless it appears in the measured list above. The model doe
 not have access to provider invoices or a reliable production traffic forecast.
 
 ${todos}
+
+## Billing sources and measured development snapshot
+
+The provider documentation describes the billing dimensions, but it does not
+expose this workspace's account invoice or usage-dashboard values. The model
+therefore keeps the monetary inputs as placeholders until those values are
+entered.
+
+${billingSources}
+
+The following development-only usage snapshot is measured and useful for
+planning workload, but it must not be mistaken for production unit economics:
+
+| Metric | Value |
+| --- | ---: |
+${snapshotEntries}
+
+Invoice-backed inputs are still required before publishing a price:
+
+${invoiceInputs}
 
 ## Editable formulas
 
