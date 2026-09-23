@@ -36,6 +36,7 @@ interface GapAnalysisSheetProps {
   vacancyUrl: string | null | undefined;
   hasCvUploaded: boolean;
   onApply: () => void;
+  sourceType?: "job_board" | "company_site" | null;
   /** Whether this URL is a vacancy apply URL, rather than an employer website. */
   trackVacancyIntent?: boolean;
   /** Override the API path (relative to /api). Defaults to /sponsor-licences/vacancies/:vacancyId/gap-analysis */
@@ -54,6 +55,7 @@ export function GapAnalysisSheet({
   vacancyUrl,
   hasCvUploaded,
   onApply,
+  sourceType,
   trackVacancyIntent = true,
   analysisEndpoint,
   analysisSource = "sponsor_vacancy",
@@ -412,7 +414,7 @@ export function GapAnalysisSheet({
                 }
               }}
             >
-              Apply on company's website
+              {sourceType === "job_board" ? "Apply Via Job Board" : "Apply on company's website"}
               <ExternalLink className="w-4 h-4 opacity-70" />
             </Button>
           )}

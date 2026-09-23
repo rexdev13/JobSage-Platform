@@ -65,16 +65,18 @@ describe("opportunity filters", () => {
     });
   });
 
-  it("clearly labels and normalises the employer website fallback", () => {
+  it("does not substitute an employer website for a missing vacancy URL", () => {
     expect(getOpportunityApplyAction({
       sourceType: "company_site",
       applyUrl: null,
       contactWebsite: "employer.example.com/careers",
-    })).toEqual({
-      destinationUrl: "https://employer.example.com/careers",
-      label: "Open employer website",
-      usesWebsiteFallback: true,
-    });
+    })).toBeNull();
+
+    expect(getOpportunityApplyAction({
+      sourceType: "job_board",
+      applyUrl: null,
+      contactWebsite: "https://employer.example.com/careers",
+    })).toBeNull();
   });
 
   it("hides vacancy Apply actions on the Send CV view while retaining its other actions", () => {
