@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "currency": "GBP",
+  "scaleTiersMau": [100, 1000, 10000, 100000, 1000000],
+  "conversion": {
+    "payingUsersPercentOfMau": 8,
+    "marketingCacPerPayingUser": 30,
+    "cacAmortisationMonths": 12,
+    "includeMarketingCacInSuggestedPrice": true
+  },
+  "variableMonthlyCostPerMau": {
+    "ai": {
+      "cvAndProfileExtraction": 0.08,
+      "eligibilityOrRulesAssist": 0.04,
+      "remediationAndWriting": 0.10,
+      "opportunityScoring": 0.12,
+      "otherAiAllowance": 0.06
+    },
+    "email": 0.02,
+    "objectStorage": 0.01,
+    "vacancyIngestionAndCron": 0.01,
+    "support": 0.20,
+    "analyticsAndObservability": 0.01
+  },
+  "fixedMonthlyCostByTier": {
+    "hosting": [60, 120, 300, 1000, 4200],
+    "postgres": [30, 60, 180, 750, 3600],
+    "objectStorage": [15, 20, 40, 120, 500],
+    "email": [20, 25, 45, 120, 400],
+    "vacancyIngestionAndCron": [10, 15, 30, 90, 300],
+    "analyticsAndObservability": [10, 20, 60, 250, 1000],
+    "support": [25, 40, 100, 350, 1500]
+  },
+  "hostingNotes": [
+    "100–10,000 MAU assumes Replit Autoscale remains the primary web/API runtime.",
+    "100,000 MAU assumes a Reserved VM or equivalent always-on worker capacity is added alongside Autoscale.",
+    "1,000,000 MAU is a planning placeholder for multiple API workers, queue consumers, read replicas, and dedicated observability; it is not a claim that one Replit Autoscale instance can sustain that load."
+  ],
+  "measuredFacts": [
+    {
+      "fact": "The project is configured for a Replit Autoscale deployment target.",
+      "source": ".replit deployment.target"
+    },
+    {
+      "fact": "The application uses PostgreSQL through Drizzle ORM.",
+      "source": "replit.md architecture and lib/db"
+    },
+    {
+      "fact": "The application uses Replit Object Storage for files.",
+      "source": "replit.md architecture and environment variables"
+    },
+    {
+      "fact": "Transactional email is sent through Resend.",
+      "source": "replit.md and API email integration"
+    },
+    {
+      "fact": "AI features use the Replit OpenAI integration proxy.",
+      "source": "replit.md and AI integration environment variables"
+    },
+    {
+      "fact": "Vacancy ingestion is split across board, company-site, probe, liveness, contact, Reed, and additional-board jobs.",
+      "source": "docs/vacancy-jobs-http-cron.md"
+    },
+    {
+      "fact": "The recent production audit found company-site traffic materially above its intended hourly cadence and a high temporary-failure rate.",
+      "source": "read-only production ingestion audit, September 2026"
+    }
+  ],
+  "todoInputs": [
+    "Replace AI unit costs with the actual model, token, cache, and retry mix from invoices or provider usage.",
+    "Replace Replit hosting and PostgreSQL placeholders with the selected deployment/database plan invoices.",
+    "Replace Resend, object-storage, cron, observability, and support placeholders with actual monthly invoices.",
+    "Measure real monthly AI calls per active user by endpoint before committing to a public price.",
+    "Validate the 8% paying conversion and £30 CAC with funnel data."
+  ]
+}

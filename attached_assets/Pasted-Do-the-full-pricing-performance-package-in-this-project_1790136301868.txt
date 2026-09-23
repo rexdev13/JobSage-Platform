@@ -1,0 +1,77 @@
+Do the full pricing + performance package in this project. Development/staging only. Do NOT load-test production https://jobsage.co.uk. Do NOT change vacancy safety rules or raise company-site batch size.
+
+============================================================
+GOAL
+============================================================
+1) Build a real unit-economics / pricing model for scale tiers:
+   100 → 1,000 → 10,000 → 100,000 → 1,000,000 users
+2) Add k6 load-test tooling + scripts we can run from this workspace (or document exact run commands)
+3) Run the lightest safe verification of the k6 setup against local/preview/staging only
+4) Report what Replit can and cannot simulate at each tier
+
+============================================================
+A) COST / PRICING MODEL
+============================================================
+Inventory every cost driver from this codebase + typical JobSAGE flows:
+- AI/LLM usage (eligibility, CV, scoring, any vacancy-related AI)
+- Replit hosting Autoscale vs Reserved VM assumptions
+- Postgres storage + compute
+- Object/file storage if any
+- Email / notifications
+- cron-job.org / vacancy ingestion share (board, company-site, reed, additional boards, liveness, probe)
+- Support load assumptions
+- Marketing CAC as an editable input
+
+Estimate per active user / month and per paying subscriber.
+Produce tables for each scale tier with:
+- total monthly cost by category
+- cost per MAU
+- cost per paying user (assume editable conversion %)
+- suggested subscription price at 30%, 50%, 70% gross margin
+- which costs jump in steps (DB tier, always-on VM, AI rate limits)
+
+Save the model as a file in-repo (e.g. docs/pricing-unit-economics.md and/or a CSV/JSON the team can edit).
+Clearly label ASSUMPTIONS vs measured facts. If invoices/API usage aren’t available, use conservative placeholders and mark them TODO.
+
+============================================================
+B) k6 LOAD TESTS (YOU SET THIS UP AND RUN WHAT’S SAFE)
+============================================================
+1. Add k6 to the project in the most practical way on Replit:
+   - install k6 if possible in this environment, OR
+   - provide Docker/binary install steps that work here, OR
+   - if k6 binary cannot run, still author complete k6 scripts + a runner script and prove syntax/plan; then run whatever subset is possible
+2. Create k6 scripts for critical journeys (auth as needed with test users / mocks — never real customer data):
+   - health/ready
+   - login or authenticated session bootstrap
+   - Opportunities / roles listing (job_board + company websites if separate)
+   - eligibility check endpoint(s)
+   - a write-light authenticated browse path
+3. Profiles / scenarios:
+   - smoke: 1–5 VUs
+   - 100 users
+   - 1,000 users
+   - 10,000 users (may be staged/ramped; warn if environment cannot sustain)
+   - For 100k and 1M: provide scripts + ramp plans + required infra notes; do not claim a full 1M run on Replit Autoscale
+4. Thresholds to report: http_req_failed, p95/p99 latency, checks pass rate
+5. Output results to docs/ or artifacts/ (summary markdown + raw summary JSON if available)
+6. Explicitly forbid targeting production custom domain unless a dedicated STAGING_BASE_URL env is set
+
+============================================================
+C) TIE COST ↔ PERFORMANCE
+============================================================
+From k6 results + cost model, estimate:
+- infra headroom at 100 / 1k / 10k
+- when Autoscale becomes insufficient vs Reserved VM
+- AI cost risk if traffic multiplies eligibility/opportunity calls
+- vacancy cron contention risk (409/writer lock) under user load (qualitative if not directly measurable)
+
+============================================================
+D) DELIVERABLES
+============================================================
+1. Pricing model files + clear recommended price bands with assumptions
+2. k6 scripts + how to run them on Replit
+3. Actual smoke (and larger if possible) run results against preview/staging
+4. “Next hardware/tooling” recommendation for 100k–1M
+5. Short executive summary for the client (non-technical)
+
+Implement everything you can in-repo now. STOP when deliverables are ready. Do not publish. Do not attack production.

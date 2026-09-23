@@ -30,6 +30,7 @@ timeoutMs = 120000
 
 [nix]
 channel = "stable-25_05"
+packages = ["k6"]
 
 [userenv]
 
