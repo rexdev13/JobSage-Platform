@@ -224,11 +224,13 @@ function TooltipLabel({
 }
 
 function ProfessionCombobox({
+  id,
   value,
   onChange,
   onBlur,
   suggestions,
 }: {
+  id?: string;
   value: string;
   onChange: (val: string) => void;
   onBlur?: () => void;
@@ -260,6 +262,7 @@ function ProfessionCombobox({
   return (
     <div ref={wrapperRef} className="relative">
       <Input
+        id={id}
         value={inputValue}
         onChange={(e) => {
           setInputValue(e.target.value);
@@ -560,8 +563,7 @@ export default function ProfilePage() {
     const target = document.getElementById(targetId);
     if (!target) return;
     target.scrollIntoView({ behavior: "smooth", block: "start" });
-    const focusable = target.querySelector<HTMLElement>("input, select, textarea, button");
-    focusable?.focus({ preventScroll: true });
+    target.focus({ preventScroll: true });
   }
 
   if (!profile) return null;
@@ -593,6 +595,7 @@ export default function ProfilePage() {
                 </div>
                 <button
                   type="button"
+                  id="profile-photo-upload"
                   onClick={() => photoInputRef.current?.click()}
                   disabled={isPhotoUploading}
                   className="absolute -bottom-1 -right-1 w-7 h-7 bg-primary text-primary-foreground rounded-full flex items-center justify-center shadow-md hover:bg-primary/90 transition-colors disabled:opacity-50"
@@ -686,7 +689,7 @@ export default function ProfilePage() {
                     <p className="mt-0.5 text-xs leading-relaxed text-amber-800/85 dark:text-amber-300/85">
                       {missingFields.length > 0
                         ? `${missingFields.length} ${missingFields.length === 1 ? "item is" : "items are"} still incomplete. Use “Fix this” to jump straight to each one.`
-                        : `Your profile is missing ${remainingCompletenessPct}% — refresh or complete the fields below to see what is still needed.`}
+                        : "We couldn't load the missing-field list. Please reload the page and try again."}
                     </p>
                   </div>
                   <span className="shrink-0 rounded-full bg-white/70 px-2 py-1 text-[11px] font-bold tabular-nums text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
@@ -755,6 +758,7 @@ export default function ProfilePage() {
                   {!formData.profession && <NotFoundBadge />}
                 </Label>
                 <ProfessionCombobox
+                  id="profile-field-profession"
                   value={formData.profession}
                   onChange={(val) => setFormData((prev) => ({ ...prev, profession: val }))}
                   onBlur={handleBlur}
@@ -771,6 +775,7 @@ export default function ProfilePage() {
                   Specialty
                 </Label>
                 <Input
+                  id="profile-field-specialty"
                   name="specialty"
                   value={formData.specialty}
                   onChange={handleChange}
@@ -793,6 +798,7 @@ export default function ProfilePage() {
                     />
                   </Label>
                   <Select
+                    id="profile-field-registrationStatus"
                     name="registrationStatus"
                     value={formData.registrationStatus}
                     onChange={handleChange}
@@ -815,6 +821,7 @@ export default function ProfilePage() {
                   {!formData.experienceYears && <NotFoundBadge />}
                 </Label>
                 <Input
+                  id="profile-field-experienceYears"
                   type="number"
                   name="experienceYears"
                   value={formData.experienceYears}
@@ -841,6 +848,7 @@ export default function ProfilePage() {
                   {!formData.qualificationCountry && <NotFoundBadge />}
                 </Label>
                 <Input
+                  id="profile-field-qualificationCountry"
                   name="qualificationCountry"
                   value={formData.qualificationCountry}
                   onChange={handleChange}
@@ -859,6 +867,7 @@ export default function ProfilePage() {
                   {!formData.qualificationType && <NotFoundBadge />}
                 </Label>
                 <Input
+                  id="profile-field-qualificationType"
                   name="qualificationType"
                   value={formData.qualificationType}
                   onChange={handleChange}
@@ -878,6 +887,7 @@ export default function ProfilePage() {
                   {!formData.qualificationYear && <NotFoundBadge />}
                 </Label>
                 <Input
+                  id="profile-field-qualificationYear"
                   type="number"
                   name="qualificationYear"
                   value={formData.qualificationYear}
@@ -962,6 +972,7 @@ export default function ProfilePage() {
                   {!formData.residencyStatus && <NotFoundBadge />}
                 </Label>
                 <Select
+                  id="profile-field-residencyStatus"
                   name="residencyStatus"
                   value={formData.residencyStatus}
                   onChange={handleChange}
@@ -1022,7 +1033,7 @@ export default function ProfilePage() {
                 <Label>
                   Preferred UK Region(s)
                 </Label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 mt-2">
+                <div id="profile-field-preferredRegion" tabIndex={-1} className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 mt-2 scroll-mt-6">
                   {UK_REGIONS.map((r) => (
                     <label key={r} className="flex items-center gap-2 cursor-pointer group">
                       <input
@@ -1092,6 +1103,7 @@ export default function ProfilePage() {
                   Earliest Available Start Date
                 </Label>
                 <Input
+                  id="profile-field-preferredStartDate"
                   type="date"
                   name="preferredStartDate"
                   value={formData.preferredStartDate}
@@ -1110,6 +1122,7 @@ export default function ProfilePage() {
                   Languages Spoken
                 </Label>
                 <Input
+                  id="profile-field-languages"
                   name="languages"
                   value={formData.languages}
                   onChange={handleChange}
@@ -1127,6 +1140,7 @@ export default function ProfilePage() {
                   Additional Notes
                 </Label>
                 <textarea
+                  id="profile-field-additionalNotes"
                   name="additionalNotes"
                   value={formData.additionalNotes}
                   onChange={handleChange}

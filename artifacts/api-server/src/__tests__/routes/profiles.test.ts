@@ -132,7 +132,7 @@ describe("GET /profiles/me", () => {
     expect(resp.body.error).toMatch(/not found/i);
   });
 
-  it("returns 200 with profile including completionPct", async () => {
+  it("returns the exact missing fields alongside the profile completion score", async () => {
     profileResults.push([consentRow]);
     profileResults.push([{ ...profileRow }]);
     const resp = await request(buildApp())
@@ -142,6 +142,8 @@ describe("GET /profiles/me", () => {
     expect(resp.body).toHaveProperty("profession", "nurse");
     expect(resp.body).toHaveProperty("completionPct");
     expect(typeof resp.body.completionPct).toBe("number");
+    expect(resp.body.missingFields).toEqual(["Preferred start date", "Profile photo", "Additional notes"]);
+    expect(resp.body.completionPct).toBe(77);
   });
 });
 

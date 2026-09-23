@@ -27,6 +27,7 @@ export interface CandidateProfile {
   residencyStatus?: string | null;
   requiresSponsorship?: boolean | null;
   preferredRegion?: string[] | null;
+  /** Weekly at launch. The daily value is retained only for backwards-compatible clients and is treated as weekly. */
   alertFrequency?: CandidateProfileAlertFrequency;
   lastAlertSentAt?: Date | null;
   boostProfile?: boolean;
@@ -52,6 +53,8 @@ export interface CandidateProfile {
   jobsageEmail?: string | null;
   /** Profile completeness score (0–100), computed server-side */
   completionPct?: number;
+  /** Labels of fields still needed for 100% profile completeness, computed from the same fields as completionPct */
+  missingFields?: string[];
   createdAt: Date;
   updatedAt: Date;
 }

@@ -153,6 +153,9 @@ export const CandidateProfileRegistrationStatus = {
   in_process: "in_process",
 } as const;
 
+/**
+ * Weekly at launch. The daily value is retained only for backwards-compatible clients and is treated as weekly.
+ */
 export type CandidateProfileAlertFrequency =
   | (typeof CandidateProfileAlertFrequency)[keyof typeof CandidateProfileAlertFrequency]
   | null;
@@ -180,6 +183,7 @@ export interface CandidateProfile {
   residencyStatus?: string | null;
   requiresSponsorship?: boolean | null;
   preferredRegion?: string[] | null;
+  /** Weekly at launch. The daily value is retained only for backwards-compatible clients and is treated as weekly. */
   alertFrequency?: CandidateProfileAlertFrequency;
   lastAlertSentAt?: string | null;
   boostProfile?: boolean;
@@ -205,6 +209,8 @@ export interface CandidateProfile {
   jobsageEmail?: string | null;
   /** Profile completeness score (0–100), computed server-side */
   completionPct?: number;
+  /** Labels of fields still needed for 100% profile completeness, computed from the same fields as completionPct */
+  missingFields?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -223,6 +229,9 @@ export const UpsertProfileRequestRegistrationStatus = {
   in_process: "in_process",
 } as const;
 
+/**
+ * Weekly at launch. The daily value is retained only for backwards-compatible clients and is treated as weekly.
+ */
 export type UpsertProfileRequestAlertFrequency =
   | (typeof UpsertProfileRequestAlertFrequency)[keyof typeof UpsertProfileRequestAlertFrequency]
   | null;
@@ -248,6 +257,7 @@ export interface UpsertProfileRequest {
   residencyStatus: string;
   requiresSponsorship: boolean;
   preferredRegion?: string[] | null;
+  /** Weekly at launch. The daily value is retained only for backwards-compatible clients and is treated as weekly. */
   alertFrequency?: UpsertProfileRequestAlertFrequency;
   preferredStartDate?: string | null;
   profilePhotoKey?: string | null;

@@ -3949,6 +3949,11 @@ components:
         completionPct:
           type: integer
           description: Profile completeness score (0–100), computed server-side
+        missingFields:
+          type: array
+          items:
+            type: string
+          description: Labels of fields still needed for 100% profile completeness, computed from the same fields as completionPct
         createdAt:
           type: string
           format: date-time

@@ -1,38 +1,29 @@
-const PROFILE_COMPLETENESS_TARGETS: Record<string, string> = {
-  Profession: "profile-professional-section",
-  Specialty: "profile-professional-section",
-  "Qualification country": "profile-qualifications-section",
-  "Qualification type": "profile-qualifications-section",
-  "Qualification year": "profile-qualifications-section",
-  "Years of experience": "profile-professional-section",
-  "Registration status": "profile-professional-section",
-  "Residency status": "profile-immigration-section",
-  "Preferred region": "profile-immigration-section",
-  "Preferred start date": "profile-additional-section",
-  "Profile photo": "profile-photo-section",
-  Languages: "profile-additional-section",
-  "Additional notes": "profile-additional-section",
-};
-
-const PROFILE_COMPLETENESS_SECTION_LABELS: Record<string, string> = {
-  "profile-professional-section": "Professional Information",
-  "profile-qualifications-section": "Qualifications",
-  "profile-immigration-section": "Immigration & Location",
-  "profile-additional-section": "Additional Details",
-  "profile-photo-section": "Profile photo",
+const PROFILE_COMPLETENESS_FIELDS: Record<string, { target: string; section: string }> = {
+  Profession: { target: "profile-field-profession", section: "Professional Information" },
+  Specialty: { target: "profile-field-specialty", section: "Professional Information" },
+  "Qualification country": { target: "profile-field-qualificationCountry", section: "Qualifications" },
+  "Qualification type": { target: "profile-field-qualificationType", section: "Qualifications" },
+  "Qualification year": { target: "profile-field-qualificationYear", section: "Qualifications" },
+  "Years of experience": { target: "profile-field-experienceYears", section: "Professional Information" },
+  "Registration status": { target: "profile-field-registrationStatus", section: "Professional Information" },
+  "Residency status": { target: "profile-field-residencyStatus", section: "Immigration & Location" },
+  "Preferred region": { target: "profile-field-preferredRegion", section: "Immigration & Location" },
+  "Preferred start date": { target: "profile-field-preferredStartDate", section: "Additional Details" },
+  "Profile photo": { target: "profile-photo-upload", section: "Profile photo" },
+  Languages: { target: "profile-field-languages", section: "Additional Details" },
+  "Additional notes": { target: "profile-field-additionalNotes", section: "Additional Details" },
 };
 
 export function getProfileCompletenessTarget(label: string): string | null {
-  return PROFILE_COMPLETENESS_TARGETS[label] ?? null;
+  return PROFILE_COMPLETENESS_FIELDS[label]?.target ?? null;
 }
 
 export function getProfileCompletenessSectionLabel(label: string): string {
-  const target = getProfileCompletenessTarget(label);
-  return target ? PROFILE_COMPLETENESS_SECTION_LABELS[target] ?? "Profile" : "Profile";
+  return PROFILE_COMPLETENESS_FIELDS[label]?.section ?? "Profile";
 }
 
 export function getRemainingCompletenessPct(completionPct: number): number {
   return Math.max(0, Math.min(100, 100 - Math.round(completionPct)));
 }
 
-export const PROFILE_COMPLETENESS_FIELD_LABELS = Object.keys(PROFILE_COMPLETENESS_TARGETS);
+export const PROFILE_COMPLETENESS_FIELD_LABELS = Object.keys(PROFILE_COMPLETENESS_FIELDS);
