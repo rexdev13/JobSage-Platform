@@ -20,7 +20,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getGetMyProfileQueryKey, getGetMyMatchesQueryKey, getListMatchedRolesQueryKey } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, Button, Input, Select, Label, PageTransition, cn } from "@/components/ui-enhanced";
-import { Save, UserCircle, Bell, Info, Camera, Loader2, CheckCircle2, AlertCircle, AlertTriangle, Star, Trophy, Files, ShieldCheck, Send, MessageSquare, UserCheck, Plus, Trash2, Sparkles, Download, BadgeCheck, FolderOpen, Mail, Copy, X } from "lucide-react";
+import { Save, UserCircle, Bell, Info, Camera, Loader2, CheckCircle2, AlertCircle, AlertTriangle, Star, Trophy, Files, ShieldCheck, Send, MessageSquare, UserCheck, Plus, Trash2, Sparkles, Download, BadgeCheck, FolderOpen, Mail, Copy, X, ChevronRight } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -28,6 +28,10 @@ import {
   CAREER_PROFILE_MAKER_LABEL,
   CAREER_PROFILE_MAKER_REVIEW_WARNING,
 } from "@/lib/careerProfileMakerCopy";
+import {
+  getProfileCompletenessTarget,
+  getRemainingCompletenessPct,
+} from "@/lib/profileCompletenessChecklist";
 
 type RegistrationStatus = "registered" | "not_registered" | "in_process";
 type AlertFrequency = "daily" | "weekly" | "off";
@@ -547,6 +551,15 @@ export default function ProfilePage() {
   const displayPhotoUrl = photoPreviewUrl ?? storedPhotoUrl;
   const completionPct = typeof p?.completionPct === "number" ? (p.completionPct as number) : 0;
   const missingFields = Array.isArray(p?.missingFields) ? (p.missingFields as string[]) : [];
+  const remainingCompletenessPct = getRemainingCompletenessPct(completionPct);
+
+  function focusCompletenessTarget(targetId: string) {
+    const target = document.getElementById(targetId);
+    if (!target) return;
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    const focusable = target.querySelector<HTMLElement>("input, select, textarea, button");
+    focusable?.focus({ preventScroll: true });
+  }
 
   if (!profile) return null;
 
@@ -655,27 +668,34 @@ export default function ProfilePage() {
               />
             </div>
             {completionPct < 100 && missingFields.length > 0 && (
-              <div className="mt-2 space-y-1">
-                {missingFields.length === 1 && missingFields[0] === "Profile photo" ? (
-                  <p className="text-xs text-primary font-medium flex items-center gap-1">
-                    <Camera className="w-3 h-3 shrink-0" />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const el = document.getElementById("profile-photo-section");
-                        el?.scrollIntoView({ behavior: "smooth", block: "center" });
-                      }}
-                      className="underline underline-offset-2 hover:text-primary/80"
-                    >
-                      Add a profile photo to reach 100%
-                    </button>
-                  </p>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    <span className="font-medium text-amber-600">Missing:</span>{" "}
-                    {missingFields.join(", ")}
-                  </p>
-                )}
+              <div className="mt-3 rounded-lg border border-amber-200/70 bg-amber-50/60 px-3 py-2.5 dark:border-amber-800/40 dark:bg-amber-950/20">
+                <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">
+                  Complete these {remainingCompletenessPct}% to reach 100%
+                </p>
+                <ul className="mt-1.5 space-y-1">
+                  {missingFields.map((label) => {
+                    const targetId = getProfileCompletenessTarget(label);
+                    return (
+                      <li key={label}>
+                        {targetId ? (
+                          <button
+                            type="button"
+                            onClick={() => focusCompletenessTarget(targetId)}
+                            className="inline-flex items-center gap-1 text-xs text-primary font-medium hover:underline underline-offset-2"
+                          >
+                            <ChevronRight className="w-3 h-3 shrink-0" />
+                            {label}
+                          </button>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                            <span className="w-3" />
+                            {label}
+                          </span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
               </div>
             )}
           </div>
@@ -688,7 +708,7 @@ export default function ProfilePage() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Professional Information */}
-          <Card className="p-6">
+          <Card id="profile-professional-section" className="p-6 scroll-mt-6">
             <h3 className="text-lg font-semibold mb-6 border-b pb-4">Professional Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
@@ -774,7 +794,7 @@ export default function ProfilePage() {
           </Card>
 
           {/* Qualifications */}
-          <Card className="p-6">
+          <Card id="profile-qualifications-section" className="p-6 scroll-mt-6">
             <h3 className="text-lg font-semibold mb-6 border-b pb-4">Qualifications</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
@@ -889,7 +909,7 @@ export default function ProfilePage() {
           </Card>
 
           {/* Immigration & Location */}
-          <Card className="p-6">
+          <Card id="profile-immigration-section" className="p-6 scroll-mt-6">
             <h3 className="text-lg font-semibold mb-6 border-b pb-4">
               Immigration &amp; Location
             </h3>
@@ -1023,7 +1043,7 @@ export default function ProfilePage() {
           </Card>
 
           {/* Additional Details */}
-          <Card className="p-6">
+          <Card id="profile-additional-section" className="p-6 scroll-mt-6">
             <h3 className="text-lg font-semibold mb-2 border-b pb-4">Additional Details</h3>
             <p className="text-xs text-muted-foreground mb-5">
               These fields help employers understand your availability and background. Fill them in to complete your profile.

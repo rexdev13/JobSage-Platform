@@ -87,6 +87,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@workspace/auth-web";
 import { Link } from "wouter";
+import { shouldAutoRefreshSector } from "@/lib/sectorRefresh";
 
 /**
  * Why the "Apply with JOBSAGE" button is disabled for a vacancy, if it is.
@@ -718,14 +719,20 @@ export default function SponsorLicencesPage() {
   // users can see the results actually re-rendered.
   const [timestampPulse, setTimestampPulse] = useState(false);
 
-  function handleRefreshVisible(visibleIds: number[]) {
+  const handleRefreshVisible = useCallback((visibleIds: number[], options: { automatic?: boolean } = {}) => {
     if (visibleIds.length === 0) {
-      toast({ title: "Nothing to refresh", description: "No sponsor cards are currently visible." });
+      if (!options.automatic) {
+        toast({ title: "Nothing to refresh", description: "No sponsor cards are currently visible." });
+      }
       return;
     }
     batchCheckMutation.mutate({ data: { ids: visibleIds.slice(0, LIMIT) } }, {
       onSuccess: (res) => {
-        if (res.newChecks === 0 && res.cacheHits > 0) {
+        if (options.automatic) {
+          // The shared mutation still invalidates the visible list below; the
+          // progress status handles the feedback without a toast on every
+          // sector selection.
+        } else if (res.newChecks === 0 && res.cacheHits > 0) {
           toast({
             title: "Already up to date",
             description: `⚡ All ${res.cacheHits} visible employers were checked for vacancy discovery within the last 24 hours.`,
@@ -754,7 +761,7 @@ export default function SponsorLicencesPage() {
         }
       },
     });
-  }
+  }, [batchCheckMutation, queryClient, toast]);
 
   // Refresh company list and industry counts once a running check-all pass completes
   const wasCheckingAllRef = useRef(false);
@@ -899,7 +906,7 @@ export default function SponsorLicencesPage() {
     page,
     limit: LIMIT,
   };
-  const { data, isLoading, isError } = useListSponsorLicences(sponsorListParams, {
+  const { data, isLoading, isError, isFetching, isPlaceholderData } = useListSponsorLicences(sponsorListParams, {
     query: {
       // Keep the previous company list visible while the next page/filter
       // loads so there's no full-page flash on every filter change.
@@ -915,6 +922,37 @@ export default function SponsorLicencesPage() {
   const bookmarkedCount = data?.bookmarkedCount ?? 0;
   const lastSyncedAt = data?.lastSyncedAt;
   const lastSyncFailed = data?.lastSyncFailed;
+
+  const sectorRefreshRef = useRef("");
+  const sectorRefreshReady =
+    !isLoading &&
+    !isFetching &&
+    !isPlaceholderData &&
+    !batchCheckMutation.isPending &&
+    companies.length > 0;
+
+  useEffect(() => {
+    if (!selectedIndustry) {
+      sectorRefreshRef.current = "";
+      return;
+    }
+    if (
+      !shouldAutoRefreshSector(sectorRefreshRef.current, selectedIndustry) ||
+      !sectorRefreshReady
+    ) {
+      return;
+    }
+    sectorRefreshRef.current = selectedIndustry;
+    handleRefreshVisible(
+      companies.map((company) => company.id),
+      { automatic: true },
+    );
+  }, [
+    selectedIndustry,
+    sectorRefreshReady,
+    companies,
+    handleRefreshVisible,
+  ]);
 
   // Seed local bookmark state from server on first load
   useEffect(() => {
@@ -1413,6 +1451,22 @@ export default function SponsorLicencesPage() {
                     </button>
                   )}
                 </div>
+
+                {batchCheckMutation.isPending && (
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 space-y-2"
+                  >
+                    <div className="flex items-center gap-2 text-sm text-primary">
+                      <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                      <span>Refreshing employers and vacancies for this sector…</span>
+                    </div>
+                    <div className="h-1.5 w-full rounded-full bg-primary/10 overflow-hidden">
+                      <div className="h-full w-1/3 rounded-full bg-primary/70 animate-pulse" />
+                    </div>
+                  </div>
+                )}
 
                 {isCheckingAll && checkAllStatus && checkAllStatus.total > 0 && (
                   <div className="flex items-center gap-3">
