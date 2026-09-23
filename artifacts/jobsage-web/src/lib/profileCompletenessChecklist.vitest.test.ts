@@ -1,5 +1,6 @@
 import {
   getProfileCompletenessTarget,
+  getProfileCompletenessSectionLabel,
   getRemainingCompletenessPct,
   PROFILE_COMPLETENESS_FIELD_LABELS,
 } from "./profileCompletenessChecklist";
@@ -36,5 +37,11 @@ describe("profile completeness checklist", () => {
 
   it("does not invent a destination for an unknown calculator label", () => {
     expect(getProfileCompletenessTarget("Unlisted requirement")).toBeNull();
+  });
+
+  it("provides the section name shown beside each blocker", () => {
+    expect(getProfileCompletenessSectionLabel("Profession")).toBe("Professional Information");
+    expect(getProfileCompletenessSectionLabel("Profile photo")).toBe("Profile photo");
+    expect(getProfileCompletenessSectionLabel("Unlisted requirement")).toBe("Profile");
   });
 });

@@ -14,8 +14,21 @@ const PROFILE_COMPLETENESS_TARGETS: Record<string, string> = {
   "Additional notes": "profile-additional-section",
 };
 
+const PROFILE_COMPLETENESS_SECTION_LABELS: Record<string, string> = {
+  "profile-professional-section": "Professional Information",
+  "profile-qualifications-section": "Qualifications",
+  "profile-immigration-section": "Immigration & Location",
+  "profile-additional-section": "Additional Details",
+  "profile-photo-section": "Profile photo",
+};
+
 export function getProfileCompletenessTarget(label: string): string | null {
   return PROFILE_COMPLETENESS_TARGETS[label] ?? null;
+}
+
+export function getProfileCompletenessSectionLabel(label: string): string {
+  const target = getProfileCompletenessTarget(label);
+  return target ? PROFILE_COMPLETENESS_SECTION_LABELS[target] ?? "Profile" : "Profile";
 }
 
 export function getRemainingCompletenessPct(completionPct: number): number {
