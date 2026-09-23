@@ -30,14 +30,16 @@ describe("waitlist welcome email", () => {
     expect(sendMock).toHaveBeenCalledWith(expect.objectContaining({
       from: "JOBSAGE <noreply@jobsage.co.uk>",
       to: "ada+waitlist@example.com",
-      subject: "Welcome to JOBSAGE — We've received your details!",
-      html: expect.stringContaining(
-        "https://jobsage.co.uk/register?email=ada%2Bwaitlist%40example.com",
-      ),
+      subject: "We've received your information — JOBSAGE",
     }));
     expect(sendMock.mock.calls[0]![0].html).toContain(
-      "interest in Technology opportunities",
+      "we've received your details successfully",
     );
+    expect(sendMock.mock.calls[0]![0].html).toContain(
+      "You'll hear from JOBSAGE regarding the next steps",
+    );
+    expect(sendMock.mock.calls[0]![0].html).not.toContain("Create Free Account");
+    expect(sendMock.mock.calls[0]![0].html).not.toContain("Technology opportunities");
   });
 
   it("returns a structured failure when Resend rejects the request", async () => {
