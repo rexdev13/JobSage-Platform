@@ -1,0 +1,64 @@
+Audit JOBSAGE’s employer-website vacancy discovery and extraction. I need you to confirm whether the suspected issues below are real blockers in the CURRENT code and whether they explain missing vacancies across sectors.
+
+This is an investigation first. Do not apply the supplied patch or change production data yet. Treat every claim as unverified.
+
+Suspected issues:
+
+1. Saved non-ATS careers URLs are ignored when initializing the discovery queue.
+2. Pagination links can be classified as vacancy links and skipped, preventing later pages from being crawled.
+3. Extracted vacancies are silently limited to 12 per employer, with repeated scans returning the same first 12.
+4. ATS detection uses the original URL rather than the final URL after redirects.
+5. JSON-LD JobPosting records nested inside ItemList/ListItem/item structures are missed.
+6. JavaScript-only careers pages can be reported as successfully checked with zero vacancies.
+7. The six-page limit and employer time budget have no persisted resume cursor, so later pages remain undiscovered across repeated scans.
+8. A generic-only or ATS-only scan can mark vacancies from the other discovery path as missing.
+9. Vacancy detail pages are not consistently fetched, leaving descriptions, locations and application information incomplete.
+
+Start with:
+
+* companySiteDiscovery.ts
+* companySiteHttp.ts
+* companySiteScheduler.ts
+* companySiteProbe.ts
+* companySiteVerification.ts
+* boardVacancyPipeline.ts
+* Their relevant tests and database schema
+
+For EACH claim:
+
+* Identify the current code path and exact file/line evidence.
+* Check whether another component already handles it.
+* Create or run a focused reproduction using the existing test framework.
+* State the expected result and actual result.
+* Classify it as CONFIRMED, CONDITIONAL, ALREADY FIXED, or NOT REPRODUCED.
+* Explain whether it blocks discovery, loses extracted jobs, prevents verification, or merely affects reporting.
+* If the earlier patch is already applied, distinguish current behavior from the original issue. Use Git history or the supplied source if available; do not reconstruct an imagined baseline.
+
+Then check actual impact:
+
+* Read existing crawl outcomes and logs without changing production records.
+* Group attempted employers, successful extractions, zero-result scans, failures, and partial scans by sector where the stored data supports it.
+* Select representative employer sites from healthcare, education, engineering/IT, accounting, legal, and other supported sectors.
+* For a small sample, compare the vacancies visibly published on the employer’s careers site with what our extractor returns.
+* Use bounded, read-only requests. Do not invoke persistence, send alerts, submit applications, or trigger a production-wide crawl.
+* Record the URLs inspected and explain any anti-bot, JavaScript, timeout, or access limitations.
+* Do not treat a mocked test passing as proof of live-site coverage.
+* Do not infer that a sector works merely because it has one stored vacancy.
+
+Also investigate other causes you find, especially:
+
+* Incorrect employer websites or careers URLs.
+* Overly narrow allowed ATS destinations.
+* Profession or title filtering rejecting valid vacancies during ingestion.
+* Scheduler coverage, retries, and jobs that never run.
+* Vacancies extracted successfully but lost during normalization, persistence, or verification.
+
+Return:
+
+1. A concise verdict table for all nine claims.
+2. Reproduction commands and test results.
+3. Concrete examples showing which defects cause missing vacancies.
+4. The three highest-impact fixes, ranked by demonstrated impact.
+5. Any evidence still needed.
+
+Do not claim that all sectors work or that the extraction problem is solved without supporting evidence. Do not deploy or apply fixes during this audit.
