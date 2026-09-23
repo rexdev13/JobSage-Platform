@@ -43,6 +43,7 @@ vi.mock("../../lib/companySiteDiscovery", () => ({
 }));
 vi.mock("../../lib/companySiteProbe", () => ({
   COMPANY_SITE_PROBE_BATCH_SIZE: 30,
+  COMPANY_SITE_PROBE_OK_RECHECK_MS: 6 * 60 * 60 * 1000,
   runCompanySiteProbeBatch: runCompanySiteProbeBatchMock,
 }));
 

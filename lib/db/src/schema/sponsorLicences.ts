@@ -106,6 +106,12 @@ export const sponsorLicenceCompanySiteChecksTable = pgTable(
     lastCompletedAt: timestamp("last_completed_at", { withTimezone: true }),
     lastPartialAt: timestamp("last_partial_at", { withTimezone: true }),
     lastOutcome: text("last_outcome"),
+    probeStatus: text("probe_status")
+      .$type<"ok_for_crawl" | "bad" | "unknown">()
+      .notNull()
+      .default("unknown"),
+    lastProbedAt: timestamp("last_probed_at", { withTimezone: true }),
+    probeReason: text("probe_reason"),
     lastPagesFetched: integer("last_pages_fetched"),
     lastAdvertsFound: integer("last_adverts_found"),
     lastRejectedCount: integer("last_rejected_count"),
@@ -117,6 +123,7 @@ export const sponsorLicenceCompanySiteChecksTable = pgTable(
     index("company_site_checks_generic_idx").on(t.genericCheckedAt),
     index("company_site_checks_ats_idx").on(t.atsCheckedAt),
     index("company_site_checks_retry_idx").on(t.retryAfter),
+    index("company_site_checks_probe_due_idx").on(t.probeStatus, t.lastProbedAt),
   ],
 );
 

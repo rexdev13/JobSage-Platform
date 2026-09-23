@@ -156,6 +156,33 @@ function extractAnchors(html: string, baseUrl: string, originHostname: string): 
   return links;
 }
 
+export type CompanySiteProbeInspection = {
+  hasCareersSignal: boolean;
+  careersUrl: string | null;
+  atsProvider: string | null;
+};
+
+export function inspectCompanySiteProbePage(
+  pageUrl: string,
+  body: string,
+): CompanySiteProbeInspection {
+  const parsed = new URL(pageUrl);
+  const links = extractAnchors(body, pageUrl, parsed.hostname);
+  const atsLink = links.find((link) => link.atsProvider !== null);
+  const careersLink = links.find(
+    (link) => CAREERS_SIGNAL.test(link.text) || CAREERS_SIGNAL.test(link.url),
+  );
+  const atsProvider = knownAtsProvider(pageUrl) ?? atsLink?.atsProvider ?? null;
+  return {
+    hasCareersSignal:
+      atsProvider !== null ||
+      CAREERS_SIGNAL.test(textFromHtml(body)) ||
+      careersLink !== undefined,
+    careersUrl: careersLink?.url ?? (atsLink ? atsLink.url : null),
+    atsProvider,
+  };
+}
+
 function isPaginationLink(link: ExtractedLink): boolean {
   try {
     const parsed = new URL(link.url);

@@ -7,11 +7,15 @@ import {
   fetchCompanySitePage,
   type CompanySiteFailureClass,
 } from "./companySiteHttp";
-import { normaliseSponsorWebsite } from "./companySiteDiscovery";
+import {
+  inspectCompanySiteProbePage,
+  normaliseSponsorWebsite,
+} from "./companySiteDiscovery";
 import { withCompanySiteDatabaseRetry } from "./companySitePersistence";
 
 export const COMPANY_SITE_PROBE_FAILED_RETRY_MS = 24 * 60 * 60 * 1000;
 export const COMPANY_SITE_PROBE_PERMANENT_RETRY_MS = 14 * 24 * 60 * 60 * 1000;
+export const COMPANY_SITE_PROBE_OK_RECHECK_MS = 6 * 60 * 60 * 1000;
 export const COMPANY_SITE_PROBE_BATCH_SIZE = 30;
 export const COMPANY_SITE_PROBE_CONCURRENCY = 12;
 export const COMPANY_SITE_PROBE_WRITE_RESERVE_MS = 3_000;
@@ -21,6 +25,7 @@ export const COMPANY_SITE_PROBE_MAX_ROOT_BYTES = 128_000;
 export type CompanySiteProbeRow = {
   organisationName: string;
   website: string;
+  previousProbeStatus?: "ok_for_crawl" | "bad" | "unknown" | null;
 };
 
 export type CompanySiteProbeClassification =
@@ -56,15 +61,27 @@ async function persistProbeOutcome(
   classification: CompanySiteProbeClassification,
   error: string | null,
   retryAt: Date | undefined,
+  metadata: { careersUrl?: string | null; atsProvider?: string | null } = {},
 ): Promise<void> {
   const now = new Date();
   const retryAfter = retryAtFor(classification, retryAt, now);
+  const probeStatus: "ok_for_crawl" | "bad" =
+    classification === "ok_for_crawl" ? "ok_for_crawl" : "bad";
   const values = {
     organisationName: row.organisationName,
     retryAfter,
     lastError: error ? error.slice(0, 1_000) : null,
     lastOutcome: classification,
+    probeStatus,
+    lastProbedAt: now,
+    probeReason:
+      error?.slice(0, 500) ??
+      (classification === "ok_for_crawl"
+        ? "root fetch and careers/ATS signal succeeded"
+        : "probe failed"),
     updatedAt: now,
+    ...(metadata.careersUrl ? { careersUrl: metadata.careersUrl } : {}),
+    ...(metadata.atsProvider ? { atsProvider: metadata.atsProvider } : {}),
   };
   await withCompanySiteDatabaseRetry("store company-site probe", () =>
     db
@@ -107,6 +124,7 @@ export async function runCompanySiteProbe(
   let failureClass: CompanySiteFailureClass | null;
   let errorMessage: string | null;
   let retryAt: Date | undefined;
+  let metadata: { careersUrl?: string | null; atsProvider?: string | null } | undefined;
   try {
     // This deliberately performs exactly the shared robots-aware root fetch.
     // It does not parse links, follow vacancy pages, or write adverts.
@@ -117,10 +135,19 @@ export async function runCompanySiteProbe(
       COMPANY_SITE_PROBE_MAX_ROOT_BYTES,
     );
     if (result.ok) {
-      classification = "ok_for_crawl";
-      failureClass = null;
-      errorMessage = null;
-      retryAt = undefined;
+      const inspection = inspectCompanySiteProbePage(result.url, result.body);
+      if (!inspection.hasCareersSignal) {
+        classification = "permanent_bad";
+        failureClass = "permanent";
+        errorMessage = "[permanent] no careers or approved ATS signal on root page";
+        retryAt = undefined;
+      } else {
+        classification = "ok_for_crawl";
+        failureClass = null;
+        errorMessage = null;
+        retryAt = undefined;
+        metadata = inspection;
+      }
     } else {
       failureClass =
         result.failureClass ??
@@ -143,7 +170,7 @@ export async function runCompanySiteProbe(
   }
   // Persist outside the fetch try/catch: a database failure must remain a
   // batch error and must never reclassify a healthy website as temporary_bad.
-  await persistProbeOutcome(row, classification, errorMessage, retryAt);
+  await persistProbeOutcome(row, classification, errorMessage, retryAt, metadata);
   return { status: "checked", classification, failureClass };
 }
 
@@ -151,6 +178,8 @@ export type CompanySiteProbeSummary = {
   selected: number;
   checked: number;
   okForCrawl: number;
+  okForCrawlNew: number;
+  badNew: number;
   temporaryBad: number;
   permanentBad: number;
   skipped: number;
@@ -174,6 +203,8 @@ export async function runCompanySiteProbeBatch(
   let nextIndex = 0;
   let checked = 0;
   let okForCrawl = 0;
+  let okForCrawlNew = 0;
+  let badNew = 0;
   let temporaryBad = 0;
   let permanentBad = 0;
   let skipped = 0;
@@ -194,9 +225,14 @@ export async function runCompanySiteProbeBatch(
         if (outcome.status === "skipped") skipped += 1;
         else {
           checked += 1;
-          if (outcome.classification === "ok_for_crawl") okForCrawl += 1;
-          else if (outcome.classification === "temporary_bad") temporaryBad += 1;
-          else permanentBad += 1;
+          if (outcome.classification === "ok_for_crawl") {
+            okForCrawl += 1;
+            if (row.previousProbeStatus !== "ok_for_crawl") okForCrawlNew += 1;
+          } else {
+            if (row.previousProbeStatus !== "bad") badNew += 1;
+            if (outcome.classification === "temporary_bad") temporaryBad += 1;
+            else permanentBad += 1;
+          }
         }
       } catch {
         errors += 1;
@@ -215,6 +251,8 @@ export async function runCompanySiteProbeBatch(
     selected: rows.length,
     checked,
     okForCrawl,
+    okForCrawlNew,
+    badNew,
     temporaryBad,
     permanentBad,
     skipped,
