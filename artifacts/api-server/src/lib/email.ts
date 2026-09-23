@@ -660,11 +660,11 @@ export async function sendSpeculativeCVToOps(opts: {
             <td style="padding:48px 44px 40px;">
               <p style="margin:0 0 24px;font-size:15px;line-height:1.7;color:#334155;">Dear Hiring Team at ${safeCompanyName},</p>
               <p style="margin:0 0 20px;font-size:15px;line-height:1.8;color:#334155;">
-                I am writing to formally submit my application for the ${formalPosition} at ${safeCompanyName}. Please find my CV attached for your consideration.
+                I am pleased to submit my application for the ${formalPosition} role at ${safeCompanyName}. My CV is attached for your consideration.
               </p>
               ${renderedNotes ? `<div style="margin:0 0 4px;">${renderedNotes}</div>` : ""}
               <p style="margin:20px 0 0;font-size:15px;line-height:1.8;color:#334155;">
-                Thank you for taking the time to review my application. I would welcome the opportunity to speak with you further and look forward to hearing from you.
+                Thank you for considering my application. I would welcome the opportunity to discuss how my experience and qualifications could contribute to your team, and I look forward to hearing from you.
               </p>
               <p style="margin:24px 0 4px;font-size:15px;line-height:1.5;color:#334155;">Kind regards,</p>
               <p style="margin:0;font-weight:700;font-size:16px;line-height:1.5;color:#0f172a;">${safeCandidateName}</p>
