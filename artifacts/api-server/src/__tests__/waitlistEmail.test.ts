@@ -38,6 +38,10 @@ describe("waitlist welcome email", () => {
     expect(sendMock.mock.calls[0]![0].html).toContain(
       "You'll hear from JOBSAGE regarding the next steps",
     );
+    expect(sendMock.mock.calls[0]![0].html).toContain(
+      "https://www.instagram.com/jobsageltd?stkn=MXJrMmZpODFjbzBkZw==",
+    );
+    expect(sendMock.mock.calls[0]![0].html).toContain("Follow us on Instagram");
     expect(sendMock.mock.calls[0]![0].html).not.toContain("Create Free Account");
     expect(sendMock.mock.calls[0]![0].html).not.toContain("Technology opportunities");
   });

@@ -118,6 +118,16 @@ export async function sendWaitlistWelcomeEmail(opts: {
           </tr>
           <tr>
             <td style="background:#f8fafc;padding:20px 40px;border-top:1px solid #e2e8f0;text-align:center;">
+              <p style="color:#64748b;font-size:12px;margin:0 0 10px;">
+                Stay connected with JOBSAGE
+              </p>
+              <a href="https://www.instagram.com/jobsageltd?stkn=MXJrMmZpODFjbzBkZw==" target="_blank" rel="noopener noreferrer" aria-label="Follow JOBSAGE on Instagram" style="color:#e1306c;font-size:13px;font-weight:600;text-decoration:none;">
+                <span style="display:inline-block;width:18px;height:18px;border:2px solid #e1306c;border-radius:5px;vertical-align:-5px;margin-right:6px;position:relative;">
+                  <span style="display:block;width:6px;height:6px;border:2px solid #e1306c;border-radius:50%;position:absolute;left:4px;top:4px;"></span>
+                  <span style="display:block;width:3px;height:3px;background:#e1306c;border-radius:50%;position:absolute;right:2px;top:2px;"></span>
+                </span>
+                Follow us on Instagram
+              </a>
               <p style="color:#94a3b8;font-size:12px;margin:0;">
                 &copy; ${new Date().getFullYear()} JOBSAGE. Decision intelligence for regulated professionals.
               </p>
