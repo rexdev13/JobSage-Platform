@@ -610,9 +610,11 @@ export default function ProfilePage() {
                   className="hidden"
                   onChange={handlePhotoSelect}
                 />
-                <p className="text-[10px] text-center text-muted-foreground mt-2 max-w-[5rem] leading-tight">
-                  Required for 100%
-                </p>
+                {!displayPhotoUrl && (
+                  <p className="text-[10px] text-center text-muted-foreground mt-2 max-w-[5rem] leading-tight">
+                    Required for 100%
+                  </p>
+                )}
               </div>
               <div>
                 <h1 className="text-3xl font-display font-bold text-foreground">Personal & Professional Profile</h1>

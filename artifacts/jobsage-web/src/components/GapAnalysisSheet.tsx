@@ -35,7 +35,7 @@ interface GapAnalysisSheetProps {
   companyName: string;
   vacancyUrl: string | null | undefined;
   hasCvUploaded: boolean;
-  onApply: () => void;
+  onApply?: () => void;
   sourceType?: "job_board" | "company_site" | null;
   /** Whether this URL is a vacancy apply URL, rather than an employer website. */
   trackVacancyIntent?: boolean;
@@ -418,16 +418,18 @@ export function GapAnalysisSheet({
               <ExternalLink className="w-4 h-4 opacity-70" />
             </Button>
           )}
-          <Button
-            className="w-full"
-            disabled={!hasCvUploaded}
-            title={!hasCvUploaded ? "Upload a CV to apply" : undefined}
-            onClick={onApply}
-          >
-            <Send className="w-4 h-4" />
-            Send my CV
-          </Button>
-          {!hasCvUploaded && (
+          {onApply && (
+            <Button
+              className="w-full"
+              disabled={!hasCvUploaded}
+              title={!hasCvUploaded ? "Upload a CV to apply" : undefined}
+              onClick={onApply}
+            >
+              <Send className="w-4 h-4" />
+              Send my CV
+            </Button>
+          )}
+          {onApply && !hasCvUploaded && (
             <p className="text-xs text-center text-muted-foreground">
               Upload a CV in{" "}
               <a href={`${import.meta.env.BASE_URL}cv`} className="text-primary hover:underline">
