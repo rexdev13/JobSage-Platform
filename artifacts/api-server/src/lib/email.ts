@@ -494,13 +494,64 @@ function normalizeEmailSubject(value: string): string {
   return value.replace(/[\r\n]+/g, " ").replace(/\s+/g, " ").trim();
 }
 
-function renderCandidateNotes(notes: string | null | undefined): string | null {
+function normalizeCandidateNotes(
+  notes: string | null | undefined,
+  candidateName: string,
+): string[] {
   const normalizedNotes = notes?.replace(/\r\n?/g, "\n").trim();
-  if (!normalizedNotes) return null;
+  if (!normalizedNotes) return [];
+
+  const candidateNameKey = candidateName.trim().toLocaleLowerCase();
+  const cleanedLines: string[] = [];
+  let afterClosing = false;
+
+  for (const line of normalizedNotes.split("\n")) {
+    const trimmedLine = line.trim();
+    if (!trimmedLine) {
+      cleanedLines.push("");
+      continue;
+    }
+
+    if (afterClosing) continue;
+    if (/^dear hiring team(?:\s+at\b[^,]*)?,?$/i.test(trimmedLine)) continue;
+    if (/^i am writing to (?:formally submit my application|express my sincere interest)\b/i.test(trimmedLine)) continue;
+    if (/^please find my (?:cv|resume) attached\b/i.test(trimmedLine)) continue;
+    if (/^i look forward to hearing from you\b/i.test(trimmedLine)) continue;
+    if (/^(?:kind|best|warm) regards,?$/i.test(trimmedLine)) {
+      afterClosing = true;
+      continue;
+    }
+
+    const bulletMatch = trimmedLine.match(/^(?:[-*•]|\d+[.)])\s+(.+)$/);
+    const candidateLine = bulletMatch?.[1] ?? trimmedLine;
+    const headingMatch = candidateLine.match(
+      /^(?:motivation|relevant clinical experience|uk regulatory registration status|right to work & sponsorship status|key professional strengths|availability & notice period)\s*:?\s*(.*)$/i,
+    );
+    if (headingMatch) {
+      if (headingMatch[1]?.trim()) cleanedLines.push(headingMatch[1].trim());
+      continue;
+    }
+
+    if (candidateNameKey && candidateLine.toLocaleLowerCase() === candidateNameKey) {
+      continue;
+    }
+    cleanedLines.push(candidateLine);
+  }
+
+  while (cleanedLines[0] === "") cleanedLines.shift();
+  while (cleanedLines.at(-1) === "") cleanedLines.pop();
+  return cleanedLines;
+}
+
+function renderCandidateNotes(
+  notes: string | null | undefined,
+  candidateName: string,
+): string | null {
+  const normalizedLines = normalizeCandidateNotes(notes, candidateName);
+  if (normalizedLines.length === 0) return null;
 
   const renderedParts: string[] = [];
   let paragraphLines: string[] = [];
-  let bulletItems: string[] = [];
 
   const flushParagraph = () => {
     if (paragraphLines.length === 0) return;
@@ -512,36 +563,17 @@ function renderCandidateNotes(notes: string | null | undefined): string | null {
     paragraphLines = [];
   };
 
-  const flushBullets = () => {
-    if (bulletItems.length === 0) return;
-    renderedParts.push(
-      `<ul style="margin:0 0 12px;padding-left:20px;color:#334155;font-size:14px;line-height:1.7;">${bulletItems
-        .map((item) => `<li style="padding-left:4px;">${escapeEmailHtml(item)}</li>`)
-        .join("")}</ul>`,
-    );
-    bulletItems = [];
-  };
-
-  for (const line of normalizedNotes.split("\n")) {
+  for (const line of normalizedLines) {
     const trimmedLine = line.trim();
     if (!trimmedLine) {
       flushParagraph();
-      flushBullets();
       continue;
     }
 
-    const bulletMatch = trimmedLine.match(/^(?:[-*•]|\d+[.)])\s+(.+)$/);
-    if (bulletMatch) {
-      flushParagraph();
-      bulletItems.push(bulletMatch[1]);
-    } else {
-      flushBullets();
-      paragraphLines.push(trimmedLine);
-    }
+    paragraphLines.push(trimmedLine);
   }
 
   flushParagraph();
-  flushBullets();
   return renderedParts.join("");
 }
 
@@ -591,7 +623,7 @@ export async function sendSpeculativeCVToOps(opts: {
   const safeCoverLetterFilename = opts.coverLetterFilename
     ? escapeEmailHtml(opts.coverLetterFilename)
     : null;
-  const renderedNotes = renderCandidateNotes(opts.notes);
+  const renderedNotes = renderCandidateNotes(opts.notes, opts.candidateName);
   const safeCandidateSubject = normalizeEmailSubject(opts.candidateName);
   const safeVacancySubject = normalizeEmailSubject(opts.vacancyTitle ?? opts.companyName);
   const safeCompanySubject = normalizeEmailSubject(opts.companyName);

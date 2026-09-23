@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { compileSmartApplyOutreach } from "./smartApplyOutreach";
 
 describe("compileSmartApplyOutreach", () => {
-  it("compiles all six questionnaire answers into the employer message", () => {
+  it("compiles all six questionnaire answers into seamless body paragraphs", () => {
     const result = compileSmartApplyOutreach({
       employerName: "Example NHS Trust",
       jobTitle: "Staff Nurse",
@@ -17,14 +17,16 @@ describe("compileSmartApplyOutreach", () => {
       },
     });
 
-    expect(result).toContain("Dear Hiring Team at Example NHS Trust,");
-    expect(result).toContain("interest in the Staff Nurse position");
-    expect(result).toContain("• Motivation:\nI am motivated by patient-centred care.");
-    expect(result).toContain("• Relevant Clinical Experience:\nI have four years of ward experience.");
-    expect(result).toContain("• UK Regulatory Registration Status:\nI am NMC registered.");
-    expect(result).toContain("• Right to Work & Sponsorship Status:\nI require Skilled Worker sponsorship.");
-    expect(result).toContain("• Key Professional Strengths:\nI communicate clearly and work calmly under pressure.");
-    expect(result).toContain("• Availability & Notice Period:\nI can start after one month's notice.");
-    expect(result).toContain("Kind regards,\nJane Doe");
+    expect(result).toBe([
+      "I am motivated by patient-centred care.",
+      "I have four years of ward experience.",
+      "I am NMC registered.",
+      "I require Skilled Worker sponsorship.",
+      "I communicate clearly and work calmly under pressure.",
+      "I can start after one month's notice.",
+    ].join("\n\n"));
+    expect(result).not.toContain("Dear Hiring Team");
+    expect(result).not.toContain("Motivation:");
+    expect(result).not.toContain("Kind regards");
   });
 });
