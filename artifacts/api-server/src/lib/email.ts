@@ -76,18 +76,12 @@ export async function sendWaitlistWelcomeEmail(opts: {
   desiredRole?: string | null;
 }): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const safeFirstName = escapeEmailHtml(opts.firstName);
-  const safeIndustrySector = opts.industrySector
-    ? escapeEmailHtml(opts.industrySector)
-    : null;
-  const registerUrl = escapeHtmlAttribute(
-    `${APP_URL}/register?email=${encodeURIComponent(opts.to)}`,
-  );
 
   try {
     const result = await resend.emails.send({
       from: `JOBSAGE <${FROM}>`,
       to: opts.to,
-      subject: "Welcome to JOBSAGE — We've received your details!",
+      subject: "We've received your information — JOBSAGE",
       html: `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -109,22 +103,15 @@ export async function sendWaitlistWelcomeEmail(opts: {
             <td style="padding:40px 40px 28px;">
               <h1 style="color:#0f172a;font-size:22px;font-weight:700;margin:0 0 18px;">Hi ${safeFirstName},</h1>
               <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 18px;">
-                Thank you for joining the JOBSAGE waitlist! We have received your details${safeIndustrySector ? ` and interest in ${safeIndustrySector} opportunities` : ""}.
+                 Thank you for taking the time to share your information with JOBSAGE. We're writing to confirm that we've received your details successfully.
               </p>
               <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 18px;">
-                Our advisory team reviews each profile to identify suitable UK sponsorship pathways and relevant vacancies. A dedicated team member will reach out to you shortly to guide you on next steps.
+                 The information you provided will now be kept on record for follow-up. You'll hear from JOBSAGE regarding the next steps and any further information that may be relevant to your enquiry.
               </p>
               <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 26px;">
-                In the meantime, you can create your free account to track your progress and browse licensed sponsor employers.
-              </p>
-              <table cellpadding="0" cellspacing="0" role="presentation" style="margin:0 auto 28px;">
-                <tr>
-                  <td style="background:#0f172a;border-radius:8px;padding:14px 30px;text-align:center;">
-                    <a href="${registerUrl}" style="color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;display:inline-block;">Create Free Account</a>
-                  </td>
-                </tr>
-              </table>
-              <p style="color:#475569;font-size:15px;line-height:1.7;margin:0;">
+                 We appreciate your interest in JOBSAGE and thank you for choosing to share your details with us. We look forward to staying in touch.
+               </p>
+               <p style="color:#475569;font-size:15px;line-height:1.7;margin:0;">
                 Best regards,<br />The JOBSAGE Team
               </p>
             </td>
