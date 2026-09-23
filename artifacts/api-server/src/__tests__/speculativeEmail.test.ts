@@ -84,11 +84,50 @@ describe("speculative CV email", () => {
     expect(html).not.toContain("<img src=x>");
     expect(html).toContain("&lt;script&gt;");
     expect(html).toContain("&lt;img src=x&gt;");
-    expect(html).toContain("<ul");
-    expect(html).toContain("<li style=");
+    expect(html).toContain("<p style=");
     expect(html).toContain("Ref: JS-43");
     expect(html).not.toContain("candidate-1");
     expect(html).not.toContain("<script>");
+  });
+
+  it("composes legacy full-letter notes into one seamless employer message", async () => {
+    await sendSpeculativeCVToOps({
+      candidateEmail: "login@example.test",
+      candidateName: "Amara Okafor",
+      candidateUserId: "candidate-1",
+      companyName: "North Health Trust",
+      applicationId: 45,
+      cvFilename: "Amara CV.pdf",
+      cvContent: Buffer.from("cv"),
+      notes: `Dear Hiring Team at North Health Trust,
+
+I am writing to express my sincere interest in the Senior Nurse position. Please find my screening details and qualifications below:
+
+• Motivation:
+I am motivated by patient-centred care.
+
+• Relevant Clinical Experience:
+I have four years of ward experience.
+
+Please find my CV attached. I look forward to hearing from you.
+
+Kind regards,
+Amara Okafor`,
+      vacancyTitle: "Senior Nurse",
+      jobsageEmail: "amara@jobsage.app",
+      recipientEmail: "recruitment@example.test",
+    });
+
+    const html = sendMock.mock.calls[0]![0].html as string;
+    expect(html.match(/Dear Hiring Team at North Health Trust,/g)).toHaveLength(1);
+    expect(html).toContain("I am writing to formally submit my application for the Senior Nurse at North Health Trust.");
+    expect(html).toContain("I am motivated by patient-centred care.");
+    expect(html).toContain("I have four years of ward experience.");
+    expect(html).not.toContain("• Motivation:");
+    expect(html).not.toContain("Relevant Clinical Experience:");
+    expect(html).not.toContain("I am writing to express my sincere interest");
+    expect(html).not.toContain("<ul");
+    expect(html.match(/Kind regards,<\/p>/g)).toHaveLength(1);
   });
 
   it("escapes all HTML metacharacters", () => {
