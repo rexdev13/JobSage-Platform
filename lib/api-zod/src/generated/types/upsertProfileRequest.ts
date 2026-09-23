@@ -25,6 +25,7 @@ export interface UpsertProfileRequest {
   residencyStatus: string;
   requiresSponsorship: boolean;
   preferredRegion?: string[] | null;
+  /** Weekly at launch. The daily value is retained only for backwards-compatible clients and is treated as weekly. */
   alertFrequency?: UpsertProfileRequestAlertFrequency;
   preferredStartDate?: string | null;
   profilePhotoKey?: string | null;

@@ -6,6 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * Weekly at launch. The daily value is retained only for backwards-compatible clients and is treated as weekly.
+ */
 export type UpsertProfileRequestAlertFrequency =
   | (typeof UpsertProfileRequestAlertFrequency)[keyof typeof UpsertProfileRequestAlertFrequency]
   | null;

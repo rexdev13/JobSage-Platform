@@ -26,6 +26,8 @@ describe("profile completeness checklist", () => {
     for (const label of PROFILE_COMPLETENESS_FIELD_LABELS) {
       expect(getProfileCompletenessTarget(label)).toMatch(/^profile-/);
     }
+    expect(getProfileCompletenessTarget("Specialty")).toBe("profile-field-specialty");
+    expect(getProfileCompletenessTarget("Profile photo")).toBe("profile-photo-upload");
   });
 
   it("reports the rounded percentage remaining without exceeding the score bounds", () => {

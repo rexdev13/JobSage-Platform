@@ -216,6 +216,8 @@ export const ListProfessionsResponse = zod.object({
 /**
  * @summary Get the current user's profile
  */
+export const getMyProfileResponseAlertFrequencyDefault = `weekly`;
+
 export const GetMyProfileResponse = zod.object({
   id: zod.number(),
   userId: zod.string(),
@@ -242,7 +244,13 @@ export const GetMyProfileResponse = zod.object({
   residencyStatus: zod.string().nullish(),
   requiresSponsorship: zod.boolean().nullish(),
   preferredRegion: zod.array(zod.string()).nullish(),
-  alertFrequency: zod.enum(["daily", "weekly", "off"]).nullish(),
+  alertFrequency: zod
+    .enum(["daily", "weekly", "off"])
+    .nullish()
+    .default(getMyProfileResponseAlertFrequencyDefault)
+    .describe(
+      "Weekly at launch. The daily value is retained only for backwards-compatible clients and is treated as weekly.",
+    ),
   lastAlertSentAt: zod.date().nullish(),
   boostProfile: zod.boolean().optional(),
   preferredStartDate: zod
@@ -288,6 +296,12 @@ export const GetMyProfileResponse = zod.object({
     .number()
     .optional()
     .describe("Profile completeness score (0–100), computed server-side"),
+  missingFields: zod
+    .array(zod.string())
+    .optional()
+    .describe(
+      "Labels of fields still needed for 100% profile completeness, computed from the same fields as completionPct",
+    ),
   createdAt: zod.date(),
   updatedAt: zod.date(),
 });
@@ -295,6 +309,8 @@ export const GetMyProfileResponse = zod.object({
 /**
  * @summary Create or update the current user's profile
  */
+export const upsertMyProfileBodyAlertFrequencyDefault = `weekly`;
+
 export const UpsertMyProfileBody = zod.object({
   profession: zod
     .string()
@@ -317,7 +333,13 @@ export const UpsertMyProfileBody = zod.object({
   residencyStatus: zod.string(),
   requiresSponsorship: zod.boolean(),
   preferredRegion: zod.array(zod.string()).nullish(),
-  alertFrequency: zod.enum(["daily", "weekly", "off"]).nullish(),
+  alertFrequency: zod
+    .enum(["daily", "weekly", "off"])
+    .nullish()
+    .default(upsertMyProfileBodyAlertFrequencyDefault)
+    .describe(
+      "Weekly at launch. The daily value is retained only for backwards-compatible clients and is treated as weekly.",
+    ),
   preferredStartDate: zod.string().nullish(),
   profilePhotoKey: zod.string().nullish(),
   languages: zod.array(zod.string()).nullish(),
@@ -328,6 +350,8 @@ export const UpsertMyProfileBody = zod.object({
   postcode: zod.string().nullish(),
   country: zod.string().nullish(),
 });
+
+export const upsertMyProfileResponseAlertFrequencyDefault = `weekly`;
 
 export const UpsertMyProfileResponse = zod.object({
   id: zod.number(),
@@ -355,7 +379,13 @@ export const UpsertMyProfileResponse = zod.object({
   residencyStatus: zod.string().nullish(),
   requiresSponsorship: zod.boolean().nullish(),
   preferredRegion: zod.array(zod.string()).nullish(),
-  alertFrequency: zod.enum(["daily", "weekly", "off"]).nullish(),
+  alertFrequency: zod
+    .enum(["daily", "weekly", "off"])
+    .nullish()
+    .default(upsertMyProfileResponseAlertFrequencyDefault)
+    .describe(
+      "Weekly at launch. The daily value is retained only for backwards-compatible clients and is treated as weekly.",
+    ),
   lastAlertSentAt: zod.date().nullish(),
   boostProfile: zod.boolean().optional(),
   preferredStartDate: zod
@@ -401,6 +431,12 @@ export const UpsertMyProfileResponse = zod.object({
     .number()
     .optional()
     .describe("Profile completeness score (0–100), computed server-side"),
+  missingFields: zod
+    .array(zod.string())
+    .optional()
+    .describe(
+      "Labels of fields still needed for 100% profile completeness, computed from the same fields as completionPct",
+    ),
   createdAt: zod.date(),
   updatedAt: zod.date(),
 });
@@ -690,6 +726,8 @@ export const RunRegressionTestParams = zod.object({
   id: zod.coerce.number(),
 });
 
+export const runRegressionTestBodyCasesItemProfileAlertFrequencyDefault = `weekly`;
+
 export const RunRegressionTestBody = zod.object({
   cases: zod.array(
     zod.object({
@@ -720,7 +758,13 @@ export const RunRegressionTestBody = zod.object({
         residencyStatus: zod.string(),
         requiresSponsorship: zod.boolean(),
         preferredRegion: zod.array(zod.string()).nullish(),
-        alertFrequency: zod.enum(["daily", "weekly", "off"]).nullish(),
+        alertFrequency: zod
+          .enum(["daily", "weekly", "off"])
+          .nullish()
+          .default(runRegressionTestBodyCasesItemProfileAlertFrequencyDefault)
+          .describe(
+            "Weekly at launch. The daily value is retained only for backwards-compatible clients and is treated as weekly.",
+          ),
         preferredStartDate: zod.string().nullish(),
         profilePhotoKey: zod.string().nullish(),
         languages: zod.array(zod.string()).nullish(),
@@ -1836,6 +1880,8 @@ export const GetReviewCaseParams = zod.object({
   caseId: zod.coerce.number(),
 });
 
+export const getReviewCaseResponseProfileAlertFrequencyDefault = `weekly`;
+
 export const GetReviewCaseResponse = zod.object({
   case: zod.object({
     id: zod.number(),
@@ -1896,7 +1942,13 @@ export const GetReviewCaseResponse = zod.object({
       residencyStatus: zod.string().nullish(),
       requiresSponsorship: zod.boolean().nullish(),
       preferredRegion: zod.array(zod.string()).nullish(),
-      alertFrequency: zod.enum(["daily", "weekly", "off"]).nullish(),
+      alertFrequency: zod
+        .enum(["daily", "weekly", "off"])
+        .nullish()
+        .default(getReviewCaseResponseProfileAlertFrequencyDefault)
+        .describe(
+          "Weekly at launch. The daily value is retained only for backwards-compatible clients and is treated as weekly.",
+        ),
       lastAlertSentAt: zod.date().nullish(),
       boostProfile: zod.boolean().optional(),
       preferredStartDate: zod
@@ -1944,6 +1996,12 @@ export const GetReviewCaseResponse = zod.object({
         .number()
         .optional()
         .describe("Profile completeness score (0–100), computed server-side"),
+      missingFields: zod
+        .array(zod.string())
+        .optional()
+        .describe(
+          "Labels of fields still needed for 100% profile completeness, computed from the same fields as completionPct",
+        ),
       createdAt: zod.date(),
       updatedAt: zod.date(),
     })
