@@ -14,9 +14,10 @@ import {
 import { withCompanySiteDatabaseRetry } from "./companySitePersistence";
 
 export const COMPANY_SITE_PROBE_FAILED_RETRY_MS = 24 * 60 * 60 * 1000;
+export const COMPANY_SITE_PROBE_UNKNOWN_RETRY_MS = 6 * 60 * 60 * 1000;
 export const COMPANY_SITE_PROBE_PERMANENT_RETRY_MS = 14 * 24 * 60 * 60 * 1000;
 export const COMPANY_SITE_PROBE_OK_RECHECK_MS = 6 * 60 * 60 * 1000;
-export const COMPANY_SITE_PROBE_BATCH_SIZE = 30;
+export const COMPANY_SITE_PROBE_BATCH_SIZE = 50;
 export const COMPANY_SITE_PROBE_CONCURRENCY = 12;
 export const COMPANY_SITE_PROBE_WRITE_RESERVE_MS = 3_000;
 export const COMPANY_SITE_PROBE_HTTP_BUDGET_MS = 20_000;
@@ -31,6 +32,7 @@ export type CompanySiteProbeRow = {
 export type CompanySiteProbeClassification =
   | "permanent_bad"
   | "temporary_bad"
+  | "unknown"
   | "ok_for_crawl";
 
 export type CompanySiteProbeOutcome =
@@ -47,6 +49,10 @@ function retryAtFor(
   now: Date,
 ): Date | null {
   if (classification === "ok_for_crawl") return null;
+  if (classification === "unknown") {
+    const floor = new Date(now.getTime() + COMPANY_SITE_PROBE_UNKNOWN_RETRY_MS);
+    return supplied && supplied > floor ? supplied : floor;
+  }
   const floor = new Date(
     now.getTime() +
       (classification === "permanent_bad"
@@ -65,8 +71,12 @@ async function persistProbeOutcome(
 ): Promise<void> {
   const now = new Date();
   const retryAfter = retryAtFor(classification, retryAt, now);
-  const probeStatus: "ok_for_crawl" | "bad" =
-    classification === "ok_for_crawl" ? "ok_for_crawl" : "bad";
+  const probeStatus: "ok_for_crawl" | "bad" | "unknown" =
+    classification === "ok_for_crawl"
+      ? "ok_for_crawl"
+      : classification === "unknown"
+        ? "unknown"
+        : "bad";
   const values = {
     organisationName: row.organisationName,
     retryAfter,
@@ -78,7 +88,9 @@ async function persistProbeOutcome(
       error?.slice(0, 500) ??
       (classification === "ok_for_crawl"
         ? "root fetch and careers/ATS signal succeeded"
-        : "probe failed"),
+        : classification === "unknown"
+          ? "probe inconclusive; retry scheduled"
+          : "probe failed"),
     updatedAt: now,
     ...(metadata.careersUrl ? { careersUrl: metadata.careersUrl } : {}),
     ...(metadata.atsProvider ? { atsProvider: metadata.atsProvider } : {}),
@@ -137,9 +149,12 @@ export async function runCompanySiteProbe(
     if (result.ok) {
       const inspection = inspectCompanySiteProbePage(result.url, result.body);
       if (!inspection.hasCareersSignal) {
-        classification = "permanent_bad";
-        failureClass = "permanent";
-        errorMessage = "[permanent] no careers or approved ATS signal on root page";
+        // A homepage is not authoritative evidence that an employer has no
+        // vacancies. Keep this retryable so a later probe or full crawl can
+        // discover a careers page linked elsewhere.
+        classification = "unknown";
+        failureClass = null;
+        errorMessage = "[unknown] no careers or approved ATS signal on root page";
         retryAt = undefined;
       } else {
         classification = "ok_for_crawl";
@@ -152,9 +167,15 @@ export async function runCompanySiteProbe(
       failureClass =
         result.failureClass ??
         classifyCompanySiteFailure(result);
-      classification =
-        failureClass === "permanent" ? "permanent_bad" : "temporary_bad";
-      errorMessage = `[${failureClass}] ${result.reason}`;
+      const sizeLimited = /(?:compressed response exceeded|buffer larger than|response (?:exceeded|too large)|(?:body|response) size)/i
+        .test(result.reason);
+      classification = sizeLimited
+        ? "unknown"
+        : failureClass === "permanent"
+          ? "permanent_bad"
+          : "temporary_bad";
+      if (sizeLimited) failureClass = "temporary";
+      errorMessage = `[${sizeLimited ? "unknown" : failureClass}] ${result.reason}`;
       retryAt = result.retryAt;
     }
   } catch (error) {
@@ -163,9 +184,15 @@ export async function runCompanySiteProbe(
       kind: "network",
       reason,
     });
-    classification =
-      failureClass === "permanent" ? "permanent_bad" : "temporary_bad";
-    errorMessage = `[${failureClass}] ${reason}`;
+    const sizeLimited = /(?:compressed response exceeded|buffer larger than|response (?:exceeded|too large)|(?:body|response) size)/i
+      .test(reason);
+    classification = sizeLimited
+      ? "unknown"
+      : failureClass === "permanent"
+        ? "permanent_bad"
+        : "temporary_bad";
+    if (sizeLimited) failureClass = "temporary";
+    errorMessage = `[${sizeLimited ? "unknown" : failureClass}] ${reason}`;
     retryAt = undefined;
   }
   // Persist outside the fetch try/catch: a database failure must remain a
@@ -182,6 +209,7 @@ export type CompanySiteProbeSummary = {
   badNew: number;
   temporaryBad: number;
   permanentBad: number;
+  unknown: number;
   skipped: number;
   deferred: number;
   errors: number;
@@ -207,6 +235,7 @@ export async function runCompanySiteProbeBatch(
   let badNew = 0;
   let temporaryBad = 0;
   let permanentBad = 0;
+  let unknown = 0;
   let skipped = 0;
   let deferred = 0;
   let errors = 0;
@@ -228,6 +257,8 @@ export async function runCompanySiteProbeBatch(
           if (outcome.classification === "ok_for_crawl") {
             okForCrawl += 1;
             if (row.previousProbeStatus !== "ok_for_crawl") okForCrawlNew += 1;
+          } else if (outcome.classification === "unknown") {
+            unknown += 1;
           } else {
             if (row.previousProbeStatus !== "bad") badNew += 1;
             if (outcome.classification === "temporary_bad") temporaryBad += 1;
@@ -255,6 +286,7 @@ export async function runCompanySiteProbeBatch(
     badNew,
     temporaryBad,
     permanentBad,
+    unknown,
     skipped,
     deferred,
     errors,
