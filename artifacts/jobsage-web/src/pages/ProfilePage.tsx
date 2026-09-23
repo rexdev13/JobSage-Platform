@@ -30,6 +30,7 @@ import {
 } from "@/lib/careerProfileMakerCopy";
 import {
   getProfileCompletenessTarget,
+  getProfileCompletenessSectionLabel,
   getRemainingCompletenessPct,
 } from "@/lib/profileCompletenessChecklist";
 
@@ -669,35 +670,70 @@ export default function ProfilePage() {
                 style={{ width: `${completionPct}%` }}
               />
             </div>
-            {completionPct < 100 && missingFields.length > 0 && (
-              <div className="mt-3 rounded-lg border border-amber-200/70 bg-amber-50/60 px-3 py-2.5 dark:border-amber-800/40 dark:bg-amber-950/20">
-                <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">
-                  Complete these {remainingCompletenessPct}% to reach 100%
-                </p>
-                <ul className="mt-1.5 space-y-1">
-                  {missingFields.map((label) => {
-                    const targetId = getProfileCompletenessTarget(label);
-                    return (
-                      <li key={label}>
-                        {targetId ? (
-                          <button
-                            type="button"
-                            onClick={() => focusCompletenessTarget(targetId)}
-                            className="inline-flex items-center gap-1 text-xs text-primary font-medium hover:underline underline-offset-2"
-                          >
-                            <ChevronRight className="w-3 h-3 shrink-0" />
-                            {label}
-                          </button>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                            <span className="w-3" />
-                            {label}
-                          </span>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
+            {completionPct < 100 && (
+              <div
+                aria-live="polite"
+                className="mt-4 overflow-hidden rounded-xl border border-amber-200 bg-amber-50/80 dark:border-amber-800/50 dark:bg-amber-950/20"
+              >
+                <div className="flex items-start gap-3 border-b border-amber-200/70 px-4 py-3.5 dark:border-amber-800/40">
+                  <div className="mt-0.5 rounded-full bg-amber-100 p-1.5 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300">
+                    <AlertTriangle className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-amber-900 dark:text-amber-200">
+                      What&apos;s blocking 100%?
+                    </p>
+                    <p className="mt-0.5 text-xs leading-relaxed text-amber-800/85 dark:text-amber-300/85">
+                      {missingFields.length > 0
+                        ? `${missingFields.length} ${missingFields.length === 1 ? "item is" : "items are"} still incomplete. Use “Fix this” to jump straight to each one.`
+                        : `Your profile is missing ${remainingCompletenessPct}% — refresh or complete the fields below to see what is still needed.`}
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-white/70 px-2 py-1 text-[11px] font-bold tabular-nums text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                    {remainingCompletenessPct}% left
+                  </span>
+                </div>
+
+                {missingFields.length > 0 && (
+                  <div className="space-y-2 px-3 py-3">
+                    {missingFields.map((label, index) => {
+                      const targetId = getProfileCompletenessTarget(label);
+                      return (
+                        <div
+                          key={label}
+                          className="flex items-center justify-between gap-3 rounded-lg border border-amber-200/80 bg-background px-3 py-2.5 shadow-sm dark:border-amber-800/40"
+                        >
+                          <div className="flex min-w-0 items-center gap-2.5">
+                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-100 text-xs font-bold text-amber-800 dark:bg-amber-900/50 dark:text-amber-200">
+                              {index + 1}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-foreground">{label}</p>
+                              <p className="text-[11px] text-muted-foreground">
+                                {getProfileCompletenessSectionLabel(label)}
+                              </p>
+                            </div>
+                          </div>
+                          {targetId ? (
+                            <a
+                              href={`#${targetId}`}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                focusCompletenessTarget(targetId);
+                              }}
+                              className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1.5 text-xs font-bold text-primary transition-colors hover:bg-primary/10 hover:underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                            >
+                              Fix this
+                              <ChevronRight className="h-3.5 w-3.5" />
+                            </a>
+                          ) : (
+                            <span className="shrink-0 text-xs font-medium text-muted-foreground">Review profile</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>
