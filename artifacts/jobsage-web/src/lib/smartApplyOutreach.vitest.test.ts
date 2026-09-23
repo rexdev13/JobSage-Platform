@@ -18,15 +18,14 @@ describe("compileSmartApplyOutreach", () => {
     });
 
     expect(result).toBe([
-      "I am motivated by patient-centred care.",
-      "I have four years of ward experience.",
-      "I am NMC registered.",
-      "I require Skilled Worker sponsorship.",
-      "I communicate clearly and work calmly under pressure.",
-      "I can start after one month's notice.",
+      "I am particularly interested in the Staff Nurse opportunity at Example NHS Trust. I am motivated by patient-centred care.",
+      "My relevant clinical experience has prepared me to contribute effectively in this role. I have four years of ward experience. My current UK regulatory position is as follows: I am NMC registered.",
+      "Regarding my right to work in the UK and any sponsorship requirements: I require Skilled Worker sponsorship. I would also bring these professional strengths to the role: I communicate clearly and work calmly under pressure.",
+      "Finally, in terms of availability: I can start after one month's notice.",
     ].join("\n\n"));
     expect(result).not.toContain("Dear Hiring Team");
     expect(result).not.toContain("Motivation:");
     expect(result).not.toContain("Kind regards");
+    expect(result).not.toContain("•");
   });
 });

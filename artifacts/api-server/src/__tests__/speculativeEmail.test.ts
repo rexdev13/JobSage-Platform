@@ -49,7 +49,7 @@ describe("speculative CV email", () => {
     ]);
     expect(payload.html).toContain("Dear Hiring Team at North Health Trust,");
     expect(payload.html).toContain(
-      "I am writing to formally submit my application for the Senior Nurse at North Health Trust.",
+      "I am pleased to submit my application for the Senior Nurse role at North Health Trust.",
     );
     expect(payload.html).toContain("📎 Attached: Amara CV.pdf · Cover Letter - Senior Nurse.pdf");
     expect(payload.html).toContain("Kind regards,");
@@ -120,7 +120,7 @@ Amara Okafor`,
 
     const html = sendMock.mock.calls[0]![0].html as string;
     expect(html.match(/Dear Hiring Team at North Health Trust,/g)).toHaveLength(1);
-    expect(html).toContain("I am writing to formally submit my application for the Senior Nurse at North Health Trust.");
+    expect(html).toContain("I am pleased to submit my application for the Senior Nurse role at North Health Trust.");
     expect(html).toContain("I am motivated by patient-centred care.");
     expect(html).toContain("I have four years of ward experience.");
     expect(html).not.toContain("• Motivation:");
