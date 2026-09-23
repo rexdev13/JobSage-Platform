@@ -73,6 +73,19 @@ bash scripts/k6/run-local.sh
 
 No production custom domain is accepted by the runner.
 
+When the normal development API workflow is running its in-process vacancy
+schedulers, use an isolated local API process for capacity tests so ingestion
+does not compete with the user journey:
+
+```sh
+cd artifacts/api-server
+NODE_ENV=production PORT=8082 pnpm exec tsx ./src/index.ts
+```
+
+This is still a local process using the development database. In this mode the
+API expects external cron ownership and does not start the short vacancy
+batches. Point `K6_BASE_URL` at `http://127.0.0.1:8082/api`.
+
 ## Profiles
 
 `K6_PROFILE` supports:
@@ -120,10 +133,54 @@ static parsing and k6 inspection. The guarded local smoke ran against
 
 Raw output is saved at
 `artifacts/k6/smoke-summary.json`. This was a local health/auth-bootstrap
-smoke, not a production test. The authenticated opportunities and eligibility
-journeys were intentionally skipped because no synthetic staging credentials
-were available; unauthenticated `/auth/user` was still checked. This proves
-local health and routing without inventing customer data.
+smoke, not a production test. That initial run skipped authenticated
+Opportunities and eligibility because no synthetic credentials were available;
+unauthenticated `/auth/user` was still checked. The authenticated results from
+the subsequent synthetic-fixture runs are recorded below.
+
+### Authenticated local results
+
+On 23 September 2026, a development-only synthetic candidate fixture was
+created using the reserved `@example.test` domain. It was marked verified,
+given a consent record and a non-customer profile, and never sent email.
+
+The authenticated smoke against the isolated local API passed:
+
+| Result | Value |
+| --- | ---: |
+| Completed iterations | 14 |
+| HTTP requests | 71 |
+| HTTP request failures | 0% |
+| Checks | 71/71 passed |
+| HTTP p95 | 346.47 ms |
+
+The opt-in smoke with eligibility evaluation also passed:
+
+| Result | Value |
+| --- | ---: |
+| Completed iterations | 18 |
+| HTTP requests | 109 |
+| HTTP request failures | 0% |
+| Checks | 109/109 passed |
+| HTTP p95 | 344.85 ms |
+
+The 100-VU profile reached 100 VUs but did not meet the starting thresholds
+on this single local API process:
+
+| Result | Value |
+| --- | ---: |
+| Completed iterations | 35 |
+| HTTP requests | 447 |
+| HTTP request failures | 4.02% |
+| Checks | 429/447 (95.97%) |
+| HTTP p95 | 54.49 seconds |
+| Maximum observed request time | 60.00 seconds |
+
+The failure was primarily health-request timeouts and long request queues as
+concurrency increased. This is a local capacity signal, not a production
+capacity claim. It confirms that the next meaningful test requires a declared
+staging topology with separate API capacity, database sizing, connection-pool
+limits, and observability.
 
 ## What Replit can and cannot simulate
 

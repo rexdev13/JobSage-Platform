@@ -36,6 +36,51 @@
     "100,000 MAU assumes a Reserved VM or equivalent always-on worker capacity is added alongside Autoscale.",
     "1,000,000 MAU is a planning placeholder for multiple API workers, queue consumers, read replicas, and dedicated observability; it is not a claim that one Replit Autoscale instance can sustain that load."
   ],
+  "billingSourceNotes": [
+    {
+      "category": "hosting",
+      "source": "https://docs.replit.com/billing/about-usage-based-billing",
+      "note": "Autoscale uses a base fee plus usage-based compute units and requests; replace the hosting placeholder with the account usage dashboard and invoices."
+    },
+    {
+      "category": "postgres",
+      "source": "https://docs.replit.com/billing/about-usage-based-billing",
+      "note": "Production PostgreSQL is billed by compute time and data storage; development PostgreSQL is free."
+    },
+    {
+      "category": "objectStorage",
+      "source": "https://docs.replit.com/billing/object-storage-billing",
+      "note": "App Storage is billed by stored GiB, transfer, and operations; replace the placeholder with the account usage dashboard."
+    }
+  ],
+  "measuredDevelopmentSnapshot": {
+    "capturedAt": "2026-09-23",
+    "environment": "development",
+    "source": "Aggregate read-only query against the development database; user counts include the synthetic k6 fixture and workload totals are development-only.",
+    "usersTotal": 26,
+    "verifiedUsers": 13,
+    "cvEnhancementRows": 2,
+    "cvEnhancementCount": 5,
+    "cvEnhancementUsers": 1,
+    "vacancyAiUsageDays": 0,
+    "vacancyAiSearches": 0,
+    "contactWebSearches": 1,
+    "vacancySyncRowsLast30Days": 284,
+    "vacancyCheckedLast30Days": 21415,
+    "vacancySyncErrorsLast30Days": 977,
+    "vacancySyncDurationMsLast30Days": 11159995
+  },
+  "invoiceInputs": {
+    "status": "not_available_in_workspace",
+    "requiredBeforePublicPricing": [
+      "Replit Autoscale and production PostgreSQL usage-dashboard export or invoices",
+      "App Storage usage and transfer totals",
+      "Resend monthly invoice and delivered-message count",
+      "AI integration model/token/cache/retry usage and invoice-equivalent cost",
+      "Cron, observability, and support invoices",
+      "Paid conversion and CAC from funnel data"
+    ]
+  },
   "measuredFacts": [
     {
       "fact": "The project is configured for a Replit Autoscale deployment target.",

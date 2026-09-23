@@ -40,6 +40,47 @@ not have access to provider invoices or a reliable production traffic forecast.
 - Measure real monthly AI calls per active user by endpoint before committing to a public price.
 - Validate the 8% paying conversion and £30 CAC with funnel data.
 
+## Billing sources and measured development snapshot
+
+The provider documentation describes the billing dimensions, but it does not
+expose this workspace's account invoice or usage-dashboard values. The model
+therefore keeps the monetary inputs as placeholders until those values are
+entered.
+
+- **hosting:** Autoscale uses a base fee plus usage-based compute units and requests; replace the hosting placeholder with the account usage dashboard and invoices. ([source](https://docs.replit.com/billing/about-usage-based-billing))
+- **postgres:** Production PostgreSQL is billed by compute time and data storage; development PostgreSQL is free. ([source](https://docs.replit.com/billing/about-usage-based-billing))
+- **objectStorage:** App Storage is billed by stored GiB, transfer, and operations; replace the placeholder with the account usage dashboard. ([source](https://docs.replit.com/billing/object-storage-billing))
+
+The following development-only usage snapshot is measured and useful for
+planning workload, but it must not be mistaken for production unit economics:
+
+| Metric | Value |
+| --- | ---: |
+| capturedAt | 2026-09-23 |
+| environment | development |
+| source | Aggregate read-only query against the development database; user counts include the synthetic k6 fixture and workload totals are development-only. |
+| usersTotal | 26 |
+| verifiedUsers | 13 |
+| cvEnhancementRows | 2 |
+| cvEnhancementCount | 5 |
+| cvEnhancementUsers | 1 |
+| vacancyAiUsageDays | 0 |
+| vacancyAiSearches | 0 |
+| contactWebSearches | 1 |
+| vacancySyncRowsLast30Days | 284 |
+| vacancyCheckedLast30Days | 21,415 |
+| vacancySyncErrorsLast30Days | 977 |
+| vacancySyncDurationMsLast30Days | 11,159,995 |
+
+Invoice-backed inputs are still required before publishing a price:
+
+- Replit Autoscale and production PostgreSQL usage-dashboard export or invoices
+- App Storage usage and transfer totals
+- Resend monthly invoice and delivered-message count
+- AI integration model/token/cache/retry usage and invoice-equivalent cost
+- Cron, observability, and support invoices
+- Paid conversion and CAC from funnel data
+
 ## Editable formulas
 
 - Paying users = MAU × paid-conversion percentage.
