@@ -38,6 +38,17 @@ Authenticated smoke:
 ```sh
 K6_TEST_EMAIL='synthetic@example.test' \
 K6_TEST_PASSWORD='staging-only-password' \
+bash -c 'pnpm --filter @workspace/api-server run seed:k6-fixture && bash scripts/k6/run-local.sh'
+```
+
+The fixture command is development-only and accepts only the reserved
+`@example.test` or `@jobsage.test` domains. It upserts a verified synthetic
+candidate with consent and a profile; it does not send email:
+
+```sh
+export K6_TEST_EMAIL='synthetic@example.test'
+export K6_TEST_PASSWORD="$(openssl rand -base64 24)"
+pnpm --filter @workspace/api-server run seed:k6-fixture
 bash scripts/k6/run-local.sh
 ```
 
