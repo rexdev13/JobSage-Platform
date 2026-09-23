@@ -1,0 +1,69 @@
+Production vacancy health audit across ALL sectors / professions. Read-only unless you find a clear safe metrics/query path already used in-app. Do NOT change cron, crawl limits, probe logic, or production data. Do NOT use customer PII beyond aggregate counts.
+
+Goal
+Give a clear picture of how vacancy coverage is doing right now for every onboarding profession/sector: volume, freshness, source mix, failures, and blockers — so we know what’s working vs empty vs stuck.
+
+Scope (all of these)
+1) Job boards / aggregators: job_board, Reed (reed_professions), additional_boards (jobs.ac.uk, Teaching Vacancies, any others wired), NHS / healthcare sources if separate
+2) Company-site pipeline: company_site + company_site_probe
+3) Liveness / contact only if they affect vacancy visibility — mention briefly, don’t deep-dive
+4) Opportunities UI eligibility: are vacancies actually visible to candidates per profession (not just rows in DB)
+
+Report structure (use these exact sections)
+
+A. Executive snapshot (10 lines max)
+- Total open/active vacancies (define your filter: not closed, within TTL, etc.)
+- By source family: board vs Reed vs additional boards vs company-site vs other
+- Professions/sectors with strong coverage vs near-empty
+- Top 3 blockers right now
+
+B. Per-profession / sector table
+For each onboarding profession/category (include business_development_manager and any null-map / unsupported cases):
+| Profession | Active vacancies | Last 24h added | Last 7d added | Sources present (list) | Dominant source | Closed/filtered out (24h if available) | Candidate-visible? (Y/N/partial) | Notes |
+If a profession maps to zero roles or a broken category map, flag explicitly.
+
+C. Per-source pipeline health (last 24h and last 7d)
+For each job kind / sync path:
+- Runs attempted / succeeded / failed / 409 lock skips
+- Vacancies upserted / updated / closed / skipped
+- Avg or p50 duration if logged
+- Last successful run timestamp
+- Error top causes (group, don’t dump raw secrets)
+Kinds to cover at minimum: job_board, reed_professions, additional_boards (break out sub-boards if logged), company_site, company_site_probe, any NHS-specific job.
+
+D. Company-site + probe deep dive
+- Probe: total sites, ok_for_crawl, bad, unprobed, last_probed_at distribution
+- Bad reason breakdown (size limit, no careers signal, blocked, etc.)
+- Full crawl: selected counts (ok vs unprobed vs skipped-bad), completed/hour, fail/partial rates
+- Whether hybrid selection is live; if crawl still selecting ~0, say so
+- Top false-negative risks still active
+
+E. Freshness & closed-date quality
+- % vacancies with reliable closed/expiry handling (esp NHS)
+- Stale open vacancies (e.g. last_seen older than X)
+- Permanent-fail / backoff quarantines count and age
+
+F. Cron / lock contention (ops)
+- Current expected schedule picture if known from code/comments
+- Evidence of chronic 409 starvation for any kind (esp probe vs Reed/boards vs company_site)
+- Any kind that “succeeds” in cron but writes zero useful work
+
+G. Gaps vs launch bar
+For launch readiness across sectors, score each profession:
+- Green: enough fresh vacancies from ≥1 reliable source
+- Amber: thin or single-source fragile
+- Red: empty / broken mapping / pipeline not feeding this profession
+State what would move each Red/Amber to Green (board pack, profession map fix, probe throughput, etc.) — recommendations only, no code changes in this pass.
+
+H. Exact queries / metrics used
+List tables, fields, time windows, and filters so this audit is repeatable. Prefer existing admin/metrics endpoints if present; otherwise SQL aggregates.
+
+Constraints
+- Production read-only
+- No secrets, tokens, or customer emails/names in the report
+- No cron edits, no “test run” of heavy batches unless there is an existing cheap status endpoint
+- If something can’t be measured, say “unknown” and why — don’t invent numbers
+- Be quantitative; avoid vague “looks fine”
+
+Deliverable
+A single structured report with the tables above + a final “do this next” list of max 5 prioritized actions (no implementation in this task).
