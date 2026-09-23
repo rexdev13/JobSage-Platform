@@ -85,6 +85,8 @@ describe("candidate board shared cache", () => {
     expect(candidateBoardSourceForProfession("Accountant")).toBe("reed");
     expect(candidateBoardSourceForProfession("Engineer")).toBe("reed");
     expect(candidateBoardSourceForProfession("Teacher / Lecturer")).toBe("reed");
+    expect(candidateBoardSourceForProfession("Software Engineering")).toBe("reed");
+    expect(candidateBoardSourceForProfession("Business Development Manager")).toBe("reed");
   });
 
   it("uses broad allied-health keywords instead of physiotherapist alone", () => {
@@ -93,6 +95,13 @@ describe("candidate board shared cache", () => {
     expect(keywords).toContain("occupational therapist");
     expect(keywords).toContain("radiographer");
     expect(keywords).toContain("paramedic");
+  });
+
+  it("uses profession-specific Reed keywords for newly mapped non-healthcare profiles", () => {
+    expect(professionKeywords({ profession: "Software Engineering" }).toLowerCase())
+      .toContain("software developer");
+    expect(professionKeywords({ profession: "Business Development Manager" }).toLowerCase())
+      .toContain("business development");
   });
 
   it("shares one in-flight NHS search for the same profession, region, and source", async () => {

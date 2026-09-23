@@ -26,4 +26,5 @@ export const RoleOpportunityCategory = {
   IT: "IT",
   LEGAL: "LEGAL",
   ARCHITECTURE: "ARCHITECTURE",
+  BUSINESS_DEVELOPMENT: "BUSINESS_DEVELOPMENT",
 } as const;

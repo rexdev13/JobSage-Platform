@@ -30,6 +30,7 @@ export function opportunityRegistrationLabel(category: OpportunityCategory): str
   if (category === "IT") return "UK information technology pathway";
   if (category === "LEGAL") return "UK legal profession pathway";
   if (category === "ARCHITECTURE") return "Architects Registration Board pathway";
+  if (category === "BUSINESS_DEVELOPMENT") return "UK business development pathway";
   return `${category} registration pathway`;
 }
 

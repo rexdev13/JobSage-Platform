@@ -42,18 +42,21 @@ export const REED_PROFESSION_BACKFILL_TARGETS: readonly ReedProfessionBackfillTa
   { profession: "Teacher / Lecturer", category: "EDUCATION", keywords: "teacher OR lecturer" },
   { profession: "Engineer", category: "ENGINEERING", keywords: "engineer" },
   { profession: "IT Professional", category: "IT", keywords: "software OR IT" },
+  { profession: "Software Engineering", category: "IT", keywords: "software engineer OR software developer" },
   { profession: "Accountant", category: "ACCOUNTING", keywords: "accountant" },
   { profession: "Lawyer / Solicitor", category: "LEGAL", keywords: "lawyer OR solicitor" },
   { profession: "Architect", category: "ARCHITECTURE", keywords: "architect" },
   { profession: "Social Worker", category: "SOCIAL_WORK", keywords: "social worker" },
   { profession: "Dentist", category: "DENTAL", keywords: "dentist" },
   { profession: "Pharmacist", category: "PHARMACY", keywords: "pharmacist" },
+  { profession: "Business Development Manager", category: "BUSINESS_DEVELOPMENT", keywords: "business development manager OR business development" },
 ];
 
 export type ReedProfessionBackfillCategoryMetrics = {
   profession: string;
   category: OpportunityCategory;
   keywords: string;
+  attempted: boolean;
   discovered: number;
   sponsorMatched: number;
   classified: number;
@@ -62,7 +65,9 @@ export type ReedProfessionBackfillCategoryMetrics = {
   inserted: number;
   revived: number;
   updated: number;
+  upserted: number;
   skippedByTotalCap: number;
+  emptySuccess: boolean;
   failed: boolean;
   error: string | null;
 };
@@ -301,6 +306,7 @@ async function executeBackfill(
       profession: target.profession,
       category: target.category,
       keywords: target.keywords,
+      attempted: true,
       discovered: 0,
       sponsorMatched: 0,
       classified: 0,
@@ -309,7 +315,9 @@ async function executeBackfill(
       inserted: 0,
       revived: 0,
       updated: 0,
+      upserted: 0,
       skippedByTotalCap: 0,
+      emptySuccess: false,
       failed: false,
       error: null,
     };
@@ -338,6 +346,7 @@ async function executeBackfill(
       );
       categoryMetrics.sponsorMatched = matched.sponsorMatched;
       categoryMetrics.classified = matched.adverts.length;
+      categoryMetrics.emptySuccess = matched.adverts.length === 0;
 
       const adverts = matched.adverts.slice(0, remainingPersistBudget);
       categoryMetrics.skippedByTotalCap = matched.adverts.length - adverts.length;
@@ -346,6 +355,7 @@ async function executeBackfill(
         categoryMetrics.inserted = persisted.inserted;
         categoryMetrics.revived = persisted.revived;
         categoryMetrics.updated = persisted.updated;
+        categoryMetrics.upserted = persisted.inserted + persisted.updated + persisted.revived;
         remainingPersistBudget -= adverts.length;
 
         const visibility = await visibilityReader(

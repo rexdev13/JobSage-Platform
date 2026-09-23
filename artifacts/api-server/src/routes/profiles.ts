@@ -68,6 +68,8 @@ const WELL_KNOWN_PROFESSIONS = [
   "IT Professional",
   "Lawyer / Solicitor",
   "Architect",
+  "Software Engineering",
+  "Business Development Manager",
 ];
 
 router.get("/professions", requireAuthenticated, async (_req: Request, res: Response): Promise<void> => {

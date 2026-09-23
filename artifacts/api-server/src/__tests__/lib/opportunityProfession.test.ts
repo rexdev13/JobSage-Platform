@@ -27,12 +27,14 @@ describe("opportunity profession mapping", () => {
     ["IT Professional", "IT"],
     ["Lawyer / Solicitor", "LEGAL"],
     ["Architect", "ARCHITECTURE"],
+    ["Software Engineering", "IT"],
+    ["Business Development Manager", "BUSINESS_DEVELOPMENT"],
   ])("maps onboarding profession %s to %s", (profession, expected) => {
     expect(professionCategoryFor(profession)).toBe(expected);
   });
 
-  it("keeps the onboarding source of truth at 19 non-null mappings", () => {
-    expect(ONBOARDING_PROFESSIONS).toHaveLength(19);
+  it("keeps every onboarding profession on a non-null opportunity category", () => {
+    expect(ONBOARDING_PROFESSIONS).toHaveLength(21);
     expect(ONBOARDING_PROFESSIONS.every((profession) => professionCategoryFor(profession) !== null)).toBe(true);
   });
 
@@ -52,6 +54,8 @@ describe("opportunity profession mapping", () => {
     ["teaching", "EDUCATION"],
     ["engineer", "ENGINEERING"],
     ["engineering", "ENGINEERING"],
+    ["Software Engineering", "IT"],
+    ["business_development_manager", "BUSINESS_DEVELOPMENT"],
   ])("maps %s to %s", (profession, expected) => {
     expect(regulatorForProfession(profession)).toBe(expected);
   });

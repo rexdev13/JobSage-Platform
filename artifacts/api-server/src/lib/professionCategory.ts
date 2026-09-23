@@ -17,7 +17,8 @@ export type OpportunityCategory =
   | "ACCOUNTING"
   | "IT"
   | "LEGAL"
-  | "ARCHITECTURE";
+  | "ARCHITECTURE"
+  | "BUSINESS_DEVELOPMENT";
 
 const PROFESSION_CATEGORIES: Record<string, OpportunityCategory> = {
   doctor: "GMC",
@@ -47,12 +48,16 @@ const PROFESSION_CATEGORIES: Record<string, OpportunityCategory> = {
   accounting: "ACCOUNTING",
   it_professional: "IT",
   it: "IT",
+  // Stored "Software Engineering" profiles use the IT opportunity feed.
+  software_engineering: "IT",
   lawyer: "LEGAL",
   solicitor: "LEGAL",
   lawyer_solicitor: "LEGAL",
   legal: "LEGAL",
   architect: "ARCHITECTURE",
   architecture: "ARCHITECTURE",
+  business_development_manager: "BUSINESS_DEVELOPMENT",
+  business_development: "BUSINESS_DEVELOPMENT",
 };
 
 /**
@@ -123,4 +128,6 @@ export const ONBOARDING_PROFESSIONS = [
   "IT Professional",
   "Lawyer / Solicitor",
   "Architect",
+  "Software Engineering",
+  "Business Development Manager",
 ] as const;

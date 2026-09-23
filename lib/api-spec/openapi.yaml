@@ -4455,7 +4455,7 @@ components:
           description: Statutory regulator for legacy regulated-role records. Use opportunityCategory for candidate opportunity matching.
         opportunityCategory:
           type: string
-          enum: [GMC, NMC, HCPC, DENTAL, PHARMACY, SOCIAL_WORK, EDUCATION, ENGINEERING, ACCOUNTING, IT, LEGAL, ARCHITECTURE]
+          enum: [GMC, NMC, HCPC, DENTAL, PHARMACY, SOCIAL_WORK, EDUCATION, ENGINEERING, ACCOUNTING, IT, LEGAL, ARCHITECTURE, BUSINESS_DEVELOPMENT]
           nullable: true
           description: Broader profession category used by Opportunities and alerts; separate from statutory regulation.
         statutoryRegulator:
