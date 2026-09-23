@@ -1,0 +1,16 @@
+To remove that warning for JOBSAGE marketers, you need to verify the **Google Cloud project that owns the OAuth client**. There are two parts: app branding and permission to access Calendar data.
+
+1. Open [Google Auth Platform in Google Cloud Console](https://console.cloud.google.com/auth/overview) and select the project containing the **Web application OAuth client** used by JOBSAGE.
+2. Under **Branding**, enter **JOBSAGE**, a support email, and these public pages:
+   - Home page: `https://jobsage.co.uk`
+   - Privacy policy: `https://jobsage.co.uk/privacy`
+   - Terms: `https://jobsage.co.uk/terms`
+3. Add `jobsage.co.uk` as an **authorized domain** and verify ownership through [Google Search Console](https://search.google.com/search-console/about). Keep this exact URI on the Web OAuth client’s **Authorized redirect URIs** list:
+   `https://jobsage.co.uk/api/marketer/calendar/google/oauth/callback`
+4. **Review the privacy policy before submitting.** JOBSAGE’s current policy does not explicitly describe its Google Calendar connection. Google requires it to explain how the app accesses, uses, stores, and shares Google user data. It should accurately describe the marketer’s calendar connection and how they can disconnect it.
+5. In **Data Access**, declare the scope the app currently requests: `https://www.googleapis.com/auth/calendar`. Google will ask why this broad permission is needed rather than narrower permissions. Describe the actual features: checking availability and creating, updating, or deleting calendar bookings and Meet events.
+6. On **Branding**, select **Verify Branding** and, once approved, **Publish branding**. Then use the **Verification Center** to submit the Calendar data-access review. Google may request an **unlisted YouTube demonstration** showing a marketer connecting their account, the Google consent screen, and the Calendar features working. Monitor the project’s support/developer email for reviewer questions.
+
+Google’s instructions: [branding verification](https://developers.google.com/identity/protocols/oauth2/production-readiness/brand-verification) and [sensitive-scope verification](https://developers.google.com/identity/protocols/oauth2/production-readiness/sensitive-scope-verification).
+
+**For now:** if only a small set of known marketers needs access, you can add their Google addresses as **Test users** under **Audience** while verification is pending. That is a testing arrangement, not a substitute for verification if the connection will be broadly available.
