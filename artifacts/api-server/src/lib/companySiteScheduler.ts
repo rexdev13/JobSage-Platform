@@ -490,6 +490,7 @@ export async function selectCompanySiteProbeBatch(
         sl.organisation_name,
         trim(sl.website) AS website,
         cs.probe_status,
+        cs.probe_reason,
         cs.last_probed_at,
         cs.last_outcome,
         cs.last_attempted_at
@@ -527,7 +528,16 @@ export async function selectCompanySiteProbeBatch(
     SELECT organisation_name, website, probe_status, last_probed_at, last_outcome, last_attempted_at
     FROM candidate_pool
     ORDER BY
-      CASE WHEN COALESCE(probe_status, 'unknown') = 'unknown' THEN 0 ELSE 1 END,
+      CASE
+        WHEN probe_status = 'bad' AND (
+          probe_reason ILIKE '%no careers or approved ATS signal%'
+          OR probe_reason ILIKE '%buffer larger%'
+          OR probe_reason ILIKE '%compressed response exceeded%'
+          OR probe_reason ILIKE '%response size%'
+        ) THEN 0
+        WHEN COALESCE(probe_status, 'unknown') = 'unknown' THEN 1
+        ELSE 2
+      END,
       last_probed_at ASC NULLS FIRST,
       last_attempted_at ASC NULLS FIRST,
       lower(btrim(organisation_name))

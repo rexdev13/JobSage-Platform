@@ -44,6 +44,14 @@ describe("company-site response decoding", () => {
       decodeCompanySiteResponseBody(gzipThenBrotli, "gzip, br", 128_000),
     ).resolves.toBe(robots.toString("utf8"));
   });
+
+  it("accepts compressed pages at the exact decoded limit and bounds larger bodies", async () => {
+    const body = Buffer.from("A".repeat(128_000));
+    await expect(decodeCompanySiteResponseBody(gzipSync(body), "gzip", 128_000))
+      .resolves.toHaveLength(128_000);
+    await expect(decodeCompanySiteResponseBody(gzipSync(Buffer.concat([body, Buffer.from("B")])), "gzip", 128_000))
+      .rejects.toThrow(/exceeded 128000 bytes/);
+  });
 });
 
 describe("company-site robots policy", () => {
