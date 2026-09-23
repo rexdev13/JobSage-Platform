@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { chromium } from "@playwright/test";
+import { chromium } from "../jobsage-web/node_modules/@playwright/test/index.mjs";
 
 const root = process.cwd();
 const screenshotPath = path.join(root, "attached_assets", "image_1790153778075.png");
