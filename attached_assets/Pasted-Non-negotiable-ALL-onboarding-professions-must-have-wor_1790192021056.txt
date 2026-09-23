@@ -1,0 +1,34 @@
+Non-negotiable: ALL onboarding professions must have working vacancy coverage — not healthcare-only. Optimize for fastest path to every profession showing fresh, candidate-visible vacancies. Prefer board backfills + mapping fixes first; repair company-site in parallel. Do not suggest deferring sectors.
+
+Implement in this order:
+
+1) Profession taxonomy (ship-blocking)
+- Map Software Engineering → IT (document choice)
+- Fix business_development_manager: real category mapping + at least one working source path
+- Audit onboarding profession list vs category map; fix any other null/empty maps
+- Dental/Pharmacy/Architecture/Legal/Accounting/IT: if board adapters exist, wire higher throughput; if missing, add minimal Reed/profession_board path using existing patterns
+
+2) Board coverage for EVERY non-NHS profession
+- Increase effective Reed + additional_boards throughput per profession (limits, scheduling via code defaults / job payload docs — list exact cron bodies we must set)
+- Ensure each profession key actually returns roles (no silent empty map like BDM)
+- Log per-profession: attempted queries, rows upserted, visible count
+- Dedup OK; empty success runs are a bug to flag
+
+3) Company-site reliability (parallel)
+- Top failure reasons last 7d with counts → fix top 1–2 causes or hard-quarantine them
+- Keep hybrid selection; prefer ok_for_crawl; include unprobed slice so queue isn’t stuck
+- Soften false-bad only where already agreed (size limit / weak homepage signal → unknown/retry)
+- Goal metric: company_site success rate up and completed sites/hour up within hours of deploy
+
+4) Visibility quality
+- Backfill or classify null source_type where possible; exclude junk from visible feed
+- Reduce over-broad industry fallback for IT/Accounting/Legal (precision over inflated counts)
+- Do not loosen SSRF/robots/safety
+
+5) Verification pack (must produce numbers)
+For each onboarding profession after changes:
+| Profession | Visible now | +24h expected source | Board rows | Company-site rows | Still Red? |
+If any profession still Red, state the exact missing adapter/cron/map — no vague notes.
+
+Constraints: no secrets in logs; Autoscale-safe batches; no production credential dumps.
+Ship code + exact cron payloads to paste into cron-job.org for denser board/probe where needed.
