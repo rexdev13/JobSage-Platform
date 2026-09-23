@@ -59,6 +59,44 @@ The normal response is returned after that batch finishes:
 limit. One curl is deliberately **not** a full 250-employer board run. Repeat
 short calls until `done` is true (or `selected` is zero).
 
+## Probe-gated company-site crawling
+
+The `company_site_probe` job is the gate for `company_site`. Each employer has
+durable state in `sponsor_licence_company_site_checks`:
+
+| Field | Meaning |
+| --- | --- |
+| `probe_status=ok_for_crawl` | The latest robots-aware root probe was workable; eligible for a full crawl. |
+| `probe_status=bad` | The probe found a blocked, dead, missing-careers, or hard-failing site; skip until its retry window. |
+| `probe_status=unknown` | No usable recent probe exists; do not full-crawl it. |
+| `last_probed_at` | When the probe mark was written. Successful marks are rechecked after six hours. |
+| `probe_reason` | A bounded diagnostic reason; it must not contain secrets. |
+
+Full company-site selection now requires `ok_for_crawl`. Within that queue it
+retains the healthcare-evidence and bookmark reservations, then prefers the
+oldest due full crawl. There is no unknown fallback in this launch mode, so
+probe density directly controls full-crawl coverage. Recent bad marks are not
+full-crawled; temporary and permanent probe backoff remains one day and
+fourteen days respectively. Full-crawl outcomes do not erase the probe mark.
+
+Migration `0035_company_site_probe_marks.sql` adds the durable probe fields and
+backfills legacy probe outcomes. Apply the database migration before enabling
+this selection rule in a deployed worker.
+
+Each run logs probe-aware counters:
+
+- `company_site_probe`: `checked`, `ok_for_crawl`, `ok_for_crawl_new`,
+  `bad_new`, `temporary_bad`, and `permanent_bad`;
+- `company_site`: `selected`, `probe_ok_for_crawl`,
+  `probe_unknown_skipped`, `probe_bad_skipped`, `checked`, `completed`,
+  `failed`, and `errors`.
+
+After one or two hours of non-overlapping probe and full-crawl calls, inspect
+the `vacancy_sync_log.metrics` JSON for these counters. The expected launch
+signal is that full-crawl selections are all probe-approved, the unknown queue
+falls as probes run, and completed employers per batch rises without changing
+the ten-employer full-crawl cap.
+
 Profession backfills are cursor-paged because a single Reed or official-board
 search can require several polite page requests. Their `limit` is the number of
 profession pages in this request, not the number of vacancies. `cursor` is

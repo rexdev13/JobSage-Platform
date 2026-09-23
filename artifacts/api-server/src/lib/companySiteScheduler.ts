@@ -16,6 +16,7 @@ import {
 import { withCompanySiteDatabaseRetry } from "./companySitePersistence";
 import {
   COMPANY_SITE_PROBE_BATCH_SIZE,
+  COMPANY_SITE_PROBE_OK_RECHECK_MS,
   runCompanySiteProbeBatch,
   type CompanySiteProbeSummary,
 } from "./companySiteProbe";
@@ -45,6 +46,9 @@ export type CompanySiteBatchRow = {
   bookmarked: boolean;
   healthcareEvidenceBackfill: boolean;
   lastOutcome: string | null;
+  probeStatus: "ok_for_crawl" | "bad" | "unknown";
+  lastProbedAt: Date | null;
+  probeReason: string | null;
 };
 
 export type CompanySiteCheckOutcome =
@@ -89,6 +93,9 @@ export type CompanySiteBatchSummary = {
   revived: number;
   permanentFailures: number;
   temporaryFailures: number;
+  probeApproved: number;
+  probeUnknownSkipped: number;
+  probeBadSkipped: number;
 };
 
 let batchInProgress = false;
@@ -119,6 +126,9 @@ export async function selectCompanySiteBatch(
     careers_url: string | null;
     ats_provider: string | null;
     last_outcome: string | null;
+    probe_status: "ok_for_crawl" | "bad" | "unknown" | null;
+    last_probed_at: Date | null;
+    probe_reason: string | null;
     bookmarked: boolean;
     healthcare_evidence_backfill: boolean;
   }>(sql`
@@ -133,7 +143,10 @@ export async function selectCompanySiteBatch(
         cs.careers_url,
         cs.ats_provider,
         cs.last_attempted_at,
-         cs.last_outcome,
+        cs.last_outcome,
+        cs.probe_status,
+        cs.last_probed_at,
+        cs.probe_reason,
         EXISTS (
           SELECT 1
           FROM sponsor_licence_bookmarks b
@@ -168,7 +181,7 @@ export async function selectCompanySiteBatch(
         ON cs.organisation_name = sl.organisation_name
       WHERE sl.website IS NOT NULL
         AND trim(sl.website) <> ''
-        AND COALESCE(cs.last_outcome, '') <> 'permanent_bad'
+        AND COALESCE(cs.probe_status, 'unknown') = 'ok_for_crawl'
         AND (cs.retry_after IS NULL OR cs.retry_after <= NOW())
       ORDER BY lower(btrim(sl.organisation_name)), sl.id
     ),
@@ -276,6 +289,9 @@ export async function selectCompanySiteBatch(
         ats_provider,
         last_attempted_at,
         last_outcome,
+        probe_status,
+        last_probed_at,
+        probe_reason,
         bookmarked,
         healthcare_evidence_backfill
       FROM ranked_unbookmarked
@@ -367,20 +383,70 @@ export async function selectCompanySiteBatch(
     bookmarked: row.bookmarked,
     healthcareEvidenceBackfill: row.healthcare_evidence_backfill,
     lastOutcome: row.last_outcome,
+    probeStatus: row.probe_status ?? "unknown",
+    lastProbedAt: row.last_probed_at ? new Date(row.last_probed_at) : null,
+    probeReason: row.probe_reason,
   }));
+}
+
+async function selectCompanySiteProbeSkipStats(): Promise<{
+  unknown: number;
+  bad: number;
+}> {
+  const result = await db.execute<{
+    unknown_count: number | string;
+    bad_count: number | string;
+  }>(sql`
+    SELECT
+      COUNT(*) FILTER (
+        WHERE COALESCE(cs.probe_status, 'unknown') = 'unknown'
+      ) AS unknown_count,
+      COUNT(*) FILTER (
+        WHERE cs.probe_status = 'bad'
+          AND cs.retry_after > NOW()
+      ) AS bad_count
+    FROM (
+      SELECT DISTINCT ON (lower(btrim(sl.organisation_name)))
+        sl.organisation_name
+      FROM sponsor_licences sl
+      WHERE sl.website IS NOT NULL
+        AND trim(sl.website) <> ''
+      ORDER BY lower(btrim(sl.organisation_name)), sl.id
+    ) AS employers
+    LEFT JOIN sponsor_licence_company_site_checks cs
+      ON cs.organisation_name = employers.organisation_name
+  `);
+  const row = result?.rows?.[0];
+  return {
+    unknown: Number(row?.unknown_count ?? 0),
+    bad: Number(row?.bad_count ?? 0),
+  };
 }
 
 export async function selectCompanySiteProbeBatch(
   batchSize = COMPANY_SITE_PROBE_BATCH_SIZE,
-): Promise<{ rows: Array<{ organisationName: string; website: string }>; hasMore: boolean }> {
+): Promise<{
+  rows: Array<{
+    organisationName: string;
+    website: string;
+    previousProbeStatus: "ok_for_crawl" | "bad" | "unknown" | null;
+  }>;
+  hasMore: boolean;
+}> {
   const result = await db.execute<{
     organisation_name: string;
     website: string;
+    probe_status: "ok_for_crawl" | "bad" | "unknown" | null;
+    last_probed_at: Date | null;
+    last_outcome: string | null;
+    last_attempted_at: Date | null;
   }>(sql`
     WITH candidate_pool AS (
       SELECT DISTINCT ON (lower(btrim(sl.organisation_name)))
         sl.organisation_name,
         trim(sl.website) AS website,
+        cs.probe_status,
+        cs.last_probed_at,
         cs.last_outcome,
         cs.last_attempted_at
       FROM sponsor_licences sl
@@ -390,15 +456,23 @@ export async function selectCompanySiteProbeBatch(
         AND trim(sl.website) <> ''
         AND (cs.retry_after IS NULL OR cs.retry_after <= NOW())
         AND (
-          cs.last_outcome IS NULL
-          OR cs.last_outcome IN ('temporary_bad', 'permanent_bad')
+          COALESCE(cs.probe_status, 'unknown') = 'unknown'
+          OR (
+            cs.probe_status = 'ok_for_crawl'
+            AND (
+              cs.last_probed_at IS NULL
+              OR cs.last_probed_at < NOW() - ${COMPANY_SITE_PROBE_OK_RECHECK_MS} * INTERVAL '1 millisecond'
+            )
+          )
+          OR cs.probe_status = 'bad'
         )
       ORDER BY lower(btrim(sl.organisation_name)), sl.id
     )
-    SELECT organisation_name, website
+    SELECT organisation_name, website, probe_status, last_probed_at, last_outcome, last_attempted_at
     FROM candidate_pool
     ORDER BY
-      CASE WHEN last_outcome IS NULL THEN 0 ELSE 1 END,
+      CASE WHEN COALESCE(probe_status, 'unknown') = 'unknown' THEN 0 ELSE 1 END,
+      last_probed_at ASC NULLS FIRST,
       last_attempted_at ASC NULLS FIRST,
       lower(btrim(organisation_name))
     LIMIT ${Math.max(1, Math.min(batchSize, COMPANY_SITE_PROBE_BATCH_SIZE)) + 1}
@@ -408,6 +482,7 @@ export async function selectCompanySiteProbeBatch(
     rows: result.rows.slice(0, limit).map((row) => ({
       organisationName: row.organisation_name,
       website: row.website,
+      previousProbeStatus: row.probe_status,
     })),
     hasMore: result.rows.length > limit,
   };
@@ -614,8 +689,10 @@ export async function runCompanySiteDiscoveryBatch(
     const candidates = await selectCompanySiteBatch(batchSize + 1);
     const rows = candidates.slice(0, batchSize);
     const hasMore = candidates.length > rows.length;
+    const probeSkipStats = await selectCompanySiteProbeSkipStats();
+    const probeApproved = rows.filter((row) => row.probeStatus === "ok_for_crawl").length;
     console.log(
-      `[company-site-scheduler] Starting hourly batch size=${rows.length} concurrency=${COMPANY_SITE_DISCOVERY_CONCURRENCY}`,
+      `[company-site-scheduler] Starting hourly batch size=${rows.length} concurrency=${COMPANY_SITE_DISCOVERY_CONCURRENCY} probe_ok_for_crawl=${probeApproved} probe_unknown_skipped=${probeSkipStats.unknown} probe_bad_skipped=${probeSkipStats.bad}`,
     );
     let checked = 0;
     let skipped = 0;
@@ -701,12 +778,12 @@ export async function runCompanySiteDiscoveryBatch(
     const done = remaining === 0;
     const remainingLog = remainingIsLowerBound ? `>=${remaining}` : String(remaining);
     console.log(
-      `[company-site-scheduler] Complete selected=${rows.length} checked=${checked} skipped=${skipped} upserted=${upserted} errors=${errors} done=${done} remaining=${remainingLog} adverts=${adverts} inserted=${inserted} duration_ms=${durationMs}`,
+      `[company-site-scheduler] Complete selected=${rows.length} checked=${checked} skipped=${skipped} upserted=${upserted} errors=${errors} done=${done} remaining=${remainingLog} adverts=${adverts} inserted=${inserted} duration_ms=${durationMs} probe_ok_for_crawl=${probeApproved} probe_unknown_skipped=${probeSkipStats.unknown} probe_bad_skipped=${probeSkipStats.bad}`,
     );
     console.log(
       `[company-site-scheduler] Failures permanent=${permanentFailures} temporary=${temporaryFailures}`,
     );
-    console.log(`[pipeline-tick] env=${process.env.NODE_ENV ?? "unknown"} job=company_site selected=${rows.length} upserted=${upserted} live=0 dead=0 inconclusive=0 errors=${errors} permanent_failures=${permanentFailures} temporary_failures=${temporaryFailures} done=${done} remaining=${remainingLog} duration_ms=${durationMs}`);
+    console.log(`[pipeline-tick] env=${process.env.NODE_ENV ?? "unknown"} job=company_site selected=${rows.length} upserted=${upserted} probe_ok_for_crawl=${probeApproved} probe_unknown_skipped=${probeSkipStats.unknown} probe_bad_skipped=${probeSkipStats.bad} live=0 dead=0 inconclusive=0 errors=${errors} permanent_failures=${permanentFailures} temporary_failures=${temporaryFailures} done=${done} remaining=${remainingLog} duration_ms=${durationMs}`);
     const summary = {
       selected: rows.length,
       attempted: checked + errors,
@@ -724,6 +801,9 @@ export async function runCompanySiteDiscoveryBatch(
       revived,
       permanentFailures,
       temporaryFailures,
+      probeApproved,
+      probeUnknownSkipped: probeSkipStats.unknown,
+      probeBadSkipped: probeSkipStats.bad,
       checked,
       skipped,
       errors,
@@ -773,6 +853,9 @@ export async function runCompanySiteProbeDiscoveryBatch(
       deadlineMs: options.deadlineMs,
       hasMore: selected.hasMore,
     });
+    console.log(
+      `[company-site-probe] Complete selected=${summary.selected} checked=${summary.checked} ok_for_crawl=${summary.okForCrawl} ok_for_crawl_new=${summary.okForCrawlNew} bad_new=${summary.badNew} temporary_bad=${summary.temporaryBad} permanent_bad=${summary.permanentBad} skipped=${summary.skipped} errors=${summary.errors} duration_ms=${summary.durationMs}`,
+    );
     const metrics = { ...summary };
     const syncLogTable = dbSchema.vacancySyncLogTable;
     await db.insert(syncLogTable).values({

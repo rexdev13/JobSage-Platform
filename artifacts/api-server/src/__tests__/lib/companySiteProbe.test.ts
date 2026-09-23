@@ -14,6 +14,11 @@ vi.mock("drizzle-orm", () => ({ eq: vi.fn() }));
 vi.mock("../../lib/companySiteDiscovery", () => ({
   normaliseSponsorWebsite: (value: string) =>
     value.trim().startsWith("https://") ? value.trim() : `https://${value.trim()}`,
+  inspectCompanySiteProbePage: (_pageUrl: string, body: string) => ({
+    hasCareersSignal: /\bcareers?\b/i.test(body),
+    careersUrl: "https://example.test/careers",
+    atsProvider: null,
+  }),
 }));
 vi.mock("../../lib/companySiteHttp", () => ({
   fetchCompanySitePage: fetchCompanySitePageMock,
@@ -50,7 +55,7 @@ describe("company-site health probe", () => {
       ok: true,
       url: "https://example.test/",
       status: 200,
-      body: "<html>home</html>",
+      body: "<html><a href='/careers'>Careers</a></html>",
       contentType: "text/html",
     });
 
@@ -76,6 +81,9 @@ describe("company-site health probe", () => {
       retryAfter: null,
       lastError: null,
       lastOutcome: "ok_for_crawl",
+      probeStatus: "ok_for_crawl",
+      lastProbedAt: expect.any(Date),
+      probeReason: "root fetch and careers/ATS signal succeeded",
       updatedAt: expect.any(Date),
     }));
     expect(persistedValues[0]).not.toHaveProperty("lastAttemptedAt");
@@ -104,6 +112,9 @@ describe("company-site health probe", () => {
     });
     expect(persistedValues[0]).toEqual(expect.objectContaining({
       lastOutcome: "permanent_bad",
+      probeStatus: "bad",
+      lastProbedAt: expect.any(Date),
+      probeReason: "[permanent] redirect outside employer or approved ATS",
       lastError: "[permanent] redirect outside employer or approved ATS",
       retryAfter: expect.any(Date),
     }));
@@ -114,7 +125,7 @@ describe("company-site health probe", () => {
       ok: true,
       url: "https://healthy.test/",
       status: 200,
-      body: "<html>home</html>",
+      body: "<html><a href='/careers'>Careers</a></html>",
       contentType: "text/html",
     });
     insertMock.mockReturnValue({
@@ -171,5 +182,43 @@ describe("company-site health probe", () => {
       done: false,
     }));
     expect(fetchCompanySitePageMock).not.toHaveBeenCalled();
+  });
+
+  it("counts newly approved and newly bad probe marks", async () => {
+    fetchCompanySitePageMock
+      .mockResolvedValueOnce({
+        ok: true,
+        url: "https://healthy.test/",
+        status: 200,
+      body: "<html><a href='/careers'>Careers</a></html>",
+        contentType: "text/html",
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        kind: "network",
+        reason: "connection failed",
+        failureClass: "temporary",
+      });
+
+    const summary = await runCompanySiteProbeBatch([
+      {
+        organisationName: "Newly Healthy Ltd",
+        website: "healthy.test",
+        previousProbeStatus: "unknown",
+      },
+      {
+        organisationName: "Still Bad Ltd",
+        website: "bad.test",
+        previousProbeStatus: "bad",
+      },
+    ]);
+
+    expect(summary).toEqual(expect.objectContaining({
+      checked: 2,
+      okForCrawl: 1,
+      okForCrawlNew: 1,
+      badNew: 0,
+      temporaryBad: 1,
+    }));
   });
 });
