@@ -32,6 +32,7 @@ export const COMPANY_SITE_PERMANENT_RETRY_MS = 14 * 24 * 60 * 60 * 1000;
 export const COMPANY_SITE_HEALTHCARE_EVIDENCE_RESERVE = 2;
 export const COMPANY_SITE_HEALTHCARE_EVIDENCE_RETRY_MS = 24 * 60 * 60 * 1000;
 export const COMPANY_SITE_BOOKMARK_SHARE = 0.25;
+export const COMPANY_SITE_UNPROBED_SHARE = 0.6;
 export const COMPANY_SITE_SECTOR_COUNT = 8;
 export const COMPANY_SITE_BATCH_WRITE_RESERVE_MS = 3_000;
 
@@ -94,6 +95,7 @@ export type CompanySiteBatchSummary = {
   permanentFailures: number;
   temporaryFailures: number;
   probeApproved: number;
+  probeUnprobedSelected: number;
   probeUnknownSkipped: number;
   probeBadSkipped: number;
 };
@@ -107,8 +109,11 @@ function getBatchSize(): number {
     : COMPANY_SITE_DISCOVERY_BATCH_SIZE;
 }
 
-export async function selectCompanySiteBatch(
-  batchSize = getBatchSize(),
+type CompanySiteProbeSelection = "ok_for_crawl" | "unprobed";
+
+async function selectCompanySiteBatchForProbeStatus(
+  batchSize: number,
+  selection: CompanySiteProbeSelection,
 ): Promise<CompanySiteBatchRow[]> {
   const bookmarkLimit = Math.floor(batchSize * COMPANY_SITE_BOOKMARK_SHARE);
   const guaranteedOldestSlots = batchSize - bookmarkLimit;
@@ -117,6 +122,9 @@ export async function selectCompanySiteBatch(
   const healthcareEvidenceCutoff = new Date(
     Date.now() - COMPANY_SITE_HEALTHCARE_EVIDENCE_RETRY_MS,
   );
+  const probeFilter = selection === "ok_for_crawl"
+    ? sql`COALESCE(cs.probe_status, 'unknown') = 'ok_for_crawl'`
+    : sql`COALESCE(cs.probe_status, 'unknown') = 'unknown' AND cs.last_probed_at IS NULL`;
   const result = await db.execute<{
     id: number;
     organisation_name: string;
@@ -181,7 +189,7 @@ export async function selectCompanySiteBatch(
         ON cs.organisation_name = sl.organisation_name
       WHERE sl.website IS NOT NULL
         AND trim(sl.website) <> ''
-        AND COALESCE(cs.probe_status, 'unknown') = 'ok_for_crawl'
+        AND ${probeFilter}
         AND (cs.retry_after IS NULL OR cs.retry_after <= NOW())
       ORDER BY lower(btrim(sl.organisation_name)), sl.id
     ),
@@ -372,7 +380,7 @@ export async function selectCompanySiteBatch(
     ) AS selected
     ORDER BY selected.selection_priority ASC
   `);
-  return result.rows.map((row) => ({
+  return (result?.rows ?? []).map((row) => ({
     id: Number(row.id),
     organisationName: row.organisation_name,
     website: row.website,
@@ -387,6 +395,38 @@ export async function selectCompanySiteBatch(
     lastProbedAt: row.last_probed_at ? new Date(row.last_probed_at) : null,
     probeReason: row.probe_reason,
   }));
+}
+
+export async function selectCompanySiteBatch(
+  batchSize = getBatchSize(),
+): Promise<CompanySiteBatchRow[]> {
+  const requested = Math.max(1, Math.floor(batchSize));
+  const approvedRows = await selectCompanySiteBatchForProbeStatus(requested, "ok_for_crawl");
+  if (approvedRows.length >= requested) return approvedRows;
+
+  // Keep a meaningful approved refresh queue when it exists, while reserving
+  // roughly 60% of a short batch for employers never successfully probed.
+  // If no approved rows exist, use the whole batch to drain the unprobed queue.
+  const unprobedReserve = Math.ceil(requested * COMPANY_SITE_UNPROBED_SHARE);
+  const approvedTarget = Math.min(
+    approvedRows.length,
+    requested > 1 ? Math.max(1, requested - unprobedReserve) : requested,
+  );
+  const unprobedLimit = requested - approvedTarget;
+  const approvedIds = new Set(approvedRows.map((row) => row.id));
+  const unprobedRows = (await selectCompanySiteBatchForProbeStatus(
+    unprobedLimit,
+    "unprobed",
+  )).filter((row) => !approvedIds.has(row.id));
+
+  const selected = [
+    ...approvedRows.slice(0, approvedTarget),
+    ...unprobedRows,
+  ];
+  if (selected.length < requested) {
+    selected.push(...approvedRows.slice(approvedTarget));
+  }
+  return selected.slice(0, requested);
 }
 
 async function selectCompanySiteProbeSkipStats(): Promise<{
@@ -404,6 +444,10 @@ async function selectCompanySiteProbeSkipStats(): Promise<{
       COUNT(*) FILTER (
         WHERE cs.probe_status = 'bad'
           AND cs.retry_after > NOW()
+          AND cs.probe_reason NOT ILIKE '%no careers or approved ATS signal%'
+          AND cs.probe_reason NOT ILIKE '%buffer larger%'
+          AND cs.probe_reason NOT ILIKE '%compressed response exceeded%'
+          AND cs.probe_reason NOT ILIKE '%response size%'
       ) AS bad_count
     FROM (
       SELECT DISTINCT ON (lower(btrim(sl.organisation_name)))
@@ -454,7 +498,19 @@ export async function selectCompanySiteProbeBatch(
         ON cs.organisation_name = sl.organisation_name
       WHERE sl.website IS NOT NULL
         AND trim(sl.website) <> ''
-        AND (cs.retry_after IS NULL OR cs.retry_after <= NOW())
+        AND (
+          cs.retry_after IS NULL
+          OR cs.retry_after <= NOW()
+          OR (
+            cs.probe_status = 'bad'
+            AND (
+              cs.probe_reason ILIKE '%no careers or approved ATS signal%'
+              OR cs.probe_reason ILIKE '%buffer larger%'
+              OR cs.probe_reason ILIKE '%compressed response exceeded%'
+              OR cs.probe_reason ILIKE '%response size%'
+            )
+          )
+        )
         AND (
           COALESCE(cs.probe_status, 'unknown') = 'unknown'
           OR (
@@ -691,8 +747,11 @@ export async function runCompanySiteDiscoveryBatch(
     const hasMore = candidates.length > rows.length;
     const probeSkipStats = await selectCompanySiteProbeSkipStats();
     const probeApproved = rows.filter((row) => row.probeStatus === "ok_for_crawl").length;
+    const probeUnprobedSelected = rows.filter(
+      (row) => row.probeStatus === "unknown" && row.lastProbedAt === null,
+    ).length;
     console.log(
-      `[company-site-scheduler] Starting hourly batch size=${rows.length} concurrency=${COMPANY_SITE_DISCOVERY_CONCURRENCY} probe_ok_for_crawl=${probeApproved} probe_unknown_skipped=${probeSkipStats.unknown} probe_bad_skipped=${probeSkipStats.bad}`,
+      `[company-site-scheduler] Starting hourly batch size=${rows.length} concurrency=${COMPANY_SITE_DISCOVERY_CONCURRENCY} probe_selected_ok=${probeApproved} probe_selected_unprobed=${probeUnprobedSelected} probe_skipped_bad=${probeSkipStats.bad} probe_unknown_skipped=${probeSkipStats.unknown}`,
     );
     let checked = 0;
     let skipped = 0;
@@ -778,12 +837,12 @@ export async function runCompanySiteDiscoveryBatch(
     const done = remaining === 0;
     const remainingLog = remainingIsLowerBound ? `>=${remaining}` : String(remaining);
     console.log(
-      `[company-site-scheduler] Complete selected=${rows.length} checked=${checked} skipped=${skipped} upserted=${upserted} errors=${errors} done=${done} remaining=${remainingLog} adverts=${adverts} inserted=${inserted} duration_ms=${durationMs} probe_ok_for_crawl=${probeApproved} probe_unknown_skipped=${probeSkipStats.unknown} probe_bad_skipped=${probeSkipStats.bad}`,
+      `[company-site-scheduler] Complete selected=${rows.length} checked=${checked} skipped=${skipped} upserted=${upserted} errors=${errors} done=${done} remaining=${remainingLog} adverts=${adverts} inserted=${inserted} duration_ms=${durationMs} probe_selected_ok=${probeApproved} probe_selected_unprobed=${probeUnprobedSelected} probe_skipped_bad=${probeSkipStats.bad} probe_unknown_skipped=${probeSkipStats.unknown}`,
     );
     console.log(
       `[company-site-scheduler] Failures permanent=${permanentFailures} temporary=${temporaryFailures}`,
     );
-    console.log(`[pipeline-tick] env=${process.env.NODE_ENV ?? "unknown"} job=company_site selected=${rows.length} upserted=${upserted} probe_ok_for_crawl=${probeApproved} probe_unknown_skipped=${probeSkipStats.unknown} probe_bad_skipped=${probeSkipStats.bad} live=0 dead=0 inconclusive=0 errors=${errors} permanent_failures=${permanentFailures} temporary_failures=${temporaryFailures} done=${done} remaining=${remainingLog} duration_ms=${durationMs}`);
+    console.log(`[pipeline-tick] env=${process.env.NODE_ENV ?? "unknown"} job=company_site selected=${rows.length} upserted=${upserted} probe_selected_ok=${probeApproved} probe_selected_unprobed=${probeUnprobedSelected} probe_skipped_bad=${probeSkipStats.bad} probe_unknown_skipped=${probeSkipStats.unknown} live=0 dead=0 inconclusive=0 errors=${errors} permanent_failures=${permanentFailures} temporary_failures=${temporaryFailures} done=${done} remaining=${remainingLog} duration_ms=${durationMs}`);
     const summary = {
       selected: rows.length,
       attempted: checked + errors,
@@ -802,6 +861,7 @@ export async function runCompanySiteDiscoveryBatch(
       permanentFailures,
       temporaryFailures,
       probeApproved,
+      probeUnprobedSelected,
       probeUnknownSkipped: probeSkipStats.unknown,
       probeBadSkipped: probeSkipStats.bad,
       checked,
@@ -854,7 +914,7 @@ export async function runCompanySiteProbeDiscoveryBatch(
       hasMore: selected.hasMore,
     });
     console.log(
-      `[company-site-probe] Complete selected=${summary.selected} checked=${summary.checked} ok_for_crawl=${summary.okForCrawl} ok_for_crawl_new=${summary.okForCrawlNew} bad_new=${summary.badNew} temporary_bad=${summary.temporaryBad} permanent_bad=${summary.permanentBad} skipped=${summary.skipped} errors=${summary.errors} duration_ms=${summary.durationMs}`,
+      `[company-site-probe] Complete selected=${summary.selected} checked=${summary.checked} ok_for_crawl=${summary.okForCrawl} ok_for_crawl_new=${summary.okForCrawlNew} unknown=${summary.unknown} bad_new=${summary.badNew} temporary_bad=${summary.temporaryBad} permanent_bad=${summary.permanentBad} skipped=${summary.skipped} errors=${summary.errors} duration_ms=${summary.durationMs}`,
     );
     const metrics = { ...summary };
     const syncLogTable = dbSchema.vacancySyncLogTable;

@@ -165,6 +165,59 @@ describe("company-site health probe", () => {
     }));
   });
 
+  it("keeps a homepage without a careers signal unknown instead of bad", async () => {
+    fetchCompanySitePageMock.mockResolvedValue({
+      ok: true,
+      url: "https://unclear.test/",
+      status: 200,
+      body: "<html><body>Welcome to our company</body></html>",
+      contentType: "text/html",
+    });
+
+    const result = await runCompanySiteProbe({
+      organisationName: "Unclear Ltd",
+      website: "unclear.test",
+    });
+
+    expect(result).toEqual({
+      status: "checked",
+      classification: "unknown",
+      failureClass: null,
+    });
+    expect(persistedValues[0]).toEqual(expect.objectContaining({
+      lastOutcome: "unknown",
+      probeStatus: "unknown",
+      lastError: "[unknown] no careers or approved ATS signal on root page",
+      retryAfter: expect.any(Date),
+    }));
+  });
+
+  it("keeps response-size failures unknown so they can be retried", async () => {
+    fetchCompanySitePageMock.mockResolvedValue({
+      ok: false,
+      kind: "network",
+      reason: "Cannot create a Buffer larger than 128000 bytes",
+      failureClass: "permanent",
+    });
+
+    const result = await runCompanySiteProbe({
+      organisationName: "Large Homepage Ltd",
+      website: "large.test",
+    });
+
+    expect(result).toEqual({
+      status: "checked",
+      classification: "unknown",
+      failureClass: "temporary",
+    });
+    expect(persistedValues[0]).toEqual(expect.objectContaining({
+      lastOutcome: "unknown",
+      probeStatus: "unknown",
+      lastError: "[unknown] Cannot create a Buffer larger than 128000 bytes",
+      retryAfter: expect.any(Date),
+    }));
+  });
+
   it("defers all network work once the write-reserve deadline is reached", async () => {
     const summary = await runCompanySiteProbeBatch(
       Array.from({ length: 3 }, (_, index) => ({
@@ -219,6 +272,7 @@ describe("company-site health probe", () => {
       okForCrawlNew: 1,
       badNew: 0,
       temporaryBad: 1,
+      unknown: 0,
     }));
   });
 });

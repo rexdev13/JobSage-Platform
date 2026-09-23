@@ -128,6 +128,34 @@ describe("company-site scheduler", () => {
     ]);
   });
 
+  it("mixes approved refreshes with never-probed employers when the approved queue is short", async () => {
+    const row = (id: number, probeStatus: "ok_for_crawl" | null) => ({
+      id,
+      organisation_name: `Employer ${id}`,
+      website: `https://employer-${id}.example`,
+      generic_checked_at: null,
+      ats_checked_at: null,
+      careers_url: null,
+      ats_provider: null,
+      last_outcome: null,
+      probe_status: probeStatus,
+      last_probed_at: probeStatus ? new Date() : null,
+      probe_reason: null,
+      bookmarked: false,
+      healthcare_evidence_backfill: false,
+    });
+    executeMock
+      .mockResolvedValueOnce({ rows: [1, 2, 3, 4].map((id) => row(id, "ok_for_crawl")) })
+      .mockResolvedValueOnce({ rows: [5, 6, 7, 8, 9, 10].map((id) => row(id, null)) });
+
+    const rows = await selectCompanySiteBatch(10);
+
+    expect(rows).toHaveLength(10);
+    expect(rows.filter((item) => item.probeStatus === "ok_for_crawl")).toHaveLength(4);
+    expect(rows.filter((item) => item.probeStatus === "unknown" && item.lastProbedAt === null)).toHaveLength(6);
+    expect(executeMock).toHaveBeenCalledTimes(2);
+  });
+
   it("skips sponsors without a website before any discovery request", async () => {
     await expect(runCompanySiteCheck({
       organisationName: "No Website Ltd",
