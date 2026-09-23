@@ -45,6 +45,21 @@ describe("Google Calendar helper", () => {
     });
   });
 
+  it("trims client credentials before refreshing an access token", async () => {
+    vi.stubEnv("GOOGLE_CALENDAR_CLIENT_ID", " test-client ");
+    vi.stubEnv("GOOGLE_CALENDAR_CLIENT_SECRET", "\ttest-secret\n");
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
+      items: [{ id: "primary@example.com", primary: true, accessRole: "owner" }],
+    }), { status: 200 }));
+
+    await getGoogleCalendarStatus(auth);
+
+    const [, init] = fetchMock.mock.calls[0]!;
+    const body = init.body as URLSearchParams;
+    expect(body.get("client_id")).toBe("test-client");
+    expect(body.get("client_secret")).toBe("test-secret");
+  });
+
   it("rejects a busy slot before creating an event", async () => {
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
       calendars: {
