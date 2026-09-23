@@ -15,7 +15,7 @@ vi.mock("../../lib/vacancyJobRunner", () => ({
 }));
 
 vi.mock("../../lib/companySiteProbe", () => ({
-  COMPANY_SITE_PROBE_BATCH_SIZE: 30,
+  COMPANY_SITE_PROBE_BATCH_SIZE: 60,
   COMPANY_SITE_PROBE_HTTP_BUDGET_MS: 20_000,
 }));
 
@@ -97,7 +97,7 @@ describe("POST /internal/vacancy-jobs", () => {
   it.each([
     ["job_board", 999, 50],
     ["company_site", 999, 10],
-    ["company_site_probe", 999, 30],
+    ["company_site_probe", 999, 60],
     ["liveness", 999, 50],
     ["contact", 999, 5],
   ] as const)("caps %s HTTP batches", async (kind, requested, expected) => {
@@ -126,7 +126,7 @@ describe("POST /internal/vacancy-jobs", () => {
     expect(response.status).toBe(200);
     const call = runVacancyJobMock.mock.calls.at(-1);
     expect(call?.[0]).toBe("company_site_probe");
-    expect(call?.[1]).toBe(30);
+    expect(call?.[1]).toBe(60);
     expect(call?.[2].deadlineMs).toBeGreaterThanOrEqual(before + 19_900);
     expect(call?.[2].deadlineMs).toBeLessThanOrEqual(Date.now() + 20_000);
   });

@@ -92,6 +92,33 @@ describe("company-site health probe", () => {
     expect(persistedValues[0]).not.toHaveProperty("lastCompletedAt");
   });
 
+  it("allows a reachable root without a careers link to reach bounded discovery", async () => {
+    fetchCompanySitePageMock.mockResolvedValue({
+      ok: true,
+      url: "https://example.test/",
+      status: 200,
+      body: "<html><a href='/about'>About</a></html>",
+      contentType: "text/html",
+    });
+    const result = await runCompanySiteProbe({
+      organisationName: "Example Ltd",
+      website: "example.test",
+      previousProbeStatus: "bad",
+    });
+    expect(result).toEqual({
+      status: "checked",
+      classification: "ok_for_crawl",
+      failureClass: null,
+    });
+    expect(persistedValues[0]).toEqual(expect.objectContaining({
+      probeStatus: "ok_for_crawl",
+      retryAfter: null,
+      lastError: null,
+      probeReason: "root reachable without careers/ATS signal; allow bounded discovery",
+    }));
+    expect(persistedValues[0]).not.toHaveProperty("careersUrl");
+  });
+
   it("classifies unsafe fetches as permanent_bad with the quarantine floor", async () => {
     fetchCompanySitePageMock.mockResolvedValue({
       ok: false,
@@ -165,7 +192,7 @@ describe("company-site health probe", () => {
     }));
   });
 
-  it("keeps a homepage without a careers signal unknown instead of bad", async () => {
+  it("allows a reachable homepage without a careers signal into bounded discovery", async () => {
     fetchCompanySitePageMock.mockResolvedValue({
       ok: true,
       url: "https://unclear.test/",
@@ -181,14 +208,15 @@ describe("company-site health probe", () => {
 
     expect(result).toEqual({
       status: "checked",
-      classification: "unknown",
+      classification: "ok_for_crawl",
       failureClass: null,
     });
     expect(persistedValues[0]).toEqual(expect.objectContaining({
-      lastOutcome: "unknown",
-      probeStatus: "unknown",
-      lastError: "[unknown] no careers or approved ATS signal on root page",
-      retryAfter: expect.any(Date),
+      lastOutcome: "ok_for_crawl",
+      probeStatus: "ok_for_crawl",
+      lastError: null,
+      retryAfter: null,
+      probeReason: "root reachable without careers/ATS signal; allow bounded discovery",
     }));
   });
 

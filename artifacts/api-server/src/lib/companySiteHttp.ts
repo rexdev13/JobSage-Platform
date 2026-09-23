@@ -90,7 +90,9 @@ export async function decodeCompanySiteResponseBody(
     .map((value) => value.trim().toLowerCase())
     .filter((value) => value && value !== "identity");
   let decoded = body;
-  const options = { maxOutputLength: maxBytes };
+  // Node's zlib can throw at an exact maxOutputLength boundary even when the
+  // decoded payload fits. Permit one extra byte, then enforce our own ceiling.
+  const options = { maxOutputLength: maxBytes + 1 };
   for (const encoding of encodings.reverse()) {
     if (encoding === "gzip" || encoding === "x-gzip") {
       decoded = await gunzipAsync(decoded, options);
@@ -100,6 +102,9 @@ export async function decodeCompanySiteResponseBody(
       decoded = await brotliDecompressAsync(decoded, options);
     } else {
       throw new Error(`unsupported content encoding: ${encoding}`);
+    }
+    if (decoded.byteLength > maxBytes) {
+      throw new Error(`decoded response exceeded ${maxBytes} bytes`);
     }
   }
   return decoded

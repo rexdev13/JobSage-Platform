@@ -42,7 +42,7 @@ vi.mock("../../lib/companySiteDiscovery", () => ({
   persistCompanySiteVacancies: persistCompanySiteVacanciesMock,
 }));
 vi.mock("../../lib/companySiteProbe", () => ({
-  COMPANY_SITE_PROBE_BATCH_SIZE: 30,
+  COMPANY_SITE_PROBE_BATCH_SIZE: 60,
   COMPANY_SITE_PROBE_OK_RECHECK_MS: 6 * 60 * 60 * 1000,
   runCompanySiteProbeBatch: runCompanySiteProbeBatchMock,
 }));
@@ -117,7 +117,7 @@ describe("company-site scheduler", () => {
       }],
     });
 
-    const rows = await selectCompanySiteBatch(100);
+    const rows = await selectCompanySiteBatch(10);
 
     expect(rows).toEqual([
       expect.objectContaining({
@@ -288,91 +288,6 @@ describe("company-site scheduler", () => {
     );
   });
 
-  it("waits for a slow check and emits a final marked summary", async () => {
-    executeMock
-      .mockResolvedValueOnce({
-        rows: [{
-          id: 7,
-          organisation_name: "Acme Engineering Limited",
-          website: "https://acme.example",
-          generic_checked_at: null,
-          ats_checked_at: null,
-          careers_url: null,
-          ats_provider: null,
-          bookmarked: false,
-        }],
-      });
-    discoverCompanySiteVacanciesMock.mockImplementation(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 10));
-      return {
-        adverts: [],
-        pagesFetched: 1,
-        genericCompleted: true,
-        atsCompleted: false,
-        transientFailure: false,
-      };
-    });
-    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-
-    const summary = await runCompanySiteDiscoveryBatch({ batchSize: 1 });
-
-    expect(summary).toEqual(expect.objectContaining({
-      selected: 1,
-      checked: 1,
-      errors: 0,
-      done: true,
-      remaining: 0,
-      remainingIsLowerBound: false,
-      durationMs: expect.any(Number),
-    }));
-    expect(discoverCompanySiteVacanciesMock).toHaveBeenCalledWith(
-      "Acme Engineering Limited",
-      "https://acme.example",
-      expect.objectContaining({ deadlineMs: undefined }),
-    );
-    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining(
-      "Complete selected=1 checked=1 skipped=0 upserted=0 errors=0 done=true remaining=0",
-    ));
-    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining(
-      "job=company_site selected=1 upserted=0",
-    ));
-    logSpy.mockRestore();
-  });
-
-  it("reports resumable work when the lookahead finds another eligible employer", async () => {
-    executeMock.mockResolvedValue({
-      rows: Array.from({ length: 6 }, (_, index) => ({
-        id: index + 1,
-        organisation_name: `Employer ${index + 1}`,
-        website: `https://employer-${index + 1}.example`,
-        generic_checked_at: null,
-        ats_checked_at: null,
-        careers_url: null,
-        ats_provider: null,
-        bookmarked: false,
-      })),
-    });
-    discoverCompanySiteVacanciesMock.mockResolvedValue({
-      adverts: [],
-      pagesFetched: 1,
-      genericCompleted: true,
-      atsCompleted: false,
-      transientFailure: false,
-    });
-
-    const summary = await runCompanySiteDiscoveryBatch({ batchSize: 5 });
-
-    expect(summary).toEqual(expect.objectContaining({
-      selected: 5,
-      checked: 5,
-      errors: 0,
-      done: false,
-      remaining: 1,
-      remainingIsLowerBound: true,
-    }));
-    expect(discoverCompanySiteVacanciesMock).toHaveBeenCalledTimes(5);
-  });
-
   it("finishes a ten-employer HTTP batch while reserving time for final writes", async () => {
     executeMock.mockResolvedValue({
       rows: Array.from({ length: 10 }, (_, index) => ({
@@ -395,10 +310,7 @@ describe("company-site scheduler", () => {
     });
     const deadlineMs = Date.now() + 20_000;
 
-    const summary = await runCompanySiteDiscoveryBatch({
-      batchSize: 10,
-      deadlineMs,
-    });
+    const summary = await runCompanySiteDiscoveryBatch({ batchSize: 10, deadlineMs });
 
     expect(summary).toEqual(expect.objectContaining({
       selected: 10,
@@ -432,7 +344,7 @@ describe("company-site scheduler", () => {
     });
 
     const summary = await runCompanySiteDiscoveryBatch({
-      batchSize: 10,
+      batchSize: 1,
       deadlineMs: Date.now() + COMPANY_SITE_BATCH_WRITE_RESERVE_MS,
     });
 

@@ -17,11 +17,12 @@ export const COMPANY_SITE_PROBE_FAILED_RETRY_MS = 24 * 60 * 60 * 1000;
 export const COMPANY_SITE_PROBE_UNKNOWN_RETRY_MS = 6 * 60 * 60 * 1000;
 export const COMPANY_SITE_PROBE_PERMANENT_RETRY_MS = 14 * 24 * 60 * 60 * 1000;
 export const COMPANY_SITE_PROBE_OK_RECHECK_MS = 6 * 60 * 60 * 1000;
-export const COMPANY_SITE_PROBE_BATCH_SIZE = 50;
-export const COMPANY_SITE_PROBE_CONCURRENCY = 12;
+export const COMPANY_SITE_PROBE_BATCH_SIZE = 60;
+export const COMPANY_SITE_PROBE_CONCURRENCY = 18;
 export const COMPANY_SITE_PROBE_WRITE_RESERVE_MS = 3_000;
-export const COMPANY_SITE_PROBE_HTTP_BUDGET_MS = 20_000;
-export const COMPANY_SITE_PROBE_MAX_ROOT_BYTES = 128_000;
+export const COMPANY_SITE_PROBE_HTTP_BUDGET_MS = 25_000;
+// Match the full crawler's bounded page size. 128 KB rejected ordinary homepages.
+export const COMPANY_SITE_PROBE_MAX_ROOT_BYTES = 1_000_000;
 
 export type CompanySiteProbeRow = {
   organisationName: string;
@@ -67,7 +68,7 @@ async function persistProbeOutcome(
   classification: CompanySiteProbeClassification,
   error: string | null,
   retryAt: Date | undefined,
-  metadata: { careersUrl?: string | null; atsProvider?: string | null } = {},
+  metadata: { careersUrl?: string | null; atsProvider?: string | null; reason?: string } = {},
 ): Promise<void> {
   const now = new Date();
   const retryAfter = retryAtFor(classification, retryAt, now);
@@ -85,7 +86,7 @@ async function persistProbeOutcome(
     probeStatus,
     lastProbedAt: now,
     probeReason:
-      error?.slice(0, 500) ??
+      metadata.reason ?? error?.slice(0, 500) ??
       (classification === "ok_for_crawl"
         ? "root fetch and careers/ATS signal succeeded"
         : classification === "unknown"
@@ -136,7 +137,7 @@ export async function runCompanySiteProbe(
   let failureClass: CompanySiteFailureClass | null;
   let errorMessage: string | null;
   let retryAt: Date | undefined;
-  let metadata: { careersUrl?: string | null; atsProvider?: string | null } | undefined;
+  let metadata: { careersUrl?: string | null; atsProvider?: string | null; reason?: string } | undefined;
   try {
     // This deliberately performs exactly the shared robots-aware root fetch.
     // It does not parse links, follow vacancy pages, or write adverts.
@@ -148,20 +149,21 @@ export async function runCompanySiteProbe(
     );
     if (result.ok) {
       const inspection = inspectCompanySiteProbePage(result.url, result.body);
-      if (!inspection.hasCareersSignal) {
-        // A homepage is not authoritative evidence that an employer has no
-        // vacancies. Keep this retryable so a later probe or full crawl can
-        // discover a careers page linked elsewhere.
-        classification = "unknown";
-        failureClass = null;
-        errorMessage = "[unknown] no careers or approved ATS signal on root page";
+      if (!/html|text/i.test(result.contentType) && result.contentType !== "") {
+        classification = "temporary_bad";
+        failureClass = "temporary";
+        errorMessage = "[temporary] root response is not HTML or text";
         retryAt = undefined;
       } else {
+        // A safe reachable root without a careers signal may still expose
+        // vacancies through its sitemap. Let bounded discovery decide.
         classification = "ok_for_crawl";
         failureClass = null;
         errorMessage = null;
         retryAt = undefined;
-        metadata = inspection;
+        metadata = inspection.hasCareersSignal
+          ? inspection
+          : { reason: "root reachable without careers/ATS signal; allow bounded discovery" };
       }
     } else {
       failureClass =
