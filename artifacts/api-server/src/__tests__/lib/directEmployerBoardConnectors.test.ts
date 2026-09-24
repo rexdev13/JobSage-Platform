@@ -77,6 +77,48 @@ describe("direct employer board connectors", () => {
     });
   });
 
+  it("extracts Greenhouse jobs whose provider IDs are numeric", async () => {
+    vi.mocked(fetchCompanySitePublicApiPage).mockResolvedValue({
+      ok: true,
+      status: 200,
+      url: "https://boards-api.greenhouse.io/v1/boards/public/jobs?content=true",
+      contentType: "application/json",
+      body: JSON.stringify({
+        jobs: [
+          {
+            id: 7982150003,
+            title: "Active Trader Sales: Options Lead",
+            absolute_url: "https://job-boards.greenhouse.io/public/jobs/7982150003",
+            content: "<p>About Public</p>",
+            location: { name: "New York City or US Remote" },
+            updated_at: "2026-08-31T14:25:18-04:00",
+          },
+          {
+            id: 7970574003,
+            title: "Lifecycle Marketing Lead",
+            absolute_url: "https://job-boards.greenhouse.io/public/jobs/7970574003",
+            location: { name: "New York, New York" },
+          },
+        ],
+      }),
+    });
+    const result = await fetchDirectEmployerBoard(
+      "Public",
+      "Greenhouse",
+      "https://job-boards.greenhouse.io/public",
+    );
+
+    expect(result.complete).toBe(true);
+    expect(result.adverts).toHaveLength(2);
+    expect(result.adverts[0]).toMatchObject({
+      externalId: "7982150003",
+      url: "https://job-boards.greenhouse.io/public/jobs/7982150003",
+      title: "Active Trader Sales: Options Lead",
+      description: "About Public",
+      location: "New York City or US Remote",
+    });
+  });
+
   it("paginates Lever until a short page and reports malformed pages incomplete", async () => {
     const page = (count: number, start: number) =>
       Array.from({ length: count }, (_, i) => ({

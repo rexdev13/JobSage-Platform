@@ -15,4 +15,14 @@ describe("deterministic UK region matching", () => {
     expect(regionsFromLocationText("London / hybrid")).toContain("London");
     expect(regionsFromLocationText("Remote in the United Kingdom")).toEqual([]);
   });
+
+  it("does not classify New York as the UK county of York", () => {
+    expect(regionsFromLocationText("New York")).toEqual([]);
+    expect(regionsFromLocationText("New York, NY")).toEqual([]);
+    expect(regionsFromLocationText("New York City, United States")).toEqual([]);
+    expect(regionsFromLocationText("York, North Yorkshire")).toContain("Yorkshire and the Humber");
+    expect(regionsFromLocationText("York, East Riding of Yorkshire")).toContain(
+      "Yorkshire and the Humber",
+    );
+  });
 });

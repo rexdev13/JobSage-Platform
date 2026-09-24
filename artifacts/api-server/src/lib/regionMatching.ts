@@ -87,10 +87,14 @@ export function regionsOverlap(
 export function regionsFromLocationText(location: string | null | undefined): UkRegion[] {
   if (!location?.trim()) return [];
   const normalizedLocation = normalizeText(location);
+  const hasNewYorkContext =
+    /(?:^| )new york(?: city)?(?: |$)/.test(normalizedLocation) ||
+    /(?:^| )nyc(?: |$)/.test(normalizedLocation);
   const terms = Object.keys(COUNTY_TO_REGION)
     .sort((a, b) => b.length - a.length)
     .filter((term) => {
       const normalizedTerm = normalizeText(term);
+      if (hasNewYorkContext && normalizedTerm === "york") return false;
       return new RegExp(`(?:^| )${normalizedTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?: |$)`).test(normalizedLocation);
     })
     .map((term) => normalizeRegion(COUNTY_TO_REGION[term]))

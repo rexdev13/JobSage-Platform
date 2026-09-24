@@ -49,6 +49,7 @@ export type CompanySiteBatchRow = {
   atsCheckedAt: Date | null;
   careersUrl: string | null;
   atsProvider: string | null;
+  atsMappingStatus?: "verified" | "unverified" | null;
   bookmarked: boolean;
   healthcareEvidenceBackfill: boolean;
   lastOutcome: string | null;
@@ -164,7 +165,7 @@ async function selectCompanySiteBatchForProbeStatus(
   );
   const probeFilter = selection === "ok_for_crawl"
     ? sql`COALESCE(cs.probe_status, 'unknown') = 'ok_for_crawl'`
-    : sql`COALESCE(cs.probe_status, 'unknown') = 'unknown' AND cs.last_probed_at IS NULL`;
+    : sql`COALESCE(cs.probe_status, 'unknown') = 'unknown'`;
   const result = await db.execute<{
     id: number;
     organisation_name: string;
@@ -174,6 +175,7 @@ async function selectCompanySiteBatchForProbeStatus(
     ats_checked_at: Date | null;
     careers_url: string | null;
     ats_provider: string | null;
+    ats_mapping_status: "verified" | "unverified" | null;
     last_outcome: string | null;
     probe_status: "ok_for_crawl" | "bad" | "unknown" | null;
     last_probed_at: Date | null;
@@ -192,6 +194,7 @@ async function selectCompanySiteBatchForProbeStatus(
         cs.ats_checked_at,
         cs.careers_url,
         cs.ats_provider,
+        cs.ats_mapping_status,
         cs.last_attempted_at,
         cs.last_outcome,
         cs.probe_status,
@@ -339,6 +342,7 @@ async function selectCompanySiteBatchForProbeStatus(
         ats_checked_at,
         careers_url,
         ats_provider,
+        ats_mapping_status,
         last_attempted_at,
         last_outcome,
         probe_status,
@@ -434,6 +438,7 @@ async function selectCompanySiteBatchForProbeStatus(
     atsCheckedAt: row.ats_checked_at ? new Date(row.ats_checked_at) : null,
     careersUrl: row.careers_url,
     atsProvider: row.ats_provider,
+    atsMappingStatus: row.ats_mapping_status === "verified" ? "verified" : "unverified",
     bookmarked: row.bookmarked,
     healthcareEvidenceBackfill: row.healthcare_evidence_backfill,
     lastOutcome: row.last_outcome,
@@ -608,7 +613,7 @@ function isDue(value: Date | null, ttlMs: number): boolean {
 export async function runCompanySiteCheck(
   row: Pick<
     CompanySiteBatchRow,
-    "organisationName" | "website" | "genericCheckedAt" | "atsCheckedAt" | "careersUrl" | "atsProvider" | "crawlState"
+    "organisationName" | "website" | "genericCheckedAt" | "atsCheckedAt" | "careersUrl" | "atsProvider" | "atsMappingStatus" | "crawlState"
   >,
   options: { deadlineMs?: number; acquireLease?: boolean } = {},
 ): Promise<CompanySiteCheckOutcome> {
@@ -643,6 +648,7 @@ export async function runCompanySiteCheck(
   try {
     result = await discoverCompanySiteVacancies(row.organisationName, row.website, {
       knownCareersUrl: row.careersUrl,
+      knownCareersMappingVerified: row.atsMappingStatus === "verified",
       checkGeneric,
       checkAts: checkAts || checkGeneric,
       deadlineMs: options.deadlineMs,
@@ -780,16 +786,33 @@ export async function runCompanySiteCheck(
       completion === "complete" && (result.atsCompleted || checkAts)
         ? now
         : existing?.atsCheckedAt ?? null,
-    careersUrl: result.careersUrl ?? existing?.careersUrl ?? null,
-    atsProvider: result.atsProvider ?? existing?.atsProvider ?? null,
+    careersUrl:
+      result.atsMappingVerified !== true && existing?.atsMappingStatus === "verified"
+        ? existing.careersUrl
+        : result.careersUrl ?? existing?.careersUrl ?? null,
+    atsProvider:
+      result.atsMappingVerified !== true && existing?.atsMappingStatus === "verified"
+        ? existing.atsProvider
+        : result.atsProvider ?? existing?.atsProvider ?? null,
     ...(() => {
-      const evidenceUrl = result.careersUrl ?? existing?.careersUrl ?? null;
-      const provider = result.atsProvider ?? existing?.atsProvider ?? null;
-      const mapping = parseDirectBoardMapping(provider, evidenceUrl);
+      const evidenceUrl =
+        result.atsMappingVerified === true
+          ? result.careersUrl ?? existing?.careersUrl ?? null
+          : existing?.atsMappingStatus === "verified"
+            ? existing.careersUrl ?? null
+            : result.careersUrl ?? existing?.careersUrl ?? null;
+      const provider =
+        result.atsMappingVerified !== true && existing?.atsMappingStatus === "verified"
+          ? existing.atsProvider ?? null
+          : result.atsProvider ?? existing?.atsProvider ?? null;
+      const mapping = result.atsMappingVerified === true
+        ? parseDirectBoardMapping(provider, evidenceUrl)
+        : null;
       return mapping
         ? {
             atsBoardId: mapping.boardId,
-            atsMappingEvidenceUrl: mapping.evidenceUrl,
+            atsMappingEvidenceUrl:
+              result.atsMappingEvidenceUrl ?? existing?.atsMappingEvidenceUrl ?? mapping.evidenceUrl,
             atsMappingStatus: "verified" as const,
           }
         : {

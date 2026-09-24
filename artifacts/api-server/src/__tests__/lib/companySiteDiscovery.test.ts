@@ -24,6 +24,7 @@ vi.mock("../../lib/companySiteHttp", () => ({
 
 const {
   discoverCompanySiteVacancies,
+  inspectCompanySiteProbePage,
   normaliseSponsorWebsite,
 } = await import("../../lib/companySiteDiscovery");
 
@@ -66,6 +67,30 @@ describe("company-site vacancy discovery", () => {
         url: "https://jobs.lever.co/acme/83f7d3a2-5510-4e1a-a9ab-998172c4a001",
       }),
     ]);
+  });
+
+  it("does not fetch a stored ATS URL until first-party ownership is confirmed", async () => {
+    fetchCompanySitePageMock.mockImplementation(async (url: string) => ({
+      ok: true,
+      url,
+      status: 200,
+      contentType: "text/html",
+      body: "<p>No current vacancies are listed.</p>",
+    }));
+
+    const result = await discoverCompanySiteVacancies(
+      "Fixture Employer",
+      "https://fixture.example/",
+      {
+        knownCareersUrl: "https://jobs.ashbyhq.com/fixture",
+        knownCareersMappingVerified: false,
+      },
+    );
+
+    expect(fetchCompanySitePageMock.mock.calls.map(([url]) => url)).not.toContain(
+      "https://jobs.ashbyhq.com/fixture",
+    );
+    expect(result.atsMappingVerified).toBe(false);
   });
 
   it("accepts opaque Ashby posting links from an Ashby listing page", async () => {
@@ -258,6 +283,85 @@ describe("company-site vacancy discovery", () => {
 
     expect(result.adverts).toEqual([]);
     expect(result.rejectionReasons.generic_careers_content).toBeGreaterThan(0);
+  });
+
+  it("does not count career-section navigation as vacancies when the page mentions vacancies", async () => {
+    const body = `<html>
+      <title>Careers</title><h1>Careers</h1>
+      <p>Explore vacancies across our divisions and find out how to apply.</p>
+      <div class="sticky">
+        <a href="/Careers/UK-Poultry"><div class="bfa-nav">UK POULTRY</div></a>
+        <a href="/Careers/Meal-Solutions"><div class="bfa-nav">MEALS</div></a>
+        <a href="/Careers/Head-Office"><div class="bfa-nav">HEAD OFFICE</div></a>
+        <a href="/Careers/Early-Careers"><div class="bfa-nav">EARLY CAREERS</div></a>
+      </div>
+      <main><a href="/Careers/Jobs/senior-engineer">Senior Software Engineer</a></main>
+    </html>`;
+    fetchCompanySitePageMock.mockImplementation(async (url: string) => ({
+      ok: true,
+      url,
+      status: 200,
+      contentType: "text/html",
+      body,
+    }));
+
+    const result = await discoverCompanySiteVacancies(
+      "Fixture Employer",
+      "https://fixture.example/careers",
+    );
+
+    expect(result.adverts).toHaveLength(1);
+    expect(result.adverts[0]).toMatchObject({
+      title: "Senior Software Engineer",
+      url: "https://fixture.example/Careers/Jobs/senior-engineer",
+    });
+    expect(result.rejectionReasons.navigation_link_not_vacancy).toBeGreaterThan(0);
+  });
+
+  it("does not treat careers-related prose on an ordinary page as a recruitment signal", () => {
+    const result = inspectCompanySiteProbePage(
+      "https://fixture.example/",
+      "<html><title>Our history</title><h1>About the company</h1><p>We discuss careers, jobs, open positions and workplace opportunities in this article.</p></html>",
+    );
+
+    expect(result.hasCareersSignal).toBe(false);
+    expect(result.careersUrl).toBeNull();
+    expect(result.atsMappingVerified).toBe(false);
+  });
+
+  it("recognizes a first-party ATS link and prefers it over a generic careers page", () => {
+    const result = inspectCompanySiteProbePage(
+      "https://fixture.example/",
+      '<nav><a href="/careers">Careers</a><a href="https://jobs.ashbyhq.com/fixture">Apply for roles</a></nav>',
+    );
+
+    expect(result.hasCareersSignal).toBe(true);
+    expect(result.careersUrl).toBe("https://jobs.ashbyhq.com/fixture");
+    expect(result.atsProvider).toBe("Ashby");
+    expect(result.atsMappingVerified).toBe(true);
+    expect(result.atsMappingEvidenceUrl).toBe("https://fixture.example/");
+  });
+
+  it.each([
+    ["culture", '<a href="/careers/our-culture">Our culture</a>'],
+    ["team", '<a href="/careers/meet-the-team">Meet our team</a>'],
+    ["employee stories", '<a href="/careers/employee-stories">Read more</a>'],
+    ["generic apply", '<a href="/careers/apply-now">Apply now</a>'],
+  ])("does not extract a %s page as a vacancy", async (_kind, anchor) => {
+    fetchCompanySitePageMock.mockResolvedValue({
+      ok: true,
+      url: "https://fixture.example/careers",
+      status: 200,
+      contentType: "text/html",
+      body: `<html><h1>Careers</h1>${anchor}</html>`,
+    });
+
+    const result = await discoverCompanySiteVacancies(
+      "Fixture Employer",
+      "https://fixture.example/careers",
+    );
+
+    expect(result.adverts).toEqual([]);
   });
 
   it("reports a complete empty observation", async () => {

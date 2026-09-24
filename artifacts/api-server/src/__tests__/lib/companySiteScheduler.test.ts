@@ -224,6 +224,91 @@ describe("company-site scheduler", () => {
     );
   });
 
+  it("does not verify a parseable ATS URL without first-party mapping evidence", async () => {
+    let persisted: Record<string, unknown> | undefined;
+    insertMock.mockReturnValue({
+      values: (values: Record<string, unknown>) => {
+        persisted = values;
+        return { onConflictDoUpdate: () => Promise.resolve() };
+      },
+    });
+    discoverCompanySiteVacanciesMock.mockResolvedValue({
+      adverts: [],
+      sourceUrl: "https://example.test/",
+      careersUrl: "https://jobs.ashbyhq.com/example",
+      atsProvider: "Ashby",
+      atsMappingVerified: false,
+      genericCompleted: true,
+      atsCompleted: true,
+      transientFailure: false,
+      completion: "complete",
+      pagesFetched: 1,
+      advertsExtracted: 0,
+      advertsRejected: 0,
+    });
+
+    await runCompanySiteCheck({
+      organisationName: "Example Ltd",
+      website: "https://example.test",
+      genericCheckedAt: null,
+      atsCheckedAt: null,
+      careersUrl: "https://jobs.ashbyhq.com/example",
+      atsProvider: "Ashby",
+      atsMappingStatus: "unverified",
+    });
+
+    expect(discoverCompanySiteVacanciesMock).toHaveBeenCalledWith(
+      "Example Ltd",
+      "https://example.test",
+      expect.objectContaining({ knownCareersMappingVerified: false }),
+    );
+    expect(persisted).toEqual(expect.objectContaining({
+      atsBoardId: null,
+      atsMappingStatus: "unverified",
+    }));
+  });
+
+  it("verifies a parseable ATS mapping only after first-party evidence is observed", async () => {
+    let persisted: Record<string, unknown> | undefined;
+    insertMock.mockReturnValue({
+      values: (values: Record<string, unknown>) => {
+        persisted = values;
+        return { onConflictDoUpdate: () => Promise.resolve() };
+      },
+    });
+    discoverCompanySiteVacanciesMock.mockResolvedValue({
+      adverts: [],
+      sourceUrl: "https://example.test/",
+      careersUrl: "https://jobs.ashbyhq.com/example",
+      atsProvider: "Ashby",
+      atsMappingVerified: true,
+      atsMappingEvidenceUrl: "https://example.test/careers",
+      genericCompleted: true,
+      atsCompleted: true,
+      transientFailure: false,
+      completion: "complete",
+      pagesFetched: 1,
+      advertsExtracted: 0,
+      advertsRejected: 0,
+    });
+
+    await runCompanySiteCheck({
+      organisationName: "Example Ltd",
+      website: "https://example.test",
+      genericCheckedAt: null,
+      atsCheckedAt: null,
+      careersUrl: null,
+      atsProvider: null,
+      atsMappingStatus: "unverified",
+    });
+
+    expect(persisted).toEqual(expect.objectContaining({
+      atsBoardId: "example",
+      atsMappingEvidenceUrl: "https://example.test/careers",
+      atsMappingStatus: "verified",
+    }));
+  });
+
   it("quarantines a permanent failure without stamping it complete", async () => {
     const before = Date.now();
     let persisted: Record<string, unknown> | undefined;
