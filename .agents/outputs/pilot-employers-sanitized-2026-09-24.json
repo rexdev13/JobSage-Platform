@@ -1,0 +1,92 @@
+{
+  "asOf": "2026-09-24",
+  "scope": "Development-only public evidence fixture; no production DB export and no candidate/user data.",
+  "employers": [
+    {
+      "companyName": "9fin Limited",
+      "officialWebsite": "https://9fin.com/",
+      "officialCareersUrl": "https://9fin.com/careers",
+      "savedCareersUrl": "https://jobs.ashbyhq.com/9fin/form/talent-community",
+      "atsProvider": "Ashby",
+      "boardId": "9fin",
+      "mappingStatus": "verified",
+      "mappingEvidence": "Official careers page links to the Ashby talent-community path; current public feed returned 33 jobs completely.",
+      "publicVacancyExamples": [
+        {
+          "title": "Backend Engineer",
+          "listingUrl": "https://jobs.ashbyhq.com/9fin/aa975e0f-eca7-45c3-a1c8-fa38c4edd45b",
+          "applicationUrl": "https://jobs.ashbyhq.com/9fin/aa975e0f-eca7-45c3-a1c8-fa38c4edd45b/application",
+          "location": "London",
+          "verification": "live",
+          "candidateVisibleCategories": [
+            "ENGINEERING",
+            "IT"
+          ]
+        },
+        {
+          "title": "Senior AI Engineer",
+          "listingUrl": "https://jobs.ashbyhq.com/9fin/f19f80c7-fadb-4e77-9087-6ab15a8de8bf",
+          "applicationUrl": "https://jobs.ashbyhq.com/9fin/f19f80c7-fadb-4e77-9087-6ab15a8de8bf/application",
+          "location": "London",
+          "verification": "live",
+          "candidateVisibleCategories": [
+            "ENGINEERING",
+            "IT"
+          ]
+        }
+      ]
+    },
+    {
+      "companyName": "60X Ltd",
+      "officialWebsite": "https://www.60x.ai/",
+      "officialCareersUrl": "https://jobs.ashbyhq.com/60x",
+      "atsProvider": "Ashby",
+      "boardId": "60x",
+      "mappingStatus": "unverified",
+      "mappingEvidence": "Current audit notes that the official company site links to this Ashby board; no direct feed run recorded in this snapshot."
+    },
+    {
+      "companyName": "59 Studio Ltd",
+      "officialWebsite": "https://59.studio/",
+      "officialCareersUrl": "https://59.studio/",
+      "savedCareersUrl": "https://job-boards.greenhouse.io/journey/jobs/5229593007",
+      "atsProvider": "Greenhouse",
+      "boardId": "journey",
+      "mappingStatus": "unverified",
+      "mappingEvidence": "Official Join page was reported to display Journey Greenhouse roles; saved URL is a specific job page, not a board root. Exact Join-page path was not preserved in the exported DB record."
+    },
+    {
+      "companyName": "BMC Software Ltd",
+      "officialWebsite": "https://www.bmc.com/",
+      "officialCareersUrl": "https://www.bmc.com/careers/careers.html",
+      "atsProvider": null,
+      "boardId": null,
+      "mappingStatus": "not_mapped",
+      "publicVacancyExamples": [
+        {
+          "title": "Technical Support",
+          "listingUrl": "https://jobs.bmc.com/Careers/SearchJobs?1273=1190358&1273_format=1340&listFilterMode=1",
+          "applicationUrl": null,
+          "verification": "live"
+        }
+      ],
+      "mappingEvidence": "Nine additional URLs from a bounded check remained inconclusive under hostname pacing/backoff; they are not counted as live."
+    },
+    {
+      "companyName": "A P L CONSTRUCTION LTD",
+      "officialWebsite": "https://www.aplconstruction.co.uk/",
+      "storedCareersUrl": "https://www.aplconstruction.co.uk/photo-gallery",
+      "atsProvider": null,
+      "mappingStatus": "unverified",
+      "mappingEvidence": "Stored destination is a photo gallery, not a careers page."
+    },
+    {
+      "companyName": "B S Accessories Ltd T/A Fancy Jewellers",
+      "officialWebsite": "https://fj-gold.com/",
+      "storedCareersUrl": "https://fj-gold.com/?p=1201&post_type=product",
+      "atsProvider": null,
+      "mappingStatus": "unverified",
+      "mappingEvidence": "Stored destination is a product page, not a careers page."
+    }
+  ]
+}
