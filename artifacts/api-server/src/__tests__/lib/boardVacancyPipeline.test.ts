@@ -95,6 +95,27 @@ describe("shared board vacancy pipeline", () => {
     );
   });
 
+  it("keeps a separate exact application URL on repeat-import adverts", () => {
+    const first = normaliseAndDedupeBoardAdverts([advert({
+      sourceType: "company_site",
+      boardName: null,
+      url: "https://jobs.lever.co/example/job-1",
+      applicationUrl: "https://jobs.lever.co/example/job-1/apply",
+      companyVacancyEvidence: { kind: "known_ats_posting", provider: "Lever" },
+    })]);
+    const repeatWithoutApplyUrl = normaliseAndDedupeBoardAdverts([advert({
+      sourceType: "company_site",
+      boardName: null,
+      url: "https://jobs.lever.co/example/job-1",
+      applicationUrl: null,
+      companyVacancyEvidence: { kind: "known_ats_posting", provider: "Lever" },
+    })]);
+    expect(first[0]?.applicationUrl).toBe("https://jobs.lever.co/example/job-1/apply");
+    expect(repeatWithoutApplyUrl[0]?.applicationUrl).toBeNull();
+    // Persistence uses the existing-row value when the repeat source omits it.
+    expect(repeatWithoutApplyUrl[0]?.url).toBe(first[0]?.url);
+  });
+
   it("does not overwrite an existing sponsor contact or write false provenance", async () => {
     const execute = vi.fn().mockResolvedValue({ rows: [] });
 

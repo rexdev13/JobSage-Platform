@@ -229,6 +229,7 @@ export const sponsorLicenceVacanciesTable = pgTable(
     location: text("location"),
     salary: text("salary"),
     url: text("url"),
+    applicationUrl: text("application_url"),
     sourceType: text("source_type").$type<"job_board" | "company_site">(),
     boardName: text("board_name"),
     externalListingId: text("external_listing_id"),

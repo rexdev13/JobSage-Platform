@@ -32,6 +32,7 @@ export interface BoardAdvert {
   location: string | null;
   salary: string | null;
   url: string;
+  applicationUrl?: string | null;
   description: string | null;
   postedDate: string | null;
   targetRegions: string[] | null;
@@ -446,6 +447,7 @@ export async function upsertSharedBoardVacancies(
           location: advert.location,
           salary: advert.salary,
           url: advert.url,
+           applicationUrl: advert.applicationUrl ?? existingRow.applicationUrl ?? null,
           description: advert.description,
           postedDate: advert.postedDate,
           targetRegions: advert.targetRegions ?? [],
@@ -495,6 +497,7 @@ export async function upsertSharedBoardVacancies(
         location: advert.location,
         salary: advert.salary,
         url: advert.url,
+         applicationUrl: advert.applicationUrl ?? null,
         description: advert.description,
         postedDate: advert.postedDate,
         targetRegions: advert.targetRegions ?? [],

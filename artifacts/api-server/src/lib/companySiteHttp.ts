@@ -94,14 +94,25 @@ export async function decodeCompanySiteResponseBody(
   // decoded payload fits. Permit one extra byte, then enforce our own ceiling.
   const options = { maxOutputLength: maxBytes + 1 };
   for (const encoding of encodings.reverse()) {
-    if (encoding === "gzip" || encoding === "x-gzip") {
-      decoded = await gunzipAsync(decoded, options);
-    } else if (encoding === "deflate") {
-      decoded = await inflateAsync(decoded, options);
-    } else if (encoding === "br") {
-      decoded = await brotliDecompressAsync(decoded, options);
-    } else {
-      throw new Error(`unsupported content encoding: ${encoding}`);
+    try {
+      if (encoding === "gzip" || encoding === "x-gzip") {
+        decoded = await gunzipAsync(decoded, options);
+      } else if (encoding === "deflate") {
+        decoded = await inflateAsync(decoded, options);
+      } else if (encoding === "br") {
+        decoded = await brotliDecompressAsync(decoded, options);
+      } else {
+        throw new Error(`unsupported content encoding: ${encoding}`);
+      }
+    } catch (error) {
+      // zlib may throw a platform-specific Buffer allocation error when the
+      // decoded stream crosses maxOutputLength. Convert it to our bounded,
+      // classifiable size failure instead of leaking an allocation detail.
+      const reason = error instanceof Error ? error.message : String(error);
+      if (/larger than|max(?:imum)? output|maxOutputLength|output length/i.test(reason)) {
+        throw new Error(`decoded response exceeded ${maxBytes} bytes`);
+      }
+      throw error;
     }
     if (decoded.byteLength > maxBytes) {
       throw new Error(`decoded response exceeded ${maxBytes} bytes`);

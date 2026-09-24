@@ -61,6 +61,7 @@ describe("direct employer board connectors", () => {
     expect(result.adverts[0]).toMatchObject({
       externalId: "listed-id",
       url: "https://jobs.ashbyhq.com/9fin/listed-id",
+      applicationUrl: null,
       title: "Senior Engineer",
       description: "Full description",
       location: "London",
@@ -74,6 +75,7 @@ describe("direct employer board connectors", () => {
         id: `id-${start + i}`,
         text: `Role ${start + i}`,
         hostedUrl: `https://jobs.lever.co/board/id-${start + i}`,
+        applyUrl: `https://jobs.lever.co/board/id-${start + i}/apply`,
         descriptionPlain: "Description",
         categories: { location: "London" },
       }));
@@ -90,5 +92,7 @@ describe("direct employer board connectors", () => {
     expect(result.complete).toBe(true);
     expect(result.pagesFetched).toBe(2);
     expect(result.adverts).toHaveLength(101);
+    expect(result.adverts[0]?.url).toBe("https://jobs.lever.co/board/id-0");
+    expect(result.adverts[0]?.applicationUrl).toBe("https://jobs.lever.co/board/id-0/apply");
   });
 });

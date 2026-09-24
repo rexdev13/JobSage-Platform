@@ -521,12 +521,9 @@ export async function discoverCompanySiteVacancies(
         rejectionReasons: {},
         discoveredUrls: [direct.mapping.feedUrl],
         observedAdvertUrls: directAdverts.map((advert) => advert.url),
-        resumeState: direct.complete ? null : {
-          queue: [direct.mapping.feedUrl],
-          visited: [],
-          careersUrl: direct.mapping.evidenceUrl,
-          atsProvider: direct.mapping.provider,
-        },
+        // A direct-board failure is retried from the feed on the next run.
+        // Never hand an API endpoint to the HTML crawler as resumable state.
+        resumeState: null,
       };
     }
   }

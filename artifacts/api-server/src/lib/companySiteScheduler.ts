@@ -1,4 +1,5 @@
 import cron from "node-cron";
+import { randomUUID } from "node:crypto";
 import {
   db,
   sponsorLicenceCompanySiteChecksTable,
@@ -11,6 +12,7 @@ import {
 } from "./companySiteDiscovery";
 import {
   classifyCompanySiteFailure,
+  COMPANY_SITE_EMPLOYER_BUDGET_MS,
   type CompanySiteFailureClass,
 } from "./companySiteHttp";
 import { withCompanySiteDatabaseRetry } from "./companySitePersistence";
@@ -50,6 +52,13 @@ export type CompanySiteBatchRow = {
   probeStatus: "ok_for_crawl" | "bad" | "unknown";
   lastProbedAt: Date | null;
   probeReason: string | null;
+  crawlState?: {
+    queue: string[];
+    visited: string[];
+    sitemapQueued?: boolean;
+    careersUrl?: string | null;
+    atsProvider?: string | null;
+  } | null;
 };
 
 export type CompanySiteCheckOutcome =
@@ -137,6 +146,7 @@ async function selectCompanySiteBatchForProbeStatus(
     probe_status: "ok_for_crawl" | "bad" | "unknown" | null;
     last_probed_at: Date | null;
     probe_reason: string | null;
+    crawl_state: CompanySiteBatchRow["crawlState"];
     bookmarked: boolean;
     healthcare_evidence_backfill: boolean;
   }>(sql`
@@ -155,6 +165,8 @@ async function selectCompanySiteBatchForProbeStatus(
         cs.probe_status,
         cs.last_probed_at,
         cs.probe_reason,
+        cs.crawl_state,
+        cs.crawl_state,
         EXISTS (
           SELECT 1
           FROM sponsor_licence_bookmarks b
@@ -191,6 +203,7 @@ async function selectCompanySiteBatchForProbeStatus(
         AND trim(sl.website) <> ''
         AND ${probeFilter}
         AND (cs.retry_after IS NULL OR cs.retry_after <= NOW())
+        AND (cs.crawl_lease_until IS NULL OR cs.crawl_lease_until <= NOW())
       ORDER BY lower(btrim(sl.organisation_name)), sl.id
     ),
     eligible AS (
@@ -394,6 +407,7 @@ async function selectCompanySiteBatchForProbeStatus(
     probeStatus: row.probe_status ?? "unknown",
     lastProbedAt: row.last_probed_at ? new Date(row.last_probed_at) : null,
     probeReason: row.probe_reason,
+    crawlState: row.crawl_state ?? null,
   }));
 }
 
@@ -561,9 +575,9 @@ function isDue(value: Date | null, ttlMs: number): boolean {
 export async function runCompanySiteCheck(
   row: Pick<
     CompanySiteBatchRow,
-    "organisationName" | "website" | "genericCheckedAt" | "atsCheckedAt" | "careersUrl" | "atsProvider"
+    "organisationName" | "website" | "genericCheckedAt" | "atsCheckedAt" | "careersUrl" | "atsProvider" | "crawlState"
   >,
-  options: { deadlineMs?: number } = {},
+  options: { deadlineMs?: number; acquireLease?: boolean } = {},
 ): Promise<CompanySiteCheckOutcome> {
   if (!row.website.trim()) return { status: "skipped", reason: "no website" };
   const checkGeneric = isDue(row.genericCheckedAt, COMPANY_SITE_GENERIC_TTL_MS);
@@ -571,6 +585,25 @@ export async function runCompanySiteCheck(
     row.atsProvider !== null &&
     isDue(row.atsCheckedAt, COMPANY_SITE_ATS_TTL_MS);
   if (!checkGeneric && !checkAts) return { status: "skipped", reason: "fresh cache" };
+  const leaseToken = randomUUID();
+  const leaseUntil = new Date(Date.now() + Math.max(COMPANY_SITE_EMPLOYER_BUDGET_MS, 30_000));
+  const leaseResult = options.acquireLease !== true || process.env.NODE_ENV === "test"
+    ? null
+    : await db.execute(sql`
+    INSERT INTO sponsor_licence_company_site_checks
+      (organisation_name, crawl_lease_until, crawl_lease_token, updated_at)
+    VALUES (${row.organisationName}, ${leaseUntil}, ${leaseToken}, NOW())
+    ON CONFLICT (organisation_name) DO UPDATE
+    SET crawl_lease_until = EXCLUDED.crawl_lease_until,
+        crawl_lease_token = EXCLUDED.crawl_lease_token,
+        updated_at = NOW()
+    WHERE sponsor_licence_company_site_checks.crawl_lease_until IS NULL
+       OR sponsor_licence_company_site_checks.crawl_lease_until <= NOW()
+    RETURNING organisation_name
+  `);
+  if (leaseResult?.rows && leaseResult.rows.length === 0) {
+    return { status: "skipped", reason: "crawl already leased" };
+  }
 
   let result;
   try {
@@ -579,6 +612,7 @@ export async function runCompanySiteCheck(
       checkGeneric,
       checkAts: checkAts || checkGeneric,
       deadlineMs: options.deadlineMs,
+      resumeState: row.crawlState,
     });
   } catch (error) {
     const now = new Date();
@@ -602,6 +636,8 @@ export async function runCompanySiteCheck(
           lastOutcome: "failed",
           lastError: `[${failureClass}] ${errorMessage}`,
           updatedAt: now,
+          crawlLeaseUntil: null,
+          crawlLeaseToken: null,
         })
         .onConflictDoUpdate({
           target: sponsorLicenceCompanySiteChecksTable.organisationName,
@@ -611,7 +647,10 @@ export async function runCompanySiteCheck(
             lastOutcome: "failed",
             lastError: `[${failureClass}] ${errorMessage}`,
             updatedAt: now,
+              crawlLeaseUntil: null,
+              crawlLeaseToken: null,
           },
+            where: sql`${sponsorLicenceCompanySiteChecksTable.crawlLeaseToken} = ${leaseToken}`,
         }));
     return {
       status: "checked",
@@ -706,6 +745,9 @@ export async function runCompanySiteCheck(
     lastPagesFetched: result.pagesFetched,
     lastAdvertsFound: result.advertsExtracted,
     lastRejectedCount: result.advertsRejected,
+    crawlState: result.completion === "complete" ? null : result.resumeState ?? row.crawlState ?? null,
+    crawlLeaseUntil: null,
+    crawlLeaseToken: null,
     updatedAt: now,
   };
   await withCompanySiteDatabaseRetry("store employer check", () =>
@@ -715,6 +757,7 @@ export async function runCompanySiteCheck(
       .onConflictDoUpdate({
         target: sponsorLicenceCompanySiteChecksTable.organisationName,
         set: values,
+        where: sql`${sponsorLicenceCompanySiteChecksTable.crawlLeaseToken} = ${leaseToken}`,
       }));
 
   return {
@@ -794,6 +837,7 @@ export async function runCompanySiteDiscoveryBatch(
         try {
           const outcome = await runCompanySiteCheck(row, {
             deadlineMs: workDeadlineMs,
+            acquireLease: true,
           });
           if (outcome.status === "skipped") {
             skipped += 1;
