@@ -166,7 +166,6 @@ async function selectCompanySiteBatchForProbeStatus(
         cs.last_probed_at,
         cs.probe_reason,
         cs.crawl_state,
-        cs.crawl_state,
         EXISTS (
           SELECT 1
           FROM sponsor_licence_bookmarks b
