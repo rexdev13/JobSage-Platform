@@ -3,7 +3,7 @@ import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
 import { ASSISTANT_STREAM_TIMEOUT_MS, clampSidebarWidth, Sidebar, sidebarWidthBounds } from "../components/Sidebar";
-import { detectQuestions } from "../lib/questionDetector";
+import { detectQuestions, getQuestionField } from "../lib/questionDetector";
 import type { DetectedQuestion, QuestionWatcher } from "../lib/questionDetector";
 import type { PrefillResult } from "../lib/prefill";
 import type { AnswerLibrarySnapshot, AnswerMemoryController } from "../lib/answerMemory";
@@ -19,11 +19,12 @@ function renderSidebar(
     questions?: DetectedQuestion[];
     onPrefill?: (questions: DetectedQuestion[]) => Promise<PrefillResult>;
     answerMemory?: AnswerMemoryController;
+    inShadowRoot?: boolean;
   },
 ) {
   mount = document.createElement("div");
   document.body.append(mount);
-  const root = createRoot(mount);
+  const root = createRoot(options?.inShadowRoot ? mount.attachShadow({ mode: "open" }) : mount);
   const snapshot = options?.questions ?? [];
   const questionWatcher: QuestionWatcher | undefined = options?.questions
     ? {
@@ -219,6 +220,38 @@ describe("Smart Apply panel interactions", () => {
     expect(getQuestionButton()?.style.color).toBe("rgb(21, 128, 61)");
 
     await act(async () => root.unmount());
+  });
+
+  it("accepts a manually typed question inside a shadow root while detected fields are watched", async () => {
+    const application = document.createElement("div");
+    application.innerHTML = '<label for="motivation-shadow-test">Why do you want to work for this care team?</label><textarea id="motivation-shadow-test"></textarea>';
+    document.body.append(application);
+    const detectedQuestion = detectQuestions().find(
+      (question) => getQuestionField(question.id) === application.querySelector("textarea"),
+    );
+    expect(detectedQuestion).toBeDefined();
+    const root = renderSidebar(true, undefined, {
+      questions: [detectedQuestion!],
+      inShadowRoot: true,
+    });
+    const textarea = mount?.shadowRoot?.querySelector<HTMLTextAreaElement>(
+      'textarea[placeholder^="Paste the application question"]',
+    );
+    const generate = Array.from(mount?.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ?? [])
+      .find((button) => button.textContent?.includes("Generate Answer"));
+    expect(textarea).not.toBeNull();
+    expect(generate?.disabled).toBe(true);
+
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!;
+      setter.call(textarea, "Have you ever had a criminal conviction?");
+      textarea?.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    });
+
+    expect(textarea?.value).toBe("Have you ever had a criminal conviction?");
+    expect(generate?.disabled).toBe(false);
+    await act(async () => root.unmount());
+    application.remove();
   });
 
   it("shows memory provenance and lets candidates toggle, edit, delete, and clear the library", async () => {

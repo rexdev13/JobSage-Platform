@@ -327,6 +327,7 @@ export function Sidebar({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { answer, streaming, error, generate, cancel, setAnswer, setError } = useStreamAnswer();
   const [, setFieldStatusRevision] = useState(0);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   // Question detection
   const subscribe = useCallback(
@@ -345,7 +346,13 @@ export function Sidebar({
       if (field) documents.add(field.ownerDocument);
     }
 
-    const refreshFieldStatus = () => setFieldStatusRevision((revision) => revision + 1);
+    const refreshFieldStatus = (event: Event) => {
+      // Input events from the extension's shadow-root panel cross the document
+      // boundary. A document-capture render here resets controlled textareas
+      // before their own input handler sees the newly typed value.
+      if (panelRef.current && event.composedPath().includes(panelRef.current)) return;
+      setFieldStatusRevision((revision) => revision + 1);
+    };
     for (const doc of documents) {
       doc.addEventListener("input", refreshFieldStatus, true);
       doc.addEventListener("change", refreshFieldStatus, true);
@@ -400,7 +407,6 @@ export function Sidebar({
     pillTop: number;
   } | null>(null);
   const pillContainerRef = useRef<HTMLDivElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
   const resizeStartRef = useRef<{ pointerX: number; width: number } | null>(null);
   const [isResizing, setIsResizing] = useState(false);
 
@@ -1194,7 +1200,7 @@ export function Sidebar({
                                 <textarea
                                   aria-label={`Edit remembered answer for ${remembered.labelVariants.at(-1) ?? remembered.normalizedQuestion}`}
                                   value={editingAnswerValue}
-                                  onChange={(event) => setEditingAnswerValue(event.target.value)}
+                                  onInput={(event) => setEditingAnswerValue(event.currentTarget.value)}
                                   rows={3}
                                   maxLength={8000}
                                   style={{
@@ -1468,14 +1474,16 @@ export function Sidebar({
 
           <div>
             <label
+              htmlFor="jobsage-manual-application-question"
               style={{ display: "block", fontSize: 12, fontWeight: 600, color: COLORS.text, marginBottom: 6 }}
             >
               {detected.length > 0 ? "Or paste a question manually" : "Application question"}
             </label>
             <textarea
+              id="jobsage-manual-application-question"
               value={question}
-              onChange={(e) => {
-                setQuestion(e.target.value);
+              onInput={(event) => {
+                setQuestion(event.currentTarget.value);
                 setSelectedId(null);
               }}
               placeholder="Paste the application question here, e.g. 'Describe a time you handled a clinical crisis…'"
