@@ -432,3 +432,17 @@ mtime_ms = 1790235143425
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/c3f9d89f-352b-4e1a-a4f8-e5fe40039946/571e3f90-5b95-41c0-a776-4159d46fae05"
 storage_version_token = "1790235400418841"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "oxMRwzGKaP_LIxcZgEin3"
+uri = "file://artifacts/chrome-extension/release/jobsage-smart-apply-extension-v0.4.20.zip"
+type = "unspecified"
+title = "JOBSAGE Smart Apply v0.4.20"
+description = "Download the repaired Chrome extension. Verified in a clean Chromium profile for typing, paste, automatic opening from JOBSAGE, and safe redirect handling."
+logical_id = "ba670302-ff4b-4450-8968-2f176944c024"
+content_hash = "sha256:28d36d7692adcf17ea8fae2079477d05a0e6ab4d875d56ab80dd27100e622aa3"
+size = 158963
+mtime_ms = 1790236515051
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/ba670302-ff4b-4450-8968-2f176944c024/d0a0da3d-c80f-4ded-940c-c6c914f96d6a"
+storage_version_token = "1790236631862716"
+content_type = "application/octet-stream"

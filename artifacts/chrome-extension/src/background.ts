@@ -18,6 +18,7 @@ const SITE_SUPPRESSIONS_KEY = "jobsage_site_suppressions";
 const SESSION_SUPPRESSIONS_KEY = "jobsage_session_suppressions";
 const PENDING_NAVIGATION_STORAGE_PREFIX = "jobsage_pending_trusted_navigation";
 const CREATED_NAVIGATION_STORAGE_PREFIX = "jobsage_created_navigation_target";
+const CREATED_TARGET_SOURCE_STORAGE_PREFIX = "jobsage_created_navigation_target_source";
 const SAME_TAB_NAVIGATION_STORAGE_PREFIX = "jobsage_same_tab_navigation_target";
 const TRUSTED_NAVIGATION_WINDOW_MS = 2 * 60 * 1000;
 
@@ -56,6 +57,7 @@ type TrustedNavigation = {
   createdAt: number;
 };
 type CreatedNavigationTarget = { tabId: number; url: string; createdAt: number };
+type CreatedTargetSource = { sourceTabId: number; createdAt: number };
 type SameTabNavigationTarget = { url: string; createdAt: number };
 
 // These short-lived collections bridge browser navigation events with verified
@@ -63,8 +65,11 @@ type SameTabNavigationTarget = { url: string; createdAt: number };
 // quick succession, so each exact destination is retained independently.
 const pendingTrustedNavigations = new Map<number, TrustedNavigation[]>();
 const createdNavigationTargets = new Map<number, CreatedNavigationTarget[]>();
+const createdTargetSources = new Map<number, CreatedTargetSource>();
 const sameTabNavigationTargets = new Map<number, SameTabNavigationTarget[]>();
 const navigationQueue = createKeyedAsyncQueue<number>();
+const activationQueue = createKeyedAsyncQueue<number>();
+const GLOBAL_NAVIGATION_QUEUE = 0;
 
 function navigationStorageKey(prefix: string, tabId: number): string {
   return `${prefix}:${tabId}`;
@@ -140,7 +145,7 @@ function sameUrl(a: string, b: string): boolean {
 }
 
 function isFreshTrustedNavigation(
-  entry: TrustedNavigation | CreatedNavigationTarget | SameTabNavigationTarget,
+  entry: { createdAt: number },
 ): boolean {
   return Date.now() - entry.createdAt <= TRUSTED_NAVIGATION_WINDOW_MS;
 }
@@ -156,6 +161,9 @@ function cleanExpiredNavigationTargets(): void {
   clean(pendingTrustedNavigations);
   clean(createdNavigationTargets);
   clean(sameTabNavigationTargets);
+  for (const [targetTabId, source] of createdTargetSources) {
+    if (!isFreshTrustedNavigation(source)) createdTargetSources.delete(targetTabId);
+  }
 }
 
 async function recordsFor<T extends { createdAt: number }>(
@@ -181,19 +189,57 @@ async function persistRecords<T extends { createdAt: number }>(
   await storeNavigationRecords(prefix, tabId, entries);
 }
 
+async function getCreatedTargetSource(targetTabId: number): Promise<CreatedTargetSource | null> {
+  const existing = createdTargetSources.get(targetTabId);
+  if (existing && isFreshTrustedNavigation(existing)) return existing;
+  const key = navigationStorageKey(CREATED_TARGET_SOURCE_STORAGE_PREFIX, targetTabId);
+  const stored = await chrome.storage.session.get(key);
+  const source = stored[key] as CreatedTargetSource | undefined;
+  if (!source || !isFreshTrustedNavigation(source)) {
+    createdTargetSources.delete(targetTabId);
+    await chrome.storage.session.remove(key);
+    return null;
+  }
+  createdTargetSources.set(targetTabId, source);
+  return source;
+}
+
+async function clearCreatedTargetSource(targetTabId: number): Promise<void> {
+  createdTargetSources.delete(targetTabId);
+  await chrome.storage.session.remove(navigationStorageKey(CREATED_TARGET_SOURCE_STORAGE_PREFIX, targetTabId));
+}
+
+async function persistCreatedTarget(
+  sourceTabId: number,
+  targets: CreatedNavigationTarget[],
+  targetTabId: number,
+): Promise<void> {
+  const targetKey = navigationStorageKey(CREATED_NAVIGATION_STORAGE_PREFIX, sourceTabId);
+  const sourceKey = navigationStorageKey(CREATED_TARGET_SOURCE_STORAGE_PREFIX, targetTabId);
+  const source = { sourceTabId, createdAt: Date.now() };
+  createdNavigationTargets.set(sourceTabId, targets);
+  createdTargetSources.set(targetTabId, source);
+  await chrome.storage.session.set({
+    [targetKey]: targets,
+    [sourceKey]: source,
+  });
+}
+
 async function activateTrackedTab(tabId: number, context: TrustedNavigation): Promise<void> {
-  const destination = new URL(context.applicationUrl);
-  const map = await getActivations();
-  map[tabId] = {
-    etld1: getEtld1(destination.hostname),
-    activatedAt: Date.now(),
-    applicationUrl: context.applicationUrl,
-    canonicalUrl: context.canonicalUrl,
-    jobTitle: context.jobTitle,
-    employer: context.employer,
-    roleId: context.roleId,
-  };
-  await setActivations(map);
+  await activationQueue.run(GLOBAL_NAVIGATION_QUEUE, async () => {
+    const destination = new URL(context.applicationUrl);
+    const map = await getActivations();
+    map[tabId] = {
+      etld1: getEtld1(destination.hostname),
+      activatedAt: Date.now(),
+      applicationUrl: context.applicationUrl,
+      canonicalUrl: context.canonicalUrl,
+      jobTitle: context.jobTitle,
+      employer: context.employer,
+      roleId: context.roleId,
+    };
+    await setActivations(map);
+  });
   // The destination content script may have already completed its initial
   // activation check before this trusted click was stored. Nudge it directly;
   // if it is not injected yet, the saved context still covers its startup.
@@ -206,11 +252,58 @@ async function activateTrackedTab(tabId: number, context: TrustedNavigation): Pr
 
 chrome.webNavigation.onBeforeNavigate.addListener((details) => {
   if (details.frameId !== 0) return; // main frame only
-  void navigationQueue.run(details.tabId, async () => {
+  void navigationQueue.run(GLOBAL_NAVIGATION_QUEUE, async () => {
     try {
       const url = new URL(details.url);
       if (url.searchParams.get("ref") !== "jobsage") return;
       cleanExpiredNavigationTargets();
+      const createdSource = await getCreatedTargetSource(details.tabId);
+      if (createdSource) {
+          const pending = await recordsFor(
+            pendingTrustedNavigations,
+            PENDING_NAVIGATION_STORAGE_PREFIX,
+            createdSource.sourceTabId,
+          );
+          const match = takeMatchingRecord(pending, (entry) => sameUrl(entry.applicationUrl, url.toString()));
+          const createdTargets = await recordsFor(
+            createdNavigationTargets,
+            CREATED_NAVIGATION_STORAGE_PREFIX,
+            createdSource.sourceTabId,
+          );
+          const targetIndex = createdTargets.findIndex((target) => target.tabId === details.tabId);
+          if (match) {
+            await persistRecords(
+              pendingTrustedNavigations,
+              PENDING_NAVIGATION_STORAGE_PREFIX,
+              createdSource.sourceTabId,
+              pending,
+            );
+            if (targetIndex >= 0) createdTargets.splice(targetIndex, 1);
+            await persistRecords(
+              createdNavigationTargets,
+              CREATED_NAVIGATION_STORAGE_PREFIX,
+              createdSource.sourceTabId,
+              createdTargets,
+            );
+            await clearCreatedTargetSource(details.tabId);
+            await activateTrackedTab(details.tabId, match);
+            return;
+          }
+          // Chrome may report a placeholder URL for onCreatedNavigationTarget.
+          // Replace it only with this exact tagged destination; no ref-only
+          // navigation can activate without a registered JOBSAGE URL.
+          if (targetIndex >= 0) {
+            createdTargets[targetIndex]!.url = url.toString();
+            createdTargets[targetIndex]!.createdAt = Date.now();
+            await persistRecords(
+              createdNavigationTargets,
+              CREATED_NAVIGATION_STORAGE_PREFIX,
+              createdSource.sourceTabId,
+              createdTargets,
+            );
+          }
+        return;
+      }
       const pending = await recordsFor(
         pendingTrustedNavigations,
         PENDING_NAVIGATION_STORAGE_PREFIX,
@@ -253,14 +346,42 @@ chrome.webNavigation.onBeforeNavigate.addListener((details) => {
 });
 
 chrome.webNavigation.onCreatedNavigationTarget.addListener((details) => {
-  void navigationQueue.run(details.sourceTabId, async () => {
+  void navigationQueue.run(GLOBAL_NAVIGATION_QUEUE, async () => {
     cleanExpiredNavigationTargets();
+    // In some Chromium event orders the destination's exact tagged
+    // onBeforeNavigate can precede onCreatedNavigationTarget. Move that
+    // short-lived, exact record into the source-tab collection so a later
+    // first-party registration can still correlate it.
+    const destinationRecords = await recordsFor(
+      sameTabNavigationTargets,
+      SAME_TAB_NAVIGATION_STORAGE_PREFIX,
+      details.tabId,
+    );
+    const destinationRecord = takeMatchingRecord(
+      destinationRecords,
+      (entry) => {
+        try {
+          return new URL(entry.url).searchParams.get("ref") === "jobsage";
+        } catch {
+          return false;
+        }
+      },
+    );
+    if (destinationRecord) {
+      await persistRecords(
+        sameTabNavigationTargets,
+        SAME_TAB_NAVIGATION_STORAGE_PREFIX,
+        details.tabId,
+        destinationRecords,
+      );
+    }
     const pending = await recordsFor(
       pendingTrustedNavigations,
       PENDING_NAVIGATION_STORAGE_PREFIX,
       details.sourceTabId,
     );
-    const match = takeMatchingRecord(pending, (entry) => sameUrl(entry.applicationUrl, details.url));
+    const initialUrl = destinationRecord?.url ?? details.url;
+    const match = takeMatchingRecord(pending, (entry) => sameUrl(entry.applicationUrl, initialUrl));
     if (match) {
       await persistRecords(
         pendingTrustedNavigations,
@@ -268,12 +389,13 @@ chrome.webNavigation.onCreatedNavigationTarget.addListener((details) => {
         details.sourceTabId,
         pending,
       );
+      await clearCreatedTargetSource(details.tabId);
       await activateTrackedTab(details.tabId, match);
       return;
     }
     const target = {
       tabId: details.tabId,
-      url: details.url,
+      url: initialUrl,
       createdAt: Date.now(),
     };
     const targets = await recordsFor(
@@ -282,55 +404,58 @@ chrome.webNavigation.onCreatedNavigationTarget.addListener((details) => {
       details.sourceTabId,
     );
     targets.push(target);
-    await persistRecords(
-      createdNavigationTargets,
-      CREATED_NAVIGATION_STORAGE_PREFIX,
-      details.sourceTabId,
-      targets,
-    );
+    await persistCreatedTarget(details.sourceTabId, targets, details.tabId);
   });
 });
 
-chrome.webNavigation.onCommitted.addListener(async (details) => {
+chrome.webNavigation.onCommitted.addListener((details) => {
   if (details.frameId !== 0) return;
-  try {
-    const url = new URL(details.url);
-    // A verified matching navigation was activated in onBeforeNavigate or
-    // onCreatedNavigationTarget — don't immediately clear it.
-    if (url.searchParams.get("ref") === "jobsage") return;
+  void navigationQueue.run(GLOBAL_NAVIGATION_QUEUE, () =>
+    activationQueue.run(GLOBAL_NAVIGATION_QUEUE, async () => {
+      try {
+        const url = new URL(details.url);
+        const map = await getActivations();
+        const entry = map[details.tabId];
+        if (!entry) return;
+        // Only the exact URL that was activated may skip redirect qualification.
+        // A public ref-only URL must still pass nextTrackingContext and cannot
+        // inherit the trusted application context.
+        if (entry.applicationUrl && sameUrl(entry.applicationUrl, details.url)) return;
 
-    const map = await getActivations();
-    const entry = map[details.tabId];
-    if (!entry) return;
-
-    const next = nextTrackingContext(entry, getEtld1(url.hostname), details);
-    if (next !== entry) {
-      if (next) {
-        map[details.tabId] = next;
-      } else {
-        delete map[details.tabId];
+        const next = nextTrackingContext(entry, getEtld1(url.hostname), details);
+        if (next !== entry) {
+          if (next) {
+            map[details.tabId] = next;
+          } else {
+            delete map[details.tabId];
+          }
+          await setActivations(map);
+        }
+      } catch {
+        // Invalid URL or storage failure — ignore.
       }
-      await setActivations(map);
-    }
-  } catch {
-    // ignore
-  }
+    }),
+  );
 });
 
 chrome.tabs.onRemoved.addListener(async (tabId) => {
   pendingTrustedNavigations.delete(tabId);
   createdNavigationTargets.delete(tabId);
+  createdTargetSources.delete(tabId);
   sameTabNavigationTargets.delete(tabId);
   await Promise.all([
     clearNavigationRecord(PENDING_NAVIGATION_STORAGE_PREFIX, tabId),
     clearNavigationRecord(CREATED_NAVIGATION_STORAGE_PREFIX, tabId),
+    clearNavigationRecord(CREATED_TARGET_SOURCE_STORAGE_PREFIX, tabId),
     clearNavigationRecord(SAME_TAB_NAVIGATION_STORAGE_PREFIX, tabId),
   ]);
-  const map = await getActivations();
-  if (map[tabId]) {
-    delete map[tabId];
-    await setActivations(map);
-  }
+  await activationQueue.run(GLOBAL_NAVIGATION_QUEUE, async () => {
+    const map = await getActivations();
+    if (map[tabId]) {
+      delete map[tabId];
+      await setActivations(map);
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -603,8 +728,8 @@ chrome.runtime.onMessage.addListener(
         sendResponse({ activated: false });
         return false;
       }
-      getActivations()
-        .then(async (map) => {
+      void activationQueue.run(GLOBAL_NAVIGATION_QUEUE, async () => {
+          const map = await getActivations();
           const activation = map[tabId];
           if (activation && !isTrackingContextFresh(activation)) {
             delete map[tabId];
@@ -625,8 +750,8 @@ chrome.runtime.onMessage.addListener(
         sendResponse({ applicationUrl: null });
         return false;
       }
-      getActivations()
-        .then(async (map) => {
+      void activationQueue.run(GLOBAL_NAVIGATION_QUEUE, async () => {
+          const map = await getActivations();
           const activation = map[tabId];
           if (activation && !isTrackingContextFresh(activation)) {
             delete map[tabId];
@@ -732,10 +857,12 @@ chrome.runtime.onMessage.addListener(
           // Mark the tab as activated so it persists through same-domain
           // navigations (e.g. redirect after form submit).
           try {
-            const etld1 = getEtld1(new URL(tab.url).hostname);
-            const map = await getActivations();
-            map[tabId] = { etld1, activatedAt: Date.now() };
-            await setActivations(map);
+            await activationQueue.run(GLOBAL_NAVIGATION_QUEUE, async () => {
+              const etld1 = getEtld1(new URL(tab.url!).hostname);
+              const map = await getActivations();
+              map[tabId] = { etld1, activatedAt: Date.now() };
+              await setActivations(map);
+            });
           } catch {
             // Storage write failure is non-fatal — sidebar will still show now.
           }
@@ -786,7 +913,7 @@ chrome.runtime.onMessage.addListener(
           createdAt: Date.now(),
         };
 
-        await navigationQueue.run(sourceTabId, async () => {
+        await navigationQueue.run(GLOBAL_NAVIGATION_QUEUE, async () => {
           cleanExpiredNavigationTargets();
           const sameTabTargets = await recordsFor(
             sameTabNavigationTargets,
@@ -822,6 +949,7 @@ chrome.runtime.onMessage.addListener(
                 sourceTabId,
                 createdTargets,
               );
+              await clearCreatedTargetSource(createdTarget.tabId);
               await activateTrackedTab(createdTarget.tabId, trustedNavigation);
             } else {
               const pending = await recordsFor(
