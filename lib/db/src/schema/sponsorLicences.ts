@@ -115,6 +115,15 @@ export const sponsorLicenceCompanySiteChecksTable = pgTable(
     lastPagesFetched: integer("last_pages_fetched"),
     lastAdvertsFound: integer("last_adverts_found"),
     lastRejectedCount: integer("last_rejected_count"),
+    crawlLeaseUntil: timestamp("crawl_lease_until", { withTimezone: true }),
+    crawlLeaseToken: text("crawl_lease_token"),
+    crawlState: jsonb("crawl_state").$type<{
+      queue: string[];
+      visited: string[];
+      sitemapQueued?: boolean;
+      careersUrl?: string | null;
+      atsProvider?: string | null;
+    } | null>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -124,6 +133,7 @@ export const sponsorLicenceCompanySiteChecksTable = pgTable(
     index("company_site_checks_ats_idx").on(t.atsCheckedAt),
     index("company_site_checks_retry_idx").on(t.retryAfter),
     index("company_site_checks_probe_due_idx").on(t.probeStatus, t.lastProbedAt),
+    index("company_site_checks_crawl_lease_idx").on(t.crawlLeaseUntil),
   ],
 );
 

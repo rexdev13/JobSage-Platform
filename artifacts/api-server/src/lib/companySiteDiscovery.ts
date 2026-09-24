@@ -16,9 +16,13 @@ import {
 import { extractAdvertContactEmail } from "./publishedContactEmail";
 import { parseVacancyClosingDate } from "./vacancyDates";
 import { isLikelyEditorialTitle } from "./vacancyTitlePolicy";
+import { fetchDirectEmployerBoard } from "./directEmployerBoardConnectors";
 
 export const MAX_COMPANY_SITE_DISCOVERY_PAGES = 6;
-export const MAX_COMPANY_SITE_VACANCIES_PER_EMPLOYER = 12;
+// The crawl remains bounded by pages, response bytes, host pacing and the
+// employer deadline. Do not silently discard valid jobs after extraction.
+export const MAX_COMPANY_SITE_VACANCIES_PER_EMPLOYER = Number.POSITIVE_INFINITY;
+const MAX_RESUMABLE_CRAWL_URLS = 100;
 
 const CAREERS_SIGNAL = /\b(career|careers|job|jobs|vacanc|vacancies|open positions|opportunities|join (?:our|the) team|work (?:for|with) us)\b/i;
 const VACANCY_SIGNAL =
@@ -58,6 +62,7 @@ export type CompanySiteDiscoveryResult = {
   rejectionReasons: Record<string, number>;
   discoveredUrls: string[];
   observedAdvertUrls: string[];
+  resumeState: CompanySiteDiscoveryOptions["resumeState"];
 };
 
 export type CompanySiteDiscoveryOptions = {
@@ -66,6 +71,13 @@ export type CompanySiteDiscoveryOptions = {
   checkAts?: boolean;
   now?: () => number;
   deadlineMs?: number;
+  resumeState?: {
+    queue: string[];
+    visited: string[];
+    sitemapQueued?: boolean;
+    careersUrl?: string | null;
+    atsProvider?: string | null;
+  } | null;
 };
 
 function decodeHtml(value: string): string {
@@ -469,6 +481,7 @@ export async function discoverCompanySiteVacancies(
       rejectionReasons: {},
       discoveredUrls: [],
       observedAdvertUrls: [],
+      resumeState: null,
     };
   }
   const rejectionReasons: Record<string, number> = {};
@@ -480,18 +493,58 @@ export async function discoverCompanySiteVacancies(
   const originHostname = new URL(sourceUrl).hostname;
   const checkGeneric = options.checkGeneric !== false;
   const checkAts = options.checkAts !== false;
+  if (!options.resumeState && checkAts && options.knownCareersUrl) {
+    const direct = await fetchDirectEmployerBoard(
+      organisationName,
+      knownAtsProvider(options.knownCareersUrl),
+      options.knownCareersUrl,
+      { deadlineMs },
+    );
+    if (direct.mapping) {
+      const directAdverts = normaliseAndDedupeBoardAdverts(direct.adverts);
+      return {
+        adverts: directAdverts,
+        sourceUrl,
+        careersUrl: direct.mapping.evidenceUrl,
+        atsProvider: direct.mapping.provider,
+        genericCompleted: false,
+        atsCompleted: direct.complete,
+        transientFailure: direct.transientFailure,
+        failureClass: direct.failureClass,
+        retryAt: direct.retryAt,
+        error: direct.error,
+        pagesFetched: direct.pagesFetched,
+        completion: direct.complete ? "complete" : "failed",
+        pagesAttempted: direct.pagesFetched,
+        advertsExtracted: direct.advertsExtracted,
+        advertsRejected: Math.max(0, direct.advertsExtracted - directAdverts.length),
+        rejectionReasons: {},
+        discoveredUrls: [direct.mapping.feedUrl],
+        observedAdvertUrls: directAdverts.map((advert) => advert.url),
+        resumeState: direct.complete ? null : {
+          queue: [direct.mapping.feedUrl],
+          visited: [],
+          careersUrl: direct.mapping.evidenceUrl,
+          atsProvider: direct.mapping.provider,
+        },
+      };
+    }
+  }
   const queue: string[] = [];
   const visited = new Set<string>();
   const queued = new Set<string>();
   const sitemapUrl = new URL("/sitemap.xml", sourceUrl).toString();
-  let sitemapQueued = false;
+  let sitemapQueued = options.resumeState?.sitemapQueued === true;
   const enqueue = (url: string): void => {
     const canonical = canonicalVacancyUrl(url) ?? url;
     if (visited.has(canonical) || queued.has(canonical)) return;
     queued.add(canonical);
     queue.push(canonical);
   };
-  if (checkGeneric) queue.push(sourceUrl);
+  if (options.resumeState) {
+    for (const url of options.resumeState.queue.slice(0, MAX_RESUMABLE_CRAWL_URLS)) enqueue(url);
+    for (const url of options.resumeState.visited.slice(0, MAX_RESUMABLE_CRAWL_URLS)) visited.add(url);
+  } else if (checkGeneric) queue.push(sourceUrl);
   if (
     checkAts &&
     options.knownCareersUrl &&
@@ -502,8 +555,8 @@ export async function discoverCompanySiteVacancies(
   if (queue.length === 0) enqueue(sourceUrl);
 
   const adverts: BoardAdvert[] = [];
-  let careersUrl = options.knownCareersUrl ?? null;
-  let atsProvider = careersUrl ? knownAtsProvider(careersUrl) : null;
+  let careersUrl = options.resumeState?.careersUrl ?? options.knownCareersUrl ?? null;
+  let atsProvider = options.resumeState?.atsProvider ?? (careersUrl ? knownAtsProvider(careersUrl) : null);
   let genericCompleted = false;
   let atsCompleted = false;
   let transientFailure = false;
@@ -611,7 +664,7 @@ export async function discoverCompanySiteVacancies(
           ? (now() >= deadlineMs ? "partial_deadline" : "partial_page_limit")
           : "complete";
   return {
-    adverts: normalizedAdverts.slice(0, MAX_COMPANY_SITE_VACANCIES_PER_EMPLOYER),
+    adverts: normalizedAdverts,
     sourceUrl,
     careersUrl,
     atsProvider,
@@ -642,6 +695,15 @@ export async function discoverCompanySiteVacancies(
     },
     discoveredUrls,
     observedAdvertUrls: [...new Set(adverts.map((advert) => advert.url))],
+    resumeState: completion === "complete"
+      ? null
+      : {
+          queue: queue.slice(0, MAX_RESUMABLE_CRAWL_URLS),
+          visited: [...visited].slice(-MAX_RESUMABLE_CRAWL_URLS),
+          sitemapQueued,
+          careersUrl,
+          atsProvider,
+        },
   };
 }
 

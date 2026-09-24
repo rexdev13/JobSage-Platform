@@ -229,7 +229,10 @@ export function normaliseAndDedupeBoardAdverts(adverts: readonly BoardAdvert[]):
       closedReason: advert.closedReason ?? (hasExplicitClosedPhrase(advert.description) ? "source page explicitly closed" : null),
       sourceType,
       boardName: sourceType === "company_site" ? null : source.boardName ?? advert.boardName,
-      externalId: sourceType === "company_site" ? null : source.externalListingId ?? advert.externalId,
+      // Direct employer-board connectors use the same Company Websites channel,
+      // but their platform listing ID remains valuable for repeat-import
+      // deduplication. Generic website extraction still has no external ID.
+      externalId: source.externalListingId ?? advert.externalId ?? null,
     };
     const current = byUrl.get(`${sourceType}\u0000${url}`);
     if (!current || boardPreference(normalized.boardName) < boardPreference(current.boardName)) {
