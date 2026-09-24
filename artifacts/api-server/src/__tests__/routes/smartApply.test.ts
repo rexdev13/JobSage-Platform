@@ -117,6 +117,22 @@ describe("Smart Apply extension endpoints", () => {
     expect(response.status).toBe(401);
   });
 
+  it("explains why it refuses to generate sensitive personal confirmations", async () => {
+    const response = await request(buildApp())
+      .post("/smart-apply/assistant")
+      .set("Authorization", AUTH_HEADER)
+      .send({
+        message: "Have you ever had a criminal conviction?",
+        questionText: "Have you ever had a criminal conviction?",
+      });
+
+    expect(response.status).toBe(422);
+    expect(response.body).toEqual({
+      error: "JOBSAGE can't generate an answer because this question asks you to confirm sensitive or personal information. Please review it and answer it yourself.",
+    });
+    expect(createCompletion).not.toHaveBeenCalled();
+  });
+
   it("returns only the candidate prefill allowlist", async () => {
     const response = await request(buildApp())
       .get("/smart-apply/candidate-prefill")

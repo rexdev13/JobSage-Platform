@@ -24,6 +24,7 @@
     "src/lib/brand.ts",
     "src/lib/answerMemory.ts",
     "src/lib/answerLibrary.ts",
+    "src/lib/assistantErrors.ts",
     "src/lib/cvAttachment.ts",
     "src/lib/env.ts",
     "src/lib/fieldWriteProvenance.ts",
