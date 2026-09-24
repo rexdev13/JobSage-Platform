@@ -1,0 +1,120 @@
+Continue from branch `vacancy-collection-next-stage`, final reported commit `f044169`.
+
+The Ashby/9fin pilot worked. Now demonstrate broader coverage, measure collection speed, and progressively populate JOBSAGE from eligible employers in our existing sponsor-company list using our current Replit Autoscale setup.
+
+This is an implementation and measured rollout task. Do not stop at another proposal.
+
+Keep the existing sponsor-employer selection policy. Do not introduce a new requirement for individual vacancies to explicitly confirm sponsorship. Preserve accurate source information and existing candidate eligibility rules.
+
+1. Establish the available employer queue
+
+Count distinct sponsor employers with:
+
+* A verified official website.
+* A saved careers page.
+* A validated supported ATS board.
+* An unsupported or ordinary careers website.
+* Missing or uncertain website information.
+
+Distinguish employers ready for collection from employers that first need website or careers-page discovery. Do not treat a failed website check as proof that an employer is ineligible.
+
+Show this breakdown across our supported sectors, keeping employer industry separate from vacancy profession.
+
+2. Run a broader, bounded pilot
+
+Start with a diverse sample of approximately 50 eligible sponsor employers, or all available if fewer qualify.
+
+Include:
+
+* Ashby, Greenhouse and Lever.
+* Ordinary employer websites using the resumable crawler.
+* Different sectors, including healthcare, social care, education and other supported sectors where verified sources exist.
+
+Choose real employers from our sponsor list. Do not invent mappings or limit the pilot to technology companies. Explain any sectors you cannot include.
+
+Use development/staging first. Validate official employer-to-board ownership and exact vacancy/application URLs.
+
+For each employer, record:
+
+* Source/platform and sector.
+* Pages or API requests made.
+* Elapsed time.
+* Vacancies fetched, newly inserted, updated and rejected.
+* UK-relevant vacancies and unknown-location counts.
+* Vacancies passing candidate visibility rules.
+* Complete, partial, empty or failed outcome, with reason.
+
+Repeat selected imports to verify deduplication. Check representative candidate-facing results across professions. Do not send candidate alerts or applications during pilot testing.
+
+3. Resolve scheduling and queue behaviour
+
+The previous production observations showed far more batches than the documented hourly schedule.
+
+Inspect accessible configuration and logs to identify callers, overlapping schedules, retries and repeated work. Do not add another scheduler blindly.
+
+Preserve authenticated external cron execution compatible with our current Autoscale setup. Ensure:
+
+* Employers are claimed safely across concurrent runs.
+* Partial crawls resume rather than restart.
+* New employers receive processing time instead of failed employers monopolising the queue.
+* Failing hosts back off.
+* Supported ATS hosts are paced across employers sharing that host.
+* Every batch fits the actual request/runtime budget.
+* A failed or partial run cannot mark existing jobs missing.
+
+If external scheduler settings are inaccessible, give me the precise setting or screenshot needed. Continue all other work without waiting.
+
+4. Measure how quickly we can populate
+
+Use observed timings and successful unique-employer counts, not theoretical concurrency alone.
+
+Report:
+
+* Unique employers successfully processed per batch and per hour.
+* New useful vacancies collected per hour.
+* Failure and partial-completion rates.
+* Time to process the currently ready employer queue once.
+* Separate time/constraints for discovering missing careers pages.
+* Whether repeat refreshes can keep pace as coverage grows.
+
+Provide estimates for 100, 1,000 and the actual ready employer count where evidence supports them. Clearly label extrapolations, assumptions and bottlenecks.
+
+Account for the real cron cadence: a batch taking 20 seconds does not mean it runs continuously if cron only triggers hourly.
+
+Use available Replit resource/usage measurements to assess cost and capacity. If those metrics are unavailable, say so; do not invent costs or claim unlimited capacity.
+
+5. Expand and roll out progressively
+
+After the pilot passes, expand the development run to approximately 200 diverse employers, subject to measured runtime and source limits. Fix demonstrated blockers before expanding further.
+
+Prepare and validate any required production migrations and a rollback procedure.
+
+Proceed with a small production rollout if deployment permission is already available. Otherwise, complete all preparation and give me the exact final approval/action required.
+
+Begin production collection with a limited employer cohort, verify stored and candidate-visible results, then increase coverage according to measured error rates, freshness and resource use. Avoid an uncontrolled mass backfill.
+
+Keep the existing app available and preserve job-board collection, internal vacancies, applications and candidate records.
+
+6. Report results plainly
+
+Finish with a concise table showing:
+
+* Companies attempted.
+* Unique companies successfully processed.
+* Companies with no current jobs.
+* Companies still partial or blocked.
+* New vacancies stored.
+* UK-relevant vacancies.
+* Candidate-visible coverage by profession, explaining the representative eligibility profiles used.
+* Time taken.
+* What remains only in development and what is live.
+
+Then answer these questions directly:
+
+1. How much can we populate today based on measured results?
+2. How quickly can we move through the currently eligible employer websites?
+3. Is our existing Autoscale setup adequate for the tested workload?
+4. What is the main remaining bottleneck?
+5. What exactly happens automatically on the next cron run?
+
+Do not report “all sectors working” based on one employer or count database inserts as proof that candidates can use every vacancy. Give concrete results and continue the authorised work as far as the evidence supports.
