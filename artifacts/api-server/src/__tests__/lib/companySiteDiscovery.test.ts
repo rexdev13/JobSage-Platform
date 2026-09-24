@@ -318,6 +318,47 @@ describe("company-site vacancy discovery", () => {
     expect(result.rejectionReasons.navigation_link_not_vacancy).toBeGreaterThan(0);
   });
 
+  it("rejects BMC-style department and country filters while retaining a specific job ID", async () => {
+    const filterUrl =
+      "https://jobs.bmc.com/Careers/SearchJobs?1273=2616669&1273_format=1340&listFilterMode=1";
+    const countryUrl =
+      "https://jobs.bmc.com/Careers/SearchJobs?1274=9435&1274_format=1347&intcmp=JobsByCountry&listFilterMode=1";
+    const body = `<html><h1>Careers</h1>
+      <nav class="menu">
+        <a href="${filterUrl}">Corporate Development</a>
+        <a href="${countryUrl}">United Kingdom</a>
+        <a href="https://jobs.bmc.com/Careers/RecommendationMethods">Get recommendations</a>
+        <a href="https://jobs.bmc.com/Careers/TalentCommunity">Join our talent community</a>
+      </nav>
+      <main><section class="job-card">
+        <a href="https://jobs.bmc.com/Careers/SearchJobs?jobId=12345">Senior Software Engineer</a>
+      </section></main></html>`;
+    fetchCompanySitePageMock.mockImplementation(async (url: string) => ({
+      ok: true,
+      url,
+      status: 200,
+      contentType: url.endsWith("sitemap.xml") ? "application/xml" : "text/html",
+      body: url.endsWith("sitemap.xml") ? "<urlset></urlset>" : body,
+    }));
+
+    const result = await discoverCompanySiteVacancies(
+      "BMC Software",
+      "https://www.bmc.com/careers/careers.html",
+    );
+
+    expect(result.adverts).toHaveLength(1);
+    expect(result.adverts[0]).toMatchObject({
+      title: "Senior Software Engineer",
+      url: "https://jobs.bmc.com/Careers/SearchJobs?jobId=12345",
+    });
+    expect(result.adverts.some((advert) =>
+      advert.url === filterUrl || advert.url === countryUrl
+    )).toBe(false);
+    expect(fetchCompanySitePageMock.mock.calls.map(([url]) => url)).not.toContain(filterUrl);
+    expect(fetchCompanySitePageMock.mock.calls.map(([url]) => url)).not.toContain(countryUrl);
+    expect(result.rejectionReasons.invalid_deep_link).toBeGreaterThan(0);
+  });
+
   it("does not treat careers-related prose on an ordinary page as a recruitment signal", () => {
     const result = inspectCompanySiteProbePage(
       "https://fixture.example/",
