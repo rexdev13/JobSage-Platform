@@ -6,6 +6,7 @@ import {
   fillStructuredField,
   getStructuredFieldDescriptors,
   insertAnswer,
+  isQuestionAnswered,
 } from "../lib/questionDetector";
 
 function setBody(html: string) {
@@ -485,6 +486,40 @@ describe("insertAnswer", () => {
     const [q] = detectQuestions();
     document.getElementById("q1")!.remove();
     expect(insertAnswer(q.id, "answer")).toBe(false);
+  });
+});
+
+describe("isQuestionAnswered", () => {
+  it("treats placeholder selects as unanswered and real selections as answered", () => {
+    setBody(`
+      <label for="availability">Are you available to start immediately?</label>
+      <select id="availability">
+        <option value="">Please select</option>
+        <option value="yes">Yes</option>
+      </select>
+    `);
+    const [question] = detectQuestions();
+    const field = document.getElementById("availability") as HTMLSelectElement;
+
+    expect(isQuestionAnswered(question.id)).toBe(false);
+    field.value = "yes";
+    expect(isQuestionAnswered(question.id)).toBe(true);
+  });
+
+  it("checks the entire radio group for a selected answer", () => {
+    setBody(`
+      <fieldset>
+        <legend>Which shift do you prefer?</legend>
+        <label><input type="radio" name="shift" value="day">Day</label>
+        <label><input type="radio" name="shift" value="night">Night</label>
+      </fieldset>
+    `);
+    const [question] = detectQuestions();
+    const night = document.querySelector<HTMLInputElement>('input[value="night"]')!;
+
+    expect(isQuestionAnswered(question.id)).toBe(false);
+    night.checked = true;
+    expect(isQuestionAnswered(question.id)).toBe(true);
   });
 });
 

@@ -3,6 +3,7 @@ import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
 import { ASSISTANT_STREAM_TIMEOUT_MS, clampSidebarWidth, Sidebar, sidebarWidthBounds } from "../components/Sidebar";
+import { detectQuestions } from "../lib/questionDetector";
 import type { DetectedQuestion, QuestionWatcher } from "../lib/questionDetector";
 import type { PrefillResult } from "../lib/prefill";
 import type { AnswerLibrarySnapshot, AnswerMemoryController } from "../lib/answerMemory";
@@ -187,6 +188,35 @@ describe("Smart Apply panel interactions", () => {
     await act(async () => prefillButton?.click());
     expect(document.body.textContent).toContain("1 required field still needs your attention.");
     expect(document.body.textContent).toContain("1 field was left blank because no exact saved detail was available.");
+
+    await act(async () => root.unmount());
+  });
+
+  it("colors detected questions by their current answer and updates after field edits", async () => {
+    document.body.insertAdjacentHTML(
+      "afterbegin",
+      `<div><label for="motivation">Why do you want to work for this care team?</label><textarea id="motivation"></textarea></div>`,
+    );
+    const [question] = detectQuestions();
+    const root = renderSidebar(true, undefined, { questions: [question] });
+    const field = document.getElementById("motivation") as HTMLTextAreaElement;
+    const getQuestionButton = () =>
+      Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find((button) =>
+        button.getAttribute("aria-label")?.startsWith(question.question),
+      );
+
+    expect(getQuestionButton()?.getAttribute("aria-label")).toContain("Unanswered");
+    expect(getQuestionButton()?.textContent).toContain("Unanswered");
+    expect(getQuestionButton()?.style.color).toBe("rgb(220, 38, 38)");
+
+    await act(async () => {
+      field.value = "I enjoy supporting people in their daily lives.";
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    expect(getQuestionButton()?.getAttribute("aria-label")).toContain("Answered");
+    expect(getQuestionButton()?.textContent).toContain("Answered");
+    expect(getQuestionButton()?.style.color).toBe("rgb(21, 128, 61)");
 
     await act(async () => root.unmount());
   });
