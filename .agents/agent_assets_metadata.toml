@@ -460,3 +460,31 @@ mtime_ms = 1790262481199
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/b8fce22c-04ff-43d2-b6c8-9720b2a477df/0ebf10dc-bc2e-4786-9e03-b97fcb7462cc"
 storage_version_token = "1790262509239673"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "rV9XNsVq81UP9lB3Z3OdK"
+uri = "file://.agents/outputs/company-site-pilot-per-employer-2026-09-24.csv"
+type = "table"
+title = "Company-site pilot per-employer CSV"
+description = "49 reconstructable employer records, with the bounded retry telemetry and original elapsed-time gaps marked."
+logical_id = "80f275d8-e613-452a-88be-8fe205e454b7"
+content_hash = "sha256:501be3ca117efe1d9f6d1e485614d49cb35db9518fec3ea70d8487c6efd83829"
+size = 8156
+mtime_ms = 1790266368381
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/80f275d8-e613-452a-88be-8fe205e454b7/013e48ca-0912-4cc0-bce7-95f13fcc5ea5"
+storage_version_token = "1790266417338741"
+content_type = "text/csv"
+
+[[outputs]]
+id = "QMLeTqqgpNc6MirbC3e2v"
+uri = "file://.agents/outputs/company-site-pilot-summary-2026-09-24.md"
+type = "text"
+title = "Company-site pilot summary"
+description = "Initial pilot totals, one bounded resume batch, candidate-visible count, and production-readiness status."
+logical_id = "c1f19bc9-edcf-411f-bb73-6baa37f99d55"
+content_hash = "sha256:394b95ab751e89f03799854a6907e2ab2f9afe97d0e98db3a64ea869c9632188"
+size = 2358
+mtime_ms = 1790266368605
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/c1f19bc9-edcf-411f-bb73-6baa37f99d55/0675f92e-c4ca-46fc-bc3c-cf0790553f42"
+storage_version_token = "1790266418057341"
+content_type = "text/markdown"
