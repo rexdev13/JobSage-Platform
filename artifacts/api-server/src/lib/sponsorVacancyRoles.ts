@@ -204,6 +204,8 @@ export interface SponsorVacancyAsRole {
   liveness: "unverified" | "live" | "dead";
   lastVerifiedAt: Date | null;
   livenessReason: string | null;
+  /** Exact source/detail URL, retained separately when an ATS supplies an apply URL. */
+  vacancyUrl: string | null;
   applyUrl: string | null;
   linkVerified: boolean;
   linkStatus: VacancyLinkStatus;
@@ -367,7 +369,7 @@ export async function fetchSponsorVacanciesAsRoles(
     if (classified === null && !industrySupportsCategory(category, lic?.industry)) continue;
 
     const link = presentApplyLink(
-      vac.url,
+      vac.applicationUrl ?? vac.url,
       vac.liveness,
       vac.lastVerifiedAt,
       vac.livenessReason,
@@ -417,6 +419,7 @@ export async function fetchSponsorVacanciesAsRoles(
       lastVerifiedAt: vac.lastVerifiedAt,
       livenessReason: vac.livenessReason,
       applyUrl: link.applyUrl,
+      vacancyUrl: vac.url,
       linkVerified: link.linkVerified,
       linkStatus: link.linkStatus,
       linkCheckedAt: link.linkCheckedAt,

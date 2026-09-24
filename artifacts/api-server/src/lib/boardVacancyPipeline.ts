@@ -32,6 +32,7 @@ export interface BoardAdvert {
   location: string | null;
   salary: string | null;
   url: string;
+  applicationUrl?: string | null;
   description: string | null;
   postedDate: string | null;
   targetRegions: string[] | null;
@@ -416,6 +417,7 @@ export async function upsertSharedBoardVacancies(
     sourceType: "job_board" | "company_site";
     id: number;
     url: string | null;
+    applicationUrl: string | null;
   }> = [];
   let inserted = 0;
   let revived = 0;
@@ -446,6 +448,7 @@ export async function upsertSharedBoardVacancies(
           location: advert.location,
           salary: advert.salary,
           url: advert.url,
+           applicationUrl: advert.applicationUrl ?? existingRow.applicationUrl ?? null,
           description: advert.description,
           postedDate: advert.postedDate,
           targetRegions: advert.targetRegions ?? [],
@@ -469,6 +472,7 @@ export async function upsertSharedBoardVacancies(
         .returning({
           id: sponsorLicenceVacanciesTable.id,
           url: sponsorLicenceVacanciesTable.url,
+          applicationUrl: sponsorLicenceVacanciesTable.applicationUrl,
           liveness: sponsorLicenceVacanciesTable.liveness,
         });
       if (options.verifiedLive && wasDead) revived += 1;
@@ -495,6 +499,7 @@ export async function upsertSharedBoardVacancies(
         location: advert.location,
         salary: advert.salary,
         url: advert.url,
+         applicationUrl: advert.applicationUrl ?? null,
         description: advert.description,
         postedDate: advert.postedDate,
         targetRegions: advert.targetRegions ?? [],
@@ -515,6 +520,7 @@ export async function upsertSharedBoardVacancies(
       .returning({
         id: sponsorLicenceVacanciesTable.id,
         url: sponsorLicenceVacanciesTable.url,
+        applicationUrl: sponsorLicenceVacanciesTable.applicationUrl,
         liveness: sponsorLicenceVacanciesTable.liveness,
       });
     if (created) {
@@ -532,7 +538,7 @@ export async function upsertSharedBoardVacancies(
   // Do not let a separate verifier race rows that are not committed yet.
   const companySiteItems = transactionResult.toVerify
     .filter((item) => item.sourceType === "company_site")
-    .map(({ id, url }) => ({ id, url }));
+    .map(({ id, url, applicationUrl }) => ({ id, url: applicationUrl ?? url }));
   const boardItems = transactionResult.toVerify
     .filter((item) => item.sourceType === "job_board")
     .map(({ source, id, url }) => ({ source, id, url }));

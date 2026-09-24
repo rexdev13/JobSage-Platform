@@ -1,5 +1,5 @@
 import {
-  fetchCompanySitePage,
+  fetchCompanySitePublicApiPage,
   type CompanySiteFailureClass,
 } from "./companySiteHttp";
 import type { BoardAdvert } from "./boardVacancyPipeline";
@@ -49,7 +49,14 @@ export function parseDirectBoardMapping(
   const path = parsed.pathname.replace(/^\/|\/$/g, "");
   const selected = provider?.trim().toLowerCase();
   if (selected === "ashby" && ASHBY_HOST.test(parsed.hostname)) {
-    const boardId = strictBoardId(path);
+    const segments = path.split("/").filter(Boolean);
+    const boardId = strictBoardId(segments[0] ?? "");
+    const isBoardRoot = segments.length === 1;
+    const isTalentCommunityEvidence =
+      segments.length === 3 &&
+      segments[1]?.toLowerCase() === "form" &&
+      segments[2]?.toLowerCase() === "talent-community";
+    if (!isBoardRoot && !isTalentCommunityEvidence) return null;
     if (!boardId) return null;
     return {
       provider: "Ashby",
@@ -109,6 +116,7 @@ function advert(
   id: string,
   title: string,
   url: string,
+  applicationUrl: string | null,
   description: string | null,
   location: string | null,
   postedDate: string | null,
@@ -121,6 +129,7 @@ function advert(
     location,
     salary: null,
     url,
+    applicationUrl,
     description,
     postedDate,
     targetRegions: null,
@@ -168,6 +177,7 @@ function parseAshby(
       id,
       title,
       url,
+      text(job.applyUrl),
       text(job.descriptionPlain) ?? (text(job.descriptionHtml) ? stripHtml(text(job.descriptionHtml)!) : null),
       locationText(job.location),
       text(job.publishedAt),
@@ -197,6 +207,7 @@ function parseGreenhouse(
       id,
       title,
       url,
+      null,
       text(job.content) ? stripHtml(text(job.content)!) : null,
       locationText(job.location),
       text(job.updated_at) ?? text(job.first_published),
@@ -230,6 +241,7 @@ function parseLever(
       id,
       title,
       url,
+      text(job.applyUrl),
       text(job.descriptionPlain) ?? (text(job.description) ? stripHtml(text(job.description)!) : null),
       location,
       text(job.createdAt) ?? text(job.updatedAt),
@@ -260,9 +272,8 @@ export async function fetchDirectEmployerBoard(
     };
   }
   const deadlineMs = options.deadlineMs ?? Date.now() + 25_000;
-  const fetchPage = (url: string) => fetchCompanySitePage(
+  const fetchPage = (url: string) => fetchCompanySitePublicApiPage(
     url,
-    new URL(mapping.evidenceUrl).hostname,
     deadlineMs,
     2_000_000,
   );

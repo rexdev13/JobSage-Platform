@@ -521,12 +521,9 @@ export async function discoverCompanySiteVacancies(
         rejectionReasons: {},
         discoveredUrls: [direct.mapping.feedUrl],
         observedAdvertUrls: directAdverts.map((advert) => advert.url),
-        resumeState: direct.complete ? null : {
-          queue: [direct.mapping.feedUrl],
-          visited: [],
-          careersUrl: direct.mapping.evidenceUrl,
-          atsProvider: direct.mapping.provider,
-        },
+        // A direct-board failure is retried from the feed on the next run.
+        // Never hand an API endpoint to the HTML crawler as resumable state.
+        resumeState: null,
       };
     }
   }
@@ -571,7 +568,7 @@ export async function discoverCompanySiteVacancies(
 
   while (
     queue.length > 0 &&
-    visited.size < MAX_COMPANY_SITE_DISCOVERY_PAGES &&
+    pagesAttempted < MAX_COMPANY_SITE_DISCOVERY_PAGES &&
     now() < deadlineMs
   ) {
     const next = queue.shift()!;
@@ -625,7 +622,7 @@ export async function discoverCompanySiteVacancies(
     );
     const navigation = selectNavigationLinks(links, visited, provider, result.url);
     for (const link of navigation) {
-      if (queue.length + visited.size >= MAX_COMPANY_SITE_DISCOVERY_PAGES) break;
+      if (queue.length >= MAX_RESUMABLE_CRAWL_URLS) break;
       if (link.atsProvider && !checkAts) continue;
       if (!careersUrl || link.atsProvider) careersUrl = link.url;
       atsProvider ??= link.atsProvider;
@@ -660,7 +657,7 @@ export async function discoverCompanySiteVacancies(
       ? "failed"
       : transientFailure
         ? (now() >= deadlineMs ? "partial_deadline" : "failed")
-        : queue.length > 0 || visited.size >= MAX_COMPANY_SITE_DISCOVERY_PAGES
+        : queue.length > 0
           ? (now() >= deadlineMs ? "partial_deadline" : "partial_page_limit")
           : "complete";
   return {

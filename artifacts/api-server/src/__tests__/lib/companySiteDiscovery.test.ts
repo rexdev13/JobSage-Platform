@@ -317,6 +317,52 @@ describe("company-site vacancy discovery", () => {
     expect(result.completion).toBe("partial_deadline");
   });
 
+  it("continues a saved crawl beyond the per-run page limit", async () => {
+    fetchCompanySitePageMock.mockImplementation(async (url: string) => ({
+      ok: true,
+      url,
+      status: 200,
+      contentType: url.endsWith("sitemap.xml") ? "application/xml" : "text/html",
+      body: url.endsWith("sitemap.xml") ? "<urlset></urlset>" : "<p>Careers page</p>",
+    }));
+    const queued = Array.from(
+      { length: 7 },
+      (_, index) => `https://resume.example/careers?page=${index + 1}`,
+    );
+
+    const first = await discoverCompanySiteVacancies(
+      "Resume Employer",
+      "https://resume.example",
+      {
+        resumeState: {
+          queue: queued,
+          visited: Array.from(
+            { length: 6 },
+            (_, index) => `https://resume.example/archive?page=${index + 1}`,
+          ),
+        },
+      },
+    );
+
+    expect(first.completion).toBe("partial_page_limit");
+    expect(first.pagesFetched).toBe(6);
+    expect(first.resumeState?.queue).toEqual([queued[6]]);
+
+    fetchCompanySitePageMock.mockClear();
+    const second = await discoverCompanySiteVacancies(
+      "Resume Employer",
+      "https://resume.example",
+      { resumeState: first.resumeState },
+    );
+
+    expect(second.completion).toBe("complete");
+    expect(fetchCompanySitePageMock).toHaveBeenCalledWith(
+      queued[6],
+      "resume.example",
+      expect.any(Number),
+    );
+  });
+
   it("accepts a structured Greenhouse posting", async () => {
     fetchCompanySitePageMock
       .mockResolvedValueOnce({
