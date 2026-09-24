@@ -446,3 +446,17 @@ mtime_ms = 1790236515051
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/ba670302-ff4b-4450-8968-2f176944c024/d0a0da3d-c80f-4ded-940c-c6c914f96d6a"
 storage_version_token = "1790236631862716"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "sr1TFr1EFsOG9bu2ogbO1"
+uri = "file://.local/reports/historical-vacancy-system.md"
+type = "text"
+title = "JOBSAGE Historical Vacancy System Report"
+description = "Read-only, evidence-based review of JOBSAGE vacancy collection and candidate display before 1 July 2026, later changes, production evidence, and limitations."
+logical_id = "b8fce22c-04ff-43d2-b6c8-9720b2a477df"
+content_hash = "sha256:8c852b8318506a2446197c85b0ea97bda78e6adeb1bdf2adce54b835e8506173"
+size = 24418
+mtime_ms = 1790262481199
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/b8fce22c-04ff-43d2-b6c8-9720b2a477df/0ebf10dc-bc2e-4786-9e03-b97fcb7462cc"
+storage_version_token = "1790262509239673"
+content_type = "text/markdown"
