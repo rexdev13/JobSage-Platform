@@ -92,6 +92,13 @@ function text(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+function identifierText(value: unknown): string | null {
+  if (typeof value === "number") {
+    return Number.isSafeInteger(value) && value > 0 ? String(value) : null;
+  }
+  return text(value);
+}
+
 function stripHtml(value: string): string {
   return value
     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
@@ -197,7 +204,7 @@ function parseGreenhouse(
   const adverts = jobs.flatMap((raw): BoardAdvert[] => {
     if (!raw || typeof raw !== "object") return [];
     const job = raw as Record<string, unknown>;
-    const id = text(job.id);
+    const id = identifierText(job.id);
     const title = text(job.title);
     const url = text(job.absolute_url);
     if (!id || !title || !url) return [];
