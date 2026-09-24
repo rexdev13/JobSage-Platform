@@ -1,0 +1,78 @@
+Inspect JOBSAGE’s current vacancy collection system and determine whether connecting directly to employers’ recruitment platforms would improve coverage across all our supported professions.
+
+This is a read-only investigation. Do not change application code, production data or deployments. Do not apply earlier patches automatically.
+
+Our intended approach:
+Identify the recruitment platform behind each sponsor employer’s careers page—for example Greenhouse, Lever or Ashby—then use a reusable connector to fetch that employer’s published vacancies. Use website extraction for employers without a supported feed. We want to avoid a paid job-data subscription.
+
+Please investigate the following.
+
+1. What do we already have?
+
+* Trace collection from job boards and employer websites through extraction, persistence and verification.
+* List existing platform-specific connectors.
+* Distinguish merely recognising an ATS hostname from actually fetching its structured job data.
+* Identify existing official API, XML, RSS, JSON-LD and HTML integrations.
+* Explain exactly how collection runs in production: external scheduler, HTTP endpoint, Scheduled deployment, in-process cron or another mechanism.
+* Check whether a task continues after an HTTP response, what limits apply, and whether interrupted work resumes.
+
+2. What employer information is available?
+   Using read-only database queries, report:
+
+* Total distinct sponsor employers.
+* Employers with a website.
+* Employers with a saved careers URL.
+* Employers with an identified recruitment platform and usable board identifier.
+* Employers with missing, uncertain or broken mappings.
+* Counts by platform and sector, where the data supports that breakdown.
+
+Do not infer a verified platform mapping from the employer’s name alone. Separate confirmed mappings from guesses. If checking every employer would require a large crawl, use existing data and a clearly labelled sample.
+
+3. Would direct platform connectors work here?
+   For Greenhouse, Lever and Ashby:
+
+* Check current official documentation.
+* Explain the identifier required for each employer’s board.
+* Confirm whether published listings can be fetched without employer credentials.
+* Identify the available fields: source job ID, title, description, location, job URL, application URL and dates.
+* Explain pagination, closure detection and relevant usage restrictions.
+* Find up to three actual employers in our existing data using each platform, spanning different sectors where possible.
+* Make bounded, read-only requests to their documented public feeds.
+* Compare returned vacancies with the current records in JOBSAGE.
+
+Do not submit applications, send emails, launch a production-wide crawl or bypass access restrictions. If no examples exist for a platform, say so.
+
+4. Where are vacancies being lost?
+   For the sample employers, distinguish:
+
+* Wrong or missing careers-page mapping.
+* Unsupported platform or JavaScript rendering.
+* Pagination or time limits.
+* Extraction failure.
+* Classification or normalization rejection.
+* Persistence failure.
+* Verification or visibility filtering.
+
+Show concrete examples with source URLs, counts and code references. A source returning jobs does not prove that our current pipeline stores or displays them.
+
+5. Recommend the smallest practical change.
+   Rank connectors by the number of our employers and supported professions they could cover—not simply by which is easiest to build.
+
+Explain:
+
+* What existing code can be reused.
+* What new code or data fields are required.
+* Whether our current scheduled execution can support it.
+* How progress, retries and completed scans should be recorded.
+* Expected request volume using explicit assumptions.
+* Remaining gaps for employers without supported feeds.
+* Whether additional paid infrastructure is actually necessary.
+
+Return a clear verdict:
+
+* Already implemented and working.
+* Partially implemented and worth extending.
+* Useful but requires new connectors.
+* Insufficient to address the main coverage gaps.
+
+Finish with a short recommended implementation order and the evidence still missing. Do not claim complete sector coverage based on a handful of successful examples. Exclude credentials and candidate personal data from the report.

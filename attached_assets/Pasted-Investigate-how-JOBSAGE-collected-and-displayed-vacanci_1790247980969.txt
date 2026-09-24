@@ -1,0 +1,59 @@
+Investigate how JOBSAGE collected and displayed vacancies before I joined the project in July 2026. The team says it worked previously. I want evidence showing how that version worked and what changed afterwards.
+
+This is a read-only historical investigation. Do not restore an old version, change the current application, deploy anything, or modify production data.
+
+1. Find the relevant historical version.
+
+* Inspect available Git history, branches, tags, Replit checkpoints and deployment records.
+* Start with the latest available version before 1 July 2026.
+* If no pre-July version is available, identify the earliest accessible version and clearly state the limitation.
+* Examine historical code in a separate temporary checkout so the current workspace is preserved.
+
+2. Explain how vacancies were obtained.
+   For job boards, company websites and internal/Send CV vacancies, determine:
+
+* Which sources were used.
+* Whether collection used APIs, feeds, scraping, AI/web search, manual imports, seeded data or employer submissions.
+* Whether jobs were fetched live, collected on a schedule or stored once.
+* How company websites and individual vacancy/application URLs were found.
+* Whether employers’ recruitment platforms were integrated directly.
+* Which sectors or professions were actually supported.
+* Whether listings were genuine individual vacancies or employer/careers-page records presented as opportunities.
+
+3. Establish what “working” meant.
+   Look for available historical logs, tests, deployment records and database timestamps that show:
+
+* Successful collection runs.
+* New vacancies arriving over time.
+* Updates and removal of closed vacancies.
+* Working links to specific applications.
+* Coverage across professions.
+
+Separate demonstrated behavior from comments, documentation, screenshots, seed data and unsupported claims. Code existing does not prove it ran successfully in production. Current database records alone do not prove what users saw before July.
+
+Do not rerun old collection jobs against production or trigger emails, applications or database writes.
+
+4. Compare the old and current implementations.
+   Identify relevant changes from July 2026 onward, including:
+
+* Sources or integrations added, removed or replaced.
+* Scheduler and deployment changes.
+* API configuration or credential dependencies—report names and presence only, never secret values.
+* Pagination, crawl limits and timeouts.
+* Sector classification and filtering.
+* Verification and visibility rules.
+* Database schema and persistence changes.
+
+For each significant change, provide the date, commit/checkpoint reference, affected files, and likely impact. Distinguish confirmed regressions from hypotheses.
+
+5. Give a practical verdict.
+   Answer:
+
+* Was the earlier vacancy system demonstrably working, and for which sources and sectors?
+* Was it automated and continuously refreshed, or dependent on manual/static data?
+* Did it genuinely extract company-site vacancies?
+* Which earlier components are worth recovering?
+* Could targeted restoration help without reverting the whole application?
+* What historical evidence is unavailable?
+
+Return a concise timeline, an old-versus-current comparison table, and the strongest evidence supporting your conclusions. Investigate neutrally; do not assume either the team’s claim or the current implementation is correct.
