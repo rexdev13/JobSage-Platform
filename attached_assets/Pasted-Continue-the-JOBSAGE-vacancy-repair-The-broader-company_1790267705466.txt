@@ -1,0 +1,94 @@
+Continue the JOBSAGE vacancy repair. The broader company-site pilot produced only one unique candidate-visible role, while the earlier direct Ashby pilot for 9fin worked. We need to isolate those two collection methods and fix demonstrated failures.
+
+Work in development on the existing branch. Do not deploy, change production scheduling, purchase services or run a mass backfill. Missing cron screenshots must not block this development investigation.
+
+1. Test the direct ATS connectors separately
+
+The earlier audit identified 17 potentially usable board mappings across Ashby, Greenhouse and Lever. Recheck the current records and validate each employer-to-board relationship using official employer evidence.
+
+Run every validated board through its actual structured-feed connector. Do not silently substitute generic HTML crawling and report it as a connector result.
+
+Include 9fin as a regression check. For each employer report:
+
+* Platform, board identifier and ownership evidence.
+* Whether the connector actually ran.
+* Source job count and whether the response was complete.
+* Jobs inserted, updated, rejected and deduplicated.
+* UK, non-UK and unknown-location counts.
+* Verification outcomes.
+* Unique candidate-visible jobs under documented representative profiles.
+* Exact reasons collected jobs did not become visible.
+* Requests made and elapsed time.
+
+Treat invalid, empty, unavailable and unverified boards as separate outcomes. Do not count all source jobs as suitable UK vacancies.
+
+2. Explain the previous pilot’s loss of jobs
+
+Trace the previous pilot’s stored vacancies through extraction, normalization, persistence, link verification, profession classification and candidate visibility.
+
+Determine why only one unique role passed the reported candidate-feed check. Confirm the scope of that check: which employers, records, candidate profiles and filters it included. Do not present a narrow query as total system coverage.
+
+Group the losses by actual reason and show representative records. Specifically investigate the nine newly inserted BMC URLs that returned inconclusive results:
+
+* What URLs were checked?
+* What response or error occurred?
+* Were they real individual jobs, generic pages or incorrect links?
+* Was the problem extraction, redirects, JavaScript, rate limiting, timeouts, verification logic or something else?
+
+“Inconclusive” is not a diagnosis. Record the underlying reason without falsely marking those URLs live or dead.
+
+3. Fix careers-page discovery
+
+The previous report included a photo-gallery page, a shopping category and a product page as careers URLs.
+
+Trace how those mappings were selected and implement a general fix based on page purpose, link context and recruitment evidence. Do not merely blacklist those three URLs or hardcode replacements.
+
+Prevent unrelated pages from becoming validated careers sources. Retain uncertain mappings for rediscovery rather than treating the employer as having no vacancies.
+
+Add focused regression tests for these demonstrated mistakes.
+
+4. Test ordinary websites against known real vacancies
+
+Select about five sponsor employers whose official careers pages can be independently inspected and shown to contain actual job listings. Include non-technology professions where available.
+
+Record the real source jobs first, then run our crawler and compare:
+
+* Jobs present on the source.
+* Jobs discovered.
+* Jobs stored.
+* Jobs verified.
+* Jobs visible to suitable candidate profiles.
+
+Use this as a diagnostic sample, not an estimate of average employer coverage.
+
+Fix supported extraction failures and rerun the same examples. If a website requires an unsupported platform adapter or rendering capability, identify that explicitly. Do not classify an unreadable page as an empty careers board.
+
+Confirm partial crawls resume correctly and never mark existing vacancies missing.
+
+5. Preserve the product rules
+
+Continue using employers from our sponsor-company list. Do not add a new vacancy-level sponsorship requirement.
+
+Keep ATS vacancies in Company Websites. Preserve candidate eligibility rules, source accuracy, deduplication and exact application links. Do not weaken verification or relevance rules merely to increase counts; correct a rule only when evidence demonstrates a bug.
+
+Do not send alerts, CVs or applications during testing.
+
+6. Finish with measured results
+
+Implement and test the evidence-backed fixes rather than returning another general plan.
+
+Provide two separate results tables:
+A. Direct Ashby, Greenhouse and Lever feeds.
+B. Ordinary company websites.
+
+For both, show employers tested, complete/partial/failed outcomes, jobs collected, UK-relevant jobs, unique candidate-visible jobs and elapsed time. Deduplicate roles appearing under multiple professions.
+
+State plainly:
+
+* Which collection methods now work repeatedly.
+* Which failures remain and their causes.
+* Whether the previous one-role result was caused mainly by poor extraction, verification, filtering or the measurement itself.
+* How many currently validated sponsor boards are ready for a controlled rollout.
+* The next concrete step supported by these results.
+
+Do not expand to 200 employers yet. First demonstrate repeatable collection across the validated feeds and explain the ordinary-website failures. Do not claim the system works across all sectors based on a few successful examples.
