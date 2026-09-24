@@ -10,6 +10,7 @@ import {
   discoverCompanySiteVacancies,
   persistCompanySiteVacancies,
 } from "./companySiteDiscovery";
+import { parseDirectBoardMapping } from "./directEmployerBoardConnectors";
 import {
   classifyCompanySiteFailure,
   COMPANY_SITE_EMPLOYER_BUDGET_MS,
@@ -603,6 +604,7 @@ export async function runCompanySiteCheck(
   if (leaseResult?.rows && leaseResult.rows.length === 0) {
     return { status: "skipped", reason: "crawl already leased" };
   }
+  const leaseAcquired = leaseResult !== null;
 
   let result;
   try {
@@ -649,7 +651,9 @@ export async function runCompanySiteCheck(
               crawlLeaseUntil: null,
               crawlLeaseToken: null,
           },
-            where: sql`${sponsorLicenceCompanySiteChecksTable.crawlLeaseToken} = ${leaseToken}`,
+            ...(leaseAcquired
+              ? { where: sql`${sponsorLicenceCompanySiteChecksTable.crawlLeaseToken} = ${leaseToken}` }
+              : {}),
         }));
     return {
       status: "checked",
@@ -733,6 +737,22 @@ export async function runCompanySiteCheck(
         : existing?.atsCheckedAt ?? null,
     careersUrl: result.careersUrl ?? existing?.careersUrl ?? null,
     atsProvider: result.atsProvider ?? existing?.atsProvider ?? null,
+    ...(() => {
+      const evidenceUrl = result.careersUrl ?? existing?.careersUrl ?? null;
+      const provider = result.atsProvider ?? existing?.atsProvider ?? null;
+      const mapping = parseDirectBoardMapping(provider, evidenceUrl);
+      return mapping
+        ? {
+            atsBoardId: mapping.boardId,
+            atsMappingEvidenceUrl: mapping.evidenceUrl,
+            atsMappingStatus: "verified" as const,
+          }
+        : {
+            atsBoardId: existing?.atsBoardId ?? null,
+            atsMappingEvidenceUrl: existing?.atsMappingEvidenceUrl ?? null,
+            atsMappingStatus: existing?.atsMappingStatus ?? "unverified" as const,
+          };
+    })(),
     retryAfter,
     lastError: result.error
       ? `${failureClass ? `[${failureClass}] ` : ""}${result.error}`.slice(0, 1_000)
@@ -756,7 +776,9 @@ export async function runCompanySiteCheck(
       .onConflictDoUpdate({
         target: sponsorLicenceCompanySiteChecksTable.organisationName,
         set: values,
-        where: sql`${sponsorLicenceCompanySiteChecksTable.crawlLeaseToken} = ${leaseToken}`,
+        ...(leaseAcquired
+          ? { where: sql`${sponsorLicenceCompanySiteChecksTable.crawlLeaseToken} = ${leaseToken}` }
+          : {}),
       }));
 
   return {

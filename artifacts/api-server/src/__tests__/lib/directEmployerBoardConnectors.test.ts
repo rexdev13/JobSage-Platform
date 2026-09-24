@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../../lib/companySiteHttp", () => ({
-  fetchCompanySitePage: vi.fn(),
+  fetchCompanySitePublicApiPage: vi.fn(),
 }));
 
 const {
   parseDirectBoardMapping,
   fetchDirectEmployerBoard,
 } = await import("../../lib/directEmployerBoardConnectors");
-const { fetchCompanySitePage } = await import("../../lib/companySiteHttp");
+const { fetchCompanySitePublicApiPage } = await import("../../lib/companySiteHttp");
 
 describe("direct employer board connectors", () => {
   it("derives strict board mappings only from saved platform URLs", () => {
@@ -24,13 +24,21 @@ describe("direct employer board connectors", () => {
       provider: "Lever",
       boardId: "aeratechnology",
     });
-    expect(parseDirectBoardMapping("Ashby", "https://jobs.ashbyhq.com/9fin/form/talent-community")).toBeNull();
+    expect(parseDirectBoardMapping(
+      "Ashby",
+      "https://jobs.ashbyhq.com/9fin/form/talent-community",
+    )).toMatchObject({
+      provider: "Ashby",
+      boardId: "9fin",
+      feedUrl: "https://api.ashbyhq.com/posting-api/job-board/9fin",
+    });
+    expect(parseDirectBoardMapping("Ashby", "https://jobs.ashbyhq.com/9fin/not-a-job")).toBeNull();
     expect(parseDirectBoardMapping("Ashby", "https://example.com/9fin")).toBeNull();
     expect(parseDirectBoardMapping("Greenhouse", "https://boards.greenhouse.io/")).toBeNull();
   });
 
   it("excludes unlisted Ashby jobs and preserves exact listing URLs and IDs", async () => {
-    vi.mocked(fetchCompanySitePage).mockResolvedValue({
+    vi.mocked(fetchCompanySitePublicApiPage).mockResolvedValue({
       ok: true,
       status: 200,
       url: "https://api.ashbyhq.com/posting-api/job-board/9fin",
@@ -79,7 +87,7 @@ describe("direct employer board connectors", () => {
         descriptionPlain: "Description",
         categories: { location: "London" },
       }));
-    vi.mocked(fetchCompanySitePage)
+    vi.mocked(fetchCompanySitePublicApiPage)
       .mockResolvedValueOnce({
         ok: true, status: 200, url: "https://api.lever.co/v0/postings/board?skip=0",
         contentType: "application/json", body: JSON.stringify(page(100, 0)),

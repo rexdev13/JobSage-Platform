@@ -417,6 +417,7 @@ export async function upsertSharedBoardVacancies(
     sourceType: "job_board" | "company_site";
     id: number;
     url: string | null;
+    applicationUrl: string | null;
   }> = [];
   let inserted = 0;
   let revived = 0;
@@ -471,6 +472,7 @@ export async function upsertSharedBoardVacancies(
         .returning({
           id: sponsorLicenceVacanciesTable.id,
           url: sponsorLicenceVacanciesTable.url,
+          applicationUrl: sponsorLicenceVacanciesTable.applicationUrl,
           liveness: sponsorLicenceVacanciesTable.liveness,
         });
       if (options.verifiedLive && wasDead) revived += 1;
@@ -518,6 +520,7 @@ export async function upsertSharedBoardVacancies(
       .returning({
         id: sponsorLicenceVacanciesTable.id,
         url: sponsorLicenceVacanciesTable.url,
+        applicationUrl: sponsorLicenceVacanciesTable.applicationUrl,
         liveness: sponsorLicenceVacanciesTable.liveness,
       });
     if (created) {
@@ -535,7 +538,7 @@ export async function upsertSharedBoardVacancies(
   // Do not let a separate verifier race rows that are not committed yet.
   const companySiteItems = transactionResult.toVerify
     .filter((item) => item.sourceType === "company_site")
-    .map(({ id, url }) => ({ id, url }));
+    .map(({ id, url, applicationUrl }) => ({ id, url: applicationUrl ?? url }));
   const boardItems = transactionResult.toVerify
     .filter((item) => item.sourceType === "job_board")
     .map(({ source, id, url }) => ({ source, id, url }));

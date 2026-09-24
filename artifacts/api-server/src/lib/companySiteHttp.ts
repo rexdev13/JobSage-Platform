@@ -804,3 +804,32 @@ export async function fetchCompanySitePage(
   }
   return fetchWithoutRobots(parsed.toString(), originHostname, deadlineMs, maxBytes, true);
 }
+
+/**
+ * Fetch a documented public ATS JSON endpoint without applying HTML robots.txt
+ * policy to the API host. The underlying fetch still enforces HTTPS, approved
+ * ATS destinations, public DNS pinning, host leases, pacing, deadlines,
+ * redirects, response-size limits, and retry backoff.
+ */
+export async function fetchCompanySitePublicApiPage(
+  url: string,
+  deadlineMs: number,
+  maxBytes = MAX_PAGE_BYTES,
+): Promise<CompanySiteFetchResult> {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { ok: false, kind: "unsafe", reason: "malformed API URL" };
+  }
+  if (parsed.protocol !== "https:" || knownAtsProvider(parsed.hostname) === null) {
+    return { ok: false, kind: "unsafe", reason: "unsupported public ATS API destination" };
+  }
+  return fetchWithoutRobots(
+    parsed.toString(),
+    parsed.hostname,
+    deadlineMs,
+    maxBytes,
+    false,
+  );
+}

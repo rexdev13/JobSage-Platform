@@ -100,6 +100,12 @@ export const sponsorLicenceCompanySiteChecksTable = pgTable(
     atsCheckedAt: timestamp("ats_checked_at", { withTimezone: true }),
     careersUrl: text("careers_url"),
     atsProvider: text("ats_provider"),
+    atsBoardId: text("ats_board_id"),
+    atsMappingEvidenceUrl: text("ats_mapping_evidence_url"),
+    atsMappingStatus: text("ats_mapping_status")
+      .$type<"verified" | "unverified" | "invalid">()
+      .notNull()
+      .default("unverified"),
     retryAfter: timestamp("retry_after", { withTimezone: true }),
     lastError: text("last_error"),
     lastAttemptedAt: timestamp("last_attempted_at", { withTimezone: true }),
