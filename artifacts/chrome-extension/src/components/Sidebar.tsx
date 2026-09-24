@@ -7,6 +7,7 @@ import type { PillPos } from "../lib/types";
 import type { PrefillResult } from "../lib/prefill";
 import type { CvAttachResult } from "../lib/cvAttachment";
 import type { AnswerLibrarySnapshot, AnswerMemoryController } from "../lib/answerMemory";
+import { assistantErrorMessageFor, SENSITIVE_QUESTION_BLOCK_MESSAGE } from "../lib/assistantErrors";
 
 const COLORS = {
   bg: BRAND.bg,
@@ -86,16 +87,6 @@ type AssistantStreamEvent =
 
 export const ASSISTANT_STREAM_TIMEOUT_MS = 55_000;
 
-function errorMessageFor(event: Extract<AssistantStreamEvent, { type: "error" }>): string {
-  if (event.kind === "auth") {
-    return "Please sign in to JOBSAGE (jobsage.co.uk) in another tab, then try again.";
-  }
-  if (event.kind === "server") {
-    return "JOBSAGE couldn't generate an answer right now. Please try again in a moment.";
-  }
-  return "Could not reach the JOBSAGE API. Check your internet connection and try again.";
-}
-
 function useStreamAnswer() {
   const [answer, setAnswer] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -151,7 +142,7 @@ function useStreamAnswer() {
       if (event.type === "chunk") {
         setAnswer((prev) => prev + event.text);
       } else if (event.type === "error") {
-        setError(errorMessageFor(event));
+        setError(assistantErrorMessageFor(event));
         finish();
       } else if (event.type === "done") {
         finish();
@@ -620,7 +611,7 @@ export function Sidebar({
     setInserted(false);
     setInsertFailed(false);
     if (selectedQuestion?.bucket === "confirmation") {
-      setError("Review and complete this sensitive field yourself. JOBSAGE will not generate or fill it.");
+      setError(SENSITIVE_QUESTION_BLOCK_MESSAGE);
       return;
     }
     generate(buildPrompt(question, selectedQuestion), jobContext, selectedQuestion);
@@ -635,7 +626,7 @@ export function Sidebar({
     setError(null);
     if (dq.bucket === "confirmation") {
       setAnswer("");
-      setError("Review and complete this sensitive field yourself. JOBSAGE will not generate or fill it.");
+      setError(SENSITIVE_QUESTION_BLOCK_MESSAGE);
       return;
     }
   };

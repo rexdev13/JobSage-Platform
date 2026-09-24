@@ -495,7 +495,7 @@ router.post("/smart-apply/assistant", requireAuthenticated, async (req: Request,
   const exactQuestion = (questionText ?? question ?? userMessage).trim();
   if (/\b(caution|criminal|conviction|convicted|criminal record|asbo|disclosure|dbs|health|medical|disab|ethnic|sex|gender|religion|sexual orientation|diversity|equal opportunit|declaration|consent|agree(?:ment)?|payroll|tax declaration|national insurance|ni number|passport|date of birth|dob)\b/i.test(exactQuestion)) {
     res.status(422).json({
-      error: "This declaration needs your own review and confirmation, so JOBSAGE will not generate an answer for it.",
+      error: "JOBSAGE can't generate an answer because this question asks you to confirm sensitive or personal information. Please review it and answer it yourself.",
     });
     return;
   }
