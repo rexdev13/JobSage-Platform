@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect, useSyncExternalStore } from "react";
 import type { JobContext } from "../lib/scraper";
 import type { DetectedQuestion, QuestionWatcher } from "../lib/questionDetector";
-import { insertAnswer, highlightField } from "../lib/questionDetector";
+import { getQuestionField, insertAnswer, isQuestionAnswered, highlightField } from "../lib/questionDetector";
 import { BRAND } from "../lib/brand";
 import type { PillPos } from "../lib/types";
 import type { PrefillResult } from "../lib/prefill";
@@ -327,12 +327,6 @@ export function Sidebar({
     }
   }, [answerMemory, clearingMemory, onClearAnswerMemory]);
 
-  useEffect(() => {
-    if (tracked && onPrefill && !autoPrefilledRef.current) {
-      autoPrefilledRef.current = true;
-      void handlePrefill();
-    }
-  }, [tracked, onPrefill, handlePrefill]);
   const [question, setQuestion] = useState("");
   const [copied, setCopied] = useState(false);
   const [inserted, setInserted] = useState(false);
@@ -341,6 +335,7 @@ export function Sidebar({
   const [logDone, setLogDone] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { answer, streaming, error, generate, cancel, setAnswer, setError } = useStreamAnswer();
+  const [, setFieldStatusRevision] = useState(0);
 
   // Question detection
   const subscribe = useCallback(
@@ -352,6 +347,31 @@ export function Sidebar({
     [questionWatcher],
   );
   const detected = useSyncExternalStore(subscribe, getSnapshot);
+  useEffect(() => {
+    const documents = new Set<Document>();
+    for (const question of detected) {
+      const field = getQuestionField(question.id);
+      if (field) documents.add(field.ownerDocument);
+    }
+
+    const refreshFieldStatus = () => setFieldStatusRevision((revision) => revision + 1);
+    for (const doc of documents) {
+      doc.addEventListener("input", refreshFieldStatus, true);
+      doc.addEventListener("change", refreshFieldStatus, true);
+    }
+    return () => {
+      for (const doc of documents) {
+        doc.removeEventListener("input", refreshFieldStatus, true);
+        doc.removeEventListener("change", refreshFieldStatus, true);
+      }
+    };
+  }, [detected]);
+  useEffect(() => {
+    if (tracked && onPrefill && !autoPrefilledRef.current) {
+      autoPrefilledRef.current = true;
+      void handlePrefill();
+    }
+  }, [tracked, onPrefill, handlePrefill]);
   const subscribeToLibrary = useCallback(
     (listener: () => void) => answerMemory?.subscribe(listener) ?? (() => {}),
     [answerMemory],
@@ -1380,6 +1400,8 @@ export function Sidebar({
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {detected.map((dq) => {
                   const active = dq.id === selectedId;
+                  const answered = isQuestionAnswered(dq.id);
+                  const answerColor = answered ? COLORS.successText : COLORS.errorText;
                   const hint = limitHint(dq);
                   const restoredFromMemory = library.restoredQuestionIds.includes(dq.id);
                   return (
@@ -1387,20 +1409,25 @@ export function Sidebar({
                       key={dq.id}
                       onClick={() => handleSelectDetected(dq)}
                       disabled={streaming}
+                      aria-label={`${dq.question} — ${answered ? "Answered" : "Unanswered"}`}
                       style={{
                         textAlign: "left",
                         padding: "8px 10px",
-                        background: active ? BRAND.primarySoftActive : COLORS.inputBg,
-                        border: `1px solid ${active ? COLORS.primary : COLORS.border}`,
+                        background: active ? BRAND.primarySoftActive : answered ? COLORS.successBg : COLORS.errorBg,
+                        border: `1px solid ${answerColor}`,
                         borderRadius: RADIUS,
                         fontSize: 12,
-                        color: COLORS.text,
+                        color: answerColor,
                         cursor: streaming ? "not-allowed" : "pointer",
                         lineHeight: 1.4,
                         fontFamily: "inherit",
+                        boxShadow: active ? `0 0 0 1px ${COLORS.primary}` : undefined,
                       }}
                     >
                       {dq.question}
+                      <span style={{ display: "block", marginTop: 2, fontSize: 11, fontWeight: 600, color: answerColor }}>
+                        {answered ? "Answered" : "Unanswered"}
+                      </span>
                       {dq.requiredKnown && dq.required && (
                         <>
                           <span aria-hidden="true" style={{ marginLeft: 3, color: COLORS.errorText }}>*</span>

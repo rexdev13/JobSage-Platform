@@ -651,6 +651,30 @@ export function getQuestionField(questionId: string): QuestionField | null {
   return field?.isConnected ? field : null;
 }
 
+/** Returns whether the detected field currently contains a meaningful answer. */
+export function isQuestionAnswered(questionId: string): boolean {
+  const field = getQuestionField(questionId);
+  if (!field) return false;
+
+  if (isInput(field) && field.type === "radio") {
+    if (!field.name) return field.checked;
+    return Array.from(field.ownerDocument.querySelectorAll<HTMLInputElement>('input[type="radio"]'))
+      .some((candidate) => candidate.name === field.name && candidate.form === field.form && candidate.checked);
+  }
+
+  if (isSelect(field)) {
+    const selectedOptions = Array.from(field.selectedOptions);
+    return selectedOptions.some((option) => {
+      const value = cleanText(option.value);
+      const label = cleanText(option.textContent || option.value);
+      if (!value) return false;
+      return !/^(?:[-–—]+|(?:please\s+)?(?:select|choose)(?:\s+(?:an?\s+)?(?:option|answer|value|one))?\.{0,3})$/i.test(label);
+    });
+  }
+
+  return Boolean(cleanText(field.value));
+}
+
 export function setQuestionFieldValue(
   questionId: string,
   answer: string,
