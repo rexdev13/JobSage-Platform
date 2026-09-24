@@ -1,0 +1,50 @@
+employer_name,industry,source_url,careers_url,ats_provider,initial_record_status,initial_attempt_outcome,initial_pages_fetched,initial_raw_adverts_found,initial_adverts_rejected,initial_elapsed_ms,resume_status,resume_completion,resume_failure_class,resume_elapsed_ms,resume_pages_fetched,resume_raw_adverts_found,resume_accepted_adverts,resume_inserted,resume_updated,resume_revived,resume_adverts_rejected,resume_uk_location_known,resume_uk_location_unknown
+007 Taxi Limited,Transport,https://007taxis.co.uk/,https://007taxis.co.uk/careers,,initial_snapshot_available,complete,4,2,141,unavailable,,,,,,,,,,,,,
+1 Stop Print Ltd,Manufacturing,https://1stopprint.co.uk/,,,initial_snapshot_available,partial_deadline,1,0,57,unavailable,,,,,,,,,,,,,
+10Pearls Ltd,Other,https://10pearls.com/,https://10pearls.com/life-at-10pearls,,initial_snapshot_available,failed,3,0,199,unavailable,,,,,,,,,,,,,
+11:FS GROUP LIMITED,Other,https://www.11fs.com,https://www.11fs.com/careers,,initial_snapshot_available,partial_page_limit,6,0,110,unavailable,,,,,,,,,,,,,
+13th Street Hospitality Ltd t/a Sunday in Brooklyn,Hospitality,https://www.sundayinbk.co.uk/,https://www.sundayinbk.co.uk/careers,,initial_snapshot_available,complete,3,0,28,unavailable,,,,,,,,,,,,,
+15Below Ltd,Other,https://15below.com/,https://15below.com/jobs-at-15below,,initial_snapshot_available,partial_page_limit,6,0,179,unavailable,,,,,,,,,,,,,
+173tech Ltd,Other,https://173tech.com/,https://173tech.com/careers,,initial_snapshot_available,failed,1,0,35,unavailable,,,,,,,,,,,,,
+17CARE UK LTD,Other,https://17care.co.uk/,https://17care.co.uk/jobs,,initial_snapshot_available,failed,1,0,15,unavailable,,,,,,,,,,,,,
+18 Degrees Below Ltd,Other,https://18degs.com/,,,initial_snapshot_available,partial_page_limit,6,0,9,unavailable,,,,,,,,,,,,,
+1st Airport Taxis LTD,Other,https://www.1stairporttaxis.co.uk,,,overwritten_by_resume,,,,,unavailable,checked,partial_page_limit,temporary,11514,6,0,0,0,0,0,0,0,0
+2 Sisters Food Group Limited,Hospitality,https://www.2sfg.com,https://www.2sfg.com/Careers,,overwritten_by_resume,,,,,unavailable,checked,complete,,3233,1,3,3,0,3,0,26,0,3
+2H Offshore Engineering Ltd,Engineering,https://2hoffshore.com/,https://2hoffshore.com/careers,,overwritten_by_resume,,,,,unavailable,checked,partial_page_limit,temporary,13237,6,0,0,0,0,0,0,0,0
+2MS CONSTRUCTION LTD,Construction,https://www.2msconstruction.com/,https://www.2msconstruction.com/careers,,initial_snapshot_available,complete,3,0,34,unavailable,,,,,,,,,,,,,
+3TOP Aviation Services Ltd,Transport,https://www.3topaviation.com/,,,initial_snapshot_available,complete,2,0,10,unavailable,,,,,,,,,,,,,
+4BASE CONSTRUCTION LTD,Construction,http://4baseconstruction.co.uk,,,overwritten_by_resume,,,,,unavailable,checked,complete,,15,0,0,0,0,0,0,0,0,0
+4FEET RETAIL LTD,Retail,https://4feetshoes.com,,,overwritten_by_resume,,,,,unavailable,checked,partial_page_limit,temporary,10907,6,0,0,0,0,0,0,0,0
+54 Queens Gate Hotel Limited,Hospitality,https://www.54queensgate.com/,,,initial_snapshot_available,complete,2,0,11,unavailable,,,,,,,,,,,,,
+90 North Real Estate Partners LLP,Legal & Professional,https://90northgroup.com,,,overwritten_by_resume,,,,,unavailable,checked,complete,,762,1,0,0,0,0,0,10,0,0
+A & I Care Homes Ltd T/a The Meadows Residential Care Home,Social Care,https://aicarehome.co.uk/,https://aicarehome.co.uk/career,,overwritten_by_resume,,,,,unavailable,checked,complete,,2603,1,3,3,0,3,0,2,0,3
+A J Jones & Co Legal Services Ltd,Legal & Professional,https://www.ajjonessolicitors.com,,,initial_snapshot_available,complete,2,0,15,unavailable,,,,,,,,,,,,,
+A Keys Construction Ltd,Construction,https://akeysconstruction.com/,,,initial_snapshot_available,failed,0,0,0,unavailable,,,,,,,,,,,,,
+A P L CONSTRUCTION LTD,Construction,https://www.aplconstruction.co.uk/,https://www.aplconstruction.co.uk/photo-gallery,,initial_snapshot_available,complete,2,0,8,unavailable,,,,,,,,,,,,,
+A S London Express Transport Ltd,Transport,https://aslondonexpress.uk/,,,initial_snapshot_available,complete,2,0,2,unavailable,,,,,,,,,,,,,
+A Squared Engineering Ltd,Engineering,https://asquaredengineering.com/,,,initial_snapshot_available,complete,2,0,8,unavailable,,,,,,,,,,,,,
+A STAR SUPPORT SERVICES LTD,Social Care,https://astargroup.co.uk/,https://astargroup.co.uk/work-for-us,,initial_snapshot_available,complete,3,0,24,unavailable,,,,,,,,,,,,,
+A&K Courier Services Ltd,Transport,https://aandkcourierservicesltd.site/,,,initial_snapshot_available,complete,2,0,4,unavailable,,,,,,,,,,,,,
+A1 PRIVATE HIRE LTD,Transport,https://www.a1carsprivatehire.co.uk/,https://www.a1carsprivatehire.co.uk/vacancies,,initial_snapshot_available,complete,4,0,75,unavailable,,,,,,,,,,,,,
+A2 Engineering Ltd,Engineering,https://www.a2engineering.co.uk/,,,initial_snapshot_available,complete,2,0,0,unavailable,,,,,,,,,,,,,
+AA EXPRESS LOGISTICS LTD,Transport,https://aaexpresslogistics.co.uk/,,,initial_snapshot_available,complete,2,0,5,unavailable,,,,,,,,,,,,,
+AA Plus Plumbing Ltd,Construction,https://www.aaplusplumbing.com,,,initial_snapshot_available,complete,2,0,12,unavailable,,,,,,,,,,,,,
+AAA Freight Services Ltd,Transport,https://aaafreightservices.com/,https://aaafreightservices.com/careers,,initial_snapshot_available,complete,3,0,36,unavailable,,,,,,,,,,,,,
+ABBEYDALE NURSING HOME,Social Care,https://www.abbeyhealthcare.org.uk/,https://www.abbeyhealthcare.org.uk/careers,,initial_snapshot_available,complete,3,0,27,unavailable,,,,,,,,,,,,,
+ABT Construction Ltd,Construction,https://www.abtconstruction.co.uk/,,,initial_snapshot_available,complete,2,0,5,unavailable,,,,,,,,,,,,,
+AZAZIE UK LIMITED,Other,https://www.azazie.com/gb/,https://www.azazie.com/gb/all/all-junior?page=1&sort_by=popularity,,initial_snapshot_available,partial_page_limit,6,0,356,unavailable,,,,,,,,,,,,,
+B & M Capital Limtied,Finance,https://bandmcapital.com/,,,initial_snapshot_available,complete,2,0,1,unavailable,,,,,,,,,,,,,
+B & M Real Estate Ltd,Finance,https://www.bmrealestate.uk/,,,initial_snapshot_available,complete,2,0,12,unavailable,,,,,,,,,,,,,
+B A International Solicitors Ltd,Legal & Professional,https://chamsolicitors.com/,,,initial_snapshot_available,complete,2,0,12,unavailable,,,,,,,,,,,,,
+B A Williams Solicitors,Legal & Professional,https://bawilliamssolicitors.com/,,,initial_snapshot_available,complete,2,0,32,unavailable,,,,,,,,,,,,,
+B Bagel Ltd,Hospitality,https://www.bbagel.co.uk/,https://www.bbagel.co.uk/work-with-us-b-bagel,,initial_snapshot_available,complete,3,0,29,unavailable,,,,,,,,,,,,,
+B S Accessories Ltd T/A Fancy Jewellers,Other,https://fj-gold.com,https://fj-gold.com/?p=1201&post_type=product,,initial_snapshot_available,partial_deadline,1,0,149,unavailable,,,,,,,,,,,,,
+B&A Quilting (UK) Limited,Finance,https://www.ba-quilting.co.uk,,,initial_snapshot_available,complete,2,0,16,unavailable,,,,,,,,,,,,,
+B&C London Investment Solutions Ltd,Other,https://baclis.com/,,,initial_snapshot_available,failed,0,0,0,unavailable,,,,,,,,,,,,,
+BLACKROCK INVESTMENT MANAGEMENT (UK) LIMITED,Finance,https://www.blackrock.com/uk,https://careers.blackrock.com/,,initial_snapshot_available,partial_page_limit,6,0,357,unavailable,,,,,,,,,,,,,
+BMA FOODS LIMITED T/A BAKERS + BARISTAS,Other,https://www.bakersbaristas.com/,https://www.bakersbaristas.com/pages/jobs,,overwritten_by_resume,,,,,unavailable,checked,complete,,563,1,0,0,0,0,0,0,0,0
+BMC Software Ltd,Technology,https://www.bmc.com/,https://www.bmc.com/careers/careers.html,,overwritten_by_resume,,,,,unavailable,checked,partial_deadline,temporary,24673,5,42,15,9,5,0,122,0,15
+BMG Rights Management Services (UK) Limited,Other,https://www.bmg.com,https://www.bmg.com/careers,,overwritten_by_resume,,,,,unavailable,checked,complete,,6612,4,0,0,0,0,0,61,0,0
+Zutec Inc. (UK) Limited,Other,https://zutec.com,,,initial_snapshot_available,partial_deadline,5,0,63,unavailable,,,,,,,,,,,,,
+Zwift UK Limited,Other,https://www.zwift.com,https://www.zwift.com/careers,,initial_snapshot_available,failed,4,0,188,unavailable,,,,,,,,,,,,,
+ZyXEL Communications UK Ltd,Other,https://www.zyxel.com/uk/en-gb,,,initial_snapshot_available,partial_page_limit,6,0,107,unavailable,,,,,,,,,,,,,

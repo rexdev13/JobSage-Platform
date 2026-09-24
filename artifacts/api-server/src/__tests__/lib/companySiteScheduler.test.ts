@@ -32,7 +32,9 @@ vi.mock("@workspace/db", () => ({
 
 vi.mock("drizzle-orm", () => ({
   eq: vi.fn(),
-  sql: vi.fn(),
+  sql: vi.fn((strings: TemplateStringsArray) => ({
+    sqlText: Array.from(strings).join(" ? "),
+  })),
 }));
 
 vi.mock("node-cron", () => ({ default: { schedule: scheduleMock } }));
@@ -85,7 +87,11 @@ describe("company-site scheduler", () => {
         onConflictDoUpdate: () => Promise.resolve(),
       }),
     });
-    persistCompanySiteVacanciesMock.mockResolvedValue({ inserted: 0, revived: 0 });
+    persistCompanySiteVacanciesMock.mockResolvedValue({
+      inserted: 0,
+      updated: 0,
+      revived: 0,
+    });
   });
 
   it("uses its own hourly schedule and bounded worker settings", () => {
@@ -126,6 +132,17 @@ describe("company-site scheduler", () => {
         healthcareEvidenceBackfill: false,
       }),
     ]);
+  });
+
+  it("keeps crawl state in the sector-rotated UNION projection", async () => {
+    executeMock.mockResolvedValue({ rows: [] });
+
+    await selectCompanySiteBatch(10);
+
+    const query = executeMock.mock.calls[0]?.[0] as { sqlText?: string } | undefined;
+    expect(query?.sqlText).toMatch(
+      /rotated_unbookmarked AS \(\s*SELECT[\s\S]*?probe_reason,\s*crawl_state,\s*bookmarked,/,
+    );
   });
 
   it("mixes approved refreshes with never-probed employers when the approved queue is short", async () => {
@@ -327,6 +344,95 @@ describe("company-site scheduler", () => {
         deadlineMs: deadlineMs - COMPANY_SITE_BATCH_WRITE_RESERVE_MS,
       }),
     );
+  });
+
+  it("records opt-in employer pilot metrics and counts updates as persisted work", async () => {
+    executeMock.mockResolvedValue({
+      rows: [{
+        id: 1,
+        organisation_name: "Metric Employer",
+        website: "https://metric.example",
+        industry: "Technology",
+        generic_checked_at: null,
+        ats_checked_at: null,
+        careers_url: null,
+        ats_provider: null,
+        bookmarked: false,
+        healthcare_evidence_backfill: false,
+      }],
+    });
+    discoverCompanySiteVacanciesMock.mockResolvedValue({
+      adverts: [{
+        organisationName: "Metric Employer",
+        employer: "Metric Employer",
+        title: "Technical Support",
+        location: "London, UK",
+        salary: null,
+        url: "https://metric.example/jobs/technical-support",
+        description: null,
+        postedDate: null,
+        targetRegions: null,
+        boardName: null,
+        externalId: null,
+        sourceType: "company_site",
+      }],
+      sourceUrl: "https://metric.example/",
+      careersUrl: "https://metric.example/careers",
+      atsProvider: null,
+      genericCompleted: true,
+      atsCompleted: true,
+      transientFailure: false,
+      failureClass: null,
+      pagesFetched: 2,
+      completion: "complete",
+      pagesAttempted: 2,
+      advertsExtracted: 3,
+      advertsRejected: 1,
+      rejectionReasons: {},
+      discoveredUrls: [],
+      observedAdvertUrls: ["https://metric.example/jobs/technical-support"],
+      resumeState: null,
+    });
+    persistCompanySiteVacanciesMock.mockResolvedValue({
+      inserted: 0,
+      updated: 1,
+      revived: 0,
+    });
+    const previousTelemetry = process.env["COMPANY_SITE_PILOT_TELEMETRY"];
+    process.env["COMPANY_SITE_PILOT_TELEMETRY"] = "1";
+
+    try {
+      const summary = await runCompanySiteDiscoveryBatch({ batchSize: 1 });
+
+      expect(summary).toEqual(expect.objectContaining({
+        updated: 1,
+        upserted: 1,
+        employerMetrics: [
+          expect.objectContaining({
+            organisationName: "Metric Employer",
+            industry: "Technology",
+            sourceUrl: "https://metric.example",
+            careersUrl: "https://metric.example/careers",
+            status: "checked",
+            completion: "complete",
+            elapsedMs: expect.any(Number),
+            pagesFetched: 2,
+            rawAdvertsFound: 3,
+            acceptedAdverts: 1,
+            updated: 1,
+            advertsRejected: 1,
+            ukLocationKnown: 1,
+            ukLocationUnknown: 0,
+          }),
+        ],
+      }));
+    } finally {
+      if (previousTelemetry === undefined) {
+        delete process.env["COMPANY_SITE_PILOT_TELEMETRY"];
+      } else {
+        process.env["COMPANY_SITE_PILOT_TELEMETRY"] = previousTelemetry;
+      }
+    }
   });
 
   it("defers selected employers when only the database-write reserve remains", async () => {

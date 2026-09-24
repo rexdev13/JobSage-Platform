@@ -23,6 +23,7 @@ import {
   runCompanySiteProbeBatch,
   type CompanySiteProbeSummary,
 } from "./companySiteProbe";
+import { regionsFromLocationText } from "./regionMatching";
 
 export const COMPANY_SITE_DISCOVERY_CRON = "17 * * * *";
 export const COMPANY_SITE_DISCOVERY_BATCH_SIZE = 10;
@@ -43,6 +44,7 @@ export type CompanySiteBatchRow = {
   id: number;
   organisationName: string;
   website: string;
+  industry?: string | null;
   genericCheckedAt: Date | null;
   atsCheckedAt: Date | null;
   careersUrl: string | null;
@@ -77,7 +79,34 @@ export type CompanySiteCheckOutcome =
       failureClass: CompanySiteFailureClass | null;
       completion: "complete" | "partial_page_limit" | "partial_deadline" | "failed";
       advertsRejected: number;
+      rawAdvertsFound: number;
+      ukLocationKnown: number;
+      ukLocationUnknown: number;
+      careersUrl: string | null;
+      atsProvider: string | null;
     };
+
+export type CompanySiteEmployerRunMetric = {
+  organisationName: string;
+  industry: string | null;
+  sourceUrl: string;
+  careersUrl: string | null;
+  atsProvider: string | null;
+  status: "checked" | "skipped" | "error";
+  completion: "complete" | "partial_page_limit" | "partial_deadline" | "failed" | null;
+  failureClass: CompanySiteFailureClass | null;
+  reason: string | null;
+  elapsedMs: number;
+  pagesFetched: number;
+  rawAdvertsFound: number;
+  acceptedAdverts: number;
+  inserted: number;
+  updated: number;
+  revived: number;
+  advertsRejected: number;
+  ukLocationKnown: number;
+  ukLocationUnknown: number;
+};
 
 export type CompanySiteBatchSummary = {
   selected: number;
@@ -108,6 +137,7 @@ export type CompanySiteBatchSummary = {
   probeUnprobedSelected: number;
   probeUnknownSkipped: number;
   probeBadSkipped: number;
+  employerMetrics?: CompanySiteEmployerRunMetric[];
 };
 
 let batchInProgress = false;
@@ -139,6 +169,7 @@ async function selectCompanySiteBatchForProbeStatus(
     id: number;
     organisation_name: string;
     website: string;
+    industry: string | null;
     generic_checked_at: Date | null;
     ats_checked_at: Date | null;
     careers_url: string | null;
@@ -313,6 +344,7 @@ async function selectCompanySiteBatchForProbeStatus(
         probe_status,
         last_probed_at,
         probe_reason,
+        crawl_state,
         bookmarked,
         healthcare_evidence_backfill
       FROM ranked_unbookmarked
@@ -397,6 +429,7 @@ async function selectCompanySiteBatchForProbeStatus(
     id: Number(row.id),
     organisationName: row.organisation_name,
     website: row.website,
+    industry: row.industry ?? null,
     genericCheckedAt: row.generic_checked_at ? new Date(row.generic_checked_at) : null,
     atsCheckedAt: row.ats_checked_at ? new Date(row.ats_checked_at) : null,
     careersUrl: row.careers_url,
@@ -668,6 +701,11 @@ export async function runCompanySiteCheck(
       failureClass,
       completion: "failed",
       advertsRejected: 0,
+      rawAdvertsFound: 0,
+      ukLocationKnown: 0,
+      ukLocationUnknown: 0,
+      careersUrl: row.careersUrl,
+      atsProvider: row.atsProvider,
     };
   }
   const persisted =
@@ -724,6 +762,13 @@ export async function runCompanySiteCheck(
       .from(sponsorLicenceCompanySiteChecksTable)
       .where(eq(sponsorLicenceCompanySiteChecksTable.organisationName, row.organisationName))
       .limit(1));
+  const ukLocationKnown = result.adverts.filter((advert) =>
+    (advert.targetRegions?.length ?? 0) > 0 ||
+    regionsFromLocationText(advert.location).length > 0 ||
+    /\b(?:united kingdom|u\.?k\.?|great britain|england|scotland|wales|northern ireland)\b/i.test(
+      advert.location ?? "",
+    ),
+  ).length;
 
   const values = {
     organisationName: row.organisationName,
@@ -794,6 +839,11 @@ export async function runCompanySiteCheck(
     failureClass,
     completion,
     advertsRejected: result.advertsRejected,
+    rawAdvertsFound: result.advertsExtracted,
+    ukLocationKnown,
+    ukLocationUnknown: Math.max(0, result.adverts.length - ukLocationKnown),
+    careersUrl: result.careersUrl,
+    atsProvider: result.atsProvider,
   };
 }
 
@@ -845,6 +895,9 @@ export async function runCompanySiteDiscoveryBatch(
     let permanentFailures = 0;
     let temporaryFailures = 0;
     let nextIndex = 0;
+    const captureEmployerMetrics =
+      process.env["COMPANY_SITE_PILOT_TELEMETRY"] === "1";
+    const employerMetrics: CompanySiteEmployerRunMetric[] = [];
 
     async function worker(): Promise<void> {
       while (true) {
@@ -855,11 +908,51 @@ export async function runCompanySiteDiscoveryBatch(
         }
         const row = rows[nextIndex++];
         if (!row) return;
+        const employerStartedAt = Date.now();
         try {
           const outcome = await runCompanySiteCheck(row, {
             deadlineMs: workDeadlineMs,
             acquireLease: true,
           });
+          if (captureEmployerMetrics) {
+            employerMetrics.push({
+              organisationName: row.organisationName,
+              industry: row.industry ?? null,
+              sourceUrl: row.website,
+              careersUrl:
+                outcome.status === "checked"
+                  ? outcome.careersUrl ?? row.careersUrl
+                  : row.careersUrl,
+              atsProvider:
+                outcome.status === "checked"
+                  ? outcome.atsProvider ?? row.atsProvider
+                  : row.atsProvider,
+              status: outcome.status,
+              completion: outcome.status === "checked" ? outcome.completion : null,
+              failureClass: outcome.status === "checked" ? outcome.failureClass : null,
+              reason:
+                outcome.status === "skipped"
+                  ? outcome.reason
+                  : outcome.status === "checked" &&
+                      (outcome.completion !== "complete" || outcome.failureClass)
+                    ? outcome.failureClass ?? outcome.completion
+                    : null,
+              elapsedMs: Date.now() - employerStartedAt,
+              pagesFetched: outcome.status === "checked" ? outcome.pagesFetched : 0,
+              rawAdvertsFound:
+                outcome.status === "checked" ? outcome.rawAdvertsFound : 0,
+              acceptedAdverts: outcome.status === "checked" ? outcome.adverts : 0,
+              inserted: outcome.status === "checked" ? outcome.inserted : 0,
+              updated: outcome.status === "checked" ? outcome.updated : 0,
+              revived: outcome.status === "checked" ? outcome.revived : 0,
+              advertsRejected:
+                outcome.status === "checked" ? outcome.advertsRejected : 0,
+              ukLocationKnown:
+                outcome.status === "checked" ? outcome.ukLocationKnown : 0,
+              ukLocationUnknown:
+                outcome.status === "checked" ? outcome.ukLocationUnknown : 0,
+            });
+          }
           if (outcome.status === "skipped") {
             skipped += 1;
           } else {
@@ -891,6 +984,29 @@ export async function runCompanySiteDiscoveryBatch(
         } catch (error) {
           errors += 1;
           temporaryFailures += 1;
+          if (captureEmployerMetrics) {
+            employerMetrics.push({
+              organisationName: row.organisationName,
+              industry: row.industry ?? null,
+              sourceUrl: row.website,
+              careersUrl: row.careersUrl,
+              atsProvider: row.atsProvider,
+              status: "error",
+              completion: "failed",
+              failureClass: "temporary",
+              reason: "unexpected employer-check exception",
+              elapsedMs: Date.now() - employerStartedAt,
+              pagesFetched: 0,
+              rawAdvertsFound: 0,
+              acceptedAdverts: 0,
+              inserted: 0,
+              updated: 0,
+              revived: 0,
+              advertsRejected: 0,
+              ukLocationKnown: 0,
+              ukLocationUnknown: 0,
+            });
+          }
           console.error(
             `[company-site-scheduler] Failed organisation="${row.organisationName}":`,
             error instanceof Error ? error.message : error,
@@ -906,7 +1022,7 @@ export async function runCompanySiteDiscoveryBatch(
       ),
     );
     const durationMs = Date.now() - startedAt;
-    const upserted = inserted + revived;
+    const upserted = inserted + updated + revived;
     const remaining = errors + deferred + (hasMore ? 1 : 0);
     const remainingIsLowerBound = hasMore;
     const done = remaining === 0;
@@ -947,6 +1063,7 @@ export async function runCompanySiteDiscoveryBatch(
       remaining,
       remainingIsLowerBound,
       durationMs,
+      ...(captureEmployerMetrics ? { employerMetrics } : {}),
     };
     let syncLogTable: typeof dbSchema.vacancySyncLogTable | undefined;
     try {
