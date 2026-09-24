@@ -1,0 +1,99 @@
+Implement the next stage of JOBSAGE’s vacancy collection repair using the completed audit. This is an implementation task, not another general audit or proposal.
+
+The objective is reliable collection of real, current vacancies from sponsor employers across JOBSAGE’s supported sectors. Keep the existing application and infrastructure. Do not introduce paid data subscriptions or additional hosting.
+
+Work in a branch/checkpoint. Build and test the changes before deployment. Do not deploy or run a mass production backfill as part of this task.
+
+The audit found:
+
+* 127,304 distinct sponsor employers, but only 6,833 saved websites and 2,056 careers URLs.
+* ATS hostname recognition exists, but structured Greenhouse, Lever and Ashby feed connectors do not.
+* Company-site crawling is limited to six pages and twelve returned vacancies per employer.
+* Production recorded 8,499 employer checks and 6,186 check errors in 24 hours.
+* 9fin’s Ashby feed returned 33 jobs while JOBSAGE stored none; its saved URL pointed to a talent-community form.
+* Some stored “vacancies” were board roots or editorial links.
+  These are audit snapshots; verify relevant current state rather than assuming those numbers remain unchanged.
+
+1. Identify and address execution problems
+
+Inspect the current job runner, scheduler configuration available to you, and recent production logs read-only.
+
+Identify the main error categories, repeated employer checks, overlapping runs, retry behaviour and host throttling. Distinguish confirmed causes from hypotheses.
+
+Implement fixes supported by evidence: prevent concurrent duplicate work, apply retry backoff, and ensure incomplete work remains eligible for a later run. Do not increase request volume to compensate for failures.
+
+If the external scheduler configuration is inaccessible, state exactly what information is missing and continue the implementation work that does not depend on it.
+
+2. Build direct employer-board connectors
+
+Start with Ashby and validate the implementation using 9fin. Then add Greenhouse and Lever using a shared connector interface and current official documentation.
+
+These are individual employer boards, not global feeds of every employer.
+
+Validate employer-to-board ownership using official employer careers links or equivalent evidence. Do not trust hostname recognition or a similar company name alone.
+
+Store or reuse:
+
+* Employer, platform and board identifier.
+* Mapping evidence and validation status.
+* Platform job ID.
+* Job title, full description and available location details.
+* Exact job URL and application URL where provided.
+* Source timestamps, last seen time and last complete successful scan.
+* Failure, retry and scan-completeness state.
+
+Support pagination where required. Exclude unpublished/unlisted jobs. Deduplicate against jobs already collected through website extraction, preserving existing application references.
+
+Keep these jobs in the Company Websites channel.
+
+3. Correct extraction and freshness behaviour
+
+Remove the arbitrary twelve-vacancy truncation. Retain sensible request, response-size and time limits.
+
+When a website crawl cannot finish within its budget, persist enough progress to continue later. Do not repeatedly visit only its first pages or report a partial crawl as complete.
+
+Never mark unseen jobs closed or missing because of a timeout, rate limit, malformed response, truncated result, invalid mapping or partial scan. Use successful complete snapshots and the existing liveness policy deliberately. A verified successful empty board needs different handling from a failed request.
+
+Prevent careers homepages, talent-community forms and editorial pages from being stored as vacancies. Preserve genuine exact job and application links.
+
+4. Expand source coverage deliberately
+
+Do not attempt to crawl all 127,304 employers now.
+
+Implement a bounded, resumable process to discover and validate missing careers pages and ATS mappings, beginning with employers that already have a saved official website. Use official-site careers links, redirects and sitemaps where appropriate; record evidence and keep uncertain matches unverified.
+
+Select a pilot across the supported sectors rather than concentrating only on technology employers. Report sectors where usable sources remain missing.
+
+For employers without a saved website, describe the remaining discovery gap and a practical next step. Do not guess domains or claim those employers are covered.
+
+Retain safe website extraction for unsupported platforms. Assess actual useful coverage before proposing additional Workday, BambooHR or Pinpoint connectors.
+
+5. Prove the candidate journey works
+
+Use controlled development/staging ingestion and bounded public-source requests.
+
+For 9fin and additional validated boards, report separately:
+
+* Jobs returned by the source.
+* Jobs accepted, updated and deduplicated.
+* UK-relevant jobs, with unknown location kept distinct.
+* Jobs visible to representative eligible candidates.
+* Reasons other jobs were rejected or hidden.
+
+Trace sample vacancies from source to database to Opportunities and the exact application page. Verify that a repeat import creates no duplicates and that a failed or partial scan does not hide previously valid jobs.
+
+Do not weaken eligibility or relevance rules just to increase visible counts. Sponsor-licence status must not become a claim that every vacancy offers sponsorship. Keep employer industry separate from vacancy profession.
+
+6. Deliver a reviewable result
+
+Add focused tests for pagination/completeness, repeat-import deduplication, partial-scan safety, invalid mappings and exact application URLs.
+
+Finish with:
+
+* What was implemented and tested.
+* Measured pilot results and remaining gaps.
+* Any inaccessible scheduler settings.
+* A bounded rollout and rollback plan using the existing deployment.
+* The next action needed to expand useful coverage across sectors.
+
+Do not call the whole vacancy system fixed because one board works or because database row counts increased. Complete the implementation and available validation before reporting back.
