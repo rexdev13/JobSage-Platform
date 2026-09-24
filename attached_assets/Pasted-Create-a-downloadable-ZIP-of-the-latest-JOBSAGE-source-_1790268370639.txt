@@ -1,0 +1,43 @@
+Create a downloadable ZIP of the latest JOBSAGE source so another coding agent can investigate and fix vacancy collection directly.
+
+Use the current working tree, including the latest vacancy fixes and any uncommitted changes. Do not export an older checkpoint.
+
+Include:
+
+* Backend and frontend source.
+* Database schemas and migrations.
+* Dependency manifests, lockfiles, workspace configuration and build/typecheck configuration.
+* Tests, fixtures and test configuration.
+* Vacancy collection, ATS connectors, employer/board mapping, website discovery, scheduling, persistence, verification, classification and candidate-visibility code.
+* Job-board, Opportunities, Apply and Send CV code so integration behaviour can be checked.
+* Relevant documentation and any AGENTS.md instructions.
+* The complete recent pilot reports and original per-employer CSVs, including the 9fin pilot and the broader company-site pilot.
+* Sanitised diagnostic examples for incorrect careers mappings, failed extraction and inconclusive application URLs.
+
+Add HANDOFF.md containing:
+
+1. Current branch and full commit hash.
+2. Uncommitted changes included in the ZIP.
+3. Setup, migration, development, typecheck and test commands, including required runtime versions.
+4. Required environment-variable names and their purposes—never their values.
+5. What is deployed versus development-only.
+6. Known failures and the files/functions responsible where established.
+7. How to reproduce the direct-feed pilot and generic website pilot without production access.
+8. Candidate profiles and filters used to measure visible vacancies.
+9. Available scheduler configuration, with credentials removed, and what remains unknown.
+
+Include a small sanitised fixture of pilot employers using public company names, official website/careers URLs, ATS identifiers and mapping evidence. Include relevant public vacancy examples and verification outcomes where available. Do not export the production database.
+
+Exclude:
+
+* Secrets, tokens, passwords, private keys and real .env files.
+* Credentials embedded in URLs, headers or logs.
+* Candidate/user personal data, CVs, applications and private contact information.
+* node_modules, .git, dependency caches, build outputs and unrelated uploads.
+* Other ZIP archives.
+
+Include a placeholder-only .env.example if useful. Keep source and evidence complete; do not remove necessary files merely to hit a size target.
+
+Create jobsage-latest-source.zip outside the folder being archived so it cannot include itself. Check the archive for sensitive files and credentials, confirm it opens successfully, and provide the downloadable ZIP with its size and a brief contents summary.
+
+Do not change application behaviour, deploy anything or modify production data.
