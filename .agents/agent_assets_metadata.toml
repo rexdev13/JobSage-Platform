@@ -115,14 +115,14 @@ content_type = "application/octet-stream"
 id = "rQ4JC7CHsJdiT_BW_ggYl"
 uri = "file://artifacts/chrome-extension/release/jobsage-smart-apply-extension-v0.4.18.zip"
 type = "unspecified"
-title = "JOBSAGE Smart Apply extension v0.4.18"
-description = "Production Chrome extension bundle with the full local Answer Library: candidate-only capture, cross-application matching, sensitive-field exclusions, management controls, and iframe/SPA support."
+title = "JOBSAGE Smart Apply Chrome Extension"
+description = "Download the installable Chrome extension ZIP (version 0.4.18)."
 logical_id = "7f74f2a2-bd33-49ce-ac73-9a7c101b0ac3"
-content_hash = "sha256:8475e1790c886f414f2152cb2321086b314d3442e5329be3880c40eb406e1324"
-size = 158237
-mtime_ms = 1789011442964
-storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/7f74f2a2-bd33-49ce-ac73-9a7c101b0ac3/4e305302-0c45-4cf3-b983-3eedeaa1081b"
-storage_version_token = "1789011448340966"
+content_hash = "sha256:50127f9c16cd84116981521fb7beabec2c42aa1e75c97c45784d2f1c2dad92fc"
+size = 158573
+mtime_ms = 1790228230068
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/7f74f2a2-bd33-49ce-ac73-9a7c101b0ac3/63550436-9336-4e51-a3a8-88707deb033d"
+storage_version_token = "1790228238704765"
 content_type = "application/octet-stream"
 
 [[outputs]]
