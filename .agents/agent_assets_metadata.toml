@@ -488,3 +488,17 @@ mtime_ms = 1790266368605
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/c1f19bc9-edcf-411f-bb73-6baa37f99d55/0675f92e-c4ca-46fc-bc3c-cf0790553f42"
 storage_version_token = "1790266418057341"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "7chvJXtb-Bp-vNSDEzF4T"
+uri = "file://jobsage-latest-source.zip"
+type = "unspecified"
+title = "JOBSAGE latest source ZIP"
+description = "4.47 MB source handoff from branch replit-agent at a1a9843309f531293c53cb33346bd306d5c6b4eb. Includes backend/frontend source, schemas/migrations, tests, the company-site pilot and CSV, a fresh read-only 9fin snapshot, sanitized fixtures and HANDOFF.md. Verified ZIP integrity; no embedded archives or high-confidence credential patterns."
+logical_id = "5f1ada15-f386-4d51-a82e-528bd07bcd6d"
+content_hash = "sha256:fa5df6c7cce3cc85a39677e483e5ab304a8f0b182b876e82e81b6c8883a269d9"
+size = 4467563
+mtime_ms = 1790269581482
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/5f1ada15-f386-4d51-a82e-528bd07bcd6d/ca3de34f-8992-4cc9-857c-3fc98a273b73"
+storage_version_token = "1790269617512225"
+content_type = "application/octet-stream"
