@@ -18,6 +18,13 @@ describe("Google Calendar OAuth credentials", () => {
 
     expect(url.searchParams.get("client_id")).toBe("test-client.apps.googleusercontent.com");
     expect(url.searchParams.get("redirect_uri")).toBe("https://jobsage.co.uk/oauth/callback");
+    expect(url.searchParams.get("scope")?.split(" ")).toEqual([
+      "openid",
+      "email",
+      "https://www.googleapis.com/auth/calendar",
+    ]);
+    expect(url.searchParams.get("access_type")).toBe("offline");
+    expect(url.searchParams.get("prompt")).toBe("consent");
   });
 
   it("trims the client credentials during the authorization-code exchange", async () => {

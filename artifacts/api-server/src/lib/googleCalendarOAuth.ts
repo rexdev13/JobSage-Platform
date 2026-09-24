@@ -2,6 +2,8 @@ import { createCipheriv, createDecipheriv, createHmac, randomBytes, scryptSync, 
 
 const STATE_TTL_MS = 10 * 60_000;
 const OAUTH_SCOPES = [
+  "openid",
+  "email",
   "https://www.googleapis.com/auth/calendar",
 ].join(" ");
 
