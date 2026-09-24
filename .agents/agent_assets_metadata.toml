@@ -418,3 +418,17 @@ mtime_ms = 1790195262263
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/ee17e8ad-fc1d-4d45-a160-3683b80a711a/a33178a4-1bb9-4d82-989c-a8e5ad698b63"
 storage_version_token = "1790195271148624"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "fulVCmaGeHXisGO1GhiXA"
+uri = "file://artifacts/chrome-extension/release/jobsage-smart-apply-extension-v0.4.19.zip"
+type = "unspecified"
+title = "JOBSAGE Smart Apply v0.4.19"
+description = "Chrome extension package with the clearer blocked-question message. Download and load it unpacked in Chrome to test."
+logical_id = "c3f9d89f-352b-4e1a-a4f8-e5fe40039946"
+content_hash = "sha256:edb6bb6f7f2f3f67ae513c43905a66c502289dcb8d2841a4e6368d741ce625ff"
+size = 158577
+mtime_ms = 1790235143425
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/c3f9d89f-352b-4e1a-a4f8-e5fe40039946/571e3f90-5b95-41c0-a776-4159d46fae05"
+storage_version_token = "1790235400418841"
+content_type = "application/octet-stream"
