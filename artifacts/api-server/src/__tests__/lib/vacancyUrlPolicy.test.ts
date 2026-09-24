@@ -100,6 +100,27 @@ describe("isValidVacancyDeepLink", () => {
     expect(isValidVacancyDeepLink("https://acme.com/Careers")).toBe(false);
   });
 
+  it("rejects career filters and utility pages but allows an exact search-result job ID", () => {
+    expect(isValidVacancyDeepLink(
+      "https://jobs.bmc.com/Careers/SearchJobs?1273=2616669&1273_format=1340&listFilterMode=1",
+    )).toBe(false);
+    expect(isValidVacancyDeepLink(
+      "https://jobs.bmc.com/Careers/SearchJobs?1274=9435&1274_format=1347&intcmp=JobsByCountry&listFilterMode=1",
+    )).toBe(false);
+    expect(isValidVacancyDeepLink(
+      "https://jobs.bmc.com/Careers/RecommendationMethods",
+    )).toBe(false);
+    expect(isValidVacancyDeepLink(
+      "https://jobs.bmc.com/Careers/TalentCommunity",
+    )).toBe(false);
+    expect(isValidVacancyDeepLink(
+      "https://jobs.bmc.com/Careers/SearchJobs?jobId=12345",
+    )).toBe(true);
+    expect(isValidVacancyDeepLink(
+      "https://jobs.example.com/Careers/Search-Jobs?jobId=12345",
+    )).toBe(true);
+  });
+
   it("rejects pathnames shorter than 8 characters", () => {
     expect(isValidVacancyDeepLink("https://acme.com/hr")).toBe(false);
     expect(isValidVacancyDeepLink("https://acme.com/join")).toBe(false);

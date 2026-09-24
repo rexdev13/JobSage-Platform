@@ -1,5 +1,9 @@
 import { canonicalVacancyUrl } from "./vacancySource";
-import { isBlockedVacancyUrl, isValidVacancyDeepLink } from "./vacancyUrlPolicy";
+import {
+  isBlockedVacancyUrl,
+  isNonVacancyCareerUtilityUrl,
+  isValidVacancyDeepLink,
+} from "./vacancyUrlPolicy";
 import {
   type BoardAdvert,
   normaliseAndDedupeBoardAdverts,
@@ -198,6 +202,7 @@ function isGenericCareersContent(value: string): boolean {
 }
 
 function isCareersDestinationLink(link: ExtractedLink): boolean {
+  if (isNonVacancyCareerUtilityUrl(link.url)) return false;
   let path = "";
   try {
     path = new URL(link.url).pathname;
