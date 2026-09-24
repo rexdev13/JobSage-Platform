@@ -8,3 +8,9 @@ The Replit Google Calendar connector is workspace/runtime-scoped and cannot safe
 **Why:** A shared connector identity makes every marketer's bookings appear on one account and violates account ownership.
 
 **How to apply:** Keep Google OAuth client credentials and the exact callback URI configured in the environment; never fall back to the shared connector for marketer bookings.
+
+Development and production OAuth callbacks must return to the environment where the connection began. Do not point a development authorization at the production callback.
+
+**Why:** OAuth state carries the initiating environment's marketer user ID; separate databases can assign different IDs to the same email, so a cross-environment callback rejects a legitimate marketer.
+
+**How to apply:** Register an approved callback URI for each environment in Google Cloud and configure the corresponding redirect URI for that environment; do not map accounts across databases by email during OAuth.

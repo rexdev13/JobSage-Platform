@@ -59,7 +59,7 @@ export default function PrivacyPolicyPage() {
           <section>
             <h2 className="text-lg font-semibold mb-2">3. Google Calendar Data and Google API Services</h2>
             <p className="text-muted-foreground mb-2">
-              Google Calendar is an optional feature for JOBSAGE marketing users who choose to connect a calendar. To provide this feature, JOBSAGE requests the Google OAuth scope <span className="font-mono text-xs text-foreground">https://www.googleapis.com/auth/calendar</span>.
+              Google Calendar is an optional feature for JOBSAGE marketing users who choose to connect a calendar. To identify the connected Google account by email and provide calendar bookings, JOBSAGE requests the Google OAuth scopes <span className="font-mono text-xs text-foreground">openid</span>, <span className="font-mono text-xs text-foreground">email</span>, and <span className="font-mono text-xs text-foreground">https://www.googleapis.com/auth/calendar</span>.
             </p>
             <ul className="list-disc list-inside space-y-2 text-muted-foreground">
               <li><span className="font-medium text-foreground">What we access:</span> The connected Google account email, writable calendar names and identifiers, free/busy intervals used for availability checks, and event information for interview bookings created or managed by JOBSAGE.</li>
