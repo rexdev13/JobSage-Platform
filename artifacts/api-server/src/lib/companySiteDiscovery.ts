@@ -953,6 +953,7 @@ export async function discoverCompanySiteVacancies(
 
 export async function persistCompanySiteVacancies(
   adverts: readonly BoardAdvert[],
+  options: { queueVerifications?: boolean } = {},
 ): Promise<{ inserted: number; updated: number; revived: number }> {
-  return upsertSharedBoardVacancies(adverts);
+  return upsertSharedBoardVacancies(adverts, options);
 }

@@ -309,6 +309,117 @@ describe("company-site scheduler", () => {
     }));
   });
 
+  it("preserves an existing verified careers and ATS mapping during targeted discovery", async () => {
+    let persisted: Record<string, unknown> | undefined;
+    selectMock.mockReturnValue({
+      from: () => ({
+        where: () => ({
+          limit: () => Promise.resolve([{
+            careersUrl: "https://jobs.ashbyhq.com/old",
+            atsProvider: "Ashby",
+            atsBoardId: "old",
+            atsMappingEvidenceUrl: "https://example.test/careers-old",
+            atsMappingStatus: "verified",
+          }]),
+        }),
+      }),
+    });
+    insertMock.mockReturnValue({
+      values: (values: Record<string, unknown>) => {
+        persisted = values;
+        return { onConflictDoUpdate: () => Promise.resolve() };
+      },
+    });
+    discoverCompanySiteVacanciesMock.mockResolvedValue({
+      adverts: [],
+      sourceUrl: "https://example.test/",
+      careersUrl: "https://jobs.ashbyhq.com/new",
+      atsProvider: "Ashby",
+      atsMappingVerified: true,
+      atsMappingEvidenceUrl: "https://example.test/new-careers",
+      genericCompleted: true,
+      atsCompleted: true,
+      transientFailure: false,
+      completion: "complete",
+      pagesFetched: 1,
+      advertsExtracted: 0,
+      advertsRejected: 0,
+    });
+
+    await runCompanySiteCheck({
+      organisationName: "Example Ltd",
+      website: "https://example.test",
+      genericCheckedAt: null,
+      atsCheckedAt: null,
+      careersUrl: "https://jobs.ashbyhq.com/old",
+      atsProvider: "Ashby",
+      atsMappingStatus: "verified",
+    }, { preserveExistingSiteMetadata: true, queueVerifications: false });
+
+    expect(persisted).toEqual(expect.objectContaining({
+      careersUrl: "https://jobs.ashbyhq.com/old",
+      atsProvider: "Ashby",
+      atsBoardId: "old",
+      atsMappingEvidenceUrl: "https://example.test/careers-old",
+      atsMappingStatus: "verified",
+    }));
+  });
+
+  it("repeats the same vacancy upsert without re-queueing verification", async () => {
+    persistCompanySiteVacanciesMock
+      .mockResolvedValueOnce({ inserted: 1, updated: 0, revived: 0 })
+      .mockResolvedValueOnce({ inserted: 0, updated: 1, revived: 0 });
+    discoverCompanySiteVacanciesMock.mockResolvedValue({
+      adverts: [{
+        organisationName: "Example Ltd",
+        title: "Care Assistant",
+        employer: "Example Ltd",
+        location: "London",
+        salary: null,
+        url: "https://example.test/jobs/1",
+        description: null,
+        postedDate: null,
+        targetRegions: null,
+        boardName: null,
+        externalId: null,
+      }],
+      pagesFetched: 1,
+      genericCompleted: true,
+      atsCompleted: false,
+      transientFailure: false,
+      completion: "complete",
+      advertsExtracted: 1,
+      advertsRejected: 0,
+    });
+
+    const outcome = await runCompanySiteCheck({
+      organisationName: "Example Ltd",
+      website: "https://example.test",
+      genericCheckedAt: null,
+      atsCheckedAt: null,
+      careersUrl: null,
+      atsProvider: null,
+    }, {
+      queueVerifications: false,
+      verifyImportIdempotency: true,
+    });
+
+    expect(outcome).toEqual(expect.objectContaining({
+      inserted: 1,
+      repeatImport: { inserted: 0, updated: 1, revived: 0 },
+    }));
+    expect(persistCompanySiteVacanciesMock).toHaveBeenNthCalledWith(
+      1,
+      expect.any(Array),
+      { queueVerifications: false },
+    );
+    expect(persistCompanySiteVacanciesMock).toHaveBeenNthCalledWith(
+      2,
+      expect.any(Array),
+      { queueVerifications: false },
+    );
+  });
+
   it("quarantines a permanent failure without stamping it complete", async () => {
     const before = Date.now();
     let persisted: Record<string, unknown> | undefined;

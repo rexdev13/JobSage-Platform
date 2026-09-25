@@ -49,7 +49,7 @@ export type CompanySiteBatchRow = {
   atsCheckedAt: Date | null;
   careersUrl: string | null;
   atsProvider: string | null;
-  atsMappingStatus?: "verified" | "unverified" | null;
+  atsMappingStatus?: "verified" | "unverified" | "invalid" | null;
   bookmarked: boolean;
   healthcareEvidenceBackfill: boolean;
   lastOutcome: string | null;
@@ -85,6 +85,7 @@ export type CompanySiteCheckOutcome =
       ukLocationUnknown: number;
       careersUrl: string | null;
       atsProvider: string | null;
+      repeatImport?: { inserted: number; updated: number; revived: number };
     };
 
 export type CompanySiteEmployerRunMetric = {
@@ -615,7 +616,13 @@ export async function runCompanySiteCheck(
     CompanySiteBatchRow,
     "organisationName" | "website" | "genericCheckedAt" | "atsCheckedAt" | "careersUrl" | "atsProvider" | "atsMappingStatus" | "crawlState"
   >,
-  options: { deadlineMs?: number; acquireLease?: boolean } = {},
+  options: {
+    deadlineMs?: number;
+    acquireLease?: boolean;
+    preserveExistingSiteMetadata?: boolean;
+    queueVerifications?: boolean;
+    verifyImportIdempotency?: boolean;
+  } = {},
 ): Promise<CompanySiteCheckOutcome> {
   if (!row.website.trim()) return { status: "skipped", reason: "no website" };
   const checkGeneric = isDue(row.genericCheckedAt, COMPANY_SITE_GENERIC_TTL_MS);
@@ -716,8 +723,14 @@ export async function runCompanySiteCheck(
   }
   const persisted =
     result.adverts.length > 0
-      ? await persistCompanySiteVacancies(result.adverts)
+      ? await persistCompanySiteVacancies(result.adverts, {
+          queueVerifications: options.queueVerifications,
+        })
       : { inserted: 0, updated: 0, revived: 0 };
+  const repeatImport =
+    options.verifyImportIdempotency && result.adverts.length > 0
+      ? await persistCompanySiteVacancies(result.adverts, { queueVerifications: false })
+      : undefined;
   if (result.completion === "complete") {
     await db.execute(sql`
       UPDATE sponsor_licence_vacancies
@@ -768,6 +781,13 @@ export async function runCompanySiteCheck(
       .from(sponsorLicenceCompanySiteChecksTable)
       .where(eq(sponsorLicenceCompanySiteChecksTable.organisationName, row.organisationName))
       .limit(1));
+  const preserveVerifiedAts =
+    options.preserveExistingSiteMetadata === true &&
+    existing?.atsMappingStatus === "verified";
+  const preserveExistingCareers =
+    options.preserveExistingSiteMetadata === true &&
+    Boolean(existing?.careersUrl) &&
+    result.atsMappingVerified !== true;
   const ukLocationKnown = result.adverts.filter((advert) =>
     (advert.targetRegions?.length ?? 0) > 0 ||
     regionsFromLocationText(advert.location).length > 0 ||
@@ -787,25 +807,25 @@ export async function runCompanySiteCheck(
         ? now
         : existing?.atsCheckedAt ?? null,
     careersUrl:
-      result.atsMappingVerified !== true && existing?.atsMappingStatus === "verified"
-        ? existing.careersUrl
+      preserveVerifiedAts || preserveExistingCareers
+        ? existing?.careersUrl ?? null
         : result.careersUrl ?? existing?.careersUrl ?? null,
     atsProvider:
-      result.atsMappingVerified !== true && existing?.atsMappingStatus === "verified"
-        ? existing.atsProvider
+      preserveVerifiedAts
+        ? existing?.atsProvider ?? null
         : result.atsProvider ?? existing?.atsProvider ?? null,
     ...(() => {
       const evidenceUrl =
-        result.atsMappingVerified === true
+        result.atsMappingVerified === true && !preserveVerifiedAts
           ? result.careersUrl ?? existing?.careersUrl ?? null
           : existing?.atsMappingStatus === "verified"
             ? existing.careersUrl ?? null
             : result.careersUrl ?? existing?.careersUrl ?? null;
       const provider =
-        result.atsMappingVerified !== true && existing?.atsMappingStatus === "verified"
+        preserveVerifiedAts
           ? existing.atsProvider ?? null
           : result.atsProvider ?? existing?.atsProvider ?? null;
-      const mapping = result.atsMappingVerified === true
+      const mapping = result.atsMappingVerified === true && !preserveVerifiedAts
         ? parseDirectBoardMapping(provider, evidenceUrl)
         : null;
       return mapping
@@ -867,6 +887,7 @@ export async function runCompanySiteCheck(
     ukLocationUnknown: Math.max(0, result.adverts.length - ukLocationKnown),
     careersUrl: result.careersUrl,
     atsProvider: result.atsProvider,
+      repeatImport,
   };
 }
 

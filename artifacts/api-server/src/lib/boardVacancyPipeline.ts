@@ -255,6 +255,7 @@ export function normaliseAndDedupeBoardAdverts(adverts: readonly BoardAdvert[]):
 export interface UpsertBoardVacanciesOptions {
   verifiedLive?: boolean;
   organisationName?: string;
+  queueVerifications?: boolean;
 }
 
 type ContactWriteExecutor = {
@@ -542,7 +543,9 @@ export async function upsertSharedBoardVacancies(
   const boardItems = transactionResult.toVerify
     .filter((item) => item.sourceType === "job_board")
     .map(({ source, id, url }) => ({ source, id, url }));
-  queueCompanySiteVerificationBatch(companySiteItems);
-  queueLinkVerificationBatch(boardItems);
+  if (options.queueVerifications !== false) {
+    queueCompanySiteVerificationBatch(companySiteItems);
+    queueLinkVerificationBatch(boardItems);
+  }
   return { inserted: transactionResult.inserted, updated: transactionResult.updated, revived: transactionResult.revived };
 }
