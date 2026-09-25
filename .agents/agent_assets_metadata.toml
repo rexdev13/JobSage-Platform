@@ -586,3 +586,59 @@ mtime_ms = 1790326834086
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/9f6fc573-a786-4e57-bc2d-9134ed6c5d5c/1f5c602b-501e-422b-9331-499992ccad4f"
 storage_version_token = "1790326838013790"
 content_type = "text/csv"
+
+[[outputs]]
+id = "C98BfuD6aK1bTzNuyLZN8"
+uri = "file://.agents/outputs/sponsor-website-sample/website-promotion-classification.csv"
+type = "table"
+title = "Website promotion classification (CSV)"
+description = "100-employer classification with decision, evidence, website, sponsor IDs, and safeguards."
+logical_id = "70d0794b-fc41-486b-8fc0-7e8a5853559c"
+content_hash = "sha256:cc9a8038ddd520176521e8ca1a30542d997cbb76ee90ea0e8489f233bff7b4ba"
+size = 106729
+mtime_ms = 1790341567798
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/70d0794b-fc41-486b-8fc0-7e8a5853559c/cb981847-04cb-4c3b-b762-cdcedca005bc"
+storage_version_token = "1790341839727533"
+content_type = "text/csv"
+
+[[outputs]]
+id = "flZHIADNMrgnRYxkyy9no"
+uri = "file://.agents/outputs/sponsor-website-sample/website-promotion-classification.json"
+type = "unspecified"
+title = "Website promotion classification (JSON)"
+description = "Machine-readable classification plus development import and targeted discovery results."
+logical_id = "c8eba162-07cb-4d27-b2a0-3db21d64f950"
+content_hash = "sha256:1a60cb6e118f1dc025276916e92f43d404cc3fb23845b42317ac91a56aa178ef"
+size = 190755
+mtime_ms = 1790341567802
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/c8eba162-07cb-4d27-b2a0-3db21d64f950/fd44149a-74df-4b07-b46f-2b100d655856"
+storage_version_token = "1790341841555300"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "mNNav4LFtbXnwNpAsk5zu"
+uri = "file://.agents/outputs/sponsor-website-sample/website-auto-promote-import-report.md"
+type = "text"
+title = "Website import and discovery report"
+description = "Development-only import totals, per-employer discovery outcomes, and failed checks."
+logical_id = "23fc56f0-ebef-4710-a6f2-883c04a6486e"
+content_hash = "sha256:ef3f4bd549ffef238cbdf2abba03a365b185702970d950196e4e4f6bc240a9c6"
+size = 3890
+mtime_ms = 1790341732401
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/23fc56f0-ebef-4710-a6f2-883c04a6486e/9149e1c0-246a-4fff-bd27-618590cb258c"
+storage_version_token = "1790341842544363"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "JB7QgKvxYr41SYssxD_Zm"
+uri = "file://.agents/outputs/sponsor-website-sample/website-auto-promote-vacancy-results.md"
+type = "text"
+title = "Vacancy discovery and liveness report"
+description = "Targeted discovery results and vacancy URL liveness status for approved employers."
+logical_id = "646f5d91-c91f-4b3d-b47c-bbdcc9cab07c"
+content_hash = "sha256:2853ace68838f78ed1e83b2f3d7243e29821307a188e1642114efaed1a765410"
+size = 2612
+mtime_ms = 1790341732897
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/646f5d91-c91f-4b3d-b47c-bbdcc9cab07c/e8223033-3f3d-4b45-983d-f008d2d203ce"
+storage_version_token = "1790341843406421"
+content_type = "text/markdown"
