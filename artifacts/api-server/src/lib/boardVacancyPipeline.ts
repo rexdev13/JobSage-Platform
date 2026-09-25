@@ -256,6 +256,7 @@ export interface UpsertBoardVacanciesOptions {
   verifiedLive?: boolean;
   organisationName?: string;
   queueVerifications?: boolean;
+  requireExisting?: boolean;
 }
 
 type ContactWriteExecutor = {
@@ -489,6 +490,12 @@ export async function upsertSharedBoardVacancies(
         byExternal.set(`${sourceType}\u0000${advert.boardName}|${advert.externalId}`, existingRow);
       }
       continue;
+    }
+
+    if (options.requireExisting) {
+      throw new Error(
+        `Repeat-run guard stopped before insert: no existing vacancy matched ${advert.url}.`,
+      );
     }
 
     const [created] = await tx

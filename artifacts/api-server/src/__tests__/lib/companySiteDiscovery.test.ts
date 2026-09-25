@@ -1079,6 +1079,98 @@ describe("company-site vacancy discovery", () => {
     ]));
   });
 
+  it("does not fall back to employer HTML when a direct-feed-only ATS request fails", async () => {
+    const careersUrl = "https://jobs.ashbyhq.com/acme";
+    fetchCompanySitePublicApiPageMock.mockResolvedValue({
+      ok: false,
+      kind: "network",
+      reason: "Direct feed unavailable in fixture",
+      failureClass: "temporary",
+    });
+
+    const result = await discoverCompanySiteVacancies(
+      "Acme Limited",
+      "https://acme.example/",
+      {
+        knownCareersUrl: careersUrl,
+        knownAtsBoardId: "acme",
+        knownCareersMappingVerified: true,
+        directFeedsOnly: true,
+      },
+    );
+
+    expect(fetchCompanySitePublicApiPageMock).toHaveBeenCalledTimes(1);
+    expect(fetchCompanySitePageMock).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      completion: "failed",
+      genericCompleted: false,
+      diagnostics: {
+        directFeedsOnly: true,
+        directSourceKind: "ats_feed",
+      },
+    });
+  });
+
+  it("reads only the approved schema.org page in direct-feeds-only mode", async () => {
+    const careersUrl = "https://schema-employer.example/careers";
+    const jobUrl = "https://schema-employer.example/careers/jobs/123456";
+    fetchCompanySitePageMock.mockResolvedValue({
+      ok: true,
+      url: careersUrl,
+      status: 200,
+      contentType: "text/html",
+      body: `<script type="application/ld+json">{
+        "@context":"https://schema.org",
+        "@type":"JobPosting",
+        "title":"Care Assistant",
+        "url":"${jobUrl}",
+        "description":"Provide safe and compassionate care.",
+        "hiringOrganization":{"@type":"Organization","name":"Schema Employer"},
+        "jobLocation":{"@type":"Place","address":{"@type":"PostalAddress","addressLocality":"London","addressCountry":"GB"}}
+      }</script><a href="https://schema-employer.example/careers/benefits">Benefits</a>`,
+    });
+
+    const result = await discoverCompanySiteVacancies(
+      "Schema Employer",
+      "https://schema-employer.example/",
+      {
+        knownCareersUrl: careersUrl,
+        knownCareersMappingVerified: true,
+        directFeedsOnly: true,
+      },
+    );
+
+    expect(fetchCompanySitePageMock.mock.calls.map(([url]) => url)).toEqual([careersUrl]);
+    expect(fetchCompanySitePublicApiPageMock).not.toHaveBeenCalled();
+    expect(result.adverts).toEqual([
+      expect.objectContaining({
+        title: "Care Assistant",
+        url: jobUrl,
+        companyVacancyEvidence: expect.objectContaining({ kind: "json_ld_job_posting" }),
+      }),
+    ]);
+    expect(result.diagnostics).toMatchObject({
+      directFeedsOnly: true,
+      directSourceKind: "schema_org",
+    });
+  });
+
+  it("skips direct-feeds-only discovery without a verified source mapping", async () => {
+    const result = await discoverCompanySiteVacancies(
+      "Unmapped Employer",
+      "https://unmapped.example/",
+      {
+        knownCareersUrl: "https://unmapped.example/careers",
+        knownCareersMappingVerified: false,
+        directFeedsOnly: true,
+      },
+    );
+
+    expect(fetchCompanySitePageMock).not.toHaveBeenCalled();
+    expect(fetchCompanySitePublicApiPageMock).not.toHaveBeenCalled();
+    expect(result.diagnostics.directFeedSkipReason).toBe("no_direct_feed_source");
+  });
+
   it("normalises bare sponsor domains and rejects non-http schemes", () => {
     expect(normaliseSponsorWebsite("example.org")).toBe("https://example.org/");
     expect(normaliseSponsorWebsite("ftp://example.org")).toBeNull();

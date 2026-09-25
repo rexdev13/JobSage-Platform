@@ -1,0 +1,560 @@
+{
+  "before": [
+    {
+      "sponsorLicenceId": 154374,
+      "organisationName": "B&B Singh Construction Ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 209772,
+      "organisationName": "HBC Construction Limited",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 339349,
+      "organisationName": "Waa Construction Ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 165830,
+      "organisationName": "ASME Engineering Ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 184620,
+      "organisationName": "Cortex Engineering Solutions Ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 207098,
+      "organisationName": "Grove Automation",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 308015,
+      "organisationName": "ROCKFORT ENGINEERING LIMITED",
+      "visibleVacancyCount": 2,
+      "samples": [
+        {
+          "id": 39666,
+          "title": "- Control and Software Engineer",
+          "url": "https://www.rockfortengineering.com/careers/control-systems-engineer",
+          "applicationUrl": null,
+          "sourceType": "company_site",
+          "evidenceKind": "structured_job_card",
+          "lastVerifiedAt": "2026-09-25 18:29:40.549+00"
+        },
+        {
+          "id": 39665,
+          "title": "- Vehicle Systems Design and Integration Engineer",
+          "url": "https://www.rockfortengineering.com/careers/vehicle-systems-engineer",
+          "applicationUrl": null,
+          "sourceType": "company_site",
+          "evidenceKind": "structured_job_card",
+          "lastVerifiedAt": "2026-09-25 18:29:38.339+00"
+        }
+      ]
+    },
+    {
+      "sponsorLicenceId": 337715,
+      "organisationName": "Vertical Aerospace Group Ltd",
+      "visibleVacancyCount": 8,
+      "samples": [
+        {
+          "id": 39734,
+          "title": "Senior Stress Engineer",
+          "url": "https://jobs.ashbyhq.com/vertical-aerospace/b4c90c95-c67c-4167-85a9-fb114cd29943",
+          "applicationUrl": "https://jobs.ashbyhq.com/vertical-aerospace/b4c90c95-c67c-4167-85a9-fb114cd29943/application",
+          "sourceType": "company_site",
+          "evidenceKind": "known_ats_posting",
+          "lastVerifiedAt": "2026-09-25 22:44:23.312+00"
+        },
+        {
+          "id": 39516,
+          "title": "PA Team Coordinator",
+          "url": "https://jobs.ashbyhq.com/vertical-aerospace/a75b9c2e-c4b9-4671-bc4d-062a8f021199",
+          "applicationUrl": "https://jobs.ashbyhq.com/vertical-aerospace/a75b9c2e-c4b9-4671-bc4d-062a8f021199/application",
+          "sourceType": "company_site",
+          "evidenceKind": "known_ats_posting",
+          "lastVerifiedAt": "2026-09-25 22:44:21.354+00"
+        },
+        {
+          "id": 39515,
+          "title": "Senior Category Manager",
+          "url": "https://jobs.ashbyhq.com/vertical-aerospace/91c82978-c07a-4513-80d8-da1c091b2816",
+          "applicationUrl": "https://jobs.ashbyhq.com/vertical-aerospace/91c82978-c07a-4513-80d8-da1c091b2816/application",
+          "sourceType": "company_site",
+          "evidenceKind": "known_ats_posting",
+          "lastVerifiedAt": "2026-09-25 22:44:18.846+00"
+        }
+      ]
+    },
+    {
+      "sponsorLicenceId": 167925,
+      "organisationName": "B3 Insurance Ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 156835,
+      "organisationName": "ABERDEEN DENTAL CARE LIMITED",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 160527,
+      "organisationName": "Aldbourne Nursing Home Ltd.",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 165476,
+      "organisationName": "Ashburton House Care Home Ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 186215,
+      "organisationName": "Cumloden Manor Nursing Home Ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 188563,
+      "organisationName": "DENTAL BEAUTY GROUP LTD",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 190862,
+      "organisationName": "Downside House Residential Care Home",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 172517,
+      "organisationName": "BLUE OCEAN RESTAURANT",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 338423,
+      "organisationName": "VIRUNDHU RESTAURANT LIMITED",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 193423,
+      "organisationName": "EDWARD TAYLOR TEXTILES LTD",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 155292,
+      "organisationName": "59 Studio Ltd",
+      "visibleVacancyCount": 16,
+      "samples": [
+        {
+          "id": 39568,
+          "title": "Unreal Artist",
+          "url": "https://job-boards.greenhouse.io/journey/jobs/5023335007",
+          "applicationUrl": null,
+          "sourceType": "company_site",
+          "evidenceKind": "known_ats_posting",
+          "lastVerifiedAt": "2026-09-25 22:44:25.657+00"
+        },
+        {
+          "id": 39567,
+          "title": "Technical Writer - Freelance",
+          "url": "https://job-boards.greenhouse.io/journey/jobs/5196304007",
+          "applicationUrl": null,
+          "sourceType": "company_site",
+          "evidenceKind": "known_ats_posting",
+          "lastVerifiedAt": "2026-09-25 22:44:25.648+00"
+        },
+        {
+          "id": 39566,
+          "title": "Technical Director",
+          "url": "https://job-boards.greenhouse.io/journey/jobs/5239651007",
+          "applicationUrl": null,
+          "sourceType": "company_site",
+          "evidenceKind": "known_ats_posting",
+          "lastVerifiedAt": "2026-09-25 22:44:25.64+00"
+        }
+      ]
+    },
+    {
+      "sponsorLicenceId": 156194,
+      "organisationName": "A5 Products Limited",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 206141,
+      "organisationName": "Grand Finish Ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 215721,
+      "organisationName": "INNOVATIVE IT SERVICES LIMITED",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 222348,
+      "organisationName": "KF TECH LTD",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 312590,
+      "organisationName": "Seaborn Software Ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 318007,
+      "organisationName": "Solvo.ai Ltd.",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 171839,
+      "organisationName": "BIZ CLEANERS LIMITED",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 172521,
+      "organisationName": "BLUE ORCHID ASPLEY GUISE LTD T/A BLUE ORCHID",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 172579,
+      "organisationName": "BLUE WATER FOOD LTD",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 250916,
+      "organisationName": "Pliant Payments Limited",
+      "visibleVacancyCount": 36,
+      "samples": [
+        {
+          "id": 39552,
+          "title": "Sales Development Representative - DACH (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/dcd946a1-aaa7-4ef1-803b-d9fd953c9533",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/dcd946a1-aaa7-4ef1-803b-d9fd953c9533/application",
+          "sourceType": "company_site",
+          "evidenceKind": "known_ats_posting",
+          "lastVerifiedAt": "2026-09-25 22:45:50.983+00"
+        },
+        {
+          "id": 39551,
+          "title": "Senior Partnerships Acquisition Manager- UK  (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/ffe17990-3e79-40ba-a683-99c65d7bafac",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/ffe17990-3e79-40ba-a683-99c65d7bafac/application",
+          "sourceType": "company_site",
+          "evidenceKind": "known_ats_posting",
+          "lastVerifiedAt": "2026-09-25 22:45:49.03+00"
+        },
+        {
+          "id": 39550,
+          "title": "Business Development Manager, DACH (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/f2f7b01d-3a1c-43e5-8698-2facf1d3cf59",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/f2f7b01d-3a1c-43e5-8698-2facf1d3cf59/application",
+          "sourceType": "company_site",
+          "evidenceKind": "known_ats_posting",
+          "lastVerifiedAt": "2026-09-25 22:45:46.914+00"
+        }
+      ]
+    }
+  ],
+  "after": [
+    {
+      "sponsorLicenceId": 154374,
+      "organisationName": "B&B Singh Construction Ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 209772,
+      "organisationName": "HBC Construction Limited",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 339349,
+      "organisationName": "Waa Construction Ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 165830,
+      "organisationName": "ASME Engineering Ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 184620,
+      "organisationName": "Cortex Engineering Solutions Ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 207098,
+      "organisationName": "Grove Automation",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 308015,
+      "organisationName": "ROCKFORT ENGINEERING LIMITED",
+      "visibleVacancyCount": 2,
+      "samples": [
+        {
+          "id": 39666,
+          "title": "- Control and Software Engineer",
+          "url": "https://www.rockfortengineering.com/careers/control-systems-engineer",
+          "applicationUrl": null,
+          "sourceType": "company_site",
+          "evidenceKind": "structured_job_card",
+          "lastVerifiedAt": "2026-09-25 18:29:40.549+00"
+        },
+        {
+          "id": 39665,
+          "title": "- Vehicle Systems Design and Integration Engineer",
+          "url": "https://www.rockfortengineering.com/careers/vehicle-systems-engineer",
+          "applicationUrl": null,
+          "sourceType": "company_site",
+          "evidenceKind": "structured_job_card",
+          "lastVerifiedAt": "2026-09-25 18:29:38.339+00"
+        }
+      ]
+    },
+    {
+      "sponsorLicenceId": 337715,
+      "organisationName": "Vertical Aerospace Group Ltd",
+      "visibleVacancyCount": 8,
+      "samples": [
+        {
+          "id": 39734,
+          "title": "Senior Stress Engineer",
+          "url": "https://jobs.ashbyhq.com/vertical-aerospace/b4c90c95-c67c-4167-85a9-fb114cd29943",
+          "applicationUrl": "https://jobs.ashbyhq.com/vertical-aerospace/b4c90c95-c67c-4167-85a9-fb114cd29943/application",
+          "sourceType": "company_site",
+          "evidenceKind": "known_ats_posting",
+          "lastVerifiedAt": "2026-09-25 22:46:26.282+00"
+        },
+        {
+          "id": 39516,
+          "title": "PA Team Coordinator",
+          "url": "https://jobs.ashbyhq.com/vertical-aerospace/a75b9c2e-c4b9-4671-bc4d-062a8f021199",
+          "applicationUrl": "https://jobs.ashbyhq.com/vertical-aerospace/a75b9c2e-c4b9-4671-bc4d-062a8f021199/application",
+          "sourceType": "company_site",
+          "evidenceKind": "known_ats_posting",
+          "lastVerifiedAt": "2026-09-25 22:46:24.231+00"
+        },
+        {
+          "id": 39515,
+          "title": "Senior Category Manager",
+          "url": "https://jobs.ashbyhq.com/vertical-aerospace/91c82978-c07a-4513-80d8-da1c091b2816",
+          "applicationUrl": "https://jobs.ashbyhq.com/vertical-aerospace/91c82978-c07a-4513-80d8-da1c091b2816/application",
+          "sourceType": "company_site",
+          "evidenceKind": "known_ats_posting",
+          "lastVerifiedAt": "2026-09-25 22:46:22.256+00"
+        }
+      ]
+    },
+    {
+      "sponsorLicenceId": 167925,
+      "organisationName": "B3 Insurance Ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 156835,
+      "organisationName": "ABERDEEN DENTAL CARE LIMITED",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 160527,
+      "organisationName": "Aldbourne Nursing Home Ltd.",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 165476,
+      "organisationName": "Ashburton House Care Home Ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 186215,
+      "organisationName": "Cumloden Manor Nursing Home Ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 188563,
+      "organisationName": "DENTAL BEAUTY GROUP LTD",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 190862,
+      "organisationName": "Downside House Residential Care Home",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 172517,
+      "organisationName": "BLUE OCEAN RESTAURANT",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 338423,
+      "organisationName": "VIRUNDHU RESTAURANT LIMITED",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 193423,
+      "organisationName": "EDWARD TAYLOR TEXTILES LTD",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 155292,
+      "organisationName": "59 Studio Ltd",
+      "visibleVacancyCount": 16,
+      "samples": [
+        {
+          "id": 39568,
+          "title": "Unreal Artist",
+          "url": "https://job-boards.greenhouse.io/journey/jobs/5023335007",
+          "applicationUrl": null,
+          "sourceType": "company_site",
+          "evidenceKind": "known_ats_posting",
+          "lastVerifiedAt": "2026-09-25 22:46:28.322+00"
+        },
+        {
+          "id": 39567,
+          "title": "Technical Writer - Freelance",
+          "url": "https://job-boards.greenhouse.io/journey/jobs/5196304007",
+          "applicationUrl": null,
+          "sourceType": "company_site",
+          "evidenceKind": "known_ats_posting",
+          "lastVerifiedAt": "2026-09-25 22:46:28.31+00"
+        },
+        {
+          "id": 39566,
+          "title": "Technical Director",
+          "url": "https://job-boards.greenhouse.io/journey/jobs/5239651007",
+          "applicationUrl": null,
+          "sourceType": "company_site",
+          "evidenceKind": "known_ats_posting",
+          "lastVerifiedAt": "2026-09-25 22:46:28.298+00"
+        }
+      ]
+    },
+    {
+      "sponsorLicenceId": 156194,
+      "organisationName": "A5 Products Limited",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 206141,
+      "organisationName": "Grand Finish Ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 215721,
+      "organisationName": "INNOVATIVE IT SERVICES LIMITED",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 222348,
+      "organisationName": "KF TECH LTD",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 312590,
+      "organisationName": "Seaborn Software Ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 318007,
+      "organisationName": "Solvo.ai Ltd.",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 171839,
+      "organisationName": "BIZ CLEANERS LIMITED",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 172521,
+      "organisationName": "BLUE ORCHID ASPLEY GUISE LTD T/A BLUE ORCHID",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 172579,
+      "organisationName": "BLUE WATER FOOD LTD",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 250916,
+      "organisationName": "Pliant Payments Limited",
+      "visibleVacancyCount": 36,
+      "samples": [
+        {
+          "id": 39552,
+          "title": "Sales Development Representative - DACH (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/dcd946a1-aaa7-4ef1-803b-d9fd953c9533",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/dcd946a1-aaa7-4ef1-803b-d9fd953c9533/application",
+          "sourceType": "company_site",
+          "evidenceKind": "known_ats_posting",
+          "lastVerifiedAt": "2026-09-25 22:47:51.024+00"
+        },
+        {
+          "id": 39551,
+          "title": "Senior Partnerships Acquisition Manager- UK  (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/ffe17990-3e79-40ba-a683-99c65d7bafac",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/ffe17990-3e79-40ba-a683-99c65d7bafac/application",
+          "sourceType": "company_site",
+          "evidenceKind": "known_ats_posting",
+          "lastVerifiedAt": "2026-09-25 22:47:49.062+00"
+        },
+        {
+          "id": 39550,
+          "title": "Business Development Manager, DACH (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/f2f7b01d-3a1c-43e5-8698-2facf1d3cf59",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/f2f7b01d-3a1c-43e5-8698-2facf1d3cf59/application",
+          "sourceType": "company_site",
+          "evidenceKind": "known_ats_posting",
+          "lastVerifiedAt": "2026-09-25 22:47:47.011+00"
+        }
+      ]
+    }
+  ]
+}

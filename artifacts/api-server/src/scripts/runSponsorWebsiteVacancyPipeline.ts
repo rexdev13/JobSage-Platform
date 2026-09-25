@@ -8,6 +8,7 @@ import { isIP } from "node:net";
 import { db, pool } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { runCompanySiteCheck, type CompanySiteCheckOutcome } from "../lib/companySiteScheduler";
+import { parseDirectBoardMapping } from "../lib/directEmployerBoardConnectors";
 import { verifyCompanySiteStoredLink } from "../lib/companySiteVerification";
 
 type CsvRow = Record<string, string>;
@@ -48,7 +49,7 @@ const BLOCKED_HOST_PARTS = [
   "indeed.", "reed.", "totaljobs.", "cv-library.", "linkedin.", "glassdoor.",
   "jooble.", "adzuna.", "findajob.dwp.gov.uk", "nhsjobs.", "jobs.nhs.uk",
 ];
-const ALLOWED_LIMITS = new Set([12, 100, 500, 1000]);
+const ALLOWED_LIMITS = new Set([12, 29, 100, 500, 1000]);
 
 function parseArgs() {
   const args = process.argv.slice(2);
@@ -61,6 +62,7 @@ function parseArgs() {
     acceptMedium: false,
     skipWebsiteFill: false,
     skipDiscovery: false,
+    directFeedsOnly: false,
     expectedDbFingerprint: "",
     expectRepeat: false,
   };
@@ -71,7 +73,7 @@ function parseArgs() {
     else if (arg === "--out") config.out = args[++i] ?? config.out;
     else if (arg === "--limit") {
       const value = args[++i] ?? "";
-      if (!/^\d+$/.test(value)) throw new Error("--limit must be one of 12, 100, 500, or 1000.");
+      if (!/^\d+$/.test(value)) throw new Error("--limit must be one of 12, 29, 100, 500, or 1000.");
       config.limit = Number(value);
     } else if (arg === "--offset") {
       const value = args[++i] ?? "";
@@ -83,19 +85,26 @@ function parseArgs() {
     else if (arg === "--accept-medium") config.acceptMedium = true;
     else if (arg === "--skip-website-fill") config.skipWebsiteFill = true;
     else if (arg === "--skip-discovery") config.skipDiscovery = true;
+    else if (arg === "--direct-feeds-only") config.directFeedsOnly = true;
     else if (arg.startsWith("-")) throw new Error(`Unknown option: ${arg}`);
     else if (!config.input) config.input = arg;
     else throw new Error(`Unexpected argument: ${arg}`);
   }
   if (!config.input) throw new Error("Supply --input reviewed-website-candidates.csv.");
   if (!ALLOWED_LIMITS.has(config.limit)) {
-    throw new Error("--limit must be exactly 12, 100, 500, or 1000.");
+    throw new Error("--limit must be exactly 12, 29, 100, 500, or 1000.");
   }
   if (!Number.isSafeInteger(config.offset) || config.offset < 0 || config.offset > 1000) {
     throw new Error("--offset must be an integer between 0 and 1000.");
   }
   if (config.skipWebsiteFill && config.skipDiscovery) {
     throw new Error("At least one stage must run; remove one of --skip-website-fill or --skip-discovery.");
+  }
+  if (config.directFeedsOnly && config.skipDiscovery) {
+    throw new Error("--direct-feeds-only requires discovery to run.");
+  }
+  if (config.expectRepeat && (!config.apply || !config.directFeedsOnly)) {
+    throw new Error("--expect-repeat requires --apply and --direct-feeds-only.");
   }
   if (config.apply && !/^[a-f0-9]{32}$/i.test(config.expectedDbFingerprint)) {
     throw new Error("--apply requires a development-only --expected-db-fingerprint.");
@@ -284,6 +293,16 @@ function sameSite(left: string, right: string): boolean {
   }
 }
 
+function hasApprovedDirectSource(sponsor: SponsorState): boolean {
+  if (sponsor.ats_mapping_status !== "verified" || !sponsor.careers_url?.trim()) return false;
+  if (!sponsor.ats_provider?.trim()) return true;
+  const mapping = parseDirectBoardMapping(sponsor.ats_provider, sponsor.careers_url);
+  return Boolean(
+    mapping &&
+    (!sponsor.ats_board_id || mapping.boardId.toLowerCase() === sponsor.ats_board_id.trim().toLowerCase()),
+  );
+}
+
 async function getAdvertLinks(candidate: Candidate) {
   const result = await db.execute<{
     id: number | string;
@@ -318,11 +337,92 @@ async function getRecentlyDiscovered(candidate: Candidate, since: Date) {
   return result.rows;
 }
 
+type CandidateVisibleVacancyRow = {
+  organisation_name: string;
+  id: number | string;
+  title: string;
+  url: string;
+  application_url: string | null;
+  source_type: string;
+  evidence_kind: string | null;
+  last_verified_at: Date | string | null;
+  visible_count: number | string;
+  sample_rank: number | string;
+};
+
+async function getCandidateVisibility(candidates: Candidate[]) {
+  const names = [...new Set(candidates.map((candidate) => normalizedName(candidate.name)))];
+  const result = await db.execute<CandidateVisibleVacancyRow>(sql`
+    WITH candidate_visible AS (
+      SELECT
+        lower(btrim(v.organisation_name)) AS organisation_name,
+        v.id,
+        v.title,
+        v.url,
+        v.application_url,
+        v.source_type,
+        v.company_vacancy_evidence->>'kind' AS evidence_kind,
+        v.last_verified_at,
+        count(*) OVER (PARTITION BY lower(btrim(v.organisation_name))) AS visible_count,
+        row_number() OVER (
+          PARTITION BY lower(btrim(v.organisation_name))
+          ORDER BY v.last_verified_at DESC, v.id DESC
+        ) AS sample_rank
+      FROM sponsor_licence_vacancies v
+      WHERE lower(btrim(v.organisation_name)) = ANY(${sql.param(names)}::text[])
+        AND v.liveness = 'live'
+        AND v.last_verified_at >= now() - interval '48 hours'
+        AND v.source_type IS NOT NULL
+        AND v.url IS NOT NULL
+        AND (v.closes_at IS NULL OR v.closes_at >= now())
+        AND (v.expires_at IS NULL OR v.expires_at >= now())
+        AND v.source_missing_since IS NULL
+        AND (
+          v.closed_reason IS NULL
+          OR v.closed_reason !~* '(closed|filled|no longer accepting|closing date has passed)'
+        )
+        AND (
+          v.source_type <> 'company_site'
+          OR v.company_vacancy_evidence IS NOT NULL
+          OR v.company_evidence_legacy_until >= now()
+        )
+    )
+    SELECT *
+    FROM candidate_visible
+    WHERE sample_rank <= 3
+    ORDER BY organisation_name, sample_rank
+  `);
+  const byName = new Map<string, CandidateVisibleVacancyRow[]>();
+  for (const row of result.rows) {
+    const key = normalizedName(row.organisation_name);
+    byName.set(key, [...(byName.get(key) ?? []), row]);
+  }
+  return candidates.map((candidate) => {
+    const visibleRows = byName.get(normalizedName(candidate.name)) ?? [];
+    const first = visibleRows[0];
+    return {
+      sponsorLicenceId: candidate.id,
+      organisationName: candidate.name,
+      visibleVacancyCount: Number(first?.visible_count ?? 0),
+      samples: visibleRows.map((row) => ({
+        id: row.id,
+        title: row.title,
+        url: row.url,
+        applicationUrl: row.application_url,
+        sourceType: row.source_type,
+        evidenceKind: row.evidence_kind,
+        lastVerifiedAt: row.last_verified_at,
+      })),
+    };
+  });
+}
+
 function blankCounts() {
   return {
     selected: 0, inserted: 0, updated: 0, revived: 0, completed: 0, failed: 0,
-    no_jobs: 0, skipped: 0, websitesFilled: 0, advertsFound: 0, advertsRejected: 0,
-    ukLocationKnown: 0, ukLocationUnknown: 0,
+    no_jobs: 0, skipped: 0, skipped_no_direct_feed_source: 0,
+    websitesFilled: 0, advertsFound: 0, advertsRejected: 0,
+    ukLocationKnown: 0, ukLocationUnknown: 0, runtimeMs: 0,
   };
 }
 
@@ -351,6 +451,7 @@ async function main(): Promise<void> {
     }
   }
   const startedAt = new Date().toISOString();
+  const runStartedMs = Date.now();
   await mkdir(args.out, { recursive: true });
   const parsed = parseCsv(await readFile(resolve(args.input), "utf8"));
   const candidates = parsed.map((row) => candidateFromRow(row, args.acceptMedium)).filter((item): item is Candidate => item !== null);
@@ -368,6 +469,9 @@ async function main(): Promise<void> {
     );
   }
 
+  const candidateVisibilityBefore = args.directFeedsOnly
+    ? await getCandidateVisibility(selected)
+    : null;
   const rows: Array<Record<string, unknown>> = [];
   const perSector: Record<string, {
     employers: number;
@@ -378,6 +482,7 @@ async function main(): Promise<void> {
     completed: number;
     failed: number;
     no_jobs: number;
+    skipped_no_direct_feed_source: number;
     websitesFilled: number;
     advertsFound: number;
     advertsRejected: number;
@@ -386,6 +491,10 @@ async function main(): Promise<void> {
   }> = {};
   const totals = blankCounts();
   totals.selected = selected.length;
+  const providersUsed = new Set<string>();
+  const visibilityBeforeById = new Map(
+    (candidateVisibilityBefore ?? []).map((item) => [item.sponsorLicenceId, item]),
+  );
   const rejectedRows = [
     ...candidates.filter((candidate) => candidate.decision === "rejected").map((candidate) => ({ ...candidate })),
     ...dupeResult.rejected,
@@ -395,21 +504,32 @@ async function main(): Promise<void> {
     createdAt: startedAt,
     developmentOnly: true,
     apply: args.apply,
+    sourceMode: args.directFeedsOnly ? "direct_feeds_only" : "company_site_pipeline",
     input: resolve(args.input),
-    stages: { websiteFill: !args.skipWebsiteFill, discovery: !args.skipDiscovery },
+    stages: {
+      websiteFill: !args.skipWebsiteFill && !args.directFeedsOnly,
+      discovery: !args.skipDiscovery,
+    },
     requestedLimit: args.limit,
     requestedOffset: args.offset,
     totals,
     perSector,
+    providersUsed: [],
+    candidateVisibilityBefore,
     rows,
     metricNotes: {
       completed: "runCompanySiteCheck completion=complete",
       no_jobs: "completed checks with zero accepted adverts",
+      skipped_no_direct_feed_source: "approved employer mapping is absent or no approved direct ATS/feed/schema.org source is supported",
       applicationUrls: "values are included only when present in persisted company-site vacancy rows",
       liveness: "newly discovered stored links are checked with verifyCompanySiteStoredLink; persisted statuses are reported as-is",
+      candidateVisibility: "samples use the same live, recently verified, date, source-missing, closure, and company-site evidence gates as the candidate sponsor-vacancy list",
     },
   };
   const checkpoint = async () => {
+    report.runtimeMs = Date.now() - runStartedMs;
+    totals.runtimeMs = report.runtimeMs as number;
+    report.providersUsed = [...providersUsed].sort();
     await writeFile(resolve(args.out, "report.json"), JSON.stringify(report, null, 2));
   };
   await writeFile(resolve(args.out, "review-required.csv"), writeCsv(reviewRows));
@@ -422,7 +542,8 @@ async function main(): Promise<void> {
       const sector = candidate.sector ?? "unknown";
       const sectorMetrics = perSector[sector] ??= {
         employers: 0, runtimeMs: 0, inserted: 0, updated: 0, revived: 0,
-        completed: 0, failed: 0, no_jobs: 0, websitesFilled: 0, advertsFound: 0,
+        completed: 0, failed: 0, no_jobs: 0, skipped_no_direct_feed_source: 0,
+        websitesFilled: 0, advertsFound: 0,
         advertsRejected: 0, ukLocationKnown: 0, ukLocationUnknown: 0,
       };
       const row: Record<string, unknown> = {
@@ -431,20 +552,41 @@ async function main(): Promise<void> {
         candidateWebsite: candidate.website,
         decisionReason: candidate.reason,
         sector,
+        ...(visibilityBeforeById.has(candidate.id)
+          ? { candidateVisibilityBefore: visibilityBeforeById.get(candidate.id) }
+          : {}),
       };
       try {
         const matches = await getSponsor(candidate);
         const sameName = matches.filter((item) => normalizedName(item.organisation_name) === normalizedName(candidate.name));
         const exactMatches = sameName.filter((item) => Number(item.id) === candidate.id);
-        if (exactMatches.length !== 1 || sameName.length !== 1) {
+        const exactSponsor = exactMatches.length === 1 ? exactMatches[0] : null;
+        const sameNameRowsShareSource =
+          exactSponsor !== null &&
+          sameName.every((item) =>
+            sameSite(item.website ?? "", exactSponsor.website ?? "") &&
+            (item.careers_url ?? null) === (exactSponsor.careers_url ?? null) &&
+            (item.ats_provider ?? null) === (exactSponsor.ats_provider ?? null) &&
+            (item.ats_board_id ?? null) === (exactSponsor.ats_board_id ?? null) &&
+            (item.ats_mapping_status ?? null) === (exactSponsor.ats_mapping_status ?? null) &&
+            (item.ats_mapping_evidence_url ?? null) === (exactSponsor.ats_mapping_evidence_url ?? null),
+          );
+        const duplicateRowsConflict =
+          sameName.length !== 1 &&
+          !(args.directFeedsOnly && sameNameRowsShareSource);
+        if (exactMatches.length !== 1 || sameName.length === 0 || duplicateRowsConflict) {
           row.status = exactMatches.length === 0 ? "missing_sponsor" : "sponsor_identity_conflict";
           row.reason = exactMatches.length === 0
             ? "no exact sponsor ID and organisation-name match in development DB"
-            : "duplicate sponsor rows or conflicting IDs share the requested organisation name";
+            : "duplicate sponsor rows share the name but disagree on website or approved careers-source identity";
           totals.failed += 1;
           sectorMetrics.failed += 1;
         } else {
-          const sponsor = exactMatches[0];
+          const sponsor = exactSponsor!;
+          if (sameName.length > 1) {
+            row.sameNameSponsorIds = sameName.map((item) => Number(item.id));
+            row.identicalSourceDuplicateRowsAccepted = args.directFeedsOnly;
+          }
           const dbWebsite = sponsor.website?.trim() ?? "";
           if (dbWebsite && !sameSite(dbWebsite, candidate.website)) {
             row.status = "website_conflict";
@@ -453,7 +595,7 @@ async function main(): Promise<void> {
             sectorMetrics.failed += 1;
           } else {
             let websiteStatus: string = dbWebsite ? "existing" : "not_filled";
-            if (args.apply && !args.skipWebsiteFill && !dbWebsite) {
+            if (args.apply && !args.skipWebsiteFill && !args.directFeedsOnly && !dbWebsite) {
               websiteStatus = await fillWebsite(candidate);
               if (websiteStatus === "filled") {
                 totals.websitesFilled += 1;
@@ -470,6 +612,12 @@ async function main(): Promise<void> {
             row.previousWebsite = dbWebsite || null;
             if (!args.apply) {
               row.status = "dry_run";
+            } else if (!row.status && args.directFeedsOnly && !hasApprovedDirectSource(sponsor)) {
+              row.status = "skipped_no_direct_feed_source";
+              row.reason = "no_direct_feed_source";
+              totals.skipped += 1;
+              totals.skipped_no_direct_feed_source += 1;
+              sectorMetrics.skipped_no_direct_feed_source += 1;
             } else if (!row.status && !args.skipDiscovery) {
               // Never trust ATS mapping data from the CSV. Pass only current DB state;
               // runCompanySiteCheck preserves a verified DB mapping and rejects unverified elevation.
@@ -481,6 +629,7 @@ async function main(): Promise<void> {
                 atsCheckedAt: null,
                 careersUrl: sponsor.careers_url ?? null,
                 atsProvider: sponsor.ats_provider ?? null,
+                atsBoardId: sponsor.ats_board_id ?? null,
                 atsMappingStatus: sponsor.ats_mapping_status ?? "unverified",
                 crawlState: sponsor.crawl_state ?? null,
               }, {
@@ -489,22 +638,34 @@ async function main(): Promise<void> {
                 preserveExistingSiteMetadata: true,
                 queueVerifications: false,
                 verifyImportIdempotency: false,
+                directFeedsOnly: args.directFeedsOnly,
+                expectNoInserts: args.expectRepeat,
               });
               row.collection = outcome;
               if (outcome.status === "skipped") {
-                row.status = "skipped";
+                row.status = outcome.reason === "no_direct_feed_source"
+                  ? "skipped_no_direct_feed_source"
+                  : "skipped";
                 row.reason = outcome.reason;
                 totals.skipped += 1;
+                if (outcome.reason === "no_direct_feed_source") {
+                  totals.skipped_no_direct_feed_source += 1;
+                  sectorMetrics.skipped_no_direct_feed_source += 1;
+                }
               } else {
                 row.status = outcome.completion === "failed" ? "failed" : outcome.completion === "complete" ? "completed" : outcome.completion;
                 row.completion = outcome.completion;
                 row.advertsFound = outcome.adverts;
+                row.rawAdvertsFound = outcome.rawAdvertsFound;
                 row.advertsRejected = outcome.advertsRejected;
                 row.ukLocationKnown = outcome.ukLocationKnown;
                 row.ukLocationUnknown = outcome.ukLocationUnknown;
                 row.inserted = outcome.inserted;
                 row.updated = outcome.updated;
                 row.revived = outcome.revived;
+                row.providerUsed = outcome.atsProvider;
+                row.directSourceKind = outcome.diagnostics?.directSourceKind ?? null;
+                if (outcome.atsProvider) providersUsed.add(outcome.atsProvider);
                 const newAdverts = await getRecentlyDiscovered(candidate, discoveryStartedAt);
                 const verificationOutcomes: Array<{ id: number; outcome: string }> = [];
                 for (const advert of newAdverts) {
@@ -576,7 +737,29 @@ async function main(): Promise<void> {
         throw new Error("Repeat run inserted a vacancy; stopped before checking further employers.");
       }
     }
+    if (args.directFeedsOnly) {
+      const candidateVisibilityAfter = await getCandidateVisibility(selected);
+      const visibilityAfterById = new Map(
+        candidateVisibilityAfter.map((item) => [item.sponsorLicenceId, item]),
+      );
+      for (const row of rows) {
+        const visibility = visibilityAfterById.get(Number(row.sponsorLicenceId));
+        if (visibility) row.candidateVisibilityAfter = visibility;
+      }
+      report.candidateVisibilityAfter = candidateVisibilityAfter;
+      await writeFile(
+        resolve(args.out, "candidate-visibility.json"),
+        JSON.stringify({
+          before: candidateVisibilityBefore,
+          after: candidateVisibilityAfter,
+        }, null, 2),
+      );
+    }
     await writeFile(resolve(args.out, "auto-approved-selected.csv"), writeCsv(selected));
+    report.finishedAt = new Date().toISOString();
+    report.runtimeMs = Date.now() - runStartedMs;
+    totals.runtimeMs = report.runtimeMs as number;
+    report.providersUsed = [...providersUsed].sort();
     await checkpoint();
   } finally {
     await pool.end();
