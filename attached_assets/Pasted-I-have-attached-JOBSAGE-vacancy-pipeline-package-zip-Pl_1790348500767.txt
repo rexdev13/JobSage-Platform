@@ -1,0 +1,76 @@
+I have attached JOBSAGE-vacancy-pipeline-package.zip.
+
+Please unzip it, read RUNBOOK.md and TEST_EVIDENCE.md first, then apply the replacement files under files/ into the matching paths in this Replit project.
+
+Goal:
+Implement and verify the improved JOBSAGE sponsor company website/careers/ATS vacancy pipeline.
+
+Important:
+- Work in development first only.
+- Do not write production data.
+- Do not publish/deploy until I explicitly approve.
+- Preserve existing code patterns.
+- Do not weaken existing candidate eligibility, liveness, UK relevance, sponsorship, or profession filtering rules.
+- If there are conflicts, show me the diff and explain before overwriting.
+
+After applying files:
+1. Run API typecheck.
+2. Run the focused vacancy pipeline tests:
+   - directEmployerBoardConnectors
+   - companySiteDiscovery
+   - companySiteScheduler
+   - boardVacancyPipeline
+3. Confirm the new development-only script exists:
+   pnpm --filter @workspace/api-server vacancy:sponsor-websites
+4. Confirm supported ATS providers now include:
+   - Greenhouse
+   - Lever
+   - Ashby
+   - SmartRecruiters
+   - Recruitee
+   - Personio
+5. Confirm the company-site discovery includes fallback common careers paths like /careers, /jobs, /vacancies, /join-us, /work-with-us.
+6. Confirm the public ATS API timeout is bounded but no longer capped by the generic HTML page timeout.
+
+Then run a development-only test using a small approved sample of sponsor employers that already have official website/careers/ATS evidence.
+
+Use the dev DB only and require:
+- NODE_ENV=development
+- SPONSOR_WEBSITE_VACANCY_PIPELINE_DEV_DB=confirmed
+
+Run the pipeline with --apply against development only.
+
+After the run, report:
+- number of sponsor websites filled
+- number of employers checked
+- number completed
+- number failed
+- number of vacancies inserted
+- number of vacancies updated
+- number of rejected adverts
+- number of UK-location-known vacancies
+- number with separate application_url
+- per-employer vacancy counts
+- any timeout/robots/404 failures
+
+Then immediately rerun the exact same input again to prove dedupe/idempotency.
+
+Expected repeat behavior:
+- inserted should be 0 or near 0
+- existing vacancies should update
+- no duplicate explosion
+
+Finally, test candidate-facing visibility:
+- Pick several inserted vacancies across different sectors.
+- Confirm they appear in the relevant Opportunities/candidate-facing query/API.
+- Confirm employer, title, location, detail URL, application URL where available, source_type/company_site, and liveness fields are correct.
+- Confirm broken/unverified links are not presented as reliable if existing rules block them.
+
+Return:
+1. Summary of what changed.
+2. Exact commands run.
+3. Test results.
+4. Dev DB insert/update counts.
+5. Candidate-facing screenshots or API samples.
+6. Any blockers before production rollout.
+7. Whether this is safe to roll out gradually in production.
