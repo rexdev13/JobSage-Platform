@@ -508,13 +508,13 @@ id = "vKHP9kUiRO4oRjv_CfuRe"
 uri = "file://ats-coverage-summary.md"
 type = "text"
 title = "ATS Coverage Audit Summary"
-description = "Sector-level findings, platform results, and recommendations from the read-only sponsor-employer ATS audit."
+description = "The audit summary, located at the project root."
 logical_id = "999722f1-57d3-4fc0-9914-b9180c1ee823"
 content_hash = "sha256:055cda75f67f71acf39be247f67041700fc210f0a5b6ba6d04411ab2a1dd7cfd"
 size = 9161
 mtime_ms = 1790321949019
-storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/999722f1-57d3-4fc0-9914-b9180c1ee823/0e3ba997-074b-4c50-96cd-f836977f3c07"
-storage_version_token = "1790322039762967"
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/999722f1-57d3-4fc0-9914-b9180c1ee823/a6ebc29b-304d-4c4c-b52a-e0d5802cd04c"
+storage_version_token = "1790322235376123"
 content_type = "text/markdown"
 
 [[outputs]]
