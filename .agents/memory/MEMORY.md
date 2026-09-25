@@ -66,3 +66,4 @@
 - [Candidate alert parity](candidate-alert-opportunities-parity.md) — job-alert emails must use the candidate-visible Opportunities gates and ranking before the five-role cap.
 - [Public ATS API robots policy](public-ats-api-robots.md) — documented ATS JSON feeds bypass HTML robots checks but retain SSRF, DNS pinning, pacing, backoff, deadlines, and size limits.
 - [Detached company-site verification](company-site-verification-drain.md) — one-off discovery runners must await exact liveness checks before pool shutdown; the post-commit verifier queue is in-memory, not durable.
+- [Sponsor public-source matching scale](sponsor-public-source-matching-scale.md) — large sponsor/source coverage needs rare organization-name token probes before fuzzy matching; broad location buckets can time out.

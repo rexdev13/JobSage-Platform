@@ -2,6 +2,51 @@
 
 This is a standalone, review-first batch tool. It does not send email and it does not write to JOBSAGE during discovery.
 
+## Read-only sponsor website/careers export
+
+Generate the Codex-ready export package from the development database:
+
+```bash
+NODE_ENV=development pnpm --filter @workspace/scripts sponsor-enrichment-export \
+  --confirm-development-db
+```
+
+The command refuses non-development mode and Replit deployment processes. It opens a
+read-only database transaction and writes only to
+`.local/reports/sponsor-enrichment/`. The explicit confirmation flag is required so
+the operator must verify that the configured `DATABASE_URL` points to the development
+database. It does not fetch public datasets, crawl employer sites, change database
+records, import candidate rows, or deploy.
+
+Outputs:
+
+- `jobsage-sponsor-base-export.csv`
+- `jobsage-company-site-existing.csv`
+- `jobsage-existing-vacancy-sources.csv`
+- `jobsage-website-enrichment-import-template.csv` (headers only)
+- `public-source-enrichment-readiness.md`
+- `final-report.md`
+- `export-manifest.json`
+
+The sponsor export includes every sponsor row up to 50,000. Above that threshold it
+includes all rows with existing website/careers/ATS evidence, all rule-classified
+healthcare/social-care, education, technology, engineering, and finance rows, and a
+stable SHA-256-selected sample of up to 5,000 remaining rows without those fields.
+`sponsor_licence_id` is JOBSAGE's internal `sponsor_licences.id`; it is not an
+official licence number.
+
+The public-source report assesses only existing files under `scripts/data/cache/`.
+It does not download or refresh CQC, GIAS, or Charity Commission data. Potential
+name/location matches and available fields are reported separately from confirmed,
+source-attributed JOBSAGE enrichments.
+
+Run the export-package self-test and typecheck with:
+
+```bash
+pnpm --filter @workspace/scripts sponsor-enrichment-export:test
+pnpm --filter @workspace/scripts typecheck
+```
+
 ## Pilot
 
 From the repository root:

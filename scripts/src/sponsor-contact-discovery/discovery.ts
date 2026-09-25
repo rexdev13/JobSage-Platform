@@ -158,9 +158,9 @@ export async function officialRecordsFromFile(
       website,
     );
     const evidenceUrl = value(row, "website_evidence_url", "evidence_url", "source_url") ||
-      value(row, "location url", "locationurl", "school website") ||
-      normaliseWebsite(value(row, "website", "website_url", "schoolwebsite", "school website")) ||
-      defaultEvidenceUrl;
+      value(row, "location url", "locationurl") ||
+      defaultEvidenceUrl ||
+      normaliseWebsite(value(row, "website", "website_url", "schoolwebsite", "school website"));
     const county = value(row, "county", "local authority");
     const postcode = value(row, "postcode", "post code");
     const makeRecord = (name: string, role: OfficialRecord["role"]): void => {
@@ -210,7 +210,7 @@ async function readOfficialRows(path: string): Promise<Array<Record<string, stri
   );
 }
 
-type OfficialMatch = {
+export type OfficialMatch = {
   record: OfficialRecord;
   method: "exact_name" | "exact_name_town" | "fuzzy_name_town" | "provider_name" | "location_name";
   confidence: "high" | "medium";
@@ -234,6 +234,79 @@ function locationAgrees(input: SponsorInput, record: OfficialRecord): boolean {
     (county && sourceLocation.includes(county)) ||
     (postcode && sourceLocation.includes(postcode)),
   );
+}
+
+/**
+ * Builds an indexed matcher for large read-only coverage assessments while
+ * keeping the same exact-name and strict location-assisted fuzzy rules used by
+ * discovery runs.
+ */
+export function createOfficialRecordMatcher(records: readonly OfficialRecord[]) {
+  const byName = new Map<string, OfficialRecord[]>();
+  const byNameToken = new Map<string, OfficialRecord[]>();
+
+  for (const record of records) {
+    const recordNames = nameVariants(record.organisationName);
+    for (const name of recordNames) {
+      const nameMatches = byName.get(name);
+      if (nameMatches) nameMatches.push(record);
+      else byName.set(name, [record]);
+    }
+    const nameTokens = new Set(recordNames.flatMap((name) => name.split(" ").filter(Boolean)));
+    for (const token of nameTokens) {
+      const tokenMatches = byNameToken.get(token);
+      if (tokenMatches) tokenMatches.push(record);
+      else byNameToken.set(token, [record]);
+    }
+  }
+
+  return (input: SponsorInput): OfficialMatch | null => {
+    const inputNames = nameVariants(input.organisationName);
+    const exact = [...new Set(inputNames.flatMap((name) => byName.get(name) ?? []))];
+    const candidate = preferCandidate(exact);
+    if (candidate) {
+      const method = candidate.role === "provider" ? "provider_name" :
+        candidate.role === "location" ? "location_name" :
+          locationAgrees(input, candidate) ? "exact_name_town" : "exact_name";
+      return {
+        record: candidate,
+        method,
+        confidence: "high",
+        candidatesCount: exact.length,
+      };
+    }
+
+    const fuzzyCandidates = new Set<OfficialRecord>();
+    for (const inputName of inputNames) {
+      const tokens = [...new Set(inputName.split(" ").filter(Boolean))];
+      const minimumOverlap = Math.ceil(0.88 * tokens.length);
+      const probeCount = Math.max(1, tokens.length - minimumOverlap + 1);
+      const rarestTokens = tokens
+        .sort((left, right) => (byNameToken.get(left)?.length ?? 0) - (byNameToken.get(right)?.length ?? 0))
+        .slice(0, probeCount);
+      for (const token of rarestTokens) {
+        for (const record of byNameToken.get(token) ?? []) fuzzyCandidates.add(record);
+      }
+    }
+    const nearby = [...fuzzyCandidates]
+      .filter((record) => locationAgrees(input, record));
+    const fuzzy = nearby
+      .map((record) => ({
+        record,
+        score: Math.max(...nameVariants(record.organisationName).map((name) =>
+          Math.max(...inputNames.map((inputName) => tokenSimilarity(inputName, name))),
+        )),
+      }))
+      .filter((match) => match.score >= 0.88)
+      .sort((a, b) => b.score - a.score);
+    if (fuzzy.length === 0 || (fuzzy[1] && fuzzy[0]!.score - fuzzy[1]!.score < 0.05)) return null;
+    return {
+      record: fuzzy[0]!.record,
+      method: "fuzzy_name_town",
+      confidence: "medium",
+      candidatesCount: fuzzy.length,
+    };
+  };
 }
 
 function preferCandidate(candidates: OfficialRecord[]): OfficialRecord | null {
@@ -438,6 +511,7 @@ export async function runDiscovery(options: {
     ...(sources.giasPath ? await officialRecordsFromFile(sources.giasPath, "gias", sources.sourceUrls.gias) : []),
     ...(sources.charityPath ? await officialRecordsFromFile(sources.charityPath, "charity_commission", sources.sourceUrls.charity) : []),
   ];
+  const matchOfficial = createOfficialRecordMatcher(official);
   const fetcher = new PublicSiteFetcher(options.delayMs);
   const foundAt = new Date().toISOString();
   const output: DiscoveryRow[] = [];
@@ -472,7 +546,7 @@ export async function runDiscovery(options: {
       continue;
     }
 
-    let match = findOfficialMatch(input, official);
+    let match = matchOfficial(input);
     if (!base.website && !match) {
       const searched = await bingWebsite(input);
       if (searched) {
