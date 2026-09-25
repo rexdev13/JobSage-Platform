@@ -1,16 +1,24 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../lib/companySiteHttp", () => ({
   fetchCompanySitePublicApiPage: vi.fn(),
+  fetchCompanySiteRobotsAwarePublicApiPage: vi.fn(),
 }));
 
 const {
   parseDirectBoardMapping,
   fetchDirectEmployerBoard,
 } = await import("../../lib/directEmployerBoardConnectors");
-const { fetchCompanySitePublicApiPage } = await import("../../lib/companySiteHttp");
+const {
+  fetchCompanySitePublicApiPage,
+  fetchCompanySiteRobotsAwarePublicApiPage,
+} = await import("../../lib/companySiteHttp");
 
 describe("direct employer board connectors", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("derives strict board mappings only from saved platform URLs", () => {
     expect(parseDirectBoardMapping("Ashby", "https://jobs.ashbyhq.com/9fin")).toMatchObject({
       provider: "Ashby",
@@ -35,6 +43,31 @@ describe("direct employer board connectors", () => {
     expect(parseDirectBoardMapping("Ashby", "https://jobs.ashbyhq.com/9fin/not-a-job")).toBeNull();
     expect(parseDirectBoardMapping("Ashby", "https://example.com/9fin")).toBeNull();
     expect(parseDirectBoardMapping("Greenhouse", "https://boards.greenhouse.io/")).toBeNull();
+    expect(parseDirectBoardMapping("SmartRecruiters", "https://jobs.smartrecruiters.com/acme")).toMatchObject({
+      provider: "SmartRecruiters",
+      boardId: "acme",
+      feedUrl: "https://api.smartrecruiters.com/v1/companies/acme/postings?limit=100&offset=0",
+    });
+    expect(parseDirectBoardMapping(
+      "SmartRecruiters",
+      "https://jobs.smartrecruiters.com/acme/senior-engineer/123",
+    )).toMatchObject({ provider: "SmartRecruiters", boardId: "acme" });
+    expect(parseDirectBoardMapping("Recruitee", "https://acme.recruitee.com/o/engineer")).toMatchObject({
+      provider: "Recruitee",
+      boardId: "acme",
+      feedUrl: "https://acme.recruitee.com/api/offers/",
+    });
+    expect(parseDirectBoardMapping("Personio", "https://acme.jobs.personio.de/job/123")).toMatchObject({
+      provider: "Personio",
+      boardId: "acme",
+      feedUrl: "https://acme.jobs.personio.de/xml",
+    });
+    expect(parseDirectBoardMapping("SmartRecruiters", "https://evil.smartrecruiters.com/acme")).toBeNull();
+    expect(parseDirectBoardMapping("SmartRecruiters", "https://jobs.smartrecruiters.com/acme/jobs")).toBeNull();
+    expect(parseDirectBoardMapping("Recruitee", "https://acme.recruitee.com/unrelated/path")).toBeNull();
+    expect(parseDirectBoardMapping("Personio", "https://acme.jobs.personio.de/careers")).toBeNull();
+    expect(parseDirectBoardMapping("Personio", "http://acme.jobs.personio.de/")).toBeNull();
+    expect(parseDirectBoardMapping("Lever", "https://user@jobs.lever.co/acme")).toBeNull();
   });
 
   it("excludes unlisted Ashby jobs and preserves exact listing URLs and IDs", async () => {
@@ -65,6 +98,8 @@ describe("direct employer board connectors", () => {
     });
     const result = await fetchDirectEmployerBoard("9fin Limited", "Ashby", "https://jobs.ashbyhq.com/9fin");
     expect(result.complete).toBe(true);
+    expect(fetchCompanySitePublicApiPage).toHaveBeenCalledOnce();
+    expect(fetchCompanySiteRobotsAwarePublicApiPage).not.toHaveBeenCalled();
     expect(result.adverts).toHaveLength(1);
     expect(result.adverts[0]).toMatchObject({
       externalId: "listed-id",
@@ -110,6 +145,8 @@ describe("direct employer board connectors", () => {
 
     expect(result.complete).toBe(true);
     expect(result.adverts).toHaveLength(2);
+    expect(fetchCompanySitePublicApiPage).toHaveBeenCalledOnce();
+    expect(fetchCompanySiteRobotsAwarePublicApiPage).not.toHaveBeenCalled();
     expect(result.adverts[0]).toMatchObject({
       externalId: "7982150003",
       url: "https://job-boards.greenhouse.io/public/jobs/7982150003",
@@ -141,8 +178,242 @@ describe("direct employer board connectors", () => {
     const result = await fetchDirectEmployerBoard("Board Ltd", "Lever", "https://jobs.lever.co/board");
     expect(result.complete).toBe(true);
     expect(result.pagesFetched).toBe(2);
+    expect(fetchCompanySitePublicApiPage).toHaveBeenCalledTimes(2);
+    expect(fetchCompanySiteRobotsAwarePublicApiPage).not.toHaveBeenCalled();
     expect(result.adverts).toHaveLength(101);
     expect(result.adverts[0]?.url).toBe("https://jobs.lever.co/board/id-0");
     expect(result.adverts[0]?.applicationUrl).toBe("https://jobs.lever.co/board/id-0/apply");
+  });
+
+  it("paginates SmartRecruiters by its declared total and validates posting URLs", async () => {
+    vi.mocked(fetchCompanySitePublicApiPage)
+      .mockResolvedValueOnce({
+        ok: true, status: 200,
+        url: "https://api.smartrecruiters.com/v1/companies/acme/postings?limit=100&offset=0",
+        contentType: "application/json",
+        body: JSON.stringify({
+          totalFound: 2,
+          content: [{
+            id: 101,
+            name: "Senior Engineer",
+            postingUrl: "https://jobs.smartrecruiters.com/acme/senior-engineer/101",
+            location: { city: "London", country: "UK" },
+          }],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true, status: 200,
+        url: "https://api.smartrecruiters.com/v1/companies/acme/postings?limit=100&offset=1",
+        contentType: "application/json",
+        body: JSON.stringify({
+          totalFound: 2,
+          content: [{
+            id: 102,
+            name: "Product Manager",
+            postingUrl: "https://jobs.smartrecruiters.com/acme/product-manager/102",
+          }],
+        }),
+      });
+    const result = await fetchDirectEmployerBoard(
+      "Acme",
+      "SmartRecruiters",
+      "https://jobs.smartrecruiters.com/acme",
+    );
+    expect(result.complete).toBe(true);
+    expect(result.pagesFetched).toBe(2);
+    expect(fetchCompanySitePublicApiPage).toHaveBeenCalledTimes(2);
+    expect(fetchCompanySiteRobotsAwarePublicApiPage).not.toHaveBeenCalled();
+    expect(result.adverts).toHaveLength(2);
+    expect(result.adverts[0]).toMatchObject({
+      externalId: "101",
+      title: "Senior Engineer",
+      url: "https://jobs.smartrecruiters.com/acme/senior-engineer/101",
+      location: "London, UK",
+    });
+  });
+
+  it("rejects a SmartRecruiters feed with a non-provider posting URL", async () => {
+    vi.mocked(fetchCompanySitePublicApiPage).mockResolvedValue({
+      ok: true,
+      status: 200,
+      url: "https://api.smartrecruiters.com/v1/companies/acme/postings?limit=100&offset=0",
+      contentType: "application/json",
+      body: JSON.stringify({
+        content: [{
+          id: "bad-url",
+          name: "Engineer",
+          postingUrl: "https://attacker.example/acme/engineer",
+        }],
+      }),
+    });
+    const result = await fetchDirectEmployerBoard(
+      "Acme",
+      "SmartRecruiters",
+      "https://jobs.smartrecruiters.com/acme",
+    );
+    expect(result.complete).toBe(false);
+    expect(result.adverts).toHaveLength(0);
+    expect(result.error).toMatch(/invalid job identity\/title\/URL/);
+  });
+
+  it("keeps a short SmartRecruiters response partial when it omits totalFound", async () => {
+    vi.mocked(fetchCompanySitePublicApiPage).mockResolvedValue({
+      ok: true,
+      status: 200,
+      url: "https://api.smartrecruiters.com/v1/companies/acme/postings?limit=100&offset=0",
+      contentType: "application/json",
+      body: JSON.stringify({
+        content: [{
+          id: "partial-role",
+          name: "Engineer",
+          postingUrl: "https://jobs.smartrecruiters.com/acme/engineer/partial-role",
+        }],
+      }),
+    });
+    const result = await fetchDirectEmployerBoard(
+      "Acme",
+      "SmartRecruiters",
+      "https://jobs.smartrecruiters.com/acme",
+    );
+    expect(result.complete).toBe(false);
+    expect(result.adverts).toHaveLength(1);
+    expect(result.adverts[0]?.externalId).toBe("partial-role");
+    expect(result.error).toMatch(/total is missing or unstable/);
+  });
+
+  it("parses Recruitee and Personio postings without accepting incomplete feeds", async () => {
+    vi.mocked(fetchCompanySiteRobotsAwarePublicApiPage).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      url: "https://acme.recruitee.com/api/offers/",
+      contentType: "application/json",
+      body: JSON.stringify({
+        offers: [{
+          id: 17,
+          title: "Designer",
+          careers_url: "https://acme.recruitee.com/o/designer",
+          description: "<p>Design the product</p>",
+          city: "London",
+        }],
+      }),
+    });
+    const recruitee = await fetchDirectEmployerBoard(
+      "Acme",
+      "Recruitee",
+      "https://acme.recruitee.com/",
+    );
+    expect(recruitee.complete).toBe(false);
+    expect(recruitee.error).toMatch(/no trustworthy total or pagination metadata/);
+    expect(fetchCompanySiteRobotsAwarePublicApiPage).toHaveBeenCalledWith(
+      "https://acme.recruitee.com/api/offers/",
+      expect.any(Number),
+      2_000_000,
+    );
+    expect(recruitee.adverts[0]).toMatchObject({
+      externalId: "17",
+      title: "Designer",
+      url: "https://acme.recruitee.com/o/designer",
+      applicationUrl: "https://acme.recruitee.com/o/designer",
+      description: "Design the product",
+      location: "London",
+    });
+
+    vi.mocked(fetchCompanySiteRobotsAwarePublicApiPage).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      url: "https://acme.jobs.personio.de/xml",
+      contentType: "application/xml",
+      body: `<?xml version="1.0"?><workzag-jobs><position><id>42</id><name>Analyst</name><office>Berlin</office></position></workzag-jobs>`,
+    });
+    const personio = await fetchDirectEmployerBoard(
+      "Acme",
+      "Personio",
+      "https://acme.jobs.personio.de/",
+    );
+    expect(personio.complete).toBe(true);
+    expect(fetchCompanySiteRobotsAwarePublicApiPage).toHaveBeenLastCalledWith(
+      "https://acme.jobs.personio.de/xml",
+      expect.any(Number),
+      2_000_000,
+    );
+    expect(fetchCompanySitePublicApiPage).not.toHaveBeenCalled();
+    expect(personio.adverts[0]).toMatchObject({
+      externalId: "42",
+      title: "Analyst",
+      url: "https://acme.jobs.personio.de/job/42",
+      applicationUrl: "https://acme.jobs.personio.de/job/42",
+      location: "Berlin",
+    });
+  });
+
+  it("does not claim complete snapshots for truncated XML or unpaginated Recruitee feeds", async () => {
+    vi.mocked(fetchCompanySiteRobotsAwarePublicApiPage).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      url: "https://acme.jobs.personio.de/xml",
+      contentType: "application/xml",
+      body: "<workzag-jobs><position><id>42</id><name>Analyst</name></position>",
+    });
+    const truncatedXml = await fetchDirectEmployerBoard(
+      "Acme",
+      "Personio",
+      "https://acme.jobs.personio.de/",
+    );
+    expect(truncatedXml.complete).toBe(false);
+    expect(truncatedXml.adverts).toHaveLength(0);
+
+    vi.mocked(fetchCompanySiteRobotsAwarePublicApiPage).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      url: "https://acme.recruitee.com/api/offers/",
+      contentType: "application/json",
+      body: JSON.stringify({
+        offers: Array.from({ length: 100 }, (_, id) => ({
+          id,
+          title: `Role ${id}`,
+          careers_url: `https://acme.recruitee.com/o/role-${id}`,
+        })),
+      }),
+    });
+    const cappedRecruitee = await fetchDirectEmployerBoard(
+      "Acme",
+      "Recruitee",
+      "https://acme.recruitee.com/",
+    );
+    expect(cappedRecruitee.complete).toBe(false);
+    expect(cappedRecruitee.adverts).toHaveLength(100);
+  });
+
+  it("rejects malformed Personio positions and accepts a well-formed empty feed", async () => {
+    vi.mocked(fetchCompanySiteRobotsAwarePublicApiPage).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      url: "https://acme.jobs.personio.de/xml",
+      contentType: "application/xml",
+      body: "<workzag-jobs><position><id>42</id><name>Analyst</name></workzag-jobs>",
+    });
+    const malformed = await fetchDirectEmployerBoard(
+      "Acme",
+      "Personio",
+      "https://acme.jobs.personio.de/",
+    );
+    expect(malformed.complete).toBe(false);
+    expect(malformed.adverts).toHaveLength(0);
+    expect(malformed.error).toMatch(/malformed or unclosed position/);
+
+    vi.mocked(fetchCompanySiteRobotsAwarePublicApiPage).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      url: "https://acme.jobs.personio.de/xml",
+      contentType: "application/xml",
+      body: `<?xml version="1.0"?><workzag-jobs></workzag-jobs>`,
+    });
+    const empty = await fetchDirectEmployerBoard(
+      "Acme",
+      "Personio",
+      "https://acme.jobs.personio.de/",
+    );
+    expect(empty.complete).toBe(true);
+    expect(empty.adverts).toHaveLength(0);
   });
 });
