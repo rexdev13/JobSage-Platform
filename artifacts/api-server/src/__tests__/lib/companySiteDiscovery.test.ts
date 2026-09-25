@@ -67,6 +67,15 @@ describe("company-site vacancy discovery", () => {
         url: "https://jobs.lever.co/acme/83f7d3a2-5510-4e1a-a9ab-998172c4a001",
       }),
     ]);
+    expect(result.diagnostics.atsLinksSeen).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        provider: "Lever",
+        url: "https://jobs.lever.co/acme",
+        supportedForImport: true,
+        linkedFromFirstParty: true,
+        followed: true,
+      }),
+    ]));
   });
 
   it("does not fetch a stored ATS URL until first-party ownership is confirmed", async () => {
@@ -230,6 +239,33 @@ describe("company-site vacancy discovery", () => {
       title: "Senior Staff Nurse",
       url: "https://acme-care.example/jobs/senior-staff-nurse",
     });
+  });
+
+  it("follows a generic current-vacancies page and extracts its specific role", async () => {
+    const home = "https://fixture.example/";
+    const listing = "https://fixture.example/careers/current-vacancies";
+    const role = "https://fixture.example/careers/current-vacancies/senior-engineer";
+    fetchCompanySitePageMock.mockImplementation(async (url: string) => ({
+      ok: true,
+      url,
+      status: 200,
+      contentType: "text/html",
+      body: url === home
+        ? '<a href="/careers/current-vacancies">Current vacancies</a>'
+        : url === listing
+          ? `<h1>Current vacancies</h1><main><a href="${role}">Senior Software Engineer</a></main>`
+          : "<h1>Job description</h1>",
+    }));
+
+    const result = await discoverCompanySiteVacancies("Fixture Employer", home);
+
+    expect(fetchCompanySitePageMock.mock.calls.map(([url]) => url)).toContain(listing);
+    expect(result.adverts).toEqual([
+      expect.objectContaining({
+        title: "Senior Software Engineer",
+        url: role,
+      }),
+    ]);
   });
 
   it.each([
@@ -428,6 +464,45 @@ describe("company-site vacancy discovery", () => {
     expect(result.adverts).toEqual([]);
   });
 
+  it("treats an unavailable optional sitemap as a complete empty observation", async () => {
+    fetchCompanySitePageMock
+      .mockResolvedValueOnce({
+        ok: true,
+        url: "https://no-sitemap.example/",
+        status: 200,
+        contentType: "text/html",
+        body: "<h1>Welcome</h1>",
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        url: "https://no-sitemap.example/sitemap.xml",
+        status: 200,
+        contentType: "application/xml",
+        body: "<sitemapindex><sitemap><loc>https://no-sitemap.example/wp-sitemap-posts-job_listing-1.xml</loc></sitemap></sitemapindex>",
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        kind: "http",
+        status: 404,
+        reason: "HTTP 404",
+      });
+
+    const result = await discoverCompanySiteVacancies(
+      "No Sitemap Employer",
+      "https://no-sitemap.example/",
+    );
+
+    expect(result.completion).toBe("complete");
+    expect(result.error).toBeUndefined();
+    expect(result.diagnostics.pageFetches).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        url: "https://no-sitemap.example/wp-sitemap-posts-job_listing-1.xml",
+        status: 404,
+        fetched: false,
+      }),
+    ]));
+  });
+
   it("reports a failed observation when an attempted page fails", async () => {
     fetchCompanySitePageMock.mockResolvedValue({
       ok: false,
@@ -530,7 +605,7 @@ describe("company-site vacancy discovery", () => {
     ]));
   });
 
-  it("accepts a Hopscotch-style BambooHR posting", async () => {
+  it("reports an employer-linked BambooHR platform without crawling or importing it", async () => {
     fetchCompanySitePageMock
       .mockResolvedValueOnce({
         ok: true,
@@ -541,10 +616,10 @@ describe("company-site vacancy discovery", () => {
       })
       .mockResolvedValueOnce({
         ok: true,
-        url: "https://hopscotch.bamboohr.com/careers",
+        url: "https://www.hopscotch.example/sitemap.xml",
         status: 200,
-        contentType: "text/html",
-        body: '<a href="https://hopscotch.bamboohr.com/careers/42">Senior Product Manager</a>',
+        contentType: "application/xml",
+        body: "<urlset></urlset>",
       });
 
     const result = await discoverCompanySiteVacancies(
@@ -552,20 +627,23 @@ describe("company-site vacancy discovery", () => {
       "https://www.hopscotch.example",
     );
 
-    expect(result.atsProvider).toBe("BambooHR");
-    expect(result.adverts).toEqual(expect.arrayContaining([
+    expect(result.atsProvider).toBeNull();
+    expect(result.adverts).toEqual([]);
+    expect(fetchCompanySitePageMock.mock.calls.map(([url]) => url)).not.toContain(
+      "https://hopscotch.bamboohr.com/careers",
+    );
+    expect(result.diagnostics.atsLinksSeen).toEqual([
       expect.objectContaining({
-        title: "Senior Product Manager",
-        url: "https://hopscotch.bamboohr.com/careers/42",
-        companyVacancyEvidence: {
-          kind: "known_ats_posting",
-          provider: "BambooHR",
-        },
+        provider: "BambooHR",
+        supportedForImport: false,
+        linkedFromFirstParty: true,
+        followed: false,
+        reason: expect.stringContaining("not crawled or imported"),
       }),
-    ]));
+    ]);
   });
 
-  it("rejects a BambooHR talent-pool posting without rejecting real job titles", async () => {
+  it("does not crawl unsupported BambooHR talent-pool postings", async () => {
     fetchCompanySitePageMock
       .mockResolvedValueOnce({
         ok: true,
@@ -576,10 +654,10 @@ describe("company-site vacancy discovery", () => {
       })
       .mockResolvedValueOnce({
         ok: true,
-        url: "https://bluefield.bamboohr.com/careers",
+        url: "https://www.bluefield.example/sitemap.xml",
         status: 200,
-        contentType: "text/html",
-        body: '<a href="https://bluefield.bamboohr.com/careers/60">Join our Talent Pool</a>',
+        contentType: "application/xml",
+        body: "<urlset></urlset>",
       });
 
     const result = await discoverCompanySiteVacancies(
@@ -588,7 +666,232 @@ describe("company-site vacancy discovery", () => {
     );
 
     expect(result.adverts).toEqual([]);
-    expect(result.rejectionReasons.non_specific_bamboohr_posting).toBe(1);
+    expect(fetchCompanySitePageMock.mock.calls.map(([url]) => url)).not.toContain(
+      "https://bluefield.bamboohr.com/careers",
+    );
+    expect(result.diagnostics.atsLinksSeen[0]).toMatchObject({
+      provider: "BambooHR",
+      supportedForImport: false,
+      followed: false,
+    });
+  });
+
+  it("recursively checks a bounded sitemap index and extracts listed JobPosting evidence", async () => {
+    const home = "https://sitemap-employer.example/";
+    const index = "https://sitemap-employer.example/sitemap.xml";
+    const careersMap = "https://sitemap-employer.example/careers-sitemap.xml";
+    const jobUrl = "https://sitemap-employer.example/careers/jobs/care-assistant";
+    fetchCompanySitePageMock.mockImplementation(async (url: string) => {
+      if (url === home) {
+        return {
+          ok: true,
+          url,
+          status: 200,
+          contentType: "text/html",
+          body: "<html><h1>Welcome</h1></html>",
+        };
+      }
+      if (url === index) {
+        return {
+          ok: true,
+          url,
+          status: 200,
+          contentType: "application/xml",
+          body: `<sitemapindex><sitemap><loc>${careersMap}</loc></sitemap></sitemapindex>`,
+        };
+      }
+      if (url === careersMap) {
+        return {
+          ok: true,
+          url,
+          status: 200,
+          contentType: "application/xml",
+          body: `<urlset><url><loc>${jobUrl}</loc></url></urlset>`,
+        };
+      }
+      return {
+        ok: true,
+        url,
+        status: 200,
+        contentType: "text/html",
+        body: `<script type="application/ld+json">${JSON.stringify({
+          "@type": "JobPosting",
+          title: "Care Assistant",
+          url: jobUrl,
+        })}</script>`,
+      };
+    });
+
+    const result = await discoverCompanySiteVacancies(
+      "Sitemap Employer",
+      home,
+    );
+
+    expect(result.adverts).toEqual([
+      expect.objectContaining({
+        title: "Care Assistant",
+        url: jobUrl,
+        companyVacancyEvidence: { kind: "json_ld_job_posting" },
+      }),
+    ]);
+    expect(result.diagnostics.sitemapChecked).toBe(true);
+    expect(result.diagnostics.sitemapDocuments).toEqual([index, careersMap]);
+    expect(result.diagnostics.jsonLdJobPostingFound).toBe(true);
+    expect(result.diagnostics.vacancyLikePages).toContain(jobUrl);
+    expect(fetchCompanySitePageMock.mock.calls.length).toBeLessThanOrEqual(6);
+  });
+
+  it("unwraps CDATA sitemap locations and prioritizes a job sitemap over content maps", async () => {
+    const home = "https://priority-sitemap.example/";
+    const index = "https://priority-sitemap.example/sitemap_index.xml";
+    const jobMap = "https://priority-sitemap.example/job-listings-sitemap.xml";
+    const jobUrl = "https://priority-sitemap.example/careers/jobs/care-assistant";
+    const lowerPriorityMaps = [
+      "https://priority-sitemap.example/post-sitemap.xml",
+      "https://priority-sitemap.example/page-sitemap.xml",
+      "https://priority-sitemap.example/product-sitemap.xml",
+      "https://priority-sitemap.example/mgt_clients_reviews-sitemap.xml",
+    ];
+    fetchCompanySitePageMock.mockImplementation(async (url: string) => {
+      if (url === home) {
+        return {
+          ok: true,
+          url,
+          status: 200,
+          contentType: "text/html",
+          body: "<h1>Welcome</h1>",
+        };
+      }
+      if (url.endsWith("/sitemap.xml")) {
+        return {
+          ok: true,
+          url: index,
+          status: 200,
+          contentType: "application/xml",
+          body: `<sitemapindex>${[
+            ...lowerPriorityMaps,
+            jobMap,
+          ].map((child) => `<sitemap><loc><![CDATA[${child}]]></loc></sitemap>`).join("")}</sitemapindex>`,
+        };
+      }
+      if (url === jobMap) {
+        return {
+          ok: true,
+          url,
+          status: 200,
+          contentType: "application/xml",
+          body: `<urlset><url><loc><![CDATA[${jobUrl}]]></loc></url></urlset>`,
+        };
+      }
+      if (url === jobUrl) {
+        return {
+          ok: true,
+          url,
+          status: 200,
+          contentType: "text/html",
+          body: `<script type="application/ld+json">${JSON.stringify({
+            "@type": "JobPosting",
+            title: "Care Assistant",
+            url: jobUrl,
+          })}</script>`,
+        };
+      }
+      return {
+        ok: true,
+        url,
+        status: 200,
+        contentType: "application/xml",
+        body: "<urlset></urlset>",
+      };
+    });
+
+    const result = await discoverCompanySiteVacancies("Priority Sitemap Employer", home);
+    const fetchedUrls = fetchCompanySitePageMock.mock.calls.map(([url]) => url);
+
+    expect(fetchedUrls).toContain(jobMap);
+    expect(fetchedUrls).toContain(jobUrl);
+    expect(fetchedUrls).not.toContain(
+      "https://priority-sitemap.example/%3C![CDATA[https://priority-sitemap.example/job-listings-sitemap.xml]]%3E",
+    );
+    expect(result.adverts).toEqual([
+      expect.objectContaining({
+        title: "Care Assistant",
+        url: jobUrl,
+      }),
+    ]);
+    expect(result.diagnostics.vacancyLikePages).toContain(jobUrl);
+    expect(fetchedUrls.length).toBeLessThanOrEqual(6);
+  });
+
+  it("extracts schema.org JobPosting microdata and reports its source page", async () => {
+    const jobUrl = "https://microdata-employer.example/careers/jobs/registered-nurse";
+    fetchCompanySitePageMock.mockResolvedValue({
+      ok: true,
+      url: jobUrl,
+      status: 200,
+      contentType: "text/html",
+      body: `<main itemscope itemtype="https://schema.org/JobPosting">
+        <h1 itemprop="title">Registered Nurse</h1>
+        <a itemprop="url" href="${jobUrl}">View role</a>
+        <div itemprop="jobLocation">Bath, England</div>
+        <p itemprop="description">Provide safe and compassionate care.</p>
+        <meta itemprop="datePosted" content="2026-09-01">
+      </main>`,
+    });
+
+    const result = await discoverCompanySiteVacancies(
+      "Microdata Employer",
+      jobUrl,
+    );
+
+    expect(result.adverts).toEqual([
+      expect.objectContaining({
+        title: "Registered Nurse",
+        url: jobUrl,
+        location: "Bath, England",
+        companyVacancyEvidence: { kind: "microdata_job_posting" },
+      }),
+    ]);
+    expect(result.diagnostics.microdataJobPostingFound).toBe(true);
+    expect(result.diagnostics.vacancyLikePages).toContain(jobUrl);
+  });
+
+  it.each([
+    ["Workday", "https://acme.wd5.myworkdayjobs.com/en-US/External"],
+    ["Oracle Recruiting", "https://careers.acme.oraclecloud.com/hcmUI/CandidateExperience"],
+    ["Teamtailor", "https://acme.teamtailor.com/jobs"],
+    ["BambooHR", "https://acme.bamboohr.com/careers"],
+    ["iCIMS", "https://careers-acme.icims.com/jobs"],
+    ["Pinpoint", "https://acme.pinpointhq.com/"],
+    ["SmartRecruiters", "https://careers.smartrecruiters.com/Acme"],
+    ["Workable", "https://apply.workable.com/acme/"],
+    ["Personio", "https://acme.jobs.personio.com/"],
+    ["Recruitee", "https://acme.recruitee.com/"],
+  ])("records unsupported %s links without fetching their platform", async (provider, atsUrl) => {
+    const home = "https://official-employer.example/";
+    const sitemap = "https://official-employer.example/sitemap.xml";
+    fetchCompanySitePageMock.mockImplementation(async (url: string) => ({
+      ok: true,
+      url,
+      status: 200,
+      contentType: url === sitemap ? "application/xml" : "text/html",
+      body: url === home
+        ? `<nav><a href="${atsUrl}">Careers</a></nav>`
+        : "<urlset></urlset>",
+    }));
+
+    const result = await discoverCompanySiteVacancies("Official Employer", home);
+    const fetchedUrls = fetchCompanySitePageMock.mock.calls.map(([url]) => url);
+
+    expect(fetchedUrls).not.toContain(atsUrl);
+    expect(result.diagnostics.atsLinksSeen).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        provider,
+        supportedForImport: false,
+        linkedFromFirstParty: true,
+        followed: false,
+      }),
+    ]));
   });
 
   it("normalises bare sponsor domains and rejects non-http schemes", () => {

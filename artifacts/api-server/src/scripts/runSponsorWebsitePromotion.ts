@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { db, pool } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { classifySponsorWebsitePromotion } from "../lib/sponsorWebsitePromotion";
+import type { CompanySiteDiscoveryDiagnostics } from "../lib/companySiteDiscovery";
 import { runCompanySiteCheck } from "../lib/companySiteScheduler";
 import { verifyCompanySiteStoredLink } from "../lib/companySiteVerification";
 
@@ -127,11 +128,17 @@ const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, "../../../../");
 const OUTPUT_BASE_DIR = path.join(REPO_ROOT, ".agents/outputs/sponsor-website-sample");
 const SAMPLE_PATH = path.join(OUTPUT_BASE_DIR, "safe-page-results.json");
+const PRIOR_APPROVED_CLASSIFICATION_PATH = path.join(
+  OUTPUT_BASE_DIR,
+  "website-promotion-classification.json",
+);
 
-function outputPaths(healthcareOnly: boolean) {
-  const outputDir = healthcareOnly
-    ? path.join(OUTPUT_BASE_DIR, "healthcare")
-    : OUTPUT_BASE_DIR;
+function outputPaths(healthcareOnly: boolean, approved26: boolean) {
+  const outputDir = approved26
+    ? path.join(OUTPUT_BASE_DIR, "approved-26-rerun")
+    : healthcareOnly
+      ? path.join(OUTPUT_BASE_DIR, "healthcare")
+      : OUTPUT_BASE_DIR;
   return {
     outputDir,
     classificationJson: path.join(outputDir, "website-promotion-classification.json"),
@@ -322,6 +329,7 @@ function buildImportReport(input: {
     repeatedInserted: number;
     careersUrl: string | null;
     atsProvider: string | null;
+    diagnostics?: CompanySiteDiscoveryDiagnostics | null;
     error?: string;
   }>;
   siteChecks: Array<{
@@ -339,8 +347,12 @@ function buildImportReport(input: {
   const complete = checked.filter((row) => row.completion === "complete");
   const partial = checked.filter((row) => row.completion?.startsWith("partial"));
   const failed = checked.filter((row) => row.completion === "failed");
-  const careersFound = discoveries.filter((row) => row.careersUrl).length;
-  const atsDetected = discoveries.filter((row) => row.atsProvider).length;
+  const careersFound = discoveries.filter((row) =>
+    row.careersUrl || row.diagnostics?.careersPageFound,
+  ).length;
+  const atsDetected = discoveries.filter((row) =>
+    row.atsProvider || (row.diagnostics?.atsLinksSeen.length ?? 0) > 0,
+  ).length;
   const verifiedBoards = input.siteChecks.filter((row) => row.ats_mapping_status === "verified").length;
   const vacancyInserted = checked.reduce((sum, row) => sum + row.inserted, 0);
   const vacancyRepeatedInserted = checked.reduce((sum, row) => sum + row.repeatedInserted, 0);
@@ -394,6 +406,49 @@ function buildImportReport(input: {
 
 ${results}
 
+${discoveries.length ? `## Per-employer site diagnosis
+
+${markdownTable([
+  ["Employer", "Homepage", "Careers evidence", "Robots / sitemap", "ATS evidence", "Vacancy signals", "Rejected careers links"],
+  ...discoveries.map((row) => {
+    const diagnostics = row.diagnostics;
+    if (!diagnostics) return [row.organisationName, "diagnostics unavailable", "", "", "", "", ""];
+    const careers = diagnostics.careersPageFound
+      ? diagnostics.careersUrl
+        ? `${short(diagnostics.careersUrl, 100)} (${diagnostics.careersHttpStatus ?? "not fetched"}${diagnostics.careersFailureKind ? ` / ${diagnostics.careersFailureKind}` : ""})`
+        : "found, URL unavailable"
+      : diagnostics.careersUrl
+        ? `stored candidate not confirmed: ${short(diagnostics.careersUrl, 100)}`
+        : "not found";
+    const ats = diagnostics.atsLinksSeen
+      .map((entry) => `${entry.provider}: ${entry.followed ? "followed" : entry.reason ?? "not followed"}`)
+      .join("; ") || "none detected";
+    const signals = [
+      diagnostics.jsonLdJobPostingFound ? "JSON-LD JobPosting" : null,
+      diagnostics.microdataJobPostingFound ? "microdata JobPosting" : null,
+      diagnostics.explicitNoVacancies ? "explicit no-vacancy message" : null,
+      diagnostics.jsRenderedJobsLikely ? "JavaScript-rendered jobs likely" : null,
+      diagnostics.vacancyLikePages.length ? `${diagnostics.vacancyLikePages.length} vacancy-like page(s)` : null,
+    ].filter(Boolean).join("; ") || "no structured vacancy evidence";
+    const rejected = diagnostics.rejectedCareersLinks
+      .slice(0, 3)
+      .map((entry) => `${short(entry.text || entry.url, 70)} — ${entry.reason ?? "rejected"}`)
+      .join("; ") || "none";
+    return [
+      row.organisationName,
+      `${diagnostics.homepageFetched ? "fetched" : "not fetched"} (${diagnostics.homepageHttpStatus ?? "no HTTP status"})`,
+      careers,
+      `${diagnostics.robotsResult}; ${diagnostics.sitemapChecked ? `${diagnostics.sitemapDocuments.length} sitemap document(s)` : "sitemap not checked"}`,
+      ats,
+      signals,
+      rejected,
+    ];
+  }),
+])}
+
+Full fetch/link/ATS diagnostics are included in the classification JSON output.
+` : ""}
+
 ${errors.length ? `\n## Failed or partial discovery attempts\n\n${errors.map((row) => {
     const storedError = input.siteChecks.find(
       (check) => orgKey(check.organisation_name) === orgKey(row.organisationName),
@@ -418,6 +473,7 @@ function buildVacancyReport(input: {
     revived: number;
     careersUrl: string | null;
     atsProvider: string | null;
+    diagnostics?: CompanySiteDiscoveryDiagnostics | null;
   }>;
   verificationRows: Array<{
     id: number;
@@ -514,17 +570,50 @@ async function main(): Promise<void> {
   assertDevelopmentOnly();
   const apply = process.argv.includes("--apply-dev");
   const healthcareOnly = process.argv.includes("--healthcare");
-  const segmentFilter = healthcareOnly ? "healthcare_social_care" : null;
-  const paths = outputPaths(healthcareOnly);
+  const approved26 = process.argv.includes("--approved-26");
+  if (healthcareOnly && approved26) {
+    throw new Error("Choose either --healthcare or --approved-26; their sample scopes cannot be combined.");
+  }
+  const segmentFilter = approved26
+    ? "previously_auto_promote_26_mixed_sectors"
+    : healthcareOnly ? "healthcare_social_care" : null;
+  const paths = outputPaths(healthcareOnly, approved26);
   const audit = JSON.parse(await readFile(SAMPLE_PATH, "utf8")) as AuditSnapshot;
   if (!audit.runId || !Array.isArray(audit.records) || !Array.isArray(audit.pageOutcomes)) {
     throw new Error("Saved website audit is missing the required runId, records, or pageOutcomes.");
   }
-  const sampleRecords = segmentFilter
-    ? audit.records.filter((record) => record.sector === segmentFilter)
-    : audit.records;
+  let priorApprovedNames: Set<string> | null = null;
+  if (approved26) {
+    const previous = JSON.parse(await readFile(PRIOR_APPROVED_CLASSIFICATION_PATH, "utf8")) as {
+      records?: Array<{ organisation_name?: string; promotion_decision?: string }>;
+    };
+    const previousAuto = (previous.records ?? [])
+      .filter((record) => record.promotion_decision === "auto_promote")
+      .map((record) => record.organisation_name?.trim() ?? "")
+      .filter(Boolean);
+    priorApprovedNames = new Set(previousAuto.map(orgKey));
+    if (priorApprovedNames.size !== 26 || previousAuto.length !== 26) {
+      throw new Error(
+        `Expected exactly 26 unique previously auto-approved employers; found ${previousAuto.length} rows and ${priorApprovedNames.size} unique names.`,
+      );
+    }
+  }
+  const sampleRecords = approved26
+    ? audit.records.filter((record) => priorApprovedNames!.has(orgKey(record.organisationName)))
+    : healthcareOnly
+      ? audit.records.filter((record) => record.sector === "healthcare_social_care")
+      : audit.records;
   if (sampleRecords.length === 0) {
     throw new Error(`Saved website audit contains no employers in sector ${segmentFilter}.`);
+  }
+  if (approved26) {
+    const sampledNames = new Set(sampleRecords.map((record) => orgKey(record.organisationName)));
+    const missing = [...priorApprovedNames!].filter((name) => !sampledNames.has(name));
+    if (sampledNames.size !== 26 || missing.length > 0 || sampleRecords.length !== 26) {
+      throw new Error(
+        `Approved-26 scope does not match the saved audit exactly (records=${sampleRecords.length}, unique=${sampledNames.size}, missing=${missing.length}).`,
+      );
+    }
   }
   const organisationNames = [...new Set(sampleRecords.map((record) => orgKey(record.organisationName)))];
   const currentResult = await db.execute<SponsorDbRow>(sql`
@@ -619,6 +708,11 @@ async function main(): Promise<void> {
     };
   });
   const decisionCounts = countDecisions(classificationRows);
+  if (approved26 && apply && decisionCounts.auto_promote !== 26) {
+    throw new Error(
+      `Refusing the approved-26 apply: current safety classification permits ${decisionCounts.auto_promote} of the 26 previously approved employers.`,
+    );
+  }
   let execution: Record<string, unknown> = {
     status: "dry_run",
     importedWebsiteRows: 0,
@@ -638,6 +732,7 @@ async function main(): Promise<void> {
     repeatedInserted: number;
     careersUrl: string | null;
     atsProvider: string | null;
+    diagnostics?: CompanySiteDiscoveryDiagnostics | null;
     error?: string;
   }> = [];
   let siteChecks: Array<{
@@ -785,6 +880,7 @@ async function main(): Promise<void> {
           repeatedInserted: outcome.repeatImport?.inserted ?? 0,
           careersUrl: outcome.careersUrl,
           atsProvider: outcome.atsProvider,
+          diagnostics: outcome.diagnostics ?? null,
           ...(outcome.repeatImport?.inserted
             ? { error: `repeat import inserted ${outcome.repeatImport.inserted} duplicate row(s)` }
             : {}),

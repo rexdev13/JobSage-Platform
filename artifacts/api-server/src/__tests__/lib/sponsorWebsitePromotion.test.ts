@@ -51,7 +51,7 @@ describe("sponsor website promotion classifier", () => {
     expect(result.blockedHostCheck).toContain("cutshort.io");
   });
 
-  it("requires review when the page confirms identity but the brand match is weak", () => {
+  it("auto-promotes a strongly identity-confirmed employer page despite a weaker domain match", () => {
     expect(classifySponsorWebsitePromotion(candidate({
       candidateWebsite: "https://carrickcare.co.uk/",
       evidenceUrl: "https://carrickcare.co.uk/carrick-house/",
@@ -60,17 +60,28 @@ describe("sponsor website promotion classifier", () => {
       pageTitle: "Carrick House | Carrick Care",
       pageExcerpt: "Carrick House nursing home in Ayr, Scotland",
       townCity: "AYR",
-    })).promotionDecision).toBe("review_required");
+    })).promotionDecision).toBe("auto_promote");
   });
 
-  it("rejects conflicting geography and reviews missing location evidence", () => {
+  it("rejects conflicting geography but allows missing location evidence without a conflict", () => {
     expect(classifySponsorWebsitePromotion(candidate({
       geographyMismatch: true,
     })).promotionDecision).toBe("reject");
     expect(classifySponsorWebsitePromotion(candidate({
       pageExcerpt: "Ashburton House Care Home",
       townCity: "Darlington",
-    })).promotionDecision).toBe("review_required");
+    })).promotionDecision).toBe("auto_promote");
+  });
+
+  it("allows a strong employer-domain match without page identity or positive location evidence", () => {
+    expect(classifySponsorWebsitePromotion(candidate({
+      originalConfidence: "medium",
+      identityVerified: false,
+      pageTitle: null,
+      pageExcerpt: null,
+      candidateSnippet: null,
+      townCity: null,
+    })).promotionDecision).toBe("auto_promote");
   });
 
   it("does not auto-promote an existing conflicting website or unverified ATS lead", () => {
