@@ -1,0 +1,148 @@
+We need to turn the website enrichment sample into an automated promotion test and run it now in development.
+
+Do not require manual review for every website.
+Do not write production data.
+Do not deploy.
+Do not copy the development database to production.
+
+Context:
+The website enrichment sample found:
+- 100 unique employers
+- 70 high-confidence identity matches
+- 1 medium-confidence match
+- 18 low-confidence matches
+- 11 no confirmed site
+- 10 high-confidence careers pages
+- 1 medium-confidence careers page
+- 0 verified ATS boards from the sample
+- 2 unverified ATS leads
+- separately, 3 confirmed ATS boards imported successfully with 59/59 live dev vacancies
+
+Correction:
+“High confidence” means the fetched page matched employer identity. It does not automatically prove the employer owns the domain. Therefore we need an automatic promotion classifier.
+
+Goal:
+Run an automated classifier on the broad website enrichment candidate set, especially the 70 high-confidence identity matches, and classify each into:
+
+1. `auto_promote`
+2. `review_required`
+3. `reject`
+
+Then automatically import only `auto_promote` rows into development, run vacancy discovery only on those imported/approved websites, and report the results.
+
+Classification rules:
+
+AUTO_PROMOTE only if all are true:
+- domain or brand strongly matches employer/trading name
+- fetched page title/body confirms employer identity
+- no geography mismatch
+- host is not a social site, directory, job board, aggregator, government registry, Companies House, LinkedIn, Indeed, Reed, Glassdoor, Facebook, Instagram, X/Twitter, carehome.co.uk, jobs.nhs.uk, etc.
+- URL is HTTPS or safely redirects to HTTPS
+- evidence URL is saved
+- existing verified website/careers/ATS data is not overwritten
+- the page is an employer-owned or employer-branded website, not merely a third-party profile page
+
+REVIEW_REQUIRED if:
+- identity matches but domain ownership is unclear
+- domain does not strongly match employer/brand name
+- page is third-party but possibly useful
+- location evidence is missing
+- confidence is medium
+- ATS lead exists but ownership is not proven
+- there is any ambiguity that makes automatic production promotion unsafe
+
+REJECT if:
+- wrong employer
+- conflicting location
+- social/directory/job board/aggregator only
+- Companies House/GOV.UK/LinkedIn/Indeed/Reed/Glassdoor/Facebook/Instagram/X only
+- broken/unreachable
+- irrelevant page
+- product/gallery/blog/login/register page only
+- employer identity is not confirmed
+
+Tasks:
+
+1. Load the previous website enrichment sample
+Use the existing development-only sample outputs:
+- employer summary
+- candidate results
+- protected page checks
+- safe-page-results JSON if available
+
+Do not rerun the whole enrichment unless required.
+Use the existing 100-employer sample and classify the candidates.
+
+2. Classify all candidates
+For each candidate, output:
+- sponsor_licence_id
+- organisation_name
+- candidate_website
+- candidate_careers_url if any
+- source
+- original_confidence
+- promotion_decision: auto_promote / review_required / reject
+- decision_reason
+- evidence_url
+- domain_match_score
+- identity_match_evidence
+- geography_check
+- blocked_host_check
+- existing_data_conflict_check
+
+3. Development-only import
+Automatically import only rows with `promotion_decision = auto_promote` into development.
+
+Import rules:
+- update only missing `sponsor_licences.website`
+- do not overwrite existing website unless the existing value is blank
+- do not overwrite existing verified careers/ATS mappings
+- store confidence and evidence in the appropriate enrichment/company-site record
+- do not import review_required rows
+- do not import rejected rows
+- do not write production data
+
+4. Run vacancy discovery from approved websites
+After importing auto_promote websites in development:
+- run careers/company-site discovery only for the auto-promoted employers
+- do not run discovery on review_required or rejected employers
+- detect careers pages
+- detect Ashby/Greenhouse/Lever links
+- detect unsupported ATS leads
+- run direct feed collection only for verified supported ATS mappings
+- if generic company-site crawling runs, keep strict limits and do not mark existing vacancies closed on partial/inconclusive scans
+
+5. Verify vacancies
+For any vacancies imported in development:
+- repeat import and confirm 0 duplicate inserts
+- verify sample detail/application URLs
+- confirm liveness status
+- report candidate-facing visibility if possible
+
+6. Output files
+Create:
+- `website-promotion-classification.csv`
+- `website-promotion-classification.json`
+- `website-auto-promote-import-report.md`
+- `website-auto-promote-vacancy-results.md`
+
+7. Final report
+Answer plainly:
+- How many of the broad 70 high-confidence candidates became auto_promote?
+- How many became review_required?
+- How many were rejected?
+- How many websites were imported into development?
+- How many careers pages were found from those imported websites?
+- How many ATS boards were detected?
+- How many ATS boards were verified?
+- How many vacancies were imported from those approved websites?
+- Did repeat import create duplicates?
+- How many links verified live?
+- Is this enough to justify a tiny production promotion batch later?
+- What rule blocked most candidates?
+
+Important:
+No production writes.
+No deployment.
+No Replit database copy.
+Run this now in development and return the actual results.

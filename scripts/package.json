@@ -8,6 +8,8 @@
     "pricing:model": "node ./generate-pricing-model.mjs",
     "sponsor-contacts": "tsx ./src/sponsor-contact-discovery/cli.ts",
     "sponsor-contacts:test": "tsx ./src/sponsor-contact-discovery/selfTest.ts",
+    "sponsor-enrichment-export": "tsx ./src/sponsorEnrichmentExport.ts",
+    "sponsor-enrichment-export:test": "tsx ./src/sponsorEnrichmentExportSelfTest.ts",
     "test:inbound-reply": "tsx ./test-inbound-reply.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
