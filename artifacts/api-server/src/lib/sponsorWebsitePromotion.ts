@@ -301,6 +301,8 @@ export function classifySponsorWebsitePromotion(
     input.organisationName,
     input.candidateWebsite,
   );
+  const strongDomainMatch = domainMatchScore >= 80;
+  const identityConfirmed = input.fetched && input.identityVerified;
   const identityMatchEvidence =
     input.fetched && input.identityVerified && input.pageUrl
       ? [
@@ -340,9 +342,6 @@ export function classifySponsorWebsitePromotion(
   if (!input.fetched) {
     return result("reject", "candidate page was not fetched successfully");
   }
-  if (!input.identityVerified) {
-    return result("reject", "fetched page did not confirm the employer identity");
-  }
   if (existingData.hasConflict) {
     return result("review_required", existingData.detail);
   }
@@ -352,14 +351,11 @@ export function classifySponsorWebsitePromotion(
   if (input.atsLeadUnverified) {
     return result("review_required", "an ATS lead exists but its employer mapping is unverified");
   }
-  if (input.originalConfidence !== "high") {
-    return result("review_required", `original confidence is ${input.originalConfidence}, not high`);
-  }
-  if (domainMatchScore < 80) {
-    return result("review_required", `domain/brand match is not strong enough (score ${domainMatchScore}/100)`);
-  }
-  if (geographyCheck === "missing") {
-    return result("review_required", "page identity is confirmed, but location evidence is missing");
+  if (!strongDomainMatch && !identityConfirmed) {
+    return result(
+      "review_required",
+      `neither a strong domain/brand match (${domainMatchScore}/100) nor page-confirmed employer identity was found`,
+    );
   }
   if (!input.evidenceUrl || !isSecureAndSameSite(input)) {
     return result("review_required", "HTTPS page/evidence or same-site redirect could not be confirmed");
@@ -369,6 +365,11 @@ export function classifySponsorWebsitePromotion(
   }
   return result(
     "auto_promote",
-    `high-confidence employer identity; strong brand/domain match (${domainMatchScore}/100); location corroborated; HTTPS evidence is same-site`,
+    [
+      strongDomainMatch ? `strong brand/domain match (${domainMatchScore}/100)` : null,
+      identityConfirmed ? "fetched page confirms employer identity" : null,
+      geographyCheck === "match" ? "location corroborated" : "no conflicting geography evidence",
+      "HTTPS evidence is same-site",
+    ].filter(Boolean).join("; "),
   );
 }

@@ -9,6 +9,7 @@ import { eq, sql } from "drizzle-orm";
 import {
   discoverCompanySiteVacancies,
   persistCompanySiteVacancies,
+  type CompanySiteDiscoveryDiagnostics,
 } from "./companySiteDiscovery";
 import { parseDirectBoardMapping } from "./directEmployerBoardConnectors";
 import {
@@ -86,6 +87,7 @@ export type CompanySiteCheckOutcome =
       careersUrl: string | null;
       atsProvider: string | null;
       repeatImport?: { inserted: number; updated: number; revived: number };
+      diagnostics?: CompanySiteDiscoveryDiagnostics;
     };
 
 export type CompanySiteEmployerRunMetric = {
@@ -887,7 +889,8 @@ export async function runCompanySiteCheck(
     ukLocationUnknown: Math.max(0, result.adverts.length - ukLocationKnown),
     careersUrl: result.careersUrl,
     atsProvider: result.atsProvider,
-      repeatImport,
+    repeatImport,
+    diagnostics: result.diagnostics,
   };
 }
 

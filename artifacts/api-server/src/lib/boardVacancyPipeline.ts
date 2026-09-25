@@ -45,7 +45,7 @@ export interface BoardAdvert {
   expiresAt?: Date | null;
   closedReason?: string | null;
   companyVacancyEvidence?: {
-    kind: "json_ld_job_posting" | "known_ats_posting" | "structured_job_card";
+    kind: "json_ld_job_posting" | "microdata_job_posting" | "known_ats_posting" | "structured_job_card";
     listingUrl?: string;
     provider?: string;
   };

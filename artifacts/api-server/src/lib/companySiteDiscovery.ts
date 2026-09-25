@@ -28,7 +28,8 @@ export const MAX_COMPANY_SITE_DISCOVERY_PAGES = 6;
 export const MAX_COMPANY_SITE_VACANCIES_PER_EMPLOYER = Number.POSITIVE_INFINITY;
 const MAX_RESUMABLE_CRAWL_URLS = 100;
 
-const CAREERS_SIGNAL = /\b(career|careers|job|jobs|vacanc|vacancies|open positions|opportunities|join (?:our|the) team|work (?:for|with) us)\b/i;
+const CAREERS_SIGNAL =
+  /\b(?:careers?|jobs?|vacanc(?:y|ies)|join us|join (?:our|the) team|work (?:for|with) us|recruitment|current openings?|opportunities|hiring|apprenticeships?|volunteers?|get involved)\b/i;
 const VACANCY_SIGNAL =
   /\b(jobs?|vacanc(?:y|ies)|positions?|roles?|opportunit(?:y|ies)|openings?|apply)\b/i;
 const NAVIGATION_MARKER =
@@ -43,9 +44,31 @@ const CAREER_RECRUITMENT_CONTEXT =
   /\b(?:job|vacanc(?:y|ies)|role|position|hiring|recruit(?:ment|er)|apply|current openings?|open roles?)\b/i;
 const CAREER_LISTING_HEADING =
   /\b(?:current|open|available|search|browse)\s+(?:jobs?|vacanc(?:y|ies)|positions?|roles?|openings?)\b|\b(?:we(?:'re| are) hiring|job openings|no current vacancies)\b/i;
+const CAREER_LISTING_PATH =
+  /\/(?:careers?|jobs?|vacanc(?:y|ies)|current-vacanc(?:y|ies)|open-positions|job-openings|positions?|roles?|employment|opportunities|openings?|all-jobs)(?:\.html?)?\/?$/i;
+const CAREER_LISTING_LINK_TEXT =
+  /^\s*(?:(?:current|open|available|all|view|browse|search)\s+)?(?:(?:job|career|employment)\s+)?(?:careers?|jobs?|vacanc(?:y|ies)|positions?|roles?|opportunities|openings?)(?:\s+(?:at|with)\s+[\w\s&'’.-]{1,50})?\s*$/i;
 const PAGINATION_SIGNAL = /\b(next|more jobs|older jobs|page\s*\d+)\b/i;
-const SITEMAP_SIGNAL = /(?:^|\/)sitemap(?:[_-][^/]+)?\.xml(?:$|\?)/i;
+const SITEMAP_SIGNAL = /(?:^|\/)[^/]*sitemap[^/]*\.xml(?:$|\?)/i;
 const SITEMAP_LOC_PATTERN = /<loc\b[^>]*>\s*([\s\S]*?)\s*<\/loc>/gi;
+const SITEMAP_EXCLUDED_PATH =
+  /\/(?:products?|blog|news|press|media|galleries?|shop|events?)(?:\/|$)/i;
+const MAX_DIAGNOSTIC_LINKS = 80;
+const MAX_SITEMAP_CHILDREN_PER_EMPLOYER = 4;
+const MAX_SITEMAP_URLS_PER_DOCUMENT = 25;
+const DIRECT_IMPORT_ATS_PROVIDERS = new Set(["Ashby", "Greenhouse", "Lever"]);
+const ATS_PLATFORM_HOSTS: Array<{ provider: string; suffixes: string[] }> = [
+  { provider: "Workday", suffixes: ["myworkdayjobs.com", "myworkdaysite.com"] },
+  { provider: "Oracle Recruiting", suffixes: ["oraclecloud.com"] },
+  { provider: "Teamtailor", suffixes: ["teamtailor.com"] },
+  { provider: "BambooHR", suffixes: ["bamboohr.com"] },
+  { provider: "iCIMS", suffixes: ["icims.com"] },
+  { provider: "Pinpoint", suffixes: ["pinpointhq.com"] },
+  { provider: "SmartRecruiters", suffixes: ["smartrecruiters.com"] },
+  { provider: "Workable", suffixes: ["workable.com"] },
+  { provider: "Personio", suffixes: ["personio.com"] },
+  { provider: "Recruitee", suffixes: ["recruitee.com"] },
+];
 
 type ExtractedLink = {
   url: string;
@@ -53,6 +76,60 @@ type ExtractedLink = {
   atsProvider: string | null;
   contextText: string;
   inNavigation: boolean;
+  diagnostic?: CompanySiteLinkDiagnostic;
+};
+
+export type CompanySiteFetchDiagnostic = {
+  url: string;
+  fetchedUrl: string | null;
+  status: number | null;
+  fetched: boolean;
+  failureKind: string | null;
+  reason: string | null;
+};
+
+export type CompanySiteLinkDiagnostic = {
+  url: string;
+  sourceUrl: string;
+  text: string;
+  category: "careers" | "vacancy" | "ats";
+  decision: "queued" | "vacancy_evidence" | "rejected" | "not_followed";
+  reason: string | null;
+  atsProvider: string | null;
+};
+
+export type CompanySiteAtsDiagnostic = {
+  provider: string;
+  url: string;
+  sourceUrl: string;
+  supportedForImport: boolean;
+  linkedFromFirstParty: boolean;
+  followed: boolean;
+  reason: string | null;
+};
+
+export type CompanySiteDiscoveryDiagnostics = {
+  homepageUrl: string;
+  homepageFetched: boolean;
+  homepageHttpStatus: number | null;
+  careersPageFound: boolean;
+  careersUrl: string | null;
+  careersHttpStatus: number | null;
+  careersFailureKind: string | null;
+  pagesCrawled: number;
+  pagesAttempted: number;
+  sitemapChecked: boolean;
+  sitemapDocuments: string[];
+  robotsResult: string;
+  pageFetches: CompanySiteFetchDiagnostic[];
+  linksConsidered: CompanySiteLinkDiagnostic[];
+  rejectedCareersLinks: CompanySiteLinkDiagnostic[];
+  atsLinksSeen: CompanySiteAtsDiagnostic[];
+  jsonLdJobPostingFound: boolean;
+  microdataJobPostingFound: boolean;
+  vacancyLikePages: string[];
+  explicitNoVacancies: boolean;
+  jsRenderedJobsLikely: boolean;
 };
 
 export type CompanySiteDiscoveryResult = {
@@ -77,6 +154,7 @@ export type CompanySiteDiscoveryResult = {
   discoveredUrls: string[];
   observedAdvertUrls: string[];
   resumeState: CompanySiteDiscoveryOptions["resumeState"];
+  diagnostics: CompanySiteDiscoveryDiagnostics;
 };
 
 export type CompanySiteDiscoveryOptions = {
@@ -195,6 +273,137 @@ function pageHeadingText(html: string): string {
   return headings.join(" ");
 }
 
+function detectedAtsProvider(value: string): string | null {
+  const known = knownAtsProvider(value);
+  if (known) return known;
+  let hostname = value;
+  try {
+    hostname = new URL(value).hostname;
+  } catch {
+    // The caller may have supplied a hostname.
+  }
+  const host = hostname.toLowerCase().replace(/^www\./, "");
+  return ATS_PLATFORM_HOSTS.find(({ suffixes }) =>
+    suffixes.some((suffix) => host === suffix || host.endsWith(`.${suffix}`)),
+  )?.provider ?? null;
+}
+
+function emptyDiscoveryDiagnostics(homepageUrl: string): CompanySiteDiscoveryDiagnostics {
+  return {
+    homepageUrl,
+    homepageFetched: false,
+    homepageHttpStatus: null,
+    careersPageFound: false,
+    careersUrl: null,
+    careersHttpStatus: null,
+    careersFailureKind: null,
+    pagesCrawled: 0,
+    pagesAttempted: 0,
+    sitemapChecked: false,
+    sitemapDocuments: [],
+    robotsResult: "not checked",
+    pageFetches: [],
+    linksConsidered: [],
+    rejectedCareersLinks: [],
+    atsLinksSeen: [],
+    jsonLdJobPostingFound: false,
+    microdataJobPostingFound: false,
+    vacancyLikePages: [],
+    explicitNoVacancies: false,
+    jsRenderedJobsLikely: false,
+  };
+}
+
+function addAtsDiagnostic(
+  diagnostics: CompanySiteDiscoveryDiagnostics,
+  provider: string,
+  url: string,
+  sourceUrl: string,
+  linkedFromFirstParty: boolean,
+  followed: boolean,
+  reason: string | null,
+): CompanySiteAtsDiagnostic {
+  const existing = diagnostics.atsLinksSeen.find(
+    (entry) => entry.provider === provider && entry.url === url,
+  );
+  if (existing) {
+    existing.followed ||= followed;
+    if (linkedFromFirstParty) existing.linkedFromFirstParty = true;
+    if (followed) existing.reason = null;
+    return existing;
+  }
+  const entry: CompanySiteAtsDiagnostic = {
+    provider,
+    url,
+    sourceUrl,
+    supportedForImport: DIRECT_IMPORT_ATS_PROVIDERS.has(provider),
+    linkedFromFirstParty,
+    followed,
+    reason,
+  };
+  if (diagnostics.atsLinksSeen.length < MAX_DIAGNOSTIC_LINKS) {
+    diagnostics.atsLinksSeen.push(entry);
+  }
+  return entry;
+}
+
+function addLinkDiagnostic(
+  diagnostics: CompanySiteDiscoveryDiagnostics,
+  entry: CompanySiteLinkDiagnostic,
+): CompanySiteLinkDiagnostic | undefined {
+  if (diagnostics.linksConsidered.length >= MAX_DIAGNOSTIC_LINKS) return undefined;
+  diagnostics.linksConsidered.push(entry);
+  if (entry.category === "careers" && entry.decision === "rejected" &&
+    diagnostics.rejectedCareersLinks.length < MAX_DIAGNOSTIC_LINKS) {
+    diagnostics.rejectedCareersLinks.push(entry);
+  }
+  return entry;
+}
+
+function isCareerListingDestination(link: ExtractedLink): boolean {
+  if (link.atsProvider) return false;
+  let pathname = "";
+  try {
+    pathname = new URL(link.url).pathname;
+  } catch {
+    return false;
+  }
+  const pathMatches = CAREER_LISTING_PATH.test(pathname);
+  const textMatches = CAREER_LISTING_LINK_TEXT.test(textFromHtml(link.text).trim());
+  return (pathMatches || textMatches) &&
+    !isGenericCareersContent(`${link.text} ${link.contextText}`);
+}
+
+function careerCandidateRejectionReason(link: ExtractedLink): string | null {
+  if (isCareerListingDestination(link)) return null;
+  if (isNonVacancyCareerUtilityUrl(link.url)) return "non-vacancy careers utility or policy page";
+  if (isGenericCareersContent(`${link.text} ${link.contextText}`)) {
+    return "generic culture, values, or team content without vacancy evidence";
+  }
+  const destinationSignal = CAREERS_SIGNAL.test(`${link.text} ${new URL(link.url).pathname}`);
+  const localRecruitmentContext = VACANCY_SIGNAL.test(`${link.text} ${link.contextText}`);
+  if (!destinationSignal) return "URL and link text do not identify a careers destination";
+  if (!link.inNavigation && !localRecruitmentContext) {
+    return "careers wording lacks navigation or local recruitment context";
+  }
+  return null;
+}
+
+function explicitNoVacancyText(html: string): boolean {
+  return /\b(?:no current (?:job|vacanc(?:y|ies)|openings?)|no (?:job|vacanc(?:y|ies)|positions?) available|we (?:currently )?have no (?:job|vacanc(?:y|ies)|openings?)|there are no current (?:job|vacanc(?:y|ies)))\b/i
+    .test(textFromHtml(html));
+}
+
+function likelyJsRenderedJobs(html: string): boolean {
+  const appReferencesJobs =
+    /<(?:iframe|script)\b[^>]*(?:src|data-src)\s*=\s*["'][^"']*(?:career|job|vacanc|workday|teamtailor|icims|workable|personio|recruitee)[^"']*["']/i
+      .test(html) ||
+    /\b(?:data-(?:jobs|careers|vacancies)|job-search-widget|careers-widget|jobs-widget)\b/i.test(html);
+  const visibleJobContext = /\b(?:current|open|available|browse|search)\s+(?:jobs?|vacanc(?:y|ies)|roles?|positions?)\b|\b(?:we're hiring|we are hiring|apply now)\b/i
+    .test(textFromHtml(html));
+  return appReferencesJobs && visibleJobContext;
+}
+
 function isGenericCareersContent(value: string): boolean {
   const text = textFromHtml(value);
   return CAREER_CONTENT_TOPIC.test(text) &&
@@ -202,6 +411,7 @@ function isGenericCareersContent(value: string): boolean {
 }
 
 function isCareersDestinationLink(link: ExtractedLink): boolean {
+  if (isCareerListingDestination(link)) return true;
   if (isNonVacancyCareerUtilityUrl(link.url)) return false;
   let path = "";
   try {
@@ -294,7 +504,13 @@ function isNonSpecificBambooHrPosting(url: string, title: string): boolean {
   return knownAtsProvider(url) === "BambooHR" && NON_SPECIFIC_BAMBOOHR_TITLE.test(title.trim());
 }
 
-function extractAnchors(html: string, baseUrl: string, originHostname: string): ExtractedLink[] {
+function extractAnchors(
+  html: string,
+  baseUrl: string,
+  originHostname: string,
+  diagnostics: CompanySiteDiscoveryDiagnostics = emptyDiscoveryDiagnostics(baseUrl),
+  rejectionReasons?: Record<string, number>,
+): ExtractedLink[] {
   const links: ExtractedLink[] = [];
   const seen = new Set<string>();
   const pattern = /<a\b([^>]*)>([\s\S]*?)<\/a>/gi;
@@ -309,19 +525,158 @@ function extractAnchors(html: string, baseUrl: string, originHostname: string): 
       continue;
     }
     const canonical = canonicalVacancyUrl(url) ?? url;
-    if (seen.has(canonical) || !isAllowedCompanyDestination(originHostname, canonical)) continue;
-    if (isBlockedVacancyUrl(canonical)) continue;
+    if (seen.has(canonical)) continue;
     seen.add(canonical);
     const context = anchorContext(html, match.index ?? 0, (match.index ?? 0) + match[0].length);
     const anchorNavigationMarkup = [...(match[0] ?? "").matchAll(/<[a-z][^>]*>/gi)]
       .some((tagMatch) => NAVIGATION_MARKER.test(tagMatch[0] ?? ""));
-    links.push({
+    const text = textFromHtml(match[2] ?? "");
+    const provider = detectedAtsProvider(canonical);
+    const candidatePath = new URL(canonical).pathname;
+    const careerSignal = CAREERS_SIGNAL.test(`${text} ${candidatePath}`);
+    const vacancySignal = VACANCY_SIGNAL.test(`${text} ${new URL(canonical).pathname}`);
+    const postingOrPagination = isSpecificRoleLink({
       url: canonical,
-      text: textFromHtml(match[2] ?? ""),
-      atsProvider: knownAtsProvider(canonical),
+      text,
+      atsProvider: provider,
+      contextText: context.text,
+      inNavigation: context.inNavigation || anchorNavigationMarkup,
+    }) || isPaginationLink({
+      url: canonical,
+      text,
+      atsProvider: provider,
       contextText: context.text,
       inNavigation: context.inNavigation || anchorNavigationMarkup,
     });
+    const editorialPath = NEGATIVE_CONTENT_PATH.test(candidatePath);
+    const editorialLink = editorialPath;
+    const relevant = careerSignal || vacancySignal || provider !== null || editorialLink;
+    if (!relevant) continue;
+    const link: ExtractedLink = {
+      url: canonical,
+      text,
+      atsProvider: provider,
+      contextText: context.text,
+      inNavigation: context.inNavigation || anchorNavigationMarkup,
+    };
+    const pageIsFirstParty = isFirstPartyHost(originHostname, new URL(baseUrl).hostname);
+    const blocked = isBlockedVacancyUrl(canonical);
+    const allowed = isAllowedCompanyDestination(originHostname, canonical);
+    const unsupportedAts = provider !== null && !DIRECT_IMPORT_ATS_PROVIDERS.has(provider);
+    const careerReason = careerSignal && !postingOrPagination && !isRecruitmentAtsLink(link)
+      ? careerCandidateRejectionReason(link)
+      : null;
+    const editorialReason = editorialLink;
+    let decision: CompanySiteLinkDiagnostic["decision"] = "queued";
+    let reason: string | null = null;
+    if (blocked) {
+      decision = "rejected";
+      reason = "blocked by vacancy URL policy";
+    } else if (unsupportedAts) {
+      decision = "not_followed";
+      reason = `unsupported ${provider} platform recorded but not crawled or imported`;
+    } else if (!allowed) {
+      decision = "rejected";
+      reason = "destination is outside the approved employer site or supported ATS scope";
+    } else if (editorialReason) {
+      decision = "rejected";
+      reason = "news, blog, press, or other editorial destination";
+    } else if (careerReason) {
+      decision = "rejected";
+      reason = careerReason;
+    }
+    if (provider) {
+      addAtsDiagnostic(
+        diagnostics,
+        provider,
+        canonical,
+        baseUrl,
+        pageIsFirstParty,
+        false,
+        unsupportedAts ? reason : null,
+      );
+      if (isRecruitmentAtsLink(link)) {
+        diagnostics.careersPageFound = true;
+        diagnostics.careersUrl ??= canonical;
+      }
+    }
+    const diagnostic = addLinkDiagnostic(diagnostics, {
+      url: canonical,
+      sourceUrl: baseUrl,
+      text: text.slice(0, 220),
+      category: provider ? "ats" : careerSignal && !postingOrPagination ? "careers" : "vacancy",
+      decision,
+      reason,
+      atsProvider: provider,
+    });
+    if (careerSignal && decision === "rejected" && diagnostic &&
+      !diagnostics.rejectedCareersLinks.includes(diagnostic)) {
+      diagnostics.rejectedCareersLinks.push(diagnostic);
+    }
+    if (editorialReason && rejectionReasons) {
+      rejectionReasons.negative_editorial_context =
+        (rejectionReasons.negative_editorial_context ?? 0) + 1;
+    } else if (rejectionReasons && !isValidVacancyDeepLink(canonical) && (careerSignal || vacancySignal)) {
+      rejectionReasons.invalid_deep_link = (rejectionReasons.invalid_deep_link ?? 0) + 1;
+    } else if (careerReason && rejectionReasons) {
+      const title = cleanTitle(text, canonical);
+      const reasonCode = isGenericCareersContent(`${text} ${context.text}`)
+        ? "generic_careers_content"
+        : title && isLikelyEditorialTitle(title)
+          ? "editorial_or_non_vacancy_title"
+          : "missing_listing_context_or_vacancy_signal";
+      rejectionReasons[reasonCode] = (rejectionReasons[reasonCode] ?? 0) + 1;
+    }
+    if (blocked || unsupportedAts || !allowed || careerReason || editorialReason) continue;
+    link.diagnostic = diagnostic;
+    links.push(link);
+  }
+
+  // Embedded ATS iframes are useful evidence, but script assets are never
+  // fetched as a substitute for an employer-linked vacancy page.
+  const embeddedPattern = /<(iframe|script)\b([^>]*)>/gi;
+  for (const match of html.matchAll(embeddedPattern)) {
+    const tag = (match[1] ?? "").toLowerCase();
+    const attrs = match[2] ?? "";
+    const rawUrl = attrs.match(/\b(?:src|data-src)\s*=\s*["']([^"']+)["']/i)?.[1];
+    if (!rawUrl) continue;
+    let url: string;
+    try {
+      url = new URL(decodeHtml(rawUrl), baseUrl).toString();
+    } catch {
+      continue;
+    }
+    const provider = detectedAtsProvider(url);
+    if (!provider) continue;
+    const supported = DIRECT_IMPORT_ATS_PROVIDERS.has(provider);
+    const firstParty = isFirstPartyHost(originHostname, new URL(baseUrl).hostname);
+    const shouldFollow = tag === "iframe" && supported && firstParty &&
+      isAllowedCompanyDestination(originHostname, url);
+    const reason = shouldFollow
+      ? null
+      : supported
+        ? "embedded platform is not a first-party careers link; not followed"
+        : `unsupported ${provider} platform recorded but not crawled or imported`;
+    addAtsDiagnostic(diagnostics, provider, url, baseUrl, firstParty, shouldFollow, reason);
+    if (shouldFollow && !seen.has(url)) {
+      const diagnostic = addLinkDiagnostic(diagnostics, {
+        url,
+        sourceUrl: baseUrl,
+        text: "Embedded careers platform",
+        category: "ats",
+        decision: "queued",
+        reason: null,
+        atsProvider: provider,
+      });
+      links.push({
+        url,
+        text: "Embedded careers platform",
+        atsProvider: provider,
+        contextText: "Embedded careers platform",
+        inNavigation: false,
+        diagnostic,
+      });
+    }
   }
   return links;
 }
@@ -374,11 +729,15 @@ function extractSitemapLinks(
   body: string,
   pageUrl: string,
   originHostname: string,
-): string[] {
-  const links: string[] = [];
+): { nestedSitemaps: string[]; urls: string[] } {
+  const nestedSitemaps: string[] = [];
+  const urls: string[] = [];
   const seen = new Set<string>();
+  const isIndex = /<sitemapindex\b/i.test(body);
   for (const match of body.matchAll(SITEMAP_LOC_PATTERN)) {
-    const raw = decodeHtml(match[1] ?? "").trim();
+    const raw = decodeHtml(
+      (match[1] ?? "").replace(/<!\[CDATA\[([\s\S]*?)\]\]>/gi, "$1"),
+    ).trim();
     if (!raw) continue;
     let url: string;
     try {
@@ -393,9 +752,10 @@ function extractSitemapLinks(
       isBlockedVacancyUrl(canonical)
     ) continue;
     seen.add(canonical);
-    links.push(canonical);
+    if (isIndex || SITEMAP_SIGNAL.test(canonical)) nestedSitemaps.push(canonical);
+    else urls.push(canonical);
   }
-  return links;
+  return { nestedSitemaps, urls };
 }
 
 function isSitemapDocument(body: string, contentType: string): boolean {
@@ -405,13 +765,38 @@ function isSitemapDocument(body: string, contentType: string): boolean {
 function isLikelySitemapVacancyUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
-    return (
-      SITEMAP_SIGNAL.test(url) ||
-      VACANCY_SIGNAL.test(`${parsed.pathname} ${parsed.search}`)
-    );
+    const pathAndQuery = `${parsed.pathname} ${parsed.search}`;
+    if (!CAREERS_SIGNAL.test(pathAndQuery)) return false;
+    if (SITEMAP_EXCLUDED_PATH.test(parsed.pathname) &&
+      !/\b(?:job|vacanc|career|recruit|opening|position|role)\b/i.test(parsed.pathname)) {
+      return false;
+    }
+    return true;
   } catch {
     return false;
   }
+}
+
+function sitemapUrlPriority(url: string): number {
+  const path = new URL(url).pathname;
+  return (
+    (/\b(?:job|vacanc|career|recruit|opening)\b/i.test(path) ? 4 : 0) +
+    (/\b(?:position|role|hiring|opportunit)\b/i.test(path) ? 2 : 0) +
+    (/\b(?:apprentice|volunteer)\b/i.test(path) ? 1 : 0)
+  );
+}
+
+function sitemapIndexPriority(url: string): number {
+  const path = new URL(url).pathname.toLowerCase();
+  const recruitmentMap =
+    /(?:job|vacanc|career|recruit|position|role|opening|employment|hiring)/i.test(path);
+  const generalPageMap = /(?:page|post)[-_]sitemap|sitemap[-_](?:pages|posts)/i.test(path);
+  const lowValueMap =
+    /(?:product|review|testimonial|client|portfolio|gallery|news|blog|press|media|event|category|tag|attachment)/i
+      .test(path);
+  return (recruitmentMap ? 100 : 0) +
+    (generalPageMap ? 10 : 0) -
+    (lowValueMap ? 50 : 0);
 }
 
 function jsonLdLocation(value: unknown): string | null {
@@ -435,6 +820,22 @@ function flattenJsonLd(value: unknown): Array<Record<string, unknown>> {
   const record = value as Record<string, unknown>;
   const graph = record["@graph"];
   return [record, ...(graph ? flattenJsonLd(graph) : [])];
+}
+
+function hasJsonLdJobPosting(html: string): boolean {
+  const scripts = html.match(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>[\s\S]*?<\/script>/gi) ?? [];
+  for (const script of scripts) {
+    const raw = script.replace(/^<script\b[^>]*>/i, "").replace(/<\/script>$/i, "").trim();
+    try {
+      if (flattenJsonLd(JSON.parse(raw)).some((record) => {
+        const type = record["@type"];
+        return type === "JobPosting" || (Array.isArray(type) && type.includes("JobPosting"));
+      })) return true;
+    } catch {
+      // Malformed JSON-LD is not structured vacancy evidence.
+    }
+  }
+  return false;
 }
 
 function extractJsonLdAdverts(
@@ -493,6 +894,113 @@ function extractJsonLdAdverts(
   return adverts;
 }
 
+function tagAttribute(attributes: string, name: string): string | null {
+  const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = attributes.match(new RegExp(`\\b${escapedName}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, "i"));
+  return decodeHtml(match?.[1] ?? match?.[2] ?? match?.[3] ?? "").trim() || null;
+}
+
+function matchingElementEnd(html: string, openTagEnd: number, tagName: string): number | null {
+  const tokenPattern = new RegExp(`<\\/?${tagName}\\b[^>]*>`, "gi");
+  tokenPattern.lastIndex = openTagEnd;
+  let depth = 1;
+  for (const token of html.matchAll(tokenPattern)) {
+    const raw = token[0] ?? "";
+    if (/^<\//.test(raw)) depth -= 1;
+    else if (!/\/>$/.test(raw)) depth += 1;
+    if (depth === 0) return (token.index ?? 0) + raw.length;
+  }
+  return null;
+}
+
+function itempropValue(scope: string, names: readonly string[]): string | null {
+  const accepted = new Set(names.map((name) => name.toLowerCase()));
+  const pattern = /<([a-z][a-z0-9:-]*)\b([^>]*)>/gi;
+  for (const match of scope.matchAll(pattern)) {
+    const tagName = match[1] ?? "";
+    const attributes = match[2] ?? "";
+    const props = (tagAttribute(attributes, "itemprop") ?? "")
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(Boolean);
+    if (!props.some((prop) => accepted.has(prop))) continue;
+    const attributeValue =
+      tagAttribute(attributes, "content") ??
+      tagAttribute(attributes, "href") ??
+      tagAttribute(attributes, "datetime") ??
+      tagAttribute(attributes, "value") ??
+      tagAttribute(attributes, "src");
+    if (attributeValue) return attributeValue;
+    const start = (match.index ?? 0) + match[0].length;
+    const close = scope.toLowerCase().indexOf(`</${tagName.toLowerCase()}`, start);
+    if (close >= 0) {
+      const value = textFromHtml(scope.slice(start, close));
+      if (value) return value;
+    }
+  }
+  return null;
+}
+
+function extractMicrodataAdverts(
+  html: string,
+  pageUrl: string,
+  originHostname: string,
+  organisationName: string,
+): BoardAdvert[] {
+  const adverts: BoardAdvert[] = [];
+  const openings = /<([a-z][a-z0-9:-]*)\b([^>]*)>/gi;
+  for (const match of html.matchAll(openings)) {
+    const tagName = match[1] ?? "";
+    const attributes = match[2] ?? "";
+    if (!/\bitemscope\b/i.test(attributes) ||
+      !/schema\.org\/JobPosting\b/i.test(tagAttribute(attributes, "itemtype") ?? "")) continue;
+    const elementStart = match.index ?? 0;
+    const openingEnd = elementStart + match[0].length;
+    const closingEnd = matchingElementEnd(html, openingEnd, tagName);
+    if (closingEnd === null) continue;
+    const scope = html.slice(openingEnd, closingEnd).slice(0, 80_000);
+    const titleValue = itempropValue(scope, ["title", "name"]);
+    const rawUrl = itempropValue(scope, ["url"]);
+    let url: string;
+    try {
+      url = new URL(rawUrl ?? pageUrl, pageUrl).toString();
+    } catch {
+      continue;
+    }
+    if (
+      !isAllowedCompanyDestination(originHostname, url) ||
+      !isValidVacancyDeepLink(url) ||
+      isBlockedVacancyUrl(url)
+    ) continue;
+    const title = titleValue ? cleanTitle(titleValue, url) : null;
+    if (!title || isLikelyEditorialTitle(title)) continue;
+    const description = itempropValue(scope, ["description"]);
+    const location = itempropValue(scope, ["jobLocation"]);
+    const datePosted = itempropValue(scope, ["datePosted"]);
+    const validThrough = itempropValue(scope, ["validThrough"]);
+    adverts.push({
+      organisationName,
+      employer: organisationName,
+      title,
+      location: location ? textFromHtml(location).slice(0, 500) : null,
+      salary: null,
+      url,
+      description: description ? textFromHtml(description).slice(0, 8_000) : null,
+      postedDate: datePosted,
+      targetRegions: null,
+      boardName: null,
+      externalId: null,
+      sourceType: "company_site",
+      contactEmail: extractAdvertContactEmail(scope, url),
+      contactEvidenceUrl: url,
+      closesAt: parseVacancyClosingDate(validThrough),
+      companyVacancyEvidence: { kind: "microdata_job_posting" },
+    });
+    if (adverts.length >= 20) break;
+  }
+  return adverts;
+}
+
 function isOpaqueAtsPostingLink(
   link: ExtractedLink,
   listingPageProvider: string | null,
@@ -533,12 +1041,16 @@ function advertsFromLinks(
     links,
   );
   return links.flatMap((link) => {
+    if (isCareerListingDestination(link)) return reject("generic_careers_content");
     if (!isValidVacancyDeepLink(link.url)) return reject("invalid_deep_link");
     const opaqueAtsPosting = isOpaqueAtsPostingLink(
       link,
       listingPageProvider,
       listingPageUrl,
     );
+    if (link.atsProvider && !opaqueAtsPosting) {
+      return reject("ats_landing_page_not_vacancy");
+    }
     const linkUrl = new URL(link.url);
     if (!opaqueAtsPosting && link.inNavigation) {
       return reject("navigation_link_not_vacancy");
@@ -598,9 +1110,11 @@ function selectNavigationLinks(
   visited: ReadonlySet<string>,
   listingPageProvider: string | null,
   listingPageUrl: string,
+  acceptedAdvertUrls: ReadonlySet<string>,
 ): ExtractedLink[] {
   return links
     .filter((link) => !visited.has(link.url))
+    .filter((link) => !acceptedAdvertUrls.has(link.url) || link.atsProvider !== null)
     .filter((link) => !isOpaqueAtsPostingLink(link, listingPageProvider, listingPageUrl))
     .filter((link) =>
       !(
@@ -632,6 +1146,8 @@ export async function discoverCompanySiteVacancies(
   options: CompanySiteDiscoveryOptions = {},
 ): Promise<CompanySiteDiscoveryResult> {
   const sourceUrl = normaliseSponsorWebsite(website);
+  const diagnostics = emptyDiscoveryDiagnostics(sourceUrl ?? website);
+  if (options.knownCareersUrl) diagnostics.careersUrl = options.knownCareersUrl;
   if (!sourceUrl) {
     return {
       adverts: [],
@@ -652,7 +1168,25 @@ export async function discoverCompanySiteVacancies(
       discoveredUrls: [],
       observedAdvertUrls: [],
       resumeState: null,
+      diagnostics,
     };
+  }
+  diagnostics.homepageUrl = sourceUrl;
+  if (options.knownCareersUrl) {
+    const storedProvider = detectedAtsProvider(options.knownCareersUrl);
+    if (storedProvider) {
+      addAtsDiagnostic(
+        diagnostics,
+        storedProvider,
+        options.knownCareersUrl,
+        sourceUrl,
+        false,
+        false,
+        options.knownCareersMappingVerified
+          ? "stored ATS mapping; verification will be handled by the existing connector"
+          : "stored ATS mapping is unverified; not followed without first-party evidence",
+      );
+    }
   }
   const rejectionReasons: Record<string, number> = {};
   const now = options.now ?? Date.now;
@@ -677,6 +1211,20 @@ export async function discoverCompanySiteVacancies(
     );
     if (direct.mapping) {
       const directAdverts = normaliseAndDedupeBoardAdverts(direct.adverts);
+      diagnostics.careersPageFound = true;
+      diagnostics.careersUrl = direct.mapping.evidenceUrl;
+      diagnostics.careersHttpStatus = null;
+      diagnostics.pagesCrawled = direct.pagesFetched;
+      diagnostics.pagesAttempted = direct.pagesFetched;
+      addAtsDiagnostic(
+        diagnostics,
+        direct.mapping.provider,
+        direct.mapping.evidenceUrl,
+        options.knownCareersEvidenceUrl ?? sourceUrl,
+        true,
+        true,
+        null,
+      );
       return {
         adverts: directAdverts,
         sourceUrl,
@@ -701,6 +1249,7 @@ export async function discoverCompanySiteVacancies(
         // A direct-board failure is retried from the feed on the next run.
         // Never hand an API endpoint to the HTML crawler as resumable state.
         resumeState: null,
+        diagnostics,
       };
     }
   }
@@ -710,6 +1259,8 @@ export async function discoverCompanySiteVacancies(
   const trustedAtsUrls = new Set<string>();
   const trustedAtsBoardScopes = new Set<string>();
   const sitemapUrl = new URL("/sitemap.xml", sourceUrl).toString();
+  const seenSitemaps = new Set<string>();
+  let sitemapChildCount = 0;
   const addTrustedAtsUrl = (url: string): void => {
     trustedAtsUrls.add(canonicalVacancyUrl(url) ?? url);
     try {
@@ -743,8 +1294,23 @@ export async function discoverCompanySiteVacancies(
     queued.add(canonical);
     queue.push(canonical);
   };
+  const prioritizeEnqueue = (urls: readonly string[]): void => {
+    const prioritized: string[] = [];
+    for (const url of urls) {
+      const canonical = canonicalVacancyUrl(url) ?? url;
+      if (visited.has(canonical) || queued.has(canonical)) continue;
+      queued.add(canonical);
+      prioritized.push(canonical);
+    }
+    if (prioritized.length > 0) queue.unshift(...prioritized);
+  };
   if (options.resumeState) {
     for (const url of options.resumeState.queue.slice(0, MAX_RESUMABLE_CRAWL_URLS)) {
+      if (
+        detectedAtsProvider(url) !== null &&
+        !DIRECT_IMPORT_ATS_PROVIDERS.has(detectedAtsProvider(url)!) &&
+        url !== sourceUrl
+      ) continue;
       if (
         knownAtsProvider(url) !== null &&
         url !== sourceUrl &&
@@ -758,6 +1324,7 @@ export async function discoverCompanySiteVacancies(
     checkAts &&
     options.knownCareersUrl &&
     knownAtsProvider(options.knownCareersUrl) !== null &&
+    DIRECT_IMPORT_ATS_PROVIDERS.has(knownAtsProvider(options.knownCareersUrl)!) &&
     options.knownCareersMappingVerified === true
   ) {
     addTrustedAtsUrl(options.knownCareersUrl);
@@ -794,9 +1361,52 @@ export async function discoverCompanySiteVacancies(
     visited.add(canonical);
     pagesAttempted += 1;
     discoveredUrls.push(canonical);
+    const isHomepageRequest =
+      (canonicalVacancyUrl(canonical) ?? canonical) === (canonicalVacancyUrl(sourceUrl) ?? sourceUrl);
+    const isKnownCareersRequest =
+      Boolean(options.knownCareersUrl) &&
+      (canonicalVacancyUrl(canonical) ?? canonical) ===
+        (canonicalVacancyUrl(options.knownCareersUrl!) ?? options.knownCareersUrl!);
+    if (SITEMAP_SIGNAL.test(canonical)) diagnostics.sitemapChecked = true;
+    if (isKnownCareersRequest && !diagnostics.careersUrl) diagnostics.careersUrl = canonical;
     const provider = knownAtsProvider(canonical);
     const result = await fetchCompanySitePage(canonical, originHostname, deadlineMs);
+    const fetchDiagnostic: CompanySiteFetchDiagnostic = {
+      url: canonical,
+      fetchedUrl: result.ok ? result.url : null,
+      status: result.ok ? result.status : result.status ?? null,
+      fetched: result.ok,
+      failureKind: result.ok ? null : result.kind,
+      reason: result.ok ? null : result.reason.slice(0, 500),
+    };
+    diagnostics.pageFetches.push(fetchDiagnostic);
+    diagnostics.pagesAttempted = pagesAttempted;
     if (!result.ok) {
+      if (isHomepageRequest) {
+        diagnostics.homepageFetched = false;
+        diagnostics.homepageHttpStatus = result.status ?? null;
+      }
+      if (result.kind === "robots") {
+        diagnostics.robotsResult = result.reason.toLowerCase().includes("could not be checked")
+          ? `unable to verify: ${result.reason}`
+          : `blocked: ${result.reason}`;
+      } else if (diagnostics.robotsResult === "not checked" && result.status !== undefined) {
+        diagnostics.robotsResult = "allowed for this path; the HTTP response was received";
+      }
+      if (isKnownCareersRequest || canonical === diagnostics.careersUrl) {
+        diagnostics.careersHttpStatus = result.status ?? null;
+        diagnostics.careersFailureKind = result.kind;
+      }
+      const optionalSitemapUnavailable =
+        SITEMAP_SIGNAL.test(canonical) &&
+        (result.kind === "robots" ||
+          result.status === 403 ||
+          result.status === 404 ||
+          result.status === 410);
+      if (optionalSitemapUnavailable) {
+        diagnostics.sitemapChecked = true;
+        continue;
+      }
       attemptedPageFailure = true;
       error ??= result.reason;
       retryAt ??= result.retryAt;
@@ -813,6 +1423,18 @@ export async function discoverCompanySiteVacancies(
       continue;
     }
     pagesFetched += 1;
+    diagnostics.pagesCrawled = pagesFetched;
+    if (isHomepageRequest) {
+      diagnostics.homepageFetched = true;
+      diagnostics.homepageHttpStatus = result.status;
+    }
+    if (diagnostics.robotsResult === "not checked") {
+      diagnostics.robotsResult = "allowed for fetched URL paths (robots policy passed)";
+    }
+    if (isKnownCareersRequest || canonical === diagnostics.careersUrl) {
+      diagnostics.careersHttpStatus = result.status;
+      diagnostics.careersFailureKind = null;
+    }
     const sitemapDocument = isSitemapDocument(result.body, result.contentType);
     if (!/html|text|xml/i.test(result.contentType) && !sitemapDocument) continue;
     if (provider) {
@@ -824,14 +1446,48 @@ export async function discoverCompanySiteVacancies(
     }
 
     if (sitemapDocument) {
-      const sitemapLinks = extractSitemapLinks(result.body, result.url, originHostname)
-        .filter((url) => isLikelySitemapVacancyUrl(url))
-        .slice(0, 20);
-      for (const url of sitemapLinks) enqueue(url);
+      diagnostics.sitemapChecked = true;
+      if (!diagnostics.sitemapDocuments.includes(result.url)) {
+        diagnostics.sitemapDocuments.push(result.url);
+      }
+      seenSitemaps.add(canonicalVacancyUrl(result.url) ?? result.url);
+      const sitemapLinks = extractSitemapLinks(result.body, result.url, originHostname);
+      const sameSiteSitemaps = sitemapLinks.nestedSitemaps
+        .filter((url) => isFirstPartyHost(originHostname, new URL(url).hostname))
+        .filter((url) => !seenSitemaps.has(canonicalVacancyUrl(url) ?? url))
+        .sort((a, b) =>
+          sitemapIndexPriority(b) - sitemapIndexPriority(a) || a.localeCompare(b),
+        )
+        .slice(0, Math.max(0, MAX_SITEMAP_CHILDREN_PER_EMPLOYER - sitemapChildCount));
+      for (const url of sameSiteSitemaps) {
+        sitemapChildCount += 1;
+        enqueue(url);
+      }
+      const jobUrls = sitemapLinks.urls
+        .filter((url) => isFirstPartyHost(originHostname, new URL(url).hostname))
+        .filter(isLikelySitemapVacancyUrl)
+        .sort((a, b) => sitemapUrlPriority(b) - sitemapUrlPriority(a))
+        .slice(0, MAX_SITEMAP_URLS_PER_DOCUMENT);
+      for (const url of jobUrls) {
+        if (diagnostics.linksConsidered.length < MAX_DIAGNOSTIC_LINKS) {
+          addLinkDiagnostic(diagnostics, {
+            url,
+            sourceUrl: result.url,
+            text: "Sitemap URL",
+            category: "careers",
+            decision: "queued",
+            reason: null,
+            atsProvider: detectedAtsProvider(url),
+          });
+        }
+        diagnostics.careersPageFound = true;
+        diagnostics.careersUrl ??= url;
+      }
+      prioritizeEnqueue(jobUrls);
       continue;
     }
 
-    const links = extractAnchors(result.body, result.url, originHostname);
+    const links = extractAnchors(result.body, result.url, originHostname, diagnostics, rejectionReasons);
     const pageIsFirstParty =
       knownAtsProvider(new URL(result.url).hostname) === null &&
       isFirstPartyHost(originHostname, new URL(result.url).hostname);
@@ -844,9 +1500,39 @@ export async function discoverCompanySiteVacancies(
       atsMappingEvidenceUrl = result.url;
       careersUrl = officialAtsLink.url;
       atsProvider = officialAtsLink.atsProvider;
+      diagnostics.careersPageFound = true;
+      diagnostics.careersUrl = officialAtsLink.url;
+      addAtsDiagnostic(
+        diagnostics,
+        officialAtsLink.atsProvider,
+        officialAtsLink.url,
+        result.url,
+        true,
+        false,
+        "linked from the approved first-party website",
+      );
     }
-    adverts.push(
+    const jsonLdFound = hasJsonLdJobPosting(result.body);
+    const microdataFound = /itemscope\b[^>]*itemtype\s*=\s*["'][^"']*schema\.org\/JobPosting|itemtype\s*=\s*["'][^"']*schema\.org\/JobPosting[^>]*itemscope/i
+      .test(result.body);
+    diagnostics.jsonLdJobPostingFound ||= jsonLdFound;
+    diagnostics.microdataJobPostingFound ||= microdataFound;
+    diagnostics.explicitNoVacancies ||= explicitNoVacancyText(result.body);
+    diagnostics.jsRenderedJobsLikely ||= likelyJsRenderedJobs(result.body);
+    const currentPath = new URL(result.url).pathname;
+    const currentPageIsCareer = Boolean(provider) ||
+      CAREERS_SIGNAL.test(currentPath) ||
+      CAREER_LISTING_HEADING.test(pageHeadingText(result.body));
+    if (currentPageIsCareer) {
+      diagnostics.careersPageFound = true;
+      if (!diagnostics.careersUrl || diagnostics.careersUrl === options.knownCareersUrl) {
+        diagnostics.careersUrl = result.url;
+      }
+      diagnostics.careersHttpStatus ??= result.status;
+    }
+    const pageAdverts = [
       ...extractJsonLdAdverts(result.body, result.url, originHostname, organisationName),
+      ...extractMicrodataAdverts(result.body, result.url, originHostname, organisationName),
       ...advertsFromLinks(
         links,
         organisationName,
@@ -855,8 +1541,50 @@ export async function discoverCompanySiteVacancies(
         result.body,
         rejectionReasons,
       ),
+    ];
+    adverts.push(...pageAdverts);
+    const acceptedLinkUrls = new Set(pageAdverts.map((advert) => advert.url));
+    for (const link of links) {
+      if (!link.diagnostic || link.diagnostic.decision !== "queued") continue;
+      if (acceptedLinkUrls.has(link.url)) {
+        link.diagnostic.decision = "vacancy_evidence";
+        link.diagnostic.reason = "accepted as a vacancy link from company-site evidence";
+      }
+    }
+    if (jsonLdFound || microdataFound || pageAdverts.length > 0) {
+      if (!diagnostics.vacancyLikePages.includes(result.url)) diagnostics.vacancyLikePages.push(result.url);
+    }
+    for (const link of links) {
+      if (!link.diagnostic || link.diagnostic.decision !== "queued") continue;
+      if (isCareersDestinationLink(link)) {
+        diagnostics.careersPageFound = true;
+        if (!diagnostics.careersUrl || diagnostics.careersUrl === options.knownCareersUrl) {
+          diagnostics.careersUrl = link.url;
+        }
+      } else if (link.atsProvider) {
+        const ats = diagnostics.atsLinksSeen.find(
+          (entry) => entry.provider === link.atsProvider && entry.url === link.url,
+        );
+        if (ats && pageIsFirstParty) {
+          ats.linkedFromFirstParty = true;
+        }
+      } else if (isSpecificRoleLink(link)) {
+        link.diagnostic.decision = "not_followed";
+        link.diagnostic.reason = acceptedLinkUrls.has(link.url)
+          ? "posting link retained as vacancy evidence; detail page was not fetched"
+          : "posting link did not pass vacancy evidence checks";
+      } else {
+        link.diagnostic.decision = "not_followed";
+        link.diagnostic.reason = "not selected as a careers or recruitment navigation destination";
+      }
+    }
+    const navigation = selectNavigationLinks(
+      links,
+      visited,
+      provider,
+      result.url,
+      acceptedLinkUrls,
     );
-    const navigation = selectNavigationLinks(links, visited, provider, result.url);
     for (const link of navigation) {
       if (queue.length >= MAX_RESUMABLE_CRAWL_URLS) break;
       if (link.atsProvider && !checkAts) continue;
@@ -868,6 +1596,21 @@ export async function discoverCompanySiteVacancies(
         } else if (!isTrustedAtsUrl(link.url)) {
           continue;
         }
+      }
+      if (link.diagnostic) {
+        link.diagnostic.decision = "queued";
+        link.diagnostic.reason = null;
+      }
+      if (link.atsProvider) {
+        addAtsDiagnostic(
+          diagnostics,
+          link.atsProvider,
+          link.url,
+          result.url,
+          pageIsFirstParty,
+          true,
+          null,
+        );
       }
       if (!careersUrl || link.atsProvider) careersUrl = link.url;
       atsProvider ??= link.atsProvider;
@@ -948,6 +1691,11 @@ export async function discoverCompanySiteVacancies(
           careersUrl,
           atsProvider,
         },
+    diagnostics: {
+      ...diagnostics,
+      pagesCrawled: pagesFetched,
+      pagesAttempted,
+    },
   };
 }
 
