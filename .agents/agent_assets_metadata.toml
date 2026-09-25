@@ -642,3 +642,87 @@ mtime_ms = 1790341732897
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/646f5d91-c91f-4b3d-b47c-bbdcc9cab07c/e8223033-3f3d-4b45-983d-f008d2d203ce"
 storage_version_token = "1790341843406421"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "yUls2o3JIJAkPco8J5kNi"
+uri = "file://.agents/outputs/sponsor-website-approval-2026-09-25/candidate-set-100.csv"
+type = "table"
+title = "100-employer review cohort"
+description = "100 distinct candidates; 29 auto-approved and 71 still require review."
+logical_id = "5faf8863-2c90-4111-b717-e9877559efad"
+content_hash = "sha256:3a84a4a5c4f59e8167e79cb622058f0631cb248f7d9a3721776ddcc274f353d4"
+size = 42594
+mtime_ms = 1790354599333
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/5faf8863-2c90-4111-b717-e9877559efad/de7e5ac4-1825-4746-b8de-a6c91cdeff43"
+storage_version_token = "1790354625993078"
+content_type = "text/csv"
+
+[[outputs]]
+id = "M5jDKFm2zrvj_b_SbTeyw"
+uri = "file://.agents/outputs/sponsor-website-approval-2026-09-25/candidate-set-500.csv"
+type = "table"
+title = "500-employer review cohort"
+description = "500 distinct candidates; review statuses are preserved and rejected rows are excluded."
+logical_id = "eb547c3b-9942-49a3-9796-b00bfb8e050d"
+content_hash = "sha256:8572564ba5472e3626e0af34e9925b022c4af3a4eb9cb937501ba4fa386830b4"
+size = 232512
+mtime_ms = 1790354599825
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/eb547c3b-9942-49a3-9796-b00bfb8e050d/a9b21d4b-65b4-4090-b28c-cd2047bb4a9d"
+storage_version_token = "1790354627053031"
+content_type = "text/csv"
+
+[[outputs]]
+id = "c7a_oZmyDxdvz0FAtMAEC"
+uri = "file://.agents/outputs/sponsor-website-approval-2026-09-25/candidate-set-1000.csv"
+type = "table"
+title = "1,000-employer review cohort"
+description = "1,000 distinct candidates; review statuses are preserved and rejected rows are excluded."
+logical_id = "e5ac9b5c-c303-4d2c-8e84-779b137998a3"
+content_hash = "sha256:b2acb7d23fb231fe568514f805e3214d2b8d0ec268adf61abf483c2fbc82ef3b"
+size = 455483
+mtime_ms = 1790354600393
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/e5ac9b5c-c303-4d2c-8e84-779b137998a3/bf593861-b437-41e7-91ce-abd8a60069af"
+storage_version_token = "1790354628341460"
+content_type = "text/csv"
+
+[[outputs]]
+id = "05kmjVeO4k3ZHBPYYmBih"
+uri = "file://.agents/outputs/sponsor-website-approval-2026-09-25/auto-approved.csv"
+type = "table"
+title = "Auto-approved employers"
+description = "29 high-confidence employers supported by an existing identity audit or verified first-party ATS evidence."
+logical_id = "f6f5e242-3cc2-4a42-b42c-864384283561"
+content_hash = "sha256:20194e53f25f62204a39af0b63414f3763bb279521a17e4cc8958ac374d3d34c"
+size = 12600
+mtime_ms = 1790354600949
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/f6f5e242-3cc2-4a42-b42c-864384283561/6232bdbc-00bc-4173-b934-66d927aca7b2"
+storage_version_token = "1790354629331618"
+content_type = "text/csv"
+
+[[outputs]]
+id = "yEhGX6iq3fLD1vEiG33tC"
+uri = "file://.agents/outputs/sponsor-website-approval-2026-09-25/review-required.csv"
+type = "table"
+title = "Employers requiring review"
+description = "971 candidates kept out of rollout until employer identity and source evidence are confirmed."
+logical_id = "48761d52-ac68-4b28-b730-2cd270611809"
+content_hash = "sha256:1c12c435d79d15a969eed3956494a86ca8cecff46cf7ee1fbea6de558cf5c86c"
+size = 443290
+mtime_ms = 1790354601645
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/48761d52-ac68-4b28-b730-2cd270611809/dd061040-37f2-4f61-8956-12aa7d5bef95"
+storage_version_token = "1790354630591663"
+content_type = "text/csv"
+
+[[outputs]]
+id = "LBzGIclRxUYVKkwGcH4ZQ"
+uri = "file://.agents/outputs/sponsor-website-approval-2026-09-25/rejected.csv"
+type = "table"
+title = "Rejected employer candidates"
+description = "33 previously rejected records, separated from the candidate cohorts."
+logical_id = "7e325719-65a4-4bf7-a763-f8917513e4f6"
+content_hash = "sha256:a1a7fe25248b04e467a75799576cb85237ab928f0d6269cfa6d1ff8a640c3f3c"
+size = 10418
+mtime_ms = 1790354602257
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/7e325719-65a4-4bf7-a763-f8917513e4f6/ed3cc64a-a881-4661-8610-5a967cb65bf8"
+storage_version_token = "1790354631934532"
+content_type = "text/csv"
