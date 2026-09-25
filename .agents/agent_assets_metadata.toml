@@ -544,3 +544,45 @@ mtime_ms = 1790321947561
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/d6da79db-0537-41d7-a25f-5baf83e27172/d002717c-0ee2-4aa6-bbaf-09dc99a5f5ed"
 storage_version_token = "1790322042042755"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "y7-EL9wpU55lzVHuiKECz"
+uri = "file://.agents/outputs/sponsor-website-sample/100-employer-audit.csv"
+type = "table"
+title = "100-employer website audit"
+description = "One row per sampled employer with confidence, evidence URLs, ATS status, and classifications."
+logical_id = "faf885bd-c6e6-4bef-8887-c7edc53510cb"
+content_hash = "sha256:aebcb87574bd7ce16bddc5f4c9e56b224eb5af88aff57ca9d9a411e48449c103"
+size = 49473
+mtime_ms = 1790326833174
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/faf885bd-c6e6-4bef-8887-c7edc53510cb/0ab2e160-5174-419a-a721-0cb619a65e92"
+storage_version_token = "1790326835503137"
+content_type = "text/csv"
+
+[[outputs]]
+id = "2WnlJCoORql94pgNHF62l"
+uri = "file://.agents/outputs/sponsor-website-sample/100-employer-candidate-results.csv"
+type = "table"
+title = "Employer search candidates"
+description = "Search candidate URLs, source types, snippets, confidence, and reasons for the sample."
+logical_id = "a67db11e-9e37-4689-8f25-2a64989ed969"
+content_hash = "sha256:990ebe94ffe3a5ae5b1d4512b6e2208749b7652844a956cbce0be0db67af971e"
+size = 529633
+mtime_ms = 1790326833642
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/a67db11e-9e37-4689-8f25-2a64989ed969/28564586-6d2a-4786-a42a-3fbfcc22b096"
+storage_version_token = "1790326836816091"
+content_type = "text/csv"
+
+[[outputs]]
+id = "ythcu6wJZNDAs5g8zFxMP"
+uri = "file://.agents/outputs/sponsor-website-sample/100-employer-safe-page-checks.csv"
+type = "table"
+title = "Protected employer-page checks"
+description = "All safe-fetch attempts with page identity, geography, careers, ATS, and error evidence."
+logical_id = "9f6fc573-a786-4e57-bc2d-9134ed6c5d5c"
+content_hash = "sha256:f119c12ace708ee50eaac3b3bc9288926c85f2c87a6359251c8697aa588aaece"
+size = 107534
+mtime_ms = 1790326834086
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/9f6fc573-a786-4e57-bc2d-9134ed6c5d5c/1f5c602b-501e-422b-9331-499992ccad4f"
+storage_version_token = "1790326838013790"
+content_type = "text/csv"

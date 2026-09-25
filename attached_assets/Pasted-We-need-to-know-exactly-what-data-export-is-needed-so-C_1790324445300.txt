@@ -1,0 +1,131 @@
+We need to know exactly what data/export is needed so Codex can help generate or validate an importable website/careers enrichment file for JOBSAGE.
+
+Please prepare a development-only export. Do not write production data. Do not deploy.
+
+Export 1: Sponsor employer base list
+
+Create `jobsage-sponsor-base-export.csv` with these columns:
+
+- sponsor_licence_id
+- organisation_name
+- normalized_organisation_name
+- town_city
+- county
+- region
+- industry
+- route
+- sub_route
+- rating
+- existing_website
+- existing_contact_email
+- existing_contact_phone
+- existing_careers_url
+- existing_ats_provider
+- existing_ats_board_id
+- existing_ats_mapping_status
+- existing_ats_mapping_evidence_url
+- last_company_site_checked_at
+- last_company_site_error
+
+Include all sponsor employers if file size is reasonable. If too large, export:
+- all employers with existing website/careers/ATS data
+- plus 5,000 employers without website/careers data across sectors
+- plus all healthcare/social care
+- plus all education
+- plus all technology/engineering/finance if possible
+
+Export 2: Existing company-site data
+
+Create `jobsage-company-site-existing.csv` from the company-site/checks table with:
+
+- organisation_name
+- careers_url
+- ats_provider
+- ats_board_id
+- ats_mapping_status
+- ats_mapping_evidence_url
+- probe_status
+- last_outcome
+- last_error
+- last_attempted_at
+- last_completed_at
+- last_pages_fetched
+- last_adverts_found
+- last_rejected_count
+
+Export 3: Existing vacancy source evidence
+
+Create `jobsage-existing-vacancy-sources.csv` with distinct employer/source evidence from existing vacancies:
+
+- organisation_name
+- source_type
+- board_name
+- url_host
+- sample_detail_url
+- sample_application_url
+- vacancy_count
+- latest_check_date
+- latest_verification_status
+
+Export 4: Public-source enrichment readiness
+
+Check whether the codebase already supports downloading/matching these free public datasets:
+
+- CQC care directory
+- Get Information About Schools / GIAS
+- Charity Commission register
+- Companies House bulk/API
+
+For each source, report:
+- already implemented: yes/no
+- script/function name
+- what fields it can extract
+- whether it includes website
+- whether it includes email
+- whether it can match to sponsor_licences
+- last time it was run, if known
+
+Output: `public-source-enrichment-readiness.md`
+
+Export 5: Recommended import schema
+
+Create an import template called `jobsage-website-enrichment-import-template.csv` with:
+
+- organisation_name
+- sponsor_licence_id
+- website_url
+- website_confidence
+- website_evidence_url
+- careers_url
+- careers_confidence
+- careers_evidence_url
+- ats_provider
+- ats_board_id
+- ats_mapping_status
+- ats_mapping_evidence_url
+- source
+- notes
+
+Also create a safe importer plan:
+- only update missing website/careers fields by default
+- never overwrite verified mappings unless new confidence is higher
+- store evidence URL
+- keep medium/low confidence rows for review
+- run import in development first
+- produce before/after counts
+
+Final report
+
+Return a clear summary answering:
+
+1. How many sponsor employers can already be enriched from existing JOBSAGE data?
+2. How many can likely be enriched from CQC?
+3. How many can likely be enriched from GIAS?
+4. How many can likely be enriched from Charity Commission?
+5. Does Companies House help with websites or only identity/address?
+6. What export should Codex use to generate a website/careers enrichment CSV?
+7. What is the safest import path back into JOBSAGE?
+
+Important:
+Do not modify data yet.
+This is an export/readiness task only.
