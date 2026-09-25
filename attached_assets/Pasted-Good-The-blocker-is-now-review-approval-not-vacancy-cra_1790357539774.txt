@@ -1,0 +1,63 @@
+Good. The blocker is now review/approval, not vacancy crawling.
+
+Please run a development-only approval review pass over the review-required candidates, especially those with careers URLs and existing verified company-site vacancies.
+
+Goal:
+Expand the auto-approved pool from 29 to at least 100 employers without weakening safety.
+
+Use evidence already present in development:
+- saved employer website
+- careers URL
+- verified ATS mapping
+- existing live verified company-site vacancy rows
+- vacancy URLs already tied to the organisation
+- same-host or strongly related-host evidence
+- employer name visible on fetched website/careers page
+- non-aggregator/non-job-board host
+- no geography mismatch
+- no obvious third-party directory page
+
+Rules:
+- Do not write production.
+- Do not deploy.
+- Do not approve rejected rows unless there is clearly stronger evidence.
+- Do not guess.
+- Do not require perfect legal domain ownership proof.
+- Approve “strongly likely official employer/careers source” where evidence is good enough.
+- Keep ambiguous cases review-required with a reason.
+
+Prioritize:
+1. Review-required rows with careers URLs.
+2. Rows with existing verified company-site vacancies.
+3. Rows where careers URL host is same as employer website host.
+4. Rows where ATS/careers page links from employer website or evidence URL.
+5. Rows from healthcare/social care, education, engineering, finance, technology, hospitality, construction, manufacturing, and retail.
+
+For each reviewed row, output:
+- sponsor_licence_id
+- organisation_name
+- sector
+- website
+- careers_url
+- ats_provider
+- evidence used
+- old_status
+- new_status
+- approval_reason
+- remaining_risk
+
+After the review pass:
+1. Report total auto-approved employers.
+2. Report auto-approved employers by sector.
+3. Report how many have careers URLs.
+4. Report how many have ATS mappings.
+5. Report how many have existing verified company-site vacancies.
+6. Report how many remain review-required and why.
+
+If auto-approved reaches at least 100:
+- Run the 100-employer development rollout.
+- Repeat the exact same 100 to prove no duplicates.
+- Report insert/update counts, failures, runtime, rejected adverts, UK-location-known vacancies, application_url counts, and candidate-facing visibility checks.
+
+If auto-approved is still below 100:
+- Stop and explain the fastest path to get the missing approvals.
