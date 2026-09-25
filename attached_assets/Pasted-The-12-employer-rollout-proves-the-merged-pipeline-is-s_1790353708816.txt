@@ -1,0 +1,71 @@
+The 12-employer rollout proves the merged pipeline is safe, resumable, and does not duplicate rows, but it does not prove vacancy coverage. The blocker is now input coverage: we only have 26 auto-approved employers, so the 100/500/1000 staged rollout cannot run.
+
+Please do the next development-only task:
+
+Goal:
+Create a larger reviewable sponsor employer website/careers/ATS approval set so we can actually test population at 100, 500, and 1,000 employers.
+
+Rules:
+- Development/read-only first.
+- Do not write production.
+- Do not deploy.
+- Do not auto-promote unsafe matches.
+- Preserve current URL safety, liveness, eligibility, profession, and audit safeguards.
+
+Task:
+1. Inspect existing sponsor employer data, company-site checks, existing vacancy sources, and any previous website enrichment audit outputs.
+2. Build a new candidate approval CSV with at least:
+   - 100 high-confidence employers if possible
+   - then 500 candidates if possible
+   - then 1,000 candidates if possible
+3. Prioritize employers that already have:
+   - saved official website
+   - saved careers URL
+   - verified ATS provider/board
+   - existing vacancy-source evidence
+   - employer identity evidence
+4. Include all sectors, not just tech:
+   - healthcare/social care
+   - education
+   - engineering
+   - finance
+   - technology
+   - hospitality
+   - construction
+   - manufacturing
+   - retail/other where available
+5. For each candidate, output:
+   - sponsor_licence_id
+   - organisation_name
+   - sector/category
+   - website
+   - careers_url if known
+   - ats_provider if known
+   - ats_board_id/provider token if known
+   - evidence_url
+   - confidence
+   - approval_status: auto_approved / review_required / rejected
+   - rejection_or_review_reason
+6. Do not require perfect legal proof of domain ownership, but separate:
+   - employer-owned official site
+   - likely official site
+   - third-party listing page
+   - unsafe/aggregator/job-board-only
+7. Auto-approve only employer-owned or strongly likely official websites/careers pages.
+8. Keep review-required rows separate instead of forcing them into rollout.
+
+After producing the approval set:
+1. Report how many auto-approved employers exist by sector.
+2. Report how many have careers URLs.
+3. Report how many have ATS mappings.
+4. Report how many only have websites.
+5. Report how many are review-required and why.
+6. Report whether we now have enough for 100/500/1000 rollout.
+
+If at least 100 auto-approved employers exist:
+- Run the 100-employer development rollout.
+- Repeat the same 100 to prove no duplicates.
+- Report vacancy counts, failures, runtime, sector coverage, and candidate-facing visibility checks.
+
+If fewer than 100 auto-approved employers exist:
+- Stop and explain exactly what data is missing and what source can fill it fastest.
