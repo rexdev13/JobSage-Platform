@@ -268,6 +268,113 @@ describe("company-site scheduler", () => {
     }));
   });
 
+  it("skips direct-feeds-only checks before discovery without a verified mapping", async () => {
+    const outcome = await runCompanySiteCheck({
+      organisationName: "Unmapped Employer",
+      website: "https://unmapped.example",
+      genericCheckedAt: null,
+      atsCheckedAt: null,
+      careersUrl: null,
+      atsProvider: null,
+      atsMappingStatus: "unverified",
+    }, { directFeedsOnly: true });
+
+    expect(outcome).toEqual({ status: "skipped", reason: "no_direct_feed_source" });
+    expect(discoverCompanySiteVacanciesMock).not.toHaveBeenCalled();
+    expect(persistCompanySiteVacanciesMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks non-ATS and non-schema adverts before direct-mode persistence", async () => {
+    discoverCompanySiteVacanciesMock.mockResolvedValue({
+      adverts: [{
+        organisationName: "Example Ltd",
+        employer: "Example Ltd",
+        title: "Care Assistant",
+        location: "London",
+        salary: null,
+        url: "https://example.test/jobs/1",
+        description: null,
+        postedDate: null,
+        targetRegions: null,
+        boardName: null,
+        externalId: null,
+        sourceType: "company_site",
+        companyVacancyEvidence: { kind: "generic_link" },
+      }],
+      sourceUrl: "https://example.test/",
+      pagesFetched: 1,
+      genericCompleted: false,
+      atsCompleted: true,
+      transientFailure: false,
+      completion: "complete",
+      advertsExtracted: 1,
+      advertsRejected: 0,
+      diagnostics: { directFeedsOnly: true },
+    });
+
+    await expect(runCompanySiteCheck({
+      organisationName: "Example Ltd",
+      website: "https://example.test",
+      genericCheckedAt: null,
+      atsCheckedAt: null,
+      careersUrl: "https://jobs.ashbyhq.com/example",
+      atsProvider: "Ashby",
+      atsBoardId: "example",
+      atsMappingStatus: "verified",
+    }, { directFeedsOnly: true })).rejects.toThrow("Direct-feeds-only invariant failed before persistence");
+
+    expect(persistCompanySiteVacanciesMock).not.toHaveBeenCalled();
+  });
+
+  it("passes the no-new-inserts guard through to vacancy persistence", async () => {
+    discoverCompanySiteVacanciesMock.mockResolvedValue({
+      adverts: [{
+        organisationName: "Example Ltd",
+        employer: "Example Ltd",
+        title: "Care Assistant",
+        location: "London",
+        salary: null,
+        url: "https://jobs.ashbyhq.com/example/job-1",
+        description: null,
+        postedDate: null,
+        targetRegions: null,
+        boardName: null,
+        externalId: "job-1",
+        sourceType: "company_site",
+        companyVacancyEvidence: { kind: "known_ats_posting", provider: "Ashby" },
+      }],
+      sourceUrl: "https://example.test/",
+      pagesFetched: 1,
+      genericCompleted: false,
+      atsCompleted: true,
+      transientFailure: false,
+      completion: "complete",
+      advertsExtracted: 1,
+      advertsRejected: 0,
+      diagnostics: { directFeedsOnly: true, directSourceKind: "ats_feed" },
+    });
+
+    await runCompanySiteCheck({
+      organisationName: "Example Ltd",
+      website: "https://example.test",
+      genericCheckedAt: null,
+      atsCheckedAt: null,
+      careersUrl: "https://jobs.ashbyhq.com/example",
+      atsProvider: "Ashby",
+      atsBoardId: "example",
+      atsMappingStatus: "verified",
+    }, {
+      directFeedsOnly: true,
+      expectNoInserts: true,
+      queueVerifications: false,
+    });
+
+    expect(persistCompanySiteVacanciesMock).toHaveBeenCalledWith(
+      expect.any(Array),
+      { queueVerifications: false, requireExisting: true },
+    );
+  });
+
   it("verifies a parseable ATS mapping only after first-party evidence is observed", async () => {
     let persisted: Record<string, unknown> | undefined;
     insertMock.mockReturnValue({

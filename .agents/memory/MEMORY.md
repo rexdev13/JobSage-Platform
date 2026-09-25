@@ -24,6 +24,7 @@
 - [Extension launcher visibility](extension-launcher-visibility.md) — first-party pages keep only the outbound bridge; mount Smart Apply UI and observers on external application destinations.
 - [Candidate region preferences](candidate-region-preferences.md) — Professional Profile and Opportunities now share one account-wide saved region preference.
 - [Candidate sponsor matching](candidate-sponsor-matching.md) — candidate-wide board searches need stricter employer identity matching than employer-scoped background searches.
+- [Direct-feed duplicate identities](direct-feed-duplicate-identities.md) — allow duplicate names only when their website and verified source mapping fully agree.
 - [Marketing lead performance](marketing-lead-performance.md) — registered performance uses converted-user attribution; contacted uses the current contacted status.
 - [Vacancy board deduplication](vacancy-board-deduplication.md) — shared board writes use canonical/fingerprint advisory locks; verification starts only after commit.
 - [Company-site verification safety](company-site-verification-safety.md) — initial liveness checks must share crawler robots, pacing, backoff, redirect, and SSRF controls.

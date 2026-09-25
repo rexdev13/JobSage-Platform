@@ -152,6 +152,10 @@ export type CompanySiteDiscoveryDiagnostics = {
   vacancyLikePages: string[];
   explicitNoVacancies: boolean;
   jsRenderedJobsLikely: boolean;
+  directFeedsOnly?: boolean;
+  directSourceKind?: "ats_feed" | "schema_org" | null;
+  directFeedSkipReason?: string | null;
+  directFeedSkipDetail?: string | null;
 };
 
 export type CompanySiteDiscoveryResult = {
@@ -183,10 +187,12 @@ export type CompanySiteDiscoveryResult = {
 
 export type CompanySiteDiscoveryOptions = {
   knownCareersUrl?: string | null;
+  knownAtsBoardId?: string | null;
   knownCareersMappingVerified?: boolean;
   knownCareersEvidenceUrl?: string | null;
   checkGeneric?: boolean;
   checkAts?: boolean;
+  directFeedsOnly?: boolean;
   now?: () => number;
   deadlineMs?: number;
   resumeState?: {
@@ -1207,6 +1213,198 @@ function selectNavigationLinks(
     });
 }
 
+async function discoverDirectFeedsOnly(
+  organisationName: string,
+  sourceUrl: string,
+  originHostname: string,
+  options: CompanySiteDiscoveryOptions,
+  deadlineMs: number,
+  initialDiagnostics: CompanySiteDiscoveryDiagnostics,
+): Promise<CompanySiteDiscoveryResult> {
+  const careersUrl = options.knownCareersUrl?.trim() || null;
+  const diagnostics: CompanySiteDiscoveryDiagnostics = {
+    ...initialDiagnostics,
+    directFeedsOnly: true,
+    directSourceKind: null,
+    directFeedSkipReason: null,
+    directFeedSkipDetail: null,
+  };
+  const makeResult = (
+    overrides: Partial<CompanySiteDiscoveryResult> = {},
+  ): CompanySiteDiscoveryResult => ({
+    adverts: [],
+    sourceUrl,
+    careersUrl,
+    atsProvider: null,
+    atsMappingVerified: options.knownCareersMappingVerified === true,
+    atsMappingEvidenceUrl: options.knownCareersEvidenceUrl ?? null,
+    genericCompleted: false,
+    atsCompleted: false,
+    transientFailure: false,
+    failureClass: null,
+    pagesFetched: 0,
+    completion: "complete",
+    pagesAttempted: 0,
+    advertsExtracted: 0,
+    advertsRejected: 0,
+    rejectionReasons: {},
+    discoveredUrls: [],
+    observedAdvertUrls: [],
+    resumeState: null,
+    diagnostics: { ...diagnostics },
+    ...overrides,
+  });
+  const noDirectSource = (detail: string): CompanySiteDiscoveryResult => makeResult({
+    diagnostics: {
+      ...diagnostics,
+      directFeedSkipReason: "no_direct_feed_source",
+      directFeedSkipDetail: detail,
+    },
+  });
+
+  if (!options.knownCareersMappingVerified || !careersUrl) {
+    return noDirectSource("no verified careers, ATS, feed, or schema.org mapping is stored");
+  }
+
+  const provider = knownAtsProvider(careersUrl);
+  if (provider) {
+    const mapping = parseDirectBoardMapping(provider, careersUrl);
+    if (!mapping) {
+      return noDirectSource(`verified ${provider} mapping has no supported direct-feed adapter`);
+    }
+    if (
+      options.knownAtsBoardId &&
+      mapping.boardId.toLowerCase() !== options.knownAtsBoardId.trim().toLowerCase()
+    ) {
+      return noDirectSource("verified ATS board ID does not match the approved careers URL");
+    }
+
+    const direct = await fetchDirectEmployerBoard(
+      organisationName,
+      mapping.provider,
+      mapping.evidenceUrl,
+      { deadlineMs },
+    );
+    if (!direct.mapping) {
+      return noDirectSource(direct.error ?? "approved mapping did not resolve to a supported direct feed");
+    }
+    const adverts = normaliseAndDedupeBoardAdverts(direct.adverts);
+    addAtsDiagnostic(
+      diagnostics,
+      direct.mapping.provider,
+      direct.mapping.evidenceUrl,
+      options.knownCareersEvidenceUrl ?? sourceUrl,
+      true,
+      true,
+      direct.complete ? null : direct.error ?? "direct feed did not complete",
+    );
+    diagnostics.careersPageFound = true;
+    diagnostics.careersUrl = direct.mapping.evidenceUrl;
+    diagnostics.directSourceKind = "ats_feed";
+    return makeResult({
+      adverts,
+      careersUrl: direct.mapping.evidenceUrl,
+      atsProvider: direct.mapping.provider,
+      atsMappingVerified: true,
+      genericCompleted: false,
+      atsCompleted: direct.complete,
+      transientFailure: direct.transientFailure,
+      failureClass: direct.failureClass,
+      retryAt: direct.retryAt,
+      error: direct.error,
+      pagesFetched: direct.pagesFetched,
+      completion: direct.complete ? "complete" : "failed",
+      pagesAttempted: direct.pagesFetched,
+      advertsExtracted: direct.advertsExtracted,
+      advertsRejected: Math.max(0, direct.advertsExtracted - adverts.length),
+      discoveredUrls: [direct.mapping.feedUrl],
+      observedAdvertUrls: adverts.map((advert) => advert.url),
+      snapshotScope: direct.complete && AUTHORITATIVE_SNAPSHOT_PROVIDERS.has(direct.mapping.provider)
+        ? { provider: direct.mapping.provider, boardId: direct.mapping.boardId }
+        : undefined,
+      diagnostics: { ...diagnostics },
+    });
+  }
+
+  let approvedUrl: URL;
+  try {
+    approvedUrl = new URL(careersUrl);
+  } catch {
+    return noDirectSource("approved structured-data URL is invalid");
+  }
+  if (
+    approvedUrl.protocol !== "https:" ||
+    approvedUrl.username ||
+    approvedUrl.password ||
+    approvedUrl.port ||
+    !isAllowedCompanyDestination(originHostname, approvedUrl.toString())
+  ) {
+    diagnostics.directFeedSkipDetail = "approved structured-data URL is outside the safe employer-site scope";
+    return makeResult({
+      completion: "failed",
+      failureClass: "permanent",
+      error: diagnostics.directFeedSkipDetail,
+      diagnostics: { ...diagnostics },
+    });
+  }
+
+  const page = await fetchCompanySitePage(approvedUrl.toString(), originHostname, deadlineMs);
+  diagnostics.pageFetches.push({
+    url: approvedUrl.toString(),
+    fetchedUrl: page.ok ? page.url : null,
+    status: page.ok ? page.status : page.status ?? null,
+    fetched: page.ok,
+    failureKind: page.ok ? null : page.kind,
+    reason: page.ok ? null : page.reason.slice(0, 500),
+  });
+  if (!page.ok) {
+    const failureClass = classifyCompanySiteFailure({
+      kind: page.kind,
+      reason: page.reason,
+      status: page.status,
+    });
+    return makeResult({
+      transientFailure: failureClass === "temporary",
+      failureClass,
+      error: page.reason,
+      pagesAttempted: 1,
+      completion: "failed",
+      discoveredUrls: [approvedUrl.toString()],
+      diagnostics: { ...diagnostics, careersFailureKind: page.kind },
+    });
+  }
+
+  const jsonLdAdverts = extractJsonLdAdverts(page.body, page.url, originHostname, organisationName);
+  const microdataAdverts = extractMicrodataAdverts(page.body, page.url, originHostname, organisationName);
+  const rawAdverts = [...jsonLdAdverts, ...microdataAdverts];
+  const adverts = normaliseAndDedupeBoardAdverts(rawAdverts);
+  const hasStructuredJobPosting = hasJobPostingMarkup(page.body);
+  diagnostics.careersPageFound = true;
+  diagnostics.careersUrl = page.url;
+  diagnostics.careersHttpStatus = page.status;
+  diagnostics.jsonLdJobPostingFound = /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>[\s\S]*?"@type"\s*:\s*(?:"JobPosting"|\[[^\]]*"JobPosting")/i.test(page.body);
+  diagnostics.microdataJobPostingFound = /itemscope\b[^>]*itemtype=["'][^"']*schema\.org\/JobPosting/i.test(page.body);
+  diagnostics.directSourceKind = hasStructuredJobPosting ? "schema_org" : null;
+  if (!hasStructuredJobPosting) {
+    diagnostics.directFeedSkipReason = "no_direct_feed_source";
+    diagnostics.directFeedSkipDetail = "approved careers page contains no schema.org JobPosting markup";
+  }
+  if (hasStructuredJobPosting && adverts.length > 0) {
+    diagnostics.vacancyLikePages.push(page.url);
+  }
+  return makeResult({
+    adverts,
+    atsCompleted: true,
+    pagesFetched: 1,
+    pagesAttempted: 1,
+    advertsExtracted: rawAdverts.length,
+    advertsRejected: Math.max(0, rawAdverts.length - adverts.length),
+    discoveredUrls: [page.url],
+    observedAdvertUrls: adverts.map((advert) => advert.url),
+    diagnostics: { ...diagnostics },
+  });
+}
+
 export async function discoverCompanySiteVacancies(
   organisationName: string,
   website: string,
@@ -1262,6 +1460,16 @@ export async function discoverCompanySiteVacancies(
     now() + COMPANY_SITE_EMPLOYER_BUDGET_MS,
   );
   const originHostname = new URL(sourceUrl).hostname;
+  if (options.directFeedsOnly) {
+    return discoverDirectFeedsOnly(
+      organisationName,
+      sourceUrl,
+      originHostname,
+      options,
+      deadlineMs,
+      diagnostics,
+    );
+  }
   const checkGeneric = options.checkGeneric !== false;
   const checkAts = options.checkAts !== false;
   const directAttempted = new Set<string>();
@@ -1852,7 +2060,7 @@ export async function discoverCompanySiteVacancies(
 
 export async function persistCompanySiteVacancies(
   adverts: readonly BoardAdvert[],
-  options: { queueVerifications?: boolean } = {},
+  options: { queueVerifications?: boolean; requireExisting?: boolean } = {},
 ): Promise<{ inserted: number; updated: number; revived: number }> {
   return upsertSharedBoardVacancies(adverts, options);
 }

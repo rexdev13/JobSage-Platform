@@ -50,6 +50,7 @@ export type CompanySiteBatchRow = {
   atsCheckedAt: Date | null;
   careersUrl: string | null;
   atsProvider: string | null;
+  atsBoardId?: string | null;
   atsMappingStatus?: "verified" | "unverified" | "invalid" | null;
   bookmarked: boolean;
   healthcareEvidenceBackfill: boolean;
@@ -616,7 +617,7 @@ function isDue(value: Date | null, ttlMs: number): boolean {
 export async function runCompanySiteCheck(
   row: Pick<
     CompanySiteBatchRow,
-    "organisationName" | "website" | "genericCheckedAt" | "atsCheckedAt" | "careersUrl" | "atsProvider" | "atsMappingStatus" | "crawlState"
+    "organisationName" | "website" | "genericCheckedAt" | "atsCheckedAt" | "careersUrl" | "atsProvider" | "atsBoardId" | "atsMappingStatus" | "crawlState"
   >,
   options: {
     deadlineMs?: number;
@@ -624,14 +625,24 @@ export async function runCompanySiteCheck(
     preserveExistingSiteMetadata?: boolean;
     queueVerifications?: boolean;
     verifyImportIdempotency?: boolean;
+    directFeedsOnly?: boolean;
+    expectNoInserts?: boolean;
   } = {},
 ): Promise<CompanySiteCheckOutcome> {
   if (!row.website.trim()) return { status: "skipped", reason: "no website" };
+  if (
+    options.directFeedsOnly &&
+    (row.atsMappingStatus !== "verified" || !row.careersUrl)
+  ) {
+    return { status: "skipped", reason: "no_direct_feed_source" };
+  }
   const checkGeneric = isDue(row.genericCheckedAt, COMPANY_SITE_GENERIC_TTL_MS);
   const checkAts =
     row.atsProvider !== null &&
     isDue(row.atsCheckedAt, COMPANY_SITE_ATS_TTL_MS);
-  if (!checkGeneric && !checkAts) return { status: "skipped", reason: "fresh cache" };
+  if (!options.directFeedsOnly && !checkGeneric && !checkAts) {
+    return { status: "skipped", reason: "fresh cache" };
+  }
   const leaseToken = randomUUID();
   const leaseUntil = new Date(Date.now() + Math.max(COMPANY_SITE_EMPLOYER_BUDGET_MS, 30_000));
   const leaseResult = options.acquireLease !== true || process.env.NODE_ENV === "test"
@@ -657,11 +668,13 @@ export async function runCompanySiteCheck(
   try {
     result = await discoverCompanySiteVacancies(row.organisationName, row.website, {
       knownCareersUrl: row.careersUrl,
+      knownAtsBoardId: row.atsBoardId,
       knownCareersMappingVerified: row.atsMappingStatus === "verified",
-      checkGeneric,
-      checkAts: checkAts || checkGeneric,
+      checkGeneric: options.directFeedsOnly ? false : checkGeneric,
+      checkAts: options.directFeedsOnly ? true : checkAts || checkGeneric,
+      directFeedsOnly: options.directFeedsOnly,
       deadlineMs: options.deadlineMs,
-      resumeState: row.crawlState,
+      resumeState: options.directFeedsOnly ? null : row.crawlState,
     });
   } catch (error) {
     const now = new Date();
@@ -723,15 +736,38 @@ export async function runCompanySiteCheck(
       atsProvider: row.atsProvider,
     };
   }
+  if (options.directFeedsOnly) {
+    const allowedEvidenceKinds = new Set([
+      "known_ats_posting",
+      "json_ld_job_posting",
+      "microdata_job_posting",
+    ]);
+    const invalidAdvert = result.adverts.find((advert) => {
+      const evidenceKind = advert.companyVacancyEvidence?.kind;
+      return advert.sourceType !== "company_site" || !allowedEvidenceKinds.has(evidenceKind ?? "");
+    });
+    if (invalidAdvert) {
+      throw new Error(
+        `Direct-feeds-only invariant failed before persistence: ${invalidAdvert.url} lacks approved ATS or schema.org evidence.`,
+      );
+    }
+    if (result.diagnostics.directFeedSkipReason) {
+      return { status: "skipped", reason: result.diagnostics.directFeedSkipReason };
+    }
+  }
   const persisted =
     result.adverts.length > 0
       ? await persistCompanySiteVacancies(result.adverts, {
           queueVerifications: options.queueVerifications,
+          ...(options.expectNoInserts ? { requireExisting: true } : {}),
         })
       : { inserted: 0, updated: 0, revived: 0 };
   const repeatImport =
     options.verifyImportIdempotency && result.adverts.length > 0
-      ? await persistCompanySiteVacancies(result.adverts, { queueVerifications: false })
+      ? await persistCompanySiteVacancies(result.adverts, {
+          queueVerifications: false,
+          ...(options.expectNoInserts ? { requireExisting: true } : {}),
+        })
       : undefined;
   // A generic crawl is not a complete inventory of every careers source used by
   // an employer. Only retire postings from the exact board of an authoritative,
