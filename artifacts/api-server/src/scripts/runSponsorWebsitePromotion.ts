@@ -1,4 +1,4 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { db, pool } from "@workspace/db";
@@ -89,6 +89,7 @@ type ClassificationRow = {
   run_id: string;
   organisation_name: string;
   sample_group: string;
+  sector: string;
   original_confidence: Confidence;
   promotion_decision: Decision;
   candidate_website: string | null;
@@ -124,12 +125,21 @@ type DiscoveryRow = {
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, "../../../../");
-const OUTPUT_DIR = path.join(REPO_ROOT, ".agents/outputs/sponsor-website-sample");
-const SAMPLE_PATH = path.join(OUTPUT_DIR, "safe-page-results.json");
-const CLASSIFICATION_JSON_PATH = path.join(OUTPUT_DIR, "website-promotion-classification.json");
-const CLASSIFICATION_CSV_PATH = path.join(OUTPUT_DIR, "website-promotion-classification.csv");
-const IMPORT_REPORT_PATH = path.join(OUTPUT_DIR, "website-auto-promote-import-report.md");
-const VACANCY_REPORT_PATH = path.join(OUTPUT_DIR, "website-auto-promote-vacancy-results.md");
+const OUTPUT_BASE_DIR = path.join(REPO_ROOT, ".agents/outputs/sponsor-website-sample");
+const SAMPLE_PATH = path.join(OUTPUT_BASE_DIR, "safe-page-results.json");
+
+function outputPaths(healthcareOnly: boolean) {
+  const outputDir = healthcareOnly
+    ? path.join(OUTPUT_BASE_DIR, "healthcare")
+    : OUTPUT_BASE_DIR;
+  return {
+    outputDir,
+    classificationJson: path.join(outputDir, "website-promotion-classification.json"),
+    classificationCsv: path.join(outputDir, "website-promotion-classification.csv"),
+    importReport: path.join(outputDir, "website-auto-promote-import-report.md"),
+    vacancyReport: path.join(outputDir, "website-auto-promote-vacancy-results.md"),
+  };
+}
 
 function assertDevelopmentOnly(): void {
   if (process.env.NODE_ENV !== "development") {
@@ -254,6 +264,7 @@ function toCsv(rows: ClassificationRow[]): string {
     "run_id",
     "organisation_name",
     "sample_group",
+    "sector",
     "original_confidence",
     "promotion_decision",
     "candidate_website",
@@ -294,6 +305,7 @@ function short(value: string | null | undefined, length = 220): string {
 
 function buildImportReport(input: {
   runId: string;
+  segmentFilter: string | null;
   rows: ClassificationRow[];
   dryRun: boolean;
   importedWebsiteRows: number;
@@ -357,6 +369,7 @@ function buildImportReport(input: {
 
 - Audit run: \`${input.runId}\`
 - Mode: **${mode}**
+- Sample scope: ${input.segmentFilter ?? "all saved-audit records"}.
 - Classification: ${input.rows.length} sampled employers; ${highRows.length} were originally high confidence.
 - Decisions: ${counts.auto_promote} auto-promote, ${counts.review_required} review required, ${counts.reject} reject.
 - Auto-promote rows: ${counts.auto_promote}.
@@ -392,6 +405,7 @@ ${errors.length ? `\n## Failed or partial discovery attempts\n\n${errors.map((ro
 
 function buildVacancyReport(input: {
   runId: string;
+  segmentFilter: string | null;
   dryRun: boolean;
   discoveryRuns: Array<{
     organisationName: string;
@@ -457,6 +471,7 @@ function buildVacancyReport(input: {
 
 - Audit run: \`${input.runId}\`
 - Mode: **${input.dryRun ? "dry run; no vacancy discovery was executed" : "development-only targeted run"}**.
+- Sample scope: ${input.segmentFilter ?? "all saved-audit records"}.
 - Approved employers checked: ${input.dryRun ? "not run" : input.discoveryRuns.length}; complete: ${input.dryRun ? "not run" : completeRuns}; partial: ${input.dryRun ? "not run" : partialRuns}; failed: ${input.dryRun ? "not run" : failedRuns}.
 - Company-site vacancy rows checked for liveness: ${input.dryRun ? "not run" : rows.length}.
 - Live: ${input.dryRun ? "not run" : live}; dead: ${input.dryRun ? "not run" : dead}; inconclusive or otherwise unverified: ${input.dryRun ? "not run" : unverified}.
@@ -498,11 +513,20 @@ async function mapWithConcurrency<T, R>(
 async function main(): Promise<void> {
   assertDevelopmentOnly();
   const apply = process.argv.includes("--apply-dev");
+  const healthcareOnly = process.argv.includes("--healthcare");
+  const segmentFilter = healthcareOnly ? "healthcare_social_care" : null;
+  const paths = outputPaths(healthcareOnly);
   const audit = JSON.parse(await readFile(SAMPLE_PATH, "utf8")) as AuditSnapshot;
   if (!audit.runId || !Array.isArray(audit.records) || !Array.isArray(audit.pageOutcomes)) {
     throw new Error("Saved website audit is missing the required runId, records, or pageOutcomes.");
   }
-  const organisationNames = [...new Set(audit.records.map((record) => orgKey(record.organisationName)))];
+  const sampleRecords = segmentFilter
+    ? audit.records.filter((record) => record.sector === segmentFilter)
+    : audit.records;
+  if (sampleRecords.length === 0) {
+    throw new Error(`Saved website audit contains no employers in sector ${segmentFilter}.`);
+  }
+  const organisationNames = [...new Set(sampleRecords.map((record) => orgKey(record.organisationName)))];
   const currentResult = await db.execute<SponsorDbRow>(sql`
     SELECT
       sl.id,
@@ -532,7 +556,7 @@ async function main(): Promise<void> {
     byOrg.set(key, group);
   }
 
-  const classificationRows: ClassificationRow[] = audit.records.map((record) => {
+  const classificationRows: ClassificationRow[] = sampleRecords.map((record) => {
     const matchingRows = byOrg.get(orgKey(record.organisationName)) ?? [];
     const ids = matchingRows.map((row) => Number(row.id)).sort((a, b) => a - b);
     const outcome = matchingOutcome(record, audit.pageOutcomes);
@@ -573,6 +597,7 @@ async function main(): Promise<void> {
       run_id: record.runId,
       organisation_name: record.organisationName,
       sample_group: record.sampleGroup,
+      sector: record.sector,
       original_confidence: record.websiteConfidence,
       promotion_decision: classification.promotionDecision,
       candidate_website: candidateWebsite,
@@ -875,6 +900,7 @@ async function main(): Promise<void> {
 
   const reportInput = {
     runId: audit.runId,
+    segmentFilter,
     rows: classificationRows,
     dryRun: !apply,
     importedWebsiteRows,
@@ -882,11 +908,13 @@ async function main(): Promise<void> {
     discoveryRuns,
     siteChecks,
   };
-  await writeFile(CLASSIFICATION_CSV_PATH, toCsv(classificationRows), "utf8");
-  await writeFile(CLASSIFICATION_JSON_PATH, JSON.stringify({
+  await mkdir(paths.outputDir, { recursive: true });
+  await writeFile(paths.classificationCsv, toCsv(classificationRows), "utf8");
+  await writeFile(paths.classificationJson, JSON.stringify({
     runId: audit.runId,
     classifiedAt: new Date().toISOString(),
     sourceFile: path.relative(REPO_ROOT, SAMPLE_PATH),
+    segmentFilter,
     sampleCount: classificationRows.length,
     summary: {
       decisions: decisionCounts,
@@ -895,15 +923,17 @@ async function main(): Promise<void> {
     execution,
     records: classificationRows,
   }, null, 2) + "\n", "utf8");
-  await writeFile(IMPORT_REPORT_PATH, buildImportReport(reportInput), "utf8");
-  await writeFile(VACANCY_REPORT_PATH, buildVacancyReport({
+  await writeFile(paths.importReport, buildImportReport(reportInput), "utf8");
+  await writeFile(paths.vacancyReport, buildVacancyReport({
     runId: audit.runId,
+    segmentFilter,
     dryRun: !apply,
     discoveryRuns,
     verificationRows,
   }), "utf8");
   console.log(JSON.stringify({
     runId: audit.runId,
+    segmentFilter,
     mode: apply ? "development apply" : "dry run",
     sampleCount: classificationRows.length,
     originalHighConfidenceCount: classificationRows.filter((row) => row.original_confidence === "high").length,
@@ -930,10 +960,10 @@ async function main(): Promise<void> {
       verificationRows: verificationRows.length,
     },
     files: [
-      path.relative(REPO_ROOT, CLASSIFICATION_CSV_PATH),
-      path.relative(REPO_ROOT, CLASSIFICATION_JSON_PATH),
-      path.relative(REPO_ROOT, IMPORT_REPORT_PATH),
-      path.relative(REPO_ROOT, VACANCY_REPORT_PATH),
+      path.relative(REPO_ROOT, paths.classificationCsv),
+      path.relative(REPO_ROOT, paths.classificationJson),
+      path.relative(REPO_ROOT, paths.importReport),
+      path.relative(REPO_ROOT, paths.vacancyReport),
     ],
   }, null, 2));
 }

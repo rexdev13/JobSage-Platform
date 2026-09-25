@@ -1,0 +1,115 @@
+The company-website channel must remain company-website based. Do not mix in Reed, NHS Jobs, DWP, Adzuna, or external job boards for this task.
+
+The latest run approved/imported websites but found 0 vacancies. We need to diagnose why.
+
+Goal:
+For the 26 auto-promoted employers that were checked, produce a per-employer “why no vacancies” diagnosis and then rerun with improved company-website discovery rules.
+
+Do not write production data.
+Do not deploy.
+Development only.
+
+For each of the 26 employers, report:
+
+- organisation_name
+- approved website
+- website HTTP status
+- homepage fetched: yes/no
+- identity confirmed: yes/no
+- careers page found: yes/no
+- careers URL if found
+- careers page HTTP status
+- pages crawled
+- sitemap checked: yes/no
+- robots result
+- links considered
+- candidate careers links rejected and why
+- ATS links seen, including unsupported ATS
+- JSON-LD JobPosting found: yes/no
+- vacancy-like pages found: yes/no
+- final reason no vacancy was imported
+
+Classify final reason as one of:
+
+1. no careers page found
+2. careers page found but no vacancies listed
+3. careers page blocked/403/robots
+4. careers page 404/dead
+5. jobs hidden behind JavaScript
+6. unsupported ATS/platform detected
+7. crawler did not follow relevant “work with us/join us/recruitment” link
+8. false-positive careers page
+9. timeout/technical failure
+10. actual no live vacancies
+
+Then improve the company-website discovery rules:
+
+1. Expand career link detection:
+Include anchor text and URL paths:
+- careers
+- jobs
+- vacancies
+- join us
+- join our team
+- work with us
+- work for us
+- recruitment
+- current openings
+- opportunities
+- hiring
+- apprenticeships
+- volunteers
+- get involved
+
+2. Expand sitemap discovery:
+- check `/sitemap.xml`
+- parse nested sitemaps
+- prioritize URLs containing the above career/job terms
+- do not waste crawl budget on product/blog/gallery pages
+
+3. Detect embedded ATS/platform links:
+Report but do not import unsupported ones yet:
+- Workday
+- Oracle Recruiting
+- Teamtailor
+- BambooHR
+- iCIMS
+- Pinpoint
+- SmartRecruiters
+- Workable
+- Personio
+- Recruitee
+
+4. Parse structured job data:
+- JSON-LD `JobPosting`
+- microdata where reasonable
+
+5. Loosen official website acceptance only slightly:
+Allow auto-promoted website if:
+- domain strongly matches employer/brand, OR
+- page strongly confirms employer identity with no blocked host and no geography conflict
+
+Still reject:
+- directories
+- aggregators
+- social pages
+- Companies House/GOV.UK
+- job boards
+- irrelevant pages
+
+After improving discovery:
+- rerun only on the same 26 auto-promoted employers
+- do not import into production
+- import into development only if vacancy evidence is found from company website/careers/ATS linked from official site
+- repeat import and confirm duplicates
+- verify detail/application URLs
+
+Final report:
+- how many had no careers page
+- how many had careers page but no vacancies
+- how many were blocked
+- how many had unsupported ATS
+- how many had JavaScript-hidden jobs
+- how many had crawler miss due to weak link detection
+- how many vacancies were found after improved discovery
+- whether the 0-vacancy result was because of strict filtering, weak crawler rules, unsupported ATS, or genuinely empty employer sites
