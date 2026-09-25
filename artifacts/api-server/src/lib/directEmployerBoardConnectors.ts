@@ -1,10 +1,17 @@
 import {
   fetchCompanySitePublicApiPage,
+  fetchCompanySiteRobotsAwarePublicApiPage,
   type CompanySiteFailureClass,
 } from "./companySiteHttp";
 import type { BoardAdvert } from "./boardVacancyPipeline";
 
-export type DirectBoardProvider = "Ashby" | "Greenhouse" | "Lever";
+export type DirectBoardProvider =
+  | "Ashby"
+  | "Greenhouse"
+  | "Lever"
+  | "SmartRecruiters"
+  | "Recruitee"
+  | "Personio";
 
 export type DirectBoardMapping = {
   provider: DirectBoardProvider;
@@ -29,6 +36,9 @@ export type DirectBoardScan = {
 const ASHBY_HOST = /^(?:www\.)?jobs\.ashbyhq\.com$/i;
 const GREENHOUSE_HOST = /^(?:boards|job-boards)(?:\.eu)?\.greenhouse\.io$/i;
 const LEVER_HOST = /^jobs(?:\.eu)?\.lever\.co$/i;
+const SMARTRECRUITERS_HOST = /^jobs\.smartrecruiters\.com$/i;
+const RECRUITEE_HOST = /^[a-z0-9-]+\.recruitee\.com$/i;
+const PERSONIO_HOST = /^[a-z0-9-]+\.jobs\.personio\.(?:de|com)$/i;
 
 function strictBoardId(value: string): string | null {
   const id = value.trim();
@@ -46,6 +56,8 @@ export function parseDirectBoardMapping(
   } catch {
     return null;
   }
+  if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.port) return null;
+  if (parsed.pathname.includes("//") || /%(?:2f|5c)/i.test(parsed.pathname)) return null;
   const path = parsed.pathname.replace(/^\/|\/$/g, "");
   const selected = provider?.trim().toLowerCase();
   if (selected === "ashby" && ASHBY_HOST.test(parsed.hostname)) {
@@ -85,6 +97,41 @@ export function parseDirectBoardMapping(
       feedUrl: `https://api.lever.co/v0/postings/${encodeURIComponent(boardId)}?mode=json&limit=100&skip=0`,
     };
   }
+  if (selected === "smartrecruiters" && SMARTRECRUITERS_HOST.test(parsed.hostname)) {
+    const segments = path.split("/").filter(Boolean);
+    const boardId = strictBoardId(segments[0] ?? "");
+    if (!boardId || (segments.length !== 1 && segments.length !== 3)) return null;
+    return {
+      provider: "SmartRecruiters",
+      boardId,
+      evidenceUrl: parsed.toString(),
+      feedUrl: `https://api.smartrecruiters.com/v1/companies/${encodeURIComponent(boardId)}/postings?limit=100&offset=0`,
+    };
+  }
+  if (selected === "recruitee" && RECRUITEE_HOST.test(parsed.hostname)) {
+    const segments = path.split("/").filter(Boolean);
+    if (segments.length > 0 && (segments[0]?.toLowerCase() !== "o" || segments.length > 3)) return null;
+    const boardId = strictBoardId(parsed.hostname.split(".")[0] ?? "");
+    if (!boardId) return null;
+    return {
+      provider: "Recruitee",
+      boardId,
+      evidenceUrl: parsed.toString(),
+      feedUrl: `https://${parsed.hostname.toLowerCase()}/api/offers/`,
+    };
+  }
+  if (selected === "personio" && PERSONIO_HOST.test(parsed.hostname)) {
+    const segments = path.split("/").filter(Boolean);
+    if (segments.length > 0 && (segments[0]?.toLowerCase() !== "job" || segments.length !== 2)) return null;
+    const boardId = strictBoardId(parsed.hostname.split(".")[0] ?? "");
+    if (!boardId) return null;
+    return {
+      provider: "Personio",
+      boardId,
+      evidenceUrl: parsed.toString(),
+      feedUrl: `${parsed.origin}/xml`,
+    };
+  }
   return null;
 }
 
@@ -92,9 +139,17 @@ function text(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-function identifierText(value: unknown): string | null {
+function identifier(value: unknown): string | null {
   if (typeof value === "number") {
-    return Number.isSafeInteger(value) && value > 0 ? String(value) : null;
+    return Number.isSafeInteger(value) && value >= 0 ? String(value) : null;
+  }
+  return text(value);
+}
+
+function timestamp(value: unknown): string | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
   }
   return text(value);
 }
@@ -115,6 +170,55 @@ function locationText(value: unknown): string | null {
   return [record.name, record.city, record.region, record.country]
     .filter((part): part is string => typeof part === "string" && part.trim() !== "")
     .join(", ") || null;
+}
+
+function smartRecruitersLocation(value: unknown): string | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  return [record.city, record.region, record.country]
+    .filter((part): part is string => typeof part === "string" && part.trim() !== "")
+    .join(", ") || null;
+}
+
+function firstText(record: Record<string, unknown>, keys: readonly string[]): string | null {
+  for (const key of keys) {
+    const value = text(record[key]);
+    if (value) return value;
+  }
+  return null;
+}
+
+function validatedJobUrl(value: unknown, mapping: DirectBoardMapping): string | null {
+  const raw = text(value);
+  if (!raw) return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.port) return null;
+  if (parsed.pathname.includes("//") || /%(?:2f|5c)/i.test(parsed.pathname)) return null;
+  const segments = parsed.pathname.split("/").filter(Boolean);
+  const startsWithBoard = segments[0]?.toLowerCase() === mapping.boardId.toLowerCase();
+  switch (mapping.provider) {
+    case "Ashby":
+      return ASHBY_HOST.test(parsed.hostname) && startsWithBoard && segments.length >= 2 ? parsed.toString() : null;
+    case "Greenhouse":
+      return GREENHOUSE_HOST.test(parsed.hostname) && startsWithBoard &&
+        segments.length === 3 && segments[1]?.toLowerCase() === "jobs" ? parsed.toString() : null;
+    case "Lever":
+      return LEVER_HOST.test(parsed.hostname) && startsWithBoard && segments.length >= 2 ? parsed.toString() : null;
+    case "SmartRecruiters":
+      return SMARTRECRUITERS_HOST.test(parsed.hostname) && startsWithBoard && segments.length >= 2
+        ? parsed.toString() : null;
+    case "Recruitee":
+      return parsed.hostname.toLowerCase() === `${mapping.boardId.toLowerCase()}.recruitee.com` &&
+        segments[0]?.toLowerCase() === "o" && segments.length >= 2 ? parsed.toString() : null;
+    case "Personio":
+      return parsed.hostname.toLowerCase() === new URL(mapping.evidenceUrl).hostname.toLowerCase() &&
+        segments.length === 2 && segments[0]?.toLowerCase() === "job" ? parsed.toString() : null;
+  }
 }
 
 function advert(
@@ -168,23 +272,24 @@ function parseAshby(
   if (!Array.isArray(jobs)) throw new Error("Ashby response did not contain a jobs array");
   let excludedUnlisted = 0;
   const adverts = jobs.flatMap((raw): BoardAdvert[] => {
-    if (!raw || typeof raw !== "object") return [];
+    if (!raw || typeof raw !== "object") throw new Error("Malformed job entry: snapshot is incomplete");
     const job = raw as Record<string, unknown>;
     if (job.isListed === false) {
       excludedUnlisted++;
       return [];
     }
-    const id = text(job.id);
+    const id = identifier(job.id);
     const title = text(job.title);
-    const url = text(job.jobUrl);
-    if (!id || !title || !url) return [];
+    const url = validatedJobUrl(job.jobUrl, mapping);
+    if (!id || !title || !url) throw new Error("Missing or invalid job identity/title/URL: snapshot is incomplete");
+    const applyUrl = job.applyUrl == null ? null : validatedJobUrl(job.applyUrl, mapping);
     return [advert(
       organisationName,
       "Ashby",
       id,
       title,
       url,
-      text(job.applyUrl),
+      applyUrl,
       text(job.descriptionPlain) ?? (text(job.descriptionHtml) ? stripHtml(text(job.descriptionHtml)!) : null),
       locationText(job.location),
       text(job.publishedAt),
@@ -199,15 +304,19 @@ function parseGreenhouse(
   mapping: DirectBoardMapping,
   body: string,
 ): { adverts: BoardAdvert[]; excludedUnlisted: number } {
-  const jobs = (parseJson(body) as { jobs?: unknown }).jobs;
+  const payload = parseJson(body) as { jobs?: unknown; meta?: { total?: number } };
+  const jobs = payload.jobs;
   if (!Array.isArray(jobs)) throw new Error("Greenhouse response did not contain a jobs array");
+  if (typeof payload.meta?.total === "number" && payload.meta.total !== jobs.length) {
+    throw new Error("Greenhouse total does not match returned jobs: snapshot is incomplete");
+  }
   const adverts = jobs.flatMap((raw): BoardAdvert[] => {
-    if (!raw || typeof raw !== "object") return [];
+    if (!raw || typeof raw !== "object") throw new Error("Malformed job entry: snapshot is incomplete");
     const job = raw as Record<string, unknown>;
-    const id = identifierText(job.id);
+    const id = identifier(job.id);
     const title = text(job.title);
-    const url = text(job.absolute_url);
-    if (!id || !title || !url) return [];
+    const url = validatedJobUrl(job.absolute_url, mapping);
+    if (!id || !title || !url) throw new Error("Missing or invalid job identity/title/URL: snapshot is incomplete");
     return [advert(
       organisationName,
       "Greenhouse",
@@ -232,12 +341,14 @@ function parseLever(
   const jobs = parseJson(body);
   if (!Array.isArray(jobs)) throw new Error("Lever response did not contain a postings array");
   const adverts = jobs.flatMap((raw): BoardAdvert[] => {
-    if (!raw || typeof raw !== "object") return [];
+    if (!raw || typeof raw !== "object") throw new Error("Malformed posting entry: snapshot is incomplete");
     const job = raw as Record<string, unknown>;
-    const id = text(job.id);
+    const id = identifier(job.id);
     const title = text(job.text);
-    const url = text(job.hostedUrl) ?? text(job.applyUrl);
-    if (!id || !title || !url) return [];
+    const hostedUrl = validatedJobUrl(job.hostedUrl, mapping);
+    const applyUrl = job.applyUrl == null ? null : validatedJobUrl(job.applyUrl, mapping);
+    const url = hostedUrl ?? applyUrl;
+    if (!id || !title || !url) throw new Error("Missing or invalid job identity/title/URL: snapshot is incomplete");
     const categories = job.categories;
     const location = categories && typeof categories === "object"
       ? locationText((categories as Record<string, unknown>).location)
@@ -248,10 +359,148 @@ function parseLever(
       id,
       title,
       url,
-      text(job.applyUrl),
+      applyUrl,
       text(job.descriptionPlain) ?? (text(job.description) ? stripHtml(text(job.description)!) : null),
       location,
       text(job.createdAt) ?? text(job.updatedAt),
+      mapping.evidenceUrl,
+    )];
+  });
+  return { adverts, excludedUnlisted: 0 };
+}
+
+function parseSmartRecruiters(
+  organisationName: string,
+  mapping: DirectBoardMapping,
+  body: string,
+): { adverts: BoardAdvert[]; excludedUnlisted: number; totalFound: number | null; returnedCount: number } {
+  const payload = parseJson(body) as {
+    content?: unknown;
+    postings?: unknown;
+    totalFound?: unknown;
+    total?: unknown;
+  };
+  const jobs = Array.isArray(payload.content)
+    ? payload.content
+    : Array.isArray(payload.postings)
+      ? payload.postings
+      : null;
+  if (!jobs) throw new Error("SmartRecruiters response did not contain a postings array");
+  const total = payload.totalFound ?? payload.total;
+  const totalFound = typeof total === "number" && Number.isSafeInteger(total) && total >= 0 ? total : null;
+  if (total !== undefined && totalFound === null) {
+    throw new Error("SmartRecruiters total is invalid: snapshot is incomplete");
+  }
+  const adverts = jobs.flatMap((raw): BoardAdvert[] => {
+    if (!raw || typeof raw !== "object") throw new Error("Malformed posting entry: snapshot is incomplete");
+    const job = raw as Record<string, unknown>;
+    const id = identifier(job.id ?? job.uuid);
+    const title = firstText(job, ["name", "title"]);
+    const url = validatedJobUrl(firstText(job, ["postingUrl", "ref", "url"]), mapping);
+    if (!id || !title || !url) throw new Error("Missing or invalid job identity/title/URL: snapshot is incomplete");
+    const jobAd = job.jobAd && typeof job.jobAd === "object" ? job.jobAd as Record<string, unknown> : {};
+    const sections = jobAd.sections && typeof jobAd.sections === "object"
+      ? jobAd.sections as Record<string, unknown> : {};
+    return [advert(
+      organisationName,
+      "SmartRecruiters",
+      id,
+      title,
+      url,
+      null,
+      text(sections.jobDescription) ? stripHtml(text(sections.jobDescription)!) : null,
+      smartRecruitersLocation(job.location),
+      text(job.releasedDate) ?? text(job.updatedDate),
+      mapping.evidenceUrl,
+    )];
+  });
+  return { adverts, excludedUnlisted: 0, totalFound, returnedCount: jobs.length };
+}
+
+function parseRecruitee(
+  organisationName: string,
+  mapping: DirectBoardMapping,
+  body: string,
+): { adverts: BoardAdvert[]; excludedUnlisted: number } {
+  const payload = parseJson(body) as { offers?: unknown; jobs?: unknown };
+  const jobs = Array.isArray(payload.offers)
+    ? payload.offers
+    : Array.isArray(payload.jobs)
+      ? payload.jobs
+      : null;
+  if (!jobs) throw new Error("Recruitee response did not contain an offers array");
+  const adverts = jobs.flatMap((raw): BoardAdvert[] => {
+    if (!raw || typeof raw !== "object") throw new Error("Malformed offer entry: snapshot is incomplete");
+    const job = raw as Record<string, unknown>;
+    const id = identifier(job.id);
+    const title = firstText(job, ["title", "name"]);
+    const url = validatedJobUrl(firstText(job, ["careers_url", "url", "web_url"]), mapping);
+    if (!id || !title || !url) throw new Error("Missing or invalid job identity/title/URL: snapshot is incomplete");
+    const applicationUrl = job.apply_url == null
+      ? url
+      : validatedJobUrl(firstText(job, ["apply_url", "careers_url", "url"]), mapping);
+    const location = firstText(job, ["location", "city", "country"]);
+    return [advert(
+      organisationName,
+      "Recruitee",
+      id,
+      title,
+      url,
+      applicationUrl,
+      text(job.description) ? stripHtml(text(job.description)!) : null,
+      location,
+      firstText(job, ["created_at", "published_at", "updated_at"]),
+      mapping.evidenceUrl,
+    )];
+  });
+  return { adverts, excludedUnlisted: 0 };
+}
+
+function xmlValue(block: string, tag: string): string | null {
+  const escapedTag = tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = block.match(new RegExp(`<${escapedTag}\\b[^>]*>([\\s\\S]*?)<\\/${escapedTag}>`, "i"));
+  if (!match?.[1]) return null;
+  const value = match[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1");
+  return stripHtml(value) || null;
+}
+
+function parsePersonio(
+  organisationName: string,
+  mapping: DirectBoardMapping,
+  body: string,
+): { adverts: BoardAdvert[]; excludedUnlisted: number } {
+  const rootOpenings = body.match(/<workzag-jobs\b[^>]*>/gi) ?? [];
+  const rootClosings = body.match(/<\/workzag-jobs\s*>/gi) ?? [];
+  if (rootOpenings.length !== 1 || rootClosings.length !== 1 ||
+      body.indexOf(rootOpenings[0]!) > body.indexOf(rootClosings[0]!)) {
+    throw new Error("Personio XML feed is truncated or malformed");
+  }
+  const positionOpenings = body.match(/<position\b/gi) ?? [];
+  const positionClosings = body.match(/<\/position\s*>/gi) ?? [];
+  const positions = body.match(/<position\b[\s\S]*?<\/position>/gi) ?? [];
+  if (positionOpenings.length !== positionClosings.length ||
+      positions.length !== positionOpenings.length) {
+    throw new Error("Personio XML feed contains a malformed or unclosed position");
+  }
+  if (positions.length === 0) return { adverts: [], excludedUnlisted: 0 };
+  const adverts = positions.flatMap((entry): BoardAdvert[] => {
+    const id = xmlValue(entry, "id");
+    const title = xmlValue(entry, "name");
+    if (!id || !title) throw new Error("Missing job identity/title: snapshot is incomplete");
+    const url = `https://${new URL(mapping.evidenceUrl).hostname}/job/${encodeURIComponent(id)}`;
+    const location = [xmlValue(entry, "office"), xmlValue(entry, "subcompany")]
+      .filter(Boolean)
+      .join(", ") || null;
+    return [advert(
+      organisationName,
+      "Personio",
+      id,
+      title,
+      url,
+      url,
+      xmlValue(entry, "jobDescriptions"),
+      location,
+      xmlValue(entry, "createdAt"),
       mapping.evidenceUrl,
     )];
   });
@@ -279,11 +528,12 @@ export async function fetchDirectEmployerBoard(
     };
   }
   const deadlineMs = options.deadlineMs ?? Date.now() + 25_000;
-  const fetchPage = (url: string) => fetchCompanySitePublicApiPage(
-    url,
-    deadlineMs,
-    2_000_000,
-  );
+  const fetchPage = (url: string) => {
+    const fetchPublicApiPage = mapping.provider === "Recruitee" || mapping.provider === "Personio"
+      ? fetchCompanySiteRobotsAwarePublicApiPage
+      : fetchCompanySitePublicApiPage;
+    return fetchPublicApiPage(url, deadlineMs, 2_000_000);
+  };
   const result = await fetchPage(mapping.feedUrl);
   if (!result.ok) {
     return {
@@ -317,7 +567,13 @@ export async function fetchDirectEmployerBoard(
       ? parseAshby(organisationName, mapping, result.body)
       : mapping.provider === "Greenhouse"
         ? parseGreenhouse(organisationName, mapping, result.body)
-        : parseLever(organisationName, mapping, result.body);
+        : mapping.provider === "Lever"
+          ? parseLever(organisationName, mapping, result.body)
+          : mapping.provider === "SmartRecruiters"
+            ? parseSmartRecruiters(organisationName, mapping, result.body)
+            : mapping.provider === "Recruitee"
+              ? parseRecruitee(organisationName, mapping, result.body)
+              : parsePersonio(organisationName, mapping, result.body);
     let pagesFetched = 1;
     let paginationComplete = true;
     if (mapping.provider === "Lever") {
@@ -351,13 +607,66 @@ export async function fetchDirectEmployerBoard(
       }
       parsed = { adverts: allAdverts, excludedUnlisted: 0 };
     }
+    if (mapping.provider === "SmartRecruiters") {
+      let smartPage = parseSmartRecruiters(organisationName, mapping, result.body);
+      const allAdverts = [...smartPage.adverts];
+      let offset = smartPage.returnedCount;
+      let expectedTotal = smartPage.totalFound;
+      let totalsStable = expectedTotal !== null;
+      while (
+        (expectedTotal !== null ? offset < expectedTotal : smartPage.returnedCount >= 100) &&
+        pagesFetched < 10 &&
+        Date.now() < deadlineMs
+      ) {
+        const nextUrl = mapping.feedUrl.replace(/offset=\d+/, `offset=${offset}`);
+        const next = await fetchPage(nextUrl);
+        if (!next.ok || next.status < 200 || next.status >= 300) {
+          return {
+            adverts: allAdverts,
+            mapping,
+            complete: false,
+            transientFailure: next.ok ? next.status >= 500 || next.status === 429 : next.failureClass !== "permanent",
+            failureClass: next.ok ? "temporary" : next.failureClass ?? "temporary",
+            retryAt: next.ok ? undefined : next.retryAt,
+            error: next.ok ? `direct board HTTP ${next.status}` : next.reason,
+            pagesFetched,
+            advertsExtracted: allAdverts.length,
+            excludedUnlisted: 0,
+          };
+        }
+        smartPage = parseSmartRecruiters(organisationName, mapping, next.body);
+        if (smartPage.totalFound === null || expectedTotal === null ||
+            expectedTotal !== smartPage.totalFound) {
+          totalsStable = false;
+        }
+        allAdverts.push(...smartPage.adverts);
+        offset += smartPage.returnedCount;
+        pagesFetched++;
+        if (smartPage.returnedCount === 0) break;
+      }
+      paginationComplete = totalsStable && expectedTotal !== null &&
+        offset === expectedTotal;
+      if (pagesFetched >= 10 && !paginationComplete || Date.now() >= deadlineMs && !paginationComplete) {
+        paginationComplete = false;
+      }
+      parsed = { adverts: allAdverts, excludedUnlisted: 0 };
+    }
+    if (mapping.provider === "Recruitee") {
+      paginationComplete = false;
+    }
     return {
       adverts: parsed.adverts,
       mapping,
       complete: paginationComplete,
       transientFailure: !paginationComplete,
       failureClass: paginationComplete ? null : "temporary",
-      error: paginationComplete ? undefined : "Lever pagination limit or deadline reached",
+      error: paginationComplete
+        ? undefined
+        : mapping.provider === "SmartRecruiters"
+          ? "SmartRecruiters total is missing or unstable, or pagination limit/deadline reached"
+          : mapping.provider === "Recruitee"
+              ? "Recruitee feed has no trustworthy total or pagination metadata"
+            : "Lever pagination limit or deadline reached",
       pagesFetched,
       advertsExtracted: parsed.adverts.length,
       excludedUnlisted: parsed.excludedUnlisted,

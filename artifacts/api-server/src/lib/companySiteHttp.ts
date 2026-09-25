@@ -10,12 +10,15 @@ import { isPrivateIp } from "./linkHealth";
 import { withCompanySiteDatabaseRetry } from "./companySitePersistence";
 
 export const COMPANY_SITE_PAGE_TIMEOUT_MS = 9_000;
+// Documented public ATS feeds can be slower than ordinary employer HTML pages.
+// Their requests still obey the caller's absolute deadline and the same host safety policy.
+export const COMPANY_SITE_PUBLIC_API_TIMEOUT_MS = 25_000;
 export const COMPANY_SITE_EMPLOYER_BUDGET_MS = 25_000;
 export const COMPANY_SITE_HOST_DELAY_MS = 1_750;
 export const COMPANY_SITE_ROBOTS_TTL_MS = 36 * 60 * 60 * 1000;
 export const COMPANY_SITE_DNS_TIMEOUT_MS = 3_000;
 
-const HOST_LEASE_MS = COMPANY_SITE_PAGE_TIMEOUT_MS + 3_000;
+const HOST_LEASE_MS = Math.max(COMPANY_SITE_PAGE_TIMEOUT_MS, COMPANY_SITE_PUBLIC_API_TIMEOUT_MS) + 3_000;
 const MAX_REDIRECTS = 3;
 const MAX_PAGE_BYTES = 1_000_000;
 const MAX_ROBOTS_BYTES = 128_000;
@@ -35,6 +38,9 @@ const ATS_HOSTS: Array<{ provider: string; suffix: string }> = [
   { provider: "SAP SuccessFactors", suffix: "successfactors.com" },
   { provider: "Ashby", suffix: "ashbyhq.com" },
   { provider: "BambooHR", suffix: "bamboohr.com" },
+  { provider: "Recruitee", suffix: "recruitee.com" },
+  { provider: "Personio", suffix: "personio.com" },
+  { provider: "Personio", suffix: "personio.de" },
 ];
 
 export type CompanySiteFetchFailure =
@@ -509,6 +515,7 @@ async function fetchWithoutRobots(
   deadlineMs: number,
   maxBytes = MAX_PAGE_BYTES,
   checkRedirectRobots = false,
+  timeoutCapMs = COMPANY_SITE_PAGE_TIMEOUT_MS,
 ): Promise<CompanySiteFetchResult> {
   let currentUrl = inputUrl;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
@@ -577,7 +584,7 @@ async function fetchWithoutRobots(
     }
 
     const leaseToken = reservation.leaseToken;
-    const timeoutMs = Math.max(1, Math.min(COMPANY_SITE_PAGE_TIMEOUT_MS, deadlineMs - Date.now()));
+    const timeoutMs = Math.max(1, Math.min(timeoutCapMs, deadlineMs - Date.now()));
     try {
       const response = await requestPinned(parsed, pinned, timeoutMs, maxBytes);
       if (response.status >= 300 && response.status < 400) {
@@ -831,5 +838,45 @@ export async function fetchCompanySitePublicApiPage(
     deadlineMs,
     maxBytes,
     false,
+    COMPANY_SITE_PUBLIC_API_TIMEOUT_MS,
+  );
+}
+
+/**
+ * Public feed paths served on the employer's careers host (for example
+ * Recruitee and Personio) must pass robots.txt, including after redirects.
+ * They still receive the bounded public-API timeout instead of the HTML cap.
+ */
+export async function fetchCompanySiteRobotsAwarePublicApiPage(
+  url: string,
+  deadlineMs: number,
+  maxBytes = MAX_PAGE_BYTES,
+): Promise<CompanySiteFetchResult> {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { ok: false, kind: "unsafe", reason: "malformed API URL" };
+  }
+  if (parsed.protocol !== "https:" || knownAtsProvider(parsed.hostname) === null) {
+    return { ok: false, kind: "unsafe", reason: "unsupported public ATS API destination" };
+  }
+  const robots = await robotsPolicy(parsed.toString(), parsed.hostname, deadlineMs);
+  if (!robots.allowed) {
+    return {
+      ok: false,
+      kind: "robots",
+      reason: robots.reason ?? "robots.txt disallows this path",
+      retryAt: robots.retryAt,
+      failureClass: robots.failureClass ?? "temporary",
+    };
+  }
+  return fetchWithoutRobots(
+    parsed.toString(),
+    parsed.hostname,
+    deadlineMs,
+    maxBytes,
+    true,
+    COMPANY_SITE_PUBLIC_API_TIMEOUT_MS,
   );
 }

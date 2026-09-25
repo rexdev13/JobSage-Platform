@@ -20,7 +20,7 @@ import {
 import { extractAdvertContactEmail } from "./publishedContactEmail";
 import { parseVacancyClosingDate } from "./vacancyDates";
 import { isLikelyEditorialTitle } from "./vacancyTitlePolicy";
-import { fetchDirectEmployerBoard } from "./directEmployerBoardConnectors";
+import { fetchDirectEmployerBoard, parseDirectBoardMapping } from "./directEmployerBoardConnectors";
 
 export const MAX_COMPANY_SITE_DISCOVERY_PAGES = 6;
 // The crawl remains bounded by pages, response bytes, host pacing and the
@@ -56,7 +56,15 @@ const SITEMAP_EXCLUDED_PATH =
 const MAX_DIAGNOSTIC_LINKS = 80;
 const MAX_SITEMAP_CHILDREN_PER_EMPLOYER = 4;
 const MAX_SITEMAP_URLS_PER_DOCUMENT = 25;
-const DIRECT_IMPORT_ATS_PROVIDERS = new Set(["Ashby", "Greenhouse", "Lever"]);
+const DIRECT_IMPORT_ATS_PROVIDERS = new Set([
+  "Ashby", "Greenhouse", "Lever", "SmartRecruiters", "Recruitee", "Personio",
+]);
+// Site-hosted Recruitee/Personio feeds can be imported, but their response does
+// not prove an exhaustive inventory. Never retire older roles from those feeds.
+const AUTHORITATIVE_SNAPSHOT_PROVIDERS = new Set([
+  "Ashby", "Greenhouse", "Lever", "SmartRecruiters",
+]);
+const COMMON_CAREERS_PATHS = ["/careers", "/jobs", "/vacancies", "/join-us", "/work-with-us"] as const;
 const ATS_PLATFORM_HOSTS: Array<{ provider: string; suffixes: string[] }> = [
   { provider: "Workday", suffixes: ["myworkdayjobs.com", "myworkdaysite.com"] },
   { provider: "Oracle Recruiting", suffixes: ["oraclecloud.com"] },
@@ -153,6 +161,8 @@ export type CompanySiteDiscoveryResult = {
   rejectionReasons: Record<string, number>;
   discoveredUrls: string[];
   observedAdvertUrls: string[];
+  /** Only a complete, trusted direct-feed snapshot can retire missing postings in its own board. */
+  snapshotScope?: { provider: string; boardId: string };
   resumeState: CompanySiteDiscoveryOptions["resumeState"];
   diagnostics: CompanySiteDiscoveryDiagnostics;
 };
@@ -1197,6 +1207,7 @@ export async function discoverCompanySiteVacancies(
   const originHostname = new URL(sourceUrl).hostname;
   const checkGeneric = options.checkGeneric !== false;
   const checkAts = options.checkAts !== false;
+  const directAttempted = new Set<string>();
   if (
     !options.resumeState &&
     checkAts &&
@@ -1209,7 +1220,8 @@ export async function discoverCompanySiteVacancies(
       options.knownCareersUrl,
       { deadlineMs },
     );
-    if (direct.mapping) {
+    if (direct.mapping) directAttempted.add(direct.mapping.evidenceUrl);
+    if (direct.mapping && (direct.complete || direct.adverts.length > 0)) {
       const directAdverts = normaliseAndDedupeBoardAdverts(direct.adverts);
       diagnostics.careersPageFound = true;
       diagnostics.careersUrl = direct.mapping.evidenceUrl;
@@ -1246,6 +1258,9 @@ export async function discoverCompanySiteVacancies(
         rejectionReasons: {},
         discoveredUrls: [direct.mapping.feedUrl],
         observedAdvertUrls: directAdverts.map((advert) => advert.url),
+        snapshotScope: direct.complete && AUTHORITATIVE_SNAPSHOT_PROVIDERS.has(direct.mapping.provider)
+          ? { provider: direct.mapping.provider, boardId: direct.mapping.boardId }
+          : undefined,
         // A direct-board failure is retried from the feed on the next run.
         // Never hand an API endpoint to the HTML crawler as resumable state.
         resumeState: null,
@@ -1293,6 +1308,12 @@ export async function discoverCompanySiteVacancies(
     if (visited.has(canonical) || queued.has(canonical)) return;
     queued.add(canonical);
     queue.push(canonical);
+  };
+  const enqueueCommonCareersPaths = (): void => {
+    for (const path of COMMON_CAREERS_PATHS) {
+      if (queue.length >= MAX_RESUMABLE_CRAWL_URLS) break;
+      enqueue(new URL(path, sourceUrl).toString());
+    }
   };
   const prioritizeEnqueue = (urls: readonly string[]): void => {
     const prioritized: string[] = [];
@@ -1370,6 +1391,63 @@ export async function discoverCompanySiteVacancies(
     if (SITEMAP_SIGNAL.test(canonical)) diagnostics.sitemapChecked = true;
     if (isKnownCareersRequest && !diagnostics.careersUrl) diagnostics.careersUrl = canonical;
     const provider = knownAtsProvider(canonical);
+    if (provider && checkAts && isTrustedAtsUrl(canonical)) {
+      const mapping = parseDirectBoardMapping(provider, canonical);
+      if (mapping && !directAttempted.has(mapping.evidenceUrl)) {
+        directAttempted.add(mapping.evidenceUrl);
+        const direct = await fetchDirectEmployerBoard(
+          organisationName,
+          provider,
+          canonical,
+          { deadlineMs },
+        );
+        if (direct.mapping && (direct.complete || direct.adverts.length > 0)) {
+          const directAdverts = normaliseAndDedupeBoardAdverts(direct.adverts);
+          addAtsDiagnostic(
+            diagnostics,
+            direct.mapping.provider,
+            direct.mapping.evidenceUrl,
+            atsMappingEvidenceUrl ?? sourceUrl,
+            true,
+            true,
+            null,
+          );
+          diagnostics.careersPageFound = true;
+          diagnostics.careersUrl = direct.mapping.evidenceUrl;
+          diagnostics.pagesCrawled += direct.pagesFetched;
+          diagnostics.pagesAttempted = pagesAttempted + direct.pagesFetched;
+          return {
+            adverts: directAdverts,
+            sourceUrl,
+            careersUrl: direct.mapping.evidenceUrl,
+            atsProvider: direct.mapping.provider,
+            atsMappingVerified: true,
+            atsMappingEvidenceUrl,
+            genericCompleted,
+            atsCompleted: direct.complete,
+            transientFailure: direct.transientFailure,
+            failureClass: direct.failureClass,
+            retryAt: direct.retryAt,
+            error: direct.error,
+            pagesFetched: pagesFetched + direct.pagesFetched,
+            completion: direct.complete ? "complete" : "failed",
+            pagesAttempted: pagesAttempted + direct.pagesFetched,
+            advertsExtracted: direct.advertsExtracted,
+            advertsRejected: Math.max(0, direct.advertsExtracted - directAdverts.length),
+            rejectionReasons,
+            discoveredUrls: [...discoveredUrls, direct.mapping.feedUrl],
+            observedAdvertUrls: directAdverts.map((advert) => advert.url),
+            snapshotScope: direct.complete && AUTHORITATIVE_SNAPSHOT_PROVIDERS.has(direct.mapping.provider)
+              ? { provider: direct.mapping.provider, boardId: direct.mapping.boardId }
+              : undefined,
+            resumeState: null,
+            diagnostics,
+          };
+        }
+        // A trusted feed can be temporarily unavailable. Try its already-linked
+        // HTML page without granting trust to any unrelated ATS board.
+      }
+    }
     const result = await fetchCompanySitePage(canonical, originHostname, deadlineMs);
     const fetchDiagnostic: CompanySiteFetchDiagnostic = {
       url: canonical,
@@ -1403,10 +1481,17 @@ export async function discoverCompanySiteVacancies(
           result.status === 403 ||
           result.status === 404 ||
           result.status === 410);
+      const optionalCareersPathAbsent =
+        (result.status === 404 || result.status === 410) &&
+        COMMON_CAREERS_PATHS.some((path) =>
+          (canonicalVacancyUrl(new URL(path, sourceUrl).toString()) ?? new URL(path, sourceUrl).toString()) === canonical,
+        );
       if (optionalSitemapUnavailable) {
         diagnostics.sitemapChecked = true;
+        if (queue.length === 0 && adverts.length === 0) enqueueCommonCareersPaths();
         continue;
       }
+      if (optionalCareersPathAbsent) continue;
       attemptedPageFailure = true;
       error ??= result.reason;
       retryAt ??= result.retryAt;
@@ -1629,6 +1714,15 @@ export async function discoverCompanySiteVacancies(
     ) {
       sitemapQueued = true;
       enqueue(sitemapUrl);
+    } else if (
+      provider === null &&
+      queue.length === 0 &&
+      adverts.length === 0 &&
+      sitemapQueued
+    ) {
+      // A healthy homepage or sitemap may expose no careers link. Probe only
+      // common first-party paths, within the existing page/deadline limits.
+      enqueueCommonCareersPaths();
     }
   }
 

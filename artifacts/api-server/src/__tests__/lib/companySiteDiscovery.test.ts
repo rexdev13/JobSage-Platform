@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { fetchCompanySitePageMock } = vi.hoisted(() => ({
+const { fetchCompanySitePageMock, fetchCompanySitePublicApiPageMock } = vi.hoisted(() => ({
   fetchCompanySitePageMock: vi.fn(),
+  fetchCompanySitePublicApiPageMock: vi.fn(),
 }));
 
 vi.mock("../../lib/companySiteHttp", () => ({
@@ -9,6 +10,8 @@ vi.mock("../../lib/companySiteHttp", () => ({
   classifyCompanySiteFailure: ({ kind, status }: { kind: string; status?: number }) =>
     kind === "unsafe" || status === 404 || status === 410 ? "permanent" : "temporary",
   fetchCompanySitePage: fetchCompanySitePageMock,
+  fetchCompanySitePublicApiPage: fetchCompanySitePublicApiPageMock,
+  fetchCompanySiteRobotsAwarePublicApiPage: fetchCompanySitePublicApiPageMock,
   isAllowedCompanyDestination: () => true,
   knownAtsProvider: (value: string) =>
     value.includes("jobs.lever.co")
@@ -19,6 +22,12 @@ vi.mock("../../lib/companySiteHttp", () => ({
           ? "Greenhouse"
           : value.includes("bamboohr.com")
             ? "BambooHR"
+          : value.includes("smartrecruiters.com")
+            ? "SmartRecruiters"
+            : value.includes("personio.")
+              ? "Personio"
+              : value.includes("recruitee.com")
+                ? "Recruitee"
         : null,
 }));
 
@@ -31,6 +40,20 @@ const {
 describe("company-site vacancy discovery", () => {
   beforeEach(() => {
     fetchCompanySitePageMock.mockReset();
+    fetchCompanySitePublicApiPageMock.mockReset();
+    fetchCompanySitePageMock.mockImplementation(async (url: string) => ({
+      ok: true,
+      url,
+      status: 200,
+      contentType: url.endsWith(".xml") ? "application/xml" : "text/html",
+      body: url.endsWith(".xml") ? "<urlset></urlset>" : "<h1>Welcome</h1>",
+    }));
+    fetchCompanySitePublicApiPageMock.mockResolvedValue({
+      ok: false,
+      kind: "network",
+      reason: "Direct feed unavailable in fixture",
+      failureClass: "temporary",
+    });
   });
 
   it("discovers a known ATS from a non-health sponsor website without using AI", async () => {
@@ -99,7 +122,31 @@ describe("company-site vacancy discovery", () => {
     expect(fetchCompanySitePageMock.mock.calls.map(([url]) => url)).not.toContain(
       "https://jobs.ashbyhq.com/fixture",
     );
+    expect(fetchCompanySitePublicApiPageMock).not.toHaveBeenCalled();
     expect(result.atsMappingVerified).toBe(false);
+  });
+
+  it("probes common first-party careers paths after an empty homepage and sitemap", async () => {
+    const home = "https://common-paths.example/";
+    fetchCompanySitePageMock.mockImplementation(async (url: string) => url.endsWith("sitemap.xml")
+      ? { ok: false, kind: "http", status: 404, reason: "HTTP 404" }
+      : {
+          ok: true,
+          url,
+          status: 200,
+          contentType: "text/html",
+          body: "<h1>Welcome</h1>",
+        });
+
+    const result = await discoverCompanySiteVacancies("Common Paths Employer", home);
+    const fetchedUrls = fetchCompanySitePageMock.mock.calls.map(([url]) => url);
+    const expectedPaths = ["/careers", "/jobs", "/vacancies", "/join-us", "/work-with-us"];
+
+    expect(fetchedUrls).toContain(`${home}sitemap.xml`);
+    expect(fetchedUrls).toEqual(expect.arrayContaining(
+      expectedPaths.slice(0, 4).map((path) => new URL(path, home).toString()),
+    ));
+    expect(result.resumeState?.queue).toContain(new URL(expectedPaths[4], home).toString());
   });
 
   it("accepts opaque Ashby posting links from an Ashby listing page", async () => {
@@ -464,7 +511,7 @@ describe("company-site vacancy discovery", () => {
     expect(result.adverts).toEqual([]);
   });
 
-  it("treats an unavailable optional sitemap as a complete empty observation", async () => {
+  it("treats an unavailable optional sitemap as non-fatal while probing common careers paths", async () => {
     fetchCompanySitePageMock
       .mockResolvedValueOnce({
         ok: true,
@@ -492,7 +539,7 @@ describe("company-site vacancy discovery", () => {
       "https://no-sitemap.example/",
     );
 
-    expect(result.completion).toBe("complete");
+    expect(result.completion).toBe("partial_page_limit");
     expect(result.error).toBeUndefined();
     expect(result.diagnostics.pageFetches).toEqual(expect.arrayContaining([
       expect.objectContaining({
@@ -863,10 +910,7 @@ describe("company-site vacancy discovery", () => {
     ["BambooHR", "https://acme.bamboohr.com/careers"],
     ["iCIMS", "https://careers-acme.icims.com/jobs"],
     ["Pinpoint", "https://acme.pinpointhq.com/"],
-    ["SmartRecruiters", "https://careers.smartrecruiters.com/Acme"],
     ["Workable", "https://apply.workable.com/acme/"],
-    ["Personio", "https://acme.jobs.personio.com/"],
-    ["Recruitee", "https://acme.recruitee.com/"],
   ])("records unsupported %s links without fetching their platform", async (provider, atsUrl) => {
     const home = "https://official-employer.example/";
     const sitemap = "https://official-employer.example/sitemap.xml";
@@ -890,6 +934,91 @@ describe("company-site vacancy discovery", () => {
         supportedForImport: false,
         linkedFromFirstParty: true,
         followed: false,
+      }),
+    ]));
+  });
+
+  it.each([
+    {
+      provider: "SmartRecruiters",
+      careersUrl: "https://jobs.smartrecruiters.com/Acme",
+      feedUrl: "https://api.smartrecruiters.com/v1/companies/Acme/postings?limit=100&offset=0",
+      body: JSON.stringify({
+        totalFound: 1,
+        content: [{
+          id: "sr-123",
+          name: "Senior Engineer",
+          postingUrl: "https://jobs.smartrecruiters.com/Acme/1234",
+          location: { city: "London", country: "United Kingdom" },
+        }],
+      }),
+      advertUrl: "https://jobs.smartrecruiters.com/Acme/1234",
+    },
+    {
+      provider: "Personio",
+      careersUrl: "https://acme.jobs.personio.com/",
+      feedUrl: "https://acme.jobs.personio.com/xml",
+      body: "<workzag-jobs><position><id>p-123</id><name>People Partner</name><office>London</office></position></workzag-jobs>",
+      advertUrl: "https://acme.jobs.personio.com/job/p-123",
+    },
+    {
+      provider: "Recruitee",
+      careersUrl: "https://acme.recruitee.com/",
+      feedUrl: "https://acme.recruitee.com/api/offers/",
+      body: JSON.stringify({
+        offers: [{
+          id: "r-123",
+          title: "Product Designer",
+          careers_url: "https://acme.recruitee.com/o/product-designer",
+          location: "London",
+        }],
+      }),
+      advertUrl: "https://acme.recruitee.com/o/product-designer",
+    },
+  ])("imports supported $provider direct-feed postings from a verified mapping", async ({
+    provider,
+    careersUrl,
+    feedUrl,
+    body,
+    advertUrl,
+  }) => {
+    fetchCompanySitePageMock.mockImplementation(async (url: string) => ({
+      ok: true,
+      url,
+      status: 200,
+      contentType: "text/html",
+      body: `<nav><a href="${careersUrl}">Careers</a></nav>`,
+    }));
+    fetchCompanySitePublicApiPageMock.mockResolvedValue({
+      ok: true,
+      url: feedUrl,
+      status: 200,
+      contentType: provider === "Personio" ? "application/xml" : "application/json",
+      body,
+    });
+
+    const result = await discoverCompanySiteVacancies(
+      "Official Employer",
+      "https://official-employer.example/",
+    );
+
+    expect(fetchCompanySitePublicApiPageMock).toHaveBeenCalledWith(
+      feedUrl,
+      expect.any(Number),
+      expect.any(Number),
+    );
+    expect(result.atsProvider).toBe(provider);
+    if (provider === "Personio" || provider === "Recruitee") {
+      expect(result.snapshotScope).toBeUndefined();
+    }
+    expect(result.adverts).toEqual(expect.arrayContaining([
+      expect.objectContaining({ url: advertUrl, sourceType: "company_site" }),
+    ]));
+    expect(result.diagnostics.atsLinksSeen).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        provider,
+        supportedForImport: true,
+        followed: true,
       }),
     ]));
   });

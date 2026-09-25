@@ -733,13 +733,32 @@ export async function runCompanySiteCheck(
     options.verifyImportIdempotency && result.adverts.length > 0
       ? await persistCompanySiteVacancies(result.adverts, { queueVerifications: false })
       : undefined;
-  if (result.completion === "complete") {
-    await db.execute(sql`
+  // A generic crawl is not a complete inventory of every careers source used by
+  // an employer. Only retire postings from the exact board of an authoritative,
+  // complete direct-feed snapshot; partial feeds must never retire anything.
+  if (result.completion === "complete" && result.snapshotScope) {
+    const { provider, boardId } = result.snapshotScope;
+    const escapedBoardId = boardId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const boardPattern = provider === "Ashby"
+      ? `^https://jobs[.]ashbyhq[.]com/${escapedBoardId}/`
+      : provider === "Greenhouse"
+        ? `^https://(boards|job-boards)([.]eu)?[.]greenhouse[.]io/${escapedBoardId}/`
+        : provider === "Lever"
+          ? `^https://jobs([.]eu)?[.]lever[.]co/${escapedBoardId}/`
+          : provider === "SmartRecruiters"
+            ? `^https://jobs[.]smartrecruiters[.]com/${escapedBoardId}/`
+            : provider === "Recruitee"
+              ? `^https://${escapedBoardId}[.]recruitee[.]com/`
+              : provider === "Personio"
+                ? `^https://${escapedBoardId}[.]jobs[.]personio[.](de|com)/`
+                : null;
+    if (boardPattern) await db.execute(sql`
       UPDATE sponsor_licence_vacancies
       SET source_missing_since = COALESCE(source_missing_since, NOW()),
           source_missing_observations = COALESCE(source_missing_observations, 0) + 1
       WHERE lower(btrim(organisation_name)) = lower(btrim(${row.organisationName}))
         AND source_type = 'company_site'
+        AND url ~* ${boardPattern}
         AND last_discovered_at < NOW()
         AND NOT EXISTS (
           SELECT 1
