@@ -502,3 +502,45 @@ mtime_ms = 1790269581482
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/5f1ada15-f386-4d51-a82e-528bd07bcd6d/ca3de34f-8992-4cc9-857c-3fc98a273b73"
 storage_version_token = "1790269617512225"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "vKHP9kUiRO4oRjv_CfuRe"
+uri = "file://ats-coverage-summary.md"
+type = "text"
+title = "ATS Coverage Audit Summary"
+description = "Sector-level findings, platform results, and recommendations from the read-only sponsor-employer ATS audit."
+logical_id = "999722f1-57d3-4fc0-9914-b9180c1ee823"
+content_hash = "sha256:055cda75f67f71acf39be247f67041700fc210f0a5b6ba6d04411ab2a1dd7cfd"
+size = 9161
+mtime_ms = 1790321949019
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/999722f1-57d3-4fc0-9914-b9180c1ee823/0e3ba997-074b-4c50-96cd-f836977f3c07"
+storage_version_token = "1790322039762967"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "zcobOmhrsMcBGNKjP1PDK"
+uri = "file://ats-coverage-audit.csv"
+type = "table"
+title = "ATS Coverage Audit CSV"
+description = "139 sampled employers with sector, URL/mapping status, ATS confidence, posting counts, and crawl follow-up flags."
+logical_id = "72416ec9-5fbe-40af-9837-8e7f5eabeead"
+content_hash = "sha256:fb047d85db62fbb9af36d39817bcdba7f20df242b3697e51bf347b8dfee5a36b"
+size = 188389
+mtime_ms = 1790322009982
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/72416ec9-5fbe-40af-9837-8e7f5eabeead/cc158ade-1337-4df6-9746-318da4b54f84"
+storage_version_token = "1790322040772647"
+content_type = "text/csv"
+
+[[outputs]]
+id = "7hkEL_9ULRQophIRzuyOL"
+uri = "file://ats-coverage-audit.json"
+type = "unspecified"
+title = "ATS Coverage Audit JSON"
+description = "Full structured audit: population breakdowns, sample results, ATS feed checks, confidence tiers, and posting records."
+logical_id = "d6da79db-0537-41d7-a25f-5baf83e27172"
+content_hash = "sha256:aeceaeb014830f405e1df1e18f3e041d0d27c282b48be9eccfccbfebe1683b68"
+size = 785104
+mtime_ms = 1790321947561
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/d6da79db-0537-41d7-a25f-5baf83e27172/d002717c-0ee2-4aa6-bbaf-09dc99a5f5ed"
+storage_version_token = "1790322042042755"
+content_type = "application/octet-stream"
