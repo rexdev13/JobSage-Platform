@@ -1,0 +1,150 @@
+Before building the full vacancy pipeline, run an efficiency/coverage audit.
+
+Goal:
+Estimate how many real vacancies JOBSAGE can collect cheaply from sponsor employers using direct ATS feeds, before committing to expensive crawling, Playwright, LLM extraction, or paid APIs.
+
+Important:
+The Home Office sponsor register does not provide company websites. For this audit, do not try to perfectly enrich every website first. Instead, use sponsor company names and sectors/industries to test how much coverage we can get from direct ATS discovery.
+
+Run in development/read-only mode first.
+Do not import vacancies into production.
+Do not deploy.
+Do not email employers.
+Do not submit applications.
+
+Audit scope:
+
+1. Sponsor population
+From the development database, report:
+- total sponsor employers
+- distinct organisation names
+- breakdown by industry/sector
+- breakdown by region if available
+- count with stored website
+- count with stored careers URL
+- count with existing ATS provider/board mapping
+
+2. Sector sampling
+For each major sector/industry in the sponsor list, select a sample of employers.
+
+Use a balanced sample such as:
+- up to 50 employers per sector, or
+- enough to cover the top sectors without exceeding 500 employers total
+
+Include sectors like:
+- Healthcare / Social Care
+- Technology / IT
+- Engineering
+- Education
+- Hospitality
+- Retail
+- Finance / Professional Services
+- Construction
+- Manufacturing
+- Transport / Logistics
+- Other
+
+3. Direct ATS lookup by employer name
+For each sampled sponsor employer, try to find likely direct ATS boards without doing full website crawling.
+
+Check likely ATS board patterns for:
+- Greenhouse
+- Ashby
+- Lever
+
+Use safe guesses based on normalized employer name, trading name, brand name and common slug variants.
+
+Examples:
+- “Monzo Bank Ltd” → monzo
+- “GoCardless Limited” → gocardless
+- “Roofoods Ltd t/a Deliveroo” → deliveroo
+- “Wise Payments Limited” → wise
+- “Canonical UK Limited” → canonical
+
+For each guessed board:
+- request the public feed safely
+- apply timeout and response-size limits
+- do not follow arbitrary redirects
+- record HTTP status/error
+- if feed returns jobs, count them
+- normalize returned job titles/locations/URLs
+- do not import yet
+
+4. Existing website/careers shortcut
+If the employer already has a stored website/careers/ATS URL:
+- test that first
+- classify it as verified, probable, invalid, unsupported, or broken
+- use it to detect ATS if possible
+
+5. Match confidence
+For each potential ATS hit, assign confidence:
+
+- verified:
+  board was already stored as verified OR linked from the employer’s official website/careers page
+
+- probable:
+  board slug strongly matches employer/brand name and returned jobs appear to use the same employer brand
+
+- uncertain:
+  board exists but employer ownership is unclear
+
+- rejected:
+  board clearly belongs to another company or unrelated brand
+
+For this audit, count vacancies from verified and probable matches separately.
+Do not treat probable as production-safe until verified later.
+
+6. Sector coverage report
+For each sector, report:
+- sampled employers
+- employers with existing website
+- employers with existing careers URL
+- employers with direct ATS hit
+- verified ATS hits
+- probable ATS hits
+- vacancies returned from verified hits
+- vacancies returned from probable hits
+- employers with empty feeds
+- employers with no ATS found
+- employers needing website discovery
+- employers needing unsupported ATS adapter
+- employers needing generic crawling
+
+7. ATS/platform report
+Report totals by platform:
+- Greenhouse boards found
+- Ashby boards found
+- Lever boards found
+- total vacancies returned per platform
+- average vacancies per successful employer
+- response-size/timeouts/errors by platform
+
+8. Cost/efficiency estimate
+Based on the audit, estimate:
+- how many vacancies we can likely collect cheaply with direct ATS feeds
+- which sectors will populate fastest
+- which sectors are weak and need website enrichment/crawling
+- whether it is worth building more ATS adapters next
+- which adapter should be next after Ashby/Greenhouse/Lever
+
+9. Output files
+Produce:
+- `ats-coverage-audit.json`
+- `ats-coverage-audit.csv`
+- `ats-coverage-summary.md`
+
+The summary should answer plainly:
+- Is direct ATS lookup worth doing first?
+- Which sectors give the most vacancies?
+- Which sectors are hard?
+- How many vacancies did we find from the sample?
+- How many were verified vs probable?
+- What should we build next?
+- Should we proceed to Phase 1 implementation or fix website/careers data first?
+
+Important safety rules:
+- Do not import vacancy rows in this audit.
+- Do not mark vacancies live/dead.
+- Do not change employer data.
+- Do not overwrite websites/careers URLs.
+- This is a read-only discovery and coverage audit.
