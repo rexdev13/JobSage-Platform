@@ -1,0 +1,5429 @@
+{
+  "createdAt": "2026-09-25T18:28:29.017Z",
+  "developmentOnly": true,
+  "apply": true,
+  "input": "/home/runner/workspace/.agents/outputs/sponsor-website-approval-2026-09-25/review-pass/rollout-100.csv",
+  "stages": {
+    "websiteFill": true,
+    "discovery": true
+  },
+  "requestedLimit": 100,
+  "totals": {
+    "selected": 100,
+    "inserted": 1,
+    "updated": 63,
+    "revived": 0,
+    "completed": 39,
+    "failed": 5,
+    "no_jobs": 35,
+    "skipped": 0,
+    "websitesFilled": 0,
+    "advertsFound": 64,
+    "advertsRejected": 108,
+    "ukLocationKnown": 12,
+    "ukLocationUnknown": 52
+  },
+  "perSector": {
+    "Construction": {
+      "employers": 5,
+      "runtimeMs": 53348,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "completed": 4,
+      "failed": 1,
+      "no_jobs": 4,
+      "websitesFilled": 0,
+      "advertsFound": 0,
+      "advertsRejected": 7,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0
+    },
+    "Engineering": {
+      "employers": 6,
+      "runtimeMs": 23643,
+      "inserted": 0,
+      "updated": 2,
+      "revived": 0,
+      "completed": 5,
+      "failed": 1,
+      "no_jobs": 4,
+      "websitesFilled": 0,
+      "advertsFound": 2,
+      "advertsRejected": 8,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 2
+    },
+    "Finance": {
+      "employers": 2,
+      "runtimeMs": 10162,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "completed": 1,
+      "failed": 1,
+      "no_jobs": 1,
+      "websitesFilled": 0,
+      "advertsFound": 0,
+      "advertsRejected": 5,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0
+    },
+    "Healthcare / social care": {
+      "employers": 14,
+      "runtimeMs": 151938,
+      "inserted": 1,
+      "updated": 9,
+      "revived": 0,
+      "completed": 13,
+      "failed": 1,
+      "no_jobs": 12,
+      "websitesFilled": 0,
+      "advertsFound": 10,
+      "advertsRejected": 72,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 10
+    },
+    "Hospitality": {
+      "employers": 3,
+      "runtimeMs": 3743,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "completed": 3,
+      "failed": 0,
+      "no_jobs": 3,
+      "websitesFilled": 0,
+      "advertsFound": 0,
+      "advertsRejected": 0,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0
+    },
+    "Manufacturing": {
+      "employers": 1,
+      "runtimeMs": 2620,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "completed": 1,
+      "failed": 0,
+      "no_jobs": 1,
+      "websitesFilled": 0,
+      "advertsFound": 0,
+      "advertsRejected": 1,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0
+    },
+    "Other": {
+      "employers": 4,
+      "runtimeMs": 67139,
+      "inserted": 0,
+      "updated": 16,
+      "revived": 0,
+      "completed": 3,
+      "failed": 1,
+      "no_jobs": 2,
+      "websitesFilled": 0,
+      "advertsFound": 16,
+      "advertsRejected": 0,
+      "ukLocationKnown": 9,
+      "ukLocationUnknown": 7
+    },
+    "Technology": {
+      "employers": 4,
+      "runtimeMs": 38577,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "completed": 4,
+      "failed": 0,
+      "no_jobs": 4,
+      "websitesFilled": 0,
+      "advertsFound": 0,
+      "advertsRejected": 11,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0
+    },
+    "Unclassified": {
+      "employers": 5,
+      "runtimeMs": 115003,
+      "inserted": 0,
+      "updated": 36,
+      "revived": 0,
+      "completed": 5,
+      "failed": 0,
+      "no_jobs": 4,
+      "websitesFilled": 0,
+      "advertsFound": 36,
+      "advertsRejected": 4,
+      "ukLocationKnown": 3,
+      "ukLocationUnknown": 33
+    }
+  },
+  "rows": [
+    {
+      "sponsorLicenceId": 154374,
+      "organisationName": "B&B Singh Construction Ltd",
+      "candidateWebsite": "https://bbsingh.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Construction",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://bbsingh.co.uk/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 6,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 2,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": null,
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://bbsingh.co.uk/",
+          "homepageFetched": true,
+          "homepageHttpStatus": 200,
+          "careersPageFound": false,
+          "careersUrl": null,
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 6,
+          "pagesAttempted": 6,
+          "sitemapChecked": true,
+          "sitemapDocuments": [
+            "https://bbsingh.co.uk/wp-sitemap.xml",
+            "https://bbsingh.co.uk/wp-sitemap-posts-gallary-1.xml",
+            "https://bbsingh.co.uk/wp-sitemap-posts-location-1.xml",
+            "https://bbsingh.co.uk/wp-sitemap-posts-page-1.xml",
+            "https://bbsingh.co.uk/wp-sitemap-posts-post-1.xml"
+          ],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://bbsingh.co.uk/",
+              "fetchedUrl": "https://bbsingh.co.uk/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://bbsingh.co.uk/sitemap.xml",
+              "fetchedUrl": "https://bbsingh.co.uk/wp-sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://bbsingh.co.uk/wp-sitemap-posts-gallary-1.xml",
+              "fetchedUrl": "https://bbsingh.co.uk/wp-sitemap-posts-gallary-1.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://bbsingh.co.uk/wp-sitemap-posts-location-1.xml",
+              "fetchedUrl": "https://bbsingh.co.uk/wp-sitemap-posts-location-1.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://bbsingh.co.uk/wp-sitemap-posts-page-1.xml",
+              "fetchedUrl": "https://bbsingh.co.uk/wp-sitemap-posts-page-1.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://bbsingh.co.uk/wp-sitemap-posts-post-1.xml",
+              "fetchedUrl": "https://bbsingh.co.uk/wp-sitemap-posts-post-1.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            }
+          ],
+          "linksConsidered": [
+            {
+              "url": "https://bbsingh.co.uk/about",
+              "sourceUrl": "https://bbsingh.co.uk/",
+              "text": "About",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "news, blog, press, or other editorial destination",
+              "atsProvider": null
+            },
+            {
+              "url": "https://bbsingh.co.uk/blog",
+              "sourceUrl": "https://bbsingh.co.uk/",
+              "text": "Insights",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "news, blog, press, or other editorial destination",
+              "atsProvider": null
+            }
+          ],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 2,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 16847
+    },
+    {
+      "sponsorLicenceId": 209772,
+      "organisationName": "HBC Construction Limited",
+      "candidateWebsite": "https://www.hbcconstruction.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Construction",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.hbcconstruction.co.uk/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 0,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 0,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": "https://www.hbcconstruction.co.uk/careers",
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://www.hbcconstruction.co.uk/",
+          "homepageFetched": false,
+          "homepageHttpStatus": null,
+          "careersPageFound": false,
+          "careersUrl": "https://www.hbcconstruction.co.uk/careers",
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 0,
+          "pagesAttempted": 2,
+          "sitemapChecked": false,
+          "sitemapDocuments": [],
+          "robotsResult": "allowed for this path; the HTTP response was received",
+          "pageFetches": [
+            {
+              "url": "https://www.hbcconstruction.co.uk/join-us",
+              "fetchedUrl": null,
+              "status": 404,
+              "fetched": false,
+              "failureKind": "http",
+              "reason": "HTTP 404"
+            },
+            {
+              "url": "https://www.hbcconstruction.co.uk/work-with-us",
+              "fetchedUrl": null,
+              "status": 404,
+              "fetched": false,
+              "failureKind": "http",
+              "reason": "HTTP 404"
+            }
+          ],
+          "linksConsidered": [],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 0,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 8400
+    },
+    {
+      "sponsorLicenceId": 339349,
+      "organisationName": "Waa Construction Ltd",
+      "candidateWebsite": "https://waaconstructionltd.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Construction",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://waaconstructionltd.co.uk/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 5,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": true,
+        "failureClass": "temporary",
+        "completion": "partial_deadline",
+        "advertsRejected": 4,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": null,
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://waaconstructionltd.co.uk/",
+          "homepageFetched": true,
+          "homepageHttpStatus": 200,
+          "careersPageFound": true,
+          "careersUrl": "https://waaconstructionltd.co.uk/career",
+          "careersHttpStatus": 200,
+          "careersFailureKind": null,
+          "pagesCrawled": 5,
+          "pagesAttempted": 6,
+          "sitemapChecked": true,
+          "sitemapDocuments": [
+            "https://waaconstructionltd.co.uk/sitemap_index.xml",
+            "https://waaconstructionltd.co.uk/page-sitemap.xml"
+          ],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://waaconstructionltd.co.uk/",
+              "fetchedUrl": "https://waaconstructionltd.co.uk/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://waaconstructionltd.co.uk/sitemap.xml",
+              "fetchedUrl": "https://waaconstructionltd.co.uk/sitemap_index.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://waaconstructionltd.co.uk/page-sitemap.xml",
+              "fetchedUrl": "https://waaconstructionltd.co.uk/page-sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://waaconstructionltd.co.uk/career",
+              "fetchedUrl": "https://waaconstructionltd.co.uk/career/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://waaconstructionltd.co.uk/job-description",
+              "fetchedUrl": "https://waaconstructionltd.co.uk/job-description/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://waaconstructionltd.co.uk/post-sitemap.xml",
+              "fetchedUrl": null,
+              "status": null,
+              "fetched": false,
+              "failureKind": "timeout",
+              "reason": "request timed out"
+            }
+          ],
+          "linksConsidered": [
+            {
+              "url": "https://waaconstructionltd.co.uk/apply",
+              "sourceUrl": "https://waaconstructionltd.co.uk/",
+              "text": "Job Application",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "non-vacancy careers utility or policy page",
+              "atsProvider": null
+            },
+            {
+              "url": "https://waaconstructionltd.co.uk/career",
+              "sourceUrl": "https://waaconstructionltd.co.uk/page-sitemap.xml",
+              "text": "Sitemap URL",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://waaconstructionltd.co.uk/job-description",
+              "sourceUrl": "https://waaconstructionltd.co.uk/page-sitemap.xml",
+              "text": "Sitemap URL",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://waaconstructionltd.co.uk/apply",
+              "sourceUrl": "https://waaconstructionltd.co.uk/career/",
+              "text": "Job Application",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "non-vacancy careers utility or policy page",
+              "atsProvider": null
+            },
+            {
+              "url": "https://waaconstructionltd.co.uk/apply",
+              "sourceUrl": "https://waaconstructionltd.co.uk/job-description/",
+              "text": "Job Application",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "non-vacancy careers utility or policy page",
+              "atsProvider": null
+            },
+            {
+              "url": "http://wp.magnium-themes.com/thebuilt/thebuilt-1/career",
+              "sourceUrl": "https://waaconstructionltd.co.uk/job-description/",
+              "text": "job opportunities!",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "destination is outside the approved employer site or supported ATS scope",
+              "atsProvider": null
+            }
+          ],
+          "rejectedCareersLinks": [
+            {
+              "url": "https://waaconstructionltd.co.uk/apply",
+              "sourceUrl": "https://waaconstructionltd.co.uk/",
+              "text": "Job Application",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "non-vacancy careers utility or policy page",
+              "atsProvider": null
+            },
+            {
+              "url": "https://waaconstructionltd.co.uk/apply",
+              "sourceUrl": "https://waaconstructionltd.co.uk/career/",
+              "text": "Job Application",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "non-vacancy careers utility or policy page",
+              "atsProvider": null
+            },
+            {
+              "url": "https://waaconstructionltd.co.uk/apply",
+              "sourceUrl": "https://waaconstructionltd.co.uk/job-description/",
+              "text": "Job Application",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "non-vacancy careers utility or policy page",
+              "atsProvider": null
+            },
+            {
+              "url": "http://wp.magnium-themes.com/thebuilt/thebuilt-1/career",
+              "sourceUrl": "https://waaconstructionltd.co.uk/job-description/",
+              "text": "job opportunities!",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "destination is outside the approved employer site or supported ATS scope",
+              "atsProvider": null
+            }
+          ],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "partial_deadline",
+      "completion": "partial_deadline",
+      "advertsFound": 0,
+      "advertsRejected": 4,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 25062
+    },
+    {
+      "sponsorLicenceId": 165830,
+      "organisationName": "ASME Engineering Ltd",
+      "candidateWebsite": "https://www.asmeengineering.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Engineering",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.asmeengineering.co.uk/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 0,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 0,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": "https://www.asmeengineering.co.uk/contact/vacancies.html",
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://www.asmeengineering.co.uk/",
+          "homepageFetched": false,
+          "homepageHttpStatus": null,
+          "careersPageFound": false,
+          "careersUrl": "https://www.asmeengineering.co.uk/contact/vacancies.html",
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 0,
+          "pagesAttempted": 2,
+          "sitemapChecked": false,
+          "sitemapDocuments": [],
+          "robotsResult": "allowed for this path; the HTTP response was received",
+          "pageFetches": [
+            {
+              "url": "https://www.asmeengineering.co.uk/join-us",
+              "fetchedUrl": null,
+              "status": 404,
+              "fetched": false,
+              "failureKind": "http",
+              "reason": "HTTP 404"
+            },
+            {
+              "url": "https://www.asmeengineering.co.uk/work-with-us",
+              "fetchedUrl": null,
+              "status": 404,
+              "fetched": false,
+              "failureKind": "http",
+              "reason": "HTTP 404"
+            }
+          ],
+          "linksConsidered": [],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 0,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 2647
+    },
+    {
+      "sponsorLicenceId": 184620,
+      "organisationName": "Cortex Engineering Solutions Ltd",
+      "candidateWebsite": "https://www.cortex-engineering.com/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Engineering",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.cortex-engineering.com/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 3,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 0,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": null,
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://www.cortex-engineering.com/",
+          "homepageFetched": true,
+          "homepageHttpStatus": 200,
+          "careersPageFound": false,
+          "careersUrl": null,
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 3,
+          "pagesAttempted": 3,
+          "sitemapChecked": true,
+          "sitemapDocuments": [
+            "https://www.cortex-engineering.com/sitemap.xml",
+            "https://www.cortex-engineering.com/pages-sitemap.xml"
+          ],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://www.cortex-engineering.com/",
+              "fetchedUrl": "https://www.cortex-engineering.com/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://www.cortex-engineering.com/sitemap.xml",
+              "fetchedUrl": "https://www.cortex-engineering.com/sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://www.cortex-engineering.com/pages-sitemap.xml",
+              "fetchedUrl": "https://www.cortex-engineering.com/pages-sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            }
+          ],
+          "linksConsidered": [],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 0,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 3890
+    },
+    {
+      "sponsorLicenceId": 207098,
+      "organisationName": "Grove Automation",
+      "candidateWebsite": "https://www.groveautomation.com/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Engineering",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.groveautomation.com/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 3,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 0,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": null,
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://www.groveautomation.com/",
+          "homepageFetched": true,
+          "homepageHttpStatus": 200,
+          "careersPageFound": false,
+          "careersUrl": null,
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 3,
+          "pagesAttempted": 3,
+          "sitemapChecked": true,
+          "sitemapDocuments": [
+            "https://www.groveautomation.com/sitemap.xml",
+            "https://www.groveautomation.com/sitemap_pages.xml"
+          ],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://www.groveautomation.com/",
+              "fetchedUrl": "https://www.groveautomation.com/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://www.groveautomation.com/sitemap.xml",
+              "fetchedUrl": "https://www.groveautomation.com/sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://www.groveautomation.com/sitemap_pages.xml",
+              "fetchedUrl": "https://www.groveautomation.com/sitemap_pages.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            }
+          ],
+          "linksConsidered": [],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 0,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 5293
+    },
+    {
+      "sponsorLicenceId": 308015,
+      "organisationName": "ROCKFORT ENGINEERING LIMITED",
+      "candidateWebsite": "https://www.rockfortengineering.com/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Engineering",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.rockfortengineering.com/",
+      "collection": {
+        "status": "checked",
+        "adverts": 2,
+        "inserted": 0,
+        "updated": 2,
+        "revived": 0,
+        "pagesFetched": 2,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 8,
+        "rawAdvertsFound": 2,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 2,
+        "careersUrl": "https://www.rockfortengineering.com/careers/vehicle-systems-engineer",
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://www.rockfortengineering.com/",
+          "homepageFetched": true,
+          "homepageHttpStatus": 200,
+          "careersPageFound": true,
+          "careersUrl": "https://www.rockfortengineering.com/careers",
+          "careersHttpStatus": 200,
+          "careersFailureKind": null,
+          "pagesCrawled": 2,
+          "pagesAttempted": 2,
+          "sitemapChecked": false,
+          "sitemapDocuments": [],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://www.rockfortengineering.com/",
+              "fetchedUrl": "https://www.rockfortengineering.com/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://www.rockfortengineering.com/careers",
+              "fetchedUrl": "https://www.rockfortengineering.com/careers",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            }
+          ],
+          "linksConsidered": [
+            {
+              "url": "https://www.rockfortengineering.com/careers",
+              "sourceUrl": "https://www.rockfortengineering.com/",
+              "text": "Careers",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.rockfortengineering.com/about",
+              "sourceUrl": "https://www.rockfortengineering.com/",
+              "text": "About",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "news, blog, press, or other editorial destination",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.linkedin.com/company/rockfort-engineering-limited/about",
+              "sourceUrl": "https://www.rockfortengineering.com/",
+              "text": "",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "blocked by vacancy URL policy",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.rockfortengineering.com/careers",
+              "sourceUrl": "https://www.rockfortengineering.com/careers",
+              "text": "Careers",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.rockfortengineering.com/about",
+              "sourceUrl": "https://www.rockfortengineering.com/careers",
+              "text": "About",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "news, blog, press, or other editorial destination",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.rockfortengineering.com/careers/vehicle-systems-engineer",
+              "sourceUrl": "https://www.rockfortengineering.com/careers",
+              "text": "- Vehicle Systems Design and Integration Engineer",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.rockfortengineering.com/careers/control-systems-engineer",
+              "sourceUrl": "https://www.rockfortengineering.com/careers",
+              "text": "- Control and Software Engineer",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.linkedin.com/company/rockfort-engineering-limited/about",
+              "sourceUrl": "https://www.rockfortengineering.com/careers",
+              "text": "",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "blocked by vacancy URL policy",
+              "atsProvider": null
+            }
+          ],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [
+            "https://www.rockfortengineering.com/careers"
+          ],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 2,
+      "advertsRejected": 8,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 2,
+      "inserted": 0,
+      "updated": 2,
+      "revived": 0,
+      "verification": [
+        {
+          "id": 39665,
+          "outcome": "live"
+        },
+        {
+          "id": 39666,
+          "outcome": "live"
+        }
+      ],
+      "applicationUrls": [],
+      "elapsedMs": 9386
+    },
+    {
+      "sponsorLicenceId": 337715,
+      "organisationName": "Vertical Aerospace Group Ltd",
+      "candidateWebsite": "https://vertical-aerospace.com/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Engineering",
+      "status": "sponsor_identity_conflict",
+      "reason": "duplicate sponsor rows or conflicting IDs share the requested organisation name",
+      "elapsedMs": 27
+    },
+    {
+      "sponsorLicenceId": 167925,
+      "organisationName": "B3 Insurance Ltd",
+      "candidateWebsite": "https://b3insurance.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Finance",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://b3insurance.co.uk/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 5,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 5,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": null,
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://b3insurance.co.uk/",
+          "homepageFetched": true,
+          "homepageHttpStatus": 200,
+          "careersPageFound": false,
+          "careersUrl": null,
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 5,
+          "pagesAttempted": 5,
+          "sitemapChecked": true,
+          "sitemapDocuments": [
+            "https://b3insurance.co.uk/sitemap_index.xml",
+            "https://b3insurance.co.uk/page-sitemap.xml",
+            "https://b3insurance.co.uk/post-sitemap.xml",
+            "https://b3insurance.co.uk/category-sitemap.xml"
+          ],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://b3insurance.co.uk/",
+              "fetchedUrl": "https://b3insurance.co.uk/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://b3insurance.co.uk/sitemap.xml",
+              "fetchedUrl": "https://b3insurance.co.uk/sitemap_index.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://b3insurance.co.uk/page-sitemap.xml",
+              "fetchedUrl": "https://b3insurance.co.uk/page-sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://b3insurance.co.uk/post-sitemap.xml",
+              "fetchedUrl": "https://b3insurance.co.uk/post-sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://b3insurance.co.uk/category-sitemap.xml",
+              "fetchedUrl": "https://b3insurance.co.uk/category-sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            }
+          ],
+          "linksConsidered": [
+            {
+              "url": "https://b3insurance.co.uk/blog",
+              "sourceUrl": "https://b3insurance.co.uk/",
+              "text": "Latest News",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "news, blog, press, or other editorial destination",
+              "atsProvider": null
+            },
+            {
+              "url": "https://b3insurance.co.uk/blog/kingfisher-private-client-continues-as-official-insurance-partner-for-canford-classic-supercar-sunday-2026",
+              "sourceUrl": "https://b3insurance.co.uk/",
+              "text": "",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "news, blog, press, or other editorial destination",
+              "atsProvider": null
+            },
+            {
+              "url": "https://b3insurance.co.uk/blog/peter-james-insurance-appoints-paul-cowland-as-brand-ambassador",
+              "sourceUrl": "https://b3insurance.co.uk/",
+              "text": "",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "news, blog, press, or other editorial destination",
+              "atsProvider": null
+            },
+            {
+              "url": "https://b3insurance.co.uk/blog/2026-claims-excellence-awards",
+              "sourceUrl": "https://b3insurance.co.uk/",
+              "text": "",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "news, blog, press, or other editorial destination",
+              "atsProvider": null
+            },
+            {
+              "url": "https://b3insprd.wpenginepowered.com/blog",
+              "sourceUrl": "https://b3insurance.co.uk/",
+              "text": "View more",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "destination is outside the approved employer site or supported ATS scope",
+              "atsProvider": null
+            }
+          ],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 5,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 10138
+    },
+    {
+      "sponsorLicenceId": 156835,
+      "organisationName": "ABERDEEN DENTAL CARE LIMITED",
+      "candidateWebsite": "https://aberdeendentalcare.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare / social care",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://aberdeendentalcare.co.uk/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 3,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 0,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": null,
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://aberdeendentalcare.co.uk/",
+          "homepageFetched": true,
+          "homepageHttpStatus": 200,
+          "careersPageFound": false,
+          "careersUrl": null,
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 3,
+          "pagesAttempted": 3,
+          "sitemapChecked": true,
+          "sitemapDocuments": [
+            "https://aberdeendentalcare.co.uk/sitemap.xml",
+            "https://aberdeendentalcare.co.uk/page-sitemap.xml"
+          ],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://aberdeendentalcare.co.uk/",
+              "fetchedUrl": "https://aberdeendentalcare.co.uk/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://aberdeendentalcare.co.uk/sitemap.xml",
+              "fetchedUrl": "https://aberdeendentalcare.co.uk/sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://aberdeendentalcare.co.uk/page-sitemap.xml",
+              "fetchedUrl": "https://aberdeendentalcare.co.uk/page-sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            }
+          ],
+          "linksConsidered": [],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 0,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 5656
+    },
+    {
+      "sponsorLicenceId": 160527,
+      "organisationName": "Aldbourne Nursing Home Ltd.",
+      "candidateWebsite": "https://aldbournenursinghome.com/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare / social care",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://aldbournenursinghome.com/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 5,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 11,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": "https://aldbournenursinghome.com/volunteer",
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://aldbournenursinghome.com/",
+          "homepageFetched": true,
+          "homepageHttpStatus": 200,
+          "careersPageFound": true,
+          "careersUrl": "https://aldbournenursinghome.com/careers",
+          "careersHttpStatus": 200,
+          "careersFailureKind": null,
+          "pagesCrawled": 5,
+          "pagesAttempted": 5,
+          "sitemapChecked": true,
+          "sitemapDocuments": [
+            "https://aldbournenursinghome.com/sitemap_index.xml",
+            "https://aldbournenursinghome.com/page-sitemap.xml"
+          ],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://aldbournenursinghome.com/",
+              "fetchedUrl": "https://aldbournenursinghome.com/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://aldbournenursinghome.com/careers",
+              "fetchedUrl": "https://aldbournenursinghome.com/careers/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://aldbournenursinghome.com/volunteer",
+              "fetchedUrl": "https://aldbournenursinghome.com/volunteer/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://aldbournenursinghome.com/sitemap.xml",
+              "fetchedUrl": "https://aldbournenursinghome.com/sitemap_index.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://aldbournenursinghome.com/page-sitemap.xml",
+              "fetchedUrl": "https://aldbournenursinghome.com/page-sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            }
+          ],
+          "linksConsidered": [
+            {
+              "url": "https://aldbournenursinghome.com/careers",
+              "sourceUrl": "https://aldbournenursinghome.com/",
+              "text": "Careers",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://aldbournenursinghome.com/volunteer",
+              "sourceUrl": "https://aldbournenursinghome.com/",
+              "text": "Volunteer",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://aldbournenursinghome.com/careers",
+              "sourceUrl": "https://aldbournenursinghome.com/careers/",
+              "text": "Careers",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://aldbournenursinghome.com/volunteer",
+              "sourceUrl": "https://aldbournenursinghome.com/careers/",
+              "text": "Volunteer",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://aldbournenursinghome.com/apply",
+              "sourceUrl": "https://aldbournenursinghome.com/careers/",
+              "text": "Work with us",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "non-vacancy careers utility or policy page",
+              "atsProvider": null
+            },
+            {
+              "url": "https://aldbournenursinghome.com/careers",
+              "sourceUrl": "https://aldbournenursinghome.com/volunteer/",
+              "text": "Careers",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://aldbournenursinghome.com/volunteer",
+              "sourceUrl": "https://aldbournenursinghome.com/volunteer/",
+              "text": "Volunteer",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://aldbournenursinghome.com/apply",
+              "sourceUrl": "https://aldbournenursinghome.com/volunteer/",
+              "text": "Become a Volunteer",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "non-vacancy careers utility or policy page",
+              "atsProvider": null
+            },
+            {
+              "url": "https://aldbournenursinghome.com/volunteer",
+              "sourceUrl": "https://aldbournenursinghome.com/page-sitemap.xml",
+              "text": "Sitemap URL",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://aldbournenursinghome.com/careers",
+              "sourceUrl": "https://aldbournenursinghome.com/page-sitemap.xml",
+              "text": "Sitemap URL",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            }
+          ],
+          "rejectedCareersLinks": [
+            {
+              "url": "https://aldbournenursinghome.com/apply",
+              "sourceUrl": "https://aldbournenursinghome.com/careers/",
+              "text": "Work with us",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "non-vacancy careers utility or policy page",
+              "atsProvider": null
+            },
+            {
+              "url": "https://aldbournenursinghome.com/apply",
+              "sourceUrl": "https://aldbournenursinghome.com/volunteer/",
+              "text": "Become a Volunteer",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "non-vacancy careers utility or policy page",
+              "atsProvider": null
+            }
+          ],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 11,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 20462
+    },
+    {
+      "sponsorLicenceId": 165476,
+      "organisationName": "Ashburton House Care Home Ltd",
+      "candidateWebsite": "https://www.ashburton-house.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare / social care",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.ashburton-house.co.uk/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 3,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 0,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": null,
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://www.ashburton-house.co.uk/",
+          "homepageFetched": true,
+          "homepageHttpStatus": 200,
+          "careersPageFound": false,
+          "careersUrl": null,
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 3,
+          "pagesAttempted": 3,
+          "sitemapChecked": true,
+          "sitemapDocuments": [
+            "https://www.ashburton-house.co.uk/sitemap.xml",
+            "https://www.ashburton-house.co.uk/pages-sitemap.xml"
+          ],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://www.ashburton-house.co.uk/",
+              "fetchedUrl": "https://www.ashburton-house.co.uk/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://www.ashburton-house.co.uk/sitemap.xml",
+              "fetchedUrl": "https://www.ashburton-house.co.uk/sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://www.ashburton-house.co.uk/pages-sitemap.xml",
+              "fetchedUrl": "https://www.ashburton-house.co.uk/pages-sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            }
+          ],
+          "linksConsidered": [],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 0,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 3786
+    },
+    {
+      "sponsorLicenceId": 186215,
+      "organisationName": "Cumloden Manor Nursing Home Ltd",
+      "candidateWebsite": "https://cumlodenmanor.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare / social care",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://cumlodenmanor.co.uk/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 4,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 4,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": "https://cumlodenmanor.co.uk/careers",
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://cumlodenmanor.co.uk/",
+          "homepageFetched": true,
+          "homepageHttpStatus": 200,
+          "careersPageFound": true,
+          "careersUrl": "https://cumlodenmanor.co.uk/careers",
+          "careersHttpStatus": 200,
+          "careersFailureKind": null,
+          "pagesCrawled": 4,
+          "pagesAttempted": 4,
+          "sitemapChecked": true,
+          "sitemapDocuments": [
+            "https://cumlodenmanor.co.uk/sitemap.xml",
+            "https://cumlodenmanor.co.uk/sitemap_pages.xml"
+          ],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://cumlodenmanor.co.uk/",
+              "fetchedUrl": "https://cumlodenmanor.co.uk/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://cumlodenmanor.co.uk/careers",
+              "fetchedUrl": "https://cumlodenmanor.co.uk/careers",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://cumlodenmanor.co.uk/sitemap.xml",
+              "fetchedUrl": "https://cumlodenmanor.co.uk/sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://cumlodenmanor.co.uk/sitemap_pages.xml",
+              "fetchedUrl": "https://cumlodenmanor.co.uk/sitemap_pages.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            }
+          ],
+          "linksConsidered": [
+            {
+              "url": "https://cumlodenmanor.co.uk/careers",
+              "sourceUrl": "https://cumlodenmanor.co.uk/",
+              "text": "CAREERS",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://cumlodenmanor.co.uk/careers",
+              "sourceUrl": "https://cumlodenmanor.co.uk/careers",
+              "text": "CAREERS",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://cumlodenmanor.co.uk/careers",
+              "sourceUrl": "https://cumlodenmanor.co.uk/sitemap_pages.xml",
+              "text": "Sitemap URL",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            }
+          ],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 4,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 8085
+    },
+    {
+      "sponsorLicenceId": 188563,
+      "organisationName": "DENTAL BEAUTY GROUP LTD",
+      "candidateWebsite": "https://careers.dentalbeautypartners.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare / social care",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://careers.dentalbeautypartners.co.uk/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 2,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 4,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": null,
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://careers.dentalbeautypartners.co.uk/",
+          "homepageFetched": true,
+          "homepageHttpStatus": 200,
+          "careersPageFound": true,
+          "careersUrl": "https://careers.dentalbeautypartners.co.uk/",
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 2,
+          "pagesAttempted": 2,
+          "sitemapChecked": true,
+          "sitemapDocuments": [
+            "https://careers.dentalbeautypartners.co.uk/sitemap.xml"
+          ],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://careers.dentalbeautypartners.co.uk/",
+              "fetchedUrl": "https://careers.dentalbeautypartners.co.uk/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://careers.dentalbeautypartners.co.uk/sitemap.xml",
+              "fetchedUrl": "https://careers.dentalbeautypartners.co.uk/sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            }
+          ],
+          "linksConsidered": [
+            {
+              "url": "https://careers.dentalbeautypartners.co.uk/",
+              "sourceUrl": "https://careers.dentalbeautypartners.co.uk/",
+              "text": "Careers at",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://careers.dentalbeautypartners.co.uk/dental-beauty-partners-opportunities",
+              "sourceUrl": "https://careers.dentalbeautypartners.co.uk/",
+              "text": "View Jobs",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://careers.dentalbeautypartners.co.uk/opportunities",
+              "sourceUrl": "https://careers.dentalbeautypartners.co.uk/",
+              "text": "Search our jobs",
+              "category": "vacancy",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.pinpointhq.com/",
+              "sourceUrl": "https://careers.dentalbeautypartners.co.uk/",
+              "text": "Powered by",
+              "category": "ats",
+              "decision": "not_followed",
+              "reason": "unsupported Pinpoint platform recorded but not crawled or imported",
+              "atsProvider": "Pinpoint"
+            }
+          ],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [
+            {
+              "provider": "Pinpoint",
+              "url": "https://www.pinpointhq.com/",
+              "sourceUrl": "https://careers.dentalbeautypartners.co.uk/",
+              "supportedForImport": false,
+              "linkedFromFirstParty": true,
+              "followed": false,
+              "reason": "unsupported Pinpoint platform recorded but not crawled or imported"
+            }
+          ],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 4,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 2865
+    },
+    {
+      "sponsorLicenceId": 190862,
+      "organisationName": "Downside House Residential Care Home",
+      "candidateWebsite": "https://www.downsidehouseresidentialcarehome.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare / social care",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.downsidehouseresidentialcarehome.co.uk/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 3,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 6,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": "https://www.downsidehouseresidentialcarehome.co.uk/careers",
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://www.downsidehouseresidentialcarehome.co.uk/",
+          "homepageFetched": true,
+          "homepageHttpStatus": 200,
+          "careersPageFound": true,
+          "careersUrl": "https://www.downsidehouseresidentialcarehome.co.uk/careers/",
+          "careersHttpStatus": 200,
+          "careersFailureKind": null,
+          "pagesCrawled": 3,
+          "pagesAttempted": 3,
+          "sitemapChecked": true,
+          "sitemapDocuments": [
+            "https://www.downsidehouseresidentialcarehome.co.uk/sitemap.xml"
+          ],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://www.downsidehouseresidentialcarehome.co.uk/",
+              "fetchedUrl": "https://www.downsidehouseresidentialcarehome.co.uk/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://www.downsidehouseresidentialcarehome.co.uk/careers",
+              "fetchedUrl": "https://www.downsidehouseresidentialcarehome.co.uk/careers/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://www.downsidehouseresidentialcarehome.co.uk/sitemap.xml",
+              "fetchedUrl": "https://www.downsidehouseresidentialcarehome.co.uk/sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            }
+          ],
+          "linksConsidered": [
+            {
+              "url": "https://www.downsidehouseresidentialcarehome.co.uk/news",
+              "sourceUrl": "https://www.downsidehouseresidentialcarehome.co.uk/",
+              "text": "News",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "news, blog, press, or other editorial destination",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.downsidehouseresidentialcarehome.co.uk/careers",
+              "sourceUrl": "https://www.downsidehouseresidentialcarehome.co.uk/",
+              "text": "Employment",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.downsidehouseresidentialcarehome.co.uk/news",
+              "sourceUrl": "https://www.downsidehouseresidentialcarehome.co.uk/careers/",
+              "text": "News",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "news, blog, press, or other editorial destination",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.downsidehouseresidentialcarehome.co.uk/careers",
+              "sourceUrl": "https://www.downsidehouseresidentialcarehome.co.uk/careers/",
+              "text": "Employment",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.downsidehouseresidentialcarehome.co.uk/careers",
+              "sourceUrl": "https://www.downsidehouseresidentialcarehome.co.uk/sitemap.xml",
+              "text": "Sitemap URL",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            }
+          ],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 6,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 7009
+    },
+    {
+      "sponsorLicenceId": 172517,
+      "organisationName": "BLUE OCEAN RESTAURANT",
+      "candidateWebsite": "https://www.blueoceandenton.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Hospitality",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.blueoceandenton.co.uk/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 0,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 0,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": null,
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://www.blueoceandenton.co.uk/",
+          "homepageFetched": false,
+          "homepageHttpStatus": null,
+          "careersPageFound": false,
+          "careersUrl": null,
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 0,
+          "pagesAttempted": 1,
+          "sitemapChecked": false,
+          "sitemapDocuments": [],
+          "robotsResult": "allowed for this path; the HTTP response was received",
+          "pageFetches": [
+            {
+              "url": "https://www.blueoceandenton.co.uk/work-with-us",
+              "fetchedUrl": null,
+              "status": 404,
+              "fetched": false,
+              "failureKind": "http",
+              "reason": "HTTP 404"
+            }
+          ],
+          "linksConsidered": [],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 0,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 642
+    },
+    {
+      "sponsorLicenceId": 338423,
+      "organisationName": "VIRUNDHU RESTAURANT LIMITED",
+      "candidateWebsite": "https://www.virundhurestaurant.com/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Hospitality",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.virundhurestaurant.com/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 0,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 0,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": null,
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://www.virundhurestaurant.com/",
+          "homepageFetched": false,
+          "homepageHttpStatus": null,
+          "careersPageFound": false,
+          "careersUrl": null,
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 0,
+          "pagesAttempted": 1,
+          "sitemapChecked": false,
+          "sitemapDocuments": [],
+          "robotsResult": "allowed for this path; the HTTP response was received",
+          "pageFetches": [
+            {
+              "url": "https://www.virundhurestaurant.com/work-with-us",
+              "fetchedUrl": null,
+              "status": 404,
+              "fetched": false,
+              "failureKind": "http",
+              "reason": "HTTP 404"
+            }
+          ],
+          "linksConsidered": [],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 0,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 707
+    },
+    {
+      "sponsorLicenceId": 193423,
+      "organisationName": "EDWARD TAYLOR TEXTILES LTD",
+      "candidateWebsite": "https://www.edwardtaylortextiles.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Manufacturing",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.edwardtaylortextiles.co.uk/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 2,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 1,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": null,
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://www.edwardtaylortextiles.co.uk/",
+          "homepageFetched": true,
+          "homepageHttpStatus": 200,
+          "careersPageFound": false,
+          "careersUrl": null,
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 2,
+          "pagesAttempted": 2,
+          "sitemapChecked": true,
+          "sitemapDocuments": [
+            "https://www.edwardtaylortextiles.co.uk/sitemap.xml"
+          ],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://www.edwardtaylortextiles.co.uk/",
+              "fetchedUrl": "https://www.edwardtaylortextiles.co.uk/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://www.edwardtaylortextiles.co.uk/sitemap.xml",
+              "fetchedUrl": "https://www.edwardtaylortextiles.co.uk/sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            }
+          ],
+          "linksConsidered": [
+            {
+              "url": "https://www.edwardtaylortextiles.co.uk/about",
+              "sourceUrl": "https://www.edwardtaylortextiles.co.uk/",
+              "text": "About",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "news, blog, press, or other editorial destination",
+              "atsProvider": null
+            }
+          ],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 1,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 2620
+    },
+    {
+      "sponsorLicenceId": 155292,
+      "organisationName": "59 Studio Ltd",
+      "candidateWebsite": "https://59.studio/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Other",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://59.studio/",
+      "collection": {
+        "status": "checked",
+        "adverts": 16,
+        "inserted": 0,
+        "updated": 16,
+        "revived": 0,
+        "pagesFetched": 1,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 0,
+        "rawAdvertsFound": 16,
+        "ukLocationKnown": 9,
+        "ukLocationUnknown": 7,
+        "careersUrl": "https://job-boards.greenhouse.io/journey",
+        "atsProvider": "Greenhouse",
+        "diagnostics": {
+          "homepageUrl": "https://59.studio/",
+          "homepageFetched": false,
+          "homepageHttpStatus": null,
+          "careersPageFound": true,
+          "careersUrl": "https://job-boards.greenhouse.io/journey",
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 1,
+          "pagesAttempted": 1,
+          "sitemapChecked": false,
+          "sitemapDocuments": [],
+          "robotsResult": "not checked",
+          "pageFetches": [],
+          "linksConsidered": [],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [
+            {
+              "provider": "Greenhouse",
+              "url": "https://job-boards.greenhouse.io/journey",
+              "sourceUrl": "https://59.studio/",
+              "supportedForImport": true,
+              "linkedFromFirstParty": true,
+              "followed": true,
+              "reason": null
+            }
+          ],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 16,
+      "advertsRejected": 0,
+      "ukLocationKnown": 9,
+      "ukLocationUnknown": 7,
+      "inserted": 0,
+      "updated": 16,
+      "revived": 0,
+      "verification": [
+        {
+          "id": 39553,
+          "outcome": "live"
+        },
+        {
+          "id": 39554,
+          "outcome": "live"
+        },
+        {
+          "id": 39555,
+          "outcome": "live"
+        },
+        {
+          "id": 39556,
+          "outcome": "live"
+        },
+        {
+          "id": 39557,
+          "outcome": "live"
+        },
+        {
+          "id": 39558,
+          "outcome": "live"
+        },
+        {
+          "id": 39559,
+          "outcome": "live"
+        },
+        {
+          "id": 39560,
+          "outcome": "inconclusive"
+        },
+        {
+          "id": 39561,
+          "outcome": "inconclusive"
+        },
+        {
+          "id": 39562,
+          "outcome": "inconclusive"
+        },
+        {
+          "id": 39563,
+          "outcome": "inconclusive"
+        },
+        {
+          "id": 39564,
+          "outcome": "inconclusive"
+        },
+        {
+          "id": 39565,
+          "outcome": "inconclusive"
+        },
+        {
+          "id": 39566,
+          "outcome": "inconclusive"
+        },
+        {
+          "id": 39567,
+          "outcome": "inconclusive"
+        },
+        {
+          "id": 39568,
+          "outcome": "inconclusive"
+        }
+      ],
+      "applicationUrls": [],
+      "elapsedMs": 40067
+    },
+    {
+      "sponsorLicenceId": 156194,
+      "organisationName": "A5 Products Limited",
+      "candidateWebsite": "https://a5products.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Other",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://a5products.co.uk/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 0,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 0,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": null,
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://a5products.co.uk/",
+          "homepageFetched": false,
+          "homepageHttpStatus": null,
+          "careersPageFound": false,
+          "careersUrl": null,
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 0,
+          "pagesAttempted": 1,
+          "sitemapChecked": false,
+          "sitemapDocuments": [],
+          "robotsResult": "allowed for this path; the HTTP response was received",
+          "pageFetches": [
+            {
+              "url": "https://a5products.co.uk/work-with-us",
+              "fetchedUrl": null,
+              "status": 404,
+              "fetched": false,
+              "failureKind": "http",
+              "reason": "HTTP 404"
+            }
+          ],
+          "linksConsidered": [],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 0,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 931
+    },
+    {
+      "sponsorLicenceId": 206141,
+      "organisationName": "Grand Finish Ltd",
+      "candidateWebsite": "https://grandfinish.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Other",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://grandfinish.co.uk/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 6,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 0,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": null,
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://grandfinish.co.uk/",
+          "homepageFetched": true,
+          "homepageHttpStatus": 200,
+          "careersPageFound": false,
+          "careersUrl": null,
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 6,
+          "pagesAttempted": 6,
+          "sitemapChecked": true,
+          "sitemapDocuments": [
+            "https://grandfinish.co.uk/wp-sitemap.xml",
+            "https://grandfinish.co.uk/wp-sitemap-posts-page-1.xml",
+            "https://grandfinish.co.uk/wp-sitemap-posts-post-1.xml",
+            "https://grandfinish.co.uk/wp-sitemap-taxonomies-services-type-1.xml",
+            "https://grandfinish.co.uk/wp-sitemap-users-1.xml"
+          ],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://grandfinish.co.uk/",
+              "fetchedUrl": "https://grandfinish.co.uk/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://grandfinish.co.uk/sitemap.xml",
+              "fetchedUrl": "https://grandfinish.co.uk/wp-sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://grandfinish.co.uk/wp-sitemap-posts-page-1.xml",
+              "fetchedUrl": "https://grandfinish.co.uk/wp-sitemap-posts-page-1.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://grandfinish.co.uk/wp-sitemap-posts-post-1.xml",
+              "fetchedUrl": "https://grandfinish.co.uk/wp-sitemap-posts-post-1.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://grandfinish.co.uk/wp-sitemap-taxonomies-services-type-1.xml",
+              "fetchedUrl": "https://grandfinish.co.uk/wp-sitemap-taxonomies-services-type-1.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://grandfinish.co.uk/wp-sitemap-users-1.xml",
+              "fetchedUrl": "https://grandfinish.co.uk/wp-sitemap-users-1.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            }
+          ],
+          "linksConsidered": [],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 0,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 17052
+    },
+    {
+      "sponsorLicenceId": 215721,
+      "organisationName": "INNOVATIVE IT SERVICES LIMITED",
+      "candidateWebsite": "https://innovativeitservices.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Technology",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://innovativeitservices.co.uk/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 3,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 6,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": "https://innovativeitservices.co.uk/career",
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://innovativeitservices.co.uk/",
+          "homepageFetched": true,
+          "homepageHttpStatus": 200,
+          "careersPageFound": true,
+          "careersUrl": "https://innovativeitservices.co.uk/career",
+          "careersHttpStatus": 200,
+          "careersFailureKind": null,
+          "pagesCrawled": 3,
+          "pagesAttempted": 3,
+          "sitemapChecked": true,
+          "sitemapDocuments": [
+            "https://innovativeitservices.co.uk/sitemap.xml"
+          ],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://innovativeitservices.co.uk/",
+              "fetchedUrl": "https://innovativeitservices.co.uk/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://innovativeitservices.co.uk/career",
+              "fetchedUrl": "https://innovativeitservices.co.uk/career",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://innovativeitservices.co.uk/sitemap.xml",
+              "fetchedUrl": "https://innovativeitservices.co.uk/sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            }
+          ],
+          "linksConsidered": [
+            {
+              "url": "https://innovativeitservices.co.uk/blog",
+              "sourceUrl": "https://innovativeitservices.co.uk/",
+              "text": "Blog",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "news, blog, press, or other editorial destination",
+              "atsProvider": null
+            },
+            {
+              "url": "https://innovativeitservices.co.uk/career",
+              "sourceUrl": "https://innovativeitservices.co.uk/",
+              "text": "Career",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://innovativeitservices.co.uk/blog",
+              "sourceUrl": "https://innovativeitservices.co.uk/career",
+              "text": "Blog",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "news, blog, press, or other editorial destination",
+              "atsProvider": null
+            },
+            {
+              "url": "https://innovativeitservices.co.uk/career",
+              "sourceUrl": "https://innovativeitservices.co.uk/career",
+              "text": "Career",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://innovativeitservices.co.uk/career",
+              "sourceUrl": "https://innovativeitservices.co.uk/sitemap.xml",
+              "text": "Sitemap URL",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            }
+          ],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 6,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 5627
+    },
+    {
+      "sponsorLicenceId": 222348,
+      "organisationName": "KF TECH LTD",
+      "candidateWebsite": "https://kftechltd.com/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Technology",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://kftechltd.com/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 6,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 0,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": null,
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://kftechltd.com/",
+          "homepageFetched": true,
+          "homepageHttpStatus": 200,
+          "careersPageFound": false,
+          "careersUrl": null,
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 6,
+          "pagesAttempted": 6,
+          "sitemapChecked": true,
+          "sitemapDocuments": [
+            "https://kftechltd.com/wp-sitemap.xml",
+            "https://kftechltd.com/wp-sitemap-posts-elementskit_content-1.xml",
+            "https://kftechltd.com/wp-sitemap-posts-elementskit_template-1.xml",
+            "https://kftechltd.com/wp-sitemap-posts-page-1.xml",
+            "https://kftechltd.com/wp-sitemap-posts-post-1.xml"
+          ],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://kftechltd.com/",
+              "fetchedUrl": "https://kftechltd.com/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://kftechltd.com/sitemap.xml",
+              "fetchedUrl": "https://kftechltd.com/wp-sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://kftechltd.com/wp-sitemap-posts-elementskit_content-1.xml",
+              "fetchedUrl": "https://kftechltd.com/wp-sitemap-posts-elementskit_content-1.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://kftechltd.com/wp-sitemap-posts-elementskit_template-1.xml",
+              "fetchedUrl": "https://kftechltd.com/wp-sitemap-posts-elementskit_template-1.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://kftechltd.com/wp-sitemap-posts-page-1.xml",
+              "fetchedUrl": "https://kftechltd.com/wp-sitemap-posts-page-1.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://kftechltd.com/wp-sitemap-posts-post-1.xml",
+              "fetchedUrl": "https://kftechltd.com/wp-sitemap-posts-post-1.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            }
+          ],
+          "linksConsidered": [],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 0,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 15103
+    },
+    {
+      "sponsorLicenceId": 312590,
+      "organisationName": "Seaborn Software Ltd",
+      "candidateWebsite": "https://www.seabornsoftware.com/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Technology",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.seabornsoftware.com/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 5,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 1,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": null,
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://www.seabornsoftware.com/",
+          "homepageFetched": true,
+          "homepageHttpStatus": 200,
+          "careersPageFound": false,
+          "careersUrl": null,
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 5,
+          "pagesAttempted": 5,
+          "sitemapChecked": true,
+          "sitemapDocuments": [
+            "https://www.seabornsoftware.com/sitemap_index.xml",
+            "https://www.seabornsoftware.com/page-sitemap.xml",
+            "https://www.seabornsoftware.com/post-sitemap.xml",
+            "https://www.seabornsoftware.com/category-sitemap.xml"
+          ],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://www.seabornsoftware.com/",
+              "fetchedUrl": "https://www.seabornsoftware.com/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://www.seabornsoftware.com/sitemap.xml",
+              "fetchedUrl": "https://www.seabornsoftware.com/sitemap_index.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://www.seabornsoftware.com/page-sitemap.xml",
+              "fetchedUrl": "https://www.seabornsoftware.com/page-sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://www.seabornsoftware.com/post-sitemap.xml",
+              "fetchedUrl": "https://www.seabornsoftware.com/post-sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://www.seabornsoftware.com/category-sitemap.xml",
+              "fetchedUrl": "https://www.seabornsoftware.com/category-sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            }
+          ],
+          "linksConsidered": [
+            {
+              "url": "https://www.seabornsoftware.com/blog",
+              "sourceUrl": "https://www.seabornsoftware.com/",
+              "text": "Blog",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "news, blog, press, or other editorial destination",
+              "atsProvider": null
+            }
+          ],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 1,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 15727
+    },
+    {
+      "sponsorLicenceId": 318007,
+      "organisationName": "Solvo.ai Ltd.",
+      "candidateWebsite": "https://www.solvo.ai/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Technology",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.solvo.ai/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 2,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 4,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": "https://www.solvo.ai/careers.html",
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://www.solvo.ai/",
+          "homepageFetched": false,
+          "homepageHttpStatus": null,
+          "careersPageFound": true,
+          "careersUrl": "https://www.solvo.ai/careers.html",
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 2,
+          "pagesAttempted": 2,
+          "sitemapChecked": false,
+          "sitemapDocuments": [],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://www.solvo.ai/join-us",
+              "fetchedUrl": "https://www.solvo.ai/join-us",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://www.solvo.ai/work-with-us",
+              "fetchedUrl": "https://www.solvo.ai/work-with-us",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            }
+          ],
+          "linksConsidered": [
+            {
+              "url": "https://www.solvo.ai/careers.html",
+              "sourceUrl": "https://www.solvo.ai/join-us",
+              "text": "Careers",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.solvo.ai/careers.html",
+              "sourceUrl": "https://www.solvo.ai/work-with-us",
+              "text": "Careers",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            }
+          ],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 4,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 2120
+    },
+    {
+      "sponsorLicenceId": 171839,
+      "organisationName": "BIZ CLEANERS LIMITED",
+      "candidateWebsite": "https://bizcleaners.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Unclassified",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://bizcleaners.co.uk/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 0,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 0,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": null,
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://bizcleaners.co.uk/",
+          "homepageFetched": false,
+          "homepageHttpStatus": null,
+          "careersPageFound": false,
+          "careersUrl": null,
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 0,
+          "pagesAttempted": 5,
+          "sitemapChecked": false,
+          "sitemapDocuments": [],
+          "robotsResult": "allowed for this path; the HTTP response was received",
+          "pageFetches": [
+            {
+              "url": "https://bizcleaners.co.uk/careers",
+              "fetchedUrl": null,
+              "status": 404,
+              "fetched": false,
+              "failureKind": "http",
+              "reason": "HTTP 404"
+            },
+            {
+              "url": "https://bizcleaners.co.uk/jobs",
+              "fetchedUrl": null,
+              "status": 404,
+              "fetched": false,
+              "failureKind": "http",
+              "reason": "HTTP 404"
+            },
+            {
+              "url": "https://bizcleaners.co.uk/vacancies",
+              "fetchedUrl": null,
+              "status": 404,
+              "fetched": false,
+              "failureKind": "http",
+              "reason": "HTTP 404"
+            },
+            {
+              "url": "https://bizcleaners.co.uk/join-us",
+              "fetchedUrl": null,
+              "status": 404,
+              "fetched": false,
+              "failureKind": "http",
+              "reason": "HTTP 404"
+            },
+            {
+              "url": "https://bizcleaners.co.uk/work-with-us",
+              "fetchedUrl": null,
+              "status": 404,
+              "fetched": false,
+              "failureKind": "http",
+              "reason": "HTTP 404"
+            }
+          ],
+          "linksConsidered": [],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 0,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 12756
+    },
+    {
+      "sponsorLicenceId": 172521,
+      "organisationName": "BLUE ORCHID ASPLEY GUISE LTD T/A BLUE ORCHID",
+      "candidateWebsite": "https://blueorchidrestaurant.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Unclassified",
+      "websitePromotion": "existing",
+      "previousWebsite": "http://blueorchidrestaurant.co.uk/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 0,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 0,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": null,
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "http://blueorchidrestaurant.co.uk/",
+          "homepageFetched": false,
+          "homepageHttpStatus": null,
+          "careersPageFound": false,
+          "careersUrl": null,
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 0,
+          "pagesAttempted": 1,
+          "sitemapChecked": false,
+          "sitemapDocuments": [],
+          "robotsResult": "allowed for this path; the HTTP response was received",
+          "pageFetches": [
+            {
+              "url": "http://blueorchidrestaurant.co.uk/work-with-us",
+              "fetchedUrl": null,
+              "status": 404,
+              "fetched": false,
+              "failureKind": "http",
+              "reason": "HTTP 404"
+            }
+          ],
+          "linksConsidered": [],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 0,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 2830
+    },
+    {
+      "sponsorLicenceId": 172579,
+      "organisationName": "BLUE WATER FOOD LTD",
+      "candidateWebsite": "https://www.bluewaterfood.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Unclassified",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.bluewaterfood.co.uk/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 2,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 0,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": null,
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://www.bluewaterfood.co.uk/",
+          "homepageFetched": true,
+          "homepageHttpStatus": 200,
+          "careersPageFound": false,
+          "careersUrl": null,
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 2,
+          "pagesAttempted": 2,
+          "sitemapChecked": true,
+          "sitemapDocuments": [
+            "https://www.bluewaterfood.co.uk/sitemap.xml"
+          ],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://www.bluewaterfood.co.uk/",
+              "fetchedUrl": "https://www.bluewaterfood.co.uk/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://www.bluewaterfood.co.uk/sitemap.xml",
+              "fetchedUrl": "https://www.bluewaterfood.co.uk/sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            }
+          ],
+          "linksConsidered": [],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 0,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 2873
+    },
+    {
+      "sponsorLicenceId": 250916,
+      "organisationName": "Pliant Payments Limited",
+      "candidateWebsite": "https://www.getpliant.com/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Unclassified",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.getpliant.com/",
+      "collection": {
+        "status": "checked",
+        "adverts": 36,
+        "inserted": 0,
+        "updated": 36,
+        "revived": 0,
+        "pagesFetched": 1,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 0,
+        "rawAdvertsFound": 36,
+        "ukLocationKnown": 3,
+        "ukLocationUnknown": 33,
+        "careersUrl": "https://jobs.ashbyhq.com/pliant",
+        "atsProvider": "Ashby",
+        "diagnostics": {
+          "homepageUrl": "https://www.getpliant.com/",
+          "homepageFetched": false,
+          "homepageHttpStatus": null,
+          "careersPageFound": true,
+          "careersUrl": "https://jobs.ashbyhq.com/pliant",
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 1,
+          "pagesAttempted": 1,
+          "sitemapChecked": false,
+          "sitemapDocuments": [],
+          "robotsResult": "not checked",
+          "pageFetches": [],
+          "linksConsidered": [],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [
+            {
+              "provider": "Ashby",
+              "url": "https://jobs.ashbyhq.com/pliant",
+              "sourceUrl": "https://www.getpliant.com/",
+              "supportedForImport": true,
+              "linkedFromFirstParty": true,
+              "followed": true,
+              "reason": null
+            }
+          ],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 36,
+      "advertsRejected": 0,
+      "ukLocationKnown": 3,
+      "ukLocationUnknown": 33,
+      "inserted": 0,
+      "updated": 36,
+      "revived": 0,
+      "verification": [
+        {
+          "id": 39517,
+          "outcome": "live"
+        },
+        {
+          "id": 39518,
+          "outcome": "live"
+        },
+        {
+          "id": 39519,
+          "outcome": "live"
+        },
+        {
+          "id": 39520,
+          "outcome": "live"
+        },
+        {
+          "id": 39521,
+          "outcome": "live"
+        },
+        {
+          "id": 39522,
+          "outcome": "live"
+        },
+        {
+          "id": 39523,
+          "outcome": "live"
+        },
+        {
+          "id": 39524,
+          "outcome": "live"
+        },
+        {
+          "id": 39525,
+          "outcome": "live"
+        },
+        {
+          "id": 39526,
+          "outcome": "live"
+        },
+        {
+          "id": 39527,
+          "outcome": "live"
+        },
+        {
+          "id": 39528,
+          "outcome": "live"
+        },
+        {
+          "id": 39529,
+          "outcome": "live"
+        },
+        {
+          "id": 39530,
+          "outcome": "live"
+        },
+        {
+          "id": 39531,
+          "outcome": "live"
+        },
+        {
+          "id": 39532,
+          "outcome": "live"
+        },
+        {
+          "id": 39533,
+          "outcome": "live"
+        },
+        {
+          "id": 39534,
+          "outcome": "live"
+        },
+        {
+          "id": 39535,
+          "outcome": "live"
+        },
+        {
+          "id": 39536,
+          "outcome": "live"
+        },
+        {
+          "id": 39537,
+          "outcome": "live"
+        },
+        {
+          "id": 39538,
+          "outcome": "live"
+        },
+        {
+          "id": 39539,
+          "outcome": "live"
+        },
+        {
+          "id": 39540,
+          "outcome": "live"
+        },
+        {
+          "id": 39541,
+          "outcome": "live"
+        },
+        {
+          "id": 39542,
+          "outcome": "live"
+        },
+        {
+          "id": 39543,
+          "outcome": "live"
+        },
+        {
+          "id": 39544,
+          "outcome": "live"
+        },
+        {
+          "id": 39545,
+          "outcome": "live"
+        },
+        {
+          "id": 39546,
+          "outcome": "live"
+        },
+        {
+          "id": 39547,
+          "outcome": "live"
+        },
+        {
+          "id": 39548,
+          "outcome": "live"
+        },
+        {
+          "id": 39549,
+          "outcome": "live"
+        },
+        {
+          "id": 39550,
+          "outcome": "live"
+        },
+        {
+          "id": 39551,
+          "outcome": "live"
+        },
+        {
+          "id": 39552,
+          "outcome": "live"
+        }
+      ],
+      "applicationUrls": [
+        {
+          "id": 39517,
+          "title": "Outbound Business Development Representative (AE-Track) — US",
+          "url": "https://jobs.ashbyhq.com/pliant/97f76f96-e440-4c3a-a3a2-f093b4436cb4",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/97f76f96-e440-4c3a-a3a2-f093b4436cb4/application",
+          "liveness": "live"
+        },
+        {
+          "id": 39518,
+          "title": "(Senior) Software Engineer - Backend - Growth *EU/UK remote* (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/fc3d7b53-5d3c-4e93-8696-524deea677c2",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/fc3d7b53-5d3c-4e93-8696-524deea677c2/application",
+          "liveness": "live"
+        },
+        {
+          "id": 39519,
+          "title": "Senior Software Engineer - Backend - Card & Transaction Platform *EU/UK remote* (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/0e0200a8-b522-4faf-9be7-ac6565d99e98",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/0e0200a8-b522-4faf-9be7-ac6565d99e98/application",
+          "liveness": "live"
+        },
+        {
+          "id": 39520,
+          "title": "Security Engineer *EU/UK remote* (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/a0b4660b-2bc6-4e40-addf-cf64072bf3ce",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/a0b4660b-2bc6-4e40-addf-cf64072bf3ce/application",
+          "liveness": "live"
+        },
+        {
+          "id": 39521,
+          "title": "Engineering Manager - Authentication & Authorisation *remote* (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/1eb187d1-2e16-455f-ab0a-a9f97d4d19e3",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/1eb187d1-2e16-455f-ab0a-a9f97d4d19e3/application",
+          "liveness": "live"
+        },
+        {
+          "id": 39522,
+          "title": "Solutions Engineer *Remote* (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/51d521db-44c8-4092-8cd0-d199912eca2d",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/51d521db-44c8-4092-8cd0-d199912eca2d/application",
+          "liveness": "live"
+        },
+        {
+          "id": 39523,
+          "title": "Senior Product Operations Manager (AI Workflows) *EU/UK remote* (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/cd30c786-9df6-4e34-abf0-ed71b7031377",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/cd30c786-9df6-4e34-abf0-ed71b7031377/application",
+          "liveness": "live"
+        },
+        {
+          "id": 39524,
+          "title": "Compliance Operations Analyst (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/c944d7e9-3422-4cfb-a908-00ee9aa27fb4",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/c944d7e9-3422-4cfb-a908-00ee9aa27fb4/application",
+          "liveness": "live"
+        },
+        {
+          "id": 39525,
+          "title": "Software Engineer - Backend/Funds Transfer *EU/UK remote* (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/1a0967a3-b675-4e67-920b-2c2f45d7e23b",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/1a0967a3-b675-4e67-920b-2c2f45d7e23b/application",
+          "liveness": "live"
+        },
+        {
+          "id": 39526,
+          "title": "Engineering Manager - Developer Experience *EU/UK remote* (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/12f218a5-6de5-4aba-8d8a-a396dbe3b974",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/12f218a5-6de5-4aba-8d8a-a396dbe3b974/application",
+          "liveness": "live"
+        },
+        {
+          "id": 39527,
+          "title": "Software Engineer - Backend - Partner Experience EU/UK remote (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/682e4239-60fd-4e00-b3d3-c310e9787dbd",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/682e4239-60fd-4e00-b3d3-c310e9787dbd/application",
+          "liveness": "live"
+        },
+        {
+          "id": 39528,
+          "title": "Platform Infrastructure Engineer EU/UK remote (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/4e819d1b-9492-4778-b1e3-6a6fefb44d91",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/4e819d1b-9492-4778-b1e3-6a6fefb44d91/application",
+          "liveness": "live"
+        },
+        {
+          "id": 39529,
+          "title": "Support Engineer *EU/ Germany remote* (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/581ca006-b369-4332-80de-3e383f2f101b",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/581ca006-b369-4332-80de-3e383f2f101b/application",
+          "liveness": "live"
+        },
+        {
+          "id": 39530,
+          "title": "Customer Support Specialist *remote* (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/d91a1243-113a-4ace-a8f8-5626dc0f7a85",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/d91a1243-113a-4ace-a8f8-5626dc0f7a85/application",
+          "liveness": "live"
+        },
+        {
+          "id": 39531,
+          "title": "Fraud Operations Specialist (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/573c78fe-4469-44f7-951f-bccf6c3bee2e",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/573c78fe-4469-44f7-951f-bccf6c3bee2e/application",
+          "liveness": "live"
+        },
+        {
+          "id": 39532,
+          "title": "Fraud Operations Specialist (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/6e1cf84f-71dc-4e51-ba52-d3e532c2344f",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/6e1cf84f-71dc-4e51-ba52-d3e532c2344f/application",
+          "liveness": "live"
+        },
+        {
+          "id": 39533,
+          "title": "Credit Risk Manager – US Corporate and SME Clients (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/ae9f61bd-2abc-4c90-8aa2-8be048b6bd6b",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/ae9f61bd-2abc-4c90-8aa2-8be048b6bd6b/application",
+          "liveness": "live"
+        },
+        {
+          "id": 39534,
+          "title": "Credit Risk Manager – US Corporate and SME Clients (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/7c3f89a3-adc7-40f1-8eee-869aea33ab4b",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/7c3f89a3-adc7-40f1-8eee-869aea33ab4b/application",
+          "liveness": "live"
+        },
+        {
+          "id": 39535,
+          "title": "Senior Credit Risk Manager – US Corporate and SME Clients (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/30672b5f-fbc4-4594-a033-2abf636dd4aa",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/30672b5f-fbc4-4594-a033-2abf636dd4aa/application",
+          "liveness": "live"
+        },
+        {
+          "id": 39536,
+          "title": "Senior Credit Risk Manager – US Corporate and SME Clients (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/090236c8-7e10-47de-af43-696b76bbb2e2",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/090236c8-7e10-47de-af43-696b76bbb2e2/application",
+          "liveness": "live"
+        },
+        {
+          "id": 39537,
+          "title": "Payments & Fraud Operations Specialist (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/2a9cf58e-3acc-4c05-8b3e-0930a272e54f",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/2a9cf58e-3acc-4c05-8b3e-0930a272e54f/application",
+          "liveness": "live"
+        },
+        {
+          "id": 39538,
+          "title": "Senior Product Designer, Design Systems (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/427cfe54-a0fd-442e-8d2b-b5e205c07c77",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/427cfe54-a0fd-442e-8d2b-b5e205c07c77/application",
+          "liveness": "live"
+        },
+        {
+          "id": 39539,
+          "title": "(Senior) Product Manager - Member Management (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/290eb365-43bb-48f8-8a8c-83e597ae0229",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/290eb365-43bb-48f8-8a8c-83e597ae0229/application",
+          "liveness": "live"
+        },
+        {
+          "id": 39540,
+          "title": "Engineering Manager - Site Reliability *EU/UK remote* (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/2637225e-862b-4e76-9868-a273e1a0e6dc",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/2637225e-862b-4e76-9868-a273e1a0e6dc/application",
+          "liveness": "live"
+        },
+        {
+          "id": 39541,
+          "title": "Engineering Manager - Platform Core *EU/UK remote* (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/15a92045-f8c8-4627-b159-ce468a5f33f5",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/15a92045-f8c8-4627-b159-ce468a5f33f5/application",
+          "liveness": "live"
+        },
+        {
+          "id": 39542,
+          "title": "Engineering Manager - Security *EU/UK remote*(m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/a3c1c316-6f7b-4e24-9a45-a6c6adb65b97",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/a3c1c316-6f7b-4e24-9a45-a6c6adb65b97/application",
+          "liveness": "live"
+        },
+        {
+          "id": 39543,
+          "title": "Sales Solutions Consultant (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/7729be61-ad30-4784-a1f2-6db351c8e74b",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/7729be61-ad30-4784-a1f2-6db351c8e74b/application",
+          "liveness": "live"
+        },
+        {
+          "id": 39544,
+          "title": "Senior Software Engineer - AI Experience EU/UK remote (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/b281fc8b-599a-4082-a48e-59084b3697c9",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/b281fc8b-599a-4082-a48e-59084b3697c9/application",
+          "liveness": "live"
+        },
+        {
+          "id": 39545,
+          "title": "Customer Support Specialist - Accounting Integrations (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/03ac2faf-a7dc-4b37-abca-3d8997eee678",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/03ac2faf-a7dc-4b37-abca-3d8997eee678/application",
+          "liveness": "live"
+        },
+        {
+          "id": 39546,
+          "title": "Working Student - Partner Sales, German Market (m/f/d )",
+          "url": "https://jobs.ashbyhq.com/pliant/11b8ee7c-08d4-4b96-8992-41b109ee64bf",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/11b8ee7c-08d4-4b96-8992-41b109ee64bf/application",
+          "liveness": "live"
+        },
+        {
+          "id": 39547,
+          "title": "Partner Sales Manager (Inbound) (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/a0302325-63d7-4dd9-92e2-dc5fa0904528",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/a0302325-63d7-4dd9-92e2-dc5fa0904528/application",
+          "liveness": "live"
+        },
+        {
+          "id": 39548,
+          "title": "Compliance Operations Intern (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/04b4f9eb-6875-487f-a1b1-f7623769de4a",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/04b4f9eb-6875-487f-a1b1-f7623769de4a/application",
+          "liveness": "live"
+        },
+        {
+          "id": 39549,
+          "title": "Working Student - Partner Sales, Benelux and Nordics Market (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/98698cce-8226-415d-941f-11da1293d5ca",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/98698cce-8226-415d-941f-11da1293d5ca/application",
+          "liveness": "live"
+        },
+        {
+          "id": 39550,
+          "title": "Business Development Manager, DACH (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/f2f7b01d-3a1c-43e5-8698-2facf1d3cf59",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/f2f7b01d-3a1c-43e5-8698-2facf1d3cf59/application",
+          "liveness": "live"
+        },
+        {
+          "id": 39551,
+          "title": "Senior Partnerships Acquisition Manager- UK  (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/ffe17990-3e79-40ba-a683-99c65d7bafac",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/ffe17990-3e79-40ba-a683-99c65d7bafac/application",
+          "liveness": "live"
+        },
+        {
+          "id": 39552,
+          "title": "Sales Development Representative - DACH (m/f/d)",
+          "url": "https://jobs.ashbyhq.com/pliant/dcd946a1-aaa7-4ef1-803b-d9fd953c9533",
+          "applicationUrl": "https://jobs.ashbyhq.com/pliant/dcd946a1-aaa7-4ef1-803b-d9fd953c9533/application",
+          "liveness": "live"
+        }
+      ],
+      "elapsedMs": 85144
+    },
+    {
+      "sponsorLicenceId": 345596,
+      "organisationName": "Braceborough Hall Care Home LTD LTD",
+      "candidateWebsite": "https://www.braceboroughhall.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare / social care",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.braceboroughhall.co.uk/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 3,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 1,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": null,
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://www.braceboroughhall.co.uk/",
+          "homepageFetched": true,
+          "homepageHttpStatus": 200,
+          "careersPageFound": false,
+          "careersUrl": null,
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 3,
+          "pagesAttempted": 3,
+          "sitemapChecked": true,
+          "sitemapDocuments": [
+            "https://www.braceboroughhall.co.uk/sitemap.xml",
+            "https://www.braceboroughhall.co.uk/pages-sitemap.xml"
+          ],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://www.braceboroughhall.co.uk/",
+              "fetchedUrl": "https://www.braceboroughhall.co.uk/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://www.braceboroughhall.co.uk/sitemap.xml",
+              "fetchedUrl": "https://www.braceboroughhall.co.uk/sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://www.braceboroughhall.co.uk/pages-sitemap.xml",
+              "fetchedUrl": "https://www.braceboroughhall.co.uk/pages-sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            }
+          ],
+          "linksConsidered": [
+            {
+              "url": "https://www.lincsonline.co.uk/stamford/news/susan-s-legacy-lives-on-as-retirement-home-earns-good-rati-9456958",
+              "sourceUrl": "https://www.braceboroughhall.co.uk/",
+              "text": "The Article",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "destination is outside the approved employer site or supported ATS scope",
+              "atsProvider": null
+            }
+          ],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 1,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 3805
+    },
+    {
+      "sponsorLicenceId": 178141,
+      "organisationName": "CARRICK HOUSE NURSING HOME",
+      "candidateWebsite": "https://carrickcare.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare / social care",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://carrickcare.co.uk/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 5,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 1,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": null,
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://carrickcare.co.uk/",
+          "homepageFetched": true,
+          "homepageHttpStatus": 200,
+          "careersPageFound": false,
+          "careersUrl": null,
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 5,
+          "pagesAttempted": 5,
+          "sitemapChecked": true,
+          "sitemapDocuments": [
+            "https://carrickcare.co.uk/wp-sitemap.xml",
+            "https://carrickcare.co.uk/wp-sitemap-posts-page-1.xml",
+            "https://carrickcare.co.uk/wp-sitemap-posts-post-1.xml",
+            "https://carrickcare.co.uk/wp-sitemap-taxonomies-category-1.xml"
+          ],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://carrickcare.co.uk/",
+              "fetchedUrl": "https://carrickcare.co.uk/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://carrickcare.co.uk/sitemap.xml",
+              "fetchedUrl": "https://carrickcare.co.uk/wp-sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://carrickcare.co.uk/wp-sitemap-posts-page-1.xml",
+              "fetchedUrl": "https://carrickcare.co.uk/wp-sitemap-posts-page-1.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://carrickcare.co.uk/wp-sitemap-posts-post-1.xml",
+              "fetchedUrl": "https://carrickcare.co.uk/wp-sitemap-posts-post-1.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://carrickcare.co.uk/wp-sitemap-taxonomies-category-1.xml",
+              "fetchedUrl": "https://carrickcare.co.uk/wp-sitemap-taxonomies-category-1.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            }
+          ],
+          "linksConsidered": [
+            {
+              "url": "https://uk.indeed.com/cmp/Carrick-Care-Family",
+              "sourceUrl": "https://carrickcare.co.uk/",
+              "text": "VACANCIES",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "blocked by vacancy URL policy",
+              "atsProvider": null
+            }
+          ],
+          "rejectedCareersLinks": [
+            {
+              "url": "https://uk.indeed.com/cmp/Carrick-Care-Family",
+              "sourceUrl": "https://carrickcare.co.uk/",
+              "text": "VACANCIES",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "blocked by vacancy URL policy",
+              "atsProvider": null
+            }
+          ],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 1,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 11584
+    },
+    {
+      "sponsorLicenceId": 234404,
+      "organisationName": "Merridale Medical Centre",
+      "candidateWebsite": "https://www.merridalemedicalcentre.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare / social care",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.merridalemedicalcentre.co.uk/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 0,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 0,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": null,
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://www.merridalemedicalcentre.co.uk/",
+          "homepageFetched": false,
+          "homepageHttpStatus": null,
+          "careersPageFound": false,
+          "careersUrl": null,
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 0,
+          "pagesAttempted": 1,
+          "sitemapChecked": false,
+          "sitemapDocuments": [],
+          "robotsResult": "allowed for this path; the HTTP response was received",
+          "pageFetches": [
+            {
+              "url": "https://www.merridalemedicalcentre.co.uk/work-with-us",
+              "fetchedUrl": null,
+              "status": 404,
+              "fetched": false,
+              "failureKind": "http",
+              "reason": "HTTP 404"
+            }
+          ],
+          "linksConsidered": [],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 0,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 882
+    },
+    {
+      "sponsorLicenceId": 241979,
+      "organisationName": "Nightingale Home Care (Scotland) Ltd",
+      "candidateWebsite": "https://nightingalehomecare.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare / social care",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://nightingalehomecare.co.uk/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 1,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 0,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": null,
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://nightingalehomecare.co.uk/",
+          "homepageFetched": false,
+          "homepageHttpStatus": null,
+          "careersPageFound": false,
+          "careersUrl": null,
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 1,
+          "pagesAttempted": 1,
+          "sitemapChecked": true,
+          "sitemapDocuments": [
+            "https://nightingalehomecare.co.uk/category-sitemap.xml"
+          ],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://nightingalehomecare.co.uk/category-sitemap.xml",
+              "fetchedUrl": "https://nightingalehomecare.co.uk/category-sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            }
+          ],
+          "linksConsidered": [],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 0,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 1208
+    },
+    {
+      "sponsorLicenceId": 167257,
+      "organisationName": "aventis pharma Ltd  t/a Sanofi",
+      "candidateWebsite": "https://jobs.sanofi.com/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare / social care",
+      "status": "sponsor_identity_conflict",
+      "reason": "duplicate sponsor rows or conflicting IDs share the requested organisation name",
+      "elapsedMs": 24
+    },
+    {
+      "sponsorLicenceId": 314821,
+      "organisationName": "SHORELINE BUILDING SERVICES LIMITED",
+      "candidateWebsite": "https://www.shorelinebuilding.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Construction",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.shorelinebuilding.co.uk/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 2,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 1,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": null,
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://www.shorelinebuilding.co.uk/",
+          "homepageFetched": true,
+          "homepageHttpStatus": 200,
+          "careersPageFound": false,
+          "careersUrl": null,
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 2,
+          "pagesAttempted": 2,
+          "sitemapChecked": true,
+          "sitemapDocuments": [
+            "https://www.shorelinebuilding.co.uk/sitemap.xml"
+          ],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://www.shorelinebuilding.co.uk/",
+              "fetchedUrl": "https://www.shorelinebuilding.co.uk/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://www.shorelinebuilding.co.uk/sitemap.xml",
+              "fetchedUrl": "https://www.shorelinebuilding.co.uk/sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            }
+          ],
+          "linksConsidered": [
+            {
+              "url": "https://www.shorelinebuilding.co.uk/about",
+              "sourceUrl": "https://www.shorelinebuilding.co.uk/",
+              "text": "about",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "news, blog, press, or other editorial destination",
+              "atsProvider": null
+            }
+          ],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 1,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 2429
+    },
+    {
+      "sponsorLicenceId": 335463,
+      "organisationName": "UNIBUILD CONSTRUCTION LTD",
+      "candidateWebsite": "https://unibuildconstruction.com/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Construction",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://unibuildconstruction.com/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 1,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 0,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": "https://unibuildconstruction.com/careers",
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://unibuildconstruction.com/",
+          "homepageFetched": false,
+          "homepageHttpStatus": null,
+          "careersPageFound": true,
+          "careersUrl": "https://unibuildconstruction.com/careers",
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 1,
+          "pagesAttempted": 1,
+          "sitemapChecked": true,
+          "sitemapDocuments": [
+            "https://unibuildconstruction.com/wp-sitemap-posts-page-1.xml"
+          ],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://unibuildconstruction.com/wp-sitemap-posts-page-1.xml",
+              "fetchedUrl": "https://unibuildconstruction.com/wp-sitemap-posts-page-1.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            }
+          ],
+          "linksConsidered": [
+            {
+              "url": "https://unibuildconstruction.com/careers",
+              "sourceUrl": "https://unibuildconstruction.com/wp-sitemap-posts-page-1.xml",
+              "text": "Sitemap URL",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            }
+          ],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 0,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 610
+    },
+    {
+      "sponsorLicenceId": 337305,
+      "organisationName": "Veda Hospitality Ltd",
+      "candidateWebsite": "https://vedahospitalityservices.com/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Hospitality",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://vedahospitalityservices.com/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 0,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 0,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": null,
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://vedahospitalityservices.com/",
+          "homepageFetched": false,
+          "homepageHttpStatus": null,
+          "careersPageFound": false,
+          "careersUrl": null,
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 0,
+          "pagesAttempted": 1,
+          "sitemapChecked": false,
+          "sitemapDocuments": [],
+          "robotsResult": "allowed for this path; the HTTP response was received",
+          "pageFetches": [
+            {
+              "url": "https://vedahospitalityservices.com/work-with-us",
+              "fetchedUrl": null,
+              "status": 404,
+              "fetched": false,
+              "failureKind": "http",
+              "reason": "HTTP 404"
+            }
+          ],
+          "linksConsidered": [],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 0,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 2394
+    },
+    {
+      "sponsorLicenceId": 167052,
+      "organisationName": "Automation Logic Limited",
+      "candidateWebsite": "https://www.automation-logic.com/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Engineering",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.automation-logic.com/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 2,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 0,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": null,
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://www.automation-logic.com/",
+          "homepageFetched": true,
+          "homepageHttpStatus": 200,
+          "careersPageFound": false,
+          "careersUrl": null,
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 2,
+          "pagesAttempted": 2,
+          "sitemapChecked": true,
+          "sitemapDocuments": [
+            "https://www.automation-logic.com/sitemap.xml"
+          ],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://www.automation-logic.com/",
+              "fetchedUrl": "https://www.automation-logic.com/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://www.automation-logic.com/sitemap.xml",
+              "fetchedUrl": "https://www.automation-logic.com/sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            }
+          ],
+          "linksConsidered": [],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 0,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 2400
+    },
+    {
+      "sponsorLicenceId": 213049,
+      "organisationName": "Hugh-Jones LLP",
+      "candidateWebsite": "https://www.hughjonessolicitors.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Other",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.hughjonessolicitors.co.uk/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 0,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": true,
+        "failureClass": "temporary",
+        "completion": "failed",
+        "advertsRejected": 0,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": "https://www.hughjonessolicitors.co.uk/careers",
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://www.hughjonessolicitors.co.uk/",
+          "homepageFetched": false,
+          "homepageHttpStatus": null,
+          "careersPageFound": false,
+          "careersUrl": "https://www.hughjonessolicitors.co.uk/careers",
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 0,
+          "pagesAttempted": 5,
+          "sitemapChecked": false,
+          "sitemapDocuments": [],
+          "robotsResult": "unable to verify: robots.txt could not be checked: hostname is paced or in backoff",
+          "pageFetches": [
+            {
+              "url": "https://hughjonessolicitors.co.uk/careers/experienced-court-of-protection-paralegaladministrator",
+              "fetchedUrl": null,
+              "status": null,
+              "fetched": false,
+              "failureKind": "robots",
+              "reason": "robots.txt could not be checked: request timed out"
+            },
+            {
+              "url": "https://hughjonessolicitors.co.uk/careers/full-time-administrative-assistant?accessible=1",
+              "fetchedUrl": null,
+              "status": null,
+              "fetched": false,
+              "failureKind": "robots",
+              "reason": "robots.txt could not be checked: hostname is paced or in backoff"
+            },
+            {
+              "url": "https://hughjonessolicitors.co.uk/careers/employment-solicitorhr-professional?accessible=1",
+              "fetchedUrl": null,
+              "status": null,
+              "fetched": false,
+              "failureKind": "robots",
+              "reason": "robots.txt could not be checked: hostname is paced or in backoff"
+            },
+            {
+              "url": "https://hughjonessolicitors.co.uk/careers/court-of-protection-paralegal?accessible=1",
+              "fetchedUrl": null,
+              "status": null,
+              "fetched": false,
+              "failureKind": "robots",
+              "reason": "robots.txt could not be checked: hostname is paced or in backoff"
+            },
+            {
+              "url": "https://hughjonessolicitors.co.uk/careers/experienced-court-of-protection-paralegaladministrator?accessible=1",
+              "fetchedUrl": null,
+              "status": null,
+              "fetched": false,
+              "failureKind": "robots",
+              "reason": "robots.txt could not be checked: hostname is paced or in backoff"
+            }
+          ],
+          "linksConsidered": [],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "failed",
+      "completion": "failed",
+      "advertsFound": 0,
+      "advertsRejected": 0,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 9089
+    },
+    {
+      "sponsorLicenceId": 336850,
+      "organisationName": "Valley Drive Dental Practice",
+      "candidateWebsite": "https://smileartdentalvalley.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare / social care",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://smileartdentalvalley.co.uk/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 6,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 0,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": null,
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://smileartdentalvalley.co.uk/",
+          "homepageFetched": true,
+          "homepageHttpStatus": 200,
+          "careersPageFound": false,
+          "careersUrl": null,
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 6,
+          "pagesAttempted": 6,
+          "sitemapChecked": true,
+          "sitemapDocuments": [
+            "https://smileartdentalvalley.co.uk/wp-sitemap.xml",
+            "https://smileartdentalvalley.co.uk/wp-sitemap-posts-page-1.xml",
+            "https://smileartdentalvalley.co.uk/wp-sitemap-posts-post-1.xml",
+            "https://smileartdentalvalley.co.uk/wp-sitemap-posts-service-1.xml",
+            "https://smileartdentalvalley.co.uk/wp-sitemap-posts-team-1.xml"
+          ],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://smileartdentalvalley.co.uk/",
+              "fetchedUrl": "https://smileartdentalvalley.co.uk/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://smileartdentalvalley.co.uk/sitemap.xml",
+              "fetchedUrl": "https://smileartdentalvalley.co.uk/wp-sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://smileartdentalvalley.co.uk/wp-sitemap-posts-page-1.xml",
+              "fetchedUrl": "https://smileartdentalvalley.co.uk/wp-sitemap-posts-page-1.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://smileartdentalvalley.co.uk/wp-sitemap-posts-post-1.xml",
+              "fetchedUrl": "https://smileartdentalvalley.co.uk/wp-sitemap-posts-post-1.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://smileartdentalvalley.co.uk/wp-sitemap-posts-service-1.xml",
+              "fetchedUrl": "https://smileartdentalvalley.co.uk/wp-sitemap-posts-service-1.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://smileartdentalvalley.co.uk/wp-sitemap-posts-team-1.xml",
+              "fetchedUrl": "https://smileartdentalvalley.co.uk/wp-sitemap-posts-team-1.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            }
+          ],
+          "linksConsidered": [],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 0,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 13736
+    },
+    {
+      "sponsorLicenceId": 341969,
+      "organisationName": "Winlift Solutions Ltd",
+      "candidateWebsite": "https://winliftsolutions.com/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Unclassified",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://winliftsolutions.com/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 4,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 4,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": "https://winliftsolutions.com/services/recruiting-agency",
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://winliftsolutions.com/",
+          "homepageFetched": true,
+          "homepageHttpStatus": 200,
+          "careersPageFound": true,
+          "careersUrl": "https://winliftsolutions.com/services/recruiting-agency",
+          "careersHttpStatus": 200,
+          "careersFailureKind": null,
+          "pagesCrawled": 4,
+          "pagesAttempted": 4,
+          "sitemapChecked": true,
+          "sitemapDocuments": [
+            "https://winliftsolutions.com/sitemap_index.xml",
+            "https://winliftsolutions.com/page-sitemap.xml"
+          ],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://winliftsolutions.com/",
+              "fetchedUrl": "https://winliftsolutions.com/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://winliftsolutions.com/services/recruiting-agency",
+              "fetchedUrl": "https://winliftsolutions.com/services/recruiting-agency/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://winliftsolutions.com/sitemap.xml",
+              "fetchedUrl": "https://winliftsolutions.com/sitemap_index.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://winliftsolutions.com/page-sitemap.xml",
+              "fetchedUrl": "https://winliftsolutions.com/page-sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            }
+          ],
+          "linksConsidered": [
+            {
+              "url": "https://winliftsolutions.com/services/recruiting-agency",
+              "sourceUrl": "https://winliftsolutions.com/",
+              "text": "Recruitment",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://winliftsolutions.com/service-recruitment",
+              "sourceUrl": "https://winliftsolutions.com/",
+              "text": "Recruitment",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://winliftsolutions.com/services/recruiting-agency",
+              "sourceUrl": "https://winliftsolutions.com/services/recruiting-agency/",
+              "text": "Recruitment",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://winliftsolutions.com/service-recruitment",
+              "sourceUrl": "https://winliftsolutions.com/services/recruiting-agency/",
+              "text": "Recruitment",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            }
+          ],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 4,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 11400
+    },
+    {
+      "sponsorLicenceId": 163044,
+      "organisationName": "Animal Friends Insurance",
+      "candidateWebsite": "https://www.animalfriends.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Finance",
+      "status": "sponsor_identity_conflict",
+      "reason": "duplicate sponsor rows or conflicting IDs share the requested organisation name",
+      "elapsedMs": 24
+    },
+    {
+      "sponsorLicenceId": 320202,
+      "organisationName": "ST CECILIA CARE HOME",
+      "candidateWebsite": "https://whitecaregroup.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare / social care",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://whitecaregroup.co.uk/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 2,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 0,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": null,
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://whitecaregroup.co.uk/",
+          "homepageFetched": false,
+          "homepageHttpStatus": null,
+          "careersPageFound": false,
+          "careersUrl": null,
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 2,
+          "pagesAttempted": 2,
+          "sitemapChecked": true,
+          "sitemapDocuments": [
+            "https://whitecaregroup.co.uk/category-sitemap.xml",
+            "https://whitecaregroup.co.uk/post_tag-sitemap.xml"
+          ],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://whitecaregroup.co.uk/category-sitemap.xml",
+              "fetchedUrl": "https://whitecaregroup.co.uk/category-sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://whitecaregroup.co.uk/post_tag-sitemap.xml",
+              "fetchedUrl": "https://whitecaregroup.co.uk/post_tag-sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            }
+          ],
+          "linksConsidered": [],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 0,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 2893
+    },
+    {
+      "sponsorLicenceId": 222980,
+      "organisationName": "Kingsley Healthcare Limited",
+      "candidateWebsite": "https://kingsleyhealthcare.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare / social care",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://kingsleyhealthcare.co.uk/",
+      "collection": {
+        "status": "checked",
+        "adverts": 10,
+        "inserted": 1,
+        "updated": 9,
+        "revived": 0,
+        "pagesFetched": 4,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 45,
+        "rawAdvertsFound": 14,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 10,
+        "careersUrl": "https://kingsleyhealthcare.co.uk/careers/vacancies",
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://kingsleyhealthcare.co.uk/",
+          "homepageFetched": false,
+          "homepageHttpStatus": null,
+          "careersPageFound": true,
+          "careersUrl": "https://kingsleyhealthcare.co.uk/careers/",
+          "careersHttpStatus": 200,
+          "careersFailureKind": null,
+          "pagesCrawled": 4,
+          "pagesAttempted": 4,
+          "sitemapChecked": false,
+          "sitemapDocuments": [],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://kingsleyhealthcare.co.uk/careers",
+              "fetchedUrl": "https://kingsleyhealthcare.co.uk/careers/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://kingsleyhealthcare.co.uk/careers/benefits",
+              "fetchedUrl": "https://kingsleyhealthcare.co.uk/careers/benefits/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://kingsleyhealthcare.co.uk/careers/agencies",
+              "fetchedUrl": "https://kingsleyhealthcare.co.uk/careers/agencies/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://kingsleyhealthcare.co.uk/careers/vacancies?start=0",
+              "fetchedUrl": "https://kingsleyhealthcare.co.uk/careers/vacancies/?start=0",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            }
+          ],
+          "linksConsidered": [
+            {
+              "url": "https://kingsleyhealthcare.co.uk/careers",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/",
+              "text": "Skip to main content",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://kingsleyhealthcare.co.uk/kingsley-life/news",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/",
+              "text": "News",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "news, blog, press, or other editorial destination",
+              "atsProvider": null
+            },
+            {
+              "url": "https://kingsleyhealthcare.co.uk/careers/vacancies",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/",
+              "text": "Find a job",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://kingsleyhealthcare.co.uk/careers/benefits",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/",
+              "text": "Benefits",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://kingsleyhealthcare.co.uk/careers/types-of-jobs",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/",
+              "text": "Types of jobs",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://kingsleyhealthcare.co.uk/careers/agencies",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/",
+              "text": "Agencies",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://kingsleyhealthcare.co.uk/news/kingsley-healthcare-tops-indeed-work-wellbeing-awards",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/",
+              "text": "Find out more",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "news, blog, press, or other editorial destination",
+              "atsProvider": null
+            },
+            {
+              "url": "https://kingsleyhealthcare.co.uk/careers/benefits",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/benefits/",
+              "text": "Skip to main content",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://kingsleyhealthcare.co.uk/kingsley-life/news",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/benefits/",
+              "text": "News",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "news, blog, press, or other editorial destination",
+              "atsProvider": null
+            },
+            {
+              "url": "https://kingsleyhealthcare.co.uk/careers/vacancies",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/benefits/",
+              "text": "Find a job",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://kingsleyhealthcare.co.uk/careers",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/benefits/",
+              "text": "Working with us",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://kingsleyhealthcare.co.uk/careers/types-of-jobs",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/benefits/",
+              "text": "Types of jobs",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://kingsleyhealthcare.co.uk/careers/agencies",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/benefits/",
+              "text": "Agencies",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://kingsleyhealthcare.co.uk/careers/agencies",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/agencies/",
+              "text": "Skip to main content",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://kingsleyhealthcare.co.uk/kingsley-life/news",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/agencies/",
+              "text": "News",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "news, blog, press, or other editorial destination",
+              "atsProvider": null
+            },
+            {
+              "url": "https://kingsleyhealthcare.co.uk/careers/vacancies",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/agencies/",
+              "text": "Find a job",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://kingsleyhealthcare.co.uk/careers",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/agencies/",
+              "text": "Working with us",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://kingsleyhealthcare.co.uk/careers/benefits",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/agencies/",
+              "text": "Benefits",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://kingsleyhealthcare.co.uk/careers/types-of-jobs",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/agencies/",
+              "text": "Types of jobs",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://kingsleyhealthcare.co.uk/careers/vacancies?start=0",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/vacancies/?start=0",
+              "text": "Skip to main content",
+              "category": "vacancy",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://kingsleyhealthcare.co.uk/kingsley-life/news",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/vacancies/?start=0",
+              "text": "News",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "news, blog, press, or other editorial destination",
+              "atsProvider": null
+            },
+            {
+              "url": "https://kingsleyhealthcare.co.uk/careers/vacancies",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/vacancies/?start=0",
+              "text": "Find a job",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://kingsleyhealthcare.co.uk/careers",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/vacancies/?start=0",
+              "text": "Working with us",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://kingsleyhealthcare.co.uk/careers/benefits",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/vacancies/?start=0",
+              "text": "Benefits",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://kingsleyhealthcare.co.uk/careers/types-of-jobs",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/vacancies/?start=0",
+              "text": "Types of jobs",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://kingsleyhealthcare.co.uk/careers/agencies",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/vacancies/?start=0",
+              "text": "Agencies",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/service-quality-manager-6046",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/vacancies/?start=0",
+              "text": "Apply now",
+              "category": "careers",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/registered-nurse-rgnrmn-6045",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/vacancies/?start=0",
+              "text": "Apply now",
+              "category": "careers",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/care-home-support-worker-6044",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/vacancies/?start=0",
+              "text": "Apply now",
+              "category": "careers",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/care-home-support-worker-6043",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/vacancies/?start=0",
+              "text": "Apply now",
+              "category": "careers",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/care-home-support-worker-6041",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/vacancies/?start=0",
+              "text": "Apply now",
+              "category": "careers",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/operations-manager-6040",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/vacancies/?start=0",
+              "text": "Apply now",
+              "category": "careers",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/care-home-deputy-manager-nursing-6039",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/vacancies/?start=0",
+              "text": "Apply now",
+              "category": "careers",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/head-housekeeper-6036",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/vacancies/?start=0",
+              "text": "Apply now",
+              "category": "careers",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/domestic-assistant-6035",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/vacancies/?start=0",
+              "text": "Apply now",
+              "category": "careers",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/hospitality-manager-care-home-6033",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/vacancies/?start=0",
+              "text": "Apply now",
+              "category": "careers",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/care-home-support-worker-6031",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/vacancies/?start=0",
+              "text": "Apply now",
+              "category": "careers",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/domestic-assistant-6029",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/vacancies/?start=0",
+              "text": "Apply now",
+              "category": "careers",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://kingsleyhealthcare.co.uk/careers/vacancies?start=12",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/vacancies/?start=0",
+              "text": "2",
+              "category": "vacancy",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://kingsleyhealthcare.co.uk/careers/vacancies?start=24",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/vacancies/?start=0",
+              "text": "3",
+              "category": "vacancy",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://kingsleyhealthcare.co.uk/careers/vacancies?start=36",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/vacancies/?start=0",
+              "text": "4",
+              "category": "vacancy",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://kingsleyhealthcare.co.uk/careers/vacancies?start=48",
+              "sourceUrl": "https://kingsleyhealthcare.co.uk/careers/vacancies/?start=0",
+              "text": "5",
+              "category": "vacancy",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            }
+          ],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [
+            "https://kingsleyhealthcare.co.uk/careers/benefits/",
+            "https://kingsleyhealthcare.co.uk/careers/agencies/",
+            "https://kingsleyhealthcare.co.uk/careers/vacancies/?start=0"
+          ],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 10,
+      "advertsRejected": 45,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 10,
+      "inserted": 1,
+      "updated": 9,
+      "revived": 0,
+      "verification": [
+        {
+          "id": 38944,
+          "outcome": "live"
+        },
+        {
+          "id": 38946,
+          "outcome": "live"
+        },
+        {
+          "id": 39158,
+          "outcome": "live"
+        },
+        {
+          "id": 39159,
+          "outcome": "live"
+        },
+        {
+          "id": 39669,
+          "outcome": "live"
+        },
+        {
+          "id": 39670,
+          "outcome": "live"
+        },
+        {
+          "id": 39671,
+          "outcome": "live"
+        },
+        {
+          "id": 39672,
+          "outcome": "live"
+        },
+        {
+          "id": 39673,
+          "outcome": "live"
+        },
+        {
+          "id": 39706,
+          "outcome": "live"
+        }
+      ],
+      "applicationUrls": [],
+      "elapsedMs": 69943
+    }
+  ],
+  "metricNotes": {
+    "completed": "runCompanySiteCheck completion=complete",
+    "no_jobs": "completed checks with zero accepted adverts",
+    "applicationUrls": "values are included only when present in persisted company-site vacancy rows",
+    "liveness": "newly discovered stored links are checked with verifyCompanySiteStoredLink; persisted statuses are reported as-is"
+  }
+}
