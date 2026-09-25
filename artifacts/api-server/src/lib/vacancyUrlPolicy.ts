@@ -186,6 +186,22 @@ const GENERIC_TERMINAL_SLUGS = new Set([
   "page_not_found",
 ]);
 
+// Exact non-vacancy destinations observed in employer career sections. Keep
+// this list limited to resource-page slugs so role titles with similar words
+// (for example, "Benefits Manager") remain eligible.
+const NON_VACANCY_CAREER_RESOURCE_SLUGS = new Set([
+  "benefits",
+  "why-work-in-the-industry",
+  "working-in-the-industry",
+  "pharmaceutical-recruiters",
+  "international-non-eu-applicants",
+  "pharmaceutical-careers-for-doctors",
+  "post-graduates-post-doctoral-researchers",
+  "undergraduates",
+]);
+const CAREER_SECTION_PATH =
+  /\/(?:careers?|jobs?|vacanc(?:y|ies)|opportunit(?:y|ies)|positions?)(?:\/|$)/i;
+
 const CAREER_SEARCH_TERMINAL_SLUGS = new Set(["searchjobs", "search-jobs", "search_jobs"]);
 const SPECIFIC_JOB_ID_QUERY_KEYS = new Set([
   "jobid",
@@ -213,7 +229,15 @@ export function isNonVacancyCareerUtilityUrl(url: string): boolean {
 
   const normalisedPath = parsed.pathname.toLowerCase().replace(/\/+$/, "") || "/";
   const terminalSlug = normalisedPath.split("/").at(-1) ?? "";
+  const hasSpecificJobId = [...parsed.searchParams.entries()].some(
+    ([key, value]) => SPECIFIC_JOB_ID_QUERY_KEYS.has(key.toLowerCase()) && value.trim() !== "",
+  );
   if (GENERIC_TERMINAL_SLUGS.has(terminalSlug)) return true;
+  if (
+    CAREER_SECTION_PATH.test(normalisedPath) &&
+    NON_VACANCY_CAREER_RESOURCE_SLUGS.has(terminalSlug) &&
+    !hasSpecificJobId
+  ) return true;
   if (!CAREER_SEARCH_TERMINAL_SLUGS.has(terminalSlug)) return false;
 
   const hasNumericFacetPair = [...parsed.searchParams.keys()].some(
@@ -223,9 +247,6 @@ export function isNonVacancyCareerUtilityUrl(url: string): boolean {
   const hasNamedFacet = /^JobsBy(?:Teams?|Country)$/i.test(importCategory);
   if (hasNumericFacetPair || hasNamedFacet) return true;
 
-  const hasSpecificJobId = [...parsed.searchParams.entries()].some(
-    ([key, value]) => SPECIFIC_JOB_ID_QUERY_KEYS.has(key.toLowerCase()) && value.trim() !== "",
-  );
   return !hasSpecificJobId;
 }
 
