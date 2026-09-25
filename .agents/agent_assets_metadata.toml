@@ -726,3 +726,101 @@ mtime_ms = 1790354602257
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/7e325719-65a4-4bf7-a763-f8917513e4f6/ed3cc64a-a881-4661-8610-5a967cb65bf8"
 storage_version_token = "1790354631934532"
 content_type = "text/csv"
+
+[[outputs]]
+id = "CLrx5eGl7GI0dVbkzdH5W"
+uri = "file://.agents/outputs/sponsor-website-approval-2026-09-25/review-pass/review-pass-summary.md"
+type = "text"
+title = "Sponsor website review report"
+description = "Development-only review results, first rollout metrics, the guarded partial repeat, and false-positive findings."
+logical_id = "1c20651a-8bba-445d-b39f-b9e1b5ce0e1e"
+content_hash = "sha256:066579c85a02e85526b1370cf1009bda439a7527299598e85ea6141682cb719a"
+size = 8077
+mtime_ms = 1790361792625
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/1c20651a-8bba-445d-b39f-b9e1b5ce0e1e/a216f390-a8b9-42b5-a2d1-ba1389053c91"
+storage_version_token = "1790361802098393"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "M_A5L2m8IkjIybp9XKK5I"
+uri = "file://.agents/outputs/sponsor-website-approval-2026-09-25/review-pass/review-decisions.csv"
+type = "table"
+title = "971 sponsor review decisions"
+description = "Decision register for every employer in the review-required input pool."
+logical_id = "dfbc6878-fe2b-4477-9e2f-9c6276ef5698"
+content_hash = "sha256:28b18f77ebd5cc506538131a1d4cdd384dd59750c5498cd22a5d5cdd208c2c41"
+size = 897117
+mtime_ms = 1790359277037
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/dfbc6878-fe2b-4477-9e2f-9c6276ef5698/a08a1b85-f4a2-4bd9-9f40-3bc2e6f4e464"
+storage_version_token = "1790361803909708"
+content_type = "text/csv"
+
+[[outputs]]
+id = "b03zuw8frGZpvdgwI7HC8"
+uri = "file://.agents/outputs/sponsor-website-approval-2026-09-25/review-pass/auto-approved-after-review.csv"
+type = "table"
+title = "109 approved sponsor employers"
+description = "Existing approvals retained plus 80 newly approved employers."
+logical_id = "4671e921-7188-4676-8388-4e00795c2a32"
+content_hash = "sha256:4eba8c9b97309a53500f7d729fc24e94a627f94718b4623b59bb29cf32f007e9"
+size = 146099
+mtime_ms = 1790359278149
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/4671e921-7188-4676-8388-4e00795c2a32/acc2549b-0363-4212-958c-b235384fc427"
+storage_version_token = "1790361805190973"
+content_type = "text/csv"
+
+[[outputs]]
+id = "y939_W-EkTamvWAp8psH_"
+uri = "file://.agents/outputs/sponsor-website-approval-2026-09-25/review-pass/review-required-after-review.csv"
+type = "table"
+title = "891 employers still needing review"
+description = "Employers left review-required; no unsupported approvals were made."
+logical_id = "4fe0d4b0-ec20-42cd-ab8d-c63a4a545228"
+content_hash = "sha256:f9366ac4cb29cd84282fe10aae5d3d764a16b79d72fc2cdba00849213cf2c4a8"
+size = 772231
+mtime_ms = 1790359279909
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/4fe0d4b0-ec20-42cd-ab8d-c63a4a545228/60ab02fd-f1f6-44af-bb47-921772b3e572"
+storage_version_token = "1790361806530178"
+content_type = "text/csv"
+
+[[outputs]]
+id = "zkpL1Y40DnBPdKBcObBc9"
+uri = "file://.agents/outputs/sponsor-website-approval-2026-09-25/review-pass/rollout-100.csv"
+type = "table"
+title = "Deterministic 100-employer cohort"
+description = "Exact HTTPS-only cohort used for the first pass and guarded repeat; SHA-256 verified."
+logical_id = "029bace0-e296-46ff-904c-4c183fcd65c0"
+content_hash = "sha256:9e85a8f0ef31d7e08a938bd60924978c3ab88fdb8a5e0570ecdeedd98f98e3b5"
+size = 29759
+mtime_ms = 1790358865357
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/029bace0-e296-46ff-904c-4c183fcd65c0/9cf2441b-7c36-4028-8726-1e3a344b45f9"
+storage_version_token = "1790361807996262"
+content_type = "text/csv"
+
+[[outputs]]
+id = "e9zYqEAe7sCWjgxmCwE6t"
+uri = "file://.agents/outputs/sponsor-website-approval-2026-09-25/review-pass/rollout-metrics.csv"
+type = "table"
+title = "Rollout and visibility metrics"
+description = "Baseline, complete first-pass results, and partial repeat snapshots with the shared candidate-route gates."
+logical_id = "fe3b47cd-8b74-448e-a95e-6931c52273e6"
+content_hash = "sha256:a7c8ec85536ee9b6791358446d40af85fff76834d4ea1838f00b46d7b9faf4ff"
+size = 921
+mtime_ms = 1790361730829
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/fe3b47cd-8b74-448e-a95e-6931c52273e6/8219a239-e558-4dcf-89d7-4365e3000dab"
+storage_version_token = "1790361808918594"
+content_type = "text/csv"
+
+[[outputs]]
+id = "vkm8BqEJGhhiaoHXOUBP8"
+uri = "file://.agents/outputs/sponsor-website-approval-2026-09-25/review-pass/rollout-inserted-roles.csv"
+type = "table"
+title = "Audit of 38 inserted vacancy rows"
+description = "Development-only inserted rows, candidate-visibility gate results, application links, locations, and source evidence."
+logical_id = "bb562523-9003-4158-8443-353c5c51bfa6"
+content_hash = "sha256:2517981a50708308a46be8b7461d9a3313aa6f87ea5398a53bac17cc6ff1bccb"
+size = 7342
+mtime_ms = 1790361731313
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/bb562523-9003-4158-8443-353c5c51bfa6/0ef90c3d-f113-43b1-bfb0-a1a464bd8ec3"
+storage_version_token = "1790361809894108"
+content_type = "text/csv"
