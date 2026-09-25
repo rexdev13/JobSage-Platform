@@ -32,9 +32,23 @@ const CAREERS_SIGNAL =
   /\b(?:careers?|jobs?|vacanc(?:y|ies)|join us|join (?:our|the) team|work (?:for|with) us|recruitment|current openings?|opportunities|hiring|apprenticeships?|volunteers?|get involved)\b/i;
 const VACANCY_SIGNAL =
   /\b(jobs?|vacanc(?:y|ies)|positions?|roles?|opportunit(?:y|ies)|openings?|apply)\b/i;
+const POSTING_PATH_SEGMENT =
+  /^(?:jobs?|vacanc(?:y|ies)|positions?|roles?|opportunit(?:y|ies)|openings?|requisitions?|job[-_]?(?:advert|posting|opening)|current[-_]vacanc(?:y|ies)|open[-_]positions|all[-_]jobs)$/i;
+const SPECIFIC_JOB_ID_QUERY_KEYS = new Set([
+  "jobid",
+  "job",
+  "jobreqid",
+  "reqid",
+  "requisitionid",
+  "postingid",
+  "vacancyid",
+]);
 const NAVIGATION_MARKER =
   /(?:^|[\s"'_-])(?:nav|navigation|menu|subnav|sub-menu|submenu|tabs?|tablist|breadcrumb)(?:$|[\s"'_-])/i;
-const GENERIC_ANCHOR_TEXT = /^(apply|apply now|view|view job|view vacancy|details|more|read more|learn more|job details)$/i;
+const ACCESSIBILITY_NAV_ANCHOR_TEXT =
+  /^(?:skip(?:\s+to)?\s+(?:main\s+)?content|skip\s+navigation|jump\s+to\s+(?:main\s+)?content|go\s+to\s+(?:main\s+)?content)$/i;
+const GENERIC_ANCHOR_TEXT =
+  /^(?:apply|apply now|view|view job|view vacancy|details|more|read more|learn more|job details|skip(?:\s+to)?\s+(?:main\s+)?content|skip\s+navigation|jump\s+to\s+(?:main\s+)?content|go\s+to\s+(?:main\s+)?content)$/i;
 const NON_SPECIFIC_BAMBOOHR_TITLE =
   /^(?:join\s+(?:our|the)\s+)?(?:talent\s+pool|team)$/i;
 const NEGATIVE_CONTENT_PATH = /\/(?:news|blog|press|media|about|insights)(?:\/|$)/i;
@@ -460,6 +474,38 @@ function isSpecificRoleLink(link: ExtractedLink): boolean {
     !isGenericCareersContent(`${title} ${link.contextText}`);
 }
 
+function hasPostingSpecificUrlEvidence(url: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+
+  const pathSegments = parsed.pathname.split("/").filter(Boolean);
+  const hasPostingSection = pathSegments
+    .slice(0, -1)
+    .some((segment) => POSTING_PATH_SEGMENT.test(segment));
+  const terminalSlug = pathSegments.at(-1) ?? "";
+  const hasPathIdentifier =
+    /^\d{5,}$/.test(terminalSlug) ||
+    /(?:^|[-_])\d{5,}(?:$|[-_])/.test(terminalSlug) ||
+    /^[\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12}$/i.test(terminalSlug);
+  const hasQueryIdentifier = [...parsed.searchParams.entries()].some(
+    ([key, value]) => SPECIFIC_JOB_ID_QUERY_KEYS.has(key.toLowerCase()) && value.trim() !== "",
+  );
+  return hasPostingSection || hasPathIdentifier || hasQueryIdentifier;
+}
+
+function hasExplicitListingHeading(html: string): boolean {
+  return CAREER_LISTING_HEADING.test(pageHeadingText(html));
+}
+
+function hasJobPostingMarkup(html: string): boolean {
+  return /"@type"\s*:\s*(?:"JobPosting"|\[[^\]]*"JobPosting")/i.test(html) ||
+    /itemtype\s*=\s*["'][^"']*\/JobPosting["']/i.test(html);
+}
+
 function hasRecruitmentPageEvidence(
   pageUrl: string,
   html: string,
@@ -473,8 +519,8 @@ function hasRecruitmentPageEvidence(
   }
   const heading = pageHeadingText(html);
   const pagePurpose = CAREERS_SIGNAL.test(`${path} ${heading}`);
-  const structuredJobPosting = /"@type"\s*:\s*(?:"JobPosting"|\[[^\]]*"JobPosting")/i.test(html);
-  const explicitListingHeading = CAREER_LISTING_HEADING.test(heading);
+  const structuredJobPosting = hasJobPostingMarkup(html);
+  const explicitListingHeading = hasExplicitListingHeading(html);
   const hasSpecificRole = links.some(isSpecificRoleLink);
   return structuredJobPosting ||
     explicitListingHeading ||
@@ -1050,7 +1096,12 @@ function advertsFromLinks(
     listingPageHtml,
     links,
   );
+  const explicitListingHeading = hasExplicitListingHeading(listingPageHtml);
+  const structuredJobPosting = hasJobPostingMarkup(listingPageHtml);
   return links.flatMap((link) => {
+    if (ACCESSIBILITY_NAV_ANCHOR_TEXT.test(link.text.trim())) {
+      return reject("navigation_link_not_vacancy");
+    }
     if (isCareerListingDestination(link)) return reject("generic_careers_content");
     if (!isValidVacancyDeepLink(link.url)) return reject("invalid_deep_link");
     const opaqueAtsPosting = isOpaqueAtsPostingLink(
@@ -1073,6 +1124,12 @@ function advertsFromLinks(
       (!listingPageContext || !confirmedListingContext || (GENERIC_ANCHOR_TEXT.test(link.text.trim()) &&
         !VACANCY_SIGNAL.test(`${link.text} ${linkUrl.pathname}`)))
     ) return reject("missing_listing_context_or_vacancy_signal");
+    if (
+      !opaqueAtsPosting &&
+      !explicitListingHeading &&
+      !structuredJobPosting &&
+      !hasPostingSpecificUrlEvidence(link.url)
+    ) return reject("missing_posting_specific_evidence");
     if (
       !opaqueAtsPosting &&
       /^(?:apply(?:\s+online)?|apply now)$/i.test(link.text.trim()) &&

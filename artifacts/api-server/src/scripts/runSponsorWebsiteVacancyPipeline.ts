@@ -56,6 +56,7 @@ function parseArgs() {
     input: "",
     out: "sponsor-website-vacancy-pipeline",
     limit: 12,
+    offset: 0,
     apply: false,
     acceptMedium: false,
     skipWebsiteFill: false,
@@ -72,6 +73,10 @@ function parseArgs() {
       const value = args[++i] ?? "";
       if (!/^\d+$/.test(value)) throw new Error("--limit must be one of 12, 100, 500, or 1000.");
       config.limit = Number(value);
+    } else if (arg === "--offset") {
+      const value = args[++i] ?? "";
+      if (!/^\d+$/.test(value)) throw new Error("--offset must be a non-negative integer.");
+      config.offset = Number(value);
     } else if (arg === "--apply") config.apply = true;
     else if (arg === "--expected-db-fingerprint") config.expectedDbFingerprint = args[++i] ?? "";
     else if (arg === "--expect-repeat") config.expectRepeat = true;
@@ -85,6 +90,9 @@ function parseArgs() {
   if (!config.input) throw new Error("Supply --input reviewed-website-candidates.csv.");
   if (!ALLOWED_LIMITS.has(config.limit)) {
     throw new Error("--limit must be exactly 12, 100, 500, or 1000.");
+  }
+  if (!Number.isSafeInteger(config.offset) || config.offset < 0 || config.offset > 1000) {
+    throw new Error("--offset must be an integer between 0 and 1000.");
   }
   if (config.skipWebsiteFill && config.skipDiscovery) {
     throw new Error("At least one stage must run; remove one of --skip-website-fill or --skip-discovery.");
@@ -347,9 +355,17 @@ async function main(): Promise<void> {
   const parsed = parseCsv(await readFile(resolve(args.input), "utf8"));
   const candidates = parsed.map((row) => candidateFromRow(row, args.acceptMedium)).filter((item): item is Candidate => item !== null);
   const dupeResult = duplicateRejected(candidates);
-  const selected = dupeResult.safe.slice(0, args.limit);
-  if (selected.length < args.limit) {
-    throw new Error(`Insufficient approved, conflict-free rows: requested ${args.limit}, found ${selected.length}.`);
+  const availableAtOffset = dupeResult.safe.slice(args.offset);
+  const selected = availableAtOffset.slice(0, args.limit);
+  const isFinalOffsetWindow =
+    args.offset > 0 && selected.length > 0 && selected.length === availableAtOffset.length;
+  if (
+    args.offset > dupeResult.safe.length ||
+    (selected.length < args.limit && !isFinalOffsetWindow)
+  ) {
+    throw new Error(
+      `Insufficient approved, conflict-free rows: requested ${args.limit}, found ${selected.length} at offset ${args.offset}.`,
+    );
   }
 
   const rows: Array<Record<string, unknown>> = [];
@@ -382,6 +398,7 @@ async function main(): Promise<void> {
     input: resolve(args.input),
     stages: { websiteFill: !args.skipWebsiteFill, discovery: !args.skipDiscovery },
     requestedLimit: args.limit,
+    requestedOffset: args.offset,
     totals,
     perSector,
     rows,

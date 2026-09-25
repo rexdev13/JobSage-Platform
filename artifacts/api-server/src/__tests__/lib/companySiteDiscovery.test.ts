@@ -328,7 +328,7 @@ describe("company-site vacancy discovery", () => {
       url: "https://fixture.example/careers",
       status: 200,
       contentType: "text/html",
-      body: `<a href="${path}">${text}</a>`,
+      body: `${accepted ? "<h1>Current vacancies</h1>" : ""}<a href="${path}">${text}</a>`,
     });
     const result = await discoverCompanySiteVacancies("Fixture Employer", "https://fixture.example");
     expect(result.adverts.length > 0).toBe(accepted);
@@ -366,6 +366,62 @@ describe("company-site vacancy discovery", () => {
 
     expect(result.adverts).toEqual([]);
     expect(result.rejectionReasons.generic_careers_content).toBeGreaterThan(0);
+  });
+
+  it("rejects career-resource destinations without dropping a real role on the same page", async () => {
+    const listingUrl = "https://abpi.example/careers/";
+    const roleUrl = "https://abpi.example/careers/jobs/registered-nurse-12345";
+    const resources = [
+      { slug: "benefits", text: "Benefits" },
+      { slug: "why-work-in-the-industry", text: "Why work in the industry" },
+      { slug: "working-in-the-industry", text: "Working in the industry" },
+      { slug: "pharmaceutical-recruiters", text: "Pharmaceutical recruiters" },
+      { slug: "international-non-eu-applicants", text: "International non-EU applicants" },
+      { slug: "pharmaceutical-careers-for-doctors", text: "Pharmaceutical careers for doctors" },
+      { slug: "post-graduates-post-doctoral-researchers", text: "Post graduates and post doctoral researchers" },
+      { slug: "undergraduates", text: "Undergraduates" },
+    ];
+    const resourceLinks = resources
+      .map(({ slug, text }) => `<a href="/careers/${slug}">${text}</a>`)
+      .join("");
+    fetchCompanySitePageMock.mockImplementation(async (url: string) => ({
+      ok: true,
+      url,
+      status: 200,
+      contentType: url.endsWith("sitemap.xml") ? "application/xml" : "text/html",
+      body: url.endsWith("sitemap.xml")
+        ? "<urlset></urlset>"
+        : `<html><h1>Careers</h1><main>${resourceLinks}<a href="/careers/candidate-guide">Candidate guide</a><a href="${roleUrl}">Registered Nurse</a></main></html>`,
+    }));
+
+    const result = await discoverCompanySiteVacancies("ABPI", listingUrl);
+
+    expect(result.adverts).toEqual([
+      expect.objectContaining({ title: "Registered Nurse", url: roleUrl }),
+    ]);
+    expect(result.rejectionReasons.invalid_deep_link).toBeGreaterThanOrEqual(resources.length);
+    expect(result.rejectionReasons.missing_posting_specific_evidence).toBeGreaterThan(0);
+  });
+
+  it("does not treat a skip-to-content link as a vacancy title", async () => {
+    const roleUrl = "https://skip.example/careers/jobs/registered-nurse-12345";
+    fetchCompanySitePageMock.mockImplementation(async (url: string) => ({
+      ok: true,
+      url,
+      status: 200,
+      contentType: url.endsWith("sitemap.xml") ? "application/xml" : "text/html",
+      body: url.endsWith("sitemap.xml")
+        ? "<urlset></urlset>"
+        : `<html><h1>Careers</h1><nav><a href="${roleUrl}">Skip to main content</a></nav></html>`,
+    }));
+
+    const result = await discoverCompanySiteVacancies(
+      "Fixture Employer",
+      "https://skip.example/careers/",
+    );
+
+    expect(result.adverts).toEqual([]);
+    expect(result.rejectionReasons.navigation_link_not_vacancy).toBeGreaterThan(0);
   });
 
   it("does not count career-section navigation as vacancies when the page mentions vacancies", async () => {

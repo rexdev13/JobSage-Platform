@@ -121,6 +121,29 @@ describe("isValidVacancyDeepLink", () => {
     )).toBe(true);
   });
 
+  it("rejects career resource pages while preserving specific role destinations", () => {
+    const resourceSlugs = [
+      "benefits",
+      "why-work-in-the-industry",
+      "working-in-the-industry",
+      "pharmaceutical-recruiters",
+      "international-non-eu-applicants",
+      "pharmaceutical-careers-for-doctors",
+      "post-graduates-post-doctoral-researchers",
+      "undergraduates",
+    ];
+
+    for (const slug of resourceSlugs) {
+      expect(isValidVacancyDeepLink(`https://www.abpi.org.uk/careers/${slug}`)).toBe(false);
+    }
+    expect(isValidVacancyDeepLink(
+      "https://careers.example.com/careers/jobs/benefits-manager-12345",
+    )).toBe(true);
+    expect(isValidVacancyDeepLink(
+      "https://careers.example.com/careers/jobs/registered-nurse-12345",
+    )).toBe(true);
+  });
+
   it("rejects pathnames shorter than 8 characters", () => {
     expect(isValidVacancyDeepLink("https://acme.com/hr")).toBe(false);
     expect(isValidVacancyDeepLink("https://acme.com/join")).toBe(false);
