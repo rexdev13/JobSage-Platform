@@ -72,3 +72,4 @@
 - [Detached company-site verification](company-site-verification-drain.md) — one-off discovery runners must await exact liveness checks before pool shutdown; the post-commit verifier queue is in-memory, not durable.
 - [Sponsor public-source matching scale](sponsor-public-source-matching-scale.md) — large sponsor/source coverage needs rare organization-name token probes before fuzzy matching; broad location buckets can time out.
 - [First-party job-description PDFs](company-site-job-pdf-evidence.md) — accept media-hosted role PDFs only with explicit current-listing, role, and safe application/contact evidence.
+- [Durable CodeExecution date handling](durable-codeexecution-date-handling.md) — use workspace TypeScript for time-zone parsing; the durable sandbox lacks Intl, TextDecoder, and Date.now.

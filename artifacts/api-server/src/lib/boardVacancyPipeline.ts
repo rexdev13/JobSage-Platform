@@ -23,7 +23,11 @@ import {
   validatePublishedContactEmail,
 } from "./publishedContactEmail";
 import { enrichAdvertContacts } from "./vacancyAdvertContact";
-import { extractVacancyClosingDate, hasExplicitClosedPhrase } from "./vacancyDates";
+import {
+  extractVacancyClosingDate,
+  hasExplicitClosedPhrase,
+  hasVacancyClosingDateLabel,
+} from "./vacancyDates";
 import { hasApprovedCompanyVacancyRoleEligibilityReview } from "./vacancyLiveness";
 
 export interface BoardAdvert {
@@ -300,10 +304,21 @@ export function normaliseAndDedupeBoardAdverts(adverts: readonly BoardAdvert[]):
     if (sourceType === "company_site" && isLikelyEditorialTitle(advert.title)) continue;
     if (sourceType === "company_site" && !advert.companyVacancyEvidence) continue;
     if (!url || !sourceType || !isValidVacancyUrlForSource(url, sourceType)) continue;
+    const postedDateClose = extractVacancyClosingDate(advert.postedDate);
+    const closesAt =
+      advert.closesAt ??
+      extractVacancyClosingDate(advert.description) ??
+      postedDateClose ??
+      undefined;
     const normalized = {
       ...advert,
       url,
-      closesAt: advert.closesAt ?? extractVacancyClosingDate(advert.description),
+      // Some legacy company-site extractors placed a labelled closing date in
+      // postedDate. Recover only explicitly labelled values and clear that
+      // mislabeled posting date. Keep an existing close date when a refresh has
+      // no new closing-date evidence.
+      closesAt,
+      ...(hasVacancyClosingDateLabel(advert.postedDate) ? { postedDate: null } : {}),
       closedReason: advert.closedReason ?? (hasExplicitClosedPhrase(advert.description) ? "source page explicitly closed" : null),
       sourceType,
       boardName: sourceType === "company_site" ? null : source.boardName ?? advert.boardName,
