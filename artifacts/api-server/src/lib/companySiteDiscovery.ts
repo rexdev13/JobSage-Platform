@@ -77,6 +77,7 @@ const DIRECT_IMPORT_ATS_PROVIDERS = new Set([
 // not prove an exhaustive inventory. Never retire older roles from those feeds.
 const AUTHORITATIVE_SNAPSHOT_PROVIDERS = new Set([
   "Ashby", "Greenhouse", "Lever", "SmartRecruiters",
+  "Workday",
 ]);
 const COMMON_CAREERS_PATHS = ["/careers", "/jobs", "/vacancies", "/join-us", "/work-with-us"] as const;
 const ATS_PLATFORM_HOSTS: Array<{ provider: string; suffixes: string[] }> = [
@@ -1284,7 +1285,7 @@ async function discoverDirectFeedsOnly(
     const direct = await fetchDirectEmployerBoard(
       organisationName,
       mapping.provider,
-      mapping.evidenceUrl,
+      careersUrl,
       {
         deadlineMs,
         firstPartyEvidenceUrl: options.knownCareersEvidenceUrl,
@@ -1501,6 +1502,7 @@ export async function discoverCompanySiteVacancies(
       diagnostics.careersHttpStatus = null;
       diagnostics.pagesCrawled = direct.pagesFetched;
       diagnostics.pagesAttempted = direct.pagesFetched;
+      diagnostics.directSourceKind = "ats_feed";
       addAtsDiagnostic(
         diagnostics,
         direct.mapping.provider,
@@ -1690,6 +1692,7 @@ export async function discoverCompanySiteVacancies(
             true,
             null,
           );
+          diagnostics.directSourceKind = "ats_feed";
           diagnostics.careersPageFound = true;
           diagnostics.careersUrl = direct.mapping.evidenceUrl;
           diagnostics.pagesCrawled += direct.pagesFetched;

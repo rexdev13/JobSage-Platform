@@ -335,6 +335,7 @@ router.post("/roles/:id/smart-apply/prefill", requireAuthenticated, async (req: 
     if (row) {
       if (getCandidateVacancyStatus({
         sourceType: row.vacancy.sourceType,
+         title: row.vacancy.title,
         liveness: row.vacancy.liveness,
         lastVerifiedAt: row.vacancy.lastVerifiedAt,
         lastDiscoveredAt: row.vacancy.lastDiscoveredAt,
@@ -532,6 +533,7 @@ router.post("/smart-apply/assistant", requireAuthenticated, async (req: Request,
     if (row) {
       if (getCandidateVacancyStatus({
         sourceType: row.vacancy.sourceType,
+        title: row.vacancy.title,
         liveness: row.vacancy.liveness,
         lastVerifiedAt: row.vacancy.lastVerifiedAt,
         lastDiscoveredAt: row.vacancy.lastDiscoveredAt,

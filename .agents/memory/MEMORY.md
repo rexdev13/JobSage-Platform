@@ -68,7 +68,7 @@
 - [Staging-only k6 load testing](k6-load-testing-safety.md) — capacity tests use isolated non-production targets and synthetic accounts; never load-test the production custom domain.
 - [Candidate alert parity](candidate-alert-opportunities-parity.md) — job-alert emails must use the candidate-visible Opportunities gates and ranking before the five-role cap.
 - [Public ATS API robots policy](public-ats-api-robots.md) — documented ATS JSON feeds bypass HTML robots checks but retain SSRF, DNS pinning, pacing, backoff, deadlines, and size limits.
-- [Direct-feed host evidence](direct-feed-host-evidence.md) — custom posting domains are safe only when first-party evidence reaches every direct-feed path.
+- [Direct-feed host evidence](direct-feed-host-evidence.md) — carry verified evidence end to end; Circle CXS requires exact row counts and allows numeric JR slug suffixes.
 - [Detached company-site verification](company-site-verification-drain.md) — one-off discovery runners must await exact liveness checks before pool shutdown; the post-commit verifier queue is in-memory, not durable.
 - [Sponsor public-source matching scale](sponsor-public-source-matching-scale.md) — large sponsor/source coverage needs rare organization-name token probes before fuzzy matching; broad location buckets can time out.
 - [First-party job-description PDFs](company-site-job-pdf-evidence.md) — accept media-hosted role PDFs only with explicit current-listing, role, and safe application/contact evidence.

@@ -111,6 +111,60 @@ describe("GET /vacancy-favorites", () => {
     expect(byId[1_000_005]).toMatchObject({ title: "Engineer", company: "TechCorp", location: "London", applyUrl: null });
     expect(byId[2_000_009]).toMatchObject({ title: "Designer", company: "Acme Ltd", location: "Bristol", applyUrl: "https://acme.example/job" });
   });
+
+  it("omits a pending company-site manager favorite without deleting it", async () => {
+    const now = new Date("2026-08-01T00:00:00Z");
+    favResults.push(
+      [{ vacancyId: 2_000_009, createdAt: now }],
+      [{
+        id: 9,
+        title: "Operations Manager",
+        organisationName: "Acme Ltd",
+        location: "Bristol",
+        url: "https://acme.example/job",
+        sourceType: "company_site",
+        liveness: "live",
+        lastVerifiedAt: now,
+        companyVacancyEvidence: { roleEligibilityReview: { status: "pending" } },
+      }],
+    );
+    const res = await request(buildApp())
+      .get("/vacancy-favorites")
+      .set("Authorization", `Bearer ${SESS}`);
+    expect(res.status).toBe(200);
+    expect(res.body.favorites).toEqual([]);
+  });
+
+  it("retains a closed non-manager sponsor favorite with its closed status", async () => {
+    const now = new Date("2026-08-01T00:00:00Z");
+    favResults.push(
+      [{ vacancyId: 2_000_010, createdAt: now }],
+      [{
+        id: 10,
+        title: "Staff Nurse",
+        organisationName: "Acme Ltd",
+        location: "Bristol",
+        url: "https://acme.example/job",
+        sourceType: "company_site",
+        liveness: "dead",
+        lastVerifiedAt: now,
+        companyVacancyEvidence: { kind: "json_ld_job_posting" },
+      }],
+    );
+    const res = await request(buildApp())
+      .get("/vacancy-favorites")
+      .set("Authorization", `Bearer ${SESS}`);
+    expect(res.status).toBe(200);
+    expect(res.body.favorites).toHaveLength(1);
+    expect(res.body.favorites[0]).toMatchObject({
+      vacancyId: 2_000_010,
+      title: "Staff Nurse",
+      company: "Acme Ltd",
+      location: "Bristol",
+      applyUrl: null,
+      closed: true,
+    });
+  });
 });
 
 describe("POST /vacancy-favorites/:vacancyId", () => {

@@ -232,6 +232,7 @@ async function readPersistedVisibility(
 
     const status = getCandidateVacancyStatus({
       sourceType: vacancy.sourceType,
+      title: vacancy.title,
       liveness: vacancy.liveness,
       lastVerifiedAt: vacancy.lastVerifiedAt,
       lastDiscoveredAt: vacancy.lastDiscoveredAt,

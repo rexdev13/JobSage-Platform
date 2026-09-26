@@ -10,6 +10,7 @@ import {
   discoverCompanySiteVacancies,
   persistCompanySiteVacancies,
   type CompanySiteDiscoveryDiagnostics,
+  type CompanySiteDiscoveryResult,
 } from "./companySiteDiscovery";
 import { parseDirectBoardMapping } from "./directEmployerBoardConnectors";
 import {
@@ -40,6 +41,99 @@ export const COMPANY_SITE_BOOKMARK_SHARE = 0.25;
 export const COMPANY_SITE_UNPROBED_SHARE = 0.6;
 export const COMPANY_SITE_SECTOR_COUNT = 8;
 export const COMPANY_SITE_BATCH_WRITE_RESERVE_MS = 3_000;
+
+const CIRCLE_HEALTH_GROUP_EMPLOYER =
+  "BMI Healthcare Limited trading as Circle Health Group Limited";
+const CIRCLE_WORKDAY_CAREERS_URL =
+  "https://circlehealth.wd103.myworkdayjobs.com/chgcareers";
+const CIRCLE_WORKDAY_EVIDENCE_URL =
+  "http://careers.circlehealthgroup.co.uk/jobs/sister-charge-nurse-critical-care-jr110643";
+
+function isCircleHealthGroupEmployer(value: string): boolean {
+  return value.trim().toLowerCase() === CIRCLE_HEALTH_GROUP_EMPLOYER.toLowerCase();
+}
+
+function isCircleWorkdayAdvert(advert: CompanySiteDiscoveryResult["adverts"][number]): boolean {
+  if (
+    advert.sourceType !== "company_site" ||
+    advert.companyVacancyEvidence?.kind !== "known_ats_posting" ||
+    advert.companyVacancyEvidence.provider !== "Workday" ||
+    advert.companyVacancyEvidence.listingUrl !== CIRCLE_WORKDAY_CAREERS_URL ||
+    !advert.externalId ||
+    !/^JR\d+$/.test(advert.externalId)
+  ) {
+    return false;
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(advert.url);
+  } catch {
+    return false;
+  }
+  if (
+    parsed.protocol !== "https:" ||
+    parsed.hostname.toLowerCase() !== "circlehealth.wd103.myworkdayjobs.com" ||
+    parsed.username ||
+    parsed.password ||
+    parsed.port ||
+    parsed.search ||
+    parsed.hash
+  ) {
+    return false;
+  }
+  const match = parsed.pathname.match(
+    /^\/en-GB\/chgcareers\/job\/[^/]+\/[^/]+_(JR\d{4,12})(?:-\d+)?$/,
+  );
+  return match?.[1] === advert.externalId;
+}
+
+/**
+ * Circle is the one company-site source whose vacancies are permitted only
+ * when the saved, verified Workday mapping produced a complete direct-feed
+ * snapshot. Generic discovery remains useful for diagnostics, but must never
+ * cross this persistence boundary.
+ */
+export function isCircleDirectFeedPersistenceAllowed(
+  row: Pick<
+    CompanySiteBatchRow,
+    | "organisationName"
+    | "careersUrl"
+    | "atsProvider"
+    | "atsBoardId"
+    | "atsMappingEvidenceUrl"
+    | "atsMappingStatus"
+  >,
+  result: Pick<
+    CompanySiteDiscoveryResult,
+    | "careersUrl"
+    | "atsProvider"
+    | "atsCompleted"
+    | "completion"
+    | "snapshotScope"
+    | "adverts"
+  > & {
+    diagnostics: Pick<CompanySiteDiscoveryDiagnostics, "directSourceKind">;
+  },
+): boolean {
+  if (!isCircleHealthGroupEmployer(row.organisationName)) return true;
+  if (
+    row.atsMappingStatus !== "verified" ||
+    row.atsProvider !== "Workday" ||
+    row.atsBoardId !== "chgcareers" ||
+    row.careersUrl !== CIRCLE_WORKDAY_CAREERS_URL ||
+    row.atsMappingEvidenceUrl !== CIRCLE_WORKDAY_EVIDENCE_URL ||
+    result.careersUrl !== CIRCLE_WORKDAY_CAREERS_URL ||
+    result.atsProvider !== "Workday" ||
+    result.atsCompleted !== true ||
+    result.completion !== "complete" ||
+    result.diagnostics.directSourceKind !== "ats_feed" ||
+    result.snapshotScope?.provider !== "Workday" ||
+    result.snapshotScope.boardId !== "chgcareers"
+  ) {
+    return false;
+  }
+  return result.adverts.every(isCircleWorkdayAdvert);
+}
 
 export type CompanySiteBatchRow = {
   id: number;
@@ -761,16 +855,24 @@ export async function runCompanySiteCheck(
       return { status: "skipped", reason: result.diagnostics.directFeedSkipReason };
     }
   }
+  const circlePersistenceAllowed = isCircleDirectFeedPersistenceAllowed(row, result);
+  // Keep the discovery result and its diagnostics intact for source tracking,
+  // while making the shared vacancy write path receive no Circle adverts unless
+  // the strict direct-feed boundary has been satisfied.
+  const advertsForPersistence = circlePersistenceAllowed ? result.adverts : [];
+  if (!circlePersistenceAllowed && isCircleHealthGroupEmployer(row.organisationName)) {
+    result.diagnostics.directFeedSkipReason ??= "circle_direct_workday_persistence_gate";
+  }
   const persisted =
-    result.adverts.length > 0
-      ? await persistCompanySiteVacancies(result.adverts, {
+    advertsForPersistence.length > 0
+      ? await persistCompanySiteVacancies(advertsForPersistence, {
           queueVerifications: options.queueVerifications,
           ...(options.expectNoInserts ? { requireExisting: true } : {}),
         })
       : { inserted: 0, updated: 0, revived: 0 };
   const repeatImport =
-    options.verifyImportIdempotency && result.adverts.length > 0
-      ? await persistCompanySiteVacancies(result.adverts, {
+    options.verifyImportIdempotency && advertsForPersistence.length > 0
+      ? await persistCompanySiteVacancies(advertsForPersistence, {
           queueVerifications: false,
           ...(options.expectNoInserts ? { requireExisting: true } : {}),
         })
@@ -778,7 +880,7 @@ export async function runCompanySiteCheck(
   // A generic crawl is not a complete inventory of every careers source used by
   // an employer. Only retire postings from the exact board of an authoritative,
   // complete direct-feed snapshot; partial feeds must never retire anything.
-  if (result.completion === "complete" && result.snapshotScope) {
+  if (circlePersistenceAllowed && result.completion === "complete" && result.snapshotScope) {
     const { provider, boardId } = result.snapshotScope;
     const escapedBoardId = boardId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const boardPattern = provider === "Ashby"
@@ -851,7 +953,7 @@ export async function runCompanySiteCheck(
     options.preserveExistingSiteMetadata === true &&
     Boolean(existing?.careersUrl) &&
     result.atsMappingVerified !== true;
-  const ukLocationKnown = result.adverts.filter((advert) =>
+  const ukLocationKnown = advertsForPersistence.filter((advert) =>
     (advert.targetRegions?.length ?? 0) > 0 ||
     regionsFromLocationText(advert.location).length > 0 ||
     /\b(?:united kingdom|u\.?k\.?|great britain|england|scotland|wales|northern ireland)\b/i.test(
@@ -934,7 +1036,7 @@ export async function runCompanySiteCheck(
 
   return {
     status: "checked",
-    adverts: result.adverts.length,
+    adverts: advertsForPersistence.length,
     inserted: persisted.inserted,
     updated: persisted.updated,
     revived: persisted.revived,
@@ -947,7 +1049,7 @@ export async function runCompanySiteCheck(
     advertsRejected: result.advertsRejected,
     rawAdvertsFound: result.advertsExtracted,
     ukLocationKnown,
-    ukLocationUnknown: Math.max(0, result.adverts.length - ukLocationKnown),
+     ukLocationUnknown: Math.max(0, advertsForPersistence.length - ukLocationKnown),
     careersUrl: result.careersUrl,
     atsProvider: result.atsProvider,
     repeatImport,

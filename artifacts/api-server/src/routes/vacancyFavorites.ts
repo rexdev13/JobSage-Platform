@@ -102,7 +102,14 @@ router.get("/vacancy-favorites", requireAuthenticated, async (req: Request, res:
       for (const p of profiles) companyByProfileId[p.id] = p.companyName;
     }
 
-    type Detail = { title: string | null; company: string | null; location: string | null; applyUrl: string | null; closed?: boolean };
+    type Detail = {
+      title: string | null;
+      company: string | null;
+      location: string | null;
+      applyUrl: string | null;
+      closed?: boolean;
+      pendingReview?: boolean;
+    };
     const detailByVacancyId = new Map<number, Detail>();
     for (const r of roleRows) {
       detailByVacancyId.set(r.id, {
@@ -121,20 +128,26 @@ router.get("/vacancy-favorites", requireAuthenticated, async (req: Request, res:
       });
     }
     for (const s of sponsorRows) {
-      const status = getCandidateVacancyStatus(s);
+      const status = getCandidateVacancyStatus({ ...s, title: s.title });
+      const pendingReview = status === "pending_review";
       detailByVacancyId.set(s.id + SPONSOR_VACANCY_OFFSET, {
-        title: s.title,
-        company: s.organisationName,
-        location: s.location ?? null,
+        title: pendingReview ? null : s.title,
+        company: pendingReview ? null : s.organisationName,
+        location: pendingReview ? null : (s.location ?? null),
         applyUrl: status === "visible" ? (s.url ?? null) : null,
         closed: status !== "visible",
+        pendingReview,
       });
     }
 
     res.json({
-      favorites: favorites.map((f) => {
+      favorites: favorites.flatMap((f) => {
         const d = detailByVacancyId.get(f.vacancyId);
-        return {
+        // Keep the persisted favorite, but do not expose a pending-review
+        // company vacancy in the candidate-facing list.
+        if (f.vacancyId > SPONSOR_VACANCY_OFFSET && !d) return [];
+        if (f.vacancyId > SPONSOR_VACANCY_OFFSET && d?.pendingReview) return [];
+        return [{
           vacancyId: f.vacancyId,
           createdAt: f.createdAt.toISOString(),
           title: d?.title ?? null,
@@ -142,7 +155,7 @@ router.get("/vacancy-favorites", requireAuthenticated, async (req: Request, res:
           location: d?.location ?? null,
           applyUrl: d?.applyUrl ?? null,
           closed: d?.closed ?? false,
-        };
+        }];
       }),
     });
   } catch (err) {

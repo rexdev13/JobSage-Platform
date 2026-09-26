@@ -24,6 +24,7 @@ import {
 } from "./publishedContactEmail";
 import { enrichAdvertContacts } from "./vacancyAdvertContact";
 import { extractVacancyClosingDate, hasExplicitClosedPhrase } from "./vacancyDates";
+import { hasApprovedCompanyVacancyRoleEligibilityReview } from "./vacancyLiveness";
 
 export interface BoardAdvert {
   organisationName: string;
@@ -48,7 +49,56 @@ export interface BoardAdvert {
     kind: "json_ld_job_posting" | "microdata_job_posting" | "known_ats_posting" | "structured_job_card";
     listingUrl?: string;
     provider?: string;
+    roleEligibilityReview?: unknown;
   };
+}
+
+/**
+ * Review evidence is candidate-policy data, not feed data. Preserve an
+ * approved review only when the refresh is provably the same first-party role;
+ * never carry it across employers, sources, URLs, titles, or listing IDs.
+ */
+export function mergeCompanyVacancyEvidence(
+  existing: {
+    organisationName: string;
+    sourceType: string | null;
+    externalListingId: string | null;
+    url: string | null;
+    title: string;
+    companyVacancyEvidence: unknown;
+  },
+  advert: Pick<BoardAdvert, "organisationName" | "sourceType" | "externalId" | "url" | "title" | "companyVacancyEvidence">,
+): BoardAdvert["companyVacancyEvidence"] | null | undefined {
+  const rawIncoming = advert.companyVacancyEvidence;
+  const incoming =
+    rawIncoming && typeof rawIncoming === "object"
+      ? Object.fromEntries(
+          Object.entries(rawIncoming).filter(([key]) => key !== "roleEligibilityReview"),
+        )
+      : null;
+  const review =
+    existing.sourceType === "company_site" &&
+    advert.sourceType === "company_site" &&
+    existing.organisationName === advert.organisationName &&
+    existing.externalListingId != null &&
+    advert.externalId != null &&
+    existing.externalListingId === advert.externalId &&
+    existing.url === advert.url &&
+    existing.title === advert.title &&
+    hasApprovedCompanyVacancyRoleEligibilityReview(existing.companyVacancyEvidence)
+      ? (existing.companyVacancyEvidence as Record<string, unknown>).roleEligibilityReview
+      : null;
+  if (!review) {
+    // Feed refreshes often omit evidence. Keep the prior evidence/grace in
+    // that case, matching the historical partial-update behavior.
+    return rawIncoming === undefined
+      ? undefined
+      : incoming as BoardAdvert["companyVacancyEvidence"] | null;
+  }
+  return {
+    ...(incoming && typeof incoming === "object" ? incoming : {}),
+    roleEligibilityReview: review,
+  } as BoardAdvert["companyVacancyEvidence"];
 }
 
 export interface BoardAdapterSearchResult {
@@ -213,6 +263,33 @@ function boardPreference(boardName: string | null): number {
       : 2;
 }
 
+function knownAtsPostingIdentityKey(advert: {
+  sourceType?: string | null;
+  organisationName: string;
+  externalId?: string | null;
+  companyVacancyEvidence?: unknown;
+}): string | null {
+  if (advert.sourceType !== "company_site" || !advert.externalId?.trim()) return null;
+  const evidence = advert.companyVacancyEvidence;
+  if (!evidence || typeof evidence !== "object" || Array.isArray(evidence)) return null;
+  const record = evidence as Record<string, unknown>;
+  const provider = typeof record.provider === "string" ? record.provider.trim().toLowerCase() : "";
+  const listingUrl = typeof record.listingUrl === "string"
+    ? canonicalVacancyUrl(record.listingUrl)
+    : null;
+  if (record.kind !== "known_ats_posting" || !provider || !listingUrl) return null;
+  return [
+    normaliseFingerprintPart(advert.organisationName),
+    provider,
+    listingUrl,
+    advert.externalId.trim(),
+  ].join("\u0000");
+}
+
+function advertPreference(advert: BoardAdvert): number {
+  return knownAtsPostingIdentityKey(advert) ? -1 : boardPreference(advert.boardName);
+}
+
 export function normaliseAndDedupeBoardAdverts(adverts: readonly BoardAdvert[]): BoardAdvert[] {
   const byUrl = new Map<string, BoardAdvert>();
   for (const advert of adverts) {
@@ -236,17 +313,29 @@ export function normaliseAndDedupeBoardAdverts(adverts: readonly BoardAdvert[]):
       externalId: source.externalListingId ?? advert.externalId ?? null,
     };
     const current = byUrl.get(`${sourceType}\u0000${url}`);
-    if (!current || boardPreference(normalized.boardName) < boardPreference(current.boardName)) {
+    if (!current || advertPreference(normalized) < advertPreference(current)) {
       byUrl.set(`${sourceType}\u0000${url}`, normalized);
     }
   }
 
   const byFingerprint = new Map<string, BoardAdvert>();
+  const directAtsFingerprintBases = new Set<string>();
   for (const advert of byUrl.values()) {
-    const fingerprint = `${advert.sourceType}\u0000${boardVacancyFingerprint(advert)}`;
-    const current = byFingerprint.get(fingerprint);
-    if (!current || boardPreference(advert.boardName) < boardPreference(current.boardName)) {
-      byFingerprint.set(fingerprint, advert);
+    const fingerprintBase = `${advert.sourceType}\u0000${boardVacancyFingerprint(advert)}`;
+    const directAtsIdentity = knownAtsPostingIdentityKey(advert);
+    const fingerprintKey = directAtsIdentity
+      ? `known_ats\u0000${directAtsIdentity}`
+      : fingerprintBase;
+    if (directAtsIdentity) directAtsFingerprintBases.add(fingerprintBase);
+    const current = byFingerprint.get(fingerprintKey);
+    if (!current || advertPreference(advert) < advertPreference(current)) {
+      byFingerprint.set(fingerprintKey, advert);
+    }
+  }
+  for (const fingerprintBase of directAtsFingerprintBases) {
+    const genericMatch = byFingerprint.get(fingerprintBase);
+    if (genericMatch && !knownAtsPostingIdentityKey(genericMatch)) {
+      byFingerprint.delete(fingerprintBase);
     }
   }
   return [...byFingerprint.values()];
@@ -395,16 +484,23 @@ export async function upsertSharedBoardVacancies(
         : [];
     }),
   );
-  const byFingerprint = new Map(
-    existing.map((row) => [
-      `${row.sourceType ?? "job_board"}\u0000${boardVacancyFingerprint({
+  const byFingerprint = new Map<string, (typeof existing)[number]>();
+  const byKnownAtsIdentity = new Map<string, (typeof existing)[number]>();
+  for (const row of existing) {
+    const fingerprintKey = `${row.sourceType ?? "job_board"}\u0000${boardVacancyFingerprint({
         organisationName: row.organisationName,
         title: row.title,
         location: row.location,
-      })}`,
-      row,
-    ] as const),
-  );
+      })}`;
+    if (!byFingerprint.has(fingerprintKey)) byFingerprint.set(fingerprintKey, row);
+    const directAtsIdentity = knownAtsPostingIdentityKey({
+      sourceType: row.sourceType,
+      organisationName: row.organisationName,
+      externalId: row.externalListingId,
+      companyVacancyEvidence: row.companyVacancyEvidence,
+    });
+    if (directAtsIdentity) byKnownAtsIdentity.set(directAtsIdentity, row);
+  }
   const byExternal = new Map(
     existing.flatMap((row) =>
       row.boardName && row.externalListingId
@@ -428,19 +524,25 @@ export async function upsertSharedBoardVacancies(
   for (const advert of adverts) {
     const sourceType = advert.sourceType ?? "job_board";
     const fingerprint = boardVacancyFingerprint(advert);
+    const directAtsIdentity = knownAtsPostingIdentityKey(advert);
     const canonicalMatch = byCanonical.get(`${sourceType}\u0000${advert.url}`);
     const externalMatch = advert.externalId
       ? byExternal.get(`${sourceType}\u0000${advert.boardName}|${advert.externalId}`)
       : undefined;
-    const fingerprintMatch = byFingerprint.get(`${sourceType}\u0000${fingerprint}`);
-    const existingRow = canonicalMatch ?? externalMatch ?? fingerprintMatch;
+    const knownAtsMatch = directAtsIdentity ? byKnownAtsIdentity.get(directAtsIdentity) : undefined;
+    const fingerprintMatch = directAtsIdentity
+      ? undefined
+      : byFingerprint.get(`${sourceType}\u0000${fingerprint}`);
+    const existingRow = canonicalMatch ?? externalMatch ?? knownAtsMatch ?? fingerprintMatch;
     if (existingRow) {
       const incomingWins =
         canonicalMatch != null ||
         externalMatch != null ||
+        knownAtsMatch != null ||
         boardPreference(advert.boardName) < boardPreference(existingRow.boardName);
       if (!incomingWins) continue;
       const wasDead = existingRow.liveness === "dead";
+      const mergedCompanyVacancyEvidence = mergeCompanyVacancyEvidence(existingRow, advert);
       const [updated] = await tx
         .update(sponsorLicenceVacanciesTable)
         .set({
@@ -460,8 +562,11 @@ export async function upsertSharedBoardVacancies(
            ...(advert.closesAt !== undefined ? { closesAt: advert.closesAt } : {}),
            ...(advert.expiresAt !== undefined ? { expiresAt: advert.expiresAt } : {}),
            ...(advert.closedReason !== undefined ? { closedReason: advert.closedReason } : {}),
-           ...(advert.companyVacancyEvidence !== undefined
-             ? { companyVacancyEvidence: advert.companyVacancyEvidence, companyEvidenceLegacyUntil: null }
+           ...(mergedCompanyVacancyEvidence !== undefined
+             ? {
+                 companyVacancyEvidence: mergedCompanyVacancyEvidence,
+                 companyEvidenceLegacyUntil: null,
+               }
              : {}),
           lastDiscoveredAt: now,
            sourceMissingSince: null,
@@ -488,6 +593,25 @@ export async function upsertSharedBoardVacancies(
       );
       if (advert.externalId) {
         byExternal.set(`${sourceType}\u0000${advert.boardName}|${advert.externalId}`, existingRow);
+      }
+      if (directAtsIdentity) {
+        byKnownAtsIdentity.set(directAtsIdentity, {
+          ...existingRow,
+          ...advert,
+          id: existingRow.id,
+          sourceType,
+          boardName: sourceType === "company_site" ? null : advert.boardName,
+          externalListingId: advert.externalId,
+          url: advert.url,
+          applicationUrl: advert.applicationUrl ?? existingRow.applicationUrl ?? null,
+          companyVacancyEvidence: mergedCompanyVacancyEvidence !== undefined
+            ? mergedCompanyVacancyEvidence
+            : existingRow.companyVacancyEvidence,
+          companyEvidenceLegacyUntil: mergedCompanyVacancyEvidence !== undefined
+            ? null
+            : existingRow.companyEvidenceLegacyUntil,
+          liveness: updated.liveness,
+        } as (typeof existing)[number]);
       }
       continue;
     }

@@ -26,7 +26,36 @@ export type VacancyLinkStatus =
   | "inconclusive"
   | "stale";
 
-export type CandidateVacancyStatus = "visible" | "stale" | "missing" | "dead" | "expired" | "unverified";
+export type CandidateVacancyStatus =
+  | "visible"
+  | "stale"
+  | "missing"
+  | "dead"
+  | "expired"
+  | "unverified"
+  | "pending_review";
+
+/** Company-site manager vacancies require explicit occupational evidence. */
+export function hasApprovedCompanyVacancyRoleEligibilityReview(evidence: unknown): boolean {
+  if (!evidence || typeof evidence !== "object") return false;
+  const review = (evidence as Record<string, unknown>).roleEligibilityReview;
+  if (!review || typeof review !== "object") return false;
+  const value = review as Record<string, unknown>;
+  const socCode = value.socCode;
+  const evidenceUrl = value.evidenceUrl;
+  if (value.status !== "approved" || typeof socCode !== "string" || !/^\d{4}$/.test(socCode)) return false;
+  if (typeof evidenceUrl !== "string" || !evidenceUrl.trim()) return false;
+  try {
+    const parsed = new URL(evidenceUrl);
+    return parsed.protocol === "https:" && Boolean(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
+export function isStandaloneManagerTitle(title: string | null | undefined): boolean {
+  return /\bmanagers?\b/i.test(title ?? "");
+}
 
 export function getCandidateVacancyStatus(input: {
   sourceType: "job_board" | "company_site" | null | undefined;
@@ -39,6 +68,7 @@ export function getCandidateVacancyStatus(input: {
   expiresAt?: Date | string | null;
   closedReason?: string | null;
   companyVacancyEvidence?: unknown;
+  title?: string | null;
   companyEvidenceLegacyUntil?: Date | string | null;
   now?: Date;
 }): CandidateVacancyStatus {
@@ -51,6 +81,13 @@ export function getCandidateVacancyStatus(input: {
     .some((date) => !Number.isNaN(date.getTime()) && now.getTime() > date.getTime());
   if (pastClose) return "expired";
   if (input.sourceMissingSince || (input.sourceMissingObservations ?? 0) > 0) return "missing";
+  if (
+    input.sourceType === "company_site" &&
+    isStandaloneManagerTitle(input.title) &&
+    !hasApprovedCompanyVacancyRoleEligibilityReview(input.companyVacancyEvidence)
+  ) {
+    return "pending_review";
+  }
   // Legacy adapters that predate liveness fields are treated as compatible
   // records; persisted NULL values are still handled conservatively below.
   if (input.sourceType === undefined && input.liveness === undefined && input.lastVerifiedAt === undefined) return "visible";
