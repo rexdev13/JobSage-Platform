@@ -1,0 +1,188 @@
+You are working on the JobSage project.
+
+We completed Healthcare routing batch 2:
+- 200 records processed
+- 641 attempts
+- 0 retries
+- 42 verified company-website routes
+- 15 high-confidence
+- 27 review/medium-confidence
+- 158 unverified
+- 0 verified ATS/job-board routes
+- 0 verified Send CV routes
+- Bing search was not configured
+- Runner relied on SponsorList, CQC, and employer sites
+- The main gap is coverage, not run reliability
+
+Do not rerun batch 2. Treat it as the baseline.
+
+Goal:
+Improve the reusable vacancy-source routing runner with better coverage logic, then run a small controlled pilot only.
+
+Do not expand to all Healthcare yet.
+
+Important:
+- Do not modify production data.
+- Do not write directly to the database.
+- Do not deploy.
+- Do not import anything.
+- Do not overwrite previous batch outputs.
+- Keep batch 2 unchanged as the baseline.
+- Produce reviewable output files only.
+- Do not bypass robots.txt, policy blocks, login walls, or access protections.
+
+Improvements to implement:
+
+1. Optional search for unresolved sponsors only
+- Add optional search support for unresolved sponsors only.
+- If a Bing/search API key exists in workspace Secrets/environment, use it.
+- If no key exists, continue without search and say so clearly.
+- Never ask for or print secrets.
+- Search must be behind config:
+  - enabled/disabled
+  - max searches per sponsor
+  - max total searches
+  - cache enabled
+- Only search after CQC, SponsorList, existing website, existing careers URL, contact-email domain, and known-site checks fail.
+- Cache search results so reruns do not repeat the same queries.
+- Use search to find:
+  - official employer website
+  - first-party careers/vacancy pages
+  - ATS/job-board pages
+  - Send CV/recruitment contact pages
+- Do not assume search results are true. They still need identity validation.
+
+2. Use compliant alternatives for blocked sites
+- For robots/policy/blocked sites, do not bypass protections.
+- Try permitted alternatives:
+  - official ATS feeds
+  - public job-board APIs/pages where allowed
+  - CQC/public regulator evidence
+  - SponsorList/public sponsor evidence
+  - first-party pages accessible without bypassing restrictions
+- If still blocked, keep the record unverified and explain why.
+
+3. Improve identity matching carefully
+- Add or improve support for:
+  - trading-name aliases
+  - parent-company/domain relationships
+  - employer-to-domain mappings
+  - CQC provider/location name variants
+- Use town/city/location evidence where available.
+- Ambiguous matches must remain unverified.
+- Do not promote weak or ambiguous matches to high-confidence.
+
+4. Reduce repeated work
+- Cache checks by:
+  - sponsor licence ID
+  - normalized employer name
+  - domain
+  - source URL
+  - search query
+- Deduplicate shared parent-company sites.
+- Avoid checking the same domain/page repeatedly across sponsors.
+- Add bounded concurrency across different hosts if safe.
+- Keep per-host pacing/backoff respectful.
+
+5. Add pilot comparison
+- Run a separate controlled pilot of 50 unresolved Healthcare sponsors only.
+- Use records that were unverified in batch 2 if available, otherwise unresolved Healthcare records not already processed.
+- Compare the pilot against batch 2 baseline:
+  - verified-route yield
+  - high-confidence count/share
+  - false/ambiguous matches rejected
+  - request/search count
+  - runtime
+  - blocked/robots count
+  - identity-failure count
+
+Input files to consider:
+- `.local/reports/sponsor-enrichment/jobsage-sponsor-base-export.csv`
+- `artifacts/healthcare-vacancy-source-routing-batch1-100.csv`
+- `artifacts/healthcare-vacancy-source-routing-batch2-200.csv`
+- `artifacts/healthcare-vacancy-source-routing-progress.json`
+- existing sponsor enrichment/support files under `.local/reports/sponsor-enrichment/`
+
+Routing rules:
+Every useful source must be routed into exactly one of:
+- `company_website`
+- `job_board`
+- `send_cv`
+- `unverified`
+
+Company website route:
+- first-party careers/vacancies/jobs/recruitment pages on the employer’s own domain
+
+Job board / ATS route:
+- NHS Jobs
+- Trac Jobs
+- Greenhouse
+- Lever
+- Ashby
+- Workday
+- Teamtailor
+- SmartRecruiters
+- Workable
+- Pinpoint
+- BambooHR
+- SAP SuccessFactors
+- Accord portal
+- other structured ATS/job board with clear employer identity
+
+Send CV route:
+- first-party company page that says to email CV/apply by email/contact HR
+- recruitment contact form
+- “we are always recruiting” page with clear contact/application route
+
+Unverified:
+- no reliable source
+- identity mismatch
+- generic directory only
+- unreachable/blocked
+- employer not clearly tied to sponsor
+
+Confidence:
+- `high`: employer identity clear, source is official/recognized, name/location/domain match is strong.
+- `medium`: likely correct, but one piece of evidence is weaker.
+- `low`: possible match, manual review required.
+- `unverified`: no trustworthy match.
+
+Pilot output files:
+1. `artifacts/healthcare-vacancy-source-routing-search-pilot-50.csv`
+
+Columns:
+`sponsor_licence_id,organisation_name,normalized_organisation_name,town_city,county,region,industry,existing_website,existing_careers_url,existing_ats_provider,existing_ats_board_id,discovered_source_url,source_pipeline,source_type,provider,board_id,sample_vacancy_url,evidence_url,confidence,should_import,search_used,cache_hit,attempt_count,notes`
+
+2. `artifacts/healthcare-vacancy-source-routing-search-pilot-50-report.md`
+
+The report must include:
+- Source files inspected
+- Whether search was configured
+- Search configuration used, excluding secrets
+- Number of unresolved sponsors selected
+- Number processed
+- Verified-route yield
+- Company website count
+- Job-board/ATS count
+- Send CV count
+- Unverified count
+- High/medium/low/unverified confidence breakdown
+- Search count
+- Cache hit count
+- Runtime
+- Robots/policy/blocked count
+- Identity-failure count
+- Examples of newly recovered matches
+- Examples intentionally kept unverified
+- Comparison against batch 2 baseline:
+  - batch 2: 42/200 verified, 15 high-confidence, 158 unverified, 641 attempts, 0 retries
+- Recommendation on whether to enable search for larger batches
+- Recommendation on whether to scale beyond Healthcare
+
+Validation:
+- Run tests/typecheck for the modified runner.
+- Confirm batch 2 files were not changed.
+- Confirm no database writes/imports happened.
+- Confirm no production data was changed.
+- Confirm nothing was deployed.
+- At the end, summarize exactly what changed, which files were created, and whether the search pilot improved coverage enough to continue.
