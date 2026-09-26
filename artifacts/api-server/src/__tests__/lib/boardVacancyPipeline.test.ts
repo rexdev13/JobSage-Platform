@@ -162,6 +162,52 @@ describe("shared board vacancy pipeline", () => {
     expect(normaliseAndDedupeBoardAdverts([advert({ title: "Warehouse Operative" })])).toEqual([]);
   });
 
+  it("recovers a labelled closing date stored in postedDate", () => {
+    const [normalized] = normaliseAndDedupeBoardAdverts([advert({
+      organisationName: "Accelerate Health CIC",
+      title: "Community Wound Care Nurse",
+      location: "London",
+      sourceType: "company_site",
+      boardName: null,
+      externalId: null,
+      url: "https://www.acceleratecic.com/about/careers/community-wound-care-nurse/",
+      postedDate: "Closing date: 28 May 2025",
+      companyVacancyEvidence: { kind: "structured_job_card" },
+    })]);
+
+    expect(normalized?.closesAt?.toISOString()).toBe("2025-05-28T22:59:59.999Z");
+    expect(normalized?.postedDate).toBeNull();
+  });
+
+  it("omits close date when a refresh has no close-date evidence", () => {
+    const [normalized] = normaliseAndDedupeBoardAdverts([advert({
+      sourceType: "company_site",
+      boardName: null,
+      externalId: null,
+      url: "https://careers.example.nhs.uk/jobs/staff-nurse-123",
+      closesAt: null,
+      postedDate: "2026-05-28",
+      companyVacancyEvidence: { kind: "structured_job_card" },
+    })]);
+
+    expect(normalized?.closesAt).toBeUndefined();
+    expect(normalized?.postedDate).toBe("2026-05-28");
+  });
+
+  it("clears an unspecified closing label without inventing a close date", () => {
+    const [normalized] = normaliseAndDedupeBoardAdverts([advert({
+      sourceType: "company_site",
+      boardName: null,
+      externalId: null,
+      url: "https://careers.example.nhs.uk/jobs/leg-ulcer-nurse-456",
+      postedDate: "Closing date: Not specified",
+      companyVacancyEvidence: { kind: "structured_job_card" },
+    })]);
+
+    expect(normalized?.closesAt).toBeUndefined();
+    expect(normalized?.postedDate).toBeNull();
+  });
+
   it("preserves distinct known ATS posting IDs that share a fingerprint", () => {
     const result = normaliseAndDedupeBoardAdverts([
       knownAtsAdvert("JR117009", "https://careers.example.nhs.uk/jobs/JR117009"),

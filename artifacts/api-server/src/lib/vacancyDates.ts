@@ -1,6 +1,6 @@
 const DATE_PATTERNS = [
   /\b(\d{1,2})[/-](\d{1,2})[/-](\d{4})\b/,
-  /\b(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})\b/i,
+  /\b(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s*,?\s+(\d{4})\b/i,
   /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})\b/i,
 ];
 
@@ -45,7 +45,9 @@ export function parseVacancyClosingDate(value: unknown): Date | null {
       actual.day === Number(isoDateOnly[3]) ? parsed : null;
   }
   const iso = new Date(raw);
-  if (/T|\d{2}:\d{2}|Z$/i.test(raw) && !Number.isNaN(iso.getTime())) return iso;
+  const hasExplicitTime =
+    /T\d{2}:\d{2}|\b\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?\b|Z$/i.test(raw);
+  if (hasExplicitTime && !Number.isNaN(iso.getTime())) return iso;
   let year: number | undefined;
   let month: number | undefined;
   let day: number | undefined;
@@ -78,6 +80,12 @@ export function extractVacancyClosingDate(value: string | null | undefined): Dat
     /(?:closing date|application close date|apply by|closes on|closing|expires?|validThrough)\s*[:\-]?\s*([^|;\n<]{3,80})/i,
   );
   return parseVacancyClosingDate(match?.[1] ?? null);
+}
+
+/** True when a field contains a labelled closing-date value, even if it is unknown. */
+export function hasVacancyClosingDateLabel(value: string | null | undefined): boolean {
+  return /^\s*(?:closing date|application close date|apply by|closes on|closing|expires?|validThrough)\s*[:\-]?\s*/i
+    .test(value ?? "");
 }
 
 export function hasExplicitClosedPhrase(value: string | null | undefined): boolean {
