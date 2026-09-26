@@ -628,6 +628,7 @@ async function main(): Promise<void> {
                 genericCheckedAt: null,
                 atsCheckedAt: null,
                 careersUrl: sponsor.careers_url ?? null,
+                atsMappingEvidenceUrl: sponsor.ats_mapping_evidence_url ?? null,
                 atsProvider: sponsor.ats_provider ?? null,
                 atsBoardId: sponsor.ats_board_id ?? null,
                 atsMappingStatus: sponsor.ats_mapping_status ?? "unverified",

@@ -62,6 +62,21 @@ describe("direct employer board connectors", () => {
       boardId: "acme",
       feedUrl: "https://acme.jobs.personio.de/xml",
     });
+    expect(parseDirectBoardMapping(
+      "Pinpoint",
+      "https://dentalbeautypartners.pinpointhq.com/",
+      { firstPartyEvidenceUrl: "https://careers.dentalbeautypartners.co.uk/" },
+    )).toMatchObject({
+      provider: "Pinpoint",
+      boardId: "dentalbeautypartners",
+      feedUrl: "https://dentalbeautypartners.pinpointhq.com/postings.json",
+      postingHostnames: [
+        "dentalbeautypartners.pinpointhq.com",
+        "careers.dentalbeautypartners.co.uk",
+      ],
+    });
+    expect(parseDirectBoardMapping("Pinpoint", "https://www.pinpointhq.com/")).toBeNull();
+    expect(parseDirectBoardMapping("Pinpoint", "https://dentalbeautypartners.pinpointhq.com/unrelated")).toBeNull();
     expect(parseDirectBoardMapping("SmartRecruiters", "https://evil.smartrecruiters.com/acme")).toBeNull();
     expect(parseDirectBoardMapping("SmartRecruiters", "https://jobs.smartrecruiters.com/acme/jobs")).toBeNull();
     expect(parseDirectBoardMapping("Recruitee", "https://acme.recruitee.com/unrelated/path")).toBeNull();
@@ -344,6 +359,84 @@ describe("direct employer board connectors", () => {
       applicationUrl: "https://acme.jobs.personio.de/job/42",
       location: "Berlin",
     });
+  });
+
+  it("parses Pinpoint postings from the documented feed and restricts listing URLs to the approved career host", async () => {
+    vi.mocked(fetchCompanySitePublicApiPage).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      url: "https://dentalbeautypartners.pinpointhq.com/postings.json",
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: [{
+          id: "559205",
+          title: "Practice Manager",
+          url: "https://careers.dentalbeautypartners.co.uk/en/postings/308f97ff-679c-4bff-b8a8-e2d94000000b",
+          description: "<p>Lead the dental practice team.</p>",
+          employment_type: "permanent",
+          location: {
+            name: "Streatham",
+            city: "Streatham",
+            province: "Greater London",
+          },
+          job: {
+            division: { name: "Dental Beauty Partners" },
+          },
+        }],
+      }),
+    });
+    const result = await fetchDirectEmployerBoard(
+      "DENTAL BEAUTY GROUP LTD",
+      "Pinpoint",
+      "https://dentalbeautypartners.pinpointhq.com/",
+      { firstPartyEvidenceUrl: "https://careers.dentalbeautypartners.co.uk/" },
+    );
+    expect(result.complete).toBe(true);
+    expect(result.adverts).toHaveLength(1);
+    expect(result.adverts[0]).toMatchObject({
+      organisationName: "DENTAL BEAUTY GROUP LTD",
+      externalId: "559205",
+      title: "Practice Manager",
+      url: "https://careers.dentalbeautypartners.co.uk/en/postings/308f97ff-679c-4bff-b8a8-e2d94000000b",
+      applicationUrl: "https://careers.dentalbeautypartners.co.uk/en/postings/308f97ff-679c-4bff-b8a8-e2d94000000b",
+      description: "Lead the dental practice team.",
+      location: "Streatham, Greater London",
+      sourceType: "company_site",
+      companyVacancyEvidence: {
+        kind: "known_ats_posting",
+        provider: "Pinpoint",
+        listingUrl: "https://dentalbeautypartners.pinpointhq.com/",
+      },
+    });
+    expect(fetchCompanySitePublicApiPage).toHaveBeenCalledWith(
+      "https://dentalbeautypartners.pinpointhq.com/postings.json",
+      expect.any(Number),
+      2_000_000,
+    );
+    expect(fetchCompanySiteRobotsAwarePublicApiPage).not.toHaveBeenCalled();
+
+    vi.mocked(fetchCompanySitePublicApiPage).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      url: "https://dentalbeautypartners.pinpointhq.com/postings.json",
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: [{
+          id: "untrusted",
+          title: "Unexpected",
+          url: "https://attacker.example/jobs/untrusted",
+        }],
+      }),
+    });
+    const untrusted = await fetchDirectEmployerBoard(
+      "DENTAL BEAUTY GROUP LTD",
+      "Pinpoint",
+      "https://dentalbeautypartners.pinpointhq.com/",
+      { firstPartyEvidenceUrl: "https://careers.dentalbeautypartners.co.uk/" },
+    );
+    expect(untrusted.complete).toBe(false);
+    expect(untrusted.adverts).toHaveLength(0);
+    expect(untrusted.error).toMatch(/invalid Pinpoint posting identity\/title\/URL/);
   });
 
   it("does not claim complete snapshots for truncated XML or unpaginated Recruitee feeds", async () => {

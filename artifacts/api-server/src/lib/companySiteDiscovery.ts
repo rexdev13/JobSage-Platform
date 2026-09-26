@@ -1268,7 +1268,9 @@ async function discoverDirectFeedsOnly(
 
   const provider = knownAtsProvider(careersUrl);
   if (provider) {
-    const mapping = parseDirectBoardMapping(provider, careersUrl);
+    const mapping = parseDirectBoardMapping(provider, careersUrl, {
+      firstPartyEvidenceUrl: options.knownCareersEvidenceUrl,
+    });
     if (!mapping) {
       return noDirectSource(`verified ${provider} mapping has no supported direct-feed adapter`);
     }
@@ -1283,7 +1285,10 @@ async function discoverDirectFeedsOnly(
       organisationName,
       mapping.provider,
       mapping.evidenceUrl,
-      { deadlineMs },
+      {
+        deadlineMs,
+        firstPartyEvidenceUrl: options.knownCareersEvidenceUrl,
+      },
     );
     if (!direct.mapping) {
       return noDirectSource(direct.error ?? "approved mapping did not resolve to a supported direct feed");
@@ -1483,7 +1488,10 @@ export async function discoverCompanySiteVacancies(
       organisationName,
       knownAtsProvider(options.knownCareersUrl),
       options.knownCareersUrl,
-      { deadlineMs },
+      {
+        deadlineMs,
+        firstPartyEvidenceUrl: options.knownCareersEvidenceUrl,
+      },
     );
     if (direct.mapping) directAttempted.add(direct.mapping.evidenceUrl);
     if (direct.mapping && (direct.complete || direct.adverts.length > 0)) {
@@ -1657,14 +1665,19 @@ export async function discoverCompanySiteVacancies(
     if (isKnownCareersRequest && !diagnostics.careersUrl) diagnostics.careersUrl = canonical;
     const provider = knownAtsProvider(canonical);
     if (provider && checkAts && isTrustedAtsUrl(canonical)) {
-      const mapping = parseDirectBoardMapping(provider, canonical);
+      const mapping = parseDirectBoardMapping(provider, canonical, {
+        firstPartyEvidenceUrl: atsMappingEvidenceUrl ?? sourceUrl,
+      });
       if (mapping && !directAttempted.has(mapping.evidenceUrl)) {
         directAttempted.add(mapping.evidenceUrl);
         const direct = await fetchDirectEmployerBoard(
           organisationName,
           provider,
           canonical,
-          { deadlineMs },
+          {
+            deadlineMs,
+            firstPartyEvidenceUrl: atsMappingEvidenceUrl ?? sourceUrl,
+          },
         );
         if (direct.mapping && (direct.complete || direct.adverts.length > 0)) {
           const directAdverts = normaliseAndDedupeBoardAdverts(direct.adverts);

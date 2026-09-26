@@ -1,0 +1,1009 @@
+{
+  "createdAt": "2026-09-26T00:00:33.839Z",
+  "developmentOnly": true,
+  "apply": true,
+  "sourceMode": "direct_feeds_only",
+  "input": "/home/runner/workspace/.agents/outputs/healthcare-direct-source-test-2026-09-26/cohort.csv",
+  "stages": {
+    "websiteFill": false,
+    "discovery": true
+  },
+  "requestedLimit": 12,
+  "requestedOffset": 29,
+  "totals": {
+    "selected": 9,
+    "inserted": 0,
+    "updated": 29,
+    "revived": 0,
+    "completed": 1,
+    "failed": 0,
+    "no_jobs": 0,
+    "skipped": 8,
+    "skipped_no_direct_feed_source": 8,
+    "websitesFilled": 0,
+    "advertsFound": 29,
+    "advertsRejected": 4,
+    "ukLocationKnown": 21,
+    "ukLocationUnknown": 8,
+    "runtimeMs": 77780
+  },
+  "perSector": {
+    "Healthcare": {
+      "employers": 9,
+      "runtimeMs": 77733,
+      "inserted": 0,
+      "updated": 29,
+      "revived": 0,
+      "completed": 1,
+      "failed": 0,
+      "no_jobs": 0,
+      "skipped_no_direct_feed_source": 8,
+      "websitesFilled": 0,
+      "advertsFound": 29,
+      "advertsRejected": 4,
+      "ukLocationKnown": 21,
+      "ukLocationUnknown": 8
+    }
+  },
+  "providersUsed": [
+    "Pinpoint"
+  ],
+  "candidateVisibilityBefore": [
+    {
+      "sponsorLicenceId": 172321,
+      "organisationName": "BLOOM HEALTH GROUP LTD",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 172351,
+      "organisationName": "BLOOMS HEALTHCARE LIMITED",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 172446,
+      "organisationName": "BLUE CROSS DENTAL PRACTICE",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 172638,
+      "organisationName": "BLUECO HEALTHCARE LIMITED",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 172806,
+      "organisationName": "BMI Healthcare Limited trading as Circle Health Group Limited",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 188563,
+      "organisationName": "DENTAL BEAUTY GROUP LTD",
+      "visibleVacancyCount": 29,
+      "samples": [
+        {
+          "id": 39763,
+          "title": "Orthodontic Therapist",
+          "url": "https://careers.dentalbeautypartners.co.uk/en/postings/4aab2922-85a4-4f4f-9141-6f3ab5b9224f",
+          "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/4aab2922-85a4-4f4f-9141-6f3ab5b9224f",
+          "sourceType": "company_site",
+          "evidenceKind": "known_ats_posting",
+          "lastVerifiedAt": "2026-09-26 00:00:18.665+00"
+        },
+        {
+          "id": 39762,
+          "title": "Associate Dentist",
+          "url": "https://careers.dentalbeautypartners.co.uk/en/postings/6d2d4f55-6e17-472a-83ee-df6e39067f9f",
+          "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/6d2d4f55-6e17-472a-83ee-df6e39067f9f",
+          "sourceType": "company_site",
+          "evidenceKind": "known_ats_posting",
+          "lastVerifiedAt": "2026-09-26 00:00:16.459+00"
+        },
+        {
+          "id": 39761,
+          "title": "Associate Dentist",
+          "url": "https://careers.dentalbeautypartners.co.uk/en/postings/695b58fb-265a-4399-8859-9f952a9399e8",
+          "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/695b58fb-265a-4399-8859-9f952a9399e8",
+          "sourceType": "company_site",
+          "evidenceKind": "known_ats_posting",
+          "lastVerifiedAt": "2026-09-26 00:00:14.266+00"
+        }
+      ]
+    },
+    {
+      "sponsorLicenceId": 222980,
+      "organisationName": "Kingsley Healthcare Limited",
+      "visibleVacancyCount": 35,
+      "samples": [
+        {
+          "id": 39673,
+          "title": "care home support worker 6041",
+          "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/care-home-support-worker-6041",
+          "applicationUrl": null,
+          "sourceType": "company_site",
+          "evidenceKind": "structured_job_card",
+          "lastVerifiedAt": "2026-09-25 18:36:12.7+00"
+        },
+        {
+          "id": 39672,
+          "title": "care home support worker 6043",
+          "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/care-home-support-worker-6043",
+          "applicationUrl": null,
+          "sourceType": "company_site",
+          "evidenceKind": "structured_job_card",
+          "lastVerifiedAt": "2026-09-25 18:36:07.967+00"
+        },
+        {
+          "id": 39671,
+          "title": "care home support worker 6044",
+          "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/care-home-support-worker-6044",
+          "applicationUrl": null,
+          "sourceType": "company_site",
+          "evidenceKind": "structured_job_card",
+          "lastVerifiedAt": "2026-09-25 18:36:03.095+00"
+        }
+      ]
+    },
+    {
+      "sponsorLicenceId": 234404,
+      "organisationName": "Merridale Medical Centre",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 336850,
+      "organisationName": "Valley Drive Dental Practice",
+      "visibleVacancyCount": 0,
+      "samples": []
+    }
+  ],
+  "rows": [
+    {
+      "sponsorLicenceId": 172321,
+      "organisationName": "BLOOM HEALTH GROUP LTD",
+      "candidateWebsite": "https://bloom-health.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 172321,
+        "organisationName": "BLOOM HEALTH GROUP LTD",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://bloom-health.co.uk",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 53,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 172321,
+        "organisationName": "BLOOM HEALTH GROUP LTD",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 172351,
+      "organisationName": "BLOOMS HEALTHCARE LIMITED",
+      "candidateWebsite": "https://www.bloomshealthcare.com/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 172351,
+        "organisationName": "BLOOMS HEALTHCARE LIMITED",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.bloomshealthcare.com",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 94,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 172351,
+        "organisationName": "BLOOMS HEALTHCARE LIMITED",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 172446,
+      "organisationName": "BLUE CROSS DENTAL PRACTICE",
+      "candidateWebsite": "https://www.bluecrossdentalcare.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 172446,
+        "organisationName": "BLUE CROSS DENTAL PRACTICE",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.bluecrossdentalcare.co.uk",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 30,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 172446,
+        "organisationName": "BLUE CROSS DENTAL PRACTICE",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 172638,
+      "organisationName": "BLUECO HEALTHCARE LIMITED",
+      "candidateWebsite": "https://www.blueco.care/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 172638,
+        "organisationName": "BLUECO HEALTHCARE LIMITED",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.blueco.care/",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 76,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 172638,
+        "organisationName": "BLUECO HEALTHCARE LIMITED",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 172806,
+      "organisationName": "BMI Healthcare Limited trading as Circle Health Group Limited",
+      "candidateWebsite": "https://www.circlehealthgroup.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 172806,
+        "organisationName": "BMI Healthcare Limited trading as Circle Health Group Limited",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "sameNameSponsorIds": [
+        172806,
+        172807
+      ],
+      "identicalSourceDuplicateRowsAccepted": true,
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.circlehealthgroup.co.uk/",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 96,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 172806,
+        "organisationName": "BMI Healthcare Limited trading as Circle Health Group Limited",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 188563,
+      "organisationName": "DENTAL BEAUTY GROUP LTD",
+      "candidateWebsite": "https://careers.dentalbeautypartners.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 188563,
+        "organisationName": "DENTAL BEAUTY GROUP LTD",
+        "visibleVacancyCount": 29,
+        "samples": [
+          {
+            "id": 39763,
+            "title": "Orthodontic Therapist",
+            "url": "https://careers.dentalbeautypartners.co.uk/en/postings/4aab2922-85a4-4f4f-9141-6f3ab5b9224f",
+            "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/4aab2922-85a4-4f4f-9141-6f3ab5b9224f",
+            "sourceType": "company_site",
+            "evidenceKind": "known_ats_posting",
+            "lastVerifiedAt": "2026-09-26 00:00:18.665+00"
+          },
+          {
+            "id": 39762,
+            "title": "Associate Dentist",
+            "url": "https://careers.dentalbeautypartners.co.uk/en/postings/6d2d4f55-6e17-472a-83ee-df6e39067f9f",
+            "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/6d2d4f55-6e17-472a-83ee-df6e39067f9f",
+            "sourceType": "company_site",
+            "evidenceKind": "known_ats_posting",
+            "lastVerifiedAt": "2026-09-26 00:00:16.459+00"
+          },
+          {
+            "id": 39761,
+            "title": "Associate Dentist",
+            "url": "https://careers.dentalbeautypartners.co.uk/en/postings/695b58fb-265a-4399-8859-9f952a9399e8",
+            "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/695b58fb-265a-4399-8859-9f952a9399e8",
+            "sourceType": "company_site",
+            "evidenceKind": "known_ats_posting",
+            "lastVerifiedAt": "2026-09-26 00:00:14.266+00"
+          }
+        ]
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://careers.dentalbeautypartners.co.uk/",
+      "collection": {
+        "status": "checked",
+        "adverts": 29,
+        "inserted": 0,
+        "updated": 29,
+        "revived": 0,
+        "pagesFetched": 1,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 4,
+        "rawAdvertsFound": 33,
+        "ukLocationKnown": 21,
+        "ukLocationUnknown": 8,
+        "careersUrl": "https://dentalbeautypartners.pinpointhq.com/",
+        "atsProvider": "Pinpoint",
+        "diagnostics": {
+          "homepageUrl": "https://careers.dentalbeautypartners.co.uk/",
+          "homepageFetched": false,
+          "homepageHttpStatus": null,
+          "careersPageFound": true,
+          "careersUrl": "https://dentalbeautypartners.pinpointhq.com/",
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 0,
+          "pagesAttempted": 0,
+          "sitemapChecked": false,
+          "sitemapDocuments": [],
+          "robotsResult": "not checked",
+          "pageFetches": [],
+          "linksConsidered": [],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [
+            {
+              "provider": "Pinpoint",
+              "url": "https://dentalbeautypartners.pinpointhq.com/",
+              "sourceUrl": "https://careers.dentalbeautypartners.co.uk/",
+              "supportedForImport": false,
+              "linkedFromFirstParty": true,
+              "followed": true,
+              "reason": null
+            }
+          ],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false,
+          "directFeedsOnly": true,
+          "directSourceKind": "ats_feed",
+          "directFeedSkipReason": null,
+          "directFeedSkipDetail": null
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 29,
+      "rawAdvertsFound": 33,
+      "advertsRejected": 4,
+      "ukLocationKnown": 21,
+      "ukLocationUnknown": 8,
+      "inserted": 0,
+      "updated": 29,
+      "revived": 0,
+      "providerUsed": "Pinpoint",
+      "directSourceKind": "ats_feed",
+      "verification": [
+        {
+          "id": 39735,
+          "outcome": "live"
+        },
+        {
+          "id": 39736,
+          "outcome": "live"
+        },
+        {
+          "id": 39737,
+          "outcome": "live"
+        },
+        {
+          "id": 39738,
+          "outcome": "live"
+        },
+        {
+          "id": 39739,
+          "outcome": "live"
+        },
+        {
+          "id": 39740,
+          "outcome": "live"
+        },
+        {
+          "id": 39741,
+          "outcome": "live"
+        },
+        {
+          "id": 39742,
+          "outcome": "live"
+        },
+        {
+          "id": 39743,
+          "outcome": "live"
+        },
+        {
+          "id": 39744,
+          "outcome": "live"
+        },
+        {
+          "id": 39745,
+          "outcome": "live"
+        },
+        {
+          "id": 39746,
+          "outcome": "live"
+        },
+        {
+          "id": 39747,
+          "outcome": "live"
+        },
+        {
+          "id": 39748,
+          "outcome": "live"
+        },
+        {
+          "id": 39749,
+          "outcome": "live"
+        },
+        {
+          "id": 39750,
+          "outcome": "live"
+        },
+        {
+          "id": 39751,
+          "outcome": "live"
+        },
+        {
+          "id": 39752,
+          "outcome": "live"
+        },
+        {
+          "id": 39753,
+          "outcome": "live"
+        },
+        {
+          "id": 39754,
+          "outcome": "live"
+        },
+        {
+          "id": 39755,
+          "outcome": "live"
+        },
+        {
+          "id": 39756,
+          "outcome": "live"
+        },
+        {
+          "id": 39757,
+          "outcome": "live"
+        },
+        {
+          "id": 39758,
+          "outcome": "live"
+        },
+        {
+          "id": 39759,
+          "outcome": "live"
+        },
+        {
+          "id": 39760,
+          "outcome": "live"
+        },
+        {
+          "id": 39761,
+          "outcome": "live"
+        },
+        {
+          "id": 39762,
+          "outcome": "live"
+        },
+        {
+          "id": 39763,
+          "outcome": "live"
+        }
+      ],
+      "applicationUrls": [
+        {
+          "id": 39735,
+          "title": "Practice Manager",
+          "url": "https://careers.dentalbeautypartners.co.uk/en/postings/308f97ff-679c-4bff-b8a8-e2d94000000b",
+          "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/308f97ff-679c-4bff-b8a8-e2d94000000b",
+          "liveness": "live"
+        },
+        {
+          "id": 39736,
+          "title": "Specialist Endodontist",
+          "url": "https://careers.dentalbeautypartners.co.uk/en/postings/9f29878c-0146-4960-ae64-ef526afc302c",
+          "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/9f29878c-0146-4960-ae64-ef526afc302c",
+          "liveness": "live"
+        },
+        {
+          "id": 39737,
+          "title": "Dental Nurse",
+          "url": "https://careers.dentalbeautypartners.co.uk/en/postings/856eef10-932e-40d9-a9ed-42511bbbcf02",
+          "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/856eef10-932e-40d9-a9ed-42511bbbcf02",
+          "liveness": "live"
+        },
+        {
+          "id": 39738,
+          "title": "Dental Nurse - Saturdays & Sundays",
+          "url": "https://careers.dentalbeautypartners.co.uk/en/postings/754b0169-b85f-4798-9a9c-3adef1b89b7b",
+          "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/754b0169-b85f-4798-9a9c-3adef1b89b7b",
+          "liveness": "live"
+        },
+        {
+          "id": 39739,
+          "title": "Dental Therapist",
+          "url": "https://careers.dentalbeautypartners.co.uk/en/postings/77405306-76e9-4564-9455-fc10cbf00a5d",
+          "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/77405306-76e9-4564-9455-fc10cbf00a5d",
+          "liveness": "live"
+        },
+        {
+          "id": 39740,
+          "title": "Dental Nurse - Sundays",
+          "url": "https://careers.dentalbeautypartners.co.uk/en/postings/c378a263-9b02-4cf8-b179-d1246d39f6ee",
+          "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/c378a263-9b02-4cf8-b179-d1246d39f6ee",
+          "liveness": "live"
+        },
+        {
+          "id": 39741,
+          "title": "Dental Nurse - Sundays",
+          "url": "https://careers.dentalbeautypartners.co.uk/en/postings/849fbf83-126d-4f5a-9685-690a5a716a2c",
+          "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/849fbf83-126d-4f5a-9685-690a5a716a2c",
+          "liveness": "live"
+        },
+        {
+          "id": 39742,
+          "title": "Practice Manager",
+          "url": "https://careers.dentalbeautypartners.co.uk/en/postings/7987e8fe-ae2b-4584-8086-97bd8a717e11",
+          "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/7987e8fe-ae2b-4584-8086-97bd8a717e11",
+          "liveness": "live"
+        },
+        {
+          "id": 39743,
+          "title": "Head Dental Nurse",
+          "url": "https://careers.dentalbeautypartners.co.uk/en/postings/970b0163-0b34-4946-bf5d-e47670d8cf52",
+          "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/970b0163-0b34-4946-bf5d-e47670d8cf52",
+          "liveness": "live"
+        },
+        {
+          "id": 39744,
+          "title": "Trainee Dental Nurse",
+          "url": "https://careers.dentalbeautypartners.co.uk/en/postings/61caa23f-8df7-4098-b03b-472bc9a2d253",
+          "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/61caa23f-8df7-4098-b03b-472bc9a2d253",
+          "liveness": "live"
+        },
+        {
+          "id": 39745,
+          "title": "Dental Nurse",
+          "url": "https://careers.dentalbeautypartners.co.uk/en/postings/82b90b85-0c1a-46a6-8031-022b16af0a1c",
+          "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/82b90b85-0c1a-46a6-8031-022b16af0a1c",
+          "liveness": "live"
+        },
+        {
+          "id": 39746,
+          "title": "Periodontist",
+          "url": "https://careers.dentalbeautypartners.co.uk/en/postings/e1ec8f90-ddb7-4898-8e30-60d4b4774f3d",
+          "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/e1ec8f90-ddb7-4898-8e30-60d4b4774f3d",
+          "liveness": "live"
+        },
+        {
+          "id": 39747,
+          "title": "Orthodontist",
+          "url": "https://careers.dentalbeautypartners.co.uk/en/postings/881ee50b-bc15-4acb-a5d2-6c7fe61e0aa9",
+          "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/881ee50b-bc15-4acb-a5d2-6c7fe61e0aa9",
+          "liveness": "live"
+        },
+        {
+          "id": 39748,
+          "title": "Business Manager",
+          "url": "https://careers.dentalbeautypartners.co.uk/en/postings/8c0c3524-0109-4432-ac66-b72d28ae70f5",
+          "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/8c0c3524-0109-4432-ac66-b72d28ae70f5",
+          "liveness": "live"
+        },
+        {
+          "id": 39749,
+          "title": "Dental Nurse",
+          "url": "https://careers.dentalbeautypartners.co.uk/en/postings/655c8da0-120a-41da-94fa-e494fc27c87b",
+          "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/655c8da0-120a-41da-94fa-e494fc27c87b",
+          "liveness": "live"
+        },
+        {
+          "id": 39750,
+          "title": "Orthodontic Therapist",
+          "url": "https://careers.dentalbeautypartners.co.uk/en/postings/bfa76ee7-f5e8-4b42-acea-db3c6c0d181a",
+          "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/bfa76ee7-f5e8-4b42-acea-db3c6c0d181a",
+          "liveness": "live"
+        },
+        {
+          "id": 39751,
+          "title": "Orthodontic Therapist",
+          "url": "https://careers.dentalbeautypartners.co.uk/en/postings/1dab924d-bafd-48f3-a7e5-ebdcd1e3f1e3",
+          "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/1dab924d-bafd-48f3-a7e5-ebdcd1e3f1e3",
+          "liveness": "live"
+        },
+        {
+          "id": 39752,
+          "title": "Orthodontic Therapist",
+          "url": "https://careers.dentalbeautypartners.co.uk/en/postings/d25c5e31-1a01-4e01-9b82-601e43f6f2cd",
+          "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/d25c5e31-1a01-4e01-9b82-601e43f6f2cd",
+          "liveness": "live"
+        },
+        {
+          "id": 39753,
+          "title": "Multi-Site Implant Treatment Coordinator",
+          "url": "https://careers.dentalbeautypartners.co.uk/en/postings/df7d1dda-d365-4107-af89-dd56daa246ab",
+          "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/df7d1dda-d365-4107-af89-dd56daa246ab",
+          "liveness": "live"
+        },
+        {
+          "id": 39754,
+          "title": "Locum Dentist",
+          "url": "https://careers.dentalbeautypartners.co.uk/en/postings/4bf40061-b924-475b-a6a1-410d6cbded77",
+          "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/4bf40061-b924-475b-a6a1-410d6cbded77",
+          "liveness": "live"
+        },
+        {
+          "id": 39755,
+          "title": "Dental Nurse",
+          "url": "https://careers.dentalbeautypartners.co.uk/en/postings/c265380e-d8b7-4ae7-a15a-7f293b11527d",
+          "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/c265380e-d8b7-4ae7-a15a-7f293b11527d",
+          "liveness": "live"
+        },
+        {
+          "id": 39756,
+          "title": "Dental Nurse",
+          "url": "https://careers.dentalbeautypartners.co.uk/en/postings/10487bca-4b46-45ce-bb3a-e8a11e97b489",
+          "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/10487bca-4b46-45ce-bb3a-e8a11e97b489",
+          "liveness": "live"
+        },
+        {
+          "id": 39757,
+          "title": "Dental Hygienist",
+          "url": "https://careers.dentalbeautypartners.co.uk/en/postings/ce5973be-7081-4f5c-9941-c77ed7f75e15",
+          "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/ce5973be-7081-4f5c-9941-c77ed7f75e15",
+          "liveness": "live"
+        },
+        {
+          "id": 39758,
+          "title": "Dental Nurse - Sundays",
+          "url": "https://careers.dentalbeautypartners.co.uk/en/postings/fb04e95a-f3ae-42e6-9f46-7d69a51c6e90",
+          "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/fb04e95a-f3ae-42e6-9f46-7d69a51c6e90",
+          "liveness": "live"
+        },
+        {
+          "id": 39759,
+          "title": "Dental Nurse - Sundays",
+          "url": "https://careers.dentalbeautypartners.co.uk/en/postings/919b0643-654e-4143-bf47-d2bea5c4b5db",
+          "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/919b0643-654e-4143-bf47-d2bea5c4b5db",
+          "liveness": "live"
+        },
+        {
+          "id": 39760,
+          "title": "Dental Nurse",
+          "url": "https://careers.dentalbeautypartners.co.uk/en/postings/79ec39aa-0538-4baa-8291-e1a31b6acebb",
+          "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/79ec39aa-0538-4baa-8291-e1a31b6acebb",
+          "liveness": "live"
+        },
+        {
+          "id": 39761,
+          "title": "Associate Dentist",
+          "url": "https://careers.dentalbeautypartners.co.uk/en/postings/695b58fb-265a-4399-8859-9f952a9399e8",
+          "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/695b58fb-265a-4399-8859-9f952a9399e8",
+          "liveness": "live"
+        },
+        {
+          "id": 39762,
+          "title": "Associate Dentist",
+          "url": "https://careers.dentalbeautypartners.co.uk/en/postings/6d2d4f55-6e17-472a-83ee-df6e39067f9f",
+          "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/6d2d4f55-6e17-472a-83ee-df6e39067f9f",
+          "liveness": "live"
+        },
+        {
+          "id": 39763,
+          "title": "Orthodontic Therapist",
+          "url": "https://careers.dentalbeautypartners.co.uk/en/postings/4aab2922-85a4-4f4f-9141-6f3ab5b9224f",
+          "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/4aab2922-85a4-4f4f-9141-6f3ab5b9224f",
+          "liveness": "live"
+        }
+      ],
+      "elapsedMs": 77163,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 188563,
+        "organisationName": "DENTAL BEAUTY GROUP LTD",
+        "visibleVacancyCount": 29,
+        "samples": [
+          {
+            "id": 39763,
+            "title": "Orthodontic Therapist",
+            "url": "https://careers.dentalbeautypartners.co.uk/en/postings/4aab2922-85a4-4f4f-9141-6f3ab5b9224f",
+            "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/4aab2922-85a4-4f4f-9141-6f3ab5b9224f",
+            "sourceType": "company_site",
+            "evidenceKind": "known_ats_posting",
+            "lastVerifiedAt": "2026-09-26 00:01:51.374+00"
+          },
+          {
+            "id": 39762,
+            "title": "Associate Dentist",
+            "url": "https://careers.dentalbeautypartners.co.uk/en/postings/6d2d4f55-6e17-472a-83ee-df6e39067f9f",
+            "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/6d2d4f55-6e17-472a-83ee-df6e39067f9f",
+            "sourceType": "company_site",
+            "evidenceKind": "known_ats_posting",
+            "lastVerifiedAt": "2026-09-26 00:01:49.113+00"
+          },
+          {
+            "id": 39761,
+            "title": "Associate Dentist",
+            "url": "https://careers.dentalbeautypartners.co.uk/en/postings/695b58fb-265a-4399-8859-9f952a9399e8",
+            "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/695b58fb-265a-4399-8859-9f952a9399e8",
+            "sourceType": "company_site",
+            "evidenceKind": "known_ats_posting",
+            "lastVerifiedAt": "2026-09-26 00:01:46.906+00"
+          }
+        ]
+      }
+    },
+    {
+      "sponsorLicenceId": 222980,
+      "organisationName": "Kingsley Healthcare Limited",
+      "candidateWebsite": "https://kingsleyhealthcare.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 222980,
+        "organisationName": "Kingsley Healthcare Limited",
+        "visibleVacancyCount": 35,
+        "samples": [
+          {
+            "id": 39673,
+            "title": "care home support worker 6041",
+            "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/care-home-support-worker-6041",
+            "applicationUrl": null,
+            "sourceType": "company_site",
+            "evidenceKind": "structured_job_card",
+            "lastVerifiedAt": "2026-09-25 18:36:12.7+00"
+          },
+          {
+            "id": 39672,
+            "title": "care home support worker 6043",
+            "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/care-home-support-worker-6043",
+            "applicationUrl": null,
+            "sourceType": "company_site",
+            "evidenceKind": "structured_job_card",
+            "lastVerifiedAt": "2026-09-25 18:36:07.967+00"
+          },
+          {
+            "id": 39671,
+            "title": "care home support worker 6044",
+            "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/care-home-support-worker-6044",
+            "applicationUrl": null,
+            "sourceType": "company_site",
+            "evidenceKind": "structured_job_card",
+            "lastVerifiedAt": "2026-09-25 18:36:03.095+00"
+          }
+        ]
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://kingsleyhealthcare.co.uk/",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 35,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 222980,
+        "organisationName": "Kingsley Healthcare Limited",
+        "visibleVacancyCount": 35,
+        "samples": [
+          {
+            "id": 39673,
+            "title": "care home support worker 6041",
+            "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/care-home-support-worker-6041",
+            "applicationUrl": null,
+            "sourceType": "company_site",
+            "evidenceKind": "structured_job_card",
+            "lastVerifiedAt": "2026-09-25 18:36:12.7+00"
+          },
+          {
+            "id": 39672,
+            "title": "care home support worker 6043",
+            "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/care-home-support-worker-6043",
+            "applicationUrl": null,
+            "sourceType": "company_site",
+            "evidenceKind": "structured_job_card",
+            "lastVerifiedAt": "2026-09-25 18:36:07.967+00"
+          },
+          {
+            "id": 39671,
+            "title": "care home support worker 6044",
+            "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/care-home-support-worker-6044",
+            "applicationUrl": null,
+            "sourceType": "company_site",
+            "evidenceKind": "structured_job_card",
+            "lastVerifiedAt": "2026-09-25 18:36:03.095+00"
+          }
+        ]
+      }
+    },
+    {
+      "sponsorLicenceId": 234404,
+      "organisationName": "Merridale Medical Centre",
+      "candidateWebsite": "https://www.merridalemedicalcentre.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 234404,
+        "organisationName": "Merridale Medical Centre",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.merridalemedicalcentre.co.uk/",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 93,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 234404,
+        "organisationName": "Merridale Medical Centre",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 336850,
+      "organisationName": "Valley Drive Dental Practice",
+      "candidateWebsite": "https://smileartdentalvalley.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 336850,
+        "organisationName": "Valley Drive Dental Practice",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://smileartdentalvalley.co.uk/",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 93,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 336850,
+        "organisationName": "Valley Drive Dental Practice",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    }
+  ],
+  "metricNotes": {
+    "completed": "runCompanySiteCheck completion=complete",
+    "no_jobs": "completed checks with zero accepted adverts",
+    "skipped_no_direct_feed_source": "approved employer mapping is absent or no approved direct ATS/feed/schema.org source is supported",
+    "applicationUrls": "values are included only when present in persisted company-site vacancy rows",
+    "liveness": "newly discovered stored links are checked with verifyCompanySiteStoredLink; persisted statuses are reported as-is",
+    "candidateVisibility": "samples use the same live, recently verified, date, source-missing, closure, and company-site evidence gates as the candidate sponsor-vacancy list"
+  },
+  "runtimeMs": 77780,
+  "candidateVisibilityAfter": [
+    {
+      "sponsorLicenceId": 172321,
+      "organisationName": "BLOOM HEALTH GROUP LTD",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 172351,
+      "organisationName": "BLOOMS HEALTHCARE LIMITED",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 172446,
+      "organisationName": "BLUE CROSS DENTAL PRACTICE",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 172638,
+      "organisationName": "BLUECO HEALTHCARE LIMITED",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 172806,
+      "organisationName": "BMI Healthcare Limited trading as Circle Health Group Limited",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 188563,
+      "organisationName": "DENTAL BEAUTY GROUP LTD",
+      "visibleVacancyCount": 29,
+      "samples": [
+        {
+          "id": 39763,
+          "title": "Orthodontic Therapist",
+          "url": "https://careers.dentalbeautypartners.co.uk/en/postings/4aab2922-85a4-4f4f-9141-6f3ab5b9224f",
+          "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/4aab2922-85a4-4f4f-9141-6f3ab5b9224f",
+          "sourceType": "company_site",
+          "evidenceKind": "known_ats_posting",
+          "lastVerifiedAt": "2026-09-26 00:01:51.374+00"
+        },
+        {
+          "id": 39762,
+          "title": "Associate Dentist",
+          "url": "https://careers.dentalbeautypartners.co.uk/en/postings/6d2d4f55-6e17-472a-83ee-df6e39067f9f",
+          "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/6d2d4f55-6e17-472a-83ee-df6e39067f9f",
+          "sourceType": "company_site",
+          "evidenceKind": "known_ats_posting",
+          "lastVerifiedAt": "2026-09-26 00:01:49.113+00"
+        },
+        {
+          "id": 39761,
+          "title": "Associate Dentist",
+          "url": "https://careers.dentalbeautypartners.co.uk/en/postings/695b58fb-265a-4399-8859-9f952a9399e8",
+          "applicationUrl": "https://careers.dentalbeautypartners.co.uk/en/postings/695b58fb-265a-4399-8859-9f952a9399e8",
+          "sourceType": "company_site",
+          "evidenceKind": "known_ats_posting",
+          "lastVerifiedAt": "2026-09-26 00:01:46.906+00"
+        }
+      ]
+    },
+    {
+      "sponsorLicenceId": 222980,
+      "organisationName": "Kingsley Healthcare Limited",
+      "visibleVacancyCount": 35,
+      "samples": [
+        {
+          "id": 39673,
+          "title": "care home support worker 6041",
+          "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/care-home-support-worker-6041",
+          "applicationUrl": null,
+          "sourceType": "company_site",
+          "evidenceKind": "structured_job_card",
+          "lastVerifiedAt": "2026-09-25 18:36:12.7+00"
+        },
+        {
+          "id": 39672,
+          "title": "care home support worker 6043",
+          "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/care-home-support-worker-6043",
+          "applicationUrl": null,
+          "sourceType": "company_site",
+          "evidenceKind": "structured_job_card",
+          "lastVerifiedAt": "2026-09-25 18:36:07.967+00"
+        },
+        {
+          "id": 39671,
+          "title": "care home support worker 6044",
+          "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/care-home-support-worker-6044",
+          "applicationUrl": null,
+          "sourceType": "company_site",
+          "evidenceKind": "structured_job_card",
+          "lastVerifiedAt": "2026-09-25 18:36:03.095+00"
+        }
+      ]
+    },
+    {
+      "sponsorLicenceId": 234404,
+      "organisationName": "Merridale Medical Centre",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 336850,
+      "organisationName": "Valley Drive Dental Practice",
+      "visibleVacancyCount": 0,
+      "samples": []
+    }
+  ],
+  "finishedAt": "2026-09-26T00:01:51.619Z"
+}

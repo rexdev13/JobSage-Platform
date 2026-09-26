@@ -11,13 +11,15 @@ export type DirectBoardProvider =
   | "Lever"
   | "SmartRecruiters"
   | "Recruitee"
-  | "Personio";
+  | "Personio"
+  | "Pinpoint";
 
 export type DirectBoardMapping = {
   provider: DirectBoardProvider;
   boardId: string;
   evidenceUrl: string;
   feedUrl: string;
+  postingHostnames?: string[];
 };
 
 export type DirectBoardScan = {
@@ -39,6 +41,7 @@ const LEVER_HOST = /^jobs(?:\.eu)?\.lever\.co$/i;
 const SMARTRECRUITERS_HOST = /^jobs\.smartrecruiters\.com$/i;
 const RECRUITEE_HOST = /^[a-z0-9-]+\.recruitee\.com$/i;
 const PERSONIO_HOST = /^[a-z0-9-]+\.jobs\.personio\.(?:de|com)$/i;
+const PINPOINT_HOST = /^([a-z0-9-]+)\.pinpointhq\.com$/i;
 
 function strictBoardId(value: string): string | null {
   const id = value.trim();
@@ -48,6 +51,7 @@ function strictBoardId(value: string): string | null {
 export function parseDirectBoardMapping(
   provider: string | null | undefined,
   savedCareersUrl: string | null | undefined,
+  options: { firstPartyEvidenceUrl?: string | null } = {},
 ): DirectBoardMapping | null {
   if (!savedCareersUrl) return null;
   let parsed: URL;
@@ -130,6 +134,34 @@ export function parseDirectBoardMapping(
       boardId,
       evidenceUrl: parsed.toString(),
       feedUrl: `${parsed.origin}/xml`,
+    };
+  }
+  if (selected === "pinpoint") {
+    const hostMatch = parsed.hostname.match(PINPOINT_HOST);
+    const segments = path.split("/").filter(Boolean);
+    if (!hostMatch || (segments.length > 0 && (segments.length !== 1 || segments[0]?.toLowerCase() !== "postings.json")) ||
+        parsed.search || parsed.hash) {
+      return null;
+    }
+    const boardId = strictBoardId(hostMatch[1] ?? "");
+    if (!boardId || ["www", "app", "api"].includes(boardId.toLowerCase())) return null;
+    const postingHostnames = new Set([parsed.hostname.toLowerCase()]);
+    if (options.firstPartyEvidenceUrl) {
+      try {
+        const evidence = new URL(options.firstPartyEvidenceUrl);
+        if (evidence.protocol === "https:" && !evidence.username && !evidence.password && !evidence.port) {
+          postingHostnames.add(evidence.hostname.toLowerCase());
+        }
+      } catch {
+        // Invalid evidence must not widen the allowed posting URL hosts.
+      }
+    }
+    return {
+      provider: "Pinpoint",
+      boardId,
+      evidenceUrl: parsed.toString(),
+      feedUrl: `https://${parsed.hostname.toLowerCase()}/postings.json`,
+      postingHostnames: [...postingHostnames],
     };
   }
   return null;
@@ -218,6 +250,13 @@ function validatedJobUrl(value: unknown, mapping: DirectBoardMapping): string | 
     case "Personio":
       return parsed.hostname.toLowerCase() === new URL(mapping.evidenceUrl).hostname.toLowerCase() &&
         segments.length === 2 && segments[0]?.toLowerCase() === "job" ? parsed.toString() : null;
+    case "Pinpoint":
+      return Boolean(
+        mapping.postingHostnames?.includes(parsed.hostname.toLowerCase()) &&
+        segments.length >= 2 &&
+        segments.length <= 4 &&
+        segments[segments.length - 2]?.toLowerCase() === "postings",
+      ) ? parsed.toString() : null;
   }
 }
 
@@ -507,13 +546,62 @@ function parsePersonio(
   return { adverts, excludedUnlisted: 0 };
 }
 
+function pinpointLocation(value: unknown): string | null {
+  if (!value || typeof value !== "object") return locationText(value);
+  const record = value as Record<string, unknown>;
+  const parts = [record.name, record.city, record.province, record.country]
+    .filter((part): part is string => typeof part === "string" && part.trim() !== "")
+    .map((part) => part.trim());
+  return [...new Set(parts)].join(", ") || null;
+}
+
+function parsePinpoint(
+  organisationName: string,
+  mapping: DirectBoardMapping,
+  body: string,
+): { adverts: BoardAdvert[]; excludedUnlisted: number } {
+  const payload = parseJson(body) as { data?: unknown };
+  if (!Array.isArray(payload.data)) {
+    throw new Error("Pinpoint response did not contain a data array");
+  }
+  const seenIds = new Set<string>();
+  const adverts = payload.data.map((raw): BoardAdvert => {
+    if (!raw || typeof raw !== "object") {
+      throw new Error("Malformed Pinpoint posting: snapshot is incomplete");
+    }
+    const posting = raw as Record<string, unknown>;
+    const id = identifier(posting.id);
+    const title = text(posting.title);
+    const url = validatedJobUrl(posting.url, mapping);
+    if (!id || !title || !url || seenIds.has(id)) {
+      throw new Error("Missing, duplicate, or invalid Pinpoint posting identity/title/URL");
+    }
+    seenIds.add(id);
+    return advert(
+      organisationName,
+      "Pinpoint",
+      id,
+      title,
+      url,
+      url,
+      text(posting.description) ? stripHtml(text(posting.description)!) : null,
+      pinpointLocation(posting.location),
+      timestamp(posting.created_at) ?? timestamp(posting.updated_at),
+      mapping.evidenceUrl,
+    );
+  });
+  return { adverts, excludedUnlisted: 0 };
+}
+
 export async function fetchDirectEmployerBoard(
   organisationName: string,
   provider: string | null | undefined,
   savedCareersUrl: string | null | undefined,
-  options: { deadlineMs?: number } = {},
+  options: { deadlineMs?: number; firstPartyEvidenceUrl?: string | null } = {},
 ): Promise<DirectBoardScan> {
-  const mapping = parseDirectBoardMapping(provider, savedCareersUrl);
+  const mapping = parseDirectBoardMapping(provider, savedCareersUrl, {
+    firstPartyEvidenceUrl: options.firstPartyEvidenceUrl,
+  });
   if (!mapping) {
     return {
       adverts: [],
@@ -573,7 +661,9 @@ export async function fetchDirectEmployerBoard(
             ? parseSmartRecruiters(organisationName, mapping, result.body)
             : mapping.provider === "Recruitee"
               ? parseRecruitee(organisationName, mapping, result.body)
-              : parsePersonio(organisationName, mapping, result.body);
+              : mapping.provider === "Personio"
+                ? parsePersonio(organisationName, mapping, result.body)
+                : parsePinpoint(organisationName, mapping, result.body);
     let pagesFetched = 1;
     let paginationComplete = true;
     if (mapping.provider === "Lever") {
