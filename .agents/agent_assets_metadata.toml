@@ -1006,3 +1006,17 @@ mtime_ms = 1790464671288
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/718ab97a-c1f0-4c25-a0f7-9b2db0f78da4/ab0093a9-bf67-4cee-a7a3-8197bc4317b5"
 storage_version_token = "1790464742252285"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "Q87_3tWYvtM7vGDtxK77V"
+uri = "file://artifacts/healthcare-enrichment-method-audit.md"
+type = "text"
+title = "Healthcare enrichment method audit"
+description = "Read-only audit of historical Healthcare enrichment, vacancy routing, ATS checks, counts, and a safe repeat plan for other sectors."
+logical_id = "521be53e-db7f-4a7a-8fa4-7dc7daaed98d"
+content_hash = "sha256:54ea9980b2bb8e366e397e5c888da0a1b413ba712a13cf1e79f7801b7da385c9"
+size = 10257
+mtime_ms = 1790465513439
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/521be53e-db7f-4a7a-8fa4-7dc7daaed98d/53175b4f-d301-4019-ad60-cef2cc0cf411"
+storage_version_token = "1790465523749705"
+content_type = "text/markdown"
