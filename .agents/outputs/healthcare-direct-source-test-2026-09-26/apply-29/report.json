@@ -1,0 +1,576 @@
+{
+  "createdAt": "2026-09-25T23:55:55.668Z",
+  "developmentOnly": true,
+  "apply": true,
+  "sourceMode": "direct_feeds_only",
+  "input": "/home/runner/workspace/.agents/outputs/healthcare-direct-source-test-2026-09-26/cohort.csv",
+  "stages": {
+    "websiteFill": false,
+    "discovery": true
+  },
+  "requestedLimit": 12,
+  "requestedOffset": 29,
+  "totals": {
+    "selected": 9,
+    "inserted": 0,
+    "updated": 0,
+    "revived": 0,
+    "completed": 0,
+    "failed": 1,
+    "no_jobs": 0,
+    "skipped": 8,
+    "skipped_no_direct_feed_source": 8,
+    "websitesFilled": 0,
+    "advertsFound": 0,
+    "advertsRejected": 0,
+    "ukLocationKnown": 0,
+    "ukLocationUnknown": 0,
+    "runtimeMs": 1773
+  },
+  "perSector": {
+    "Healthcare": {
+      "employers": 9,
+      "runtimeMs": 1586,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "completed": 0,
+      "failed": 1,
+      "no_jobs": 0,
+      "skipped_no_direct_feed_source": 8,
+      "websitesFilled": 0,
+      "advertsFound": 0,
+      "advertsRejected": 0,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0
+    }
+  },
+  "providersUsed": [
+    "Pinpoint"
+  ],
+  "candidateVisibilityBefore": [
+    {
+      "sponsorLicenceId": 172321,
+      "organisationName": "BLOOM HEALTH GROUP LTD",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 172351,
+      "organisationName": "BLOOMS HEALTHCARE LIMITED",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 172446,
+      "organisationName": "BLUE CROSS DENTAL PRACTICE",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 172638,
+      "organisationName": "BLUECO HEALTHCARE LIMITED",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 172806,
+      "organisationName": "BMI Healthcare Limited trading as Circle Health Group Limited",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 188563,
+      "organisationName": "DENTAL BEAUTY GROUP LTD",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 222980,
+      "organisationName": "Kingsley Healthcare Limited",
+      "visibleVacancyCount": 35,
+      "samples": [
+        {
+          "id": 39673,
+          "title": "care home support worker 6041",
+          "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/care-home-support-worker-6041",
+          "applicationUrl": null,
+          "sourceType": "company_site",
+          "evidenceKind": "structured_job_card",
+          "lastVerifiedAt": "2026-09-25 18:36:12.7+00"
+        },
+        {
+          "id": 39672,
+          "title": "care home support worker 6043",
+          "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/care-home-support-worker-6043",
+          "applicationUrl": null,
+          "sourceType": "company_site",
+          "evidenceKind": "structured_job_card",
+          "lastVerifiedAt": "2026-09-25 18:36:07.967+00"
+        },
+        {
+          "id": 39671,
+          "title": "care home support worker 6044",
+          "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/care-home-support-worker-6044",
+          "applicationUrl": null,
+          "sourceType": "company_site",
+          "evidenceKind": "structured_job_card",
+          "lastVerifiedAt": "2026-09-25 18:36:03.095+00"
+        }
+      ]
+    },
+    {
+      "sponsorLicenceId": 234404,
+      "organisationName": "Merridale Medical Centre",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 336850,
+      "organisationName": "Valley Drive Dental Practice",
+      "visibleVacancyCount": 0,
+      "samples": []
+    }
+  ],
+  "rows": [
+    {
+      "sponsorLicenceId": 172321,
+      "organisationName": "BLOOM HEALTH GROUP LTD",
+      "candidateWebsite": "https://bloom-health.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 172321,
+        "organisationName": "BLOOM HEALTH GROUP LTD",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://bloom-health.co.uk",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 31,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 172321,
+        "organisationName": "BLOOM HEALTH GROUP LTD",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 172351,
+      "organisationName": "BLOOMS HEALTHCARE LIMITED",
+      "candidateWebsite": "https://www.bloomshealthcare.com/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 172351,
+        "organisationName": "BLOOMS HEALTHCARE LIMITED",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.bloomshealthcare.com",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 90,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 172351,
+        "organisationName": "BLOOMS HEALTHCARE LIMITED",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 172446,
+      "organisationName": "BLUE CROSS DENTAL PRACTICE",
+      "candidateWebsite": "https://www.bluecrossdentalcare.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 172446,
+        "organisationName": "BLUE CROSS DENTAL PRACTICE",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.bluecrossdentalcare.co.uk",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 32,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 172446,
+        "organisationName": "BLUE CROSS DENTAL PRACTICE",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 172638,
+      "organisationName": "BLUECO HEALTHCARE LIMITED",
+      "candidateWebsite": "https://www.blueco.care/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 172638,
+        "organisationName": "BLUECO HEALTHCARE LIMITED",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.blueco.care/",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 32,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 172638,
+        "organisationName": "BLUECO HEALTHCARE LIMITED",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 172806,
+      "organisationName": "BMI Healthcare Limited trading as Circle Health Group Limited",
+      "candidateWebsite": "https://www.circlehealthgroup.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 172806,
+        "organisationName": "BMI Healthcare Limited trading as Circle Health Group Limited",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "sameNameSponsorIds": [
+        172807,
+        172806
+      ],
+      "identicalSourceDuplicateRowsAccepted": true,
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.circlehealthgroup.co.uk/",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 32,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 172806,
+        "organisationName": "BMI Healthcare Limited trading as Circle Health Group Limited",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 188563,
+      "organisationName": "DENTAL BEAUTY GROUP LTD",
+      "candidateWebsite": "https://careers.dentalbeautypartners.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 188563,
+        "organisationName": "DENTAL BEAUTY GROUP LTD",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://careers.dentalbeautypartners.co.uk/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 1,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": true,
+        "failureClass": "temporary",
+        "completion": "failed",
+        "advertsRejected": 0,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": "https://dentalbeautypartners.pinpointhq.com/",
+        "atsProvider": "Pinpoint",
+        "diagnostics": {
+          "homepageUrl": "https://careers.dentalbeautypartners.co.uk/",
+          "homepageFetched": false,
+          "homepageHttpStatus": null,
+          "careersPageFound": true,
+          "careersUrl": "https://dentalbeautypartners.pinpointhq.com/",
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 0,
+          "pagesAttempted": 0,
+          "sitemapChecked": false,
+          "sitemapDocuments": [],
+          "robotsResult": "not checked",
+          "pageFetches": [],
+          "linksConsidered": [],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [
+            {
+              "provider": "Pinpoint",
+              "url": "https://dentalbeautypartners.pinpointhq.com/",
+              "sourceUrl": "https://careers.dentalbeautypartners.co.uk/",
+              "supportedForImport": false,
+              "linkedFromFirstParty": true,
+              "followed": true,
+              "reason": null
+            }
+          ],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false,
+          "directFeedsOnly": true,
+          "directSourceKind": "ats_feed",
+          "directFeedSkipReason": null,
+          "directFeedSkipDetail": null
+        }
+      },
+      "status": "failed",
+      "completion": "failed",
+      "advertsFound": 0,
+      "rawAdvertsFound": 0,
+      "advertsRejected": 0,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "providerUsed": "Pinpoint",
+      "directSourceKind": "ats_feed",
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 1167,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 188563,
+        "organisationName": "DENTAL BEAUTY GROUP LTD",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 222980,
+      "organisationName": "Kingsley Healthcare Limited",
+      "candidateWebsite": "https://kingsleyhealthcare.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 222980,
+        "organisationName": "Kingsley Healthcare Limited",
+        "visibleVacancyCount": 35,
+        "samples": [
+          {
+            "id": 39673,
+            "title": "care home support worker 6041",
+            "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/care-home-support-worker-6041",
+            "applicationUrl": null,
+            "sourceType": "company_site",
+            "evidenceKind": "structured_job_card",
+            "lastVerifiedAt": "2026-09-25 18:36:12.7+00"
+          },
+          {
+            "id": 39672,
+            "title": "care home support worker 6043",
+            "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/care-home-support-worker-6043",
+            "applicationUrl": null,
+            "sourceType": "company_site",
+            "evidenceKind": "structured_job_card",
+            "lastVerifiedAt": "2026-09-25 18:36:07.967+00"
+          },
+          {
+            "id": 39671,
+            "title": "care home support worker 6044",
+            "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/care-home-support-worker-6044",
+            "applicationUrl": null,
+            "sourceType": "company_site",
+            "evidenceKind": "structured_job_card",
+            "lastVerifiedAt": "2026-09-25 18:36:03.095+00"
+          }
+        ]
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://kingsleyhealthcare.co.uk/",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 32,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 222980,
+        "organisationName": "Kingsley Healthcare Limited",
+        "visibleVacancyCount": 35,
+        "samples": [
+          {
+            "id": 39673,
+            "title": "care home support worker 6041",
+            "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/care-home-support-worker-6041",
+            "applicationUrl": null,
+            "sourceType": "company_site",
+            "evidenceKind": "structured_job_card",
+            "lastVerifiedAt": "2026-09-25 18:36:12.7+00"
+          },
+          {
+            "id": 39672,
+            "title": "care home support worker 6043",
+            "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/care-home-support-worker-6043",
+            "applicationUrl": null,
+            "sourceType": "company_site",
+            "evidenceKind": "structured_job_card",
+            "lastVerifiedAt": "2026-09-25 18:36:07.967+00"
+          },
+          {
+            "id": 39671,
+            "title": "care home support worker 6044",
+            "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/care-home-support-worker-6044",
+            "applicationUrl": null,
+            "sourceType": "company_site",
+            "evidenceKind": "structured_job_card",
+            "lastVerifiedAt": "2026-09-25 18:36:03.095+00"
+          }
+        ]
+      }
+    },
+    {
+      "sponsorLicenceId": 234404,
+      "organisationName": "Merridale Medical Centre",
+      "candidateWebsite": "https://www.merridalemedicalcentre.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 234404,
+        "organisationName": "Merridale Medical Centre",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.merridalemedicalcentre.co.uk/",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 139,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 234404,
+        "organisationName": "Merridale Medical Centre",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 336850,
+      "organisationName": "Valley Drive Dental Practice",
+      "candidateWebsite": "https://smileartdentalvalley.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 336850,
+        "organisationName": "Valley Drive Dental Practice",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://smileartdentalvalley.co.uk/",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 31,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 336850,
+        "organisationName": "Valley Drive Dental Practice",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    }
+  ],
+  "metricNotes": {
+    "completed": "runCompanySiteCheck completion=complete",
+    "no_jobs": "completed checks with zero accepted adverts",
+    "skipped_no_direct_feed_source": "approved employer mapping is absent or no approved direct ATS/feed/schema.org source is supported",
+    "applicationUrls": "values are included only when present in persisted company-site vacancy rows",
+    "liveness": "newly discovered stored links are checked with verifyCompanySiteStoredLink; persisted statuses are reported as-is",
+    "candidateVisibility": "samples use the same live, recently verified, date, source-missing, closure, and company-site evidence gates as the candidate sponsor-vacancy list"
+  },
+  "runtimeMs": 1773,
+  "candidateVisibilityAfter": [
+    {
+      "sponsorLicenceId": 172321,
+      "organisationName": "BLOOM HEALTH GROUP LTD",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 172351,
+      "organisationName": "BLOOMS HEALTHCARE LIMITED",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 172446,
+      "organisationName": "BLUE CROSS DENTAL PRACTICE",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 172638,
+      "organisationName": "BLUECO HEALTHCARE LIMITED",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 172806,
+      "organisationName": "BMI Healthcare Limited trading as Circle Health Group Limited",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 188563,
+      "organisationName": "DENTAL BEAUTY GROUP LTD",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 222980,
+      "organisationName": "Kingsley Healthcare Limited",
+      "visibleVacancyCount": 35,
+      "samples": [
+        {
+          "id": 39673,
+          "title": "care home support worker 6041",
+          "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/care-home-support-worker-6041",
+          "applicationUrl": null,
+          "sourceType": "company_site",
+          "evidenceKind": "structured_job_card",
+          "lastVerifiedAt": "2026-09-25 18:36:12.7+00"
+        },
+        {
+          "id": 39672,
+          "title": "care home support worker 6043",
+          "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/care-home-support-worker-6043",
+          "applicationUrl": null,
+          "sourceType": "company_site",
+          "evidenceKind": "structured_job_card",
+          "lastVerifiedAt": "2026-09-25 18:36:07.967+00"
+        },
+        {
+          "id": 39671,
+          "title": "care home support worker 6044",
+          "url": "https://careers.kingsleyhealthcare.co.uk/vacancies/view/care-home-support-worker-6044",
+          "applicationUrl": null,
+          "sourceType": "company_site",
+          "evidenceKind": "structured_job_card",
+          "lastVerifiedAt": "2026-09-25 18:36:03.095+00"
+        }
+      ]
+    },
+    {
+      "sponsorLicenceId": 234404,
+      "organisationName": "Merridale Medical Centre",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 336850,
+      "organisationName": "Valley Drive Dental Practice",
+      "visibleVacancyCount": 0,
+      "samples": []
+    }
+  ],
+  "finishedAt": "2026-09-25T23:55:57.442Z"
+}

@@ -49,6 +49,7 @@ export type CompanySiteBatchRow = {
   genericCheckedAt: Date | null;
   atsCheckedAt: Date | null;
   careersUrl: string | null;
+  atsMappingEvidenceUrl?: string | null;
   atsProvider: string | null;
   atsBoardId?: string | null;
   atsMappingStatus?: "verified" | "unverified" | "invalid" | null;
@@ -178,6 +179,7 @@ async function selectCompanySiteBatchForProbeStatus(
     generic_checked_at: Date | null;
     ats_checked_at: Date | null;
     careers_url: string | null;
+    ats_mapping_evidence_url: string | null;
     ats_provider: string | null;
     ats_mapping_status: "verified" | "unverified" | null;
     last_outcome: string | null;
@@ -197,6 +199,7 @@ async function selectCompanySiteBatchForProbeStatus(
         cs.generic_checked_at,
         cs.ats_checked_at,
         cs.careers_url,
+        cs.ats_mapping_evidence_url,
         cs.ats_provider,
         cs.ats_mapping_status,
         cs.last_attempted_at,
@@ -345,6 +348,7 @@ async function selectCompanySiteBatchForProbeStatus(
         generic_checked_at,
         ats_checked_at,
         careers_url,
+        ats_mapping_evidence_url,
         ats_provider,
         ats_mapping_status,
         last_attempted_at,
@@ -441,6 +445,7 @@ async function selectCompanySiteBatchForProbeStatus(
     genericCheckedAt: row.generic_checked_at ? new Date(row.generic_checked_at) : null,
     atsCheckedAt: row.ats_checked_at ? new Date(row.ats_checked_at) : null,
     careersUrl: row.careers_url,
+    atsMappingEvidenceUrl: row.ats_mapping_evidence_url ?? null,
     atsProvider: row.ats_provider,
     atsMappingStatus: row.ats_mapping_status === "verified" ? "verified" : "unverified",
     bookmarked: row.bookmarked,
@@ -617,7 +622,7 @@ function isDue(value: Date | null, ttlMs: number): boolean {
 export async function runCompanySiteCheck(
   row: Pick<
     CompanySiteBatchRow,
-    "organisationName" | "website" | "genericCheckedAt" | "atsCheckedAt" | "careersUrl" | "atsProvider" | "atsBoardId" | "atsMappingStatus" | "crawlState"
+    "organisationName" | "website" | "genericCheckedAt" | "atsCheckedAt" | "careersUrl" | "atsMappingEvidenceUrl" | "atsProvider" | "atsBoardId" | "atsMappingStatus" | "crawlState"
   >,
   options: {
     deadlineMs?: number;
@@ -668,6 +673,7 @@ export async function runCompanySiteCheck(
   try {
     result = await discoverCompanySiteVacancies(row.organisationName, row.website, {
       knownCareersUrl: row.careersUrl,
+      knownCareersEvidenceUrl: row.atsMappingEvidenceUrl ?? null,
       knownAtsBoardId: row.atsBoardId,
       knownCareersMappingVerified: row.atsMappingStatus === "verified",
       checkGeneric: options.directFeedsOnly ? false : checkGeneric,

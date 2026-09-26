@@ -360,6 +360,7 @@ describe("company-site scheduler", () => {
       genericCheckedAt: null,
       atsCheckedAt: null,
       careersUrl: "https://jobs.ashbyhq.com/example",
+      atsMappingEvidenceUrl: "https://careers.example.test/",
       atsProvider: "Ashby",
       atsBoardId: "example",
       atsMappingStatus: "verified",
@@ -372,6 +373,13 @@ describe("company-site scheduler", () => {
     expect(persistCompanySiteVacanciesMock).toHaveBeenCalledWith(
       expect.any(Array),
       { queueVerifications: false, requireExisting: true },
+    );
+    expect(discoverCompanySiteVacanciesMock).toHaveBeenCalledWith(
+      "Example Ltd",
+      "https://example.test",
+      expect.objectContaining({
+        knownCareersEvidenceUrl: "https://careers.example.test/",
+      }),
     );
   });
 
