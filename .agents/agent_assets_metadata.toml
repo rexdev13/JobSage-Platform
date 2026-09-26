@@ -838,3 +838,73 @@ mtime_ms = 1790381306256
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/ae5c30b3-36b2-450a-8a69-6a6b6e0ffb95/8a6544b6-777b-4d4b-9818-6eeddc0da05d"
 storage_version_token = "1790381307964280"
 content_type = "text/html"
+
+[[outputs]]
+id = "C4Rfn3vuT79-loUXbgrAF"
+uri = "file://artifacts/healthcare-sponsor-website-enrichment-batch1.csv"
+type = "table"
+title = "Healthcare sponsor website enrichment — batch 1"
+description = "Review-ready CSV for the first 500 exact-Healthcare sponsors. Includes 135 verified employer websites and 72 verified careers destinations, with evidence and confidence labels."
+logical_id = "1b65d62f-bfd1-4f12-8d14-43625debfaa2"
+content_hash = "sha256:492fb0beb43786cab02f55b511ff94aa41818e3af846cca9bee134f92ae103a8"
+size = 184501
+mtime_ms = 1790416288989
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/1b65d62f-bfd1-4f12-8d14-43625debfaa2/9430a845-58b0-47ee-8d76-2d292c23bb62"
+storage_version_token = "1790442501378139"
+content_type = "text/csv"
+
+[[outputs]]
+id = "nhXT9kEAn30VTvK0UDzfs"
+uri = "file://artifacts/healthcare-sponsor-website-enrichment-batch1-report.md"
+type = "text"
+title = "Healthcare sponsor enrichment — batch 1 report"
+description = "Input provenance, selection counts, verified-source results, confidence and failure totals, manual-review examples, and import-safety guidance."
+logical_id = "bb24825e-1450-4954-843d-c99b9624efb1"
+content_hash = "sha256:d404a55c2781bcc6feff31a5dc97687fcf72623832b14f7696fcaf8abc3a8bfc"
+size = 10759
+mtime_ms = 1790415649788
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/bb24825e-1450-4954-843d-c99b9624efb1/1dbb6e90-ace2-4823-ba9c-d9538ea346ab"
+storage_version_token = "1790415668971114"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "9uExktH4Oo_Aiep9VaWmk"
+uri = "file://artifacts/healthcare-sponsor-website-enrichment-batch1-lookup-upload.csv"
+type = "table"
+title = "Healthcare sponsor lookup upload CSV"
+description = "First 500 exact-Healthcare sponsor company names and locations with unique synthetic lookup keys. Internal sponsor IDs are kept in a local-only mapping file; this CSV has not been uploaded to any service."
+logical_id = "43fdbc00-fc15-4ed4-a9a5-f90ef1e4a82c"
+content_hash = "sha256:00c3095e12e85084dd4565a721e2acd5f613b38bc78a69e240f60bd4c2daf401"
+size = 33042
+mtime_ms = 1790413622966
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/43fdbc00-fc15-4ed4-a9a5-f90ef1e4a82c/056e69bd-2ab1-4442-b51b-4781412c8aba"
+storage_version_token = "1790413655077072"
+content_type = "text/csv"
+
+[[outputs]]
+id = "2DDKHk1CAMtonRdy3P5bV"
+uri = "file://artifacts/healthcare-sponsor-website-batches-1-6-reconciliation.md"
+type = "text"
+title = "Healthcare sponsor batch reconciliation"
+description = "Final summary of six batches, development imports, evidence outcomes, and pending review."
+logical_id = "169bc70a-bf09-4b8f-a675-0b4b18715501"
+content_hash = "sha256:2f9af693cc51991ad4eb74915fb368253bcfa26d93388d2fba6aee2682a003b5"
+size = 5970
+mtime_ms = 1790442462801
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/169bc70a-bf09-4b8f-a675-0b4b18715501/aee45fe3-fd68-436c-b075-64666e7decc2"
+storage_version_token = "1790442499559474"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "frPoXCga8Vz3UNw1pElRV"
+uri = "file://artifacts/healthcare-sponsor-website-medium-review-batches-1-6.csv"
+type = "table"
+title = "Healthcare medium-confidence review CSV"
+description = "268 distinct sponsor rows held pending manual review; no medium-confidence values were promoted."
+logical_id = "5efa6d70-91cf-444e-b4a8-38e749ba3230"
+content_hash = "sha256:814e7950414e42854af9be459df83f825385afac3324be9d2d8edb58e0f93053"
+size = 127502
+mtime_ms = 1790442331201
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/5efa6d70-91cf-444e-b4a8-38e749ba3230/f824cd9d-f2b0-4bb6-ad13-e263c659ff8c"
+storage_version_token = "1790442500522464"
+content_type = "text/csv"

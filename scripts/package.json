@@ -10,6 +10,10 @@
     "sponsor-contacts:test": "tsx ./src/sponsor-contact-discovery/selfTest.ts",
     "sponsor-enrichment-export": "tsx ./src/sponsorEnrichmentExport.ts",
     "sponsor-enrichment-export:test": "tsx ./src/sponsorEnrichmentExportSelfTest.ts",
+    "healthcare-sponsor-websites": "tsx ./src/healthcareSponsorWebsiteBatch.ts",
+    "healthcare-sponsor-websites:test": "tsx ./src/healthcareSponsorWebsiteBatchSelfTest.ts",
+    "healthcare-sponsor-import": "tsx ./src/healthcareSponsorWebsiteImport.ts",
+    "healthcare-sponsor-import:test": "tsx ./src/healthcareSponsorWebsiteImportSelfTest.ts",
     "test:inbound-reply": "tsx ./test-inbound-reply.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

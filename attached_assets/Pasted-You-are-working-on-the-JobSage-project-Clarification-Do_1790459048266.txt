@@ -1,0 +1,173 @@
+You are working on the JobSage project.
+
+Clarification:
+Do not waste any useful source found.
+
+This is a routing/classification test for Healthcare sponsor vacancies.
+
+Goal:
+For 100 exact-Healthcare licensed sponsors that hasnt been checked for websites, discover vacancy sources and route each useful finding into the correct JobSage pipeline:
+
+1. Company website pipeline:
+
+   - first-party company careers/vacancies/jobs/recruitment pages
+
+2. Job board / ATS pipeline:
+
+   - NHS Jobs
+   - Trac Jobs
+   - Greenhouse
+   - Lever
+   - Ashby
+   - Workday
+   - Teamtailor
+   - SmartRecruiters
+   - Workable
+   - Pinpoint
+   - BambooHR
+   - any other structured external ATS/job board
+
+3. Send CV pipeline:
+
+   - first-party company page that says to email CV/apply by email/contact HR
+   - no structured vacancy list, but a clear recruitment contact route exists
+
+4. Unverified / rejected:
+
+   - no reliable source
+   - identity mismatch
+   - generic directory only
+   - unreachable/blocked
+   - employer not clearly tied to sponsor
+
+Important:
+
+- Do not modify production data.
+- Do not write directly to the database.
+- Do not deploy.
+- Produce reviewable output files only.
+- Do not overwrite previous outputs.
+- Use the original sponsor CSV already present in the project.
+- Focus only on exact `Healthcare` sponsors.
+- Process 100 sponsors only.
+
+Source CSV:
+
+- Locate the original sponsor CSV in the project, likely `jobsage-sponsor-base-export.csv` or similar.
+- It should contain fields like:
+  `sponsor_licence_id`, `organisation_name`, `normalized_organisation_name`, `town_city`, `county`, `region`, `industry`, `existing_website`, `existing_careers_url`, `existing_ats_provider`, `existing_ats_board_id`.
+
+Selection:
+
+- Filter where `industry` is exactly `Healthcare`.
+- Prefer sponsors with missing/unverified `existing_careers_url`, `existing_website`, or ATS fields.
+- If previous website-enrichment output exists, prefer records that failed or were unverified there.
+- Process only 100 sponsors.
+
+For each sponsor:
+
+1. Validate existing website/careers/ATS fields first.
+2. Search for official company website.
+3. Search for first-party vacancy/careers pages.
+4. Search for structured ATS/job-board sources.
+5. Search for send-CV/application-by-email routes.
+6. Use town/city/location clues to avoid wrong matches.
+7. Classify every useful source into the correct pipeline instead of discarding it.
+
+Accepted source types:
+
+Company website pipeline:
+
+- official company domain careers page
+- official company domain vacancies page
+- official company domain jobs page
+- official company domain recruitment page
+- official company domain join-us/work-for-us page
+- official company domain application page
+
+Job board / ATS pipeline:
+
+- jobs.nhs.uk
+- apps.trac.jobs
+- boards.greenhouse.io
+- jobs.lever.co
+- jobs.ashbyhq.com
+- workdayjobs.com
+- teamtailor.com
+- smartrecruiters.com
+- workable.com
+- pinpoint candidate portal
+- bamboohr jobs
+- other structured ATS/job board with clear employer identity
+
+Send CV pipeline:
+
+- official company site says email CV
+- official company site says send application to HR/recruitment email
+- official company site has recruitment contact form but no vacancy list
+- official company site has “we are always recruiting” with email/contact details
+
+Reject:
+
+- Generic directories only
+- Companies House only
+- Facebook/LinkedIn only
+- Old PDFs only
+- hidden-employer job ads
+- unrelated recruitment agencies
+- anything where employer identity cannot be matched back to sponsor row
+
+Confidence:
+
+- `high`: employer identity clear, source is official/recognized, name/location/domain match is strong.
+- `medium`: likely correct, but one piece of evidence is weaker.
+- `low`: possible match, manual review required.
+- `unverified`: no trustworthy match.
+
+Output 1:
+`artifacts/healthcare-vacancy-source-routing-batch1-100.csv`
+
+Columns:
+`sponsor_licence_id,organisation_name,normalized_organisation_name,town_city,county,region,industry,existing_website,existing_careers_url,existing_ats_provider,existing_ats_board_id,discovered_source_url,source_pipeline,source_type,provider,board_id,sample_vacancy_url,evidence_url,confidence,should_import,notes`
+
+Where:
+
+- `source_pipeline` must be one of:
+  `company_website`, `job_board`, `send_cv`, `unverified`
+- `source_type` examples:
+  `company_careers_page`, `company_vacancies_page`, `company_recruitment_page`, `ats_board`, `external_job_board`, `direct_job_advert`, `send_cv_email`, `recruitment_contact_form`, `directory_only`, `not_found`, `unreachable`
+- `should_import` should be:
+  `yes_high_confidence`, `review_medium_confidence`, `no_low_confidence`, or `no_unverified`
+
+Output 2:
+`artifacts/healthcare-vacancy-source-routing-batch1-100-report.md`
+
+Report must include:
+
+- Source CSV path found
+- Total exact-Healthcare sponsors
+- Number processed
+- Count routed to company website pipeline
+- Count routed to job board / ATS pipeline
+- Count routed to send CV pipeline
+- Count unverified/rejected
+- Provider breakdown for job board/ATS results
+- Confidence breakdown
+- Number safe to import immediately
+- Number needing manual review
+- Common failure reasons
+- Sample successful company website sources
+- Sample successful job board/ATS sources
+- Sample send-CV sources
+- Sample rejected/unverified cases
+- Recommendation on whether this routing method should replace the previous single-output enrichment approach
+
+Implementation requirements:
+
+- Prefer a reusable script.
+- Make it resumable.
+- Add clear logs.
+- Use rate limits and retries.
+- Do not guess if internet/search is unavailable. Stop and report clearly.
+- Do not touch unrelated files.
+- At the end, tell me exactly which files were created and summarize the result.
