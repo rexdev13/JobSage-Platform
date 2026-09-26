@@ -4,6 +4,7 @@ import {
   explicitSampleVacancy,
   normalizeRoutingName,
   selectRoutingRows,
+  verifyEmployerIdentity,
 } from "./vacancySourceRoutingBatch";
 
 function sponsor(
@@ -80,6 +81,34 @@ const override = selectRoutingRows(
 assert.equal(override.skippedPreviouslyProcessed, 0);
 assert.ok(override.selectedRows.some((row) => row.sponsor_licence_id === "1"));
 
+const unresolvedOnly = selectRoutingRows(
+  sourceRows,
+  "Healthcare",
+  10,
+  0,
+  [],
+  false,
+  new Set(["id:2", "id:3"]),
+);
+assert.deepEqual(
+  new Set(unresolvedOnly.selectedRows.map((row) => row.sponsor_licence_id)),
+  new Set(["2", "3"]),
+  "an explicit unresolved cohort must exclude every other Healthcare sponsor",
+);
+assert.equal(unresolvedOnly.skippedPreviouslyProcessed, 0);
+assert.equal(unresolvedOnly.excludedByUnresolvedFilter, 2);
+
+const tradingNameIdentity = verifyEmployerIdentity(
+  sponsor("5", "Northfield Health Ltd T/A Cedar Lane Clinic"),
+  {
+    url: "https://cedarlaneclinic.example/careers",
+    body: "<title>Cedar Lane Clinic Careers</title><p>Leeds</p>",
+    contentType: "text/html",
+  },
+);
+assert.equal(tradingNameIdentity.accepted, true);
+assert.equal(tradingNameIdentity.confidence, "high");
+
 assert.deepEqual(
   atsDetails("https://jobs.ashbyhq.com/cedar-care"),
   { provider: "Ashby", boardId: "cedar-care", platformConfirmed: true },
@@ -104,6 +133,16 @@ assert.equal(
 );
 assert.equal(explicitSampleVacancy("https://example.org/jobs/"), false);
 assert.equal(explicitSampleVacancy("https://example.org/careers"), false);
+assert.equal(
+  explicitSampleVacancy("https://example.org/job-application-form/"),
+  false,
+  "a general job application form is not a vacancy detail page",
+);
+assert.equal(
+  explicitSampleVacancy("https://example.org/jobs/assistant-123/application-form"),
+  true,
+  "an application link under a specific vacancy remains a vacancy detail route",
+);
 assert.equal(
   explicitSampleVacancy("https://example.org/jobs/healthcare-assistant-12345"),
   true,
