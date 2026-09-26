@@ -1,0 +1,197 @@
+You are working on the JobSage project.
+
+We completed a 100-row Healthcare vacancy-source routing test. The result was useful but not scalable because it used ad-hoc agent search instead of a reusable script.
+
+Now build the scalable version.
+
+Goal:
+Create a reusable, resumable vacancy-source routing runner for licensed sponsor employers. Start with Healthcare, but design it so the sector can be changed later.
+
+Do not import anything yet. This is still review/export only.
+
+Important:
+- Do not modify production data.
+- Do not write directly to the database.
+- Do not deploy.
+- Do not overwrite previous outputs.
+- Do not touch unrelated files.
+- Produce reviewable output files only.
+- Use the source CSV path already generated/found:
+  `.local/reports/sponsor-enrichment/jobsage-sponsor-base-export.csv`
+
+What the runner should do:
+For sponsor employers in a selected sector, discover vacancy sources and route every useful finding into the correct JobSage pipeline:
+
+1. `company_website`
+   - first-party careers/vacancies/jobs/recruitment pages on the employer’s own domain
+
+2. `job_board`
+   - NHS Jobs
+   - Trac Jobs
+   - Greenhouse
+   - Lever
+   - Ashby
+   - Workday
+   - Teamtailor
+   - SmartRecruiters
+   - Workable
+   - Pinpoint
+   - BambooHR
+   - SAP SuccessFactors
+   - Accord portal
+   - any other structured ATS/job board with clear employer identity
+
+3. `send_cv`
+   - first-party company page that says to email CV/apply by email/contact HR
+   - recruitment contact form
+   - “we are always recruiting” page with a clear application/contact route
+
+4. `unverified`
+   - no reliable source
+   - identity mismatch
+   - generic directory only
+   - unreachable/blocked
+   - employer not clearly tied to sponsor
+
+Implementation requirements:
+1. Add a reusable script, preferably under an existing scripts/tools location used by the project.
+2. The script must accept config/options:
+   - sector, default `Healthcare`
+   - batch size, default `100`
+   - offset or resume mode
+   - output directory
+   - whether to include already processed sponsor IDs
+3. The script must be resumable:
+   - read previous output files if present
+   - skip sponsor IDs already processed unless explicitly overridden
+   - write progress/checkpoint state
+4. It must not depend on manually asking the agent to search each row.
+5. Use existing project utilities where possible for:
+   - CSV parsing/writing
+   - sponsor normalization
+   - website probing
+   - robots/backoff handling
+   - ATS/job-board detection
+   - logging
+6. If no suitable utilities exist, add minimal clean helpers scoped to this runner.
+7. Add rate limiting and retries.
+8. Fail clearly if external search/internet access is unavailable. Do not guess.
+9. Preserve evidence for every accepted result.
+
+Selection logic:
+- Read `.local/reports/sponsor-enrichment/jobsage-sponsor-base-export.csv`
+- Filter rows where `industry` exactly equals the selected sector.
+- Deduplicate by `sponsor_licence_id` where present, otherwise `normalized_organisation_name + town_city`.
+- Prefer rows with:
+  - missing or unverified `existing_website`
+  - missing or unverified `existing_careers_url`
+  - missing or unverified `existing_ats_provider`
+  - previous company-site errors
+- For this run, process the next 200 Healthcare sponsors not already processed by:
+  `artifacts/healthcare-vacancy-source-routing-batch1-100.csv`
+
+Discovery logic per sponsor:
+1. Validate existing website/careers/ATS fields first.
+2. Search/resolve official employer website.
+3. Check first-party paths:
+   - `/careers`
+   - `/jobs`
+   - `/vacancies`
+   - `/current-vacancies`
+   - `/join-us`
+   - `/join-our-team`
+   - `/work-for-us`
+   - `/working-for-us`
+   - `/recruitment`
+   - `/opportunities`
+4. Inspect homepage/header/footer links for:
+   - careers
+   - jobs
+   - vacancies
+   - recruitment
+   - join us
+   - work for us
+5. Search for structured external ATS/job-board sources:
+   - NHS Jobs
+   - Trac
+   - Greenhouse
+   - Lever
+   - Ashby
+   - Workday
+   - Teamtailor
+   - SmartRecruiters
+   - Workable
+   - Pinpoint
+   - BambooHR
+   - SAP SuccessFactors
+   - Accord portal
+6. Search for Send CV routes:
+   - official recruitment email
+   - CV email
+   - HR email
+   - recruitment contact form
+   - application/contact page
+7. Use location clues to avoid wrong matches.
+8. Classify each useful source into the correct pipeline. Do not throw away job-board/ATS or send-CV findings just because they are not company website findings.
+
+Accepted source types:
+- `company_careers_page`
+- `company_vacancies_page`
+- `company_recruitment_page`
+- `company_jobs_page`
+- `ats_board`
+- `external_job_board`
+- `direct_job_advert`
+- `send_cv_email`
+- `recruitment_contact_form`
+- `directory_only`
+- `not_found`
+- `unreachable`
+
+Confidence:
+- `high`: employer identity clear, source is official/recognized, name/location/domain match is strong.
+- `medium`: likely correct, but one piece of evidence is weaker.
+- `low`: possible match, manual review required.
+- `unverified`: no trustworthy match.
+
+Output:
+Create new files, do not overwrite old ones:
+
+1. `artifacts/healthcare-vacancy-source-routing-batch2-200.csv`
+
+Columns:
+`sponsor_licence_id,organisation_name,normalized_organisation_name,town_city,county,region,industry,existing_website,existing_careers_url,existing_ats_provider,existing_ats_board_id,discovered_source_url,source_pipeline,source_type,provider,board_id,sample_vacancy_url,evidence_url,confidence,should_import,notes`
+
+2. `artifacts/healthcare-vacancy-source-routing-batch2-200-report.md`
+
+The report must include:
+- Source CSV path used
+- Total exact-sector sponsors
+- Number skipped because already processed
+- Number processed in this batch
+- Count routed to company website pipeline
+- Count routed to job board / ATS pipeline
+- Count routed to send CV pipeline
+- Count unverified/rejected
+- Provider breakdown for job board/ATS results
+- Confidence breakdown
+- Number safe to import immediately
+- Number needing manual review
+- Common failure reasons
+- Sample successful company website sources
+- Sample successful job board/ATS sources
+- Sample send-CV sources
+- Sample rejected/unverified cases
+- Comparison against batch1 100-row routing result if that file exists
+- Recommendation on whether to scale to all Healthcare sponsors
+
+3. A checkpoint/progress file:
+`artifacts/healthcare-vacancy-source-routing-progress.json`
+
+Validation:
+- Run the script for the next 200 Healthcare sponsors.
+- Confirm it skipped the prior 100 if the previous output exists.
+- Confirm no production data was changed.
+- Confirm no database writes/imports happened.
+- Confirm nothing was deployed.
+- At the end, summarize exactly which files were created, counts by route, and whether the runner is ready for larger batches.
