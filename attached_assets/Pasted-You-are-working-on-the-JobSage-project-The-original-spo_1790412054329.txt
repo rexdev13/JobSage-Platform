@@ -1,0 +1,72 @@
+You are working on the JobSage project.
+
+The original sponsor CSV is already in this Replit project. First, locate it. It may be named something like `jobsage-sponsor-base-export.csv` or similar.
+
+Goal: create a clean first-batch website/careers enrichment file for UK licensed sponsor companies, focusing ONLY on Healthcare sponsors.
+
+Rules:
+- Do not modify production data.
+- Do not write directly to the database.
+- Do not deploy.
+- Produce reviewable output files only.
+- Do not touch unrelated files.
+- First batch must be Healthcare only.
+
+Steps:
+1. Locate the sponsor CSV in the project.
+2. Inspect its columns and confirm total row count.
+3. Filter using the CSV `industry` column where `industry` is exactly `Healthcare`.
+4. If related labels like Social Care, Care, Dentistry, Pharmacy, or Medical exist under other industry values, report their counts separately but do not include them yet.
+5. Deduplicate by `sponsor_licence_id` where available, otherwise by `normalized_organisation_name + town_city`.
+6. Process only the first 500 Healthcare rows needing enrichment:
+   - rows with missing `existing_website`
+   - missing `existing_careers_url`
+   - low/unverified `existing_ats_mapping_status`
+   - or previous website check errors
+7. Preserve all original sponsor identity fields.
+
+For each selected Healthcare sponsor:
+- Keep existing `existing_website` and `existing_careers_url` if present, but validate whether they look official.
+- If website is missing or suspicious, find the official website using conservative lookup logic.
+- Find a careers/jobs/join-us/work-with-us page where possible.
+- Detect ATS provider and board ID if obvious, such as Greenhouse, Lever, Ashby, Workday, Teamtailor, Trac, NHS Jobs, BambooHR, SmartRecruiters, Pinpoint, Workable, etc.
+- Use location evidence where possible, because healthcare companies often have similar names.
+
+Confidence rules:
+- `high`: domain clearly matches the organisation or official brand, and evidence confirms identity.
+- `medium`: likely official, but name/domain/location evidence is imperfect.
+- `low`: weak match; needs manual review.
+- `unverified`: no trustworthy match found.
+
+Do not accept generic directories, Companies House pages, old PDFs, Facebook pages, or lead-gen listings as official websites unless there is no better alternative. If used, mark as `low` or `unverified` and explain in notes.
+
+Output files:
+1. `artifacts/healthcare-sponsor-website-enrichment-batch1.csv`
+
+Use these columns:
+`sponsor_licence_id,organisation_name,normalized_organisation_name,town_city,county,region,industry,existing_website,existing_careers_url,website_url,website_confidence,website_evidence_url,careers_url,careers_confidence,careers_evidence_url,ats_provider,ats_board_id,ats_mapping_status,ats_mapping_evidence_url,source,notes`
+
+2. `artifacts/healthcare-sponsor-website-enrichment-batch1-report.md`
+
+The report must include:
+- Location of the source CSV found
+- Total rows in original CSV
+- Total Healthcare rows
+- Related healthcare/care industry labels found but excluded
+- Number processed in this batch
+- Number with existing website already present
+- Number newly enriched
+- Number with careers URL found
+- Confidence breakdown: high / medium / low / unverified
+- Common failure reasons
+- Sample rows for manual review
+- Clear recommendation on whether this file is safe to import or still needs manual review
+
+Implementation requirements:
+- Prefer writing a reusable script instead of manual one-off edits.
+- Make it resumable for later batches.
+- Add clear logging.
+- Use rate limiting and retries for external lookups.
+- If internet access or search is unavailable in Replit, stop and report that clearly instead of guessing.
+- Do not overwrite existing outputs without backing them up.
+- At the end, tell me exactly which files were created and summarize the result.
