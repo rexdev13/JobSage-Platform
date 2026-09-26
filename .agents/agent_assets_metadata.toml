@@ -936,3 +936,45 @@ mtime_ms = 1790460561553
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/9ac952b6-38c0-4b91-a850-60a5fbb3c35d/4701f549-8fcd-428c-bc0f-f32260d35050"
 storage_version_token = "1790460599194328"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "QJAJC_gNidJmDnS3kFY-h"
+uri = "file://artifacts/healthcare-vacancy-source-routing-batch2-200.csv"
+type = "table"
+title = "Healthcare source routing — batch 2 CSV"
+description = "Review the 200 exact-Healthcare sponsor records and verified source classifications."
+logical_id = "35ec41d9-d725-4db3-b5c1-a38bb461368a"
+content_hash = "sha256:68463be2afe1a8a4c467336775fe555636500f124ba012f13b65f78d038ceb6c"
+size = 62668
+mtime_ms = 1790462695330
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/35ec41d9-d725-4db3-b5c1-a38bb461368a/844d9c24-5d72-43d2-bb7a-f890bdb118b8"
+storage_version_token = "1790462830605306"
+content_type = "text/csv"
+
+[[outputs]]
+id = "NqMibSU2dDlQBU6tDL0eO"
+uri = "file://artifacts/healthcare-vacancy-source-routing-batch2-200-report.md"
+type = "text"
+title = "Healthcare source routing — batch 2 report"
+description = "Selection details, route/confidence totals, failure reasons, batch 1 comparison, and recommendation."
+logical_id = "ae8f7fa3-3e42-4b86-8a8a-f72a78a1560d"
+content_hash = "sha256:0734aaab1dadc1ae669c5ca6f66b15a9ed60bcff696b986c84c1f53b52cba539"
+size = 6384
+mtime_ms = 1790462790004
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/ae8f7fa3-3e42-4b86-8a8a-f72a78a1560d/01af709d-a66d-4088-ad74-c25da8825e35"
+storage_version_token = "1790462831839465"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "p7uOIJk7k9gM5iiwiPKwh"
+uri = "file://artifacts/healthcare-vacancy-source-routing-progress.json"
+type = "unspecified"
+title = "Healthcare source routing — progress checkpoint"
+description = "Per-sponsor resumable checkpoint for the completed 200-row batch."
+logical_id = "8a0d3d9c-7617-4b97-853f-3ba7da46a155"
+content_hash = "sha256:a599a3877afac8cc95a9ca26826ccd278c26c6b390274752693a7d3ac43f2f34"
+size = 222260
+mtime_ms = 1790462695336
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/8a0d3d9c-7617-4b97-853f-3ba7da46a155/bd597bca-cd0a-4f77-a7b1-7cf7a0367482"
+storage_version_token = "1790462834207612"
+content_type = "application/octet-stream"
