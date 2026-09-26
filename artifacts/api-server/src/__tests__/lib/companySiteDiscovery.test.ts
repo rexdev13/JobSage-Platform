@@ -11,6 +11,7 @@ vi.mock("../../lib/companySiteHttp", () => ({
     kind === "unsafe" || status === 404 || status === 410 ? "permanent" : "temporary",
   fetchCompanySitePage: fetchCompanySitePageMock,
   fetchCompanySitePublicApiPage: fetchCompanySitePublicApiPageMock,
+  fetchCompanySitePublicApiPost: fetchCompanySitePublicApiPageMock,
   fetchCompanySiteRobotsAwarePublicApiPage: fetchCompanySitePublicApiPageMock,
   isAllowedCompanyDestination: () => true,
   knownAtsProvider: (value: string) =>
@@ -28,6 +29,8 @@ vi.mock("../../lib/companySiteHttp", () => ({
               ? "Personio"
               : value.includes("recruitee.com")
                 ? "Recruitee"
+                : value.includes("myworkdayjobs.com")
+                  ? "Workday"
         : null,
 }));
 
@@ -54,6 +57,64 @@ describe("company-site vacancy discovery", () => {
       reason: "Direct feed unavailable in fixture",
       failureClass: "temporary",
     });
+  });
+
+  it("uses only the verified Circle Workday direct feed and never falls back to general discovery", async () => {
+    fetchCompanySitePublicApiPageMock.mockResolvedValue({
+      ok: false,
+      kind: "network",
+      reason: "CXS unavailable",
+      failureClass: "temporary",
+    });
+    const result = await discoverCompanySiteVacancies(
+      "BMI Healthcare Limited trading as Circle Health Group Limited",
+      "https://careers.circlehealthgroup.co.uk/",
+      {
+        directFeedsOnly: true,
+        checkGeneric: false,
+        checkAts: true,
+        knownCareersUrl: "https://circlehealth.wd103.myworkdayjobs.com/chgcareers",
+        knownCareersMappingVerified: true,
+        knownCareersEvidenceUrl:
+          "http://careers.circlehealthgroup.co.uk/jobs/sister-charge-nurse-critical-care-jr110643",
+      },
+    );
+    expect(result.atsProvider).toBe("Workday");
+    expect(result.atsCompleted).toBe(false);
+    expect(result.genericCompleted).toBe(false);
+    expect(result.adverts).toEqual([]);
+    expect(fetchCompanySitePageMock).not.toHaveBeenCalled();
+    expect(fetchCompanySitePublicApiPageMock).toHaveBeenCalled();
+  });
+
+  it("marks a complete Circle Workday snapshot as the direct ATS source", async () => {
+    fetchCompanySitePublicApiPageMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      url: "https://circlehealth.wd103.myworkdayjobs.com/wday/cxs/circlehealth/chgcareers/jobs",
+      contentType: "application/json",
+      body: JSON.stringify({ total: 0, jobPostings: [] }),
+    });
+
+    const result = await discoverCompanySiteVacancies(
+      "BMI Healthcare Limited trading as Circle Health Group Limited",
+      "https://careers.circlehealthgroup.co.uk/",
+      {
+        knownCareersUrl: "https://circlehealth.wd103.myworkdayjobs.com/chgcareers",
+        knownCareersMappingVerified: true,
+        knownCareersEvidenceUrl:
+          "http://careers.circlehealthgroup.co.uk/jobs/sister-charge-nurse-critical-care-jr110643",
+      },
+    );
+
+    expect(result).toMatchObject({
+      completion: "complete",
+      atsProvider: "Workday",
+      atsCompleted: true,
+      snapshotScope: { provider: "Workday", boardId: "chgcareers" },
+      diagnostics: { directSourceKind: "ats_feed" },
+    });
+    expect(fetchCompanySitePageMock).not.toHaveBeenCalled();
   });
 
   it("discovers a known ATS from a non-health sponsor website without using AI", async () => {

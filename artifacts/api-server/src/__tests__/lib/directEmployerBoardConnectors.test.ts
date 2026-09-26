@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../lib/companySiteHttp", () => ({
   fetchCompanySitePublicApiPage: vi.fn(),
+  fetchCompanySitePublicApiPost: vi.fn(),
   fetchCompanySiteRobotsAwarePublicApiPage: vi.fn(),
 }));
 
@@ -11,12 +12,113 @@ const {
 } = await import("../../lib/directEmployerBoardConnectors");
 const {
   fetchCompanySitePublicApiPage,
+  fetchCompanySitePublicApiPost,
   fetchCompanySiteRobotsAwarePublicApiPage,
 } = await import("../../lib/companySiteHttp");
 
 describe("direct employer board connectors", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("maps only Circle's verified Workday board and preserves the saved ATS URL", () => {
+    expect(parseDirectBoardMapping(
+      "Workday",
+      "https://circlehealth.wd103.myworkdayjobs.com/chgcareers",
+      { firstPartyEvidenceUrl: "http://careers.circlehealthgroup.co.uk/jobs/sister-charge-nurse-critical-care-jr110643" },
+    )).toEqual(expect.objectContaining({
+      provider: "Workday",
+      boardId: "chgcareers",
+      evidenceUrl: "https://circlehealth.wd103.myworkdayjobs.com/chgcareers",
+      feedUrl: "https://circlehealth.wd103.myworkdayjobs.com/wday/cxs/circlehealth/chgcareers/jobs",
+    }));
+    expect(parseDirectBoardMapping(
+      "Workday", "https://evil.wd103.myworkdayjobs.com/chgcareers",
+      { firstPartyEvidenceUrl: "http://careers.circlehealthgroup.co.uk/jobs/sister-charge-nurse-critical-care-jr110643" },
+    )).toBeNull();
+    expect(parseDirectBoardMapping(
+      "Workday", "https://circlehealth.wd103.myworkdayjobs.com/chgcareers",
+      { firstPartyEvidenceUrl: "https://evil.example/jobs/1" },
+    )).toBeNull();
+  });
+
+  it("parses and paginates Circle Workday's 20-item CXS feed, rejecting partial pages", async () => {
+    const posting = (id: number, slugSuffix = "") => ({
+      title: `Role ${id}`,
+      externalPath: `/job/Beardwood-Hospital---Blackburn/Role_${id}_JR${String(id).padStart(6, "0")}${slugSuffix}`,
+      bulletFields: [`JR${String(id).padStart(6, "0")}`],
+      locationsText: "Blackburn",
+    });
+    vi.mocked(fetchCompanySitePublicApiPost)
+      .mockResolvedValueOnce({ ok: true, status: 200, url: "x", contentType: "application/json",
+        body: JSON.stringify({
+          total: 21,
+          jobPostings: Array.from({ length: 20 }, (_, i) => posting(i + 1, i === 3 ? "-1" : "")),
+        }) })
+      .mockResolvedValueOnce({ ok: true, status: 200, url: "x", contentType: "application/json",
+        body: JSON.stringify({ total: 0, jobPostings: [posting(21)] }) });
+    const result = await fetchDirectEmployerBoard(
+      "Circle Health Group Limited", "Workday",
+      "https://circlehealth.wd103.myworkdayjobs.com/chgcareers",
+      { firstPartyEvidenceUrl: "http://careers.circlehealthgroup.co.uk/jobs/sister-charge-nurse-critical-care-jr110643" },
+    );
+    expect(result.complete).toBe(true);
+    expect(result.pagesFetched).toBe(2);
+    expect(result.adverts[0]).toMatchObject({
+      externalId: "JR000001",
+      url: "https://circlehealth.wd103.myworkdayjobs.com/en-GB/chgcareers/job/Beardwood-Hospital---Blackburn/Role_1_JR000001",
+      location: "Blackburn",
+    });
+    expect(result.adverts[3]?.externalId).toBe("JR000004");
+    expect(result.adverts[3]?.url).toContain("_JR000004-1");
+    expect(fetchCompanySitePublicApiPost).toHaveBeenCalledWith(
+      "https://circlehealth.wd103.myworkdayjobs.com/wday/cxs/circlehealth/chgcareers/jobs",
+      expect.stringContaining('"limit":20'),
+      expect.any(Number), 2_000_000,
+    );
+  });
+
+  it("rejects Workday slug suffixes when their JR ID differs from bulletFields", async () => {
+    vi.mocked(fetchCompanySitePublicApiPost).mockResolvedValueOnce({
+      ok: true, status: 200, url: "x", contentType: "application/json",
+      body: JSON.stringify({
+        total: 1,
+        jobPostings: [{
+          title: "Role 1",
+          externalPath: "/job/Beardwood-Hospital---Blackburn/Role_1_JR000001-1",
+          bulletFields: ["JR000002"],
+          locationsText: "Blackburn",
+        }],
+      }),
+    });
+    const result = await fetchDirectEmployerBoard(
+      "Circle Health Group Limited", "Workday",
+      "https://circlehealth.wd103.myworkdayjobs.com/chgcareers",
+      { firstPartyEvidenceUrl: "http://careers.circlehealthgroup.co.uk/jobs/sister-charge-nurse-critical-care-jr110643" },
+    );
+    expect(result.complete).toBe(false);
+    expect(result.error).toContain("identity/path mismatch");
+  });
+
+  it("keeps zero and incomplete Workday snapshots non-authoritative", async () => {
+    vi.mocked(fetchCompanySitePublicApiPost).mockResolvedValueOnce({
+      ok: true, status: 200, url: "x", contentType: "application/json",
+      body: JSON.stringify({ total: 0, jobPostings: [] }),
+    });
+    const empty = await fetchDirectEmployerBoard("Circle", "Workday",
+      "https://circlehealth.wd103.myworkdayjobs.com/chgcareers",
+      { firstPartyEvidenceUrl: "http://careers.circlehealthgroup.co.uk/jobs/sister-charge-nurse-critical-care-jr110643" });
+    expect(empty.complete).toBe(true);
+    expect(empty.adverts).toHaveLength(0);
+
+    vi.mocked(fetchCompanySitePublicApiPost).mockReset().mockResolvedValueOnce({
+      ok: true, status: 200, url: "x", contentType: "application/json",
+      body: JSON.stringify({ total: 21, jobPostings: [] }),
+    });
+    const partial = await fetchDirectEmployerBoard("Circle", "Workday",
+      "https://circlehealth.wd103.myworkdayjobs.com/chgcareers",
+      { firstPartyEvidenceUrl: "http://careers.circlehealthgroup.co.uk/jobs/sister-charge-nurse-critical-care-jr110643" });
+    expect(partial.complete).toBe(false);
   });
 
   it("derives strict board mappings only from saved platform URLs", () => {

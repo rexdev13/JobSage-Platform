@@ -233,6 +233,7 @@ router.get("/sponsor-licences/:id/vacancies", requireAuthenticated, async (req, 
       (vacancy) => {
         const status = getCandidateVacancyStatus({
         sourceType: vacancy.sourceType,
+         title: vacancy.title,
         liveness: vacancy.liveness,
         lastVerifiedAt: vacancy.lastVerifiedAt,
         lastDiscoveredAt: vacancy.lastDiscoveredAt,
@@ -252,6 +253,7 @@ router.get("/sponsor-licences/:id/vacancies", requireAuthenticated, async (req, 
     const vacancyRows = allVacancyRows.filter(
       (vacancy) => !staleRows.includes(vacancy) && getCandidateVacancyStatus({
         sourceType: vacancy.sourceType,
+        title: vacancy.title,
         liveness: vacancy.liveness,
         lastVerifiedAt: vacancy.lastVerifiedAt,
         lastDiscoveredAt: vacancy.lastDiscoveredAt,
@@ -535,6 +537,16 @@ router.get("/sponsor-licences/vacancy-stats", requireAuthenticated, async (_req,
               isNotNull(sponsorLicenceVacanciesTable.companyVacancyEvidence),
               gte(sponsorLicenceVacanciesTable.companyEvidenceLegacyUntil, new Date()),
             ),
+            // Manager-titled company-site rows are pending occupational review
+            // unless the stored review contains all three independently valid
+            // evidence fields. Liveness remains a separate concern.
+            or(
+              ne(sponsorLicenceVacanciesTable.sourceType, "company_site"),
+              sql`${sponsorLicenceVacanciesTable.title} !~* '\\mmanagers?\\M'`,
+              sql`(${sponsorLicenceVacanciesTable.companyVacancyEvidence}->'roleEligibilityReview'->>'status') = 'approved'
+                AND (${sponsorLicenceVacanciesTable.companyVacancyEvidence}->'roleEligibilityReview'->>'socCode') ~ '^[0-9]{4}$'
+                AND (${sponsorLicenceVacanciesTable.companyVacancyEvidence}->'roleEligibilityReview'->>'evidenceUrl') ~ '^https://[^[:space:]]+$'`,
+            ),
             or(
               isNull(sponsorLicenceVacanciesTable.closedReason),
               sql`${sponsorLicenceVacanciesTable.closedReason} !~* '(closed|filled|no longer accepting|closing date has passed)'`,
@@ -775,10 +787,20 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
             AND source_missing_since IS NULL
             AND (closed_reason IS NULL OR closed_reason !~* '(closed|filled|no longer accepting|closing date has passed)')
             AND (source_type <> 'company_site' OR company_vacancy_evidence IS NOT NULL OR company_evidence_legacy_until >= now())
+            AND (source_type <> 'company_site'
+                 OR title !~* '\mmanagers?\M'
+                 OR ((company_vacancy_evidence->'roleEligibilityReview'->>'status') = 'approved'
+                     AND (company_vacancy_evidence->'roleEligibilityReview'->>'socCode') ~ '^[0-9]{4}$'
+                     AND (company_vacancy_evidence->'roleEligibilityReview'->>'evidenceUrl') ~ '^https://[^[:space:]]+$'))
             AND (closes_at IS NULL OR closes_at >= now())
             AND (expires_at IS NULL OR expires_at >= now())
             AND source_missing_since IS NULL
             AND (source_type <> 'company_site' OR company_vacancy_evidence IS NOT NULL OR company_evidence_legacy_until >= now())
+            AND (source_type <> 'company_site'
+                 OR title !~* '\mmanagers?\M'
+                 OR ((company_vacancy_evidence->'roleEligibilityReview'->>'status') = 'approved'
+                     AND (company_vacancy_evidence->'roleEligibilityReview'->>'socCode') ~ '^[0-9]{4}$'
+                     AND (company_vacancy_evidence->'roleEligibilityReview'->>'evidenceUrl') ~ '^https://[^[:space:]]+$'))
             AND (closed_reason IS NULL OR closed_reason !~* '(closed|filled|no longer accepting|closing date has passed)')
         )`,
       );
@@ -822,6 +844,11 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
             AND source_missing_since IS NULL
             AND (closed_reason IS NULL OR closed_reason !~* '(closed|filled|no longer accepting|closing date has passed)')
             AND (source_type <> 'company_site' OR company_vacancy_evidence IS NOT NULL OR company_evidence_legacy_until >= now())
+            AND (source_type <> 'company_site'
+                 OR v.title !~* '\mmanagers?\M'
+                 OR ((v.company_vacancy_evidence->'roleEligibilityReview'->>'status') = 'approved'
+                     AND (v.company_vacancy_evidence->'roleEligibilityReview'->>'socCode') ~ '^[0-9]{4}$'
+                     AND (v.company_vacancy_evidence->'roleEligibilityReview'->>'evidenceUrl') ~ '^https://[^[:space:]]+$'))
           GROUP BY lower(trim(organisation_name))`,
     );
     const latestCheckRows = await db.execute<{ organisation_name: string; checked_at: string }>(

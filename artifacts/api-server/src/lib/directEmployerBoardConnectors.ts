@@ -1,5 +1,6 @@
 import {
   fetchCompanySitePublicApiPage,
+  fetchCompanySitePublicApiPost,
   fetchCompanySiteRobotsAwarePublicApiPage,
   type CompanySiteFailureClass,
 } from "./companySiteHttp";
@@ -12,7 +13,8 @@ export type DirectBoardProvider =
   | "SmartRecruiters"
   | "Recruitee"
   | "Personio"
-  | "Pinpoint";
+  | "Pinpoint"
+  | "Workday";
 
 export type DirectBoardMapping = {
   provider: DirectBoardProvider;
@@ -42,6 +44,7 @@ const SMARTRECRUITERS_HOST = /^jobs\.smartrecruiters\.com$/i;
 const RECRUITEE_HOST = /^[a-z0-9-]+\.recruitee\.com$/i;
 const PERSONIO_HOST = /^[a-z0-9-]+\.jobs\.personio\.(?:de|com)$/i;
 const PINPOINT_HOST = /^([a-z0-9-]+)\.pinpointhq\.com$/i;
+const CIRCLE_WORKDAY_HOST = /^circlehealth\.wd103\.myworkdayjobs\.com$/i;
 
 function strictBoardId(value: string): string | null {
   const id = value.trim();
@@ -164,6 +167,18 @@ export function parseDirectBoardMapping(
       postingHostnames: [...postingHostnames],
     };
   }
+  if (selected === "workday") {
+    if (!CIRCLE_WORKDAY_HOST.test(parsed.hostname) ||
+        path.toLowerCase() !== "chgcareers" || parsed.search || parsed.hash) return null;
+    if (options.firstPartyEvidenceUrl !==
+      "http://careers.circlehealthgroup.co.uk/jobs/sister-charge-nurse-critical-care-jr110643") return null;
+    return {
+      provider: "Workday",
+      boardId: "chgcareers",
+      evidenceUrl: parsed.toString(),
+      feedUrl: "https://circlehealth.wd103.myworkdayjobs.com/wday/cxs/circlehealth/chgcareers/jobs",
+    };
+  }
   return null;
 }
 
@@ -257,6 +272,10 @@ function validatedJobUrl(value: unknown, mapping: DirectBoardMapping): string | 
         segments.length <= 4 &&
         segments[segments.length - 2]?.toLowerCase() === "postings",
       ) ? parsed.toString() : null;
+    case "Workday":
+      return CIRCLE_WORKDAY_HOST.test(parsed.hostname) &&
+        /^\/en-GB\/chgcareers\/job\/[A-Za-z0-9][A-Za-z0-9._~-]*\/[A-Za-z0-9][A-Za-z0-9._~-]*_JR[0-9]{4,12}$/i
+          .test(parsed.pathname) ? parsed.toString() : null;
   }
 }
 
@@ -593,6 +612,54 @@ function parsePinpoint(
   return { adverts, excludedUnlisted: 0 };
 }
 
+function parseWorkday(
+  organisationName: string,
+  mapping: DirectBoardMapping,
+  body: string,
+  offset = 0,
+): { adverts: BoardAdvert[]; excludedUnlisted: number; total: number; returned: number } {
+  const payload = parseJson(body) as { total?: unknown; jobPostings?: unknown };
+  if (!Number.isSafeInteger(payload.total) || (payload.total as number) < 0 ||
+      !Array.isArray(payload.jobPostings)) {
+    throw new Error("Workday response has invalid total or jobPostings: snapshot is incomplete");
+  }
+  const seen = new Set<string>();
+  const adverts = payload.jobPostings.map((raw, index): BoardAdvert => {
+    if (!raw || typeof raw !== "object") {
+      throw new Error(`Malformed Workday posting at offset ${offset}, item ${index}: snapshot is incomplete`);
+    }
+    const job = raw as Record<string, unknown>;
+    const title = text(job.title);
+    const externalPath = text(job.externalPath);
+    const bullets = Array.isArray(job.bulletFields) ? job.bulletFields : [];
+    const id = bullets.length === 1 && typeof bullets[0] === "string" &&
+      /^JR[0-9]{4,12}$/i.test(bullets[0]) ? bullets[0].toUpperCase() : null;
+    const pathMatch = externalPath?.match(
+      /^\/job\/[A-Za-z0-9][A-Za-z0-9._~-]*\/[A-Za-z0-9][A-Za-z0-9._~-]*_JR([0-9]{4,12})(?:-[0-9]+)?$/i,
+    );
+    const duplicateId = id !== null && seen.has(id);
+    const invalidPath = !pathMatch || !id || `JR${pathMatch[1]}` !== id;
+    if (!id || !title || invalidPath || duplicateId) {
+      const reasons = [
+        ...(!id ? ["id"] : []),
+        ...(!title ? ["title"] : []),
+        ...(!pathMatch ? ["externalPath"] : []),
+        ...(pathMatch && id && `JR${pathMatch[1]}` !== id ? ["identity/path mismatch"] : []),
+        ...(duplicateId ? ["duplicate id"] : []),
+      ];
+      throw new Error(
+        `Invalid Workday posting at offset ${offset}, item ${index}: ${reasons.join(", ")}`,
+      );
+    }
+    seen.add(id);
+    const url = `https://circlehealth.wd103.myworkdayjobs.com/en-GB/chgcareers${externalPath}`;
+    return advert(organisationName, "Workday", id, title, url, url,
+      text(job.description) ?? text(job.jobDescription),
+      text(job.locationsText), text(job.startDate), mapping.evidenceUrl);
+  });
+  return { adverts, excludedUnlisted: 0, total: payload.total as number, returned: adverts.length };
+}
+
 export async function fetchDirectEmployerBoard(
   organisationName: string,
   provider: string | null | undefined,
@@ -616,7 +683,12 @@ export async function fetchDirectEmployerBoard(
     };
   }
   const deadlineMs = options.deadlineMs ?? Date.now() + 25_000;
-  const fetchPage = (url: string) => {
+    const fetchPage = (url: string) => {
+      if (mapping.provider === "Workday") {
+        return fetchCompanySitePublicApiPost(url, JSON.stringify({
+          appliedFacets: {}, limit: 20, offset: Number(new URL(url).searchParams.get("offset") ?? "0"), searchText: "",
+        }), deadlineMs, 2_000_000);
+      }
     const fetchPublicApiPage = mapping.provider === "Recruitee" || mapping.provider === "Personio"
       ? fetchCompanySiteRobotsAwarePublicApiPage
       : fetchCompanySitePublicApiPage;
@@ -661,8 +733,10 @@ export async function fetchDirectEmployerBoard(
             ? parseSmartRecruiters(organisationName, mapping, result.body)
             : mapping.provider === "Recruitee"
               ? parseRecruitee(organisationName, mapping, result.body)
-              : mapping.provider === "Personio"
+       : mapping.provider === "Personio"
                 ? parsePersonio(organisationName, mapping, result.body)
+              : mapping.provider === "Workday"
+                ? parseWorkday(organisationName, mapping, result.body)
                 : parsePinpoint(organisationName, mapping, result.body);
     let pagesFetched = 1;
     let paginationComplete = true;
@@ -744,6 +818,40 @@ export async function fetchDirectEmployerBoard(
     if (mapping.provider === "Recruitee") {
       paginationComplete = false;
     }
+    if (mapping.provider === "Workday") {
+      const first = parsed as ReturnType<typeof parseWorkday>;
+      const allAdverts = [...first.adverts];
+      const expectedTotal = first.total;
+      let offset = first.returned;
+      let totalsConsistent = true;
+      while (offset < expectedTotal && pagesFetched < 30 && Date.now() < deadlineMs) {
+        const next = await fetchPage(`${mapping.feedUrl}?offset=${offset}`);
+        if (!next.ok || next.status < 200 || next.status >= 300) {
+          paginationComplete = false;
+          break;
+        }
+        const page = parseWorkday(organisationName, mapping, next.body, offset);
+        // Circle's CXS endpoint reports total=0 on some continuation pages even
+        // while returning postings. Keep the first-page total authoritative;
+        // any nonzero continuation total must still match it.
+        if ((page.total !== expectedTotal && page.total !== 0) || page.returned === 0) {
+          totalsConsistent = false;
+          break;
+        }
+        allAdverts.push(...page.adverts);
+        offset += page.returned;
+        pagesFetched++;
+      }
+      paginationComplete = totalsConsistent && offset === expectedTotal &&
+        pagesFetched <= 30 && Date.now() <= deadlineMs;
+      const ids = new Set<string>();
+      for (const item of allAdverts) {
+        const id = item.externalId;
+        if (!id || ids.has(id)) paginationComplete = false;
+        if (id) ids.add(id);
+      }
+      parsed = { adverts: allAdverts, excludedUnlisted: 0 };
+    }
     return {
       adverts: parsed.adverts,
       mapping,
@@ -754,8 +862,10 @@ export async function fetchDirectEmployerBoard(
         ? undefined
         : mapping.provider === "SmartRecruiters"
           ? "SmartRecruiters total is missing or unstable, or pagination limit/deadline reached"
-          : mapping.provider === "Recruitee"
+           : mapping.provider === "Recruitee"
               ? "Recruitee feed has no trustworthy total or pagination metadata"
+            : mapping.provider === "Workday"
+              ? "Workday total is missing or unstable, or pagination limit/deadline reached"
             : "Lever pagination limit or deadline reached",
       pagesFetched,
       advertsExtracted: parsed.adverts.length,

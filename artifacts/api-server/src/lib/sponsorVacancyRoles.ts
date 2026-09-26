@@ -350,6 +350,7 @@ export async function fetchSponsorVacanciesAsRoles(
     // confirmed the exact deep link.
     const candidateStatus = getCandidateVacancyStatus({
       sourceType: vac.sourceType,
+      title: vac.title,
       liveness: vac.liveness,
       lastVerifiedAt: vac.lastVerifiedAt,
       lastDiscoveredAt: vac.lastDiscoveredAt,

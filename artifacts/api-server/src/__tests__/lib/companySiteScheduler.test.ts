@@ -60,6 +60,7 @@ const {
   COMPANY_SITE_DISCOVERY_CRON,
   COMPANY_SITE_SECTOR_COUNT,
   runCompanySiteCheck,
+  isCircleDirectFeedPersistenceAllowed,
   runCompanySiteDiscoveryBatch,
   runCompanySiteProbeDiscoveryBatch,
   selectCompanySiteBatch,
@@ -92,6 +93,126 @@ describe("company-site scheduler", () => {
       updated: 0,
       revived: 0,
     });
+  });
+
+  it("blocks Circle generic fallback adverts after a failed Workday feed", () => {
+    const row = {
+      organisationName: "BMI Healthcare Limited trading as Circle Health Group Limited",
+      careersUrl: "https://circlehealth.wd103.myworkdayjobs.com/chgcareers",
+      atsProvider: "Workday",
+      atsBoardId: "chgcareers",
+      atsMappingEvidenceUrl:
+        "http://careers.circlehealthgroup.co.uk/jobs/sister-charge-nurse-critical-care-jr110643",
+      atsMappingStatus: "verified" as const,
+    };
+    expect(isCircleDirectFeedPersistenceAllowed(row, {
+      careersUrl: "https://circlehealth.wd103.myworkdayjobs.com/chgcareers",
+      atsProvider: "Workday",
+      atsCompleted: false,
+      completion: "complete",
+      snapshotScope: undefined,
+      diagnostics: { directSourceKind: null },
+      adverts: [{ sourceType: "company_site" } as never],
+    })).toBe(false);
+  });
+
+  it("allows only a complete validated Circle Workday snapshot", () => {
+    const row = {
+      organisationName: "BMI Healthcare Limited trading as Circle Health Group Limited",
+      careersUrl: "https://circlehealth.wd103.myworkdayjobs.com/chgcareers",
+      atsProvider: "Workday",
+      atsBoardId: "chgcareers",
+      atsMappingEvidenceUrl:
+        "http://careers.circlehealthgroup.co.uk/jobs/sister-charge-nurse-critical-care-jr110643",
+      atsMappingStatus: "verified" as const,
+    };
+    expect(isCircleDirectFeedPersistenceAllowed(row, {
+      careersUrl: row.careersUrl,
+      atsProvider: "Workday",
+      atsCompleted: true,
+      completion: "complete",
+      snapshotScope: { provider: "Workday", boardId: "chgcareers" },
+      diagnostics: { directSourceKind: "ats_feed" },
+      adverts: [{
+        url: "https://circlehealth.wd103.myworkdayjobs.com/en-GB/chgcareers/job/london/sister-charge-nurse-critical-care_JR110643-1",
+        externalId: "JR110643",
+        sourceType: "company_site",
+        companyVacancyEvidence: {
+          kind: "known_ats_posting",
+          provider: "Workday",
+          listingUrl: row.careersUrl,
+        },
+      }] as never,
+    })).toBe(true);
+  });
+
+  it("rejects Circle Workday evidence when the detail URL is not an exact Workday posting", () => {
+    const row = {
+      organisationName: "BMI Healthcare Limited trading as Circle Health Group Limited",
+      careersUrl: "https://circlehealth.wd103.myworkdayjobs.com/chgcareers",
+      atsProvider: "Workday",
+      atsBoardId: "chgcareers",
+      atsMappingEvidenceUrl:
+        "http://careers.circlehealthgroup.co.uk/jobs/sister-charge-nurse-critical-care-jr110643",
+      atsMappingStatus: "verified" as const,
+    };
+    expect(isCircleDirectFeedPersistenceAllowed(row, {
+      careersUrl: row.careersUrl,
+      atsProvider: "Workday",
+      atsCompleted: true,
+      completion: "complete",
+      snapshotScope: { provider: "Workday", boardId: "chgcareers" },
+      diagnostics: { directSourceKind: "ats_feed" },
+      adverts: [{
+        url: "https://circlehealth.wd103.myworkdayjobs.com/en-GB/chgcareers/job/london/fake-role_JR110644-1",
+        externalId: "JR110643",
+        sourceType: "company_site",
+        companyVacancyEvidence: {
+          kind: "known_ats_posting",
+          provider: "Workday",
+          listingUrl: row.careersUrl,
+        },
+      }] as never,
+    })).toBe(false);
+  });
+
+  it("fails closed for Circle employer-name casing and whitespace variants", () => {
+    const result = {
+      careersUrl: "https://circlehealth.wd103.myworkdayjobs.com/chgcareers",
+      atsProvider: "Workday",
+      atsCompleted: false,
+      completion: "complete" as const,
+      snapshotScope: undefined,
+      diagnostics: { directSourceKind: null },
+      adverts: [{ sourceType: "company_site" }] as never,
+    };
+    expect(isCircleDirectFeedPersistenceAllowed({
+      organisationName: "  bmi healthcare limited trading as circle health group limited  ",
+      careersUrl: null,
+      atsProvider: null,
+      atsBoardId: null,
+      atsMappingEvidenceUrl: null,
+      atsMappingStatus: "unverified",
+    }, result)).toBe(false);
+  });
+
+  it("leaves other employers outside the Circle persistence gate", () => {
+    expect(isCircleDirectFeedPersistenceAllowed({
+      organisationName: "Other Employer",
+      careersUrl: null,
+      atsProvider: null,
+      atsBoardId: null,
+      atsMappingEvidenceUrl: null,
+      atsMappingStatus: "unverified",
+    }, {
+      careersUrl: null,
+      atsProvider: null,
+      atsCompleted: false,
+      completion: "complete",
+      snapshotScope: undefined,
+      diagnostics: {},
+      adverts: [{ sourceType: "company_site" } as never],
+    })).toBe(true);
   });
 
   it("uses its own hourly schedule and bounded worker settings", () => {

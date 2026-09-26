@@ -241,6 +241,7 @@ export async function requestPinned(
   pinned: PinnedAddress,
   timeoutMs: number,
   maxBytes: number,
+  requestOptions: { method?: "GET" | "POST"; body?: string } = {},
 ): Promise<PinnedResponse> {
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -261,15 +262,21 @@ export async function requestPinned(
     const request = client.request(
       url,
       {
-        method: "GET",
+        method: requestOptions.method ?? "GET",
         agent: false,
         lookup: createPinnedLookup(pinned),
         servername: url.protocol === "https:" ? url.hostname : undefined,
         headers: {
           "User-Agent": USER_AGENT,
-          Accept: "text/html,application/xhtml+xml,text/plain;q=0.8,*/*;q=0.5",
+          Accept: requestOptions.method === "POST"
+            ? "application/json"
+            : "text/html,application/xhtml+xml,text/plain;q=0.8,*/*;q=0.5",
           "Accept-Language": "en-GB,en;q=0.9",
           "Accept-Encoding": "gzip, deflate, br",
+          ...(requestOptions.body ? {
+            "Content-Type": "application/json",
+            "Content-Length": Buffer.byteLength(requestOptions.body),
+          } : {}),
         },
       },
       (response) => {
@@ -335,7 +342,7 @@ export async function requestPinned(
       socket.on("error", rejectOnce);
     });
     request.on("error", rejectOnce);
-    request.end();
+    request.end(requestOptions.body);
   });
 }
 
@@ -840,6 +847,78 @@ export async function fetchCompanySitePublicApiPage(
     false,
     COMPANY_SITE_PUBLIC_API_TIMEOUT_MS,
   );
+}
+
+/** POST a JSON request to a strictly approved public ATS API endpoint. */
+export async function fetchCompanySitePublicApiPost(
+  url: string,
+  body: string,
+  deadlineMs: number,
+  maxBytes = MAX_PAGE_BYTES,
+): Promise<CompanySiteFetchResult> {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { ok: false, kind: "unsafe", reason: "malformed API URL" };
+  }
+  if (
+    parsed.protocol !== "https:" ||
+    knownAtsProvider(parsed.hostname) === null ||
+    parsed.hostname.toLowerCase() !== "circlehealth.wd103.myworkdayjobs.com" ||
+    parsed.pathname.toLowerCase() !== "/wday/cxs/circlehealth/chgcareers/jobs" ||
+    (parsed.search && !/^\?offset=\d+$/.test(parsed.search)) || parsed.hash || !body
+  ) {
+    return { ok: false, kind: "unsafe", reason: "unsupported public ATS API POST destination" };
+  }
+  let pinned: PinnedAddress;
+  try {
+    pinned = await awaitWithDeadline(
+      resolveAndPinPublicAddress(parsed.hostname),
+      Math.min(COMPANY_SITE_DNS_TIMEOUT_MS, Math.max(1, deadlineMs - Date.now())),
+      "DNS lookup timed out",
+    );
+  } catch (error) {
+    return { ok: false, kind: "unsafe", reason: error instanceof Error ? error.message : "DNS lookup failed" };
+  }
+  let reservation = await reserveHost(parsed.hostname, deadlineMs);
+  while (!reservation.allowed && Date.now() + reservation.waitMs < deadlineMs) {
+    await sleep(reservation.waitMs);
+    reservation = await reserveHost(parsed.hostname, deadlineMs);
+  }
+  if (!reservation.allowed) return { ok: false, kind: "rate_limited", reason: "hostname is paced or in backoff", retryAt: reservation.retryAt };
+  const lease = reservation.leaseToken;
+  try {
+    const response = await requestPinned(
+      parsed, pinned, Math.max(1, Math.min(COMPANY_SITE_PUBLIC_API_TIMEOUT_MS, deadlineMs - Date.now())),
+      maxBytes, { method: "POST", body },
+    );
+    if (response.status === 403 || response.status === 429 || response.status >= 500) {
+      const retryAt = await failHost(parsed.hostname, lease, parseRetryAfter(headerValue(response.headers, "retry-after")));
+      return {
+        ok: false,
+        kind: "rate_limited",
+        status: response.status,
+        reason: `HTTP ${response.status}`,
+        retryAt: retryAt ?? undefined,
+        failureClass: "temporary",
+      };
+    }
+    await completeHost(parsed.hostname, lease);
+    if (response.status < 200 || response.status >= 300) {
+      const failure = { kind: "http" as const, status: response.status, reason: `HTTP ${response.status}` };
+      return { ok: false, ...failure, failureClass: classifyCompanySiteFailure(failure) };
+    }
+    return { ok: true, url: parsed.toString(), status: response.status, body: response.body,
+      contentType: headerValue(response.headers, "content-type") ?? "" };
+  } catch (error) {
+    const retryAt = await failHost(parsed.hostname, lease, null);
+    const reason = error instanceof Error ? error.message : "network failure";
+    return { ok: false, kind: error instanceof Error && error.name === "AbortError" ? "timeout" : "network",
+      reason, retryAt: retryAt ?? undefined, failureClass: "temporary" };
+  } finally {
+    await releaseHost(parsed.hostname, lease);
+  }
 }
 
 /**

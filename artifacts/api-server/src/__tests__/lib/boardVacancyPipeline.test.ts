@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   boardVacancyFingerprint,
+  mergeCompanyVacancyEvidence,
   discoverEmployerBoardVacancies,
   normaliseAndDedupeBoardAdverts,
   persistScrapedAdvertContacts,
@@ -25,7 +26,83 @@ function advert(overrides: Partial<BoardAdvert> = {}): BoardAdvert {
   };
 }
 
+function knownAtsAdvert(externalId: string, url: string): BoardAdvert {
+  return advert({
+    organisationName: "Example NHS Trust",
+    title: "Patient Administrator",
+    location: "Guildford",
+    sourceType: "company_site",
+    boardName: null,
+    externalId,
+    url,
+    companyVacancyEvidence: {
+      kind: "known_ats_posting",
+      provider: "Workday",
+      listingUrl: "https://careers.example.nhs.uk/careers",
+    },
+  });
+}
+
 describe("shared board vacancy pipeline", () => {
+  const approved = {
+    roleEligibilityReview: {
+      status: "approved",
+      socCode: "1234",
+      evidenceUrl: "https://evidence.example/role-1",
+    },
+  };
+  const existing = {
+    organisationName: "Example NHS Trust",
+    sourceType: "company_site",
+    externalListingId: "role-1",
+    url: "https://careers.example/jobs/role-1",
+    title: "Operations Manager",
+    companyVacancyEvidence: approved,
+  };
+
+  it("preserves approved review evidence for the exact same company-site role", () => {
+    expect(mergeCompanyVacancyEvidence(existing, {
+      ...advert({
+        organisationName: "Example NHS Trust",
+        sourceType: "company_site",
+        externalId: "role-1",
+        url: "https://careers.example/jobs/role-1",
+        title: "Operations Manager",
+        companyVacancyEvidence: { kind: "structured_job_card" },
+      }),
+    })).toMatchObject({ roleEligibilityReview: approved.roleEligibilityReview });
+  });
+
+  it("omits evidence fields when a refresh supplies no evidence", () => {
+    expect(mergeCompanyVacancyEvidence(existing, {
+      ...advert({
+        organisationName: "Example NHS Trust",
+        sourceType: "company_site",
+        externalId: "role-1",
+        url: "https://careers.example/jobs/role-1",
+        title: "Staff Nurse",
+      }),
+    })).toBeUndefined();
+  });
+
+  it.each([
+    ["changed title", { title: "Senior Operations Manager" }],
+    ["changed identity", { externalId: "role-2" }],
+    ["changed employer", { organisationName: "Other Trust" }],
+    ["job board source", { sourceType: "job_board" }],
+  ])("clears review evidence for %s", (_label, changes) => {
+    expect(mergeCompanyVacancyEvidence(existing, {
+      ...advert({
+        organisationName: "Example NHS Trust",
+        sourceType: "company_site",
+        externalId: "role-1",
+        url: "https://careers.example/jobs/role-1",
+        title: "Operations Manager",
+      }),
+      ...(changes as Partial<BoardAdvert>),
+    })).toBeUndefined();
+  });
+
   it("supports a fake board through the adapter contract without pipeline changes", async () => {
     const adapter: BoardAdapter = {
       id: "fake",
@@ -83,6 +160,43 @@ describe("shared board vacancy pipeline", () => {
 
   it("drops manual-labour titles before persistence", () => {
     expect(normaliseAndDedupeBoardAdverts([advert({ title: "Warehouse Operative" })])).toEqual([]);
+  });
+
+  it("preserves distinct known ATS posting IDs that share a fingerprint", () => {
+    const result = normaliseAndDedupeBoardAdverts([
+      knownAtsAdvert("JR117009", "https://careers.example.nhs.uk/jobs/JR117009"),
+      knownAtsAdvert("JR115988", "https://careers.example.nhs.uk/jobs/JR115988"),
+    ]);
+
+    expect(result).toHaveLength(2);
+    expect(result.map((item) => item.externalId).sort()).toEqual(["JR115988", "JR117009"]);
+  });
+
+  it("deduplicates a repeated ATS ID and prefers verified ATS evidence over a generic crawl", () => {
+    const direct = knownAtsAdvert("JR117009", "https://careers.example.nhs.uk/jobs/JR117009");
+    const repeatedDirect = {
+      ...direct,
+      url: "https://careers.example.nhs.uk/jobs/JR117009?source=refresh",
+    };
+    const generic = advert({
+      ...direct,
+      sourceType: "company_site",
+      boardName: null,
+      externalId: null,
+      url: "https://careers.example.nhs.uk/jobs/patient-administrator",
+      companyVacancyEvidence: {
+        kind: "structured_job_card",
+        listingUrl: "https://careers.example.nhs.uk/careers",
+      },
+    });
+
+    const result = normaliseAndDedupeBoardAdverts([generic, direct, repeatedDirect]);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      externalId: "JR117009",
+      companyVacancyEvidence: { kind: "known_ats_posting" },
+    });
   });
 
   it("normalises fingerprint case, whitespace, and punctuation", () => {
