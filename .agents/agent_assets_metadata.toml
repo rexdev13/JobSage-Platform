@@ -824,3 +824,17 @@ mtime_ms = 1790361731313
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/bb562523-9003-4158-8443-353c5c51bfa6/0ef90c3d-f113-43b1-bfb0-a1a464bd8ec3"
 storage_version_token = "1790361809894108"
 content_type = "text/csv"
+
+[[outputs]]
+id = "zwtXoHv348c8PftufJodw"
+uri = "file://.agents/outputs/healthcare-direct-source-test-2026-09-26/pinpoint-postings.html"
+type = "html"
+title = "29 live Dental Beauty Group postings"
+description = "A clickable list of the 29 live employer posting links imported in the Healthcare-only development test."
+logical_id = "ae5c30b3-36b2-450a-8a69-6a6b6e0ffb95"
+content_hash = "sha256:a503b3918060ccada6b77591e606ccc63c338dded593680599ad54edc156f7c4"
+size = 10225
+mtime_ms = 1790381306256
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/ae5c30b3-36b2-450a-8a69-6a6b6e0ffb95/8a6544b6-777b-4d4b-9818-6eeddc0da05d"
+storage_version_token = "1790381307964280"
+content_type = "text/html"
