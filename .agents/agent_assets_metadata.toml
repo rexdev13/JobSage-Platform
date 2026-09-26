@@ -978,3 +978,31 @@ mtime_ms = 1790462695336
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/8a0d3d9c-7617-4b97-853f-3ba7da46a155/bd597bca-cd0a-4f77-a7b1-7cf7a0367482"
 storage_version_token = "1790462834207612"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "tow2mJIQ5qX9Fhmv2CMpG"
+uri = "file://artifacts/healthcare-vacancy-source-routing-search-pilot-50.csv"
+type = "table"
+title = "Healthcare vacancy routing pilot CSV"
+description = "Review-only results for 50 Healthcare sponsors marked unverified in batch 2."
+logical_id = "669f3f3b-057d-45c2-b58f-ee331d83622e"
+content_hash = "sha256:87b714d7eb99975ee7f0ce65fa9163b57b8e102d120d43f1cd5275074fe7a1ae"
+size = 16492
+mtime_ms = 1790464671284
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/669f3f3b-057d-45c2-b58f-ee331d83622e/d33918a7-30a0-48e9-bd29-fd732e402f9d"
+storage_version_token = "1790464741152226"
+content_type = "text/csv"
+
+[[outputs]]
+id = "gw08udLktBsjfaGpYzyD9"
+uri = "file://artifacts/healthcare-vacancy-source-routing-search-pilot-50-report.md"
+type = "text"
+title = "Healthcare vacancy routing pilot report"
+description = "Coverage, confidence, request/cache counts, blocked results, and comparison with the unchanged batch-2 baseline."
+logical_id = "718ab97a-c1f0-4c25-a0f7-9b2db0f78da4"
+content_hash = "sha256:c7b2ccf451c7cbcfc90986704b700a3302c172186b553f5b2b1da10d4e5b935d"
+size = 7846
+mtime_ms = 1790464671288
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/718ab97a-c1f0-4c25-a0f7-9b2db0f78da4/ab0093a9-bf67-4cee-a7a3-8197bc4317b5"
+storage_version_token = "1790464742252285"
+content_type = "text/markdown"

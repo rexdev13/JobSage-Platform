@@ -42,7 +42,7 @@
 - [Company-site wall-clock deadlines](company-site-wall-clock-deadlines.md) — socket inactivity timeouts alone do not bound DNS/connect phases; HTTP cron work needs an absolute request deadline.
 - [Company-site response decoding](company-site-response-decoding.md) — Node core HTTP does not decompress Content-Encoding; decode bounded bodies before PostgreSQL text persistence.
 - [Vacancy action liveness](vacancy-action-liveness.md) — vacancy-specific Apply/Send CV requires fresh live stored evidence; employer-level email outreach remains independent.
-- [Vacancy sample links](vacancy-sample-links.md) — careers listing URLs are valid routes, not sample vacancies; require a distinct job-detail link.
+- [Vacancy sample links](vacancy-sample-links.md) — careers listings and generic application forms are not sample vacancies; only distinct job-detail URLs count.
 - [Unified role ID routing](unified-role-id-routing.md) — resolve sponsor-vacancy IDs before the broader employer-job range or Smart Apply and tracker attribution use the wrong source.
 - [Postgres pool error containment](postgres-pool-error-containment.md) — attach idle-client error handling where the shared pool is constructed, not in individual process entry points.
 - [Liveness source fairness](liveness-source-fairness.md) — short deadline batches must reserve capacity per source or a large job-board backlog can starve company-site verification indefinitely.
