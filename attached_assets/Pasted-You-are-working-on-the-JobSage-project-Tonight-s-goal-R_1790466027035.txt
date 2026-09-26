@@ -1,0 +1,89 @@
+You are working on the JobSage project.
+
+Tonight’s goal:
+Run broad company-website discovery for all non-Healthcare sectors.
+
+Do not do ATS discovery tonight.
+Do not do vacancy routing tonight.
+Do not import anything.
+Do not write to production.
+Do not deploy.
+
+Input:
+Use:
+`.local/reports/sponsor-enrichment/jobsage-sponsor-base-export.csv`
+
+Scope:
+- Include all sectors except exact `Healthcare`.
+- For each sector, process up to 3,000 sponsors maximum.
+- If a sector has fewer than 3,000 sponsors, process all of them.
+- If a sector has more than 3,000 sponsors, process only the first 3,000 according to the runner’s deterministic ordering.
+- Make the run resumable.
+
+Goal per sponsor:
+Find and verify the official company website.
+
+Use signals in this order:
+1. existing `existing_website`
+2. domain from `existing_contact_email`
+3. domain from `existing_careers_url`
+4. existing company-site/source files
+5. SponsorList/public sponsor evidence if available
+6. optional configured search only if already available
+
+Do not require Bing/search. If search is not configured, continue without it and report that clearly.
+
+Validation:
+- Accept only official employer websites.
+- Use organisation name, normalized name, town/city, county/region, email domain, and evidence URL to verify identity.
+- Do not accept generic directories, Companies House, Facebook, LinkedIn, old PDFs, or lead-gen pages as official websites.
+- Ambiguous matches should stay unverified.
+
+Confidence:
+- `high`: official company website clearly verified.
+- `medium`: likely official, but one identity signal is weaker.
+- `low`: possible but manual review needed.
+- `unverified`: no trustworthy website found.
+
+Outputs:
+1. Main combined file:
+`artifacts/non-healthcare-company-websites-all-sectors.csv`
+
+Columns:
+`sponsor_licence_id,organisation_name,normalized_organisation_name,town_city,county,region,industry,route,sub_route,existing_website,existing_contact_email,existing_careers_url,official_website_url,website_confidence,website_evidence_url,source,notes`
+
+2. Per-sector files:
+`artifacts/company-websites-by-sector/<sector-slug>-company-websites.csv`
+
+3. Summary report:
+`artifacts/non-healthcare-company-websites-all-sectors-report.md`
+
+Report must include:
+- Source CSV path used
+- Total rows in CSV
+- Total non-Healthcare sponsors considered
+- Sector labels found and counts
+- Per-sector processed count
+- Per-sector cap applied or not
+- Websites found per sector
+- High/medium/low/unverified counts per sector
+- Search configured or not
+- Common failure reasons
+- Best sectors by website coverage
+- Worst sectors by website coverage
+- Recommended sectors to process for ATS/vacancy routing tomorrow
+
+4. Progress file:
+`artifacts/non-healthcare-company-websites-all-sectors-progress.json`
+
+Implementation:
+- Use or adapt the existing enrichment/routing utilities where possible.
+- Keep this as website-discovery mode only.
+- Cache by sponsor ID, normalized employer name, email domain, and website domain.
+- Respect robots/policy restrictions.
+- Use safe rate limits and bounded concurrency.
+- Do not overwrite Healthcare outputs.
+- Do not change database data.
+- Do not import.
+- Do not deploy.
+- At the end, summarize exactly what was processed, what files were created, and where to resume if incomplete.
