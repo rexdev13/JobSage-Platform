@@ -908,3 +908,31 @@ mtime_ms = 1790442331201
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/5efa6d70-91cf-444e-b4a8-38e749ba3230/f824cd9d-f2b0-4bb6-ad13-e263c659ff8c"
 storage_version_token = "1790442500522464"
 content_type = "text/csv"
+
+[[outputs]]
+id = "q7yhR5HHexTLhMlLbU_7r"
+uri = "file://artifacts/healthcare-vacancy-source-routing-batch1-100.csv"
+type = "table"
+title = "Healthcare vacancy source routing — CSV"
+description = "100-row source-routing review for exact-Healthcare sponsors; no records were imported."
+logical_id = "aa0ed15d-17a9-4cc9-8af0-8222c3907d3a"
+content_hash = "sha256:0c03ffbdf6df532df9d6bc2df8f962c3a8490aba0314fa2d5e75051ec91d8770"
+size = 44328
+mtime_ms = 1790460559761
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/aa0ed15d-17a9-4cc9-8af0-8222c3907d3a/bc9cbb58-32fa-4ce9-9cb2-b959654a4dad"
+storage_version_token = "1790460598015442"
+content_type = "text/csv"
+
+[[outputs]]
+id = "vGhZ506EzgEVJWpqYcJzT"
+uri = "file://artifacts/healthcare-vacancy-source-routing-batch1-100-report.md"
+type = "text"
+title = "Healthcare vacancy source routing — report"
+description = "Summary of source provenance, routing counts, evidence examples, failures, and import recommendations."
+logical_id = "9ac952b6-38c0-4b91-a850-60a5fbb3c35d"
+content_hash = "sha256:cee7ba2c9197faf6033463761decb73068cc1a94b4dccc53b82dcaa1e9135e43"
+size = 7281
+mtime_ms = 1790460561553
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/9ac952b6-38c0-4b91-a850-60a5fbb3c35d/4701f549-8fcd-428c-bc0f-f32260d35050"
+storage_version_token = "1790460599194328"
+content_type = "text/markdown"
