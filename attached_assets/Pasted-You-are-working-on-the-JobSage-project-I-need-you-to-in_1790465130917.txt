@@ -1,0 +1,56 @@
+You are working on the JobSage project.
+
+I need you to investigate the previous Healthcare sponsor enrichment/source-discovery work and explain what method was used when we got the better results.
+
+Do not run new enrichment.
+Do not crawl new websites.
+Do not modify production data.
+Do not write to the database.
+Do not deploy.
+This is an audit/explanation task only.
+
+Inspect the repo, scripts, artifacts, reports, and logs related to sponsor enrichment, Healthcare website checks, ATS/job-board discovery, vacancy-source routing, and import templates.
+
+Look especially for:
+- Healthcare website enrichment runs
+- ATS/job-board discovery runs
+- SponsorList/CQC-based runs
+- direct-feed or direct-ATS validation runs
+- files under `artifacts/`
+- files under `.local/reports/sponsor-enrichment/`
+- scripts/tools used for sponsor enrichment
+- reports mentioning counts like 3,000 checked, 500 useful sources, batch 1, batch 2, routing, ATS, direct feeds, company-site existing, existing vacancy sources
+
+Questions to answer clearly:
+
+1. What exact method produced the strongest Healthcare results so far?
+2. Was it website-first, ATS-first, SponsorList-first, CQC-first, existing-vacancy-source-first, direct-feed validation, or a mix?
+3. Which input files did it use?
+4. Which scripts/tools did it run?
+5. Which output files did it create?
+6. What were the counts?
+   - sponsors checked
+   - websites found
+   - careers/vacancy pages found
+   - ATS/job-board sources found
+   - Send CV routes found
+   - high/medium/low/unverified confidence
+7. Did it use Bing/search or not?
+8. Did it use existing production/dev data exports?
+9. Did it use previously discovered vacancy URLs to infer company websites?
+10. Which method should we repeat tonight for non-Healthcare sectors?
+11. Which method should we avoid because it performed badly?
+12. What exact command or prompt should be used to repeat the best method safely for other sectors?
+
+Output:
+Create a short report:
+`artifacts/healthcare-enrichment-method-audit.md`
+
+The report should be written in plain English and include:
+- Best method summary
+- Evidence/files inspected
+- What worked
+- What failed
+- Recommended repeatable process for other sectors
+- Exact next prompt/command to run
+- Confirmation that no production data was changed and no new enrichment was run
