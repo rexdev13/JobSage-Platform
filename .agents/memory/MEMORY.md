@@ -61,6 +61,7 @@
 - [Company-site coverage](company-site-coverage.md) — improve slow employer-site coverage with bounded throughput and better URL discovery, never looser relevance or safety filters.
 - [Company-site health probes](company-site-health-probes.md) — classify hosts through the shared safe fetch path before crawling; timeouts must retain the writer lock until work settles.
 - [Vacancy visibility enforcement](vacancy-visibility-enforcement.md) — keep one status rule aligned across SQL aggregates, detail lists, click checks, and application creation.
+- [Multi-round task sync](task-rebase-generated-assets.md) — generated assets can conflict repeatedly; defer asset re-registration until all sync rounds finish.
 - [Vacancy sync-log contract](vacancy-sync-log-contract.md) — every external vacancy batch needs an explicit kind, liveness counters, and one serialized writer path.
 - [DWP Find a Job access](dwp-find-a-job-access.md) — official search pages currently error or time out from the development server; verify runtime access before integrating.
 - [Factual CV draft freshness](cv-draft-freshness.md) — Maker source-fact changes clear reviewed state but preserve draft text; readiness self-attestations stay separate.
@@ -73,3 +74,4 @@
 - [Sponsor public-source matching scale](sponsor-public-source-matching-scale.md) — large sponsor/source coverage needs rare organization-name token probes before fuzzy matching; broad location buckets can time out.
 - [First-party job-description PDFs](company-site-job-pdf-evidence.md) — accept media-hosted role PDFs only with explicit current-listing, role, and safe application/contact evidence.
 - [Durable CodeExecution date handling](durable-codeexecution-date-handling.md) — use workspace TypeScript for time-zone parsing; the durable sandbox lacks Intl, TextDecoder, and Date.now.
+- [External bulk lookup keys](external-bulk-lookup-keys.md) — third-party enrichment uploads should use synthetic row keys; keep internal database IDs in a local-only join map.
