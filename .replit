@@ -46,3 +46,19 @@ INTERNAL_SYNC_KEY = "dd1e3f9cbdc1ddb63409835bad58e09de58c0b73f5f0dd461cada94a6b4
 
 [objectStorage]
 defaultBucketID = "replit-objstore-3694d154-80c4-44e1-a65d-b87607e9f95e"
+
+[[ports]]
+localPort = 8080
+externalPort = 8080
+
+[[ports]]
+localPort = 8081
+externalPort = 8081
+
+[[ports]]
+localPort = 18286
+externalPort = 80
+
+[[ports]]
+localPort = 18557
+externalPort = 3000
