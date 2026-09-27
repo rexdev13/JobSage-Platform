@@ -1062,3 +1062,31 @@ mtime_ms = 1790496170426
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/83508908-900d-4743-9c16-37878c7db4d3/83040b7d-8598-4984-9355-b9e57ecefe06"
 storage_version_token = "1790496210546789"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "Q5NqdiacSjDd9WNkv13eA"
+uri = "file://artifacts/non-healthcare-company-websites-verification-dry-run.csv"
+type = "table"
+title = "Medium and low website verification queue"
+description = "Dry-run queue for 1,233 medium-confidence and 1,162 low-confidence sponsor website candidates. Contains existing evidence URLs and a bounded verification plan; no websites were fetched."
+logical_id = "4deca719-6010-48c7-98cb-124ca49d04d9"
+content_hash = "sha256:77cef86b8906a6e0005ebdb47aa594e6b1f42cc0d2ede906bd8f8d699f833540"
+size = 1906588
+mtime_ms = 1790496554704
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/4deca719-6010-48c7-98cb-124ca49d04d9/ba880fb3-a2d5-4746-b3de-d62c2f32d8c0"
+storage_version_token = "1790496750548896"
+content_type = "text/csv"
+
+[[outputs]]
+id = "4kywxfi_yiXN6MU6blrIx"
+uri = "file://artifacts/non-healthcare-company-websites-verification-dry-run.md"
+type = "text"
+title = "Website verification dry-run report"
+description = "Summary of the queued candidates by confidence and industry, plus the strict identity-evidence policy for a separately approved live pass."
+logical_id = "1933f7c6-0f9f-4c12-96de-38dfc34ea45f"
+content_hash = "sha256:ab46088c550f0de832118d8bd52b5cbd46efa32cbd45e6cc2212520980581438"
+size = 2083
+mtime_ms = 1790496554707
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/1933f7c6-0f9f-4c12-96de-38dfc34ea45f/2c5d096b-463f-416a-95b3-f63d47275706"
+storage_version_token = "1790496751712365"
+content_type = "text/markdown"
