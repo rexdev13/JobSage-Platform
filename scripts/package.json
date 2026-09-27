@@ -12,6 +12,8 @@
     "sponsor-enrichment-export:test": "tsx ./src/sponsorEnrichmentExportSelfTest.ts",
     "healthcare-sponsor-websites": "tsx ./src/healthcareSponsorWebsiteBatch.ts",
     "healthcare-sponsor-websites:test": "tsx ./src/healthcareSponsorWebsiteBatchSelfTest.ts",
+    "non-healthcare-company-websites": "tsx ./src/nonHealthcareCompanyWebsiteDiscovery.ts",
+    "non-healthcare-company-websites:test": "tsx ./src/nonHealthcareWebsiteIdentitySelfTest.ts",
     "vacancy-source-routing": "tsx ./src/vacancySourceRoutingBatch.ts",
     "vacancy-source-routing:test": "tsx ./src/vacancySourceRoutingBatchSelfTest.ts",
     "healthcare-sponsor-import": "tsx ./src/healthcareSponsorWebsiteImport.ts",

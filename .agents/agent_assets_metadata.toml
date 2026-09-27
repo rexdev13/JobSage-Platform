@@ -1020,3 +1020,17 @@ mtime_ms = 1790465513439
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/521be53e-db7f-4a7a-8fa4-7dc7daaed98d/53175b4f-d301-4019-ad60-cef2cc0cf411"
 storage_version_token = "1790465523749705"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "_e4A_5FyKZUfbK7oQd4Fn"
+uri = "file://artifacts/production-vacancy-automation-audit.md"
+type = "text"
+title = "Production vacancy automation audit"
+description = "Read-only audit of vacancy discovery, imports, liveness, scheduling, candidate visibility, and production readiness."
+logical_id = "055725b8-b3c5-450b-998a-6fb55d7e6321"
+content_hash = "sha256:24b2476dcb995599e865a3615ce15ab7e5e7d37db398e9c11ed7bb03e2ee0fb6"
+size = 32284
+mtime_ms = 1790495620934
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/055725b8-b3c5-450b-998a-6fb55d7e6321/73652a34-80d9-436a-a4a9-3f635ca7accd"
+storage_version_token = "1790495653730620"
+content_type = "text/markdown"
