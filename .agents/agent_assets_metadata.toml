@@ -1244,3 +1244,31 @@ mtime_ms = 1790506113712
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/4c0526ca-9e6a-4186-b8ef-288bc138a47d/9b232a0f-e5e0-4d9b-923c-28e2c2d3ac11"
 storage_version_token = "1790506776412705"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "glIrl05Mz04qdeXGDG-Zy"
+uri = "file://exports/sponsor-websites-development.csv"
+type = "table"
+title = "development sponsor websites (4258)"
+description = "Sponsor names and website URLs from the development database. Sponsor IDs are local to that environment; do not use them to match records across environments."
+logical_id = "b642e542-f8ad-4894-a040-440f019e0b4e"
+content_hash = "sha256:e6d7e338af3cdb6958606d8b8eb305b887b75b033f556058ab78746839d0d275"
+size = 311766
+mtime_ms = 1790538165758
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/b642e542-f8ad-4894-a040-440f019e0b4e/ac528c71-1f52-4db3-9b0f-d39ff17b9a6e"
+storage_version_token = "1790538191179827"
+content_type = "text/csv"
+
+[[outputs]]
+id = "TFN1_MsVfwT2NvE5Zos3-"
+uri = "file://exports/sponsor-websites-production.csv"
+type = "table"
+title = "production sponsor websites (9791)"
+description = "Sponsor names and website URLs from the production database. Sponsor IDs are local to that environment; do not use them to match records across environments."
+logical_id = "4999e5ed-262f-49a5-bc14-a715886223ca"
+content_hash = "sha256:9bcfe3a35a061306cb64a5c6f3f81191c74a4804bb21a474bb909544e762e26d"
+size = 690563
+mtime_ms = 1790538189192
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/4999e5ed-262f-49a5-bc14-a715886223ca/3032e2ff-d5f5-4876-9c01-9149ea51d51a"
+storage_version_token = "1790538192695060"
+content_type = "text/csv"
