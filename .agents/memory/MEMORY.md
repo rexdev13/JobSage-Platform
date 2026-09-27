@@ -76,3 +76,4 @@
 - [First-party job-description PDFs](company-site-job-pdf-evidence.md) — accept media-hosted role PDFs only with explicit current-listing, role, and safe application/contact evidence.
 - [Durable CodeExecution date handling](durable-codeexecution-date-handling.md) — use workspace TypeScript for time-zone parsing; the durable sandbox lacks Intl, TextDecoder, and Date.now.
 - [External bulk lookup keys](external-bulk-lookup-keys.md) — third-party enrichment uploads should use synthetic row keys; keep internal database IDs in a local-only join map.
+- [Production sponsor import identity](production-sponsor-import-identity.md) — development sponsor IDs are not portable to production; require fresh production-side identity reconciliation before importing.
