@@ -1207,14 +1207,14 @@ content_type = "text/markdown"
 id = "mTYcGy4zk_y4pzj9Ih9F0"
 uri = "file://artifacts/production-sponsor-website-careers-reconciliation-dry-run.csv"
 type = "table"
-title = "Production reconciliation rows"
-description = "6,007 website/careers candidate rows with identity matches and review dispositions."
+title = "Sponsor website and careers import CSV"
+description = "The 6,007-row reconciliation file to download and upload to the published JOBSAGE importer after signing in as super-admin."
 logical_id = "16b85fd5-1b84-4ea2-8719-8fb9e29b837a"
 content_hash = "sha256:f0905685a8d3b71ecaa0683ca7630ec883c3d1ac823af0ff9da7c790ced8120e"
 size = 4272464
 mtime_ms = 1790506684001
-storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/16b85fd5-1b84-4ea2-8719-8fb9e29b837a/a143f983-3844-4575-9d20-5036cc15c854"
-storage_version_token = "1790506766112872"
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/16b85fd5-1b84-4ea2-8719-8fb9e29b837a/2ec74e8f-7e56-4c13-99e7-ce58f49de616"
+storage_version_token = "1790524589781039"
 content_type = "text/csv"
 
 [[outputs]]
