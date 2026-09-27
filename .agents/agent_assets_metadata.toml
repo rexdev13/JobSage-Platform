@@ -1034,3 +1034,31 @@ mtime_ms = 1790495620934
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/055725b8-b3c5-450b-998a-6fb55d7e6321/73652a34-80d9-436a-a4a9-3f635ca7accd"
 storage_version_token = "1790495653730620"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "W12WymDLasrC5Z0DMbZZA"
+uri = "file://artifacts/non-healthcare-company-websites-all-sectors.csv"
+type = "table"
+title = "Non-Healthcare sponsor website results"
+description = "Completed website-discovery results for all 14,530 selected sponsors across 14 exact non-Healthcare industry labels."
+logical_id = "8a1e6992-a45d-4ef1-85ab-cae678352aba"
+content_hash = "sha256:903195c09e0aba4b815d106110b75139e3c00443376d930ad112b2c67ee5640f"
+size = 3259264
+mtime_ms = 1790496170316
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/8a1e6992-a45d-4ef1-85ab-cae678352aba/d3b288c3-cee5-402d-bfaa-81dcf6c85769"
+storage_version_token = "1790496208318398"
+content_type = "text/csv"
+
+[[outputs]]
+id = "B_5EvSl_nsuKWLYvgtlHO"
+uri = "file://artifacts/non-healthcare-company-websites-all-sectors-report.md"
+type = "text"
+title = "Website discovery summary report"
+description = "Generated summary of completion status, industry coverage, verified websites, and discovery outcomes."
+logical_id = "83508908-900d-4743-9c16-37878c7db4d3"
+content_hash = "sha256:5b5c7622dea325079e92890f71822a0355ac46d64534cf9ff654e7ca3cd20570"
+size = 6721
+mtime_ms = 1790496170426
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/83508908-900d-4743-9c16-37878c7db4d3/83040b7d-8598-4984-9355-b9e57ecefe06"
+storage_version_token = "1790496210546789"
+content_type = "text/markdown"
