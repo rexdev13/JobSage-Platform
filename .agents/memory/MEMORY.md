@@ -57,7 +57,7 @@
 - [pnpm script argument separator](pnpm-script-separator.md) — filtered pnpm scripts can forward a bare `--` to the child CLI; verify the documented invocation.
 - [Calendly connector runtime](calendly-connector-runtime.md) — a healthy Calendly OAuth connection can still return a runtime 404; after one reauth retry, repair attachment or use a secure PAT fallback.
 - [Official sponsor source adapters](official-sponsor-source-adapters.md) — CQC and GIAS public downloads have source-specific metadata/async flows; cache them and warn explicitly when unavailable.
-- [Post-merge setup timeout](post-merge-setup-timeout.md) — schema verification plus the web build can exceed a 20-second hook ceiling; keep a bounded two-minute timeout.
+- [Post-merge setup behavior](post-merge-setup-timeout.md) — allow time for schema/build; manual reconciliation can leave duplicate dev servers occupying artifact ports.
 - [Chat waitlist confirmation](chat-waitlist-confirmation.md) — carry qualifiers outside bounded chat history and treat form/chat email delivery as one idempotent confirmation state.
 - [Company-site coverage](company-site-coverage.md) — improve slow employer-site coverage with bounded throughput and better URL discovery, never looser relevance or safety filters.
 - [Company-site health probes](company-site-health-probes.md) — classify hosts through the shared safe fetch path before crawling; timeouts must retain the writer lock until work settles.
