@@ -1160,3 +1160,87 @@ mtime_ms = 1790505309745
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/d3242e2b-f737-426e-b31a-38fbfe49f3d2/d2a05da4-2ac0-49cb-8c27-51f3ec8628e1"
 storage_version_token = "1790505446175557"
 content_type = "text/csv"
+
+[[outputs]]
+id = "OHaOjgGF3naBxIUqaHiI8"
+uri = "file://artifacts/live-verification-40-dev-status.md"
+type = "text"
+title = "40-row development status"
+description = "Dry-run results, conflicts, and guarded commands; no import was applied."
+logical_id = "8bf26037-e403-48b3-b790-01f248bd1df6"
+content_hash = "sha256:66c71deefea207e562e296509ebc31acdc0db0990ef4936459368ef7d6ca56b0"
+size = 3373
+mtime_ms = 1790506718617
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/8bf26037-e403-48b3-b790-01f248bd1df6/b2e63b05-72b8-464c-a7c6-79acdde7dd8c"
+storage_version_token = "1790506760955539"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "k-pjcBfaHoDnfAjMgOAqg"
+uri = "file://artifacts/live-verification-40-dev-import-dry-run-diff.csv"
+type = "table"
+title = "40-row dry-run diff"
+description = "Row-level result: 37 existing values preserved, 3 differing values preserved."
+logical_id = "e1ad5b10-7097-4cda-8fca-35399bd0d6d2"
+content_hash = "sha256:a4d392d1067b8462036f8d568f3bd57c0bb9d17c61ca0892ab1c4fa1f6729a5b"
+size = 21465
+mtime_ms = 1790506113711
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/e1ad5b10-7097-4cda-8fca-35399bd0d6d2/e59ac6ac-39c5-4668-9a3b-1c076c9f8c41"
+storage_version_token = "1790506762744278"
+content_type = "text/csv"
+
+[[outputs]]
+id = "iRvM8eVyVP7ZWfMayt-KX"
+uri = "file://artifacts/production-sponsor-website-careers-reconciliation-report.md"
+type = "text"
+title = "Production reconciliation report"
+description = "Read-only production matching totals and recommended dispositions."
+logical_id = "f7ca7a7c-b843-4cc6-b758-d685f2a9a9d3"
+content_hash = "sha256:c57c8fc180f004b1a9371b9c1e95f8026db689df26fab488aa322aa0201de1c0"
+size = 4169
+mtime_ms = 1790506718616
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/f7ca7a7c-b843-4cc6-b758-d685f2a9a9d3/99d0e74d-b495-45c5-a3ff-8f6e9ca3b74d"
+storage_version_token = "1790506764441998"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "mTYcGy4zk_y4pzj9Ih9F0"
+uri = "file://artifacts/production-sponsor-website-careers-reconciliation-dry-run.csv"
+type = "table"
+title = "Production reconciliation rows"
+description = "6,007 website/careers candidate rows with identity matches and review dispositions."
+logical_id = "16b85fd5-1b84-4ea2-8719-8fb9e29b837a"
+content_hash = "sha256:f0905685a8d3b71ecaa0683ca7630ec883c3d1ac823af0ff9da7c790ced8120e"
+size = 4272464
+mtime_ms = 1790506684001
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/16b85fd5-1b84-4ea2-8719-8fb9e29b837a/a143f983-3844-4575-9d20-5036cc15c854"
+storage_version_token = "1790506766112872"
+content_type = "text/csv"
+
+[[outputs]]
+id = "uITNS3r5KYtI2BxNtMF3i"
+uri = "file://artifacts/non-healthcare-live-verification-high-40-import.csv"
+type = "table"
+title = "40 verified-high import input"
+description = "Prepared input for the guarded development importer; not applied."
+logical_id = "8f44b6bc-35f4-4fb0-83b1-4ba5c43cbaab"
+content_hash = "sha256:06f5f90992555d5bc872027cadb4e3b5d0958c18483b38e2a2446c8bda43c3d7"
+size = 18208
+mtime_ms = 1790506103245
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/8f44b6bc-35f4-4fb0-83b1-4ba5c43cbaab/94efa110-a27e-4b18-91c2-7f9e70def912"
+storage_version_token = "1790506775364729"
+content_type = "text/csv"
+
+[[outputs]]
+id = "V5lT3mQNpVTvJj_hmjBAh"
+uri = "file://artifacts/live-verification-40-dev-import-dry-run.md"
+type = "text"
+title = "Importer dry-run report"
+description = "Original development-only dry-run output and reviewed plan hash."
+logical_id = "4c0526ca-9e6a-4186-b8ef-288bc138a47d"
+content_hash = "sha256:086253a9e84519d9d2491a9c0fcfa90b243603ae8e79addd3064885abb2c0b24"
+size = 1028
+mtime_ms = 1790506113712
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/4c0526ca-9e6a-4186-b8ef-288bc138a47d/9b232a0f-e5e0-4d9b-923c-28e2c2d3ac11"
+storage_version_token = "1790506776412705"
+content_type = "text/markdown"
