@@ -27,6 +27,7 @@ import {
 } from "../lib/sponsorWebsiteCrossEnvIdentity";
 import {
   buildSponsorWebsiteImportPlan,
+  sponsorLicenceIdsForImportWrites,
   type SponsorWebsiteImportCandidate,
   type SponsorWebsiteProductionTarget,
 } from "../lib/sponsorWebsiteImportPlan";
@@ -354,11 +355,7 @@ router.post(
       }
 
       const applied = await db.transaction(async (tx) => {
-        const sponsorIds = [...new Set(
-          plan.writes
-            .filter((write) => write.field === "website")
-            .map((write) => write.targetSponsorLicenceId),
-        )];
+        const sponsorIds = sponsorLicenceIdsForImportWrites(plan.writes);
         const siteIds = [...new Set(
           plan.writes
             .filter((write) => write.field === "careers" && write.targetCompanySiteCheckId != null)
