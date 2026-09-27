@@ -88,6 +88,15 @@ export type SponsorWebsiteImportPlan = {
   }>;
 };
 
+export function sponsorLicenceIdsForImportWrites(
+  writes: readonly Pick<
+    SponsorWebsiteImportPlan["writes"][number],
+    "targetSponsorLicenceId"
+  >[],
+): number[] {
+  return [...new Set(writes.map((write) => write.targetSponsorLicenceId))];
+}
+
 const MAX_REVIEW_CANDIDATES = 20;
 const pilotNotImportedStatuses = new Set([
   "upgraded_to_high_in_pilot_not_imported",

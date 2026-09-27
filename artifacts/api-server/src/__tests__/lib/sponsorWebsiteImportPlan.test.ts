@@ -8,6 +8,7 @@ import {
 } from "../../lib/sponsorWebsiteCrossEnvIdentity";
 import {
   buildSponsorWebsiteImportPlan,
+  sponsorLicenceIdsForImportWrites,
   type SponsorWebsiteImportCandidate,
   type SponsorWebsiteProductionTarget,
 } from "../../lib/sponsorWebsiteImportPlan";
@@ -209,6 +210,7 @@ describe("sponsor website import planning", () => {
       careersTargets: [{ id: 902, organisationName: "St Marys and Sons Ltd", careersUrl: null }],
     });
     expect(unique.writes[0]?.targetCompanySiteCheckId).toBe(902);
+    expect(sponsorLicenceIdsForImportWrites(unique.writes)).toEqual([81]);
 
     const ambiguous = makePlan([careersCandidate], [sponsor()], {
       careersTargets: [
