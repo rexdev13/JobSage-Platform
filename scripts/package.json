@@ -16,6 +16,8 @@
     "non-healthcare-company-websites:test": "tsx ./src/nonHealthcareWebsiteIdentitySelfTest.ts",
     "non-healthcare-website-verification-dry-run": "tsx ./src/nonHealthcareWebsiteVerificationDryRun.ts",
     "non-healthcare-website-verification-dry-run:test": "tsx ./src/nonHealthcareWebsiteVerificationDryRunSelfTest.ts",
+    "non-healthcare-website-pilot-selection": "tsx ./src/nonHealthcareWebsitePilotSelection.ts",
+    "non-healthcare-website-pilot-selection:test": "tsx ./src/nonHealthcareWebsitePilotSelectionSelfTest.ts",
     "vacancy-source-routing": "tsx ./src/vacancySourceRoutingBatch.ts",
     "vacancy-source-routing:test": "tsx ./src/vacancySourceRoutingBatchSelfTest.ts",
     "healthcare-sponsor-import": "tsx ./src/healthcareSponsorWebsiteImport.ts",
