@@ -1118,3 +1118,31 @@ mtime_ms = 1790497706008
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/cec96aef-b408-44c2-8af4-ebb90139c43f/2715d753-4b78-49c9-b49f-77f2f890944d"
 storage_version_token = "1790497739745936"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "OGVyqN13_bUtsGF4Yzdmy"
+uri = "file://artifacts/non-healthcare-company-websites-live-verification-pilot-100.csv"
+type = "table"
+title = "Live verification results CSV"
+description = "The 100-candidate pilot results: 40 upgraded to high, 59 stayed medium, and 1 remained inconclusive."
+logical_id = "31242ffe-adf7-4e72-88b3-e295205f63fb"
+content_hash = "sha256:84ad1b67d16cd3ff2d041d5d0f5a3f84ea0cb759ec1c7beaf42efa4096bda8df"
+size = 128382
+mtime_ms = 1790498939412
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/31242ffe-adf7-4e72-88b3-e295205f63fb/21a5ecfd-28fc-4801-9074-0b5a08242924"
+storage_version_token = "1790499059008944"
+content_type = "text/csv"
+
+[[outputs]]
+id = "MxrnWZeWPwmMhuiAXqVn3"
+uri = "file://artifacts/non-healthcare-company-websites-live-verification-pilot-100-report.md"
+type = "text"
+title = "Live verification report"
+description = "Counts, blocked and timeout outcomes, evidence examples, safety scope, and the recommendation on expanding to all 2,395 candidates."
+logical_id = "015107fe-9e85-4ae2-b807-4ac5468eb1de"
+content_hash = "sha256:f4ebe4b82c6248b289f34c99f9c3ecf599e7cb08f5372aaae62739a502d5815e"
+size = 7200
+mtime_ms = 1790499010332
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/015107fe-9e85-4ae2-b807-4ac5468eb1de/35130187-b32b-4a06-8642-bc7722246176"
+storage_version_token = "1790499059938933"
+content_type = "text/markdown"
