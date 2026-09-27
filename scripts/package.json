@@ -20,6 +20,8 @@
     "non-healthcare-website-pilot-selection:test": "tsx ./src/nonHealthcareWebsitePilotSelectionSelfTest.ts",
     "non-healthcare-website-live-verification": "tsx ./src/nonHealthcareWebsiteLiveVerification.ts",
     "non-healthcare-website-live-verification:test": "tsx ./src/nonHealthcareWebsiteLiveVerificationSelfTest.ts",
+    "non-healthcare-sponsor-import": "tsx ./src/nonHealthcareSponsorWebsiteImport.ts",
+    "non-healthcare-sponsor-import:test": "tsx ./src/nonHealthcareSponsorWebsiteImportSelfTest.ts",
     "vacancy-source-routing": "tsx ./src/vacancySourceRoutingBatch.ts",
     "vacancy-source-routing:test": "tsx ./src/vacancySourceRoutingBatchSelfTest.ts",
     "healthcare-sponsor-import": "tsx ./src/healthcareSponsorWebsiteImport.ts",

@@ -1146,3 +1146,17 @@ mtime_ms = 1790499010332
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/015107fe-9e85-4ae2-b807-4ac5468eb1de/35130187-b32b-4a06-8642-bc7722246176"
 storage_version_token = "1790499059938933"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "N35hBVXMt4eD89iqE5xQZ"
+uri = "file://artifacts/non-healthcare-company-websites-dev-import-applied-diff.csv"
+type = "table"
+title = "Non-Healthcare website import diff"
+description = "The 14,530-row development import diff, including confidence, evidence URL, existing value, and whether each row was promoted or held for review."
+logical_id = "d3242e2b-f737-426e-b31a-38fbfe49f3d2"
+content_hash = "sha256:70601c71e7b6fed5b80448a1cf0f65debfc2847bbe7c9f7be56eaaf7971ad7ce"
+size = 3235205
+mtime_ms = 1790505309745
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/d3242e2b-f737-426e-b31a-38fbfe49f3d2/d2a05da4-2ac0-49cb-8c27-51f3ec8628e1"
+storage_version_token = "1790505446175557"
+content_type = "text/csv"
