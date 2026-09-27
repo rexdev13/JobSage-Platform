@@ -5,6 +5,102 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
+export interface SponsorWebsiteImportPreviewUpload {
+  file: Blob;
+}
+
+export interface SponsorWebsiteImportApplyUpload {
+  file: Blob;
+  /** @pattern ^[a-f0-9]{64}$ */
+  planHash: string;
+}
+
+export interface SponsorWebsiteIdentity {
+  organisationName: string;
+  townCity: string;
+  county: string;
+  region: string;
+  industry: string;
+  route: string;
+  subRoute: string;
+}
+
+export interface SponsorWebsiteIdentityCandidate {
+  id: number;
+  organisationName: string;
+  townCity: string;
+  county: string;
+  region: string;
+  industry: string;
+  route: string;
+  subRoute: string;
+}
+
+export type SponsorWebsiteImportRowField =
+  (typeof SponsorWebsiteImportRowField)[keyof typeof SponsorWebsiteImportRowField];
+
+export const SponsorWebsiteImportRowField = {
+  website: "website",
+  careers: "careers",
+} as const;
+
+export interface SponsorWebsiteImportRow {
+  sourceRef: string;
+  field: SponsorWebsiteImportRowField;
+  identityKey: string;
+  identity: SponsorWebsiteIdentity;
+  organisationName: string;
+  candidateUrl: string;
+  evidenceUrl: string;
+  status: string;
+  reason: string;
+  /** @nullable */
+  targetSponsorLicenceId: number | null;
+  /** @nullable */
+  targetCompanySiteCheckId: number | null;
+  currentValue: string;
+  productionCandidates: SponsorWebsiteIdentityCandidate[];
+}
+
+export type SponsorWebsiteImportPreviewCounts = { [key: string]: number };
+
+export interface SponsorWebsiteImportPreview {
+  environment: string;
+  rowCount: number;
+  planHash: string;
+  counts: SponsorWebsiteImportPreviewCounts;
+  writeCount: number;
+  rows: SponsorWebsiteImportRow[];
+}
+
+export interface SponsorWebsiteIdentityResolutionInput {
+  identity: SponsorWebsiteIdentity;
+  /** @minimum 1 */
+  targetSponsorLicenceId: number;
+  /**
+   * @minLength 8
+   * @maxLength 500
+   */
+  reason: string;
+}
+
+export interface SponsorWebsiteIdentityResolution {
+  saved: boolean;
+  identityKey: string;
+  targetSponsorLicenceId: number;
+}
+
+export type SponsorWebsiteImportResultCounts = { [key: string]: number };
+
+export interface SponsorWebsiteImportResult {
+  applied: boolean;
+  planHash: string;
+  websiteUpdates: number;
+  careersUpdates: number;
+  mappingsStored: number;
+  counts: SponsorWebsiteImportResultCounts;
+}
+
 export interface SponsorLicenceSyncResult {
   success: boolean;
   recordCount?: number | null;

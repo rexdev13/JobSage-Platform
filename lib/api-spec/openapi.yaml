@@ -3646,8 +3646,258 @@ paths:
               schema:
                 $ref: "#/components/schemas/SponsorLicenceSyncResult"
 
+  /admin/sponsor-website-import/preview:
+    post:
+      tags: [SuperAdmin]
+      operationId: previewSponsorWebsiteImport
+      summary: Preview a sponsor website CSV against the current database (super admin only)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/SponsorWebsiteImportPreviewUpload"
+      responses:
+        "200":
+          description: Read-only reconciliation preview.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SponsorWebsiteImportPreview"
+        "400":
+          description: Invalid CSV or missing fields.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Super-admin role required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /admin/sponsor-website-import/resolve:
+    post:
+      tags: [SuperAdmin]
+      operationId: resolveSponsorWebsiteIdentity
+      summary: Save a reviewed sponsor identity crosswalk (super admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SponsorWebsiteIdentityResolutionInput"
+      responses:
+        "200":
+          description: Reviewed identity mapping saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SponsorWebsiteIdentityResolution"
+        "400":
+          description: Invalid identity mapping or review reason.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Super-admin role required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: The selected production sponsor conflicts with the identity.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /admin/sponsor-website-import/apply:
+    post:
+      tags: [SuperAdmin]
+      operationId: applySponsorWebsiteImport
+      summary: Apply the unchanged, reviewed safe rows from a sponsor website preview (super admin only)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/SponsorWebsiteImportApplyUpload"
+      responses:
+        "200":
+          description: Safe blank-field updates applied.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SponsorWebsiteImportResult"
+        "400":
+          description: Invalid CSV or preview hash.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Super-admin role required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: The preview is stale or applying is not allowed in this environment.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
 components:
   schemas:
+    SponsorWebsiteImportPreviewUpload:
+      type: object
+      required: [file]
+      properties:
+        file:
+          type: string
+          format: binary
+
+    SponsorWebsiteImportApplyUpload:
+      type: object
+      required: [file, planHash]
+      properties:
+        file:
+          type: string
+          format: binary
+        planHash:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+
+    SponsorWebsiteIdentity:
+      type: object
+      required: [organisationName, townCity, county, region, industry, route, subRoute]
+      properties:
+        organisationName: { type: string }
+        townCity: { type: string }
+        county: { type: string }
+        region: { type: string }
+        industry: { type: string }
+        route: { type: string }
+        subRoute: { type: string }
+
+    SponsorWebsiteIdentityCandidate:
+      type: object
+      required: [id, organisationName, townCity, county, region, industry, route, subRoute]
+      properties:
+        id: { type: integer }
+        organisationName: { type: string }
+        townCity: { type: string }
+        county: { type: string }
+        region: { type: string }
+        industry: { type: string }
+        route: { type: string }
+        subRoute: { type: string }
+
+    SponsorWebsiteImportRow:
+      type: object
+      required:
+        - sourceRef
+        - field
+        - identityKey
+        - identity
+        - organisationName
+        - candidateUrl
+        - evidenceUrl
+        - status
+        - reason
+        - targetSponsorLicenceId
+        - targetCompanySiteCheckId
+        - currentValue
+        - productionCandidates
+      properties:
+        sourceRef: { type: string }
+        field: { type: string, enum: [website, careers] }
+        identityKey: { type: string }
+        identity:
+          $ref: "#/components/schemas/SponsorWebsiteIdentity"
+        organisationName: { type: string }
+        candidateUrl: { type: string }
+        evidenceUrl: { type: string }
+        status: { type: string }
+        reason: { type: string }
+        targetSponsorLicenceId:
+          type: [integer, "null"]
+        targetCompanySiteCheckId:
+          type: [integer, "null"]
+        currentValue: { type: string }
+        productionCandidates:
+          type: array
+          items:
+            $ref: "#/components/schemas/SponsorWebsiteIdentityCandidate"
+
+    SponsorWebsiteImportPreview:
+      type: object
+      required: [environment, rowCount, planHash, counts, writeCount, rows]
+      properties:
+        environment: { type: string }
+        rowCount: { type: integer }
+        planHash: { type: string }
+        counts:
+          type: object
+          additionalProperties: { type: integer }
+        writeCount: { type: integer }
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/SponsorWebsiteImportRow"
+
+    SponsorWebsiteIdentityResolutionInput:
+      type: object
+      required: [identity, targetSponsorLicenceId, reason]
+      properties:
+        identity:
+          $ref: "#/components/schemas/SponsorWebsiteIdentity"
+        targetSponsorLicenceId: { type: integer, minimum: 1 }
+        reason: { type: string, minLength: 8, maxLength: 500 }
+
+    SponsorWebsiteIdentityResolution:
+      type: object
+      required: [saved, identityKey, targetSponsorLicenceId]
+      properties:
+        saved: { type: boolean }
+        identityKey: { type: string }
+        targetSponsorLicenceId: { type: integer }
+
+    SponsorWebsiteImportResult:
+      type: object
+      required: [applied, planHash, websiteUpdates, careersUpdates, mappingsStored, counts]
+      properties:
+        applied: { type: boolean }
+        planHash: { type: string }
+        websiteUpdates: { type: integer }
+        careersUpdates: { type: integer }
+        mappingsStored: { type: integer }
+        counts:
+          type: object
+          additionalProperties: { type: integer }
+
     SponsorLicenceSyncResult:
       type: object
       required: [success]

@@ -30,6 +30,42 @@ export const sponsorLicencesTable = pgTable(
 export type SponsorLicence = typeof sponsorLicencesTable.$inferSelect;
 export type InsertSponsorLicence = typeof sponsorLicencesTable.$inferInsert;
 
+/**
+ * Maps an environment-independent sponsor identity to the local sponsor row
+ * selected in this database. The key is derived from source identity fields,
+ * never from a development or production serial ID.
+ */
+export const sponsorLicenceIdentityCrosswalkTable = pgTable(
+  "sponsor_licence_identity_crosswalk",
+  {
+    id: serial("id").primaryKey(),
+    sourceSystem: text("source_system").notNull(),
+    identityKey: varchar("identity_key", { length: 64 }).notNull(),
+    identitySnapshot: jsonb("identity_snapshot")
+      .$type<Record<string, string>>()
+      .notNull(),
+    targetSponsorLicenceId: integer("target_sponsor_licence_id")
+      .notNull()
+      .references(() => sponsorLicencesTable.id, { onDelete: "cascade" }),
+    resolutionMethod: varchar("resolution_method", {
+      enum: ["exact_unique", "manual_review"],
+    }).notNull(),
+    resolvedBy: text("resolved_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("sponsor_licence_identity_crosswalk_source_key_unique").on(
+      t.sourceSystem,
+      t.identityKey,
+    ),
+    index("sponsor_licence_identity_crosswalk_target_idx").on(t.targetSponsorLicenceId),
+  ],
+);
+
+export type SponsorLicenceIdentityCrosswalk =
+  typeof sponsorLicenceIdentityCrosswalkTable.$inferSelect;
+
 export const sponsorLicenceSyncLogTable = pgTable("sponsor_licence_sync_log", {
   id: serial("id").primaryKey(),
   status: varchar("status", { enum: ["success", "error"] }).notNull(),
