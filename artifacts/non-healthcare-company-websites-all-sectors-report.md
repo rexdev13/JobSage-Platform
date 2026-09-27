@@ -1,7 +1,7 @@
 # Non-Healthcare company website discovery — all sectors
 
-**Status:** Incomplete / resumable  
-**Updated:** 2026-09-27T07:04:00.892Z
+**Status:** Complete  
+**Updated:** 2026-09-27T08:02:50.425Z
 
 ## Scope and inputs
 
@@ -11,12 +11,12 @@
 - Non-Healthcare sponsor rows considered, including blank `industry`: **20,541**
 - Unique non-Healthcare rows after stable sponsor-ID deduplication: **20,541**
 - Selected under the per-sector cap: **14,530**
-- Processed so far: **12,802**; verified website found (high + medium): **3,329**
+- Processed so far: **14,530**; verified website found (high + medium): **3,728**
 - Rows skipped by the 3,000-per-sector cap: **6,011**
 - Duplicate source rows skipped: **0**
 - The blank industry value is kept as its own `(blank industry)` group; only the exact value `Healthcare` is excluded.
 - Sector selection follows the stable order of the supplied export; within each exact industry, the first 3,000 unique sponsor rows are selected.
-- Search configured: **no**; Bing queries used: **0**. SponsorList queries: **10824**. PublicSiteFetcher calls (site and SponsorList): **19610**, including retries. Company homepage checks: **8786**.
+- Search configured: **no**; Bing queries used: **0**. SponsorList queries: **12346**. PublicSiteFetcher calls (site and SponsorList): **22111**, including retries. Company homepage checks: **9765**.
 
 ## Existing signal inventory
 
@@ -57,8 +57,8 @@ These counts cover only existing website, careers URL, public contact email, and
 | Public Services | 222 | 222 | No | 222 | 83 (37.4%) | 82 | 1 | 2 | 137 |
 | Retail | 68 | 68 | No | 68 | 11 (16.2%) | 1 | 10 | 5 | 52 |
 | Social Care | 1594 | 1594 | No | 1594 | 215 (13.5%) | 139 | 76 | 74 | 1305 |
-| Technology | 1681 | 1681 | No | 0 | 0 (0.0%) | 0 | 0 | 0 | 0 |
-| Transport | 47 | 47 | No | 0 | 0 (0.0%) | 0 | 0 | 0 | 0 |
+| Technology | 1681 | 1681 | No | 1681 | 382 (22.7%) | 185 | 197 | 197 | 1102 |
+| Transport | 47 | 47 | No | 47 | 17 (36.2%) | 13 | 4 | 8 | 22 |
 
 ## Sources used
 
@@ -66,12 +66,12 @@ The run tried existing website first, then a usable existing contact-email domai
 
 | Lead source used for rows | Rows |
 |---|---:|
-| SponsorList | 3177 |
-| existing_website | 965 |
-| existing_careers_url_domain | 352 |
-| company_site_existing_file | 350 |
-| contact_email_domain | 329 |
-| verified_company_site_source_host | 112 |
+| SponsorList | 3736 |
+| existing_website | 1002 |
+| existing_careers_url_domain | 366 |
+| company_site_existing_file | 364 |
+| contact_email_domain | 343 |
+| verified_company_site_source_host | 120 |
 
 ## Common failure reasons
 
@@ -79,17 +79,17 @@ Failure counts may exceed processed rows because one sponsor can have multiple f
 
 | Reason code | Occurrences |
 |---|---:|
-| no_exact_name_location_lead | 4832 |
-| identity_not_confirmed | 3769 |
-| robots_or_policy_block | 1262 |
-| website_fetch_failed | 237 |
-| page_over_size_limit | 211 |
-| website_access_denied | 121 |
-| unsafe_or_external_redirect | 77 |
-| website_not_found | 22 |
+| no_exact_name_location_lead | 5517 |
+| identity_not_confirmed | 4198 |
+| robots_or_policy_block | 1416 |
+| website_fetch_failed | 268 |
+| page_over_size_limit | 234 |
+| website_access_denied | 147 |
+| unsafe_or_external_redirect | 86 |
+| website_not_found | 23 |
 | website_server_error | 11 |
 | website_timeout | 3 |
-| unsafe_or_unresolved_host | 2 |
+| unsafe_or_unresolved_host | 3 |
 | website_rate_limited | 1 |
 
 ## Website coverage priorities
@@ -116,13 +116,13 @@ No ATS/job-board discovery, vacancy discovery or routing, import, database write
 
 ## Files and resume
 
-- Combined CSV: `artifacts/non-healthcare-company-websites-all-sectors.csv` (12802 processed rows currently written)
+- Combined CSV: `artifacts/non-healthcare-company-websites-all-sectors.csv` (14530 processed rows currently written)
 - Per-sector CSVs: `artifacts/company-websites-by-sector/<sector-slug>-company-websites.csv`
 - Progress JSON: `artifacts/non-healthcare-company-websites-all-sectors-progress.json`
 - Append-only resume journal: `artifacts/non-healthcare-company-websites-all-sectors-progress.jsonl`
 - This report: `artifacts/non-healthcare-company-websites-all-sectors-report.md`
 - Run signature: `ae47bc4f3fc8d4e62607ca39f4fdc36507785394ee299a7fd624b9220e04e0a5`
 
-This run is resumable. Continue with `pnpm --filter @workspace/scripts non-healthcare-company-websites -- --resume`; the runner validates the input/support hashes and resumes from the journal. Stop reason: not yet completed.
+This run is complete.
 
 No database was queried or changed. The supplied export and support CSVs were read as local files only.
