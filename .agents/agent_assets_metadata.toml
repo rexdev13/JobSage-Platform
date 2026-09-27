@@ -1090,3 +1090,31 @@ mtime_ms = 1790496554707
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/1933f7c6-0f9f-4c12-96de-38dfc34ea45f/2c5d096b-463f-416a-95b3-f63d47275706"
 storage_version_token = "1790496751712365"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "r46lReCvpRtCBvwRGavJC"
+uri = "file://artifacts/non-healthcare-company-websites-verification-pilot-100.csv"
+type = "table"
+title = "100-candidate website verification pilot"
+description = "Deterministic, domain-diverse pilot list; all 100 are strong medium-confidence candidates. No websites were fetched."
+logical_id = "caa518f0-b06d-4c10-a40b-9e081280bdd4"
+content_hash = "sha256:4967c0b954ac0dcc40cf9c4016e082b08bbba1ce3136aaf77e3f1d080bb62d04"
+size = 46481
+mtime_ms = 1790497706004
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/caa518f0-b06d-4c10-a40b-9e081280bdd4/438fa6ba-83c8-4464-a451-c14a2d6591cd"
+storage_version_token = "1790497738297755"
+content_type = "text/csv"
+
+[[outputs]]
+id = "YZ1UmtVaVm9I8uOnld57K"
+uri = "file://artifacts/non-healthcare-company-websites-verification-pilot-100-report.md"
+type = "text"
+title = "Pilot selection criteria and report"
+description = "Counts, strong-medium definition, ranking rules, and confirmation that no network or database requests were made."
+logical_id = "cec96aef-b408-44c2-8af4-ebb90139c43f"
+content_hash = "sha256:af7f8157d77824a327361e3f13f80b83a429bed404c6af9e008bb4813b3e298d"
+size = 2745
+mtime_ms = 1790497706008
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/cec96aef-b408-44c2-8af4-ebb90139c43f/2715d753-4b78-49c9-b49f-77f2f890944d"
+storage_version_token = "1790497739745936"
+content_type = "text/markdown"
