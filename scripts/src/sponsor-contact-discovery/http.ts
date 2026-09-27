@@ -8,6 +8,11 @@ const USER_AGENT = "JOBSAGE sponsor contact discovery/1.0";
 const robotsCache = new Map<string, string | null>();
 const hostLastRequest = new Map<string, number>();
 
+export type PublicSiteFetcherMetrics = {
+  httpRequestsMade: number;
+  cacheHits: number;
+};
+
 function isPrivateIp(address: string): boolean {
   if (net.isIPv4(address)) {
     const [a, b] = address.split(".").map(Number);
@@ -59,12 +64,20 @@ function robotsAllows(robots: string | null, path: string): boolean {
   return true;
 }
 
-async function getRobots(origin: string, delayMs: number): Promise<string | null> {
+async function getRobots(
+  origin: string,
+  delayMs: number,
+  metrics?: PublicSiteFetcherMetrics,
+): Promise<string | null> {
   const cached = robotsCache.get(origin);
-  if (cached !== undefined) return cached;
+  if (cached !== undefined) {
+    if (metrics) metrics.cacheHits += 1;
+    return cached;
+  }
   const robotsUrl = `${origin}/robots.txt`;
   try {
     await waitForHost(new URL(origin).hostname, delayMs);
+    if (metrics) metrics.httpRequestsMade += 1;
     const response = await fetch(robotsUrl, {
       headers: { "User-Agent": USER_AGENT, Accept: "text/plain" },
       redirect: "error",
@@ -86,7 +99,10 @@ export type PageResult = {
 };
 
 export class PublicSiteFetcher {
-  constructor(private readonly delayMs = 1_500) {}
+  constructor(
+    private readonly delayMs = 1_500,
+    private readonly metrics?: PublicSiteFetcherMetrics,
+  ) {}
 
   async fetch(url: string, confirmedHost?: string): Promise<PageResult> {
     let current = new URL(url);
@@ -96,9 +112,10 @@ export class PublicSiteFetcher {
         throw new Error("redirect left the confirmed HTTPS employer domain");
       }
       await publicHost(current.hostname);
-      const robots = await getRobots(current.origin, this.delayMs);
+      const robots = await getRobots(current.origin, this.delayMs, this.metrics);
       if (!robotsAllows(robots, current.pathname)) throw new Error("robots.txt disallows this page");
       await waitForHost(current.hostname, this.delayMs);
+      if (this.metrics) this.metrics.httpRequestsMade += 1;
       const response = await fetch(current, {
         headers: { "User-Agent": USER_AGENT, Accept: "text/html,application/xhtml+xml,text/plain;q=0.8" },
         redirect: "manual",
