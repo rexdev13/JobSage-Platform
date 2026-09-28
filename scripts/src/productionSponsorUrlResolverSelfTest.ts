@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import {
   runProductionSponsorUrlResolver,
   type CsvRecord,
   type ProductionApplyAudit,
   type ProductionCareersTarget,
+  type ProductionIdentityMapping,
   type ProductionSponsorTarget,
 } from "./productionSponsorUrlResolverCore";
+import { normalizeSponsorIdentityValue } from "./sponsorUrlResolverNormalization";
 
 function source(overrides: Partial<CsvRecord> = {}): CsvRecord {
   return {
@@ -54,15 +57,16 @@ function careersTarget(overrides: Partial<ProductionCareersTarget> = {}): Produc
   };
 }
 
-function audit(rowCount: number): ProductionApplyAudit {
+function audit(rowCount: number, websiteUpdates = rowCount): ProductionApplyAudit {
   return {
     createdAt: "2026-09-27T18:52:04.939521+00:00",
     action: "sponsor_website_import_applied",
     target: "plan:" + "a".repeat(64),
     details: {
       rowCount,
-      websiteUpdates: rowCount,
+      websiteUpdates,
       careersUpdates: 0,
+      safeTargetWrites: websiteUpdates,
       mappingsStored: 0,
       counts: { safe_to_import: rowCount },
     },
@@ -73,13 +77,34 @@ function run(
   rows: CsvRecord[],
   sponsors: ProductionSponsorTarget[] = [sponsor()],
   careers: ProductionCareersTarget[] = [],
+  mappings: ProductionIdentityMapping[] = [],
+  websiteUpdates = rows.length,
 ) {
   return runProductionSponsorUrlResolver({
-    audit: audit(rows.length),
+    audit: audit(rows.length, websiteUpdates),
     reconciliationRows: rows,
     sponsors,
     careersTargets: careers,
+    mappings,
   });
+}
+
+function manualMapping(sourceRow: CsvRecord, targetId: string): ProductionIdentityMapping {
+  const identitySnapshot = {
+    organisationName: normalizeSponsorIdentityValue(sourceRow.organisation_name),
+    townCity: normalizeSponsorIdentityValue(sourceRow.town_city),
+    county: normalizeSponsorIdentityValue(sourceRow.county),
+    region: normalizeSponsorIdentityValue(sourceRow.region),
+    industry: normalizeSponsorIdentityValue(sourceRow.industry),
+    route: normalizeSponsorIdentityValue(sourceRow.route),
+    subRoute: normalizeSponsorIdentityValue(sourceRow.sub_route),
+  };
+  return {
+    identity_key: createHash("sha256").update(JSON.stringify(identitySnapshot), "utf8").digest("hex"),
+    identity_snapshot: JSON.stringify(identitySnapshot),
+    target_sponsor_licence_id: targetId,
+    resolution_method: "manual_review",
+  };
 }
 
 function classification(rows: CsvRecord[], sponsors?: ProductionSponsorTarget[], careers?: ProductionCareersTarget[]) {
@@ -115,8 +140,8 @@ assert.deepEqual(
     ],
     [careersTarget()],
   ),
-  ["needs_manual_identity_resolution"],
-  "multiple equally strong official-domain matches remain manual",
+  ["safe_auto_resolve"],
+  "identical complete sponsor rows resolve as a group despite sharing the same official host",
 );
 
 assert.deepEqual(
@@ -251,15 +276,92 @@ assert.deepEqual(
     ],
     [careersTarget()],
   ),
-  ["needs_manual_identity_resolution"],
-  "a careers target is not used while sponsor identity remains unresolved",
+  ["safe_auto_resolve"],
+  "an identical complete sponsor group can share one unique careers-site target",
 );
+const identicalCareerGroup = run(
+  [identityCandidate],
+  [sponsor({ production_sponsor_id: "81" }), sponsor({ production_sponsor_id: "82" })],
+  [careersTarget()],
+);
+assert.deepEqual(identicalCareerGroup.results[0]?.resolvedSponsorIds, ["81", "82"]);
+assert.equal(identicalCareerGroup.results[0]?.resolvedCareersId, "901");
+
+assert.equal(
+  classification(
+    [source({
+      field: "careers",
+      candidate_url: "https://acme.example/careers",
+      evidence_url: "https://acme.example/",
+      development_current_value: "https://acme.example/careers",
+      county: "",
+    })],
+    [
+      sponsor({ production_sponsor_id: "81" }),
+      sponsor({ production_sponsor_id: "82", county: "Somerset" }),
+    ],
+    [careersTarget()],
+  )[0],
+  "needs_manual_identity_resolution",
+  "non-identical ambiguous sponsor identities remain held",
+);
+
+const groupWithExistingMatch = run(
+  [source()],
+  [
+    sponsor({ production_sponsor_id: "81" }),
+    sponsor({ production_sponsor_id: "82", website: "https://acme.example" }),
+  ],
+  [],
+  [],
+  1,
+);
+assert.equal(groupWithExistingMatch.results[0]?.classification, "safe_auto_resolve");
+assert.deepEqual(groupWithExistingMatch.results[0]?.resolvedSponsorIds, ["81", "82"]);
+
+const groupWithConflict = run(
+  [source()],
+  [
+    sponsor({ production_sponsor_id: "81" }),
+    sponsor({ production_sponsor_id: "82", website: "https://old.example" }),
+  ],
+);
+assert.equal(groupWithConflict.results[0]?.classification, "needs_manual_url_conflict_review");
+
+const mappedSource = source({ source_ref: "mapped:1" });
+const selectedMapping = manualMapping(mappedSource, "82");
+const mappedGroup = run(
+  [mappedSource],
+  [sponsor({ production_sponsor_id: "81" }), sponsor({ production_sponsor_id: "82" })],
+  [],
+  [selectedMapping],
+);
+assert.equal(mappedGroup.results[0]?.classification, "safe_auto_resolve");
+assert.deepEqual(mappedGroup.results[0]?.resolvedSponsorIds, ["82"]);
+
+const incompatibleMapping = run(
+  [mappedSource],
+  [sponsor({ production_sponsor_id: "82", town_city: "Leeds" })],
+  [],
+  [selectedMapping],
+);
+assert.equal(incompatibleMapping.results[0]?.classification, "needs_manual_identity_resolution");
 
 const currentNoop = run(
   [source({ confidence: "low", development_confidence: "low" })],
   [sponsor({ website: "https://acme.example" })],
 );
 assert.equal(currentNoop.results[0]?.classification, "safe_noop_already_done");
+
+const whitespaceProductionValue = run(
+  [source()],
+  [sponsor({ website: "   " })],
+);
+assert.equal(
+  whitespaceProductionValue.results[0]?.classification,
+  "needs_manual_url_conflict_review",
+  "whitespace-only production values are not considered blank write targets",
+);
 
 const duplicateRows = run([
   source({ source_ref: "duplicate:1" }),

@@ -21,6 +21,7 @@ export interface SponsorWebsiteImportRow {
   reason: string;
   /** @nullable */
   targetSponsorLicenceId: number | null;
+  targetSponsorLicenceIds: number[];
   /** @nullable */
   targetCompanySiteCheckId: number | null;
   currentValue: string;

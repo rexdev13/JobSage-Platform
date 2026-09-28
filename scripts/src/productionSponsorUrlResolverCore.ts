@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   normalizeSponsorIdentityValue,
   normalizeSponsorLegalNameValue,
@@ -23,6 +24,7 @@ export type ProductionApplyAudit = {
     rowCount: number;
     websiteUpdates: number;
     careersUpdates: number;
+    safeTargetWrites?: number;
     mappingsStored: number;
     counts: Record<string, number>;
   };
@@ -46,13 +48,22 @@ export type ProductionCareersTarget = {
   careers_url: string;
 };
 
+export type ProductionIdentityMapping = {
+  identity_key: string;
+  identity_snapshot: string;
+  target_sponsor_licence_id: string;
+  resolution_method: string;
+};
+
 export type ResolverResult = {
   source: CsvRecord;
   classification: ResolverClassification;
   reason: string;
   resolvedSponsorId: string;
+  resolvedSponsorIds: string[];
   resolvedCareersId: string;
   currentValue: string;
+  targetCurrentValues: Record<string, string>;
   identityMatchMethod: string;
   evidence: string;
 };
@@ -86,6 +97,7 @@ export const RESOLVER_OUTPUT_COLUMNS = [
   "resolver_classification",
   "resolver_reason",
   "resolver_target_sponsor_id",
+  "resolver_target_sponsor_ids",
   "resolver_target_company_site_check_id",
   "resolver_current_production_value",
   "resolver_identity_match_method",
@@ -136,18 +148,61 @@ function identityIsComplete(source: CsvRecord): boolean {
     RECORD_DETAIL_FIELDS.some((field) => normalizeSponsorIdentityValue(source[field]));
 }
 
-function splitProductionIds(value: string | undefined): string[] {
-  return [...new Set((value ?? "")
-    .split("|")
-    .map((part) => part.trim())
-    .filter((part) => /^\d+$/.test(part)))];
+function identitySnapshot(source: CsvRecord): Record<string, string> {
+  return {
+    organisationName: normalizeSponsorIdentityValue(source.organisation_name),
+    townCity: normalizeSponsorIdentityValue(source.town_city),
+    county: normalizeSponsorIdentityValue(source.county),
+    region: normalizeSponsorIdentityValue(source.region),
+    industry: normalizeSponsorIdentityValue(source.industry),
+    route: normalizeSponsorIdentityValue(source.route),
+    subRoute: normalizeSponsorIdentityValue(source.sub_route),
+  };
 }
 
-function sourceTargetIds(source: CsvRecord): string[] {
-  return [...new Set([
-    ...splitProductionIds(source.matched_production_sponsor_record_id),
-    ...splitProductionIds(source.candidate_production_sponsor_record_ids),
-  ])];
+function identityKey(source: CsvRecord): string {
+  return createHash("sha256")
+    .update(JSON.stringify(identitySnapshot(source)), "utf8")
+    .digest("hex");
+}
+
+function completeSponsorSignature(target: ProductionSponsorTarget): string {
+  return JSON.stringify([
+    normalizeSponsorIdentityValue(target.organisation_name),
+    normalizeSponsorIdentityValue(target.town_city),
+    normalizeSponsorIdentityValue(target.county),
+    normalizeSponsorIdentityValue(target.region),
+    normalizeSponsorIdentityValue(target.industry),
+    normalizeSponsorIdentityValue(target.route),
+    normalizeSponsorIdentityValue(target.sub_route),
+  ]);
+}
+
+function identicalCompleteSponsorGroup(targets: ProductionSponsorTarget[]): boolean {
+  return targets.length > 1 &&
+    new Set(targets.map(completeSponsorSignature)).size === 1;
+}
+
+function parseMappingSnapshot(value: string): Record<string, string> | null {
+  try {
+    const parsed = JSON.parse(value) as Record<string, unknown>;
+    const keys = [
+      "organisationName",
+      "townCity",
+      "county",
+      "region",
+      "industry",
+      "route",
+      "subRoute",
+    ];
+    if (keys.some((key) => typeof parsed[key] !== "string")) return null;
+    return Object.fromEntries(keys.map((key) => [
+      key,
+      normalizeSponsorIdentityValue(parsed[key] as string),
+    ]));
+  } catch {
+    return null;
+  }
 }
 
 function hasCareerPathSignal(rawUrl: string): boolean {
@@ -194,8 +249,10 @@ function result(
     classification,
     reason,
     resolvedSponsorId: "",
+    resolvedSponsorIds: [],
     resolvedCareersId: "",
     currentValue: "",
+    targetCurrentValues: {},
     identityMatchMethod: "",
     evidence: "",
     ...extras,
@@ -218,18 +275,23 @@ function validateAudit(audit: ProductionApplyAudit, candidateCount: number): voi
   if (auditedRows !== audit.details.rowCount) {
     throw new Error(`Production audit reason counts total ${auditedRows}, expected ${audit.details.rowCount}.`);
   }
-  if (audit.details.counts.safe_to_import !== audit.details.websiteUpdates + audit.details.careersUpdates) {
-    throw new Error("Production audit safe_to_import count does not match its website/careers update totals.");
+  const appliedTargetWrites = audit.details.websiteUpdates + audit.details.careersUpdates;
+  if (audit.details.safeTargetWrites !== undefined) {
+    if (audit.details.safeTargetWrites !== appliedTargetWrites) {
+      throw new Error("Production audit safeTargetWrites does not match its website/careers update totals.");
+    }
+  } else if (audit.details.counts.safe_to_import !== appliedTargetWrites) {
+    throw new Error("Legacy production audit safe_to_import count does not match its website/careers update totals.");
   }
 }
 
 function resolveSponsorTarget(
   source: CsvRecord,
   sponsors: ProductionSponsorTarget[],
-  candidateUrl: string,
-  evidenceUrl: string,
+  mappings: ProductionIdentityMapping[],
 ): {
   target: ProductionSponsorTarget | null;
+  targets: ProductionSponsorTarget[];
   classification?: ResolverClassification;
   reason?: string;
   method: string;
@@ -239,6 +301,7 @@ function resolveSponsorTarget(
   if (!legalName) {
     return {
       target: null,
+      targets: [],
       classification: "unresolved_due_to_missing_data",
       reason: "The candidate has no organisation name.",
       method: "",
@@ -246,15 +309,62 @@ function resolveSponsorTarget(
     };
   }
 
+  const sourceIdentityKey = identityKey(source);
+  const manualMappings = mappings.filter((candidate) =>
+    candidate.identity_key === sourceIdentityKey &&
+    candidate.resolution_method === "manual_review",
+  );
+  const manualTargetIds = new Set(
+    manualMappings.map((candidate) => candidate.target_sponsor_licence_id),
+  );
+  if (manualTargetIds.size > 1) {
+    return {
+      target: null,
+      targets: [],
+      classification: "needs_manual_identity_resolution",
+      reason: "Conflicting manually reviewed production crosswalk rows select different targets.",
+      method: "conflicting_manual_crosswalks",
+      evidence: "More than one reviewed production target uses this exact normalized source identity key.",
+    };
+  }
+  const mapping = manualMappings[0];
+  if (mapping) {
+    const snapshot = parseMappingSnapshot(mapping.identity_snapshot);
+    const snapshotHash = snapshot
+      ? createHash("sha256").update(JSON.stringify(snapshot), "utf8").digest("hex")
+      : "";
+    const mappedTarget = sponsors.find(
+      (candidate) => candidate.production_sponsor_id === mapping.target_sponsor_licence_id,
+    );
+    if (
+      snapshotHash !== mapping.identity_key ||
+      !mappedTarget ||
+      normalizeLegalName(mappedTarget.organisation_name) !== legalName ||
+      !equalProvidedIdentityFields(source, mappedTarget)
+    ) {
+      return {
+        target: null,
+        targets: [],
+        classification: "needs_manual_identity_resolution",
+        reason: "A saved production crosswalk exists but its snapshot or selected target is no longer compatible with the candidate identity.",
+        method: "incompatible_manual_crosswalk",
+        evidence: "The crosswalk snapshot hash, production target, or supplied identity fields do not agree.",
+      };
+    }
+    return {
+      target: mappedTarget,
+      targets: [mappedTarget],
+      method: "manual_review_crosswalk",
+      evidence: "A saved manual-review crosswalk selects this production sponsor and its current identity still agrees.",
+    };
+  }
+
   const nameTargets = sponsors.filter(
     (target) => normalizeLegalName(target.organisation_name) === legalName,
   );
-  const preflightIdSet = new Set(sourceTargetIds(source));
-  const idTargets = preflightIdSet.size
-    ? sponsors.filter((target) => preflightIdSet.has(target.production_sponsor_id))
-    : [];
-  const candidateTargets = nameTargets.length ? nameTargets : idTargets;
-  const identityMatches = candidateTargets.filter((target) => equalProvidedIdentityFields(source, target));
+  const identityMatches = nameTargets.filter((target) =>
+    equalProvidedIdentityFields(source, target),
+  );
 
   if (identityMatches.length === 1) {
     const target = identityMatches[0]!;
@@ -263,6 +373,7 @@ function resolveSponsorTarget(
       normalizeSponsorIdentityValue(target.organisation_name);
     return {
       target,
+      targets: [target],
       method: exactNormalizedName
         ? "unique_complete_identity"
         : "unique_ltd_limited_name_identity",
@@ -271,47 +382,30 @@ function resolveSponsorTarget(
   }
 
   if (identityMatches.length > 1) {
-    const candidateHost = hostOf(candidateUrl);
-    const evidenceHost = hostOf(evidenceUrl);
-    if (candidateHost && candidateHost === evidenceHost) {
-      const domainMatches = identityMatches.filter((target) => hostOf(target.website) === candidateHost);
-      if (domainMatches.length === 1) {
-        return {
-          target: domainMatches[0]!,
-          method: "unique_official_domain_match",
-          evidence: "Exactly one identity candidate already has the same current production website host as the candidate and evidence URL.",
-        };
-      }
+    if (identityIsComplete(source) && identicalCompleteSponsorGroup(identityMatches)) {
+      return {
+        target: identityMatches[0]!,
+        targets: identityMatches,
+        method: "identical_complete_duplicate_group",
+        evidence: `All ${identityMatches.length} current production sponsor rows have identical complete normalized identity records.`,
+      };
     }
-
-    if ((source.field ?? "").toLowerCase() === "website") {
-      const candidateValue = normalizeImportUrl(candidateUrl);
-      const alreadyPresent = identityMatches.filter(
-        (target) => normalizeImportUrl(target.website) === candidateValue,
-      );
-      if (candidateValue && alreadyPresent.length === 1) {
-        return {
-          target: alreadyPresent[0]!,
-          method: "unique_existing_url_match",
-          evidence: "Exactly one identity candidate already contains this exact URL in production.",
-        };
-      }
-    }
-
     return {
       target: null,
+      targets: [],
       classification: "needs_manual_identity_resolution",
       reason: `${identityMatches.length} current production sponsor rows match all supplied identity fields; no single row has unique ownership evidence.`,
       method: "multiple_strong_identity_matches",
-      evidence: "The source name, location, and sponsor details do not distinguish the matching production rows.",
+      evidence: "The source identity does not distinguish one target, and the matching production records are not an identical complete sponsor group.",
     };
   }
 
-  if (candidateTargets.length) {
+  if (nameTargets.length) {
     return {
       target: null,
+      targets: [],
       classification: "needs_manual_identity_resolution",
-      reason: "Production rows share the organisation name or prior production candidate IDs, but supplied identity fields conflict.",
+      reason: "Production rows share the organisation name, but supplied identity fields conflict.",
       method: "identity_attribute_conflict",
       evidence: "At least one supplied location or sponsor-detail field differs from every candidate production row.",
     };
@@ -319,6 +413,7 @@ function resolveSponsorTarget(
 
   return {
     target: null,
+    targets: [],
     classification: "unresolved_due_to_missing_data",
     reason: "No current production sponsor target could be found from the candidate name or prior production candidate IDs.",
     method: "no_current_production_target",
@@ -330,6 +425,7 @@ function classifyOne(
   source: CsvRecord,
   sponsors: ProductionSponsorTarget[],
   careersTargets: ProductionCareersTarget[],
+  mappings: ProductionIdentityMapping[],
 ): ResolverResult {
   const field = (source.field ?? "").trim().toLowerCase();
   const candidateUrl = normalizeImportUrl(source.candidate_url);
@@ -352,7 +448,7 @@ function classifyOne(
     return result(source, "unresolved_due_to_missing_data", "A valid supporting evidence URL is missing.");
   }
 
-  const identity = resolveSponsorTarget(source, sponsors, candidateUrl, evidenceUrl);
+  const identity = resolveSponsorTarget(source, sponsors, mappings);
   if (!identity.target) {
     return result(
       source,
@@ -362,6 +458,7 @@ function classifyOne(
     );
   }
   const target = identity.target;
+  const matchedTargets = identity.targets.length ? identity.targets : [target];
   if (!identityIsComplete(source)) {
     return result(
       source,
@@ -376,9 +473,20 @@ function classifyOne(
   }
 
   let currentValue = "";
+  let targetCurrentValues: Record<string, string> = {};
   let careersTarget: ProductionCareersTarget | undefined;
   if (field === "website") {
-    currentValue = target.website ?? "";
+    targetCurrentValues = Object.fromEntries(
+      matchedTargets.map((candidateTarget) => [
+        candidateTarget.production_sponsor_id,
+        candidateTarget.website ?? "",
+      ]),
+    );
+    const currentValues = Object.values(targetCurrentValues);
+    const conflictingValue = currentValues.find(
+      (value) => value !== "" && normalizeImportUrl(value) !== candidateUrl,
+    );
+    currentValue = conflictingValue ?? currentValues.find((value) => value !== "") ?? "";
   } else {
     const siteTargets = careersTargets.filter(
       (site) => normalizeLegalName(site.organisation_name) === normalizeLegalName(target.organisation_name),
@@ -420,24 +528,37 @@ function classifyOne(
 
   const baseTarget = {
     resolvedSponsorId: target.production_sponsor_id,
+    resolvedSponsorIds: matchedTargets.map((candidateTarget) => candidateTarget.production_sponsor_id),
     resolvedCareersId: careersTarget?.production_company_site_check_id ?? "",
     currentValue,
+    targetCurrentValues,
     identityMatchMethod: identity.method,
     evidence: identity.evidence,
   };
-  if (normalizeImportUrl(currentValue) === candidateUrl && currentValue.trim()) {
-    return result(
-      source,
-      "safe_noop_already_done",
-      "The candidate URL already matches the current production field.",
-      baseTarget,
-    );
-  }
-  if (currentValue.trim()) {
+  const currentValues = field === "website"
+    ? Object.values(targetCurrentValues)
+    : [currentValue];
+  const conflictingValue = currentValues.find(
+    (value) => value !== "" && normalizeImportUrl(value) !== candidateUrl,
+  );
+  if (conflictingValue) {
     return result(
       source,
       "needs_manual_url_conflict_review",
-      "A different production URL is present. Existing production values are never overwritten automatically.",
+      "At least one exact matching production target already has a different URL. Existing production values are never overwritten automatically.",
+      { ...baseTarget, currentValue: conflictingValue },
+    );
+  }
+  if (
+    currentValues.length > 0 &&
+    currentValues.every((value) => value !== "" && normalizeImportUrl(value) === candidateUrl)
+  ) {
+    return result(
+      source,
+      "safe_noop_already_done",
+      matchedTargets.length > 1 && field === "website"
+        ? "The candidate URL already matches every identical complete production sponsor row."
+        : "The candidate URL already matches the current production field.",
       baseTarget,
     );
   }
@@ -459,7 +580,8 @@ function classifyOne(
     field !== "careers" || hasCareerPathSignal(candidateUrl) || explicitAtsEvidence;
   const productionOwnedCareerPage =
     field === "careers" &&
-    hostOf(target.website) === candidateHost &&
+    matchedTargets.every((candidateTarget) => hostOf(candidateTarget.website) === candidateHost) &&
+    Boolean(candidateHost) &&
     candidateHost === evidenceHost &&
     hasCareerPathSignal(candidateUrl) &&
     developmentAgrees &&
@@ -555,31 +677,62 @@ function classifyOne(
 function classifyTargetCollisions(results: ResolverResult[]): void {
   const byTarget = new Map<string, ResolverResult[]>();
   for (const item of results) {
-    if (!item.resolvedSponsorId || item.currentValue.trim()) continue;
     const field = (item.source.field ?? "").trim().toLowerCase();
-    const targetId = field === "website" ? item.resolvedSponsorId : item.resolvedCareersId;
     const candidateUrl = normalizeImportUrl(item.source.candidate_url);
-    if (!targetId || !candidateUrl) continue;
-    const key = `${field}:${targetId}`;
-    byTarget.set(key, [...(byTarget.get(key) ?? []), item]);
+    if (!candidateUrl) continue;
+    const targetIds = field === "website"
+      ? item.resolvedSponsorIds.filter((targetId) => {
+          const value = item.targetCurrentValues[targetId] ?? "";
+          return value === "" || normalizeImportUrl(value) === candidateUrl;
+        })
+      : item.resolvedCareersId &&
+          (item.currentValue === "" || normalizeImportUrl(item.currentValue) === candidateUrl)
+        ? [item.resolvedCareersId]
+        : [];
+    for (const targetId of targetIds) {
+      const key = `${field}:${targetId}`;
+      byTarget.set(key, [...(byTarget.get(key) ?? []), item]);
+    }
   }
 
+  const collided = new Set<ResolverResult>();
   for (const candidates of byTarget.values()) {
     const distinctUrls = new Set(candidates.map((item) => normalizeImportUrl(item.source.candidate_url)));
     if (distinctUrls.size > 1) {
       for (const item of candidates) {
-        item.classification = "needs_manual_url_conflict_review";
-        item.reason = "Different candidate URLs compete for the same blank production target; none will be selected automatically.";
+        collided.add(item);
       }
+    }
+  }
+
+  for (const item of collided) {
+    item.classification = "needs_manual_url_conflict_review";
+    item.reason = "Different candidate URLs compete for the same blank production target, including candidates that are not yet approved; none will be selected automatically.";
+  }
+
+  const firstSafeByTarget = new Map<string, ResolverResult>();
+  for (const item of results) {
+    if (item.classification !== "safe_auto_resolve" || collided.has(item)) continue;
+    const field = (item.source.field ?? "").trim().toLowerCase();
+    const candidateUrl = normalizeImportUrl(item.source.candidate_url);
+    const targetIds = field === "website"
+      ? item.resolvedSponsorIds.filter((targetId) =>
+          (item.targetCurrentValues[targetId] ?? "") === "",
+        )
+      : item.resolvedCareersId && item.currentValue === ""
+        ? [item.resolvedCareersId]
+        : [];
+    const keys = targetIds.map((targetId) => `${field}:${targetId}`);
+    if (keys.length > 0 && keys.every((key) => {
+      const prior = firstSafeByTarget.get(key);
+      return prior && normalizeImportUrl(prior.source.candidate_url) === candidateUrl;
+    })) {
+      item.classification = "safe_noop_already_done";
+      item.reason = "The identical verified URL is already queued for every blank target in this candidate group.";
       continue;
     }
-
-    const safe = candidates.filter((item) => item.classification === "safe_auto_resolve");
-    if (safe.length > 1) {
-      for (const duplicate of safe.slice(1)) {
-        duplicate.classification = "safe_noop_already_done";
-        duplicate.reason = "This is an exact duplicate of another safe row for the same production target; only one write is needed.";
-      }
+    for (const key of keys) {
+      if (!firstSafeByTarget.has(key)) firstSafeByTarget.set(key, item);
     }
   }
 }
@@ -589,6 +742,7 @@ export function runProductionSponsorUrlResolver(input: {
   reconciliationRows: CsvRecord[];
   sponsors: ProductionSponsorTarget[];
   careersTargets: ProductionCareersTarget[];
+  mappings?: ProductionIdentityMapping[];
 }): ResolverRun {
   validateAudit(input.audit, input.reconciliationRows.length);
   const refs = input.reconciliationRows.map((row) => (row.source_ref ?? "").trim());
@@ -597,7 +751,7 @@ export function runProductionSponsorUrlResolver(input: {
   }
 
   const results = input.reconciliationRows.map((source) =>
-    classifyOne(source, input.sponsors, input.careersTargets),
+    classifyOne(source, input.sponsors, input.careersTargets, input.mappings ?? []),
   );
   classifyTargetCollisions(results);
 
@@ -625,6 +779,7 @@ export function withResolverColumns(item: ResolverResult): CsvRecord {
     resolver_classification: item.classification,
     resolver_reason: item.reason,
     resolver_target_sponsor_id: item.resolvedSponsorId,
+    resolver_target_sponsor_ids: item.resolvedSponsorIds.join("|"),
     resolver_target_company_site_check_id: item.resolvedCareersId,
     resolver_current_production_value: item.currentValue,
     resolver_identity_match_method: item.identityMatchMethod,

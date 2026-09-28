@@ -7,15 +7,19 @@ import {
   db,
   sponsorLicenceCompanySiteChecksTable,
   sponsorLicenceIdentityCrosswalkTable,
+  sponsorLicenceUrlMigrationStagingTable,
   sponsorLicencesTable,
 } from "@workspace/db";
 import {
   ApplySponsorWebsiteImportResponse,
+  ListSponsorWebsiteImportStagingQueryParams,
+  ListSponsorWebsiteImportStagingResponse,
   PreviewSponsorWebsiteImportResponse,
   ResolveSponsorWebsiteIdentityBody,
   ResolveSponsorWebsiteIdentityResponse,
+  StageSponsorWebsiteImportReviewResponse,
 } from "@workspace/api-zod";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { requireRole } from "../middlewares/requireRole";
 import {
   identitySnapshot,
@@ -36,6 +40,17 @@ import {
 const router: IRouter = Router();
 const MAX_IMPORT_ROWS = 20_000;
 const MAX_REVIEW_ROWS = 6_500;
+const STAGING_SOURCE_SYSTEM = "production_url_reconciliation";
+const STAGING_EXCLUDED_STATUSES = new Set([
+  "safe_to_import",
+  "already_matches_production_noop",
+  "duplicate_candidate_same_target_noop",
+]);
+
+function isPublishedProductionApplication(): boolean {
+  return process.env.NODE_ENV === "production" &&
+    Boolean(process.env.REPLIT_DEPLOYMENT || process.env.REPLIT_DEPLOYMENT_ID);
+}
 const REQUIRED_COLUMNS = [
   "source_ref",
   "field",
@@ -50,6 +65,7 @@ const REQUIRED_COLUMNS = [
   "sub_route",
   "candidate_url",
   "evidence_url",
+  "verification_evidence",
   "development_current_value",
   "development_action",
   "verification_status",
@@ -119,6 +135,7 @@ function parseCandidateFile(buffer: Buffer): {
       subRoute: record.sub_route?.trim() ?? "",
       candidateUrl: record.candidate_url?.trim() ?? "",
       evidenceUrl: record.evidence_url?.trim() ?? "",
+      verificationEvidence: record.verification_evidence?.trim() ?? "",
       developmentCurrentValue: record.development_current_value?.trim() ?? "",
       developmentAction: record.development_action?.trim().toLowerCase() ?? "",
       verificationStatus: record.verification_status?.trim().toLowerCase() ?? "",
@@ -227,6 +244,183 @@ router.post(
 );
 
 router.post(
+  "/admin/sponsor-website-import/stage",
+  requireRole("super_admin"),
+  uploadMiddleware,
+  async (req: Request, res: Response): Promise<void> => {
+    if (!req.file) {
+      res.status(400).json({ error: "CSV file is required." });
+      return;
+    }
+    if (!isPublishedProductionApplication()) {
+      res.status(409).json({
+        error: "Durable production staging is available only from the published production application.",
+      });
+      return;
+    }
+    const expectedPlanHash = String(req.body?.planHash ?? "");
+    if (!/^[a-f0-9]{64}$/.test(expectedPlanHash)) {
+      res.status(400).json({ error: "A reviewed preview plan hash is required." });
+      return;
+    }
+
+    try {
+      const plan = await makeCurrentPlan(req.file.buffer);
+      if (plan.planHash !== expectedPlanHash) {
+        res.status(409).json({
+          error: "Production data or the uploaded CSV changed after preview. Run a new preview.",
+          currentPlanHash: plan.planHash,
+        });
+        return;
+      }
+      if (plan.rows.length > MAX_REVIEW_ROWS) {
+        res.status(400).json({
+          error: `This importer supports at most ${MAX_REVIEW_ROWS.toLocaleString()} rows per run.`,
+        });
+        return;
+      }
+
+      const heldRows = plan.rows.filter(
+        (row) => !STAGING_EXCLUDED_STATUSES.has(row.status),
+      );
+      const candidates = parseCandidateFile(req.file.buffer).candidates;
+      const candidatesBySourceRef = new Map(
+        candidates.map((candidate) => [candidate.sourceRef, candidate]),
+      );
+      const values = heldRows.map((row) => {
+        const candidate = candidatesBySourceRef.get(row.sourceRef);
+        if (!candidate) {
+          throw new CsvImportValidationError(
+            `The staged candidate ${row.sourceRef} is missing from the upload.`,
+          );
+        }
+        const candidateSnapshot = Object.fromEntries(
+          Object.entries(candidate).map(([key, value]) => [key, String(value ?? "")]),
+        );
+        const candidateHash = createHash("sha256")
+          .update(JSON.stringify(candidateSnapshot), "utf8")
+          .digest("hex");
+        return {
+          sourceSystem: STAGING_SOURCE_SYSTEM,
+          sourceRef: row.sourceRef,
+          candidateHash,
+          field: row.field,
+          organisationName: row.organisationName,
+          candidateUrl: row.candidateUrl,
+          evidenceUrl: row.evidenceUrl,
+          identitySnapshot: identitySnapshot(candidate),
+          candidateSnapshot,
+          productionCandidates: row.productionCandidates,
+          resolverStatus: row.status,
+          resolverReason: row.reason,
+          stagedBy: req.user!.id,
+        };
+      });
+
+      let stagedCount = 0;
+      await db.transaction(async (tx) => {
+        for (let offset = 0; offset < values.length; offset += 250) {
+          const inserted = await tx
+            .insert(sponsorLicenceUrlMigrationStagingTable)
+            .values(values.slice(offset, offset + 250))
+            .onConflictDoNothing({
+              target: [
+                sponsorLicenceUrlMigrationStagingTable.sourceSystem,
+                sponsorLicenceUrlMigrationStagingTable.sourceRef,
+                sponsorLicenceUrlMigrationStagingTable.candidateHash,
+              ],
+            })
+            .returning({ id: sponsorLicenceUrlMigrationStagingTable.id });
+          stagedCount += inserted.length;
+        }
+        await tx.insert(auditEventsTable).values({
+          actor: req.user!.id,
+          action: "sponsor_website_import_staged",
+          target: `plan:${plan.planHash}`,
+          details: {
+            heldRows: heldRows.length,
+            stagedCount,
+            alreadyStagedCount: heldRows.length - stagedCount,
+            counts: plan.counts,
+          },
+        });
+      });
+
+      res.json(StageSponsorWebsiteImportReviewResponse.parse({
+        planHash: plan.planHash,
+        stagedCount,
+        alreadyStagedCount: heldRows.length - stagedCount,
+        heldCount: heldRows.length,
+      }));
+    } catch (error) {
+      if (error instanceof CsvImportValidationError) {
+        res.status(400).json({ error: error.message });
+        return;
+      }
+      throw error;
+    }
+  },
+);
+
+router.get(
+  "/admin/sponsor-website-import/staging",
+  requireRole("super_admin"),
+  async (req: Request, res: Response): Promise<void> => {
+    if (!isPublishedProductionApplication()) {
+      res.status(409).json({
+        error: "Durable production staging is available only from the published production application.",
+      });
+      return;
+    }
+    const query = ListSponsorWebsiteImportStagingQueryParams.safeParse(req.query);
+    if (!query.success) {
+      res.status(400).json({ error: query.error.message });
+      return;
+    }
+    const whereClause = query.data.status
+      ? eq(sponsorLicenceUrlMigrationStagingTable.reviewStatus, query.data.status)
+      : undefined;
+    const [countRow] = await db
+      .select({ total: count() })
+      .from(sponsorLicenceUrlMigrationStagingTable)
+      .where(whereClause);
+    const rows = await db
+      .select({
+        id: sponsorLicenceUrlMigrationStagingTable.id,
+        sourceRef: sponsorLicenceUrlMigrationStagingTable.sourceRef,
+        field: sponsorLicenceUrlMigrationStagingTable.field,
+        organisationName: sponsorLicenceUrlMigrationStagingTable.organisationName,
+        candidateUrl: sponsorLicenceUrlMigrationStagingTable.candidateUrl,
+        evidenceUrl: sponsorLicenceUrlMigrationStagingTable.evidenceUrl,
+        identitySnapshot: sponsorLicenceUrlMigrationStagingTable.identitySnapshot,
+        candidateSnapshot: sponsorLicenceUrlMigrationStagingTable.candidateSnapshot,
+        productionCandidates: sponsorLicenceUrlMigrationStagingTable.productionCandidates,
+        resolverStatus: sponsorLicenceUrlMigrationStagingTable.resolverStatus,
+        resolverReason: sponsorLicenceUrlMigrationStagingTable.resolverReason,
+        reviewStatus: sponsorLicenceUrlMigrationStagingTable.reviewStatus,
+        createdAt: sponsorLicenceUrlMigrationStagingTable.createdAt,
+      })
+      .from(sponsorLicenceUrlMigrationStagingTable)
+      .where(whereClause)
+      .orderBy(
+        desc(sponsorLicenceUrlMigrationStagingTable.createdAt),
+        desc(sponsorLicenceUrlMigrationStagingTable.id),
+      )
+      .limit(query.data.limit)
+      .offset(query.data.offset);
+
+    res.json(ListSponsorWebsiteImportStagingResponse.parse({
+      environment: process.env.NODE_ENV ?? "unknown",
+      total: Number(countRow?.total ?? 0),
+      rows: rows.map((row) => ({
+        ...row,
+        createdAt: row.createdAt.toISOString(),
+      })),
+    }));
+  },
+);
+
+router.post(
   "/admin/sponsor-website-import/resolve",
   requireRole("super_admin"),
   async (req: Request, res: Response): Promise<void> => {
@@ -331,8 +525,7 @@ router.post(
       res.status(400).json({ error: "CSV file is required." });
       return;
     }
-    if (process.env.NODE_ENV !== "production" ||
-        (!process.env.REPLIT_DEPLOYMENT && !process.env.REPLIT_DEPLOYMENT_ID)) {
+    if (!isPublishedProductionApplication()) {
       res.status(409).json({
         error: "Applying imports is available only from the published production application.",
       });
@@ -497,6 +690,7 @@ router.post(
             rowCount: plan.rows.length,
             websiteUpdates,
             careersUpdates,
+            safeTargetWrites: plan.writes.length,
             mappingsStored,
             counts: plan.counts,
           },

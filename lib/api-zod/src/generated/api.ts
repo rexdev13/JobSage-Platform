@@ -4046,6 +4046,7 @@ export const PreviewSponsorWebsiteImportResponse = zod.object({
       status: zod.string(),
       reason: zod.string(),
       targetSponsorLicenceId: zod.number().nullable(),
+      targetSponsorLicenceIds: zod.array(zod.number()),
       targetCompanySiteCheckId: zod.number().nullable(),
       currentValue: zod.string(),
       productionCandidates: zod.array(
@@ -4113,4 +4114,69 @@ export const ApplySponsorWebsiteImportResponse = zod.object({
   careersUpdates: zod.number(),
   mappingsStored: zod.number(),
   counts: zod.record(zod.string(), zod.number()),
+});
+
+/**
+ * @summary Store held sponsor URL candidates in the durable review queue (super admin only)
+ */
+export const stageSponsorWebsiteImportReviewBodyPlanHashRegExp = new RegExp(
+  "^[a-f0-9]{64}$",
+);
+
+export const StageSponsorWebsiteImportReviewBody = zod.object({
+  file: zod.instanceof(File),
+  planHash: zod
+    .string()
+    .regex(stageSponsorWebsiteImportReviewBodyPlanHashRegExp),
+});
+
+export const StageSponsorWebsiteImportReviewResponse = zod.object({
+  planHash: zod.string(),
+  stagedCount: zod.number(),
+  alreadyStagedCount: zod.number(),
+  heldCount: zod.number(),
+});
+
+/**
+ * @summary List staged sponsor URL candidates for review (super admin only)
+ */
+export const listSponsorWebsiteImportStagingQueryLimitDefault = 100;
+export const listSponsorWebsiteImportStagingQueryLimitMax = 500;
+
+export const listSponsorWebsiteImportStagingQueryOffsetDefault = 0;
+export const listSponsorWebsiteImportStagingQueryOffsetMin = 0;
+
+export const ListSponsorWebsiteImportStagingQueryParams = zod.object({
+  status: zod.enum(["pending", "resolved", "rejected"]).optional(),
+  limit: zod.coerce
+    .number()
+    .min(1)
+    .max(listSponsorWebsiteImportStagingQueryLimitMax)
+    .default(listSponsorWebsiteImportStagingQueryLimitDefault),
+  offset: zod.coerce
+    .number()
+    .min(listSponsorWebsiteImportStagingQueryOffsetMin)
+    .default(listSponsorWebsiteImportStagingQueryOffsetDefault),
+});
+
+export const ListSponsorWebsiteImportStagingResponse = zod.object({
+  environment: zod.string(),
+  total: zod.number(),
+  rows: zod.array(
+    zod.object({
+      id: zod.number(),
+      sourceRef: zod.string(),
+      field: zod.enum(["website", "careers"]),
+      organisationName: zod.string(),
+      candidateUrl: zod.string(),
+      evidenceUrl: zod.string(),
+      identitySnapshot: zod.record(zod.string(), zod.string()),
+      candidateSnapshot: zod.record(zod.string(), zod.string()),
+      productionCandidates: zod.array(zod.record(zod.string(), zod.unknown())),
+      resolverStatus: zod.string(),
+      resolverReason: zod.string(),
+      reviewStatus: zod.enum(["pending", "resolved", "rejected"]),
+      createdAt: zod.date(),
+    }),
+  ),
 });

@@ -95,6 +95,7 @@ import type {
   ListReviewQueueParams,
   ListRulesetsParams,
   ListSponsorLicencesParams,
+  ListSponsorWebsiteImportStagingParams,
   LoginRequest,
   LogoutSuccess,
   MarkApplicationRequest,
@@ -156,6 +157,9 @@ import type {
   SponsorWebsiteImportPreview,
   SponsorWebsiteImportPreviewUpload,
   SponsorWebsiteImportResult,
+  SponsorWebsiteImportStageResult,
+  SponsorWebsiteImportStageUpload,
+  SponsorWebsiteImportStagingList,
   SponsorshipFeasibility,
   StopImpersonation200,
   SuperAdminHealth,
@@ -11657,3 +11661,210 @@ export const useApplySponsorWebsiteImport = <
 > => {
   return useMutation(getApplySponsorWebsiteImportMutationOptions(options));
 };
+
+/**
+ * @summary Store held sponsor URL candidates in the durable review queue (super admin only)
+ */
+export const getStageSponsorWebsiteImportReviewUrl = () => {
+  return `/api/admin/sponsor-website-import/stage`;
+};
+
+export const stageSponsorWebsiteImportReview = async (
+  sponsorWebsiteImportStageUpload: SponsorWebsiteImportStageUpload,
+  options?: RequestInit,
+): Promise<SponsorWebsiteImportStageResult> => {
+  const formData = new FormData();
+  formData.append(`file`, sponsorWebsiteImportStageUpload.file);
+  formData.append(`planHash`, sponsorWebsiteImportStageUpload.planHash);
+
+  return customFetch<SponsorWebsiteImportStageResult>(
+    getStageSponsorWebsiteImportReviewUrl(),
+    {
+      ...options,
+      method: "POST",
+      body: formData,
+    },
+  );
+};
+
+export const getStageSponsorWebsiteImportReviewMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof stageSponsorWebsiteImportReview>>,
+    TError,
+    { data: BodyType<SponsorWebsiteImportStageUpload> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof stageSponsorWebsiteImportReview>>,
+  TError,
+  { data: BodyType<SponsorWebsiteImportStageUpload> },
+  TContext
+> => {
+  const mutationKey = ["stageSponsorWebsiteImportReview"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof stageSponsorWebsiteImportReview>>,
+    { data: BodyType<SponsorWebsiteImportStageUpload> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return stageSponsorWebsiteImportReview(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type StageSponsorWebsiteImportReviewMutationResult = NonNullable<
+  Awaited<ReturnType<typeof stageSponsorWebsiteImportReview>>
+>;
+export type StageSponsorWebsiteImportReviewMutationBody =
+  BodyType<SponsorWebsiteImportStageUpload>;
+export type StageSponsorWebsiteImportReviewMutationError =
+  ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Store held sponsor URL candidates in the durable review queue (super admin only)
+ */
+export const useStageSponsorWebsiteImportReview = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof stageSponsorWebsiteImportReview>>,
+    TError,
+    { data: BodyType<SponsorWebsiteImportStageUpload> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof stageSponsorWebsiteImportReview>>,
+  TError,
+  { data: BodyType<SponsorWebsiteImportStageUpload> },
+  TContext
+> => {
+  return useMutation(
+    getStageSponsorWebsiteImportReviewMutationOptions(options),
+  );
+};
+
+/**
+ * @summary List staged sponsor URL candidates for review (super admin only)
+ */
+export const getListSponsorWebsiteImportStagingUrl = (
+  params?: ListSponsorWebsiteImportStagingParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/sponsor-website-import/staging?${stringifiedParams}`
+    : `/api/admin/sponsor-website-import/staging`;
+};
+
+export const listSponsorWebsiteImportStaging = async (
+  params?: ListSponsorWebsiteImportStagingParams,
+  options?: RequestInit,
+): Promise<SponsorWebsiteImportStagingList> => {
+  return customFetch<SponsorWebsiteImportStagingList>(
+    getListSponsorWebsiteImportStagingUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListSponsorWebsiteImportStagingQueryKey = (
+  params?: ListSponsorWebsiteImportStagingParams,
+) => {
+  return [
+    `/api/admin/sponsor-website-import/staging`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListSponsorWebsiteImportStagingQueryOptions = <
+  TData = Awaited<ReturnType<typeof listSponsorWebsiteImportStaging>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  params?: ListSponsorWebsiteImportStagingParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSponsorWebsiteImportStaging>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListSponsorWebsiteImportStagingQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listSponsorWebsiteImportStaging>>
+  > = ({ signal }) =>
+    listSponsorWebsiteImportStaging(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listSponsorWebsiteImportStaging>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListSponsorWebsiteImportStagingQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listSponsorWebsiteImportStaging>>
+>;
+export type ListSponsorWebsiteImportStagingQueryError =
+  ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary List staged sponsor URL candidates for review (super admin only)
+ */
+
+export function useListSponsorWebsiteImportStaging<
+  TData = Awaited<ReturnType<typeof listSponsorWebsiteImportStaging>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  params?: ListSponsorWebsiteImportStagingParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSponsorWebsiteImportStaging>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListSponsorWebsiteImportStagingQueryOptions(
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}

@@ -1,5 +1,9 @@
-import { useMemo, useState } from "react";
-import type { SponsorWebsiteImportPreview } from "@workspace/api-client-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type {
+  SponsorWebsiteImportPreview,
+  SponsorWebsiteImportStageResult,
+  SponsorWebsiteImportStagingList,
+} from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -8,6 +12,7 @@ const PAGE_SIZE = 40;
 
 type PreviewRow = SponsorWebsiteImportPreview["rows"][number];
 type PreviewResponse = SponsorWebsiteImportPreview;
+type StagingResponse = SponsorWebsiteImportStagingList;
 
 function countLabel(value: string): string {
   return value
@@ -38,11 +43,16 @@ export default function SponsorWebsiteImportPage() {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
   const [applied, setApplied] = useState<{ websiteUpdates: number; careersUpdates: number } | null>(null);
-  const [loading, setLoading] = useState<"preview" | "apply" | null>(null);
+  const [stagingResult, setStagingResult] = useState<SponsorWebsiteImportStageResult | null>(null);
+  const [stagingData, setStagingData] = useState<StagingResponse | null>(null);
+  const [stagingLoading, setStagingLoading] = useState(false);
+  const [loading, setLoading] = useState<"preview" | "apply" | "stage" | null>(null);
   const [error, setError] = useState("");
   const [acknowledged, setAcknowledged] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(0);
+  const [stagingFilter, setStagingFilter] = useState("pending");
+  const [stagingPage, setStagingPage] = useState(0);
   const [selectedTargets, setSelectedTargets] = useState<Record<string, number>>({});
   const [resolvedRows, setResolvedRows] = useState<Record<string, boolean>>({});
 
@@ -63,6 +73,37 @@ export default function SponsorWebsiteImportPage() {
   const pageRows = filteredRows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const safeCount = preview?.counts.safe_to_import ?? 0;
   const noOpCount = preview?.counts.already_matches_production_noop ?? 0;
+
+  const loadStaging = useCallback(async (status = stagingFilter, offset = 0): Promise<void> => {
+    const params = new URLSearchParams({
+      limit: String(PAGE_SIZE),
+      offset: String(offset),
+    });
+    if (status !== "all") params.set("status", status);
+    setStagingLoading(true);
+    try {
+      const response = await fetch(
+        `${API_BASE}/admin/sponsor-website-import/staging?${params.toString()}`,
+        { credentials: "include" },
+      );
+      if (!response.ok) throw new Error(await responseError(response));
+      setStagingData(await response.json() as StagingResponse);
+      setError("");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not load the durable review queue.");
+    } finally {
+      setStagingLoading(false);
+    }
+  }, [stagingFilter]);
+
+  useEffect(() => {
+    if (!import.meta.env.PROD) {
+      setStagingData(null);
+      setStagingLoading(false);
+      return;
+    }
+    void loadStaging(stagingFilter, 0);
+  }, [loadStaging, stagingFilter]);
 
   async function runPreview(): Promise<void> {
     if (!file) return;
@@ -153,6 +194,38 @@ export default function SponsorWebsiteImportPage() {
       await runPreview();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The import could not be applied.");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function stageHeldRows(): Promise<void> {
+    if (!file || !preview || reviewRows.length === 0) return;
+    if (preview.environment !== "production") {
+      setError("Durable staging is disabled outside the published production application.");
+      return;
+    }
+    if (!window.confirm(
+      `Store ${reviewRows.length} held candidates in the durable review table? This does not change sponsor URLs or vacancy sources.`,
+    )) return;
+
+    setLoading("stage");
+    setError("");
+    const form = new FormData();
+    form.append("file", file);
+    form.append("planHash", preview.planHash);
+    try {
+      const response = await fetch(`${API_BASE}/admin/sponsor-website-import/stage`, {
+        method: "POST",
+        credentials: "include",
+        body: form,
+      });
+      if (!response.ok) throw new Error(await responseError(response));
+      setStagingResult(await response.json() as SponsorWebsiteImportStageResult);
+      setStagingPage(0);
+      await loadStaging(stagingFilter, 0);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not stage held candidates.");
     } finally {
       setLoading(null);
     }
@@ -358,7 +431,43 @@ export default function SponsorWebsiteImportPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>3. Apply only the reviewed safe rows</CardTitle>
+              <CardTitle>3. Stage held candidates for durable review</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Held candidates are stored in a separate review table. Staging does not change
+                sponsor URLs or any vacancy-discovery source.
+              </p>
+              {stagingResult && (
+                <p role="status" className="rounded-md border bg-muted/30 p-3 text-sm">
+                  Staged {stagingResult.stagedCount.toLocaleString()} new candidates;
+                  {" "}{stagingResult.alreadyStagedCount.toLocaleString()} were already queued.
+                </p>
+              )}
+              <Button
+                variant="outline"
+                onClick={() => void stageHeldRows()}
+                disabled={
+                  preview.environment !== "production" ||
+                  reviewRows.length === 0 ||
+                  loading !== null
+                }
+              >
+                {loading === "stage"
+                  ? "Saving held candidates…"
+                  : `Stage ${reviewRows.length.toLocaleString()} held candidates`}
+              </Button>
+              {preview.environment !== "production" && (
+                <p className="text-xs text-muted-foreground">
+                  Staging becomes available from the published production app after the schema change is published.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>4. Apply only the reviewed safe rows</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
@@ -396,6 +505,134 @@ export default function SponsorWebsiteImportPage() {
           </Card>
         </>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Durable sponsor URL review queue</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="text-sm font-medium" htmlFor="staging-status">
+              Queue status
+            </label>
+            <select
+              id="staging-status"
+              className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={stagingFilter}
+              onChange={(event) => {
+                setStagingPage(0);
+                setStagingFilter(event.target.value);
+              }}
+            >
+              <option value="pending">Pending</option>
+              <option value="resolved">Resolved</option>
+              <option value="rejected">Rejected</option>
+              <option value="all">All statuses</option>
+            </select>
+            <Button
+              variant="outline"
+              onClick={() => void loadStaging(stagingFilter, stagingPage * PAGE_SIZE)}
+              disabled={stagingLoading}
+            >
+              {stagingLoading ? "Refreshing…" : "Refresh"}
+            </Button>
+            {stagingData && (
+              <span className="text-sm text-muted-foreground">
+                {stagingData.total.toLocaleString()} records
+              </span>
+            )}
+          </div>
+          {stagingData?.rows.length ? (
+            <div className="space-y-3">
+              {stagingData.rows.map((row) => (
+                <article key={row.id} className="rounded-lg border p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-semibold">{row.organisationName || "Unnamed employer"}</h3>
+                      <p className="text-xs text-muted-foreground">
+                        {row.field} · {row.sourceRef} · {row.reviewStatus} · {row.resolverStatus}
+                      </p>
+                    </div>
+                    <time className="text-xs text-muted-foreground" dateTime={row.createdAt}>
+                      {new Date(row.createdAt).toLocaleString()}
+                    </time>
+                  </div>
+                  <p className="mt-2 text-sm text-muted-foreground">{row.resolverReason}</p>
+                  <p className="mt-2 break-all text-xs">
+                    Candidate: {safeExternalUrl(row.candidateUrl) ? (
+                      <a
+                        href={safeExternalUrl(row.candidateUrl)!}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary underline"
+                      >
+                        {row.candidateUrl}
+                      </a>
+                    ) : row.candidateUrl || "none"}
+                  </p>
+                  {safeExternalUrl(row.evidenceUrl) && (
+                    <a
+                      className="mt-1 inline-block text-xs text-primary underline"
+                      href={safeExternalUrl(row.evidenceUrl)!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Open saved evidence
+                    </a>
+                  )}
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Source identity: {row.identitySnapshot.organisationName || row.organisationName}
+                    {row.identitySnapshot.townCity ? ` · ${row.identitySnapshot.townCity}` : ""}
+                    {row.identitySnapshot.region ? ` · ${row.identitySnapshot.region}` : ""}
+                    {" · "}{row.productionCandidates.length} compatible production candidate(s)
+                  </p>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {stagingLoading
+                ? "Loading the durable review queue…"
+                : stagingData
+                  ? "No staged candidates match this filter."
+                  : import.meta.env.PROD
+                    ? "The durable review queue is not available yet."
+                    : "The durable review queue is available from the published production app."}
+            </p>
+          )}
+          {stagingData && stagingData.total > PAGE_SIZE && (
+            <div className="flex items-center justify-between border-t pt-4">
+              <span className="text-sm text-muted-foreground">
+                Rows {stagingPage * PAGE_SIZE + 1}–{Math.min((stagingPage + 1) * PAGE_SIZE, stagingData.total)} of {stagingData.total}
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    const nextPage = Math.max(0, stagingPage - 1);
+                    setStagingPage(nextPage);
+                    void loadStaging(stagingFilter, nextPage * PAGE_SIZE);
+                  }}
+                  disabled={stagingPage === 0 || stagingLoading}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    const nextPage = stagingPage + 1;
+                    setStagingPage(nextPage);
+                    void loadStaging(stagingFilter, nextPage * PAGE_SIZE);
+                  }}
+                  disabled={(stagingPage + 1) * PAGE_SIZE >= stagingData.total || stagingLoading}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </main>
   );
 }

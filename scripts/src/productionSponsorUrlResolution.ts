@@ -1,14 +1,17 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import {
   RESOLVER_CLASSIFICATIONS,
   RESOLVER_OUTPUT_COLUMNS,
+  normalizeImportUrl,
   runProductionSponsorUrlResolver,
   withResolverColumns,
   type ProductionApplyAudit,
   type ProductionCareersTarget,
+  type ProductionIdentityMapping,
   type ProductionSponsorTarget,
+  type ResolverResult,
   type ResolverClassification,
 } from "./productionSponsorUrlResolverCore";
 import {
@@ -22,6 +25,7 @@ const DEFAULTS = {
   sponsors: "artifacts/production-url-resolution-2026-09-28/production-sponsor-targets.csv",
   careers: "artifacts/production-url-resolution-2026-09-28/production-careers-site-checks.csv",
   mappings: "artifacts/production-url-resolution-2026-09-28/production-crosswalk-counts.csv",
+  crosswalkDir: "artifacts/production-url-resolution-2026-09-28/crosswalk-pages",
   outDir: "artifacts/production-url-resolution-2026-09-28",
 };
 
@@ -31,6 +35,7 @@ type Config = {
   sponsors: string;
   careers: string;
   mappings: string;
+  crosswalkDir: string;
   outDir: string;
 };
 
@@ -57,6 +62,7 @@ function usage(): string {
     `  --production-sponsors <csv>    (default: ${DEFAULTS.sponsors})`,
     `  --production-careers <csv>     (default: ${DEFAULTS.careers})`,
     `  --production-mappings <csv>    (default: ${DEFAULTS.mappings})`,
+    `  --production-crosswalk-dir <dir> (default: ${DEFAULTS.crosswalkDir})`,
     `  --out-dir <directory>          (default: ${DEFAULTS.outDir})`,
     "  --help",
     "",
@@ -80,6 +86,7 @@ function parseArgs(args: string[]): Config | null {
     else if (arg === "--production-sponsors") config.sponsors = value;
     else if (arg === "--production-careers") config.careers = value;
     else if (arg === "--production-mappings") config.mappings = value;
+    else if (arg === "--production-crosswalk-dir") config.crosswalkDir = value;
     else if (arg === "--out-dir") config.outDir = value;
     else throw new Error(`Unknown option: ${arg}`);
   }
@@ -96,6 +103,183 @@ function countBy<T extends string>(
     counts[value] = (counts[value] ?? 0) + 1;
   }
   return counts;
+}
+
+function parseProductionCrosswalkRows(rows: Array<Record<string, string>>): {
+  mappings: ProductionIdentityMapping[];
+  invalidRows: number;
+} {
+  const mappings: ProductionIdentityMapping[] = [];
+  let invalidRows = 0;
+  const requiredSnapshotKeys = [
+    "organisationName",
+    "townCity",
+    "county",
+    "region",
+    "industry",
+    "route",
+    "subRoute",
+  ];
+  for (const row of rows) {
+    let snapshot: Record<string, unknown>;
+    try {
+      snapshot = JSON.parse(row.identity_snapshot ?? "") as Record<string, unknown>;
+    } catch {
+      invalidRows += 1;
+      continue;
+    }
+    if (
+      !/^[a-f0-9]{64}$/.test(row.identity_key ?? "") ||
+      !/^\d+$/.test(row.target_sponsor_licence_id ?? "") ||
+      !["exact_unique", "manual_review"].includes(row.resolution_method ?? "") ||
+      requiredSnapshotKeys.some((key) => typeof snapshot[key] !== "string")
+    ) {
+      invalidRows += 1;
+      continue;
+    }
+    mappings.push({
+      identity_key: row.identity_key,
+      identity_snapshot: row.identity_snapshot,
+      target_sponsor_licence_id: row.target_sponsor_licence_id,
+      resolution_method: row.resolution_method,
+    });
+  }
+  return { mappings, invalidRows };
+}
+
+type PreparedUrlWrite = {
+  field: "website" | "careers";
+  targetId: string;
+  url: string;
+  sourceRefs: Set<string>;
+};
+
+function collectPreparedUrlWrites(results: ResolverResult[]): PreparedUrlWrite[] {
+  const writes = new Map<string, PreparedUrlWrite>();
+  const add = (field: "website" | "careers", targetId: string, url: string, sourceRef: string) => {
+    if (!/^\d+$/.test(targetId) || !normalizeImportUrl(url)) {
+      throw new Error(`Safe resolver row ${sourceRef} has an invalid production target or URL.`);
+    }
+    const key = `${field}:${targetId}`;
+    const existing = writes.get(key);
+    if (existing && existing.url !== url) {
+      throw new Error(`Conflicting safe URLs target ${field} production row ${targetId}.`);
+    }
+    const record = existing ?? { field, targetId, url, sourceRefs: new Set<string>() };
+    record.sourceRefs.add(sourceRef);
+    writes.set(key, record);
+  };
+
+  for (const result of results) {
+    if (result.classification !== "safe_auto_resolve") continue;
+    const sourceRef = result.source.source_ref ?? "";
+    const field = (result.source.field ?? "").trim().toLowerCase();
+    const url = result.source.candidate_url ?? "";
+    if (field === "website") {
+      for (const targetId of result.resolvedSponsorIds) {
+        if ((result.targetCurrentValues[targetId] ?? "") === "") {
+          add("website", targetId, url, sourceRef);
+        }
+      }
+    } else if (
+      field === "careers" &&
+      result.resolvedCareersId &&
+      result.currentValue === ""
+    ) {
+      add("careers", result.resolvedCareersId, url, sourceRef);
+    }
+  }
+  return [...writes.values()].sort(
+    (left, right) => left.field.localeCompare(right.field) || Number(left.targetId) - Number(right.targetId),
+  );
+}
+
+function sqlText(value: string): string {
+  if (value.includes("\0")) throw new Error("Verification SQL input contains a PostgreSQL-incompatible NUL byte.");
+  return `'${value.replace(/'/g, "''")}'`;
+}
+
+function expectedValuesCte(name: string, field: "website" | "careers", writes: PreparedUrlWrite[]): string {
+  const selected = writes.filter((write) => write.field === field);
+  if (selected.length === 0) {
+    return `${name}(target_id, expected_url, source_refs) AS (\n  SELECT NULL::bigint, NULL::text, NULL::text WHERE FALSE\n)`;
+  }
+  const values = selected.map((write) => {
+    const sourceRefs = [...write.sourceRefs].sort().join("|");
+    return `  (${write.targetId}::bigint, ${sqlText(write.url)}, ${sqlText(sourceRefs)})`;
+  });
+  return `${name}(target_id, expected_url, source_refs) AS (\n  VALUES\n${values.join(",\n")}\n)`;
+}
+
+function createReadOnlyVerificationSql(writes: PreparedUrlWrite[], audit: ProductionApplyAudit): string {
+  const safeAuditTarget = audit.target.replace(/[^a-zA-Z0-9:_-]/g, "_");
+  return `-- READ ONLY: run only after the guarded production import reports success.
+-- Source audit target: ${safeAuditTarget}
+-- Expected target rows: ${writes.length}
+-- Compare each returned actual_url with expected_url and confirm all status values are MATCH.
+BEGIN TRANSACTION READ ONLY;
+
+WITH
+${expectedValuesCte("expected_sponsor_urls", "website", writes)},
+${expectedValuesCte("expected_careers_urls", "careers", writes)}
+SELECT
+  'website' AS field,
+  e.target_id,
+  s.organisation_name,
+  e.expected_url,
+  s.website AS actual_url,
+  e.source_refs,
+  CASE WHEN s.id IS NOT NULL AND s.website = e.expected_url THEN 'MATCH' ELSE 'CHECK' END AS status
+FROM expected_sponsor_urls e
+LEFT JOIN sponsor_licences s ON s.id = e.target_id
+UNION ALL
+SELECT
+  'careers' AS field,
+  e.target_id,
+  c.organisation_name,
+  e.expected_url,
+  c.careers_url AS actual_url,
+  e.source_refs,
+  CASE WHEN c.id IS NOT NULL AND c.careers_url = e.expected_url THEN 'MATCH' ELSE 'CHECK' END AS status
+FROM expected_careers_urls e
+LEFT JOIN sponsor_licence_company_site_checks c ON c.id = e.target_id
+ORDER BY field, target_id;
+
+COMMIT;
+`;
+}
+
+function createGuardedApplyRunbook(input: {
+  safeCandidateCount: number;
+  safeTargetWriteCount: number;
+  heldCount: number;
+  audit: ProductionApplyAudit;
+}): string {
+  return `# Guarded production URL migration — apply and verification
+
+Generated from read-only snapshots; no production change was performed.
+
+## Before apply
+
+1. Confirm the staging-table schema has been published to production.
+2. Confirm no one has changed the sponsor URL snapshots since the resolver report was generated.
+3. Open the published JOBSAGE super-admin page, **Sponsor website and careers import**.
+4. Upload \`safe-auto-resolved.csv\` and run Preview. Do not use a local CLI or direct SQL for writes.
+5. Confirm the page reports \`production\`, the imported safe target-write count is exactly ${input.safeTargetWriteCount}, and there are no collisions, unexpected identity conflicts, or existing-URL overwrites. The local resolver has ${input.safeCandidateCount} safe candidate rows; exact duplicate sponsor rows can make the target-write count larger.
+6. If the preview differs, stop. Refresh production snapshots and rerun the read-only resolver; do not force the plan hash.
+
+## Apply
+
+After reviewing the preview and its plan hash, explicitly authorize the page's guarded apply button. The endpoint locks and rechecks target rows, writes only blank fields, and records an audit event. Preserve the event's plan hash, target-write count, and result.
+
+To stage held candidates, upload the original full reconciliation CSV (not \`safe-auto-resolved.csv\`) and run Preview again. Confirm the published app reports \`production\`, then stage the rows the live preview classifies as held; the endpoint rechecks the exact plan hash and excludes safe and no-op rows. The offline resolver currently predicts ${input.heldCount} held candidate rows, but the live production preview is authoritative. Stop and refresh the snapshots if its result differs unexpectedly. Staging stores candidate/evidence/identity snapshots in the dedicated review table and does not change sponsor URLs or vacancy-discovery data.
+
+## Read-only verification
+
+After apply succeeds, run \`production-url-read-only-verification.sql\` with authorized read-only production database access. It checks every prepared sponsor website and careers URL target against the exact expected URL and returns one \`MATCH\`/ \`CHECK\` row per target. Proceed only if every expected row is present and \`MATCH\`.
+
+Historical source audit snapshot: \`${input.audit.target}\` (created ${input.audit.createdAt}, covering ${input.audit.details.rowCount} rows). It records ${input.audit.details.websiteUpdates + input.audit.details.careersUpdates} target writes from that earlier apply; those are not the ${input.safeTargetWriteCount} new writes prepared here. The resolver itself does not access production, deploy, or start vacancy ingestion.
+`;
 }
 
 function table(rows: Array<[string, number]>): string {
@@ -198,6 +382,8 @@ function createSummary(input: {
   sponsors: ProductionSponsorTarget[];
   careersTargets: ProductionCareersTarget[];
   mappingRows: Array<Record<string, string>>;
+  crosswalkRows: ProductionIdentityMapping[];
+  invalidCrosswalkRows: number;
   results: ReturnType<typeof runProductionSponsorUrlResolver>["results"];
   counts: Record<ResolverClassification, number>;
   safeWriteTargetCount: number;
@@ -210,14 +396,22 @@ function createSummary(input: {
   const preflightDispositionRows = Object.entries(
     countBy(input.reconciliationRows, (row) => row.disposition || "(missing)"),
   ).sort(([a], [b]) => a.localeCompare(b)) as Array<[string, number]>;
-  const mappingMethods = input.mappingRows
+  const crosswalkMethodCounts = new Map<string, number>();
+  for (const row of input.crosswalkRows) {
+    crosswalkMethodCounts.set(
+      row.resolution_method,
+      (crosswalkMethodCounts.get(row.resolution_method) ?? 0) + 1,
+    );
+  }
+  const mappingMethodRows = [...crosswalkMethodCounts.entries()]
+    .sort(([a], [b]) => a.localeCompare(b));
+  const aggregateMappingRows = input.mappingRows
     .map((row) => [row.resolution_method || "(missing)", Number(row.rows) || 0] as [string, number])
     .sort(([a], [b]) => a.localeCompare(b));
   const safeAutoCount = input.counts.safe_auto_resolve;
   const safeNoopCount = input.counts.safe_noop_already_done;
-  const manualMappings = input.mappingRows
-    .filter((row) => row.resolution_method === "manual_review")
-    .reduce((total, row) => total + (Number(row.rows) || 0), 0);
+  const manualMappings = input.crosswalkRows
+    .filter((row) => row.resolution_method === "manual_review").length;
   const date = new Date().toISOString();
 
   const sampleSections = RESOLVER_CLASSIFICATIONS.map((classification) =>
@@ -259,11 +453,15 @@ ${table(preflightDispositionRows)}
 
 ## Identity mapping lookup
 
-Production mapping rows in the supplied snapshot:
+Validated row-level production crosswalk snapshots supplied to the resolver:
 
-${table(mappingMethods)}
+${table(mappingMethodRows)}
 
-Manual-review mappings found: ${manualMappings.toLocaleString("en-GB")}. The apply audit records ${input.audit.details.mappingsStored.toLocaleString("en-GB")} stored mappings, but the live mapping lookup showed the methods listed above.
+The aggregate export reports:
+
+${table(aggregateMappingRows)}
+
+Manual-review mappings found in the row-level snapshot: ${manualMappings.toLocaleString("en-GB")}; rows with malformed snapshot fields were ignored: ${input.invalidCrosswalkRows.toLocaleString("en-GB")}. A manual mapping selects one target only when its normalized snapshot hash and current production target identity both agree with the candidate.
 
 ## Row-level audit limitation
 
@@ -271,9 +469,11 @@ The production audit stores the plan hash and aggregate reason counts, but no \`
 
 ## Prepared apply path (not executed)
 
-Use the production super-admin page **Sponsor website and careers import** and upload \`safe-auto-resolved.csv\`. Run the read-only preview first. Apply only if the page reports the production environment and its safe-write count equals the ${safeAutoCount.toLocaleString("en-GB")} prepared rows, with no row relying on an undisclosed identity resolution and no existing-value overwrites. The existing apply endpoint is transaction- and plan-hash-guarded and updates only blank production fields; it records an audit event.
+Use the production super-admin page **Sponsor website and careers import** and upload \`safe-auto-resolved.csv\`. Run the read-only preview first. Apply only if the page reports the production environment and its safe-write count equals the ${input.safeWriteTargetCount.toLocaleString("en-GB")} prepared blank target writes; do not compare that figure to the safe candidate-row count when one candidate fans out to identical duplicate rows. Confirm there are no target URL collisions or existing-value overwrites. The apply endpoint is transaction- and plan-hash-guarded, locks and rechecks each production target, updates blank fields only, and records an audit event.
 
-The \`safe-auto-resolved.csv\` is intentionally not applied from a local CLI. This environment has read-only production SQL access and no production admin session. Manual identity and URL-conflict rows remain held until a reviewer supplies evidence. If any safe row uses \`unique_ltd_limited_name_identity\`, the current local matcher change must be deployed before the production preview can recognize it; do not bypass the preview.
+The \`safe-auto-resolved.csv\` is intentionally not applied from a local CLI. This environment has read-only production SQL access and no production admin session. Stage held rows only through the published production page after the staging schema has been published; the separate staging table is not a vacancy-discovery source. Manual identity and URL-conflict rows remain held until a reviewer supplies evidence. Never bypass the preview.
+
+The generated \`guarded-production-apply-runbook.md\` records the exact checks, and \`production-url-read-only-verification.sql\` contains only SELECT statements in a read-only transaction for every prepared target. Run the verification only after a successful guarded apply; every returned row must report \`MATCH\`.
 
 Resolver rerun command (read-only; uses the captured snapshots):
 
@@ -284,6 +484,7 @@ pnpm --filter @workspace/scripts run sponsor-url-resolution -- \\
   --production-sponsors artifacts/production-url-resolution-2026-09-28/production-sponsor-targets.csv \\
   --production-careers artifacts/production-url-resolution-2026-09-28/production-careers-site-checks.csv \\
   --production-mappings artifacts/production-url-resolution-2026-09-28/production-crosswalk-counts.csv \\
+  --production-crosswalk-dir artifacts/production-url-resolution-2026-09-28/crosswalk-pages \\
   --out-dir artifacts/production-url-resolution-2026-09-28
 \`\`\`
 
@@ -305,23 +506,36 @@ async function main(): Promise<void> {
     console.log(usage());
     return;
   }
-  const [auditText, reconciliationText, sponsorsText, careersText, mappingsText] = await Promise.all([
+  const crosswalkDir = resolveWorkspacePath(config.crosswalkDir);
+  const crosswalkFiles = (await readdir(crosswalkDir))
+    .filter((name) => /^production-crosswalk-\d+\.csv$/.test(name))
+    .sort();
+  if (crosswalkFiles.length === 0) {
+    throw new Error(`No production-crosswalk-###.csv snapshots found in ${crosswalkDir}.`);
+  }
+  const [auditText, reconciliationText, sponsorsText, careersText, mappingsText, ...crosswalkTexts] =
+    await Promise.all([
     readFile(resolveWorkspacePath(config.audit), "utf8"),
     readFile(resolveWorkspacePath(config.reconciliation), "utf8"),
     readFile(resolveWorkspacePath(config.sponsors), "utf8"),
     readFile(resolveWorkspacePath(config.careers), "utf8"),
     readFile(resolveWorkspacePath(config.mappings), "utf8"),
+    ...crosswalkFiles.map((name) => readFile(resolve(crosswalkDir, name), "utf8")),
   ]);
   const audit = JSON.parse(auditText) as ProductionApplyAudit;
   const reconciliationRows = parseCsvObjects(reconciliationText);
   const sponsors = parseCsvObjects(sponsorsText) as ProductionSponsorTarget[];
   const careersTargets = parseCsvObjects(careersText) as ProductionCareersTarget[];
   const mappingRows = parseCsvObjects(mappingsText);
+  const rawCrosswalkRows = crosswalkTexts.flatMap((text) => parseCsvObjects(text));
+  const { mappings: crosswalkRows, invalidRows: invalidCrosswalkRows } =
+    parseProductionCrosswalkRows(rawCrosswalkRows);
   const run = runProductionSponsorUrlResolver({
     audit,
     reconciliationRows,
     sponsors,
     careersTargets,
+    mappings: crosswalkRows,
   });
   const sourceColumns = [...new Set([
     ...reconciliationRows.flatMap((row) => Object.keys(row)),
@@ -336,11 +550,8 @@ async function main(): Promise<void> {
     );
   }
   const safeRows = byClassification.get("safe_auto_resolve") ?? [];
-  const safeWriteTargetCount = new Set(safeRows.map((row) =>
-    row.field === "website"
-      ? `website:${row.resolver_target_sponsor_id}`
-      : `careers:${row.resolver_target_company_site_check_id}`,
-  )).size;
+  const preparedWrites = collectPreparedUrlWrites(run.results);
+  const safeWriteTargetCount = preparedWrites.length;
 
   const outDir = resolveWorkspacePath(config.outDir);
   await mkdir(outDir, { recursive: true });
@@ -368,6 +579,8 @@ async function main(): Promise<void> {
     sponsors,
     careersTargets,
     mappingRows,
+    crosswalkRows,
+    invalidCrosswalkRows,
     results: run.results,
     counts: run.counts,
     safeWriteTargetCount,
@@ -378,6 +591,22 @@ async function main(): Promise<void> {
   await writeFile(
     resolve(outDir, "next-phase-vacancy-command-plan.md"),
     createVacancyCommandPlan(),
+    "utf8",
+  );
+  await writeFile(
+    resolve(outDir, "production-url-read-only-verification.sql"),
+    createReadOnlyVerificationSql(preparedWrites, audit),
+    "utf8",
+  );
+  await writeFile(
+    resolve(outDir, "guarded-production-apply-runbook.md"),
+    createGuardedApplyRunbook({
+      safeCandidateCount: safeRows.length,
+      safeTargetWriteCount: safeWriteTargetCount,
+      heldCount: reconciliationRows.length - safeRows.length -
+        (run.counts.safe_noop_already_done ?? 0),
+      audit,
+    }),
     "utf8",
   );
 
