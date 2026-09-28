@@ -3,8 +3,10 @@ import {
   assertInputSourceMatchesMode,
   assertWritesAllowed,
   installDatabaseContext,
+  parseDiscoveryExecutionOptions,
   prepareDatabaseContext,
   validateInputDeclaration,
+  verifyProductionWriteGuards,
 } from "../../tools/companySiteDiscoveryRuntime";
 
 const fingerprint = "a".repeat(32);
@@ -103,5 +105,52 @@ describe("company-site discovery database context", () => {
       .toThrow("cannot write vacancy");
     expect(() => assertWritesAllowed("production-readonly", false, "mapping")).not.toThrow();
     expect(() => assertWritesAllowed("development", true, "mapping")).not.toThrow();
+  });
+
+  it("allows only a zero-employer production JSON preflight", () => {
+    const options = parseDiscoveryExecutionOptions(new Map([
+      ["db-mode", "production-readonly"],
+      ["preflight-only", "true"],
+      ["limit", "0"],
+    ]), { defaultLimit: 10, maxLimit: 25 });
+    expect(options).toEqual({
+      preflightOnly: true,
+      limit: 0,
+      format: "json",
+      noHostState: false,
+    });
+    expect(verifyProductionWriteGuards("production-readonly")).toEqual({
+      mappingWritesBlocked: true,
+      vacancyWritesBlocked: true,
+    });
+    expect(verifyProductionWriteGuards("development")).toEqual({
+      mappingWritesBlocked: false,
+      vacancyWritesBlocked: false,
+    });
+  });
+
+  it("rejects employer selection, discovery, and CSV options in preflight mode", () => {
+    const base = [
+      ["db-mode", "production-readonly"],
+      ["preflight-only", "true"],
+      ["limit", "0"],
+    ] as const;
+    for (const extra of [
+      ["input-file", "employers.json"],
+      ["organisations", "Example Ltd"],
+      ["format", "csv"],
+      ["limit", "5"],
+      ["db-mode", "development"],
+    ] as const) {
+      const args = new Map<string, string>(base);
+      args.set(extra[0], extra[1]);
+      expect(() => parseDiscoveryExecutionOptions(args, {
+        defaultLimit: 10,
+        maxLimit: 25,
+      })).toThrow();
+    }
+    expect(() => parseDiscoveryExecutionOptions(new Map([
+      ["preflight-only", "sometimes"],
+    ]), { defaultLimit: 10, maxLimit: 25 })).toThrow("--preflight-only must be true or false");
   });
 });

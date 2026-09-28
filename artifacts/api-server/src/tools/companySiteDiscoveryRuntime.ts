@@ -5,6 +5,14 @@ const FINGERPRINT_PATTERN = /^[0-9a-f]{32}$/i;
 export const PRODUCTION_READONLY_DATABASE_ENV =
   "COMPANY_SITE_DISCOVERY_READONLY_DATABASE_URL";
 
+export type DiscoveryExecutionOptions = {
+  preflightOnly: boolean;
+  limit: number;
+  format: "json" | "csv";
+  noHostState: boolean;
+  organisationNames?: string[];
+};
+
 export type PreparedDatabaseContext = {
   mode: DiscoveryDatabaseMode;
   sourceEnvironment: DiscoverySourceEnvironment;
@@ -14,6 +22,64 @@ export type PreparedDatabaseContext = {
   /** Connection string is intentionally excluded from reports and logs. */
   databaseUrl: string;
 };
+
+export function parseDiscoveryExecutionOptions(
+  args: ReadonlyMap<string, string>,
+  limits: { defaultLimit: number; maxLimit: number },
+): DiscoveryExecutionOptions {
+  const rawPreflight = args.get("preflight-only");
+  if (rawPreflight !== undefined && rawPreflight !== "true" && rawPreflight !== "false") {
+    throw new Error("--preflight-only must be true or false.");
+  }
+  const preflightOnly = rawPreflight === "true";
+  const format = args.get("format") ?? "json";
+  if (format !== "json" && format !== "csv") {
+    throw new Error("--format must be json or csv");
+  }
+
+  const organisationNames = args.get("organisations")
+    ?.split(",")
+    .map((name) => name.trim())
+    .filter(Boolean);
+  let limit: number;
+  if (preflightOnly) {
+    if (args.get("db-mode") !== "production-readonly") {
+      throw new Error("--preflight-only requires --db-mode=production-readonly.");
+    }
+    if (args.has("limit") && args.get("limit") !== "0") {
+      throw new Error("--preflight-only requires --limit=0.");
+    }
+    if (args.has("input-file") || args.has("organisations")) {
+      throw new Error("--preflight-only cannot load employer input or select employers.");
+    }
+    if (format !== "json") {
+      throw new Error("--preflight-only requires --format=json.");
+    }
+    limit = 0;
+  } else {
+    limit = Number(args.get("limit") ?? limits.defaultLimit);
+    if (!Number.isInteger(limit) || limit < 1 || limit > limits.maxLimit) {
+      throw new Error(`--limit must be an integer from 1 to ${limits.maxLimit}`);
+    }
+    if (args.has("input-file") && !args.get("input-file")?.trim()) {
+      throw new Error("--input-file requires a path.");
+    }
+    if (organisationNames && (
+      organisationNames.length > 10 ||
+      new Set(organisationNames.map((name) => name.toLowerCase())).size !== organisationNames.length
+    )) {
+      throw new Error("--organisations accepts up to 10 distinct, comma-separated exact employer names.");
+    }
+  }
+
+  return {
+    preflightOnly,
+    limit,
+    format,
+    noHostState: args.get("no-host-state") === "true",
+    ...(organisationNames ? { organisationNames } : {}),
+  };
+}
 
 export function validateInputDeclaration(
   sourceEnvironment: unknown,
@@ -143,4 +209,27 @@ export function assertWritesAllowed(
   if (mode === "production-readonly" && writeRequested) {
     throw new Error(`Production read-only mode cannot write ${operation} data.`);
   }
+}
+
+export function verifyProductionWriteGuards(
+  mode: DiscoveryDatabaseMode,
+): { mappingWritesBlocked: boolean; vacancyWritesBlocked: boolean } {
+  const isBlocked = (operation: "mapping" | "vacancy"): boolean => {
+    try {
+      assertWritesAllowed(mode, true, operation);
+      return false;
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === `Production read-only mode cannot write ${operation} data.`
+      ) {
+        return true;
+      }
+      throw error;
+    }
+  };
+  return {
+    mappingWritesBlocked: isBlocked("mapping"),
+    vacancyWritesBlocked: isBlocked("vacancy"),
+  };
 }

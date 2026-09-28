@@ -16,11 +16,21 @@ export type DatabaseIdentity = {
   roleCanAdminister: boolean;
   roleHasWritePrivileges: boolean;
   roleCanCreateSchema: boolean;
+  roleCanCreateDatabaseObjects: boolean;
+  roleCanCreateTemporaryObjects: boolean;
+  roleOwnsDatabase: boolean;
+  roleOwnsApplicationObjects: boolean;
   roleHasWriteAllData: boolean;
 };
 
 export async function readDatabaseIdentity(database: DatabaseClient): Promise<DatabaseIdentity> {
   const result = await database.execute(sql`
+    WITH reachable_roles AS (
+      SELECT r.oid, r.rolname, r.rolsuper, r.rolcreatedb, r.rolcreaterole
+      FROM pg_roles r
+      WHERE r.oid = (SELECT oid FROM pg_roles WHERE rolname = current_user)
+         OR pg_has_role(current_user, r.rolname, 'MEMBER')
+    )
     SELECT
       current_database() AS database_name,
       COALESCE(inet_server_addr()::text, 'local-socket') AS database_host,
@@ -35,29 +45,94 @@ export async function readDatabaseIdentity(database: DatabaseClient): Promise<Da
       COALESCE((SELECT rolsuper FROM pg_roles WHERE rolname = current_user), true)
         AS role_is_superuser,
       COALESCE((
-        SELECT rolcreatedb OR rolcreaterole
-        FROM pg_roles
-        WHERE rolname = current_user
+        SELECT bool_or(rolsuper OR rolcreatedb OR rolcreaterole)
+        FROM reachable_roles
       ), true) AS role_can_administer,
       COALESCE((
         SELECT bool_or(
-          has_table_privilege(current_user, c.oid, 'INSERT')
-          OR has_table_privilege(current_user, c.oid, 'UPDATE')
-          OR has_table_privilege(current_user, c.oid, 'DELETE')
-          OR has_table_privilege(current_user, c.oid, 'TRUNCATE')
+          has_table_privilege(r.rolname, c.oid, 'INSERT')
+          OR has_table_privilege(r.rolname, c.oid, 'UPDATE')
+          OR has_table_privilege(r.rolname, c.oid, 'DELETE')
+          OR has_table_privilege(r.rolname, c.oid, 'TRUNCATE')
         )
-        FROM pg_class c
+        FROM reachable_roles r
+        CROSS JOIN pg_class c
         JOIN pg_namespace n ON n.oid = c.relnamespace
         WHERE n.nspname NOT IN ('pg_catalog', 'information_schema')
           AND n.nspname NOT LIKE 'pg_toast%'
           AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+      ), false) OR COALESCE((
+        SELECT bool_or(
+          has_sequence_privilege(r.rolname, c.oid, 'USAGE')
+          OR has_sequence_privilege(r.rolname, c.oid, 'UPDATE')
+        )
+        FROM reachable_roles r
+        CROSS JOIN pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname NOT IN ('pg_catalog', 'information_schema')
+          AND n.nspname NOT LIKE 'pg_toast%'
+          AND c.relkind = 'S'
       ), false) AS role_has_write_privileges,
       COALESCE((
-        SELECT bool_or(has_schema_privilege(current_user, n.oid, 'CREATE'))
-        FROM pg_namespace n
+        SELECT bool_or(has_schema_privilege(r.rolname, n.oid, 'CREATE'))
+        FROM reachable_roles r
+        CROSS JOIN pg_namespace n
         WHERE n.nspname NOT IN ('pg_catalog', 'information_schema')
           AND n.nspname NOT LIKE 'pg_toast%'
       ), false) AS role_can_create_schema,
+      COALESCE((
+        SELECT bool_or(
+          has_database_privilege(r.rolname, current_database(), 'CREATE')
+        )
+        FROM reachable_roles r
+      ), false) AS role_can_create_database_objects,
+      COALESCE((
+        SELECT bool_or(
+          has_database_privilege(r.rolname, current_database(), 'TEMPORARY')
+        )
+        FROM reachable_roles r
+      ), false) AS role_can_create_temporary_objects,
+      EXISTS (
+        SELECT 1
+        FROM pg_database d
+        JOIN reachable_roles r ON r.oid = d.datdba
+        WHERE d.datname = current_database()
+      ) AS role_owns_database,
+      EXISTS (
+        SELECT 1
+        FROM pg_namespace n
+        JOIN reachable_roles r ON r.oid = n.nspowner
+        WHERE n.nspname NOT IN ('pg_catalog', 'information_schema')
+          AND n.nspname NOT LIKE 'pg_toast%'
+        UNION ALL
+        SELECT 1
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        JOIN reachable_roles r ON r.oid = c.relowner
+        WHERE n.nspname NOT IN ('pg_catalog', 'information_schema')
+          AND n.nspname NOT LIKE 'pg_toast%'
+        UNION ALL
+        SELECT 1
+        FROM pg_proc p
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+        JOIN reachable_roles r ON r.oid = p.proowner
+        WHERE n.nspname NOT IN ('pg_catalog', 'information_schema')
+          AND n.nspname NOT LIKE 'pg_toast%'
+        UNION ALL
+        SELECT 1
+        FROM pg_type t
+        JOIN pg_namespace n ON n.oid = t.typnamespace
+        JOIN reachable_roles r ON r.oid = t.typowner
+        WHERE n.nspname NOT IN ('pg_catalog', 'information_schema')
+          AND n.nspname NOT LIKE 'pg_toast%'
+        UNION ALL
+        SELECT 1
+        FROM pg_extension e
+        JOIN pg_namespace n ON n.oid = e.extnamespace
+        JOIN reachable_roles r ON r.oid = e.extowner
+        WHERE n.nspname NOT IN ('pg_catalog', 'information_schema')
+          AND n.nspname NOT LIKE 'pg_toast%'
+      ) AS role_owns_application_objects,
       EXISTS (
         SELECT 1
         FROM pg_roles r
@@ -78,6 +153,10 @@ export async function readDatabaseIdentity(database: DatabaseClient): Promise<Da
     roleCanAdminister: row.role_can_administer === true,
     roleHasWritePrivileges: row.role_has_write_privileges === true,
     roleCanCreateSchema: row.role_can_create_schema === true,
+    roleCanCreateDatabaseObjects: row.role_can_create_database_objects === true,
+    roleCanCreateTemporaryObjects: row.role_can_create_temporary_objects === true,
+    roleOwnsDatabase: row.role_owns_database === true,
+    roleOwnsApplicationObjects: row.role_owns_application_objects === true,
     roleHasWriteAllData: row.role_has_write_all_data === true,
   };
 }
@@ -116,6 +195,10 @@ export async function assertDatabaseMode(
       identity.roleCanAdminister ||
       identity.roleHasWritePrivileges ||
       identity.roleCanCreateSchema ||
+      identity.roleCanCreateDatabaseObjects ||
+      identity.roleCanCreateTemporaryObjects ||
+      identity.roleOwnsDatabase ||
+      identity.roleOwnsApplicationObjects ||
       identity.roleHasWriteAllData
     ) {
       throw new Error(

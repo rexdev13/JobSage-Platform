@@ -20,6 +20,10 @@ const readonlyIdentity = {
   role_can_administer: false,
   role_has_write_privileges: false,
   role_can_create_schema: false,
+  role_can_create_database_objects: false,
+  role_can_create_temporary_objects: false,
+  role_owns_database: false,
+  role_owns_application_objects: false,
   role_has_write_all_data: false,
 };
 
@@ -36,6 +40,9 @@ describe("database mode assertions", () => {
       transactionReadOnly: "on",
       defaultTransactionReadOnly: "on",
       roleHasWritePrivileges: false,
+      roleCanCreateDatabaseObjects: false,
+      roleOwnsDatabase: false,
+      roleOwnsApplicationObjects: false,
     });
   });
 
@@ -83,5 +90,22 @@ describe("database mode assertions", () => {
       "production-readonly",
       fingerprint,
     )).rejects.toThrow("not verifiably read-only");
+  });
+
+  it("rejects DDL capabilities and ownership even when DML is unavailable", async () => {
+    for (const privilege of [
+      { role_can_create_schema: true },
+      { role_can_create_database_objects: true },
+      { role_can_create_temporary_objects: true },
+      { role_owns_database: true },
+      { role_owns_application_objects: true },
+      { role_can_administer: true },
+    ]) {
+      await expect(assertDatabaseMode(
+        databaseWith({ ...readonlyIdentity, ...privilege }) as never,
+        "production-readonly",
+        fingerprint,
+      )).rejects.toThrow("not verifiably read-only");
+    }
   });
 });
