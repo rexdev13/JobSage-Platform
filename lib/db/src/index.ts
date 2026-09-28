@@ -30,7 +30,12 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+export const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ...(process.env.DATABASE_READ_ONLY === "true"
+    ? { options: "-c default_transaction_read_only=on" }
+    : {}),
+});
 attachUnexpectedPoolErrorHandler(pool);
 export const db = drizzle(pool, { schema });
 

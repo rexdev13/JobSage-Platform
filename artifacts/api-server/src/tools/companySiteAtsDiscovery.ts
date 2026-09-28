@@ -1,9 +1,16 @@
-import { db } from "@workspace/db";
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
 import { sql } from "drizzle-orm";
-import { discoverCompanySiteVacancies } from "../lib/companySiteDiscovery";
-import { fetchCompanySitePage } from "../lib/companySiteHttp";
-import { parseDirectBoardMapping } from "../lib/directEmployerBoardConnectors";
-import { assertDatabaseFingerprint, safeToolErrorSummary } from "./databaseSafety";
+import { assertDatabaseMode, safeToolErrorSummary } from "./databaseSafety";
+import {
+  installDatabaseContext,
+  prepareDatabaseContext,
+} from "./companySiteDiscoveryRuntime";
+import {
+  loadEmployerInput,
+  type EmployerRow,
+  type LoadedEmployerInput,
+} from "./companySiteDiscoveryInput";
 
 const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 25;
@@ -22,21 +29,17 @@ const ATS_HOSTS: Array<{ provider: string; suffixes: string[] }> = [
   { provider: "Workday", suffixes: ["myworkdayjobs.com", "myworkdaysite.com"] },
 ];
 
-type EmployerRow = {
-  organisation_name: string;
-  website: string;
-  careers_url: string | null;
-  ats_provider: string | null;
-  ats_board_id: string | null;
-  ats_mapping_status: string | null;
-  ats_mapping_evidence_url: string | null;
-};
-
 type Candidate = {
   provider: string;
   boardId: string;
   careersUrl: string;
   evidenceUrl: string;
+};
+
+type DiscoveryHelpers = {
+  discoverCompanySiteVacancies: typeof import("../lib/companySiteDiscovery").discoverCompanySiteVacancies;
+  fetchCompanySitePage: typeof import("../lib/companySiteHttp").fetchCompanySitePage;
+  parseDirectBoardMapping: typeof import("../lib/directEmployerBoardConnectors").parseDirectBoardMapping;
 };
 
 function argsMap(args: string[]): Map<string, string> {
@@ -142,10 +145,11 @@ function csvCell(value: unknown): string {
 }
 
 async function selectEmployers(
+  database: Pick<typeof import("@workspace/db").db, "transaction">,
   limit: number,
   organisationNames?: readonly string[],
 ): Promise<EmployerRow[]> {
-  return db.transaction(async (tx) => {
+  return database.transaction(async (tx) => {
     await tx.execute(sql`SET TRANSACTION READ ONLY`);
     const names = organisationNames?.map((name) => name.trim().toLowerCase());
     const employerFilter = names === undefined
@@ -176,6 +180,8 @@ async function selectEmployers(
 async function pagesForEmployer(
   employer: EmployerRow,
   deadlineMs: number,
+  helpers: DiscoveryHelpers,
+  noHostState: boolean,
 ): Promise<Array<{ url: string; body: string }>> {
   const root = safeUrl(employer.website);
   if (!root) return [];
@@ -190,12 +196,12 @@ async function pagesForEmployer(
   const pages: Array<{ url: string; body: string }> = [];
   for (const url of [...new Set(urls)].slice(0, MAX_PAGES_PER_EMPLOYER)) {
     if (Date.now() >= deadlineMs) break;
-    const response = await fetchCompanySitePage(
+    const response = await helpers.fetchCompanySitePage(
       url,
       root.hostname,
       deadlineMs,
       1_000_000,
-      { readOnly: true },
+      { readOnly: true, noHostState },
     );
     if (response.ok) pages.push({ url: response.url, body: response.body });
   }
@@ -204,6 +210,8 @@ async function pagesForEmployer(
 
 async function discoverEmployer(
   employer: EmployerRow,
+  helpers: DiscoveryHelpers,
+  noHostState: boolean,
 ): Promise<Record<string, unknown>[]> {
   const root = safeUrl(employer.website);
   const employerKey = `${employer.organisation_name.trim().toLowerCase()}@${root?.hostname.toLowerCase() ?? "invalid"}`;
@@ -224,7 +232,12 @@ async function discoverEmployer(
     }];
   }
 
-  const pages = await pagesForEmployer(employer, Date.now() + EMPLOYER_DEADLINE_MS);
+  const pages = await pagesForEmployer(
+    employer,
+    Date.now() + EMPLOYER_DEADLINE_MS,
+    helpers,
+    noHostState,
+  );
   const candidates = new Map<string, Candidate>();
   const rejections: string[] = [];
   for (const page of pages) {
@@ -234,7 +247,7 @@ async function discoverEmployer(
       const candidateUrl = new URL(anchor.url);
       candidateUrl.search = "";
       candidateUrl.hash = "";
-      const mapping = parseDirectBoardMapping(provider, candidateUrl.toString(), {
+      const mapping = helpers.parseDirectBoardMapping(provider, candidateUrl.toString(), {
         firstPartyEvidenceUrl: page.url,
       });
       if (!mapping) {
@@ -273,7 +286,7 @@ async function discoverEmployer(
 
   const records: Record<string, unknown>[] = [];
   for (const candidate of candidates.values()) {
-    const feed = await discoverCompanySiteVacancies(
+    const feed = await helpers.discoverCompanySiteVacancies(
       employer.organisation_name,
       employer.website,
       {
@@ -285,6 +298,7 @@ async function discoverEmployer(
         checkAts: true,
         directFeedsOnly: true,
         readOnly: true,
+        noHostState,
         deadlineMs: Date.now() + EMPLOYER_DEADLINE_MS,
       },
     );
@@ -315,66 +329,226 @@ async function discoverEmployer(
 
 async function main(): Promise<void> {
   const args = argsMap(process.argv.slice(2));
-  const environment = args.get("environment") ?? "development";
-  const format = args.get("format") ?? "json";
-  const limit = Number(args.get("limit") ?? DEFAULT_LIMIT);
-  const organisationNames = args.get("organisations")
-    ?.split(",")
-    .map((name) => name.trim())
-    .filter(Boolean);
-  if (environment !== "development" && environment !== "production") {
-    throw new Error("--environment must be development or production");
-  }
-  if (!Number.isInteger(limit) || limit < 1 || limit > MAX_LIMIT) {
-    throw new Error(`--limit must be an integer from 1 to ${MAX_LIMIT}`);
-  }
-  if (organisationNames && (organisationNames.length > 10 || new Set(organisationNames.map((name) => name.toLowerCase())).size !== organisationNames.length)) {
-    throw new Error("--organisations accepts up to 10 distinct, comma-separated exact employer names.");
-  }
-  if (format !== "json" && format !== "csv") {
-    throw new Error("--format must be json or csv");
-  }
-  if (environment === "production") {
-    if (process.env.NODE_ENV !== "production" || args.get("confirm-production-read-only") !== "true") {
-      throw new Error("Production discovery requires NODE_ENV=production and --confirm-production-read-only=true.");
+  const proofOutput = args.get("proof-output");
+  let loadedInput: LoadedEmployerInput | undefined;
+  let databasePool: { end: () => Promise<void> } | undefined;
+  let context: ReturnType<typeof prepareDatabaseContext> | undefined;
+  let identity: Awaited<ReturnType<typeof assertDatabaseMode>> | undefined;
+  let developmentStateAccessed = false;
+  try {
+    const format = args.get("format") ?? "json";
+    const limit = Number(args.get("limit") ?? DEFAULT_LIMIT);
+    const organisationNames = args.get("organisations")
+      ?.split(",")
+      .map((name) => name.trim())
+      .filter(Boolean);
+    const noHostState = args.get("no-host-state") === "true";
+    if (!Number.isInteger(limit) || limit < 1 || limit > MAX_LIMIT) {
+      throw new Error(`--limit must be an integer from 1 to ${MAX_LIMIT}`);
     }
-  } else if (process.env.NODE_ENV === "production") {
-    throw new Error("Refusing a development label while NODE_ENV=production.");
-  } else {
-    const expectedFingerprint = args.get("expected-db-fingerprint");
-    if (!expectedFingerprint) {
-      throw new Error("Development discovery requires --expected-db-fingerprint from the confirmed development database.");
+    if (organisationNames && (
+      organisationNames.length > 10 ||
+      new Set(organisationNames.map((name) => name.toLowerCase())).size !== organisationNames.length
+    )) {
+      throw new Error("--organisations accepts up to 10 distinct, comma-separated exact employer names.");
     }
-    await assertDatabaseFingerprint(expectedFingerprint);
-  }
+    if (format !== "json" && format !== "csv") {
+      throw new Error("--format must be json or csv");
+    }
+    if (args.has("input-file") && !args.get("input-file")?.trim()) {
+      throw new Error("--input-file requires a path.");
+    }
+    loadedInput = args.get("input-file")
+      ? await loadEmployerInput(args.get("input-file")!)
+      : undefined;
+    developmentStateAccessed = loadedInput?.sourceEnvironment === "development";
+    context = prepareDatabaseContext(args, process.env, loadedInput?.sourceEnvironment);
+    developmentStateAccessed ||= context.mode === "development";
+    installDatabaseContext(context);
 
-  const employers = await selectEmployers(limit, organisationNames);
-  const records: Record<string, unknown>[] = [];
-  for (const employer of employers) {
-    records.push(...await discoverEmployer(employer));
-  }
-  const report = {
-    version: OUTPUT_VERSION,
-    environment,
-    mode: "read_only_ats_discovery",
-    generatedAt: new Date().toISOString(),
-    selectedEmployers: employers.length,
-    records,
-  };
+    // Import the singleton only after the selected connection URL and read-only
+    // pool mode have been installed. All later DB imports resolve to this context.
+    const databaseModule = await import("@workspace/db");
+    databasePool = databaseModule.pool;
+    identity = await assertDatabaseMode(
+      databaseModule.db,
+      context.mode,
+      context.expectedFingerprint,
+    );
 
-  if (format === "json") {
-    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
-    return;
-  }
-  const headers = [
-    "employerKey", "organisationName", "websiteOrigin", "status", "provider",
-    "boardId", "careersUrl", "evidenceUrl", "confidence", "rejectionReason",
-    "feedComplete", "snapshotAuthority", "pagesFetched", "advertsExtracted",
-    "advertsAccepted", "advertsRejected", "feedErrorCategory", "feedOrigin",
-  ];
-  process.stdout.write(`${headers.map(csvCell).join(",")}\n`);
-  for (const record of records) {
-    process.stdout.write(`${headers.map((key) => csvCell(record[key])).join(",")}\n`);
+    const http = await import("../lib/companySiteHttp");
+    const discovery = await import("../lib/companySiteDiscovery");
+    const connectors = await import("../lib/directEmployerBoardConnectors");
+    http.resetCompanySiteEphemeralState();
+    const helpers: DiscoveryHelpers = {
+      discoverCompanySiteVacancies: discovery.discoverCompanySiteVacancies,
+      fetchCompanySitePage: http.fetchCompanySitePage,
+      parseDirectBoardMapping: connectors.parseDirectBoardMapping,
+    };
+
+    let employers = loadedInput
+      ? loadedInput.employers
+      : await selectEmployers(databaseModule.db, limit, organisationNames);
+    if (loadedInput && organisationNames) {
+      const names = new Set(organisationNames.map((name) => name.trim().toLowerCase()));
+      employers = employers.filter((employer) =>
+        names.has(employer.organisation_name.trim().toLowerCase()),
+      );
+    }
+    employers = employers.slice(0, limit);
+
+    const records: Record<string, unknown>[] = [];
+    for (const employer of employers) {
+      records.push(...await discoverEmployer(employer, helpers, noHostState));
+    }
+    const employerInputSource = loadedInput
+      ? {
+          type: "input-file",
+          path: loadedInput.path,
+          sha256: loadedInput.sha256,
+          declaredEnvironment: loadedInput.sourceEnvironment,
+          declaredSource: loadedInput.sourceDescription,
+        }
+      : {
+          type: "database-query",
+          declaredEnvironment: context.sourceEnvironment,
+          declaredSource: "sponsor_licences joined to company_site_checks",
+        };
+    const safety = {
+      dbMode: context.mode,
+      nodeEnvironment: context.nodeEnvironment,
+      database: {
+        host: identity.databaseHost,
+        name: identity.databaseName,
+        role: identity.roleName,
+        fingerprint: identity.fingerprint,
+      },
+      expectedFingerprintMatched: true,
+      transactionReadOnly: identity.transactionReadOnly,
+      defaultTransactionReadOnly: identity.defaultTransactionReadOnly,
+      readOnlyRoleVerified: context.mode === "production-readonly",
+      writeModeDisabled: true,
+      productionWritesDisabled: context.mode === "production-readonly",
+      employerInputSource,
+      mappingCheckStateSource: loadedInput
+        ? `declared input-file rows (${loadedInput.sourceEnvironment})`
+        : `same ${context.mode} database; company-site check fields`,
+      hostStateSource: noHostState
+        ? "disabled; no host-state database reads or writes; per-process state only"
+        : `same ${context.mode} database for read-only host state`,
+      cacheStateSource: "no disk cache/state files; per-process caches cleared at run start",
+      developmentStateAccessed,
+      assertions: {
+        databaseFingerprintMatchesMode: true,
+        inputSourceMatchesDatabaseMode: true,
+        noDiscoveryPersistence: true,
+        productionReadOnlyRoleAndSessionVerified: context.mode === "production-readonly",
+        hostStateDisabled: noHostState,
+      },
+    };
+    const report = {
+      version: OUTPUT_VERSION,
+      environment: context.sourceEnvironment,
+      dbMode: context.mode,
+      mode: "read_only_ats_discovery",
+      generatedAt: new Date().toISOString(),
+      selectedEmployers: employers.length,
+      employersChecked: employers.length,
+      writesAttempted: 0,
+      mappingPromotions: 0,
+      vacancyImports: 0,
+      safety,
+      records,
+    };
+    if (proofOutput) {
+      const outputPath = resolve(proofOutput);
+      await mkdir(dirname(outputPath), { recursive: true });
+      await writeFile(outputPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+    }
+
+    if (format === "json") {
+      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+      return;
+    }
+    const headers = [
+      "dbMode", "databaseHost", "databaseName", "databaseFingerprint",
+      "writeModeDisabled", "employerInputSource", "mappingCheckStateSource",
+      "hostStateSource", "employerKey", "organisationName", "websiteOrigin",
+      "status", "provider", "boardId", "careersUrl", "evidenceUrl", "confidence",
+      "rejectionReason", "feedComplete", "snapshotAuthority", "pagesFetched",
+      "advertsExtracted", "advertsAccepted", "advertsRejected", "feedErrorCategory",
+      "feedOrigin",
+    ];
+    const safetyColumns = {
+      dbMode: safety.dbMode,
+      databaseHost: identity.databaseHost,
+      databaseName: identity.databaseName,
+      databaseFingerprint: identity.fingerprint,
+      writeModeDisabled: safety.writeModeDisabled,
+      employerInputSource,
+      mappingCheckStateSource: safety.mappingCheckStateSource,
+      hostStateSource: safety.hostStateSource,
+    };
+    process.stdout.write(`${headers.map(csvCell).join(",")}\n`);
+    for (const record of records) {
+      process.stdout.write(`${headers.map((key) => csvCell(
+        Object.hasOwn(safetyColumns, key)
+          ? safetyColumns[key as keyof typeof safetyColumns]
+          : record[key],
+      )).join(",")}\n`);
+    }
+  } catch (error) {
+    if (proofOutput) {
+      try {
+        const blockedReport = {
+          version: OUTPUT_VERSION,
+          status: "blocked",
+          dbMode: args.get("db-mode") ?? null,
+          employersChecked: 0,
+          writesAttempted: 0,
+          mappingPromotions: 0,
+          vacancyImports: 0,
+          safety: {
+            nodeEnvironment: process.env.NODE_ENV ?? null,
+            database: identity
+              ? {
+                  host: identity.databaseHost,
+                  name: identity.databaseName,
+                  role: identity.roleName,
+                  fingerprint: identity.fingerprint,
+                }
+              : null,
+            writeModeDisabled: true,
+            productionWritesDisabled: args.get("db-mode") === "production-readonly",
+            employerInputSource: loadedInput
+              ? {
+                  type: "input-file",
+                  path: loadedInput.path,
+                  sha256: loadedInput.sha256,
+                  declaredEnvironment: loadedInput.sourceEnvironment,
+                  declaredSource: loadedInput.sourceDescription,
+                }
+              : args.get("input-file")
+                ? { type: "input-file", path: resolve(args.get("input-file")!) }
+                : "not accessed",
+            mappingCheckStateSource: "not accessed",
+            hostStateSource: "not accessed",
+            cacheStateSource: "not accessed",
+            developmentStateAccessed,
+            failedBeforeDiscovery: true,
+          },
+          blockedReason: safeToolErrorSummary(error),
+        };
+        const outputPath = resolve(proofOutput);
+        await mkdir(dirname(outputPath), { recursive: true });
+        await writeFile(outputPath, `${JSON.stringify(blockedReport, null, 2)}\n`, "utf8");
+      } catch {
+        // Preserve the original fail-closed error if a local proof file cannot be written.
+      }
+    }
+    throw error;
+  } finally {
+    await databasePool?.end();
   }
 }
 

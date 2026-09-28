@@ -1,0 +1,61 @@
+Before I touch cron-job.org, resolve the production readiness blockers.
+
+Do not edit cron.
+Do not deploy unless explicitly required and stated.
+Do not write production data.
+Do not run importing jobs.
+
+Please complete these checks and report clearly:
+
+1. Confirm deployed production revision
+- Identify the exact production deployment/source revision currently running.
+- Confirm whether it includes the vacancy repair code, especially:
+  - `company_site_direct_feed` route/job kind
+  - `COMPANY_SITE_GENERIC_IMPORT_ENABLED` kill switch
+  - strict direct-feed evidence requirements
+  - candidate visibility safeguards
+
+2. Confirm production secret value safely
+- Confirm whether `COMPANY_SITE_GENERIC_IMPORT_ENABLED` is set to `false` in production.
+- Do not print secret values.
+- Just report: set correctly / missing / wrong / cannot access.
+
+3. Confirm direct-feed route without importing
+- Do not start an import.
+- If the route has a dry-run/status/validation mode, use that.
+- Otherwise inspect deployed code/config only.
+- Confirm the exact payload for a canary:
+  `{"kind":"company_site_direct_feed","limit":1,"organisationNames":["<employer>"]}`
+
+4. Fix production read-only discovery runtime
+- The helper must not mix production employer data with development host-state.
+- Make it fail closed unless all state comes from the declared production read-only context or explicit input files.
+- Add checks/tests proving no dev state is used in production-readonly mode.
+
+5. Revalidate canary employer candidates
+- From the 43 stored verified production mappings, choose 1-3 canary employers.
+- Revalidate them read-only:
+  - employer identity
+  - careers URL
+  - provider
+  - board ID
+  - evidence URL
+  - feed returns live adverts
+  - no ambiguity across sponsor rows
+- Do not write anything.
+
+6. Output final cron instruction
+After the above is complete, give me:
+- whether to pause A-D now
+- exact new one-off canary cron name
+- exact URL
+- exact method
+- exact headers needed, with secret redacted
+- exact body
+- timeout
+- schedule/manual run recommendation
+- what result to expect
+- what to monitor after it runs
+
+Reminder:
+Current recommendation is not to convert A-D in place. The likely plan is to pause A-D after readiness passes and create one separate direct-feed canary cron. But do not ask me to touch cron until the readiness blockers are resolved.

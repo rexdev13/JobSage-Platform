@@ -1,0 +1,79 @@
+Before I create or change any company-site cron, explain exactly how production chooses sponsor companies for company-site processing.
+
+Do not deploy.
+Do not write production data.
+Do not edit cron.
+Do not run imports.
+
+Please audit the selection logic for both old and new company-site jobs.
+
+1. Old `company_site` job selection
+For payload:
+`{"kind":"company_site"}`
+
+Explain:
+- Which table(s) does it select from?
+- Does it select from `sponsor_licences`, `sponsor_licence_company_site_checks`, or another queue/log table?
+- What filters are used?
+- Does it require `sponsor_licences.website`?
+- Does it require a saved careers URL?
+- Does it require an existing company-site check row?
+- Does it use `last_checked_at`, `last_attempted_at`, `mapping_status`, liveness, backoff, error count, or freshness fields?
+- Does it prioritize newly populated websites?
+- Does it include sponsor companies without websites?
+- Does it use normalized employer name matching?
+- Does it process one sponsor row, one employer name, one company-site check row, or one domain at a time?
+- Does it update/create company-site check rows?
+- Can it discover careers URLs by itself?
+- Can it create vacancy rows directly?
+
+2. New `company_site_direct_feed` job selection
+For payload:
+`{"kind":"company_site_direct_feed","limit":5}`
+
+Explain:
+- Which table(s) does it select from?
+- Does it select only verified ATS/feed mappings?
+- What exactly counts as verified?
+- Does it require provider, board ID, evidence URL, and careers URL?
+- Does it use `sponsor_licence_company_site_checks`?
+- Does it depend on `sponsor_licences.website`?
+- Does it depend on `company_site_probe` having run first?
+- Does it process mappings, sponsor rows, employer names, or domains?
+- How does it avoid duplicate processing across multiple sponsor rows with the same employer name?
+- Does it skip fresh mappings?
+- Does it use leases/locks/backoff?
+
+3. Relationship with `company_site_probe`
+Explain:
+- What does `company_site_probe` do?
+- Does it create/update company-site check rows?
+- Does it discover careers URLs?
+- Does it discover ATS mappings?
+- Does old `company_site` depend on it?
+- Does new `company_site_direct_feed` depend on it?
+- If I keep `company_site_probe` running but pause A-D, what still gets updated?
+- If I pause `company_site_probe`, what breaks?
+
+4. Are the populated production websites being used?
+We have production website/careers data from imports/audits.
+
+Please confirm:
+- How many production sponsor rows now have website values?
+- How many of those are eligible for old `company_site` selection?
+- How many are eligible for new `company_site_direct_feed` selection?
+- How many verified mappings are linked to these populated websites?
+- Are imported/populated websites actually in the selection pool?
+- Are there unpopulated sponsor rows being selected instead?
+- Show sample selected rows for old and new job selection, read-only only.
+
+5. Output
+Give me a simple table:
+
+Job kind | Reads from | Requires website? | Requires careers URL? | Requires verified mapping? | Depends on probe? | Can create vacancies? | Can generic crawl? | Uses populated websites?
+
+Then give a clear recommendation:
+- whether to keep `company_site_probe`
+- whether pausing A-D stops only old generic imports
+- whether one new direct-feed cron will actually process the verified mappings we care about
+- whether we need a separate discovery/probe job before direct-feed can be effective

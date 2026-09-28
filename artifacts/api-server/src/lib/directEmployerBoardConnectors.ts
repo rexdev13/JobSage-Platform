@@ -668,6 +668,7 @@ export async function fetchDirectEmployerBoard(
     deadlineMs?: number;
     firstPartyEvidenceUrl?: string | null;
     readOnly?: boolean;
+    noHostState?: boolean;
   } = {},
 ): Promise<DirectBoardScan> {
   const mapping = parseDirectBoardMapping(provider, savedCareersUrl, {
@@ -691,12 +692,18 @@ export async function fetchDirectEmployerBoard(
       if (mapping.provider === "Workday") {
         return fetchCompanySitePublicApiPost(url, JSON.stringify({
           appliedFacets: {}, limit: 20, offset: Number(new URL(url).searchParams.get("offset") ?? "0"), searchText: "",
-        }), deadlineMs, 2_000_000, { readOnly: options.readOnly === true });
+        }), deadlineMs, 2_000_000, {
+          readOnly: options.readOnly === true,
+          ...(options.noHostState ? { noHostState: true } : {}),
+        });
       }
     const fetchPublicApiPage = mapping.provider === "Recruitee" || mapping.provider === "Personio"
       ? fetchCompanySiteRobotsAwarePublicApiPage
       : fetchCompanySitePublicApiPage;
-    return fetchPublicApiPage(url, deadlineMs, 2_000_000, { readOnly: options.readOnly === true });
+    return fetchPublicApiPage(url, deadlineMs, 2_000_000, {
+      readOnly: options.readOnly === true,
+      ...(options.noHostState ? { noHostState: true } : {}),
+    });
   };
   const result = await fetchPage(mapping.feedUrl);
   if (!result.ok) {
