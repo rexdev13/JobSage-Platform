@@ -669,6 +669,7 @@ export async function fetchDirectEmployerBoard(
     firstPartyEvidenceUrl?: string | null;
     readOnly?: boolean;
     noHostState?: boolean;
+    noProcessCache?: boolean;
   } = {},
 ): Promise<DirectBoardScan> {
   const mapping = parseDirectBoardMapping(provider, savedCareersUrl, {
@@ -695,6 +696,7 @@ export async function fetchDirectEmployerBoard(
         }), deadlineMs, 2_000_000, {
           readOnly: options.readOnly === true,
           ...(options.noHostState ? { noHostState: true } : {}),
+          ...(options.noProcessCache ? { noProcessCache: true } : {}),
         });
       }
     const fetchPublicApiPage = mapping.provider === "Recruitee" || mapping.provider === "Personio"
@@ -703,6 +705,7 @@ export async function fetchDirectEmployerBoard(
     return fetchPublicApiPage(url, deadlineMs, 2_000_000, {
       readOnly: options.readOnly === true,
       ...(options.noHostState ? { noHostState: true } : {}),
+      ...(options.noProcessCache ? { noProcessCache: true } : {}),
     });
   };
   const result = await fetchPage(mapping.feedUrl);

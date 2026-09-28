@@ -688,6 +688,56 @@ describe("company-site scheduler", () => {
     }
   });
 
+  it("does not persist generic-only company-site adverts while generic imports are disabled", async () => {
+    const previous = process.env["COMPANY_SITE_GENERIC_IMPORT_ENABLED"];
+    process.env["COMPANY_SITE_GENERIC_IMPORT_ENABLED"] = "false";
+    discoverCompanySiteVacanciesMock.mockResolvedValue({
+      adverts: [{
+        organisationName: "Example Ltd",
+        employer: "Example Ltd",
+        title: "Unverified role",
+        location: "London",
+        salary: null,
+        url: "https://example.test/jobs/unverified",
+        description: null,
+        postedDate: null,
+        targetRegions: null,
+        boardName: null,
+        externalId: null,
+        sourceType: "company_site",
+        companyVacancyEvidence: { kind: "generic_link" },
+      }],
+      sourceUrl: "https://example.test/",
+      careersUrl: null,
+      atsProvider: null,
+      genericCompleted: true,
+      atsCompleted: false,
+      transientFailure: false,
+      completion: "complete",
+      pagesFetched: 1,
+      advertsExtracted: 1,
+      advertsRejected: 0,
+    } as never);
+
+    try {
+      await runCompanySiteCheck({
+        organisationName: "Example Ltd",
+        website: "https://example.test",
+        genericCheckedAt: null,
+        atsCheckedAt: null,
+        careersUrl: null,
+        atsProvider: null,
+        atsBoardId: null,
+        atsMappingStatus: "unverified",
+      });
+
+      expect(persistCompanySiteVacanciesMock).not.toHaveBeenCalled();
+    } finally {
+      if (previous === undefined) delete process.env["COMPANY_SITE_GENERIC_IMPORT_ENABLED"];
+      else process.env["COMPANY_SITE_GENERIC_IMPORT_ENABLED"] = previous;
+    }
+  });
+
   it("verifies a parseable ATS mapping only after first-party evidence is observed", async () => {
     let persisted: Record<string, unknown> | undefined;
     insertMock.mockReturnValue({
