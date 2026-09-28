@@ -148,6 +148,8 @@ export function normalizeImportUrl(value: string | null | undefined): string {
     if (!["https:", "http:"].includes(parsed.protocol) || parsed.username || parsed.password) {
       return "";
     }
+    parsed.protocol = "https:";
+    parsed.hostname = parsed.hostname.toLowerCase().replace(/^www\./, "");
     parsed.hash = "";
     if (parsed.pathname.length > 1) parsed.pathname = parsed.pathname.replace(/\/+$/, "");
     return parsed.toString().replace(/\/$/, parsed.pathname === "/" ? "/" : "");

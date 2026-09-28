@@ -1,40 +1,36 @@
-# Bounded production vacancy run plan — not executed
+# Vacancy pilot preparation — not authorized or executed
 
 ## Safety status
 
-This plan did not call the vacancy worker. Use it only for a later, separately approved production run, after any sponsor URL changes have been reviewed and applied through the protected production importer. The resolver did not deploy or alter production. Already-running services may continue their own schedules independently; check their status before running this plan.
+This review did not change production sponsor website/careers rows, create staging rows, or invoke the production vacancy worker. Existing production schedules continued independently; deployment logs during this review show company-site batches, including one batch with `selected=10`, `upserted=1`, `inserted=1`, and `errors=8`. I did not start or stop that scheduler. Do not call the production vacancy worker or apply the URL-import file as part of this review. The new allowlist code and this plan are workspace changes only; the production deployment has not been updated.
 
-## Production path
+The protected URL importer still requires a fresh production preview and a reviewed plan hash. This file is not approval to apply it. Production staging is absent, and the local staging CSV is not a production queue.
 
-Use the authenticated production HTTP worker at `POST $PRODUCTION_API_ORIGIN/api/internal/vacancy-jobs`, not the development-only `vacancy:sponsor-websites` CLI. There is no production direct-feeds-only job kind.
+## Read-only production baseline
 
-The production `company_site` job includes verified direct ATS feeds when a saved mapping supports one, then the normal company-site discovery path. Feed adapters run only with a verified mapping and keep their completeness/evidence rules. Employers without a usable direct feed can go through ordinary site discovery. This is one employer cohort, not one vacancy; one employer may yield multiple roles.
+Captured 2026-09-28 using the vacancy-stats live/evidence gates, including the manager-role approval gate and a 48-hour verification window:
 
-The endpoint requires the `x-jobsage-job-secret` header backed by the Replit secret `VACANCY_JOB_SECRET`. It refuses the request unless `VACANCY_AI_WEB_SEARCH_DAILY_CAP` is zero. Company-site batches default to at most 10 employers and cannot exceed 10; this pilot explicitly asks for one.
+| Source | Eligible rows | Employers |
+| --- | ---: | ---: |
+| company_site | 2,478 | 513 |
+| job_board | 1,710 | 580 |
+| Total rows | 4,188 | — |
 
-## One-request pilot command
+This is a liveness/evidence baseline, not an exact count for every candidate feed. Candidate-specific category, industry, contact, apply-link, and matching gates can reduce the feed. An import that changes only sponsor URL/careers metadata does not itself create vacancy rows, but existing production schedules can change these counts independently. Recheck this snapshot before any future pilot. No post-pilot count exists because this review did not invoke the pilot worker.
 
-Before running it later:
+## Prepared allowlist
 
-1. Confirm the production deployment contains the approved worker code and that the production AI web-search cap is still zero.
-2. Check the external scheduler's latest batch history. Pause or coordinate it so this request is not competing with another caller.
-3. Load the API origin and secret into the shell securely. Do not paste the secret into chat, shell history, or logs; do not enable shell tracing.
-4. Run exactly one request and review the full response. Do not loop or automatically retry.
+- `vacancy-pilot-candidate-pool.csv` contains 139 distinct employers from newly resolved, approved source candidates with a nonblank website after the proposed import; candidates with a known bad company-site probe are excluded.
+- `vacancy-pilot-allowlist.csv` contains the first ten names, sorted by normalized employer name. `vacancy-pilot-first-source.csv` contains the deterministic initial candidate: **A1 CLUTCHES CANNOCK (UK) LIMITED**.
+- These files are dry-run proposals only. They do not prove that the URL import has been applied or that an employer is currently due for a crawl. Existing scheduler freshness, retry, probe, and source-safety checks remain in force.
+- The development route now accepts `organisationNames` for `company_site` jobs and filters by normalized exact employer name before priority selection and the batch limit. The production route does not have this change until a separately approved publish.
 
-```sh
-: "${PRODUCTION_API_ORIGIN:?Set the canonical production API origin}"
-: "${VACANCY_JOB_SECRET:?Load this from Replit Secrets without printing it}"
-curl --fail-with-body --silent --show-error --max-time 30 \
-  "$PRODUCTION_API_ORIGIN/api/internal/vacancy-jobs" \
-  -H "x-jobsage-job-secret: $VACANCY_JOB_SECRET" \
-  -H "content-type: application/json" \
-  --data '{"kind":"company_site","limit":1}'
-```
+## Requirements before any future run
 
-## Verify and stop
+This review grants no permission to start ingestion. A future, separately authorized pilot would require all of the following first:
 
-- Accept only a successful response showing `selected` no greater than 1, with `errors: 0`; retain `upserted`, duration, and the recorded `company_site` batch kind for review.
-- Stop after this single employer, even if `done` is false. A false value means more eligible work remains; it is not permission to drain the queue.
-- If the endpoint returns HTTP 409, respect `Retry-After` and verify the active batch has finished before considering another request. For HTTP 504 or a client timeout, do not retry immediately: the batch may still be settling. Check production batch history and the shared writer-lock status first.
-- Review inserted/updated roles against company identity, source evidence, liveness, and candidate-visibility gates before approving a larger cohort.
-- Only after the one-employer result is reviewed should an operator decide whether to run another explicitly bounded batch. Never run the development-only direct-feed switch against production.
+1. Review the production URL-import preview and plan hash; do not apply any URL changes without separate approval.
+2. Confirm that the production deployment includes the allowlist filter and that the configured AI web-search cap satisfies the worker’s production guard.
+3. Use one exact employer name from `vacancy-pilot-first-source.csv`, with a company-site batch limit of one. Do not use an unfiltered `limit: 1` request; that would select the next employer from the general queue.
+4. After a separately authorized run, verify the selected employer is the requested name and review inserted, updated, rejected, and error metrics. Stop after the first employer; no automatic retry or queue drain.
+5. Recheck the same candidate-specific view before and after ingestion. The 4,188-row liveness/evidence baseline above is a reference, not a substitute for the candidate feed’s additional gates.

@@ -167,7 +167,7 @@ export default function SponsorWebsiteImportPage() {
       return;
     }
     if (!window.confirm(
-      `Apply ${preview.writeCount} verified, blank-field updates to production? Existing values and unresolved rows will be left unchanged.`,
+      `Apply ${preview.writeCount} verified blank-field updates and careers-source inserts to production? Existing values and unresolved rows will be left unchanged.`,
     )) return;
 
     setLoading("apply");
@@ -477,7 +477,7 @@ export default function SponsorWebsiteImportPage() {
               </p>
               {applied && (
                 <p role="status" className="rounded-md border border-green-600/30 bg-green-600/5 p-3 text-sm">
-                  Applied {applied.websiteUpdates} website updates and {applied.careersUpdates} careers updates.
+                  Applied {applied.websiteUpdates} website updates and {applied.careersUpdates} careers-source records.
                 </p>
               )}
               <label className="flex items-start gap-2 text-sm">
