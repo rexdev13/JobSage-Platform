@@ -1384,3 +1384,17 @@ mtime_ms = 1790605200010
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/59a8bb9e-7b44-4c47-9046-1cd62123602e/071be447-b054-498d-9726-192a074c3ca3"
 storage_version_token = "1790605266817457"
 content_type = "text/csv"
+
+[[outputs]]
+id = "y4M1bYQVQRs0gD-tj5x3q"
+uri = "file://artifacts/production-url-resolution-2026-09-28/mobile-csv-download.html"
+type = "html"
+title = "Mobile CSV download page"
+description = "Open this page and tap Download CSV to save the importer file on mobile. The page includes a direct-download fallback."
+logical_id = "3d3aa450-1e74-4eb1-9a32-0f261584bf01"
+content_hash = "sha256:3e9a0d31c5810e779db120b3eef99fd8d234bac8fbbfdb32e8fbc56824360f1b"
+size = 553911
+mtime_ms = 1790605667998
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/3d3aa450-1e74-4eb1-9a32-0f261584bf01/68cec52e-e460-4934-aa5c-67608a2203f0"
+storage_version_token = "1790605669758432"
+content_type = "text/html"
