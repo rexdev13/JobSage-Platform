@@ -24,6 +24,7 @@ export type SponsorWebsiteImportCandidate = SponsorIdentity & {
   developmentCurrentValue: string;
   developmentAction: string;
   verificationStatus: string;
+  reasonCode?: string;
 };
 
 export type SponsorWebsiteProductionTarget = SponsorIdentityTarget & {
@@ -80,9 +81,11 @@ export type SponsorWebsiteImportPlan = {
     identity: SponsorIdentity;
     targetSponsorLicenceId: number;
     targetCompanySiteCheckId: number | null;
+    insertCompanySiteCheck: boolean;
     organisationName: string;
     url: string;
     currentValue: string;
+    reasonCode: string;
   }>;
   exactMappings: Array<{
     identityKey: string;
@@ -231,6 +234,9 @@ export function buildSponsorWebsiteImportPlan(input: {
   }
 
   const rows: SponsorWebsiteImportRowPlan[] = [];
+  const candidateBySourceRef = new Map(
+    input.candidates.map((candidate) => [candidate.sourceRef, candidate]),
+  );
   const currentValuesBySourceRef = new Map<string, string[]>();
   for (const candidate of input.candidates) {
     const identityKey = sponsorIdentityKey(candidate);
@@ -349,17 +355,18 @@ export function buildSponsorWebsiteImportPlan(input: {
       const siteTargets =
         careersByNormalizedName.get(normalizeSponsorLegalNameValue(target.organisationName)) ??
         [];
-      if (siteTargets.length !== 1) {
+    if (siteTargets.length > 1) {
         row.status = "manual_review_careers_target";
-        row.reason =
-          siteTargets.length === 0
-            ? "No unique production careers-site row exists for this employer."
-            : "More than one production careers-site row matches this employer.";
+      row.reason = "More than one production careers-site row matches this employer.";
         rows.push(row);
         continue;
       }
+    if (siteTargets.length === 1) {
       row.targetCompanySiteCheckId = siteTargets[0]!.id;
       row.currentValue = siteTargets[0]!.careersUrl ?? "";
+    } else {
+      row.reason = "No production careers-site row exists; an approved apply will create one.";
+    }
       currentValuesBySourceRef.set(candidate.sourceRef, [row.currentValue]);
     }
 
@@ -470,6 +477,9 @@ export function buildSponsorWebsiteImportPlan(input: {
         : groupTargets.length
           ? `${groupTargets.length} identical complete production sponsor rows match; blank rows only will be updated.`
           : "One complete production identity match; target is blank and development agrees.";
+    if (row.field === "careers" && row.targetCompanySiteCheckId == null) {
+      row.reason += " No careers-site row exists, so apply will create one.";
+    }
     rows.push(row);
   }
 
@@ -479,12 +489,16 @@ export function buildSponsorWebsiteImportPlan(input: {
     (currentValuesBySourceRef.get(row.sourceRef) ?? [row.currentValue])
       .every((value) => value === "" || normalizedEqual(value, row.candidateUrl)) &&
     normalizeImportUrl(row.candidateUrl) &&
-    (row.field === "website" || row.targetCompanySiteCheckId != null),
+    (row.field === "website" || row.status !== "manual_review_careers_target"),
   );
   for (const row of potentialTargetRows) {
     const targetKeys = row.field === "website"
       ? row.targetSponsorLicenceIds.map((id) => `website:${id}`)
-      : [`careers:${row.targetCompanySiteCheckId}`];
+      : [
+          row.targetCompanySiteCheckId == null
+            ? `careers:new:${normalizeSponsorLegalNameValue(row.organisationName)}`
+            : `careers:${row.targetCompanySiteCheckId}`,
+        ];
     for (const targetKey of targetKeys) {
       const urls = changeKeys.get(targetKey) ?? new Set<string>();
       urls.add(normalizeImportUrl(row.candidateUrl));
@@ -495,7 +509,11 @@ export function buildSponsorWebsiteImportPlan(input: {
   for (const row of potentialTargetRows) {
     const targetKeys = row.field === "website"
       ? row.targetSponsorLicenceIds.map((id) => `website:${id}`)
-      : [`careers:${row.targetCompanySiteCheckId}`];
+      : [
+          row.targetCompanySiteCheckId == null
+            ? `careers:new:${normalizeSponsorLegalNameValue(row.organisationName)}`
+            : `careers:${row.targetCompanySiteCheckId}`,
+        ];
     if (targetKeys.some((targetKey) => (changeKeys.get(targetKey)?.size ?? 0) > 1)) {
       collidedRows.add(row.sourceRef);
     }
@@ -521,7 +539,9 @@ export function buildSponsorWebsiteImportPlan(input: {
       const targetKey =
         row.field === "website"
           ? `website:${targetId}`
-          : `careers:${row.targetCompanySiteCheckId}`;
+          : row.targetCompanySiteCheckId == null
+            ? `careers:new:${normalizeSponsorLegalNameValue(row.organisationName)}`
+            : `careers:${row.targetCompanySiteCheckId}`;
       const currentValue = row.field === "website"
         ? currentValues[row.targetSponsorLicenceIds.indexOf(targetId)] ?? ""
         : currentValues[0] ?? "";
@@ -536,9 +556,15 @@ export function buildSponsorWebsiteImportPlan(input: {
         identity: row.identity,
         targetSponsorLicenceId: targetId,
         targetCompanySiteCheckId: row.targetCompanySiteCheckId,
+        insertCompanySiteCheck:
+          row.field === "careers" && row.targetCompanySiteCheckId == null,
         organisationName: row.organisationName,
         url: row.candidateUrl,
         currentValue,
+        reasonCode: candidateBySourceRef.get(row.sourceRef)?.reasonCode?.trim() ||
+          (row.field === "careers" && row.targetCompanySiteCheckId == null
+            ? "approved_careers_site_insert"
+            : "approved_blank_field_update"),
       });
       writesAdded += 1;
     }

@@ -128,6 +128,17 @@ describe("sponsor website import planning", () => {
     expect(plan.exactMappings).toHaveLength(1);
   });
 
+  it("compares URLs without scheme, www, or trailing-slash differences", () => {
+    const equivalent = makePlan([
+      candidate({
+        candidateUrl: "https://www.example.org/careers/",
+        developmentCurrentValue: "http://example.org/careers",
+      }),
+    ]);
+    expect(equivalent.counts.safe_to_import).toBe(1);
+    expect(equivalent.writes[0]?.url).toBe("https://www.example.org/careers/");
+  });
+
   it("fans out identical complete targets but lets manual-review crosswalks select one", () => {
     const targets = [sponsor(), sponsor({ id: 82 })];
     const identityKey = sponsorIdentityKey(identity);
@@ -285,5 +296,24 @@ describe("sponsor website import planning", () => {
     });
     expect(ambiguous.writes).toHaveLength(0);
     expect(ambiguous.counts.manual_review_careers_target).toBe(1);
+  });
+
+  it("plans a guarded careers-site insert when the employer has no production site row", () => {
+    const careersCandidate = candidate({
+      field: "careers",
+      candidateUrl: "https://www.example.org/careers",
+      developmentCurrentValue: "https://example.org/careers/",
+      reasonCode: "reviewed_missing_careers_source",
+    });
+    const plan = makePlan([careersCandidate], [sponsor()]);
+    expect(plan.counts.safe_to_import).toBe(1);
+    expect(plan.writes).toHaveLength(1);
+    expect(plan.writes[0]).toMatchObject({
+      field: "careers",
+      targetCompanySiteCheckId: null,
+      insertCompanySiteCheck: true,
+      reasonCode: "reviewed_missing_careers_source",
+    });
+    expect(plan.rows[0]?.reason).toContain("create one");
   });
 });

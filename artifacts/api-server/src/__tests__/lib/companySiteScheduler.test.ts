@@ -8,15 +8,35 @@ const {
   discoverCompanySiteVacanciesMock,
   persistCompanySiteVacanciesMock,
   runCompanySiteProbeBatchMock,
-} = vi.hoisted(() => ({
-  executeMock: vi.fn(),
-  selectMock: vi.fn(),
-  insertMock: vi.fn(),
-  scheduleMock: vi.fn(),
-  discoverCompanySiteVacanciesMock: vi.fn(),
-  persistCompanySiteVacanciesMock: vi.fn(),
-  runCompanySiteProbeBatchMock: vi.fn(),
-}));
+  sqlMock,
+  sqlParamMock,
+} = vi.hoisted(() => {
+  const sqlParamMock = vi.fn((value: unknown) => ({ parameter: value }));
+  const sqlMock = Object.assign(
+    vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({
+      sqlText: strings.reduce((text, part, index) => {
+        const value = values[index];
+        const nested = value && typeof value === "object" &&
+          "sqlText" in value
+          ? String((value as { sqlText: string }).sqlText)
+          : "?";
+        return text + part + (index < values.length ? nested : "");
+      }, ""),
+    })),
+    { param: sqlParamMock },
+  );
+  return {
+    executeMock: vi.fn(),
+    selectMock: vi.fn(),
+    insertMock: vi.fn(),
+    scheduleMock: vi.fn(),
+    discoverCompanySiteVacanciesMock: vi.fn(),
+    persistCompanySiteVacanciesMock: vi.fn(),
+    runCompanySiteProbeBatchMock: vi.fn(),
+    sqlMock,
+    sqlParamMock,
+  };
+});
 
 vi.mock("@workspace/db", () => ({
   db: {
@@ -32,9 +52,7 @@ vi.mock("@workspace/db", () => ({
 
 vi.mock("drizzle-orm", () => ({
   eq: vi.fn(),
-  sql: vi.fn((strings: TemplateStringsArray) => ({
-    sqlText: Array.from(strings).join(" ? "),
-  })),
+  sql: sqlMock,
 }));
 
 vi.mock("node-cron", () => ({ default: { schedule: scheduleMock } }));
@@ -76,6 +94,8 @@ describe("company-site scheduler", () => {
     discoverCompanySiteVacanciesMock.mockReset();
     persistCompanySiteVacanciesMock.mockReset();
     runCompanySiteProbeBatchMock.mockReset();
+    sqlParamMock.mockClear();
+    sqlMock.mockClear();
     selectMock.mockReturnValue({
       from: () => ({
         where: () => ({
@@ -264,6 +284,28 @@ describe("company-site scheduler", () => {
     expect(query?.sqlText).toMatch(
       /rotated_unbookmarked AS \(\s*SELECT[\s\S]*?probe_reason,\s*crawl_state,\s*bookmarked,/,
     );
+  });
+
+  it("filters the company-site queue by the normalized allowlist before selection", async () => {
+    executeMock.mockResolvedValue({ rows: [] });
+
+    const rows = await selectCompanySiteBatch(1, [
+      " Acme Engineering Limited ",
+      "Other Employer Ltd",
+    ]);
+
+    expect(rows).toEqual([]);
+    expect(sqlParamMock).toHaveBeenCalled();
+    expect(sqlParamMock).toHaveBeenCalledWith([
+      "acme engineering limited",
+      "other employer ltd",
+    ]);
+    for (const [query] of executeMock.mock.calls) {
+      const sqlText = (query as { sqlText?: string }).sqlText ?? "";
+      expect(sqlText).toContain("lower(btrim(sl.organisation_name)) = ANY");
+      expect(sqlText.indexOf("lower(btrim(sl.organisation_name)) = ANY"))
+        .toBeLessThan(sqlText.indexOf("ORDER BY"));
+    }
   });
 
   it("mixes approved refreshes with never-probed employers when the approved queue is short", async () => {

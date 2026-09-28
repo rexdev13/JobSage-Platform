@@ -1305,12 +1305,68 @@ content_type = "text/csv"
 id = "8CzCiluASEX4Kt58xE5i0"
 uri = "file://artifacts/production-url-resolution-2026-09-28/next-phase-vacancy-command-plan.md"
 type = "text"
-title = "Bounded vacancy pilot plan"
-description = "One authenticated company_site request capped at one employer; prepared only and not executed."
+title = "Vacancy pilot preparation"
+description = "Non-executable pilot plan; no production worker command is included."
 logical_id = "fae182ac-089b-47cd-ac84-685c49f665bb"
-content_hash = "sha256:a23a53f5afed0b92ade7db132eb509fd9ee323816680a234bfb7291e89aea97b"
-size = 3336
-mtime_ms = 1790587097552
-storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/fae182ac-089b-47cd-ac84-685c49f665bb/7967f049-c38a-4716-adbb-787dae00da2c"
-storage_version_token = "1790587274010605"
+content_hash = "sha256:cfd7b946442a05303f89b0672bbcf3092c4c740d2bcd0eeed320b61e6c42b040"
+size = 3709
+mtime_ms = 1790602351173
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/fae182ac-089b-47cd-ac84-685c49f665bb/53c2b587-be79-4a81-a586-db2378a899d1"
+storage_version_token = "1790602499541882"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "1hH49wbQAi4ALXv9aLeCY"
+uri = "file://artifacts/production-url-resolution-2026-09-28/production-url-blocker-resolution-preview.md"
+type = "text"
+title = "Production blocker review"
+description = "Dry-run counts, safety notes, vacancy baseline, and review findings."
+logical_id = "eb5d64d6-dac1-4659-a84e-d0cebc84d539"
+content_hash = "sha256:c9e9eb96e9fc2543d2b425b4de780e737bf7a3a884303e8a5b0e539b48dad830"
+size = 9481
+mtime_ms = 1790602447103
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/eb5d64d6-dac1-4659-a84e-d0cebc84d539/327476be-3435-4523-bc8d-33d3489a346a"
+storage_version_token = "1790602498504104"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "Tu6ZHhvRnzyJGM2ezoFpN"
+uri = "file://artifacts/production-url-resolution-2026-09-28/reviewed-source-import-candidates.csv"
+type = "table"
+title = "Guarded import candidates"
+description = "Proposed source imports for live production preview; not applied."
+logical_id = "806d0e31-80c5-47f4-82c5-f9e1e7842ade"
+content_hash = "sha256:293f3c095892c3d75429a353ba185fdb6aa2a9a1344b7e5fe195638e3c2a8dff"
+size = 217056
+mtime_ms = 1790602447103
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/806d0e31-80c5-47f4-82c5-f9e1e7842ade/09c2e3ea-3261-4d71-bbd1-68248480edb1"
+storage_version_token = "1790602501305916"
+content_type = "text/csv"
+
+[[outputs]]
+id = "Z4LuR1qjKtrXNrjXBjXb4"
+uri = "file://artifacts/production-url-resolution-2026-09-28/staging-source-candidates.csv"
+type = "table"
+title = "Staging source candidates"
+description = "Secondary and incomplete evidence candidates; not staged in production."
+logical_id = "5daa37fc-1c89-44ac-9cb2-ad52e575b780"
+content_hash = "sha256:54117e256dbecac04b911756ec9a444b1b7bc5aaf0d9a357f36f95aee63b18dc"
+size = 493842
+mtime_ms = 1790602447099
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/5daa37fc-1c89-44ac-9cb2-ad52e575b780/6641029c-aa79-4ed7-ab87-8a17ad8982ba"
+storage_version_token = "1790602502741203"
+content_type = "text/csv"
+
+[[outputs]]
+id = "0hvbepf0oHGCusY3BZPy4"
+uri = "file://artifacts/production-url-resolution-2026-09-28/vacancy-pilot-allowlist.csv"
+type = "table"
+title = "Vacancy pilot allowlist"
+description = "First ten approved-name candidates; proposal only, not executed."
+logical_id = "db5d2ee4-a213-4f8b-b226-01dc977a78a7"
+content_hash = "sha256:d8441bec3fca0d6985dc9352fe8a34315f191c644ead53e2b6360f966cf04253"
+size = 2718
+mtime_ms = 1790602447103
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/db5d2ee4-a213-4f8b-b226-01dc977a78a7/714f1d4c-7819-43ef-8e7f-69dbb23cacdd"
+storage_version_token = "1790602503881996"
+content_type = "text/csv"

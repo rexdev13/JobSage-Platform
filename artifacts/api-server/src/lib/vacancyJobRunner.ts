@@ -84,6 +84,7 @@ export type VacancyJobOptions = {
   deadlineMs?: number;
   cursor?: number;
   categoryLimit?: number;
+  organisationNames?: readonly string[];
 };
 
 function getCategoryLimit(options: VacancyJobOptions): number {
@@ -241,10 +242,18 @@ export async function runVacancyJob(
     }
 
     if (job === "company_site") {
-      const summary = await runCompanySiteDiscoveryBatch({
+      const companySiteOptions: {
+        batchSize: number;
+        deadlineMs: number;
+        organisationNames?: readonly string[];
+      } = {
         batchSize: batchLimit,
         deadlineMs: Date.now() + COMPANY_SITE_HTTP_BUDGET_MS,
-      });
+      };
+      if (options.organisationNames !== undefined) {
+        companySiteOptions.organisationNames = options.organisationNames;
+      }
+      const summary = await runCompanySiteDiscoveryBatch(companySiteOptions);
       if (!summary) return null;
       const selected = summary?.selected ?? 0;
       return {
@@ -258,6 +267,27 @@ export async function runVacancyJob(
         remaining: summary?.remaining,
         remainingIsLowerBound: summary?.remainingIsLowerBound,
         durationMs: summary?.durationMs,
+        metrics: {
+          attempted: summary.attempted,
+          completed: summary.completed,
+          partial: summary.partial,
+          failed: summary.failed,
+          empty: summary.empty,
+          careersFound: summary.careersFound,
+          atsFound: summary.atsFound,
+          pagesFetched: summary.pagesFetched,
+          advertsExtracted: summary.advertsExtracted,
+          advertsRejected: summary.advertsRejected,
+          rejected: summary.advertsRejected,
+          errors: summary.errors,
+          inserted: summary.inserted,
+          updated: summary.updated,
+          revived: summary.revived,
+          permanentFailures: summary.permanentFailures,
+          temporaryFailures: summary.temporaryFailures,
+          checked: summary.checked,
+          skipped: summary.skipped,
+        },
       };
     }
 

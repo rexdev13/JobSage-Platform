@@ -254,6 +254,7 @@ type CompanySiteProbeSelection = "ok_for_crawl" | "unprobed";
 async function selectCompanySiteBatchForProbeStatus(
   batchSize: number,
   selection: CompanySiteProbeSelection,
+  organisationNames?: readonly string[],
 ): Promise<CompanySiteBatchRow[]> {
   const bookmarkLimit = Math.floor(batchSize * COMPANY_SITE_BOOKMARK_SHARE);
   const guaranteedOldestSlots = batchSize - bookmarkLimit;
@@ -265,6 +266,12 @@ async function selectCompanySiteBatchForProbeStatus(
   const probeFilter = selection === "ok_for_crawl"
     ? sql`COALESCE(cs.probe_status, 'unknown') = 'ok_for_crawl'`
     : sql`COALESCE(cs.probe_status, 'unknown') = 'unknown'`;
+  const allowedOrganisationNames = organisationNames?.map((name) =>
+    name.trim().toLowerCase(),
+  );
+  const organisationFilter = allowedOrganisationNames === undefined
+    ? sql`TRUE`
+    : sql`lower(btrim(sl.organisation_name)) = ANY(${sql.param(allowedOrganisationNames)}::text[])`;
   const result = await db.execute<{
     id: number;
     organisation_name: string;
@@ -336,6 +343,7 @@ async function selectCompanySiteBatchForProbeStatus(
         ON cs.organisation_name = sl.organisation_name
       WHERE sl.website IS NOT NULL
         AND trim(sl.website) <> ''
+        AND ${organisationFilter}
         AND ${probeFilter}
         AND (cs.retry_after IS NULL OR cs.retry_after <= NOW())
         AND (cs.crawl_lease_until IS NULL OR cs.crawl_lease_until <= NOW())
@@ -554,9 +562,17 @@ async function selectCompanySiteBatchForProbeStatus(
 
 export async function selectCompanySiteBatch(
   batchSize = getBatchSize(),
+  organisationNames?: readonly string[],
 ): Promise<CompanySiteBatchRow[]> {
   const requested = Math.max(1, Math.floor(batchSize));
-  const approvedRows = await selectCompanySiteBatchForProbeStatus(requested, "ok_for_crawl");
+  const allowedOrganisationNames = organisationNames?.map((name) =>
+    name.trim().toLowerCase(),
+  );
+  const approvedRows = await selectCompanySiteBatchForProbeStatus(
+    requested,
+    "ok_for_crawl",
+    allowedOrganisationNames,
+  );
   if (approvedRows.length >= requested) return approvedRows;
 
   // Keep a meaningful approved refresh queue when it exists, while reserving
@@ -572,6 +588,7 @@ export async function selectCompanySiteBatch(
   const unprobedRows = (await selectCompanySiteBatchForProbeStatus(
     unprobedLimit,
     "unprobed",
+    allowedOrganisationNames,
   )).filter((row) => !approvedIds.has(row.id));
 
   const selected = [
@@ -1058,7 +1075,11 @@ export async function runCompanySiteCheck(
 }
 
 export async function runCompanySiteDiscoveryBatch(
-  options: { batchSize?: number; deadlineMs?: number } = {},
+  options: {
+    batchSize?: number;
+    deadlineMs?: number;
+    organisationNames?: readonly string[];
+  } = {},
 ): Promise<CompanySiteBatchSummary | null> {
   if (batchInProgress) {
     console.log("[company-site-scheduler] Previous batch still running — skipping this tick");
@@ -1076,7 +1097,10 @@ export async function runCompanySiteDiscoveryBatch(
     // Fetch one extra candidate instead of running an expensive full queue
     // count after the batch. This keeps the HTTP response bounded while still
     // distinguishing an empty queue from resumable work.
-    const candidates = await selectCompanySiteBatch(batchSize + 1);
+    const candidates = await selectCompanySiteBatch(
+      batchSize + 1,
+      options.organisationNames,
+    );
     const rows = candidates.slice(0, batchSize);
     const hasMore = candidates.length > rows.length;
     const probeSkipStats = await selectCompanySiteProbeSkipStats();

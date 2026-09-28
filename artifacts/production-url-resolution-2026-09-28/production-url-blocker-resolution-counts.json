@@ -1,0 +1,83 @@
+{
+  "totalRowsExamined": 1034,
+  "identity": {
+    "total": 596,
+    "autoMapped": 456,
+    "sameEmployerMultiRow": 127,
+    "sourceUsable": 360,
+    "manual": 13
+  },
+  "conflicts": {
+    "total": 312,
+    "normalizedNoop": 63,
+    "addCareersSource": 0,
+    "replaceDeadExisting": 0,
+    "secondarySource": 161,
+    "manual": 88
+  },
+  "missing": {
+    "total": 126,
+    "recoveredDirectOrNoop": 66,
+    "recoveredForStaging": 52,
+    "manual": 8
+  },
+  "stagingRows": 384,
+  "applyCandidates": 443,
+  "applyByField": {
+    "website": 362,
+    "careers": 81
+  },
+  "targetUrlCollisionRows": 0,
+  "collisionTargetFields": 0,
+  "countsByReason": {
+    "manual_source_evidence_insufficient": 98,
+    "verified_blank_website_from_blocker_review": 154,
+    "development_url_recovered_pending_verification": 199,
+    "normalized_url_already_present": 268,
+    "verified_careers_site_insert": 66,
+    "manual_ambiguous_same_name_location": 17,
+    "manual_location_conflict_or_insufficient": 1,
+    "normalized_careers_url_already_present": 1,
+    "preserve_both_official_url_candidates": 161,
+    "manual_url_review": 67,
+    "manual_careers_target_ambiguous": 2
+  },
+  "identityMappingCounts": {
+    "auto_unique_location": 455,
+    "auto_unique_location_and_official_domain": 1,
+    "multi_row_same_employer": 127,
+    "manual_ambiguous_same_name_location": 12,
+    "manual_location_conflict_or_insufficient": 1
+  },
+  "pilotEligibleEmployers": 139,
+  "pilotAllowlist": [
+    "A1 CLUTCHES CANNOCK (UK) LIMITED",
+    "Abaseen Superstore (UK) LTD",
+    "Ability Post Production Academy Limited",
+    "Abingdon and Witney College",
+    "Abingdon School",
+    "ABSCapCo Limited",
+    "ABV HAIR & BEAUTY LTD",
+    "Academia Park Ltd",
+    "Academy of Medical Royal Colleges",
+    "ACE CARS & MINIBUSES LTD"
+  ],
+  "productionVacancyVisibilityBaseline": {
+    "capturedAt": "2026-09-28",
+    "predicate": "GET /sponsor-licences/vacancy-stats liveness/evidence gates plus the manager-role approval gate, with last_verified_at within 48 hours",
+    "sources": [
+      {
+        "sourceType": "company_site",
+        "eligibleRows": 2478,
+        "employers": 513
+      },
+      {
+        "sourceType": "job_board",
+        "eligibleRows": 1710,
+        "employers": 580
+      }
+    ],
+    "totalEligibleRows": 4188,
+    "productionStagingTableExists": false
+  }
+}

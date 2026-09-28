@@ -35,7 +35,7 @@
 - [Smart Apply profile gate](smart-apply-profile-gate.md) — search preferences such as preferred region are optional and must not block application drafting.
 - [Vacancy sponsorship evidence](vacancy-sponsorship-evidence.md) — sponsor-register membership and vacancy-confirmed sponsorship are separate facts; never infer one from the other.
 - [Sponsor website promotion evidence](sponsor-website-promotion-evidence.md) — brand-token overlap can over-score generic or partial matches; promotion also needs independent identity and same-site evidence.
-- [Production vacancy schedulers](production-vacancy-schedulers.md) — keep web on Autoscale; external Scheduled workers own capped discovery/liveness jobs and production has no boot crawl.
+- [Production vacancy schedulers](production-vacancy-schedulers.md) — keep discovery on external capped workers; pilot employer allowlists filter before priority selection and limit.
 - [Smart Apply alias privacy](smart-apply-alias-privacy.md) — external ATS prefill and tracking use the canonical JOBSAGE alias; personal login email stays out of extension evidence.
 - [Shadow-root input capture](shadow-root-input-capture.md) — document-capture field listeners can erase extension textarea keystrokes before React handles them; verify in Chromium with an employer form.
 - [Contact enrichment source order](contact-enrichment-source-order.md) — exhaust stored vacancy/employer evidence before any paid website lookup; preserve provenance and no-overwrite behavior.

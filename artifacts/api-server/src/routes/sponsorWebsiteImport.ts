@@ -139,6 +139,7 @@ function parseCandidateFile(buffer: Buffer): {
       developmentCurrentValue: record.development_current_value?.trim() ?? "",
       developmentAction: record.development_action?.trim().toLowerCase() ?? "",
       verificationStatus: record.verification_status?.trim().toLowerCase() ?? "",
+      reasonCode: record.reason_code?.trim().slice(0, 120) ?? "",
     } satisfies SponsorWebsiteImportCandidate;
   });
 
@@ -550,6 +551,18 @@ router.post(
 
       const applied = await db.transaction(async (tx) => {
         const sponsorIds = sponsorLicenceIdsForImportWrites(plan.writes);
+        const insertSiteNames = [...new Set(
+          plan.writes
+            .filter((write) => write.field === "careers" && write.insertCompanySiteCheck)
+            .map((write) => normalizeSponsorLegalNameValue(write.organisationName)),
+        )].sort();
+        for (const normalizedName of insertSiteNames) {
+          await tx.execute(sql`
+            SELECT pg_advisory_xact_lock(
+              hashtextextended(${`sponsor-website-import:${normalizedName}`}, 0)
+            )
+          `);
+        }
         const siteIds = [...new Set(
           plan.writes
             .filter((write) => write.field === "careers" && write.targetCompanySiteCheckId != null)
@@ -583,6 +596,17 @@ router.post(
         ]);
         const sponsorsById = new Map(lockedSponsors.map((row) => [row.id, row]));
         const sitesById = new Map(lockedSites.map((row) => [row.id, row]));
+        const existingCareersRowsForInsert = insertSiteNames.length
+          ? await tx.select({
+              id: sponsorLicenceCompanySiteChecksTable.id,
+              organisationName: sponsorLicenceCompanySiteChecksTable.organisationName,
+            }).from(sponsorLicenceCompanySiteChecksTable)
+          : [];
+        const existingNormalizedCareersNames = new Set(
+          existingCareersRowsForInsert.map((site) =>
+            normalizeSponsorLegalNameValue(site.organisationName),
+          ),
+        );
 
         for (const write of plan.writes) {
           const current =
@@ -615,19 +639,34 @@ router.post(
             throw new ImportConflictError("A sponsor identity changed after preview.");
           }
           if (write.field === "careers") {
-            const site = sitesById.get(write.targetCompanySiteCheckId ?? -1);
-            if (
-              !site ||
-              normalizeSponsorLegalNameValue(site.organisationName) !==
-                normalizeSponsorLegalNameValue(target.organisationName)
-            ) {
-              throw new ImportConflictError("A careers-site identity changed after preview.");
+            if (write.insertCompanySiteCheck) {
+              if (
+                write.targetCompanySiteCheckId != null ||
+                existingNormalizedCareersNames.has(
+                  normalizeSponsorLegalNameValue(target.organisationName),
+                )
+              ) {
+                throw new ImportConflictError(
+                  "A careers-site target appeared after preview. Run a new preview.",
+                );
+              }
+            } else {
+              const site = sitesById.get(write.targetCompanySiteCheckId ?? -1);
+              if (
+                !site ||
+                normalizeSponsorLegalNameValue(site.organisationName) !==
+                  normalizeSponsorLegalNameValue(target.organisationName)
+              ) {
+                throw new ImportConflictError("A careers-site identity changed after preview.");
+              }
             }
           }
         }
 
         let websiteUpdates = 0;
         let careersUpdates = 0;
+        let careersInserts = 0;
+        const appliedChanges: Array<Record<string, string | number | boolean>> = [];
         for (const write of plan.writes) {
           if (write.field === "website") {
             const target = sponsorsById.get(write.targetSponsorLicenceId);
@@ -644,20 +683,69 @@ router.post(
               throw new ImportConflictError("A sponsor website changed during import.");
             }
             websiteUpdates += 1;
+            appliedChanges.push({
+              sourceRef: write.sourceRef,
+              reasonCode: write.reasonCode,
+              field: "website",
+              targetSponsorLicenceId: write.targetSponsorLicenceId,
+              beforeValue: write.currentValue,
+              afterValue: write.url,
+              inserted: false,
+            });
           } else {
-            const siteId = write.targetCompanySiteCheckId;
-            if (siteId == null) throw new ImportConflictError("A careers target is missing.");
-            const updated = await tx.update(sponsorLicenceCompanySiteChecksTable)
-              .set({ careersUrl: write.url, updatedAt: new Date() })
-              .where(and(
-                eq(sponsorLicenceCompanySiteChecksTable.id, siteId),
-                sql`(${sponsorLicenceCompanySiteChecksTable.careersUrl} IS NULL OR btrim(${sponsorLicenceCompanySiteChecksTable.careersUrl}) = '')`,
-              ))
-              .returning({ id: sponsorLicenceCompanySiteChecksTable.id });
-            if (updated.length !== 1) {
-              throw new ImportConflictError("A careers URL changed during import.");
+            if (write.insertCompanySiteCheck) {
+              const inserted = await tx.insert(sponsorLicenceCompanySiteChecksTable)
+                .values({
+                  organisationName: write.organisationName,
+                  careersUrl: write.url,
+                  updatedAt: new Date(),
+                })
+                .onConflictDoNothing({
+                  target: sponsorLicenceCompanySiteChecksTable.organisationName,
+                })
+                .returning({ id: sponsorLicenceCompanySiteChecksTable.id });
+              if (inserted.length !== 1) {
+                throw new ImportConflictError("A careers-site row was created after preview.");
+              }
+              careersInserts += 1;
+              careersUpdates += 1;
+              appliedChanges.push({
+                sourceRef: write.sourceRef,
+                reasonCode: write.reasonCode,
+                field: "careers",
+                targetSponsorLicenceId: write.targetSponsorLicenceId,
+                targetCompanySiteCheckId: inserted[0]!.id,
+                organisationName: write.organisationName,
+                beforeValue: "",
+                afterValue: write.url,
+                inserted: true,
+              });
+            } else {
+              const siteId = write.targetCompanySiteCheckId;
+              if (siteId == null) throw new ImportConflictError("A careers target is missing.");
+              const updated = await tx.update(sponsorLicenceCompanySiteChecksTable)
+                .set({ careersUrl: write.url, updatedAt: new Date() })
+                .where(and(
+                  eq(sponsorLicenceCompanySiteChecksTable.id, siteId),
+                  sql`(${sponsorLicenceCompanySiteChecksTable.careersUrl} IS NULL OR btrim(${sponsorLicenceCompanySiteChecksTable.careersUrl}) = '')`,
+                ))
+                .returning({ id: sponsorLicenceCompanySiteChecksTable.id });
+              if (updated.length !== 1) {
+                throw new ImportConflictError("A careers URL changed during import.");
+              }
+              careersUpdates += 1;
+              appliedChanges.push({
+                sourceRef: write.sourceRef,
+                reasonCode: write.reasonCode,
+                field: "careers",
+                targetSponsorLicenceId: write.targetSponsorLicenceId,
+                targetCompanySiteCheckId: siteId,
+                organisationName: write.organisationName,
+                beforeValue: write.currentValue,
+                afterValue: write.url,
+                inserted: false,
+              });
             }
-            careersUpdates += 1;
           }
         }
 
@@ -692,7 +780,9 @@ router.post(
             careersUpdates,
             safeTargetWrites: plan.writes.length,
             mappingsStored,
+            careersInserts,
             counts: plan.counts,
+            changes: appliedChanges,
           },
         });
         return { websiteUpdates, careersUpdates, mappingsStored };

@@ -143,6 +143,48 @@ describe("POST /internal/vacancy-jobs", () => {
     expect(runVacancyJobMock).toHaveBeenCalledWith("company_site", 3, { deadlineMs: undefined });
   });
 
+  it("forwards an exact company-site employer allowlist to the scheduler", async () => {
+    const response = await request(app)
+      .post("/internal/vacancy-jobs")
+      .set("x-jobsage-job-secret", "test-job-secret")
+      .send({
+        kind: "company_site",
+        limit: 1,
+        organisationNames: [" Acme Engineering Limited "],
+      });
+
+    expect(response.status).toBe(200);
+    expect(runVacancyJobMock).toHaveBeenCalledWith(
+      "company_site",
+      1,
+      {
+        deadlineMs: undefined,
+        organisationNames: ["Acme Engineering Limited"],
+      },
+    );
+  });
+
+  it.each([
+    ["empty list", { kind: "company_site", organisationNames: [] }],
+    ["blank name", { kind: "company_site", organisationNames: ["  "] }],
+    ["duplicate normalized names", {
+      kind: "company_site",
+      organisationNames: ["Acme Ltd", " acme ltd "],
+    }],
+    ["allowlist on another job", {
+      kind: "job_board",
+      organisationNames: ["Acme Ltd"],
+    }],
+  ])("rejects an invalid employer allowlist: %s", async (_label, body) => {
+    const response = await request(app)
+      .post("/internal/vacancy-jobs")
+      .set("x-jobsage-job-secret", "test-job-secret")
+      .send(body);
+
+    expect(response.status).toBe(400);
+    expect(runVacancyJobMock).not.toHaveBeenCalled();
+  });
+
   it("accepts resumable Reed profession pages", async () => {
     const response = await request(app)
       .post("/internal/vacancy-jobs")

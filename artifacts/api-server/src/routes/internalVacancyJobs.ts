@@ -114,6 +114,40 @@ router.post("/internal/vacancy-jobs", async (req: Request, res: Response): Promi
     return;
   }
 
+  let organisationNames: string[] | undefined;
+  const requestedOrganisationNames = req.body?.organisationNames;
+  if (requestedOrganisationNames != null) {
+    const maximumNames = getHttpMaxLimits().company_site;
+    if (kind !== "company_site") {
+      res.status(400).json({
+        error: "organisationNames is only supported for company_site jobs.",
+      });
+      return;
+    }
+    if (
+      !Array.isArray(requestedOrganisationNames) ||
+      requestedOrganisationNames.length < 1 ||
+      requestedOrganisationNames.length > maximumNames ||
+      requestedOrganisationNames.some(
+        (name) => typeof name !== "string" || !name.trim(),
+      )
+    ) {
+      res.status(400).json({
+        error: `organisationNames must contain 1–${maximumNames} non-empty employer names.`,
+      });
+      return;
+    }
+    const cleanedNames = requestedOrganisationNames.map((name: string) => name.trim());
+    const normalizedNames = cleanedNames.map((name: string) => name.toLowerCase());
+    if (new Set(normalizedNames).size !== cleanedNames.length) {
+      res.status(400).json({
+        error: "organisationNames must not contain duplicate names.",
+      });
+      return;
+    }
+    organisationNames = cleanedNames;
+  }
+
   try {
     const deadlineMs = kind === "company_site_probe"
       ? Date.now() + COMPANY_SITE_PROBE_HTTP_BUDGET_MS
@@ -128,7 +162,9 @@ router.post("/internal/vacancy-jobs", async (req: Request, res: Response): Promi
         cursor: requestedCursor ?? 0,
         categoryLimit: limit,
       })
-      : await runVacancyJob(kind, limit, { deadlineMs });
+      : organisationNames
+        ? await runVacancyJob(kind, limit, { deadlineMs, organisationNames })
+        : await runVacancyJob(kind, limit, { deadlineMs });
     if (!summary) {
       res
         .status(409)
