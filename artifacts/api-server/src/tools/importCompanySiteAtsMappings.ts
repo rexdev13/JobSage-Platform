@@ -1,8 +1,14 @@
-import { readFile, writeFile } from "node:fs/promises";
-import { db } from "@workspace/db";
+import { createHash } from "node:crypto";
+import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
 import { sql } from "drizzle-orm";
-import { assertDatabaseFingerprint, safeToolErrorSummary } from "./databaseSafety";
-import { parseDirectBoardMapping } from "../lib/directEmployerBoardConnectors";
+import { assertDatabaseMode, safeToolErrorSummary } from "./databaseSafety";
+import {
+  assertWritesAllowed,
+  installDatabaseContext,
+  prepareDatabaseContext,
+  type DiscoverySourceEnvironment,
+} from "./companySiteDiscoveryRuntime";
 
 type DiscoveryRecord = {
   organisationName?: string;
@@ -35,6 +41,19 @@ type CurrentMapping = {
   careers_url: string | null;
 };
 
+type DiscoveryReportInput = {
+  environment?: DiscoverySourceEnvironment;
+  dbMode?: string;
+  safety?: {
+    database?: { fingerprint?: string };
+    employerInputSource?: {
+      declaredEnvironment?: DiscoverySourceEnvironment;
+      declaredSource?: string;
+    };
+  };
+  records?: DiscoveryRecord[];
+};
+
 function argsMap(args: string[]): Map<string, string> {
   const values = new Map<string, string>();
   for (const arg of args) {
@@ -62,7 +81,10 @@ function normalizeName(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-function proposalFromRecord(record: DiscoveryRecord): MappingProposal | null {
+function proposalFromRecord(
+  record: DiscoveryRecord,
+  parseDirectBoardMapping: typeof import("../lib/directEmployerBoardConnectors").parseDirectBoardMapping,
+): MappingProposal | null {
   if (
     record.status !== "verified_feed" ||
     record.confidence !== "high" ||
@@ -98,62 +120,96 @@ function proposalFromRecord(record: DiscoveryRecord): MappingProposal | null {
   };
 }
 
-async function readInput(filePath: string | undefined): Promise<string> {
-  if (filePath) return await readFile(filePath, "utf8");
-  const chunks: Buffer[] = [];
-  for await (const chunk of process.stdin) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+async function readDiscoveryInput(filePath: string): Promise<{
+  input: DiscoveryReportInput;
+  path: string;
+  sha256: string;
+}> {
+  const path = await realpath(resolve(filePath));
+  const content = await readFile(path);
+  if (content.byteLength > 10_000_000) {
+    throw new Error("--input-file may not exceed 10 MB.");
   }
-  return Buffer.concat(chunks).toString("utf8");
+  let input: DiscoveryReportInput;
+  try {
+    input = JSON.parse(content.toString("utf8")) as DiscoveryReportInput;
+  } catch {
+    throw new Error("Discovery input is not valid JSON.");
+  }
+  if (!Array.isArray(input.records)) {
+    throw new Error("Input must be a read-only ATS discovery JSON report with a records array.");
+  }
+  if (
+    (input.environment !== "development" && input.environment !== "production") ||
+    input.safety?.employerInputSource?.declaredEnvironment !== input.environment
+  ) {
+    throw new Error("Discovery input must declare a consistent employer-input environment.");
+  }
+  if (
+    typeof input.safety?.employerInputSource?.declaredSource !== "string" ||
+    !input.safety.employerInputSource.declaredSource.trim()
+  ) {
+    throw new Error("Discovery input must include a declared employer-data source.");
+  }
+  if (
+    input.dbMode !== "development" &&
+    input.dbMode !== "production-readonly"
+  ) {
+    throw new Error("Discovery input is missing its explicit dbMode provenance.");
+  }
+  if (!input.safety?.database?.fingerprint) {
+    throw new Error("Discovery input is missing its database fingerprint.");
+  }
+  return {
+    input,
+    path,
+    sha256: createHash("sha256").update(content).digest("hex"),
+  };
 }
 
 async function main(): Promise<void> {
   const args = argsMap(process.argv.slice(2));
-  const environment = args.get("environment") ?? "development";
   const apply = args.get("apply") === "true";
   const replaceVerified = args.get("replace-verified") === "true";
-  const inputPath = args.get("input");
+  const inputPath = args.get("input-file") ?? args.get("input");
   const outputPath = args.get("output");
-  if (environment !== "development" && environment !== "production") {
-    throw new Error("--environment must be development or production");
+  if (!inputPath?.trim()) throw new Error("Mapping review requires --input-file=<discovery-report.json>.");
+  const loaded = await readDiscoveryInput(inputPath);
+  const modeContext = prepareDatabaseContext(args, process.env, loaded.input.environment);
+  assertWritesAllowed(modeContext.mode, apply, "mapping");
+  if (loaded.input.dbMode !== modeContext.mode) {
+    throw new Error("Discovery report dbMode does not match the selected database mode.");
   }
-  if (environment === "production") {
+  if (
+    loaded.input.safety?.database?.fingerprint?.toLowerCase() !==
+    modeContext.expectedFingerprint.toLowerCase()
+  ) {
+    throw new Error("Discovery report fingerprint does not match the declared database context.");
+  }
+  if (apply) {
     if (
-      process.env.NODE_ENV !== "production" ||
-      args.get("confirm-production-mapping-only") !== "true"
+      modeContext.mode !== "development" ||
+      args.get("confirm-dev-mapping-only") !== "true"
     ) {
       throw new Error(
-        "Production imports require NODE_ENV=production and --confirm-production-mapping-only=true.",
+        "Mapping writes are development-only and require --confirm-dev-mapping-only=true.",
       );
     }
-  } else if (process.env.NODE_ENV === "production") {
-    throw new Error("Refusing a development label while NODE_ENV=production.");
   }
-  if (apply && environment === "development") {
-    const expectedFingerprint = args.get("expected-db-fingerprint");
-    if (
-      process.env.NODE_ENV !== "development" ||
-      args.get("confirm-dev-mapping-only") !== "true" ||
-      !expectedFingerprint
-    ) {
-      throw new Error(
-        "Development mapping writes require NODE_ENV=development, --confirm-dev-mapping-only=true, and --expected-db-fingerprint.",
-      );
-    }
-    await assertDatabaseFingerprint(expectedFingerprint);
-  }
-
-  const input = JSON.parse(await readInput(inputPath)) as {
-    records?: DiscoveryRecord[];
-  };
-  if (!Array.isArray(input.records)) {
-    throw new Error("Input must be a read-only ATS discovery JSON report with a records array.");
-  }
+  installDatabaseContext(modeContext);
+  const databaseModule = await import("@workspace/db");
+  try {
+  const identity = await assertDatabaseMode(
+    databaseModule.db,
+    modeContext.mode,
+    modeContext.expectedFingerprint,
+  );
+  const { parseDirectBoardMapping } = await import("../lib/directEmployerBoardConnectors");
 
   const rejects: Array<{ organisationName: string | null; reason: string }> = [];
   const proposals = new Map<string, MappingProposal>();
-  for (const record of input.records) {
-    const proposal = proposalFromRecord(record);
+  for (const record of loaded.input.records ?? []) {
+    const proposal = proposalFromRecord(record, parseDirectBoardMapping);
     if (!proposal) {
       rejects.push({
         organisationName: record.organisationName ?? null,
@@ -179,7 +235,7 @@ async function main(): Promise<void> {
 
   const changes: Array<Record<string, unknown>> = [];
   const readOnly = !apply;
-  await db.transaction(async (tx) => {
+  await databaseModule.db.transaction(async (tx) => {
     if (readOnly) await tx.execute(sql`SET TRANSACTION READ ONLY`);
     for (const proposal of proposals.values()) {
       const sponsorResult = await tx.execute<{ organisation_name: string; website: string }>(sql`
@@ -287,12 +343,46 @@ async function main(): Promise<void> {
   });
 
   const report = {
-    environment,
+    environment: modeContext.sourceEnvironment,
+    dbMode: modeContext.mode,
     mode: apply ? "mapping_only_apply" : "dry_run",
-    productionApprovalRequired: environment === "production",
+    productionApprovalRequired: modeContext.mode === "production-readonly",
     writesAllowed: apply,
+    safety: {
+      nodeEnvironment: modeContext.nodeEnvironment,
+      database: {
+        host: identity.databaseHost,
+        name: identity.databaseName,
+        role: identity.roleName,
+        fingerprint: identity.fingerprint,
+      },
+      expectedFingerprintMatched: true,
+      transactionReadOnly: identity.transactionReadOnly,
+      defaultTransactionReadOnly: identity.defaultTransactionReadOnly,
+      readOnlyRoleVerified: modeContext.mode === "production-readonly",
+      productionWritesDisabled: modeContext.mode === "production-readonly",
+      writeModeDisabled: !apply,
+      employerInputSource: {
+        type: "discovery-report-file",
+        path: loaded.path,
+        sha256: loaded.sha256,
+        declaredEnvironment: loaded.input.environment,
+        declaredSource: loaded.input.safety?.employerInputSource?.declaredSource ?? null,
+      },
+      mappingCheckStateSource: `same ${modeContext.mode} database`,
+      cacheStateSource: "no cache/state files read",
+      developmentStateAccessed: modeContext.mode === "development",
+      assertions: {
+        databaseFingerprintMatchesMode: true,
+        inputSourceMatchesDatabaseMode: true,
+        reportFingerprintMatchesDatabaseMode: true,
+        productionReadOnlyRoleAndSessionVerified: modeContext.mode === "production-readonly",
+        mappingWritesDisabled: modeContext.mode === "production-readonly" || !apply,
+      },
+    },
     mappingRowsChanged: changes.filter((change) => change.status === "updated").length,
     mappingProposals: proposals.size,
+    vacancyImports: 0,
     rejected: rejects,
     changes,
     rollback: changes
@@ -300,8 +390,15 @@ async function main(): Promise<void> {
       .map(({ organisationName, before }) => ({ organisationName, restore: before })),
   };
   const output = `${JSON.stringify(report, null, 2)}\n`;
-  if (outputPath) await writeFile(outputPath, output, "utf8");
+  if (outputPath) {
+    const resolvedOutput = resolve(outputPath);
+    await mkdir(dirname(resolvedOutput), { recursive: true });
+    await writeFile(resolvedOutput, output, "utf8");
+  }
   process.stdout.write(output);
+  } finally {
+    await databaseModule.pool.end();
+  }
 }
 
 main().catch((error) => {

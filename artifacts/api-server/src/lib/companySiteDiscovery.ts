@@ -195,6 +195,7 @@ export type CompanySiteDiscoveryOptions = {
   checkAts?: boolean;
   directFeedsOnly?: boolean;
   readOnly?: boolean;
+  noHostState?: boolean;
   now?: () => number;
   deadlineMs?: number;
   resumeState?: {
@@ -1291,6 +1292,7 @@ async function discoverDirectFeedsOnly(
         deadlineMs,
         firstPartyEvidenceUrl: options.knownCareersEvidenceUrl,
         readOnly: options.readOnly === true,
+        noHostState: options.noHostState === true,
       },
     );
     if (!direct.mapping) {
@@ -1420,6 +1422,8 @@ export async function discoverCompanySiteVacancies(
       {
         deadlineMs,
         firstPartyEvidenceUrl: options.knownCareersEvidenceUrl,
+        readOnly: options.readOnly === true,
+        noHostState: options.noHostState === true,
       },
     );
     if (direct.mapping) directAttempted.add(direct.mapping.evidenceUrl);
@@ -1607,6 +1611,8 @@ export async function discoverCompanySiteVacancies(
           {
             deadlineMs,
             firstPartyEvidenceUrl: atsMappingEvidenceUrl ?? sourceUrl,
+            readOnly: options.readOnly === true,
+            noHostState: options.noHostState === true,
           },
         );
         if (direct.mapping && (direct.complete || direct.adverts.length > 0)) {
@@ -1657,7 +1663,15 @@ export async function discoverCompanySiteVacancies(
         // HTML page without granting trust to any unrelated ATS board.
       }
     }
-    const result = await fetchCompanySitePage(canonical, originHostname, deadlineMs);
+    const fetchOptions = options.readOnly || options.noHostState
+      ? {
+          readOnly: options.readOnly === true,
+          ...(options.noHostState ? { noHostState: true } : {}),
+        }
+      : undefined;
+    const result = fetchOptions
+      ? await fetchCompanySitePage(canonical, originHostname, deadlineMs, undefined, fetchOptions)
+      : await fetchCompanySitePage(canonical, originHostname, deadlineMs);
     const fetchDiagnostic: CompanySiteFetchDiagnostic = {
       url: canonical,
       fetchedUrl: result.ok ? result.url : null,
