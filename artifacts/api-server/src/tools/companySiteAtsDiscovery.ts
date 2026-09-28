@@ -1,7 +1,12 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { sql } from "drizzle-orm";
-import { assertDatabaseMode, safeToolErrorSummary } from "./databaseSafety";
+import {
+  assertDatabaseMode,
+  assertProductionProofReadOnly,
+  safeToolErrorSummary,
+  type DatabaseIdentity,
+} from "./databaseSafety";
 import {
   installDatabaseContext,
   parseDiscoveryExecutionOptions,
@@ -153,11 +158,20 @@ async function selectEmployers(
 ): Promise<EmployerRow[]> {
   return database.transaction(async (tx) => {
     await tx.execute(sql`SET TRANSACTION READ ONLY`);
-    const names = organisationNames?.map((name) => name.trim().toLowerCase());
-    const employerFilter = names === undefined
-      ? sql`TRUE`
-      : sql`lower(btrim(sl.organisation_name)) = ANY(${sql.param(names)}::text[])`;
-    const result = await tx.execute<EmployerRow>(sql`
+    return selectEmployersFromTransaction(tx, limit, organisationNames);
+  });
+}
+
+async function selectEmployersFromTransaction(
+  database: Pick<typeof import("@workspace/db").db, "execute">,
+  limit: number,
+  organisationNames?: readonly string[],
+): Promise<EmployerRow[]> {
+  const names = organisationNames?.map((name) => name.trim().toLowerCase());
+  const employerFilter = names === undefined
+    ? sql`TRUE`
+    : sql`lower(btrim(sl.organisation_name)) = ANY(${sql.param(names)}::text[])`;
+  const result = await database.execute<EmployerRow>(sql`
       SELECT DISTINCT ON (lower(btrim(sl.organisation_name)))
         sl.organisation_name,
         trim(sl.website) AS website,
@@ -175,8 +189,7 @@ async function selectEmployers(
       ORDER BY lower(btrim(sl.organisation_name)), sl.id
       LIMIT ${limit}
     `);
-    return result.rows;
-  });
+  return result.rows;
 }
 
 async function pagesForEmployer(
@@ -234,9 +247,10 @@ async function discoverEmployer(
     }];
   }
 
+  const employerDeadline = Date.now() + EMPLOYER_DEADLINE_MS;
   const pages = await pagesForEmployer(
     employer,
-    Date.now() + EMPLOYER_DEADLINE_MS,
+    employerDeadline,
     helpers,
     noHostState,
   );
@@ -288,6 +302,7 @@ async function discoverEmployer(
 
   const records: Record<string, unknown>[] = [];
   for (const candidate of candidates.values()) {
+    if (Date.now() >= employerDeadline) break;
     const feed = await helpers.discoverCompanySiteVacancies(
       employer.organisation_name,
       employer.website,
@@ -301,7 +316,7 @@ async function discoverEmployer(
         directFeedsOnly: true,
         readOnly: true,
         noHostState,
-        deadlineMs: Date.now() + EMPLOYER_DEADLINE_MS,
+        deadlineMs: employerDeadline,
       },
     );
     records.push({
@@ -329,13 +344,143 @@ async function discoverEmployer(
   return records;
 }
 
+type ProofRowCounts = {
+  companySiteCheckRows: string;
+  verifiedMappingRows: string;
+  sponsorVacancyRows: string;
+  companySiteVacancyRows: string;
+};
+
+type ProofSnapshot = {
+  identity: DatabaseIdentity;
+  countsBefore: ProofRowCounts;
+  countsAfterInTransaction: ProofRowCounts;
+  employers: EmployerRow[];
+  records: Record<string, unknown>[];
+};
+
+class IntentionalProofRollback extends Error {}
+
+async function readProofRowCounts(
+  database: Pick<typeof import("@workspace/db").db, "execute">,
+): Promise<ProofRowCounts> {
+  const result = await database.execute<{
+    company_site_check_rows: string;
+    verified_mapping_rows: string;
+    sponsor_vacancy_rows: string;
+    company_site_vacancy_rows: string;
+  }>(sql`
+    SELECT
+      (SELECT count(*) FROM sponsor_licence_company_site_checks)::text
+        AS company_site_check_rows,
+      (SELECT count(*)
+       FROM sponsor_licence_company_site_checks
+       WHERE ats_mapping_status = 'verified')::text AS verified_mapping_rows,
+      (SELECT count(*) FROM sponsor_licence_vacancies)::text AS sponsor_vacancy_rows,
+      (SELECT count(*)
+       FROM sponsor_licence_vacancies
+       WHERE source_type = 'company_site')::text AS company_site_vacancy_rows
+  `);
+  const row = result.rows[0];
+  if (!row) throw new Error("Unable to read production proof row counts.");
+  return {
+    companySiteCheckRows: String(row.company_site_check_rows),
+    verifiedMappingRows: String(row.verified_mapping_rows),
+    sponsorVacancyRows: String(row.sponsor_vacancy_rows),
+    companySiteVacancyRows: String(row.company_site_vacancy_rows),
+  };
+}
+
+function proofCountsMatch(left: ProofRowCounts, right: ProofRowCounts): boolean {
+  return left.companySiteCheckRows === right.companySiteCheckRows &&
+    left.verifiedMappingRows === right.verifiedMappingRows &&
+    left.sponsorVacancyRows === right.sponsorVacancyRows &&
+    left.companySiteVacancyRows === right.companySiteVacancyRows;
+}
+
+async function runProductionProofTransaction(
+  database: Pick<typeof import("@workspace/db").db, "transaction">,
+  noHostState: boolean,
+  expectedFingerprint?: string,
+): Promise<ProofSnapshot> {
+  let snapshot: ProofSnapshot | undefined;
+  try {
+    await database.transaction(async (tx) => {
+      // This must be the first statement in the transaction. Pool connections
+      // are also created with default_transaction_read_only=on.
+      await tx.execute(sql`SET TRANSACTION READ ONLY`);
+      await tx.execute(sql`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ`);
+
+      const identity = await assertProductionProofReadOnly(tx);
+      if (expectedFingerprint && identity.fingerprint !== expectedFingerprint.toLowerCase()) {
+        throw new Error("Connected database does not match the independently confirmed fingerprint.");
+      }
+      const writeGuards = verifyProductionWriteGuards("production-proof-readonly");
+      if (!writeGuards.mappingWritesBlocked || !writeGuards.vacancyWritesBlocked) {
+        throw new Error("Production proof could not verify application write guards.");
+      }
+
+      const countsBefore = await readProofRowCounts(tx);
+      const employers = await selectEmployersFromTransaction(tx, 5);
+
+      const http = await import("../lib/companySiteHttp");
+      const discovery = await import("../lib/companySiteDiscovery");
+      const connectors = await import("../lib/directEmployerBoardConnectors");
+      http.resetCompanySiteEphemeralState();
+      const helpers: DiscoveryHelpers = {
+        discoverCompanySiteVacancies: discovery.discoverCompanySiteVacancies,
+        fetchCompanySitePage: http.fetchCompanySitePage,
+        parseDirectBoardMapping: connectors.parseDirectBoardMapping,
+      };
+
+      const records: Record<string, unknown>[] = [];
+      for (const employer of employers) {
+        records.push(...await discoverEmployer(employer, helpers, noHostState));
+      }
+      const countsAfterInTransaction = await readProofRowCounts(tx);
+      snapshot = {
+        identity,
+        countsBefore,
+        countsAfterInTransaction,
+        employers,
+        records,
+      };
+
+      // Drizzle rolls back the transaction when the callback rejects. The
+      // sentinel is caught only after its rollback has completed.
+      throw new IntentionalProofRollback("Rollback the read-only proof transaction.");
+    });
+  } catch (error) {
+    if (!(error instanceof IntentionalProofRollback)) throw error;
+  }
+
+  if (!snapshot) {
+    throw new Error("Production proof transaction ended without a rollback report.");
+  }
+  return snapshot;
+}
+
+async function readCountsAfterRollback(
+  database: Pick<typeof import("@workspace/db").db, "transaction">,
+  expectedFingerprint: string,
+): Promise<ProofRowCounts> {
+  return database.transaction(async (tx) => {
+    await tx.execute(sql`SET TRANSACTION READ ONLY`);
+    const identity = await assertProductionProofReadOnly(tx);
+    if (identity.fingerprint !== expectedFingerprint) {
+      throw new Error("Database identity changed after the proof transaction.");
+    }
+    return readProofRowCounts(tx);
+  });
+}
+
 async function main(): Promise<void> {
   const args = argsMap(process.argv.slice(2));
   const proofOutput = args.get("proof-output");
   let loadedInput: LoadedEmployerInput | undefined;
   let databasePool: { end: () => Promise<void> } | undefined;
   let context: ReturnType<typeof prepareDatabaseContext> | undefined;
-  let identity: Awaited<ReturnType<typeof assertDatabaseMode>> | undefined;
+  let identity: DatabaseIdentity | undefined;
   let developmentStateAccessed = false;
   let preflightOnly = false;
   let discoveryStarted = false;
@@ -364,6 +509,114 @@ async function main(): Promise<void> {
     // pool mode have been installed. All later DB imports resolve to this context.
     const databaseModule = await import("@workspace/db");
     databasePool = databaseModule.pool;
+
+    if (context.mode === "production-proof-readonly") {
+      discoveryStarted = true;
+      const proof = await runProductionProofTransaction(
+        databaseModule.db,
+        noHostState,
+        context.expectedFingerprint,
+      );
+      identity = proof.identity;
+      const countsAfterRollback = await readCountsAfterRollback(
+        databaseModule.db,
+        proof.identity.fingerprint,
+      );
+      const rowCountsUnchanged =
+        proofCountsMatch(proof.countsBefore, proof.countsAfterInTransaction) &&
+        proofCountsMatch(proof.countsBefore, countsAfterRollback);
+      const mappingsFound = proof.records.filter((record) =>
+        record.status === "verified_feed" || record.status === "feed_failed",
+      ).length;
+      const mappingsRejected = proof.records.filter((record) =>
+        record.status === "no_verified_direct_feed" || record.status === "rejected",
+      ).length;
+      const report = {
+        version: OUTPUT_VERSION,
+        status: rowCountsUnchanged ? "proof_passed" : "count_drift",
+        environment: "production",
+        dbMode: context.mode,
+        mode: "production_readonly_ats_discovery_proof",
+        generatedAt: new Date().toISOString(),
+        limit: 5,
+        selectedEmployers: proof.employers.length,
+        employersChecked: proof.employers.length,
+        mappingsFound,
+        mappingsRejected,
+        writesAttempted: 0,
+        writePathCalled: false,
+        writePathCalls: 0,
+        mappingPromotions: 0,
+        vacancyImports: 0,
+        transactionRolledBack: true,
+        rowCounts: {
+          before: proof.countsBefore,
+          afterInProofTransaction: proof.countsAfterInTransaction,
+          afterRollback: countsAfterRollback,
+          unchanged: rowCountsUnchanged,
+        },
+        safety: {
+          dbMode: context.mode,
+          nodeEnvironment: context.nodeEnvironment,
+          database: {
+            host: identity.databaseHost,
+            name: identity.databaseName,
+            role: identity.roleName,
+            fingerprint: identity.fingerprint,
+          },
+          expectedFingerprintMatched: context.expectedFingerprint
+            ? identity.fingerprint === context.expectedFingerprint.toLowerCase()
+            : null,
+          transactionReadOnly: identity.transactionReadOnly,
+          defaultTransactionReadOnly: identity.defaultTransactionReadOnly,
+          rolePrivileges: {
+            isSuperuser: identity.roleIsSuperuser,
+            canAdminister: identity.roleCanAdminister,
+            hasDmlPrivileges: identity.roleHasWritePrivileges,
+            canCreateSchema: identity.roleCanCreateSchema,
+            canCreateDatabaseObjects: identity.roleCanCreateDatabaseObjects,
+            canCreateTemporaryObjects: identity.roleCanCreateTemporaryObjects,
+            ownsDatabase: identity.roleOwnsDatabase,
+            ownsApplicationObjects: identity.roleOwnsApplicationObjects,
+            hasWriteAllDataRole: identity.roleHasWriteAllData,
+          },
+          writeModeDisabled: true,
+          productionWritesDisabled: true,
+          employerInputSource: "production database query",
+          mappingCheckStateSource: "same production database; company-site check fields",
+          hostStateSource: "disabled; no host-state database reads or writes",
+          cacheStateSource: "no disk/persistent cache writes; process-local pacing and robots cache only",
+          developmentStateAccessed: false,
+          assertions: {
+            expectedFingerprintMatched: context.expectedFingerprint
+              ? identity.fingerprint === context.expectedFingerprint.toLowerCase()
+              : null,
+            productionConnectionProvidedThroughProofSecret: true,
+            transactionReadOnlyVerified: identity.transactionReadOnly === "on",
+            defaultTransactionReadOnlyVerified:
+              identity.defaultTransactionReadOnly === "on",
+            productionProofTransactionRolledBack: true,
+            noPersistentHostStateWrites: true,
+            noPersistentCacheWrites: true,
+            noDevelopmentStateAccess: true,
+            noMappingPromotionPathCalled: true,
+            noVacancyPersistencePathCalled: true,
+          },
+        },
+        records: proof.records,
+      };
+      if (proofOutput) {
+        const outputPath = resolve(proofOutput);
+        await mkdir(dirname(outputPath), { recursive: true });
+        await writeFile(outputPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+      }
+      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+      return;
+    }
+
+    if (!context.expectedFingerprint) {
+      throw new Error("This database mode requires an expected database fingerprint.");
+    }
     identity = await assertDatabaseMode(
       databaseModule.db,
       context.mode,
@@ -508,7 +761,7 @@ async function main(): Promise<void> {
         hasWriteAllDataRole: identity.roleHasWriteAllData,
       },
       writeModeDisabled: true,
-      productionWritesDisabled: context.mode === "production-readonly",
+      productionWritesDisabled: context.mode !== "development",
       employerInputSource,
       mappingCheckStateSource: loadedInput
         ? `declared input-file rows (${loadedInput.sourceEnvironment})`
@@ -608,7 +861,7 @@ async function main(): Promise<void> {
                 }
               : null,
             writeModeDisabled: true,
-            productionWritesDisabled: args.get("db-mode") === "production-readonly",
+            productionWritesDisabled: args.get("db-mode") !== "development",
             employerInputSource: loadedInput
               ? {
                   type: "input-file",

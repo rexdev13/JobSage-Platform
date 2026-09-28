@@ -176,13 +176,17 @@ async function main(): Promise<void> {
   if (!inputPath?.trim()) throw new Error("Mapping review requires --input-file=<discovery-report.json>.");
   const loaded = await readDiscoveryInput(inputPath);
   const modeContext = prepareDatabaseContext(args, process.env, loaded.input.environment);
+  if (!modeContext.expectedFingerprint) {
+    throw new Error("Mapping review requires --expected-db-fingerprint.");
+  }
+  const expectedFingerprint = modeContext.expectedFingerprint;
   assertWritesAllowed(modeContext.mode, apply, "mapping");
   if (loaded.input.dbMode !== modeContext.mode) {
     throw new Error("Discovery report dbMode does not match the selected database mode.");
   }
   if (
     loaded.input.safety?.database?.fingerprint?.toLowerCase() !==
-    modeContext.expectedFingerprint.toLowerCase()
+    expectedFingerprint.toLowerCase()
   ) {
     throw new Error("Discovery report fingerprint does not match the declared database context.");
   }
@@ -202,7 +206,7 @@ async function main(): Promise<void> {
   const identity = await assertDatabaseMode(
     databaseModule.db,
     modeContext.mode,
-    modeContext.expectedFingerprint,
+    expectedFingerprint,
   );
   const { parseDirectBoardMapping } = await import("../lib/directEmployerBoardConnectors");
 

@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { assertDatabaseMode } from "../../tools/databaseSafety";
+import {
+  assertDatabaseMode,
+  assertProductionProofReadOnly,
+} from "../../tools/databaseSafety";
 
 const fingerprint = "b".repeat(32);
 
@@ -107,5 +110,37 @@ describe("database mode assertions", () => {
         fingerprint,
       )).rejects.toThrow("not verifiably read-only");
     }
+  });
+
+  it("allows the existing production role only when both session read-only settings are on", async () => {
+    const writerRole = databaseWith({
+      ...readonlyIdentity,
+      role_is_superuser: true,
+      role_can_administer: true,
+      role_has_write_privileges: true,
+      role_can_create_database_objects: true,
+      role_owns_database: true,
+    });
+    await expect(assertProductionProofReadOnly(writerRole as never))
+      .resolves.toMatchObject({
+        transactionReadOnly: "on",
+        defaultTransactionReadOnly: "on",
+        roleIsSuperuser: true,
+        roleHasWritePrivileges: true,
+      });
+
+    const writableTransaction = databaseWith({
+      ...readonlyIdentity,
+      transaction_read_only: "off",
+    });
+    await expect(assertProductionProofReadOnly(writableTransaction as never))
+      .rejects.toThrow("not verifiably read-only");
+
+    const writableDefault = databaseWith({
+      ...readonlyIdentity,
+      default_transaction_read_only: "off",
+    });
+    await expect(assertProductionProofReadOnly(writableDefault as never))
+      .rejects.toThrow("not verifiably read-only");
   });
 });

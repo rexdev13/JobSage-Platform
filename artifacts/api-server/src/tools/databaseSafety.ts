@@ -209,6 +209,21 @@ export async function assertDatabaseMode(
   return identity;
 }
 
+export async function assertProductionProofReadOnly(
+  database: DatabaseClient,
+): Promise<DatabaseIdentity> {
+  const identity = await readDatabaseIdentity(database);
+  if (
+    identity.transactionReadOnly !== "on" ||
+    identity.defaultTransactionReadOnly !== "on"
+  ) {
+    throw new Error(
+      "Production proof connection is not verifiably read-only; refusing employer selection or discovery.",
+    );
+  }
+  return identity;
+}
+
 export function safeToolErrorSummary(value: unknown): string {
   const outer = value instanceof Error ? value as Error & { cause?: unknown; code?: unknown } : null;
   const cause = outer?.cause;
