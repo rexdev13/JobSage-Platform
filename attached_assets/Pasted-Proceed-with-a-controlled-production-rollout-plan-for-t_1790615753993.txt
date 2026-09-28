@@ -1,0 +1,147 @@
+Proceed with a controlled production rollout plan for the verified direct-feed vacancy system.
+
+Important:
+Do not run broad generic crawling.
+Do not import unverified mappings.
+Do not weaken URL safety, SSRF, DNS pinning, pacing, redirects, response-size limits, robots/policy handling, liveness checks, or candidate eligibility filters.
+
+Stage 1 — confirm production config and old cron state
+
+Check the deployed production environment and external cron configuration.
+
+Confirm:
+- Is the latest vacancy-automation repair code deployed to production?
+- Is `COMPANY_SITE_GENERIC_IMPORT_ENABLED=false` set in production secrets/environment?
+- Are any existing cron-job.org/external jobs still calling the old hybrid `company_site` route?
+- Are any Replit/in-process production schedulers running company-site jobs?
+- Which route payloads are currently active?
+- Which schedules are active?
+- Which jobs are writing company-site vacancy rows?
+
+Output:
+- active cron list
+- route payloads
+- schedule frequency
+- last run time
+- whether each job is safe, unsafe, or unknown
+- exact recommendation: stop, keep, or replace
+
+Do not change cron yet unless explicitly approved.
+
+Stage 2 — disable or replace old generic company-site cron
+
+If any cron currently calls the old hybrid company-site route, prepare the exact replacement.
+
+Old unsafe/hybrid behavior:
+- generic company-site discovery
+- broad HTML crawling
+- generic structured cards
+- any path that can create company-site vacancies without verified ATS/feed evidence
+
+Replacement:
+- strict direct-feed-only job kind, for example `company_site_direct_feed`
+- only employers with verified mappings
+- only `known_ats_posting` evidence
+- no generic HTML vacancy insertion
+
+Before making changes, show:
+- old cron job name
+- old URL/payload
+- proposed new URL/payload
+- proposed frequency
+- proposed batch size
+- proposed timeout
+- proposed retry/backoff behavior
+
+Do not enable the replacement until approved.
+
+Stage 3 — run production read-only discovery
+
+Run the new production-safe read-only ATS/feed discovery.
+
+Requirements:
+- production read-only only
+- no mapping writes
+- no vacancy writes
+- no candidate-visible changes
+- inspect saved production sponsor websites/careers URLs
+- detect verified direct ATS/feed mappings only
+- reject ambiguous/uncertain employer identity
+- do not guess board IDs from employer names alone
+
+Output:
+- total employers checked
+- verified mappings found
+- mappings by provider
+- feed advert counts
+- rejected/uncertain counts and reasons
+- CSV/JSON report keyed to production IDs
+- list of mappings safe to promote
+
+Stage 4 — promote verified mappings only
+
+Run mapping promotion in dry-run first.
+
+Requirements:
+- update only mapping fields
+- no vacancy rows changed
+- no generic company-site rows created
+- do not overwrite existing verified mappings unless approved
+- preserve before/after diff
+- support rollback export
+
+Output dry-run:
+- mappings to insert/update
+- skipped rows
+- conflicts
+- before/after diff
+- rollback file
+
+After dry-run, wait for approval before applying production writes.
+
+Stage 5 — production direct-feed canary
+
+After mapping promotion is approved and applied, run a tiny production canary.
+
+Canary requirements:
+- use strict direct-feed-only job
+- limit to 1-3 verified employers
+- no generic HTML crawling
+- only `known_ats_posting`
+- report inserted, updated, skipped, rejected, failed
+- verify detail/apply URLs
+- check candidate visibility
+- repeat the same canary once to confirm zero duplicate inserts
+
+Output:
+- first run report
+- repeat run report
+- candidate-visible snapshot
+- duplicate check
+- liveness check
+- errors/failure categories
+- rollback recommendation if anything looks wrong
+
+Stage 6 — enable production cron only after canary passes
+
+Prepare the new direct-feed cron, but do not enable until approved.
+
+Proposed behavior:
+- direct-feed-only job
+- verified mappings only
+- small batch size first
+- conservative concurrency
+- clear timeout
+- honors Retry-After/409/504
+- logs redacted failure categories
+- monitors duplicates and stale/closed handling
+
+Output:
+- final cron URL/payload
+- schedule frequency
+- monitoring checklist
+- rollback steps
+- exact pass/fail criteria
+
+Important:
+If the old generic company-site scheduler is still running, do not enable the new direct-feed cron until the old unsafe route is stopped or confirmed unable to create generic candidate-visible vacancies.
