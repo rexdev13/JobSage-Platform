@@ -71,7 +71,7 @@ const MAX_DIAGNOSTIC_LINKS = 80;
 const MAX_SITEMAP_CHILDREN_PER_EMPLOYER = 4;
 const MAX_SITEMAP_URLS_PER_DOCUMENT = 25;
 const DIRECT_IMPORT_ATS_PROVIDERS = new Set([
-  "Ashby", "Greenhouse", "Lever", "SmartRecruiters", "Recruitee", "Personio",
+  "Ashby", "Greenhouse", "Lever", "SmartRecruiters", "Recruitee", "Personio", "Pinpoint",
 ]);
 // Site-hosted Recruitee/Personio feeds can be imported, but their response does
 // not prove an exhaustive inventory. Never retire older roles from those feeds.
@@ -194,6 +194,7 @@ export type CompanySiteDiscoveryOptions = {
   checkGeneric?: boolean;
   checkAts?: boolean;
   directFeedsOnly?: boolean;
+  readOnly?: boolean;
   now?: () => number;
   deadlineMs?: number;
   resumeState?: {
@@ -1289,6 +1290,7 @@ async function discoverDirectFeedsOnly(
       {
         deadlineMs,
         firstPartyEvidenceUrl: options.knownCareersEvidenceUrl,
+        readOnly: options.readOnly === true,
       },
     );
     if (!direct.mapping) {
@@ -1332,83 +1334,9 @@ async function discoverDirectFeedsOnly(
     });
   }
 
-  let approvedUrl: URL;
-  try {
-    approvedUrl = new URL(careersUrl);
-  } catch {
-    return noDirectSource("approved structured-data URL is invalid");
-  }
-  if (
-    approvedUrl.protocol !== "https:" ||
-    approvedUrl.username ||
-    approvedUrl.password ||
-    approvedUrl.port ||
-    !isAllowedCompanyDestination(originHostname, approvedUrl.toString())
-  ) {
-    diagnostics.directFeedSkipDetail = "approved structured-data URL is outside the safe employer-site scope";
-    return makeResult({
-      completion: "failed",
-      failureClass: "permanent",
-      error: diagnostics.directFeedSkipDetail,
-      diagnostics: { ...diagnostics },
-    });
-  }
-
-  const page = await fetchCompanySitePage(approvedUrl.toString(), originHostname, deadlineMs);
-  diagnostics.pageFetches.push({
-    url: approvedUrl.toString(),
-    fetchedUrl: page.ok ? page.url : null,
-    status: page.ok ? page.status : page.status ?? null,
-    fetched: page.ok,
-    failureKind: page.ok ? null : page.kind,
-    reason: page.ok ? null : page.reason.slice(0, 500),
-  });
-  if (!page.ok) {
-    const failureClass = classifyCompanySiteFailure({
-      kind: page.kind,
-      reason: page.reason,
-      status: page.status,
-    });
-    return makeResult({
-      transientFailure: failureClass === "temporary",
-      failureClass,
-      error: page.reason,
-      pagesAttempted: 1,
-      completion: "failed",
-      discoveredUrls: [approvedUrl.toString()],
-      diagnostics: { ...diagnostics, careersFailureKind: page.kind },
-    });
-  }
-
-  const jsonLdAdverts = extractJsonLdAdverts(page.body, page.url, originHostname, organisationName);
-  const microdataAdverts = extractMicrodataAdverts(page.body, page.url, originHostname, organisationName);
-  const rawAdverts = [...jsonLdAdverts, ...microdataAdverts];
-  const adverts = normaliseAndDedupeBoardAdverts(rawAdverts);
-  const hasStructuredJobPosting = hasJobPostingMarkup(page.body);
-  diagnostics.careersPageFound = true;
-  diagnostics.careersUrl = page.url;
-  diagnostics.careersHttpStatus = page.status;
-  diagnostics.jsonLdJobPostingFound = /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>[\s\S]*?"@type"\s*:\s*(?:"JobPosting"|\[[^\]]*"JobPosting")/i.test(page.body);
-  diagnostics.microdataJobPostingFound = /itemscope\b[^>]*itemtype=["'][^"']*schema\.org\/JobPosting/i.test(page.body);
-  diagnostics.directSourceKind = hasStructuredJobPosting ? "schema_org" : null;
-  if (!hasStructuredJobPosting) {
-    diagnostics.directFeedSkipReason = "no_direct_feed_source";
-    diagnostics.directFeedSkipDetail = "approved careers page contains no schema.org JobPosting markup";
-  }
-  if (hasStructuredJobPosting && adverts.length > 0) {
-    diagnostics.vacancyLikePages.push(page.url);
-  }
-  return makeResult({
-    adverts,
-    atsCompleted: true,
-    pagesFetched: 1,
-    pagesAttempted: 1,
-    advertsExtracted: rawAdverts.length,
-    advertsRejected: Math.max(0, rawAdverts.length - adverts.length),
-    discoveredUrls: [page.url],
-    observedAdvertUrls: adverts.map((advert) => advert.url),
-    diagnostics: { ...diagnostics },
-  });
+  return noDirectSource(
+    "verified mapping does not resolve to a supported direct ATS or public-feed adapter",
+  );
 }
 
 export async function discoverCompanySiteVacancies(

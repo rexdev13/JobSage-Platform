@@ -276,6 +276,11 @@ describe("GET /sponsor-licences/:id/vacancies", () => {
           targetRegions: ["North West"],
           sourceType: "company_site",
           boardName: null,
+          companyVacancyEvidence: {
+            kind: "known_ats_posting",
+            provider: "Ashby",
+            listingUrl: "https://jobs.ashbyhq.com/acme",
+          },
           requiredDbsClearanceLevel: null,
           requiredSafeguardingLevel: null,
           liveness: "live",

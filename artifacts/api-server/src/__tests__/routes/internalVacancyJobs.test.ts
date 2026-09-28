@@ -97,6 +97,7 @@ describe("POST /internal/vacancy-jobs", () => {
   it.each([
     ["job_board", 999, 50],
     ["company_site", 999, 10],
+    ["company_site_direct_feed", 999, 10],
     ["company_site_probe", 999, 60],
     ["liveness", 999, 50],
     ["contact", 999, 5],
@@ -141,6 +142,20 @@ describe("POST /internal/vacancy-jobs", () => {
 
     expect(response.status).toBe(200);
     expect(runVacancyJobMock).toHaveBeenCalledWith("company_site", 3, { deadlineMs: undefined });
+  });
+
+  it("defaults direct-feed batches to five employers", async () => {
+    const response = await request(app)
+      .post("/internal/vacancy-jobs")
+      .set("x-jobsage-job-secret", "test-job-secret")
+      .send({ kind: "company_site_direct_feed" });
+
+    expect(response.status).toBe(200);
+    expect(runVacancyJobMock).toHaveBeenCalledWith(
+      "company_site_direct_feed",
+      5,
+      { deadlineMs: undefined },
+    );
   });
 
   it("forwards an exact company-site employer allowlist to the scheduler", async () => {

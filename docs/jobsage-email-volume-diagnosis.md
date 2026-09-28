@@ -62,7 +62,7 @@ Production `index.ts` explicitly states that external HTTP cron owns board, comp
 
 ### External HTTP vacancy jobs
 
-The authenticated `POST /api/internal/vacancy-jobs` route accepts `job_board`, `company_site`, `company_site_probe`, `liveness`, `contact`, `reed_professions`, and `additional_boards`. The documented cron-job.org schedule is:
+The authenticated `POST /api/internal/vacancy-jobs` route accepts `job_board`, `company_site`, `company_site_direct_feed`, `company_site_probe`, `liveness`, `contact`, `reed_professions`, and `additional_boards`. The documented cron-job.org schedule is:
 
 | Kind | Documented schedule | Default / maximum | Response semantics |
 |---|---|---:|---|

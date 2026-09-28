@@ -33,6 +33,7 @@ function getHttpDefaultLimits(): Record<VacancyJobKind, number> {
   return {
     job_board: 50,
     company_site: getCompanySiteHttpBatchSize(),
+    company_site_direct_feed: Math.min(5, getCompanySiteHttpBatchSize()),
     company_site_probe: COMPANY_SITE_PROBE_BATCH_SIZE,
     liveness: 40,
     contact: 5,
@@ -45,6 +46,7 @@ function getHttpMaxLimits(): Record<VacancyJobKind, number> {
   return {
     job_board: 50,
     company_site: getCompanySiteHttpBatchSize(),
+    company_site_direct_feed: getCompanySiteHttpBatchSize(),
     company_site_probe: COMPANY_SITE_PROBE_BATCH_SIZE,
     liveness: 50,
     contact: 5,
@@ -72,6 +74,7 @@ router.post("/internal/vacancy-jobs", async (req: Request, res: Response): Promi
   if (
     requestedKind !== "job_board" &&
     requestedKind !== "company_site" &&
+    requestedKind !== "company_site_direct_feed" &&
     requestedKind !== "company_site_probe" &&
     requestedKind !== "liveness" &&
     requestedKind !== "contact" &&
@@ -79,7 +82,7 @@ router.post("/internal/vacancy-jobs", async (req: Request, res: Response): Promi
     requestedKind !== "additional_boards"
   ) {
     res.status(400).json({
-      error: "kind must be job_board, company_site, company_site_probe, liveness, contact, reed_professions, or additional_boards.",
+      error: "kind must be job_board, company_site, company_site_direct_feed, company_site_probe, liveness, contact, reed_professions, or additional_boards.",
     });
     return;
   }
@@ -118,9 +121,9 @@ router.post("/internal/vacancy-jobs", async (req: Request, res: Response): Promi
   const requestedOrganisationNames = req.body?.organisationNames;
   if (requestedOrganisationNames != null) {
     const maximumNames = getHttpMaxLimits().company_site;
-    if (kind !== "company_site") {
+    if (kind !== "company_site" && kind !== "company_site_direct_feed") {
       res.status(400).json({
-        error: "organisationNames is only supported for company_site jobs.",
+        error: "organisationNames is only supported for company_site or company_site_direct_feed jobs.",
       });
       return;
     }
@@ -176,9 +179,12 @@ router.post("/internal/vacancy-jobs", async (req: Request, res: Response): Promi
   } catch (error) {
     const deadlineReached =
       error instanceof Error && error.message === "VACANCY_JOB_DEADLINE";
+    const safeError = kind === "company_site_direct_feed"
+      ? deadlineReached ? "direct-feed deadline reached" : "direct-feed batch failed"
+      : error instanceof Error ? error.message : error;
     console.error(
       `[vacancy-job-http] kind=${kind} failed:`,
-      error instanceof Error ? error.message : error,
+      safeError,
     );
     if (deadlineReached) res.set("Retry-After", "30");
     res.status(deadlineReached ? 504 : 500).json({

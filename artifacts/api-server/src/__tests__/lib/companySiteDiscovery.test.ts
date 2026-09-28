@@ -31,6 +31,8 @@ vi.mock("../../lib/companySiteHttp", () => ({
                 ? "Recruitee"
                 : value.includes("myworkdayjobs.com")
                   ? "Workday"
+                  : value.includes("pinpointhq.com")
+                    ? "Pinpoint"
         : null,
 }));
 
@@ -1026,7 +1028,6 @@ describe("company-site vacancy discovery", () => {
     ["Teamtailor", "https://acme.teamtailor.com/jobs"],
     ["BambooHR", "https://acme.bamboohr.com/careers"],
     ["iCIMS", "https://careers-acme.icims.com/jobs"],
-    ["Pinpoint", "https://acme.pinpointhq.com/"],
     ["Workable", "https://apply.workable.com/acme/"],
   ])("records unsupported %s links without fetching their platform", async (provider, atsUrl) => {
     const home = "https://official-employer.example/";
@@ -1053,6 +1054,41 @@ describe("company-site vacancy discovery", () => {
         followed: false,
       }),
     ]));
+  });
+
+  it("imports Pinpoint only through its observed public feed and never treats it as authoritative", async () => {
+    const careersUrl = "https://acme.pinpointhq.com/";
+    const feedUrl = "https://acme.pinpointhq.com/postings.json";
+    fetchCompanySitePublicApiPageMock.mockResolvedValue({
+      ok: true,
+      url: feedUrl,
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ data: [] }),
+    });
+
+    const result = await discoverCompanySiteVacancies(
+      "Official Employer",
+      "https://official-employer.example/",
+      {
+        knownCareersUrl: careersUrl,
+        knownCareersMappingVerified: true,
+        knownCareersEvidenceUrl: "https://official-employer.example/careers",
+        directFeedsOnly: true,
+      },
+    );
+
+    expect(fetchCompanySitePublicApiPageMock).toHaveBeenCalledWith(
+      feedUrl,
+      expect.any(Number),
+      expect.any(Number),
+      { readOnly: false },
+    );
+    expect(result.atsProvider).toBe("Pinpoint");
+    expect(result.atsCompleted).toBe(true);
+    expect(result.snapshotScope).toBeUndefined();
+    expect(result.diagnostics.directSourceKind).toBe("ats_feed");
+    expect(result.adverts).toEqual([]);
   });
 
   it.each([
@@ -1123,6 +1159,7 @@ describe("company-site vacancy discovery", () => {
       feedUrl,
       expect.any(Number),
       expect.any(Number),
+      { readOnly: false },
     );
     expect(result.atsProvider).toBe(provider);
     if (provider === "Personio" || provider === "Recruitee") {
@@ -1172,7 +1209,7 @@ describe("company-site vacancy discovery", () => {
     });
   });
 
-  it("reads only the approved schema.org page in direct-feeds-only mode", async () => {
+  it("does not import schema.org listings through the strict direct-feeds-only path", async () => {
     const careersUrl = "https://schema-employer.example/careers";
     const jobUrl = "https://schema-employer.example/careers/jobs/123456";
     fetchCompanySitePageMock.mockResolvedValue({
@@ -1201,18 +1238,13 @@ describe("company-site vacancy discovery", () => {
       },
     );
 
-    expect(fetchCompanySitePageMock.mock.calls.map(([url]) => url)).toEqual([careersUrl]);
+    expect(fetchCompanySitePageMock).not.toHaveBeenCalled();
     expect(fetchCompanySitePublicApiPageMock).not.toHaveBeenCalled();
-    expect(result.adverts).toEqual([
-      expect.objectContaining({
-        title: "Care Assistant",
-        url: jobUrl,
-        companyVacancyEvidence: expect.objectContaining({ kind: "json_ld_job_posting" }),
-      }),
-    ]);
+    expect(result.adverts).toEqual([]);
     expect(result.diagnostics).toMatchObject({
       directFeedsOnly: true,
-      directSourceKind: "schema_org",
+      directSourceKind: null,
+      directFeedSkipReason: "no_direct_feed_source",
     });
   });
 

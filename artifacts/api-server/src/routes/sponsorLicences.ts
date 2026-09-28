@@ -23,6 +23,12 @@ import { assessSafeguarding } from "../lib/safeguarding";
 import { regionsFromLocationText } from "../lib/regionMatching";
 
 const router: IRouter = Router();
+const COMPANY_SITE_SCHEMA_IMPORT_ENABLED =
+  process.env["COMPANY_SITE_SCHEMA_IMPORT_ENABLED"] === "true";
+const HTTPS_URL_WITH_HOST_SQL_PATTERN =
+  "^https://[^/?#[:space:]]+([/?#][^[:space:]]*)?$";
+const GENERIC_STRUCTURED_TITLE_SQL_PATTERN =
+  "^(careers?|jobs?|why work here|our benefits|benefits|skip([[:space:]]+to)?[[:space:]]+(main[[:space:]]+)?content)$";
 
 
 // ── UK Regions ────────────────────────────────────────────────────────────────
@@ -532,10 +538,27 @@ router.get("/sponsor-licences/vacancy-stats", requireAuthenticated, async (_req,
             or(isNull(sponsorLicenceVacanciesTable.closesAt), gte(sponsorLicenceVacanciesTable.closesAt, new Date())),
             or(isNull(sponsorLicenceVacanciesTable.expiresAt), gte(sponsorLicenceVacanciesTable.expiresAt, new Date())),
             isNull(sponsorLicenceVacanciesTable.sourceMissingSince),
+            sql`COALESCE(${sponsorLicenceVacanciesTable.sourceMissingObservations}, 0) <= 0`,
             or(
               ne(sponsorLicenceVacanciesTable.sourceType, "company_site"),
-              isNotNull(sponsorLicenceVacanciesTable.companyVacancyEvidence),
-              gte(sponsorLicenceVacanciesTable.companyEvidenceLegacyUntil, new Date()),
+              sql`(
+                ${sponsorLicenceVacanciesTable.sourceType} <> 'company_site'
+                OR (
+                  ((${sponsorLicenceVacanciesTable.companyVacancyEvidence}->>'kind') = 'known_ats_posting'
+                   AND NULLIF(btrim(${sponsorLicenceVacanciesTable.companyVacancyEvidence}->>'provider'), '') IS NOT NULL
+                   AND (${sponsorLicenceVacanciesTable.companyVacancyEvidence}->>'provider') <> 'unknown'
+                   AND (${sponsorLicenceVacanciesTable.companyVacancyEvidence}->>'listingUrl') ~ ${HTTPS_URL_WITH_HOST_SQL_PATTERN})
+                  OR (${COMPANY_SITE_SCHEMA_IMPORT_ENABLED}
+                      AND (${sponsorLicenceVacanciesTable.companyVacancyEvidence}->>'kind') IN ('json_ld_job_posting', 'microdata_job_posting')
+                      AND btrim(${sponsorLicenceVacanciesTable.title}) <> ''
+                      AND btrim(${sponsorLicenceVacanciesTable.title}) !~* ${GENERIC_STRUCTURED_TITLE_SQL_PATTERN}
+                      AND (${sponsorLicenceVacanciesTable.companyVacancyEvidence}->>'listingUrl') ~ ${HTTPS_URL_WITH_HOST_SQL_PATTERN})
+                  OR (${sponsorLicenceVacanciesTable.companyEvidenceLegacyUntil} >= now()
+                      AND (${sponsorLicenceVacanciesTable.companyVacancyEvidence}->>'trustedSource') = 'manual_review'
+                      AND (${sponsorLicenceVacanciesTable.companyVacancyEvidence}->'roleEligibilityReview'->>'status') = 'approved'
+                      AND (${sponsorLicenceVacanciesTable.companyVacancyEvidence}->'roleEligibilityReview'->>'evidenceUrl') ~ ${HTTPS_URL_WITH_HOST_SQL_PATTERN})
+                )
+              )`,
             ),
             // Manager-titled company-site rows are pending occupational review
             // unless the stored review contains all three independently valid
@@ -545,7 +568,7 @@ router.get("/sponsor-licences/vacancy-stats", requireAuthenticated, async (_req,
               sql`${sponsorLicenceVacanciesTable.title} !~* '\\mmanagers?\\M'`,
               sql`(${sponsorLicenceVacanciesTable.companyVacancyEvidence}->'roleEligibilityReview'->>'status') = 'approved'
                 AND (${sponsorLicenceVacanciesTable.companyVacancyEvidence}->'roleEligibilityReview'->>'socCode') ~ '^[0-9]{4}$'
-                AND (${sponsorLicenceVacanciesTable.companyVacancyEvidence}->'roleEligibilityReview'->>'evidenceUrl') ~ '^https://[^[:space:]]+$'`,
+                AND (${sponsorLicenceVacanciesTable.companyVacancyEvidence}->'roleEligibilityReview'->>'evidenceUrl') ~ ${HTTPS_URL_WITH_HOST_SQL_PATTERN}`,
             ),
             or(
               isNull(sponsorLicenceVacanciesTable.closedReason),
@@ -785,22 +808,50 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
             AND (closes_at IS NULL OR closes_at >= now())
             AND (expires_at IS NULL OR expires_at >= now())
             AND source_missing_since IS NULL
+            AND COALESCE(source_missing_observations, 0) <= 0
             AND (closed_reason IS NULL OR closed_reason !~* '(closed|filled|no longer accepting|closing date has passed)')
-            AND (source_type <> 'company_site' OR company_vacancy_evidence IS NOT NULL OR company_evidence_legacy_until >= now())
+            AND (source_type <> 'company_site' OR (
+              ((company_vacancy_evidence->>'kind') = 'known_ats_posting'
+               AND NULLIF(btrim(company_vacancy_evidence->>'provider'), '') IS NOT NULL
+               AND (company_vacancy_evidence->>'provider') <> 'unknown'
+               AND (company_vacancy_evidence->>'listingUrl') ~ ${HTTPS_URL_WITH_HOST_SQL_PATTERN})
+              OR (${COMPANY_SITE_SCHEMA_IMPORT_ENABLED} AND (company_vacancy_evidence->>'kind') IN ('json_ld_job_posting', 'microdata_job_posting')
+                  AND btrim(title) <> ''
+                  AND btrim(title) !~* ${GENERIC_STRUCTURED_TITLE_SQL_PATTERN}
+                  AND (company_vacancy_evidence->>'listingUrl') ~ ${HTTPS_URL_WITH_HOST_SQL_PATTERN})
+              OR (company_evidence_legacy_until >= now()
+                  AND (company_vacancy_evidence->>'trustedSource') = 'manual_review'
+                  AND (company_vacancy_evidence->'roleEligibilityReview'->>'status') = 'approved'
+                  AND (company_vacancy_evidence->'roleEligibilityReview'->>'evidenceUrl') ~ ${HTTPS_URL_WITH_HOST_SQL_PATTERN})
+            ))
             AND (source_type <> 'company_site'
                  OR title !~* '\mmanagers?\M'
                  OR ((company_vacancy_evidence->'roleEligibilityReview'->>'status') = 'approved'
                      AND (company_vacancy_evidence->'roleEligibilityReview'->>'socCode') ~ '^[0-9]{4}$'
-                     AND (company_vacancy_evidence->'roleEligibilityReview'->>'evidenceUrl') ~ '^https://[^[:space:]]+$'))
+                     AND (company_vacancy_evidence->'roleEligibilityReview'->>'evidenceUrl') ~ ${HTTPS_URL_WITH_HOST_SQL_PATTERN}))
             AND (closes_at IS NULL OR closes_at >= now())
             AND (expires_at IS NULL OR expires_at >= now())
             AND source_missing_since IS NULL
-            AND (source_type <> 'company_site' OR company_vacancy_evidence IS NOT NULL OR company_evidence_legacy_until >= now())
+            AND COALESCE(source_missing_observations, 0) <= 0
+            AND (source_type <> 'company_site' OR (
+              ((company_vacancy_evidence->>'kind') = 'known_ats_posting'
+               AND NULLIF(btrim(company_vacancy_evidence->>'provider'), '') IS NOT NULL
+               AND (company_vacancy_evidence->>'provider') <> 'unknown'
+               AND (company_vacancy_evidence->>'listingUrl') ~ ${HTTPS_URL_WITH_HOST_SQL_PATTERN})
+              OR (${COMPANY_SITE_SCHEMA_IMPORT_ENABLED} AND (company_vacancy_evidence->>'kind') IN ('json_ld_job_posting', 'microdata_job_posting')
+                  AND btrim(title) <> ''
+                  AND btrim(title) !~* ${GENERIC_STRUCTURED_TITLE_SQL_PATTERN}
+                  AND (company_vacancy_evidence->>'listingUrl') ~ ${HTTPS_URL_WITH_HOST_SQL_PATTERN})
+              OR (company_evidence_legacy_until >= now()
+                  AND (company_vacancy_evidence->>'trustedSource') = 'manual_review'
+                  AND (company_vacancy_evidence->'roleEligibilityReview'->>'status') = 'approved'
+                  AND (company_vacancy_evidence->'roleEligibilityReview'->>'evidenceUrl') ~ ${HTTPS_URL_WITH_HOST_SQL_PATTERN})
+            ))
             AND (source_type <> 'company_site'
                  OR title !~* '\mmanagers?\M'
                  OR ((company_vacancy_evidence->'roleEligibilityReview'->>'status') = 'approved'
                      AND (company_vacancy_evidence->'roleEligibilityReview'->>'socCode') ~ '^[0-9]{4}$'
-                     AND (company_vacancy_evidence->'roleEligibilityReview'->>'evidenceUrl') ~ '^https://[^[:space:]]+$'))
+                     AND (company_vacancy_evidence->'roleEligibilityReview'->>'evidenceUrl') ~ ${HTTPS_URL_WITH_HOST_SQL_PATTERN}))
             AND (closed_reason IS NULL OR closed_reason !~* '(closed|filled|no longer accepting|closing date has passed)')
         )`,
       );
@@ -842,13 +893,27 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
             AND (closes_at IS NULL OR closes_at >= now())
             AND (expires_at IS NULL OR expires_at >= now())
             AND source_missing_since IS NULL
+            AND COALESCE(source_missing_observations, 0) <= 0
             AND (closed_reason IS NULL OR closed_reason !~* '(closed|filled|no longer accepting|closing date has passed)')
-            AND (source_type <> 'company_site' OR company_vacancy_evidence IS NOT NULL OR company_evidence_legacy_until >= now())
+            AND (source_type <> 'company_site' OR (
+              ((company_vacancy_evidence->>'kind') = 'known_ats_posting'
+               AND NULLIF(btrim(company_vacancy_evidence->>'provider'), '') IS NOT NULL
+               AND (company_vacancy_evidence->>'provider') <> 'unknown'
+               AND (company_vacancy_evidence->>'listingUrl') ~ ${HTTPS_URL_WITH_HOST_SQL_PATTERN})
+              OR (${COMPANY_SITE_SCHEMA_IMPORT_ENABLED} AND (company_vacancy_evidence->>'kind') IN ('json_ld_job_posting', 'microdata_job_posting')
+                  AND btrim(title) <> ''
+                  AND btrim(title) !~* ${GENERIC_STRUCTURED_TITLE_SQL_PATTERN}
+                  AND (company_vacancy_evidence->>'listingUrl') ~ ${HTTPS_URL_WITH_HOST_SQL_PATTERN})
+              OR (company_evidence_legacy_until >= now()
+                  AND (company_vacancy_evidence->>'trustedSource') = 'manual_review'
+                  AND (company_vacancy_evidence->'roleEligibilityReview'->>'status') = 'approved'
+                  AND (company_vacancy_evidence->'roleEligibilityReview'->>'evidenceUrl') ~ ${HTTPS_URL_WITH_HOST_SQL_PATTERN})
+            ))
             AND (source_type <> 'company_site'
-                 OR v.title !~* '\mmanagers?\M'
-                 OR ((v.company_vacancy_evidence->'roleEligibilityReview'->>'status') = 'approved'
-                     AND (v.company_vacancy_evidence->'roleEligibilityReview'->>'socCode') ~ '^[0-9]{4}$'
-                     AND (v.company_vacancy_evidence->'roleEligibilityReview'->>'evidenceUrl') ~ '^https://[^[:space:]]+$'))
+                 OR title !~* '\mmanagers?\M'
+                  OR ((company_vacancy_evidence->'roleEligibilityReview'->>'status') = 'approved'
+                      AND (company_vacancy_evidence->'roleEligibilityReview'->>'socCode') ~ '^[0-9]{4}$'
+                     AND (company_vacancy_evidence->'roleEligibilityReview'->>'evidenceUrl') ~ ${HTTPS_URL_WITH_HOST_SQL_PATTERN}))
           GROUP BY lower(trim(organisation_name))`,
     );
     const latestCheckRows = await db.execute<{ organisation_name: string; checked_at: string }>(
@@ -876,7 +941,26 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
             AND (v.closes_at IS NULL OR v.closes_at >= now())
             AND (v.expires_at IS NULL OR v.expires_at >= now())
             AND v.source_missing_since IS NULL
-            AND (v.source_type <> 'company_site' OR v.company_vacancy_evidence IS NOT NULL OR v.company_evidence_legacy_until >= now())
+            AND COALESCE(v.source_missing_observations, 0) <= 0
+            AND (v.source_type <> 'company_site' OR (
+              ((v.company_vacancy_evidence->>'kind') = 'known_ats_posting'
+               AND NULLIF(btrim(v.company_vacancy_evidence->>'provider'), '') IS NOT NULL
+               AND (v.company_vacancy_evidence->>'provider') <> 'unknown'
+               AND (v.company_vacancy_evidence->>'listingUrl') ~ ${HTTPS_URL_WITH_HOST_SQL_PATTERN})
+              OR (${COMPANY_SITE_SCHEMA_IMPORT_ENABLED} AND (v.company_vacancy_evidence->>'kind') IN ('json_ld_job_posting', 'microdata_job_posting')
+                  AND btrim(v.title) <> ''
+                  AND btrim(v.title) !~* ${GENERIC_STRUCTURED_TITLE_SQL_PATTERN}
+                  AND (v.company_vacancy_evidence->>'listingUrl') ~ ${HTTPS_URL_WITH_HOST_SQL_PATTERN})
+              OR (v.company_evidence_legacy_until >= now()
+                  AND (v.company_vacancy_evidence->>'trustedSource') = 'manual_review'
+                  AND (v.company_vacancy_evidence->'roleEligibilityReview'->>'status') = 'approved'
+                  AND (v.company_vacancy_evidence->'roleEligibilityReview'->>'evidenceUrl') ~ ${HTTPS_URL_WITH_HOST_SQL_PATTERN})
+            ))
+            AND (v.source_type <> 'company_site'
+                 OR v.title !~* '\\mmanagers?\\M'
+                 OR ((v.company_vacancy_evidence->'roleEligibilityReview'->>'status') = 'approved'
+                     AND (v.company_vacancy_evidence->'roleEligibilityReview'->>'socCode') ~ '^[0-9]{4}$'
+                     AND (v.company_vacancy_evidence->'roleEligibilityReview'->>'evidenceUrl') ~ ${HTTPS_URL_WITH_HOST_SQL_PATTERN}))
             AND (v.closed_reason IS NULL OR v.closed_reason !~* '(closed|filled|no longer accepting|closing date has passed)')
           ORDER BY s.organisation_name, s.score DESC`,
     );

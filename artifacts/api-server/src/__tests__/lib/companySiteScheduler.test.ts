@@ -489,6 +489,58 @@ describe("company-site scheduler", () => {
     expect(persistCompanySiteVacanciesMock).not.toHaveBeenCalled();
   });
 
+  it("rejects ATS evidence that points to a different verified board", async () => {
+    discoverCompanySiteVacanciesMock.mockResolvedValue({
+      adverts: [{
+        organisationName: "Example Ltd",
+        employer: "Example Ltd",
+        title: "Care Assistant",
+        location: "London",
+        salary: null,
+        url: "https://jobs.ashbyhq.com/other/job-1",
+        description: null,
+        postedDate: null,
+        targetRegions: null,
+        boardName: null,
+        externalId: "job-1",
+        sourceType: "company_site",
+        companyVacancyEvidence: {
+          kind: "known_ats_posting",
+          provider: "Ashby",
+          listingUrl: "https://jobs.ashbyhq.com/other",
+        },
+      }],
+      sourceUrl: "https://example.test/",
+      careersUrl: "https://jobs.ashbyhq.com/example",
+      atsProvider: "Ashby",
+      atsMappingVerified: true,
+      pagesFetched: 1,
+      genericCompleted: false,
+      atsCompleted: true,
+      transientFailure: false,
+      completion: "complete",
+      advertsExtracted: 1,
+      advertsRejected: 0,
+      diagnostics: { directFeedsOnly: true, directSourceKind: "ats_feed" },
+    });
+
+    await expect(runCompanySiteCheck({
+      organisationName: "Example Ltd",
+      website: "https://example.test",
+      genericCheckedAt: null,
+      atsCheckedAt: null,
+      careersUrl: "https://jobs.ashbyhq.com/example",
+      atsMappingEvidenceUrl: "https://careers.example.test/",
+      atsProvider: "Ashby",
+      atsBoardId: "example",
+      atsMappingStatus: "verified",
+    }, { directFeedsOnly: true })).rejects.toThrow(
+      "does not match the verified ATS mapping",
+    );
+
+    expect(persistCompanySiteVacanciesMock).not.toHaveBeenCalled();
+  });
+
   it("passes the no-new-inserts guard through to vacancy persistence", async () => {
     discoverCompanySiteVacanciesMock.mockResolvedValue({
       adverts: [{
@@ -504,9 +556,16 @@ describe("company-site scheduler", () => {
         boardName: null,
         externalId: "job-1",
         sourceType: "company_site",
-        companyVacancyEvidence: { kind: "known_ats_posting", provider: "Ashby" },
+        companyVacancyEvidence: {
+          kind: "known_ats_posting",
+          provider: "Ashby",
+          listingUrl: "https://jobs.ashbyhq.com/example",
+        },
       }],
       sourceUrl: "https://example.test/",
+      careersUrl: "https://jobs.ashbyhq.com/example",
+      atsProvider: "Ashby",
+      atsMappingVerified: true,
       pagesFetched: 1,
       genericCompleted: false,
       atsCompleted: true,
@@ -544,6 +603,85 @@ describe("company-site scheduler", () => {
         knownCareersEvidenceUrl: "https://careers.example.test/",
       }),
     );
+  });
+
+  it("keeps verified ATS imports available when generic company-site imports are disabled", async () => {
+    const previous = process.env["COMPANY_SITE_GENERIC_IMPORT_ENABLED"];
+    process.env["COMPANY_SITE_GENERIC_IMPORT_ENABLED"] = "false";
+    discoverCompanySiteVacanciesMock.mockResolvedValue({
+      adverts: [
+        {
+          organisationName: "Example Ltd",
+          employer: "Example Ltd",
+          title: "Support Engineer",
+          location: "London",
+          salary: null,
+          url: "https://jobs.ashbyhq.com/example/job-1",
+          description: null,
+          postedDate: null,
+          targetRegions: null,
+          boardName: null,
+          externalId: "job-1",
+          sourceType: "company_site",
+          companyVacancyEvidence: {
+            kind: "known_ats_posting",
+            provider: "Ashby",
+            listingUrl: "https://jobs.ashbyhq.com/example",
+          },
+        },
+        {
+          organisationName: "Example Ltd",
+          employer: "Example Ltd",
+          title: "Unverified role",
+          location: "London",
+          salary: null,
+          url: "https://example.test/jobs/unverified",
+          description: null,
+          postedDate: null,
+          targetRegions: null,
+          boardName: null,
+          externalId: null,
+          sourceType: "company_site",
+          companyVacancyEvidence: { kind: "generic_link" },
+        },
+      ],
+      sourceUrl: "https://example.test/",
+      careersUrl: "https://jobs.ashbyhq.com/example",
+      atsProvider: "Ashby",
+      atsMappingVerified: true,
+      genericCompleted: true,
+      atsCompleted: true,
+      transientFailure: false,
+      completion: "complete",
+      pagesFetched: 1,
+      advertsExtracted: 2,
+      advertsRejected: 0,
+      diagnostics: { directSourceKind: "ats_feed" },
+    } as never);
+
+    try {
+      await runCompanySiteCheck({
+        organisationName: "Example Ltd",
+        website: "https://example.test",
+        genericCheckedAt: null,
+        atsCheckedAt: null,
+        careersUrl: "https://jobs.ashbyhq.com/example",
+        atsProvider: "Ashby",
+        atsBoardId: "example",
+        atsMappingStatus: "verified",
+      });
+
+      expect(persistCompanySiteVacanciesMock).toHaveBeenCalledTimes(1);
+      expect(persistCompanySiteVacanciesMock.mock.calls[0]?.[0]).toEqual([
+        expect.objectContaining({
+          externalId: "job-1",
+          companyVacancyEvidence: expect.objectContaining({ kind: "known_ats_posting" }),
+        }),
+      ]);
+    } finally {
+      if (previous === undefined) delete process.env["COMPANY_SITE_GENERIC_IMPORT_ENABLED"];
+      else process.env["COMPANY_SITE_GENERIC_IMPORT_ENABLED"] = previous;
+    }
   });
 
   it("verifies a parseable ATS mapping only after first-party evidence is observed", async () => {

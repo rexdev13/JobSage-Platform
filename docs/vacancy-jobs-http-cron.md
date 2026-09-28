@@ -199,6 +199,12 @@ Each job uses the same URL, `Content-Type` header, and secret header shown
 above. Keep the JSON body fixed; cron-job.org does not update a later job's body
 from a previous response:
 
+`company_site_direct_feed` is also an accepted job kind, but it is not part of
+the production schedule. It defaults to five employers, is capped by the
+company-site server limit, and requires a verified direct ATS/feed mapping.
+Do not add it to cron-job.org until the staged rollout in
+`company-site-direct-feed-rollout.md` is approved.
+
 Create one additional all-day probe job:
 
 | Schedule (Europe/London) | Job title | Kind | JSON body |
