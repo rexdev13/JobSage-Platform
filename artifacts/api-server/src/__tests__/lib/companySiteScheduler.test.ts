@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   executeMock,
@@ -86,6 +86,10 @@ const {
 } = await import("../../lib/companySiteScheduler");
 
 describe("company-site scheduler", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   beforeEach(() => {
     executeMock.mockReset();
     selectMock.mockReset();
@@ -782,6 +786,7 @@ describe("company-site scheduler", () => {
   });
 
   it("repeats the same vacancy upsert without re-queueing verification", async () => {
+    vi.stubEnv("COMPANY_SITE_GENERIC_IMPORT_ENABLED", "true");
     persistCompanySiteVacanciesMock
       .mockResolvedValueOnce({ inserted: 1, updated: 0, revived: 0 })
       .mockResolvedValueOnce({ inserted: 0, updated: 1, revived: 0 });
@@ -959,6 +964,7 @@ describe("company-site scheduler", () => {
   });
 
   it("records opt-in employer pilot metrics and counts updates as persisted work", async () => {
+    vi.stubEnv("COMPANY_SITE_GENERIC_IMPORT_ENABLED", "true");
     executeMock.mockResolvedValue({
       rows: [{
         id: 1,

@@ -4,7 +4,9 @@ import { sql } from "drizzle-orm";
 import { assertDatabaseMode, safeToolErrorSummary } from "./databaseSafety";
 import {
   installDatabaseContext,
+  parseDiscoveryExecutionOptions,
   prepareDatabaseContext,
+  verifyProductionWriteGuards,
 } from "./companySiteDiscoveryRuntime";
 import {
   loadEmployerInput,
@@ -335,30 +337,22 @@ async function main(): Promise<void> {
   let context: ReturnType<typeof prepareDatabaseContext> | undefined;
   let identity: Awaited<ReturnType<typeof assertDatabaseMode>> | undefined;
   let developmentStateAccessed = false;
+  let preflightOnly = false;
+  let discoveryStarted = false;
   try {
-    const format = args.get("format") ?? "json";
-    const limit = Number(args.get("limit") ?? DEFAULT_LIMIT);
-    const organisationNames = args.get("organisations")
-      ?.split(",")
-      .map((name) => name.trim())
-      .filter(Boolean);
-    const noHostState = args.get("no-host-state") === "true";
-    if (!Number.isInteger(limit) || limit < 1 || limit > MAX_LIMIT) {
-      throw new Error(`--limit must be an integer from 1 to ${MAX_LIMIT}`);
-    }
-    if (organisationNames && (
-      organisationNames.length > 10 ||
-      new Set(organisationNames.map((name) => name.toLowerCase())).size !== organisationNames.length
-    )) {
-      throw new Error("--organisations accepts up to 10 distinct, comma-separated exact employer names.");
-    }
-    if (format !== "json" && format !== "csv") {
-      throw new Error("--format must be json or csv");
-    }
-    if (args.has("input-file") && !args.get("input-file")?.trim()) {
-      throw new Error("--input-file requires a path.");
-    }
-    loadedInput = args.get("input-file")
+    const runOptions = parseDiscoveryExecutionOptions(args, {
+      defaultLimit: DEFAULT_LIMIT,
+      maxLimit: MAX_LIMIT,
+    });
+    const {
+      preflightOnly: isPreflightOnly,
+      format,
+      limit,
+      organisationNames,
+      noHostState,
+    } = runOptions;
+    preflightOnly = isPreflightOnly;
+    loadedInput = !isPreflightOnly && args.get("input-file")
       ? await loadEmployerInput(args.get("input-file")!)
       : undefined;
     developmentStateAccessed = loadedInput?.sourceEnvironment === "development";
@@ -376,6 +370,80 @@ async function main(): Promise<void> {
       context.expectedFingerprint,
     );
 
+    if (isPreflightOnly) {
+      const writeGuards = verifyProductionWriteGuards(context.mode);
+      if (!writeGuards.mappingWritesBlocked || !writeGuards.vacancyWritesBlocked) {
+        throw new Error("Production preflight could not verify all application write guards.");
+      }
+      const report = {
+        version: OUTPUT_VERSION,
+        status: "preflight_passed",
+        environment: context.sourceEnvironment,
+        dbMode: context.mode,
+        mode: "production_readonly_preflight",
+        generatedAt: new Date().toISOString(),
+        limit: 0,
+        selectedEmployers: 0,
+        employersChecked: 0,
+        networkRequests: 0,
+        writesAttempted: 0,
+        mappingPromotions: 0,
+        vacancyImports: 0,
+        safety: {
+          dbMode: context.mode,
+          nodeEnvironment: context.nodeEnvironment,
+          database: {
+            host: identity.databaseHost,
+            name: identity.databaseName,
+            role: identity.roleName,
+            fingerprint: identity.fingerprint,
+          },
+          expectedFingerprintMatched: true,
+          transactionReadOnly: identity.transactionReadOnly,
+          defaultTransactionReadOnly: identity.defaultTransactionReadOnly,
+          readOnlyRoleVerified: true,
+          roleNonWritableVerified: true,
+          rolePrivileges: {
+            isSuperuser: identity.roleIsSuperuser,
+            canAdminister: identity.roleCanAdminister,
+            hasDmlPrivileges: identity.roleHasWritePrivileges,
+            canCreateSchema: identity.roleCanCreateSchema,
+            canCreateDatabaseObjects: identity.roleCanCreateDatabaseObjects,
+            canCreateTemporaryObjects: identity.roleCanCreateTemporaryObjects,
+            ownsDatabase: identity.roleOwnsDatabase,
+            ownsApplicationObjects: identity.roleOwnsApplicationObjects,
+            hasWriteAllDataRole: identity.roleHasWriteAllData,
+          },
+          writeModeDisabled: true,
+          productionWritesDisabled: true,
+          employerInputSource: "not accessed (preflight-only)",
+          mappingCheckStateSource: "not accessed",
+          hostStateSource: "not accessed (preflight-only)",
+          cacheStateSource: "not loaded (preflight-only)",
+          developmentStateAccessed: false,
+          assertions: {
+            databaseFingerprintMatchesMode: true,
+            productionReadOnlyRoleAndSessionVerified: true,
+            zeroEmployersSelected: true,
+            noEmployerInputLoaded: true,
+            noDiscoveryNetworkAccess: true,
+            noHostStateAccess: true,
+            noDevelopmentStateAccess: true,
+            mappingWriteGuardBlocks: writeGuards.mappingWritesBlocked,
+            vacancyWriteGuardBlocks: writeGuards.vacancyWritesBlocked,
+          },
+        },
+      };
+      if (proofOutput) {
+        const outputPath = resolve(proofOutput);
+        await mkdir(dirname(outputPath), { recursive: true });
+        await writeFile(outputPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+      }
+      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+      return;
+    }
+
+    discoveryStarted = true;
     const http = await import("../lib/companySiteHttp");
     const discovery = await import("../lib/companySiteDiscovery");
     const connectors = await import("../lib/directEmployerBoardConnectors");
@@ -427,6 +495,18 @@ async function main(): Promise<void> {
       transactionReadOnly: identity.transactionReadOnly,
       defaultTransactionReadOnly: identity.defaultTransactionReadOnly,
       readOnlyRoleVerified: context.mode === "production-readonly",
+      roleNonWritableVerified: context.mode === "production-readonly",
+      rolePrivileges: {
+        isSuperuser: identity.roleIsSuperuser,
+        canAdminister: identity.roleCanAdminister,
+        hasDmlPrivileges: identity.roleHasWritePrivileges,
+        canCreateSchema: identity.roleCanCreateSchema,
+        canCreateDatabaseObjects: identity.roleCanCreateDatabaseObjects,
+        canCreateTemporaryObjects: identity.roleCanCreateTemporaryObjects,
+        ownsDatabase: identity.roleOwnsDatabase,
+        ownsApplicationObjects: identity.roleOwnsApplicationObjects,
+        hasWriteAllDataRole: identity.roleHasWriteAllData,
+      },
       writeModeDisabled: true,
       productionWritesDisabled: context.mode === "production-readonly",
       employerInputSource,
@@ -444,6 +524,7 @@ async function main(): Promise<void> {
         noDiscoveryPersistence: true,
         productionReadOnlyRoleAndSessionVerified: context.mode === "production-readonly",
         hostStateDisabled: noHostState,
+        developmentStateNotAccessed: !developmentStateAccessed,
       },
     };
     const report = {
@@ -503,6 +584,14 @@ async function main(): Promise<void> {
         const blockedReport = {
           version: OUTPUT_VERSION,
           status: "blocked",
+          ...(preflightOnly
+            ? {
+                mode: "production_readonly_preflight",
+                limit: 0,
+                selectedEmployers: 0,
+                networkRequests: 0,
+              }
+            : {}),
           dbMode: args.get("db-mode") ?? null,
           employersChecked: 0,
           writesAttempted: 0,
@@ -535,7 +624,7 @@ async function main(): Promise<void> {
             hostStateSource: "not accessed",
             cacheStateSource: "not accessed",
             developmentStateAccessed,
-            failedBeforeDiscovery: true,
+            failedBeforeDiscovery: !discoveryStarted,
           },
           blockedReason: safeToolErrorSummary(error),
         };
