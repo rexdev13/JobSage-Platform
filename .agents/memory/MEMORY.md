@@ -51,6 +51,7 @@
 - [Answer Library safety](answer-library-safety.md) — remember only candidate-authored, allowlisted values; never import provenance-free page memory or reuse draft/application storage.
 - [Send CV deferred delivery](send-cv-deferred-delivery.md) — missing employer contact is a pending follow-up state, never an operations-inbox delivery.
 - [Artifact preview route refresh](artifact-preview-route-refresh.md) — a healthy service can still show Replit’s plain `Running` placeholder until its manifest is revalidated.
+- [Mobile file download delivery](mobile-file-download-delivery.md) — static asset previews can block downloads; use a private short-lived signed file URL and verify attachment headers.
 - [Serialize codegen and UI agents](serialize-codegen-ui-agents.md) — codegen/backend subagents can replace concurrent UI edits from older snapshots; run them before UI agents.
 - [OpenAPI path parameters](openapi-path-parameters.md) — generated clients require path parameters in the OpenAPI path key itself, such as `/resource/{id}`, not only in the operation parameter list.
 - [Deployment pnpm CI mode](deployment-pnpm-ci.md) — publishing installs without a TTY, so project-level `ci=true` must be available before artifact builds.
