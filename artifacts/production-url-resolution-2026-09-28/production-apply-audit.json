@@ -1,0 +1,23 @@
+{
+  "createdAt": "2026-09-27T18:52:04.939521+00:00",
+  "action": "sponsor_website_import_applied",
+  "target": "plan:f2484e940b2029c32f2aed5443e8c3a991f668c09832e463a83eca1044bdbffd",
+  "details": {
+    "rowCount": 6007,
+    "websiteUpdates": 1954,
+    "careersUpdates": 3,
+    "mappingsStored": 4086,
+    "counts": {
+      "rejected_confidence": 1388,
+      "safe_to_import": 1957,
+      "manual_review_ambiguous_identity": 1025,
+      "manual_review_development_value_conflict": 7,
+      "manual_review_pilot_not_in_development": 4,
+      "already_matches_production_noop": 540,
+      "duplicate_candidate_same_target_noop": 10,
+      "manual_review_identity_conflict": 553,
+      "manual_review_existing_production_value": 224,
+      "manual_review_careers_target": 299
+    }
+  }
+}

@@ -1272,3 +1272,45 @@ mtime_ms = 1790538189192
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/4999e5ed-262f-49a5-bc14-a715886223ca/3032e2ff-d5f5-4876-9c01-9149ea51d51a"
 storage_version_token = "1790538192695060"
 content_type = "text/csv"
+
+[[outputs]]
+id = "5GgiWAQ1etf4HYckehMz-"
+uri = "file://artifacts/production-url-resolution-2026-09-28/prod-url-resolution-summary.md"
+type = "text"
+title = "Production URL resolver summary"
+description = "Reason-coded dry-run results for all 6,007 rows, including audit counts and the guarded apply path. No rows were applied."
+logical_id = "432ef9e3-9aed-4691-a60d-7847d10b1f5f"
+content_hash = "sha256:bdf4d9d540b5d1ac3037f6ae2b26fddb04e3458786e42ce2d8e9b7a68e7b700a"
+size = 10762
+mtime_ms = 1790587097552
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/432ef9e3-9aed-4691-a60d-7847d10b1f5f/0d4a941d-7efe-4e5e-bf48-e03b69606a5b"
+storage_version_token = "1790587271801781"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "bEct1gy13Kb0zRamxdEnF"
+uri = "file://artifacts/production-url-resolution-2026-09-28/safe-auto-resolved.csv"
+type = "table"
+title = "26 prepared careers URL rows"
+description = "Unique, blank production careers targets with reviewed first-party evidence. Use the protected admin preview before any apply."
+logical_id = "d812851f-6e32-4bae-9d8d-2bf82a0e0793"
+content_hash = "sha256:bd632417417432c38b3b2897e4527ca57a6c763872b500113a2b9aa682c77d4e"
+size = 29010
+mtime_ms = 1790587097420
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/d812851f-6e32-4bae-9d8d-2bf82a0e0793/e48c9af1-85cc-4edf-b39a-5388b5490280"
+storage_version_token = "1790587272970430"
+content_type = "text/csv"
+
+[[outputs]]
+id = "8CzCiluASEX4Kt58xE5i0"
+uri = "file://artifacts/production-url-resolution-2026-09-28/next-phase-vacancy-command-plan.md"
+type = "text"
+title = "Bounded vacancy pilot plan"
+description = "One authenticated company_site request capped at one employer; prepared only and not executed."
+logical_id = "fae182ac-089b-47cd-ac84-685c49f665bb"
+content_hash = "sha256:a23a53f5afed0b92ade7db132eb509fd9ee323816680a234bfb7291e89aea97b"
+size = 3336
+mtime_ms = 1790587097552
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/fae182ac-089b-47cd-ac84-685c49f665bb/7967f049-c38a-4716-adbb-787dae00da2c"
+storage_version_token = "1790587274010605"
+content_type = "text/markdown"

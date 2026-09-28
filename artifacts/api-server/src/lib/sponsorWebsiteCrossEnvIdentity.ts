@@ -48,6 +48,16 @@ export function normalizeSponsorIdentityValue(value: string | null | undefined):
     .replace(/\s+/g, " ");
 }
 
+/**
+ * Legal suffix matching is intentionally narrower than the stable identity
+ * snapshot normalizer: it treats only a trailing "Ltd" as "Limited".
+ * Keeping identitySnapshot on the original normalizer preserves existing
+ * cross-environment mapping keys.
+ */
+export function normalizeSponsorLegalNameValue(value: string | null | undefined): string {
+  return normalizeSponsorIdentityValue(value).replace(/\bltd$/, "limited");
+}
+
 export function identitySnapshot(identity: SponsorIdentity): Record<string, string> {
   return Object.fromEntries(
     IDENTITY_FIELDS.map((field) => [field, normalizeSponsorIdentityValue(identity[field])]),
@@ -79,8 +89,8 @@ export function sponsorIdentityMatchesProvidedFields(
   target: SponsorIdentity,
 ): boolean {
   if (
-    normalizeSponsorIdentityValue(source.organisationName) !==
-    normalizeSponsorIdentityValue(target.organisationName)
+    normalizeSponsorLegalNameValue(source.organisationName) !==
+    normalizeSponsorLegalNameValue(target.organisationName)
   ) {
     return false;
   }
@@ -96,12 +106,12 @@ export function resolveSponsorIdentity(
   targets: SponsorIdentityTarget[],
   mappedTargetId?: number | null,
 ): SponsorIdentityMatch {
-  const name = normalizeSponsorIdentityValue(source.organisationName);
+  const name = normalizeSponsorLegalNameValue(source.organisationName);
   if (!name) return { status: "incomplete_identity", matches: [] };
 
   const sameName = targets.filter(
     (target) =>
-      normalizeSponsorIdentityValue(target.organisationName) === name,
+      normalizeSponsorLegalNameValue(target.organisationName) === name,
   );
 
   if (mappedTargetId != null) {

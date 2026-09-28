@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import {
   normalizeImportUrl,
+  normalizeSponsorLegalNameValue,
   normalizeSponsorIdentityValue,
   resolveSponsorIdentity,
   sponsorIdentityMatchesProvidedFields,
@@ -138,14 +139,14 @@ export function buildSponsorWebsiteImportPlan(input: {
   const sponsorsById = new Map(input.sponsors.map((sponsor) => [sponsor.id, sponsor]));
   const sponsorsByNormalizedName = new Map<string, SponsorWebsiteProductionTarget[]>();
   for (const sponsor of input.sponsors) {
-    const key = normalizeSponsorIdentityValue(sponsor.organisationName);
+    const key = normalizeSponsorLegalNameValue(sponsor.organisationName);
     const sameName = sponsorsByNormalizedName.get(key) ?? [];
     sameName.push(sponsor);
     sponsorsByNormalizedName.set(key, sameName);
   }
   const careersByNormalizedName = new Map<string, SponsorCareersProductionTarget[]>();
   for (const site of input.careersTargets) {
-    const key = normalizeSponsorIdentityValue(site.organisationName);
+    const key = normalizeSponsorLegalNameValue(site.organisationName);
     const current = careersByNormalizedName.get(key) ?? [];
     current.push(site);
     careersByNormalizedName.set(key, current);
@@ -156,7 +157,7 @@ export function buildSponsorWebsiteImportPlan(input: {
     const identityKey = sponsorIdentityKey(candidate);
     const mapping = mappingByKey.get(identityKey);
     const sameNameTargets =
-      sponsorsByNormalizedName.get(normalizeSponsorIdentityValue(candidate.organisationName)) ?? [];
+      sponsorsByNormalizedName.get(normalizeSponsorLegalNameValue(candidate.organisationName)) ?? [];
     const manuallyReviewedTargetId =
       mapping?.resolutionMethod === "manual_review"
         ? mapping.targetSponsorLicenceId
@@ -238,7 +239,7 @@ export function buildSponsorWebsiteImportPlan(input: {
       row.currentValue = target.website ?? "";
     } else {
       const siteTargets =
-        careersByNormalizedName.get(normalizeSponsorIdentityValue(target.organisationName)) ??
+        careersByNormalizedName.get(normalizeSponsorLegalNameValue(target.organisationName)) ??
         [];
       if (siteTargets.length !== 1) {
         row.status = "manual_review_careers_target";
