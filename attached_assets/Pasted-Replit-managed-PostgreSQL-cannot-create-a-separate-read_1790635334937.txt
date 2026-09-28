@@ -1,0 +1,149 @@
+Replit managed PostgreSQL cannot create a separate read-only role, and we are not moving providers right now.
+
+Please convert the production discovery/mapping workflow into a long-term Replit-safe internal workflow that does not require a separate DB role.
+
+Goal:
+Create controlled internal routes/commands that enforce read-only and write boundaries at the application level, with audit logs and approval gates.
+
+Do not deploy yet.
+Do not edit cron.
+Do not run broad discovery.
+Do not import vacancies.
+Do not write production data except where explicitly requested later through an apply route.
+
+Implement the following long-term workflow:
+
+1. Internal read-only ATS discovery route/command
+
+Create a production-safe discovery route or command, for example:
+
+`POST /api/internal/company-site-discovery/read-only`
+
+It must:
+- require `x-jobsage-job-secret`
+- accept `limit`, optional `organisationNames`, optional provider filters
+- use production app DB connection, but run inside a transaction with `SET TRANSACTION READ ONLY`
+- use `--no-host-state` behavior by default
+- not write company-site checks
+- not write mappings
+- not write vacancies
+- not write cache/host-state
+- not change candidate visibility
+- only inspect saved production websites/careers URLs
+- detect supported ATS/feed mappings
+- output a report with:
+  - report ID
+  - employers checked
+  - verified mapping candidates
+  - rejected/uncertain candidates
+  - provider breakdown
+  - feed advert counts if fetched
+  - before/after row counts proving no DB writes
+  - timestamp and parameters used
+
+If the route cannot guarantee zero writes, it must fail closed.
+
+2. Mapping dry-run route
+
+Create:
+
+`POST /api/internal/company-site-mappings/dry-run`
+
+It must:
+- require internal secret
+- accept a discovery report ID or uploaded reviewed mapping file
+- calculate what mapping fields would be inserted/updated
+- not write anything
+- refuse uncertain/rejected mappings
+- refuse ambiguous employer matches
+- refuse overwrites of verified mappings unless explicitly approved
+- output before/after diff and rollback plan
+
+3. Mapping apply route
+
+Create:
+
+`POST /api/internal/company-site-mappings/apply`
+
+It must:
+- require internal secret
+- require a dry-run report ID
+- require explicit approval token/string in the payload
+- write only mapping fields in `sponsor_licence_company_site_checks`
+- not create vacancies
+- not update sponsor websites
+- not run discovery
+- not run vacancy import
+- produce rollback export
+- log every changed row
+
+4. Direct-feed vacancy job
+
+Keep the strict direct-feed job:
+
+`POST /api/internal/vacancy-jobs`
+with body:
+`{"kind":"company_site_direct_feed","limit":5}`
+
+It must:
+- only select verified mappings
+- only persist `known_ats_posting`
+- never run generic HTML crawling
+- use existing locks/backoff/freshness checks
+- dedupe repeat imports
+- avoid retiring jobs on partial/non-authoritative feeds
+- log inserted/updated/skipped/failed counts
+
+5. Generic crawler safety
+
+Ensure:
+- `COMPANY_SITE_GENERIC_IMPORT_ENABLED=false` blocks generic company-site vacancy persistence.
+- Generic discovery cannot create candidate-visible vacancies while disabled.
+- Existing job-board/Reed/additional-board/liveness/probe jobs are unaffected.
+
+6. Admin/report visibility
+
+Add or document where reports are stored/retrieved:
+- discovery reports
+- dry-run reports
+- apply reports
+- direct-feed run reports
+
+Reports must include enough data for me to decide whether to apply/promote/run canary without reading database internals.
+
+7. Tests
+
+Add tests proving:
+- read-only discovery cannot write
+- mapping dry-run cannot write
+- mapping apply only writes approved mapping fields
+- discovery report cannot be applied unless reviewed
+- direct-feed job ignores unverified mappings
+- direct-feed job does not generic crawl
+- generic-import flag blocks generic vacancy persistence
+- before/after row counts catch unexpected writes
+- routes require internal secret
+
+8. Run development verification
+
+Run:
+- typecheck
+- full API test suite
+- build
+- development dry-run of the workflow:
+  - read-only discovery limit 5
+  - mapping dry-run
+  - no apply unless using development only
+  - direct-feed test only against verified dev mappings
+
+Output:
+- files changed
+- tests passed
+- exact production route payloads
+- rollout steps
+- which cron jobs remain unchanged
+- which old company-site jobs should be paused
+- first canary payload
+
+Important:
+This should become the long-term Replit-safe workflow since we cannot rely on separate read-only DB roles in Replit managed PostgreSQL.
