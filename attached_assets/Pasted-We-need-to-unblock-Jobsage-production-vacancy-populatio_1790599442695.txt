@@ -1,0 +1,131 @@
+We need to unblock Jobsage production vacancy population by resolving the remaining dev-to-prod URL migration blockers properly.
+
+Current blockers:
+- Identity review: 596 rows
+- Existing URL conflict: 312 rows
+- Missing data: 126 rows
+
+Business goal:
+Production must get as much verified website/careers/source coverage from development as possible so we can start populating vacancies. Do not return another tiny safe-only result unless that is genuinely all that can be represented after mapping, staging, and secondary source handling.
+
+Important:
+- Do not blindly copy dev sponsor IDs into prod.
+- Do not guess employer identity.
+- Do not overwrite good production URLs silently.
+- But also do not discard useful dev URLs just because they do not fit the main website field.
+- If a URL is safe for vacancy discovery, represent it in production as a website, careers URL, source URL, or durable staging/source row.
+
+Task 1: Inspect current schema and importer behavior
+Find:
+- dev website/careers/source candidate tables
+- production sponsor tables
+- production website/careers/source tables
+- durable staging table, if already created
+- audit tables/logs
+- existing import scripts and tests
+- company-site/vacancy discovery scheduler input tables
+
+Task 2: Resolve identity review rows in batches
+For the 596 identity review rows:
+- Group by normalized employer name, candidate domain, careers domain, postcode/city/location, sponsor licence/company identifiers, and evidence URL.
+- Match to production sponsors using a scoring model.
+- Auto-map only when evidence is strong:
+  - exact sponsor/licence/company identifier match
+  - same normalized employer name + same official domain
+  - same employer name + same postcode/city/location
+  - candidate careers URL is linked from existing production official website
+  - one production sponsor is clearly stronger than all others
+- If multiple production sponsor rows clearly represent the same employer and have blank/non-conflicting URL fields, write/link the same verified URL to all matching blank sponsor rows instead of choosing one arbitrarily.
+- If multiple plausible sponsors remain and evidence cannot separate them, keep manual.
+
+Output:
+- identity-auto-mapped.csv
+- identity-multi-row-same-employer.csv
+- identity-manual-review.csv
+- counts by reason and sample rows
+
+Task 3: Resolve existing URL conflicts as vacancy sources
+For the 312 existing URL conflict rows:
+- Normalize URLs before comparing:
+  - http vs https
+  - www vs non-www
+  - trailing slash
+  - redirects
+  - canonical domain
+- Classify each conflict:
+  - same after normalization => no-op
+  - existing is homepage and candidate is careers/jobs page => keep website, add candidate as careers/source URL
+  - existing URL is dead, parked, irrelevant, or redirects badly and candidate is verified official => replace existing
+  - both URLs are valid official employer URLs => preserve existing and add candidate as secondary source/staging source
+  - candidate is unverifiable or unrelated => manual URL review
+  - two unrelated live domains => manual URL review unless one clearly links to the other
+
+Important:
+Existing URL conflict should not automatically block vacancy ingestion. If the candidate URL is official and useful, store it as a careers/source/staging URL without overwriting the existing website.
+
+Output:
+- url-conflict-noop-normalized.csv
+- url-conflict-add-careers-source.csv
+- url-conflict-replace-dead-existing.csv
+- url-conflict-secondary-source.csv
+- url-conflict-manual-review.csv
+- counts by reason and sample rows
+
+Task 4: Handle missing data rows
+For the 126 missing data rows:
+- Try to recover missing information from available dev evidence, candidate URL, domain, employer name, and production sponsor details.
+- If URL is valid and employer identity can be mapped, stage or import it.
+- If URL is invalid/missing or employer identity is still unclear, leave manual.
+
+Output:
+- missing-data-recovered.csv
+- missing-data-manual-review.csv
+
+Task 5: Dry-run preview only first
+Do not write to production yet.
+
+Produce a dry-run report:
+- total rows examined
+- identity rows resolved
+- URL conflicts converted to usable vacancy sources
+- missing data rows recovered
+- direct website writes
+- careers/source writes
+- staging rows
+- replacements of dead/bad existing URLs
+- no-ops
+- true manual rows remaining
+- total production source coverage after proposed apply
+- expected number of sources available for vacancy ingestion
+
+Save:
+- production-url-blocker-resolution-preview.md
+- all CSVs listed above
+
+Task 6: Apply path
+Prepare an apply command that:
+- is idempotent
+- writes only approved resolved rows
+- records before/after values
+- records reason codes
+- does not overwrite existing URLs unless classified as replace_dead_existing
+- inserts official candidate URLs as careers/source/staging rows where appropriate
+- can be rolled back or audited
+
+Do not run the apply until the preview is reviewed.
+
+Task 7: Vacancy pilot after apply
+After URL/source migration is applied and verified, prepare a bounded production vacancy pilot:
+- use only newly resolved verified sources
+- start with a small cohort
+- report candidate-visible vacancy count before and after
+- report inserted/updated/rejected/error counts
+- stop on high error rate
+- do not run broad crawling blindly
+
+Final answer should clearly state:
+- how many of the 596 identity rows became usable
+- how many of the 312 URL conflicts became usable
+- how many of the 126 missing data rows were recovered
+- how many remain manual
+- whether we now have enough verified production sources to start vacancy ingestion
