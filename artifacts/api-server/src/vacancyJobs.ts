@@ -10,11 +10,16 @@ import { getVacancyAiWebSearchDailyCap } from "./lib/vacancyAiBudget";
 
 function requestedJobKind(): VacancyJobKind {
   const value = process.env["VACANCY_JOB_KIND"] ?? process.argv[2];
-  if (value === "job_board" || value === "company_site" || value === "liveness") {
+  if (
+    value === "job_board" ||
+    value === "company_site" ||
+    value === "company_site_direct_feed" ||
+    value === "liveness"
+  ) {
     return value;
   }
   throw new Error(
-    `VACANCY_JOB_KIND must be one of job_board, company_site, or liveness; received "${value ?? ""}".`,
+    `VACANCY_JOB_KIND must be one of job_board, company_site, company_site_direct_feed, or liveness; received "${value ?? ""}".`,
   );
 }
 

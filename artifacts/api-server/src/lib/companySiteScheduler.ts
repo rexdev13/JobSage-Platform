@@ -42,6 +42,41 @@ export const COMPANY_SITE_UNPROBED_SHARE = 0.6;
 export const COMPANY_SITE_SECTOR_COUNT = 8;
 export const COMPANY_SITE_BATCH_WRITE_RESERVE_MS = 3_000;
 
+export function companySiteGenericImportEnabled(): boolean {
+  return (process.env["COMPANY_SITE_GENERIC_IMPORT_ENABLED"] ?? "true")
+    .trim()
+    .toLowerCase() !== "false";
+}
+
+export function classifyCompanySiteJobErrorCategory(value: unknown): string {
+  const message = value instanceof Error ? value.message : String(value ?? "");
+  if (/\b(timeout|timed out|deadline|aborterror)\b/i.test(message)) return "timeout";
+  if (/\brobots(?:\.txt)?|disallow/i.test(message)) return "robots";
+  if (/\b(oversize|too large|byte limit|content length)\b/i.test(message)) return "oversize";
+  if (/\bidentity.{0,20}mismatch|duplicate id|invalid.{0,20}identity/i.test(message)) return "identity_mismatch";
+  if (/\b(partial|incomplete|pagination|total is missing|snapshot is incomplete)\b/i.test(message)) return "partial_feed";
+  if (/\b(unsafe|blocked|private|ssrf|forbidden|HTTP 403|HTTP 429)\b/i.test(message)) return "blocked";
+  if (/\bHTTP \d{3}\b/i.test(message)) return "http";
+  if (/\b(json|feed|posting|malformed|parse)\b/i.test(message)) return "invalid_feed";
+  if (/\b(network|ECONN|DNS|EAI_)\b/i.test(message)) return "network";
+  return "unknown";
+}
+
+function companySiteErrorHttpStatus(value: unknown): number | null {
+  const message = value instanceof Error ? value.message : String(value ?? "");
+  const match = message.match(/\bHTTP\s+(\d{3})\b/i);
+  return match ? Number(match[1]) : null;
+}
+
+function safeUrlOrigin(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try {
+    return new URL(value).origin;
+  } catch {
+    return null;
+  }
+}
+
 const CIRCLE_HEALTH_GROUP_EMPLOYER =
   "BMI Healthcare Limited trading as Circle Health Group Limited";
 const CIRCLE_WORKDAY_CAREERS_URL =
@@ -184,10 +219,17 @@ export type CompanySiteCheckOutcome =
       atsProvider: string | null;
       repeatImport?: { inserted: number; updated: number; revived: number };
       diagnostics?: CompanySiteDiscoveryDiagnostics;
+      errorCategory?: string | null;
+      httpStatus?: number | null;
+      retryAfter?: Date | null;
+      retired?: number;
     };
 
 export type CompanySiteEmployerRunMetric = {
   organisationName: string;
+  employerId?: number;
+  mappingId?: string | null;
+  batchId?: string;
   industry: string | null;
   sourceUrl: string;
   careersUrl: string | null;
@@ -196,6 +238,9 @@ export type CompanySiteEmployerRunMetric = {
   completion: "complete" | "partial_page_limit" | "partial_deadline" | "failed" | null;
   failureClass: CompanySiteFailureClass | null;
   reason: string | null;
+  errorCategory?: string | null;
+  httpStatus?: number | null;
+  retryAfter?: string | null;
   elapsedMs: number;
   pagesFetched: number;
   rawAdvertsFound: number;
@@ -203,6 +248,7 @@ export type CompanySiteEmployerRunMetric = {
   inserted: number;
   updated: number;
   revived: number;
+  retired?: number;
   advertsRejected: number;
   ukLocationKnown: number;
   ukLocationUnknown: number;
@@ -238,6 +284,8 @@ export type CompanySiteBatchSummary = {
   probeUnknownSkipped: number;
   probeBadSkipped: number;
   employerMetrics?: CompanySiteEmployerRunMetric[];
+  batchId?: string;
+  directFeedsOnly?: boolean;
 };
 
 let batchInProgress = false;
@@ -255,6 +303,7 @@ async function selectCompanySiteBatchForProbeStatus(
   batchSize: number,
   selection: CompanySiteProbeSelection,
   organisationNames?: readonly string[],
+  mode: "generic" | "direct_feed" = "generic",
 ): Promise<CompanySiteBatchRow[]> {
   const bookmarkLimit = Math.floor(batchSize * COMPANY_SITE_BOOKMARK_SHARE);
   const guaranteedOldestSlots = batchSize - bookmarkLimit;
@@ -266,6 +315,29 @@ async function selectCompanySiteBatchForProbeStatus(
   const probeFilter = selection === "ok_for_crawl"
     ? sql`COALESCE(cs.probe_status, 'unknown') = 'ok_for_crawl'`
     : sql`COALESCE(cs.probe_status, 'unknown') = 'unknown'`;
+  const directMappingFilter = mode === "direct_feed"
+    ? sql`cs.ats_mapping_status = 'verified'
+        AND cs.ats_provider IS NOT NULL AND trim(cs.ats_provider) <> ''
+        AND cs.ats_board_id IS NOT NULL AND trim(cs.ats_board_id) <> ''
+        AND cs.careers_url IS NOT NULL AND trim(cs.careers_url) <> ''`
+    : sql`TRUE`;
+  const freshnessFilter = mode === "direct_feed"
+    ? sql`(ats_checked_at IS NULL OR ats_checked_at < ${atsCutoff})`
+    : sql`(
+        generic_checked_at IS NULL
+        OR generic_checked_at < ${genericCutoff}
+        OR (
+          ats_provider IS NOT NULL
+          AND (ats_checked_at IS NULL OR ats_checked_at < ${atsCutoff})
+        )
+        OR (
+          healthcare_evidence_backfill = true
+          AND (
+            last_attempted_at IS NULL
+            OR last_attempted_at < ${healthcareEvidenceCutoff}
+          )
+        )
+      )`;
   const allowedOrganisationNames = organisationNames?.map((name) =>
     name.trim().toLowerCase(),
   );
@@ -282,6 +354,7 @@ async function selectCompanySiteBatchForProbeStatus(
     careers_url: string | null;
     ats_mapping_evidence_url: string | null;
     ats_provider: string | null;
+    ats_board_id: string | null;
     ats_mapping_status: "verified" | "unverified" | null;
     last_outcome: string | null;
     probe_status: "ok_for_crawl" | "bad" | "unknown" | null;
@@ -302,6 +375,7 @@ async function selectCompanySiteBatchForProbeStatus(
         cs.careers_url,
         cs.ats_mapping_evidence_url,
         cs.ats_provider,
+        cs.ats_board_id,
         cs.ats_mapping_status,
         cs.last_attempted_at,
         cs.last_outcome,
@@ -344,7 +418,8 @@ async function selectCompanySiteBatchForProbeStatus(
       WHERE sl.website IS NOT NULL
         AND trim(sl.website) <> ''
         AND ${organisationFilter}
-        AND ${probeFilter}
+        AND ${directMappingFilter}
+        AND ${mode === "direct_feed" ? sql`TRUE` : probeFilter}
         AND (cs.retry_after IS NULL OR cs.retry_after <= NOW())
         AND (cs.crawl_lease_until IS NULL OR cs.crawl_lease_until <= NOW())
       ORDER BY lower(btrim(sl.organisation_name)), sl.id
@@ -352,21 +427,7 @@ async function selectCompanySiteBatchForProbeStatus(
     eligible AS (
       SELECT *
       FROM candidate_pool
-      WHERE (
-          generic_checked_at IS NULL
-          OR generic_checked_at < ${genericCutoff}
-          OR (
-            ats_provider IS NOT NULL
-            AND (ats_checked_at IS NULL OR ats_checked_at < ${atsCutoff})
-          )
-          OR (
-            healthcare_evidence_backfill = true
-            AND (
-              last_attempted_at IS NULL
-              OR last_attempted_at < ${healthcareEvidenceCutoff}
-            )
-          )
-        )
+      WHERE ${freshnessFilter}
     ),
     priority_healthcare_evidence AS (
       SELECT *
@@ -452,6 +513,7 @@ async function selectCompanySiteBatchForProbeStatus(
         careers_url,
         ats_mapping_evidence_url,
         ats_provider,
+        ats_board_id,
         ats_mapping_status,
         last_attempted_at,
         last_outcome,
@@ -549,6 +611,7 @@ async function selectCompanySiteBatchForProbeStatus(
     careersUrl: row.careers_url,
     atsMappingEvidenceUrl: row.ats_mapping_evidence_url ?? null,
     atsProvider: row.ats_provider,
+    atsBoardId: row.ats_board_id ?? null,
     atsMappingStatus: row.ats_mapping_status === "verified" ? "verified" : "unverified",
     bookmarked: row.bookmarked,
     healthcareEvidenceBackfill: row.healthcare_evidence_backfill,
@@ -563,11 +626,20 @@ async function selectCompanySiteBatchForProbeStatus(
 export async function selectCompanySiteBatch(
   batchSize = getBatchSize(),
   organisationNames?: readonly string[],
+  mode: "generic" | "direct_feed" = "generic",
 ): Promise<CompanySiteBatchRow[]> {
   const requested = Math.max(1, Math.floor(batchSize));
   const allowedOrganisationNames = organisationNames?.map((name) =>
     name.trim().toLowerCase(),
   );
+  if (mode === "direct_feed") {
+    return selectCompanySiteBatchForProbeStatus(
+      requested,
+      "ok_for_crawl",
+      allowedOrganisationNames,
+      "direct_feed",
+    );
+  }
   const approvedRows = await selectCompanySiteBatchForProbeStatus(
     requested,
     "ok_for_crawl",
@@ -746,9 +818,21 @@ export async function runCompanySiteCheck(
   } = {},
 ): Promise<CompanySiteCheckOutcome> {
   if (!row.website.trim()) return { status: "skipped", reason: "no website" };
+  const directMapping = options.directFeedsOnly && row.atsProvider && row.careersUrl
+    ? parseDirectBoardMapping(row.atsProvider, row.careersUrl, {
+        firstPartyEvidenceUrl: row.atsMappingEvidenceUrl,
+      })
+    : null;
   if (
     options.directFeedsOnly &&
-    (row.atsMappingStatus !== "verified" || !row.careersUrl)
+    (
+      row.atsMappingStatus !== "verified" ||
+      !row.careersUrl ||
+      !row.atsProvider ||
+      !row.atsBoardId ||
+      !directMapping ||
+      directMapping.boardId.toLowerCase() !== row.atsBoardId.trim().toLowerCase()
+    )
   ) {
     return { status: "skipped", reason: "no_direct_feed_source" };
   }
@@ -796,9 +880,15 @@ export async function runCompanySiteCheck(
   } catch (error) {
     const now = new Date();
     const errorMessage = error instanceof Error ? error.message.slice(0, 1_000) : "discovery failed";
+    const errorCategory = options.directFeedsOnly
+      ? classifyCompanySiteJobErrorCategory(error)
+      : null;
+    const storedError = options.directFeedsOnly
+      ? `direct_feed_${errorCategory}`
+      : errorMessage;
     const failureClass = classifyCompanySiteFailure({
       kind: "network",
-      reason: errorMessage,
+      reason: storedError,
     });
     const retryAfter = new Date(
       now.getTime() +
@@ -813,7 +903,7 @@ export async function runCompanySiteCheck(
           retryAfter,
           lastAttemptedAt: now,
           lastOutcome: "failed",
-          lastError: `[${failureClass}] ${errorMessage}`,
+          lastError: `[${failureClass}] ${storedError}`,
           updatedAt: now,
           crawlLeaseUntil: null,
           crawlLeaseToken: null,
@@ -824,7 +914,7 @@ export async function runCompanySiteCheck(
             retryAfter,
             lastAttemptedAt: now,
             lastOutcome: "failed",
-            lastError: `[${failureClass}] ${errorMessage}`,
+            lastError: `[${failureClass}] ${storedError}`,
             updatedAt: now,
               crawlLeaseUntil: null,
               crawlLeaseToken: null,
@@ -845,6 +935,9 @@ export async function runCompanySiteCheck(
       transientFailure: failureClass === "temporary",
       failureClass,
       completion: "failed",
+      errorCategory,
+      httpStatus: options.directFeedsOnly ? companySiteErrorHttpStatus(error) : null,
+      retryAfter,
       advertsRejected: 0,
       rawAdvertsFound: 0,
       ukLocationKnown: 0,
@@ -854,18 +947,21 @@ export async function runCompanySiteCheck(
     };
   }
   if (options.directFeedsOnly) {
-    const allowedEvidenceKinds = new Set([
-      "known_ats_posting",
-      "json_ld_job_posting",
-      "microdata_job_posting",
-    ]);
-    const invalidAdvert = result.adverts.find((advert) => {
-      const evidenceKind = advert.companyVacancyEvidence?.kind;
-      return advert.sourceType !== "company_site" || !allowedEvidenceKinds.has(evidenceKind ?? "");
-    });
+    const matchesVerifiedRowMapping = (advert: CompanySiteDiscoveryResult["adverts"][number]) =>
+      Boolean(
+        directMapping &&
+        result.atsMappingVerified === true &&
+        result.atsProvider === directMapping.provider &&
+        result.careersUrl === directMapping.evidenceUrl &&
+        advert.sourceType === "company_site" &&
+        advert.companyVacancyEvidence?.kind === "known_ats_posting" &&
+        advert.companyVacancyEvidence.provider === directMapping.provider &&
+        advert.companyVacancyEvidence.listingUrl === directMapping.evidenceUrl,
+      );
+    const invalidAdvert = result.adverts.find((advert) => !matchesVerifiedRowMapping(advert));
     if (invalidAdvert) {
       throw new Error(
-        `Direct-feeds-only invariant failed before persistence: ${invalidAdvert.url} lacks approved ATS or schema.org evidence.`,
+        "Direct-feeds-only invariant failed before persistence: advert does not match the verified ATS mapping.",
       );
     }
     if (result.diagnostics.directFeedSkipReason) {
@@ -877,23 +973,49 @@ export async function runCompanySiteCheck(
   // while making the shared vacancy write path receive no Circle adverts unless
   // the strict direct-feed boundary has been satisfied.
   const advertsForPersistence = circlePersistenceAllowed ? result.adverts : [];
+  const directAtsAdverts = result.adverts.filter((advert) =>
+    advert.sourceType === "company_site" &&
+    advert.companyVacancyEvidence?.kind === "known_ats_posting" &&
+    Boolean(advert.companyVacancyEvidence.provider) &&
+    advert.companyVacancyEvidence.provider === result.atsProvider &&
+    advert.companyVacancyEvidence.listingUrl === result.careersUrl &&
+    result.atsMappingVerified === true,
+  );
+  const eligibleAdvertsForPersistence = options.directFeedsOnly
+    ? advertsForPersistence.filter((advert) => {
+        const evidence = advert.companyVacancyEvidence;
+        return Boolean(
+          directMapping &&
+          result.atsMappingVerified === true &&
+          result.atsProvider === directMapping.provider &&
+          result.careersUrl === directMapping.evidenceUrl &&
+          advert.sourceType === "company_site" &&
+          evidence?.kind === "known_ats_posting" &&
+          evidence.provider === directMapping.provider &&
+          evidence.listingUrl === directMapping.evidenceUrl,
+        );
+      })
+    : companySiteGenericImportEnabled()
+      ? advertsForPersistence
+      : circlePersistenceAllowed ? directAtsAdverts : [];
   if (!circlePersistenceAllowed && isCircleHealthGroupEmployer(row.organisationName)) {
     result.diagnostics.directFeedSkipReason ??= "circle_direct_workday_persistence_gate";
   }
   const persisted =
-    advertsForPersistence.length > 0
-      ? await persistCompanySiteVacancies(advertsForPersistence, {
+    eligibleAdvertsForPersistence.length > 0
+      ? await persistCompanySiteVacancies(eligibleAdvertsForPersistence, {
           queueVerifications: options.queueVerifications,
           ...(options.expectNoInserts ? { requireExisting: true } : {}),
         })
       : { inserted: 0, updated: 0, revived: 0 };
   const repeatImport =
-    options.verifyImportIdempotency && advertsForPersistence.length > 0
-      ? await persistCompanySiteVacancies(advertsForPersistence, {
+    options.verifyImportIdempotency && eligibleAdvertsForPersistence.length > 0
+      ? await persistCompanySiteVacancies(eligibleAdvertsForPersistence, {
           queueVerifications: false,
           ...(options.expectNoInserts ? { requireExisting: true } : {}),
         })
       : undefined;
+  let retired = 0;
   // A generic crawl is not a complete inventory of every careers source used by
   // an employer. Only retire postings from the exact board of an authoritative,
   // complete direct-feed snapshot; partial feeds must never retire anything.
@@ -913,7 +1035,8 @@ export async function runCompanySiteCheck(
               : provider === "Personio"
                 ? `^https://${escapedBoardId}[.]jobs[.]personio[.](de|com)/`
                 : null;
-    if (boardPattern) await db.execute(sql`
+    if (boardPattern) {
+      const retirementResult = await db.execute<{ id: number }>(sql`
       UPDATE sponsor_licence_vacancies
       SET source_missing_since = COALESCE(source_missing_since, NOW()),
           source_missing_observations = COALESCE(source_missing_observations, 0) + 1
@@ -927,7 +1050,10 @@ export async function runCompanySiteCheck(
           WHERE lower(split_part(split_part(sponsor_licence_vacancies.url, '?', 1), '#', 1))
               = lower(split_part(split_part(current.url, '?', 1), '#', 1))
         )
-    `);
+      RETURNING id
+      `);
+      retired = retirementResult.rows.length;
+    }
   }
   const now = new Date();
   const completion = result.completion ??
@@ -970,7 +1096,7 @@ export async function runCompanySiteCheck(
     options.preserveExistingSiteMetadata === true &&
     Boolean(existing?.careersUrl) &&
     result.atsMappingVerified !== true;
-  const ukLocationKnown = advertsForPersistence.filter((advert) =>
+  const ukLocationKnown = eligibleAdvertsForPersistence.filter((advert) =>
     (advert.targetRegions?.length ?? 0) > 0 ||
     regionsFromLocationText(advert.location).length > 0 ||
     /\b(?:united kingdom|u\.?k\.?|great britain|england|scotland|wales|northern ireland)\b/i.test(
@@ -978,6 +1104,12 @@ export async function runCompanySiteCheck(
     ),
   ).length;
 
+  const directErrorCategory = options.directFeedsOnly
+    ? classifyCompanySiteJobErrorCategory(result.error ?? "")
+    : null;
+  const storedResultError = options.directFeedsOnly
+    ? result.error ? `direct_feed_${directErrorCategory}` : null
+    : result.error;
   const values = {
     organisationName: row.organisationName,
     genericCheckedAt:
@@ -1024,8 +1156,8 @@ export async function runCompanySiteCheck(
           };
     })(),
     retryAfter,
-    lastError: result.error
-      ? `${failureClass ? `[${failureClass}] ` : ""}${result.error}`.slice(0, 1_000)
+    lastError: storedResultError
+      ? `${failureClass ? `[${failureClass}] ` : ""}${storedResultError}`.slice(0, 1_000)
       : null,
     lastAttemptedAt: now,
     lastCompletedAt: completion === "complete" ? now : existing?.lastCompletedAt ?? null,
@@ -1053,7 +1185,7 @@ export async function runCompanySiteCheck(
 
   return {
     status: "checked",
-    adverts: advertsForPersistence.length,
+    adverts: eligibleAdvertsForPersistence.length,
     inserted: persisted.inserted,
     updated: persisted.updated,
     revived: persisted.revived,
@@ -1063,14 +1195,18 @@ export async function runCompanySiteCheck(
     transientFailure: result.transientFailure,
     failureClass,
     completion,
-    advertsRejected: result.advertsRejected,
+    advertsRejected: result.advertsRejected + Math.max(0, result.adverts.length - eligibleAdvertsForPersistence.length),
     rawAdvertsFound: result.advertsExtracted,
     ukLocationKnown,
-     ukLocationUnknown: Math.max(0, advertsForPersistence.length - ukLocationKnown),
+    ukLocationUnknown: Math.max(0, eligibleAdvertsForPersistence.length - ukLocationKnown),
     careersUrl: result.careersUrl,
     atsProvider: result.atsProvider,
     repeatImport,
     diagnostics: result.diagnostics,
+    errorCategory: result.error ? directErrorCategory : null,
+    httpStatus: options.directFeedsOnly ? companySiteErrorHttpStatus(result.error ?? "") : null,
+    retryAfter,
+    retired,
   };
 }
 
@@ -1079,6 +1215,7 @@ export async function runCompanySiteDiscoveryBatch(
     batchSize?: number;
     deadlineMs?: number;
     organisationNames?: readonly string[];
+    directFeedsOnly?: boolean;
   } = {},
 ): Promise<CompanySiteBatchSummary | null> {
   if (batchInProgress) {
@@ -1087,6 +1224,8 @@ export async function runCompanySiteDiscoveryBatch(
   }
   batchInProgress = true;
   const startedAt = Date.now();
+  const batchId = randomUUID();
+  const directFeedsOnly = options.directFeedsOnly === true;
   const workDeadlineMs = options.deadlineMs == null
     ? undefined
     : Math.max(startedAt, options.deadlineMs - COMPANY_SITE_BATCH_WRITE_RESERVE_MS);
@@ -1100,6 +1239,7 @@ export async function runCompanySiteDiscoveryBatch(
     const candidates = await selectCompanySiteBatch(
       batchSize + 1,
       options.organisationNames,
+      directFeedsOnly ? "direct_feed" : "generic",
     );
     const rows = candidates.slice(0, batchSize);
     const hasMore = candidates.length > rows.length;
@@ -1130,8 +1270,9 @@ export async function runCompanySiteDiscoveryBatch(
     let temporaryFailures = 0;
     let nextIndex = 0;
     const captureEmployerMetrics =
-      process.env["COMPANY_SITE_PILOT_TELEMETRY"] === "1";
+      directFeedsOnly || process.env["COMPANY_SITE_PILOT_TELEMETRY"] === "1";
     const employerMetrics: CompanySiteEmployerRunMetric[] = [];
+    let retired = 0;
 
     async function worker(): Promise<void> {
       while (true) {
@@ -1147,16 +1288,26 @@ export async function runCompanySiteDiscoveryBatch(
           const outcome = await runCompanySiteCheck(row, {
             deadlineMs: workDeadlineMs,
             acquireLease: true,
+            directFeedsOnly,
           });
           if (captureEmployerMetrics) {
             employerMetrics.push({
               organisationName: row.organisationName,
+              employerId: row.id,
+              mappingId: directFeedsOnly
+                ? `${row.atsProvider ?? "unknown"}:${row.atsBoardId ?? "missing"}`
+                : null,
+              batchId,
               industry: row.industry ?? null,
-              sourceUrl: row.website,
+              sourceUrl: directFeedsOnly ? safeUrlOrigin(row.website) ?? "" : row.website,
               careersUrl:
                 outcome.status === "checked"
-                  ? outcome.careersUrl ?? row.careersUrl
-                  : row.careersUrl,
+                  ? directFeedsOnly
+                    ? safeUrlOrigin(outcome.careersUrl ?? row.careersUrl)
+                    : outcome.careersUrl ?? row.careersUrl
+                  : directFeedsOnly
+                    ? safeUrlOrigin(row.careersUrl)
+                    : row.careersUrl,
               atsProvider:
                 outcome.status === "checked"
                   ? outcome.atsProvider ?? row.atsProvider
@@ -1169,8 +1320,18 @@ export async function runCompanySiteDiscoveryBatch(
                   ? outcome.reason
                   : outcome.status === "checked" &&
                       (outcome.completion !== "complete" || outcome.failureClass)
-                    ? outcome.failureClass ?? outcome.completion
+                    ? directFeedsOnly
+                      ? outcome.errorCategory ?? outcome.failureClass ?? outcome.completion
+                      : outcome.failureClass ?? outcome.completion
                     : null,
+              errorCategory:
+                outcome.status === "checked" ? outcome.errorCategory ?? null : null,
+              httpStatus:
+                outcome.status === "checked" ? outcome.httpStatus ?? null : null,
+              retryAfter:
+                outcome.status === "checked" && outcome.retryAfter
+                  ? outcome.retryAfter.toISOString()
+                  : null,
               elapsedMs: Date.now() - employerStartedAt,
               pagesFetched: outcome.status === "checked" ? outcome.pagesFetched : 0,
               rawAdvertsFound:
@@ -1179,6 +1340,7 @@ export async function runCompanySiteDiscoveryBatch(
               inserted: outcome.status === "checked" ? outcome.inserted : 0,
               updated: outcome.status === "checked" ? outcome.updated : 0,
               revived: outcome.status === "checked" ? outcome.revived : 0,
+              retired: outcome.status === "checked" ? outcome.retired ?? 0 : 0,
               advertsRejected:
                 outcome.status === "checked" ? outcome.advertsRejected : 0,
               ukLocationKnown:
@@ -1214,6 +1376,7 @@ export async function runCompanySiteDiscoveryBatch(
             inserted += outcome.inserted;
             updated += outcome.updated;
             revived += outcome.revived;
+            retired += outcome.retired ?? 0;
           }
         } catch (error) {
           errors += 1;
@@ -1221,14 +1384,26 @@ export async function runCompanySiteDiscoveryBatch(
           if (captureEmployerMetrics) {
             employerMetrics.push({
               organisationName: row.organisationName,
+              employerId: row.id,
+              mappingId: directFeedsOnly
+                ? `${row.atsProvider ?? "unknown"}:${row.atsBoardId ?? "missing"}`
+                : null,
+              batchId,
               industry: row.industry ?? null,
-              sourceUrl: row.website,
-              careersUrl: row.careersUrl,
+              sourceUrl: directFeedsOnly ? safeUrlOrigin(row.website) ?? "" : row.website,
+              careersUrl: directFeedsOnly
+                ? safeUrlOrigin(row.careersUrl)
+                : row.careersUrl,
               atsProvider: row.atsProvider,
               status: "error",
               completion: "failed",
               failureClass: "temporary",
               reason: "unexpected employer-check exception",
+              errorCategory: directFeedsOnly
+                ? classifyCompanySiteJobErrorCategory(error)
+                : null,
+              httpStatus: directFeedsOnly ? companySiteErrorHttpStatus(error) : null,
+              retryAfter: null,
               elapsedMs: Date.now() - employerStartedAt,
               pagesFetched: 0,
               rawAdvertsFound: 0,
@@ -1236,6 +1411,7 @@ export async function runCompanySiteDiscoveryBatch(
               inserted: 0,
               updated: 0,
               revived: 0,
+              retired: 0,
               advertsRejected: 0,
               ukLocationKnown: 0,
               ukLocationUnknown: 0,
@@ -1243,7 +1419,9 @@ export async function runCompanySiteDiscoveryBatch(
           }
           console.error(
             `[company-site-scheduler] Failed organisation="${row.organisationName}":`,
-            error instanceof Error ? error.message : error,
+            directFeedsOnly
+              ? classifyCompanySiteJobErrorCategory(error)
+              : error instanceof Error ? error.message : error,
           );
         }
       }
@@ -1262,12 +1440,12 @@ export async function runCompanySiteDiscoveryBatch(
     const done = remaining === 0;
     const remainingLog = remainingIsLowerBound ? `>=${remaining}` : String(remaining);
     console.log(
-      `[company-site-scheduler] Complete selected=${rows.length} checked=${checked} skipped=${skipped} upserted=${upserted} errors=${errors} done=${done} remaining=${remainingLog} adverts=${adverts} inserted=${inserted} duration_ms=${durationMs} probe_selected_ok=${probeApproved} probe_selected_unprobed=${probeUnprobedSelected} probe_skipped_bad=${probeSkipStats.bad} probe_unknown_skipped=${probeSkipStats.unknown}`,
+      `[company-site-scheduler] Complete job=${directFeedsOnly ? "company_site_direct_feed" : "company_site"} batch=${batchId} selected=${rows.length} checked=${checked} skipped=${skipped} upserted=${upserted} retired=${retired} errors=${errors} done=${done} remaining=${remainingLog} adverts=${adverts} inserted=${inserted} duration_ms=${durationMs} probe_selected_ok=${probeApproved} probe_selected_unprobed=${probeUnprobedSelected} probe_skipped_bad=${probeSkipStats.bad} probe_unknown_skipped=${probeSkipStats.unknown}`,
     );
     console.log(
       `[company-site-scheduler] Failures permanent=${permanentFailures} temporary=${temporaryFailures}`,
     );
-    console.log(`[pipeline-tick] env=${process.env.NODE_ENV ?? "unknown"} job=company_site selected=${rows.length} upserted=${upserted} probe_selected_ok=${probeApproved} probe_selected_unprobed=${probeUnprobedSelected} probe_skipped_bad=${probeSkipStats.bad} probe_unknown_skipped=${probeSkipStats.unknown} live=0 dead=0 inconclusive=0 errors=${errors} permanent_failures=${permanentFailures} temporary_failures=${temporaryFailures} done=${done} remaining=${remainingLog} duration_ms=${durationMs}`);
+    console.log(`[pipeline-tick] env=${process.env.NODE_ENV ?? "unknown"} job=${directFeedsOnly ? "company_site_direct_feed" : "company_site"} batch=${batchId} selected=${rows.length} upserted=${upserted} retired=${retired} probe_selected_ok=${probeApproved} probe_selected_unprobed=${probeUnprobedSelected} probe_skipped_bad=${probeSkipStats.bad} probe_unknown_skipped=${probeSkipStats.unknown} live=0 dead=0 inconclusive=0 errors=${errors} permanent_failures=${permanentFailures} temporary_failures=${temporaryFailures} done=${done} remaining=${remainingLog} duration_ms=${durationMs}`);
     const summary = {
       selected: rows.length,
       attempted: checked + errors,
@@ -1283,6 +1461,7 @@ export async function runCompanySiteDiscoveryBatch(
       inserted,
       updated,
       revived,
+      retired,
       permanentFailures,
       temporaryFailures,
       probeApproved,
@@ -1297,6 +1476,8 @@ export async function runCompanySiteDiscoveryBatch(
       remaining,
       remainingIsLowerBound,
       durationMs,
+      batchId,
+      directFeedsOnly,
       ...(captureEmployerMetrics ? { employerMetrics } : {}),
     };
     let syncLogTable: typeof dbSchema.vacancySyncLogTable | undefined;
@@ -1312,7 +1493,7 @@ export async function runCompanySiteDiscoveryBatch(
       errorCount: errors,
       durationMs,
       triggeredBy: "scheduler",
-      jobKind: "company_site",
+      jobKind: directFeedsOnly ? "company_site_direct_feed" : "company_site",
       metrics: summary,
     });
     return summary;

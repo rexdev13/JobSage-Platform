@@ -206,6 +206,11 @@ describe("fetchSponsorVacanciesAsRoles alert options", () => {
         externalListingId: null,
         url: "https://careers.example.nhs.uk/jobs/senior-staff-nurse-30",
         liveness: "unverified",
+        companyVacancyEvidence: {
+          kind: "known_ats_posting",
+          provider: "Greenhouse",
+          listingUrl: "https://boards.greenhouse.io/example/jobs/30",
+        },
       }),
       vacancyRow({
         id: 31,
@@ -214,6 +219,11 @@ describe("fetchSponsorVacanciesAsRoles alert options", () => {
         externalListingId: null,
         url: "https://careers.example.nhs.uk/jobs/senior-staff-nurse-31",
         liveness: "live",
+        companyVacancyEvidence: {
+          kind: "known_ats_posting",
+          provider: "Greenhouse",
+          listingUrl: "https://boards.greenhouse.io/example/jobs/31",
+        },
       }),
     ];
 
@@ -232,6 +242,11 @@ describe("fetchSponsorVacanciesAsRoles alert options", () => {
         boardName: null,
         externalListingId: null,
         url: "https://careers.acme.example/jobs/senior-structural-engineer-40",
+        companyVacancyEvidence: {
+          kind: "known_ats_posting",
+          provider: "Ashby",
+          listingUrl: "https://jobs.ashbyhq.com/acme/40",
+        },
       }),
     ].map((row: any) => ({
       ...row,

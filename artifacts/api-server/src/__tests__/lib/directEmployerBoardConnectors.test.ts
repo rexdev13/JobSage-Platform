@@ -74,7 +74,7 @@ describe("direct employer board connectors", () => {
     expect(fetchCompanySitePublicApiPost).toHaveBeenCalledWith(
       "https://circlehealth.wd103.myworkdayjobs.com/wday/cxs/circlehealth/chgcareers/jobs",
       expect.stringContaining('"limit":20'),
-      expect.any(Number), 2_000_000,
+      expect.any(Number), 2_000_000, { readOnly: false },
     );
   });
 
@@ -425,6 +425,7 @@ describe("direct employer board connectors", () => {
       "https://acme.recruitee.com/api/offers/",
       expect.any(Number),
       2_000_000,
+      { readOnly: false },
     );
     expect(recruitee.adverts[0]).toMatchObject({
       externalId: "17",
@@ -452,6 +453,7 @@ describe("direct employer board connectors", () => {
       "https://acme.jobs.personio.de/xml",
       expect.any(Number),
       2_000_000,
+      { readOnly: false },
     );
     expect(fetchCompanySitePublicApiPage).not.toHaveBeenCalled();
     expect(personio.adverts[0]).toMatchObject({
@@ -514,6 +516,7 @@ describe("direct employer board connectors", () => {
       "https://dentalbeautypartners.pinpointhq.com/postings.json",
       expect.any(Number),
       2_000_000,
+      { readOnly: false },
     );
     expect(fetchCompanySiteRobotsAwarePublicApiPage).not.toHaveBeenCalled();
 

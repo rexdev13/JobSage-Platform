@@ -59,12 +59,127 @@ describe("candidate-facing vacancy freshness", () => {
   it("shows only approved evidence with a valid SOC code and HTTPS URL", () => {
     const evidence = { roleEligibilityReview: { status: "approved", socCode: "1234", evidenceUrl: "https://example.test/evidence" } };
     expect(hasApprovedCompanyVacancyRoleEligibilityReview(evidence)).toBe(true);
-    expect(getCandidateVacancyStatus({ ...base, companyVacancyEvidence: evidence })).toBe("visible");
+    expect(getCandidateVacancyStatus({
+      ...base,
+      companyVacancyEvidence: {
+        kind: "known_ats_posting",
+        provider: "Greenhouse",
+        listingUrl: "https://boards.greenhouse.io/example/jobs/1",
+        roleEligibilityReview: evidence.roleEligibilityReview,
+      },
+    })).toBe("visible");
+  });
+
+  it.each([
+    ["generic structured cards", { kind: "structured_job_card" }],
+    ["JSON-LD cards by default", { kind: "json_ld_job_posting", listingUrl: "https://example.test/jobs/1" }],
+    ["microdata cards by default", { kind: "microdata_job_posting", listingUrl: "https://example.test/jobs/1" }],
+    ["evidence-less rows", null],
+  ])("hides company-site %s", (_label, companyVacancyEvidence) => {
+    expect(getCandidateVacancyStatus({
+      ...base,
+      title: "Registered Nurse",
+      companyVacancyEvidence,
+    })).toBe("unverified");
+  });
+
+  it("does not treat liveness as semantic company-site evidence", () => {
+    expect(getCandidateVacancyStatus({
+      ...base,
+      title: "Why work here",
+      companyVacancyEvidence: null,
+    })).toBe("unverified");
+    expect(getCandidateVacancyStatus({
+      ...base,
+      title: "Benefits",
+      companyVacancyEvidence: { kind: "structured_job_card" },
+    })).toBe("unverified");
+    expect(getCandidateVacancyStatus({
+      ...base,
+      title: "Skip to main content",
+      companyVacancyEvidence: { kind: "json_ld_job_posting", listingUrl: "https://example.test/skip" },
+    })).toBe("unverified");
+  });
+
+  it("hides direct-feed evidence with unknown provenance or observed source-missing state", () => {
+    expect(getCandidateVacancyStatus({
+      ...base,
+      title: "Registered Nurse",
+      companyVacancyEvidence: {
+        kind: "known_ats_posting",
+        provider: "unknown",
+        listingUrl: "https://jobs.example.test/roles/1",
+      },
+    })).toBe("unverified");
+    expect(getCandidateVacancyStatus({
+      ...base,
+      title: "Registered Nurse",
+      sourceMissingObservations: 1,
+      companyVacancyEvidence: {
+        kind: "known_ats_posting",
+        provider: "Ashby",
+        listingUrl: "https://jobs.example.test/roles/1",
+      },
+    })).toBe("missing");
+  });
+
+  it("keeps structured evidence opt-in and requires a specific role route", () => {
+    vi.stubEnv("COMPANY_SITE_SCHEMA_IMPORT_ENABLED", "true");
+    expect(getCandidateVacancyStatus({
+      ...base,
+      title: "Registered Nurse",
+      companyVacancyEvidence: {
+        kind: "json_ld_job_posting",
+        listingUrl: "https://example.test/jobs/registered-nurse",
+      },
+    })).toBe("visible");
+    expect(getCandidateVacancyStatus({
+      ...base,
+      title: "Careers",
+      companyVacancyEvidence: {
+        kind: "json_ld_job_posting",
+        listingUrl: "https://example.test/careers",
+      },
+    })).toBe("unverified");
+    vi.unstubAllEnvs();
+  });
+
+  it("shows a verified direct ATS posting and only an explicit trusted legacy review", () => {
+    expect(getCandidateVacancyStatus({
+      ...base,
+      title: "Registered Nurse",
+      companyVacancyEvidence: {
+        kind: "known_ats_posting",
+        provider: "Ashby",
+        listingUrl: "https://jobs.ashbyhq.com/example/1",
+      },
+    })).toBe("visible");
+    expect(getCandidateVacancyStatus({
+      ...base,
+      companyEvidenceLegacyUntil: new Date("2026-09-10T00:00:00.000Z"),
+      companyVacancyEvidence: {
+        trustedSource: "manual_review",
+        roleEligibilityReview: {
+          status: "approved",
+          socCode: "1234",
+          evidenceUrl: "https://example.test/review",
+        },
+      },
+    })).toBe("visible");
   });
 
   it("does not apply manager review to job boards or ordinary titles", () => {
     const evidence = { roleEligibilityReview: { status: "pending" } };
     expect(getCandidateVacancyStatus({ ...base, sourceType: "job_board", companyVacancyEvidence: evidence })).toBe("visible");
-    expect(getCandidateVacancyStatus({ ...base, title: "Senior Nurse", companyVacancyEvidence: evidence })).toBe("visible");
+    expect(getCandidateVacancyStatus({
+      ...base,
+      title: "Senior Nurse",
+      companyVacancyEvidence: {
+        kind: "known_ats_posting",
+        provider: "Lever",
+        listingUrl: "https://jobs.lever.co/example/1",
+        ...evidence,
+      },
+    })).toBe("visible");
   });
 });
