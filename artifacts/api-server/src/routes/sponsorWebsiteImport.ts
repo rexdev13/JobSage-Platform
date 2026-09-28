@@ -19,6 +19,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { requireRole } from "../middlewares/requireRole";
 import {
   identitySnapshot,
+  normalizeSponsorLegalNameValue,
   resolveSponsorIdentity,
   sponsorIdentityKey,
   SPONSOR_IDENTITY_SOURCE,
@@ -424,8 +425,8 @@ router.post(
             const site = sitesById.get(write.targetCompanySiteCheckId ?? -1);
             if (
               !site ||
-              site.organisationName.trim().toLocaleLowerCase("en-GB") !==
-                target.organisationName.trim().toLocaleLowerCase("en-GB")
+              normalizeSponsorLegalNameValue(site.organisationName) !==
+                normalizeSponsorLegalNameValue(target.organisationName)
             ) {
               throw new ImportConflictError("A careers-site identity changed after preview.");
             }

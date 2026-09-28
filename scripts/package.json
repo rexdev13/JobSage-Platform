@@ -22,6 +22,8 @@
     "non-healthcare-website-live-verification:test": "tsx ./src/nonHealthcareWebsiteLiveVerificationSelfTest.ts",
     "non-healthcare-sponsor-import": "tsx ./src/nonHealthcareSponsorWebsiteImport.ts",
     "non-healthcare-sponsor-import:test": "tsx ./src/nonHealthcareSponsorWebsiteImportSelfTest.ts",
+    "sponsor-url-resolution": "tsx ./src/productionSponsorUrlResolution.ts",
+    "sponsor-url-resolution:test": "tsx ./src/productionSponsorUrlResolverSelfTest.ts",
     "vacancy-source-routing": "tsx ./src/vacancySourceRoutingBatch.ts",
     "vacancy-source-routing:test": "tsx ./src/vacancySourceRoutingBatchSelfTest.ts",
     "healthcare-sponsor-import": "tsx ./src/healthcareSponsorWebsiteImport.ts",

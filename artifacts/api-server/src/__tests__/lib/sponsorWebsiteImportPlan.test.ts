@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  normalizeSponsorLegalNameValue,
   normalizeSponsorIdentityValue,
   resolveSponsorIdentity,
   sponsorIdentityKey,
@@ -77,6 +78,8 @@ describe("sponsor cross-environment identity", () => {
   it("normalizes punctuation and ampersands without using database IDs", () => {
     expect(normalizeSponsorIdentityValue("St. Mary's & Sons Ltd"))
       .toBe(normalizeSponsorIdentityValue("St Marys and Sons Ltd"));
+    expect(normalizeSponsorLegalNameValue("St. Mary's & Sons Ltd."))
+      .toBe(normalizeSponsorLegalNameValue("St Marys and Sons Limited"));
     expect(sponsorIdentityKey(identity)).toMatch(/^[a-f0-9]{64}$/);
   });
 
@@ -92,6 +95,20 @@ describe("sponsor cross-environment identity", () => {
   it("does not accept conflicting same-name sponsor attributes", () => {
     const conflicting = sponsor({ townCity: "Leeds" });
     expect(resolveSponsorIdentity(identity, [conflicting]).status).toBe("identity_conflict");
+  });
+
+  it("resolves a unique harmless Ltd/Limited name variant without weakening location checks", () => {
+    const source = candidate({ organisationName: "St Mary's & Sons Ltd." });
+    const target = sponsor({ organisationName: "St Marys and Sons Limited" });
+    const plan = makePlan([source], [target]);
+    expect(plan.writes[0]?.targetSponsorLicenceId).toBe(81);
+
+    const conflictingLocation = sponsor({
+      organisationName: "St Marys and Sons Limited",
+      townCity: "Leeds",
+    });
+    expect(makePlan([source], [conflictingLocation]).writes).toHaveLength(0);
+    expect(makePlan([source], [conflictingLocation]).counts.manual_review_identity_conflict).toBe(1);
   });
 
   it("accepts an explicitly saved manual mapping only when supplied identity fields agree", () => {
