@@ -77,3 +77,4 @@
 - [Durable CodeExecution date handling](durable-codeexecution-date-handling.md) — use workspace TypeScript for time-zone parsing; the durable sandbox lacks Intl, TextDecoder, and Date.now.
 - [External bulk lookup keys](external-bulk-lookup-keys.md) — third-party enrichment uploads should use synthetic row keys; keep internal database IDs in a local-only join map.
 - [Production sponsor import identity](production-sponsor-import-identity.md) — IDs differ across environments; use a fresh production crosswalk and the guarded blank-only admin importer.
+- [Sponsor URL import fan-out](sponsor-url-import-fanout.md) — only fan out identical complete identities to blank rows; manual crosswalks select one target and held rows stay outside vacancy inputs.

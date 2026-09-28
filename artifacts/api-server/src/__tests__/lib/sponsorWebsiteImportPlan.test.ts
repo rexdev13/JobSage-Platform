@@ -46,6 +46,7 @@ function candidate(
     developmentConfidence: "high",
     candidateUrl: "https://example.org/",
     evidenceUrl: "https://example.org/about",
+    verificationEvidence: "Official company website; same-host source evidence.",
     developmentCurrentValue: "https://example.org",
     developmentAction: "preserve_existing_same",
     verificationStatus: "",
@@ -127,7 +128,7 @@ describe("sponsor website import planning", () => {
     expect(plan.exactMappings).toHaveLength(1);
   });
 
-  it("recomputes exact matches live and only honors manually reviewed crosswalks", () => {
+  it("fans out identical complete targets but lets manual-review crosswalks select one", () => {
     const targets = [sponsor(), sponsor({ id: 82 })];
     const identityKey = sponsorIdentityKey(identity);
     const exactMapping = makePlan([candidate()], targets, {
@@ -137,8 +138,8 @@ describe("sponsor website import planning", () => {
         resolutionMethod: "exact_unique",
       }],
     });
-    expect(exactMapping.writes).toHaveLength(0);
-    expect(exactMapping.counts.manual_review_ambiguous_identity).toBe(1);
+    expect(exactMapping.writes.map((write) => write.targetSponsorLicenceId)).toEqual([81, 82]);
+    expect(exactMapping.rows[0]?.targetSponsorLicenceIds).toEqual([81, 82]);
 
     const reviewedMapping = makePlan([candidate()], targets, {
       mappings: [{
@@ -148,6 +149,43 @@ describe("sponsor website import planning", () => {
       }],
     });
     expect(reviewedMapping.writes[0]?.targetSponsorLicenceId).toBe(81);
+    expect(reviewedMapping.writes).toHaveLength(1);
+  });
+
+  it("writes only blank siblings when an identical group contains an already-matching URL", () => {
+    const plan = makePlan(
+      [candidate()],
+      [sponsor(), sponsor({ id: 82, website: "https://example.org" })],
+    );
+    expect(plan.counts.safe_to_import).toBe(1);
+    expect(plan.writes).toHaveLength(1);
+    expect(plan.writes[0]?.targetSponsorLicenceId).toBe(81);
+    expect(plan.rows[0]?.targetSponsorLicenceIds).toEqual([81, 82]);
+  });
+
+  it("holds the entire identical group when any sibling has a different URL", () => {
+    const plan = makePlan(
+      [candidate()],
+      [sponsor(), sponsor({ id: 82, website: "https://old.example" })],
+    );
+    expect(plan.writes).toHaveLength(0);
+    expect(plan.counts.manual_review_existing_production_value).toBe(1);
+  });
+
+  it("does not trust a manual crosswalk whose selected target identity conflicts", () => {
+    const plan = makePlan(
+      [candidate()],
+      [sponsor({ townCity: "Leeds" })],
+      {
+        mappings: [{
+          identityKey: sponsorIdentityKey(identity),
+          targetSponsorLicenceId: 81,
+          resolutionMethod: "manual_review",
+        }],
+      },
+    );
+    expect(plan.writes).toHaveLength(0);
+    expect(plan.counts.manual_review_identity_conflict).toBe(1);
   });
 
   it("holds low-confidence, unverified, development-conflicting, and pilot-only rows", () => {
@@ -171,6 +209,12 @@ describe("sponsor website import planning", () => {
 
   it("never overwrites populated production values", () => {
     const plan = makePlan([candidate()], [sponsor({ website: "https://old.example" })]);
+    expect(plan.writes).toHaveLength(0);
+    expect(plan.counts.manual_review_existing_production_value).toBe(1);
+  });
+
+  it("does not treat whitespace-only production values as blank", () => {
+    const plan = makePlan([candidate()], [sponsor({ website: "   " })]);
     expect(plan.writes).toHaveLength(0);
     expect(plan.counts.manual_review_existing_production_value).toBe(1);
   });
@@ -222,7 +266,11 @@ describe("sponsor website import planning", () => {
   });
 
   it("matches careers URLs only to a unique employer careers record", () => {
-    const careersCandidate = candidate({ field: "careers" });
+    const careersCandidate = candidate({
+      field: "careers",
+      candidateUrl: "https://example.org/careers",
+      developmentCurrentValue: "https://example.org/careers",
+    });
     const unique = makePlan([careersCandidate], [sponsor()], {
       careersTargets: [{ id: 902, organisationName: "St Marys and Sons Ltd", careersUrl: null }],
     });

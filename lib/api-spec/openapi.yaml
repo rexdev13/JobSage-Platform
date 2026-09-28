@@ -3769,6 +3769,96 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /admin/sponsor-website-import/stage:
+    post:
+      tags: [SuperAdmin]
+      operationId: stageSponsorWebsiteImportReview
+      summary: Store held sponsor URL candidates in the durable review queue (super admin only)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/SponsorWebsiteImportStageUpload"
+      responses:
+        "200":
+          description: Held candidates were stored without changing live sponsor or vacancy-source data.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SponsorWebsiteImportStageResult"
+        "400":
+          description: Invalid CSV or preview hash.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Super-admin role required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: The preview is stale or staging is not allowed in this environment.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /admin/sponsor-website-import/staging:
+    get:
+      tags: [SuperAdmin]
+      operationId: listSponsorWebsiteImportStaging
+      summary: List staged sponsor URL candidates for review (super admin only)
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, resolved, rejected]
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Staged candidates and total matching count.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SponsorWebsiteImportStagingList"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Super-admin role required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
 components:
   schemas:
     SponsorWebsiteImportPreviewUpload:
@@ -3780,6 +3870,17 @@ components:
           format: binary
 
     SponsorWebsiteImportApplyUpload:
+      type: object
+      required: [file, planHash]
+      properties:
+        file:
+          type: string
+          format: binary
+        planHash:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+
+    SponsorWebsiteImportStageUpload:
       type: object
       required: [file, planHash]
       properties:
@@ -3828,6 +3929,7 @@ components:
         - status
         - reason
         - targetSponsorLicenceId
+        - targetSponsorLicenceIds
         - targetCompanySiteCheckId
         - currentValue
         - productionCandidates
@@ -3844,6 +3946,10 @@ components:
         reason: { type: string }
         targetSponsorLicenceId:
           type: [integer, "null"]
+        targetSponsorLicenceIds:
+          type: array
+          items:
+            type: integer
         targetCompanySiteCheckId:
           type: [integer, "null"]
         currentValue: { type: string }
@@ -3897,6 +4003,65 @@ components:
         counts:
           type: object
           additionalProperties: { type: integer }
+
+    SponsorWebsiteImportStageResult:
+      type: object
+      required: [planHash, stagedCount, alreadyStagedCount, heldCount]
+      properties:
+        planHash: { type: string }
+        stagedCount: { type: integer }
+        alreadyStagedCount: { type: integer }
+        heldCount: { type: integer }
+
+    SponsorWebsiteImportStagingRow:
+      type: object
+      required:
+        - id
+        - sourceRef
+        - field
+        - organisationName
+        - candidateUrl
+        - evidenceUrl
+        - identitySnapshot
+        - candidateSnapshot
+        - productionCandidates
+        - resolverStatus
+        - resolverReason
+        - reviewStatus
+        - createdAt
+      properties:
+        id: { type: integer }
+        sourceRef: { type: string }
+        field: { type: string, enum: [website, careers] }
+        organisationName: { type: string }
+        candidateUrl: { type: string }
+        evidenceUrl: { type: string }
+        identitySnapshot:
+          type: object
+          additionalProperties: { type: string }
+        candidateSnapshot:
+          type: object
+          additionalProperties: { type: string }
+        productionCandidates:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        resolverStatus: { type: string }
+        resolverReason: { type: string }
+        reviewStatus: { type: string, enum: [pending, resolved, rejected] }
+        createdAt: { type: string, format: date-time }
+
+    SponsorWebsiteImportStagingList:
+      type: object
+      required: [environment, total, rows]
+      properties:
+        environment: { type: string }
+        total: { type: integer }
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/SponsorWebsiteImportStagingRow"
 
     SponsorLicenceSyncResult:
       type: object
