@@ -16,6 +16,8 @@ export type DiscoveryExecutionOptions = {
   format: "json" | "csv";
   noHostState: boolean;
   organisationNames?: string[];
+  healthcareOnly?: boolean;
+  savedCareersOnly?: boolean;
 };
 
 export type PreparedDatabaseContext = {
@@ -47,6 +49,15 @@ export function parseDiscoveryExecutionOptions(
     .map((name) => name.trim())
     .filter(Boolean);
   const noHostState = args.get("no-host-state") === "true";
+  const parseBooleanFlag = (name: string): boolean => {
+    const value = args.get(name);
+    if (value !== undefined && value !== "true" && value !== "false") {
+      throw new Error(`--${name} must be true or false.`);
+    }
+    return value === "true";
+  };
+  const healthcareOnly = parseBooleanFlag("healthcare-only");
+  const savedCareersOnly = parseBooleanFlag("saved-careers-only");
   let limit: number;
   if (preflightOnly) {
     if (args.get("db-mode") !== "production-readonly") {
@@ -97,6 +108,8 @@ export function parseDiscoveryExecutionOptions(
     limit,
     format,
     noHostState,
+    ...(args.has("healthcare-only") ? { healthcareOnly } : {}),
+    ...(args.has("saved-careers-only") ? { savedCareersOnly } : {}),
     ...(organisationNames ? { organisationNames } : {}),
   };
 }

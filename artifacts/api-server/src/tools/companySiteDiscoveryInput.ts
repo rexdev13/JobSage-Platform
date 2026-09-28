@@ -10,6 +10,7 @@ import {
 export type EmployerRow = {
   organisation_name: string;
   website: string;
+  industry?: string | null;
   careers_url: string | null;
   ats_provider: string | null;
   ats_board_id: string | null;
