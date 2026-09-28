@@ -1,9 +1,14 @@
-export type DiscoveryDatabaseMode = "development" | "production-readonly";
+export type DiscoveryDatabaseMode =
+  | "development"
+  | "production-readonly"
+  | "production-proof-readonly";
 export type DiscoverySourceEnvironment = "development" | "production";
 
 const FINGERPRINT_PATTERN = /^[0-9a-f]{32}$/i;
 export const PRODUCTION_READONLY_DATABASE_ENV =
   "COMPANY_SITE_DISCOVERY_READONLY_DATABASE_URL";
+export const PRODUCTION_PROOF_DATABASE_ENV =
+  "COMPANY_SITE_DISCOVERY_PROOF_DATABASE_URL";
 
 export type DiscoveryExecutionOptions = {
   preflightOnly: boolean;
@@ -16,7 +21,7 @@ export type DiscoveryExecutionOptions = {
 export type PreparedDatabaseContext = {
   mode: DiscoveryDatabaseMode;
   sourceEnvironment: DiscoverySourceEnvironment;
-  expectedFingerprint: string;
+  expectedFingerprint?: string;
   nodeEnvironment: string;
   writesDisabled: boolean;
   /** Connection string is intentionally excluded from reports and logs. */
@@ -41,6 +46,7 @@ export function parseDiscoveryExecutionOptions(
     ?.split(",")
     .map((name) => name.trim())
     .filter(Boolean);
+  const noHostState = args.get("no-host-state") === "true";
   let limit: number;
   if (preflightOnly) {
     if (args.get("db-mode") !== "production-readonly") {
@@ -71,12 +77,26 @@ export function parseDiscoveryExecutionOptions(
       throw new Error("--organisations accepts up to 10 distinct, comma-separated exact employer names.");
     }
   }
+  if (args.get("db-mode") === "production-proof-readonly") {
+    if (limit !== 5) {
+      throw new Error("Production proof mode requires --limit=5.");
+    }
+    if (args.has("input-file") || args.has("organisations")) {
+      throw new Error("Production proof mode selects employers from the production database only.");
+    }
+    if (format !== "json") {
+      throw new Error("Production proof mode requires --format=json.");
+    }
+    if (!noHostState) {
+      throw new Error("Production proof mode requires --no-host-state=true.");
+    }
+  }
 
   return {
     preflightOnly,
     limit,
     format,
-    noHostState: args.get("no-host-state") === "true",
+    noHostState,
     ...(organisationNames ? { organisationNames } : {}),
   };
 }
@@ -132,13 +152,20 @@ export function prepareDatabaseContext(
     throw new Error("Use --db-mode; --environment is no longer accepted.");
   }
   const mode = args.get("db-mode");
-  if (mode !== "development" && mode !== "production-readonly") {
-    throw new Error("--db-mode must be development or production-readonly.");
+  if (
+    mode !== "development" &&
+    mode !== "production-readonly" &&
+    mode !== "production-proof-readonly"
+  ) {
+    throw new Error("--db-mode must be development, production-readonly, or production-proof-readonly.");
   }
   assertInputSourceMatchesMode(mode, inputSourceEnvironment);
 
   const expectedFingerprint = args.get("expected-db-fingerprint");
-  if (!expectedFingerprint || !FINGERPRINT_PATTERN.test(expectedFingerprint)) {
+  if (
+    (mode !== "production-proof-readonly" && !expectedFingerprint) ||
+    (expectedFingerprint && !FINGERPRINT_PATTERN.test(expectedFingerprint))
+  ) {
     throw new Error("--expected-db-fingerprint must be a confirmed 32-character hexadecimal fingerprint.");
   }
 
@@ -160,32 +187,53 @@ export function prepareDatabaseContext(
   }
 
   if (env.NODE_ENV !== "production") {
-    throw new Error("Production read-only database mode requires NODE_ENV=production.");
-  }
-  if (args.get("confirm-production-read-only") !== "true") {
-    throw new Error("Production read-only mode requires --confirm-production-read-only=true.");
-  }
-  const productionUrl = env[PRODUCTION_READONLY_DATABASE_ENV]?.trim();
-  if (!productionUrl) {
-    throw new Error(
-      `Production read-only mode requires the ${PRODUCTION_READONLY_DATABASE_ENV} secret.`,
-    );
-  }
-  const defaultUrl = env.DATABASE_URL?.trim();
-  if (!defaultUrl) {
-    throw new Error("Production read-only mode requires the default DATABASE_URL for target separation checks.");
-  }
-  if (connectionTarget(productionUrl) === connectionTarget(defaultUrl)) {
-    throw new Error("Production read-only URL resolves to the same database target as DATABASE_URL.");
+    throw new Error("Production database modes require NODE_ENV=production.");
   }
 
+  if (mode === "production-readonly") {
+    if (args.get("confirm-production-read-only") !== "true") {
+      throw new Error("Production read-only mode requires --confirm-production-read-only=true.");
+    }
+    const productionUrl = env[PRODUCTION_READONLY_DATABASE_ENV]?.trim();
+    if (!productionUrl) {
+      throw new Error(
+        `Production read-only mode requires the ${PRODUCTION_READONLY_DATABASE_ENV} secret.`,
+      );
+    }
+    const defaultUrl = env.DATABASE_URL?.trim();
+    if (!defaultUrl) {
+      throw new Error("Production read-only mode requires the default DATABASE_URL for target separation checks.");
+    }
+    if (connectionTarget(productionUrl) === connectionTarget(defaultUrl)) {
+      throw new Error("Production read-only URL resolves to the same database target as DATABASE_URL.");
+    }
+
+    return {
+      mode,
+      sourceEnvironment: "production",
+      expectedFingerprint,
+      nodeEnvironment: env.NODE_ENV,
+      writesDisabled: true,
+      databaseUrl: productionUrl,
+    };
+  }
+
+  if (args.get("confirm-production-proof-readonly") !== "true") {
+    throw new Error("Production proof mode requires --confirm-production-proof-readonly=true.");
+  }
+  const proofUrl = env[PRODUCTION_PROOF_DATABASE_ENV]?.trim();
+  if (!proofUrl) {
+    throw new Error(
+      `Production proof mode requires the ${PRODUCTION_PROOF_DATABASE_ENV} secret.`,
+    );
+  }
   return {
     mode,
     sourceEnvironment: "production",
-    expectedFingerprint,
+    ...(expectedFingerprint ? { expectedFingerprint } : {}),
     nodeEnvironment: env.NODE_ENV,
     writesDisabled: true,
-    databaseUrl: productionUrl,
+    databaseUrl: proofUrl,
   };
 }
 
@@ -194,7 +242,7 @@ export function installDatabaseContext(
   env: NodeJS.ProcessEnv = process.env,
 ): void {
   env.DATABASE_URL = context.databaseUrl;
-  if (context.mode === "production-readonly") {
+  if (context.mode !== "development") {
     env.DATABASE_READ_ONLY = "true";
   } else {
     delete env.DATABASE_READ_ONLY;
@@ -206,7 +254,7 @@ export function assertWritesAllowed(
   writeRequested: boolean,
   operation: "mapping" | "vacancy",
 ): void {
-  if (mode === "production-readonly" && writeRequested) {
+  if (mode !== "development" && writeRequested) {
     throw new Error(`Production read-only mode cannot write ${operation} data.`);
   }
 }
