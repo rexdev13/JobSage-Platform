@@ -39,6 +39,7 @@ const readOnlyRobotsCache = new Map<string, { body: string | null; checkedAt: nu
 export type CompanySiteFetchOptions = {
   readOnly?: boolean;
   noHostState?: boolean;
+  noProcessCache?: boolean;
 };
 
 export function resetCompanySiteEphemeralState(): void {
@@ -422,9 +423,18 @@ export async function reserveHost(
   deadlineMs: number,
   readOnly = false,
   noHostState = false,
+  noProcessCache = false,
 ): Promise<HostReservation> {
   const host = normaliseHostname(hostname);
   const now = new Date();
+  if (noProcessCache) {
+    const waitMs = COMPANY_SITE_HOST_DELAY_MS;
+    if (Date.now() + waitMs >= deadlineMs) {
+      return { allowed: false, waitMs };
+    }
+    await sleep(waitMs);
+    return { allowed: true, leaseToken: crypto.randomUUID() };
+  }
   if (readOnly || noHostState) {
     // Read-only mode may consult persisted state. --no-host-state bypasses all
     // persisted state and uses only the process-local pacing layer.
@@ -525,7 +535,9 @@ export async function completeHost(
   leaseToken: string,
   readOnly = false,
   noHostState = false,
+  noProcessCache = false,
 ): Promise<void> {
+  if (noProcessCache) return;
   if (readOnly || noHostState) {
     const host = normaliseHostname(hostname);
     const state = readOnlyHostStates.get(host);
@@ -558,7 +570,9 @@ export async function releaseHost(
   leaseToken: string,
   readOnly = false,
   noHostState = false,
+  noProcessCache = false,
 ): Promise<void> {
+  if (noProcessCache) return;
   if (readOnly || noHostState) {
     const state = readOnlyHostStates.get(normaliseHostname(hostname));
     if (state?.requestLeaseToken === leaseToken) {
@@ -588,8 +602,10 @@ export async function failHost(
   explicitRetryAt: Date | null,
   readOnly = false,
   noHostState = false,
+  noProcessCache = false,
 ): Promise<Date | null> {
   const host = normaliseHostname(hostname);
+  if (noProcessCache) return null;
   if (readOnly || noHostState) {
     const state = readOnlyHostStates.get(host);
     if (!state || state.requestLeaseToken !== leaseToken) return null;
@@ -638,6 +654,7 @@ async function fetchWithoutRobots(
   timeoutCapMs = COMPANY_SITE_PAGE_TIMEOUT_MS,
   readOnly = false,
   noHostState = false,
+  noProcessCache = false,
 ): Promise<CompanySiteFetchResult> {
   let currentUrl = inputUrl;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
@@ -660,6 +677,7 @@ async function fetchWithoutRobots(
         deadlineMs,
         readOnly,
         noHostState,
+        noProcessCache,
       );
       if (!redirectedPolicy.allowed) {
         return {
@@ -697,10 +715,22 @@ async function fetchWithoutRobots(
       };
     }
 
-      let reservation = await reserveHost(parsed.hostname, deadlineMs, readOnly, noHostState);
+      let reservation = await reserveHost(
+        parsed.hostname,
+        deadlineMs,
+        readOnly,
+        noHostState,
+        noProcessCache,
+      );
     while (!reservation.allowed && Date.now() + reservation.waitMs < deadlineMs) {
       await sleep(reservation.waitMs);
-        reservation = await reserveHost(parsed.hostname, deadlineMs, readOnly, noHostState);
+        reservation = await reserveHost(
+          parsed.hostname,
+          deadlineMs,
+          readOnly,
+          noHostState,
+          noProcessCache,
+        );
     }
     if (!reservation.allowed) {
       return {
@@ -717,7 +747,7 @@ async function fetchWithoutRobots(
       const response = await requestPinned(parsed, pinned, timeoutMs, maxBytes);
       if (response.status >= 300 && response.status < 400) {
         const location = headerValue(response.headers, "location");
-        await completeHost(parsed.hostname, leaseToken, readOnly, noHostState);
+        await completeHost(parsed.hostname, leaseToken, readOnly, noHostState, noProcessCache);
         if (!location) {
           return {
             ok: false,
@@ -737,6 +767,7 @@ async function fetchWithoutRobots(
           parseRetryAfter(headerValue(response.headers, "retry-after")),
           readOnly,
           noHostState,
+          noProcessCache,
         );
         return {
           ok: false,
@@ -747,7 +778,7 @@ async function fetchWithoutRobots(
           failureClass: "temporary",
         };
       }
-      await completeHost(parsed.hostname, leaseToken, readOnly, noHostState);
+      await completeHost(parsed.hostname, leaseToken, readOnly, noHostState, noProcessCache);
       if (response.status < 200 || response.status >= 300) {
         const failure = {
           kind: "http" as const,
@@ -768,7 +799,14 @@ async function fetchWithoutRobots(
         contentType: headerValue(response.headers, "content-type") ?? "",
       };
     } catch (error) {
-      const retryAt = await failHost(parsed.hostname, leaseToken, null, readOnly, noHostState);
+      const retryAt = await failHost(
+        parsed.hostname,
+        leaseToken,
+        null,
+        readOnly,
+        noHostState,
+        noProcessCache,
+      );
       return {
         ok: false,
         kind: error instanceof Error && error.name === "AbortError" ? "timeout" : "network",
@@ -780,7 +818,7 @@ async function fetchWithoutRobots(
         }),
       };
     } finally {
-      await releaseHost(parsed.hostname, leaseToken, readOnly, noHostState);
+      await releaseHost(parsed.hostname, leaseToken, readOnly, noHostState, noProcessCache);
     }
   }
   return {
@@ -862,16 +900,17 @@ async function robotsPolicy(
   deadlineMs: number,
   readOnly = false,
   noHostState = false,
+  noProcessCache = false,
 ): Promise<RobotsPolicy> {
   const target = new URL(targetUrl);
   const host = normaliseHostname(target.hostname);
-  const localCache = readOnlyRobotsCache.get(host);
-  const localOnly = readOnly || noHostState;
+  const localCache = noProcessCache ? undefined : readOnlyRobotsCache.get(host);
+  const localOnly = readOnly || noHostState || noProcessCache;
   if (localOnly && localCache && localCache.checkedAt >= Date.now() - COMPANY_SITE_ROBOTS_TTL_MS) {
     const allowed = robotsAllows(localCache.body, `${target.pathname}${target.search}`);
     return { allowed, body: localCache.body, failureClass: allowed ? undefined : "temporary" };
   }
-  const [cached] = noHostState
+  const [cached] = noHostState || noProcessCache
     ? [undefined]
     : await withCompanySiteDatabaseRetry("read robots policy", () =>
         db
@@ -897,12 +936,14 @@ async function robotsPolicy(
   const robotsUrl = `${target.protocol}//${target.host}/robots.txt`;
   const result = await fetchWithoutRobots(
     robotsUrl, originHostname, deadlineMs, MAX_ROBOTS_BYTES, false,
-    COMPANY_SITE_PAGE_TIMEOUT_MS, readOnly, noHostState,
+    COMPANY_SITE_PAGE_TIMEOUT_MS, readOnly, noHostState, noProcessCache,
   );
   if (!result.ok) {
     if (result.status === 404 || result.status === 410) {
       const checkedAt = new Date();
-      if (localOnly) {
+      if (noProcessCache) {
+        // The strict no-cache path retains no host/robots state, even in memory.
+      } else if (localOnly) {
         readOnlyRobotsCache.set(host, { body: "", checkedAt: checkedAt.getTime() });
       } else {
         await withCompanySiteDatabaseRetry("store empty robots policy", () => db
@@ -925,7 +966,9 @@ async function robotsPolicy(
   }
   const body = result.body;
   const checkedAt = new Date();
-  if (localOnly) {
+  if (noProcessCache) {
+    // The strict no-cache path retains no host/robots state, even in memory.
+  } else if (localOnly) {
     readOnlyRobotsCache.set(host, { body, checkedAt: checkedAt.getTime() });
   } else {
     await withCompanySiteDatabaseRetry("store robots policy", () => db
@@ -963,6 +1006,7 @@ export async function fetchCompanySitePage(
     deadlineMs,
     options.readOnly === true,
     options.noHostState === true,
+    options.noProcessCache === true,
   );
   if (!robots.allowed) {
     return {
@@ -975,7 +1019,10 @@ export async function fetchCompanySitePage(
   }
   return fetchWithoutRobots(
     parsed.toString(), originHostname, deadlineMs, maxBytes, true,
-    COMPANY_SITE_PAGE_TIMEOUT_MS, options.readOnly === true, options.noHostState === true,
+    COMPANY_SITE_PAGE_TIMEOUT_MS,
+    options.readOnly === true,
+    options.noHostState === true,
+    options.noProcessCache === true,
   );
 }
 
@@ -1009,6 +1056,7 @@ export async function fetchCompanySitePublicApiPage(
     COMPANY_SITE_PUBLIC_API_TIMEOUT_MS,
     options.readOnly === true,
     options.noHostState === true,
+    options.noProcessCache === true,
   );
 }
 
@@ -1050,6 +1098,7 @@ export async function fetchCompanySitePublicApiPost(
     deadlineMs,
     options.readOnly === true,
     options.noHostState === true,
+    options.noProcessCache === true,
   );
   while (!reservation.allowed && Date.now() + reservation.waitMs < deadlineMs) {
     await sleep(reservation.waitMs);
@@ -1058,6 +1107,7 @@ export async function fetchCompanySitePublicApiPost(
       deadlineMs,
       options.readOnly === true,
       options.noHostState === true,
+      options.noProcessCache === true,
     );
   }
   if (!reservation.allowed) return { ok: false, kind: "rate_limited", reason: "hostname is paced or in backoff", retryAt: reservation.retryAt };
@@ -1074,6 +1124,7 @@ export async function fetchCompanySitePublicApiPost(
         parseRetryAfter(headerValue(response.headers, "retry-after")),
         options.readOnly === true,
         options.noHostState === true,
+        options.noProcessCache === true,
       );
       return {
         ok: false,
@@ -1084,7 +1135,13 @@ export async function fetchCompanySitePublicApiPost(
         failureClass: "temporary",
       };
     }
-    await completeHost(parsed.hostname, lease, options.readOnly === true, options.noHostState === true);
+    await completeHost(
+      parsed.hostname,
+      lease,
+      options.readOnly === true,
+      options.noHostState === true,
+      options.noProcessCache === true,
+    );
     if (response.status < 200 || response.status >= 300) {
       const failure = { kind: "http" as const, status: response.status, reason: `HTTP ${response.status}` };
       return { ok: false, ...failure, failureClass: classifyCompanySiteFailure(failure) };
@@ -1098,12 +1155,19 @@ export async function fetchCompanySitePublicApiPost(
       null,
       options.readOnly === true,
       options.noHostState === true,
+        options.noProcessCache === true,
     );
     const reason = error instanceof Error ? error.message : "network failure";
     return { ok: false, kind: error instanceof Error && error.name === "AbortError" ? "timeout" : "network",
       reason, retryAt: retryAt ?? undefined, failureClass: "temporary" };
   } finally {
-    await releaseHost(parsed.hostname, lease, options.readOnly === true, options.noHostState === true);
+    await releaseHost(
+      parsed.hostname,
+      lease,
+      options.readOnly === true,
+      options.noHostState === true,
+      options.noProcessCache === true,
+    );
   }
 }
 
@@ -1133,6 +1197,7 @@ export async function fetchCompanySiteRobotsAwarePublicApiPage(
     deadlineMs,
     options.readOnly === true,
     options.noHostState === true,
+    options.noProcessCache === true,
   );
   if (!robots.allowed) {
     return {
@@ -1152,5 +1217,6 @@ export async function fetchCompanySiteRobotsAwarePublicApiPage(
     COMPANY_SITE_PUBLIC_API_TIMEOUT_MS,
     options.readOnly === true,
     options.noHostState === true,
+    options.noProcessCache === true,
   );
 }

@@ -43,6 +43,25 @@ describe("company-site no-host-state mode", () => {
     )).resolves.toBeNull();
   });
 
+  it("does not create process-local host state in strict no-cache mode", async () => {
+    const strict = await http.reserveHost(
+      "strict-cache.example",
+      Date.now() + 100,
+      false,
+      true,
+      true,
+    );
+    expect(strict.allowed).toBe(false);
+
+    const regularNoHostState = await http.reserveHost(
+      "strict-cache.example",
+      Date.now() + 5_000,
+      false,
+      true,
+    );
+    expect(regularNoHostState.allowed).toBe(true);
+  });
+
   it("skips the persisted robots cache lookup when host state is disabled", async () => {
     const result = await http.fetchCompanySitePage(
       "https://example.org/careers",
@@ -50,6 +69,17 @@ describe("company-site no-host-state mode", () => {
       Date.now() - 1,
       undefined,
       { readOnly: true, noHostState: true },
+    );
+    expect(result).toMatchObject({ ok: false, kind: "robots" });
+  });
+
+  it("strict no-cache page checks bypass both persisted and process-local robots state", async () => {
+    const result = await http.fetchCompanySitePage(
+      "https://strict-cache.example/careers",
+      "strict-cache.example",
+      Date.now() - 1,
+      undefined,
+      { noProcessCache: true },
     );
     expect(result).toMatchObject({ ok: false, kind: "robots" });
   });

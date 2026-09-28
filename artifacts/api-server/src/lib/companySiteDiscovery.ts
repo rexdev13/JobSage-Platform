@@ -196,6 +196,7 @@ export type CompanySiteDiscoveryOptions = {
   directFeedsOnly?: boolean;
   readOnly?: boolean;
   noHostState?: boolean;
+  noProcessCache?: boolean;
   now?: () => number;
   deadlineMs?: number;
   resumeState?: {
@@ -1293,6 +1294,7 @@ async function discoverDirectFeedsOnly(
         firstPartyEvidenceUrl: options.knownCareersEvidenceUrl,
         readOnly: options.readOnly === true,
         noHostState: options.noHostState === true,
+        noProcessCache: options.noProcessCache === true,
       },
     );
     if (!direct.mapping) {
@@ -1424,6 +1426,7 @@ export async function discoverCompanySiteVacancies(
         firstPartyEvidenceUrl: options.knownCareersEvidenceUrl,
         readOnly: options.readOnly === true,
         noHostState: options.noHostState === true,
+        noProcessCache: options.noProcessCache === true,
       },
     );
     if (direct.mapping) directAttempted.add(direct.mapping.evidenceUrl);
@@ -1613,6 +1616,7 @@ export async function discoverCompanySiteVacancies(
             firstPartyEvidenceUrl: atsMappingEvidenceUrl ?? sourceUrl,
             readOnly: options.readOnly === true,
             noHostState: options.noHostState === true,
+            noProcessCache: options.noProcessCache === true,
           },
         );
         if (direct.mapping && (direct.complete || direct.adverts.length > 0)) {
@@ -1663,10 +1667,11 @@ export async function discoverCompanySiteVacancies(
         // HTML page without granting trust to any unrelated ATS board.
       }
     }
-    const fetchOptions = options.readOnly || options.noHostState
+    const fetchOptions = options.readOnly || options.noHostState || options.noProcessCache
       ? {
           readOnly: options.readOnly === true,
           ...(options.noHostState ? { noHostState: true } : {}),
+          ...(options.noProcessCache ? { noProcessCache: true } : {}),
         }
       : undefined;
     const result = fetchOptions
