@@ -18,6 +18,10 @@ import {
   type EmployerRow,
   type LoadedEmployerInput,
 } from "./companySiteDiscoveryInput";
+import {
+  HEALTHCARE_SELECTOR,
+  savedCareersOnlyPageUrls,
+} from "./companySiteAtsScope";
 
 const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 25;
@@ -42,6 +46,18 @@ type Candidate = {
   careersUrl: string;
   evidenceUrl: string;
 };
+
+function healthcareEmployerSql() {
+  return sql`(
+    sl.industry IN ('Healthcare', 'Social Care')
+    OR (
+      sl.industry = 'Public Services'
+      AND sl.organisation_name ~* ${sql.param(
+        String.raw`\mNHS\M|\mNational[[:space:]]+Health[[:space:]]+Service\M|public[[:space:]]+health|clinical[[:space:]]+commissioning[[:space:]]+group|\mCCG\M|\mICB\M`,
+      )}
+    )
+  )`;
+}
 
 type DiscoveryHelpers = {
   discoverCompanySiteVacancies: typeof import("../lib/companySiteDiscovery").discoverCompanySiteVacancies;
@@ -166,15 +182,22 @@ async function selectEmployersFromTransaction(
   database: Pick<typeof import("@workspace/db").db, "execute">,
   limit: number,
   organisationNames?: readonly string[],
+  healthcareOnly = false,
+  savedCareersOnly = false,
 ): Promise<EmployerRow[]> {
   const names = organisationNames?.map((name) => name.trim().toLowerCase());
   const employerFilter = names === undefined
     ? sql`TRUE`
     : sql`lower(btrim(sl.organisation_name)) = ANY(${sql.param(names)}::text[])`;
+  const scopeFilter = sql`
+    ${healthcareOnly ? healthcareEmployerSql() : sql`TRUE`}
+    AND ${savedCareersOnly ? sql`cs.careers_url IS NOT NULL AND btrim(cs.careers_url) <> ''` : sql`TRUE`}
+  `;
   const result = await database.execute<EmployerRow>(sql`
       SELECT DISTINCT ON (lower(btrim(sl.organisation_name)))
         sl.organisation_name,
         trim(sl.website) AS website,
+         sl.industry,
         cs.careers_url,
         cs.ats_provider,
         cs.ats_board_id,
@@ -186,6 +209,7 @@ async function selectEmployersFromTransaction(
       WHERE sl.website IS NOT NULL
         AND trim(sl.website) <> ''
         AND ${employerFilter}
+         AND ${scopeFilter}
       ORDER BY lower(btrim(sl.organisation_name)), sl.id
       LIMIT ${limit}
     `);
@@ -197,11 +221,12 @@ async function pagesForEmployer(
   deadlineMs: number,
   helpers: DiscoveryHelpers,
   noHostState: boolean,
+  savedCareersOnly: boolean,
 ): Promise<Array<{ url: string; body: string }>> {
   const root = safeUrl(employer.website);
   if (!root) return [];
-  const urls: string[] = [root.toString()];
-  for (const saved of [employer.careers_url, employer.ats_mapping_evidence_url]) {
+  const urls: string[] = savedCareersOnly ? savedCareersOnlyPageUrls(employer) : [root.toString()];
+  for (const saved of savedCareersOnly ? [] : [employer.careers_url, employer.ats_mapping_evidence_url]) {
     if (!saved) continue;
     const parsed = safeUrl(saved);
     if (parsed && parsed.hostname.toLowerCase() === root.hostname.toLowerCase()) {
@@ -227,6 +252,7 @@ async function discoverEmployer(
   employer: EmployerRow,
   helpers: DiscoveryHelpers,
   noHostState: boolean,
+  savedCareersOnly = false,
 ): Promise<Record<string, unknown>[]> {
   const root = safeUrl(employer.website);
   const employerKey = `${employer.organisation_name.trim().toLowerCase()}@${root?.hostname.toLowerCase() ?? "invalid"}`;
@@ -253,6 +279,7 @@ async function discoverEmployer(
     employerDeadline,
     helpers,
     noHostState,
+    savedCareersOnly,
   );
   const candidates = new Map<string, Candidate>();
   const rejections: string[] = [];
@@ -401,6 +428,7 @@ function proofCountsMatch(left: ProofRowCounts, right: ProofRowCounts): boolean 
 async function runProductionProofTransaction(
   database: Pick<typeof import("@workspace/db").db, "transaction">,
   noHostState: boolean,
+  scope: { healthcareOnly: boolean; savedCareersOnly: boolean },
   expectedFingerprint?: string,
 ): Promise<ProofSnapshot> {
   let snapshot: ProofSnapshot | undefined;
@@ -421,7 +449,13 @@ async function runProductionProofTransaction(
       }
 
       const countsBefore = await readProofRowCounts(tx);
-      const employers = await selectEmployersFromTransaction(tx, 5);
+      const employers = await selectEmployersFromTransaction(
+        tx,
+        5,
+        undefined,
+        scope.healthcareOnly,
+        scope.savedCareersOnly,
+      );
 
       const http = await import("../lib/companySiteHttp");
       const discovery = await import("../lib/companySiteDiscovery");
@@ -435,7 +469,12 @@ async function runProductionProofTransaction(
 
       const records: Record<string, unknown>[] = [];
       for (const employer of employers) {
-        records.push(...await discoverEmployer(employer, helpers, noHostState));
+        records.push(...await discoverEmployer(
+          employer,
+          helpers,
+          noHostState,
+          scope.savedCareersOnly,
+        ));
       }
       const countsAfterInTransaction = await readProofRowCounts(tx);
       snapshot = {
@@ -495,6 +534,8 @@ async function main(): Promise<void> {
       limit,
       organisationNames,
       noHostState,
+       healthcareOnly = false,
+       savedCareersOnly = false,
     } = runOptions;
     preflightOnly = isPreflightOnly;
     loadedInput = !isPreflightOnly && args.get("input-file")
@@ -515,6 +556,7 @@ async function main(): Promise<void> {
       const proof = await runProductionProofTransaction(
         databaseModule.db,
         noHostState,
+        { healthcareOnly, savedCareersOnly },
         context.expectedFingerprint,
       );
       identity = proof.identity;
@@ -539,6 +581,12 @@ async function main(): Promise<void> {
         mode: "production_readonly_ats_discovery_proof",
         generatedAt: new Date().toISOString(),
         limit: 5,
+         scope: {
+           healthcareOnly,
+           savedCareersOnly,
+           selector: healthcareOnly ? HEALTHCARE_SELECTOR : "all employers",
+           careersUrlOnly: savedCareersOnly,
+         },
         selectedEmployers: proof.employers.length,
         employersChecked: proof.employers.length,
         mappingsFound,
