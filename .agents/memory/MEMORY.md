@@ -75,6 +75,7 @@
 - [Sponsor public-source matching scale](sponsor-public-source-matching-scale.md) — large sponsor/source coverage needs rare organization-name token probes before fuzzy matching; broad location buckets can time out.
 - [First-party job-description PDFs](company-site-job-pdf-evidence.md) — accept media-hosted role PDFs only with explicit current-listing, role, and safe application/contact evidence.
 - [Durable CodeExecution date handling](durable-codeexecution-date-handling.md) — use workspace TypeScript for time-zone parsing; the durable sandbox lacks Intl, TextDecoder, and Date.now.
+- [Durable CodeExecution file budget](durable-codeexecution-file-budget.md) — large read/modify/write callback batches can exceed the sandbox’s shared 3 MB per-block budget.
 - [External bulk lookup keys](external-bulk-lookup-keys.md) — third-party enrichment uploads should use synthetic row keys; keep internal database IDs in a local-only join map.
 - [Production sponsor import identity](production-sponsor-import-identity.md) — IDs differ across environments; use a fresh production crosswalk and the guarded blank-only admin importer.
 - [Sponsor URL import fan-out](sponsor-url-import-fanout.md) — only fan out identical complete identities to blank rows; manual crosswalks select one target and held rows stay outside vacancy inputs.

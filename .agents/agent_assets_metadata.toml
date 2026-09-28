@@ -1370,3 +1370,17 @@ mtime_ms = 1790602447103
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/db5d2ee4-a213-4f8b-b226-01dc977a78a7/714f1d4c-7819-43ef-8e7f-69dbb23cacdd"
 storage_version_token = "1790602503881996"
 content_type = "text/csv"
+
+[[outputs]]
+id = "xovrDi_RNH-TSqt5rwaLk"
+uri = "file://artifacts/production-url-resolution-2026-09-28/final-approved-production-url-import.csv"
+type = "table"
+title = "Final production URL import CSV"
+description = "Importer-compatible 431-row production CSV. Validated with the shared planner against read-only production data; it has not been applied."
+logical_id = "59a8bb9e-7b44-4c47-9046-1cd62123602e"
+content_hash = "sha256:1524257221140ccda92c7a933f8d847b368665336d0295a70f1e40995d93cc8b"
+size = 207106
+mtime_ms = 1790605200010
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/59a8bb9e-7b44-4c47-9046-1cd62123602e/071be447-b054-498d-9726-192a074c3ca3"
+storage_version_token = "1790605266817457"
+content_type = "text/csv"
