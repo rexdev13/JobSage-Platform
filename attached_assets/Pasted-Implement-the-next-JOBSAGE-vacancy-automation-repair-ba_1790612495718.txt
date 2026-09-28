@@ -1,0 +1,211 @@
+Implement the next JOBSAGE vacancy automation repair based on the audit.
+
+Goal:
+Make vacancy collection broader, safer, and automatic by combining:
+1. More direct ATS/feed providers.
+2. A strict direct-feed-only production job path.
+3. Safer candidate visibility rules.
+4. Cleaner scheduler/cron configuration.
+5. Better logging and rollout controls.
+
+Do not deploy. Do not write production data unless explicitly requested later. Do not enable new production cron yet.
+
+Part A — Fix automation shape
+
+1. Add a strict direct-feed-only vacancy job kind, for example:
+   `company_site_direct_feed`
+
+This job must:
+- Only run on employers with verified ATS/feed mappings.
+- Only accept `known_ats_posting` evidence.
+- Never run generic HTML crawling.
+- Never create vacancies from generic careers pages, benefits pages, resource pages, navigation links, or schema-like weak cards.
+- Use existing shared upsert/dedupe/liveness logic.
+- Respect existing writer locks, freshness checks, host pacing, SSRF protection, DNS pinning, HTTPS checks, redirects, response limits, timeouts, and retry/backoff rules.
+
+2. Add a generic import kill switch:
+   `COMPANY_SITE_GENERIC_IMPORT_ENABLED=false`
+
+When false:
+- Generic HTML discovery may still be audited/read-only if needed.
+- But it must not create candidate-visible sponsor vacancy rows.
+- Existing direct ATS/feed imports must still work.
+
+3. Reconcile scheduler docs:
+- Compare `docs/vacancy-jobs-http-cron.md` and `docs/vacancy-pipeline-cron-job-org.md`.
+- Produce one canonical schedule document.
+- The document must say which cron jobs should exist, how often they run, their route payloads, timeout, retry policy, and expected overlap behavior.
+- Do not create or enable the actual production cron yet.
+
+Part B — Add production-safe feed discovery
+
+Add a read-only discovery tool, for example:
+`discoverVerifiedAtsReadOnly.ts`
+
+It must:
+- Run against production in read-only mode.
+- Read saved sponsor websites/careers URLs.
+- Detect direct ATS/feed providers from employer-site evidence.
+- Fetch only safe employer root/careers pages and exact provider feed endpoints.
+- Never write mappings or vacancies.
+- Output a CSV/JSON report with:
+  - sponsor/employer identity
+  - website
+  - careers URL
+  - provider
+  - board/tenant/company ID
+  - evidence URL
+  - feed URL
+  - feed count
+  - confidence/status
+  - rejection reason
+  - whether feed is authoritative for closing missing jobs
+
+It must not guess board IDs from employer names alone.
+It must reject ambiguous same-name employers unless evidence is strong.
+
+Part C — Add mapping-only importer/promoter
+
+Add a mapping-only importer that can run in:
+- development/preview write mode
+- production dry-run mode
+- production approved write mode later
+
+It must:
+- Update only company-site mapping fields such as provider, board ID, mapping status, evidence URL, checked timestamp.
+- Not create vacancy rows.
+- Not overwrite verified mappings unless the new evidence is stronger and explicitly approved.
+- Match production records safely using production IDs or stable identity keys, not development IDs.
+- Produce before/after diff reports.
+- Support rollback by exporting previous mapping values.
+
+Part D — Expand direct ATS/feed providers
+
+Audit current provider support, then add safe direct-feed adapters where feasible.
+
+Current supported/importable providers include:
+- Ashby
+- Greenhouse
+- Lever
+- SmartRecruiters
+- Recruitee
+- Personio
+
+Evaluate and add, if safe:
+- Teamtailor
+- Workable
+- BambooHR
+- iCIMS
+- Oracle Recruiting
+- SAP SuccessFactors
+- General Workday connector beyond the current Circle Health-specific connector
+- Pinpoint promotion into normal allowlist if safe
+- Taleo only if a reliable public feed is found
+
+For every provider:
+- Confirm detection pattern.
+- Confirm public feed endpoint.
+- Confirm stable external job ID.
+- Confirm detail URL.
+- Confirm application URL if available.
+- Confirm location support.
+- Confirm closed/unlisted handling.
+- Confirm whether missing jobs can safely mark old jobs closed.
+- Add tests.
+
+If a provider cannot be safely imported, keep it “recognized only” and explain why.
+
+Part E — Strengthen candidate visibility
+
+Update candidate visibility so company-site vacancies require strong evidence.
+
+Candidate-visible company-site rows should require one of:
+- `known_ats_posting` from a verified direct feed, or
+- later, explicitly enabled `schema.org JobPosting` with specific role title and valid application/contact route.
+
+For now:
+- Do not show generic structured cards as candidate-visible vacancies.
+- Do not show rows with no evidence kind unless they come from a trusted legacy/manual source and pass an explicit review rule.
+- Liveness alone must not be treated as proof that a page is a real vacancy.
+- A reachable benefits/resource/careers page must not appear as a job.
+
+Add tests proving:
+- benefits pages are hidden
+- “why work here” pages are hidden
+- “skip to main content” pages are hidden
+- generic careers landing pages are hidden
+- direct ATS postings remain visible
+- repeat imports do not duplicate
+
+Part F — Observability and error reporting
+
+Improve vacancy sync logs so failures are classifiable.
+
+For company-site/direct-feed jobs, log:
+- job kind
+- provider
+- employer ID/name
+- mapping ID
+- batch ID
+- status
+- redacted error category
+- HTTP status if safe
+- timeout/robots/blocked/oversize/invalid-feed/identity-mismatch/partial-feed
+- inserted/updated/skipped/retired counts
+- runtime
+- retry-after where applicable
+
+Do not log secrets or full private tokens.
+
+Part G — Development test
+
+Run the full flow in development/preview only:
+
+1. Use the read-only discovery output or saved development cohort.
+2. Import verified mappings into development.
+3. Run `company_site_direct_feed` once.
+4. Run it again.
+5. Confirm:
+   - first run inserts/updates real vacancies
+   - second run updates with zero duplicate inserts
+   - generic HTML rows are not inserted
+   - candidate-visible rows have strong evidence
+   - application/detail URLs are correct
+   - failed feeds do not retire existing vacancies
+   - liveness works
+   - typecheck and focused tests pass
+
+Report:
+- providers discovered
+- mappings imported
+- vacancies inserted
+- vacancies updated
+- duplicates
+- candidate-visible counts
+- rejected/closed/unlisted postings
+- failed feeds and categories
+- runtime
+- sector breakdown if available
+
+Part H — Production rollout plan only
+
+Prepare a production rollout plan but do not execute it.
+
+Plan must include:
+- existing production cron reconciliation result
+- final canonical schedule
+- direct-feed job payload
+- batch size
+- concurrency
+- timeout
+- retry/backoff
+- monitoring
+- rollback plan
+- exact pass/fail criteria for first production canary
+
+Important:
+- Do not deploy.
+- Do not write production data.
+- Do not enable production cron.
+- Do not run broad generic crawling.
+- Do not weaken URL safety, SSRF protection, DNS pinning, HTTPS checks, redirects, robots/policy handling, pacing, response limits, deadlines, liveness checks, or candidate eligibility filters.
