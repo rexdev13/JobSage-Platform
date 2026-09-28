@@ -12,6 +12,7 @@
 - [OpenAPI generated-client drift](openapi-generated-drift.md) — regen can drop hand-added members missing from openapi.yaml; diff generated files after codegen and restore via the spec.
 - [Link liveness scans](link-liveness-scans.md) — aggregator links must be bulk-stamped or scans loop forever; verdicts per URL not per row; run long jobs via admin endpoint, not shell background.
 - [Prod DB read-only; array migration](prod-db-readonly-array-migration.md) — agent can't run DDL on prod; scalar→array needs user-run USING cast before republish.
+- [Production discovery runtime](production-discovery-runtime.md) — Replit's production read-only SQL interface cannot supply a production DB connection to workspace discovery scripts.
 - [Vacancy regulator classifier](vacancy-regulator-classifier.md) — use boundaries on complete words, not stems; verify profession precedence and false positives against real data.
 - [Job-board profession precedence](job-board-profession-precedence.md) — classify common IT/network/cloud titles as IT before broad engineering matches; retain explicit clinical exclusions.
 - [Reed HTML employer markup](reed-html-employer-markup.md) — current Reed cards expose the employer in the posted-by recruiter link, not company-name-link.
