@@ -1,0 +1,73 @@
+The audit says the production discovery helper is blocked because it may mix production employer data with development host-state data through the configured `@workspace/db` connection.
+
+This is not acceptable for production discovery. Please fix the helper/runtime before any production discovery or mapping promotion.
+
+Do not deploy.
+Do not write production data.
+Do not run discovery against production until this is fixed and proven.
+
+Please do the following:
+
+1. Identify the unsafe dependency
+- Find exactly where the discovery helper reads host-state data through `@workspace/db`.
+- List the files/functions involved.
+- Explain what data could come from development while the employer input is production.
+- Explain the risk this creates for ATS mapping discovery and promotion.
+
+2. Refactor the helper so each run has one explicit data context
+Add a strict runtime mode such as:
+- `--db-mode=development`
+- `--db-mode=production-readonly`
+- `--input-file=<csv/json>`
+- `--no-host-state`
+
+Requirements:
+- In `production-readonly` mode, every DB read must use the production read-only connection.
+- In `production-readonly` mode, writes must be impossible.
+- The helper must not read development company-site checks, development mappings, development caches, or development host-state unless explicitly passed as an input file.
+- If required production connection/env vars are missing, fail closed.
+- If any development DB fingerprint/host-state is detected during production-readonly mode, fail closed.
+- Output must clearly say which database/environment was used.
+
+3. Add safety assertions
+Before running, the helper should print/check:
+- database host/name/fingerprint
+- NODE_ENV
+- write mode disabled
+- source of employer input
+- source of mapping/check state
+- source of cache/state files
+- whether production writes are disabled
+
+It must abort if:
+- production employer input is combined with development DB state
+- development employer input is combined with production state
+- DB fingerprint does not match the declared mode
+- write capability is enabled in production-readonly mode
+
+4. Add tests
+Add tests proving:
+- production-readonly mode rejects development host-state
+- production-readonly mode cannot write mappings or vacancies
+- development mode cannot accidentally target production
+- mixed input/state sources fail closed
+- explicit input files are allowed only when their source is declared in the report
+
+5. Produce a dry-run proof
+After fixing, run a small safe dry-run, not broad discovery:
+- production-readonly mode
+- limit 5 employers
+- no writes
+- no vacancy imports
+- no mapping promotion
+
+Report:
+- DB/environment fingerprint
+- employers checked
+- state sources used
+- whether any dev state was accessed
+- confirmed writes disabled
+- output file path
+
+Important:
+Do not continue to production discovery, mapping promotion, canary, or cron edits until this runtime isolation issue is fixed.
