@@ -35,7 +35,7 @@ function getHttpDefaultLimits(): Record<VacancyJobKind, number> {
     company_site: getCompanySiteHttpBatchSize(),
     company_site_direct_feed: Math.min(5, getCompanySiteHttpBatchSize()),
     company_site_probe: COMPANY_SITE_PROBE_BATCH_SIZE,
-    liveness: 40,
+    liveness: 50,
     contact: 5,
     reed_professions: PROFESSION_BACKFILL_HTTP_CATEGORY_LIMIT,
     additional_boards: PROFESSION_BACKFILL_HTTP_CATEGORY_LIMIT,

@@ -50,6 +50,9 @@ export const REED_PROFESSION_BACKFILL_TARGETS: readonly ReedProfessionBackfillTa
   { profession: "Dentist", category: "DENTAL", keywords: "dentist" },
   { profession: "Pharmacist", category: "PHARMACY", keywords: "pharmacist" },
   { profession: "Business Development Manager", category: "BUSINESS_DEVELOPMENT", keywords: "business development manager OR business development" },
+  { profession: "Nurse", category: "NMC", keywords: "nurse OR midwife" },
+  { profession: "Doctor", category: "GMC", keywords: "doctor OR physician" },
+  { profession: "Physiotherapist", category: "HCPC", keywords: "physiotherapist OR paramedic OR radiographer" },
 ];
 
 export type ReedProfessionBackfillCategoryMetrics = {

@@ -6,13 +6,18 @@ import {
   runReadOnlyDiscovery,
 } from "../lib/companySiteWorkflow";
 import { loadWorkflowReport, saveWorkflowReport } from "../lib/companySiteWorkflowReports";
+import { runHealthcareCompanySiteBatch } from "../lib/healthcareCompanySiteBatch";
 import {
+  HEALTHCARE_BATCH_APPLY_CONFIRMATION,
   HEALTHCARE_BATCH_DEFAULT_BUDGET_MS,
+  NAMED_BATCH_APPLY_CONFIRMATION,
   parseHealthcareBatchEmployers,
-  runHealthcareCompanySiteBatch,
-} from "../lib/healthcareCompanySiteBatch";
+  SCHEDULED_NAMED_BATCH_APPLY_CONFIRMATION,
+  type CompanySiteBatchApplyMode,
+} from "../lib/namedCompanySiteBatchPolicy";
+import { parseStrictRolePageSector } from "../lib/healthcareRoleEvidence";
 
-export const HEALTHCARE_BATCH_APPLY_CONFIRMATION = "apply-reviewed-healthcare-company-site-batch";
+export { HEALTHCARE_BATCH_APPLY_CONFIRMATION } from "../lib/namedCompanySiteBatchPolicy";
 
 const router = Router();
 const reviewedMappingUpload = multer({
@@ -105,41 +110,53 @@ router.post("/internal/company-site-mappings/apply", async (req, res) => {
 });
 
 /**
- * Reviewed healthcare/social-care company-site batch. Dry-run performs
- * read-only discovery against the named sponsor employers and returns exactly
- * what would be written. Apply requires the explicit confirmation string and
- * writes only rows that passed the strict role/apply-route evidence gate,
- * through the shared dedupe/upsert path, then repeats the import to prove
- * zero duplicate inserts and returns rollback ids.
+ * Reviewed named-employer company-site batch. Sector defaults to healthcare so
+ * the existing Kingsley cron body keeps working. Dry-run is read-only.
+ * Human apply requires the healthcare or named confirmation string. Scheduled
+ * apply uses a separate confirmation and refuses to write when discovery is
+ * empty, paced, or missing a https apply/recruitment route.
  */
 router.post("/internal/healthcare-company-site-batch", async (req, res) => {
   if (!authenticate(req, res)) return;
   const body = (req.body ?? {}) as Record<string, unknown>;
   let employers;
+  let sector;
   try {
     employers = parseHealthcareBatchEmployers(body.employers);
+    sector = parseStrictRolePageSector(body.sector);
   } catch (error) {
     res.status(400).json({ error: error instanceof Error ? error.message : "Invalid employers." });
     return;
   }
   const apply = body.apply === true;
-  if (apply && body.confirmApply !== HEALTHCARE_BATCH_APPLY_CONFIRMATION) {
-    res.status(400).json({ error: `apply requires confirmApply to equal "${HEALTHCARE_BATCH_APPLY_CONFIRMATION}".` });
-    return;
+  let applyMode: CompanySiteBatchApplyMode = "reviewed";
+  if (apply) {
+    if (body.confirmApply === SCHEDULED_NAMED_BATCH_APPLY_CONFIRMATION) {
+      applyMode = "scheduled";
+    } else if (body.confirmApply === NAMED_BATCH_APPLY_CONFIRMATION) {
+      applyMode = "reviewed";
+    } else if (body.confirmApply === HEALTHCARE_BATCH_APPLY_CONFIRMATION && sector === "healthcare") {
+      applyMode = "reviewed";
+    } else {
+      res.status(400).json({
+        error: `apply requires confirmApply to equal "${HEALTHCARE_BATCH_APPLY_CONFIRMATION}", "${NAMED_BATCH_APPLY_CONFIRMATION}", or "${SCHEDULED_NAMED_BATCH_APPLY_CONFIRMATION}".`,
+      });
+      return;
+    }
   }
   const budgetMs = typeof body.budgetMs === "number" && Number.isInteger(body.budgetMs)
     ? Math.min(Math.max(body.budgetMs, 30_000), HEALTHCARE_BATCH_DEFAULT_BUDGET_MS)
     : HEALTHCARE_BATCH_DEFAULT_BUDGET_MS;
   try {
-    const result = await runHealthcareCompanySiteBatch({ employers, apply, budgetMs });
-    const report = await saveWorkflowReport(apply ? "apply" : "dry-run", {
-      mode: "healthcare_company_site_batch",
-      parameters: { employers, apply, budgetMs },
+    const result = await runHealthcareCompanySiteBatch({ employers, apply, applyMode, sector, budgetMs });
+    const report = await saveWorkflowReport(apply && !result.scheduledApplyBlocked ? "apply" : "dry-run", {
+      mode: "named_company_site_batch",
+      parameters: { employers, apply, applyMode, sector, budgetMs },
       ...result,
     });
     res.status(200).json(report);
   } catch (error) {
-    res.status(400).json({ error: error instanceof Error ? error.message : "Healthcare batch failed." });
+    res.status(400).json({ error: error instanceof Error ? error.message : "Named company-site batch failed." });
   }
 });
 

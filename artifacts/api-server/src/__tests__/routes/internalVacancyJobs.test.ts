@@ -94,6 +94,16 @@ describe("POST /internal/vacancy-jobs", () => {
     });
   });
 
+  it("defaults liveness HTTP batches to the 50-URL cap", async () => {
+    const response = await request(app)
+      .post("/internal/vacancy-jobs")
+      .set("x-jobsage-job-secret", "test-job-secret")
+      .send({ kind: "liveness" });
+
+    expect(response.status).toBe(200);
+    expect(runVacancyJobMock).toHaveBeenCalledWith("liveness", 50, { deadlineMs: expect.any(Number) });
+  });
+
   it.each([
     ["job_board", 999, 50],
     ["company_site", 999, 10],

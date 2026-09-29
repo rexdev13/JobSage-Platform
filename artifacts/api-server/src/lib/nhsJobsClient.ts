@@ -172,8 +172,8 @@ export function candidateEmployerMatchesSponsor(
   organisationName: string,
   listedEmployer: string,
 ): boolean {
-  const requestedWords = meaningfulWords(organisationName);
-  const listedWords = meaningfulWords(listedEmployer);
+  const requestedWords = [...new Set(meaningfulWords(organisationName))];
+  const listedWords = [...new Set(meaningfulWords(listedEmployer))];
   if (requestedWords.length === 0 || listedWords.length === 0) return false;
   const requestedNormalised = [...requestedWords].sort().join(" ");
   const listedNormalised = [...listedWords].sort().join(" ");

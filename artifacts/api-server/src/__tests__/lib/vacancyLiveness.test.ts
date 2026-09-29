@@ -96,6 +96,27 @@ describe("candidate-facing vacancy freshness", () => {
     })).toBe("unverified");
   });
 
+  it("shows a reviewed strict education role page", () => {
+    expect(getCandidateVacancyStatus({
+      ...base,
+      title: "Secondary Teacher of Mathematics",
+      companyEvidenceLegacyUntil: new Date("2026-10-09T00:00:00.000Z"),
+      companyVacancyEvidence: {
+        kind: "strict_role_page",
+        sector: "education",
+        listingUrl: "https://careers.example-school.ac.uk/vacancies",
+        detailUrl: "https://careers.example-school.ac.uk/vacancies/maths-teacher-12",
+        applicationUrl: "https://careers.example-school.ac.uk/vacancies/maths-teacher-12/apply",
+        trustedSource: "manual_review",
+        roleEligibilityReview: {
+          status: "approved",
+          socCode: "2314",
+          evidenceUrl: "https://careers.example-school.ac.uk/vacancies/maths-teacher-12",
+        },
+      },
+    })).toBe("visible");
+  });
+
   it.each([
     ["generic structured cards", { kind: "structured_job_card" }],
     ["JSON-LD cards by default", { kind: "json_ld_job_posting", listingUrl: "https://example.test/jobs/1" }],

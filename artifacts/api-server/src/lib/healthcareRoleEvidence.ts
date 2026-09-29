@@ -1,12 +1,23 @@
 import { isLikelyEditorialTitle } from "./vacancyTitlePolicy";
 import { isBlockedVacancyUrl, isValidVacancyDeepLink } from "./vacancyUrlPolicy";
 import { extractAdvertContactEmail } from "./publishedContactEmail";
+import {
+  isStrictRolePageSector,
+  socForRoleTitle,
+  STRICT_ROLE_PAGE_SECTOR_CONFIG,
+  type StrictRolePageSector,
+} from "./companySiteRoleSectors";
 
-export const HEALTHCARE_ROLE_TITLE_PATTERN =
-  /\b(?:registered nurses?|staff nurses?|nurses?|midwi(?:fe|ves)|carers?|care assistants?|support workers?|healthcare assistants?|health care assistants?|social workers?|physiotherapists?|occupational therapists?|radiographers?|pharmacists?|dental nurses?|dentists?|paramedics?|nursing associates?|care workers?|domiciliary|clinical leads?|healthcare support workers?|home managers?|registered managers?|deputy managers?|ward managers?)\b/i;
+export {
+  isStrictRolePageSector,
+  parseStrictRolePageSector,
+  STRICT_ROLE_PAGE_SECTORS,
+  titleSqlPatternForSector,
+  type StrictRolePageSector,
+} from "./companySiteRoleSectors";
 
-export const HEALTHCARE_ROLE_TITLE_SQL_PATTERN =
-  "\\m(registered nurses?|staff nurses?|nurses?|midwi(fe|ves)|carers?|care assistants?|support workers?|healthcare assistants?|health care assistants?|social workers?|physiotherapists?|occupational therapists?|radiographers?|pharmacists?|dental nurses?|dentists?|paramedics?|nursing associates?|care workers?|domiciliary|clinical leads?|healthcare support workers?|home managers?|registered managers?|deputy managers?|ward managers?)\\M";
+export const HEALTHCARE_ROLE_TITLE_PATTERN = STRICT_ROLE_PAGE_SECTOR_CONFIG.healthcare.titlePattern;
+export const HEALTHCARE_ROLE_TITLE_SQL_PATTERN = STRICT_ROLE_PAGE_SECTOR_CONFIG.healthcare.titleSqlPattern;
 
 export const RECRUITMENT_EMAIL_PATTERN =
   /^(?:jobs|careers|recruitment|recruit|hr|hiring|talent|vacancies|vacancy|apply|nursing)(?:[._+-][a-z0-9._+-]+)?@[a-z0-9.-]+\.[a-z]{2,}$/i;
@@ -47,9 +58,9 @@ const ATS_APPLY_HOSTS = [
   "eploy.net",
 ];
 
-export type StrictHealthcareRoleEvidence = {
+export type StrictRolePageEvidence = {
   kind: "strict_role_page";
-  sector: "healthcare";
+  sector: StrictRolePageSector;
   listingUrl: string;
   detailUrl: string;
   applicationUrl?: string;
@@ -62,32 +73,29 @@ export type StrictHealthcareRoleEvidence = {
   };
 };
 
+export type StrictHealthcareRoleEvidence = StrictRolePageEvidence & { sector: "healthcare" };
+
 export function isRecruitmentEmail(value: string | null | undefined): boolean {
   return RECRUITMENT_EMAIL_PATTERN.test(value?.trim().toLowerCase() ?? "");
 }
 
-export function isSpecificHealthcareRoleTitle(title: string | null | undefined): boolean {
+export function isSpecificRoleTitle(
+  title: string | null | undefined,
+  sector: StrictRolePageSector,
+): boolean {
   const text = title?.replace(/\s+/g, " ").trim() ?? "";
   if (text.length < 3 || text.length > 120) return false;
   if (JUNK_TITLE.test(text)) return false;
   if (isLikelyEditorialTitle(text)) return false;
-  return HEALTHCARE_ROLE_TITLE_PATTERN.test(text);
+  return STRICT_ROLE_PAGE_SECTOR_CONFIG[sector].titlePattern.test(text);
+}
+
+export function isSpecificHealthcareRoleTitle(title: string | null | undefined): boolean {
+  return isSpecificRoleTitle(title, "healthcare");
 }
 
 export function socForHealthcareTitle(title: string): string {
-  const value = title.toLowerCase();
-  if (/\bsocial workers?\b/.test(value)) return "2461";
-  if (/\bphysiotherapists?\b/.test(value)) return "2221";
-  if (/\boccupational therapists?\b/.test(value)) return "2222";
-  if (/\bradiographers?\b/.test(value)) return "2254";
-  if (/\bpharmacists?\b/.test(value)) return "2251";
-  if (/\b(?:dentists?|dental nurses?)\b/.test(value)) return "2253";
-  if (/\bmidwi(?:fe|ves)\b/.test(value)) return "2232";
-  if (/\bparamedics?\b/.test(value)) return "2255";
-  if (/\b(?:doctors?|consultants?|general practitioners?)\b/.test(value)) return "2211";
-  if (/\b(?:nurses?|nursing associates?|nursing)\b/.test(value)) return "2231";
-  if (/\bhealthcare assistants?|health care assistants?\b/.test(value)) return "6131";
-  return "6135";
+  return socForRoleTitle(title, "healthcare");
 }
 
 function httpsUrl(value: string | null | undefined): URL | null {
@@ -188,15 +196,16 @@ export function extractHealthcareApplicationRoute(
   return { applicationUrl: null, contactEmail: recruitmentEmail };
 }
 
-export function buildStrictHealthcareRoleEvidence(input: {
+export function buildStrictRolePageEvidence(input: {
   title: string;
+  sector: StrictRolePageSector;
   detailUrl: string;
   listingUrl: string;
   employerHost: string;
   applicationUrl?: string | null;
   contactEmail?: string | null;
-}): StrictHealthcareRoleEvidence | null {
-  if (!isSpecificHealthcareRoleTitle(input.title)) return null;
+}): StrictRolePageEvidence | null {
+  if (!isSpecificRoleTitle(input.title, input.sector)) return null;
   const detail = httpsUrl(input.detailUrl);
   const listing = httpsUrl(input.listingUrl);
   if (!detail || !listing) return null;
@@ -215,7 +224,7 @@ export function buildStrictHealthcareRoleEvidence(input: {
   if (!application && !email) return null;
   return {
     kind: "strict_role_page",
-    sector: "healthcare",
+    sector: input.sector,
     listingUrl: listing.toString(),
     detailUrl: detail.toString(),
     ...(application ? { applicationUrl: application.toString() } : {}),
@@ -223,19 +232,32 @@ export function buildStrictHealthcareRoleEvidence(input: {
     trustedSource: "manual_review",
     roleEligibilityReview: {
       status: "approved",
-      socCode: socForHealthcareTitle(input.title),
+      socCode: socForRoleTitle(input.title, input.sector),
       evidenceUrl: detail.toString(),
     },
   };
 }
 
-export function hasStrictHealthcareRoleEvidence(
+export function buildStrictHealthcareRoleEvidence(input: {
+  title: string;
+  detailUrl: string;
+  listingUrl: string;
+  employerHost: string;
+  applicationUrl?: string | null;
+  contactEmail?: string | null;
+}): StrictHealthcareRoleEvidence | null {
+  const evidence = buildStrictRolePageEvidence({ ...input, sector: "healthcare" });
+  if (!evidence) return null;
+  return { ...evidence, sector: "healthcare" };
+}
+
+export function hasStrictRolePageEvidence(
   evidence: unknown,
   title: string | null | undefined,
 ): boolean {
   if (!evidence || typeof evidence !== "object") return false;
   const value = evidence as Record<string, unknown>;
-  if (value.kind !== "strict_role_page" || value.sector !== "healthcare") return false;
+  if (value.kind !== "strict_role_page" || !isStrictRolePageSector(value.sector)) return false;
   if (value.trustedSource !== "manual_review") return false;
   const review = value.roleEligibilityReview;
   if (!review || typeof review !== "object") return false;
@@ -243,8 +265,9 @@ export function hasStrictHealthcareRoleEvidence(
   if (reviewValue.status !== "approved" || typeof reviewValue.socCode !== "string" || !/^\d{4}$/.test(reviewValue.socCode)) {
     return false;
   }
-  return buildStrictHealthcareRoleEvidence({
+  return buildStrictRolePageEvidence({
     title: title ?? "",
+    sector: value.sector,
     detailUrl: typeof value.detailUrl === "string" ? value.detailUrl : "",
     listingUrl: typeof value.listingUrl === "string" ? value.listingUrl : "",
     employerHost: (() => {
@@ -257,4 +280,13 @@ export function hasStrictHealthcareRoleEvidence(
     applicationUrl: typeof value.applicationUrl === "string" ? value.applicationUrl : null,
     contactEmail: typeof value.contactEmail === "string" ? value.contactEmail : null,
   }) !== null;
+}
+
+export function hasStrictHealthcareRoleEvidence(
+  evidence: unknown,
+  title: string | null | undefined,
+): boolean {
+  if (!evidence || typeof evidence !== "object") return false;
+  if ((evidence as Record<string, unknown>).sector !== "healthcare") return false;
+  return hasStrictRolePageEvidence(evidence, title);
 }

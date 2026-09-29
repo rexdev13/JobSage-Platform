@@ -40,6 +40,7 @@ const { parseHealthcareBatchEmployers, runHealthcareCompanySiteBatch } = await i
 );
 
 const apply = argument("apply") === "true";
+const sector = argument("sector") ?? "healthcare";
 const cohortPath = resolve(argument("cohort") ?? resolve(process.cwd(), "../../artifacts/healthcare-company-site-cohort.json"));
 const employers = parseHealthcareBatchEmployers(JSON.parse(readFileSync(cohortPath, "utf8")));
 const identity = await readDatabaseIdentity(db);
@@ -70,7 +71,13 @@ if (apply) {
   `);
 }
 
-const report = await runHealthcareCompanySiteBatch({ employers, apply, budgetMs: 15 * 60_000 });
+const report = await runHealthcareCompanySiteBatch({
+  employers,
+  apply,
+  applyMode: "reviewed",
+  sector,
+  budgetMs: 15 * 60_000,
+});
 const outputDir = resolve(process.cwd(), "../../artifacts/healthcare-company-site-batch");
 mkdirSync(outputDir, { recursive: true });
 const output = { database: identity.databaseName, fingerprint: identity.fingerprint, ...report };

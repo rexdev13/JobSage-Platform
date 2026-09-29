@@ -5,7 +5,7 @@ import {
   vacancySyncLogTable,
 } from "@workspace/db";
 import { and, eq, inArray } from "drizzle-orm";
-import { candidateEmployerMatchesSponsor } from "./nhsJobsClient";
+import { candidateEmployerMatchesSponsor, searchNhsJobsForCandidate } from "./nhsJobsClient";
 import { searchJobsAcUk, type JobsAcUkSearchResult } from "./jobsAcUkClient";
 import {
   searchTeachingVacancies,
@@ -51,21 +51,69 @@ type SearchResult = {
   status: number | null;
 };
 
-export type AdditionalBoardSourceId = "jobs_ac_uk" | "teaching_vacancies";
+export type AdditionalBoardSourceId = "nhs_jobs" | "jobs_ac_uk" | "teaching_vacancies";
+
+/** Profession searches that fill healthcare from NHS Jobs, Trac, and HealthJobsUK. */
+export const NHS_PROFESSION_BACKFILL_TARGETS: readonly ReedProfessionBackfillTarget[] = [
+  { profession: "Nurse", category: "NMC", keywords: "nurse" },
+  { profession: "Midwife", category: "NMC", keywords: "midwife" },
+  { profession: "Doctor", category: "GMC", keywords: "doctor" },
+  { profession: "Physiotherapist", category: "HCPC", keywords: "physiotherapist" },
+  { profession: "Social Worker", category: "SOCIAL_WORK", keywords: "social worker" },
+  { profession: "Pharmacist", category: "PHARMACY", keywords: "pharmacist" },
+  { profession: "Dentist", category: "DENTAL", keywords: "dentist" },
+];
+
+const NHS_BOARD_NAMES = ["NHS Jobs", "Trac", "HealthJobsUK"] as const;
 
 export type AdditionalBoardSourceDefinition = {
   id: AdditionalBoardSourceId;
-  boardName: "jobs.ac.uk" | "Teaching Vacancies";
+  boardName: "NHS Jobs" | "jobs.ac.uk" | "Teaching Vacancies";
+  acceptedBoardNames?: readonly string[];
   totalLimit: number;
   targets: readonly ReedProfessionBackfillTarget[];
   search: (keywords: string, limit: number, deadlineMs?: number) => Promise<SearchResult>;
 };
+
+async function searchNhsProfession(
+  keywords: string,
+  limit: number,
+): Promise<SearchResult> {
+  const result = await searchNhsJobsForCandidate(keywords, null, limit);
+  return {
+    vacancies: result.vacancies.map((vacancy) => ({
+      title: vacancy.title,
+      employer: vacancy.employer,
+      location: vacancy.location,
+      salary: vacancy.salary,
+      url: vacancy.url,
+      description: vacancy.description,
+      postedDate: vacancy.postedDate,
+      targetRegions: vacancy.targetRegions,
+      externalListingId: classifyVacancySource(vacancy.url).externalListingId ?? "",
+      contactEmail: vacancy.contactEmail,
+      contactEvidenceUrl: vacancy.contactEvidenceUrl,
+      closesAt: vacancy.closesAt ?? null,
+    })),
+    requestSucceeded: result.resultsRequestSucceeded,
+    transientFailure: result.transientFailure === true,
+    status: result.resultsRequestSucceeded ? 200 : null,
+  };
+}
 
 const educationTarget = REED_PROFESSION_BACKFILL_TARGETS.filter(
   (target) => target.category === "EDUCATION",
 );
 
 const SOURCES: readonly AdditionalBoardSourceDefinition[] = [
+  {
+    id: "nhs_jobs",
+    boardName: "NHS Jobs",
+    acceptedBoardNames: NHS_BOARD_NAMES,
+    totalLimit: 300,
+    targets: NHS_PROFESSION_BACKFILL_TARGETS,
+    search: searchNhsProfession,
+  },
   {
     id: "jobs_ac_uk",
     boardName: "jobs.ac.uk",
@@ -175,7 +223,7 @@ type Dependencies = {
   readVisibility?: (
     urls: readonly string[],
     category: OpportunityCategory,
-    boardName: string,
+    boardName: string | readonly string[],
   ) => Promise<{ live: number; candidateVisible: number }>;
   recordSourceMetrics?: (
     source: AdditionalBoardSourceMetrics,
@@ -202,9 +250,10 @@ export function matchAdditionalBoardAdverts(
   vacancies: readonly SearchVacancy[],
   sponsors: readonly string[],
   category: OpportunityCategory,
-  boardName: string,
+  boardName: string | readonly string[],
 ): { adverts: BoardAdvert[]; sponsorMatched: number } {
   const sponsorNames = uniqueSponsorNames(sponsors);
+  const allowedBoardNames = new Set(typeof boardName === "string" ? [boardName] : boardName);
   const matched: BoardAdvert[] = [];
   let sponsorMatched = 0;
 
@@ -217,7 +266,7 @@ export function matchAdditionalBoardAdverts(
     const url = canonicalVacancyUrl(vacancy.url);
     if (!url || !isValidJobBoardVacancyDeepLink(url)) continue;
     const source = classifyVacancySource(url);
-    if (source.sourceType !== "job_board" || source.boardName !== boardName) continue;
+    if (source.sourceType !== "job_board" || !source.boardName || !allowedBoardNames.has(source.boardName)) continue;
     const classified = classifyVacancyCategory(vacancy.title, vacancy.description);
     if (!classified || !opportunityCategoriesMatch(category, classified)) continue;
     matched.push({
@@ -230,7 +279,7 @@ export function matchAdditionalBoardAdverts(
       description: vacancy.description,
       postedDate: vacancy.postedDate,
       targetRegions: vacancy.targetRegions,
-      boardName,
+      boardName: source.boardName,
       externalId: source.externalListingId ?? vacancy.externalListingId,
       sourceType: "job_board",
       contactEmail: vacancy.contactEmail,
@@ -247,15 +296,16 @@ export function matchAdditionalBoardAdverts(
 async function readVisibility(
   urls: readonly string[],
   category: OpportunityCategory,
-  boardName: string,
+  boardName: string | readonly string[],
 ): Promise<{ live: number; candidateVisible: number }> {
   if (urls.length === 0) return { live: 0, candidateVisible: 0 };
+  const boardNames = typeof boardName === "string" ? [boardName] : [...boardName];
   const rows = await db
     .select({ vacancy: sponsorLicenceVacanciesTable })
     .from(sponsorLicenceVacanciesTable)
     .where(and(
       eq(sponsorLicenceVacanciesTable.sourceType, "job_board"),
-      eq(sponsorLicenceVacanciesTable.boardName, boardName),
+      inArray(sponsorLicenceVacanciesTable.boardName, boardNames),
       inArray(sponsorLicenceVacanciesTable.url, [...urls]),
     ));
   let live = 0;
@@ -381,7 +431,7 @@ async function execute(options: Dependencies): Promise<AdditionalBoardProfession
           result.vacancies,
           sponsors,
           target.category,
-          source.boardName,
+          source.acceptedBoardNames ?? source.boardName,
         );
         metrics.sponsorMatched = matched.sponsorMatched;
         metrics.classified = matched.adverts.length;
@@ -398,7 +448,7 @@ async function execute(options: Dependencies): Promise<AdditionalBoardProfession
           const visibility = await visibilityReader(
             adverts.map((advert) => advert.url),
             target.category,
-            source.boardName,
+            source.acceptedBoardNames ?? source.boardName,
           );
           metrics.live = visibility.live;
           metrics.candidateVisible = visibility.candidateVisible;

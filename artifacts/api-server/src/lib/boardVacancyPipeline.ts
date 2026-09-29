@@ -3,6 +3,7 @@ import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { isLikelyEditorialTitle, isManualLabourTitle } from "./vacancyTitlePolicy";
 import { canonicalVacancyUrl, classifyVacancySource } from "./vacancySource";
 import { isValidVacancyUrlForSource } from "./vacancyUrlPolicy";
+import type { StrictRolePageSector } from "./companySiteRoleSectors";
 import { queueLinkVerificationBatch } from "./linkVerification";
 import { queueCompanySiteVerificationBatch } from "./companySiteVerification";
 import { searchNhsJobs } from "./nhsJobsClient";
@@ -55,7 +56,7 @@ export interface BoardAdvert {
     detailUrl?: string;
     applicationUrl?: string;
     contactEmail?: string;
-    sector?: "healthcare";
+    sector?: StrictRolePageSector;
     provider?: string;
     trustedSource?: "manual_review";
     roleEligibilityReview?: unknown;

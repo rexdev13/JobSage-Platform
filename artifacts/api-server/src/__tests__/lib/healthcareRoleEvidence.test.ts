@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import { getCandidateVacancyStatus } from "../../lib/vacancyLiveness";
 import {
   buildStrictHealthcareRoleEvidence,
+  buildStrictRolePageEvidence,
   extractHealthcareApplicationRoute,
   hasStrictHealthcareRoleEvidence,
+  hasStrictRolePageEvidence,
 } from "../../lib/healthcareRoleEvidence";
 
 const listingUrl = "https://careers.example-care.co.uk/vacancies";
@@ -95,5 +97,28 @@ describe("strict healthcare role evidence", () => {
       "https://careers.example-care.co.uk/vacancies",
       "example-care.co.uk",
     ).applicationUrl).toBeNull();
+  });
+
+  it("accepts a specific education role without treating it as healthcare", () => {
+    const evidence = buildStrictRolePageEvidence({
+      title: "Secondary Teacher of Mathematics",
+      sector: "education",
+      detailUrl: "https://careers.example-school.ac.uk/vacancies/maths-teacher-12",
+      listingUrl: "https://careers.example-school.ac.uk/vacancies",
+      employerHost: "example-school.ac.uk",
+      applicationUrl: "https://careers.example-school.ac.uk/vacancies/maths-teacher-12/apply",
+    });
+    expect(evidence?.sector).toBe("education");
+    expect(evidence?.roleEligibilityReview.socCode).toBe("2314");
+    expect(hasStrictRolePageEvidence(evidence, "Secondary Teacher of Mathematics")).toBe(true);
+    expect(hasStrictHealthcareRoleEvidence(evidence, "Secondary Teacher of Mathematics")).toBe(false);
+    expect(buildStrictRolePageEvidence({
+      title: "Staff Nurse",
+      sector: "education",
+      detailUrl: "https://careers.example-school.ac.uk/vacancies/staff-nurse-12",
+      listingUrl: "https://careers.example-school.ac.uk/vacancies",
+      employerHost: "example-school.ac.uk",
+      applicationUrl: "https://careers.example-school.ac.uk/vacancies/staff-nurse-12/apply",
+    })).toBeNull();
   });
 });

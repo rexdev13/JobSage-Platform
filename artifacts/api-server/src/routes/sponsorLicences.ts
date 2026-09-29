@@ -22,8 +22,9 @@ import { opportunityRegistrationLabel } from "../lib/opportunityProfession";
 import { assessSafeguarding } from "../lib/safeguarding";
 import { regionsFromLocationText } from "../lib/regionMatching";
 import {
-  HEALTHCARE_ROLE_TITLE_SQL_PATTERN,
   RECRUITMENT_EMAIL_SQL_PATTERN,
+  STRICT_ROLE_PAGE_SECTORS,
+  titleSqlPatternForSector,
 } from "../lib/healthcareRoleEvidence";
 
 const router: IRouter = Router();
@@ -37,8 +38,14 @@ const GENERIC_STRUCTURED_TITLE_SQL_PATTERN =
 function strictHealthcareRoleSql(alias: "" | "v."): SQL {
   const evidence = alias === "v." ? "v.company_vacancy_evidence" : "company_vacancy_evidence";
   const title = alias === "v." ? "v.title" : "title";
+  const sectorClauses = sql.join(
+    STRICT_ROLE_PAGE_SECTORS.map((sector) => sql`(
+      (${sql.raw(evidence)}->>'sector') = ${sector}
+      AND ${sql.raw(title)} ~* ${titleSqlPatternForSector(sector)}
+    )`),
+    sql` OR `,
+  );
   return sql`OR ((${sql.raw(evidence)}->>'kind') = 'strict_role_page'
-    AND (${sql.raw(evidence)}->>'sector') = 'healthcare'
     AND (${sql.raw(evidence)}->>'listingUrl') ~ ${HTTPS_URL_WITH_HOST_SQL_PATTERN}
     AND (${sql.raw(evidence)}->>'detailUrl') ~ ${HTTPS_URL_WITH_HOST_SQL_PATTERN}
     AND (
@@ -47,7 +54,7 @@ function strictHealthcareRoleSql(alias: "" | "v."): SQL {
     )
     AND btrim(${sql.raw(title)}) <> ''
     AND btrim(${sql.raw(title)}) !~* ${GENERIC_STRUCTURED_TITLE_SQL_PATTERN}
-    AND ${sql.raw(title)} ~* ${HEALTHCARE_ROLE_TITLE_SQL_PATTERN})`;
+    AND (${sectorClauses}))`;
 }
 
 

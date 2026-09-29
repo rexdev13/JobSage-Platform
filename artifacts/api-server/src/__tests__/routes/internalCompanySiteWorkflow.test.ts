@@ -19,8 +19,7 @@ vi.mock("../../lib/companySiteWorkflowReports", () => ({
   loadWorkflowReport: mocks.load,
   saveWorkflowReport: mocks.save,
 }));
-vi.mock("../../lib/healthcareCompanySiteBatch", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../lib/healthcareCompanySiteBatch")>()),
+vi.mock("../../lib/healthcareCompanySiteBatch", () => ({
   runHealthcareCompanySiteBatch: mocks.healthcareBatch,
 }));
 const { default: router } = await import("../../routes/internalCompanySiteWorkflow");
@@ -117,7 +116,13 @@ describe("internal company-site workflow routes", () => {
       expect(response.status).toBe(200);
       expect(response.body.reportId).toBe("batch-id");
       expect(response.body.reportKind).toBe("dry-run");
-      expect(mocks.healthcareBatch).toHaveBeenCalledWith({ employers, apply: false, budgetMs: 240_000 });
+      expect(mocks.healthcareBatch).toHaveBeenCalledWith({
+        employers,
+        apply: false,
+        applyMode: "reviewed",
+        sector: "healthcare",
+        budgetMs: 240_000,
+      });
     });
 
     it("refuses apply without the exact confirmation string", async () => {
@@ -132,7 +137,85 @@ describe("internal company-site workflow routes", () => {
       });
       expect(response.status).toBe(200);
       expect(response.body.reportKind).toBe("apply");
-      expect(mocks.healthcareBatch).toHaveBeenCalledWith({ employers, apply: true, budgetMs: 240_000 });
+      expect(mocks.healthcareBatch).toHaveBeenCalledWith({
+        employers,
+        apply: true,
+        applyMode: "reviewed",
+        sector: "healthcare",
+        budgetMs: 240_000,
+      });
+    });
+
+    it("accepts scheduled apply confirmation and forwards applyMode", async () => {
+      mocks.healthcareBatch.mockResolvedValue({
+        apply: true,
+        accepted: 1,
+        inserted: 1,
+        repeatInserted: 0,
+        scheduledApplyBlocked: null,
+      });
+      const response = await request(app).post("/internal/healthcare-company-site-batch").set(header).send({
+        employers,
+        apply: true,
+        confirmApply: "scheduled-apply-named-company-site-batch",
+      });
+      expect(response.status).toBe(200);
+      expect(mocks.healthcareBatch).toHaveBeenCalledWith({
+        employers,
+        apply: true,
+        applyMode: "scheduled",
+        sector: "healthcare",
+        budgetMs: 240_000,
+      });
+    });
+
+    it("forwards a named sector and refuses an unknown one", async () => {
+      const response = await request(app).post("/internal/healthcare-company-site-batch").set(header).send({
+        employers,
+        sector: "education",
+      });
+      expect(response.status).toBe(200);
+      expect(mocks.healthcareBatch).toHaveBeenCalledWith({
+        employers,
+        apply: false,
+        applyMode: "reviewed",
+        sector: "education",
+        budgetMs: 240_000,
+      });
+      expect((await request(app).post("/internal/healthcare-company-site-batch").set(header).send({
+        employers,
+        sector: "hospitality",
+      })).status).toBe(400);
+      expect((await request(app).post("/internal/healthcare-company-site-batch").set(header).send({
+        employers,
+        apply: true,
+        sector: "education",
+        confirmApply: "apply-reviewed-healthcare-company-site-batch",
+      })).status).toBe(400);
+    });
+
+    it("accepts the named confirmation string for a non-healthcare sector", async () => {
+      mocks.healthcareBatch.mockResolvedValue({
+        apply: true,
+        accepted: 1,
+        inserted: 1,
+        repeatInserted: 0,
+        scheduledApplyBlocked: null,
+      });
+      const response = await request(app).post("/internal/healthcare-company-site-batch").set(header).send({
+        employers,
+        apply: true,
+        sector: "education",
+        confirmApply: "apply-reviewed-named-company-site-batch",
+      });
+      expect(response.status).toBe(200);
+      expect(mocks.healthcareBatch).toHaveBeenCalledWith({
+        employers,
+        apply: true,
+        applyMode: "reviewed",
+        sector: "education",
+        budgetMs: 240_000,
+      });
     });
   });
 

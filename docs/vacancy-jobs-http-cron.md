@@ -36,7 +36,7 @@ Kinds and safe HTTP defaults:
 | `job_board` | 50 employers | 50 |
 | `company_site` | 10 employers | 10 |
 | `company_site_probe` | 30 employers | 30 |
-| `liveness` | 40 URLs | 50 |
+| `liveness` | 50 URLs | 50 |
 | `contact` | 5 employers | 5 |
 | `reed_professions` | 1 profession category | 2 categories |
 | `additional_boards` | 1 board/profession page | 2 board/profession pages |
@@ -150,7 +150,7 @@ curl --fail-with-body -X POST https://jobsage.co.uk/api/internal/vacancy-jobs \
 curl --fail-with-body -X POST https://jobsage.co.uk/api/internal/vacancy-jobs \
   -H "Content-Type: application/json" \
   -H "x-jobsage-job-secret: ${VACANCY_JOB_SECRET}" \
-  --data '{"kind":"liveness","limit":40}'
+  --data '{"kind":"liveness","limit":50}'
 
 curl --fail-with-body -X POST https://jobsage.co.uk/api/internal/vacancy-jobs \
   -H "Content-Type: application/json" \
@@ -190,8 +190,10 @@ Create POST jobs using the endpoint, JSON body, and
 - Board: `0 2,8,14,20 * * *`
 - Company site: `17 * * * *`
 - Company-site probe: `30 3,5,9,11,15,17,21,23 * * *`
-- Liveness: `30 1,7,13,19 * * *`
+- Liveness: `30 1,7,13,19 * * *` and `36 1,7,13,19 * * *`
 - Contact: `47 3 * * *` (one authenticated, non-overlapping daily batch)
+- Named company-site look-only: `5 6 * * *` (healthcare Kingsley cohort; `apply: false`)
+- Named company-site scheduled apply: add only after look-only reports `accepted > 0` for three days (`05 7 * * *`, never overlapping `:17`)
 
 Keep the existing board, company-site, liveness, and contact jobs. For
 continuous profession coverage, create the following 19 additional POST jobs.
@@ -243,6 +245,14 @@ request and honor `Retry-After: 30` on a `409` or `504`.
 | `54 1-23/2 * * *` | Additional boards cursor 8 | `additional_boards` | `{"kind":"additional_boards","cursor":8,"limit":1}` |
 | `58 1-23/2 * * *` | Additional boards cursor 9 | `additional_boards` | `{"kind":"additional_boards","cursor":9,"limit":1}` |
 
+Additional-board cursors 0–6 are NHS Jobs profession searches, in this order:
+nurse, midwife, doctor, physiotherapist, social worker, pharmacist, dentist.
+Cursors 7–9 stay on jobs.ac.uk (teacher, engineer, IT). Reed cursors 0–8 are
+unchanged. Nurse, doctor, and physiotherapist were added at the end of the
+Reed list, so they need new cron cursors 11, 12, and 13 before that Reed pass
+includes them. The same is true for any additional-board page after cursor 9:
+the fixed jobs above do not reach it.
+
 The even-hour Reed pass and the odd-hour additional-board pass each complete
 every two hours. Additional-board cursor 0 uses `:58` in even hours so the
 remaining odd-hour jobs avoid the existing liveness `:30` slots. The
@@ -267,9 +277,66 @@ These schedules are deployment instructions, not an instruction to publish or
 to run against production from this development workspace. Enable them only
 after the route is published and the production secret has been configured.
 
+## Named company-site batch (all opportunity sectors)
+
+Use this instead of the hourly generic `company_site` writer when the goal is
+candidate-visible company-website jobs. It only accepts a named employer list,
+HTTPS careers URLs, a sector title filter, and an apply or recruitment route.
+
+```text
+POST https://jobsage.co.uk/api/internal/healthcare-company-site-batch
+Header: x-jobsage-job-secret: <secret>
+Content-Type: application/json
+```
+
+`sector` is one of `healthcare`, `education`, `engineering`, `it`, `legal`,
+`accounting`, `architecture`, or `business_development`. Omit it for healthcare.
+Keep `COMPANY_SITE_GENERIC_IMPORT_ENABLED=false` in production after this cron
+is green; do not use generic `company_site` writes as the scale path.
+
+Look-only (first 3–7 days):
+
+```json
+{
+  "apply": false,
+  "sector": "healthcare",
+  "employers": [
+    {
+      "organisationName": "Kingsley Healthcare Limited",
+      "website": "https://www.kingsleyhealthcare.co.uk",
+      "careersUrl": "https://careers.kingsleyhealthcare.co.uk/vacancies"
+    }
+  ]
+}
+```
+
+Scheduled apply, after look-only is green. The server still refuses to write
+when discovery found nothing, host pacing returned zero accepted rows, or an
+accepted row lacks a HTTPS apply URL and recruitment mailbox:
+
+```json
+{
+  "apply": true,
+  "confirmApply": "scheduled-apply-named-company-site-batch",
+  "sector": "healthcare",
+  "employers": [
+    {
+      "organisationName": "Kingsley Healthcare Limited",
+      "website": "https://www.kingsleyhealthcare.co.uk",
+      "careersUrl": "https://careers.kingsleyhealthcare.co.uk/vacancies"
+    }
+  ]
+}
+```
+
+Add at most three named employers per week, each proven with a look-only run
+that accepted real role titles for that sector. Do not add JavaScript-only
+boards. Other sectors use the same route with a different `sector` and their
+own named list; do not send an empty employer array.
+
 cron-job.org sends one request per trigger. The recommended baseline is one
-company-site request hourly, one board request every six hours, four liveness
-requests daily, and one contact request daily. Never overlap kinds; they share
+company-site request hourly, one board request every six hours, eight liveness
+requests daily (two batches on each of the four liveness hours), and one contact request daily. Never overlap kinds; they share
 one writer lock and overlapping requests receive `409`.
 
 If company-site throughput later needs to approach 142 completed employers/hour,

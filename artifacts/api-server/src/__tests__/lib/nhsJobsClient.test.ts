@@ -83,6 +83,7 @@ describe("NHS Jobs HTML parser", () => {
     expect(candidateEmployerMatchesSponsor("Ambourne House Limited", "Tamworth House Medical Centre")).toBe(false);
     expect(candidateEmployerMatchesSponsor("Homerton College", "Homerton Healthcare NHS Foundation Trust")).toBe(false);
     expect(candidateEmployerMatchesSponsor("Imperial Centre Limited", "Imperial College Healthcare NHS Trust")).toBe(false);
+    expect(candidateEmployerMatchesSponsor("Care 4 Care Services Ltd", "Cygnet Health Care")).toBe(false);
   });
 
   it("returns employer identity for candidate-wide sponsor matching", () => {

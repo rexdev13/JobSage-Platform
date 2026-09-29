@@ -6,24 +6,39 @@ import { upsertSharedBoardVacancies, type BoardAdvert } from "./boardVacancyPipe
 import { getCandidateVacancyStatus } from "./vacancyLiveness";
 import { canonicalVacancyUrl } from "./vacancySource";
 import {
-  buildStrictHealthcareRoleEvidence,
+  buildStrictRolePageEvidence,
   extractHealthcareApplicationRoute,
-  isSpecificHealthcareRoleTitle,
-  type StrictHealthcareRoleEvidence,
+  isSpecificRoleTitle,
+  parseStrictRolePageSector,
+  type StrictRolePageEvidence,
+  type StrictRolePageSector,
 } from "./healthcareRoleEvidence";
+import { sponsorIndustriesForSector } from "./companySiteRoleSectors";
+import {
+  HEALTHCARE_BATCH_DEFAULT_BUDGET_MS,
+  namedSponsorIndustryAllowed,
+  parseHealthcareBatchEmployers,
+  scheduledApplyBlockReason,
+  type CompanySiteBatchApplyMode,
+  type HealthcareBatchEmployer,
+} from "./namedCompanySiteBatchPolicy";
 
-export const HEALTHCARE_BATCH_MAX_EMPLOYERS = 15;
+export {
+  HEALTHCARE_BATCH_APPLY_CONFIRMATION,
+  HEALTHCARE_BATCH_DEFAULT_BUDGET_MS,
+  HEALTHCARE_BATCH_MAX_EMPLOYERS,
+  NAMED_BATCH_APPLY_CONFIRMATION,
+  parseHealthcareBatchEmployers,
+  scheduledApplyBlockReason,
+  SCHEDULED_NAMED_BATCH_APPLY_CONFIRMATION,
+  type CompanySiteBatchApplyMode,
+  type HealthcareBatchEmployer,
+} from "./namedCompanySiteBatchPolicy";
+
 export const HEALTHCARE_BATCH_MAX_DETAIL_FETCHES = 40;
 export const HEALTHCARE_BATCH_MAX_DISCOVERY_PASSES = 4;
-export const HEALTHCARE_BATCH_DEFAULT_BUDGET_MS = 240_000;
 const REVIEW_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 const DETAIL_PACE_MS = 1_800;
-
-export type HealthcareBatchEmployer = {
-  organisationName: string;
-  website: string;
-  careersUrl: string;
-};
 
 export type HealthcareBatchRejection = {
   organisationName: string;
@@ -41,7 +56,7 @@ export type HealthcareBatchAccepted = {
   contactEmail: string | null;
   listingUrl: string;
   description: string | null;
-  evidence: StrictHealthcareRoleEvidence;
+  evidence: StrictRolePageEvidence;
 };
 
 export type HealthcareBatchStoredRow = {
@@ -80,43 +95,19 @@ export type HealthcareBatchReport = {
     insertedIds: number[];
     deleteInsertedSql: string | null;
   } | null;
+  sector: StrictRolePageSector;
+  applyMode: CompanySiteBatchApplyMode;
+  scheduledApplyBlocked: string | null;
 };
 
 export type HealthcareBatchOptions = {
   employers: HealthcareBatchEmployer[];
   apply: boolean;
+  applyMode?: CompanySiteBatchApplyMode;
+  sector?: StrictRolePageSector | string;
   budgetMs?: number;
   now?: () => number;
 };
-
-export function parseHealthcareBatchEmployers(value: unknown): HealthcareBatchEmployer[] {
-  if (!Array.isArray(value) || value.length === 0) {
-    throw new Error("employers must be a non-empty array.");
-  }
-  if (value.length > HEALTHCARE_BATCH_MAX_EMPLOYERS) {
-    throw new Error(`employers is limited to ${HEALTHCARE_BATCH_MAX_EMPLOYERS} entries.`);
-  }
-  return value.map((row, index) => {
-    if (!row || typeof row !== "object") throw new Error(`employers[${index}] must be an object.`);
-    const record = row as Record<string, unknown>;
-    const organisationName = typeof record.organisationName === "string" ? record.organisationName.trim() : "";
-    const website = typeof record.website === "string" ? record.website.trim() : "";
-    const careersUrl = typeof record.careersUrl === "string" ? record.careersUrl.trim() : "";
-    if (!organisationName || !website || !careersUrl) {
-      throw new Error(`employers[${index}] needs organisationName, website, and careersUrl.`);
-    }
-    for (const candidate of [website, careersUrl]) {
-      let parsed: URL;
-      try {
-        parsed = new URL(candidate);
-      } catch {
-        throw new Error(`employers[${index}] has an invalid URL.`);
-      }
-      if (parsed.protocol !== "https:") throw new Error(`employers[${index}] URLs must use https.`);
-    }
-    return { organisationName, website, careersUrl };
-  });
-}
 
 type StoredVacancy = {
   id: number;
@@ -179,6 +170,9 @@ export async function runHealthcareCompanySiteBatch(
   const now = options.now ?? Date.now;
   const deadline = now() + (options.budgetMs ?? HEALTHCARE_BATCH_DEFAULT_BUDGET_MS);
   const employers = parseHealthcareBatchEmployers(options.employers);
+  const sector = parseStrictRolePageSector(options.sector);
+  const applyMode = options.applyMode ?? "reviewed";
+  const industries = sponsorIndustriesForSector(sector);
   const accepted: HealthcareBatchAccepted[] = [];
   const rejected: HealthcareBatchRejection[] = [];
   const employersChecked: Array<Record<string, unknown>> = [];
@@ -191,17 +185,17 @@ export async function runHealthcareCompanySiteBatch(
       employersChecked.push({ organisationName: employer.organisationName, status: "skipped_budget" });
       continue;
     }
-    const sponsor = await db.execute<{ organisation_name: string }>(sql`
-      SELECT organisation_name
+    const sponsor = await db.execute<{ organisation_name: string; industry: string | null }>(sql`
+      SELECT organisation_name, industry
       FROM sponsor_licences
       WHERE lower(btrim(organisation_name)) = lower(btrim(${employer.organisationName}))
-        AND industry IN ('Healthcare', 'Social Care')
       LIMIT 1
     `);
     const organisationName = sponsor.rows[0]?.organisation_name;
-    if (!organisationName) {
-      rejected.push({ organisationName: employer.organisationName, reason: "not_a_healthcare_sponsor" });
-      employersChecked.push({ organisationName: employer.organisationName, status: "rejected", reason: "not_a_healthcare_sponsor" });
+    if (!organisationName || !namedSponsorIndustryAllowed(sponsor.rows[0]?.industry, industries)) {
+      const reason = organisationName ? "not_a_sector_sponsor" : "not_a_sponsor";
+      rejected.push({ organisationName: employer.organisationName, reason });
+      employersChecked.push({ organisationName: employer.organisationName, status: "rejected", reason });
       continue;
     }
     resolvedNames.push(organisationName);
@@ -257,8 +251,8 @@ export async function runHealthcareCompanySiteBatch(
         rejected.push({ organisationName, title: advert.title, url: advert.url, reason: "budget_exhausted" });
         continue;
       }
-      if (!isSpecificHealthcareRoleTitle(advert.title)) {
-        rejected.push({ organisationName, title: advert.title, url: advert.url, reason: "title_not_specific_healthcare_role" });
+      if (!isSpecificRoleTitle(advert.title, sector)) {
+        rejected.push({ organisationName, title: advert.title, url: advert.url, reason: "title_not_specific_role" });
         continue;
       }
       if (detailFetches >= HEALTHCARE_BATCH_MAX_DETAIL_FETCHES) {
@@ -285,8 +279,9 @@ export async function runHealthcareCompanySiteBatch(
       }
       const route = extractHealthcareApplicationRoute(detail.body, advert.url, origin);
       const listingUrl = advert.companyVacancyEvidence?.listingUrl || employer.careersUrl;
-      const evidence = buildStrictHealthcareRoleEvidence({
+      const evidence = buildStrictRolePageEvidence({
         title: advert.title,
+        sector,
         detailUrl: advert.url,
         listingUrl,
         employerHost: origin,
@@ -365,9 +360,26 @@ export async function runHealthcareCompanySiteBatch(
     candidateVisible: 0,
     storedRows: [],
     rollback: null,
+    sector,
+    applyMode,
+    scheduledApplyBlocked: null,
   };
 
-  if (!options.apply || accepted.length === 0) return report;
+  if (!options.apply) return report;
+  const scheduledBlock = applyMode === "scheduled"
+    ? scheduledApplyBlockReason({
+      found: report.found,
+      accepted: report.accepted,
+      budgetExhausted,
+      employersChecked,
+      acceptedRows: accepted,
+    })
+    : null;
+  if (scheduledBlock || accepted.length === 0) {
+    report.apply = false;
+    report.scheduledApplyBlocked = scheduledBlock ?? (applyMode === "scheduled" ? "accepted_zero" : null);
+    return report;
+  }
 
   const reviewUntil = new Date(now() + REVIEW_WINDOW_MS);
   const adverts: BoardAdvert[] = accepted.map((row) => ({
@@ -430,3 +442,5 @@ export async function runHealthcareCompanySiteBatch(
   }
   return report;
 }
+
+export const runNamedCompanySiteBatch = runHealthcareCompanySiteBatch;
