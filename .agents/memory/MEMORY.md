@@ -83,4 +83,4 @@
 - [Production sponsor import identity](production-sponsor-import-identity.md) — IDs differ across environments; use a fresh production crosswalk and the guarded blank-only admin importer.
 - [Sponsor URL import fan-out](sponsor-url-import-fanout.md) — only fan out identical complete identities to blank rows; manual crosswalks select one target and held rows stay outside vacancy inputs.
 - [Secret scope verification](secret-scope-verification.md) — a secret’s presence in environment queries does not prove it is configured as a published app secret.
-- [Git authentication vs connectors](git-auth-vs-connectors.md) — Agent GitHub API access does not establish Git push authentication; diagnose prompts separately.
+- [Git authentication and merge-safe pushes](git-auth-vs-connectors.md) — CLI auth is separate from connectors; inspect and preserve merge commits when Git-pane sync triggers a rebase.
