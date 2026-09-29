@@ -138,9 +138,16 @@ async function selectSweepBatch(limit: number, staleThresholdMs: number): Promis
   const staleSecs = staleThresholdMs / 1000;
   const result = await db.execute<SweepSqlRow>(sql`
     WITH all_links AS (
-      SELECT 'sponsor_vacancy' AS source, v.source_type, v.id, v.url, v.last_verified_at
+      SELECT 'sponsor_vacancy' AS source, v.source_type, v.id,
+        CASE
+          WHEN v.source_type = 'company_site'
+            THEN COALESCE(NULLIF(btrim(v.application_url), ''), v.url)
+          ELSE v.url
+        END AS url,
+        v.last_verified_at
       FROM sponsor_licence_vacancies v
-      WHERE v.url IS NOT NULL AND v.liveness <> 'dead'
+      WHERE COALESCE(NULLIF(btrim(v.application_url), ''), v.url) IS NOT NULL
+        AND v.liveness <> 'dead'
         AND (v.last_verified_at IS NULL OR v.last_verified_at < NOW() - make_interval(secs => ${staleSecs}))
       UNION ALL
       SELECT 'role' AS source, NULL::text AS source_type, r.id, r.apply_url AS url, r.last_verified_at
@@ -207,7 +214,7 @@ async function markResult(
     .where(
       // Sponsor vacancy snapshots repeat the same URL across check dates —
       // one verdict applies to every row sharing the URL.
-      row.source === "sponsor_vacancy"
+      row.source === "sponsor_vacancy" && row.sourceType !== "company_site"
         ? eq(sponsorLicenceVacanciesTable.url, row.url)
         : eq(table.id, row.id),
     );

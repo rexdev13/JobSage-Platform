@@ -97,6 +97,7 @@ describe("POST /internal/vacancy-jobs", () => {
   it.each([
     ["job_board", 999, 50],
     ["company_site", 999, 10],
+    ["company_site_direct_feed", 999, 10],
     ["company_site_probe", 999, 60],
     ["liveness", 999, 50],
     ["contact", 999, 5],
@@ -141,6 +142,62 @@ describe("POST /internal/vacancy-jobs", () => {
 
     expect(response.status).toBe(200);
     expect(runVacancyJobMock).toHaveBeenCalledWith("company_site", 3, { deadlineMs: undefined });
+  });
+
+  it("defaults direct-feed batches to five employers", async () => {
+    const response = await request(app)
+      .post("/internal/vacancy-jobs")
+      .set("x-jobsage-job-secret", "test-job-secret")
+      .send({ kind: "company_site_direct_feed" });
+
+    expect(response.status).toBe(200);
+    expect(runVacancyJobMock).toHaveBeenCalledWith(
+      "company_site_direct_feed",
+      5,
+      { deadlineMs: undefined },
+    );
+  });
+
+  it("forwards an exact company-site employer allowlist to the scheduler", async () => {
+    const response = await request(app)
+      .post("/internal/vacancy-jobs")
+      .set("x-jobsage-job-secret", "test-job-secret")
+      .send({
+        kind: "company_site",
+        limit: 1,
+        organisationNames: [" Acme Engineering Limited "],
+      });
+
+    expect(response.status).toBe(200);
+    expect(runVacancyJobMock).toHaveBeenCalledWith(
+      "company_site",
+      1,
+      {
+        deadlineMs: undefined,
+        organisationNames: ["Acme Engineering Limited"],
+      },
+    );
+  });
+
+  it.each([
+    ["empty list", { kind: "company_site", organisationNames: [] }],
+    ["blank name", { kind: "company_site", organisationNames: ["  "] }],
+    ["duplicate normalized names", {
+      kind: "company_site",
+      organisationNames: ["Acme Ltd", " acme ltd "],
+    }],
+    ["allowlist on another job", {
+      kind: "job_board",
+      organisationNames: ["Acme Ltd"],
+    }],
+  ])("rejects an invalid employer allowlist: %s", async (_label, body) => {
+    const response = await request(app)
+      .post("/internal/vacancy-jobs")
+      .set("x-jobsage-job-secret", "test-job-secret")
+      .send(body);
+
+    expect(response.status).toBe(400);
+    expect(runVacancyJobMock).not.toHaveBeenCalled();
   });
 
   it("accepts resumable Reed profession pages", async () => {

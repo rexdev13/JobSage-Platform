@@ -43,6 +43,7 @@ async function markUrlDeadGlobally(url: string, reason: string | null): Promise<
 async function canPromoteUrl(url: string): Promise<boolean> {
   const stored = await db
     .select({
+      title: sponsorLicenceVacanciesTable.title,
       sourceType: sponsorLicenceVacanciesTable.sourceType,
       liveness: sponsorLicenceVacanciesTable.liveness,
       lastVerifiedAt: sponsorLicenceVacanciesTable.lastVerifiedAt,

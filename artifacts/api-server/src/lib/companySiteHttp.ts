@@ -10,12 +10,15 @@ import { isPrivateIp } from "./linkHealth";
 import { withCompanySiteDatabaseRetry } from "./companySitePersistence";
 
 export const COMPANY_SITE_PAGE_TIMEOUT_MS = 9_000;
+// Documented public ATS feeds can be slower than ordinary employer HTML pages.
+// Their requests still obey the caller's absolute deadline and the same host safety policy.
+export const COMPANY_SITE_PUBLIC_API_TIMEOUT_MS = 25_000;
 export const COMPANY_SITE_EMPLOYER_BUDGET_MS = 25_000;
 export const COMPANY_SITE_HOST_DELAY_MS = 1_750;
 export const COMPANY_SITE_ROBOTS_TTL_MS = 36 * 60 * 60 * 1000;
 export const COMPANY_SITE_DNS_TIMEOUT_MS = 3_000;
 
-const HOST_LEASE_MS = COMPANY_SITE_PAGE_TIMEOUT_MS + 3_000;
+const HOST_LEASE_MS = Math.max(COMPANY_SITE_PAGE_TIMEOUT_MS, COMPANY_SITE_PUBLIC_API_TIMEOUT_MS) + 3_000;
 const MAX_REDIRECTS = 3;
 const MAX_PAGE_BYTES = 1_000_000;
 const MAX_ROBOTS_BYTES = 128_000;
@@ -23,6 +26,26 @@ const USER_AGENT = "JOBSAGE vacancy discovery/1.0 (+https://jobsage.co.uk)";
 const gunzipAsync = promisify(gunzip);
 const inflateAsync = promisify(inflate);
 const brotliDecompressAsync = promisify(brotliDecompress);
+type ReadOnlyHostState = {
+  lastRequestAt: number;
+  requestLeaseUntil: number;
+  requestLeaseToken: string | null;
+  failureCount: number;
+  retryAfter: number;
+};
+const readOnlyHostStates = new Map<string, ReadOnlyHostState>();
+const readOnlyRobotsCache = new Map<string, { body: string | null; checkedAt: number }>();
+
+export type CompanySiteFetchOptions = {
+  readOnly?: boolean;
+  noHostState?: boolean;
+  noProcessCache?: boolean;
+};
+
+export function resetCompanySiteEphemeralState(): void {
+  readOnlyHostStates.clear();
+  readOnlyRobotsCache.clear();
+}
 
 const ATS_HOSTS: Array<{ provider: string; suffix: string }> = [
   { provider: "Greenhouse", suffix: "greenhouse.io" },
@@ -35,6 +58,9 @@ const ATS_HOSTS: Array<{ provider: string; suffix: string }> = [
   { provider: "SAP SuccessFactors", suffix: "successfactors.com" },
   { provider: "Ashby", suffix: "ashbyhq.com" },
   { provider: "BambooHR", suffix: "bamboohr.com" },
+  { provider: "Recruitee", suffix: "recruitee.com" },
+  { provider: "Personio", suffix: "personio.com" },
+  { provider: "Personio", suffix: "personio.de" },
 ];
 
 export type CompanySiteFetchFailure =
@@ -94,14 +120,25 @@ export async function decodeCompanySiteResponseBody(
   // decoded payload fits. Permit one extra byte, then enforce our own ceiling.
   const options = { maxOutputLength: maxBytes + 1 };
   for (const encoding of encodings.reverse()) {
-    if (encoding === "gzip" || encoding === "x-gzip") {
-      decoded = await gunzipAsync(decoded, options);
-    } else if (encoding === "deflate") {
-      decoded = await inflateAsync(decoded, options);
-    } else if (encoding === "br") {
-      decoded = await brotliDecompressAsync(decoded, options);
-    } else {
-      throw new Error(`unsupported content encoding: ${encoding}`);
+    try {
+      if (encoding === "gzip" || encoding === "x-gzip") {
+        decoded = await gunzipAsync(decoded, options);
+      } else if (encoding === "deflate") {
+        decoded = await inflateAsync(decoded, options);
+      } else if (encoding === "br") {
+        decoded = await brotliDecompressAsync(decoded, options);
+      } else {
+        throw new Error(`unsupported content encoding: ${encoding}`);
+      }
+    } catch (error) {
+      // zlib may throw a platform-specific Buffer allocation error when the
+      // decoded stream crosses maxOutputLength. Convert it to our bounded,
+      // classifiable size failure instead of leaking an allocation detail.
+      const reason = error instanceof Error ? error.message : String(error);
+      if (/larger than|max(?:imum)? output|maxOutputLength|output length/i.test(reason)) {
+        throw new Error(`decoded response exceeded ${maxBytes} bytes`);
+      }
+      throw error;
     }
     if (decoded.byteLength > maxBytes) {
       throw new Error(`decoded response exceeded ${maxBytes} bytes`);
@@ -224,6 +261,7 @@ export async function requestPinned(
   pinned: PinnedAddress,
   timeoutMs: number,
   maxBytes: number,
+  requestOptions: { method?: "GET" | "POST"; body?: string } = {},
 ): Promise<PinnedResponse> {
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -244,15 +282,21 @@ export async function requestPinned(
     const request = client.request(
       url,
       {
-        method: "GET",
+        method: requestOptions.method ?? "GET",
         agent: false,
         lookup: createPinnedLookup(pinned),
         servername: url.protocol === "https:" ? url.hostname : undefined,
         headers: {
           "User-Agent": USER_AGENT,
-          Accept: "text/html,application/xhtml+xml,text/plain;q=0.8,*/*;q=0.5",
+          Accept: requestOptions.method === "POST"
+            ? "application/json"
+            : "text/html,application/xhtml+xml,text/plain;q=0.8,*/*;q=0.5",
           "Accept-Language": "en-GB,en;q=0.9",
           "Accept-Encoding": "gzip, deflate, br",
+          ...(requestOptions.body ? {
+            "Content-Type": "application/json",
+            "Content-Length": Buffer.byteLength(requestOptions.body),
+          } : {}),
         },
       },
       (response) => {
@@ -318,7 +362,7 @@ export async function requestPinned(
       socket.on("error", rejectOnce);
     });
     request.on("error", rejectOnce);
-    request.end();
+    request.end(requestOptions.body);
   });
 }
 
@@ -374,9 +418,67 @@ function parseRetryAfter(value: string | null): Date | null {
   return Number.isFinite(timestamp) ? new Date(timestamp) : null;
 }
 
-export async function reserveHost(hostname: string, deadlineMs: number): Promise<HostReservation> {
+export async function reserveHost(
+  hostname: string,
+  deadlineMs: number,
+  readOnly = false,
+  noHostState = false,
+  noProcessCache = false,
+): Promise<HostReservation> {
   const host = normaliseHostname(hostname);
   const now = new Date();
+  if (noProcessCache) {
+    const waitMs = COMPANY_SITE_HOST_DELAY_MS;
+    if (Date.now() + waitMs >= deadlineMs) {
+      return { allowed: false, waitMs };
+    }
+    await sleep(waitMs);
+    return { allowed: true, leaseToken: crypto.randomUUID() };
+  }
+  if (readOnly || noHostState) {
+    // Read-only mode may consult persisted state. --no-host-state bypasses all
+    // persisted state and uses only the process-local pacing layer.
+    const [stored] = noHostState
+      ? [undefined]
+      : await db
+          .select({
+            retryAfter: companySiteHostStatesTable.retryAfter,
+            requestLeaseUntil: companySiteHostStatesTable.requestLeaseUntil,
+            lastRequestAt: companySiteHostStatesTable.lastRequestAt,
+          })
+          .from(companySiteHostStatesTable)
+          .where(eq(companySiteHostStatesTable.hostname, host))
+          .limit(1);
+    const local = readOnlyHostStates.get(host);
+    const storedRetryAt = stored?.retryAfter?.getTime() ?? 0;
+    const storedLeaseUntil = stored?.requestLeaseUntil?.getTime() ?? 0;
+    const storedLastRequestAt = stored?.lastRequestAt?.getTime() ?? 0;
+    const waitUntil = Math.max(
+      storedRetryAt,
+      storedLeaseUntil,
+      storedLastRequestAt + COMPANY_SITE_HOST_DELAY_MS,
+      local?.retryAfter ?? 0,
+      local?.requestLeaseUntil ?? 0,
+      local?.lastRequestAt ? local.lastRequestAt + COMPANY_SITE_HOST_DELAY_MS : 0,
+    );
+    if (waitUntil > now.getTime()) {
+      const retryAtMs = Math.max(storedRetryAt, local?.retryAfter ?? 0);
+      return {
+        allowed: false,
+        ...(retryAtMs > 0 ? { retryAt: new Date(retryAtMs) } : {}),
+        waitMs: Math.max(50, Math.min(waitUntil - now.getTime(), Math.max(50, deadlineMs - now.getTime()))),
+      };
+    }
+    const leaseToken = crypto.randomUUID();
+    readOnlyHostStates.set(host, {
+      lastRequestAt: Math.max(storedLastRequestAt, local?.lastRequestAt ?? 0),
+      requestLeaseUntil: now.getTime() + HOST_LEASE_MS,
+      requestLeaseToken: leaseToken,
+      failureCount: local?.failureCount ?? 0,
+      retryAfter: Math.max(storedRetryAt, local?.retryAfter ?? 0),
+    });
+    return { allowed: true, leaseToken };
+  }
   const leaseUntil = new Date(now.getTime() + HOST_LEASE_MS);
   const leaseToken = crypto.randomUUID();
   const result = await withCompanySiteDatabaseRetry("reserve host", () =>
@@ -428,7 +530,25 @@ export async function reserveHost(hostname: string, deadlineMs: number): Promise
   };
 }
 
-export async function completeHost(hostname: string, leaseToken: string): Promise<void> {
+export async function completeHost(
+  hostname: string,
+  leaseToken: string,
+  readOnly = false,
+  noHostState = false,
+  noProcessCache = false,
+): Promise<void> {
+  if (noProcessCache) return;
+  if (readOnly || noHostState) {
+    const host = normaliseHostname(hostname);
+    const state = readOnlyHostStates.get(host);
+    if (!state || state.requestLeaseToken !== leaseToken) return;
+    state.requestLeaseUntil = 0;
+    state.requestLeaseToken = null;
+    state.lastRequestAt = Date.now();
+    state.failureCount = 0;
+    state.retryAfter = 0;
+    return;
+  }
   await withCompanySiteDatabaseRetry("complete host", () => db
     .update(companySiteHostStatesTable)
     .set({
@@ -445,7 +565,22 @@ export async function completeHost(hostname: string, leaseToken: string): Promis
     ));
 }
 
-export async function releaseHost(hostname: string, leaseToken: string): Promise<void> {
+export async function releaseHost(
+  hostname: string,
+  leaseToken: string,
+  readOnly = false,
+  noHostState = false,
+  noProcessCache = false,
+): Promise<void> {
+  if (noProcessCache) return;
+  if (readOnly || noHostState) {
+    const state = readOnlyHostStates.get(normaliseHostname(hostname));
+    if (state?.requestLeaseToken === leaseToken) {
+      state.requestLeaseUntil = 0;
+      state.requestLeaseToken = null;
+    }
+    return;
+  }
   await withCompanySiteDatabaseRetry("release host", () => db
     .update(companySiteHostStatesTable)
     .set({
@@ -465,8 +600,26 @@ export async function failHost(
   hostname: string,
   leaseToken: string,
   explicitRetryAt: Date | null,
+  readOnly = false,
+  noHostState = false,
+  noProcessCache = false,
 ): Promise<Date | null> {
   const host = normaliseHostname(hostname);
+  if (noProcessCache) return null;
+  if (readOnly || noHostState) {
+    const state = readOnlyHostStates.get(host);
+    if (!state || state.requestLeaseToken !== leaseToken) return null;
+    const now = Date.now();
+    state.lastRequestAt = now;
+    state.failureCount = Math.min(state.failureCount + 1, 8);
+    state.retryAfter = Math.max(
+      explicitRetryAt?.getTime() ?? 0,
+      now + Math.min(24 * 60 * 60 * 1000, 15 * 60 * 1000 * 2 ** (state.failureCount - 1)),
+    );
+    state.requestLeaseUntil = 0;
+    state.requestLeaseToken = null;
+    return new Date(state.retryAfter);
+  }
   const result = await withCompanySiteDatabaseRetry("fail host", () =>
     db.execute<{ retry_after: Date | string | null }>(sql`
     UPDATE company_site_host_states
@@ -498,6 +651,10 @@ async function fetchWithoutRobots(
   deadlineMs: number,
   maxBytes = MAX_PAGE_BYTES,
   checkRedirectRobots = false,
+  timeoutCapMs = COMPANY_SITE_PAGE_TIMEOUT_MS,
+  readOnly = false,
+  noHostState = false,
+  noProcessCache = false,
 ): Promise<CompanySiteFetchResult> {
   let currentUrl = inputUrl;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
@@ -514,7 +671,14 @@ async function fetchWithoutRobots(
       return { ok: false, kind: "unsafe", reason: `redirect outside employer or approved ATS: ${parsed.hostname}` };
     }
     if (checkRedirectRobots && hop > 0) {
-      const redirectedPolicy = await robotsPolicy(currentUrl, originHostname, deadlineMs);
+      const redirectedPolicy = await robotsPolicy(
+        currentUrl,
+        originHostname,
+        deadlineMs,
+        readOnly,
+        noHostState,
+        noProcessCache,
+      );
       if (!redirectedPolicy.allowed) {
         return {
           ok: false,
@@ -551,10 +715,22 @@ async function fetchWithoutRobots(
       };
     }
 
-    let reservation = await reserveHost(parsed.hostname, deadlineMs);
+      let reservation = await reserveHost(
+        parsed.hostname,
+        deadlineMs,
+        readOnly,
+        noHostState,
+        noProcessCache,
+      );
     while (!reservation.allowed && Date.now() + reservation.waitMs < deadlineMs) {
       await sleep(reservation.waitMs);
-      reservation = await reserveHost(parsed.hostname, deadlineMs);
+        reservation = await reserveHost(
+          parsed.hostname,
+          deadlineMs,
+          readOnly,
+          noHostState,
+          noProcessCache,
+        );
     }
     if (!reservation.allowed) {
       return {
@@ -566,12 +742,12 @@ async function fetchWithoutRobots(
     }
 
     const leaseToken = reservation.leaseToken;
-    const timeoutMs = Math.max(1, Math.min(COMPANY_SITE_PAGE_TIMEOUT_MS, deadlineMs - Date.now()));
+    const timeoutMs = Math.max(1, Math.min(timeoutCapMs, deadlineMs - Date.now()));
     try {
       const response = await requestPinned(parsed, pinned, timeoutMs, maxBytes);
       if (response.status >= 300 && response.status < 400) {
         const location = headerValue(response.headers, "location");
-        await completeHost(parsed.hostname, leaseToken);
+        await completeHost(parsed.hostname, leaseToken, readOnly, noHostState, noProcessCache);
         if (!location) {
           return {
             ok: false,
@@ -589,6 +765,9 @@ async function fetchWithoutRobots(
           parsed.hostname,
           leaseToken,
           parseRetryAfter(headerValue(response.headers, "retry-after")),
+          readOnly,
+          noHostState,
+          noProcessCache,
         );
         return {
           ok: false,
@@ -599,7 +778,7 @@ async function fetchWithoutRobots(
           failureClass: "temporary",
         };
       }
-      await completeHost(parsed.hostname, leaseToken);
+      await completeHost(parsed.hostname, leaseToken, readOnly, noHostState, noProcessCache);
       if (response.status < 200 || response.status >= 300) {
         const failure = {
           kind: "http" as const,
@@ -620,7 +799,14 @@ async function fetchWithoutRobots(
         contentType: headerValue(response.headers, "content-type") ?? "",
       };
     } catch (error) {
-      const retryAt = await failHost(parsed.hostname, leaseToken, null);
+      const retryAt = await failHost(
+        parsed.hostname,
+        leaseToken,
+        null,
+        readOnly,
+        noHostState,
+        noProcessCache,
+      );
       return {
         ok: false,
         kind: error instanceof Error && error.name === "AbortError" ? "timeout" : "network",
@@ -632,7 +818,7 @@ async function fetchWithoutRobots(
         }),
       };
     } finally {
-      await releaseHost(parsed.hostname, leaseToken);
+      await releaseHost(parsed.hostname, leaseToken, readOnly, noHostState, noProcessCache);
     }
   }
   return {
@@ -708,18 +894,33 @@ export function robotsAllows(body: string | null, path: string): boolean {
   return matchingRules[0]?.allow ?? true;
 }
 
-async function robotsPolicy(targetUrl: string, originHostname: string, deadlineMs: number): Promise<RobotsPolicy> {
+async function robotsPolicy(
+  targetUrl: string,
+  originHostname: string,
+  deadlineMs: number,
+  readOnly = false,
+  noHostState = false,
+  noProcessCache = false,
+): Promise<RobotsPolicy> {
   const target = new URL(targetUrl);
   const host = normaliseHostname(target.hostname);
-  const [cached] = await withCompanySiteDatabaseRetry("read robots policy", () =>
-    db
-      .select({
-        body: companySiteHostStatesTable.robotsBody,
-        checkedAt: companySiteHostStatesTable.robotsCheckedAt,
-      })
-      .from(companySiteHostStatesTable)
-      .where(eq(companySiteHostStatesTable.hostname, host))
-      .limit(1));
+  const localCache = noProcessCache ? undefined : readOnlyRobotsCache.get(host);
+  const localOnly = readOnly || noHostState || noProcessCache;
+  if (localOnly && localCache && localCache.checkedAt >= Date.now() - COMPANY_SITE_ROBOTS_TTL_MS) {
+    const allowed = robotsAllows(localCache.body, `${target.pathname}${target.search}`);
+    return { allowed, body: localCache.body, failureClass: allowed ? undefined : "temporary" };
+  }
+  const [cached] = noHostState || noProcessCache
+    ? [undefined]
+    : await withCompanySiteDatabaseRetry("read robots policy", () =>
+        db
+          .select({
+            body: companySiteHostStatesTable.robotsBody,
+            checkedAt: companySiteHostStatesTable.robotsCheckedAt,
+          })
+          .from(companySiteHostStatesTable)
+          .where(eq(companySiteHostStatesTable.hostname, host))
+          .limit(1));
   if (
     cached?.checkedAt &&
     cached.checkedAt.getTime() >= Date.now() - COMPANY_SITE_ROBOTS_TTL_MS
@@ -733,16 +934,26 @@ async function robotsPolicy(targetUrl: string, originHostname: string, deadlineM
   }
 
   const robotsUrl = `${target.protocol}//${target.host}/robots.txt`;
-  const result = await fetchWithoutRobots(robotsUrl, originHostname, deadlineMs, MAX_ROBOTS_BYTES);
+  const result = await fetchWithoutRobots(
+    robotsUrl, originHostname, deadlineMs, MAX_ROBOTS_BYTES, false,
+    COMPANY_SITE_PAGE_TIMEOUT_MS, readOnly, noHostState, noProcessCache,
+  );
   if (!result.ok) {
     if (result.status === 404 || result.status === 410) {
-      await withCompanySiteDatabaseRetry("store empty robots policy", () => db
-        .insert(companySiteHostStatesTable)
-        .values({ hostname: host, robotsBody: "", robotsCheckedAt: new Date(), updatedAt: new Date() })
-        .onConflictDoUpdate({
-          target: companySiteHostStatesTable.hostname,
-          set: { robotsBody: "", robotsCheckedAt: new Date(), updatedAt: new Date() },
-        }));
+      const checkedAt = new Date();
+      if (noProcessCache) {
+        // The strict no-cache path retains no host/robots state, even in memory.
+      } else if (localOnly) {
+        readOnlyRobotsCache.set(host, { body: "", checkedAt: checkedAt.getTime() });
+      } else {
+        await withCompanySiteDatabaseRetry("store empty robots policy", () => db
+          .insert(companySiteHostStatesTable)
+          .values({ hostname: host, robotsBody: "", robotsCheckedAt: checkedAt, updatedAt: checkedAt })
+          .onConflictDoUpdate({
+            target: companySiteHostStatesTable.hostname,
+            set: { robotsBody: "", robotsCheckedAt: checkedAt, updatedAt: checkedAt },
+          }));
+      }
       return { allowed: true, body: "" };
     }
     return {
@@ -754,13 +965,20 @@ async function robotsPolicy(targetUrl: string, originHostname: string, deadlineM
     };
   }
   const body = result.body;
-  await withCompanySiteDatabaseRetry("store robots policy", () => db
-    .insert(companySiteHostStatesTable)
-    .values({ hostname: host, robotsBody: body, robotsCheckedAt: new Date(), updatedAt: new Date() })
-    .onConflictDoUpdate({
-      target: companySiteHostStatesTable.hostname,
-      set: { robotsBody: body, robotsCheckedAt: new Date(), updatedAt: new Date() },
-    }));
+  const checkedAt = new Date();
+  if (noProcessCache) {
+    // The strict no-cache path retains no host/robots state, even in memory.
+  } else if (localOnly) {
+    readOnlyRobotsCache.set(host, { body, checkedAt: checkedAt.getTime() });
+  } else {
+    await withCompanySiteDatabaseRetry("store robots policy", () => db
+      .insert(companySiteHostStatesTable)
+      .values({ hostname: host, robotsBody: body, robotsCheckedAt: checkedAt, updatedAt: checkedAt })
+      .onConflictDoUpdate({
+        target: companySiteHostStatesTable.hostname,
+        set: { robotsBody: body, robotsCheckedAt: checkedAt, updatedAt: checkedAt },
+      }));
+  }
   const allowed = robotsAllows(body, `${target.pathname}${target.search}`);
   return {
     allowed,
@@ -774,6 +992,7 @@ export async function fetchCompanySitePage(
   originHostname: string,
   deadlineMs: number,
   maxBytes = MAX_PAGE_BYTES,
+  options: CompanySiteFetchOptions = {},
 ): Promise<CompanySiteFetchResult> {
   let parsed: URL;
   try {
@@ -781,7 +1000,14 @@ export async function fetchCompanySitePage(
   } catch {
     return { ok: false, kind: "unsafe", reason: "malformed URL" };
   }
-  const robots = await robotsPolicy(url, originHostname, deadlineMs);
+  const robots = await robotsPolicy(
+    url,
+    originHostname,
+    deadlineMs,
+    options.readOnly === true,
+    options.noHostState === true,
+    options.noProcessCache === true,
+  );
   if (!robots.allowed) {
     return {
       ok: false,
@@ -791,5 +1017,206 @@ export async function fetchCompanySitePage(
       failureClass: robots.failureClass ?? "temporary",
     };
   }
-  return fetchWithoutRobots(parsed.toString(), originHostname, deadlineMs, maxBytes, true);
+  return fetchWithoutRobots(
+    parsed.toString(), originHostname, deadlineMs, maxBytes, true,
+    COMPANY_SITE_PAGE_TIMEOUT_MS,
+    options.readOnly === true,
+    options.noHostState === true,
+    options.noProcessCache === true,
+  );
+}
+
+/**
+ * Fetch a documented public ATS JSON endpoint without applying HTML robots.txt
+ * policy to the API host. The underlying fetch still enforces HTTPS, approved
+ * ATS destinations, public DNS pinning, host leases, pacing, deadlines,
+ * redirects, response-size limits, and retry backoff.
+ */
+export async function fetchCompanySitePublicApiPage(
+  url: string,
+  deadlineMs: number,
+  maxBytes = MAX_PAGE_BYTES,
+  options: CompanySiteFetchOptions = {},
+): Promise<CompanySiteFetchResult> {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { ok: false, kind: "unsafe", reason: "malformed API URL" };
+  }
+  if (parsed.protocol !== "https:" || knownAtsProvider(parsed.hostname) === null) {
+    return { ok: false, kind: "unsafe", reason: "unsupported public ATS API destination" };
+  }
+  return fetchWithoutRobots(
+    parsed.toString(),
+    parsed.hostname,
+    deadlineMs,
+    maxBytes,
+    false,
+    COMPANY_SITE_PUBLIC_API_TIMEOUT_MS,
+    options.readOnly === true,
+    options.noHostState === true,
+    options.noProcessCache === true,
+  );
+}
+
+/** POST a JSON request to a strictly approved public ATS API endpoint. */
+export async function fetchCompanySitePublicApiPost(
+  url: string,
+  body: string,
+  deadlineMs: number,
+  maxBytes = MAX_PAGE_BYTES,
+  options: CompanySiteFetchOptions = {},
+): Promise<CompanySiteFetchResult> {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { ok: false, kind: "unsafe", reason: "malformed API URL" };
+  }
+  if (
+    parsed.protocol !== "https:" ||
+    knownAtsProvider(parsed.hostname) === null ||
+    parsed.hostname.toLowerCase() !== "circlehealth.wd103.myworkdayjobs.com" ||
+    parsed.pathname.toLowerCase() !== "/wday/cxs/circlehealth/chgcareers/jobs" ||
+    (parsed.search && !/^\?offset=\d+$/.test(parsed.search)) || parsed.hash || !body
+  ) {
+    return { ok: false, kind: "unsafe", reason: "unsupported public ATS API POST destination" };
+  }
+  let pinned: PinnedAddress;
+  try {
+    pinned = await awaitWithDeadline(
+      resolveAndPinPublicAddress(parsed.hostname),
+      Math.min(COMPANY_SITE_DNS_TIMEOUT_MS, Math.max(1, deadlineMs - Date.now())),
+      "DNS lookup timed out",
+    );
+  } catch (error) {
+    return { ok: false, kind: "unsafe", reason: error instanceof Error ? error.message : "DNS lookup failed" };
+  }
+  let reservation = await reserveHost(
+    parsed.hostname,
+    deadlineMs,
+    options.readOnly === true,
+    options.noHostState === true,
+    options.noProcessCache === true,
+  );
+  while (!reservation.allowed && Date.now() + reservation.waitMs < deadlineMs) {
+    await sleep(reservation.waitMs);
+    reservation = await reserveHost(
+      parsed.hostname,
+      deadlineMs,
+      options.readOnly === true,
+      options.noHostState === true,
+      options.noProcessCache === true,
+    );
+  }
+  if (!reservation.allowed) return { ok: false, kind: "rate_limited", reason: "hostname is paced or in backoff", retryAt: reservation.retryAt };
+  const lease = reservation.leaseToken;
+  try {
+    const response = await requestPinned(
+      parsed, pinned, Math.max(1, Math.min(COMPANY_SITE_PUBLIC_API_TIMEOUT_MS, deadlineMs - Date.now())),
+      maxBytes, { method: "POST", body },
+    );
+    if (response.status === 403 || response.status === 429 || response.status >= 500) {
+      const retryAt = await failHost(
+        parsed.hostname,
+        lease,
+        parseRetryAfter(headerValue(response.headers, "retry-after")),
+        options.readOnly === true,
+        options.noHostState === true,
+        options.noProcessCache === true,
+      );
+      return {
+        ok: false,
+        kind: "rate_limited",
+        status: response.status,
+        reason: `HTTP ${response.status}`,
+        retryAt: retryAt ?? undefined,
+        failureClass: "temporary",
+      };
+    }
+    await completeHost(
+      parsed.hostname,
+      lease,
+      options.readOnly === true,
+      options.noHostState === true,
+      options.noProcessCache === true,
+    );
+    if (response.status < 200 || response.status >= 300) {
+      const failure = { kind: "http" as const, status: response.status, reason: `HTTP ${response.status}` };
+      return { ok: false, ...failure, failureClass: classifyCompanySiteFailure(failure) };
+    }
+    return { ok: true, url: parsed.toString(), status: response.status, body: response.body,
+      contentType: headerValue(response.headers, "content-type") ?? "" };
+  } catch (error) {
+    const retryAt = await failHost(
+      parsed.hostname,
+      lease,
+      null,
+      options.readOnly === true,
+      options.noHostState === true,
+        options.noProcessCache === true,
+    );
+    const reason = error instanceof Error ? error.message : "network failure";
+    return { ok: false, kind: error instanceof Error && error.name === "AbortError" ? "timeout" : "network",
+      reason, retryAt: retryAt ?? undefined, failureClass: "temporary" };
+  } finally {
+    await releaseHost(
+      parsed.hostname,
+      lease,
+      options.readOnly === true,
+      options.noHostState === true,
+      options.noProcessCache === true,
+    );
+  }
+}
+
+/**
+ * Public feed paths served on the employer's careers host (for example
+ * Recruitee and Personio) must pass robots.txt, including after redirects.
+ * They still receive the bounded public-API timeout instead of the HTML cap.
+ */
+export async function fetchCompanySiteRobotsAwarePublicApiPage(
+  url: string,
+  deadlineMs: number,
+  maxBytes = MAX_PAGE_BYTES,
+  options: CompanySiteFetchOptions = {},
+): Promise<CompanySiteFetchResult> {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { ok: false, kind: "unsafe", reason: "malformed API URL" };
+  }
+  if (parsed.protocol !== "https:" || knownAtsProvider(parsed.hostname) === null) {
+    return { ok: false, kind: "unsafe", reason: "unsupported public ATS API destination" };
+  }
+  const robots = await robotsPolicy(
+    parsed.toString(),
+    parsed.hostname,
+    deadlineMs,
+    options.readOnly === true,
+    options.noHostState === true,
+    options.noProcessCache === true,
+  );
+  if (!robots.allowed) {
+    return {
+      ok: false,
+      kind: "robots",
+      reason: robots.reason ?? "robots.txt disallows this path",
+      retryAt: robots.retryAt,
+      failureClass: robots.failureClass ?? "temporary",
+    };
+  }
+  return fetchWithoutRobots(
+    parsed.toString(),
+    parsed.hostname,
+    deadlineMs,
+    maxBytes,
+    true,
+    COMPANY_SITE_PUBLIC_API_TIMEOUT_MS,
+    options.readOnly === true,
+    options.noHostState === true,
+    options.noProcessCache === true,
+  );
 }

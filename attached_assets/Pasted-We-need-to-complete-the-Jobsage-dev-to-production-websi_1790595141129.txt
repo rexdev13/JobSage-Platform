@@ -1,0 +1,96 @@
+We need to complete the Jobsage dev-to-production website/careers migration urgently.
+
+The previous resolver was too conservative. It only prepared 26 safe careers URL writes, but the actual business goal is larger:
+
+Goal:
+Import all useful website and careers URLs collected in development into production correctly, so production has the same useful employer source coverage as development and we can move to vacancy ingestion.
+
+Important:
+- Do not blindly copy dev internal sponsor IDs into prod.
+- But do not stop at only rows that already have perfect production matches.
+- Build a proper migration path that resolves, maps, creates, or stages production targets as needed.
+- The deadline matters. Maximize production coverage while keeping the import auditable and reversible.
+
+Use the September 27 production apply audit and the dev source data as inputs.
+
+Required plan:
+1. Inspect current dev website/careers source tables, production sponsor tables, production website/careers tables, and existing importer/audit scripts.
+
+2. Produce a full migration classification across all 6,007 candidate rows:
+   - already_in_prod
+   - direct_update_existing_prod_sponsor
+   - resolved_by_identity_mapping
+   - create_missing_prod_source_or_sponsor_target
+   - overwrite_review_required
+   - impossible_manual_review
+
+3. For every dev row, try to place it into production by this priority:
+   - exact production sponsor identity match
+   - normalized company name + domain match
+   - sponsor licence/company number match, if available
+   - official domain match
+   - strong location/postcode/city match
+   - existing source/careers record match
+   - otherwise create a new production source/target record if the production schema supports it
+
+4. If a development employer has a valid website/careers URL but no clean production target:
+   - do not discard it
+   - create a production staging/mapping row or missing source target so it can be imported
+   - only leave it manual if the employer identity itself is genuinely unclear
+
+5. Existing production URL policy:
+   - If production is blank, write the dev URL.
+   - If production already has the same URL, no-op.
+   - If production has a different URL:
+     - keep existing by default
+     - write the dev URL into a secondary/source candidate table if available
+     - otherwise output it to overwrite review
+   - Do not silently overwrite different existing production URLs.
+
+6. Build/import in phases:
+   Phase A: read-only full migration preview
+   Phase B: apply blank production website/careers targets
+   Phase C: create or stage missing production targets
+   Phase D: apply mapped/staged URLs
+   Phase E: produce final manual review list only for true conflicts
+
+7. The dry run report must show:
+   - total dev candidates
+   - how many will end up represented in production after migration
+   - how many direct writes
+   - how many mapping-based writes
+   - how many new/staged production targets
+   - how many existing URLs preserved
+   - how many true manual conflicts remain
+   - sample rows from each group
+
+8. Add protections:
+   - transaction where possible
+   - idempotent apply
+   - audit table/log with before/after values
+   - rollback instructions
+   - no vacancy ingestion until URL migration is applied and verified
+
+9. After the URL migration apply, run a read-only verification:
+   - count production sponsors with website URLs
+   - count production sponsors with careers URLs
+   - compare dev vs prod coverage by normalized employer identity
+   - list remaining dev URLs not represented anywhere in prod
+
+10. Then prepare the next phase:
+   - bounded production vacancy ingestion using the newly migrated source coverage
+   - start with a small cohort
+   - report candidate-visible vacancy count before/after
+
+Deliverables:
+- full-dev-to-prod-url-migration-preview.md
+- dev-to-prod-url-mapping.csv
+- safe-direct-writes.csv
+- create-or-stage-targets.csv
+- url-conflicts-for-review.csv
+- impossible-manual-review.csv
+- apply command for the migration
+- verification command after apply
+
+Do not return another tiny 26-row safe-only result unless that is genuinely all that exists after creating/staging/mapping production targets.
+The goal is production coverage, not just conservative reconciliation.

@@ -1,0 +1,1275 @@
+{
+  "createdAt": "2026-09-25T23:55:42.650Z",
+  "developmentOnly": true,
+  "apply": true,
+  "sourceMode": "direct_feeds_only",
+  "input": "/home/runner/workspace/.agents/outputs/healthcare-direct-source-test-2026-09-26/cohort.csv",
+  "stages": {
+    "websiteFill": false,
+    "discovery": true
+  },
+  "requestedLimit": 29,
+  "requestedOffset": 0,
+  "totals": {
+    "selected": 29,
+    "inserted": 0,
+    "updated": 0,
+    "revived": 0,
+    "completed": 0,
+    "failed": 0,
+    "no_jobs": 0,
+    "skipped": 29,
+    "skipped_no_direct_feed_source": 29,
+    "websitesFilled": 0,
+    "advertsFound": 0,
+    "advertsRejected": 0,
+    "ukLocationKnown": 0,
+    "ukLocationUnknown": 0,
+    "runtimeMs": 2499
+  },
+  "perSector": {
+    "Healthcare": {
+      "employers": 29,
+      "runtimeMs": 2411,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "completed": 0,
+      "failed": 0,
+      "no_jobs": 0,
+      "skipped_no_direct_feed_source": 29,
+      "websitesFilled": 0,
+      "advertsFound": 0,
+      "advertsRejected": 0,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0
+    }
+  },
+  "providersUsed": [],
+  "candidateVisibilityBefore": [
+    {
+      "sponsorLicenceId": 154622,
+      "organisationName": "101 Healthcare ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 154724,
+      "organisationName": "199 Clinic Limited t/a London Longevity Clinic",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 154882,
+      "organisationName": "289 Imaging Ltd, Trading as 'The Ultrasound Clinic'",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 155219,
+      "organisationName": "4life Healthcare Services Ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 155286,
+      "organisationName": "543 Dental Centre Ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 155434,
+      "organisationName": "8to8 Dental",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 155450,
+      "organisationName": "94 Dental",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 155494,
+      "organisationName": "A & E GLAZING LTD",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 155838,
+      "organisationName": "A&E BROTHERS LTD",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 155857,
+      "organisationName": "A&J Pharma Ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 155993,
+      "organisationName": "A.E Pharma LTD T/A Matlock pharmacy",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 156181,
+      "organisationName": "A360 LTD with trading name A360 group healthcare",
+      "visibleVacancyCount": 1,
+      "samples": [
+        {
+          "id": 33824,
+          "title": "Join Us",
+          "url": "https://a360groups.com/apply-job",
+          "applicationUrl": null,
+          "sourceType": "company_site",
+          "evidenceKind": null,
+          "lastVerifiedAt": "2026-09-24 05:12:20.809+00"
+        }
+      ]
+    },
+    {
+      "sponsorLicenceId": 156238,
+      "organisationName": "AA Healthcare Services Ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 156294,
+      "organisationName": "AAA HEALTHCARE LIMITED",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 156293,
+      "organisationName": "AAA Healthcare Agency Ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 156537,
+      "organisationName": "AB Dental Ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 156592,
+      "organisationName": "ABACUS HEALTHCARE LTD",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 156835,
+      "organisationName": "ABERDEEN DENTAL CARE LIMITED",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 156970,
+      "organisationName": "ABLE HANDS HEALTHCARE LTD",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 157265,
+      "organisationName": "ACCESS 24/7 HEALTHCARE LIMITED",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 157461,
+      "organisationName": "ACE HEALTHCARE SOLUTIONS LIMITED",
+      "visibleVacancyCount": 2,
+      "samples": [
+        {
+          "id": 36863,
+          "title": "I AM job seeking",
+          "url": "https://acehealthcaresolution.org/job%20application",
+          "applicationUrl": null,
+          "sourceType": "company_site",
+          "evidenceKind": null,
+          "lastVerifiedAt": "2026-09-24 06:30:06.266+00"
+        },
+        {
+          "id": 36862,
+          "title": "Job Application",
+          "url": "https://acehealthcaresolution.org/job-application",
+          "applicationUrl": null,
+          "sourceType": "company_site",
+          "evidenceKind": null,
+          "lastVerifiedAt": "2026-09-24 05:12:34.565+00"
+        }
+      ]
+    },
+    {
+      "sponsorLicenceId": 158204,
+      "organisationName": "ADI PHARMA LTD",
+      "visibleVacancyCount": 1,
+      "samples": [
+        {
+          "id": 37204,
+          "title": "CAREER",
+          "url": "https://adipharma.co.uk/job-openings",
+          "applicationUrl": null,
+          "sourceType": "company_site",
+          "evidenceKind": null,
+          "lastVerifiedAt": "2026-09-25 18:30:26.017+00"
+        }
+      ]
+    },
+    {
+      "sponsorLicenceId": 158252,
+      "organisationName": "ADM Healthcare Limited",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 154161,
+      "organisationName": "B & P Pharma Limited t/a Carterton Chemist",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 154180,
+      "organisationName": "B D HEALTHCARE LIMITED",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 154336,
+      "organisationName": "B Healthy Ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 154339,
+      "organisationName": "B J M Dental Laboratory Ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 171806,
+      "organisationName": "BITAK HEALTHCARE LIMITED",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 172119,
+      "organisationName": "BLACKWATER DENTAL SURGERY & IMPLANT CENTRE LTD",
+      "visibleVacancyCount": 0,
+      "samples": []
+    }
+  ],
+  "rows": [
+    {
+      "sponsorLicenceId": 154622,
+      "organisationName": "101 Healthcare ltd",
+      "candidateWebsite": "https://101healthcare.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 154622,
+        "organisationName": "101 Healthcare ltd",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://101healthcare.co.uk/",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 38,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 154622,
+        "organisationName": "101 Healthcare ltd",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 154724,
+      "organisationName": "199 Clinic Limited t/a London Longevity Clinic",
+      "candidateWebsite": "https://www.199.clinic/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 154724,
+        "organisationName": "199 Clinic Limited t/a London Longevity Clinic",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.199.clinic/",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 32,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 154724,
+        "organisationName": "199 Clinic Limited t/a London Longevity Clinic",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 154882,
+      "organisationName": "289 Imaging Ltd, Trading as 'The Ultrasound Clinic'",
+      "candidateWebsite": "https://www.the-ultrasound-clinic.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 154882,
+        "organisationName": "289 Imaging Ltd, Trading as 'The Ultrasound Clinic'",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.the-ultrasound-clinic.co.uk",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 88,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 154882,
+        "organisationName": "289 Imaging Ltd, Trading as 'The Ultrasound Clinic'",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 155219,
+      "organisationName": "4life Healthcare Services Ltd",
+      "candidateWebsite": "https://www.4lifehealthcare.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 155219,
+        "organisationName": "4life Healthcare Services Ltd",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.4lifehealthcare.co.uk/",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 101,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 155219,
+        "organisationName": "4life Healthcare Services Ltd",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 155286,
+      "organisationName": "543 Dental Centre Ltd",
+      "candidateWebsite": "https://543dentalcentre.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 155286,
+        "organisationName": "543 Dental Centre Ltd",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://543dentalcentre.co.uk/",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 94,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 155286,
+        "organisationName": "543 Dental Centre Ltd",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 155434,
+      "organisationName": "8to8 Dental",
+      "candidateWebsite": "https://www.8to8dental.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 155434,
+        "organisationName": "8to8 Dental",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.8to8dental.co.uk",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 93,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 155434,
+        "organisationName": "8to8 Dental",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 155450,
+      "organisationName": "94 Dental",
+      "candidateWebsite": "https://www.94dental.com/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 155450,
+        "organisationName": "94 Dental",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.94dental.com/",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 93,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 155450,
+        "organisationName": "94 Dental",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 155494,
+      "organisationName": "A & E GLAZING LTD",
+      "candidateWebsite": "https://aeglazing.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 155494,
+        "organisationName": "A & E GLAZING LTD",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://aeglazing.co.uk/",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 92,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 155494,
+        "organisationName": "A & E GLAZING LTD",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 155838,
+      "organisationName": "A&E BROTHERS LTD",
+      "candidateWebsite": "https://aandebrothersny.com/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 155838,
+        "organisationName": "A&E BROTHERS LTD",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://aandebrothersny.com/",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 30,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 155838,
+        "organisationName": "A&E BROTHERS LTD",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 155857,
+      "organisationName": "A&J Pharma Ltd",
+      "candidateWebsite": "https://ajpharma.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 155857,
+        "organisationName": "A&J Pharma Ltd",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://ajpharma.co.uk/",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 91,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 155857,
+        "organisationName": "A&J Pharma Ltd",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 155993,
+      "organisationName": "A.E Pharma LTD T/A Matlock pharmacy",
+      "candidateWebsite": "https://matlockpharmacy.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 155993,
+        "organisationName": "A.E Pharma LTD T/A Matlock pharmacy",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://matlockpharmacy.co.uk/",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 104,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 155993,
+        "organisationName": "A.E Pharma LTD T/A Matlock pharmacy",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 156181,
+      "organisationName": "A360 LTD with trading name A360 group healthcare",
+      "candidateWebsite": "https://a360groups.com/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 156181,
+        "organisationName": "A360 LTD with trading name A360 group healthcare",
+        "visibleVacancyCount": 1,
+        "samples": [
+          {
+            "id": 33824,
+            "title": "Join Us",
+            "url": "https://a360groups.com/apply-job",
+            "applicationUrl": null,
+            "sourceType": "company_site",
+            "evidenceKind": null,
+            "lastVerifiedAt": "2026-09-24 05:12:20.809+00"
+          }
+        ]
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://a360groups.com/",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 171,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 156181,
+        "organisationName": "A360 LTD with trading name A360 group healthcare",
+        "visibleVacancyCount": 1,
+        "samples": [
+          {
+            "id": 33824,
+            "title": "Join Us",
+            "url": "https://a360groups.com/apply-job",
+            "applicationUrl": null,
+            "sourceType": "company_site",
+            "evidenceKind": null,
+            "lastVerifiedAt": "2026-09-24 05:12:20.809+00"
+          }
+        ]
+      }
+    },
+    {
+      "sponsorLicenceId": 156238,
+      "organisationName": "AA Healthcare Services Ltd",
+      "candidateWebsite": "https://www.aahealthcare.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 156238,
+        "organisationName": "AA Healthcare Services Ltd",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.aahealthcare.uk",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 97,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 156238,
+        "organisationName": "AA Healthcare Services Ltd",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 156294,
+      "organisationName": "AAA HEALTHCARE LIMITED",
+      "candidateWebsite": "https://aaahealthcare.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 156294,
+        "organisationName": "AAA HEALTHCARE LIMITED",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://aaahealthcare.co.uk/",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 30,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 156294,
+        "organisationName": "AAA HEALTHCARE LIMITED",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 156293,
+      "organisationName": "AAA Healthcare Agency Ltd",
+      "candidateWebsite": "https://aaahealthcare.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 156293,
+        "organisationName": "AAA Healthcare Agency Ltd",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://aaahealthcare.co.uk/",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 88,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 156293,
+        "organisationName": "AAA Healthcare Agency Ltd",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 156537,
+      "organisationName": "AB Dental Ltd",
+      "candidateWebsite": "https://www.londondentalarts.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 156537,
+        "organisationName": "AB Dental Ltd",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.londondentalarts.co.uk",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 92,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 156537,
+        "organisationName": "AB Dental Ltd",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 156592,
+      "organisationName": "ABACUS HEALTHCARE LTD",
+      "candidateWebsite": "https://abacushealthcareltd.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 156592,
+        "organisationName": "ABACUS HEALTHCARE LTD",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "sameNameSponsorIds": [
+        156593,
+        156592
+      ],
+      "identicalSourceDuplicateRowsAccepted": true,
+      "websitePromotion": "existing",
+      "previousWebsite": "https://abacushealthcareltd.co.uk/",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 93,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 156592,
+        "organisationName": "ABACUS HEALTHCARE LTD",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 156835,
+      "organisationName": "ABERDEEN DENTAL CARE LIMITED",
+      "candidateWebsite": "https://aberdeendentalcare.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 156835,
+        "organisationName": "ABERDEEN DENTAL CARE LIMITED",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://aberdeendentalcare.co.uk/",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 94,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 156835,
+        "organisationName": "ABERDEEN DENTAL CARE LIMITED",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 156970,
+      "organisationName": "ABLE HANDS HEALTHCARE LTD",
+      "candidateWebsite": "https://www.ablehandshealthcare.com/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 156970,
+        "organisationName": "ABLE HANDS HEALTHCARE LTD",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.ablehandshealthcare.com/",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 31,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 156970,
+        "organisationName": "ABLE HANDS HEALTHCARE LTD",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 157265,
+      "organisationName": "ACCESS 24/7 HEALTHCARE LIMITED",
+      "candidateWebsite": "https://www.access24hms.com/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 157265,
+        "organisationName": "ACCESS 24/7 HEALTHCARE LIMITED",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.access24hms.com/",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 49,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 157265,
+        "organisationName": "ACCESS 24/7 HEALTHCARE LIMITED",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 157461,
+      "organisationName": "ACE HEALTHCARE SOLUTIONS LIMITED",
+      "candidateWebsite": "https://acehealthcaresolution.org/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 157461,
+        "organisationName": "ACE HEALTHCARE SOLUTIONS LIMITED",
+        "visibleVacancyCount": 2,
+        "samples": [
+          {
+            "id": 36863,
+            "title": "I AM job seeking",
+            "url": "https://acehealthcaresolution.org/job%20application",
+            "applicationUrl": null,
+            "sourceType": "company_site",
+            "evidenceKind": null,
+            "lastVerifiedAt": "2026-09-24 06:30:06.266+00"
+          },
+          {
+            "id": 36862,
+            "title": "Job Application",
+            "url": "https://acehealthcaresolution.org/job-application",
+            "applicationUrl": null,
+            "sourceType": "company_site",
+            "evidenceKind": null,
+            "lastVerifiedAt": "2026-09-24 05:12:34.565+00"
+          }
+        ]
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://acehealthcaresolution.org/",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 95,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 157461,
+        "organisationName": "ACE HEALTHCARE SOLUTIONS LIMITED",
+        "visibleVacancyCount": 2,
+        "samples": [
+          {
+            "id": 36863,
+            "title": "I AM job seeking",
+            "url": "https://acehealthcaresolution.org/job%20application",
+            "applicationUrl": null,
+            "sourceType": "company_site",
+            "evidenceKind": null,
+            "lastVerifiedAt": "2026-09-24 06:30:06.266+00"
+          },
+          {
+            "id": 36862,
+            "title": "Job Application",
+            "url": "https://acehealthcaresolution.org/job-application",
+            "applicationUrl": null,
+            "sourceType": "company_site",
+            "evidenceKind": null,
+            "lastVerifiedAt": "2026-09-24 05:12:34.565+00"
+          }
+        ]
+      }
+    },
+    {
+      "sponsorLicenceId": 158204,
+      "organisationName": "ADI PHARMA LTD",
+      "candidateWebsite": "https://adipharma.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 158204,
+        "organisationName": "ADI PHARMA LTD",
+        "visibleVacancyCount": 1,
+        "samples": [
+          {
+            "id": 37204,
+            "title": "CAREER",
+            "url": "https://adipharma.co.uk/job-openings",
+            "applicationUrl": null,
+            "sourceType": "company_site",
+            "evidenceKind": null,
+            "lastVerifiedAt": "2026-09-25 18:30:26.017+00"
+          }
+        ]
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://adipharma.co.uk/",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 95,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 158204,
+        "organisationName": "ADI PHARMA LTD",
+        "visibleVacancyCount": 1,
+        "samples": [
+          {
+            "id": 37204,
+            "title": "CAREER",
+            "url": "https://adipharma.co.uk/job-openings",
+            "applicationUrl": null,
+            "sourceType": "company_site",
+            "evidenceKind": null,
+            "lastVerifiedAt": "2026-09-25 18:30:26.017+00"
+          }
+        ]
+      }
+    },
+    {
+      "sponsorLicenceId": 158252,
+      "organisationName": "ADM Healthcare Limited",
+      "candidateWebsite": "https://admhealthcare.com/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 158252,
+        "organisationName": "ADM Healthcare Limited",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://admhealthcare.com/",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 99,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 158252,
+        "organisationName": "ADM Healthcare Limited",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 154161,
+      "organisationName": "B & P Pharma Limited t/a Carterton Chemist",
+      "candidateWebsite": "https://cartertonchemist.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 154161,
+        "organisationName": "B & P Pharma Limited t/a Carterton Chemist",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://cartertonchemist.co.uk/",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 94,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 154161,
+        "organisationName": "B & P Pharma Limited t/a Carterton Chemist",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 154180,
+      "organisationName": "B D HEALTHCARE LIMITED",
+      "candidateWebsite": "https://numarknet.com/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 154180,
+        "organisationName": "B D HEALTHCARE LIMITED",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://numarknet.com/",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 94,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 154180,
+        "organisationName": "B D HEALTHCARE LIMITED",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 154336,
+      "organisationName": "B Healthy Ltd",
+      "candidateWebsite": "https://b-healthy.shop/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 154336,
+        "organisationName": "B Healthy Ltd",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "sameNameSponsorIds": [
+        154336,
+        154337
+      ],
+      "identicalSourceDuplicateRowsAccepted": true,
+      "websitePromotion": "existing",
+      "previousWebsite": "https://b-healthy.shop",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 103,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 154336,
+        "organisationName": "B Healthy Ltd",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 154339,
+      "organisationName": "B J M Dental Laboratory Ltd",
+      "candidateWebsite": "https://www.bjmlabs.com/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 154339,
+        "organisationName": "B J M Dental Laboratory Ltd",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.bjmlabs.com/",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 95,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 154339,
+        "organisationName": "B J M Dental Laboratory Ltd",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 171806,
+      "organisationName": "BITAK HEALTHCARE LIMITED",
+      "candidateWebsite": "https://bitakhealthcare.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 171806,
+        "organisationName": "BITAK HEALTHCARE LIMITED",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://bitakhealthcare.co.uk/",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 33,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 171806,
+        "organisationName": "BITAK HEALTHCARE LIMITED",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    },
+    {
+      "sponsorLicenceId": 172119,
+      "organisationName": "BLACKWATER DENTAL SURGERY & IMPLANT CENTRE LTD",
+      "candidateWebsite": "https://blackwaterdental.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Healthcare",
+      "candidateVisibilityBefore": {
+        "sponsorLicenceId": 172119,
+        "organisationName": "BLACKWATER DENTAL SURGERY & IMPLANT CENTRE LTD",
+        "visibleVacancyCount": 0,
+        "samples": []
+      },
+      "websitePromotion": "existing",
+      "previousWebsite": "https://blackwaterdental.co.uk/",
+      "status": "skipped_no_direct_feed_source",
+      "reason": "no_direct_feed_source",
+      "elapsedMs": 102,
+      "candidateVisibilityAfter": {
+        "sponsorLicenceId": 172119,
+        "organisationName": "BLACKWATER DENTAL SURGERY & IMPLANT CENTRE LTD",
+        "visibleVacancyCount": 0,
+        "samples": []
+      }
+    }
+  ],
+  "metricNotes": {
+    "completed": "runCompanySiteCheck completion=complete",
+    "no_jobs": "completed checks with zero accepted adverts",
+    "skipped_no_direct_feed_source": "approved employer mapping is absent or no approved direct ATS/feed/schema.org source is supported",
+    "applicationUrls": "values are included only when present in persisted company-site vacancy rows",
+    "liveness": "newly discovered stored links are checked with verifyCompanySiteStoredLink; persisted statuses are reported as-is",
+    "candidateVisibility": "samples use the same live, recently verified, date, source-missing, closure, and company-site evidence gates as the candidate sponsor-vacancy list"
+  },
+  "runtimeMs": 2499,
+  "candidateVisibilityAfter": [
+    {
+      "sponsorLicenceId": 154622,
+      "organisationName": "101 Healthcare ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 154724,
+      "organisationName": "199 Clinic Limited t/a London Longevity Clinic",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 154882,
+      "organisationName": "289 Imaging Ltd, Trading as 'The Ultrasound Clinic'",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 155219,
+      "organisationName": "4life Healthcare Services Ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 155286,
+      "organisationName": "543 Dental Centre Ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 155434,
+      "organisationName": "8to8 Dental",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 155450,
+      "organisationName": "94 Dental",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 155494,
+      "organisationName": "A & E GLAZING LTD",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 155838,
+      "organisationName": "A&E BROTHERS LTD",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 155857,
+      "organisationName": "A&J Pharma Ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 155993,
+      "organisationName": "A.E Pharma LTD T/A Matlock pharmacy",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 156181,
+      "organisationName": "A360 LTD with trading name A360 group healthcare",
+      "visibleVacancyCount": 1,
+      "samples": [
+        {
+          "id": 33824,
+          "title": "Join Us",
+          "url": "https://a360groups.com/apply-job",
+          "applicationUrl": null,
+          "sourceType": "company_site",
+          "evidenceKind": null,
+          "lastVerifiedAt": "2026-09-24 05:12:20.809+00"
+        }
+      ]
+    },
+    {
+      "sponsorLicenceId": 156238,
+      "organisationName": "AA Healthcare Services Ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 156294,
+      "organisationName": "AAA HEALTHCARE LIMITED",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 156293,
+      "organisationName": "AAA Healthcare Agency Ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 156537,
+      "organisationName": "AB Dental Ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 156592,
+      "organisationName": "ABACUS HEALTHCARE LTD",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 156835,
+      "organisationName": "ABERDEEN DENTAL CARE LIMITED",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 156970,
+      "organisationName": "ABLE HANDS HEALTHCARE LTD",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 157265,
+      "organisationName": "ACCESS 24/7 HEALTHCARE LIMITED",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 157461,
+      "organisationName": "ACE HEALTHCARE SOLUTIONS LIMITED",
+      "visibleVacancyCount": 2,
+      "samples": [
+        {
+          "id": 36863,
+          "title": "I AM job seeking",
+          "url": "https://acehealthcaresolution.org/job%20application",
+          "applicationUrl": null,
+          "sourceType": "company_site",
+          "evidenceKind": null,
+          "lastVerifiedAt": "2026-09-24 06:30:06.266+00"
+        },
+        {
+          "id": 36862,
+          "title": "Job Application",
+          "url": "https://acehealthcaresolution.org/job-application",
+          "applicationUrl": null,
+          "sourceType": "company_site",
+          "evidenceKind": null,
+          "lastVerifiedAt": "2026-09-24 05:12:34.565+00"
+        }
+      ]
+    },
+    {
+      "sponsorLicenceId": 158204,
+      "organisationName": "ADI PHARMA LTD",
+      "visibleVacancyCount": 1,
+      "samples": [
+        {
+          "id": 37204,
+          "title": "CAREER",
+          "url": "https://adipharma.co.uk/job-openings",
+          "applicationUrl": null,
+          "sourceType": "company_site",
+          "evidenceKind": null,
+          "lastVerifiedAt": "2026-09-25 18:30:26.017+00"
+        }
+      ]
+    },
+    {
+      "sponsorLicenceId": 158252,
+      "organisationName": "ADM Healthcare Limited",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 154161,
+      "organisationName": "B & P Pharma Limited t/a Carterton Chemist",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 154180,
+      "organisationName": "B D HEALTHCARE LIMITED",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 154336,
+      "organisationName": "B Healthy Ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 154339,
+      "organisationName": "B J M Dental Laboratory Ltd",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 171806,
+      "organisationName": "BITAK HEALTHCARE LIMITED",
+      "visibleVacancyCount": 0,
+      "samples": []
+    },
+    {
+      "sponsorLicenceId": 172119,
+      "organisationName": "BLACKWATER DENTAL SURGERY & IMPLANT CENTRE LTD",
+      "visibleVacancyCount": 0,
+      "samples": []
+    }
+  ],
+  "finishedAt": "2026-09-25T23:55:45.149Z"
+}

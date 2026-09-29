@@ -1,0 +1,108 @@
+You are working on the JobSage project.
+
+The original sponsor CSV is already in this Replit project. First, locate it. It may be named something like `jobsage-sponsor-base-export.csv` or similar.
+
+Goal: create a clean first-batch website/careers enrichment file for UK licensed sponsor companies, focusing ONLY on Healthcare sponsors.
+
+Do not modify production data. Do not write directly to the database. Do not deploy. Produce reviewable output files only.
+
+Source CSV:
+- Locate the existing sponsor CSV in the repo.
+- It should contain columns like `sponsor_licence_id`, `organisation_name`, `town_city`, `region`, `industry`, `existing_website`, and `existing_careers_url`.
+
+Enrichment sources to use:
+1. Existing data in the CSV:
+   - Prefer `existing_website`
+   - Prefer `existing_careers_url`
+   - Prefer existing contact/ATS fields if already present
+
+2. Pre-enriched sponsor directories:
+   - Wise Route UK
+   - UK Visa Jobs
+   - SponsorList.co.uk
+
+3. Bulk/domain discovery methods:
+   - Search engine lookup for:
+     - `"organisation_name" official website`
+     - `"organisation_name" careers`
+     - `"organisation_name" jobs`
+     - `"organisation_name" town_city`
+     - `"organisation_name" UK healthcare`
+   - Company website finder/domain lookup logic if available in the project
+   - Any existing JobSage enrichment/discovery utilities already in the codebase
+
+4. Direct website checks:
+   - Once a likely website is found, check common careers paths:
+     - `/careers`
+     - `/jobs`
+     - `/join-us`
+     - `/join-our-team`
+     - `/work-for-us`
+     - `/vacancies`
+     - `/recruitment`
+   - Also inspect homepage links for careers/jobs/vacancies pages.
+
+Important:
+- Use the directories/search results only as evidence sources, not automatic truth.
+- The final `website_url` should be the official company website where possible, not the directory profile URL.
+- The final `careers_url` should be the official careers/jobs/vacancies page or ATS board URL.
+- If Wise Route UK, UK Visa Jobs, or SponsorList.co.uk provide a careers page, verify it before accepting it.
+- If a source cannot be accessed due to robots, login, rate limit, or network limits, record that in `notes`.
+
+Healthcare-only batch:
+1. Inspect the CSV columns and confirm total row count.
+2. Filter using the CSV `industry` column where `industry` is exactly `Healthcare`.
+3. If related labels like Social Care, Care, Dentistry, Pharmacy, or Medical exist under other industry values, report their counts separately but do not include them yet.
+4. Deduplicate by `sponsor_licence_id` where available, otherwise by `normalized_organisation_name + town_city`.
+5. Process only the first 500 Healthcare rows needing enrichment:
+   - missing `existing_website`
+   - missing `existing_careers_url`
+   - low/unverified `existing_ats_mapping_status`
+   - or previous website check errors
+
+For each selected Healthcare sponsor:
+- Keep existing `existing_website` and `existing_careers_url` if present, but validate whether they look official.
+- If website is missing or suspicious, find the official website using the sources above.
+- Find a careers/jobs/join-us/work-with-us/vacancies page where possible.
+- Detect ATS provider and board ID if obvious, such as Greenhouse, Lever, Ashby, Workday, Teamtailor, Trac, NHS Jobs, BambooHR, SmartRecruiters, Pinpoint, Workable, etc.
+- Use location evidence where possible, because healthcare companies often have similar names.
+
+Confidence rules:
+- `high`: domain clearly matches the organisation or official brand, and evidence confirms identity.
+- `medium`: likely official, but name/domain/location evidence is imperfect.
+- `low`: weak match; needs manual review.
+- `unverified`: no trustworthy match found.
+
+Do not accept generic directories, Companies House pages, old PDFs, Facebook pages, or lead-gen listings as official websites unless there is no better alternative. If used, mark as `low` or `unverified` and explain in notes.
+
+Output files:
+1. `artifacts/healthcare-sponsor-website-enrichment-batch1.csv`
+
+Use these columns:
+`sponsor_licence_id,organisation_name,normalized_organisation_name,town_city,county,region,industry,existing_website,existing_careers_url,website_url,website_confidence,website_evidence_url,careers_url,careers_confidence,careers_evidence_url,ats_provider,ats_board_id,ats_mapping_status,ats_mapping_evidence_url,source,notes`
+
+2. `artifacts/healthcare-sponsor-website-enrichment-batch1-report.md`
+
+The report must include:
+- Source CSV path found
+- Total rows in original CSV
+- Total Healthcare rows
+- Related healthcare/care industry labels found but excluded
+- Number processed in this batch
+- Which enrichment sources were used
+- Number with existing website already present
+- Number newly enriched
+- Number with careers URL found
+- Confidence breakdown: high / medium / low / unverified
+- Common failure reasons
+- Sample rows for manual review
+- Clear recommendation on whether this file is safe to import or still needs manual review
+
+Implementation requirements:
+- Prefer writing a reusable script instead of manual one-off edits.
+- Make it resumable for later batches.
+- Add clear logging.
+- Use rate limiting and retries for external lookups.
+- If internet access or search is unavailable in Replit, stop and report that clearly instead of guessing.
+- Do not overwrite existing outputs without backing them up.
+- At the end, tell me exactly which files were created and summarize the result.

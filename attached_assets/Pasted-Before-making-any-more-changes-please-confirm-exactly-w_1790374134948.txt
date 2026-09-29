@@ -1,0 +1,53 @@
+Before making any more changes, please confirm exactly why the last rollout inserted the ABPI career-resource pages and the Kingsley benefits page.
+
+Do not patch yet.
+Do not continue rollout.
+Do not write production.
+Do not deploy.
+
+I need a root-cause audit of the bad inserted rows.
+
+Please inspect:
+1. The 7 ABPI career-resource rows.
+2. The 1 Kingsley benefits row.
+3. The exact code path that inserted them.
+4. Whether they came from:
+   - direct ATS/feed import
+   - schema.org JobPosting parsing
+   - generic HTML/company-site crawling
+   - existing old dev data revived/updated
+   - manual/imported source
+   - some other path
+
+For each bad row, report:
+- vacancy ID
+- organisation_name
+- title
+- URL
+- application_url
+- source_type
+- board_name/provider if any
+- liveness
+- link_verified status
+- candidate-visible status
+- created_at / updated_at / last_discovered_at
+- which run/pass inserted or updated it
+- exact parser/extractor/source path responsible
+- why it passed the current acceptance rules
+- what evidence field made it look acceptable
+- whether it had any real application route
+- whether it came from generic crawling or not
+
+Then inspect the relevant code and answer these directly:
+
+1. Is generic company-site HTML crawling currently allowed to insert rows into `sponsor_licence_vacancies`?
+2. Is generic HTML crawling currently allowed to make rows candidate-visible?
+3. Is there any feature flag preventing generic HTML pages from becoming vacancies?
+4. Are direct ATS/feed vacancies separated from generic HTML-discovered pages?
+5. Are schema.org JobPosting pages separated from generic HTML pages?
+6. What exact condition allowed a benefits/resources page to be treated as a vacancy?
+7. Did the guard stop because it detected a non-vacancy insert, or for another reason?
+8. Did the bad rows exist before this rollout or were they inserted/updated during this rollout?
+9. Are there more similar false-positive rows already in development?
+
+Do not fix anything yet. Return only the root-cause report, with file/function names and DB evidence.

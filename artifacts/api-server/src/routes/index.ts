@@ -38,6 +38,8 @@ import cvEnhancementRouter from "./cvEnhancement";
 import readinessClaimsRouter from "./readinessClaims";
 import internalVacancyJobsRouter from "./internalVacancyJobs";
 import marketerCalendarRouter from "./marketerCalendar";
+import sponsorWebsiteImportRouter from "./sponsorWebsiteImport";
+import internalCompanySiteWorkflowRouter from "./internalCompanySiteWorkflow";
 
 const router: IRouter = Router();
 
@@ -80,5 +82,7 @@ router.use(cvEnhancementRouter);
 router.use(readinessClaimsRouter);
 router.use(internalVacancyJobsRouter);
 router.use(marketerCalendarRouter);
+router.use(sponsorWebsiteImportRouter);
+router.use(internalCompanySiteWorkflowRouter);
 
 export default router;

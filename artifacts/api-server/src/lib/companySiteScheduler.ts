@@ -1,4 +1,5 @@
 import cron from "node-cron";
+import { randomUUID } from "node:crypto";
 import {
   db,
   sponsorLicenceCompanySiteChecksTable,
@@ -8,9 +9,13 @@ import { eq, sql } from "drizzle-orm";
 import {
   discoverCompanySiteVacancies,
   persistCompanySiteVacancies,
+  type CompanySiteDiscoveryDiagnostics,
+  type CompanySiteDiscoveryResult,
 } from "./companySiteDiscovery";
+import { parseDirectBoardMapping } from "./directEmployerBoardConnectors";
 import {
   classifyCompanySiteFailure,
+  COMPANY_SITE_EMPLOYER_BUDGET_MS,
   type CompanySiteFailureClass,
 } from "./companySiteHttp";
 import { withCompanySiteDatabaseRetry } from "./companySitePersistence";
@@ -20,6 +25,7 @@ import {
   runCompanySiteProbeBatch,
   type CompanySiteProbeSummary,
 } from "./companySiteProbe";
+import { regionsFromLocationText } from "./regionMatching";
 
 export const COMPANY_SITE_DISCOVERY_CRON = "17 * * * *";
 export const COMPANY_SITE_DISCOVERY_BATCH_SIZE = 10;
@@ -36,20 +42,159 @@ export const COMPANY_SITE_UNPROBED_SHARE = 0.6;
 export const COMPANY_SITE_SECTOR_COUNT = 8;
 export const COMPANY_SITE_BATCH_WRITE_RESERVE_MS = 3_000;
 
+export function companySiteGenericImportEnabled(): boolean {
+  return (process.env["COMPANY_SITE_GENERIC_IMPORT_ENABLED"] ?? "true")
+    .trim()
+    .toLowerCase() !== "false";
+}
+
+export function classifyCompanySiteJobErrorCategory(value: unknown): string {
+  const message = value instanceof Error ? value.message : String(value ?? "");
+  if (/\b(timeout|timed out|deadline|aborterror)\b/i.test(message)) return "timeout";
+  if (/\brobots(?:\.txt)?|disallow/i.test(message)) return "robots";
+  if (/\b(oversize|too large|byte limit|content length)\b/i.test(message)) return "oversize";
+  if (/\bidentity.{0,20}mismatch|duplicate id|invalid.{0,20}identity/i.test(message)) return "identity_mismatch";
+  if (/\b(partial|incomplete|pagination|total is missing|snapshot is incomplete)\b/i.test(message)) return "partial_feed";
+  if (/\b(unsafe|blocked|private|ssrf|forbidden|HTTP 403|HTTP 429)\b/i.test(message)) return "blocked";
+  if (/\bHTTP \d{3}\b/i.test(message)) return "http";
+  if (/\b(json|feed|posting|malformed|parse)\b/i.test(message)) return "invalid_feed";
+  if (/\b(network|ECONN|DNS|EAI_)\b/i.test(message)) return "network";
+  return "unknown";
+}
+
+function companySiteErrorHttpStatus(value: unknown): number | null {
+  const message = value instanceof Error ? value.message : String(value ?? "");
+  const match = message.match(/\bHTTP\s+(\d{3})\b/i);
+  return match ? Number(match[1]) : null;
+}
+
+function safeUrlOrigin(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try {
+    return new URL(value).origin;
+  } catch {
+    return null;
+  }
+}
+
+const CIRCLE_HEALTH_GROUP_EMPLOYER =
+  "BMI Healthcare Limited trading as Circle Health Group Limited";
+const CIRCLE_WORKDAY_CAREERS_URL =
+  "https://circlehealth.wd103.myworkdayjobs.com/chgcareers";
+const CIRCLE_WORKDAY_EVIDENCE_URL =
+  "http://careers.circlehealthgroup.co.uk/jobs/sister-charge-nurse-critical-care-jr110643";
+
+function isCircleHealthGroupEmployer(value: string): boolean {
+  return value.trim().toLowerCase() === CIRCLE_HEALTH_GROUP_EMPLOYER.toLowerCase();
+}
+
+function isCircleWorkdayAdvert(advert: CompanySiteDiscoveryResult["adverts"][number]): boolean {
+  if (
+    advert.sourceType !== "company_site" ||
+    advert.companyVacancyEvidence?.kind !== "known_ats_posting" ||
+    advert.companyVacancyEvidence.provider !== "Workday" ||
+    advert.companyVacancyEvidence.listingUrl !== CIRCLE_WORKDAY_CAREERS_URL ||
+    !advert.externalId ||
+    !/^JR\d+$/.test(advert.externalId)
+  ) {
+    return false;
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(advert.url);
+  } catch {
+    return false;
+  }
+  if (
+    parsed.protocol !== "https:" ||
+    parsed.hostname.toLowerCase() !== "circlehealth.wd103.myworkdayjobs.com" ||
+    parsed.username ||
+    parsed.password ||
+    parsed.port ||
+    parsed.search ||
+    parsed.hash
+  ) {
+    return false;
+  }
+  const match = parsed.pathname.match(
+    /^\/en-GB\/chgcareers\/job\/[^/]+\/[^/]+_(JR\d{4,12})(?:-\d+)?$/,
+  );
+  return match?.[1] === advert.externalId;
+}
+
+/**
+ * Circle is the one company-site source whose vacancies are permitted only
+ * when the saved, verified Workday mapping produced a complete direct-feed
+ * snapshot. Generic discovery remains useful for diagnostics, but must never
+ * cross this persistence boundary.
+ */
+export function isCircleDirectFeedPersistenceAllowed(
+  row: Pick<
+    CompanySiteBatchRow,
+    | "organisationName"
+    | "careersUrl"
+    | "atsProvider"
+    | "atsBoardId"
+    | "atsMappingEvidenceUrl"
+    | "atsMappingStatus"
+  >,
+  result: Pick<
+    CompanySiteDiscoveryResult,
+    | "careersUrl"
+    | "atsProvider"
+    | "atsCompleted"
+    | "completion"
+    | "snapshotScope"
+    | "adverts"
+  > & {
+    diagnostics: Pick<CompanySiteDiscoveryDiagnostics, "directSourceKind">;
+  },
+): boolean {
+  if (!isCircleHealthGroupEmployer(row.organisationName)) return true;
+  if (
+    row.atsMappingStatus !== "verified" ||
+    row.atsProvider !== "Workday" ||
+    row.atsBoardId !== "chgcareers" ||
+    row.careersUrl !== CIRCLE_WORKDAY_CAREERS_URL ||
+    row.atsMappingEvidenceUrl !== CIRCLE_WORKDAY_EVIDENCE_URL ||
+    result.careersUrl !== CIRCLE_WORKDAY_CAREERS_URL ||
+    result.atsProvider !== "Workday" ||
+    result.atsCompleted !== true ||
+    result.completion !== "complete" ||
+    result.diagnostics.directSourceKind !== "ats_feed" ||
+    result.snapshotScope?.provider !== "Workday" ||
+    result.snapshotScope.boardId !== "chgcareers"
+  ) {
+    return false;
+  }
+  return result.adverts.every(isCircleWorkdayAdvert);
+}
+
 export type CompanySiteBatchRow = {
   id: number;
   organisationName: string;
   website: string;
+  industry?: string | null;
   genericCheckedAt: Date | null;
   atsCheckedAt: Date | null;
   careersUrl: string | null;
+  atsMappingEvidenceUrl?: string | null;
   atsProvider: string | null;
+  atsBoardId?: string | null;
+  atsMappingStatus?: "verified" | "unverified" | "invalid" | null;
   bookmarked: boolean;
   healthcareEvidenceBackfill: boolean;
   lastOutcome: string | null;
   probeStatus: "ok_for_crawl" | "bad" | "unknown";
   lastProbedAt: Date | null;
   probeReason: string | null;
+  crawlState?: {
+    queue: string[];
+    visited: string[];
+    sitemapQueued?: boolean;
+    careersUrl?: string | null;
+    atsProvider?: string | null;
+  } | null;
 };
 
 export type CompanySiteCheckOutcome =
@@ -67,7 +212,47 @@ export type CompanySiteCheckOutcome =
       failureClass: CompanySiteFailureClass | null;
       completion: "complete" | "partial_page_limit" | "partial_deadline" | "failed";
       advertsRejected: number;
+      rawAdvertsFound: number;
+      ukLocationKnown: number;
+      ukLocationUnknown: number;
+      careersUrl: string | null;
+      atsProvider: string | null;
+      repeatImport?: { inserted: number; updated: number; revived: number };
+      diagnostics?: CompanySiteDiscoveryDiagnostics;
+      errorCategory?: string | null;
+      httpStatus?: number | null;
+      retryAfter?: Date | null;
+      retired?: number;
     };
+
+export type CompanySiteEmployerRunMetric = {
+  organisationName: string;
+  employerId?: number;
+  mappingId?: string | null;
+  batchId?: string;
+  industry: string | null;
+  sourceUrl: string;
+  careersUrl: string | null;
+  atsProvider: string | null;
+  status: "checked" | "skipped" | "error";
+  completion: "complete" | "partial_page_limit" | "partial_deadline" | "failed" | null;
+  failureClass: CompanySiteFailureClass | null;
+  reason: string | null;
+  errorCategory?: string | null;
+  httpStatus?: number | null;
+  retryAfter?: string | null;
+  elapsedMs: number;
+  pagesFetched: number;
+  rawAdvertsFound: number;
+  acceptedAdverts: number;
+  inserted: number;
+  updated: number;
+  revived: number;
+  retired?: number;
+  advertsRejected: number;
+  ukLocationKnown: number;
+  ukLocationUnknown: number;
+};
 
 export type CompanySiteBatchSummary = {
   selected: number;
@@ -98,6 +283,9 @@ export type CompanySiteBatchSummary = {
   probeUnprobedSelected: number;
   probeUnknownSkipped: number;
   probeBadSkipped: number;
+  employerMetrics?: CompanySiteEmployerRunMetric[];
+  batchId?: string;
+  directFeedsOnly?: boolean;
 };
 
 let batchInProgress = false;
@@ -114,6 +302,8 @@ type CompanySiteProbeSelection = "ok_for_crawl" | "unprobed";
 async function selectCompanySiteBatchForProbeStatus(
   batchSize: number,
   selection: CompanySiteProbeSelection,
+  organisationNames?: readonly string[],
+  mode: "generic" | "direct_feed" = "generic",
 ): Promise<CompanySiteBatchRow[]> {
   const bookmarkLimit = Math.floor(batchSize * COMPANY_SITE_BOOKMARK_SHARE);
   const guaranteedOldestSlots = batchSize - bookmarkLimit;
@@ -124,19 +314,53 @@ async function selectCompanySiteBatchForProbeStatus(
   );
   const probeFilter = selection === "ok_for_crawl"
     ? sql`COALESCE(cs.probe_status, 'unknown') = 'ok_for_crawl'`
-    : sql`COALESCE(cs.probe_status, 'unknown') = 'unknown' AND cs.last_probed_at IS NULL`;
+    : sql`COALESCE(cs.probe_status, 'unknown') = 'unknown'`;
+  const directMappingFilter = mode === "direct_feed"
+    ? sql`cs.ats_mapping_status = 'verified'
+        AND cs.ats_provider IS NOT NULL AND trim(cs.ats_provider) <> ''
+        AND cs.ats_board_id IS NOT NULL AND trim(cs.ats_board_id) <> ''
+        AND cs.careers_url IS NOT NULL AND trim(cs.careers_url) <> ''`
+    : sql`TRUE`;
+  const freshnessFilter = mode === "direct_feed"
+    ? sql`(ats_checked_at IS NULL OR ats_checked_at < ${atsCutoff})`
+    : sql`(
+        generic_checked_at IS NULL
+        OR generic_checked_at < ${genericCutoff}
+        OR (
+          ats_provider IS NOT NULL
+          AND (ats_checked_at IS NULL OR ats_checked_at < ${atsCutoff})
+        )
+        OR (
+          healthcare_evidence_backfill = true
+          AND (
+            last_attempted_at IS NULL
+            OR last_attempted_at < ${healthcareEvidenceCutoff}
+          )
+        )
+      )`;
+  const allowedOrganisationNames = organisationNames?.map((name) =>
+    name.trim().toLowerCase(),
+  );
+  const organisationFilter = allowedOrganisationNames === undefined
+    ? sql`TRUE`
+    : sql`lower(btrim(sl.organisation_name)) = ANY(${sql.param(allowedOrganisationNames)}::text[])`;
   const result = await db.execute<{
     id: number;
     organisation_name: string;
     website: string;
+    industry: string | null;
     generic_checked_at: Date | null;
     ats_checked_at: Date | null;
     careers_url: string | null;
+    ats_mapping_evidence_url: string | null;
     ats_provider: string | null;
+    ats_board_id: string | null;
+    ats_mapping_status: "verified" | "unverified" | null;
     last_outcome: string | null;
     probe_status: "ok_for_crawl" | "bad" | "unknown" | null;
     last_probed_at: Date | null;
     probe_reason: string | null;
+    crawl_state: CompanySiteBatchRow["crawlState"];
     bookmarked: boolean;
     healthcare_evidence_backfill: boolean;
   }>(sql`
@@ -149,12 +373,16 @@ async function selectCompanySiteBatchForProbeStatus(
         cs.generic_checked_at,
         cs.ats_checked_at,
         cs.careers_url,
+        cs.ats_mapping_evidence_url,
         cs.ats_provider,
+        cs.ats_board_id,
+        cs.ats_mapping_status,
         cs.last_attempted_at,
         cs.last_outcome,
         cs.probe_status,
         cs.last_probed_at,
         cs.probe_reason,
+        cs.crawl_state,
         EXISTS (
           SELECT 1
           FROM sponsor_licence_bookmarks b
@@ -189,28 +417,17 @@ async function selectCompanySiteBatchForProbeStatus(
         ON cs.organisation_name = sl.organisation_name
       WHERE sl.website IS NOT NULL
         AND trim(sl.website) <> ''
-        AND ${probeFilter}
+        AND ${organisationFilter}
+        AND ${directMappingFilter}
+        AND ${mode === "direct_feed" ? sql`TRUE` : probeFilter}
         AND (cs.retry_after IS NULL OR cs.retry_after <= NOW())
+        AND (cs.crawl_lease_until IS NULL OR cs.crawl_lease_until <= NOW())
       ORDER BY lower(btrim(sl.organisation_name)), sl.id
     ),
     eligible AS (
       SELECT *
       FROM candidate_pool
-      WHERE (
-          generic_checked_at IS NULL
-          OR generic_checked_at < ${genericCutoff}
-          OR (
-            ats_provider IS NOT NULL
-            AND (ats_checked_at IS NULL OR ats_checked_at < ${atsCutoff})
-          )
-          OR (
-            healthcare_evidence_backfill = true
-            AND (
-              last_attempted_at IS NULL
-              OR last_attempted_at < ${healthcareEvidenceCutoff}
-            )
-          )
-        )
+      WHERE ${freshnessFilter}
     ),
     priority_healthcare_evidence AS (
       SELECT *
@@ -294,12 +511,16 @@ async function selectCompanySiteBatchForProbeStatus(
         generic_checked_at,
         ats_checked_at,
         careers_url,
+        ats_mapping_evidence_url,
         ats_provider,
+        ats_board_id,
+        ats_mapping_status,
         last_attempted_at,
         last_outcome,
         probe_status,
         last_probed_at,
         probe_reason,
+        crawl_state,
         bookmarked,
         healthcare_evidence_backfill
       FROM ranked_unbookmarked
@@ -384,24 +605,46 @@ async function selectCompanySiteBatchForProbeStatus(
     id: Number(row.id),
     organisationName: row.organisation_name,
     website: row.website,
+    industry: row.industry ?? null,
     genericCheckedAt: row.generic_checked_at ? new Date(row.generic_checked_at) : null,
     atsCheckedAt: row.ats_checked_at ? new Date(row.ats_checked_at) : null,
     careersUrl: row.careers_url,
+    atsMappingEvidenceUrl: row.ats_mapping_evidence_url ?? null,
     atsProvider: row.ats_provider,
+    atsBoardId: row.ats_board_id ?? null,
+    atsMappingStatus: row.ats_mapping_status === "verified" ? "verified" : "unverified",
     bookmarked: row.bookmarked,
     healthcareEvidenceBackfill: row.healthcare_evidence_backfill,
     lastOutcome: row.last_outcome,
     probeStatus: row.probe_status ?? "unknown",
     lastProbedAt: row.last_probed_at ? new Date(row.last_probed_at) : null,
     probeReason: row.probe_reason,
+    crawlState: row.crawl_state ?? null,
   }));
 }
 
 export async function selectCompanySiteBatch(
   batchSize = getBatchSize(),
+  organisationNames?: readonly string[],
+  mode: "generic" | "direct_feed" = "generic",
 ): Promise<CompanySiteBatchRow[]> {
   const requested = Math.max(1, Math.floor(batchSize));
-  const approvedRows = await selectCompanySiteBatchForProbeStatus(requested, "ok_for_crawl");
+  const allowedOrganisationNames = organisationNames?.map((name) =>
+    name.trim().toLowerCase(),
+  );
+  if (mode === "direct_feed") {
+    return selectCompanySiteBatchForProbeStatus(
+      requested,
+      "ok_for_crawl",
+      allowedOrganisationNames,
+      "direct_feed",
+    );
+  }
+  const approvedRows = await selectCompanySiteBatchForProbeStatus(
+    requested,
+    "ok_for_crawl",
+    allowedOrganisationNames,
+  );
   if (approvedRows.length >= requested) return approvedRows;
 
   // Keep a meaningful approved refresh queue when it exists, while reserving
@@ -417,6 +660,7 @@ export async function selectCompanySiteBatch(
   const unprobedRows = (await selectCompanySiteBatchForProbeStatus(
     unprobedLimit,
     "unprobed",
+    allowedOrganisationNames,
   )).filter((row) => !approvedIds.has(row.id));
 
   const selected = [
@@ -561,31 +805,90 @@ function isDue(value: Date | null, ttlMs: number): boolean {
 export async function runCompanySiteCheck(
   row: Pick<
     CompanySiteBatchRow,
-    "organisationName" | "website" | "genericCheckedAt" | "atsCheckedAt" | "careersUrl" | "atsProvider"
+    "organisationName" | "website" | "genericCheckedAt" | "atsCheckedAt" | "careersUrl" | "atsMappingEvidenceUrl" | "atsProvider" | "atsBoardId" | "atsMappingStatus" | "crawlState"
   >,
-  options: { deadlineMs?: number } = {},
+  options: {
+    deadlineMs?: number;
+    acquireLease?: boolean;
+    preserveExistingSiteMetadata?: boolean;
+    queueVerifications?: boolean;
+    verifyImportIdempotency?: boolean;
+    directFeedsOnly?: boolean;
+    expectNoInserts?: boolean;
+  } = {},
 ): Promise<CompanySiteCheckOutcome> {
   if (!row.website.trim()) return { status: "skipped", reason: "no website" };
+  const directMapping = options.directFeedsOnly && row.atsProvider && row.careersUrl
+    ? parseDirectBoardMapping(row.atsProvider, row.careersUrl, {
+        firstPartyEvidenceUrl: row.atsMappingEvidenceUrl,
+      })
+    : null;
+  if (
+    options.directFeedsOnly &&
+    (
+      row.atsMappingStatus !== "verified" ||
+      !row.careersUrl ||
+      !row.atsProvider ||
+      !row.atsBoardId ||
+      !directMapping ||
+      directMapping.boardId.toLowerCase() !== row.atsBoardId.trim().toLowerCase()
+    )
+  ) {
+    return { status: "skipped", reason: "no_direct_feed_source" };
+  }
   const checkGeneric = isDue(row.genericCheckedAt, COMPANY_SITE_GENERIC_TTL_MS);
   const checkAts =
     row.atsProvider !== null &&
     isDue(row.atsCheckedAt, COMPANY_SITE_ATS_TTL_MS);
-  if (!checkGeneric && !checkAts) return { status: "skipped", reason: "fresh cache" };
+  if (!options.directFeedsOnly && !checkGeneric && !checkAts) {
+    return { status: "skipped", reason: "fresh cache" };
+  }
+  const leaseToken = randomUUID();
+  const leaseUntil = new Date(Date.now() + Math.max(COMPANY_SITE_EMPLOYER_BUDGET_MS, 30_000));
+  const leaseResult = options.acquireLease !== true || process.env.NODE_ENV === "test"
+    ? null
+    : await db.execute(sql`
+    INSERT INTO sponsor_licence_company_site_checks
+      (organisation_name, crawl_lease_until, crawl_lease_token, updated_at)
+    VALUES (${row.organisationName}, ${leaseUntil}, ${leaseToken}, NOW())
+    ON CONFLICT (organisation_name) DO UPDATE
+    SET crawl_lease_until = EXCLUDED.crawl_lease_until,
+        crawl_lease_token = EXCLUDED.crawl_lease_token,
+        updated_at = NOW()
+    WHERE sponsor_licence_company_site_checks.crawl_lease_until IS NULL
+       OR sponsor_licence_company_site_checks.crawl_lease_until <= NOW()
+    RETURNING organisation_name
+  `);
+  if (leaseResult?.rows && leaseResult.rows.length === 0) {
+    return { status: "skipped", reason: "crawl already leased" };
+  }
+  const leaseAcquired = leaseResult !== null;
 
   let result;
   try {
     result = await discoverCompanySiteVacancies(row.organisationName, row.website, {
       knownCareersUrl: row.careersUrl,
-      checkGeneric,
-      checkAts: checkAts || checkGeneric,
+      knownCareersEvidenceUrl: row.atsMappingEvidenceUrl ?? null,
+      knownAtsBoardId: row.atsBoardId,
+      knownCareersMappingVerified: row.atsMappingStatus === "verified",
+      checkGeneric: options.directFeedsOnly ? false : checkGeneric,
+      checkAts: options.directFeedsOnly ? true : checkAts || checkGeneric,
+      directFeedsOnly: options.directFeedsOnly,
       deadlineMs: options.deadlineMs,
+      resumeState: options.directFeedsOnly ? null : row.crawlState,
     });
   } catch (error) {
     const now = new Date();
     const errorMessage = error instanceof Error ? error.message.slice(0, 1_000) : "discovery failed";
+    const errorCategory = options.directFeedsOnly
+      ? classifyCompanySiteJobErrorCategory(error)
+      : null;
+    const storedError = options.directFeedsOnly
+      ? `direct_feed_${errorCategory}`
+      : errorMessage;
     const failureClass = classifyCompanySiteFailure({
       kind: "network",
-      reason: errorMessage,
+      reason: storedError,
     });
     const retryAfter = new Date(
       now.getTime() +
@@ -600,8 +903,10 @@ export async function runCompanySiteCheck(
           retryAfter,
           lastAttemptedAt: now,
           lastOutcome: "failed",
-          lastError: `[${failureClass}] ${errorMessage}`,
+          lastError: `[${failureClass}] ${storedError}`,
           updatedAt: now,
+          crawlLeaseUntil: null,
+          crawlLeaseToken: null,
         })
         .onConflictDoUpdate({
           target: sponsorLicenceCompanySiteChecksTable.organisationName,
@@ -609,9 +914,14 @@ export async function runCompanySiteCheck(
             retryAfter,
             lastAttemptedAt: now,
             lastOutcome: "failed",
-            lastError: `[${failureClass}] ${errorMessage}`,
+            lastError: `[${failureClass}] ${storedError}`,
             updatedAt: now,
+              crawlLeaseUntil: null,
+              crawlLeaseToken: null,
           },
+            ...(leaseAcquired
+              ? { where: sql`${sponsorLicenceCompanySiteChecksTable.crawlLeaseToken} = ${leaseToken}` }
+              : {}),
         }));
     return {
       status: "checked",
@@ -625,20 +935,114 @@ export async function runCompanySiteCheck(
       transientFailure: failureClass === "temporary",
       failureClass,
       completion: "failed",
+      errorCategory,
+      httpStatus: options.directFeedsOnly ? companySiteErrorHttpStatus(error) : null,
+      retryAfter,
       advertsRejected: 0,
+      rawAdvertsFound: 0,
+      ukLocationKnown: 0,
+      ukLocationUnknown: 0,
+      careersUrl: row.careersUrl,
+      atsProvider: row.atsProvider,
     };
   }
+  if (options.directFeedsOnly) {
+    const matchesVerifiedRowMapping = (advert: CompanySiteDiscoveryResult["adverts"][number]) =>
+      Boolean(
+        directMapping &&
+        result.atsMappingVerified === true &&
+        result.atsProvider === directMapping.provider &&
+        result.careersUrl === directMapping.evidenceUrl &&
+        advert.sourceType === "company_site" &&
+        advert.companyVacancyEvidence?.kind === "known_ats_posting" &&
+        advert.companyVacancyEvidence.provider === directMapping.provider &&
+        advert.companyVacancyEvidence.listingUrl === directMapping.evidenceUrl,
+      );
+    const invalidAdvert = result.adverts.find((advert) => !matchesVerifiedRowMapping(advert));
+    if (invalidAdvert) {
+      throw new Error(
+        "Direct-feeds-only invariant failed before persistence: advert does not match the verified ATS mapping.",
+      );
+    }
+    if (result.diagnostics.directFeedSkipReason) {
+      return { status: "skipped", reason: result.diagnostics.directFeedSkipReason };
+    }
+  }
+  const circlePersistenceAllowed = isCircleDirectFeedPersistenceAllowed(row, result);
+  // Keep the discovery result and its diagnostics intact for source tracking,
+  // while making the shared vacancy write path receive no Circle adverts unless
+  // the strict direct-feed boundary has been satisfied.
+  const advertsForPersistence = circlePersistenceAllowed ? result.adverts : [];
+  const directAtsAdverts = result.adverts.filter((advert) =>
+    advert.sourceType === "company_site" &&
+    advert.companyVacancyEvidence?.kind === "known_ats_posting" &&
+    Boolean(advert.companyVacancyEvidence.provider) &&
+    advert.companyVacancyEvidence.provider === result.atsProvider &&
+    advert.companyVacancyEvidence.listingUrl === result.careersUrl &&
+    result.atsMappingVerified === true,
+  );
+  const eligibleAdvertsForPersistence = options.directFeedsOnly
+    ? advertsForPersistence.filter((advert) => {
+        const evidence = advert.companyVacancyEvidence;
+        return Boolean(
+          directMapping &&
+          result.atsMappingVerified === true &&
+          result.atsProvider === directMapping.provider &&
+          result.careersUrl === directMapping.evidenceUrl &&
+          advert.sourceType === "company_site" &&
+          evidence?.kind === "known_ats_posting" &&
+          evidence.provider === directMapping.provider &&
+          evidence.listingUrl === directMapping.evidenceUrl,
+        );
+      })
+    : companySiteGenericImportEnabled()
+      ? advertsForPersistence
+      : circlePersistenceAllowed ? directAtsAdverts : [];
+  if (!circlePersistenceAllowed && isCircleHealthGroupEmployer(row.organisationName)) {
+    result.diagnostics.directFeedSkipReason ??= "circle_direct_workday_persistence_gate";
+  }
   const persisted =
-    result.adverts.length > 0
-      ? await persistCompanySiteVacancies(result.adverts)
+    eligibleAdvertsForPersistence.length > 0
+      ? await persistCompanySiteVacancies(eligibleAdvertsForPersistence, {
+          queueVerifications: options.queueVerifications,
+          ...(options.expectNoInserts ? { requireExisting: true } : {}),
+        })
       : { inserted: 0, updated: 0, revived: 0 };
-  if (result.completion === "complete") {
-    await db.execute(sql`
+  const repeatImport =
+    options.verifyImportIdempotency && eligibleAdvertsForPersistence.length > 0
+      ? await persistCompanySiteVacancies(eligibleAdvertsForPersistence, {
+          queueVerifications: false,
+          ...(options.expectNoInserts ? { requireExisting: true } : {}),
+        })
+      : undefined;
+  let retired = 0;
+  // A generic crawl is not a complete inventory of every careers source used by
+  // an employer. Only retire postings from the exact board of an authoritative,
+  // complete direct-feed snapshot; partial feeds must never retire anything.
+  if (circlePersistenceAllowed && result.completion === "complete" && result.snapshotScope) {
+    const { provider, boardId } = result.snapshotScope;
+    const escapedBoardId = boardId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const boardPattern = provider === "Ashby"
+      ? `^https://jobs[.]ashbyhq[.]com/${escapedBoardId}/`
+      : provider === "Greenhouse"
+        ? `^https://(boards|job-boards)([.]eu)?[.]greenhouse[.]io/${escapedBoardId}/`
+        : provider === "Lever"
+          ? `^https://jobs([.]eu)?[.]lever[.]co/${escapedBoardId}/`
+          : provider === "SmartRecruiters"
+            ? `^https://jobs[.]smartrecruiters[.]com/${escapedBoardId}/`
+            : provider === "Recruitee"
+              ? `^https://${escapedBoardId}[.]recruitee[.]com/`
+              : provider === "Personio"
+                ? `^https://${escapedBoardId}[.]jobs[.]personio[.](de|com)/`
+                : null;
+    if (boardPattern) {
+      const retirementResult = await db.execute<{ id: number }>(sql`
       UPDATE sponsor_licence_vacancies
       SET source_missing_since = COALESCE(source_missing_since, NOW()),
           source_missing_observations = COALESCE(source_missing_observations, 0) + 1
       WHERE lower(btrim(organisation_name)) = lower(btrim(${row.organisationName}))
         AND source_type = 'company_site'
+        AND url ~* ${boardPattern}
         AND last_discovered_at < NOW()
         AND NOT EXISTS (
           SELECT 1
@@ -646,7 +1050,10 @@ export async function runCompanySiteCheck(
           WHERE lower(split_part(split_part(sponsor_licence_vacancies.url, '?', 1), '#', 1))
               = lower(split_part(split_part(current.url, '?', 1), '#', 1))
         )
-    `);
+      RETURNING id
+      `);
+      retired = retirementResult.rows.length;
+    }
   }
   const now = new Date();
   const completion = result.completion ??
@@ -682,7 +1089,27 @@ export async function runCompanySiteCheck(
       .from(sponsorLicenceCompanySiteChecksTable)
       .where(eq(sponsorLicenceCompanySiteChecksTable.organisationName, row.organisationName))
       .limit(1));
+  const preserveVerifiedAts =
+    options.preserveExistingSiteMetadata === true &&
+    existing?.atsMappingStatus === "verified";
+  const preserveExistingCareers =
+    options.preserveExistingSiteMetadata === true &&
+    Boolean(existing?.careersUrl) &&
+    result.atsMappingVerified !== true;
+  const ukLocationKnown = eligibleAdvertsForPersistence.filter((advert) =>
+    (advert.targetRegions?.length ?? 0) > 0 ||
+    regionsFromLocationText(advert.location).length > 0 ||
+    /\b(?:united kingdom|u\.?k\.?|great britain|england|scotland|wales|northern ireland)\b/i.test(
+      advert.location ?? "",
+    ),
+  ).length;
 
+  const directErrorCategory = options.directFeedsOnly
+    ? classifyCompanySiteJobErrorCategory(result.error ?? "")
+    : null;
+  const storedResultError = options.directFeedsOnly
+    ? result.error ? `direct_feed_${directErrorCategory}` : null
+    : result.error;
   const values = {
     organisationName: row.organisationName,
     genericCheckedAt:
@@ -693,11 +1120,44 @@ export async function runCompanySiteCheck(
       completion === "complete" && (result.atsCompleted || checkAts)
         ? now
         : existing?.atsCheckedAt ?? null,
-    careersUrl: result.careersUrl ?? existing?.careersUrl ?? null,
-    atsProvider: result.atsProvider ?? existing?.atsProvider ?? null,
+    careersUrl:
+      preserveVerifiedAts || preserveExistingCareers
+        ? existing?.careersUrl ?? null
+        : result.careersUrl ?? existing?.careersUrl ?? null,
+    atsProvider:
+      preserveVerifiedAts
+        ? existing?.atsProvider ?? null
+        : result.atsProvider ?? existing?.atsProvider ?? null,
+    ...(() => {
+      const evidenceUrl =
+        result.atsMappingVerified === true && !preserveVerifiedAts
+          ? result.careersUrl ?? existing?.careersUrl ?? null
+          : existing?.atsMappingStatus === "verified"
+            ? existing.careersUrl ?? null
+            : result.careersUrl ?? existing?.careersUrl ?? null;
+      const provider =
+        preserveVerifiedAts
+          ? existing.atsProvider ?? null
+          : result.atsProvider ?? existing?.atsProvider ?? null;
+      const mapping = result.atsMappingVerified === true && !preserveVerifiedAts
+        ? parseDirectBoardMapping(provider, evidenceUrl)
+        : null;
+      return mapping
+        ? {
+            atsBoardId: mapping.boardId,
+            atsMappingEvidenceUrl:
+              result.atsMappingEvidenceUrl ?? existing?.atsMappingEvidenceUrl ?? mapping.evidenceUrl,
+            atsMappingStatus: "verified" as const,
+          }
+        : {
+            atsBoardId: existing?.atsBoardId ?? null,
+            atsMappingEvidenceUrl: existing?.atsMappingEvidenceUrl ?? null,
+            atsMappingStatus: existing?.atsMappingStatus ?? "unverified" as const,
+          };
+    })(),
     retryAfter,
-    lastError: result.error
-      ? `${failureClass ? `[${failureClass}] ` : ""}${result.error}`.slice(0, 1_000)
+    lastError: storedResultError
+      ? `${failureClass ? `[${failureClass}] ` : ""}${storedResultError}`.slice(0, 1_000)
       : null,
     lastAttemptedAt: now,
     lastCompletedAt: completion === "complete" ? now : existing?.lastCompletedAt ?? null,
@@ -706,6 +1166,9 @@ export async function runCompanySiteCheck(
     lastPagesFetched: result.pagesFetched,
     lastAdvertsFound: result.advertsExtracted,
     lastRejectedCount: result.advertsRejected,
+    crawlState: result.completion === "complete" ? null : result.resumeState ?? row.crawlState ?? null,
+    crawlLeaseUntil: null,
+    crawlLeaseToken: null,
     updatedAt: now,
   };
   await withCompanySiteDatabaseRetry("store employer check", () =>
@@ -715,11 +1178,14 @@ export async function runCompanySiteCheck(
       .onConflictDoUpdate({
         target: sponsorLicenceCompanySiteChecksTable.organisationName,
         set: values,
+        ...(leaseAcquired
+          ? { where: sql`${sponsorLicenceCompanySiteChecksTable.crawlLeaseToken} = ${leaseToken}` }
+          : {}),
       }));
 
   return {
     status: "checked",
-    adverts: result.adverts.length,
+    adverts: eligibleAdvertsForPersistence.length,
     inserted: persisted.inserted,
     updated: persisted.updated,
     revived: persisted.revived,
@@ -729,12 +1195,28 @@ export async function runCompanySiteCheck(
     transientFailure: result.transientFailure,
     failureClass,
     completion,
-    advertsRejected: result.advertsRejected,
+    advertsRejected: result.advertsRejected + Math.max(0, result.adverts.length - eligibleAdvertsForPersistence.length),
+    rawAdvertsFound: result.advertsExtracted,
+    ukLocationKnown,
+    ukLocationUnknown: Math.max(0, eligibleAdvertsForPersistence.length - ukLocationKnown),
+    careersUrl: result.careersUrl,
+    atsProvider: result.atsProvider,
+    repeatImport,
+    diagnostics: result.diagnostics,
+    errorCategory: result.error ? directErrorCategory : null,
+    httpStatus: options.directFeedsOnly ? companySiteErrorHttpStatus(result.error ?? "") : null,
+    retryAfter,
+    retired,
   };
 }
 
 export async function runCompanySiteDiscoveryBatch(
-  options: { batchSize?: number; deadlineMs?: number } = {},
+  options: {
+    batchSize?: number;
+    deadlineMs?: number;
+    organisationNames?: readonly string[];
+    directFeedsOnly?: boolean;
+  } = {},
 ): Promise<CompanySiteBatchSummary | null> {
   if (batchInProgress) {
     console.log("[company-site-scheduler] Previous batch still running — skipping this tick");
@@ -742,6 +1224,8 @@ export async function runCompanySiteDiscoveryBatch(
   }
   batchInProgress = true;
   const startedAt = Date.now();
+  const batchId = randomUUID();
+  const directFeedsOnly = options.directFeedsOnly === true;
   const workDeadlineMs = options.deadlineMs == null
     ? undefined
     : Math.max(startedAt, options.deadlineMs - COMPANY_SITE_BATCH_WRITE_RESERVE_MS);
@@ -752,7 +1236,11 @@ export async function runCompanySiteDiscoveryBatch(
     // Fetch one extra candidate instead of running an expensive full queue
     // count after the batch. This keeps the HTTP response bounded while still
     // distinguishing an empty queue from resumable work.
-    const candidates = await selectCompanySiteBatch(batchSize + 1);
+    const candidates = await selectCompanySiteBatch(
+      batchSize + 1,
+      options.organisationNames,
+      directFeedsOnly ? "direct_feed" : "generic",
+    );
     const rows = candidates.slice(0, batchSize);
     const hasMore = candidates.length > rows.length;
     const probeSkipStats = await selectCompanySiteProbeSkipStats();
@@ -781,6 +1269,10 @@ export async function runCompanySiteDiscoveryBatch(
     let permanentFailures = 0;
     let temporaryFailures = 0;
     let nextIndex = 0;
+    const captureEmployerMetrics =
+      directFeedsOnly || process.env["COMPANY_SITE_PILOT_TELEMETRY"] === "1";
+    const employerMetrics: CompanySiteEmployerRunMetric[] = [];
+    let retired = 0;
 
     async function worker(): Promise<void> {
       while (true) {
@@ -791,10 +1283,72 @@ export async function runCompanySiteDiscoveryBatch(
         }
         const row = rows[nextIndex++];
         if (!row) return;
+        const employerStartedAt = Date.now();
         try {
           const outcome = await runCompanySiteCheck(row, {
             deadlineMs: workDeadlineMs,
+            acquireLease: true,
+            directFeedsOnly,
           });
+          if (captureEmployerMetrics) {
+            employerMetrics.push({
+              organisationName: row.organisationName,
+              employerId: row.id,
+              mappingId: directFeedsOnly
+                ? `${row.atsProvider ?? "unknown"}:${row.atsBoardId ?? "missing"}`
+                : null,
+              batchId,
+              industry: row.industry ?? null,
+              sourceUrl: directFeedsOnly ? safeUrlOrigin(row.website) ?? "" : row.website,
+              careersUrl:
+                outcome.status === "checked"
+                  ? directFeedsOnly
+                    ? safeUrlOrigin(outcome.careersUrl ?? row.careersUrl)
+                    : outcome.careersUrl ?? row.careersUrl
+                  : directFeedsOnly
+                    ? safeUrlOrigin(row.careersUrl)
+                    : row.careersUrl,
+              atsProvider:
+                outcome.status === "checked"
+                  ? outcome.atsProvider ?? row.atsProvider
+                  : row.atsProvider,
+              status: outcome.status,
+              completion: outcome.status === "checked" ? outcome.completion : null,
+              failureClass: outcome.status === "checked" ? outcome.failureClass : null,
+              reason:
+                outcome.status === "skipped"
+                  ? outcome.reason
+                  : outcome.status === "checked" &&
+                      (outcome.completion !== "complete" || outcome.failureClass)
+                    ? directFeedsOnly
+                      ? outcome.errorCategory ?? outcome.failureClass ?? outcome.completion
+                      : outcome.failureClass ?? outcome.completion
+                    : null,
+              errorCategory:
+                outcome.status === "checked" ? outcome.errorCategory ?? null : null,
+              httpStatus:
+                outcome.status === "checked" ? outcome.httpStatus ?? null : null,
+              retryAfter:
+                outcome.status === "checked" && outcome.retryAfter
+                  ? outcome.retryAfter.toISOString()
+                  : null,
+              elapsedMs: Date.now() - employerStartedAt,
+              pagesFetched: outcome.status === "checked" ? outcome.pagesFetched : 0,
+              rawAdvertsFound:
+                outcome.status === "checked" ? outcome.rawAdvertsFound : 0,
+              acceptedAdverts: outcome.status === "checked" ? outcome.adverts : 0,
+              inserted: outcome.status === "checked" ? outcome.inserted : 0,
+              updated: outcome.status === "checked" ? outcome.updated : 0,
+              revived: outcome.status === "checked" ? outcome.revived : 0,
+              retired: outcome.status === "checked" ? outcome.retired ?? 0 : 0,
+              advertsRejected:
+                outcome.status === "checked" ? outcome.advertsRejected : 0,
+              ukLocationKnown:
+                outcome.status === "checked" ? outcome.ukLocationKnown : 0,
+              ukLocationUnknown:
+                outcome.status === "checked" ? outcome.ukLocationUnknown : 0,
+            });
+          }
           if (outcome.status === "skipped") {
             skipped += 1;
           } else {
@@ -822,13 +1376,52 @@ export async function runCompanySiteDiscoveryBatch(
             inserted += outcome.inserted;
             updated += outcome.updated;
             revived += outcome.revived;
+            retired += outcome.retired ?? 0;
           }
         } catch (error) {
           errors += 1;
           temporaryFailures += 1;
+          if (captureEmployerMetrics) {
+            employerMetrics.push({
+              organisationName: row.organisationName,
+              employerId: row.id,
+              mappingId: directFeedsOnly
+                ? `${row.atsProvider ?? "unknown"}:${row.atsBoardId ?? "missing"}`
+                : null,
+              batchId,
+              industry: row.industry ?? null,
+              sourceUrl: directFeedsOnly ? safeUrlOrigin(row.website) ?? "" : row.website,
+              careersUrl: directFeedsOnly
+                ? safeUrlOrigin(row.careersUrl)
+                : row.careersUrl,
+              atsProvider: row.atsProvider,
+              status: "error",
+              completion: "failed",
+              failureClass: "temporary",
+              reason: "unexpected employer-check exception",
+              errorCategory: directFeedsOnly
+                ? classifyCompanySiteJobErrorCategory(error)
+                : null,
+              httpStatus: directFeedsOnly ? companySiteErrorHttpStatus(error) : null,
+              retryAfter: null,
+              elapsedMs: Date.now() - employerStartedAt,
+              pagesFetched: 0,
+              rawAdvertsFound: 0,
+              acceptedAdverts: 0,
+              inserted: 0,
+              updated: 0,
+              revived: 0,
+              retired: 0,
+              advertsRejected: 0,
+              ukLocationKnown: 0,
+              ukLocationUnknown: 0,
+            });
+          }
           console.error(
             `[company-site-scheduler] Failed organisation="${row.organisationName}":`,
-            error instanceof Error ? error.message : error,
+            directFeedsOnly
+              ? classifyCompanySiteJobErrorCategory(error)
+              : error instanceof Error ? error.message : error,
           );
         }
       }
@@ -841,18 +1434,18 @@ export async function runCompanySiteDiscoveryBatch(
       ),
     );
     const durationMs = Date.now() - startedAt;
-    const upserted = inserted + revived;
+    const upserted = inserted + updated + revived;
     const remaining = errors + deferred + (hasMore ? 1 : 0);
     const remainingIsLowerBound = hasMore;
     const done = remaining === 0;
     const remainingLog = remainingIsLowerBound ? `>=${remaining}` : String(remaining);
     console.log(
-      `[company-site-scheduler] Complete selected=${rows.length} checked=${checked} skipped=${skipped} upserted=${upserted} errors=${errors} done=${done} remaining=${remainingLog} adverts=${adverts} inserted=${inserted} duration_ms=${durationMs} probe_selected_ok=${probeApproved} probe_selected_unprobed=${probeUnprobedSelected} probe_skipped_bad=${probeSkipStats.bad} probe_unknown_skipped=${probeSkipStats.unknown}`,
+      `[company-site-scheduler] Complete job=${directFeedsOnly ? "company_site_direct_feed" : "company_site"} batch=${batchId} selected=${rows.length} checked=${checked} skipped=${skipped} upserted=${upserted} retired=${retired} errors=${errors} done=${done} remaining=${remainingLog} adverts=${adverts} inserted=${inserted} duration_ms=${durationMs} probe_selected_ok=${probeApproved} probe_selected_unprobed=${probeUnprobedSelected} probe_skipped_bad=${probeSkipStats.bad} probe_unknown_skipped=${probeSkipStats.unknown}`,
     );
     console.log(
       `[company-site-scheduler] Failures permanent=${permanentFailures} temporary=${temporaryFailures}`,
     );
-    console.log(`[pipeline-tick] env=${process.env.NODE_ENV ?? "unknown"} job=company_site selected=${rows.length} upserted=${upserted} probe_selected_ok=${probeApproved} probe_selected_unprobed=${probeUnprobedSelected} probe_skipped_bad=${probeSkipStats.bad} probe_unknown_skipped=${probeSkipStats.unknown} live=0 dead=0 inconclusive=0 errors=${errors} permanent_failures=${permanentFailures} temporary_failures=${temporaryFailures} done=${done} remaining=${remainingLog} duration_ms=${durationMs}`);
+    console.log(`[pipeline-tick] env=${process.env.NODE_ENV ?? "unknown"} job=${directFeedsOnly ? "company_site_direct_feed" : "company_site"} batch=${batchId} selected=${rows.length} upserted=${upserted} retired=${retired} probe_selected_ok=${probeApproved} probe_selected_unprobed=${probeUnprobedSelected} probe_skipped_bad=${probeSkipStats.bad} probe_unknown_skipped=${probeSkipStats.unknown} live=0 dead=0 inconclusive=0 errors=${errors} permanent_failures=${permanentFailures} temporary_failures=${temporaryFailures} done=${done} remaining=${remainingLog} duration_ms=${durationMs}`);
     const summary = {
       selected: rows.length,
       attempted: checked + errors,
@@ -868,6 +1461,7 @@ export async function runCompanySiteDiscoveryBatch(
       inserted,
       updated,
       revived,
+      retired,
       permanentFailures,
       temporaryFailures,
       probeApproved,
@@ -882,6 +1476,9 @@ export async function runCompanySiteDiscoveryBatch(
       remaining,
       remainingIsLowerBound,
       durationMs,
+      batchId,
+      directFeedsOnly,
+      ...(captureEmployerMetrics ? { employerMetrics } : {}),
     };
     let syncLogTable: typeof dbSchema.vacancySyncLogTable | undefined;
     try {
@@ -896,7 +1493,7 @@ export async function runCompanySiteDiscoveryBatch(
       errorCount: errors,
       durationMs,
       triggeredBy: "scheduler",
-      jobKind: "company_site",
+      jobKind: directFeedsOnly ? "company_site_direct_feed" : "company_site",
       metrics: summary,
     });
     return summary;

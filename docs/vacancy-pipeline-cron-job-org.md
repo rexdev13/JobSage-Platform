@@ -21,7 +21,7 @@ rejects requests without the secret and caps every limit server-side.
 ### NHS / core board refresh
 
 ```text
-Schedule: 0 */6 * * *
+Schedule: 0 2,8,14,20 * * *
 Body: {"kind":"job_board","limit":50}
 ```
 
@@ -56,8 +56,8 @@ Replace `0` with the returned `nextCursor`; restart at `0` after `done: true`.
 ### Company-site probe
 
 ```text
-Schedule: */15 * * * *
-Body: {"kind":"company_site_probe","limit":60}
+Schedule: 30 3,5,9,11,15,17,21,23 * * *
+Body: {"kind":"company_site_probe","limit":30}
 ```
 
 The probe keeps the existing robots, SSRF, pacing, response-size, and retry

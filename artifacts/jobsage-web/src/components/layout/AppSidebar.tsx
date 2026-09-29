@@ -138,6 +138,7 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
     })),
     { name: "Super Admin", href: "/admin/super", icon: ShieldAlert, roles: ["super_admin"] },
     { name: "Sync Management", href: "/admin/sync", icon: RefreshCw, roles: ["super_admin"] },
+    { name: "Sponsor Data Import", href: "/admin/sponsor-import", icon: Shield, roles: ["super_admin"] },
   ];
 
   const isCandidateLike = role === "candidate" || role === "reviewer" || role === "admin";

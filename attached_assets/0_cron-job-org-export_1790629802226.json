@@ -1,0 +1,1298 @@
+﻿[
+    {
+        "title":  "JOBSAGE company-site A",
+        "enabled":  true,
+        "url":  "https://jobsage.co.uk/api/internal/vacancy-jobs",
+        "method":  "POST",
+        "body":  "{\"kind\":\"company_site\"}",
+        "schedule":  {
+                         "timezone":  "Africa/Lagos",
+                         "hours":  [
+                                       -1
+                                   ],
+                         "mdays":  [
+                                       -1
+                                   ],
+                         "minutes":  [
+                                         1,
+                                         7,
+                                         13,
+                                         19,
+                                         25,
+                                         31,
+                                         37,
+                                         43,
+                                         49,
+                                         55
+                                     ],
+                         "months":  [
+                                        -1
+                                    ],
+                         "wdays":  [
+                                       -1
+                                   ],
+                         "expiresAt":  0
+                     },
+        "timeoutSeconds":  30,
+        "notifications":  {
+                              "onFailure":  true,
+                              "onFailureCount":  3,
+                              "onSuccess":  true,
+                              "onDisable":  true,
+                              "onSslCertExpiry":  true,
+                              "onSslCertExpirySeconds":  604800,
+                              "mode":  1,
+                              "selectedChannels":  [
+
+                                                   ]
+                          },
+        "saveResponses":  false
+    },
+    {
+        "title":  "JOBSAGE company-site B",
+        "enabled":  true,
+        "url":  "https://jobsage.co.uk/api/internal/vacancy-jobs",
+        "method":  "POST",
+        "body":  "{\"kind\":\"company_site\"}",
+        "schedule":  {
+                         "timezone":  "Africa/Lagos",
+                         "hours":  [
+                                       -1
+                                   ],
+                         "mdays":  [
+                                       -1
+                                   ],
+                         "minutes":  [
+                                         2,
+                                         8,
+                                         14,
+                                         20,
+                                         26,
+                                         32,
+                                         38,
+                                         44,
+                                         50,
+                                         56
+                                     ],
+                         "months":  [
+                                        -1
+                                    ],
+                         "wdays":  [
+                                       -1
+                                   ],
+                         "expiresAt":  0
+                     },
+        "timeoutSeconds":  30,
+        "notifications":  {
+                              "onFailure":  true,
+                              "onFailureCount":  1,
+                              "onSuccess":  true,
+                              "onDisable":  true,
+                              "onSslCertExpiry":  false,
+                              "onSslCertExpirySeconds":  604800,
+                              "mode":  1,
+                              "selectedChannels":  [
+
+                                                   ]
+                          },
+        "saveResponses":  false
+    },
+    {
+        "title":  "JOBSAGE company-site C",
+        "enabled":  true,
+        "url":  "https://jobsage.co.uk/api/internal/vacancy-jobs",
+        "method":  "POST",
+        "body":  "{\"kind\":\"company_site\"}",
+        "schedule":  {
+                         "timezone":  "Africa/Lagos",
+                         "hours":  [
+                                       -1
+                                   ],
+                         "mdays":  [
+                                       -1
+                                   ],
+                         "minutes":  [
+                                         3,
+                                         9,
+                                         15,
+                                         21,
+                                         27,
+                                         33,
+                                         39,
+                                         45,
+                                         51,
+                                         57
+                                     ],
+                         "months":  [
+                                        -1
+                                    ],
+                         "wdays":  [
+                                       -1
+                                   ],
+                         "expiresAt":  0
+                     },
+        "timeoutSeconds":  30,
+        "notifications":  {
+                              "onFailure":  true,
+                              "onFailureCount":  1,
+                              "onSuccess":  false,
+                              "onDisable":  true,
+                              "onSslCertExpiry":  true,
+                              "onSslCertExpirySeconds":  604800,
+                              "mode":  1,
+                              "selectedChannels":  [
+
+                                                   ]
+                          },
+        "saveResponses":  false
+    },
+    {
+        "title":  "JOBSAGE company-site D",
+        "enabled":  true,
+        "url":  "https://jobsage.co.uk/api/internal/vacancy-jobs",
+        "method":  "POST",
+        "body":  "{\"kind\":\"company_site\"}",
+        "schedule":  {
+                         "timezone":  "Africa/Lagos",
+                         "hours":  [
+                                       -1
+                                   ],
+                         "mdays":  [
+                                       -1
+                                   ],
+                         "minutes":  [
+                                         5,
+                                         11,
+                                         17,
+                                         23,
+                                         29,
+                                         35,
+                                         41,
+                                         47,
+                                         53,
+                                         59
+                                     ],
+                         "months":  [
+                                        -1
+                                    ],
+                         "wdays":  [
+                                       -1
+                                   ],
+                         "expiresAt":  0
+                     },
+        "timeoutSeconds":  30,
+        "notifications":  {
+                              "onFailure":  true,
+                              "onFailureCount":  3,
+                              "onSuccess":  true,
+                              "onDisable":  true,
+                              "onSslCertExpiry":  false,
+                              "onSslCertExpirySeconds":  604800,
+                              "mode":  1,
+                              "selectedChannels":  [
+
+                                                   ]
+                          },
+        "saveResponses":  false
+    },
+    {
+        "title":  "JOBSAGE board",
+        "enabled":  true,
+        "url":  "https://jobsage.co.uk/api/internal/vacancy-jobs",
+        "method":  "POST",
+        "body":  "{\"kind\":\"job_board\"}",
+        "schedule":  {
+                         "timezone":  "Africa/Lagos",
+                         "hours":  [
+                                       -1
+                                   ],
+                         "mdays":  [
+                                       -1
+                                   ],
+                         "minutes":  [
+                                         0,
+                                         12,
+                                         24,
+                                         36,
+                                         48
+                                     ],
+                         "months":  [
+                                        -1
+                                    ],
+                         "wdays":  [
+                                       -1
+                                   ],
+                         "expiresAt":  0
+                     },
+        "timeoutSeconds":  30,
+        "notifications":  {
+                              "onFailure":  true,
+                              "onFailureCount":  3,
+                              "onSuccess":  true,
+                              "onDisable":  true,
+                              "onSslCertExpiry":  false,
+                              "onSslCertExpirySeconds":  604800,
+                              "mode":  1,
+                              "selectedChannels":  [
+
+                                                   ]
+                          },
+        "saveResponses":  false
+    },
+    {
+        "title":  "JOBSAGE liveness",
+        "enabled":  true,
+        "url":  "https://jobsage.co.uk/api/internal/vacancy-jobs",
+        "method":  "POST",
+        "body":  "{\"kind\":\"liveness\"}",
+        "schedule":  {
+                         "timezone":  "Africa/Lagos",
+                         "hours":  [
+                                       -1
+                                   ],
+                         "mdays":  [
+                                       -1
+                                   ],
+                         "minutes":  [
+                                         4,
+                                         16,
+                                         28,
+                                         40,
+                                         52
+                                     ],
+                         "months":  [
+                                        -1
+                                    ],
+                         "wdays":  [
+                                       -1
+                                   ],
+                         "expiresAt":  20270910034200
+                     },
+        "timeoutSeconds":  30,
+        "notifications":  {
+                              "onFailure":  true,
+                              "onFailureCount":  3,
+                              "onSuccess":  true,
+                              "onDisable":  true,
+                              "onSslCertExpiry":  false,
+                              "onSslCertExpirySeconds":  604800,
+                              "mode":  1,
+                              "selectedChannels":  [
+
+                                                   ]
+                          },
+        "saveResponses":  false
+    },
+    {
+        "title":  "JOBSAGE Reed 0",
+        "enabled":  true,
+        "url":  "https://jobsage.co.uk/api/internal/vacancy-jobs",
+        "method":  "POST",
+        "body":  "{\"kind\":\"reed_professions\",\"cursor\":0,\"limit\":1}",
+        "schedule":  {
+                         "timezone":  "Africa/Lagos",
+                         "hours":  [
+                                       0,
+                                       2,
+                                       4,
+                                       6,
+                                       8,
+                                       10,
+                                       12,
+                                       14,
+                                       16,
+                                       18,
+                                       20,
+                                       22
+                                   ],
+                         "mdays":  [
+                                       -1
+                                   ],
+                         "minutes":  [
+                                         6
+                                     ],
+                         "months":  [
+                                        -1
+                                    ],
+                         "wdays":  [
+                                       -1
+                                   ],
+                         "expiresAt":  0
+                     },
+        "timeoutSeconds":  30,
+        "notifications":  {
+                              "onFailure":  true,
+                              "onFailureCount":  3,
+                              "onSuccess":  false,
+                              "onDisable":  false,
+                              "onSslCertExpiry":  false,
+                              "onSslCertExpirySeconds":  604800,
+                              "mode":  1,
+                              "selectedChannels":  [
+
+                                                   ]
+                          },
+        "saveResponses":  false
+    },
+    {
+        "title":  "JOBSAGE Reed 1",
+        "enabled":  true,
+        "url":  "https://jobsage.co.uk/api/internal/vacancy-jobs",
+        "method":  "POST",
+        "body":  "{\"kind\":\"reed_professions\",\"cursor\":1,\"limit\":1}",
+        "schedule":  {
+                         "timezone":  "Africa/Lagos",
+                         "hours":  [
+                                       0,
+                                       2,
+                                       4,
+                                       6,
+                                       8,
+                                       10,
+                                       12,
+                                       14,
+                                       16,
+                                       18,
+                                       20,
+                                       22
+                                   ],
+                         "mdays":  [
+                                       -1
+                                   ],
+                         "minutes":  [
+                                         10
+                                     ],
+                         "months":  [
+                                        -1
+                                    ],
+                         "wdays":  [
+                                       -1
+                                   ],
+                         "expiresAt":  0
+                     },
+        "timeoutSeconds":  30,
+        "notifications":  {
+                              "onFailure":  true,
+                              "onFailureCount":  3,
+                              "onSuccess":  false,
+                              "onDisable":  false,
+                              "onSslCertExpiry":  false,
+                              "onSslCertExpirySeconds":  604800,
+                              "mode":  1,
+                              "selectedChannels":  [
+
+                                                   ]
+                          },
+        "saveResponses":  false
+    },
+    {
+        "title":  "JOBSAGE Reed 2",
+        "enabled":  true,
+        "url":  "https://jobsage.co.uk/api/internal/vacancy-jobs",
+        "method":  "POST",
+        "body":  "{\"kind\":\"reed_professions\",\"cursor\":2,\"limit\":1}",
+        "schedule":  {
+                         "timezone":  "Africa/Lagos",
+                         "hours":  [
+                                       0,
+                                       2,
+                                       4,
+                                       6,
+                                       8,
+                                       10,
+                                       12,
+                                       14,
+                                       16,
+                                       18,
+                                       20,
+                                       22
+                                   ],
+                         "mdays":  [
+                                       -1
+                                   ],
+                         "minutes":  [
+                                         18
+                                     ],
+                         "months":  [
+                                        -1
+                                    ],
+                         "wdays":  [
+                                       -1
+                                   ],
+                         "expiresAt":  0
+                     },
+        "timeoutSeconds":  30,
+        "notifications":  {
+                              "onFailure":  true,
+                              "onFailureCount":  3,
+                              "onSuccess":  false,
+                              "onDisable":  false,
+                              "onSslCertExpiry":  false,
+                              "onSslCertExpirySeconds":  604800,
+                              "mode":  1,
+                              "selectedChannels":  [
+
+                                                   ]
+                          },
+        "saveResponses":  false
+    },
+    {
+        "title":  "JOBSAGE Reed 4",
+        "enabled":  true,
+        "url":  "https://jobsage.co.uk/api/internal/vacancy-jobs",
+        "method":  "POST",
+        "body":  "{\"kind\":\"reed_professions\",\"cursor\":4,\"limit\":1}",
+        "schedule":  {
+                         "timezone":  "Africa/Lagos",
+                         "hours":  [
+                                       0,
+                                       2,
+                                       4,
+                                       6,
+                                       8,
+                                       10,
+                                       12,
+                                       14,
+                                       16,
+                                       18,
+                                       20,
+                                       22
+                                   ],
+                         "mdays":  [
+                                       -1
+                                   ],
+                         "minutes":  [
+                                         30
+                                     ],
+                         "months":  [
+                                        -1
+                                    ],
+                         "wdays":  [
+                                       -1
+                                   ],
+                         "expiresAt":  0
+                     },
+        "timeoutSeconds":  30,
+        "notifications":  {
+                              "onFailure":  true,
+                              "onFailureCount":  3,
+                              "onSuccess":  false,
+                              "onDisable":  false,
+                              "onSslCertExpiry":  false,
+                              "onSslCertExpirySeconds":  604800,
+                              "mode":  1,
+                              "selectedChannels":  [
+
+                                                   ]
+                          },
+        "saveResponses":  false
+    },
+    {
+        "title":  "JOBSAGE Reed 5",
+        "enabled":  true,
+        "url":  "https://jobsage.co.uk/api/internal/vacancy-jobs",
+        "method":  "POST",
+        "body":  "{\"kind\":\"reed_professions\",\"cursor\":5,\"limit\":1}",
+        "schedule":  {
+                         "timezone":  "Africa/Lagos",
+                         "hours":  [
+                                       0,
+                                       2,
+                                       4,
+                                       6,
+                                       8,
+                                       10,
+                                       12,
+                                       14,
+                                       16,
+                                       18,
+                                       20,
+                                       22
+                                   ],
+                         "mdays":  [
+                                       -1
+                                   ],
+                         "minutes":  [
+                                         34
+                                     ],
+                         "months":  [
+                                        -1
+                                    ],
+                         "wdays":  [
+                                       -1
+                                   ],
+                         "expiresAt":  0
+                     },
+        "timeoutSeconds":  30,
+        "notifications":  {
+                              "onFailure":  true,
+                              "onFailureCount":  3,
+                              "onSuccess":  false,
+                              "onDisable":  false,
+                              "onSslCertExpiry":  false,
+                              "onSslCertExpirySeconds":  604800,
+                              "mode":  1,
+                              "selectedChannels":  [
+
+                                                   ]
+                          },
+        "saveResponses":  false
+    },
+    {
+        "title":  "JOBSAGE Reed 7",
+        "enabled":  true,
+        "url":  "https://jobsage.co.uk/api/internal/vacancy-jobs",
+        "method":  "POST",
+        "body":  "{\"kind\":\"reed_professions\",\"cursor\":7,\"limit\":1}",
+        "schedule":  {
+                         "timezone":  "Africa/Lagos",
+                         "hours":  [
+                                       0,
+                                       2,
+                                       4,
+                                       6,
+                                       8,
+                                       10,
+                                       12,
+                                       14,
+                                       16,
+                                       18,
+                                       20,
+                                       22
+                                   ],
+                         "mdays":  [
+                                       -1
+                                   ],
+                         "minutes":  [
+                                         46
+                                     ],
+                         "months":  [
+                                        -1
+                                    ],
+                         "wdays":  [
+                                       -1
+                                   ],
+                         "expiresAt":  0
+                     },
+        "timeoutSeconds":  30,
+        "notifications":  {
+                              "onFailure":  true,
+                              "onFailureCount":  3,
+                              "onSuccess":  false,
+                              "onDisable":  false,
+                              "onSslCertExpiry":  false,
+                              "onSslCertExpirySeconds":  604800,
+                              "mode":  1,
+                              "selectedChannels":  [
+
+                                                   ]
+                          },
+        "saveResponses":  false
+    },
+    {
+        "title":  "JOBSAGE boards 0",
+        "enabled":  true,
+        "url":  "https://jobsage.co.uk/api/internal/vacancy-jobs",
+        "method":  "POST",
+        "body":  "{\"kind\":\"additional_boards\",\"cursor\":0,\"limit\":1}",
+        "schedule":  {
+                         "timezone":  "Africa/Lagos",
+                         "hours":  [
+                                       0,
+                                       2,
+                                       4,
+                                       6,
+                                       8,
+                                       10,
+                                       12,
+                                       14,
+                                       16,
+                                       18,
+                                       20,
+                                       22
+                                   ],
+                         "mdays":  [
+                                       -1
+                                   ],
+                         "minutes":  [
+                                         58
+                                     ],
+                         "months":  [
+                                        -1
+                                    ],
+                         "wdays":  [
+                                       -1
+                                   ],
+                         "expiresAt":  0
+                     },
+        "timeoutSeconds":  30,
+        "notifications":  {
+                              "onFailure":  true,
+                              "onFailureCount":  3,
+                              "onSuccess":  false,
+                              "onDisable":  false,
+                              "onSslCertExpiry":  false,
+                              "onSslCertExpirySeconds":  604800,
+                              "mode":  1,
+                              "selectedChannels":  [
+
+                                                   ]
+                          },
+        "saveResponses":  false
+    },
+    {
+        "title":  "JOBSAGE boards 2",
+        "enabled":  true,
+        "url":  "https://jobsage.co.uk/api/internal/vacancy-jobs",
+        "method":  "POST",
+        "body":  "{\"kind\":\"additional_boards\",\"cursor\":2,\"limit\":1}",
+        "schedule":  {
+                         "timezone":  "Africa/Lagos",
+                         "hours":  [
+                                       1,
+                                       3,
+                                       5,
+                                       7,
+                                       9,
+                                       11,
+                                       13,
+                                       15,
+                                       17,
+                                       19,
+                                       21,
+                                       23
+                                   ],
+                         "mdays":  [
+                                       -1
+                                   ],
+                         "minutes":  [
+                                         10
+                                     ],
+                         "months":  [
+                                        -1
+                                    ],
+                         "wdays":  [
+                                       -1
+                                   ],
+                         "expiresAt":  0
+                     },
+        "timeoutSeconds":  30,
+        "notifications":  {
+                              "onFailure":  true,
+                              "onFailureCount":  3,
+                              "onSuccess":  false,
+                              "onDisable":  false,
+                              "onSslCertExpiry":  false,
+                              "onSslCertExpirySeconds":  604800,
+                              "mode":  1,
+                              "selectedChannels":  [
+
+                                                   ]
+                          },
+        "saveResponses":  false
+    },
+    {
+        "title":  "JOBSAGE boards 3",
+        "enabled":  true,
+        "url":  "https://jobsage.co.uk/api/internal/vacancy-jobs",
+        "method":  "POST",
+        "body":  "{\"kind\":\"additional_boards\",\"cursor\":3,\"limit\":1}",
+        "schedule":  {
+                         "timezone":  "Africa/Lagos",
+                         "hours":  [
+                                       1,
+                                       3,
+                                       5,
+                                       7,
+                                       9,
+                                       11,
+                                       13,
+                                       15,
+                                       17,
+                                       19,
+                                       21,
+                                       23
+                                   ],
+                         "mdays":  [
+                                       -1
+                                   ],
+                         "minutes":  [
+                                         18
+                                     ],
+                         "months":  [
+                                        -1
+                                    ],
+                         "wdays":  [
+                                       -1
+                                   ],
+                         "expiresAt":  0
+                     },
+        "timeoutSeconds":  30,
+        "notifications":  {
+                              "onFailure":  true,
+                              "onFailureCount":  3,
+                              "onSuccess":  false,
+                              "onDisable":  false,
+                              "onSslCertExpiry":  false,
+                              "onSslCertExpirySeconds":  604800,
+                              "mode":  1,
+                              "selectedChannels":  [
+
+                                                   ]
+                          },
+        "saveResponses":  false
+    },
+    {
+        "title":  "JOBSAGE boards 4",
+        "enabled":  true,
+        "url":  "https://jobsage.co.uk/api/internal/vacancy-jobs",
+        "method":  "POST",
+        "body":  "{\"kind\":\"additional_boards\",\"cursor\":4,\"limit\":1}",
+        "schedule":  {
+                         "timezone":  "Africa/Lagos",
+                         "hours":  [
+                                       1,
+                                       3,
+                                       5,
+                                       7,
+                                       9,
+                                       11,
+                                       13,
+                                       15,
+                                       17,
+                                       19,
+                                       21,
+                                       23
+                                   ],
+                         "mdays":  [
+                                       -1
+                                   ],
+                         "minutes":  [
+                                         22
+                                     ],
+                         "months":  [
+                                        -1
+                                    ],
+                         "wdays":  [
+                                       -1
+                                   ],
+                         "expiresAt":  0
+                     },
+        "timeoutSeconds":  30,
+        "notifications":  {
+                              "onFailure":  true,
+                              "onFailureCount":  3,
+                              "onSuccess":  false,
+                              "onDisable":  false,
+                              "onSslCertExpiry":  false,
+                              "onSslCertExpirySeconds":  604800,
+                              "mode":  1,
+                              "selectedChannels":  [
+
+                                                   ]
+                          },
+        "saveResponses":  false
+    },
+    {
+        "title":  "JOBSAGE boards 5",
+        "enabled":  true,
+        "url":  "https://jobsage.co.uk/api/internal/vacancy-jobs",
+        "method":  "POST",
+        "body":  "{\"kind\":\"additional_boards\",\"cursor\":5,\"limit\":1}",
+        "schedule":  {
+                         "timezone":  "Africa/Lagos",
+                         "hours":  [
+                                       1,
+                                       3,
+                                       5,
+                                       7,
+                                       9,
+                                       11,
+                                       13,
+                                       15,
+                                       17,
+                                       19,
+                                       21,
+                                       23
+                                   ],
+                         "mdays":  [
+                                       -1
+                                   ],
+                         "minutes":  [
+                                         34
+                                     ],
+                         "months":  [
+                                        -1
+                                    ],
+                         "wdays":  [
+                                       -1
+                                   ],
+                         "expiresAt":  0
+                     },
+        "timeoutSeconds":  30,
+        "notifications":  {
+                              "onFailure":  true,
+                              "onFailureCount":  3,
+                              "onSuccess":  false,
+                              "onDisable":  false,
+                              "onSslCertExpiry":  false,
+                              "onSslCertExpirySeconds":  604800,
+                              "mode":  1,
+                              "selectedChannels":  [
+
+                                                   ]
+                          },
+        "saveResponses":  false
+    },
+    {
+        "title":  "JOBSAGE boards 6",
+        "enabled":  true,
+        "url":  "https://jobsage.co.uk/api/internal/vacancy-jobs",
+        "method":  "POST",
+        "body":  "{\"kind\":\"additional_boards\",\"cursor\":6,\"limit\":1}",
+        "schedule":  {
+                         "timezone":  "Africa/Lagos",
+                         "hours":  [
+                                       1,
+                                       3,
+                                       5,
+                                       7,
+                                       9,
+                                       11,
+                                       13,
+                                       15,
+                                       17,
+                                       19,
+                                       21,
+                                       23
+                                   ],
+                         "mdays":  [
+                                       -1
+                                   ],
+                         "minutes":  [
+                                         42
+                                     ],
+                         "months":  [
+                                        -1
+                                    ],
+                         "wdays":  [
+                                       -1
+                                   ],
+                         "expiresAt":  0
+                     },
+        "timeoutSeconds":  30,
+        "notifications":  {
+                              "onFailure":  true,
+                              "onFailureCount":  3,
+                              "onSuccess":  false,
+                              "onDisable":  false,
+                              "onSslCertExpiry":  false,
+                              "onSslCertExpirySeconds":  604800,
+                              "mode":  1,
+                              "selectedChannels":  [
+
+                                                   ]
+                          },
+        "saveResponses":  false
+    },
+    {
+        "title":  "JOBSAGE boards 7",
+        "enabled":  true,
+        "url":  "https://jobsage.co.uk/api/internal/vacancy-jobs",
+        "method":  "POST",
+        "body":  "{\"kind\":\"additional_boards\",\"cursor\":7,\"limit\":1}",
+        "schedule":  {
+                         "timezone":  "Africa/Lagos",
+                         "hours":  [
+                                       1,
+                                       3,
+                                       5,
+                                       7,
+                                       9,
+                                       11,
+                                       13,
+                                       15,
+                                       17,
+                                       19,
+                                       21,
+                                       23
+                                   ],
+                         "mdays":  [
+                                       -1
+                                   ],
+                         "minutes":  [
+                                         46
+                                     ],
+                         "months":  [
+                                        -1
+                                    ],
+                         "wdays":  [
+                                       -1
+                                   ],
+                         "expiresAt":  0
+                     },
+        "timeoutSeconds":  30,
+        "notifications":  {
+                              "onFailure":  true,
+                              "onFailureCount":  3,
+                              "onSuccess":  false,
+                              "onDisable":  false,
+                              "onSslCertExpiry":  false,
+                              "onSslCertExpirySeconds":  604800,
+                              "mode":  1,
+                              "selectedChannels":  [
+
+                                                   ]
+                          },
+        "saveResponses":  false
+    },
+    {
+        "title":  "JOBSAGE boards 8",
+        "enabled":  true,
+        "url":  "https://jobsage.co.uk/api/internal/vacancy-jobs",
+        "method":  "POST",
+        "body":  "{\"kind\":\"additional_boards\",\"cursor\":8,\"limit\":1}",
+        "schedule":  {
+                         "timezone":  "Africa/Lagos",
+                         "hours":  [
+                                       1,
+                                       3,
+                                       5,
+                                       7,
+                                       9,
+                                       11,
+                                       13,
+                                       15,
+                                       17,
+                                       19,
+                                       21,
+                                       23
+                                   ],
+                         "mdays":  [
+                                       -1
+                                   ],
+                         "minutes":  [
+                                         54
+                                     ],
+                         "months":  [
+                                        -1
+                                    ],
+                         "wdays":  [
+                                       -1
+                                   ],
+                         "expiresAt":  0
+                     },
+        "timeoutSeconds":  30,
+        "notifications":  {
+                              "onFailure":  true,
+                              "onFailureCount":  3,
+                              "onSuccess":  false,
+                              "onDisable":  false,
+                              "onSslCertExpiry":  false,
+                              "onSslCertExpirySeconds":  604800,
+                              "mode":  1,
+                              "selectedChannels":  [
+
+                                                   ]
+                          },
+        "saveResponses":  false
+    },
+    {
+        "title":  "JOBSAGE boards 9",
+        "enabled":  true,
+        "url":  "https://jobsage.co.uk/api/internal/vacancy-jobs",
+        "method":  "POST",
+        "body":  "{\"kind\":\"additional_boards\",\"cursor\":9,\"limit\":1}",
+        "schedule":  {
+                         "timezone":  "Africa/Lagos",
+                         "hours":  [
+                                       1,
+                                       3,
+                                       5,
+                                       7,
+                                       9,
+                                       11,
+                                       13,
+                                       15,
+                                       17,
+                                       19,
+                                       21,
+                                       23
+                                   ],
+                         "mdays":  [
+                                       -1
+                                   ],
+                         "minutes":  [
+                                         58
+                                     ],
+                         "months":  [
+                                        -1
+                                    ],
+                         "wdays":  [
+                                       -1
+                                   ],
+                         "expiresAt":  0
+                     },
+        "timeoutSeconds":  30,
+        "notifications":  {
+                              "onFailure":  true,
+                              "onFailureCount":  3,
+                              "onSuccess":  false,
+                              "onDisable":  false,
+                              "onSslCertExpiry":  false,
+                              "onSslCertExpirySeconds":  604800,
+                              "mode":  1,
+                              "selectedChannels":  [
+
+                                                   ]
+                          },
+        "saveResponses":  false
+    },
+    {
+        "title":  "JOBSAGE company-site probe",
+        "enabled":  true,
+        "url":  "https://jobsage.co.uk/api/internal/vacancy-jobs",
+        "method":  "POST",
+        "body":  "{\"kind\":\"company_site_probe\",\"limit\":40}",
+        "schedule":  {
+                         "timezone":  "UTC",
+                         "hours":  [
+                                       -1
+                                   ],
+                         "mdays":  [
+                                       -1
+                                   ],
+                         "minutes":  [
+                                         8,
+                                         20,
+                                         32,
+                                         44
+                                     ],
+                         "months":  [
+                                        -1
+                                    ],
+                         "wdays":  [
+                                       -1
+                                   ],
+                         "expiresAt":  0
+                     },
+        "timeoutSeconds":  30,
+        "notifications":  {
+                              "onFailure":  true,
+                              "onFailureCount":  3,
+                              "onSuccess":  false,
+                              "onDisable":  false,
+                              "onSslCertExpiry":  false,
+                              "onSslCertExpirySeconds":  604800,
+                              "mode":  1,
+                              "selectedChannels":  [
+
+                                                   ]
+                          },
+        "saveResponses":  false
+    },
+    {
+        "title":  "JOBSAGE Reed 3",
+        "enabled":  true,
+        "url":  "https://jobsage.co.uk/api/internal/vacancy-jobs",
+        "method":  "POST",
+        "body":  "{\"kind\":\"reed_professions\",\"cursor\":3,\"limit\":1}",
+        "schedule":  {
+                         "timezone":  "Africa/Lagos",
+                         "hours":  [
+                                       0,
+                                       2,
+                                       4,
+                                       6,
+                                       8,
+                                       10,
+                                       12,
+                                       14,
+                                       16,
+                                       18,
+                                       20,
+                                       22
+                                   ],
+                         "mdays":  [
+                                       -1
+                                   ],
+                         "minutes":  [
+                                         22
+                                     ],
+                         "months":  [
+                                        -1
+                                    ],
+                         "wdays":  [
+                                       -1
+                                   ],
+                         "expiresAt":  0
+                     },
+        "timeoutSeconds":  30,
+        "notifications":  {
+                              "onFailure":  true,
+                              "onFailureCount":  3,
+                              "onSuccess":  false,
+                              "onDisable":  false,
+                              "onSslCertExpiry":  false,
+                              "onSslCertExpirySeconds":  604800,
+                              "mode":  1,
+                              "selectedChannels":  [
+
+                                                   ]
+                          },
+        "saveResponses":  false
+    },
+    {
+        "title":  "JOBSAGE Reed 6",
+        "enabled":  true,
+        "url":  "https://jobsage.co.uk/api/internal/vacancy-jobs",
+        "method":  "POST",
+        "body":  "{\"kind\":\"reed_professions\",\"cursor\":6,\"limit\":1}",
+        "schedule":  {
+                         "timezone":  "Africa/Lagos",
+                         "hours":  [
+                                       0,
+                                       2,
+                                       4,
+                                       6,
+                                       8,
+                                       10,
+                                       12,
+                                       14,
+                                       16,
+                                       18,
+                                       20,
+                                       22
+                                   ],
+                         "mdays":  [
+                                       -1
+                                   ],
+                         "minutes":  [
+                                         42
+                                     ],
+                         "months":  [
+                                        -1
+                                    ],
+                         "wdays":  [
+                                       -1
+                                   ],
+                         "expiresAt":  0
+                     },
+        "timeoutSeconds":  30,
+        "notifications":  {
+                              "onFailure":  true,
+                              "onFailureCount":  3,
+                              "onSuccess":  false,
+                              "onDisable":  false,
+                              "onSslCertExpiry":  false,
+                              "onSslCertExpirySeconds":  604800,
+                              "mode":  1,
+                              "selectedChannels":  [
+
+                                                   ]
+                          },
+        "saveResponses":  false
+    },
+    {
+        "title":  "JOBSAGE Reed 8",
+        "enabled":  true,
+        "url":  "https://jobsage.co.uk/api/internal/vacancy-jobs",
+        "method":  "POST",
+        "body":  "{\"kind\":\"reed_professions\",\"cursor\":8,\"limit\":1}",
+        "schedule":  {
+                         "timezone":  "Africa/Lagos",
+                         "hours":  [
+                                       0,
+                                       2,
+                                       4,
+                                       6,
+                                       8,
+                                       10,
+                                       12,
+                                       14,
+                                       16,
+                                       18,
+                                       20,
+                                       22
+                                   ],
+                         "mdays":  [
+                                       -1
+                                   ],
+                         "minutes":  [
+                                         54
+                                     ],
+                         "months":  [
+                                        -1
+                                    ],
+                         "wdays":  [
+                                       -1
+                                   ],
+                         "expiresAt":  0
+                     },
+        "timeoutSeconds":  30,
+        "notifications":  {
+                              "onFailure":  true,
+                              "onFailureCount":  3,
+                              "onSuccess":  false,
+                              "onDisable":  false,
+                              "onSslCertExpiry":  false,
+                              "onSslCertExpirySeconds":  604800,
+                              "mode":  1,
+                              "selectedChannels":  [
+
+                                                   ]
+                          },
+        "saveResponses":  false
+    },
+    {
+        "title":  "JOBSAGE boards 1",
+        "enabled":  true,
+        "url":  "https://jobsage.co.uk/api/internal/vacancy-jobs",
+        "method":  "POST",
+        "body":  "{\"kind\":\"additional_boards\",\"cursor\":1,\"limit\":1}",
+        "schedule":  {
+                         "timezone":  "Africa/Lagos",
+                         "hours":  [
+                                       1,
+                                       3,
+                                       5,
+                                       7,
+                                       9,
+                                       11,
+                                       13,
+                                       15,
+                                       17,
+                                       19,
+                                       21,
+                                       23
+                                   ],
+                         "mdays":  [
+                                       -1
+                                   ],
+                         "minutes":  [
+                                         6
+                                     ],
+                         "months":  [
+                                        -1
+                                    ],
+                         "wdays":  [
+                                       -1
+                                   ],
+                         "expiresAt":  0
+                     },
+        "timeoutSeconds":  30,
+        "notifications":  {
+                              "onFailure":  true,
+                              "onFailureCount":  3,
+                              "onSuccess":  false,
+                              "onDisable":  false,
+                              "onSslCertExpiry":  false,
+                              "onSslCertExpirySeconds":  604800,
+                              "mode":  1,
+                              "selectedChannels":  [
+
+                                                   ]
+                          },
+        "saveResponses":  false
+    }
+]

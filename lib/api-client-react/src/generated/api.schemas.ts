@@ -5,6 +5,167 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
+export interface SponsorWebsiteImportPreviewUpload {
+  file: Blob;
+}
+
+export interface SponsorWebsiteImportApplyUpload {
+  file: Blob;
+  /** @pattern ^[a-f0-9]{64}$ */
+  planHash: string;
+}
+
+export interface SponsorWebsiteImportStageUpload {
+  file: Blob;
+  /** @pattern ^[a-f0-9]{64}$ */
+  planHash: string;
+}
+
+export interface SponsorWebsiteIdentity {
+  organisationName: string;
+  townCity: string;
+  county: string;
+  region: string;
+  industry: string;
+  route: string;
+  subRoute: string;
+}
+
+export interface SponsorWebsiteIdentityCandidate {
+  id: number;
+  organisationName: string;
+  townCity: string;
+  county: string;
+  region: string;
+  industry: string;
+  route: string;
+  subRoute: string;
+}
+
+export type SponsorWebsiteImportRowField =
+  (typeof SponsorWebsiteImportRowField)[keyof typeof SponsorWebsiteImportRowField];
+
+export const SponsorWebsiteImportRowField = {
+  website: "website",
+  careers: "careers",
+} as const;
+
+export interface SponsorWebsiteImportRow {
+  sourceRef: string;
+  field: SponsorWebsiteImportRowField;
+  identityKey: string;
+  identity: SponsorWebsiteIdentity;
+  organisationName: string;
+  candidateUrl: string;
+  evidenceUrl: string;
+  status: string;
+  reason: string;
+  /** @nullable */
+  targetSponsorLicenceId: number | null;
+  targetSponsorLicenceIds: number[];
+  /** @nullable */
+  targetCompanySiteCheckId: number | null;
+  currentValue: string;
+  productionCandidates: SponsorWebsiteIdentityCandidate[];
+}
+
+export type SponsorWebsiteImportPreviewCounts = { [key: string]: number };
+
+export interface SponsorWebsiteImportPreview {
+  environment: string;
+  rowCount: number;
+  planHash: string;
+  counts: SponsorWebsiteImportPreviewCounts;
+  writeCount: number;
+  rows: SponsorWebsiteImportRow[];
+}
+
+export interface SponsorWebsiteIdentityResolutionInput {
+  identity: SponsorWebsiteIdentity;
+  /** @minimum 1 */
+  targetSponsorLicenceId: number;
+  /**
+   * @minLength 8
+   * @maxLength 500
+   */
+  reason: string;
+}
+
+export interface SponsorWebsiteIdentityResolution {
+  saved: boolean;
+  identityKey: string;
+  targetSponsorLicenceId: number;
+}
+
+export type SponsorWebsiteImportResultCounts = { [key: string]: number };
+
+export interface SponsorWebsiteImportResult {
+  applied: boolean;
+  planHash: string;
+  websiteUpdates: number;
+  careersUpdates: number;
+  mappingsStored: number;
+  counts: SponsorWebsiteImportResultCounts;
+}
+
+export interface SponsorWebsiteImportStageResult {
+  planHash: string;
+  stagedCount: number;
+  alreadyStagedCount: number;
+  heldCount: number;
+}
+
+export type SponsorWebsiteImportStagingRowField =
+  (typeof SponsorWebsiteImportStagingRowField)[keyof typeof SponsorWebsiteImportStagingRowField];
+
+export const SponsorWebsiteImportStagingRowField = {
+  website: "website",
+  careers: "careers",
+} as const;
+
+export type SponsorWebsiteImportStagingRowIdentitySnapshot = {
+  [key: string]: string;
+};
+
+export type SponsorWebsiteImportStagingRowCandidateSnapshot = {
+  [key: string]: string;
+};
+
+export type SponsorWebsiteImportStagingRowProductionCandidatesItem = {
+  [key: string]: unknown;
+};
+
+export type SponsorWebsiteImportStagingRowReviewStatus =
+  (typeof SponsorWebsiteImportStagingRowReviewStatus)[keyof typeof SponsorWebsiteImportStagingRowReviewStatus];
+
+export const SponsorWebsiteImportStagingRowReviewStatus = {
+  pending: "pending",
+  resolved: "resolved",
+  rejected: "rejected",
+} as const;
+
+export interface SponsorWebsiteImportStagingRow {
+  id: number;
+  sourceRef: string;
+  field: SponsorWebsiteImportStagingRowField;
+  organisationName: string;
+  candidateUrl: string;
+  evidenceUrl: string;
+  identitySnapshot: SponsorWebsiteImportStagingRowIdentitySnapshot;
+  candidateSnapshot: SponsorWebsiteImportStagingRowCandidateSnapshot;
+  productionCandidates: SponsorWebsiteImportStagingRowProductionCandidatesItem[];
+  resolverStatus: string;
+  resolverReason: string;
+  reviewStatus: SponsorWebsiteImportStagingRowReviewStatus;
+  createdAt: string;
+}
+
+export interface SponsorWebsiteImportStagingList {
+  environment: string;
+  total: number;
+  rows: SponsorWebsiteImportStagingRow[];
+}
+
 export interface SponsorLicenceSyncResult {
   success: boolean;
   recordCount?: number | null;
@@ -2747,3 +2908,25 @@ export type ActivateImpersonationTokenParams = {
 export type GetSuperAdminDocumentParams = {
   storageKey: string;
 };
+
+export type ListSponsorWebsiteImportStagingParams = {
+  status?: ListSponsorWebsiteImportStagingStatus;
+  /**
+   * @minimum 1
+   * @maximum 500
+   */
+  limit?: number;
+  /**
+   * @minimum 0
+   */
+  offset?: number;
+};
+
+export type ListSponsorWebsiteImportStagingStatus =
+  (typeof ListSponsorWebsiteImportStagingStatus)[keyof typeof ListSponsorWebsiteImportStagingStatus];
+
+export const ListSponsorWebsiteImportStagingStatus = {
+  pending: "pending",
+  resolved: "resolved",
+  rejected: "rejected",
+} as const;

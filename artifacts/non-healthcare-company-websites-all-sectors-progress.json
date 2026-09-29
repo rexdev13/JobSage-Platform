@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "signature": "ae47bc4f3fc8d4e62607ca39f4fdc36507785394ee299a7fd624b9220e04e0a5",
+  "inputPath": ".local/reports/sponsor-enrichment/jobsage-sponsor-base-export.csv",
+  "inputRows": 25349,
+  "healthcareRowsExcluded": 4808,
+  "nonHealthcareRows": 20541,
+  "uniqueNonHealthcareRows": 20541,
+  "selectedRows": 14530,
+  "sectors": [
+    {
+      "label": "",
+      "sourceCount": 5524,
+      "selectedCount": 3000,
+      "capApplied": true,
+      "slug": "missing-industry"
+    },
+    {
+      "label": "Construction",
+      "sourceCount": 1016,
+      "selectedCount": 1016,
+      "capApplied": false,
+      "slug": "construction"
+    },
+    {
+      "label": "Education",
+      "sourceCount": 1522,
+      "selectedCount": 1522,
+      "capApplied": false,
+      "slug": "education"
+    },
+    {
+      "label": "Engineering",
+      "sourceCount": 678,
+      "selectedCount": 678,
+      "capApplied": false,
+      "slug": "engineering"
+    },
+    {
+      "label": "Finance",
+      "sourceCount": 1185,
+      "selectedCount": 1185,
+      "capApplied": false,
+      "slug": "finance"
+    },
+    {
+      "label": "Hospitality",
+      "sourceCount": 114,
+      "selectedCount": 114,
+      "capApplied": false,
+      "slug": "hospitality"
+    },
+    {
+      "label": "Legal & Professional",
+      "sourceCount": 182,
+      "selectedCount": 182,
+      "capApplied": false,
+      "slug": "legal-and-professional"
+    },
+    {
+      "label": "Manufacturing",
+      "sourceCount": 221,
+      "selectedCount": 221,
+      "capApplied": false,
+      "slug": "manufacturing"
+    },
+    {
+      "label": "Other",
+      "sourceCount": 6487,
+      "selectedCount": 3000,
+      "capApplied": true,
+      "slug": "other"
+    },
+    {
+      "label": "Public Services",
+      "sourceCount": 222,
+      "selectedCount": 222,
+      "capApplied": false,
+      "slug": "public-services"
+    },
+    {
+      "label": "Retail",
+      "sourceCount": 68,
+      "selectedCount": 68,
+      "capApplied": false,
+      "slug": "retail"
+    },
+    {
+      "label": "Social Care",
+      "sourceCount": 1594,
+      "selectedCount": 1594,
+      "capApplied": false,
+      "slug": "social-care"
+    },
+    {
+      "label": "Technology",
+      "sourceCount": 1681,
+      "selectedCount": 1681,
+      "capApplied": false,
+      "slug": "technology"
+    },
+    {
+      "label": "Transport",
+      "sourceCount": 47,
+      "selectedCount": 47,
+      "capApplied": false,
+      "slug": "transport"
+    }
+  ],
+  "processedCount": 14530,
+  "publicFetchCalls": 22111,
+  "siteFetchCalls": 9765,
+  "sponsorListQueries": 12346,
+  "searchQueries": 0,
+  "searchConfigured": false,
+  "searchFailureCount": 0,
+  "cacheHits": 2230,
+  "startedAt": "2026-09-26T23:56:49.607Z",
+  "updatedAt": "2026-09-27T08:02:50.369Z",
+  "complete": true,
+  "stopReason": "",
+  "journalPath": "artifacts/non-healthcare-company-websites-all-sectors-progress.jsonl",
+  "outputs": {
+    "combinedCsv": "artifacts/non-healthcare-company-websites-all-sectors.csv",
+    "sectorDirectory": "artifacts/company-websites-by-sector",
+    "report": "artifacts/non-healthcare-company-websites-all-sectors-report.md",
+    "progress": "artifacts/non-healthcare-company-websites-all-sectors-progress.json",
+    "journal": "artifacts/non-healthcare-company-websites-all-sectors-progress.jsonl"
+  }
+}

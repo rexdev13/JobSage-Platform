@@ -1,5 +1,6 @@
 - [Drizzle array column inserts](drizzle-array-column.md) — text("col").array() columns require `as any` cast in .values()/.set() due to drizzle TypeScript type narrowing gap.
 - [Drizzle raw SQL array parameters](drizzle-raw-sql-array-params.md) — wrap arrays with `sql.param()` before a PostgreSQL array cast; direct interpolation becomes a row expression.
+- [PostgreSQL DISTINCT ON ordering](postgres-distinct-on-ordering.md) — every DISTINCT ON key must lead ORDER BY in the same order before tie-breakers.
 - [Drizzle correlated subqueries](drizzle-correlated-subqueries.md) — raw SQL interpolations can lose outer-table qualification; use an explicit qualified SQL fragment for correlated IDs.
 - [GCS File download pattern](gcs-file-download.md) — use storage.downloadObject(gcsFile) then response.arrayBuffer(), not gcsFile.arrayBuffer()
 - [pdf-parse ESM type fix](pdf-parse-esm-type.md) — import("pdf-parse").default errors fixed via unknown cast; calendar.tsx ref fixed with React.Ref<HTMLDivElement> cast. Both projects now at zero TS errors.
@@ -11,6 +12,7 @@
 - [OpenAPI generated-client drift](openapi-generated-drift.md) — regen can drop hand-added members missing from openapi.yaml; diff generated files after codegen and restore via the spec.
 - [Link liveness scans](link-liveness-scans.md) — aggregator links must be bulk-stamped or scans loop forever; verdicts per URL not per row; run long jobs via admin endpoint, not shell background.
 - [Prod DB read-only; array migration](prod-db-readonly-array-migration.md) — agent can't run DDL on prod; scalar→array needs user-run USING cast before republish.
+- [Production discovery runtime](production-discovery-runtime.md) — Replit's production read-only SQL interface cannot supply a production DB connection to workspace discovery scripts.
 - [Vacancy regulator classifier](vacancy-regulator-classifier.md) — use boundaries on complete words, not stems; verify profession precedence and false positives against real data.
 - [Job-board profession precedence](job-board-profession-precedence.md) — classify common IT/network/cloud titles as IT before broad engineering matches; retain explicit clinical exclusions.
 - [Reed HTML employer markup](reed-html-employer-markup.md) — current Reed cards expose the employer in the posted-by recruiter link, not company-name-link.
@@ -24,6 +26,7 @@
 - [Extension launcher visibility](extension-launcher-visibility.md) — first-party pages keep only the outbound bridge; mount Smart Apply UI and observers on external application destinations.
 - [Candidate region preferences](candidate-region-preferences.md) — Professional Profile and Opportunities now share one account-wide saved region preference.
 - [Candidate sponsor matching](candidate-sponsor-matching.md) — candidate-wide board searches need stricter employer identity matching than employer-scoped background searches.
+- [Direct-feed duplicate identities](direct-feed-duplicate-identities.md) — allow duplicate names only when their website and verified source mapping fully agree.
 - [Marketing lead performance](marketing-lead-performance.md) — registered performance uses converted-user attribution; contacted uses the current contacted status.
 - [Vacancy board deduplication](vacancy-board-deduplication.md) — shared board writes use canonical/fingerprint advisory locks; verification starts only after commit.
 - [Company-site verification safety](company-site-verification-safety.md) — initial liveness checks must share crawler robots, pacing, backoff, redirect, and SSRF controls.
@@ -33,13 +36,15 @@
 - [Monthly Readiness quota](monthly-readiness-quota.md) — ten new vacancy analyses reset on the first of each UTC month; cached results remain available.
 - [Smart Apply profile gate](smart-apply-profile-gate.md) — search preferences such as preferred region are optional and must not block application drafting.
 - [Vacancy sponsorship evidence](vacancy-sponsorship-evidence.md) — sponsor-register membership and vacancy-confirmed sponsorship are separate facts; never infer one from the other.
-- [Production vacancy schedulers](production-vacancy-schedulers.md) — keep web on Autoscale; external Scheduled workers own capped discovery/liveness jobs and production has no boot crawl.
+- [Sponsor website promotion evidence](sponsor-website-promotion-evidence.md) — brand-token overlap can over-score generic or partial matches; promotion also needs independent identity and same-site evidence.
+- [Production vacancy schedulers](production-vacancy-schedulers.md) — keep discovery on external capped workers; pilot employer allowlists filter before priority selection and limit.
 - [Smart Apply alias privacy](smart-apply-alias-privacy.md) — external ATS prefill and tracking use the canonical JOBSAGE alias; personal login email stays out of extension evidence.
 - [Shadow-root input capture](shadow-root-input-capture.md) — document-capture field listeners can erase extension textarea keystrokes before React handles them; verify in Chromium with an employer form.
 - [Contact enrichment source order](contact-enrichment-source-order.md) — exhaust stored vacancy/employer evidence before any paid website lookup; preserve provenance and no-overwrite behavior.
 - [Company-site wall-clock deadlines](company-site-wall-clock-deadlines.md) — socket inactivity timeouts alone do not bound DNS/connect phases; HTTP cron work needs an absolute request deadline.
 - [Company-site response decoding](company-site-response-decoding.md) — Node core HTTP does not decompress Content-Encoding; decode bounded bodies before PostgreSQL text persistence.
 - [Vacancy action liveness](vacancy-action-liveness.md) — vacancy-specific Apply/Send CV requires fresh live stored evidence; employer-level email outreach remains independent.
+- [Vacancy sample links](vacancy-sample-links.md) — careers listings and generic application forms are not sample vacancies; only distinct job-detail URLs count.
 - [Unified role ID routing](unified-role-id-routing.md) — resolve sponsor-vacancy IDs before the broader employer-job range or Smart Apply and tracker attribution use the wrong source.
 - [Postgres pool error containment](postgres-pool-error-containment.md) — attach idle-client error handling where the shared pool is constructed, not in individual process entry points.
 - [Liveness source fairness](liveness-source-fairness.md) — short deadline batches must reserve capacity per source or a large job-board backlog can starve company-site verification indefinitely.
@@ -48,19 +53,34 @@
 - [Answer Library safety](answer-library-safety.md) — remember only candidate-authored, allowlisted values; never import provenance-free page memory or reuse draft/application storage.
 - [Send CV deferred delivery](send-cv-deferred-delivery.md) — missing employer contact is a pending follow-up state, never an operations-inbox delivery.
 - [Artifact preview route refresh](artifact-preview-route-refresh.md) — a healthy service can still show Replit’s plain `Running` placeholder until its manifest is revalidated.
+- [Mobile file download delivery](mobile-file-download-delivery.md) — static asset previews can block downloads; use a private short-lived signed file URL and verify attachment headers.
 - [Serialize codegen and UI agents](serialize-codegen-ui-agents.md) — codegen/backend subagents can replace concurrent UI edits from older snapshots; run them before UI agents.
 - [OpenAPI path parameters](openapi-path-parameters.md) — generated clients require path parameters in the OpenAPI path key itself, such as `/resource/{id}`, not only in the operation parameter list.
 - [Deployment pnpm CI mode](deployment-pnpm-ci.md) — publishing installs without a TTY, so project-level `ci=true` must be available before artifact builds.
+- [pnpm script argument separator](pnpm-script-separator.md) — filtered pnpm scripts can forward a bare `--` to the child CLI; verify the documented invocation.
 - [Calendly connector runtime](calendly-connector-runtime.md) — a healthy Calendly OAuth connection can still return a runtime 404; after one reauth retry, repair attachment or use a secure PAT fallback.
 - [Official sponsor source adapters](official-sponsor-source-adapters.md) — CQC and GIAS public downloads have source-specific metadata/async flows; cache them and warn explicitly when unavailable.
-- [Post-merge setup timeout](post-merge-setup-timeout.md) — schema verification plus the web build can exceed a 20-second hook ceiling; keep a bounded two-minute timeout.
+- [Post-merge setup behavior](post-merge-setup-timeout.md) — allow time for schema/build; manual reconciliation can leave duplicate dev servers occupying artifact ports.
 - [Chat waitlist confirmation](chat-waitlist-confirmation.md) — carry qualifiers outside bounded chat history and treat form/chat email delivery as one idempotent confirmation state.
 - [Company-site coverage](company-site-coverage.md) — improve slow employer-site coverage with bounded throughput and better URL discovery, never looser relevance or safety filters.
 - [Company-site health probes](company-site-health-probes.md) — classify hosts through the shared safe fetch path before crawling; timeouts must retain the writer lock until work settles.
 - [Vacancy visibility enforcement](vacancy-visibility-enforcement.md) — keep one status rule aligned across SQL aggregates, detail lists, click checks, and application creation.
+- [Multi-round task sync](task-rebase-generated-assets.md) — generated assets can conflict repeatedly; defer asset re-registration until all sync rounds finish.
 - [Vacancy sync-log contract](vacancy-sync-log-contract.md) — every external vacancy batch needs an explicit kind, liveness counters, and one serialized writer path.
 - [DWP Find a Job access](dwp-find-a-job-access.md) — official search pages currently error or time out from the development server; verify runtime access before integrating.
 - [Factual CV draft freshness](cv-draft-freshness.md) — Maker source-fact changes clear reviewed state but preserve draft text; readiness self-attestations stay separate.
 - [Per-marketer Google Calendar authorization](per-marketer-google-calendar.md) — custom JOBSAGE users need encrypted, marketer-specific Google OAuth rather than the workspace connector identity.
 - [Staging-only k6 load testing](k6-load-testing-safety.md) — capacity tests use isolated non-production targets and synthetic accounts; never load-test the production custom domain.
 - [Candidate alert parity](candidate-alert-opportunities-parity.md) — job-alert emails must use the candidate-visible Opportunities gates and ranking before the five-role cap.
+- [Public ATS API robots policy](public-ats-api-robots.md) — documented ATS JSON feeds bypass HTML robots checks but retain SSRF, DNS pinning, pacing, backoff, deadlines, and size limits.
+- [Direct-feed host evidence](direct-feed-host-evidence.md) — carry verified evidence end to end; Circle CXS requires exact row counts and allows numeric JR slug suffixes.
+- [Detached company-site verification](company-site-verification-drain.md) — one-off discovery runners must await exact liveness checks before pool shutdown; the post-commit verifier queue is in-memory, not durable.
+- [Sponsor public-source matching scale](sponsor-public-source-matching-scale.md) — large sponsor/source coverage needs rare organization-name token probes before fuzzy matching; broad location buckets can time out.
+- [First-party job-description PDFs](company-site-job-pdf-evidence.md) — accept media-hosted role PDFs only with explicit current-listing, role, and safe application/contact evidence.
+- [Durable CodeExecution date handling](durable-codeexecution-date-handling.md) — use workspace TypeScript for time-zone parsing; the durable sandbox lacks Intl, TextDecoder, and Date.now.
+- [Durable CodeExecution file budget](durable-codeexecution-file-budget.md) — large read/modify/write callback batches can exceed the sandbox’s shared 3 MB per-block budget.
+- [External bulk lookup keys](external-bulk-lookup-keys.md) — third-party enrichment uploads should use synthetic row keys; keep internal database IDs in a local-only join map.
+- [Production sponsor import identity](production-sponsor-import-identity.md) — IDs differ across environments; use a fresh production crosswalk and the guarded blank-only admin importer.
+- [Sponsor URL import fan-out](sponsor-url-import-fanout.md) — only fan out identical complete identities to blank rows; manual crosswalks select one target and held rows stay outside vacancy inputs.
+- [Secret scope verification](secret-scope-verification.md) — a secret’s presence in environment queries does not prove it is configured as a published app secret.
+- [Git authentication vs connectors](git-auth-vs-connectors.md) — Agent GitHub API access does not establish Git push authentication; diagnose prompts separately.

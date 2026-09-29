@@ -10,6 +10,8 @@
     "vacancy:jobs": "NODE_ENV=production node ./dist/vacancyJobs.cjs",
     "seed:test-email-vacancy": "tsx src/scripts/seedTestEmailVacancy.ts",
     "seed:k6-fixture": "NODE_ENV=development tsx src/scripts/seedK6Fixture.ts",
+    "promote:sponsor-websites:dev": "NODE_ENV=development tsx src/scripts/runSponsorWebsitePromotion.ts --apply-dev",
+    "vacancy:sponsor-websites": "tsx src/scripts/runSponsorWebsiteVacancyPipeline.ts",
     "backfill:healthcare-vacancy-contacts": "tsx src/scripts/healthcareVacancyContactBackfill.ts",
     "backfill:reed-professions": "NODE_ENV=development tsx src/scripts/reedProfessionBackfill.ts",
     "backfill:additional-boards": "NODE_ENV=development tsx src/scripts/additionalBoardProfessionBackfill.ts",

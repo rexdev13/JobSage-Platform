@@ -1,0 +1,113 @@
+Based on the ATS coverage audit, do not start broad vacancy collection yet.
+
+The audit shows the main blocker is missing website/careers data:
+- 127,293 distinct sponsor organisation names
+- only 1,515 stored websites
+- only 417 stored careers URLs
+- only 19 existing ATS mappings
+- only 1 verified ATS mapping
+
+Next task:
+Verify the small direct-ATS wins, then build website/careers enrichment.
+
+Step 1: Verify probable ATS boards
+Check whether these employer official websites/careers pages link to the detected Ashby boards:
+
+1. Vertical Aerospace Group Ltd
+   detected board: https://jobs.ashbyhq.com/vertical-aerospace
+   audit result: 7 probable postings
+
+2. Pliant Payments Limited
+   detected board: https://jobs.ashbyhq.com/pliant
+   audit result: 36 probable postings
+
+For each:
+- find official website
+- find careers page
+- confirm whether the official site/careers page links to the Ashby board
+- if confirmed, mark mapping as verified in development only
+- run direct feed collection in development only
+- import vacancies in development only
+- repeat import and confirm 0 duplicate inserts
+- verify sample application/detail URLs
+- report exact results
+
+Step 2: Resolve uncertain Greenhouse mapping
+Check 59 Studio Ltd:
+- stored/detected Greenhouse board: journey
+- audit result: 16 uncertain postings
+
+Confirm whether 59 Studio’s official website/careers page links to `https://boards.greenhouse.io/journey` or related Journey Greenhouse URLs.
+If ownership is confirmed, mark mapping verified in development and test import.
+If not confirmed, mark it unverified/invalid and do not import.
+
+Step 3: Build website/careers enrichment audit
+Create a read-only/dev-safe enrichment process for sponsor employers.
+
+Goal:
+For each sponsor employer, find and store candidate official website/careers page with confidence and evidence.
+
+Do not overwrite existing good data.
+Do not write production data.
+Do not deploy.
+
+For each employer, classify:
+- official website found
+- careers page found
+- no website found
+- ambiguous/wrong company risk
+- social/directory/aggregator only
+- unsupported ATS discovered
+- supported ATS discovered
+
+Reject as official website:
+- LinkedIn
+- Indeed
+- Reed
+- Glassdoor
+- Companies House
+- GOV.UK
+- Facebook
+- Instagram
+- X/Twitter
+- directories
+- random job boards
+
+Prioritize:
+- existing stored website if valid
+- exact company domain
+- careers/jobs/join-us/work-with-us pages
+- links from official site to ATS boards
+
+Store evidence fields:
+- website_url
+- website_confidence
+- website_evidence_url
+- careers_url
+- careers_confidence
+- careers_evidence_url
+- detected_ats_provider
+- detected_ats_board_id
+- ats_mapping_status
+- ats_mapping_evidence_url
+- last_checked_at
+- last_error
+
+Step 4: Run enrichment sample first
+Run this on a dev sample:
+- 20 employers from sectors with no careers URL
+- 20 employers with website but no careers URL
+- 20 employers from Healthcare/Social Care
+- 20 employers from Technology/Engineering/Finance
+- 20 employers from Hospitality/Retail/Construction/Manufacturing
+
+Return:
+- how many official websites found
+- how many careers pages found
+- how many supported ATS boards found
+- how many unsupported ATS platforms found
+- how many ambiguous/wrong-company risks
+- examples of each category
+- recommended next step
+
+Do not run broad production collection until this enrichment sample passes.

@@ -174,9 +174,10 @@ const GENERIC_TERMINAL_SLUGS = new Set([
   "open-positions",
   "current-vacancies",
   "job-vacancies",
+  "recommendationmethods",
+  "talentcommunity",
+  "talent-community",
   "job-portal",
-  "search-jobs",
-  "search_jobs",
   "404",
   "404-error",
   "error-404",
@@ -184,6 +185,70 @@ const GENERIC_TERMINAL_SLUGS = new Set([
   "page-not-found",
   "page_not_found",
 ]);
+
+// Exact non-vacancy destinations observed in employer career sections. Keep
+// this list limited to resource-page slugs so role titles with similar words
+// (for example, "Benefits Manager") remain eligible.
+const NON_VACANCY_CAREER_RESOURCE_SLUGS = new Set([
+  "benefits",
+  "why-work-in-the-industry",
+  "working-in-the-industry",
+  "pharmaceutical-recruiters",
+  "international-non-eu-applicants",
+  "pharmaceutical-careers-for-doctors",
+  "post-graduates-post-doctoral-researchers",
+  "undergraduates",
+]);
+const CAREER_SECTION_PATH =
+  /\/(?:careers?|jobs?|vacanc(?:y|ies)|opportunit(?:y|ies)|positions?)(?:\/|$)/i;
+
+const CAREER_SEARCH_TERMINAL_SLUGS = new Set(["searchjobs", "search-jobs", "search_jobs"]);
+const SPECIFIC_JOB_ID_QUERY_KEYS = new Set([
+  "jobid",
+  "job",
+  "jobreqid",
+  "reqid",
+  "requisitionid",
+  "postingid",
+  "vacancyid",
+]);
+
+/**
+ * Search filters and career utility pages are not specific vacancy destinations.
+ * Some employer sites encode department/country facets in numeric query keys,
+ * which otherwise look like deep links when paired with a `/Careers/SearchJobs`
+ * path.
+ */
+export function isNonVacancyCareerUtilityUrl(url: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+
+  const normalisedPath = parsed.pathname.toLowerCase().replace(/\/+$/, "") || "/";
+  const terminalSlug = normalisedPath.split("/").at(-1) ?? "";
+  const hasSpecificJobId = [...parsed.searchParams.entries()].some(
+    ([key, value]) => SPECIFIC_JOB_ID_QUERY_KEYS.has(key.toLowerCase()) && value.trim() !== "",
+  );
+  if (GENERIC_TERMINAL_SLUGS.has(terminalSlug)) return true;
+  if (
+    CAREER_SECTION_PATH.test(normalisedPath) &&
+    NON_VACANCY_CAREER_RESOURCE_SLUGS.has(terminalSlug) &&
+    !hasSpecificJobId
+  ) return true;
+  if (!CAREER_SEARCH_TERMINAL_SLUGS.has(terminalSlug)) return false;
+
+  const hasNumericFacetPair = [...parsed.searchParams.keys()].some(
+    (key) => /^\d+$/.test(key) && parsed.searchParams.has(`${key}_format`),
+  );
+  const importCategory = parsed.searchParams.get("intcmp") ?? "";
+  const hasNamedFacet = /^JobsBy(?:Teams?|Country)$/i.test(importCategory);
+  if (hasNumericFacetPair || hasNamedFacet) return true;
+
+  return !hasSpecificJobId;
+}
 
 /**
  * True when the URL is a usable deep-link to a specific job advert:
@@ -202,6 +267,7 @@ export function isValidVacancyDeepLink(url: string | null | undefined): boolean 
   }
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
   if (isBlockedVacancyUrl(url)) return false;
+  if (isNonVacancyCareerUtilityUrl(url)) return false;
 
   const rawPath = parsed.pathname;
   const normalised = rawPath.toLowerCase().replace(/\/+$/, "") || "/";

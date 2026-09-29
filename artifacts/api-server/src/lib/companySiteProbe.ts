@@ -11,6 +11,7 @@ import {
   inspectCompanySiteProbePage,
   normaliseSponsorWebsite,
 } from "./companySiteDiscovery";
+import { parseDirectBoardMapping } from "./directEmployerBoardConnectors";
 import { withCompanySiteDatabaseRetry } from "./companySitePersistence";
 
 export const COMPANY_SITE_PROBE_FAILED_RETRY_MS = 24 * 60 * 60 * 1000;
@@ -68,10 +69,19 @@ async function persistProbeOutcome(
   classification: CompanySiteProbeClassification,
   error: string | null,
   retryAt: Date | undefined,
-  metadata: { careersUrl?: string | null; atsProvider?: string | null; reason?: string } = {},
+  metadata: {
+    careersUrl?: string | null;
+    atsProvider?: string | null;
+    reason?: string;
+    atsMappingVerified?: boolean;
+    atsMappingEvidenceUrl?: string | null;
+  } = {},
 ): Promise<void> {
   const now = new Date();
   const retryAfter = retryAtFor(classification, retryAt, now);
+  const mapping = metadata.atsMappingVerified
+    ? parseDirectBoardMapping(metadata.atsProvider ?? null, metadata.careersUrl ?? null)
+    : null;
   const probeStatus: "ok_for_crawl" | "bad" | "unknown" =
     classification === "ok_for_crawl"
       ? "ok_for_crawl"
@@ -95,6 +105,13 @@ async function persistProbeOutcome(
     updatedAt: now,
     ...(metadata.careersUrl ? { careersUrl: metadata.careersUrl } : {}),
     ...(metadata.atsProvider ? { atsProvider: metadata.atsProvider } : {}),
+    ...(mapping
+      ? {
+          atsBoardId: mapping.boardId,
+          atsMappingEvidenceUrl: metadata.atsMappingEvidenceUrl ?? row.website,
+          atsMappingStatus: "verified" as const,
+        }
+      : {}),
   };
   await withCompanySiteDatabaseRetry("store company-site probe", () =>
     db

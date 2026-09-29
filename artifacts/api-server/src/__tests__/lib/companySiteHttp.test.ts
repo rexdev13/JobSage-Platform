@@ -13,6 +13,7 @@ const {
   decodeCompanySiteResponseBody,
   knownAtsProvider,
   requestPinned,
+  fetchCompanySitePublicApiPost,
   resolveAndPinPublicAddress,
   robotsAllows,
 } = await import("../../lib/companySiteHttp");
@@ -96,6 +97,52 @@ describe("known ATS providers", () => {
 });
 
 describe("company-site DNS pinning", () => {
+  it("sends bounded JSON POSTs with the pinned transport", async () => {
+    const request = new EventEmitter() as unknown as import("node:http").ClientRequest;
+    const response = new EventEmitter() as any;
+    Object.assign(request, {
+      setTimeout: vi.fn(),
+      destroy: vi.fn(),
+      end: vi.fn((body?: string) => {
+        expect(body).toBe('{"offset":0}');
+        queueMicrotask(() => {
+          response.emit("data", Buffer.from("{}"));
+          response.emit("end");
+        });
+      }),
+    });
+    Object.assign(response, { statusCode: 200, headers: { "content-type": "application/json" } });
+    const requestSpy = vi.spyOn(http, "request").mockImplementation(((url: URL, options: any, callback: any) => {
+      expect(url.toString()).toContain("example.com");
+      expect(options.method).toBe("POST");
+      expect(options.headers).toMatchObject({
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      });
+      callback(response);
+      return request;
+    }) as any);
+    await expect(requestPinned(
+      new URL("http://example.com/wday/cxs/circlehealth/chgcareers/jobs"),
+      { address: "8.8.8.8", family: 4 }, 100, 1_000,
+      { method: "POST", body: '{"offset":0}' },
+    )).resolves.toMatchObject({ status: 200, body: "{}" });
+    requestSpy.mockRestore();
+  });
+
+  it("rejects arbitrary Workday POST hosts and paths before DNS or database access", async () => {
+    await expect(fetchCompanySitePublicApiPost(
+      "https://evil.example/wday/cxs/circlehealth/chgcareers/jobs",
+      JSON.stringify({ appliedFacets: {}, limit: 20, offset: 0, searchText: "" }),
+      Date.now() + 1000,
+    )).resolves.toMatchObject({ ok: false, kind: "unsafe" });
+    await expect(fetchCompanySitePublicApiPost(
+      "https://circlehealth.wd103.myworkdayjobs.com/wday/cxs/circlehealth/other/jobs",
+      "{}",
+      Date.now() + 1000,
+    )).resolves.toMatchObject({ ok: false, kind: "unsafe" });
+  });
+
   it("rejects a private connection-time resolution", async () => {
     await expect(
       resolveAndPinPublicAddress(

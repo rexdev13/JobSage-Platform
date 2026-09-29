@@ -160,6 +160,7 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
     if (rawSponsorVacancyId != null && Number.isInteger(rawSponsorVacancyId) && rawSponsorVacancyId > 0) {
       const [stored] = await db
         .select({
+          title: sponsorLicenceVacanciesTable.title,
           url: sponsorLicenceVacanciesTable.url,
           liveness: sponsorLicenceVacanciesTable.liveness,
           lastVerifiedAt: sponsorLicenceVacanciesTable.lastVerifiedAt,
@@ -183,6 +184,7 @@ router.post("/speculative-applications", requireAuthenticated, async (req, res):
       storedUrl = stored.url?.trim() || null;
       const candidateStatus = getCandidateVacancyStatus({
         sourceType: stored.sourceType,
+        title: stored.title,
         liveness: stored.liveness,
         lastVerifiedAt: stored.lastVerifiedAt,
         sourceMissingSince: stored.sourceMissingSince,

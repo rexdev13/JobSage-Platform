@@ -1,0 +1,74 @@
+We confirmed from cron-job.org export that these four enabled cron jobs currently send the old payload:
+
+- JOBSAGE company-site A: {"kind":"company_site"}
+- JOBSAGE company-site B: {"kind":"company_site"}
+- JOBSAGE company-site C: {"kind":"company_site"}
+- JOBSAGE company-site D: {"kind":"company_site"}
+
+They run 40 times per hour combined and are likely responsible for the high production company_site activity. They also appear to allow generic company-site writes.
+
+I do not want to blindly delete or pause useful automation. Please determine the correct replacement plan.
+
+Do not deploy.
+Do not write production data.
+Do not edit cron jobs.
+Do not run discovery/import yet.
+
+Please answer:
+
+1. What were A-D originally intended to do?
+- Were they meant to shard company-site vacancy collection?
+- Did they depend on the old `company_site` hybrid route?
+- Are A-D still needed after the new direct-feed route exists?
+
+2. Does production currently support the new direct-feed job?
+- Is the latest code deployed?
+- Does `/api/internal/vacancy-jobs` accept `{"kind":"company_site_direct_feed"}` in production?
+- What exact request body should the cron use?
+- Does it support `limit`?
+- Does it require extra fields such as shard/cursor/provider?
+- Does it use verified mappings only?
+
+3. What happens if A-D are simply paused?
+- Which vacancy source stops?
+- Will job boards, Reed, additional boards, liveness, and company-site probe continue normally?
+- Will existing vacancies remain visible and still be checked by liveness?
+- Will any stale/closed handling break?
+
+4. What happens if A-D are converted?
+Compare these options:
+- Option A: pause all four A-D and create one new small `company_site_direct_feed` canary cron.
+- Option B: convert one of A-D to `company_site_direct_feed` and pause the other three.
+- Option C: convert all four A-D to `company_site_direct_feed`, with safer limits/frequency.
+- Option D: keep A-D as `company_site` but rely on `COMPANY_SITE_GENERIC_IMPORT_ENABLED=false`.
+
+For each option, give risks, expected behavior, and recommended action.
+
+5. Confirm generic kill switch behavior
+- If `COMPANY_SITE_GENERIC_IMPORT_ENABLED=false` is set, can the old `company_site` route still create any `structured_job_card`, `json_ld_job_posting`, or generic company-site vacancy rows?
+- Does it still allow direct ATS/feed imports?
+- Does it affect job_board, Reed, additional_boards, liveness, or company_site_probe?
+
+6. Production readiness
+Before any cron conversion, confirm:
+- latest repair code is deployed to production
+- production secret `COMPANY_SITE_GENERIC_IMPORT_ENABLED=false` is set
+- direct-feed route is available
+- production verified mappings exist
+- production-bound read-only discovery/runtime issue is resolved
+- mapping promotion path is safe
+
+7. Final recommendation
+Give me the exact cron action plan:
+- which A-D jobs to pause
+- which A-D jobs to edit/convert
+- exact new request body
+- exact schedule
+- exact timeout
+- whether to create a separate new canary cron instead
+- what to monitor after first run
+
+Output must be a simple table:
+Cron name | Current payload | Recommended action | New payload if any | Reason
+
+Do not make changes. I will manually edit cron-job.org after approval.

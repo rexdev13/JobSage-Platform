@@ -1,0 +1,154 @@
+Audit the current JOBSAGE vacancy automation and explain exactly how the verified direct-feed vacancy pipeline should fit into what already exists.
+
+I do not want a one-off manual process. The final system must run automatically using the existing scheduler/cron setup.
+
+Please perform a code and database audit only first. Do not deploy, do not write production data, and do not run broad crawling yet.
+
+Audit these areas:
+
+1. Current scheduled jobs / cron
+- List every existing vacancy-related scheduled job.
+- Include file names, function names, route names, command names, and schedule frequency.
+- Identify whether each job runs in development, preview, production, or depends on external cron.
+- Identify which jobs currently collect vacancies, verify links, mark vacancies stale/closed, backfill apply URLs, or update candidate visibility.
+
+2. Current vacancy sources
+Explain how JOBSAGE currently handles:
+- Job board / ATS vacancies
+- Company website vacancies
+- Send CV / employer contact route
+- Manual/admin/imported vacancies
+- Existing company_site rows
+- Existing company-site-check rows
+- Existing verified ATS mappings
+
+For each source, show:
+- Where the data is stored
+- What table/columns are used
+- How duplicates are prevented
+- How liveness is checked
+- How candidate-visible Opportunities decides whether to show the vacancy
+
+3. Current company website pipeline
+Audit the current company website logic specifically:
+- Does it crawl generic HTML pages?
+- Does it parse schema.org JobPosting?
+- Does it detect Greenhouse, Ashby, Lever, Workday, SmartRecruiters, Recruitee, Teamtailor, Personio, Workable, BambooHR, iCIMS, etc?
+- Does it currently separate direct ATS/feed results from generic HTML crawl results?
+- Can generic HTML pages still create candidate-visible vacancies?
+- Is there a feature flag or config to disable generic HTML vacancy insertion while keeping direct-feed collection active?
+
+4. Current direct-feed / ATS support
+Find all existing code for direct ATS/feed collection.
+For each supported provider, report:
+- Provider name
+- Connector/file/function
+- Feed URL pattern used
+- Whether it supports exact application URL
+- Whether it supports location
+- Whether it supports closed/unlisted filtering
+- Whether it records stable external listing IDs
+- Whether repeat runs update instead of duplicate
+
+5. Current production population
+Using production read-only only, count:
+- Total sponsor rows
+- Sponsor rows with website
+- Sponsor rows with careers URL/company-site check
+- Existing verified ATS/feed mappings
+- Existing live candidate-visible company-site vacancies
+- Existing job-board/ATS vacancies
+- Existing vacancies by source_type
+- Existing vacancies by sector/category if available
+
+Do not write to production.
+
+6. Current dev/preview population
+Using development/preview, count the same metrics:
+- Total sponsor rows
+- Sponsor rows with website
+- Sponsor rows with careers URL/company-site check
+- Verified ATS/feed mappings
+- Live candidate-visible vacancies by source_type
+- Existing company-site vacancies that came from generic HTML vs direct feed evidence
+
+7. Safety problems
+Identify any current path where non-job pages can become vacancies, especially:
+- Benefits pages
+- “Why work here” pages
+- Careers advice pages
+- Recruiter/resource pages
+- Navigation links
+- “Skip to main content”
+- Generic careers landing pages without a specific role
+
+For each risky path, say exactly how to disable it or keep it out of candidate-visible results.
+
+8. Recommended integration plan
+Design the final automated flow using the existing JOBSAGE scheduler/cron system.
+
+The target design should be:
+
+A. Feed discovery job
+- Runs automatically on sponsor employers with saved website/careers URL.
+- Finds verified direct ATS/feed mappings only.
+- Stores provider, board ID/token, evidence URL, confidence/status, last checked time.
+- Does not create candidate-visible vacancies directly.
+- Does not accept guessed board IDs unless employer-site evidence confirms it.
+
+B. Direct-feed vacancy import job
+- Runs automatically on verified mappings.
+- Pulls actual vacancies from Greenhouse/Ashby/Lever/etc.
+- Stores exact detail URL and application URL separately where available.
+- Uses stable external listing IDs/hashes for dedupe.
+- Updates existing vacancies on repeat runs.
+- Marks missing/closed vacancies safely only after confirmed full feed success.
+- Does not run generic HTML crawl.
+
+C. Liveness verification job
+- Rechecks detail/apply URLs.
+- Marks broken/closed/stale vacancies correctly.
+- Does not treat “page is reachable” as proof that it is a real vacancy.
+
+D. Candidate visibility rules
+- Candidate-visible company-site vacancies should require strong evidence:
+  - known ATS/direct feed posting, or
+  - schema.org JobPosting with specific role and application/contact route, if explicitly enabled later.
+- Generic HTML link discoveries should not become candidate-visible vacancies for now.
+
+9. Config and rollout
+Recommend exact environment flags/config values for:
+- Development/preview test mode
+- Production read-only discovery
+- Production write rollout
+- Disabling generic HTML vacancy insertion
+- Enabling verified direct-feed import
+- Batch size
+- concurrency
+- timeout
+- retry/backoff
+- daily/hourly schedule
+
+10. Execution plan
+Give a staged plan:
+- Stage 0: audit only
+- Stage 1: production read-only feed discovery on saved websites/careers URLs
+- Stage 2: import verified mappings into development/preview
+- Stage 3: run direct-feed vacancy import twice in development/preview
+- Stage 4: promote verified mappings to production
+- Stage 5: enable production scheduler
+- Stage 6: monitor counts, duplicates, stale vacancies, failed feeds
+
+For each stage, state:
+- command/route to run
+- database mode
+- expected output file/report
+- pass/fail criteria
+- rollback plan
+
+Important:
+- Do not deploy.
+- Do not write production data.
+- Do not run broad generic website crawling.
+- Do not weaken existing URL safety, SSRF protection, robots handling, DNS pinning, host pacing, response-size limits, or liveness checks.
+- The aim is to fit verified direct-feed collection into the existing JOBSAGE scheduler so it becomes automatic, not manual.

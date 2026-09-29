@@ -26,7 +26,106 @@ export type VacancyLinkStatus =
   | "inconclusive"
   | "stale";
 
-export type CandidateVacancyStatus = "visible" | "stale" | "missing" | "dead" | "expired" | "unverified";
+export type CandidateVacancyStatus =
+  | "visible"
+  | "stale"
+  | "missing"
+  | "dead"
+  | "expired"
+  | "unverified"
+  | "pending_review";
+
+/** Company-site manager vacancies require explicit occupational evidence. */
+export function hasApprovedCompanyVacancyRoleEligibilityReview(evidence: unknown): boolean {
+  if (!evidence || typeof evidence !== "object") return false;
+  const review = (evidence as Record<string, unknown>).roleEligibilityReview;
+  if (!review || typeof review !== "object") return false;
+  const value = review as Record<string, unknown>;
+  const socCode = value.socCode;
+  const evidenceUrl = value.evidenceUrl;
+  if (value.status !== "approved" || typeof socCode !== "string" || !/^\d{4}$/.test(socCode)) return false;
+  if (typeof evidenceUrl !== "string" || !evidenceUrl.trim()) return false;
+  try {
+    const parsed = new URL(evidenceUrl);
+    return parsed.protocol === "https:" && Boolean(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Candidate visibility is deliberately stricter than URL liveness.  A direct
+ * feed advert must retain enough provenance to show that it came from the
+ * verified ATS mapping, rather than merely being labelled as an ATS posting
+ * by generic page discovery.
+ */
+export function hasVerifiedDirectFeedEvidence(evidence: unknown): boolean {
+  if (!evidence || typeof evidence !== "object") return false;
+  const value = evidence as Record<string, unknown>;
+  if (value.kind !== "known_ats_posting") return false;
+  if (typeof value.provider !== "string" || !value.provider.trim() || value.provider === "unknown") return false;
+  if (typeof value.listingUrl !== "string" || !value.listingUrl.trim()) return false;
+  try {
+    const parsed = new URL(value.listingUrl);
+    return parsed.protocol === "https:" && Boolean(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
+/** Explicit, time-bounded exception for reviewed rows created before feeds. */
+export function hasTrustedLegacyCompanyEvidence(
+  evidence: unknown,
+  legacyUntil: Date | string | null | undefined,
+  now = new Date(),
+): boolean {
+  if (!legacyUntil || now.getTime() > new Date(legacyUntil).getTime()) return false;
+  if (!evidence || typeof evidence !== "object") return false;
+  const value = evidence as Record<string, unknown>;
+  const review = value.roleEligibilityReview;
+  if (!review || typeof review !== "object") return false;
+  const reviewValue = review as Record<string, unknown>;
+  if (
+    reviewValue.status !== "approved" ||
+    value.trustedSource !== "manual_review" ||
+    typeof reviewValue.evidenceUrl !== "string"
+  ) return false;
+  try {
+    const parsed = new URL(reviewValue.evidenceUrl);
+    return parsed.protocol === "https:" && Boolean(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Schema.org/microdata remains opt-in.  It is intentionally not enabled by
+ * default while the direct-feed rollout is being verified.
+ */
+export function schemaCompanyEvidenceEnabled(): boolean {
+  return process.env["COMPANY_SITE_SCHEMA_IMPORT_ENABLED"] === "true";
+}
+
+function hasOptInStructuredCompanyEvidence(
+  evidence: unknown,
+  title: string | null | undefined,
+): boolean {
+  if (!schemaCompanyEvidenceEnabled() || !evidence || typeof evidence !== "object") return false;
+  const value = evidence as Record<string, unknown>;
+  if (value.kind !== "json_ld_job_posting" && value.kind !== "microdata_job_posting") return false;
+  if (typeof value.listingUrl !== "string" || !value.listingUrl.trim()) return false;
+  if (!title?.trim() || /^(?:careers?|jobs?|why work here|our benefits|benefits|skip(?:\s+to)?\s+(?:main\s+)?content)$/i.test(title.trim())) return false;
+  try {
+    const parsed = new URL(value.listingUrl);
+    return parsed.protocol === "https:" && Boolean(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
+export function isStandaloneManagerTitle(title: string | null | undefined): boolean {
+  return /\bmanagers?\b/i.test(title ?? "");
+}
 
 export function getCandidateVacancyStatus(input: {
   sourceType: "job_board" | "company_site" | null | undefined;
@@ -39,6 +138,7 @@ export function getCandidateVacancyStatus(input: {
   expiresAt?: Date | string | null;
   closedReason?: string | null;
   companyVacancyEvidence?: unknown;
+  title?: string | null;
   companyEvidenceLegacyUntil?: Date | string | null;
   now?: Date;
 }): CandidateVacancyStatus {
@@ -51,19 +151,27 @@ export function getCandidateVacancyStatus(input: {
     .some((date) => !Number.isNaN(date.getTime()) && now.getTime() > date.getTime());
   if (pastClose) return "expired";
   if (input.sourceMissingSince || (input.sourceMissingObservations ?? 0) > 0) return "missing";
+  if (
+    input.sourceType === "company_site" &&
+    isStandaloneManagerTitle(input.title) &&
+    !hasApprovedCompanyVacancyRoleEligibilityReview(input.companyVacancyEvidence)
+  ) {
+    return "pending_review";
+  }
   // Legacy adapters that predate liveness fields are treated as compatible
   // records; persisted NULL values are still handled conservatively below.
   if (input.sourceType === undefined && input.liveness === undefined && input.lastVerifiedAt === undefined) return "visible";
   // Rows created before evidence tracking have a verified URL and remain visible
   // during the staged backfill; newly ingested rows always carry evidence.
-  if (input.sourceType === "company_site" && !input.companyVacancyEvidence) {
-    const legacyUntil = input.companyEvidenceLegacyUntil
-      ? new Date(input.companyEvidenceLegacyUntil)
-      : null;
-    const boundedLegacy = legacyUntil
-      ? now.getTime() <= legacyUntil.getTime()
-      : input.sourceType === undefined && input.liveness === "live";
-    if (!boundedLegacy) return "unverified";
+  if (input.sourceType === "company_site") {
+    const directFeed = hasVerifiedDirectFeedEvidence(input.companyVacancyEvidence);
+    const structured = hasOptInStructuredCompanyEvidence(input.companyVacancyEvidence, input.title);
+    const trustedLegacy = hasTrustedLegacyCompanyEvidence(
+      input.companyVacancyEvidence,
+      input.companyEvidenceLegacyUntil,
+      now,
+    );
+    if (!directFeed && !structured && !trustedLegacy) return "unverified";
   }
   if (input.liveness !== "live") return "unverified";
   // Undefined denotes a legacy adapter/mocked row that predates the column;

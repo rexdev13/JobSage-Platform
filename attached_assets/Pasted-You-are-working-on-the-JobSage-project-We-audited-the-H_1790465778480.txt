@@ -1,0 +1,113 @@
+You are working on the JobSage project.
+
+We audited the Healthcare enrichment history. The strongest method was not ATS-first. It was a website/careers verification process: start from a development sponsor export, use trusted sector/source leads, then accept only employer-verified websites and careers pages.
+
+Do not use the Healthcare CQC script for non-Healthcare sectors.
+Do not use CQC for unrelated sectors.
+Do not import anything.
+Do not write to production.
+Do not deploy.
+
+Goal:
+Prepare non-Healthcare sector enrichment by first identifying exact sector labels, then running capped website/careers pilots for the best launch sectors.
+
+Inputs:
+- `.local/reports/sponsor-enrichment/jobsage-sponsor-base-export.csv`
+- `.local/reports/sponsor-enrichment/jobsage-company-site-existing.csv`
+- `.local/reports/sponsor-enrichment/jobsage-existing-vacancy-sources.csv`
+- any existing sponsor enrichment artifacts/reports
+
+Step 1: Sector inventory
+Read the sponsor export and produce a sector count table:
+- exact `industry` value
+- total sponsors
+- count with existing website
+- count with existing careers URL
+- count with existing ATS/provider fields
+- count with existing contact email domain
+- count with prior source evidence
+
+Exclude exact `Healthcare`.
+
+Step 2: Choose pilot sectors
+Pick up to 5 non-Healthcare sectors with the best launch value and strongest existing signals. Prefer sectors such as:
+- Finance
+- Technology / Software / Information Technology, if present
+- Engineering
+- Education
+- Hospitality
+- Construction
+- Social Care, only if it is separate from Healthcare
+
+Use exact `industry` labels from the CSV. Do not invent sector names.
+
+Step 3: Run capped pilots
+For each selected sector, process only 50 sponsors first.
+
+For each sponsor:
+1. Use existing website first.
+2. Use existing careers URL if present.
+3. Use contact email domain as a lead.
+4. Use known company-site existing file as a lead.
+5. Use known vacancy-source file as a lead, but do not accept vacancy URLs as websites without first-party identity checks.
+6. Use SponsorList/public sponsor evidence if available.
+7. Use optional search only if already configured; if search is not configured, continue without it and report that clearly.
+8. Verify the official company website.
+9. Try to verify a first-party careers/jobs/vacancies/recruitment page.
+10. Keep ATS/job-board findings as separate evidence, not as company website results.
+
+Do not accept:
+- generic directories
+- Companies House only
+- Facebook/LinkedIn only
+- old PDFs only
+- unrelated recruiters
+- ambiguous domains
+- directory/search matches without first-party verification
+
+Confidence:
+- `high`: official employer website/careers page clearly verified.
+- `medium`: likely correct but needs review.
+- `low`: weak possible match.
+- `unverified`: no reliable source.
+
+Outputs:
+1. `artifacts/non-healthcare-sector-inventory.md`
+
+2. One CSV per sector pilot:
+`artifacts/<sector-slug>-website-careers-pilot-50.csv`
+
+Columns:
+`sponsor_licence_id,organisation_name,normalized_organisation_name,town_city,county,region,industry,existing_website,existing_contact_email,existing_careers_url,official_website_url,website_confidence,website_evidence_url,careers_url,careers_confidence,careers_evidence_url,ats_or_job_board_clue,source,notes`
+
+3. One report per sector:
+`artifacts/<sector-slug>-website-careers-pilot-50-report.md`
+
+Each report must include:
+- exact sector label
+- sponsors available in sector
+- 50 sponsors processed
+- websites found
+- careers pages found
+- high/medium/low/unverified counts
+- search configured or not
+- sources used
+- common failure reasons
+- whether this sector is worth scaling overnight
+
+4. Combined recommendation:
+`artifacts/non-healthcare-website-careers-pilot-summary.md`
+
+The summary must say:
+- which sectors performed best
+- which sectors should be scaled next
+- which sectors should be skipped for now
+- whether to run 500-row batches overnight
+- exact commands to continue safely
+
+Safety:
+- Do not change database data.
+- Do not import.
+- Do not deploy.
+- Do not overwrite Healthcare outputs.
+- Confirm no production data was changed.

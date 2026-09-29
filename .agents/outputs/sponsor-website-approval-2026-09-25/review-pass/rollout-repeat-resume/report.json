@@ -1,0 +1,3818 @@
+{
+  "createdAt": "2026-09-25T22:04:45.418Z",
+  "developmentOnly": true,
+  "apply": true,
+  "input": "/home/runner/workspace/.agents/outputs/sponsor-website-approval-2026-09-25/review-pass/rollout-100.csv",
+  "stages": {
+    "websiteFill": true,
+    "discovery": true
+  },
+  "requestedLimit": 100,
+  "requestedOffset": 44,
+  "totals": {
+    "selected": 56,
+    "inserted": 0,
+    "updated": 39,
+    "revived": 0,
+    "completed": 5,
+    "failed": 8,
+    "no_jobs": 2,
+    "skipped": 0,
+    "websitesFilled": 0,
+    "advertsFound": 39,
+    "advertsRejected": 379,
+    "ukLocationKnown": 0,
+    "ukLocationUnknown": 39
+  },
+  "perSector": {
+    "Education": {
+      "employers": 2,
+      "runtimeMs": 17063,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "completed": 1,
+      "failed": 1,
+      "no_jobs": 1,
+      "websitesFilled": 0,
+      "advertsFound": 0,
+      "advertsRejected": 25,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0
+    },
+    "Engineering": {
+      "employers": 1,
+      "runtimeMs": 16235,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "completed": 0,
+      "failed": 1,
+      "no_jobs": 0,
+      "websitesFilled": 0,
+      "advertsFound": 0,
+      "advertsRejected": 9,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0
+    },
+    "Finance": {
+      "employers": 2,
+      "runtimeMs": 15113,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "completed": 0,
+      "failed": 2,
+      "no_jobs": 0,
+      "websitesFilled": 0,
+      "advertsFound": 0,
+      "advertsRejected": 231,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0
+    },
+    "Hospitality": {
+      "employers": 1,
+      "runtimeMs": 14060,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "completed": 0,
+      "failed": 1,
+      "no_jobs": 0,
+      "websitesFilled": 0,
+      "advertsFound": 0,
+      "advertsRejected": 3,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0
+    },
+    "Retail": {
+      "employers": 2,
+      "runtimeMs": 11530,
+      "inserted": 0,
+      "updated": 1,
+      "revived": 0,
+      "completed": 2,
+      "failed": 0,
+      "no_jobs": 1,
+      "websitesFilled": 0,
+      "advertsFound": 1,
+      "advertsRejected": 18,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 1
+    },
+    "Technology": {
+      "employers": 1,
+      "runtimeMs": 26,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "completed": 0,
+      "failed": 1,
+      "no_jobs": 0,
+      "websitesFilled": 0,
+      "advertsFound": 0,
+      "advertsRejected": 0,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0
+    },
+    "Other": {
+      "employers": 4,
+      "runtimeMs": 178489,
+      "inserted": 0,
+      "updated": 38,
+      "revived": 0,
+      "completed": 2,
+      "failed": 2,
+      "no_jobs": 0,
+      "websitesFilled": 0,
+      "advertsFound": 38,
+      "advertsRejected": 93,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 38
+    }
+  },
+  "rows": [
+    {
+      "sponsorLicenceId": 171860,
+      "organisationName": "BIZZ EDUCATIONAL CONSULTANCY LTD",
+      "candidateWebsite": "https://bizzeducation.com/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Education",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://bizzeducation.com",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 6,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": "temporary",
+        "completion": "partial_page_limit",
+        "advertsRejected": 25,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": "https://bizzeducation.com/studyabroad-procedure/career-counselling",
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://bizzeducation.com/",
+          "homepageFetched": true,
+          "homepageHttpStatus": 200,
+          "careersPageFound": true,
+          "careersUrl": "https://bizzeducation.com/careers",
+          "careersHttpStatus": 200,
+          "careersFailureKind": null,
+          "pagesCrawled": 6,
+          "pagesAttempted": 6,
+          "sitemapChecked": true,
+          "sitemapDocuments": [
+            "https://bizzeducation.com/sitemap.xml"
+          ],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://bizzeducation.com/",
+              "fetchedUrl": "https://bizzeducation.com/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://bizzeducation.com/careers",
+              "fetchedUrl": "https://bizzeducation.com/careers",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://bizzeducation.com/sitemap.xml",
+              "fetchedUrl": "https://bizzeducation.com/sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://bizzeducation.com/studyabroad-procedure/career-counselling",
+              "fetchedUrl": "https://bizzeducation.com/studyabroad-procedure/career-counselling",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://bizzeducation.com/blog/top-skills-for-cybersecurity-career",
+              "fetchedUrl": "https://bizzeducation.com/blog/top-skills-for-cybersecurity-career",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://bizzeducation.com/blog/career-after-studying-physiotherapy-in-uk",
+              "fetchedUrl": "https://bizzeducation.com/blog/career-after-studying-physiotherapy-in-uk",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            }
+          ],
+          "linksConsidered": [
+            {
+              "url": "https://bizzeducation.com/applynow",
+              "sourceUrl": "https://bizzeducation.com/",
+              "text": "Apply Now",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "not selected as a careers or recruitment navigation destination",
+              "atsProvider": null
+            },
+            {
+              "url": "https://bizzeducation.com/studyabroad-procedure/career-counselling",
+              "sourceUrl": "https://bizzeducation.com/",
+              "text": "Career Counselling",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://bizzeducation.com/blog/msc-it-courses-uk",
+              "sourceUrl": "https://bizzeducation.com/",
+              "text": "Study IT Courses in the UK: MSc Programmes for International Students",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "news, blog, press, or other editorial destination",
+              "atsProvider": null
+            },
+            {
+              "url": "https://bizzeducation.com/blog/mba-career-scope-germany",
+              "sourceUrl": "https://bizzeducation.com/",
+              "text": "Career Scope of Studying MBA in Germany",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "news, blog, press, or other editorial destination",
+              "atsProvider": null
+            },
+            {
+              "url": "https://bizzeducation.com/blog/msc-in-germany",
+              "sourceUrl": "https://bizzeducation.com/",
+              "text": "Master of Science in Germany for International Students",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "news, blog, press, or other editorial destination",
+              "atsProvider": null
+            },
+            {
+              "url": "https://bizzeducation.com/careers",
+              "sourceUrl": "https://bizzeducation.com/",
+              "text": "Job Vacancy",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://bizzeducation.com/applynow",
+              "sourceUrl": "https://bizzeducation.com/careers",
+              "text": "Apply Now",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "not selected as a careers or recruitment navigation destination",
+              "atsProvider": null
+            },
+            {
+              "url": "https://bizzeducation.com/careers/senior-counsellor-for-uk",
+              "sourceUrl": "https://bizzeducation.com/careers",
+              "text": "Senior Counsellor for UK",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://bizzeducation.com/careers/business-development-manager",
+              "sourceUrl": "https://bizzeducation.com/careers",
+              "text": "Business Development Manager",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://bizzeducation.com/careers/graphic-designer",
+              "sourceUrl": "https://bizzeducation.com/careers",
+              "text": "Graphic Designer",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://bizzeducation.com/careers",
+              "sourceUrl": "https://bizzeducation.com/careers",
+              "text": "Job Vacancy",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://bizzeducation.com/studyabroad-procedure/career-counselling",
+              "sourceUrl": "https://bizzeducation.com/sitemap.xml",
+              "text": "Sitemap URL",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://bizzeducation.com/blog/top-skills-for-cybersecurity-career",
+              "sourceUrl": "https://bizzeducation.com/sitemap.xml",
+              "text": "Sitemap URL",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://bizzeducation.com/blog/career-after-studying-physiotherapy-in-uk",
+              "sourceUrl": "https://bizzeducation.com/sitemap.xml",
+              "text": "Sitemap URL",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://bizzeducation.com/blog/career-guide-msc-innovation-entrepreneurship",
+              "sourceUrl": "https://bizzeducation.com/sitemap.xml",
+              "text": "Sitemap URL",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://bizzeducation.com/blog/international-marketing-management-career-path",
+              "sourceUrl": "https://bizzeducation.com/sitemap.xml",
+              "text": "Sitemap URL",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://bizzeducation.com/blog/career-prospects-of-studying-architecture",
+              "sourceUrl": "https://bizzeducation.com/sitemap.xml",
+              "text": "Sitemap URL",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://bizzeducation.com/blog/career-opportunities-after-international-relations-uk",
+              "sourceUrl": "https://bizzeducation.com/sitemap.xml",
+              "text": "Sitemap URL",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://bizzeducation.com/blog/uk-job-hunt-as-international-student",
+              "sourceUrl": "https://bizzeducation.com/sitemap.xml",
+              "text": "Sitemap URL",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://bizzeducation.com/careers",
+              "sourceUrl": "https://bizzeducation.com/sitemap.xml",
+              "text": "Sitemap URL",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://bizzeducation.com/careers/senior-counsellor-for-uk",
+              "sourceUrl": "https://bizzeducation.com/sitemap.xml",
+              "text": "Sitemap URL",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://bizzeducation.com/careers/branding-and-sales-manager",
+              "sourceUrl": "https://bizzeducation.com/sitemap.xml",
+              "text": "Sitemap URL",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://bizzeducation.com/careers/b2b-manager",
+              "sourceUrl": "https://bizzeducation.com/sitemap.xml",
+              "text": "Sitemap URL",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://bizzeducation.com/careers/admin-officer",
+              "sourceUrl": "https://bizzeducation.com/sitemap.xml",
+              "text": "Sitemap URL",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://bizzeducation.com/careers/compliance-officer",
+              "sourceUrl": "https://bizzeducation.com/sitemap.xml",
+              "text": "Sitemap URL",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://bizzeducation.com/applynow",
+              "sourceUrl": "https://bizzeducation.com/studyabroad-procedure/career-counselling",
+              "text": "Apply Now",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "not selected as a careers or recruitment navigation destination",
+              "atsProvider": null
+            },
+            {
+              "url": "https://bizzeducation.com/studyabroad-procedure/career-counselling",
+              "sourceUrl": "https://bizzeducation.com/studyabroad-procedure/career-counselling",
+              "text": "Career Counselling",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://bizzeducation.com/careers",
+              "sourceUrl": "https://bizzeducation.com/studyabroad-procedure/career-counselling",
+              "text": "Job Vacancy",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://bizzeducation.com/applynow",
+              "sourceUrl": "https://bizzeducation.com/blog/top-skills-for-cybersecurity-career",
+              "text": "Apply Now",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "not selected as a careers or recruitment navigation destination",
+              "atsProvider": null
+            },
+            {
+              "url": "https://bizzeducation.com/careers",
+              "sourceUrl": "https://bizzeducation.com/blog/top-skills-for-cybersecurity-career",
+              "text": "Job Vacancy",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://bizzeducation.com/blog/book.php",
+              "sourceUrl": "https://bizzeducation.com/blog/top-skills-for-cybersecurity-career",
+              "text": "Book an Appointment",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "news, blog, press, or other editorial destination",
+              "atsProvider": null
+            },
+            {
+              "url": "https://bizzeducation.com/applynow",
+              "sourceUrl": "https://bizzeducation.com/blog/career-after-studying-physiotherapy-in-uk",
+              "text": "Apply Now",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "not selected as a careers or recruitment navigation destination",
+              "atsProvider": null
+            },
+            {
+              "url": "https://bizzeducation.com/careers",
+              "sourceUrl": "https://bizzeducation.com/blog/career-after-studying-physiotherapy-in-uk",
+              "text": "Job Vacancy",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://bizzeducation.com/blog/book.php",
+              "sourceUrl": "https://bizzeducation.com/blog/career-after-studying-physiotherapy-in-uk",
+              "text": "Book an Appointment",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "news, blog, press, or other editorial destination",
+              "atsProvider": null
+            }
+          ],
+          "rejectedCareersLinks": [
+            {
+              "url": "https://bizzeducation.com/blog/mba-career-scope-germany",
+              "sourceUrl": "https://bizzeducation.com/",
+              "text": "Career Scope of Studying MBA in Germany",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "news, blog, press, or other editorial destination",
+              "atsProvider": null
+            }
+          ],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "partial_page_limit",
+      "completion": "partial_page_limit",
+      "advertsFound": 0,
+      "advertsRejected": 25,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 12312
+    },
+    {
+      "sponsorLicenceId": 156765,
+      "organisationName": "ABC Studio Childcare Ltd",
+      "candidateWebsite": "https://www.abcstudiochildcare.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Education",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.abcstudiochildcare.co.uk/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 0,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 0,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": "https://www.abcstudiochildcare.co.uk/careers",
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://www.abcstudiochildcare.co.uk/",
+          "homepageFetched": false,
+          "homepageHttpStatus": null,
+          "careersPageFound": false,
+          "careersUrl": "https://www.abcstudiochildcare.co.uk/careers",
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 0,
+          "pagesAttempted": 2,
+          "sitemapChecked": false,
+          "sitemapDocuments": [],
+          "robotsResult": "allowed for this path; the HTTP response was received",
+          "pageFetches": [
+            {
+              "url": "https://www.abcstudiochildcare.co.uk/join-us",
+              "fetchedUrl": null,
+              "status": 404,
+              "fetched": false,
+              "failureKind": "http",
+              "reason": "HTTP 404"
+            },
+            {
+              "url": "https://www.abcstudiochildcare.co.uk/work-with-us",
+              "fetchedUrl": null,
+              "status": 404,
+              "fetched": false,
+              "failureKind": "http",
+              "reason": "HTTP 404"
+            }
+          ],
+          "linksConsidered": [],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 0,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 4751
+    },
+    {
+      "sponsorLicenceId": 157487,
+      "organisationName": "ACE UK ENGINEERING CONSULTANTS LTD",
+      "candidateWebsite": "https://ace-uk.co/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Engineering",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://ace-uk.co/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 6,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": "temporary",
+        "completion": "partial_page_limit",
+        "advertsRejected": 9,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": "https://ace-uk.co/careers",
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://ace-uk.co/",
+          "homepageFetched": true,
+          "homepageHttpStatus": 200,
+          "careersPageFound": true,
+          "careersUrl": "https://ace-uk.co/careers/",
+          "careersHttpStatus": 200,
+          "careersFailureKind": null,
+          "pagesCrawled": 6,
+          "pagesAttempted": 6,
+          "sitemapChecked": true,
+          "sitemapDocuments": [
+            "https://ace-uk.co/wp-sitemap.xml",
+            "https://ace-uk.co/wp-sitemap-posts-careerscp-1.xml",
+            "https://ace-uk.co/wp-sitemap-posts-page-1.xml"
+          ],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://ace-uk.co/",
+              "fetchedUrl": "https://ace-uk.co/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://ace-uk.co/careers",
+              "fetchedUrl": "https://ace-uk.co/careers/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://ace-uk.co/sitemap.xml",
+              "fetchedUrl": "https://ace-uk.co/wp-sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://ace-uk.co/wp-sitemap-posts-careerscp-1.xml",
+              "fetchedUrl": "https://ace-uk.co/wp-sitemap-posts-careerscp-1.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://ace-uk.co/career/technical-engineer-engineer-professional-design",
+              "fetchedUrl": "https://ace-uk.co/career/technical-engineer-engineer-professional-design/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://ace-uk.co/wp-sitemap-posts-page-1.xml",
+              "fetchedUrl": "https://ace-uk.co/wp-sitemap-posts-page-1.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            }
+          ],
+          "linksConsidered": [
+            {
+              "url": "https://ace-uk.co/careers",
+              "sourceUrl": "https://ace-uk.co/",
+              "text": "Careers",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://ace-uk.co/careers",
+              "sourceUrl": "https://ace-uk.co/careers/",
+              "text": "Careers",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://ace-uk.co/career/technical-engineer-engineer-professional-design",
+              "sourceUrl": "https://ace-uk.co/careers/",
+              "text": "View Details",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://ace-uk.co/career/technical-engineer-engineer-professional-design",
+              "sourceUrl": "https://ace-uk.co/wp-sitemap-posts-careerscp-1.xml",
+              "text": "Sitemap URL",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://ace-uk.co/careers",
+              "sourceUrl": "https://ace-uk.co/career/technical-engineer-engineer-professional-design/",
+              "text": "Careers",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://ace-uk.co/career",
+              "sourceUrl": "https://ace-uk.co/career/technical-engineer-engineer-professional-design/",
+              "text": "Careers",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://ace-uk.co/careers",
+              "sourceUrl": "https://ace-uk.co/wp-sitemap-posts-page-1.xml",
+              "text": "Sitemap URL",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            }
+          ],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "partial_page_limit",
+      "completion": "partial_page_limit",
+      "advertsFound": 0,
+      "advertsRejected": 9,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 16235
+    },
+    {
+      "sponsorLicenceId": 141516,
+      "organisationName": "Zurich Insurance Group",
+      "candidateWebsite": "https://www.zurich.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Finance",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.zurich.co.uk",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 5,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": "permanent",
+        "completion": "failed",
+        "advertsRejected": 231,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": "https://www.zurich.co.uk/careers",
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://www.zurich.co.uk/",
+          "homepageFetched": false,
+          "homepageHttpStatus": null,
+          "careersPageFound": true,
+          "careersUrl": "https://www.zurich.co.uk/municipal/articles/preventing-volunteer-burnout",
+          "careersHttpStatus": 200,
+          "careersFailureKind": null,
+          "pagesCrawled": 5,
+          "pagesAttempted": 6,
+          "sitemapChecked": false,
+          "sitemapDocuments": [],
+          "robotsResult": "allowed for this path; the HTTP response was received",
+          "pageFetches": [
+            {
+              "url": "https://www.zurich.co.uk/media-centre/articles/zurich-overhauls-graduate-hiring-process-to-help-generation-covid-disadvantaged-by-lockdowns",
+              "fetchedUrl": null,
+              "status": 404,
+              "fetched": false,
+              "failureKind": "http",
+              "reason": "HTTP 404"
+            },
+            {
+              "url": "https://www.zurich.co.uk/municipal/articles/preventing-volunteer-burnout",
+              "fetchedUrl": "https://www.zurich.co.uk/municipal/articles/preventing-volunteer-burnout",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers",
+              "fetchedUrl": "https://www.zurich.co.uk/careers",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/about-zurich",
+              "fetchedUrl": "https://www.zurich.co.uk/careers/about-zurich",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/apprenticeships",
+              "fetchedUrl": "https://www.zurich.co.uk/careers/apprenticeships",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/employee-wellbeing",
+              "fetchedUrl": "https://www.zurich.co.uk/careers/employee-wellbeing",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            }
+          ],
+          "linksConsidered": [
+            {
+              "url": "https://www.civilsociety.co.uk/news/sector-burnout-highlighted-as-charity-workers-asked-to-complete-wellbeing-survey.html",
+              "sourceUrl": "https://www.zurich.co.uk/municipal/articles/preventing-volunteer-burnout",
+              "text": "Charity People",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "destination is outside the approved employer site or supported ATS scope",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/municipal/articles/keeping-volunteers-engaged",
+              "sourceUrl": "https://www.zurich.co.uk/municipal/articles/preventing-volunteer-burnout",
+              "text": "https://www.zurich.co.uk/municipal/articles/keeping-volunteers-engaged",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers",
+              "sourceUrl": "https://www.zurich.co.uk/municipal/articles/preventing-volunteer-burnout",
+              "text": "Careers with Zurich UK",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Careers",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.careers.zurich.com/search?createNewAlert=false&locationsearch=&optionsFacetsDD_customfield3=United+Kingdom&optionsFacetsDD_department=&optionsFacetsDD_shifttype=&q=",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Current vacancies",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "destination is outside the approved employer site or supported ATS scope",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/working-at-zurich",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Working at Zurich",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/about-zurich",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "About Zurich",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/working-at-zurich/family-friendly-policy",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Family friendly policy",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/working-at-zurich/flexible-working",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Flexible working",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/working-at-zurich/zurich-employee-benefits",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Employee benefits",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/our-mission-and-values",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Our mission and values",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/working-at-zurich/departments",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Departments",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/working-at-zurich/actuarial",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Actuarial",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/working-at-zurich/claims",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Claims",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/working-at-zurich/customer-services",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Customer services",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/working-at-zurich/data-and-analytics",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Data & analytics",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/working-at-zurich/engineering",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Engineering",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/working-at-zurich/finance-and-accounting",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Finance & accounting",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/working-at-zurich/human-resources",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Human resources",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/working-at-zurich/it-and-operations",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "IT & operations",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/working-at-zurich/legal-risk-compliance-and-audit",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Legal, risk, compliance & audit",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/working-at-zurich/marketing-and-communications",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Marketing & comms",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/working-at-zurich/risk-engineering",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Risk engineering (ZRS)",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/working-at-zurich/sales-and-distribution",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Sales & distribution",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/working-at-zurich/underwriting",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Underwriting",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/apprenticeships",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Apprenticeships",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/apprenticeships/apprenticeship-application-hints-and-tips",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Apprenticeship hints and tips",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/apprenticeships/apprenticeship-benefits",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Apprenticeship benefits",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/apprenticeships/accounting-apprenticeships",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Accounting",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/apprenticeships/actuarial-apprenticeships",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Actuarial",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/apprenticeships/compliance-and-risk-apprenticeships",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Compliance and risk",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/apprenticeships/data-and-technology-apprenticeships",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Data and technology",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/apprenticeships/engineering-surveyor-apprenticeships",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Engineering surveyor",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/apprenticeships/human-resources-apprenticeships",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Human resources",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/apprenticeships/insurance-apprenticeships",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Insurance",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/apprenticeships/marketing-apprenticeships",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Marketing",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/apprenticeships/risk-engineering-apprenticeships",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Risk engineering",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/virtual-work-experience",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Virtual work experience",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/graduate-schemes",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Graduate schemes",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/graduate-schemes/graduate-application-tips",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Graduate hints and tips",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/graduate-schemes/graduate-benefits",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Graduate scheme benefits",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/graduate-schemes/finance-graduate-scheme",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Accounting",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/graduate-schemes/actuarial-graduate-scheme",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Actuarial",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/graduate-schemes/business-management",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Business management",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/graduate-schemes/change-and-technology-management",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Change and technology management",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/graduate-schemes/data-and-analytics",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Data and analytics",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/graduate-schemes/sustainable-energy-graduate-scheme",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Sustainable energy",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/internships",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Internships",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/internships/internship-application-tips",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Internship hints and tips",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/internships/internship-benefits",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Internship scheme benefits",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/internships/finance-internships",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Accounting",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/internships/actuarial-internships",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Actuarial",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/internships/business-management-internships",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Business management",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/internships/change-and-technology-management-internships",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Change and technology management",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/internships/data-and-analytics-internships",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Data and analytics",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/internships/sustainable-energy-internships",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Sustainable energy",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.careers.zurich.com/search?createNewAlert=false&locationsearch=&optionsFacetsDD_customfield3=United+Kingdom&optionsFacetsDD_department=Actuarial+%26+Pricing+Analytics&optionsFacetsDD_shifttype=&q=",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "actuary jobs",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "destination is outside the approved employer site or supported ATS scope",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.careers.zurich.com/search?createNewAlert=false&locationsearch=&optionsFacetsDD_customfield3=United+Kingdom&optionsFacetsDD_department=Claims&optionsFacetsDD_shifttype=&q=",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "claims handler jobs",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "destination is outside the approved employer site or supported ATS scope",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.careers.zurich.com/search?createNewAlert=false&locationsearch=&optionsFacetsDD_customfield3=United+Kingdom&optionsFacetsDD_department=Underwriting&optionsFacetsDD_shifttype=&q=",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "underwriter jobs",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "destination is outside the approved employer site or supported ATS scope",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/students-and-graduates",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "student/graduate opportunities",
+              "category": "vacancy",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/employee-wellbeing",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Employee wellbeing",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/-/media/careers/docs/application_tips.pdf",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Download our guide to preparing your application (1.1 MB/PDF)",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "news, blog, press, or other editorial destination",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/-/media/careers/docs/interview_tips.pdf",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "How to have a great interview (856.1 KB/PDF)",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "news, blog, press, or other editorial destination",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers",
+              "sourceUrl": "https://www.zurich.co.uk/careers/about-zurich",
+              "text": "Careers",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.careers.zurich.com/search?createNewAlert=false&locationsearch=&optionsFacetsDD_customfield3=United+Kingdom&optionsFacetsDD_department=&optionsFacetsDD_shifttype=&q=",
+              "sourceUrl": "https://www.zurich.co.uk/careers/about-zurich",
+              "text": "Current vacancies",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "destination is outside the approved employer site or supported ATS scope",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/working-at-zurich",
+              "sourceUrl": "https://www.zurich.co.uk/careers/about-zurich",
+              "text": "Working at Zurich",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/about-zurich",
+              "sourceUrl": "https://www.zurich.co.uk/careers/about-zurich",
+              "text": "About Zurich",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/working-at-zurich/family-friendly-policy",
+              "sourceUrl": "https://www.zurich.co.uk/careers/about-zurich",
+              "text": "Family friendly policy",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/working-at-zurich/flexible-working",
+              "sourceUrl": "https://www.zurich.co.uk/careers/about-zurich",
+              "text": "Flexible working",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/working-at-zurich/zurich-employee-benefits",
+              "sourceUrl": "https://www.zurich.co.uk/careers/about-zurich",
+              "text": "Employee benefits",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/our-mission-and-values",
+              "sourceUrl": "https://www.zurich.co.uk/careers/about-zurich",
+              "text": "Our mission and values",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/working-at-zurich/departments",
+              "sourceUrl": "https://www.zurich.co.uk/careers/about-zurich",
+              "text": "Departments",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/working-at-zurich/actuarial",
+              "sourceUrl": "https://www.zurich.co.uk/careers/about-zurich",
+              "text": "Actuarial",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/working-at-zurich/claims",
+              "sourceUrl": "https://www.zurich.co.uk/careers/about-zurich",
+              "text": "Claims",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/working-at-zurich/customer-services",
+              "sourceUrl": "https://www.zurich.co.uk/careers/about-zurich",
+              "text": "Customer services",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/working-at-zurich/data-and-analytics",
+              "sourceUrl": "https://www.zurich.co.uk/careers/about-zurich",
+              "text": "Data & analytics",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/working-at-zurich/engineering",
+              "sourceUrl": "https://www.zurich.co.uk/careers/about-zurich",
+              "text": "Engineering",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/working-at-zurich/finance-and-accounting",
+              "sourceUrl": "https://www.zurich.co.uk/careers/about-zurich",
+              "text": "Finance & accounting",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/working-at-zurich/human-resources",
+              "sourceUrl": "https://www.zurich.co.uk/careers/about-zurich",
+              "text": "Human resources",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/careers/working-at-zurich/it-and-operations",
+              "sourceUrl": "https://www.zurich.co.uk/careers/about-zurich",
+              "text": "IT & operations",
+              "category": "vacancy",
+              "decision": "not_followed",
+              "reason": "posting link did not pass vacancy evidence checks",
+              "atsProvider": null
+            }
+          ],
+          "rejectedCareersLinks": [
+            {
+              "url": "https://www.careers.zurich.com/search?createNewAlert=false&locationsearch=&optionsFacetsDD_customfield3=United+Kingdom&optionsFacetsDD_department=&optionsFacetsDD_shifttype=&q=",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Current vacancies",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "destination is outside the approved employer site or supported ATS scope",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.careers.zurich.com/search?createNewAlert=false&locationsearch=&optionsFacetsDD_customfield3=United+Kingdom&optionsFacetsDD_department=Actuarial+%26+Pricing+Analytics&optionsFacetsDD_shifttype=&q=",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "actuary jobs",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "destination is outside the approved employer site or supported ATS scope",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.careers.zurich.com/search?createNewAlert=false&locationsearch=&optionsFacetsDD_customfield3=United+Kingdom&optionsFacetsDD_department=Claims&optionsFacetsDD_shifttype=&q=",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "claims handler jobs",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "destination is outside the approved employer site or supported ATS scope",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.careers.zurich.com/search?createNewAlert=false&locationsearch=&optionsFacetsDD_customfield3=United+Kingdom&optionsFacetsDD_department=Underwriting&optionsFacetsDD_shifttype=&q=",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "underwriter jobs",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "destination is outside the approved employer site or supported ATS scope",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/-/media/careers/docs/application_tips.pdf",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "Download our guide to preparing your application (1.1 MB/PDF)",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "news, blog, press, or other editorial destination",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.zurich.co.uk/-/media/careers/docs/interview_tips.pdf",
+              "sourceUrl": "https://www.zurich.co.uk/careers",
+              "text": "How to have a great interview (856.1 KB/PDF)",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "news, blog, press, or other editorial destination",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.careers.zurich.com/search?createNewAlert=false&locationsearch=&optionsFacetsDD_customfield3=United+Kingdom&optionsFacetsDD_department=&optionsFacetsDD_shifttype=&q=",
+              "sourceUrl": "https://www.zurich.co.uk/careers/about-zurich",
+              "text": "Current vacancies",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "destination is outside the approved employer site or supported ATS scope",
+              "atsProvider": null
+            }
+          ],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": true
+        }
+      },
+      "status": "failed",
+      "completion": "failed",
+      "advertsFound": 0,
+      "advertsRejected": 231,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 15086
+    },
+    {
+      "sponsorLicenceId": 172078,
+      "organisationName": "BlackRock Investment Management (UK) Limited",
+      "candidateWebsite": "https://www.blackrock.com/uk",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Finance",
+      "status": "sponsor_identity_conflict",
+      "reason": "duplicate sponsor rows or conflicting IDs share the requested organisation name",
+      "elapsedMs": 27
+    },
+    {
+      "sponsorLicenceId": 154117,
+      "organisationName": "Azra Restaurant Ltd T/A Manjaros",
+      "candidateWebsite": "https://manjaros.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Hospitality",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://manjaros.co.uk/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 1,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": true,
+        "failureClass": "temporary",
+        "completion": "failed",
+        "advertsRejected": 3,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": "https://manjaros.co.uk/careers",
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://manjaros.co.uk/",
+          "homepageFetched": true,
+          "homepageHttpStatus": 200,
+          "careersPageFound": true,
+          "careersUrl": "https://manjaros.co.uk/investment-opportunities",
+          "careersHttpStatus": null,
+          "careersFailureKind": "timeout",
+          "pagesCrawled": 1,
+          "pagesAttempted": 2,
+          "sitemapChecked": false,
+          "sitemapDocuments": [],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://manjaros.co.uk/",
+              "fetchedUrl": "https://manjaros.co.uk/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://manjaros.co.uk/careers",
+              "fetchedUrl": null,
+              "status": null,
+              "fetched": false,
+              "failureKind": "timeout",
+              "reason": "request timed out"
+            }
+          ],
+          "linksConsidered": [
+            {
+              "url": "https://manjaros.co.uk/careers",
+              "sourceUrl": "https://manjaros.co.uk/",
+              "text": "Careers",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://manjaros.co.uk/investment-opportunities",
+              "sourceUrl": "https://manjaros.co.uk/",
+              "text": "Investment opportunities",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            }
+          ],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "failed",
+      "completion": "failed",
+      "advertsFound": 0,
+      "advertsRejected": 3,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 14060
+    },
+    {
+      "sponsorLicenceId": 157895,
+      "organisationName": "ACWIN RETAIL LTD",
+      "candidateWebsite": "https://www.acwin.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Retail",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.acwin.co.uk/",
+      "collection": {
+        "status": "checked",
+        "adverts": 1,
+        "inserted": 0,
+        "updated": 1,
+        "revived": 0,
+        "pagesFetched": 2,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 6,
+        "rawAdvertsFound": 3,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 1,
+        "careersUrl": "https://www.acwin.co.uk/jobs",
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://www.acwin.co.uk/",
+          "homepageFetched": true,
+          "homepageHttpStatus": 200,
+          "careersPageFound": true,
+          "careersUrl": "https://www.acwin.co.uk/jobs",
+          "careersHttpStatus": 200,
+          "careersFailureKind": null,
+          "pagesCrawled": 2,
+          "pagesAttempted": 2,
+          "sitemapChecked": false,
+          "sitemapDocuments": [],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://www.acwin.co.uk/",
+              "fetchedUrl": "https://www.acwin.co.uk/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://www.acwin.co.uk/jobs",
+              "fetchedUrl": "https://www.acwin.co.uk/jobs",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            }
+          ],
+          "linksConsidered": [
+            {
+              "url": "https://www.acwin.co.uk/jobs",
+              "sourceUrl": "https://www.acwin.co.uk/",
+              "text": "JOBS",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.acwin.co.uk/jobs",
+              "sourceUrl": "https://www.acwin.co.uk/jobs",
+              "text": "JOBS",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.acwin.co.uk/jobs/service-station-manager-manchester",
+              "sourceUrl": "https://www.acwin.co.uk/jobs",
+              "text": "Check Position",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.acwin.co.uk/jobs/greggs-store-manager-manchester",
+              "sourceUrl": "https://www.acwin.co.uk/jobs",
+              "text": "Check Position",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.acwin.co.uk/jobs/service-station-manager-london",
+              "sourceUrl": "https://www.acwin.co.uk/jobs",
+              "text": "Check Position",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            }
+          ],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [
+            "https://www.acwin.co.uk/jobs"
+          ],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 1,
+      "advertsRejected": 6,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 1,
+      "inserted": 0,
+      "updated": 1,
+      "revived": 0,
+      "verification": [
+        {
+          "id": 34045,
+          "outcome": "live"
+        }
+      ],
+      "applicationUrls": [],
+      "elapsedMs": 5822
+    },
+    {
+      "sponsorLicenceId": 154173,
+      "organisationName": "B AND M STORES T/A NISA LOCAL",
+      "candidateWebsite": "https://jobs.bmstores.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Retail",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://jobs.bmstores.co.uk/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 3,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 12,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": "https://jobs.bmstores.co.uk/vacancies/vacancy-search-handler.ashx?IndustryID=2",
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://jobs.bmstores.co.uk/",
+          "homepageFetched": true,
+          "homepageHttpStatus": 200,
+          "careersPageFound": true,
+          "careersUrl": "https://jobs.bmstores.co.uk/vacancies/vacancy-search-results.aspx",
+          "careersHttpStatus": null,
+          "careersFailureKind": null,
+          "pagesCrawled": 3,
+          "pagesAttempted": 3,
+          "sitemapChecked": true,
+          "sitemapDocuments": [
+            "https://jobs.bmstores.co.uk/sitemap.xml",
+            "https://jobs.bmstores.co.uk/live-jobs.xml"
+          ],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://jobs.bmstores.co.uk/",
+              "fetchedUrl": "https://jobs.bmstores.co.uk/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://jobs.bmstores.co.uk/sitemap.xml",
+              "fetchedUrl": "https://jobs.bmstores.co.uk/sitemap.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://jobs.bmstores.co.uk/live-jobs.xml",
+              "fetchedUrl": "https://jobs.bmstores.co.uk/live-jobs.xml",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            }
+          ],
+          "linksConsidered": [
+            {
+              "url": "https://careers.bmstores.co.uk/",
+              "sourceUrl": "https://jobs.bmstores.co.uk/",
+              "text": "Careers Home",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "destination is outside the approved employer site or supported ATS scope",
+              "atsProvider": null
+            },
+            {
+              "url": "https://careers.bmstores.co.uk/grow-your-career",
+              "sourceUrl": "https://jobs.bmstores.co.uk/",
+              "text": "Grow your career",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "destination is outside the approved employer site or supported ATS scope",
+              "atsProvider": null
+            },
+            {
+              "url": "https://jobs.bmstores.co.uk/vacancies/vacancy-search-results.aspx",
+              "sourceUrl": "https://jobs.bmstores.co.uk/",
+              "text": "Job Search",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://jobs.bmstores.co.uk/vacancies/vacancy-search-handler.ashx?IndustryID=2",
+              "sourceUrl": "https://jobs.bmstores.co.uk/",
+              "text": "View Jobs",
+              "category": "vacancy",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://jobs.bmstores.co.uk/vacancies/vacancy-search-handler.ashx?IndustryID=5",
+              "sourceUrl": "https://jobs.bmstores.co.uk/",
+              "text": "View Jobs",
+              "category": "vacancy",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://jobs.bmstores.co.uk/vacancies/vacancy-search-handler.ashx?IndustryID=6",
+              "sourceUrl": "https://jobs.bmstores.co.uk/",
+              "text": "View Jobs",
+              "category": "vacancy",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://jobs.bmstores.co.uk/vacancies/vacancy-search-handler.ashx?IndustryID=1",
+              "sourceUrl": "https://jobs.bmstores.co.uk/",
+              "text": "View Jobs",
+              "category": "vacancy",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://jobs.bmstores.co.uk/vacancies/22895/replenishment-manager.html",
+              "sourceUrl": "https://jobs.bmstores.co.uk/",
+              "text": "Replenishment Manager",
+              "category": "vacancy",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://jobs.bmstores.co.uk/vacancies/22896/floor-manager.html",
+              "sourceUrl": "https://jobs.bmstores.co.uk/",
+              "text": "Floor Manager",
+              "category": "vacancy",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://jobs.bmstores.co.uk/vacancies/22897/warehouse-operative.html",
+              "sourceUrl": "https://jobs.bmstores.co.uk/",
+              "text": "Warehouse Operative",
+              "category": "vacancy",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://jobs.bmstores.co.uk/vacancies/22898/security-officer.html",
+              "sourceUrl": "https://jobs.bmstores.co.uk/",
+              "text": "Security Officer",
+              "category": "vacancy",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://jobs.bmstores.co.uk/vacancies/22899/security-officer.html",
+              "sourceUrl": "https://jobs.bmstores.co.uk/",
+              "text": "Security Officer",
+              "category": "vacancy",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://jobs.bmstores.co.uk/vacancies/22901/store-manager.html",
+              "sourceUrl": "https://jobs.bmstores.co.uk/",
+              "text": "Store Manager",
+              "category": "vacancy",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            }
+          ],
+          "rejectedCareersLinks": [
+            {
+              "url": "https://careers.bmstores.co.uk/",
+              "sourceUrl": "https://jobs.bmstores.co.uk/",
+              "text": "Careers Home",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "destination is outside the approved employer site or supported ATS scope",
+              "atsProvider": null
+            },
+            {
+              "url": "https://careers.bmstores.co.uk/grow-your-career",
+              "sourceUrl": "https://jobs.bmstores.co.uk/",
+              "text": "Grow your career",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "destination is outside the approved employer site or supported ATS scope",
+              "atsProvider": null
+            }
+          ],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 0,
+      "advertsRejected": 12,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 5708
+    },
+    {
+      "sponsorLicenceId": 172792,
+      "organisationName": "BMC Software Ltd",
+      "candidateWebsite": "https://www.bmc.com/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Technology",
+      "status": "sponsor_identity_conflict",
+      "reason": "duplicate sponsor rows or conflicting IDs share the requested organisation name",
+      "elapsedMs": 26
+    },
+    {
+      "sponsorLicenceId": 155108,
+      "organisationName": "3pX Group",
+      "candidateWebsite": "https://www.3px.group/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Other",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.3px.group/",
+      "collection": {
+        "status": "checked",
+        "adverts": 25,
+        "inserted": 0,
+        "updated": 25,
+        "revived": 0,
+        "pagesFetched": 2,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 9,
+        "rawAdvertsFound": 25,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 25,
+        "careersUrl": "https://www.3px.group/vacancies",
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://www.3px.group/",
+          "homepageFetched": true,
+          "homepageHttpStatus": 200,
+          "careersPageFound": true,
+          "careersUrl": "https://www.3px.group/vacancies",
+          "careersHttpStatus": 200,
+          "careersFailureKind": null,
+          "pagesCrawled": 2,
+          "pagesAttempted": 2,
+          "sitemapChecked": false,
+          "sitemapDocuments": [],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://www.3px.group/",
+              "fetchedUrl": "https://www.3px.group/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://www.3px.group/vacancies",
+              "fetchedUrl": "https://www.3px.group/vacancies",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            }
+          ],
+          "linksConsidered": [
+            {
+              "url": "https://www.3px.group/vacancies",
+              "sourceUrl": "https://www.3px.group/",
+              "text": "Vacancies",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.instagram.com/codex.recruitment?hl=en",
+              "sourceUrl": "https://www.3px.group/",
+              "text": "",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "destination is outside the approved employer site or supported ATS scope",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.linkedin.com/company/codex-recruitment",
+              "sourceUrl": "https://www.3px.group/",
+              "text": "",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "blocked by vacancy URL policy",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.3px.group/post/wellbeing-the-key-to-recruitment-and-retention",
+              "sourceUrl": "https://www.3px.group/",
+              "text": "Wellbeing: the key to recruitment and retention Read More",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "careers wording lacks navigation or local recruitment context",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.linkedin.com/company/3px-recruitment/mycompany",
+              "sourceUrl": "https://www.3px.group/",
+              "text": "",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "blocked by vacancy URL policy",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.3px.group/vacancies",
+              "sourceUrl": "https://www.3px.group/vacancies",
+              "text": "Vacancies",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.instagram.com/codex.recruitment?hl=en",
+              "sourceUrl": "https://www.3px.group/vacancies",
+              "text": "",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "destination is outside the approved employer site or supported ATS scope",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.linkedin.com/company/codex-recruitment",
+              "sourceUrl": "https://www.3px.group/vacancies",
+              "text": "",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "blocked by vacancy URL policy",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.3px.group/vacancies/associate-epm-recruitment-consultant",
+              "sourceUrl": "https://www.3px.group/vacancies",
+              "text": "Associate EPM Recruitment Consultant $50K/yr + Commission Manhattan, NY Recruitment Permanent (On-site) About the job This is an opportunity to join a high-performing recruitment firm, as part of our Codex brand, special",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.3px.group/vacancies/business-development-representative-3",
+              "sourceUrl": "https://www.3px.group/vacancies",
+              "text": "Business Development Representative $50,000 base + uncapped commission New York City Metropolitan Area (Hybrid) Recruitment Permanent (On-site) About the job Entry-Level Sales / 360 Recruitment Consultant – NYC $50,000 b",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.3px.group/vacancies/business-development-representative-2",
+              "sourceUrl": "https://www.3px.group/vacancies",
+              "text": "Business Development Representative Starting at 27K GBP/yr + Commission London Area, United Kingdom Recruitment Permanent (Hybrid) About the job Entry-Level Sales / 360 Recruitment Consultant – London Farringdon £27,000 ",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.3px.group/vacancies/recruitment-consultant-16",
+              "sourceUrl": "https://www.3px.group/vacancies",
+              "text": "Recruitment Consultant Starting at $50K/yr + Commission New York City Metropolitan Area (Hybrid) Recruitment Permanent (On-site) About the job Entry-Level Sales / 360 Recruitment Consultant – NYC $50,000 base + uncapped ",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.3px.group/vacancies/recruitment-consultant-15",
+              "sourceUrl": "https://www.3px.group/vacancies",
+              "text": "Recruitment Consultant Starting at 27K GBP/yr + Commission London Area, United Kingdom Recruitment Permanent (Hybrid) About the job Entry-Level Sales / 360 Recruitment Consultant – London Farringdon £27,000 base + uncapp",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.3px.group/vacancies/associate-consultant-3",
+              "sourceUrl": "https://www.3px.group/vacancies",
+              "text": "Associate Consultant $50K/yr - $130K/yr New York City Metropolitan Area Recruitment Permanent (On-site) About the job Join 3pX Group’s Manhattan office as an Entry-Level Associate Consultant recruiting in a niche market ",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.3px.group/vacancies/entry-level-recruitment-consultant-11",
+              "sourceUrl": "https://www.3px.group/vacancies",
+              "text": "Entry Level Recruitment Consultant 0 London Area, United Kingdom Recruitment Permanent (On-site) About the job Looking to break into a high-performance, high-reward sales career where your progression is entirely in your",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.3px.group/vacancies/business-development-representative",
+              "sourceUrl": "https://www.3px.group/vacancies",
+              "text": "Business Development Representative $50,000 + uncapped commission New York City Metropolitan Area Recruitment Permanent (On-site) About the job Looking to break into a high-performance, high-reward sales career where you",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.3px.group/vacancies/sales-development-representative-6",
+              "sourceUrl": "https://www.3px.group/vacancies",
+              "text": "Sales Development Representative 0 New York City Metropolitan Area Recruitment Permanent (On-site) About the job Seeking ambitious, driven individuals wanting a progressive career with high earning potential. In Septembe",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.3px.group/vacancies/finance-systems-support-specialist-saas",
+              "sourceUrl": "https://www.3px.group/vacancies",
+              "text": "Finance Systems Support Specialist (SaaS) 0 Greater Barcelona Metropolitan Area Recruitment Permanent (On-site) About the job As a Technical Support Specialist, you'll become a trusted technical expert supporting enterpr",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.3px.group/vacancies/consulting-operations-specialist",
+              "sourceUrl": "https://www.3px.group/vacancies",
+              "text": "Consulting Operations Specialist 0 Greater Barcelona Metropolitan Area Recruitment Permanent (On-site) About the job Our client is one of Europe's fastest-growing software companies, backed by leading investors and exper",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.3px.group/vacancies/sales-development-representative-5",
+              "sourceUrl": "https://www.3px.group/vacancies",
+              "text": "Sales Development Representative 0 New York City Metropolitan Area Recruitment Permanent (On-site) About the job Seeking ambitious, driven individuals wanting a progressive career with high earning potential. In July - S",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.3px.group/vacancies/entry-level-recruitment-consultant-10",
+              "sourceUrl": "https://www.3px.group/vacancies",
+              "text": "Entry Level Recruitment Consultant 0 London Area, United Kingdom Recruitment Permanent (Hybrid) About the job Looking to break into a high-performance, high-reward sales career where your progression is entirely in your ",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.3px.group/vacancies/entry-level-recruitment-consultant-9",
+              "sourceUrl": "https://www.3px.group/vacancies",
+              "text": "Entry Level Recruitment Consultant 0 London Area, United Kingdom Recruitment Permanent (On-site) About the job Looking to break into a high-performance, high-reward sales career where your progression is entirely in your",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.3px.group/vacancies/sales-development-representative-4",
+              "sourceUrl": "https://www.3px.group/vacancies",
+              "text": "Sales Development Representative $50,000 +uncapped commission New York City Metropolitan Area Recruitment Permanent (On-site) About the job Looking to break into a high-performance, high-reward sales career where your pr",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.3px.group/vacancies/sales-development-representative-3",
+              "sourceUrl": "https://www.3px.group/vacancies",
+              "text": "Sales Development Representative 0 New York City Metropolitan Area Recruitment Permanent (On-site) About the job Seeking ambitious, driven individuals wanting a progressive career with high earning potential. In mid June",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.3px.group/vacancies/entry-level-recruitment-consultant-8",
+              "sourceUrl": "https://www.3px.group/vacancies",
+              "text": "Entry Level Recruitment Consultant 0 New York City Metropolitan Area Recruitment Permanent (On-site) About the job Looking to break into a high-performance, high-reward sales career where your progression is entirely in ",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.3px.group/vacancies/entry-level-recruitment-consultant-7",
+              "sourceUrl": "https://www.3px.group/vacancies",
+              "text": "Entry Level Recruitment Consultant 0 London Area, United Kingdom Recruitment Permanent (Hybrid) About the job Looking to break into a high-performance, high-reward sales career where your progression is entirely in your ",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.3px.group/vacancies/entry-level-consultant",
+              "sourceUrl": "https://www.3px.group/vacancies",
+              "text": "Entry Level Consultant 0 London Area, United Kingdom Recruitment Permanent (Hybrid) About the job Looking to break into a high-performance, high-reward sales career where your progression is entirely in your hands?",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.3px.group/vacancies/entry-level-recruitment-consultant-german-speaking-2",
+              "sourceUrl": "https://www.3px.group/vacancies",
+              "text": "Entry Level Recruitment Consultant (German Speaking) 0 London Area, United Kingdom Recruitment Permanent (Hybrid) About the job Looking to break into a high-performance, high-reward sales career where your progression is",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.3px.group/vacancies/sales-development-representative-2",
+              "sourceUrl": "https://www.3px.group/vacancies",
+              "text": "Sales Development Representative 0 New York, United States Recruitment Permanent (On-site) About the job Seeking ambitious, driven individuals wanting a progressive career with high earning potential. In mid June 2026 3p",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.3px.group/vacancies/business-development-consultant-9",
+              "sourceUrl": "https://www.3px.group/vacancies",
+              "text": "Business Development Consultant 0 New York, United States Recruitment Permanent (On-site) About the job Seeking ambitious, driven individuals wanting a progressive career with high earning potential. In mid June 2026 3pX",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.3px.group/vacancies/entry-level-recruitment-consultant-french-speaking",
+              "sourceUrl": "https://www.3px.group/vacancies",
+              "text": "Entry Level Recruitment Consultant (French Speaking) 0 London Area, United Kingdom Recruitment Permanent (Hybrid) About the job Looking to break into a high-performance, high-reward sales career where your progression is",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.3px.group/vacancies/entry-level-recruitment-consultant-german-speaking",
+              "sourceUrl": "https://www.3px.group/vacancies",
+              "text": "Entry Level Recruitment Consultant (German Speaking) 0 London Area, United Kingdom Recruitment Permanent (Hybrid) About the job Looking to break into a high-performance, high-reward sales career where your progression is",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.3px.group/vacancies/entry-level-business-development-consultant",
+              "sourceUrl": "https://www.3px.group/vacancies",
+              "text": "Entry Level Business Development Consultant 0 London Area, United Kingdom Recruitment Permanent (Hybrid) About the job Looking to break into a high-performance, high-reward sales career where your progression is entirely",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.linkedin.com/company/3px-recruitment/mycompany",
+              "sourceUrl": "https://www.3px.group/vacancies",
+              "text": "",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "blocked by vacancy URL policy",
+              "atsProvider": null
+            }
+          ],
+          "rejectedCareersLinks": [
+            {
+              "url": "https://www.instagram.com/codex.recruitment?hl=en",
+              "sourceUrl": "https://www.3px.group/",
+              "text": "",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "destination is outside the approved employer site or supported ATS scope",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.linkedin.com/company/codex-recruitment",
+              "sourceUrl": "https://www.3px.group/",
+              "text": "",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "blocked by vacancy URL policy",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.3px.group/post/wellbeing-the-key-to-recruitment-and-retention",
+              "sourceUrl": "https://www.3px.group/",
+              "text": "Wellbeing: the key to recruitment and retention Read More",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "careers wording lacks navigation or local recruitment context",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.linkedin.com/company/3px-recruitment/mycompany",
+              "sourceUrl": "https://www.3px.group/",
+              "text": "",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "blocked by vacancy URL policy",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.instagram.com/codex.recruitment?hl=en",
+              "sourceUrl": "https://www.3px.group/vacancies",
+              "text": "",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "destination is outside the approved employer site or supported ATS scope",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.linkedin.com/company/codex-recruitment",
+              "sourceUrl": "https://www.3px.group/vacancies",
+              "text": "",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "blocked by vacancy URL policy",
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.linkedin.com/company/3px-recruitment/mycompany",
+              "sourceUrl": "https://www.3px.group/vacancies",
+              "text": "",
+              "category": "careers",
+              "decision": "rejected",
+              "reason": "blocked by vacancy URL policy",
+              "atsProvider": null
+            }
+          ],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [
+            "https://www.3px.group/vacancies"
+          ],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 25,
+      "advertsRejected": 9,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 25,
+      "inserted": 0,
+      "updated": 25,
+      "revived": 0,
+      "verification": [
+        {
+          "id": 33548,
+          "outcome": "live"
+        },
+        {
+          "id": 33549,
+          "outcome": "live"
+        },
+        {
+          "id": 35978,
+          "outcome": "live"
+        },
+        {
+          "id": 35979,
+          "outcome": "live"
+        },
+        {
+          "id": 35980,
+          "outcome": "live"
+        },
+        {
+          "id": 35981,
+          "outcome": "live"
+        },
+        {
+          "id": 35982,
+          "outcome": "live"
+        },
+        {
+          "id": 35983,
+          "outcome": "live"
+        },
+        {
+          "id": 35984,
+          "outcome": "live"
+        },
+        {
+          "id": 35985,
+          "outcome": "live"
+        },
+        {
+          "id": 35986,
+          "outcome": "live"
+        },
+        {
+          "id": 35987,
+          "outcome": "live"
+        },
+        {
+          "id": 35988,
+          "outcome": "live"
+        },
+        {
+          "id": 38938,
+          "outcome": "live"
+        },
+        {
+          "id": 39499,
+          "outcome": "live"
+        },
+        {
+          "id": 39500,
+          "outcome": "live"
+        },
+        {
+          "id": 39501,
+          "outcome": "live"
+        },
+        {
+          "id": 39502,
+          "outcome": "live"
+        },
+        {
+          "id": 39503,
+          "outcome": "live"
+        },
+        {
+          "id": 39504,
+          "outcome": "live"
+        },
+        {
+          "id": 39505,
+          "outcome": "live"
+        },
+        {
+          "id": 39506,
+          "outcome": "live"
+        },
+        {
+          "id": 39507,
+          "outcome": "live"
+        },
+        {
+          "id": 39508,
+          "outcome": "live"
+        },
+        {
+          "id": 39509,
+          "outcome": "live"
+        }
+      ],
+      "applicationUrls": [],
+      "elapsedMs": 57051
+    },
+    {
+      "sponsorLicenceId": 154761,
+      "organisationName": "1st Enable Ltd",
+      "candidateWebsite": "https://1stenable.co.uk/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Other",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://1stenable.co.uk/",
+      "collection": {
+        "status": "checked",
+        "adverts": 13,
+        "inserted": 0,
+        "updated": 13,
+        "revived": 0,
+        "pagesFetched": 5,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": null,
+        "completion": "complete",
+        "advertsRejected": 33,
+        "rawAdvertsFound": 19,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 13,
+        "careersUrl": "https://1stenable.co.uk/careers",
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://1stenable.co.uk/",
+          "homepageFetched": true,
+          "homepageHttpStatus": 200,
+          "careersPageFound": true,
+          "careersUrl": "https://1stenable.co.uk/careers/",
+          "careersHttpStatus": 200,
+          "careersFailureKind": null,
+          "pagesCrawled": 5,
+          "pagesAttempted": 5,
+          "sitemapChecked": false,
+          "sitemapDocuments": [],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://1stenable.co.uk/",
+              "fetchedUrl": "https://1stenable.co.uk/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://1stenable.co.uk/careers",
+              "fetchedUrl": "https://1stenable.co.uk/careers/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://1stenable.co.uk/careers?paged=2",
+              "fetchedUrl": "https://1stenable.co.uk/careers?paged=2",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://1stenable.co.uk/careers?paged=3",
+              "fetchedUrl": "https://1stenable.co.uk/careers?paged=3",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://1stenable.co.uk/careers?paged=1",
+              "fetchedUrl": "https://1stenable.co.uk/careers/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            }
+          ],
+          "linksConsidered": [
+            {
+              "url": "https://1stenable.co.uk/careers",
+              "sourceUrl": "https://1stenable.co.uk/",
+              "text": "Careers",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.gov.uk/government/news/500m-for-first-ever-fair-pay-agreement-for-care-workers",
+              "sourceUrl": "https://1stenable.co.uk/",
+              "text": "Read More",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "destination is outside the approved employer site or supported ATS scope",
+              "atsProvider": null
+            },
+            {
+              "url": "https://1stenable.co.uk/careers",
+              "sourceUrl": "https://1stenable.co.uk/careers/",
+              "text": "Careers",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://1stenable.co.uk/jobs/support-worker-middlesbrough",
+              "sourceUrl": "https://1stenable.co.uk/careers/",
+              "text": "Support Worker | Middlesbrough Full Time Bank Middlesbrough £12.88 – £14.43 More Details →",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://1stenable.co.uk/jobs/waking-nights-support-worker-middlesbrough",
+              "sourceUrl": "https://1stenable.co.uk/careers/",
+              "text": "Waking Nights Support Worker | Middlesbrough Waking Nights Middlesbrough £12.88 – £14.43 More Details →",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://1stenable.co.uk/jobs/support-worker-sandbach",
+              "sourceUrl": "https://1stenable.co.uk/careers/",
+              "text": "Support Worker | Sandbach Full Time Cheshire East Sandbach £13.45 – £15.07 More Details →",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://1stenable.co.uk/jobs/waking-nights-support-worker-tarporley",
+              "sourceUrl": "https://1stenable.co.uk/careers/",
+              "text": "Waking Nights Support Worker | Tarporley Waking Nights Cheshire East Tarporley £13.65 – £15.30 More Details →",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://1stenable.co.uk/jobs/support-worker-pontefract",
+              "sourceUrl": "https://1stenable.co.uk/careers/",
+              "text": "Support Worker | Pontefract Waking Nights Wakefield Pontefract £12.88 – £14.43 More Details →",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://1stenable.co.uk/jobs/support-worker-crewe",
+              "sourceUrl": "https://1stenable.co.uk/careers/",
+              "text": "Support Worker | Crewe Full Time Female only Cheshire East Crewe £13.45 – £15.07 More Details →",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://1stenable.co.uk/careers?paged=2",
+              "sourceUrl": "https://1stenable.co.uk/careers/",
+              "text": "2",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://1stenable.co.uk/careers?paged=3",
+              "sourceUrl": "https://1stenable.co.uk/careers/",
+              "text": "3",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://1stenable.co.uk/careers",
+              "sourceUrl": "https://1stenable.co.uk/careers?paged=2",
+              "text": "Careers",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://1stenable.co.uk/jobs/senior-support-worker-ellesmere-port",
+              "sourceUrl": "https://1stenable.co.uk/careers?paged=2",
+              "text": "Senior Support Worker | Ellesmere Port Full Time Cheshire West £28957.50 More Details →",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://1stenable.co.uk/jobs/support-worker-leeds",
+              "sourceUrl": "https://1stenable.co.uk/careers?paged=2",
+              "text": "Support Worker | Leeds Full Time Leeds £13.45 – £15.07 More Details →",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://1stenable.co.uk/jobs/support-worker-chester",
+              "sourceUrl": "https://1stenable.co.uk/careers?paged=2",
+              "text": "Support Worker | Chester Full Time Cheshire West Chester £13.45 – £15.86 More Details →",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://1stenable.co.uk/jobs/waking-nights-support-worker-chester",
+              "sourceUrl": "https://1stenable.co.uk/careers?paged=2",
+              "text": "Waking Nights Support Worker | Chester Waking Nights Cheshire West Chester £13.45 – £15.86 More Details →",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://1stenable.co.uk/jobs/support-worker-tarporley",
+              "sourceUrl": "https://1stenable.co.uk/careers?paged=2",
+              "text": "Support Worker | Tarporley Full Time Bank Cheshire East Tarporley £13.65 – £15.30 More Details →",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://1stenable.co.uk/jobs/complex-support-worker-widnes",
+              "sourceUrl": "https://1stenable.co.uk/careers?paged=2",
+              "text": "Support Worker | Widnes Complex Cheshire West Widnes £14.15 – £15.86 More Details →",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://1stenable.co.uk/careers?paged=1",
+              "sourceUrl": "https://1stenable.co.uk/careers?paged=2",
+              "text": "&laquo; Previous",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://1stenable.co.uk/careers?paged=3",
+              "sourceUrl": "https://1stenable.co.uk/careers?paged=2",
+              "text": "3",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://1stenable.co.uk/careers",
+              "sourceUrl": "https://1stenable.co.uk/careers?paged=3",
+              "text": "Careers",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://1stenable.co.uk/jobs/support-worker-ellesmere-port",
+              "sourceUrl": "https://1stenable.co.uk/careers?paged=3",
+              "text": "Support Worker | Ellesmere Port Full Time Cheshire West Ellesmere Port £13.45 – £15.86 More Details →",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://1stenable.co.uk/careers?paged=2",
+              "sourceUrl": "https://1stenable.co.uk/careers?paged=3",
+              "text": "&laquo; Previous",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://1stenable.co.uk/careers?paged=1",
+              "sourceUrl": "https://1stenable.co.uk/careers?paged=3",
+              "text": "1",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://1stenable.co.uk/careers",
+              "sourceUrl": "https://1stenable.co.uk/careers/",
+              "text": "Careers",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://1stenable.co.uk/jobs/support-worker-middlesbrough",
+              "sourceUrl": "https://1stenable.co.uk/careers/",
+              "text": "Support Worker | Middlesbrough Full Time Bank Middlesbrough £12.88 – £14.43 More Details →",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://1stenable.co.uk/jobs/waking-nights-support-worker-middlesbrough",
+              "sourceUrl": "https://1stenable.co.uk/careers/",
+              "text": "Waking Nights Support Worker | Middlesbrough Waking Nights Middlesbrough £12.88 – £14.43 More Details →",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://1stenable.co.uk/jobs/support-worker-sandbach",
+              "sourceUrl": "https://1stenable.co.uk/careers/",
+              "text": "Support Worker | Sandbach Full Time Cheshire East Sandbach £13.45 – £15.07 More Details →",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://1stenable.co.uk/jobs/waking-nights-support-worker-tarporley",
+              "sourceUrl": "https://1stenable.co.uk/careers/",
+              "text": "Waking Nights Support Worker | Tarporley Waking Nights Cheshire East Tarporley £13.65 – £15.30 More Details →",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://1stenable.co.uk/jobs/support-worker-pontefract",
+              "sourceUrl": "https://1stenable.co.uk/careers/",
+              "text": "Support Worker | Pontefract Waking Nights Wakefield Pontefract £12.88 – £14.43 More Details →",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://1stenable.co.uk/jobs/support-worker-crewe",
+              "sourceUrl": "https://1stenable.co.uk/careers/",
+              "text": "Support Worker | Crewe Full Time Female only Cheshire East Crewe £13.45 – £15.07 More Details →",
+              "category": "vacancy",
+              "decision": "vacancy_evidence",
+              "reason": "accepted as a vacancy link from company-site evidence",
+              "atsProvider": null
+            },
+            {
+              "url": "https://1stenable.co.uk/careers?paged=2",
+              "sourceUrl": "https://1stenable.co.uk/careers/",
+              "text": "2",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://1stenable.co.uk/careers?paged=3",
+              "sourceUrl": "https://1stenable.co.uk/careers/",
+              "text": "3",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            }
+          ],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [
+            "https://1stenable.co.uk/careers/",
+            "https://1stenable.co.uk/careers?paged=2",
+            "https://1stenable.co.uk/careers?paged=3"
+          ],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "completed",
+      "completion": "complete",
+      "advertsFound": 13,
+      "advertsRejected": 33,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 13,
+      "inserted": 0,
+      "updated": 13,
+      "revived": 0,
+      "verification": [
+        {
+          "id": 35805,
+          "outcome": "live"
+        },
+        {
+          "id": 38175,
+          "outcome": "live"
+        },
+        {
+          "id": 38176,
+          "outcome": "live"
+        },
+        {
+          "id": 38177,
+          "outcome": "live"
+        },
+        {
+          "id": 38178,
+          "outcome": "live"
+        },
+        {
+          "id": 38179,
+          "outcome": "live"
+        },
+        {
+          "id": 38180,
+          "outcome": "live"
+        },
+        {
+          "id": 38181,
+          "outcome": "live"
+        },
+        {
+          "id": 38182,
+          "outcome": "live"
+        },
+        {
+          "id": 38183,
+          "outcome": "live"
+        },
+        {
+          "id": 38184,
+          "outcome": "live"
+        },
+        {
+          "id": 38185,
+          "outcome": "live"
+        },
+        {
+          "id": 39667,
+          "outcome": "live"
+        }
+      ],
+      "applicationUrls": [],
+      "elapsedMs": 86067
+    },
+    {
+      "sponsorLicenceId": 172431,
+      "organisationName": "BLUE BUTTERFLY LIMITED",
+      "candidateWebsite": "https://bluebutterflymontessori.com/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Other",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://bluebutterflymontessori.com/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 5,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": true,
+        "failureClass": "temporary",
+        "completion": "failed",
+        "advertsRejected": 15,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": "https://bluebutterflymontessori.com/careers",
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://bluebutterflymontessori.com/",
+          "homepageFetched": false,
+          "homepageHttpStatus": null,
+          "careersPageFound": true,
+          "careersUrl": "https://bluebutterflymontessori.com/jobs/nursery-practitioner-level-2/",
+          "careersHttpStatus": 200,
+          "careersFailureKind": null,
+          "pagesCrawled": 5,
+          "pagesAttempted": 6,
+          "sitemapChecked": false,
+          "sitemapDocuments": [],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://bluebutterflymontessori.com/jobs/nursery-practitioner-level-2",
+              "fetchedUrl": "https://bluebutterflymontessori.com/jobs/nursery-practitioner-level-2/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://bluebutterflymontessori.com/jobs/deputy-room-leader-2",
+              "fetchedUrl": "https://bluebutterflymontessori.com/jobs/deputy-room-leader-2/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://bluebutterflymontessori.com/jobs/nursery-deputy-manager",
+              "fetchedUrl": "https://bluebutterflymontessori.com/jobs/nursery-deputy-manager/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://bluebutterflymontessori.com/jobs/nursery-practitioner-level-3-2",
+              "fetchedUrl": "https://bluebutterflymontessori.com/jobs/nursery-practitioner-level-3-2/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://bluebutterflymontessori.com/jobs/deputy-room-leader",
+              "fetchedUrl": "https://bluebutterflymontessori.com/jobs/deputy-room-leader/",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://bluebutterflymontessori.com/jobs/nursery-room-leader-2",
+              "fetchedUrl": null,
+              "status": null,
+              "fetched": false,
+              "failureKind": "rate_limited",
+              "reason": "hostname is paced or in backoff"
+            }
+          ],
+          "linksConsidered": [
+            {
+              "url": "https://bluebutterflymontessori.com/careers",
+              "sourceUrl": "https://bluebutterflymontessori.com/jobs/nursery-practitioner-level-2/",
+              "text": "Careers",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://bluebutterflymontessori.com/blog",
+              "sourceUrl": "https://bluebutterflymontessori.com/jobs/nursery-practitioner-level-2/",
+              "text": "Blog",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "news, blog, press, or other editorial destination",
+              "atsProvider": null
+            },
+            {
+              "url": "https://bluebutterflymontessori.com/careers",
+              "sourceUrl": "https://bluebutterflymontessori.com/jobs/deputy-room-leader-2/",
+              "text": "Careers",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://bluebutterflymontessori.com/blog",
+              "sourceUrl": "https://bluebutterflymontessori.com/jobs/deputy-room-leader-2/",
+              "text": "Blog",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "news, blog, press, or other editorial destination",
+              "atsProvider": null
+            },
+            {
+              "url": "https://bluebutterflymontessori.com/careers",
+              "sourceUrl": "https://bluebutterflymontessori.com/jobs/nursery-deputy-manager/",
+              "text": "Careers",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://bluebutterflymontessori.com/blog",
+              "sourceUrl": "https://bluebutterflymontessori.com/jobs/nursery-deputy-manager/",
+              "text": "Blog",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "news, blog, press, or other editorial destination",
+              "atsProvider": null
+            },
+            {
+              "url": "https://bluebutterflymontessori.com/careers",
+              "sourceUrl": "https://bluebutterflymontessori.com/jobs/nursery-practitioner-level-3-2/",
+              "text": "Careers",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://bluebutterflymontessori.com/blog",
+              "sourceUrl": "https://bluebutterflymontessori.com/jobs/nursery-practitioner-level-3-2/",
+              "text": "Blog",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "news, blog, press, or other editorial destination",
+              "atsProvider": null
+            },
+            {
+              "url": "https://bluebutterflymontessori.com/careers",
+              "sourceUrl": "https://bluebutterflymontessori.com/jobs/deputy-room-leader/",
+              "text": "Careers",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://bluebutterflymontessori.com/blog",
+              "sourceUrl": "https://bluebutterflymontessori.com/jobs/deputy-room-leader/",
+              "text": "Blog",
+              "category": "vacancy",
+              "decision": "rejected",
+              "reason": "news, blog, press, or other editorial destination",
+              "atsProvider": null
+            }
+          ],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": true
+        }
+      },
+      "status": "failed",
+      "completion": "failed",
+      "advertsFound": 0,
+      "advertsRejected": 15,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 24450
+    },
+    {
+      "sponsorLicenceId": 154785,
+      "organisationName": "1stCurve Limited",
+      "candidateWebsite": "https://www.1stcurve.com/",
+      "decisionReason": "explicitly approved CSV row",
+      "sector": "Other",
+      "websitePromotion": "existing",
+      "previousWebsite": "https://www.1stcurve.com/",
+      "collection": {
+        "status": "checked",
+        "adverts": 0,
+        "inserted": 0,
+        "updated": 0,
+        "revived": 0,
+        "pagesFetched": 5,
+        "careersFound": 0,
+        "atsFound": 0,
+        "transientFailure": false,
+        "failureClass": "temporary",
+        "completion": "partial_page_limit",
+        "advertsRejected": 36,
+        "rawAdvertsFound": 0,
+        "ukLocationKnown": 0,
+        "ukLocationUnknown": 0,
+        "careersUrl": "https://www.1stcurve.com/careers",
+        "atsProvider": null,
+        "diagnostics": {
+          "homepageUrl": "https://www.1stcurve.com/",
+          "homepageFetched": false,
+          "homepageHttpStatus": null,
+          "careersPageFound": true,
+          "careersUrl": "https://www.1stcurve.com/careers/quantity-surveyor",
+          "careersHttpStatus": 200,
+          "careersFailureKind": null,
+          "pagesCrawled": 5,
+          "pagesAttempted": 6,
+          "sitemapChecked": false,
+          "sitemapDocuments": [],
+          "robotsResult": "allowed for fetched URL paths (robots policy passed)",
+          "pageFetches": [
+            {
+              "url": "https://1stcurve.com/careers/quantity-surveyor",
+              "fetchedUrl": "https://www.1stcurve.com/careers/quantity-surveyor",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://1stcurve.com/careers/senior-quantity-surveyor",
+              "fetchedUrl": "https://www.1stcurve.com/careers/senior-quantity-surveyor",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://1stcurve.com/careers/graduate-quantity-surveyor",
+              "fetchedUrl": "https://www.1stcurve.com/careers/graduate-quantity-surveyor",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://1stcurve.com/careers/graduate-planning-engineer-civils",
+              "fetchedUrl": "https://www.1stcurve.com/careers/graduate-planning-engineer-civils",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://1stcurve.com/careers",
+              "fetchedUrl": "https://www.1stcurve.com/careers",
+              "status": 200,
+              "fetched": true,
+              "failureKind": null,
+              "reason": null
+            },
+            {
+              "url": "https://www.1stcurve.com/jobs",
+              "fetchedUrl": null,
+              "status": 404,
+              "fetched": false,
+              "failureKind": "http",
+              "reason": "HTTP 404"
+            }
+          ],
+          "linksConsidered": [
+            {
+              "url": "https://www.1stcurve.com/careers",
+              "sourceUrl": "https://www.1stcurve.com/careers/quantity-surveyor",
+              "text": "Careers",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.1stcurve.com/careers/planner",
+              "sourceUrl": "https://www.1stcurve.com/careers/quantity-surveyor",
+              "text": "View job",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.1stcurve.com/careers/senior-planner",
+              "sourceUrl": "https://www.1stcurve.com/careers/quantity-surveyor",
+              "text": "View job",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.1stcurve.com/careers/senior-quantity-surveyor",
+              "sourceUrl": "https://www.1stcurve.com/careers/quantity-surveyor",
+              "text": "View job",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.1stcurve.com/careers/graduate-quantity-surveyor",
+              "sourceUrl": "https://www.1stcurve.com/careers/quantity-surveyor",
+              "text": "View job",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.1stcurve.com/careers/graduate-planning-engineer-civils",
+              "sourceUrl": "https://www.1stcurve.com/careers/quantity-surveyor",
+              "text": "View job",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.1stcurve.com/careers",
+              "sourceUrl": "https://www.1stcurve.com/careers/senior-quantity-surveyor",
+              "text": "Careers",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.1stcurve.com/careers/planner",
+              "sourceUrl": "https://www.1stcurve.com/careers/senior-quantity-surveyor",
+              "text": "View job",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.1stcurve.com/careers/senior-planner",
+              "sourceUrl": "https://www.1stcurve.com/careers/senior-quantity-surveyor",
+              "text": "View job",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.1stcurve.com/careers/quantity-surveyor",
+              "sourceUrl": "https://www.1stcurve.com/careers/senior-quantity-surveyor",
+              "text": "View job",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.1stcurve.com/careers/graduate-quantity-surveyor",
+              "sourceUrl": "https://www.1stcurve.com/careers/senior-quantity-surveyor",
+              "text": "View job",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.1stcurve.com/careers/graduate-planning-engineer-civils",
+              "sourceUrl": "https://www.1stcurve.com/careers/senior-quantity-surveyor",
+              "text": "View job",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.1stcurve.com/careers",
+              "sourceUrl": "https://www.1stcurve.com/careers/graduate-quantity-surveyor",
+              "text": "Careers",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.1stcurve.com/careers/planner",
+              "sourceUrl": "https://www.1stcurve.com/careers/graduate-quantity-surveyor",
+              "text": "View job",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.1stcurve.com/careers/senior-planner",
+              "sourceUrl": "https://www.1stcurve.com/careers/graduate-quantity-surveyor",
+              "text": "View job",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.1stcurve.com/careers/quantity-surveyor",
+              "sourceUrl": "https://www.1stcurve.com/careers/graduate-quantity-surveyor",
+              "text": "View job",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.1stcurve.com/careers/senior-quantity-surveyor",
+              "sourceUrl": "https://www.1stcurve.com/careers/graduate-quantity-surveyor",
+              "text": "View job",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.1stcurve.com/careers/graduate-planning-engineer-civils",
+              "sourceUrl": "https://www.1stcurve.com/careers/graduate-quantity-surveyor",
+              "text": "View job",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.1stcurve.com/careers",
+              "sourceUrl": "https://www.1stcurve.com/careers/graduate-planning-engineer-civils",
+              "text": "Careers",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.1stcurve.com/careers/planner",
+              "sourceUrl": "https://www.1stcurve.com/careers/graduate-planning-engineer-civils",
+              "text": "View job",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.1stcurve.com/careers/senior-planner",
+              "sourceUrl": "https://www.1stcurve.com/careers/graduate-planning-engineer-civils",
+              "text": "View job",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.1stcurve.com/careers/quantity-surveyor",
+              "sourceUrl": "https://www.1stcurve.com/careers/graduate-planning-engineer-civils",
+              "text": "View job",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.1stcurve.com/careers/senior-quantity-surveyor",
+              "sourceUrl": "https://www.1stcurve.com/careers/graduate-planning-engineer-civils",
+              "text": "View job",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.1stcurve.com/careers/graduate-quantity-surveyor",
+              "sourceUrl": "https://www.1stcurve.com/careers/graduate-planning-engineer-civils",
+              "text": "View job",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.1stcurve.com/careers",
+              "sourceUrl": "https://www.1stcurve.com/careers",
+              "text": "Careers",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.1stcurve.com/careers/planner",
+              "sourceUrl": "https://www.1stcurve.com/careers",
+              "text": "View job",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.1stcurve.com/careers/senior-planner",
+              "sourceUrl": "https://www.1stcurve.com/careers",
+              "text": "View job",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.1stcurve.com/careers/quantity-surveyor",
+              "sourceUrl": "https://www.1stcurve.com/careers",
+              "text": "View job",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.1stcurve.com/careers/senior-quantity-surveyor",
+              "sourceUrl": "https://www.1stcurve.com/careers",
+              "text": "View job",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.1stcurve.com/careers/graduate-quantity-surveyor",
+              "sourceUrl": "https://www.1stcurve.com/careers",
+              "text": "View job",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            },
+            {
+              "url": "https://www.1stcurve.com/careers/graduate-planning-engineer-civils",
+              "sourceUrl": "https://www.1stcurve.com/careers",
+              "text": "View job",
+              "category": "careers",
+              "decision": "queued",
+              "reason": null,
+              "atsProvider": null
+            }
+          ],
+          "rejectedCareersLinks": [],
+          "atsLinksSeen": [],
+          "jsonLdJobPostingFound": false,
+          "microdataJobPostingFound": false,
+          "vacancyLikePages": [],
+          "explicitNoVacancies": false,
+          "jsRenderedJobsLikely": false
+        }
+      },
+      "status": "partial_page_limit",
+      "completion": "partial_page_limit",
+      "advertsFound": 0,
+      "advertsRejected": 36,
+      "ukLocationKnown": 0,
+      "ukLocationUnknown": 0,
+      "inserted": 0,
+      "updated": 0,
+      "revived": 0,
+      "verification": [],
+      "applicationUrls": [],
+      "elapsedMs": 10921
+    }
+  ],
+  "metricNotes": {
+    "completed": "runCompanySiteCheck completion=complete",
+    "no_jobs": "completed checks with zero accepted adverts",
+    "applicationUrls": "values are included only when present in persisted company-site vacancy rows",
+    "liveness": "newly discovered stored links are checked with verifyCompanySiteStoredLink; persisted statuses are reported as-is"
+  }
+}

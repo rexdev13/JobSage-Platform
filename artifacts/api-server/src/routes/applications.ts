@@ -316,6 +316,7 @@ router.post("/applications", requireAuthenticated, async (req: Request, res: Res
     const sponsorVacancyId = sponsorVacancyIdFromRoleId(roleId);
     const [sponsorVacancy] = await db
       .select({
+        title: sponsorLicenceVacanciesTable.title,
         sourceType: sponsorLicenceVacanciesTable.sourceType,
         liveness: sponsorLicenceVacanciesTable.liveness,
         lastVerifiedAt: sponsorLicenceVacanciesTable.lastVerifiedAt,
@@ -451,6 +452,7 @@ router.post("/applications", requireAuthenticated, async (req: Request, res: Res
     const sponsorVacancyId = sponsorVacancyIdFromRoleId(roleId)!;
     const [vacancy] = await db
       .select({
+        title: sponsorLicenceVacanciesTable.title,
         sourceType: sponsorLicenceVacanciesTable.sourceType,
         liveness: sponsorLicenceVacanciesTable.liveness,
         lastVerifiedAt: sponsorLicenceVacanciesTable.lastVerifiedAt,

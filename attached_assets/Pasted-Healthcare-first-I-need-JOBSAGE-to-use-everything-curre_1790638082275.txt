@@ -1,0 +1,84 @@
+Healthcare first. I need JOBSAGE to use everything currently safe and available for healthcare/social-care sponsor employers and show what production can produce.
+
+Do not run unsafe generic company-site crawling.
+Do not create vacancies from generic HTML links, benefits pages, careers landing pages, navigation/resource pages, or weak structured cards.
+Do not process non-healthcare employers in this run.
+Do not edit cron.
+
+Goal:
+Run a controlled healthcare-focused production/direct-feed/job-board proof using existing production data and safe sources only.
+
+Healthcare scope:
+Use sponsor employers classified as healthcare/social-care by existing JOBSAGE sector/industry/category rules, including:
+- Healthcare
+- Social Care
+- Care homes
+- Domiciliary care
+- Dental/medical clinics
+- NHS/healthcare providers where applicable
+
+Before running, report the exact selector/count:
+- total production sponsor rows in healthcare/social-care
+- healthcare rows with websites
+- healthcare rows with careers URLs/company-site checks
+- healthcare rows with verified ATS/feed mappings
+- healthcare verified mappings by provider
+- healthcare existing vacancies by source_type
+- healthcare candidate-visible vacancies currently
+
+Allowed sources for this healthcare proof:
+
+1. Existing job-board/reed/additional-board jobs
+- You may run or report existing healthcare-relevant job-board paths if they are already safe and do not rely on generic company-site crawling.
+- Report inserted/updated/skipped counts.
+
+2. Existing verified direct-feed mappings
+- Run `company_site_direct_feed` for healthcare employers with verified mappings.
+- For this manual healthcare proof, allow `force: true`, `skipFreshness: true`, and `skipRetryBackoff: true` only for exact selected healthcare employers or healthcare mapping cohort.
+- Do not retire/mark missing jobs closed during forced run.
+- Do not process unverified mappings.
+
+3. Existing saved healthcare careers/websites
+- Use them only for read-only ATS discovery or mapping review.
+- Do not create vacancies from generic HTML crawling.
+- If new verified mappings are found, report them for review/dry-run; do not promote without approval.
+
+4. Existing production company-site vacancy rows
+- Report them and validate liveness/visibility where safe.
+- Do not treat generic evidence as trusted unless it passes the new strong-evidence visibility rule.
+
+Run plan:
+A. Healthcare inventory first, read-only.
+B. Select all currently verified healthcare direct-feed mappings.
+C. If there are verified healthcare mappings, run direct-feed import for them with force mode, limited and safe.
+D. Run repeat import to confirm zero duplicate inserts.
+E. Report candidate-visible healthcare Opportunities count after the run.
+F. If there are too few verified healthcare mappings, run healthcare-only production-proof-readonly ATS discovery against saved healthcare careers URLs, no writes, and report mappings found.
+
+Safety:
+- verified direct feeds only for vacancy creation
+- `known_ats_posting` only
+- no generic crawl vacancy creation
+- no unrelated sectors
+- no full dev-to-prod copy
+- no overwrites of existing values
+- no cron changes
+- no missing-source retirement during forced canary
+
+Report:
+- healthcare employers checked
+- verified mappings processed
+- provider breakdown
+- feed adverts found
+- vacancies inserted
+- vacancies updated
+- duplicate inserts
+- vacancies rejected and why
+- candidate-visible healthcare vacancies
+- detail URL coverage
+- application URL coverage
+- liveness results
+- before/after counts
+- any blockers
+
+If no healthcare verified mappings are available, say so clearly and immediately proceed to healthcare-only read-only ATS discovery from saved healthcare websites/careers pages.

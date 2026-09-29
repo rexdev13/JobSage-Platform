@@ -30,6 +30,42 @@ export const sponsorLicencesTable = pgTable(
 export type SponsorLicence = typeof sponsorLicencesTable.$inferSelect;
 export type InsertSponsorLicence = typeof sponsorLicencesTable.$inferInsert;
 
+/**
+ * Maps an environment-independent sponsor identity to the local sponsor row
+ * selected in this database. The key is derived from source identity fields,
+ * never from a development or production serial ID.
+ */
+export const sponsorLicenceIdentityCrosswalkTable = pgTable(
+  "sponsor_licence_identity_crosswalk",
+  {
+    id: serial("id").primaryKey(),
+    sourceSystem: text("source_system").notNull(),
+    identityKey: varchar("identity_key", { length: 64 }).notNull(),
+    identitySnapshot: jsonb("identity_snapshot")
+      .$type<Record<string, string>>()
+      .notNull(),
+    targetSponsorLicenceId: integer("target_sponsor_licence_id")
+      .notNull()
+      .references(() => sponsorLicencesTable.id, { onDelete: "cascade" }),
+    resolutionMethod: varchar("resolution_method", {
+      enum: ["exact_unique", "manual_review"],
+    }).notNull(),
+    resolvedBy: text("resolved_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("sponsor_licence_identity_crosswalk_source_key_unique").on(
+      t.sourceSystem,
+      t.identityKey,
+    ),
+    index("sponsor_licence_identity_crosswalk_target_idx").on(t.targetSponsorLicenceId),
+  ],
+);
+
+export type SponsorLicenceIdentityCrosswalk =
+  typeof sponsorLicenceIdentityCrosswalkTable.$inferSelect;
+
 export const sponsorLicenceSyncLogTable = pgTable("sponsor_licence_sync_log", {
   id: serial("id").primaryKey(),
   status: varchar("status", { enum: ["success", "error"] }).notNull(),
@@ -100,6 +136,12 @@ export const sponsorLicenceCompanySiteChecksTable = pgTable(
     atsCheckedAt: timestamp("ats_checked_at", { withTimezone: true }),
     careersUrl: text("careers_url"),
     atsProvider: text("ats_provider"),
+    atsBoardId: text("ats_board_id"),
+    atsMappingEvidenceUrl: text("ats_mapping_evidence_url"),
+    atsMappingStatus: text("ats_mapping_status")
+      .$type<"verified" | "unverified" | "invalid">()
+      .notNull()
+      .default("unverified"),
     retryAfter: timestamp("retry_after", { withTimezone: true }),
     lastError: text("last_error"),
     lastAttemptedAt: timestamp("last_attempted_at", { withTimezone: true }),
@@ -115,6 +157,15 @@ export const sponsorLicenceCompanySiteChecksTable = pgTable(
     lastPagesFetched: integer("last_pages_fetched"),
     lastAdvertsFound: integer("last_adverts_found"),
     lastRejectedCount: integer("last_rejected_count"),
+    crawlLeaseUntil: timestamp("crawl_lease_until", { withTimezone: true }),
+    crawlLeaseToken: text("crawl_lease_token"),
+    crawlState: jsonb("crawl_state").$type<{
+      queue: string[];
+      visited: string[];
+      sitemapQueued?: boolean;
+      careersUrl?: string | null;
+      atsProvider?: string | null;
+    } | null>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -124,6 +175,7 @@ export const sponsorLicenceCompanySiteChecksTable = pgTable(
     index("company_site_checks_ats_idx").on(t.atsCheckedAt),
     index("company_site_checks_retry_idx").on(t.retryAfter),
     index("company_site_checks_probe_due_idx").on(t.probeStatus, t.lastProbedAt),
+    index("company_site_checks_crawl_lease_idx").on(t.crawlLeaseUntil),
   ],
 );
 
@@ -219,6 +271,7 @@ export const sponsorLicenceVacanciesTable = pgTable(
     location: text("location"),
     salary: text("salary"),
     url: text("url"),
+    applicationUrl: text("application_url"),
     sourceType: text("source_type").$type<"job_board" | "company_site">(),
     boardName: text("board_name"),
     externalListingId: text("external_listing_id"),

@@ -1,0 +1,104 @@
+You are working on the JobSage project.
+
+I want a production automation audit for the full sponsor vacancy system.
+
+Goal:
+Inspect the existing codebase and tell me what already exists, what is missing, and what must be added so production can automatically:
+- discover vacancy sources
+- validate sources
+- import/update safe sources
+- run liveness checks
+- pull live vacancies continuously
+- remove/disable dead vacancies
+- avoid duplicates
+- route sources into company website / job board / Send CV pipelines
+- update candidates with fresh visible vacancies
+- monitor/report failures
+- recover safely without manual CSV babysitting
+
+This is an audit only.
+
+Do not run new enrichment.
+Do not crawl websites.
+Do not import anything.
+Do not write to production.
+Do not deploy.
+Do not modify code unless you need to add a report file only.
+
+Inspect:
+- source discovery scripts
+- sponsor enrichment scripts
+- vacancy-source routing scripts
+- website/careers enrichment scripts
+- direct ATS/feed connectors
+- company website crawler
+- job board pipeline
+- Send CV pipeline
+- liveness check code
+- scheduler/cron code
+- import/dry-run scripts
+- database schema/models
+- API routes that expose vacancies to candidates
+- admin/internal tools if any
+- docs and artifacts related to vacancy automation
+- Replit workflow/scheduler docs if present
+
+Questions to answer:
+
+1. What production vacancy automation exists today?
+2. Which parts are already automated?
+3. Which parts are still manual/offline CSV workflows?
+4. Is there a production-safe import pipeline for discovered sources?
+5. Is there a dry-run mode before import?
+6. Is there batch ID/source provenance support?
+7. Is there rollback/disable support for bad imported sources?
+8. Is there source liveness checking?
+9. Is there vacancy liveness checking?
+10. Is there continuous scheduled pulling?
+11. Is the scheduler currently configured for production or only documented?
+12. Are company website, job board/ATS, and Send CV handled separately?
+13. How are duplicate vacancies prevented?
+14. How are closed/dead vacancies removed from candidate view?
+15. How are source failures retried/backed off?
+16. How are robots/policy blocks handled?
+17. How are candidate-visible vacancies filtered and ranked?
+18. How do we verify each sector has live visible vacancies?
+19. What monitoring/logging exists?
+20. What alerts exist if vacancy sync fails?
+21. What is the safest path to make this production autonomous?
+
+Output:
+Create:
+`artifacts/production-vacancy-automation-audit.md`
+
+The report should include:
+
+- Executive summary
+- Current architecture diagram in text/Markdown
+- Existing scripts/services and what each does
+- Current automated flow from source → vacancy → candidate-visible result
+- Manual gaps
+- Production safety gaps
+- Scheduler/cron status
+- Data model/schema notes
+- Pipeline-by-pipeline assessment:
+  - company website
+  - job board/ATS
+  - Send CV
+  - source import/enrichment
+  - liveness checks
+  - candidate visibility
+- Risk list ordered by severity
+- What must be built before production can run autonomously
+- What can safely go live now
+- What should stay dev/offline
+- Recommended implementation plan:
+  Phase 1: safe prod readiness
+  Phase 2: automated source import
+  Phase 3: continuous vacancy sync
+  Phase 4: monitoring/alerts
+- Exact commands/tests to run to verify readiness
+- Confirmation that this audit did not change production data or deploy anything
+
+Important:
+Be specific. Reference actual file paths, scripts, functions, tables, routes, jobs, and docs. If something is missing, say clearly that it is missing. Do not assume it exists.

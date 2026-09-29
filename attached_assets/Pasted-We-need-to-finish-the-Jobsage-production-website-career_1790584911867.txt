@@ -1,0 +1,85 @@
+We need to finish the Jobsage production website/careers URL import properly and move to the next phase.
+
+Context:
+- Use the September 27 production apply audit as the source of truth.
+- The apply processed 6,007 rows and wrote 1,954 websites + 3 careers URLs.
+- 4,050 rows did not write:
+  - 1,388 low confidence
+  - 1,025 ambiguous production sponsor identity
+  - 553 identity conflicts
+  - 299 no unique production careers-site record
+  - 224 different URL already stored in production
+  - 7 candidate URL differed from reviewed dev value
+  - 4 pilot upgrade not recorded in development
+  - 540 already matched production
+  - 10 duplicate candidate for same target
+- Do not bulk-copy dev internal IDs into prod. Dev and prod sponsor records may not share the same IDs.
+- Goal: resolve everything that can be safely resolved, apply only safe rows, and produce a clear manual queue for the rest.
+
+Your job:
+1. Inspect the repo and database/import scripts to find:
+   - the production apply audit table/logs
+   - the existing website/careers import logic
+   - sponsor identity fields available in dev and prod
+   - any existing mapping/reconciliation tables
+   - test commands relevant to this importer
+
+2. Build or update a resolver script that uses the production apply audit as input and classifies each held row into:
+   - safe_auto_resolve
+   - safe_noop_already_done
+   - needs_manual_identity_resolution
+   - needs_manual_url_conflict_review
+   - needs_manual_low_confidence_review
+   - unresolved_due_to_missing_data
+
+3. Resolution rules:
+   - Never guess.
+   - Never overwrite an existing production URL unless the row is explicitly classified and approved for overwrite.
+   - For ambiguous sponsor matches, auto-resolve only when exactly one production sponsor matches strong evidence such as legal name, normalized trading name, official domain, sponsor/location details, postcode/city, or existing source identity.
+   - For identity conflicts, auto-resolve only harmless differences like punctuation, casing, Ltd/Limited variants, spacing, or clearly equivalent company names. Hold real legal/entity/location conflicts.
+   - For low-confidence rows, upgrade only when the employer clearly owns the website/careers URL. Prefer official company domains, official careers pages, ATS pages linked from the official domain, or verified existing source evidence.
+   - For no unique careers-site record, create or select one target only when the sponsor identity is already safely resolved.
+   - Existing URL conflicts must go to a review CSV unless there is an explicit rule proving the new URL supersedes the old one.
+
+4. First run must be read-only/dry-run:
+   - Do not write to production.
+   - Output counts by original reason and by new resolver classification.
+   - Show how many rows can now be safely applied.
+   - Show sample rows for each classification.
+   - Save CSV/markdown reports:
+     - prod-url-resolution-summary.md
+     - safe-auto-resolved.csv
+     - manual-identity-resolution.csv
+     - manual-url-conflicts.csv
+     - low-confidence-review.csv
+     - unresolved-missing-data.csv
+
+5. Add tests for the resolver logic:
+   - ambiguous sponsor with one strong match resolves
+   - ambiguous sponsor with multiple plausible matches stays held
+   - harmless name conflict resolves
+   - real identity conflict stays held
+   - existing prod URL is not overwritten by default
+   - duplicate/already-matched rows are noops
+   - careers target requires a resolved sponsor
+
+6. After dry-run and tests pass, prepare an apply command that:
+   - writes only safe_auto_resolve rows
+   - is idempotent
+   - runs inside a transaction where possible
+   - records before/after values and reason codes in an audit table/log
+   - prints final write counts
+   - leaves all manual rows untouched
+
+7. Do not deploy or run broad vacancy ingestion yet.
+   After the safe URL apply, produce the next-phase command plan:
+   - rerun direct-feed/company-site vacancy ingestion for newly resolved sponsors
+   - start with a bounded cohort
+   - report candidate-visible vacancy count before/after
+   - stop on errors instead of crawling blindly
+
+Important:
+- This is not another blind import.
+- The deliverable is a safe resolver + report + apply path.
+- Maximize production coverage, but only where identity and URL ownership are defensible.
+- If credentials or production write access are unavailable, complete the resolver, tests, and dry-run report only, then clearly state the exact command needed to apply later.

@@ -95,6 +95,7 @@ import type {
   ListReviewQueueParams,
   ListRulesetsParams,
   ListSponsorLicencesParams,
+  ListSponsorWebsiteImportStagingParams,
   LoginRequest,
   LogoutSuccess,
   MarkApplicationRequest,
@@ -150,6 +151,15 @@ import type {
   SponsorLicenceSyncResult,
   SponsorLicenceVacanciesResponse,
   SponsorLicenceVacancyStatsResponse,
+  SponsorWebsiteIdentityResolution,
+  SponsorWebsiteIdentityResolutionInput,
+  SponsorWebsiteImportApplyUpload,
+  SponsorWebsiteImportPreview,
+  SponsorWebsiteImportPreviewUpload,
+  SponsorWebsiteImportResult,
+  SponsorWebsiteImportStageResult,
+  SponsorWebsiteImportStageUpload,
+  SponsorWebsiteImportStagingList,
   SponsorshipFeasibility,
   StopImpersonation200,
   SuperAdminHealth,
@@ -11375,3 +11385,486 @@ export const useTriggerSponsorLicenceSync = <
 > => {
   return useMutation(getTriggerSponsorLicenceSyncMutationOptions(options));
 };
+
+/**
+ * @summary Preview a sponsor website CSV against the current database (super admin only)
+ */
+export const getPreviewSponsorWebsiteImportUrl = () => {
+  return `/api/admin/sponsor-website-import/preview`;
+};
+
+export const previewSponsorWebsiteImport = async (
+  sponsorWebsiteImportPreviewUpload: SponsorWebsiteImportPreviewUpload,
+  options?: RequestInit,
+): Promise<SponsorWebsiteImportPreview> => {
+  const formData = new FormData();
+  formData.append(`file`, sponsorWebsiteImportPreviewUpload.file);
+
+  return customFetch<SponsorWebsiteImportPreview>(
+    getPreviewSponsorWebsiteImportUrl(),
+    {
+      ...options,
+      method: "POST",
+      body: formData,
+    },
+  );
+};
+
+export const getPreviewSponsorWebsiteImportMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof previewSponsorWebsiteImport>>,
+    TError,
+    { data: BodyType<SponsorWebsiteImportPreviewUpload> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof previewSponsorWebsiteImport>>,
+  TError,
+  { data: BodyType<SponsorWebsiteImportPreviewUpload> },
+  TContext
+> => {
+  const mutationKey = ["previewSponsorWebsiteImport"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof previewSponsorWebsiteImport>>,
+    { data: BodyType<SponsorWebsiteImportPreviewUpload> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return previewSponsorWebsiteImport(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PreviewSponsorWebsiteImportMutationResult = NonNullable<
+  Awaited<ReturnType<typeof previewSponsorWebsiteImport>>
+>;
+export type PreviewSponsorWebsiteImportMutationBody =
+  BodyType<SponsorWebsiteImportPreviewUpload>;
+export type PreviewSponsorWebsiteImportMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Preview a sponsor website CSV against the current database (super admin only)
+ */
+export const usePreviewSponsorWebsiteImport = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof previewSponsorWebsiteImport>>,
+    TError,
+    { data: BodyType<SponsorWebsiteImportPreviewUpload> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof previewSponsorWebsiteImport>>,
+  TError,
+  { data: BodyType<SponsorWebsiteImportPreviewUpload> },
+  TContext
+> => {
+  return useMutation(getPreviewSponsorWebsiteImportMutationOptions(options));
+};
+
+/**
+ * @summary Save a reviewed sponsor identity crosswalk (super admin only)
+ */
+export const getResolveSponsorWebsiteIdentityUrl = () => {
+  return `/api/admin/sponsor-website-import/resolve`;
+};
+
+export const resolveSponsorWebsiteIdentity = async (
+  sponsorWebsiteIdentityResolutionInput: SponsorWebsiteIdentityResolutionInput,
+  options?: RequestInit,
+): Promise<SponsorWebsiteIdentityResolution> => {
+  return customFetch<SponsorWebsiteIdentityResolution>(
+    getResolveSponsorWebsiteIdentityUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(sponsorWebsiteIdentityResolutionInput),
+    },
+  );
+};
+
+export const getResolveSponsorWebsiteIdentityMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resolveSponsorWebsiteIdentity>>,
+    TError,
+    { data: BodyType<SponsorWebsiteIdentityResolutionInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof resolveSponsorWebsiteIdentity>>,
+  TError,
+  { data: BodyType<SponsorWebsiteIdentityResolutionInput> },
+  TContext
+> => {
+  const mutationKey = ["resolveSponsorWebsiteIdentity"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof resolveSponsorWebsiteIdentity>>,
+    { data: BodyType<SponsorWebsiteIdentityResolutionInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return resolveSponsorWebsiteIdentity(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ResolveSponsorWebsiteIdentityMutationResult = NonNullable<
+  Awaited<ReturnType<typeof resolveSponsorWebsiteIdentity>>
+>;
+export type ResolveSponsorWebsiteIdentityMutationBody =
+  BodyType<SponsorWebsiteIdentityResolutionInput>;
+export type ResolveSponsorWebsiteIdentityMutationError =
+  ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Save a reviewed sponsor identity crosswalk (super admin only)
+ */
+export const useResolveSponsorWebsiteIdentity = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resolveSponsorWebsiteIdentity>>,
+    TError,
+    { data: BodyType<SponsorWebsiteIdentityResolutionInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof resolveSponsorWebsiteIdentity>>,
+  TError,
+  { data: BodyType<SponsorWebsiteIdentityResolutionInput> },
+  TContext
+> => {
+  return useMutation(getResolveSponsorWebsiteIdentityMutationOptions(options));
+};
+
+/**
+ * @summary Apply the unchanged, reviewed safe rows from a sponsor website preview (super admin only)
+ */
+export const getApplySponsorWebsiteImportUrl = () => {
+  return `/api/admin/sponsor-website-import/apply`;
+};
+
+export const applySponsorWebsiteImport = async (
+  sponsorWebsiteImportApplyUpload: SponsorWebsiteImportApplyUpload,
+  options?: RequestInit,
+): Promise<SponsorWebsiteImportResult> => {
+  const formData = new FormData();
+  formData.append(`file`, sponsorWebsiteImportApplyUpload.file);
+  formData.append(`planHash`, sponsorWebsiteImportApplyUpload.planHash);
+
+  return customFetch<SponsorWebsiteImportResult>(
+    getApplySponsorWebsiteImportUrl(),
+    {
+      ...options,
+      method: "POST",
+      body: formData,
+    },
+  );
+};
+
+export const getApplySponsorWebsiteImportMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof applySponsorWebsiteImport>>,
+    TError,
+    { data: BodyType<SponsorWebsiteImportApplyUpload> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof applySponsorWebsiteImport>>,
+  TError,
+  { data: BodyType<SponsorWebsiteImportApplyUpload> },
+  TContext
+> => {
+  const mutationKey = ["applySponsorWebsiteImport"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof applySponsorWebsiteImport>>,
+    { data: BodyType<SponsorWebsiteImportApplyUpload> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return applySponsorWebsiteImport(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ApplySponsorWebsiteImportMutationResult = NonNullable<
+  Awaited<ReturnType<typeof applySponsorWebsiteImport>>
+>;
+export type ApplySponsorWebsiteImportMutationBody =
+  BodyType<SponsorWebsiteImportApplyUpload>;
+export type ApplySponsorWebsiteImportMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Apply the unchanged, reviewed safe rows from a sponsor website preview (super admin only)
+ */
+export const useApplySponsorWebsiteImport = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof applySponsorWebsiteImport>>,
+    TError,
+    { data: BodyType<SponsorWebsiteImportApplyUpload> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof applySponsorWebsiteImport>>,
+  TError,
+  { data: BodyType<SponsorWebsiteImportApplyUpload> },
+  TContext
+> => {
+  return useMutation(getApplySponsorWebsiteImportMutationOptions(options));
+};
+
+/**
+ * @summary Store held sponsor URL candidates in the durable review queue (super admin only)
+ */
+export const getStageSponsorWebsiteImportReviewUrl = () => {
+  return `/api/admin/sponsor-website-import/stage`;
+};
+
+export const stageSponsorWebsiteImportReview = async (
+  sponsorWebsiteImportStageUpload: SponsorWebsiteImportStageUpload,
+  options?: RequestInit,
+): Promise<SponsorWebsiteImportStageResult> => {
+  const formData = new FormData();
+  formData.append(`file`, sponsorWebsiteImportStageUpload.file);
+  formData.append(`planHash`, sponsorWebsiteImportStageUpload.planHash);
+
+  return customFetch<SponsorWebsiteImportStageResult>(
+    getStageSponsorWebsiteImportReviewUrl(),
+    {
+      ...options,
+      method: "POST",
+      body: formData,
+    },
+  );
+};
+
+export const getStageSponsorWebsiteImportReviewMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof stageSponsorWebsiteImportReview>>,
+    TError,
+    { data: BodyType<SponsorWebsiteImportStageUpload> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof stageSponsorWebsiteImportReview>>,
+  TError,
+  { data: BodyType<SponsorWebsiteImportStageUpload> },
+  TContext
+> => {
+  const mutationKey = ["stageSponsorWebsiteImportReview"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof stageSponsorWebsiteImportReview>>,
+    { data: BodyType<SponsorWebsiteImportStageUpload> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return stageSponsorWebsiteImportReview(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type StageSponsorWebsiteImportReviewMutationResult = NonNullable<
+  Awaited<ReturnType<typeof stageSponsorWebsiteImportReview>>
+>;
+export type StageSponsorWebsiteImportReviewMutationBody =
+  BodyType<SponsorWebsiteImportStageUpload>;
+export type StageSponsorWebsiteImportReviewMutationError =
+  ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Store held sponsor URL candidates in the durable review queue (super admin only)
+ */
+export const useStageSponsorWebsiteImportReview = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof stageSponsorWebsiteImportReview>>,
+    TError,
+    { data: BodyType<SponsorWebsiteImportStageUpload> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof stageSponsorWebsiteImportReview>>,
+  TError,
+  { data: BodyType<SponsorWebsiteImportStageUpload> },
+  TContext
+> => {
+  return useMutation(
+    getStageSponsorWebsiteImportReviewMutationOptions(options),
+  );
+};
+
+/**
+ * @summary List staged sponsor URL candidates for review (super admin only)
+ */
+export const getListSponsorWebsiteImportStagingUrl = (
+  params?: ListSponsorWebsiteImportStagingParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/sponsor-website-import/staging?${stringifiedParams}`
+    : `/api/admin/sponsor-website-import/staging`;
+};
+
+export const listSponsorWebsiteImportStaging = async (
+  params?: ListSponsorWebsiteImportStagingParams,
+  options?: RequestInit,
+): Promise<SponsorWebsiteImportStagingList> => {
+  return customFetch<SponsorWebsiteImportStagingList>(
+    getListSponsorWebsiteImportStagingUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListSponsorWebsiteImportStagingQueryKey = (
+  params?: ListSponsorWebsiteImportStagingParams,
+) => {
+  return [
+    `/api/admin/sponsor-website-import/staging`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListSponsorWebsiteImportStagingQueryOptions = <
+  TData = Awaited<ReturnType<typeof listSponsorWebsiteImportStaging>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  params?: ListSponsorWebsiteImportStagingParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSponsorWebsiteImportStaging>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListSponsorWebsiteImportStagingQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listSponsorWebsiteImportStaging>>
+  > = ({ signal }) =>
+    listSponsorWebsiteImportStaging(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listSponsorWebsiteImportStaging>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListSponsorWebsiteImportStagingQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listSponsorWebsiteImportStaging>>
+>;
+export type ListSponsorWebsiteImportStagingQueryError =
+  ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary List staged sponsor URL candidates for review (super admin only)
+ */
+
+export function useListSponsorWebsiteImportStaging<
+  TData = Awaited<ReturnType<typeof listSponsorWebsiteImportStaging>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  params?: ListSponsorWebsiteImportStagingParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSponsorWebsiteImportStaging>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListSponsorWebsiteImportStagingQueryOptions(
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}

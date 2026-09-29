@@ -1,0 +1,62 @@
+Stop. The rollout should not use generic company-site crawling for vacancy insertion.
+
+We are testing and implementing Path 1 first only:
+
+Known/approved employer website or careers/ATS evidence
+→ direct ATS/feed extraction
+→ insert real vacancies
+→ repeat run to prove no duplicates
+→ candidate visibility check.
+
+Do not run generic website crawling as a vacancy insertion source in this phase.
+
+Please patch/create an ATS-feed-only rollout mode.
+
+Requirements:
+
+1. Add or use a mode such as:
+   COMPANY_SITE_ROLLOUT_MODE=direct_feeds_only
+   or
+   --direct-feeds-only
+
+2. In direct-feeds-only mode:
+   - Use only employers with verified or approved ATS/careers mappings.
+   - Call supported ATS/public feed handlers only.
+   - Allow Greenhouse, Ashby, Lever, SmartRecruiters, Recruitee, Personio, Workable/others if already supported.
+   - Do not run `advertsFromLinks`.
+   - Do not insert generic HTML-discovered links.
+   - Do not crawl general website links as vacancy candidates.
+   - Generic crawling may only be used to discover/store future evidence, not to insert vacancies.
+
+3. If an employer has no approved ATS/feed/schema.org source:
+   - skip it for this phase
+   - record reason: no_direct_feed_source
+   - do not fall back to generic crawling
+
+4. Preserve existing safeguards:
+   - URL safety
+   - SSRF protection
+   - DNS pinning
+   - host pacing/backoff
+   - liveness/link verification
+   - profession/visibility rules
+   - audit diagnostics
+
+5. Run only the ATS/direct-feed approved cohort first:
+   - the 29 auto-approved employers
+   - repeat the same 29
+   - report inserted, updated, rejected, failed, skipped_no_direct_feed_source, runtime
+   - report per-employer vacancy counts
+   - report which providers were used
+   - report candidate-facing visibility samples
+
+6. The run must fail/stop if any inserted row comes from:
+   - generic HTML link extraction
+   - `advertsFromLinks`
+   - benefits/resources/careers landing pages
+   - source with no ATS/feed/schema.org evidence
+
+7. After the 29-employer ATS-only test passes, prepare a plan to expand direct-feed mappings to 100 employers.
+Do not run 100 broad company-site crawl.
+Do not deploy.
+Do not write production.
