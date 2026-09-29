@@ -24,10 +24,14 @@ const RECRUITMENT_PATH =
   /\/(?:careers?|jobs?|vacanc(?:y|ies)|join-us|work-with-us|recruit(?:ment)?)(?:\/|$)/i;
 
 const APPLY_LINK_TEXT =
-  /^(?:apply(?:\s+now|\s+online|\s+for\s+this\s+(?:role|job|vacancy|position))?|submit\s+(?:your\s+)?application|start\s+application)$/i;
+  /^(?:apply(?:\s+now|\s+online|\s+for\s+this\s+(?:role|job|vacancy|position))?|submit\s+(?:your\s+)?application|start\s+application|agree\s*&\s*submit\s+application)$/i;
 
 const APPLY_PAGE_TEXT =
-  /\b(?:apply now|apply for this (?:role|job|vacancy|position)|submit (?:your )?application|application form)\b/i;
+  /\b(?:apply now|apply for this (?:role|job|vacancy|position)|submit (?:your )?application|application form|agree\s*&\s*submit application|you must enable javascript to submit this form)\b/i;
+
+const APPLY_FRAGMENT = /#apply(?:[-_]?(?:now|form|online))?$/i;
+const APPLICATION_FORM_MARKUP =
+  /<form\b[\s\S]{0,8000}?(?:type\s*=\s*["']file["']|name\s*=\s*["']cv["']|submit this form|submit application)/i;
 
 const ATS_APPLY_HOSTS = [
   "greenhouse.io",
@@ -125,6 +129,25 @@ export function junkVacancyPath(url: string): boolean {
   }
 }
 
+function pageIsSpecificRoleApplication(
+  html: string,
+  pageUrl: string,
+  employerHost: string,
+): boolean {
+  const page = httpsUrl(pageUrl);
+  if (!page || !allowedApplyHost(page.hostname, employerHost)) return false;
+  if (!isValidVacancyDeepLink(page.toString()) || junkVacancyPath(page.toString())) return false;
+  if (!recruitmentPath(page.toString())) return false;
+  const visible = html.replace(/<[^>]+>/g, " ");
+  if (APPLY_PAGE_TEXT.test(visible)) return true;
+  if (APPLY_FRAGMENT.test(page.hash) || /href\s*=\s*["']#apply\b/i.test(html)) return true;
+  if (APPLICATION_FORM_MARKUP.test(html)) return true;
+  // Server-rendered vacancy pages (Kingsley-style) host the application on the
+  // same URL. Keep this behind a specific role path plus on-page vacancy copy.
+  return /\/vacanc(?:y|ies)\/view\/[a-z0-9-]+\/?$/i.test(page.pathname)
+    && /\b(?:closing date|about the role|apply for this role)\b/i.test(visible);
+}
+
 export function extractHealthcareApplicationRoute(
   html: string,
   pageUrl: string,
@@ -136,7 +159,6 @@ export function extractHealthcareApplicationRoute(
   for (const match of applyLinks) {
     const attributes = match[1] ?? "";
     const text = (match[2] ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-    if (!APPLY_LINK_TEXT.test(text)) continue;
     const href = attributes.match(/\bhref\s*=\s*(?:"([^"]*)"|'([^']*)')/i);
     const raw = href?.[1] ?? href?.[2] ?? "";
     if (!raw || /^(?:mailto:|tel:|javascript:)/i.test(raw)) continue;
@@ -146,22 +168,22 @@ export function extractHealthcareApplicationRoute(
     } catch {
       continue;
     }
+    const fragmentApply = APPLY_FRAGMENT.test(resolved.hash) || APPLY_FRAGMENT.test(raw);
+    if (!APPLY_LINK_TEXT.test(text) && !fragmentApply) continue;
+    if (fragmentApply && !APPLY_LINK_TEXT.test(text) && !isValidVacancyDeepLink(resolved.toString())) continue;
     if (
       resolved.protocol === "https:" &&
       allowedApplyHost(resolved.hostname, employerHost) &&
-      !isBlockedVacancyUrl(resolved.toString())
+      !isBlockedVacancyUrl(resolved.toString()) &&
+      !junkVacancyPath(resolved.toString()) &&
+      (isValidVacancyDeepLink(resolved.toString()) || (APPLY_LINK_TEXT.test(text) && recruitmentPath(resolved.toString()) && !/\/(?:careers?|jobs?|vacanc(?:y|ies)|recruitment)\/?$/i.test(resolved.pathname)))
     ) {
       return { applicationUrl: resolved.toString(), contactEmail: recruitmentEmail };
     }
   }
-  const page = httpsUrl(pageUrl);
-  if (
-    page &&
-    isValidVacancyDeepLink(page.toString()) &&
-    !junkVacancyPath(page.toString()) &&
-    APPLY_PAGE_TEXT.test(html.replace(/<[^>]+>/g, " "))
-  ) {
-    return { applicationUrl: page.toString(), contactEmail: recruitmentEmail };
+  if (pageIsSpecificRoleApplication(html, pageUrl, employerHost)) {
+    const page = httpsUrl(pageUrl);
+    if (page) return { applicationUrl: page.toString(), contactEmail: recruitmentEmail };
   }
   return { applicationUrl: null, contactEmail: recruitmentEmail };
 }

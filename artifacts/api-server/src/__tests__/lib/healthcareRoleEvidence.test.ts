@@ -72,4 +72,28 @@ describe("strict healthcare role evidence", () => {
       contactEmail: "careers@example-care.co.uk",
     });
   });
+
+  it("treats a same-page apply fragment or vacancy application form as a route", () => {
+    const viewUrl = "https://careers.example-care.co.uk/vacancies/view/care-home-support-worker-6056";
+    expect(extractHealthcareApplicationRoute(
+      `<a href="#apply"></a><p>Closing date: 26/10/2026</p>`,
+      viewUrl,
+      "example-care.co.uk",
+    ).applicationUrl).toBe(`${viewUrl}#apply`);
+    expect(extractHealthcareApplicationRoute(
+      `<form method="post"><input type="file" name="cv"><button>Agree & submit application</button></form>`,
+      viewUrl,
+      "example-care.co.uk",
+    ).applicationUrl).toBe(viewUrl);
+    expect(extractHealthcareApplicationRoute(
+      "<p>Just a moment</p>",
+      viewUrl,
+      "example-care.co.uk",
+    ).applicationUrl).toBeNull();
+    expect(extractHealthcareApplicationRoute(
+      `<a href="#apply">Apply</a>`,
+      "https://careers.example-care.co.uk/vacancies",
+      "example-care.co.uk",
+    ).applicationUrl).toBeNull();
+  });
 });
