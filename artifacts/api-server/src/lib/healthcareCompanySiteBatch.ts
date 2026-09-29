@@ -210,7 +210,8 @@ export async function runHealthcareCompanySiteBatch(
     let lastDiscovery: Awaited<ReturnType<typeof discoverCompanySiteVacancies>> | undefined;
     let resumeState: Awaited<ReturnType<typeof discoverCompanySiteVacancies>>["resumeState"] = null;
     try {
-      for (let pass = 0; pass < HEALTHCARE_BATCH_MAX_DISCOVERY_PASSES && now() < deadline; pass += 1) {
+      let pacedRetries = 0;
+      for (let pass = 0; pass < HEALTHCARE_BATCH_MAX_DISCOVERY_PASSES && now() < deadline; ) {
         lastDiscovery = await discoverCompanySiteVacancies(organisationName, employer.website, {
           knownCareersUrl: employer.careersUrl,
           checkGeneric: true,
@@ -221,8 +222,18 @@ export async function runHealthcareCompanySiteBatch(
           resumeState,
           deadlineMs: deadline,
         });
+        const paced =
+          lastDiscovery.adverts.length === 0 &&
+          typeof lastDiscovery.error === "string" &&
+          lastDiscovery.error.includes("paced or in backoff");
+        if (paced && pacedRetries < 8 && now() + 15_000 < deadline) {
+          pacedRetries += 1;
+          await new Promise((resolve) => setTimeout(resolve, 15_000));
+          continue;
+        }
         discoveredAdverts.push(...lastDiscovery.adverts);
         resumeState = lastDiscovery.resumeState ?? null;
+        pass += 1;
         if (!resumeState || resumeState.queue.length === 0) break;
       }
     } catch (error) {
