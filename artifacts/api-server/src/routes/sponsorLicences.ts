@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { GetSponsorLicenceVacanciesParams, GetSponsorLicenceVacanciesResponse } from "@workspace/api-zod";
 import { sponsorLicencesTable, sponsorLicenceSyncLogTable, sponsorLicenceVacancyChecksTable, sponsorLicenceBookmarksTable, sponsorLicenceVacanciesTable, sponsorLicenceVacancyScoresTable, sponsorLicenceGapAnalysesTable, roleGapAnalysesTable, applicationsTable, speculativeApplicationsTable, profilesTable } from "@workspace/db";
-import { eq, ilike, and, desc, sql, isNotNull, isNull, inArray, gte, ne, or } from "drizzle-orm";
+import { eq, ilike, and, desc, sql, isNotNull, isNull, inArray, gte, ne, or, type SQL } from "drizzle-orm";
 import { countyToRegion } from "../lib/countyToRegion";
 import {
   getVacancyLinkStatus,
@@ -21,6 +21,10 @@ import { SPONSOR_VACANCY_ID_OFFSET, classifyVacancyCategory, inferSafeguardingRe
 import { opportunityRegistrationLabel } from "../lib/opportunityProfession";
 import { assessSafeguarding } from "../lib/safeguarding";
 import { regionsFromLocationText } from "../lib/regionMatching";
+import {
+  HEALTHCARE_ROLE_TITLE_SQL_PATTERN,
+  RECRUITMENT_EMAIL_SQL_PATTERN,
+} from "../lib/healthcareRoleEvidence";
 
 const router: IRouter = Router();
 const COMPANY_SITE_SCHEMA_IMPORT_ENABLED =
@@ -29,6 +33,22 @@ const HTTPS_URL_WITH_HOST_SQL_PATTERN =
   "^https://[^/?#[:space:]]+([/?#][^[:space:]]*)?$";
 const GENERIC_STRUCTURED_TITLE_SQL_PATTERN =
   "^(careers?|jobs?|why work here|our benefits|benefits|skip([[:space:]]+to)?[[:space:]]+(main[[:space:]]+)?content)$";
+
+function strictHealthcareRoleSql(alias: "" | "v."): SQL {
+  const evidence = alias === "v." ? "v.company_vacancy_evidence" : "company_vacancy_evidence";
+  const title = alias === "v." ? "v.title" : "title";
+  return sql`OR ((${sql.raw(evidence)}->>'kind') = 'strict_role_page'
+    AND (${sql.raw(evidence)}->>'sector') = 'healthcare'
+    AND (${sql.raw(evidence)}->>'listingUrl') ~ ${HTTPS_URL_WITH_HOST_SQL_PATTERN}
+    AND (${sql.raw(evidence)}->>'detailUrl') ~ ${HTTPS_URL_WITH_HOST_SQL_PATTERN}
+    AND (
+      (${sql.raw(evidence)}->>'applicationUrl') ~ ${HTTPS_URL_WITH_HOST_SQL_PATTERN}
+      OR (${sql.raw(evidence)}->>'contactEmail') ~* ${RECRUITMENT_EMAIL_SQL_PATTERN}
+    )
+    AND btrim(${sql.raw(title)}) <> ''
+    AND btrim(${sql.raw(title)}) !~* ${GENERIC_STRUCTURED_TITLE_SQL_PATTERN}
+    AND ${sql.raw(title)} ~* ${HEALTHCARE_ROLE_TITLE_SQL_PATTERN})`;
+}
 
 
 // ── UK Regions ────────────────────────────────────────────────────────────────
@@ -553,6 +573,7 @@ router.get("/sponsor-licences/vacancy-stats", requireAuthenticated, async (_req,
                       AND btrim(${sponsorLicenceVacanciesTable.title}) <> ''
                       AND btrim(${sponsorLicenceVacanciesTable.title}) !~* ${GENERIC_STRUCTURED_TITLE_SQL_PATTERN}
                       AND (${sponsorLicenceVacanciesTable.companyVacancyEvidence}->>'listingUrl') ~ ${HTTPS_URL_WITH_HOST_SQL_PATTERN})
+                  ${strictHealthcareRoleSql("")}
                   OR (${sponsorLicenceVacanciesTable.companyEvidenceLegacyUntil} >= now()
                       AND (${sponsorLicenceVacanciesTable.companyVacancyEvidence}->>'trustedSource') = 'manual_review'
                       AND (${sponsorLicenceVacanciesTable.companyVacancyEvidence}->'roleEligibilityReview'->>'status') = 'approved'
@@ -819,7 +840,7 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
                   AND btrim(title) <> ''
                   AND btrim(title) !~* ${GENERIC_STRUCTURED_TITLE_SQL_PATTERN}
                   AND (company_vacancy_evidence->>'listingUrl') ~ ${HTTPS_URL_WITH_HOST_SQL_PATTERN})
-              OR (company_evidence_legacy_until >= now()
+              ${strictHealthcareRoleSql("")} OR (company_evidence_legacy_until >= now()
                   AND (company_vacancy_evidence->>'trustedSource') = 'manual_review'
                   AND (company_vacancy_evidence->'roleEligibilityReview'->>'status') = 'approved'
                   AND (company_vacancy_evidence->'roleEligibilityReview'->>'evidenceUrl') ~ ${HTTPS_URL_WITH_HOST_SQL_PATTERN})
@@ -842,7 +863,7 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
                   AND btrim(title) <> ''
                   AND btrim(title) !~* ${GENERIC_STRUCTURED_TITLE_SQL_PATTERN}
                   AND (company_vacancy_evidence->>'listingUrl') ~ ${HTTPS_URL_WITH_HOST_SQL_PATTERN})
-              OR (company_evidence_legacy_until >= now()
+              ${strictHealthcareRoleSql("")} OR (company_evidence_legacy_until >= now()
                   AND (company_vacancy_evidence->>'trustedSource') = 'manual_review'
                   AND (company_vacancy_evidence->'roleEligibilityReview'->>'status') = 'approved'
                   AND (company_vacancy_evidence->'roleEligibilityReview'->>'evidenceUrl') ~ ${HTTPS_URL_WITH_HOST_SQL_PATTERN})
@@ -904,7 +925,7 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
                   AND btrim(title) <> ''
                   AND btrim(title) !~* ${GENERIC_STRUCTURED_TITLE_SQL_PATTERN}
                   AND (company_vacancy_evidence->>'listingUrl') ~ ${HTTPS_URL_WITH_HOST_SQL_PATTERN})
-              OR (company_evidence_legacy_until >= now()
+              ${strictHealthcareRoleSql("")} OR (company_evidence_legacy_until >= now()
                   AND (company_vacancy_evidence->>'trustedSource') = 'manual_review'
                   AND (company_vacancy_evidence->'roleEligibilityReview'->>'status') = 'approved'
                   AND (company_vacancy_evidence->'roleEligibilityReview'->>'evidenceUrl') ~ ${HTTPS_URL_WITH_HOST_SQL_PATTERN})
@@ -951,7 +972,7 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
                   AND btrim(v.title) <> ''
                   AND btrim(v.title) !~* ${GENERIC_STRUCTURED_TITLE_SQL_PATTERN}
                   AND (v.company_vacancy_evidence->>'listingUrl') ~ ${HTTPS_URL_WITH_HOST_SQL_PATTERN})
-              OR (v.company_evidence_legacy_until >= now()
+              ${strictHealthcareRoleSql("v.")} OR (v.company_evidence_legacy_until >= now()
                   AND (v.company_vacancy_evidence->>'trustedSource') = 'manual_review'
                   AND (v.company_vacancy_evidence->'roleEligibilityReview'->>'status') = 'approved'
                   AND (v.company_vacancy_evidence->'roleEligibilityReview'->>'evidenceUrl') ~ ${HTTPS_URL_WITH_HOST_SQL_PATTERN})

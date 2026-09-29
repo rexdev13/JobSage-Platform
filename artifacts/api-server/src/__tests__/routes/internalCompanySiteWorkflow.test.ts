@@ -7,13 +7,22 @@ const mocks = vi.hoisted(() => ({
   dryRun: vi.fn(),
   apply: vi.fn(),
   load: vi.fn(),
+  save: vi.fn(),
+  healthcareBatch: vi.fn(),
 }));
 vi.mock("../../lib/companySiteWorkflow", () => ({
   runReadOnlyDiscovery: mocks.discovery,
   runMappingDryRun: mocks.dryRun,
   runMappingApply: mocks.apply,
 }));
-vi.mock("../../lib/companySiteWorkflowReports", () => ({ loadWorkflowReport: mocks.load }));
+vi.mock("../../lib/companySiteWorkflowReports", () => ({
+  loadWorkflowReport: mocks.load,
+  saveWorkflowReport: mocks.save,
+}));
+vi.mock("../../lib/healthcareCompanySiteBatch", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../lib/healthcareCompanySiteBatch")>()),
+  runHealthcareCompanySiteBatch: mocks.healthcareBatch,
+}));
 const { default: router } = await import("../../routes/internalCompanySiteWorkflow");
 const app = express();
 app.use(express.json());
@@ -27,6 +36,13 @@ describe("internal company-site workflow routes", () => {
     mocks.dryRun.mockResolvedValue({ reportId: "dry-id", reportKind: "dry-run" });
     mocks.apply.mockResolvedValue({ reportId: "apply-id", reportKind: "apply" });
     mocks.load.mockResolvedValue({ reportId: "report-id", reportKind: "discovery" });
+    mocks.save.mockImplementation(async (reportKind: string, data: Record<string, unknown>) => ({
+      ...data,
+      reportId: "batch-id",
+      reportKind,
+      generatedAt: "2026-09-29T00:00:00.000Z",
+    }));
+    mocks.healthcareBatch.mockResolvedValue({ apply: false, accepted: 1, inserted: 0 });
   });
   afterEach(() => {
     if (original == null) delete process.env.VACANCY_JOB_SECRET;
@@ -76,6 +92,47 @@ describe("internal company-site workflow routes", () => {
     expect(mocks.dryRun).toHaveBeenCalledWith({
       reviewed: true,
       reviewedMappingFile: { records },
+    });
+  });
+
+  describe("healthcare company-site batch", () => {
+    const header = { "x-jobsage-job-secret": "test-job-secret" };
+    const employers = [{
+      organisationName: "Kingsley Healthcare Limited",
+      website: "https://www.kingsleyhealthcare.co.uk",
+      careersUrl: "https://careers.kingsleyhealthcare.co.uk/vacancies",
+    }];
+
+    it("rejects unauthenticated and malformed requests before running anything", async () => {
+      expect((await request(app).post("/internal/healthcare-company-site-batch").send({ employers })).status).toBe(401);
+      expect((await request(app).post("/internal/healthcare-company-site-batch").set(header).send({})).status).toBe(400);
+      expect((await request(app).post("/internal/healthcare-company-site-batch").set(header).send({
+        employers: [{ organisationName: "X", website: "http://insecure.example", careersUrl: "https://insecure.example/jobs" }],
+      })).status).toBe(400);
+      expect(mocks.healthcareBatch).not.toHaveBeenCalled();
+    });
+
+    it("runs a dry-run by default and saves the report", async () => {
+      const response = await request(app).post("/internal/healthcare-company-site-batch").set(header).send({ employers });
+      expect(response.status).toBe(200);
+      expect(response.body.reportId).toBe("batch-id");
+      expect(response.body.reportKind).toBe("dry-run");
+      expect(mocks.healthcareBatch).toHaveBeenCalledWith({ employers, apply: false, budgetMs: 240_000 });
+    });
+
+    it("refuses apply without the exact confirmation string", async () => {
+      expect((await request(app).post("/internal/healthcare-company-site-batch").set(header).send({ employers, apply: true })).status).toBe(400);
+      expect((await request(app).post("/internal/healthcare-company-site-batch").set(header).send({ employers, apply: true, confirmApply: "yes" })).status).toBe(400);
+      expect(mocks.healthcareBatch).not.toHaveBeenCalled();
+      mocks.healthcareBatch.mockResolvedValue({ apply: true, accepted: 1, inserted: 1, repeatInserted: 0 });
+      const response = await request(app).post("/internal/healthcare-company-site-batch").set(header).send({
+        employers,
+        apply: true,
+        confirmApply: "apply-reviewed-healthcare-company-site-batch",
+      });
+      expect(response.status).toBe(200);
+      expect(response.body.reportKind).toBe("apply");
+      expect(mocks.healthcareBatch).toHaveBeenCalledWith({ employers, apply: true, budgetMs: 240_000 });
     });
   });
 

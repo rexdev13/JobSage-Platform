@@ -50,11 +50,17 @@ export interface BoardAdvert {
   expiresAt?: Date | null;
   closedReason?: string | null;
   companyVacancyEvidence?: {
-    kind: "json_ld_job_posting" | "microdata_job_posting" | "known_ats_posting" | "structured_job_card";
+    kind: "json_ld_job_posting" | "microdata_job_posting" | "known_ats_posting" | "structured_job_card" | "strict_role_page";
     listingUrl?: string;
+    detailUrl?: string;
+    applicationUrl?: string;
+    contactEmail?: string;
+    sector?: "healthcare";
     provider?: string;
+    trustedSource?: "manual_review";
     roleEligibilityReview?: unknown;
   };
+  companyEvidenceLegacyUntil?: Date | null;
 }
 
 /**
@@ -80,18 +86,38 @@ export function mergeCompanyVacancyEvidence(
           Object.entries(rawIncoming).filter(([key]) => key !== "roleEligibilityReview"),
         )
       : null;
-  const review =
+  const sameCompanyRole =
     existing.sourceType === "company_site" &&
     advert.sourceType === "company_site" &&
     existing.organisationName === advert.organisationName &&
+    existing.url === advert.url &&
+    existing.title === advert.title;
+  const sameListingId =
     existing.externalListingId != null &&
     advert.externalId != null &&
-    existing.externalListingId === advert.externalId &&
-    existing.url === advert.url &&
-    existing.title === advert.title &&
+    existing.externalListingId === advert.externalId;
+  const sameUrlWithoutListingId =
+    existing.externalListingId == null &&
+    (advert.externalId == null || advert.externalId === "");
+  const carriedReview =
+    sameCompanyRole &&
+    (sameListingId || sameUrlWithoutListingId) &&
     hasApprovedCompanyVacancyRoleEligibilityReview(existing.companyVacancyEvidence)
       ? (existing.companyVacancyEvidence as Record<string, unknown>).roleEligibilityReview
       : null;
+  const incomingRecord =
+    rawIncoming && typeof rawIncoming === "object"
+      ? rawIncoming as Record<string, unknown>
+      : null;
+  const incomingReview =
+    !carriedReview &&
+    sameCompanyRole &&
+    incomingRecord?.kind === "strict_role_page" &&
+    incomingRecord.trustedSource === "manual_review" &&
+    hasApprovedCompanyVacancyRoleEligibilityReview(incomingRecord)
+      ? incomingRecord.roleEligibilityReview
+      : null;
+  const review = carriedReview ?? incomingReview;
   if (!review) {
     // Feed refreshes often omit evidence. Keep the prior evidence/grace in
     // that case, matching the historical partial-update behavior.
@@ -580,7 +606,9 @@ export async function upsertSharedBoardVacancies(
            ...(mergedCompanyVacancyEvidence !== undefined
              ? {
                  companyVacancyEvidence: mergedCompanyVacancyEvidence,
-                 companyEvidenceLegacyUntil: null,
+                 companyEvidenceLegacyUntil: advert.companyEvidenceLegacyUntil !== undefined
+                   ? advert.companyEvidenceLegacyUntil
+                   : null,
                }
              : {}),
           lastDiscoveredAt: now,
@@ -657,6 +685,7 @@ export async function upsertSharedBoardVacancies(
          expiresAt: advert.expiresAt ?? null,
          closedReason: advert.closedReason ?? null,
          companyVacancyEvidence: advert.companyVacancyEvidence ?? null,
+         companyEvidenceLegacyUntil: advert.companyEvidenceLegacyUntil ?? null,
         liveness: options.verifiedLive ? "live" : "unverified",
         lastVerifiedAt: options.verifiedLive ? now : null,
         livenessReason: null,

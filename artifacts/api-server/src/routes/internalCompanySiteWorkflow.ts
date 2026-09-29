@@ -5,7 +5,14 @@ import {
   runMappingDryRun,
   runReadOnlyDiscovery,
 } from "../lib/companySiteWorkflow";
-import { loadWorkflowReport } from "../lib/companySiteWorkflowReports";
+import { loadWorkflowReport, saveWorkflowReport } from "../lib/companySiteWorkflowReports";
+import {
+  HEALTHCARE_BATCH_DEFAULT_BUDGET_MS,
+  parseHealthcareBatchEmployers,
+  runHealthcareCompanySiteBatch,
+} from "../lib/healthcareCompanySiteBatch";
+
+export const HEALTHCARE_BATCH_APPLY_CONFIRMATION = "apply-reviewed-healthcare-company-site-batch";
 
 const router = Router();
 const reviewedMappingUpload = multer({
@@ -94,6 +101,45 @@ router.post("/internal/company-site-mappings/apply", async (req, res) => {
     res.status(200).json(await runMappingApply(req.body ?? {}));
   } catch (error) {
     res.status(400).json({ error: error instanceof Error ? error.message : "Workflow failed." });
+  }
+});
+
+/**
+ * Reviewed healthcare/social-care company-site batch. Dry-run performs
+ * read-only discovery against the named sponsor employers and returns exactly
+ * what would be written. Apply requires the explicit confirmation string and
+ * writes only rows that passed the strict role/apply-route evidence gate,
+ * through the shared dedupe/upsert path, then repeats the import to prove
+ * zero duplicate inserts and returns rollback ids.
+ */
+router.post("/internal/healthcare-company-site-batch", async (req, res) => {
+  if (!authenticate(req, res)) return;
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  let employers;
+  try {
+    employers = parseHealthcareBatchEmployers(body.employers);
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : "Invalid employers." });
+    return;
+  }
+  const apply = body.apply === true;
+  if (apply && body.confirmApply !== HEALTHCARE_BATCH_APPLY_CONFIRMATION) {
+    res.status(400).json({ error: `apply requires confirmApply to equal "${HEALTHCARE_BATCH_APPLY_CONFIRMATION}".` });
+    return;
+  }
+  const budgetMs = typeof body.budgetMs === "number" && Number.isInteger(body.budgetMs)
+    ? Math.min(Math.max(body.budgetMs, 30_000), HEALTHCARE_BATCH_DEFAULT_BUDGET_MS)
+    : HEALTHCARE_BATCH_DEFAULT_BUDGET_MS;
+  try {
+    const result = await runHealthcareCompanySiteBatch({ employers, apply, budgetMs });
+    const report = await saveWorkflowReport(apply ? "apply" : "dry-run", {
+      mode: "healthcare_company_site_batch",
+      parameters: { employers, apply, budgetMs },
+      ...result,
+    });
+    res.status(200).json(report);
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : "Healthcare batch failed." });
   }
 });
 
