@@ -70,6 +70,32 @@ describe("candidate-facing vacancy freshness", () => {
     })).toBe("visible");
   });
 
+  it("shows a reviewed strict healthcare role page and still hides an incomplete one", () => {
+    expect(getCandidateVacancyStatus({
+      ...base,
+      title: "Registered Nurse",
+      companyEvidenceLegacyUntil: new Date("2026-10-09T00:00:00.000Z"),
+      companyVacancyEvidence: {
+        kind: "strict_role_page",
+        sector: "healthcare",
+        listingUrl: "https://careers.example.test/vacancies",
+        detailUrl: "https://careers.example.test/vacancies/registered-nurse-42",
+        applicationUrl: "https://careers.example.test/vacancies/registered-nurse-42/apply",
+        trustedSource: "manual_review",
+        roleEligibilityReview: {
+          status: "approved",
+          socCode: "2231",
+          evidenceUrl: "https://careers.example.test/vacancies/registered-nurse-42",
+        },
+      },
+    })).toBe("visible");
+    expect(getCandidateVacancyStatus({
+      ...base,
+      title: "Registered Nurse",
+      companyVacancyEvidence: { kind: "strict_role_page", sector: "healthcare" },
+    })).toBe("unverified");
+  });
+
   it.each([
     ["generic structured cards", { kind: "structured_job_card" }],
     ["JSON-LD cards by default", { kind: "json_ld_job_posting", listingUrl: "https://example.test/jobs/1" }],

@@ -1,5 +1,6 @@
 import { db, sponsorLicenceVacanciesTable } from "@workspace/db";
 import { and, eq, gt } from "drizzle-orm";
+import { hasStrictHealthcareRoleEvidence } from "./healthcareRoleEvidence";
 
 /**
  * Shared liveness bookkeeping for AI-discovered sponsor licence vacancies.
@@ -166,12 +167,16 @@ export function getCandidateVacancyStatus(input: {
   if (input.sourceType === "company_site") {
     const directFeed = hasVerifiedDirectFeedEvidence(input.companyVacancyEvidence);
     const structured = hasOptInStructuredCompanyEvidence(input.companyVacancyEvidence, input.title);
+    const strictHealthcareRole = hasStrictHealthcareRoleEvidence(
+      input.companyVacancyEvidence,
+      input.title,
+    );
     const trustedLegacy = hasTrustedLegacyCompanyEvidence(
       input.companyVacancyEvidence,
       input.companyEvidenceLegacyUntil,
       now,
     );
-    if (!directFeed && !structured && !trustedLegacy) return "unverified";
+    if (!directFeed && !structured && !strictHealthcareRole && !trustedLegacy) return "unverified";
   }
   if (input.liveness !== "live") return "unverified";
   // Undefined denotes a legacy adapter/mocked row that predates the column;
