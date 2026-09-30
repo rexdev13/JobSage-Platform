@@ -6,6 +6,7 @@ import { Button } from "@/components/ui-enhanced";
 import { Link } from "wouter";
 import { HelpCircle, Sparkles } from "lucide-react";
 import { ReadinessQuotaModal } from "@/components/ReadinessQuotaModal";
+import { FeedbackWidget } from "@/components/FeedbackWidget";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
@@ -137,6 +138,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       </div>
       <ReadinessQuotaModal open={quotaOpen} onClose={() => setQuotaOpen(false)} />
+      <FeedbackWidget forceVisible />
     </div>
   );
 }

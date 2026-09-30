@@ -11,7 +11,6 @@ import {
   Bot,
   ChevronRight,
   Loader2,
-  UserPlus,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -57,9 +56,6 @@ const INITIAL_MESSAGES: ChatMessage[] = [
   },
 ];
 
-// How many user turns before we show the register CTA
-const CTA_AFTER_TURNS = 3;
-
 // ---------------------------------------------------------------------------
 // Utility
 // ---------------------------------------------------------------------------
@@ -102,26 +98,15 @@ function SuccessState() {
       animate={{ opacity: 1, scale: 1 }}
       className="text-center py-12 px-4"
     >
-      <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-6">
-        <CheckCircle2 className="h-8 w-8 text-primary" />
-      </div>
-      <h2 className="font-display text-2xl font-bold text-foreground mb-3">You're on the list!</h2>
+      <h2 className="font-display text-2xl font-bold text-foreground mb-3">You're one step closer to entering the UK.</h2>
       <p className="text-muted-foreground max-w-sm mx-auto mb-8">
-        We've received your details and will be in touch shortly with your personalised UK pathway assessment.
+        We've received your details. We'll be in touch soon with relevant updates.
       </p>
-      <div className="flex flex-col sm:flex-row gap-3 justify-center">
-        <Link href="/register">
-          <Button size="lg" className="w-full sm:w-auto">
-            Create your free account
-            <ChevronRight className="ml-1 h-4 w-4" />
-          </Button>
-        </Link>
-        <Link href="/">
-          <Button variant="outline" size="lg" className="w-full sm:w-auto">
-            Back to homepage
-          </Button>
-        </Link>
-      </div>
+      <Link href="/" data-testid="link-back-to-homepage">
+        <Button variant="outline" size="lg" className="w-full sm:w-auto">
+          Back to homepage
+        </Button>
+      </Link>
     </motion.div>
   );
 }
@@ -423,42 +408,6 @@ function ChatUI({
 }
 
 // ---------------------------------------------------------------------------
-// Register CTA — shown after CTA_AFTER_TURNS user messages
-// ---------------------------------------------------------------------------
-
-function RegisterCta({ onSwitchToForm }: { onSwitchToForm: () => void }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className="mt-4 rounded-2xl border border-primary/20 bg-primary/5 px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center gap-4"
-    >
-      <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-primary/10">
-        <UserPlus className="h-5 w-5 text-primary" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-foreground">Ready to explore your UK career options?</p>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          Create a free account to see matched opportunities, sponsor-licensed employers, and your personalised UK pathway.
-        </p>
-      </div>
-      <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0 w-full sm:w-auto">
-        <Link href="/register">
-          <Button size="sm" className="w-full sm:w-auto">
-            Create free account
-            <ChevronRight className="ml-1 h-3.5 w-3.5" />
-          </Button>
-        </Link>
-        <Button variant="outline" size="sm" onClick={onSwitchToForm} className="w-full sm:w-auto">
-          Fill out form instead
-        </Button>
-      </div>
-    </motion.div>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
 
@@ -497,10 +446,6 @@ export default function GetStartedPage() {
   const [chatInput, setChatInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [chatPrivacyConsent, setChatPrivacyConsent] = useState(false);
-
-  // Count how many turns the user has had — drives CTA visibility
-  const userTurnCount = messages.filter((m) => m.role === "user").length;
-  const showCta = userTurnCount >= CTA_AFTER_TURNS && !streaming;
 
   function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -794,7 +739,6 @@ export default function GetStartedPage() {
                 privacyConsent={chatPrivacyConsent}
                 setPrivacyConsent={setChatPrivacyConsent}
               />
-              {showCta && <RegisterCta onSwitchToForm={switchToForm} />}
             </motion.div>
           ) : (
             <motion.div

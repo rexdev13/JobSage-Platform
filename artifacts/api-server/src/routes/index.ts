@@ -43,6 +43,7 @@ import internalCompanySiteWorkflowRouter from "./internalCompanySiteWorkflow";
 import checkoutRouter from "./checkout";
 import supportRouter from "./support";
 import readinessRouter from "./readiness";
+import feedbackRouter from "./feedback";
 
 const router: IRouter = Router();
 
@@ -90,5 +91,6 @@ router.use(internalCompanySiteWorkflowRouter);
 router.use(checkoutRouter);
 router.use(supportRouter);
 router.use(readinessRouter);
+router.use(feedbackRouter);
 
 export default router;

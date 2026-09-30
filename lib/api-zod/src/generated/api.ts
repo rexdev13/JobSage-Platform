@@ -1257,6 +1257,118 @@ export const CreateSupportTicketBody = zod.object({
 });
 
 /**
+ * @summary Submit product feedback
+ */
+export const submitFeedbackBodyMessageMax = 5000;
+
+export const submitFeedbackBodyEmailMax = 254;
+
+export const submitFeedbackBodyPageUrlMax = 2048;
+
+export const submitFeedbackBodyScreenResolutionMax = 64;
+
+export const SubmitFeedbackBody = zod.object({
+  category: zod.enum(["issue", "idea", "general"]),
+  message: zod.string().min(1).max(submitFeedbackBodyMessageMax),
+  email: zod.string().email().max(submitFeedbackBodyEmailMax).nullish(),
+  pageUrl: zod.string().max(submitFeedbackBodyPageUrlMax),
+  screenResolution: zod.string().max(submitFeedbackBodyScreenResolutionMax),
+});
+
+/**
+ * @summary List and filter submitted feedback
+ */
+export const listAdminFeedbackQueryLimitDefault = 50;
+export const listAdminFeedbackQueryLimitMax = 100;
+
+export const listAdminFeedbackQueryOffsetDefault = 0;
+export const listAdminFeedbackQueryOffsetMin = 0;
+
+export const ListAdminFeedbackQueryParams = zod.object({
+  category: zod.enum(["issue", "idea", "general"]).optional(),
+  status: zod.enum(["new", "in_review", "resolved", "unresolved"]).optional(),
+  limit: zod.coerce
+    .number()
+    .min(1)
+    .max(listAdminFeedbackQueryLimitMax)
+    .default(listAdminFeedbackQueryLimitDefault),
+  offset: zod.coerce
+    .number()
+    .min(listAdminFeedbackQueryOffsetMin)
+    .default(listAdminFeedbackQueryOffsetDefault),
+});
+
+export const listAdminFeedbackResponseSummaryTotalMin = 0;
+
+export const listAdminFeedbackResponseSummaryIssuesMin = 0;
+
+export const listAdminFeedbackResponseSummaryIdeasMin = 0;
+
+export const listAdminFeedbackResponseSummaryGeneralMin = 0;
+
+export const listAdminFeedbackResponseSummaryUnresolvedMin = 0;
+
+export const ListAdminFeedbackResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.number(),
+      category: zod.enum(["issue", "idea", "general"]),
+      message: zod.string(),
+      email: zod.string().nullable(),
+      pageUrl: zod.string(),
+      screenResolution: zod.string(),
+      userId: zod.string().nullable(),
+      userAgent: zod.string().nullable(),
+      status: zod.enum(["new", "in_review", "resolved"]),
+      adminNotes: zod.string().nullable(),
+      reviewedBy: zod.string().nullable(),
+      reviewedAt: zod.date().nullable(),
+      createdAt: zod.date(),
+      updatedAt: zod.date(),
+    }),
+  ),
+  summary: zod.object({
+    total: zod.number().min(listAdminFeedbackResponseSummaryTotalMin),
+    issues: zod.number().min(listAdminFeedbackResponseSummaryIssuesMin),
+    ideas: zod.number().min(listAdminFeedbackResponseSummaryIdeasMin),
+    general: zod.number().min(listAdminFeedbackResponseSummaryGeneralMin),
+    unresolved: zod.number().min(listAdminFeedbackResponseSummaryUnresolvedMin),
+  }),
+});
+
+/**
+ * @summary Update feedback status or admin notes
+ */
+
+export const UpdateAdminFeedbackParams = zod.object({
+  id: zod.coerce.number().min(1),
+});
+
+export const updateAdminFeedbackBodyAdminNotesMax = 5000;
+
+export const UpdateAdminFeedbackBody = zod.object({
+  status: zod.enum(["new", "in_review", "resolved"]).optional(),
+  adminNotes: zod.string().max(updateAdminFeedbackBodyAdminNotesMax).nullish(),
+});
+
+export const UpdateAdminFeedbackResponse = zod.object({
+  id: zod.number(),
+  category: zod.enum(["issue", "idea", "general"]),
+  message: zod.string(),
+  email: zod.string().nullable(),
+  pageUrl: zod.string(),
+  screenResolution: zod.string(),
+  userId: zod.string().nullable(),
+  userAgent: zod.string().nullable(),
+  status: zod.enum(["new", "in_review", "resolved"]),
+  adminNotes: zod.string().nullable(),
+  reviewedBy: zod.string().nullable(),
+  reviewedAt: zod.date().nullable(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
  * @summary Get AI-scored top job matches for the current candidate
  */
 export const getMyMatchesQueryLimitDefault = 10;

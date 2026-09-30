@@ -12,6 +12,7 @@ import {
 
 import { AuthGuard } from "@/components/layout/AuthGuard";
 import { canAccessLeads, isAdminRole } from "@/lib/roleAccess";
+import { FeedbackWidget } from "@/components/FeedbackWidget";
 
 // --- Lazy page imports (code-split per route) ---
 // Everything below is loaded on-demand when the user navigates to that route.
@@ -367,6 +368,7 @@ function App() {
       <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
         <Router />
       </WouterRouter>
+      <FeedbackWidget />
       <Toaster />
     </QueryClientProvider>
   );

@@ -5,12 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useGetSponsorLicenceIndustries } from "@workspace/api-client-react";
+import AdminFeedbackTab from "@/pages/admin/AdminFeedbackTab";
 import {
   Users, Briefcase, CheckCircle, FileText, Building2, RefreshCw,
   ChevronDown, ChevronUp, Shield, Activity, Search, ExternalLink,
   TrendingUp, AlertTriangle, ShieldCheck, Star, BadgeCheck, UserCheck,
   XCircle, Clock, Ban, RotateCcw, Trash2, UserCog, ListOrdered, UserPlus,
   CalendarDays,
+  MessageSquareText,
 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -1862,7 +1864,7 @@ function EmployersTab() {
   );
 }
 
-type Tab = "overview" | "marketing" | "users" | "health" | "identity" | "letters" | "job-listings" | "employers";
+type Tab = "overview" | "marketing" | "users" | "health" | "identity" | "letters" | "job-listings" | "employers" | "feedback";
 
 export default function SuperAdminPage() {
   const [activeTab, setActiveTab] = useState<Tab>("overview");
@@ -1876,6 +1878,7 @@ export default function SuperAdminPage() {
     { id: "health", label: "Platform Health", icon: Activity },
     { id: "identity", label: "Identity Queue", icon: ShieldCheck },
     { id: "letters", label: "References", icon: Star },
+    { id: "feedback", label: "Feedback", icon: MessageSquareText },
   ];
 
   return (
@@ -1891,6 +1894,7 @@ export default function SuperAdminPage() {
             <button
               key={id}
               onClick={() => setActiveTab(id)}
+              data-testid={`button-super-admin-tab-${id}`}
               className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
                 activeTab === id
                   ? "border-primary text-primary"
@@ -1912,6 +1916,7 @@ export default function SuperAdminPage() {
           {activeTab === "health" && <HealthTab />}
           {activeTab === "identity" && <IdentityQueueTab />}
           {activeTab === "letters" && <LettersTab />}
+          {activeTab === "feedback" && <AdminFeedbackTab />}
         </div>
       </div>
     </AppLayout>

@@ -2683,6 +2683,115 @@ export interface CheckoutSessionResult {
   sandboxCompleted: boolean;
 }
 
+export type FeedbackInputCategory =
+  (typeof FeedbackInputCategory)[keyof typeof FeedbackInputCategory];
+
+export const FeedbackInputCategory = {
+  issue: "issue",
+  idea: "idea",
+  general: "general",
+} as const;
+
+export interface FeedbackInput {
+  category: FeedbackInputCategory;
+  /**
+   * @minLength 1
+   * @maxLength 5000
+   */
+  message: string;
+  /**
+   * @maxLength 254
+   * @nullable
+   */
+  email?: string | null;
+  /** @maxLength 2048 */
+  pageUrl: string;
+  /** @maxLength 64 */
+  screenResolution: string;
+}
+
+export type FeedbackUpdateStatus =
+  (typeof FeedbackUpdateStatus)[keyof typeof FeedbackUpdateStatus];
+
+export const FeedbackUpdateStatus = {
+  new: "new",
+  in_review: "in_review",
+  resolved: "resolved",
+} as const;
+
+export interface FeedbackUpdate {
+  status?: FeedbackUpdateStatus;
+  /**
+   * @maxLength 5000
+   * @nullable
+   */
+  adminNotes?: string | null;
+}
+
+export type FeedbackItemCategory =
+  (typeof FeedbackItemCategory)[keyof typeof FeedbackItemCategory];
+
+export const FeedbackItemCategory = {
+  issue: "issue",
+  idea: "idea",
+  general: "general",
+} as const;
+
+export type FeedbackItemStatus =
+  (typeof FeedbackItemStatus)[keyof typeof FeedbackItemStatus];
+
+export const FeedbackItemStatus = {
+  new: "new",
+  in_review: "in_review",
+  resolved: "resolved",
+} as const;
+
+export interface FeedbackItem {
+  id: number;
+  category: FeedbackItemCategory;
+  message: string;
+  /** @nullable */
+  email: string | null;
+  pageUrl: string;
+  screenResolution: string;
+  /** @nullable */
+  userId: string | null;
+  /** @nullable */
+  userAgent: string | null;
+  status: FeedbackItemStatus;
+  /** @nullable */
+  adminNotes: string | null;
+  /** @nullable */
+  reviewedBy: string | null;
+  /** @nullable */
+  reviewedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FeedbackSubmissionResult {
+  success: boolean;
+  id: number;
+}
+
+export interface FeedbackSummary {
+  /** @minimum 0 */
+  total: number;
+  /** @minimum 0 */
+  issues: number;
+  /** @minimum 0 */
+  ideas: number;
+  /** @minimum 0 */
+  general: number;
+  /** @minimum 0 */
+  unresolved: number;
+}
+
+export interface AdminFeedbackInbox {
+  items: FeedbackItem[];
+  summary: FeedbackSummary;
+}
+
 export type SupportTicketInputCategory =
   (typeof SupportTicketInputCategory)[keyof typeof SupportTicketInputCategory];
 
@@ -2785,6 +2894,39 @@ export type ListMatchedRolesSource =
 export const ListMatchedRolesSource = {
   job_board: "job_board",
   company_site: "company_site",
+} as const;
+
+export type ListAdminFeedbackParams = {
+  category?: ListAdminFeedbackCategory;
+  status?: ListAdminFeedbackStatus;
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: number;
+  /**
+   * @minimum 0
+   */
+  offset?: number;
+};
+
+export type ListAdminFeedbackCategory =
+  (typeof ListAdminFeedbackCategory)[keyof typeof ListAdminFeedbackCategory];
+
+export const ListAdminFeedbackCategory = {
+  issue: "issue",
+  idea: "idea",
+  general: "general",
+} as const;
+
+export type ListAdminFeedbackStatus =
+  (typeof ListAdminFeedbackStatus)[keyof typeof ListAdminFeedbackStatus];
+
+export const ListAdminFeedbackStatus = {
+  new: "new",
+  in_review: "in_review",
+  resolved: "resolved",
+  unresolved: "unresolved",
 } as const;
 
 export type GetMyMatchesParams = {

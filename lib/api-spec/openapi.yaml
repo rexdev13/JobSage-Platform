@@ -48,6 +48,8 @@ tags:
     description: Readiness check purchase sessions and provider events.
   - name: Support
     description: Public help and support ticket submission.
+  - name: Feedback
+    description: Public product feedback and administrator review.
 paths:
   /healthz:
     get:
@@ -1211,6 +1213,130 @@ paths:
                 $ref: "#/components/schemas/ErrorEnvelope"
         "503":
           description: Support email delivery is temporarily unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /feedback:
+    post:
+      tags: [Feedback]
+      operationId: submitFeedback
+      summary: Submit product feedback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FeedbackInput"
+      responses:
+        "201":
+          description: Feedback received.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedbackSubmissionResult"
+        "400":
+          description: Invalid feedback.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /admin/super/feedback:
+    get:
+      tags: [Feedback]
+      operationId: listAdminFeedback
+      summary: List and filter submitted feedback
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [issue, idea, general]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [new, in_review, resolved, unresolved]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Feedback entries and category summary counts.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminFeedbackInbox"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Admin role required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /admin/super/feedback/{id}:
+    patch:
+      tags: [Feedback]
+      operationId: updateAdminFeedback
+      summary: Update feedback status or admin notes
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FeedbackUpdate"
+      responses:
+        "200":
+          description: Updated feedback entry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedbackItem"
+        "400":
+          description: Invalid feedback update.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Admin role required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Feedback entry not found.
           content:
             application/json:
               schema:
@@ -8207,6 +8333,131 @@ components:
           format: uri
         sandboxCompleted:
           type: boolean
+
+    FeedbackInput:
+      type: object
+      required: [category, message, pageUrl, screenResolution]
+      properties:
+        category:
+          type: string
+          enum: [issue, idea, general]
+        message:
+          type: string
+          minLength: 1
+          maxLength: 5000
+        email:
+          type: ["string", "null"]
+          format: email
+          maxLength: 254
+        pageUrl:
+          type: string
+          maxLength: 2048
+        screenResolution:
+          type: string
+          maxLength: 64
+
+    FeedbackUpdate:
+      type: object
+      minProperties: 1
+      properties:
+        status:
+          type: string
+          enum: [new, in_review, resolved]
+        adminNotes:
+          type: ["string", "null"]
+          maxLength: 5000
+
+    FeedbackItem:
+      type: object
+      required:
+        - id
+        - category
+        - message
+        - email
+        - pageUrl
+        - screenResolution
+        - userId
+        - userAgent
+        - status
+        - adminNotes
+        - reviewedBy
+        - reviewedAt
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+        category:
+          type: string
+          enum: [issue, idea, general]
+        message:
+          type: string
+        email:
+          type: ["string", "null"]
+        pageUrl:
+          type: string
+        screenResolution:
+          type: string
+        userId:
+          type: ["string", "null"]
+        userAgent:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [new, in_review, resolved]
+        adminNotes:
+          type: ["string", "null"]
+        reviewedBy:
+          type: ["string", "null"]
+        reviewedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    FeedbackSubmissionResult:
+      type: object
+      required: [success, id]
+      properties:
+        success:
+          type: boolean
+        id:
+          type: integer
+
+    FeedbackSummary:
+      type: object
+      required: [total, issues, ideas, general, unresolved]
+      properties:
+        total:
+          type: integer
+          minimum: 0
+        issues:
+          type: integer
+          minimum: 0
+        ideas:
+          type: integer
+          minimum: 0
+        general:
+          type: integer
+          minimum: 0
+        unresolved:
+          type: integer
+          minimum: 0
+
+    AdminFeedbackInbox:
+      type: object
+      required: [items, summary]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/FeedbackItem"
+        summary:
+          $ref: "#/components/schemas/FeedbackSummary"
 
     SupportTicketInput:
       type: object

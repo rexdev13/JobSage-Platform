@@ -120,6 +120,13 @@
       "when": 1790797971304,
       "tag": "0038_readiness_paid_access",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1790802152643,
+      "tag": "0039_feedback_inbox",
+      "breakpoints": true
     }
   ]
 }
