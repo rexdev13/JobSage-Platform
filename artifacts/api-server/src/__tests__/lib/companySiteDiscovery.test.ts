@@ -1264,6 +1264,36 @@ describe("company-site vacancy discovery", () => {
     expect(result.diagnostics.directFeedSkipReason).toBe("no_direct_feed_source");
   });
 
+  it("uses the vacancy slug when the listing link only says find out more", async () => {
+    const listing = "https://fixture.example/careers/vacancies";
+    const job = "https://fixture.example/careers/vacancies/sys-4933-care-assistant-purley-surrey";
+    fetchCompanySitePageMock.mockImplementation(async (url: string) => ({
+      ok: true,
+      url,
+      status: 200,
+      contentType: "text/html",
+      body: `<h1>Search for roles nearby</h1><a href="${job}">Find out more</a>`,
+    }));
+    const result = await discoverCompanySiteVacancies("Fixture Employer", listing, {
+      knownCareersUrl: listing,
+    });
+    expect(result.adverts[0]).toMatchObject({
+      title: "sys 4933 care assistant purley surrey",
+      url: job,
+    });
+  });
+
+  it("fetches a known same-site careers list before the homepage", async () => {
+    const home = "https://careuk.example/";
+    const careers = "https://careuk.example/careers/vacancies";
+    await discoverCompanySiteVacancies("Care UK Care Services Ltd", home, {
+      knownCareersUrl: careers,
+      checkGeneric: true,
+      checkAts: true,
+    });
+    expect(fetchCompanySitePageMock.mock.calls[0]?.[0]).toBe(careers);
+  });
+
   it("normalises bare sponsor domains and rejects non-http schemes", () => {
     expect(normaliseSponsorWebsite("example.org")).toBe("https://example.org/");
     expect(normaliseSponsorWebsite("ftp://example.org")).toBeNull();

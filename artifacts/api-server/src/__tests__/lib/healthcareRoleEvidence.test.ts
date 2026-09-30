@@ -3,6 +3,7 @@ import { getCandidateVacancyStatus } from "../../lib/vacancyLiveness";
 import {
   buildStrictHealthcareRoleEvidence,
   buildStrictRolePageEvidence,
+  detailPageRolePresentation,
   extractHealthcareApplicationRoute,
   hasStrictHealthcareRoleEvidence,
   hasStrictRolePageEvidence,
@@ -62,6 +63,24 @@ describe("strict healthcare role evidence", () => {
       employerHost: "example-news.co.uk",
       contactEmail: "careers@example-news.co.uk",
     })).toBeNull();
+  });
+
+  it("reads the role name and place from the detail page heading", () => {
+    const html = `
+      <title>Care Assistant | Purley- Surrey | Care UK</title>
+      <meta property="og:title" content="Care Assistant | Purley- Surrey | Care UK" />
+      <h1>Care Assistant</h1>
+      <p>Amberley Lodge<br/>Purley, Surrey</p>
+    `;
+    expect(detailPageRolePresentation(html, "healthcare")).toEqual({
+      title: "Care Assistant",
+      location: "Amberley Lodge, Purley, Surrey",
+    });
+    expect(detailPageRolePresentation(
+      `<meta property="og:title" content="Registered Nurse | Southampton | Care UK" />`,
+      "healthcare",
+    )).toEqual({ title: "Registered Nurse", location: null });
+    expect(detailPageRolePresentation("<h1>Our homes</h1><p>A long description of the care home and its gardens for families.</p>", "healthcare")).toBeNull();
   });
 
   it("reads an apply button or recruitment mailbox from the role page", () => {

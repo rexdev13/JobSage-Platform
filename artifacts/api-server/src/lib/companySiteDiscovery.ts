@@ -48,7 +48,7 @@ const NAVIGATION_MARKER =
 const ACCESSIBILITY_NAV_ANCHOR_TEXT =
   /^(?:skip(?:\s+to)?\s+(?:main\s+)?content|skip\s+navigation|jump\s+to\s+(?:main\s+)?content|go\s+to\s+(?:main\s+)?content)$/i;
 const GENERIC_ANCHOR_TEXT =
-  /^(?:apply|apply now|view|view job|view vacancy|details|more|read more|learn more|job details|skip(?:\s+to)?\s+(?:main\s+)?content|skip\s+navigation|jump\s+to\s+(?:main\s+)?content|go\s+to\s+(?:main\s+)?content)$/i;
+  /^(?:apply|apply now|view|view job|view vacancy|details|more|read more|learn more|find out more|job details|skip(?:\s+to)?\s+(?:main\s+)?content|skip\s+navigation|jump\s+to\s+(?:main\s+)?content|go\s+to\s+(?:main\s+)?content)$/i;
 const NON_SPECIFIC_BAMBOOHR_TITLE =
   /^(?:join\s+(?:our|the)\s+)?(?:talent\s+pool|team)$/i;
 const NEGATIVE_CONTENT_PATH = /\/(?:news|blog|press|media|about|insights)(?:\/|$)/i;
@@ -1562,6 +1562,13 @@ export async function discoverCompanySiteVacancies(
     enqueue(options.knownCareersUrl);
   }
   if (queue.length === 0) enqueue(sourceUrl);
+  if (
+    !options.resumeState &&
+    options.knownCareersUrl &&
+    isAllowedCompanyDestination(originHostname, options.knownCareersUrl)
+  ) {
+    prioritizeEnqueue([options.knownCareersUrl]);
+  }
 
   const adverts: BoardAdvert[] = [];
   let careersUrl = options.resumeState?.careersUrl ?? options.knownCareersUrl ?? null;

@@ -16,7 +16,7 @@ export const COMPANY_SITE_PUBLIC_API_TIMEOUT_MS = 25_000;
 export const COMPANY_SITE_EMPLOYER_BUDGET_MS = 25_000;
 export const COMPANY_SITE_HOST_DELAY_MS = 1_750;
 export const COMPANY_SITE_ROBOTS_TTL_MS = 36 * 60 * 60 * 1000;
-export const COMPANY_SITE_DNS_TIMEOUT_MS = 3_000;
+export const COMPANY_SITE_DNS_TIMEOUT_MS = 8_000;
 
 const HOST_LEASE_MS = Math.max(COMPANY_SITE_PAGE_TIMEOUT_MS, COMPANY_SITE_PUBLIC_API_TIMEOUT_MS) + 3_000;
 const MAX_REDIRECTS = 3;
@@ -799,22 +799,29 @@ async function fetchWithoutRobots(
         contentType: headerValue(response.headers, "content-type") ?? "",
       };
     } catch (error) {
-      const retryAt = await failHost(
-        parsed.hostname,
-        leaseToken,
-        null,
-        readOnly,
-        noHostState,
-        noProcessCache,
-      );
+      const reason = error instanceof Error ? error.message : "network failure";
+      const timedOut = error instanceof Error && error.name === "AbortError";
+      const robotsPreflight = parsed.pathname === "/robots.txt";
+      // A slow robots.txt read is not a 429 or 503. Do not lock the host for it.
+      // The page is still not fetched until robots.txt has been checked.
+      const retryAt = timedOut && robotsPreflight
+        ? null
+        : await failHost(
+          parsed.hostname,
+          leaseToken,
+          null,
+          readOnly,
+          noHostState,
+          noProcessCache,
+        );
       return {
         ok: false,
-        kind: error instanceof Error && error.name === "AbortError" ? "timeout" : "network",
-        reason: error instanceof Error ? error.message : "network failure",
+        kind: timedOut ? "timeout" : "network",
+        reason,
         retryAt: retryAt ?? undefined,
         failureClass: classifyCompanySiteFailure({
-          kind: error instanceof Error && error.name === "AbortError" ? "timeout" : "network",
-          reason: error instanceof Error ? error.message : "network failure",
+          kind: timedOut ? "timeout" : "network",
+          reason,
         }),
       };
     } finally {
@@ -934,10 +941,14 @@ async function robotsPolicy(
   }
 
   const robotsUrl = `${target.protocol}//${target.host}/robots.txt`;
-  const result = await fetchWithoutRobots(
+  const loadRobots = () => fetchWithoutRobots(
     robotsUrl, originHostname, deadlineMs, MAX_ROBOTS_BYTES, false,
     COMPANY_SITE_PAGE_TIMEOUT_MS, readOnly, noHostState, noProcessCache,
   );
+  let result = await loadRobots();
+  if (!result.ok && result.kind === "timeout") {
+    result = await loadRobots();
+  }
   if (!result.ok) {
     if (result.status === 404 || result.status === 410) {
       const checkedAt = new Date();

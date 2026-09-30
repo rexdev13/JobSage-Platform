@@ -156,6 +156,49 @@ function pageIsSpecificRoleApplication(
     && /\b(?:closing date|about the role|apply for this role)\b/i.test(visible);
 }
 
+function visibleHtmlText(value: string): string {
+  return value
+    .replace(/<br\s*\/?>/gi, ", ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&#x2019;|&rsquo;|&#39;|&apos;/gi, "'")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .replace(/\s*,\s*/g, ", ")
+    .replace(/,\s*,+/g, ", ")
+    .trim();
+}
+
+/**
+ * The listing link is often "Find out more", so the vacancy URL slug is only a
+ * fallback. The detail page heading is the role name when it matches the sector.
+ */
+export function detailPageRolePresentation(
+  html: string,
+  sector: StrictRolePageSector,
+): { title: string; location: string | null } | null {
+  const headings = [...html.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/gi)]
+    .map((match) => visibleHtmlText(match[1] ?? ""))
+    .filter((value) => value.length > 0 && value.length <= 120);
+  let title = headings.find((value) => isSpecificRoleTitle(value, sector)) ?? null;
+  if (!title) {
+    const meta = html.match(/<meta\b[^>]*property\s*=\s*["']og:title["'][^>]*content\s*=\s*["']([^"']+)["']/i)
+      ?? html.match(/<meta\b[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:title["']/i);
+    const documentTitle = html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i);
+    const raw = visibleHtmlText(meta?.[1] ?? documentTitle?.[1] ?? "");
+    const first = raw.split("|")[0]?.trim() ?? "";
+    if (first.length > 0 && first.length <= 120 && isSpecificRoleTitle(first, sector)) title = first;
+  }
+  if (!title) return null;
+  const afterHeading = html.split(/<h1\b/i)[1] ?? "";
+  const paragraph = afterHeading.match(/<p\b[^>]*>([\s\S]*?)<\/p>/i);
+  const locationText = paragraph ? visibleHtmlText(paragraph[1] ?? "") : "";
+  const location = locationText.length >= 2 && locationText.length <= 80 && !isSpecificRoleTitle(locationText, sector)
+    ? locationText
+    : null;
+  return { title, location };
+}
+
 export function extractHealthcareApplicationRoute(
   html: string,
   pageUrl: string,

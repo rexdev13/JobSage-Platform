@@ -7,6 +7,7 @@ import { getCandidateVacancyStatus } from "./vacancyLiveness";
 import { canonicalVacancyUrl } from "./vacancySource";
 import {
   buildStrictRolePageEvidence,
+  detailPageRolePresentation,
   extractHealthcareApplicationRoute,
   isSpecificRoleTitle,
   parseStrictRolePageSector,
@@ -278,9 +279,16 @@ export async function runHealthcareCompanySiteBatch(
         continue;
       }
       const route = extractHealthcareApplicationRoute(detail.body, advert.url, origin);
+      const presentation = detailPageRolePresentation(detail.body, sector);
+      const title = presentation?.title ?? advert.title;
+      const location = presentation?.location ?? advert.location;
+      if (!isSpecificRoleTitle(title, sector)) {
+        rejected.push({ organisationName, title, url: advert.url, reason: "title_not_specific_role" });
+        continue;
+      }
       const listingUrl = advert.companyVacancyEvidence?.listingUrl || employer.careersUrl;
       const evidence = buildStrictRolePageEvidence({
-        title: advert.title,
+        title,
         sector,
         detailUrl: advert.url,
         listingUrl,
@@ -305,8 +313,8 @@ export async function runHealthcareCompanySiteBatch(
             lower(split_part(split_part(coalesce(url, ''), '#', 1), '?', 1)) = lower(split_part(split_part(${canonical}, '#', 1), '?', 1))
             OR (
               lower(btrim(organisation_name)) = lower(btrim(${organisationName}))
-              AND lower(btrim(title)) = lower(btrim(${advert.title}))
-              AND lower(btrim(coalesce(location, ''))) = lower(btrim(${advert.location ?? ""}))
+              AND lower(btrim(title)) = lower(btrim(${title}))
+              AND lower(btrim(coalesce(location, ''))) = lower(btrim(${location ?? ""}))
             )
           )
         LIMIT 1
@@ -318,8 +326,8 @@ export async function runHealthcareCompanySiteBatch(
       kept += 1;
       accepted.push({
         organisationName,
-        title: advert.title,
-        location: advert.location,
+        title,
+        location,
         url: canonical,
         applicationUrl: evidence.applicationUrl ?? null,
         contactEmail: evidence.contactEmail ?? null,
