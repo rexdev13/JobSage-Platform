@@ -69,20 +69,20 @@
   --elevate-2: rgba(0,0,0, .08);
 
   /* JOBSAGE Brand Palette — Orange-Red → Crimson, Light Mode */
-  --background: 30 20% 99%;           /* Clean warm white */
-  --foreground: 20 10% 10%;           /* Warm near-black charcoal */
-  --border: 12 18% 89%;               /* Warm light border, red-tinted */
+  --background: 30 20% 99%;
+  --foreground: 20 10% 10%;
+  --border: 12 18% 89%;
 
-  --card: 0 0% 100%;                  /* Pure white cards */
+  --card: 0 0% 100%;
   --card-foreground: 20 10% 10%;
   --card-border: 12 18% 89%;
 
-  --sidebar: 30 20% 97%;              /* Warm cream sidebar */
+  --sidebar: 30 20% 97%;
   --sidebar-foreground: 20 10% 14%;
   --sidebar-border: 12 18% 89%;
-  --sidebar-primary: 0 62% 36%;       /* Brownish-red active items */
+  --sidebar-primary: 0 62% 36%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 12 30% 93%;       /* Soft red-tinted hover */
+  --sidebar-accent: 12 30% 93%;
   --sidebar-accent-foreground: 20 10% 14%;
   --sidebar-ring: 0 62% 36%;
 
@@ -90,16 +90,16 @@
   --popover-foreground: 20 10% 10%;
   --popover-border: 12 18% 89%;
 
-  --primary: 0 62% 36%;               /* Brownish-red primary — buttons, headers, focus rings */
+  --primary: 0 62% 36%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 12 30% 93%;            /* Light warm red tint */
+  --secondary: 12 30% 93%;
   --secondary-foreground: 20 10% 14%;
 
   --muted: 30 15% 95%;
   --muted-foreground: 20 8% 48%;
 
-  --accent: 0 70% 38%;                /* Deep crimson — active/tick accent states (logo "SAGE") */
+  --accent: 0 70% 38%;
   --accent-foreground: 0 0% 100%;
 
   --destructive: 0 84% 60%;
@@ -174,6 +174,14 @@
 }
 
 @layer utilities {
+  .field-support {
+    @apply min-h-11 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm text-foreground outline-none transition;
+  }
+
+  .field-support:focus {
+    @apply border-primary ring-4 ring-primary/10;
+  }
+
   input[type="search"]::-webkit-search-cancel-button {
     @apply hidden;
   }

@@ -40,6 +40,8 @@ import type {
   CheckAllVacanciesBody,
   CheckAllVacanciesStartResponse,
   CheckAllVacanciesStatus,
+  CheckoutInput,
+  CheckoutSessionResult,
   ClaimedLead,
   ConfirmApplicationSubmissionRequest,
   ConsentLogList,
@@ -110,6 +112,7 @@ import type {
   OkResponse,
   ProfessionListResponse,
   ProgressReportResponse,
+  ReadinessQuota,
   RecordConsentRequest,
   RegisterDocumentRequest,
   RegisterRequest,
@@ -166,6 +169,8 @@ import type {
   SuperAdminStats,
   SuperAdminUserFull,
   SuperAdminUserListResponse,
+  SupportTicketInput,
+  SupportTicketResult,
   TalentSearchParams,
   TalentSearchResponse,
   UnreadCountResponse,
@@ -3492,6 +3497,335 @@ export function useListMatchedRoles<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Get the current candidate's readiness quota and plan
+ */
+export const getGetReadinessQuotaUrl = () => {
+  return `/api/readiness/quota`;
+};
+
+export const getReadinessQuota = async (
+  options?: RequestInit,
+): Promise<ReadinessQuota> => {
+  return customFetch<ReadinessQuota>(getGetReadinessQuotaUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetReadinessQuotaQueryKey = () => {
+  return [`/api/readiness/quota`] as const;
+};
+
+export const getGetReadinessQuotaQueryOptions = <
+  TData = Awaited<ReturnType<typeof getReadinessQuota>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getReadinessQuota>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetReadinessQuotaQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getReadinessQuota>>
+  > = ({ signal }) => getReadinessQuota({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getReadinessQuota>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetReadinessQuotaQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getReadinessQuota>>
+>;
+export type GetReadinessQuotaQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Get the current candidate's readiness quota and plan
+ */
+
+export function useGetReadinessQuota<
+  TData = Awaited<ReturnType<typeof getReadinessQuota>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getReadinessQuota>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetReadinessQuotaQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Start a readiness check purchase
+ */
+export const getCreateCheckoutSessionUrl = () => {
+  return `/api/checkout/create-session`;
+};
+
+export const createCheckoutSession = async (
+  checkoutInput: CheckoutInput,
+  options?: RequestInit,
+): Promise<CheckoutSessionResult> => {
+  return customFetch<CheckoutSessionResult>(getCreateCheckoutSessionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(checkoutInput),
+  });
+};
+
+export const getCreateCheckoutSessionMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCheckoutSession>>,
+    TError,
+    { data: BodyType<CheckoutInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCheckoutSession>>,
+  TError,
+  { data: BodyType<CheckoutInput> },
+  TContext
+> => {
+  const mutationKey = ["createCheckoutSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCheckoutSession>>,
+    { data: BodyType<CheckoutInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createCheckoutSession(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateCheckoutSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createCheckoutSession>>
+>;
+export type CreateCheckoutSessionMutationBody = BodyType<CheckoutInput>;
+export type CreateCheckoutSessionMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Start a readiness check purchase
+ */
+export const useCreateCheckoutSession = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCheckoutSession>>,
+    TError,
+    { data: BodyType<CheckoutInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createCheckoutSession>>,
+  TError,
+  { data: BodyType<CheckoutInput> },
+  TContext
+> => {
+  return useMutation(getCreateCheckoutSessionMutationOptions(options));
+};
+
+/**
+ * Disabled until live Stripe signature verification is configured. This endpoint never grants access without verified provider events.
+ * @summary Receive verified checkout provider events
+ */
+export const getReceiveCheckoutWebhookUrl = () => {
+  return `/api/checkout/webhook`;
+};
+
+export const receiveCheckoutWebhook = async (
+  options?: RequestInit,
+): Promise<unknown> => {
+  return customFetch<unknown>(getReceiveCheckoutWebhookUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getReceiveCheckoutWebhookMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof receiveCheckoutWebhook>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof receiveCheckoutWebhook>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["receiveCheckoutWebhook"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof receiveCheckoutWebhook>>,
+    void
+  > = () => {
+    return receiveCheckoutWebhook(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReceiveCheckoutWebhookMutationResult = NonNullable<
+  Awaited<ReturnType<typeof receiveCheckoutWebhook>>
+>;
+
+export type ReceiveCheckoutWebhookMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Receive verified checkout provider events
+ */
+export const useReceiveCheckoutWebhook = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof receiveCheckoutWebhook>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof receiveCheckoutWebhook>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getReceiveCheckoutWebhookMutationOptions(options));
+};
+
+/**
+ * @summary Submit a help and support request
+ */
+export const getCreateSupportTicketUrl = () => {
+  return `/api/support/ticket`;
+};
+
+export const createSupportTicket = async (
+  supportTicketInput: SupportTicketInput,
+  options?: RequestInit,
+): Promise<SupportTicketResult> => {
+  return customFetch<SupportTicketResult>(getCreateSupportTicketUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(supportTicketInput),
+  });
+};
+
+export const getCreateSupportTicketMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSupportTicket>>,
+    TError,
+    { data: BodyType<SupportTicketInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createSupportTicket>>,
+  TError,
+  { data: BodyType<SupportTicketInput> },
+  TContext
+> => {
+  const mutationKey = ["createSupportTicket"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createSupportTicket>>,
+    { data: BodyType<SupportTicketInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createSupportTicket(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateSupportTicketMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createSupportTicket>>
+>;
+export type CreateSupportTicketMutationBody = BodyType<SupportTicketInput>;
+export type CreateSupportTicketMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Submit a help and support request
+ */
+export const useCreateSupportTicket = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSupportTicket>>,
+    TError,
+    { data: BodyType<SupportTicketInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createSupportTicket>>,
+  TError,
+  { data: BodyType<SupportTicketInput> },
+  TContext
+> => {
+  return useMutation(getCreateSupportTicketMutationOptions(options));
+};
 
 /**
  * @summary Get AI-scored top job matches for the current candidate

@@ -113,6 +113,13 @@
       "when": 1787163600000,
       "tag": "0032_factual_career_profile_cv",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1790797971304,
+      "tag": "0038_readiness_paid_access",
+      "breakpoints": true
     }
   ]
 }

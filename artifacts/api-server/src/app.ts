@@ -1,9 +1,11 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import pinoHttp from "pino-http";
 import { authMiddleware } from "./middlewares/authMiddleware";
 import router from "./routes";
 import { writeAuditEvent } from "./lib/audit";
+import { logger } from "./lib/logger";
 
 const app: Express = express();
 
@@ -27,6 +29,25 @@ app.use(
     },
   })
 );
+app.use(
+  pinoHttp({
+    logger,
+    serializers: {
+      req(req) {
+        return {
+          id: req.id,
+          method: req.method,
+          url: req.url?.split("?")[0],
+        };
+      },
+      res(res) {
+        return {
+          statusCode: res.statusCode,
+        };
+      },
+    },
+  }),
+);
 app.use(cookieParser());
 app.use(
   express.json({
@@ -46,7 +67,7 @@ app.use((err: Error & { statusCode?: number; status?: number }, req: Request, re
   if (statusCode >= 500) {
     // Log the full error server-side, but never leak internals (e.g. raw SQL
     // from failed queries) to API clients.
-    console.error(`[api-error] ${req.method} ${req.path} -> ${statusCode}:`, err.stack ?? err.message);
+    req.log.error({ err, statusCode }, "Unhandled API error");
     writeAuditEvent("system", "api_error_5xx", undefined, {
       statusCode,
       path: req.path,

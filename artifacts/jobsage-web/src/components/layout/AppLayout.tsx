@@ -1,7 +1,11 @@
 import * as React from "react";
 import { AppSidebar } from "./AppSidebar";
+import { useAuth } from "@workspace/auth-web";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui-enhanced";
+import { Link } from "wouter";
+import { HelpCircle, Sparkles } from "lucide-react";
+import { ReadinessQuotaModal } from "@/components/ReadinessQuotaModal";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
@@ -17,8 +21,11 @@ interface AuthUserResponse {
 }
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [impersonation, setImpersonation] = React.useState<ImpersonationState | null>(null);
+  const [quotaOpen, setQuotaOpen] = React.useState(false);
+  const [quickHelpOpen, setQuickHelpOpen] = React.useState(false);
 
   function fetchImpersonationState() {
     fetch(`${API_BASE}/auth/user`, { credentials: "include" })
@@ -39,6 +46,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     fetchImpersonationState();
+  }, []);
+
+  React.useEffect(() => {
+    const openQuota = () => setQuotaOpen(true);
+    window.addEventListener("jobsage:readiness-limit-reached", openQuota);
+    window.addEventListener("jobsage:open-readiness-quota", openQuota);
+    return () => {
+      window.removeEventListener("jobsage:readiness-limit-reached", openQuota);
+      window.removeEventListener("jobsage:open-readiness-quota", openQuota);
+    };
   }, []);
 
   async function stopImpersonating() {
@@ -109,7 +126,17 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <main className="flex-1 overflow-y-auto relative z-0 bg-gray-50/30">
           {children}
         </main>
+        <div className="fixed bottom-5 right-5 z-40 flex flex-col items-end gap-2">
+          {quickHelpOpen && (
+            <div className="w-56 rounded-2xl border border-border bg-background p-2 shadow-xl" role="menu">
+              <Link href="/help" data-testid="link-quick-help-center" onClick={() => setQuickHelpOpen(false)} className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold hover:bg-muted"><HelpCircle className="h-4 w-4 text-primary" /> Help &amp; Support</Link>
+              {user?.role === "candidate" && <button type="button" data-testid="button-quick-readiness" onClick={() => { setQuickHelpOpen(false); setQuotaOpen(true); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-semibold hover:bg-muted"><Sparkles className="h-4 w-4 text-primary" /> Readiness quota</button>}
+            </div>
+          )}
+          <button type="button" data-testid="button-floating-help" aria-expanded={quickHelpOpen} aria-label="Open quick help" onClick={() => setQuickHelpOpen((value) => !value)} className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"><HelpCircle className="h-5 w-5" /></button>
+        </div>
       </div>
+      <ReadinessQuotaModal open={quotaOpen} onClose={() => setQuotaOpen(false)} />
     </div>
   );
 }

@@ -97,6 +97,9 @@ function Navbar({ onLogin }: { onLogin: () => void }) {
           >
             Sign In
           </Button>
+           <Button variant="ghost" size="sm" onClick={() => setLocation("/help")} className="text-sm font-medium">
+             Help
+           </Button>
           <Button
             variant="outline"
             size="sm"
@@ -145,6 +148,9 @@ function Navbar({ onLogin }: { onLogin: () => void }) {
                 </button>
               ))}
               <div className="flex gap-3 pt-2 border-t border-border/40">
+                <Button variant="ghost" size="sm" onClick={() => { setLocation("/help"); setMobileOpen(false); }} className="flex-1">
+                  Help
+                </Button>
                 <Button variant="outline" size="sm" onClick={onLogin} className="flex-1">
                   Sign In
                 </Button>
@@ -1316,7 +1322,7 @@ export default function LandingPage() {
                 Connecting exceptional global talent with UK opportunity through representation, compliance, and intelligence.
               </p>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-8 text-sm">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 text-sm">
               <div>
                 <p className="font-semibold text-background mb-3">Platform</p>
                 <ul className="flex flex-col gap-2">
@@ -1345,6 +1351,14 @@ export default function LandingPage() {
                 <ul className="flex flex-col gap-2">
                   <li><button onClick={() => setLocation("/privacy")} className="hover:text-background transition-colors">Privacy Policy</button></li>
                   <li><button onClick={() => setLocation("/terms")} className="hover:text-background transition-colors">Terms of Service</button></li>
+                </ul>
+              </div>
+              <div>
+                <p className="font-semibold text-background mb-3">Support</p>
+                <ul className="flex flex-col gap-2">
+                  <li><button onClick={() => setLocation("/help")} className="hover:text-background transition-colors">Help Center</button></li>
+                  <li><button onClick={() => setLocation("/help#visa")} className="hover:text-background transition-colors">Visa FAQ</button></li>
+                  <li><button onClick={() => setLocation("/help#contact")} className="hover:text-background transition-colors">Contact Us</button></li>
                 </ul>
               </div>
             </div>

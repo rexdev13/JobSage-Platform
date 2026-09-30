@@ -69,6 +69,54 @@ function assertEmailConfiguration(context: string): void {
   }
 }
 
+export async function sendSupportTicketNotification(opts: {
+  ticketId: string;
+  name: string;
+  email: string;
+  category: string;
+  subject: string;
+  message: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    assertEmailConfiguration("Support ticket notifications");
+    const recipient = process.env.SUPPORT_EMAIL?.trim() || "support@jobsage.uk";
+    const safeMessage = escapeEmailHtml(opts.message).replace(/\r?\n/g, "<br />");
+    const result = await resend.emails.send({
+      from: `JOBSAGE <${FROM}>`,
+      to: recipient,
+      replyTo: opts.email,
+      subject: `[Support ${opts.ticketId}] ${opts.subject}`,
+      text: [
+        `Ticket: ${opts.ticketId}`,
+        `Name: ${opts.name}`,
+        `Email: ${opts.email}`,
+        `Category: ${opts.category}`,
+        `Subject: ${opts.subject}`,
+        "",
+        opts.message,
+      ].join("\n"),
+      html: `<!doctype html><html><body style="font-family:Arial,sans-serif;color:#162436;line-height:1.6">
+        <h1 style="font-size:20px">New JOBSAGE support request</h1>
+        <p><strong>Ticket:</strong> ${escapeEmailHtml(opts.ticketId)}</p>
+        <p><strong>Name:</strong> ${escapeEmailHtml(opts.name)}</p>
+        <p><strong>Email:</strong> ${escapeEmailHtml(opts.email)}</p>
+        <p><strong>Category:</strong> ${escapeEmailHtml(opts.category)}</p>
+        <p><strong>Subject:</strong> ${escapeEmailHtml(opts.subject)}</p>
+        <hr /><p>${safeMessage}</p>
+      </body></html>`,
+    });
+    if (result.error) {
+      return { success: false, error: result.error.message || "Email provider rejected the support ticket." };
+    }
+    return { success: true };
+  } catch (error: unknown) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to send the support ticket.",
+    };
+  }
+}
+
 export async function sendWaitlistWelcomeEmail(opts: {
   to: string;
   firstName: string;

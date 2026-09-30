@@ -1200,6 +1200,63 @@ export const ListMatchedRolesResponse = zod.object({
 });
 
 /**
+ * @summary Get the current candidate's readiness quota and plan
+ */
+export const getReadinessQuotaResponseUsedMin = 0;
+
+export const getReadinessQuotaResponseBonusRemainingMin = 0;
+
+export const GetReadinessQuotaResponse = zod.object({
+  used: zod.number().min(getReadinessQuotaResponseUsedMin),
+  limit: zod.number(),
+  bonusRemaining: zod.number().min(getReadinessQuotaResponseBonusRemainingMin),
+  plan: zod.enum(["free", "pro"]),
+  resetsAt: zod.date(),
+});
+
+/**
+ * @summary Start a readiness check purchase
+ */
+export const CreateCheckoutSessionBody = zod.object({
+  type: zod.enum(["booster_pack", "pro_subscription"]),
+});
+
+export const CreateCheckoutSessionResponse = zod.object({
+  success: zod.boolean(),
+  checkoutUrl: zod.string().url().nullable(),
+  sandboxCompleted: zod.boolean(),
+});
+
+/**
+ * @summary Submit a help and support request
+ */
+export const createSupportTicketBodyNameMax = 120;
+
+export const createSupportTicketBodyEmailMax = 254;
+
+export const createSupportTicketBodySubjectMax = 180;
+
+export const createSupportTicketBodyMessageMin = 10;
+export const createSupportTicketBodyMessageMax = 5000;
+
+export const CreateSupportTicketBody = zod.object({
+  name: zod.string().min(1).max(createSupportTicketBodyNameMax),
+  email: zod.string().email().max(createSupportTicketBodyEmailMax),
+  category: zod.enum([
+    "Visa Sponsorship",
+    "Readiness Checks",
+    "Account/Billing",
+    "Technical Support",
+    "Other",
+  ]),
+  subject: zod.string().min(1).max(createSupportTicketBodySubjectMax),
+  message: zod
+    .string()
+    .min(createSupportTicketBodyMessageMin)
+    .max(createSupportTicketBodyMessageMax),
+});
+
+/**
  * @summary Get AI-scored top job matches for the current candidate
  */
 export const getMyMatchesQueryLimitDefault = 10;

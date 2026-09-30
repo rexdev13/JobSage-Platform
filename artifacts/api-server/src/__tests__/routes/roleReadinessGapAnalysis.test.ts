@@ -62,6 +62,7 @@ vi.mock("@workspace/db", () => {
     sponsorLicenceVacancyScoresTable: table(["id"]),
     roleGapAnalysesTable: table(["userId", "roleId", "generatedAt"]),
     sponsorLicenceGapAnalysesTable: table(["userId"]),
+    usersTable: table(["id", "plan", "bonusReadinessChecks", "subscriptionExpiresAt"]),
     careerProfilesTable: table(["id"]),
   };
 
@@ -186,8 +187,6 @@ describe("regular role readiness claim suppression", () => {
   it("filters a rephrased acknowledgement from generated regular-role results", async () => {
     selectResults.push(
       [],
-      [{ count: 0 }],
-      [{ count: 0 }],
       [{
         id: 42,
         title: "Staff Nurse",
@@ -206,6 +205,9 @@ describe("regular role readiness claim suppression", () => {
         registrationStatus: "not_started",
         residencyStatus: "overseas",
       }],
+      [],
+      [{ count: 0 }],
+      [{ count: 0 }],
     );
     completionCreate.mockResolvedValue({
       choices: [{

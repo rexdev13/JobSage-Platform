@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, index, jsonb, pgTable, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/pg-core";
+import { boolean, check, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/pg-core";
 
 export const sessionsTable = pgTable(
   "user_sessions",
@@ -25,6 +25,11 @@ export const usersTable = pgTable("users", {
   googleCalendarAccountEmail: varchar("google_calendar_account_email"),
   googleCalendarConnectedAt: timestamp("google_calendar_connected_at", { withTimezone: true }),
   role: varchar("role", { enum: ["candidate", "admin", "reviewer", "employer", "super_admin", "marketing"] }).notNull().default("candidate"),
+  plan: varchar("plan", { enum: ["free", "pro"] }).notNull().default("free"),
+  bonusReadinessChecks: integer("bonus_readiness_checks").notNull().default(0),
+  subscriptionExpiresAt: timestamp("subscription_expires_at", { withTimezone: true }),
+  stripeCustomerId: text("stripe_customer_id"),
+  stripePaymentIntentId: text("stripe_payment_intent_id"),
   passwordHash: varchar("password_hash"),
   emailVerified: boolean("email_verified").notNull().default(false),
   emailVerifyToken: varchar("email_verify_token"),
@@ -38,6 +43,8 @@ export const usersTable = pgTable("users", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [
   uniqueIndex("users_google_booking_slug_idx").on(table.googleBookingSlug),
+  check("users_bonus_readiness_checks_nonnegative", sql`${table.bonusReadinessChecks} >= 0`),
+  check("users_plan_valid", sql`${table.plan} IN ('free', 'pro')`),
 ]);
 
 export type UpsertUser = typeof usersTable.$inferInsert;

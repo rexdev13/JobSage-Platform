@@ -457,6 +457,11 @@ export default function EligibilityPage() {
             Find out which UK roles you qualify for today — and what it takes to unlock the rest.
           </p>
         </header>
+        <div className="mb-6 flex items-center gap-3 rounded-xl border border-primary/15 bg-primary/5 p-3 text-sm">
+          <HelpCircle className="h-4 w-4 shrink-0 text-primary" />
+          <p className="flex-1 text-muted-foreground">Questions about sponsor eligibility?</p>
+          <Link to="/help#visa" className="shrink-0 font-semibold text-primary hover:underline">Visit our Help Center <ArrowRight className="ml-1 inline h-3.5 w-3.5" /></Link>
+        </div>
 
         {/* Profession context banner */}
         {!profession && (

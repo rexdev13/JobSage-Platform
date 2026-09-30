@@ -42,6 +42,12 @@ tags:
     description: Candidate Portal Phase 2 — cover letter generation, progress report, speculative applications.
   - name: SuperAdmin
     description: Super admin operational intelligence — platform stats, full user visibility, impersonation, and health metrics.
+  - name: Readiness
+    description: Candidate readiness check quota and plan.
+  - name: Checkout
+    description: Readiness check purchase sessions and provider events.
+  - name: Support
+    description: Public help and support ticket submission.
 paths:
   /healthz:
     get:
@@ -1108,6 +1114,107 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
+
+  /readiness/quota:
+    get:
+      tags: [Readiness]
+      operationId: getReadinessQuota
+      summary: Get the current candidate's readiness quota and plan
+      responses:
+        "200":
+          description: Monthly usage and remaining purchased checks.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessQuota"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /checkout/create-session:
+    post:
+      tags: [Checkout]
+      operationId: createCheckoutSession
+      summary: Start a readiness check purchase
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckoutInput"
+      responses:
+        "200":
+          description: Hosted checkout URL, or a development-only sandbox completion.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutSessionResult"
+        "400":
+          description: Invalid purchase type.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: Live checkout is not configured.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /checkout/webhook:
+    post:
+      tags: [Checkout]
+      operationId: receiveCheckoutWebhook
+      summary: Receive verified checkout provider events
+      description: Disabled until live Stripe signature verification is configured. This endpoint never grants access without verified provider events.
+      responses:
+        "503":
+          description: Payment provider webhook is not configured.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /support/ticket:
+    post:
+      tags: [Support]
+      operationId: createSupportTicket
+      summary: Submit a help and support request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupportTicketInput"
+      responses:
+        "201":
+          description: Support request delivered to the support desk.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportTicketResult"
+        "400":
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: Support email delivery is temporarily unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
 
   /roles/my-matches:
     get:
@@ -8060,3 +8167,76 @@ components:
       properties:
         ok:
           type: boolean
+
+    ReadinessQuota:
+      type: object
+      required: [used, limit, bonusRemaining, plan, resetsAt]
+      properties:
+        used:
+          type: integer
+          minimum: 0
+        limit:
+          type: integer
+          const: 10
+        bonusRemaining:
+          type: integer
+          minimum: 0
+        plan:
+          type: string
+          enum: [free, pro]
+        resetsAt:
+          type: string
+          format: date-time
+
+    CheckoutInput:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [booster_pack, pro_subscription]
+
+    CheckoutSessionResult:
+      type: object
+      required: [success, checkoutUrl, sandboxCompleted]
+      properties:
+        success:
+          type: boolean
+        checkoutUrl:
+          type: ["string", "null"]
+          format: uri
+        sandboxCompleted:
+          type: boolean
+
+    SupportTicketInput:
+      type: object
+      required: [name, email, category, subject, message]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        category:
+          type: string
+          enum: [Visa Sponsorship, Readiness Checks, Account/Billing, Technical Support, Other]
+        subject:
+          type: string
+          minLength: 1
+          maxLength: 180
+        message:
+          type: string
+          minLength: 10
+          maxLength: 5000
+
+    SupportTicketResult:
+      type: object
+      required: [success, ticketId]
+      properties:
+        success:
+          type: boolean
+        ticketId:
+          type: string

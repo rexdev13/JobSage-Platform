@@ -724,6 +724,7 @@ export default function GetStartedPage() {
           <Link href="/login">
             <Button variant="outline" size="sm">Sign in</Button>
           </Link>
+           <Link href="/help" className="text-sm font-semibold text-muted-foreground hover:text-primary" data-testid="link-get-started-help">Help</Link>
         </div>
       </header>
 
@@ -824,7 +825,10 @@ export default function GetStartedPage() {
       <footer className="mt-auto border-t border-border/40 py-6 px-4 bg-secondary/20">
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
           <p>© {new Date().getFullYear()} JOBSAGE. All rights reserved.</p>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center justify-center gap-4">
+            <Link href="/help" className="hover:text-foreground transition-colors" data-testid="link-get-started-footer-help">Help Center</Link>
+            <Link href="/help#visa" className="hover:text-foreground transition-colors">Visa FAQ</Link>
+            <Link href="/help#contact" className="hover:text-foreground transition-colors">Contact Us</Link>
             <Link href="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link>
             <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
             <Link href="/extension-privacy" className="hover:text-foreground transition-colors">Extension Privacy</Link>

@@ -4,14 +4,16 @@ import {
   profilesTable,
   sponsorLicenceVacanciesTable,
   sponsorLicenceGapAnalysesTable,
-  roleGapAnalysesTable,
 } from "@workspace/db";
-import { eq, and, gte, sql } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import {
   filterAcknowledgedGaps,
   getCandidateReadinessClaims,
 } from "./readinessClaims";
-import { getReadinessMonthStart, READINESS_CHECK_LIMIT } from "./readinessQuota";
+import {
+  refundReservedReadinessCheck,
+  reserveReadinessCheck,
+} from "./readinessQuota";
 import { getCandidateVacancyStatus } from "./vacancyLiveness";
 
 export interface GapAnalysisResult {
@@ -64,30 +66,17 @@ export async function getOrGenerateGapAnalysis(
     // Stale — fall through to regenerate (count it as already-used, no limit deduction)
   }
 
-  // ── 2. Enforce 10-analysis monthly limit (only for new analyses) ──────────
+  // ── 2. Reserve a check only for a brand-new analysis ──────────────────────
+  let bonusReserved = false;
   if (!existing) {
-    const monthStart = getReadinessMonthStart();
-    const [[sponsorCount], [roleCount]] = await Promise.all([
-      db.select({ count: sql<number>`cast(count(*) as integer)` })
-        .from(sponsorLicenceGapAnalysesTable)
-        .where(and(
-          eq(sponsorLicenceGapAnalysesTable.userId, userId),
-          gte(sponsorLicenceGapAnalysesTable.generatedAt, monthStart),
-        )),
-      db.select({ count: sql<number>`cast(count(*) as integer)` })
-        .from(roleGapAnalysesTable)
-        .where(and(
-          eq(roleGapAnalysesTable.userId, userId),
-          gte(roleGapAnalysesTable.generatedAt, monthStart),
-        )),
-    ]);
-
-    const used = (sponsorCount?.count ?? 0) + (roleCount?.count ?? 0);
-    if (used >= READINESS_CHECK_LIMIT) {
+    const reservation = await reserveReadinessCheck(userId);
+    if (!reservation.allowed) {
       throw new LimitReachedError();
     }
+    bonusReserved = reservation.bonusReserved;
   }
 
+  try {
   // ── 3. Fetch candidate profile ────────────────────────────────────────────
   const [profile] = await db
     .select()
@@ -249,4 +238,10 @@ Return ONLY valid JSON — no markdown, no commentary:
     generatedAt: now.toISOString(),
     fromCache: false,
   };
+  } catch (error) {
+    if (bonusReserved) {
+      await refundReservedReadinessCheck(userId);
+    }
+    throw error;
+  }
 }

@@ -2646,6 +2646,80 @@ export interface OkResponse {
   ok: boolean;
 }
 
+export type ReadinessQuotaPlan =
+  (typeof ReadinessQuotaPlan)[keyof typeof ReadinessQuotaPlan];
+
+export const ReadinessQuotaPlan = {
+  free: "free",
+  pro: "pro",
+} as const;
+
+export interface ReadinessQuota {
+  /** @minimum 0 */
+  used: number;
+  limit: 10;
+  /** @minimum 0 */
+  bonusRemaining: number;
+  plan: ReadinessQuotaPlan;
+  resetsAt: string;
+}
+
+export type CheckoutInputType =
+  (typeof CheckoutInputType)[keyof typeof CheckoutInputType];
+
+export const CheckoutInputType = {
+  booster_pack: "booster_pack",
+  pro_subscription: "pro_subscription",
+} as const;
+
+export interface CheckoutInput {
+  type: CheckoutInputType;
+}
+
+export interface CheckoutSessionResult {
+  success: boolean;
+  /** @nullable */
+  checkoutUrl: string | null;
+  sandboxCompleted: boolean;
+}
+
+export type SupportTicketInputCategory =
+  (typeof SupportTicketInputCategory)[keyof typeof SupportTicketInputCategory];
+
+export const SupportTicketInputCategory = {
+  Visa_Sponsorship: "Visa Sponsorship",
+  Readiness_Checks: "Readiness Checks",
+  "Account/Billing": "Account/Billing",
+  Technical_Support: "Technical Support",
+  Other: "Other",
+} as const;
+
+export interface SupportTicketInput {
+  /**
+   * @minLength 1
+   * @maxLength 120
+   */
+  name: string;
+  /** @maxLength 254 */
+  email: string;
+  category: SupportTicketInputCategory;
+  /**
+   * @minLength 1
+   * @maxLength 180
+   */
+  subject: string;
+  /**
+   * @minLength 10
+   * @maxLength 5000
+   */
+  message: string;
+}
+
+export interface SupportTicketResult {
+  success: boolean;
+  ticketId: string;
+}
+
 export type VerifyEmailParams = {
   /**
    * Email verification token from the verification email.

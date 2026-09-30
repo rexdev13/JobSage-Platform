@@ -59,6 +59,7 @@ import {
   Calendar,
   CalendarDays,
   ExternalLink,
+  HelpCircle,
 } from "lucide-react";
 import { DisclaimerBanner } from "@/components/ui/DisclaimerBanner";
 
@@ -1476,6 +1477,11 @@ export default function OpportunitiesPage() {
     <AppLayout>
       <PageTransition className="max-w-4xl mx-auto p-6 space-y-6">
         <DisclaimerBanner />
+        <div className="flex items-center gap-3 rounded-xl border border-primary/15 bg-primary/5 p-3 text-sm">
+          <HelpCircle className="h-4 w-4 shrink-0 text-primary" />
+          <p className="flex-1 text-muted-foreground">Questions about sponsor eligibility?</p>
+          <a href="/help#visa" className="shrink-0 font-semibold text-primary hover:underline">Visit our Help Center <ArrowRight className="ml-1 inline h-3.5 w-3.5" /></a>
+        </div>
 
         {/* Header */}
         <div className="flex items-start justify-between gap-4">

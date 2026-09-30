@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { Card, Button } from "@/components/ui-enhanced";
 import { useUpsertEmployerProfile } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
@@ -95,6 +95,7 @@ export default function EmployerOnboardingPage() {
           <p className="text-muted-foreground mt-2 text-sm max-w-sm mx-auto">
             Tell us about your organisation so candidates can see your jobs and sponsorship capabilities.
           </p>
+          <Link href="/help#contact" className="mt-3 inline-flex text-xs font-semibold text-primary hover:underline" data-testid="link-employer-onboarding-support">Stuck during setup? Visit Help &amp; Support</Link>
         </div>
 
         <div className="flex items-center justify-center gap-4 mb-8">

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@workspace/auth-web";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { canDeleteLeads } from "@/lib/roleAccess";
 import { useGetSponsorLicenceIndustries } from "@workspace/api-client-react";
@@ -553,6 +553,7 @@ export default function AdminLeadsPage() {
               Contacts from the waitlist page
               {data ? ` · ${data.total.toLocaleString()} total` : ""}
             </p>
+            <Link href="/help#contact" className="mt-2 inline-flex text-xs font-semibold text-primary hover:underline" data-testid="link-admin-leads-support">Need help with a candidate case? Contact support</Link>
           </div>
 
           {someSelected && (

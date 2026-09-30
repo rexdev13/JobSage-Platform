@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { getNextReadinessReset, getReadinessMonthStart } from "../../lib/readinessQuota";
+import {
+  decideReadinessAccess,
+  getNextReadinessReset,
+  getReadinessMonthStart,
+} from "../../lib/readinessQuota";
 
 describe("readiness monthly quota boundaries", () => {
   it("uses the first day of the current UTC month as the counting boundary", () => {
@@ -10,5 +14,46 @@ describe("readiness monthly quota boundaries", () => {
   it("resets at the first instant of the next UTC month, including year rollover", () => {
     expect(getNextReadinessReset(new Date("2026-12-15T12:00:00Z")).toISOString())
       .toBe("2027-01-01T00:00:00.000Z");
+  });
+});
+
+describe("readiness access decision", () => {
+  const now = new Date("2026-09-30T12:00:00Z");
+
+  it("uses the monthly allowance before purchased checks", () => {
+    expect(decideReadinessAccess({
+      plan: "free",
+      bonusReadinessChecks: 25,
+      subscriptionExpiresAt: null,
+    }, 9, now)).toBe("monthly");
+  });
+
+  it("uses a purchased check after the free monthly allowance is exhausted", () => {
+    expect(decideReadinessAccess({
+      plan: "free",
+      bonusReadinessChecks: 1,
+      subscriptionExpiresAt: null,
+    }, 10, now)).toBe("bonus");
+  });
+
+  it("blocks free users at the limit when no purchased checks remain", () => {
+    expect(decideReadinessAccess({
+      plan: "free",
+      bonusReadinessChecks: 0,
+      subscriptionExpiresAt: null,
+    }, 10, now)).toBe("denied");
+  });
+
+  it("unlocks unlimited checks only while a Pro subscription is active", () => {
+    expect(decideReadinessAccess({
+      plan: "pro",
+      bonusReadinessChecks: 0,
+      subscriptionExpiresAt: new Date("2026-10-01T00:00:00Z"),
+    }, 10_000, now)).toBe("pro");
+    expect(decideReadinessAccess({
+      plan: "pro",
+      bonusReadinessChecks: 0,
+      subscriptionExpiresAt: new Date("2026-09-30T11:59:59Z"),
+    }, 10, now)).toBe("denied");
   });
 });

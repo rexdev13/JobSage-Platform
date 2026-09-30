@@ -43,6 +43,12 @@ vi.mock("@workspace/db", () => {
       userId: "userId",
       generatedAt: "generatedAt",
     },
+    usersTable: {
+      id: "id",
+      plan: "plan",
+      bonusReadinessChecks: "bonusReadinessChecks",
+      subscriptionExpiresAt: "subscriptionExpiresAt",
+    },
   };
 });
 
@@ -104,6 +110,7 @@ describe("sponsor vacancy readiness claim suppression", () => {
   it("filters rephrased claims from regenerated analyses before caching them", async () => {
     selectResults.push(
       [legacyClaim],
+      [],
       [],
       [{ count: 0 }],
       [{ count: 0 }],

@@ -117,6 +117,7 @@ export function GapAnalysisSheet({
       const res = await fetch(endpoint, { credentials: "include" });
       if (res.status === 429) {
         setLimitReached(true);
+        window.dispatchEvent(new CustomEvent("jobsage:readiness-limit-reached"));
         toast({
           title: "Readiness Check limit reached",
           description: "You have used all 10 of your Readiness Checks.",

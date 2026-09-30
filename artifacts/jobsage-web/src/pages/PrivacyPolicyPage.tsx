@@ -170,6 +170,10 @@ export default function PrivacyPolicyPage() {
             </p>
           </section>
           <div className="pt-4 border-t border-border flex flex-wrap gap-4 text-sm">
+            <span className="w-full text-xs font-bold uppercase tracking-wider text-muted-foreground">Support</span>
+            <Link href="/help" className="text-primary hover:underline">Help Center</Link>
+            <Link href="/help#visa" className="text-primary hover:underline">Visa FAQ</Link>
+            <Link href="/help#contact" className="text-primary hover:underline">Contact Us</Link>
             <Link href="/terms" className="text-primary hover:underline">Terms of Service</Link>
             <Link href="/extension-privacy" className="text-primary hover:underline">Smart Apply Extension Privacy</Link>
             <Link href="/" className="text-primary hover:underline">JOBSAGE home</Link>
