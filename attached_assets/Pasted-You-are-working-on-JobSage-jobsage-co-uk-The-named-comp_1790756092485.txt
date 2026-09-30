@@ -1,0 +1,41 @@
+You are working on JobSage (jobsage.co.uk). The named company-site checker is already deployed on master (commit df8b8d9). Kingsley Healthcare Limited and Care UK Care Services Ltd have already been run. Do not run them again.
+
+Use only the existing named checker:
+
+POST https://jobsage.co.uk/api/internal/healthcare-company-site-batch
+Header: x-jobsage-job-secret
+
+Look-only body:
+{
+  "apply": false,
+  "sector": "healthcare",
+  "budgetMs": 240000,
+  "employers": [
+    {
+      "organisationName": "EXACT sponsor register name",
+      "website": "https://exact-employer-site/",
+      "careersUrl": "https://exact-listing-page/"
+    }
+  ]
+}
+
+Write body, and only after a look-only run accepted roles whose titles are the detail-page headings:
+{
+  "apply": true,
+  "confirmApply": "apply-reviewed-healthcare-company-site-batch",
+  "sector": "healthcare",
+  "budgetMs": 240000,
+  "employers": [ same one employer ]
+}
+
+Rules for every run:
+- One employer per request. The hard caps are 15 employers, 40 detail pages, and 240 seconds. Stay inside them.
+- organisationName must be the exact Home Office sponsor name already stored on the licence row. A blank industry is allowed. Healthcare and Social Care are the only filled industries that pass. Do not write an industry value.
+- website and careersUrl must be HTTPS. careersUrl must be the server-rendered vacancy list, the page that contains the individual job links, not the marketing careers homepage.
+- Before calling the checker, open that listing with an ordinary HTTP GET. Continue only when the HTML contains individual job links. If the page is an application shell with no job links, skip that employer. Barchester (jobs.barchester.com) is already known to be that kind of page. Skip it.
+- A look-only result is good when accepted is greater than 0, the titles are role names such as "Care Assistant" or "Registered Nurse", each row has its own detail URL and an HTTPS apply link, and the employer error is empty. Titles that still look like a URL slug are a failed run. Do not write them.
+- Write that employer only when the look-only result is good. After the write, report found, accepted, rejected, rejection reasons, inserted, updated, and candidateVisible. A second write of the same employer must insert 0.
+- Keep the existing role filter. Cook, cleaner, housekeeper, and other non-care titles must stay rejected.
+- Do not crawl the stored careers-address list. Do not add crawl status columns. Do not build a new importer, browser crawler, or private API client. Do not classify a Care Assistant as a nurse so that it appears on a nurse profile. The Job Opportunities page shows only the signed-in profession; a saved Care Assistant staying off a nurse account is the current rule.
+
+After one employer is written, stop and report that employer. Do not start the next employer in the same run.
