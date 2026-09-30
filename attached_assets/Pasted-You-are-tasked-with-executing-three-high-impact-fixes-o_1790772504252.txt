@@ -1,0 +1,107 @@
+You are tasked with executing three high-impact fixes on JobSage (`jobsage.co.uk`) to recover hidden inventory, enable structured schema ingestion, and expand vacancy imports across all sectors using our existing ATS parsers.
+
+Follow this phased plan strictly. Inspect before mutating, ensure all updates are idempotent, and print exact row counts before and after every step.
+
+---
+
+### Phase 1: Inspect & Backfill the 2,172 Hidden Live Vacancies
+
+**Context:** Production has 8,640 vacancies marked `live`, but only 2,165 are candidate-visible because 2,172 live rows have `source_type IS NULL`. The candidate-visibility API gate drops any vacancy with a null source type.
+
+1. **Inspect First (Read-Only):**
+   - Query `sponsor_licence_vacancies` where `liveness = 'live'` AND `source_type IS NULL`.
+   - Sample 20 rows and inspect `board_name`, `url`, `application_url`, and `company_vacancy_evidence` to determine their origin (e.g., job-board imports vs company websites).
+   - Group by `board_name` to see distribution:
+     ```sql
+     SELECT board_name, COUNT(*) 
+     FROM sponsor_licence_vacancies 
+     WHERE liveness = 'live' AND source_type IS NULL 
+     GROUP BY board_name;
+     ```
+
+2. **Execute Targeted Backfill:**
+   - If rows with a recognized `board_name` (e.g., Reed, Totaljobs, NHS, Trac) belong to job boards, update them to `source_type = 'job_board'`.
+   - If rows originate from direct company career pages or have `company_vacancy_evidence`, update them to `source_type = 'company_site'`.
+   - Run the updates inside a transaction and log the exact count of modified rows.
+
+3. **Verify Candidate Visibility:**
+   - Re-run the candidate-visibility gate query from the previous audit.
+   - Confirm that candidate-visible vacancies have increased by the expected count (from ~2,165 to 4,000+).
+
+---
+
+### Phase 2: Enable the Universal Schema.org Ingestion Flag
+
+**Context:** The JSON-LD `JobPosting` and microdata extractor is already implemented in the repository, but candidate visibility blocks imported schema jobs because `COMPANY_SITE_SCHEMA_IMPORT_ENABLED` is missing/not set to `"true"`.
+
+1. **Configuration:**
+   - Locate where runtime environment variables are loaded (e.g., `.env`, `.env.production`, or server config).
+   - Set `COMPANY_SITE_SCHEMA_IMPORT_ENABLED="true"`.
+2. **Verification:**
+   - Search the codebase for `process.env.COMPANY_SITE_SCHEMA_IMPORT_ENABLED` to confirm all gate conditions and ensure no conflicting flags exist.
+   - Run a unit test or dry-run fetch against a known Schema.org page to verify that extracted `JobPosting` objects are accepted as valid evidence.
+
+---
+
+### Phase 3: ATS Fingerprint Scanner across the 3,388 Stored Careers URLs
+
+**Context:** Production holds 3,388 HTTPS careers URLs in `sponsor_licence_company_site_checks.careers_url`, but only 50 have verified ATS mappings. Our codebase already has native feed parsers for:
+- Ashby
+- Greenhouse
+- Lever
+- SmartRecruiters
+- Personio
+- Pinpoint
+- Recruitee
+- Workday (Circle Health pattern)
+
+1. **Target Selection:**
+   - Query `sponsor_licence_company_site_checks` where:
+     - `careers_url IS NOT NULL` AND `careers_url ILIKE 'https://%'`
+     - `ats_mapping_status != 'verified'` (or null).
+   - Do NOT restrict by industry (include Tech, Finance, Engineering, Logistics, Professional Services).
+
+2. **Fingerprint Logic:**
+   - Scan each URL (inspecting target URL redirects, iframe sources, and link patterns in the page head/body) for known provider signatures:
+     * Greenhouse: `boards.greenhouse.io/{board_token}`
+     * Lever: `jobs.lever.co/{slug}`
+     * Ashby: `jobs.ashbyhq.com/{slug}`
+     * SmartRecruiters: `careers.smartrecruiters.com/{company}` or `api.smartrecruiters.com`
+     * Personio: `{company}.jobs.personio.de` or `*.personio.com`
+     * Pinpoint: `{company}.pinpointhq.com`
+     * Recruitee: `{company}.recruitee.com`
+     * Teamtailor / Workable embedded links.
+   - For every match:
+     - Extract the clean board slug / identifier.
+     - Update `sponsor_licence_company_site_checks`:
+       ```sql
+       UPDATE sponsor_licence_company_site_checks
+       SET ats_provider = :provider,
+           ats_board_id = :slug,
+           ats_mapping_status = 'verified',
+           updated_at = NOW()
+       WHERE id = :id;
+       ```
+
+3. **Verify Mapping Yield:**
+   - Report the total number of newly verified ATS mappings broken down by provider (`Greenhouse`, `Lever`, `Ashby`, etc.).
+
+---
+
+### Phase 4: Test Ingestion on Newly Discovered ATS Boards
+
+1. Pick 3 newly mapped employers (e.g., 1 Greenhouse, 1 Lever, 1 Ashby).
+2. Trigger the existing native ATS feed parsers for their board IDs.
+3. Verify that:
+   - Clean JSON is returned.
+   - Vacancies are created in `sponsor_licence_vacancies` with valid `source_type = 'company_site'`, clean titles, and functional application links.
+   - Rows immediately pass the candidate-visibility gate.
+
+---
+
+### Final Deliverable
+Output a summary report showing:
+1. Backfilled rows count and new total candidate-visible vacancies.
+2. Status of `COMPANY_SITE_SCHEMA_IMPORT_ENABLED`.
+3. Count of newly verified ATS employers categorized by provider.
+4. Result of test ingestion run.
