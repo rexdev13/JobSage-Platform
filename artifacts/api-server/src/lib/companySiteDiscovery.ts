@@ -1565,7 +1565,11 @@ export async function discoverCompanySiteVacancies(
   if (
     !options.resumeState &&
     options.knownCareersUrl &&
-    isAllowedCompanyDestination(originHostname, options.knownCareersUrl)
+    isAllowedCompanyDestination(originHostname, options.knownCareersUrl) &&
+    (
+      knownAtsProvider(options.knownCareersUrl) === null ||
+      options.knownCareersMappingVerified === true
+    )
   ) {
     prioritizeEnqueue([options.knownCareersUrl]);
   }
