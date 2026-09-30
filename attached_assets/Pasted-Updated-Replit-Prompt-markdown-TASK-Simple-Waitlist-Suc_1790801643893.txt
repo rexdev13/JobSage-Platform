@@ -1,0 +1,111 @@
+Updated Replit Prompt
+markdown
+
+
+# TASK: Simple Waitlist Success Screen & Universal Open-Text Feedback System
+Please implement the following two updates in the JOBSAGE platform:
+---
+## PART 1: Minimal Waitlist Success Screen (`artifacts/jobsage-web/src/pages/GetStartedPage.tsx`)
+### 1. Location
+Locate `SuccessState` (lines ~98–127) in `GetStartedPage.tsx`.
+### 2. Update
+Replace the existing content with a minimal, honest confirmation. No extra cards, no multi-step lists, and no registration push:
+```tsx
+function SuccessState() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.96 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="text-center py-16 px-4 max-w-md mx-auto"
+    >
+      <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-6">
+        <CheckCircle2 className="h-8 w-8" />
+      </div>
+      <h2 className="font-display text-3xl font-bold text-foreground mb-3 tracking-tight">
+        You're one step closer to entering the UK.
+      </h2>
+      <p className="text-muted-foreground text-base mb-8">
+        We've received your details. We'll be in touch soon with relevant updates.
+      </p>
+      <div>
+        <Link href="/">
+          <Button variant="outline" size="lg" className="px-6">
+            Back to homepage
+          </Button>
+        </Link>
+      </div>
+    </motion.div>
+  );
+}
+PART 2: Universal Open-Text Feedback System (Linear/Vercel Style)
+1. Database Schema (lib/db/src/schema/feedback.ts)
+Create and export feedbackTable:
+
+id: serial primary key
+userId: varchar nullable (references users.id on delete set null)
+userEmail: text nullable
+category: varchar not null (values: "issue", "idea", "general")
+message: text not null (the user's open-ended feedback text — allow full unrestricted text)
+pageUrl: text not null (auto-captured current URL at submit time)
+userAgent: text nullable
+screenResolution: text nullable
+status: varchar default "new" (values: "new", "in_review", "resolved")
+adminNotes: text nullable
+createdAt: timestamp with time zone default now()
+Add indexes on category, status, and createdAt.
+Generate and run the Drizzle migration.
+2. Backend Routes (artifacts/api-server/src/routes/feedback.ts)
+POST /api/feedback:
+Open to both guests and authenticated users.
+Automatically captures req.user?.id and req.user?.email if authenticated.
+Validates body with Zod: { category, message: z.string().trim().min(3), pageUrl, userEmail?, screenResolution? }.
+Inserts row into feedbackTable and returns { success: true, id: feedback.id }.
+GET /api/admin/feedback:
+Protected: requireRole(["admin", "super_admin"]).
+Supports filters: category, status, page, limit (default 50).
+Returns feedback records and counts.
+PATCH /api/admin/feedback/:id:
+Allows admins to update status ("new" | "in_review" | "resolved") and optional adminNotes.
+3. Frontend Feedback Widget (artifacts/jobsage-web/src/components/FeedbackWidget.tsx)
+Create a high-polish, minimalist floating feedback widget:
+
+Trigger:
+A discreet floating pill button in bottom-right corner: [💬 Feedback]
+Low opacity until hover; never obstructs page forms or buttons.
+Modal / Slide-up Card:
+Header: "Share your thoughts" with a close (X) button.
+Category selector with 3 pill buttons:
+🐛 Bug / Issue
+💡 Idea / Suggestion
+💬 General
+Textarea:
+Full-width, multi-line, auto-expanding text box.
+Placeholder: "Tell us what went wrong, what's missing, or what you'd like us to improve..."
+Optional Email Input (shown only if guest / not logged in).
+Submit Button: "Send Feedback" with loading state.
+Success: Closes smoothly with a brief toast ("Thanks for your feedback! Our team reads every message.").
+Global Placement:
+Mount <FeedbackWidget /> in AppLayout.tsx (for logged-in users) and in App.tsx (for public pages).
+4. Super Admin Feedback Inbox (artifacts/jobsage-web/src/pages/admin/SuperAdminPage.tsx)
+Add a "User Feedback" section in Super Admin:
+Header summary: Total Submissions, Open Issues, Ideas.
+Filter tabs: All, Issues, Ideas, General, Unresolved.
+Cards / Table displaying:
+Date / Time
+Category badge (red for issue, purple for idea, blue for general)
+User email (or Anonymous Guest)
+Origin Page URL (link to the exact page where they encountered the issue)
+Full open-text message
+Status toggle dropdown: New 
+→
+→ In Review 
+→
+→ Resolved
+Verification
+Submitting the waitlist form at /get-started shows only:
+"You're one step closer to entering the UK."
+"We've received your details. We'll be in touch soon with relevant updates."
+"Back to homepage" button.
+Clicking the floating [💬 Feedback] widget opens the modal, accepts free-form text, and submits successfully.
+Super Admin can view, filter, and review all feedback entries.
+Run pnpm test and pnpm typecheck to confirm clean builds.
