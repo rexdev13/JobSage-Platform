@@ -1,0 +1,107 @@
+# TASK: Implement Paid Readiness Checks (USD $) and Comprehensive Help & Support Everywhere
+
+Please implement the following two core capabilities across the JOBSAGE platform:
+
+---
+
+## PART 1: Paid Readiness Checks & Quota Management (in USD $)
+
+### 1. Context & Quota Limits
+- Readiness checks are capped at 10 checks per calendar month in `artifacts/api-server/src/lib/readinessQuota.ts` (`READINESS_CHECK_LIMIT = 10`) and enforced in:
+  - `artifacts/api-server/src/routes/roles.ts` (around line 1850)
+  - `artifacts/api-server/src/routes/sponsorLicences.ts` (around lines 1111, 1143)
+  - `artifacts/api-server/src/lib/vacancyGapAnalysis.ts` (around line 86)
+- Exceeding the quota currently throws HTTP 429 (`"Readiness Check limit reached. You have used all 10 checks this month."`).
+
+### 2. Pricing Tiers (USD)
+1. **Check Booster Pack**: **$5.99** for **25 additional checks** (one-time purchase).
+2. **JobSage Pro**: **$19.99 / month** for **Unlimited Readiness Checks** + priority AI gap analysis.
+
+### 3. Database Updates (`lib/db/src/schema/`)
+- Add subscription/credit tracking to `usersTable` (or a dedicated `user_subscriptions` table in `lib/db/src/schema/auth.ts` or `subscriptions.ts`):
+  - `plan`: varchar enum (`"free"`, `"pro"`) default `"free"`
+  - `bonusReadinessChecks`: integer default 0
+  - `subscriptionExpiresAt`: timestamp with time zone (nullable)
+  - `stripeCustomerId`: text (nullable)
+  - `stripePaymentIntentId`: text (nullable)
+- Generate and run the Drizzle migration.
+
+### 4. Quota Service Refactor (`artifacts/api-server/src/lib/readinessQuota.ts`)
+- Refactor quota check function to accept candidate user profile:
+  - If `user.plan === "pro"` (and `subscriptionExpiresAt` is in the future): bypass monthly cap (unlimited).
+  - Else if `user.bonusReadinessChecks > 0`: decrement one bonus credit and allow check.
+  - Else: enforce default `READINESS_CHECK_LIMIT = 10` per calendar month.
+- Expose an endpoint `GET /api/readiness/quota` returning:
+  `{ used: number, limit: number, bonusRemaining: number, plan: "free" | "pro", resetsAt: string }`
+
+### 5. Checkout & Webhook Routes (`artifacts/api-server/src/routes/checkout.ts`)
+- `POST /api/checkout/create-session`:
+  - Accepts `{ type: "booster_pack" | "pro_subscription" }`
+  - Creates a Stripe Checkout session ($5.99 one-time or $19.99/mo subscription) with `success_url` and `cancel_url`.
+  - In development without live Stripe keys, provide a clean mock/sandbox completion flow.
+- `POST /api/checkout/webhook`:
+  - Listens for `checkout.session.completed` / `invoice.payment_succeeded`.
+  - Automatically updates the user's bonus checks (+25) or sets plan to `"pro"`.
+
+### 6. Quota Upgrade Modal (`artifacts/jobsage-web/src/components/ReadinessQuotaModal.tsx`)
+- Appears when a user reaches the 10-check limit or clicks their readiness quota pill.
+- Shows usage bar (`10/10 monthly checks used`).
+- Displays both options ($5.99 Booster Pack vs $19.99/mo Pro) with benefits and "Upgrade Now" buttons.
+- Includes a link to `/support` for billing inquiries.
+
+---
+
+## PART 2: Comprehensive Help & Support Page (Everywhere on JobSage)
+
+### 1. Dedicated Support Page (`artifacts/jobsage-web/src/pages/HelpSupportPage.tsx`)
+Create a world-class, responsive Help & Support center with:
+- **Hero & Live Search**:
+  - Headline: "How can we help you land your UK role?"
+  - Instant live filter search across all FAQ questions and answers.
+- **Categorized FAQs (Interactive Accordions)**:
+  - **UK Visa Sponsorship**: How sponsor matching works, Eligible Skilled Worker occupations, Minimum salary rules, Certificate of Sponsorship (CoS) requirements.
+  - **Readiness Checks & AI Analysis**: How the AI checks CVs against employer criteria, how the 10 free checks work, booster packs vs Pro.
+  - **Jobs & Direct Feeds**: How vacancies are scraped and verified directly from verified UK Home Office licensed employers.
+  - **Account & Payments**: Upgrading, billing terms, cancellation, and receipt access.
+- **Contact Support Form**:
+  - Fields: `name`, `email` (pre-filled if logged in), `category` (Visa Sponsorship, Readiness Checks, Account/Billing, Technical Support, Other), `subject`, `message`.
+  - Fast feedback toast on successful ticket submission.
+  - SLA Badge: *"We typically respond within 2 business hours"*.
+
+### 2. Backend Ticket Route (`artifacts/api-server/src/routes/support.ts`)
+- `POST /api/support/ticket`:
+  - Validates inputs using Zod.
+  - Sends a structured notification email via Resend to the support desk (`support@jobsage.uk` or configured admin email).
+  - Returns `{ success: true, ticketId: string }`.
+
+### 3. Surface Support EVERYWHERE on the Website
+Integrate Help & Support across all appropriate touchpoints:
+1. **Public Top Navigation (`LandingPage.tsx`, `GetStartedPage.tsx`)**:
+   - Add "Help" or "Support" link in the main header nav alongside Sign In / Register.
+2. **Footers (`LandingPage.tsx`, `GetStartedPage.tsx`, `TermsOfServicePage.tsx`, `PrivacyPolicyPage.tsx`)**:
+   - Add a dedicated "Support" section with links to:
+     - Help Center (`/help` or `/support`)
+     - Visa Sponsorship FAQ (`/help#visa`)
+     - Contact Us (`/help#contact`)
+3. **App Sidebar (`artifacts/jobsage-web/src/components/layout/AppSidebar.tsx`)**:
+   - Add a permanent "Help & Support" item with `HelpCircle` icon in the navigation list (available to candidate and employer roles).
+4. **Candidate App Layout (`artifacts/jobsage-web/src/components/layout/AppLayout.tsx`)**:
+   - Add a floating quick-help button on the bottom-right of the dashboard: clicking it opens a quick-links popover or navigates directly to `/help`.
+5. **Contextual Help Banners**:
+   - In `/eligibility` and `/opportunities`: add a subtle banner: *"Questions about sponsor eligibility? Visit our Help Center"*.
+   - In `/admin/leads` and `/onboarding`: accessible support link for stuck candidates.
+
+### 4. Router Registration (`artifacts/jobsage-web/src/App.tsx`)
+- Register both routes:
+  - `<Route path="/help" component={HelpSupportPage} />`
+  - `<Route path="/support" component={HelpSupportPage} />`
+
+---
+
+## Verification & Quality Checklist
+1. Exceeding 10 checks displays the $5.99 / $19.99 upgrade modal.
+2. Completing checkout credits 25 checks or enables unlimited checks.
+3. `/help` and `/support` load cleanly for both guests and signed-in users.
+4. Support ticket form submits successfully and validates all fields.
+5. Support links appear in Header, Footers, Sidebar, and floating dashboard widget.
+6. All tests pass with `pnpm test` and `pnpm typecheck`.
