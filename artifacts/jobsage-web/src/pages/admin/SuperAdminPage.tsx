@@ -5,16 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useGetSponsorLicenceIndustries } from "@workspace/api-client-react";
-import AdminFeedbackTab from "@/pages/admin/AdminFeedbackTab";
-import AdminSupportTicketsTab from "@/pages/admin/AdminSupportTicketsTab";
 import {
   Users, Briefcase, CheckCircle, FileText, Building2, RefreshCw,
   ChevronDown, ChevronUp, Shield, Activity, Search, ExternalLink,
   TrendingUp, AlertTriangle, ShieldCheck, Star, BadgeCheck, UserCheck,
   XCircle, Clock, Ban, RotateCcw, Trash2, UserCog, ListOrdered, UserPlus,
   CalendarDays,
-  MessageSquareText,
-  Ticket,
 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -1866,7 +1862,7 @@ function EmployersTab() {
   );
 }
 
-type Tab = "overview" | "marketing" | "users" | "health" | "identity" | "letters" | "job-listings" | "employers" | "feedback" | "support";
+type Tab = "overview" | "marketing" | "users" | "health" | "identity" | "letters" | "job-listings" | "employers";
 
 export default function SuperAdminPage() {
   const [activeTab, setActiveTab] = useState<Tab>("overview");
@@ -1880,8 +1876,6 @@ export default function SuperAdminPage() {
     { id: "health", label: "Platform Health", icon: Activity },
     { id: "identity", label: "Identity Queue", icon: ShieldCheck },
     { id: "letters", label: "References", icon: Star },
-    { id: "feedback", label: "Feedback & ratings", icon: MessageSquareText },
-    { id: "support", label: "Contact support", icon: Ticket },
   ];
 
   return (
@@ -1919,8 +1913,6 @@ export default function SuperAdminPage() {
           {activeTab === "health" && <HealthTab />}
           {activeTab === "identity" && <IdentityQueueTab />}
           {activeTab === "letters" && <LettersTab />}
-          {activeTab === "feedback" && <AdminFeedbackTab />}
-          {activeTab === "support" && <AdminSupportTicketsTab />}
         </div>
       </div>
     </AppLayout>
