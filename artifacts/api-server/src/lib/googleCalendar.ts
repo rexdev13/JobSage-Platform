@@ -219,10 +219,14 @@ export async function createGoogleMeetBooking(input: {
   end: Date;
   timeZone?: string;
   attendeeEmails?: Array<string | null | undefined>;
+  sendUpdates?: "all" | "none";
   marketingUserId: string;
   leadId?: number | null;
 }): Promise<{ eventId: string; externalEventUri: string; meetingUrl: string; htmlLink: string | null }> {
-  const params = new URLSearchParams({ conferenceDataVersion: "1", sendUpdates: "all" });
+  const params = new URLSearchParams({
+    conferenceDataVersion: "1",
+    sendUpdates: input.sendUpdates ?? "all",
+  });
   const event = await googleCalendarRequest<GoogleCalendarEvent>(
     input.auth,
     `/calendars/${encodeURIComponent(input.calendarId)}/events?${params}`,
@@ -251,6 +255,28 @@ export async function createGoogleMeetBooking(input: {
     meetingUrl,
     htmlLink: event.htmlLink ?? null,
   };
+}
+
+export async function sendGoogleCalendarInvite(
+  auth: GoogleCalendarAuth,
+  calendarId: string,
+  eventId: string,
+  attendeeEmail: string,
+): Promise<void> {
+  const normalizedEmail = attendeeEmail.trim().toLowerCase();
+  if (!normalizedEmail) {
+    throw new GoogleCalendarRequestError("A lead email is required to send this invitation.", 400);
+  }
+  const params = new URLSearchParams({ sendUpdates: "all" });
+  await googleCalendarRequest<GoogleCalendarEvent>(
+    auth,
+    `/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}?${params}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ attendees: [{ email: normalizedEmail }] }),
+    },
+  );
 }
 
 export async function updateGoogleCalendarEvent(

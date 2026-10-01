@@ -71,6 +71,7 @@
 - [DWP Find a Job access](dwp-find-a-job-access.md) — official search pages currently error or time out from the development server; verify runtime access before integrating.
 - [Factual CV draft freshness](cv-draft-freshness.md) — Maker source-fact changes clear reviewed state but preserve draft text; readiness self-attestations stay separate.
 - [Per-marketer Google Calendar authorization](per-marketer-google-calendar.md) — custom JOBSAGE users need encrypted, marketer-specific Google OAuth rather than the workspace connector identity.
+- [Marketer calendar invite timing](marketer-calendar-invite-timing.md) — scheduled Google Meet calls start attendee-free; a marketer explicitly sends the lead invitation later.
 - [Staging-only k6 load testing](k6-load-testing-safety.md) — capacity tests use isolated non-production targets and synthetic accounts; never load-test the production custom domain.
 - [Candidate alert parity](candidate-alert-opportunities-parity.md) — job-alert emails must use the candidate-visible Opportunities gates and ranking before the five-role cap.
 - [Public ATS API robots policy](public-ats-api-robots.md) — documented ATS JSON feeds bypass HTML robots checks but retain SSRF, DNS pinning, pacing, backoff, deadlines, and size limits.

@@ -3350,6 +3350,20 @@ export const UpdateMyMarketingCalendlyUrlResponse = zod.object({
 });
 
 /**
+ * Sends the invitation only when explicitly requested by the assigned marketer or an administrator.
+ * @summary Send the linked lead a Google Calendar invitation for a scheduled call
+ */
+
+export const SendMarketerCalendarEventInviteParams = zod.object({
+  id: zod.coerce.number().min(1),
+});
+
+export const SendMarketerCalendarEventInviteResponse = zod.object({
+  sent: zod.literal(true),
+  email: zod.string().email(),
+});
+
+/**
  * @summary Assign or unassign a marketing user from a lead
  */
 export const AssignLeadMarketingUserParams = zod.object({

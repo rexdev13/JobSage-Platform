@@ -3005,6 +3005,57 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /marketer/calendar/events/{id}/send-invite:
+    post:
+      operationId: sendMarketerCalendarEventInvite
+      tags: [AdminPortal]
+      summary: Send the linked lead a Google Calendar invitation for a scheduled call
+      description: Sends the invitation only when explicitly requested by the assigned marketer or an administrator.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Google Calendar invitation sent.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SendMarketerCalendarInviteResponse"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: The user cannot send invitations for this marketer's event.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Calendar event not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: The event is not eligible for an invitation or one was already sent.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "502":
+          description: Google Calendar could not send the invitation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
   /leads/{id}/assignee:
     patch:
       operationId: assignLeadMarketingUser
@@ -7436,6 +7487,17 @@ components:
           type: string
           format: uri
           nullable: true
+
+    SendMarketerCalendarInviteResponse:
+      type: object
+      required: [sent, email]
+      properties:
+        sent:
+          type: boolean
+          enum: [true]
+        email:
+          type: string
+          format: email
 
     LeadListStats:
       type: object

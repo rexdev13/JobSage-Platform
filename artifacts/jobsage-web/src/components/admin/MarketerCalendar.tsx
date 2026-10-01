@@ -97,6 +97,7 @@ type CalendarEvent = {
   status: EventStatus;
   notes: string | null;
   source: "manual" | "calendly" | "google_calendar";
+  inviteSent: boolean;
   lead: {
     firstName: string | null;
     lastName: string | null;
@@ -194,6 +195,7 @@ export function MarketerCalendar({
   const [eventNotes, setEventNotes] = useState("");
   const [eventStatus, setEventStatus] = useState<EventStatus>("scheduled");
   const [message, setMessage] = useState<string | null>(null);
+  const [inviteMessage, setInviteMessage] = useState<string | null>(null);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const autoSyncStarted = useRef(false);
 
@@ -400,6 +402,23 @@ export function MarketerCalendar({
     onError: (error: Error) => setMessage(error.message),
   });
 
+  const sendInviteMutation = useMutation({
+    mutationFn: async (eventId: number) => readJson<{ sent: true; email: string }>(
+      await fetch(`${BASE}/api/marketer/calendar/events/${eventId}/send-invite`, {
+        method: "POST",
+        credentials: "include",
+      }),
+    ),
+    onSuccess: async ({ email }, eventId) => {
+      setSelectedEvent((current) => current?.id === eventId
+        ? { ...current, inviteSent: true }
+        : current);
+      setInviteMessage(`Calendar invitation sent to ${email}.`);
+      await queryClient.invalidateQueries({ queryKey: ["marketer-calendar-events"] });
+    },
+    onError: (error: Error) => setMessage(error.message),
+  });
+
   function openSchedule(lead?: CalendarLead) {
     setScheduleLeadId(lead ? String(lead.id) : "");
     setScheduleTitle(lead ? `Discovery Call with ${leadName(lead)}` : "");
@@ -409,6 +428,7 @@ export function MarketerCalendar({
     setScheduleNotes("");
     setScheduleProvider(googleStatusQuery.data?.connected ? "google_calendar" : "manual");
     setMessage(null);
+    setInviteMessage(null);
     setScheduleOpen(true);
   }
 
@@ -421,6 +441,7 @@ export function MarketerCalendar({
     setEventStatus(event.status);
     setEventNotes(event.notes ?? "");
     setMessage(null);
+    setInviteMessage(null);
   }
 
   function saveEventChanges() {
@@ -681,7 +702,7 @@ export function MarketerCalendar({
             </div>
             {scheduleProvider === "google_calendar" ? (
               <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-300">
-                JOBSAGE will check the connected calendar for conflicts, create a Google Meet room, and email the selected lead a calendar invitation.
+                JOBSAGE will create the event and Google Meet room on the marketer’s calendar without notifying the lead. Open the event and choose “Send invite” when you are ready.
               </div>
             ) : (
               <label className="grid gap-1.5 text-xs font-medium">Meeting link<input type="url" value={scheduleUrl} onChange={(event) => setScheduleUrl(event.target.value)} placeholder="Google Meet, Zoom, or another meeting link" className="h-10 rounded-lg border border-input bg-background px-3 text-sm font-normal" /></label>
@@ -763,10 +784,34 @@ export function MarketerCalendar({
                   )}
                   {selectedEvent.source === "google_calendar" && (
                     <p className="rounded-lg bg-blue-50 px-3 py-2 text-[11px] text-blue-700 dark:bg-blue-950/30 dark:text-blue-300">
-                      This booking is linked to Google Calendar. Saving title or time changes updates Google and emails guests; cancelling it removes the Google event.
+                      This booking is linked to Google Calendar. After an invitation is sent, saving title or time changes emails guests; cancelling it removes the Google event.
                     </p>
                   )}
                 </div>
+                {selectedEvent.source === "google_calendar" && (
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border p-3">
+                    <div>
+                      <p className="text-xs font-semibold text-foreground">Calendar invitation</p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        {selectedEvent.inviteSent
+                          ? "Invitation sent."
+                          : selectedEvent.lead?.email
+                            ? "Not sent yet. The lead will only be notified after you send it."
+                            : "Link a lead with an email address before sending an invitation."}
+                      </p>
+                    </div>
+                    {!selectedEvent.inviteSent && selectedEvent.lead?.email && (
+                      <Button
+                        variant="outline"
+                        onClick={() => sendInviteMutation.mutate(selectedEvent.id)}
+                        disabled={sendInviteMutation.isPending}
+                      >
+                        <Mail className="mr-2 h-3.5 w-3.5" />
+                        {sendInviteMutation.isPending ? "Sending…" : "Send invite"}
+                      </Button>
+                    )}
+                  </div>
+                )}
                 <label className="grid gap-1.5 text-xs font-medium">Call outcome
                   <select
                     value={eventStatus}
@@ -788,6 +833,7 @@ export function MarketerCalendar({
                   <span className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground"><UserRound className="h-3.5 w-3.5" />{selectedEvent.marketer?.name ?? "Marketing team"}</span>
                 </div>
               </div>
+              {inviteMessage && <p role="status" className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700">{inviteMessage}</p>}
               {message && <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">{message}</p>}
               <DialogFooter className="gap-2 sm:justify-between">
                 {selectedEvent.source !== "calendly" ? (

@@ -19,8 +19,13 @@ import {
   GoogleCalendarRequestError,
   listGoogleCalendarAvailableSlots,
   parseGoogleExternalEventUri,
+  sendGoogleCalendarInvite,
   updateGoogleCalendarEvent,
 } from "../lib/googleCalendar";
+import {
+  SendMarketerCalendarEventInviteParams,
+  SendMarketerCalendarEventInviteResponse,
+} from "@workspace/api-zod";
 import {
   createGoogleOAuthState,
   decryptGoogleRefreshToken,
@@ -77,6 +82,7 @@ const eventFields = {
   status: marketerEventsTable.status,
   notes: marketerEventsTable.notes,
   source: marketerEventsTable.source,
+  externalInviteeEmail: marketerEventsTable.externalInviteeEmail,
   createdAt: marketerEventsTable.createdAt,
   calendlySyncedAt: marketerEventsTable.calendlySyncedAt,
   googleSyncedAt: marketerEventsTable.googleSyncedAt,
@@ -217,10 +223,12 @@ function normalizeEvent(row: typeof eventFields extends never ? never : Record<s
     marketerFirstName,
     marketerLastName,
     marketerEmail,
+    externalInviteeEmail,
     ...event
   } = row as Record<string, any>;
   return {
     ...event,
+    inviteSent: Boolean(externalInviteeEmail),
     lead: event.leadId
       ? {
           firstName: leadFirstName,
@@ -371,7 +379,8 @@ router.post(
           start: parsed.data.scheduledAt,
           end: endTime,
           timeZone: parsed.data.timeZone,
-          attendeeEmails: [selectedLead?.email, targetUser.email],
+          attendeeEmails: [],
+          sendUpdates: "none",
           marketingUserId: targetMarketingUserId,
           leadId: selectedLead?.id ?? null,
         });
@@ -398,7 +407,7 @@ router.post(
           notes: parsed.data.notes || null,
           source: parsed.data.provider,
           externalEventUri: googleBooking?.externalEventUri ?? null,
-          externalInviteeEmail: googleBooking ? selectedLead?.email ?? null : null,
+          externalInviteeEmail: null,
           googleSyncedAt: googleBooking ? new Date() : null,
         })
         .returning();
@@ -409,7 +418,7 @@ router.post(
           .set({ status: "contacted", contactedAt: new Date() })
           .where(eq(socialLeadsTable.id, selectedLead.id));
       }
-      res.status(201).json({ event: created });
+      res.status(201).json({ event: { ...created, inviteSent: false } });
     } catch (error) {
       if (googleBooking && googleCalendarId && googleAuth) {
         await deleteGoogleCalendarEvent(googleAuth, googleCalendarId, googleBooking.eventId).catch(
@@ -417,6 +426,74 @@ router.post(
         );
       }
       throw error;
+    }
+  },
+);
+
+router.post(
+  "/marketer/calendar/events/:id/send-invite",
+  calendarRoles,
+  async (req: Request, res: Response): Promise<void> => {
+    const parsedParams = SendMarketerCalendarEventInviteParams.safeParse(req.params);
+    if (!parsedParams.success) {
+      res.status(400).json({ error: "Invalid calendar event ID." });
+      return;
+    }
+    const id = parsedParams.data.id;
+    const existingWhere = isAdminRole(req.user?.role)
+      ? eq(marketerEventsTable.id, id)
+      : and(eq(marketerEventsTable.id, id), eq(marketerEventsTable.marketingUserId, req.user!.id));
+    try {
+      const result = await db.transaction(async (tx) => {
+        const [existing] = await tx
+          .select()
+          .from(marketerEventsTable)
+          .where(existingWhere)
+          .for("update")
+          .limit(1);
+        if (!existing) return { status: 404, error: "Calendar event not found." } as const;
+        if (existing.source !== "google_calendar") {
+          return { status: 409, error: "Only Google Calendar events can send an invitation from JOBSAGE." } as const;
+        }
+        if (existing.status !== "scheduled") {
+          return { status: 409, error: "Only scheduled calls can send an invitation." } as const;
+        }
+        if (!existing.leadId) {
+          return { status: 409, error: "Link this call to a lead before sending an invitation." } as const;
+        }
+        if (existing.externalInviteeEmail) {
+          return { status: 409, error: "The calendar invitation has already been sent." } as const;
+        }
+
+        const [lead] = await tx
+          .select({ email: socialLeadsTable.email })
+          .from(socialLeadsTable)
+          .where(eq(socialLeadsTable.id, existing.leadId))
+          .limit(1);
+        const email = lead?.email?.trim().toLowerCase();
+        if (!email) {
+          return { status: 409, error: "The linked lead does not have an email address." } as const;
+        }
+        const external = parseGoogleExternalEventUri(existing.externalEventUri);
+        if (!external) {
+          return { status: 409, error: "This Google Calendar event is missing its external identity." } as const;
+        }
+
+        const googleAuth = await getGoogleCalendarAuth(existing.marketingUserId);
+        await sendGoogleCalendarInvite(googleAuth.auth, external.calendarId, external.eventId, email);
+        await tx
+          .update(marketerEventsTable)
+          .set({ externalInviteeEmail: email, googleSyncedAt: new Date() })
+          .where(eq(marketerEventsTable.id, id));
+        return { sent: true as const, email };
+      });
+      if ("status" in result && typeof result.status === "number") {
+        res.status(result.status).json({ error: result.error });
+        return;
+      }
+      res.json(SendMarketerCalendarEventInviteResponse.parse(result));
+    } catch (error) {
+      googleCalendarErrorResponse(error, res, "Google Calendar could not send this invitation. Please try again.");
     }
   },
 );

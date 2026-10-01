@@ -142,6 +142,7 @@ import type {
   RulesetWithRules,
   SaveSmartApplyDraft200,
   SaveSmartApplyDraftRequest,
+  SendMarketerCalendarInviteResponse,
   SendSpeculativeApplicationRequest,
   SmartApplyCandidatePrefill,
   SmartApplyDraftResponse,
@@ -9395,6 +9396,97 @@ export const useUpdateMyMarketingCalendlyUrl = <
   TContext
 > => {
   return useMutation(getUpdateMyMarketingCalendlyUrlMutationOptions(options));
+};
+
+/**
+ * Sends the invitation only when explicitly requested by the assigned marketer or an administrator.
+ * @summary Send the linked lead a Google Calendar invitation for a scheduled call
+ */
+export const getSendMarketerCalendarEventInviteUrl = (id: number) => {
+  return `/api/marketer/calendar/events/${id}/send-invite`;
+};
+
+export const sendMarketerCalendarEventInvite = async (
+  id: number,
+  options?: RequestInit,
+): Promise<SendMarketerCalendarInviteResponse> => {
+  return customFetch<SendMarketerCalendarInviteResponse>(
+    getSendMarketerCalendarEventInviteUrl(id),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getSendMarketerCalendarEventInviteMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendMarketerCalendarEventInvite>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof sendMarketerCalendarEventInvite>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["sendMarketerCalendarEventInvite"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof sendMarketerCalendarEventInvite>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return sendMarketerCalendarEventInvite(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SendMarketerCalendarEventInviteMutationResult = NonNullable<
+  Awaited<ReturnType<typeof sendMarketerCalendarEventInvite>>
+>;
+
+export type SendMarketerCalendarEventInviteMutationError =
+  ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Send the linked lead a Google Calendar invitation for a scheduled call
+ */
+export const useSendMarketerCalendarEventInvite = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendMarketerCalendarEventInvite>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof sendMarketerCalendarEventInvite>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(
+    getSendMarketerCalendarEventInviteMutationOptions(options),
+  );
 };
 
 /**

@@ -6,6 +6,7 @@ import {
   getGoogleCalendarStatus,
   googleExternalEventUri,
   parseGoogleExternalEventUri,
+  sendGoogleCalendarInvite,
 } from "../lib/googleCalendar";
 
 const auth = { refreshToken: "encrypted-test-refresh-token" };
@@ -98,12 +99,55 @@ describe("Google Calendar helper", () => {
     expect(result.externalEventUri).toBe(googleExternalEventUri("primary@example.com", "event-123"));
     const [path, init] = fetchMock.mock.calls[1]!;
     expect(path).toContain("/calendars/primary%40example.com/events?");
+    expect(path).toContain("sendUpdates=all");
     const body = JSON.parse(String(init.body));
     expect(body.attendees).toEqual([
       { email: "lead@example.com" },
       { email: "marketer@example.com" },
     ]);
     expect(body.conferenceData.createRequest.conferenceSolutionKey.type).toBe("hangoutsMeet");
+  });
+
+  it("creates a scheduled event without lead attendees or notifications", async () => {
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
+      id: "event-private",
+      hangoutLink: "https://meet.google.com/private-meet",
+    }), { status: 200 }));
+
+    await createGoogleMeetBooking({
+      auth,
+      calendarId: "primary@example.com",
+      title: "Discovery call",
+      start: new Date("2026-09-23T09:00:00.000Z"),
+      end: new Date("2026-09-23T09:30:00.000Z"),
+      attendeeEmails: [],
+      sendUpdates: "none",
+      marketingUserId: "marketer-1",
+      leadId: 12,
+    });
+
+    const [path, init] = fetchMock.mock.calls[1]!;
+    expect(path).toContain("sendUpdates=none");
+    expect(JSON.parse(String(init.body)).attendees).toEqual([]);
+  });
+
+  it("sends the lead invitation only through the explicit invite request", async () => {
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ id: "event-123" }), { status: 200 }));
+
+    await sendGoogleCalendarInvite(
+      auth,
+      "primary@example.com",
+      "event-123",
+      " Lead@example.com ",
+    );
+
+    const [path, init] = fetchMock.mock.calls[1]!;
+    expect(path).toContain("/calendars/primary%40example.com/events/event-123?");
+    expect(path).toContain("sendUpdates=all");
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(String(init.body))).toEqual({
+      attendees: [{ email: "lead@example.com" }],
+    });
   });
 
   it("round-trips encoded Google event identities and extracts video links", () => {

@@ -250,6 +250,7 @@ export * from "./safeguardingTrainingLevel";
 export * from "./saveSmartApplyDraft200";
 export * from "./saveSmartApplyDraftRequest";
 export * from "./saveSmartApplyDraftRequestAnswers";
+export * from "./sendMarketerCalendarInviteResponse";
 export * from "./sendSpeculativeApplicationRequest";
 export * from "./sendSpeculativeApplicationRequestSourceType";
 export * from "./smartApplyCandidatePrefill";

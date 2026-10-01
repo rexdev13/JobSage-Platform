@@ -2078,6 +2078,11 @@ export interface MarketingCalendlyUrlResponse {
   calendlyUrl: string | null;
 }
 
+export interface SendMarketerCalendarInviteResponse {
+  sent: boolean;
+  email: string;
+}
+
 export type ProgressReportResponseTopCompaniesItem = {
   name: string;
   count: number;
