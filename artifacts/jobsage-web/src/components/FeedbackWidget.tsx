@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { Lightbulb, LoaderCircle, MessageCircle, Send, X } from "lucide-react";
-import { useAuth } from "@workspace/auth-web";
+import { LoaderCircle, Send } from "lucide-react";
 import { useSubmitFeedback } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 
 type FeedbackCategory = "issue" | "idea" | "general";
@@ -67,23 +67,6 @@ function FeedbackWidgetForm({ onClose, allowEmail }: { onClose: () => void; allo
   }
 
   return (
-    <div className="w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-primary/15 bg-background shadow-2xl shadow-primary/10">
-      <div className="flex items-start justify-between border-b border-border/70 bg-primary/[0.04] px-5 py-4">
-        <div>
-          <p className="font-display text-base font-semibold text-foreground">Help us make JOBSAGE better</p>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">A quick note is enough. We read every response.</p>
-        </div>
-        <button
-          type="button"
-          data-testid="button-close-feedback"
-          aria-label="Close feedback"
-          onClick={onClose}
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 p-5">
           <FormField
@@ -188,32 +171,27 @@ function FeedbackWidgetForm({ onClose, allowEmail }: { onClose: () => void; allo
           </Button>
         </form>
       </Form>
-    </div>
   );
 }
 
-export function FeedbackWidget({ forceVisible = false }: { forceVisible?: boolean }) {
-  const { isAuthenticated, isLoading } = useAuth();
-  const [open, setOpen] = useState(false);
-
-  if (!forceVisible && (isLoading || isAuthenticated)) return null;
-
+export function FeedbackWidget({
+  open,
+  onClose,
+  allowEmail,
+}: {
+  open: boolean;
+  onClose: () => void;
+  allowEmail: boolean;
+}) {
   return (
-    <div className={`fixed right-5 z-[70] flex flex-col items-end gap-3 sm:right-6 ${forceVisible ? "bottom-20 sm:bottom-20" : "bottom-5 sm:bottom-6"}`}>
-      {open && <FeedbackWidgetForm onClose={() => setOpen(false)} allowEmail={!forceVisible && !isAuthenticated} />}
-      {!open && (
-        <button
-          type="button"
-          data-testid="button-open-feedback"
-          aria-label="Share feedback"
-          onClick={() => setOpen(true)}
-          className="group inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-        >
-          <MessageCircle className="h-4 w-4" />
-          <span className="hidden sm:inline">Feedback</span>
-          <Lightbulb className="h-3.5 w-3.5 opacity-70 transition-transform group-hover:rotate-12" />
-        </button>
-      )}
-    </div>
+    <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
+      <DialogContent className="w-[min(24rem,calc(100vw-2rem))] gap-0 overflow-hidden rounded-2xl border-primary/15 bg-background p-0 shadow-2xl shadow-primary/10">
+        <DialogHeader className="border-b border-border/70 bg-primary/[0.04] px-5 py-4 pr-14 text-left">
+          <DialogTitle className="font-display text-base font-semibold text-foreground">Help us make JOBSAGE better</DialogTitle>
+          <DialogDescription className="mt-1 text-xs leading-relaxed">A quick note is enough. We read every response.</DialogDescription>
+        </DialogHeader>
+        <FeedbackWidgetForm onClose={onClose} allowEmail={allowEmail} />
+      </DialogContent>
+    </Dialog>
   );
 }
