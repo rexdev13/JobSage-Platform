@@ -1200,7 +1200,7 @@ paths:
               $ref: "#/components/schemas/SupportTicketInput"
       responses:
         "201":
-          description: Support request delivered to the support desk.
+          description: Support request saved and its email notification attempted.
           content:
             application/json:
               schema:
@@ -1211,8 +1211,98 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "503":
-          description: Support email delivery is temporarily unavailable.
+
+  /admin/super/support-tickets:
+    get:
+      tags: [Support]
+      operationId: listAdminSupportTickets
+      summary: List support tickets for super admins
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [new, in_review, resolved]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Support tickets, newest first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SupportTicketItem"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Super admin role required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /admin/super/support-tickets/{id}:
+    patch:
+      tags: [Support]
+      operationId: updateAdminSupportTicket
+      summary: Update support ticket status or internal notes
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupportTicketUpdate"
+      responses:
+        "200":
+          description: Updated support ticket.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportTicketItem"
+        "400":
+          description: Invalid update.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Super admin role required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Support ticket not found.
           content:
             application/json:
               schema:
@@ -8491,3 +8581,67 @@ components:
           type: boolean
         ticketId:
           type: string
+
+    SupportTicketUpdate:
+      type: object
+      minProperties: 1
+      properties:
+        status:
+          type: string
+          enum: [new, in_review, resolved]
+        adminNotes:
+          type: ["string", "null"]
+          maxLength: 5000
+
+    SupportTicketItem:
+      type: object
+      required:
+        - id
+        - ticketId
+        - name
+        - email
+        - category
+        - subject
+        - message
+        - userId
+        - status
+        - adminNotes
+        - reviewedBy
+        - reviewedAt
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+        ticketId:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        category:
+          type: string
+          enum: [Visa Sponsorship, Readiness Checks, Account/Billing, Technical Support, Other]
+        subject:
+          type: string
+        message:
+          type: string
+        userId:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [new, in_review, resolved]
+        adminNotes:
+          type: ["string", "null"]
+        reviewedBy:
+          type: ["string", "null"]
+        reviewedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time

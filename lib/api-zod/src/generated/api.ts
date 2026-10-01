@@ -1257,6 +1257,95 @@ export const CreateSupportTicketBody = zod.object({
 });
 
 /**
+ * @summary List support tickets for super admins
+ */
+export const listAdminSupportTicketsQueryLimitDefault = 50;
+export const listAdminSupportTicketsQueryLimitMax = 100;
+
+export const listAdminSupportTicketsQueryOffsetDefault = 0;
+export const listAdminSupportTicketsQueryOffsetMin = 0;
+
+export const ListAdminSupportTicketsQueryParams = zod.object({
+  status: zod.enum(["new", "in_review", "resolved"]).optional(),
+  limit: zod.coerce
+    .number()
+    .min(1)
+    .max(listAdminSupportTicketsQueryLimitMax)
+    .default(listAdminSupportTicketsQueryLimitDefault),
+  offset: zod.coerce
+    .number()
+    .min(listAdminSupportTicketsQueryOffsetMin)
+    .default(listAdminSupportTicketsQueryOffsetDefault),
+});
+
+export const ListAdminSupportTicketsResponseItem = zod.object({
+  id: zod.number(),
+  ticketId: zod.string(),
+  name: zod.string(),
+  email: zod.string().email(),
+  category: zod.enum([
+    "Visa Sponsorship",
+    "Readiness Checks",
+    "Account/Billing",
+    "Technical Support",
+    "Other",
+  ]),
+  subject: zod.string(),
+  message: zod.string(),
+  userId: zod.string().nullable(),
+  status: zod.enum(["new", "in_review", "resolved"]),
+  adminNotes: zod.string().nullable(),
+  reviewedBy: zod.string().nullable(),
+  reviewedAt: zod.date().nullable(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+export const ListAdminSupportTicketsResponse = zod.array(
+  ListAdminSupportTicketsResponseItem,
+);
+
+/**
+ * @summary Update support ticket status or internal notes
+ */
+
+export const UpdateAdminSupportTicketParams = zod.object({
+  id: zod.coerce.number().min(1),
+});
+
+export const updateAdminSupportTicketBodyAdminNotesMax = 5000;
+
+export const UpdateAdminSupportTicketBody = zod.object({
+  status: zod.enum(["new", "in_review", "resolved"]).optional(),
+  adminNotes: zod
+    .string()
+    .max(updateAdminSupportTicketBodyAdminNotesMax)
+    .nullish(),
+});
+
+export const UpdateAdminSupportTicketResponse = zod.object({
+  id: zod.number(),
+  ticketId: zod.string(),
+  name: zod.string(),
+  email: zod.string().email(),
+  category: zod.enum([
+    "Visa Sponsorship",
+    "Readiness Checks",
+    "Account/Billing",
+    "Technical Support",
+    "Other",
+  ]),
+  subject: zod.string(),
+  message: zod.string(),
+  userId: zod.string().nullable(),
+  status: zod.enum(["new", "in_review", "resolved"]),
+  adminNotes: zod.string().nullable(),
+  reviewedBy: zod.string().nullable(),
+  reviewedAt: zod.date().nullable(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
  * @summary Submit product feedback
  */
 export const submitFeedbackBodyMessageMax = 5000;

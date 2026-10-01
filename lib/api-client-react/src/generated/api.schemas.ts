@@ -2829,6 +2829,65 @@ export interface SupportTicketResult {
   ticketId: string;
 }
 
+export type SupportTicketUpdateStatus =
+  (typeof SupportTicketUpdateStatus)[keyof typeof SupportTicketUpdateStatus];
+
+export const SupportTicketUpdateStatus = {
+  new: "new",
+  in_review: "in_review",
+  resolved: "resolved",
+} as const;
+
+export interface SupportTicketUpdate {
+  status?: SupportTicketUpdateStatus;
+  /**
+   * @maxLength 5000
+   * @nullable
+   */
+  adminNotes?: string | null;
+}
+
+export type SupportTicketItemCategory =
+  (typeof SupportTicketItemCategory)[keyof typeof SupportTicketItemCategory];
+
+export const SupportTicketItemCategory = {
+  Visa_Sponsorship: "Visa Sponsorship",
+  Readiness_Checks: "Readiness Checks",
+  "Account/Billing": "Account/Billing",
+  Technical_Support: "Technical Support",
+  Other: "Other",
+} as const;
+
+export type SupportTicketItemStatus =
+  (typeof SupportTicketItemStatus)[keyof typeof SupportTicketItemStatus];
+
+export const SupportTicketItemStatus = {
+  new: "new",
+  in_review: "in_review",
+  resolved: "resolved",
+} as const;
+
+export interface SupportTicketItem {
+  id: number;
+  ticketId: string;
+  name: string;
+  email: string;
+  category: SupportTicketItemCategory;
+  subject: string;
+  message: string;
+  /** @nullable */
+  userId: string | null;
+  status: SupportTicketItemStatus;
+  /** @nullable */
+  adminNotes: string | null;
+  /** @nullable */
+  reviewedBy: string | null;
+  /** @nullable */
+  reviewedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type VerifyEmailParams = {
   /**
    * Email verification token from the verification email.
@@ -2894,6 +2953,28 @@ export type ListMatchedRolesSource =
 export const ListMatchedRolesSource = {
   job_board: "job_board",
   company_site: "company_site",
+} as const;
+
+export type ListAdminSupportTicketsParams = {
+  status?: ListAdminSupportTicketsStatus;
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: number;
+  /**
+   * @minimum 0
+   */
+  offset?: number;
+};
+
+export type ListAdminSupportTicketsStatus =
+  (typeof ListAdminSupportTicketsStatus)[keyof typeof ListAdminSupportTicketsStatus];
+
+export const ListAdminSupportTicketsStatus = {
+  new: "new",
+  in_review: "in_review",
+  resolved: "resolved",
 } as const;
 
 export type ListAdminFeedbackParams = {

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useGetSponsorLicenceIndustries } from "@workspace/api-client-react";
 import AdminFeedbackTab from "@/pages/admin/AdminFeedbackTab";
+import AdminSupportTicketsTab from "@/pages/admin/AdminSupportTicketsTab";
 import {
   Users, Briefcase, CheckCircle, FileText, Building2, RefreshCw,
   ChevronDown, ChevronUp, Shield, Activity, Search, ExternalLink,
@@ -13,6 +14,7 @@ import {
   XCircle, Clock, Ban, RotateCcw, Trash2, UserCog, ListOrdered, UserPlus,
   CalendarDays,
   MessageSquareText,
+  Ticket,
 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -1864,7 +1866,7 @@ function EmployersTab() {
   );
 }
 
-type Tab = "overview" | "marketing" | "users" | "health" | "identity" | "letters" | "job-listings" | "employers" | "feedback";
+type Tab = "overview" | "marketing" | "users" | "health" | "identity" | "letters" | "job-listings" | "employers" | "feedback" | "support";
 
 export default function SuperAdminPage() {
   const [activeTab, setActiveTab] = useState<Tab>("overview");
@@ -1879,6 +1881,7 @@ export default function SuperAdminPage() {
     { id: "identity", label: "Identity Queue", icon: ShieldCheck },
     { id: "letters", label: "References", icon: Star },
     { id: "feedback", label: "Feedback", icon: MessageSquareText },
+    { id: "support", label: "Support", icon: Ticket },
   ];
 
   return (
@@ -1889,13 +1892,13 @@ export default function SuperAdminPage() {
           <p className="text-muted-foreground text-sm mt-1">Operational intelligence view — full platform visibility.</p>
         </div>
 
-        <div className="flex gap-1 border-b border-border">
+        <div className="mobile-scroll-x flex gap-1 border-b border-border">
           {tabs.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => setActiveTab(id)}
               data-testid={`button-super-admin-tab-${id}`}
-              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+              className={`flex shrink-0 items-center gap-2 whitespace-nowrap px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
                 activeTab === id
                   ? "border-primary text-primary"
                   : "border-transparent text-muted-foreground hover:text-foreground"
@@ -1917,6 +1920,7 @@ export default function SuperAdminPage() {
           {activeTab === "identity" && <IdentityQueueTab />}
           {activeTab === "letters" && <LettersTab />}
           {activeTab === "feedback" && <AdminFeedbackTab />}
+          {activeTab === "support" && <AdminSupportTicketsTab />}
         </div>
       </div>
     </AppLayout>

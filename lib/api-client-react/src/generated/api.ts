@@ -95,6 +95,7 @@ import type {
   LeadListResponse,
   ListAdminAuditEventsParams,
   ListAdminFeedbackParams,
+  ListAdminSupportTicketsParams,
   ListConsentLogParams,
   ListDecisionsParams,
   ListLeadAssignees200,
@@ -176,7 +177,9 @@ import type {
   SuperAdminUserFull,
   SuperAdminUserListResponse,
   SupportTicketInput,
+  SupportTicketItem,
   SupportTicketResult,
+  SupportTicketUpdate,
   TalentSearchParams,
   TalentSearchResponse,
   UnreadCountResponse,
@@ -3831,6 +3834,200 @@ export const useCreateSupportTicket = <
   TContext
 > => {
   return useMutation(getCreateSupportTicketMutationOptions(options));
+};
+
+/**
+ * @summary List support tickets for super admins
+ */
+export const getListAdminSupportTicketsUrl = (
+  params?: ListAdminSupportTicketsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/super/support-tickets?${stringifiedParams}`
+    : `/api/admin/super/support-tickets`;
+};
+
+export const listAdminSupportTickets = async (
+  params?: ListAdminSupportTicketsParams,
+  options?: RequestInit,
+): Promise<SupportTicketItem[]> => {
+  return customFetch<SupportTicketItem[]>(
+    getListAdminSupportTicketsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListAdminSupportTicketsQueryKey = (
+  params?: ListAdminSupportTicketsParams,
+) => {
+  return [
+    `/api/admin/super/support-tickets`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListAdminSupportTicketsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAdminSupportTickets>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  params?: ListAdminSupportTicketsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAdminSupportTickets>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAdminSupportTicketsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAdminSupportTickets>>
+  > = ({ signal }) =>
+    listAdminSupportTickets(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminSupportTickets>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAdminSupportTicketsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAdminSupportTickets>>
+>;
+export type ListAdminSupportTicketsQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary List support tickets for super admins
+ */
+
+export function useListAdminSupportTickets<
+  TData = Awaited<ReturnType<typeof listAdminSupportTickets>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  params?: ListAdminSupportTicketsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAdminSupportTickets>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAdminSupportTicketsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update support ticket status or internal notes
+ */
+export const getUpdateAdminSupportTicketUrl = (id: number) => {
+  return `/api/admin/super/support-tickets/${id}`;
+};
+
+export const updateAdminSupportTicket = async (
+  id: number,
+  supportTicketUpdate: SupportTicketUpdate,
+  options?: RequestInit,
+): Promise<SupportTicketItem> => {
+  return customFetch<SupportTicketItem>(getUpdateAdminSupportTicketUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(supportTicketUpdate),
+  });
+};
+
+export const getUpdateAdminSupportTicketMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAdminSupportTicket>>,
+    TError,
+    { id: number; data: BodyType<SupportTicketUpdate> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateAdminSupportTicket>>,
+  TError,
+  { id: number; data: BodyType<SupportTicketUpdate> },
+  TContext
+> => {
+  const mutationKey = ["updateAdminSupportTicket"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateAdminSupportTicket>>,
+    { id: number; data: BodyType<SupportTicketUpdate> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateAdminSupportTicket(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateAdminSupportTicketMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateAdminSupportTicket>>
+>;
+export type UpdateAdminSupportTicketMutationBody =
+  BodyType<SupportTicketUpdate>;
+export type UpdateAdminSupportTicketMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Update support ticket status or internal notes
+ */
+export const useUpdateAdminSupportTicket = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAdminSupportTicket>>,
+    TError,
+    { id: number; data: BodyType<SupportTicketUpdate> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateAdminSupportTicket>>,
+  TError,
+  { id: number; data: BodyType<SupportTicketUpdate> },
+  TContext
+> => {
+  return useMutation(getUpdateAdminSupportTicketMutationOptions(options));
 };
 
 /**
