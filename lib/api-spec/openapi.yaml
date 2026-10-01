@@ -1382,6 +1382,50 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /admin/super/description-feedback:
+    get:
+      tags: [Feedback]
+      operationId: listAdminDescriptionFeedback
+      summary: List employer ratings for AI-generated job descriptions
+      parameters:
+        - name: sentiment
+          in: query
+          schema:
+            type: string
+            enum: [up, down]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Employer ratings and sentiment totals.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDescriptionFeedbackInbox"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Admin role required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
   /admin/super/feedback/{id}:
     patch:
       tags: [Feedback]
@@ -2546,6 +2590,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DescriptionFeedbackResponse"
+        "400":
+          description: Invalid feedback.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Employer role required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
 
   /employer/jobs/{id}/generate-description:
     post:
@@ -6462,6 +6524,7 @@ components:
           enum: [up, down]
         jobTitle:
           type: string
+          minLength: 1
         specialty:
           type: string
 
@@ -6471,6 +6534,54 @@ components:
       properties:
         ok:
           type: boolean
+
+    AdminDescriptionFeedbackItem:
+      type: object
+      required: [id, sentiment, jobTitle, specialty, employerUserId, email, companyName, createdAt]
+      properties:
+        id:
+          type: integer
+        sentiment:
+          type: string
+          enum: [up, down]
+        jobTitle:
+          type: string
+        specialty:
+          type: ["string", "null"]
+        employerUserId:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        companyName:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    AdminDescriptionFeedbackSummary:
+      type: object
+      required: [total, up, down]
+      properties:
+        total:
+          type: integer
+          minimum: 0
+        up:
+          type: integer
+          minimum: 0
+        down:
+          type: integer
+          minimum: 0
+
+    AdminDescriptionFeedbackInbox:
+      type: object
+      required: [items, summary]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminDescriptionFeedbackItem"
+        summary:
+          $ref: "#/components/schemas/AdminDescriptionFeedbackSummary"
 
     JobApplicant:
       type: object

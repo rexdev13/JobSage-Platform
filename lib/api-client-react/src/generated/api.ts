@@ -19,6 +19,7 @@ import type {
 import type {
   ActivateImpersonationTokenParams,
   AdminAuditEventList,
+  AdminDescriptionFeedbackInbox,
   AdminFeedbackInbox,
   AiRemediationSuggestions,
   AnnotateReviewCaseRequest,
@@ -94,6 +95,7 @@ import type {
   JourneyStatusResponse,
   LeadListResponse,
   ListAdminAuditEventsParams,
+  ListAdminDescriptionFeedbackParams,
   ListAdminFeedbackParams,
   ListAdminSupportTicketsParams,
   ListConsentLogParams,
@@ -4214,6 +4216,115 @@ export function useListAdminFeedback<
 }
 
 /**
+ * @summary List employer ratings for AI-generated job descriptions
+ */
+export const getListAdminDescriptionFeedbackUrl = (
+  params?: ListAdminDescriptionFeedbackParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/super/description-feedback?${stringifiedParams}`
+    : `/api/admin/super/description-feedback`;
+};
+
+export const listAdminDescriptionFeedback = async (
+  params?: ListAdminDescriptionFeedbackParams,
+  options?: RequestInit,
+): Promise<AdminDescriptionFeedbackInbox> => {
+  return customFetch<AdminDescriptionFeedbackInbox>(
+    getListAdminDescriptionFeedbackUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListAdminDescriptionFeedbackQueryKey = (
+  params?: ListAdminDescriptionFeedbackParams,
+) => {
+  return [
+    `/api/admin/super/description-feedback`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListAdminDescriptionFeedbackQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAdminDescriptionFeedback>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  params?: ListAdminDescriptionFeedbackParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAdminDescriptionFeedback>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAdminDescriptionFeedbackQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAdminDescriptionFeedback>>
+  > = ({ signal }) =>
+    listAdminDescriptionFeedback(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminDescriptionFeedback>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAdminDescriptionFeedbackQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAdminDescriptionFeedback>>
+>;
+export type ListAdminDescriptionFeedbackQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary List employer ratings for AI-generated job descriptions
+ */
+
+export function useListAdminDescriptionFeedback<
+  TData = Awaited<ReturnType<typeof listAdminDescriptionFeedback>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  params?: ListAdminDescriptionFeedbackParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAdminDescriptionFeedback>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAdminDescriptionFeedbackQueryOptions(
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary Update feedback status or admin notes
  */
 export const getUpdateAdminFeedbackUrl = (id: number) => {
@@ -8034,7 +8145,7 @@ export const submitDescriptionFeedback = async (
 };
 
 export const getSubmitDescriptionFeedbackMutationOptions = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<ErrorEnvelope>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -8076,13 +8187,13 @@ export type SubmitDescriptionFeedbackMutationResult = NonNullable<
 >;
 export type SubmitDescriptionFeedbackMutationBody =
   BodyType<DescriptionFeedbackRequest>;
-export type SubmitDescriptionFeedbackMutationError = ErrorType<unknown>;
+export type SubmitDescriptionFeedbackMutationError = ErrorType<ErrorEnvelope>;
 
 /**
  * @summary Record employer thumbs up/down feedback on AI-generated job description
  */
 export const useSubmitDescriptionFeedback = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<ErrorEnvelope>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<

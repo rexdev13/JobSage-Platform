@@ -453,14 +453,6 @@ router.post("/employer/jobs/generate-description", requireEmployer(), async (req
   }
 });
 
-router.post("/employer/jobs/description-feedback", requireEmployer(), async (req, res): Promise<void> => {
-  const userId = req.user!.id;
-  const { sentiment, jobTitle, specialty } = req.body as { sentiment: "up" | "down"; jobTitle: string; specialty?: string };
-
-  console.info(`[ai-feedback] employer=${userId} title="${jobTitle}" specialty="${specialty ?? ""}" sentiment=${sentiment}`);
-  res.json({ ok: true });
-});
-
 router.post("/employer/jobs/:id/generate-description", requireEmployer(), async (req, res): Promise<void> => {
   const jobId = parseInt(req.params.id as string, 10);
   const userId = req.user!.id;

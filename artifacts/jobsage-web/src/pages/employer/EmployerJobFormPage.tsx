@@ -98,6 +98,7 @@ export default function EmployerJobFormPage() {
   const [generatingDesc, setGeneratingDesc] = useState(false);
   const [isAiGenerated, setIsAiGenerated] = useState(false);
   const [feedbackGiven, setFeedbackGiven] = useState<"up" | "down" | null>(null);
+  const [feedbackError, setFeedbackError] = useState(false);
 
   const { data: existingJob } = useGetJobListing(jobId!, { query: { queryKey: getGetJobListingQueryKey(jobId!), enabled: isEdit && !!jobId } });
   const createMutation = useCreateJobListing();
@@ -233,6 +234,8 @@ export default function EmployerJobFormPage() {
       {
         onSuccess: (data) => {
           setForm((prev) => ({ ...prev, description: data.description ?? "" }));
+          setFeedbackGiven(null);
+          setFeedbackError(false);
           setIsAiGenerated(true);
           toast({ title: "Description generated!", description: "Review and edit before publishing." });
         },
@@ -243,14 +246,17 @@ export default function EmployerJobFormPage() {
   }
 
   function handleFeedback(sentiment: "up" | "down") {
-    if (feedbackGiven) return;
-    setFeedbackGiven(sentiment);
+    if (feedbackGiven || feedbackMutation.isPending) return;
+    setFeedbackError(false);
     feedbackMutation.mutate({
       data: {
         sentiment,
         jobTitle: form.title,
         specialty: form.specialty || undefined,
       },
+    }, {
+      onSuccess: () => setFeedbackGiven(sentiment),
+      onError: () => setFeedbackError(true),
     });
   }
 
@@ -552,6 +558,7 @@ export default function EmployerJobFormPage() {
                     <button
                       type="button"
                       onClick={() => handleFeedback("up")}
+                      disabled={feedbackMutation.isPending}
                       className="p-1.5 rounded-lg hover:bg-emerald-100 hover:text-emerald-700 transition-colors text-muted-foreground"
                       aria-label="Yes, useful"
                     >
@@ -560,12 +567,24 @@ export default function EmployerJobFormPage() {
                     <button
                       type="button"
                       onClick={() => handleFeedback("down")}
+                      disabled={feedbackMutation.isPending}
                       className="p-1.5 rounded-lg hover:bg-destructive/10 hover:text-destructive transition-colors text-muted-foreground"
                       aria-label="Not useful"
                     >
                       <ThumbsDown className="w-4 h-4" />
                     </button>
                   </motion.div>
+                )}
+                {feedbackError && !feedbackGiven && (
+                  <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    role="alert"
+                    data-testid="text-description-rating-error"
+                    className="mt-1 text-xs text-destructive"
+                  >
+                    Your rating could not be saved. Please try again.
+                  </motion.p>
                 )}
                 {feedbackGiven && (
                   <motion.div

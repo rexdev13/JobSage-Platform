@@ -44,6 +44,7 @@ import checkoutRouter from "./checkout";
 import supportRouter from "./support";
 import readinessRouter from "./readiness";
 import feedbackRouter from "./feedback";
+import descriptionFeedbackRouter from "./descriptionFeedback";
 
 const router: IRouter = Router();
 
@@ -92,5 +93,6 @@ router.use(checkoutRouter);
 router.use(supportRouter);
 router.use(readinessRouter);
 router.use(feedbackRouter);
+router.use(descriptionFeedbackRouter);
 
 export default router;

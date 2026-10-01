@@ -1880,8 +1880,8 @@ export default function SuperAdminPage() {
     { id: "health", label: "Platform Health", icon: Activity },
     { id: "identity", label: "Identity Queue", icon: ShieldCheck },
     { id: "letters", label: "References", icon: Star },
-    { id: "feedback", label: "Feedback", icon: MessageSquareText },
-    { id: "support", label: "Support", icon: Ticket },
+    { id: "feedback", label: "Feedback & ratings", icon: MessageSquareText },
+    { id: "support", label: "Contact support", icon: Ticket },
   ];
 
   return (

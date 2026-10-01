@@ -5,7 +5,7 @@ import {
   Map, ClipboardList, Shield, Users, LogOut, Briefcase,
   Building2, Plus, LayoutDashboard, Sparkles, UserCog, List,
   BarChart2, BookOpen, Search, Bookmark, ShieldAlert,
-  TrendingUp, Inbox, CalendarDays, Star, ShieldCheck, RefreshCw, HelpCircle,
+  TrendingUp, Inbox, CalendarDays, Star, ShieldCheck, RefreshCw, HelpCircle, MessageSquareText,
 } from "lucide-react";
 import { cn } from "@/components/ui-enhanced";
 import { useGetMyAnalytics, useGetMyProgressReport, useGetInboxUnreadCount, getGetInboxUnreadCountQueryKey, useGetMyProfile, getGetMyProfileQueryKey } from "@workspace/api-client-react";
@@ -91,6 +91,7 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
       label: "Support & Preparation",
       items: [
         { name: "Help & Support", href: "/help", icon: HelpCircle, roles: ["candidate", "reviewer", "admin"] },
+        { name: "Feedback", href: "/feedback", icon: MessageSquareText, roles: ["candidate", "reviewer", "admin"] },
         { name: "Interview Preparation", href: "/interview-prep", icon: Sparkles, roles: ["candidate", "reviewer", "admin"] },
         { name: "Visa & Legal Guidance", href: "/regulatory-guidance", icon: BookOpen, roles: ["candidate", "reviewer", "admin"] },
       ],
@@ -122,6 +123,7 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
 
   const flatNavForOtherRoles: NavItem[] = [
     { name: "Help & Support", href: "/help", icon: HelpCircle, roles: ["employer", "marketing", "super_admin"] },
+    { name: "Feedback", href: "/feedback", icon: MessageSquareText, roles: ["employer", "super_admin"] },
     { name: "Employer Dashboard", href: "/employer/dashboard", icon: LayoutDashboard, roles: ["employer", "admin"] },
     { name: "Post a Job", href: "/employer/jobs/new", icon: Plus, roles: ["employer", "admin"] },
     { name: "Talent Search", href: "/employer/talent-search", icon: Search, roles: ["employer", "admin"] },

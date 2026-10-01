@@ -9,6 +9,7 @@ import type { DescriptionFeedbackRequestSentiment } from "./descriptionFeedbackR
 
 export interface DescriptionFeedbackRequest {
   sentiment: DescriptionFeedbackRequestSentiment;
+  /** @minLength 1 */
   jobTitle: string;
   specialty?: string;
 }

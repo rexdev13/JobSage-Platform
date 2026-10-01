@@ -1541,12 +1541,50 @@ export const DescriptionFeedbackRequestSentiment = {
 
 export interface DescriptionFeedbackRequest {
   sentiment: DescriptionFeedbackRequestSentiment;
+  /** @minLength 1 */
   jobTitle: string;
   specialty?: string;
 }
 
 export interface DescriptionFeedbackResponse {
   ok: boolean;
+}
+
+export type AdminDescriptionFeedbackItemSentiment =
+  (typeof AdminDescriptionFeedbackItemSentiment)[keyof typeof AdminDescriptionFeedbackItemSentiment];
+
+export const AdminDescriptionFeedbackItemSentiment = {
+  up: "up",
+  down: "down",
+} as const;
+
+export interface AdminDescriptionFeedbackItem {
+  id: number;
+  sentiment: AdminDescriptionFeedbackItemSentiment;
+  jobTitle: string;
+  /** @nullable */
+  specialty: string | null;
+  /** @nullable */
+  employerUserId: string | null;
+  /** @nullable */
+  email: string | null;
+  /** @nullable */
+  companyName: string | null;
+  createdAt: string;
+}
+
+export interface AdminDescriptionFeedbackSummary {
+  /** @minimum 0 */
+  total: number;
+  /** @minimum 0 */
+  up: number;
+  /** @minimum 0 */
+  down: number;
+}
+
+export interface AdminDescriptionFeedbackInbox {
+  items: AdminDescriptionFeedbackItem[];
+  summary: AdminDescriptionFeedbackSummary;
 }
 
 export type JobApplicantComplianceConfidence =
@@ -3008,6 +3046,27 @@ export const ListAdminFeedbackStatus = {
   in_review: "in_review",
   resolved: "resolved",
   unresolved: "unresolved",
+} as const;
+
+export type ListAdminDescriptionFeedbackParams = {
+  sentiment?: ListAdminDescriptionFeedbackSentiment;
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: number;
+  /**
+   * @minimum 0
+   */
+  offset?: number;
+};
+
+export type ListAdminDescriptionFeedbackSentiment =
+  (typeof ListAdminDescriptionFeedbackSentiment)[keyof typeof ListAdminDescriptionFeedbackSentiment];
+
+export const ListAdminDescriptionFeedbackSentiment = {
+  up: "up",
+  down: "down",
 } as const;
 
 export type GetMyMatchesParams = {

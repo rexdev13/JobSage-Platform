@@ -69,6 +69,7 @@ const PrivacyPolicyPage         = lazy(() => import("@/pages/PrivacyPolicyPage")
 const TermsOfServicePage        = lazy(() => import("@/pages/TermsOfServicePage"));
 const GetStartedPage            = lazy(() => import("@/pages/GetStartedPage"));
 const HelpSupportPage           = lazy(() => import("@/pages/HelpSupportPage"));
+const FeedbackPage              = lazy(() => import("@/pages/FeedbackPage"));
 const MarketerBookingPage       = lazy(() => import("@/pages/MarketerBookingPage"));
 
 // Shared QueryClient — single instance for the whole app.
@@ -294,6 +295,7 @@ function Router() {
                 <Route path="/calendar" component={InterviewCalendarPage} />
                 <Route path="/recommendations" component={RecommendationLettersPage} />
                 <Route path="/identity" component={IdentityVerificationPage} />
+                <Route path="/feedback" component={FeedbackPage} />
 
                 <Route path="/admin/rulesets">
                   <AdminGuard><AdminRulesetsPage /></AdminGuard>

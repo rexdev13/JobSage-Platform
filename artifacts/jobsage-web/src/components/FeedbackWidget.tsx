@@ -21,7 +21,15 @@ interface FeedbackFormValues {
   email: string;
 }
 
-function FeedbackWidgetForm({ onClose, allowEmail }: { onClose: () => void; allowEmail: boolean }) {
+export function FeedbackForm({
+  onClose,
+  onSubmitted,
+  allowEmail,
+}: {
+  onClose?: () => void;
+  onSubmitted?: () => void;
+  allowEmail: boolean;
+}) {
   const { toast } = useToast();
   const submitFeedback = useSubmitFeedback();
   const form = useForm<FeedbackFormValues>({
@@ -30,7 +38,8 @@ function FeedbackWidgetForm({ onClose, allowEmail }: { onClose: () => void; allo
 
   function resetAndClose() {
     form.reset();
-    onClose();
+    onSubmitted?.();
+    onClose?.();
   }
 
   function handleSubmit(values: FeedbackFormValues) {
@@ -190,7 +199,7 @@ export function FeedbackWidget({
           <DialogTitle className="font-display text-base font-semibold text-foreground">Help us make JOBSAGE better</DialogTitle>
           <DialogDescription className="mt-1 text-xs leading-relaxed">A quick note is enough. We read every response.</DialogDescription>
         </DialogHeader>
-        <FeedbackWidgetForm onClose={onClose} allowEmail={allowEmail} />
+        <FeedbackForm onClose={onClose} allowEmail={allowEmail} />
       </DialogContent>
     </Dialog>
   );

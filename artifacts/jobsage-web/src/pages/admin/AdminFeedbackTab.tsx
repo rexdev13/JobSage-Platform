@@ -11,6 +11,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import AdminDescriptionFeedbackTab from "./AdminDescriptionFeedbackTab";
 
 type FeedbackFilter = "all" | "issue" | "idea" | "general" | "unresolved";
 type FeedbackStatus = "new" | "in_review" | "resolved";
@@ -44,7 +45,7 @@ function submitter(item: FeedbackItem) {
   return item.email ? `Guest · ${item.email}` : "Guest";
 }
 
-export default function AdminFeedbackTab() {
+function ProductFeedbackInbox() {
   const [filter, setFilter] = useState<FeedbackFilter>("all");
   const [notes, setNotes] = useState<Record<number, string>>({});
   const [savingId, setSavingId] = useState<number | null>(null);
@@ -248,5 +249,54 @@ function FeedbackRow({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+export default function AdminFeedbackTab() {
+  const [view, setView] = useState<"messages" | "ai-ratings">("messages");
+  const [hasViewedRatings, setHasViewedRatings] = useState(false);
+
+  return (
+    <section className="space-y-5" aria-labelledby="feedback-ratings-title">
+      <div>
+        <h2 id="feedback-ratings-title" className="font-display text-xl font-semibold text-foreground">Feedback &amp; ratings</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Review product feedback messages and employer ratings on AI-generated job descriptions.
+        </p>
+      </div>
+
+      <div className="flex w-fit gap-1 rounded-xl border border-border bg-muted/30 p-1" role="tablist" aria-label="Feedback sections">
+        {[
+          { id: "messages" as const, label: "Product feedback" },
+          { id: "ai-ratings" as const, label: "AI ratings" },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={view === tab.id}
+            data-testid={`button-feedback-section-${tab.id}`}
+            onClick={() => {
+              setView(tab.id);
+              if (tab.id === "ai-ratings") setHasViewedRatings(true);
+            }}
+            className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+              view === tab.id ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <div hidden={view !== "messages"}>
+        <ProductFeedbackInbox />
+      </div>
+      {hasViewedRatings && (
+        <div hidden={view !== "ai-ratings"}>
+          <AdminDescriptionFeedbackTab />
+        </div>
+      )}
+    </section>
   );
 }

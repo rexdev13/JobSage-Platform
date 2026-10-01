@@ -1426,6 +1426,56 @@ export const ListAdminFeedbackResponse = zod.object({
 });
 
 /**
+ * @summary List employer ratings for AI-generated job descriptions
+ */
+export const listAdminDescriptionFeedbackQueryLimitDefault = 50;
+export const listAdminDescriptionFeedbackQueryLimitMax = 100;
+
+export const listAdminDescriptionFeedbackQueryOffsetDefault = 0;
+export const listAdminDescriptionFeedbackQueryOffsetMin = 0;
+
+export const ListAdminDescriptionFeedbackQueryParams = zod.object({
+  sentiment: zod.enum(["up", "down"]).optional(),
+  limit: zod.coerce
+    .number()
+    .min(1)
+    .max(listAdminDescriptionFeedbackQueryLimitMax)
+    .default(listAdminDescriptionFeedbackQueryLimitDefault),
+  offset: zod.coerce
+    .number()
+    .min(listAdminDescriptionFeedbackQueryOffsetMin)
+    .default(listAdminDescriptionFeedbackQueryOffsetDefault),
+});
+
+export const listAdminDescriptionFeedbackResponseSummaryTotalMin = 0;
+
+export const listAdminDescriptionFeedbackResponseSummaryUpMin = 0;
+
+export const listAdminDescriptionFeedbackResponseSummaryDownMin = 0;
+
+export const ListAdminDescriptionFeedbackResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.number(),
+      sentiment: zod.enum(["up", "down"]),
+      jobTitle: zod.string(),
+      specialty: zod.string().nullable(),
+      employerUserId: zod.string().nullable(),
+      email: zod.string().nullable(),
+      companyName: zod.string().nullable(),
+      createdAt: zod.date(),
+    }),
+  ),
+  summary: zod.object({
+    total: zod
+      .number()
+      .min(listAdminDescriptionFeedbackResponseSummaryTotalMin),
+    up: zod.number().min(listAdminDescriptionFeedbackResponseSummaryUpMin),
+    down: zod.number().min(listAdminDescriptionFeedbackResponseSummaryDownMin),
+  }),
+});
+
+/**
  * @summary Update feedback status or admin notes
  */
 
@@ -2930,9 +2980,10 @@ export const GenerateJobDescriptionPreviewResponse = zod.object({
 /**
  * @summary Record employer thumbs up/down feedback on AI-generated job description
  */
+
 export const SubmitDescriptionFeedbackBody = zod.object({
   sentiment: zod.enum(["up", "down"]),
-  jobTitle: zod.string(),
+  jobTitle: zod.string().min(1),
   specialty: zod.string().optional(),
 });
 
