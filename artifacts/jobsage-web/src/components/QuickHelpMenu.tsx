@@ -30,7 +30,7 @@ export function QuickHelpMenu({ guestOnly = false, onOpenReadiness }: QuickHelpM
 
   return (
     <>
-      <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-2 sm:bottom-6 sm:right-6">
+      <div className="fixed bottom-24 right-5 z-50 flex flex-col items-end gap-2 sm:bottom-24 sm:right-6">
         {menuOpen && (
           <div
             className="z-50 w-56 animate-in fade-in slide-in-from-bottom-2 rounded-2xl border border-border bg-background p-2 shadow-xl duration-150"
