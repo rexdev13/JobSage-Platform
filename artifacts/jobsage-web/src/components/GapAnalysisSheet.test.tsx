@@ -23,6 +23,8 @@ vi.mock("@/components/ui/sheet", () => ({
 }));
 
 import { GapAnalysisSheet } from "./GapAnalysisSheet";
+import { ReadinessQuotaModal } from "./ReadinessQuotaModal";
+import { getGetReadinessQuotaQueryKey } from "@workspace/api-client-react";
 
 const analysis = {
   matchedRequirements: ["Three years of ward experience"],
@@ -41,7 +43,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 function renderSheet(queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-})) {
+}), showQuotaModal = false) {
   const view = render(
     <QueryClientProvider client={queryClient}>
       <GapAnalysisSheet
@@ -56,6 +58,7 @@ function renderSheet(queryClient = new QueryClient({
         analysisSource="role"
         onApply={vi.fn()}
       />
+      {showQuotaModal && <ReadinessQuotaModal open onClose={vi.fn()} />}
     </QueryClientProvider>,
   );
   return { ...view, queryClient };
@@ -193,5 +196,95 @@ describe("GapAnalysisSheet readiness claims", () => {
       title: "Readiness Check limit reached",
       description: "You have used all 3 of your Readiness Checks.",
     }));
+  });
+
+  it.each(["booster_pack", "pro_subscription"] as const)("unblocks the mounted sheet after a sandbox %s upgrade", async (purchase) => {
+    let upgraded = false;
+    let analysisRequests = 0;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const usage = {
+        used: 3, limit: 3, resetsAt: "2026-11-01T00:00:00.000Z",
+        plan: upgraded && purchase === "pro_subscription" ? "pro" : "free",
+        bonusRemaining: upgraded && purchase === "booster_pack" ? 20 : 0,
+      };
+      if (url.endsWith("/checkout/create-session")) {
+        expect(JSON.parse(String(init?.body))).toEqual({ type: purchase, currency: "gbp" });
+        upgraded = true;
+        return jsonResponse({
+          success: true, sandboxCompleted: true, checkoutUrl: null,
+          currency: "gbp", amount: purchase === "booster_pack" ? 499 : 1599,
+          bonusChecks: purchase === "booster_pack" ? 20 : 0, description: "Sandbox offer",
+        });
+      }
+      if (url.endsWith("/readiness/quota") || url.endsWith("/gap-analyses/usage")) return jsonResponse(usage);
+      if (url.endsWith("/readiness/claims")) return jsonResponse({ claims: [] });
+      if (url.endsWith("/opportunities/roles/42/gap-analysis")) {
+        analysisRequests++;
+        return upgraded ? jsonResponse(analysis) : jsonResponse({ error: "Limit reached" }, 429);
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { queryClient } = renderSheet(undefined, true);
+    const invalidations = vi.spyOn(queryClient, "invalidateQueries");
+    await screen.findByText(/You have used all 3 of your Readiness Checks this month/);
+    expect(screen.getByText("£4.99")).toBeTruthy();
+    expect(screen.getByText("£15.99")).toBeTruthy();
+    expect(screen.getByText("20 additional checks")).toBeTruthy();
+    fireEvent.click(document.querySelector(`[data-testid="${purchase === "booster_pack" ? "button-buy-booster" : "button-buy-pro"}"]`)!);
+    await screen.findByText("Enhanced DBS is not shown");
+    expect(screen.queryByText(/You have used all 3 of your Readiness Checks this month/)).toBeNull();
+    expect(analysisRequests).toBe(2);
+    expect(invalidations).toHaveBeenCalledWith({ queryKey: ["gap-analysis-usage"] });
+    expect(invalidations).toHaveBeenCalledWith({ queryKey: ["my-profile"] });
+  });
+
+  it.each([
+    { plan: "pro", bonusRemaining: 0 },
+    { plan: "free", bonusRemaining: 20 },
+    { plan: "free", bonusRemaining: 0, used: 0 },
+  ])("clears a blocked sheet when usage refresh restores access: %j", async (access) => {
+    let restored = false;
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/readiness/claims")) return jsonResponse({ claims: [] });
+      if (url.endsWith("/gap-analyses/usage")) {
+        return jsonResponse({
+          used: restored && "used" in access ? access.used : 3,
+          limit: 3,
+          plan: restored ? access.plan : "free",
+          bonusRemaining: restored ? access.bonusRemaining : 0,
+        });
+      }
+      if (url.endsWith("/opportunities/roles/42/gap-analysis")) {
+        return restored ? jsonResponse(analysis) : jsonResponse({ error: "Limit reached" }, 429);
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    }));
+    const { queryClient } = renderSheet();
+    await screen.findByText(/You have used all 3 of your Readiness Checks this month/);
+    restored = true;
+    await queryClient.invalidateQueries({ queryKey: ["gap-analysis-usage"] });
+    await screen.findByText("Enhanced DBS is not shown");
+    expect(screen.queryByText(/You have used all 3 of your Readiness Checks this month/)).toBeNull();
+  });
+
+  it("refreshes both usage views after generating a fresh analysis that consumes a check", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/readiness/claims")) return jsonResponse({ claims: [] });
+      if (url.endsWith("/gap-analyses/usage")) return jsonResponse({ used: 3, limit: 3, plan: "free", bonusRemaining: 19 });
+      if (url.endsWith("/opportunities/roles/42/gap-analysis")) return jsonResponse({ ...analysis, fromCache: false });
+      throw new Error(`Unexpected request: ${url}`);
+    }));
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidations = vi.spyOn(queryClient, "invalidateQueries");
+    renderSheet(queryClient);
+    await screen.findByText("Enhanced DBS is not shown");
+    await waitFor(() => {
+      expect(invalidations).toHaveBeenCalledWith({ queryKey: ["gap-analysis-usage"] });
+      expect(invalidations).toHaveBeenCalledWith({ queryKey: getGetReadinessQuotaQueryKey() });
+    });
   });
 });

@@ -3,7 +3,11 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import request from "supertest";
 
-const { dbResults } = vi.hoisted(() => ({ dbResults: [] as any[] }));
+const { dbResults, deletedTables, updateValues } = vi.hoisted(() => ({
+  dbResults: [] as any[],
+  deletedTables: vi.fn(),
+  updateValues: vi.fn(),
+}));
 
 vi.mock("@workspace/db", () => {
   function makeChain(): any {
@@ -14,7 +18,7 @@ vi.mock("@workspace/db", () => {
       groupBy() { return chain; },
       limit() { return chain; },
       values() { return chain; },
-      set() { return chain; },
+      set(values: unknown) { updateValues(values); return chain; },
       innerJoin() { return chain; },
       $dynamic() { return chain; },
       then(resolve: any, reject?: any) {
@@ -31,7 +35,7 @@ vi.mock("@workspace/db", () => {
       selectDistinct: () => makeChain(),
       insert: () => makeChain(),
       update: () => makeChain(),
-      delete: () => makeChain(),
+      delete: (table: unknown) => { deletedTables(table); return makeChain(); },
       execute: vi.fn(async () => ({ rows: [] })),
     },
     sponsorLicencesTable: {},
@@ -43,6 +47,9 @@ vi.mock("@workspace/db", () => {
     applicationsTable: {},
     speculativeApplicationsTable: {},
     profilesTable: {},
+    usersTable: {},
+    sponsorLicenceGapAnalysesTable: {},
+    roleGapAnalysesTable: {},
   };
 });
 
@@ -102,6 +109,67 @@ function buildApp() {
 }
 
 const AUTH = ["Authorization", "Bearer sess"] as const;
+
+describe("non-destructive readiness quota reset", () => {
+  beforeEach(() => {
+    dbResults.length = 0;
+    deletedTables.mockClear();
+    updateValues.mockClear();
+    sessionUser.current = { id: "admin-1", role: "admin" };
+  });
+
+  it.each([
+    ["POST", "admin"],
+    ["DELETE", "admin"],
+    ["POST", "super_admin"],
+    ["DELETE", "super_admin"],
+  ])("preserves history through the %s reset route as %s", async (method, role) => {
+    sessionUser.current = { id: "admin-1", role };
+    dbResults.push([{ id: "candidate-reset" }]);
+    const app = request(buildApp());
+    const response = await (method === "POST"
+      ? app.post("/sponsor-licences/gap-analyses/candidate-reset/reset")
+      : app.delete("/sponsor-licences/gap-analyses/candidate-reset"))
+      .set(...AUTH);
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ reset: true });
+    expect(updateValues).toHaveBeenCalledWith({ readinessQuotaResetAt: expect.any(Date) });
+    expect(deletedTables).not.toHaveBeenCalled();
+  });
+
+  it("lets super admins view the candidate quota in the Super Admin panel", async () => {
+    sessionUser.current = { id: "super-admin-1", role: "super_admin" };
+    dbResults.push(
+      [{ plan: "free", bonusReadinessChecks: 7, subscriptionExpiresAt: null, readinessQuotaResetAt: null }],
+      [{ count: 1 }],
+      [{ count: 2 }],
+    );
+    const response = await request(buildApp())
+      .get("/sponsor-licences/gap-analyses/usage/candidate-reset")
+      .set(...AUTH);
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ used: 3, limit: 3, bonusRemaining: 7 });
+  });
+
+  it("rejects candidate attempts without modifying data", async () => {
+    sessionUser.current = { id: "candidate-reset", role: "candidate" };
+    const response = await request(buildApp())
+      .post("/sponsor-licences/gap-analyses/candidate-reset/reset")
+      .set(...AUTH);
+    expect(response.status).toBe(403);
+    expect(updateValues).not.toHaveBeenCalled();
+    expect(deletedTables).not.toHaveBeenCalled();
+  });
+
+  it("returns not found rather than a false success for a missing candidate", async () => {
+    dbResults.push([]);
+    const response = await request(buildApp())
+      .post("/sponsor-licences/gap-analyses/missing/reset")
+      .set(...AUTH);
+    expect(response.status).toBe(404);
+    expect(deletedTables).not.toHaveBeenCalled();
+  });
+});
 
 describe("POST /sponsor-licences/check-all-vacancies (admin gate)", () => {
   beforeEach(() => {

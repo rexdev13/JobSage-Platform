@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getGetReadinessQuotaQueryKey } from "@workspace/api-client-react";
 import {
   Sheet,
   SheetContent,
@@ -189,6 +190,7 @@ export function GapAnalysisSheet({
   useEffect(() => {
     if (data && !data.fromCache) {
       void queryClient.invalidateQueries({ queryKey: ["gap-analysis-usage"] });
+      void queryClient.invalidateQueries({ queryKey: getGetReadinessQuotaQueryKey() });
     }
   }, [data, queryClient]);
 

@@ -15,7 +15,7 @@ import { runVacancyCheck } from "../lib/vacancyCheckHelper";
 import { startCheckAllVacancies, getCheckAllStatus } from "../lib/vacancyCheckAllRunner";
 import { scoreVacanciesForCompany } from "../lib/sponsorVacancyScoring";
 import { getOrGenerateGapAnalysis, LimitReachedError } from "../lib/vacancyGapAnalysis";
-import { getReadinessQuota, READINESS_CHECK_LIMIT } from "../lib/readinessQuota";
+import { getNextReadinessReset, getReadinessQuota, READINESS_CHECK_LIMIT } from "../lib/readinessQuota";
 import { getDirectContactEligibility } from "../lib/employerRecipient";
 import { SPONSOR_VACANCY_ID_OFFSET, classifyVacancyCategory, inferSafeguardingRequirements, inferVacancySponsorshipStatus } from "../lib/sponsorVacancyRoles";
 import { opportunityRegistrationLabel } from "../lib/opportunityProfession";
@@ -1099,7 +1099,7 @@ router.get("/sponsor-licences/gap-analyses/usage", requireAuthenticated, async (
 
 // ── Gap Analysis Admin: view and reset a candidate's quota ────────────────────
 
-router.get("/sponsor-licences/gap-analyses/usage/:userId", requireRole("admin"), async (req, res) => {
+router.get("/sponsor-licences/gap-analyses/usage/:userId", requireRole("admin", "super_admin"), async (req, res) => {
   try {
     const targetUserId = typeof req.params["userId"] === "string" ? req.params["userId"] : "";
     if (!targetUserId) return void res.status(400).json({ error: "Invalid user ID." });
@@ -1126,9 +1126,9 @@ const resetQuota: RequestHandler = async (req, res) => {
   }
 };
 
-router.post("/sponsor-licences/gap-analyses/:userId/reset", requireRole("admin"), resetQuota);
+router.post("/sponsor-licences/gap-analyses/:userId/reset", requireRole("admin", "super_admin"), resetQuota);
 // Keep legacy callers safe: this route no longer deletes analysis history.
-router.delete("/sponsor-licences/gap-analyses/:userId", requireRole("admin"), resetQuota);
+router.delete("/sponsor-licences/gap-analyses/:userId", requireRole("admin", "super_admin"), resetQuota);
 
 // ── Gap Analysis ──────────────────────────────────────────────────────────────
 // Deep per-vacancy AI gap analysis. Cached for 7 days per user+vacancy.

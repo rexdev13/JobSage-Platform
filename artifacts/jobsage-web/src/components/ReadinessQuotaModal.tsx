@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
-import { getGetCurrentAuthUserQueryKey, getGetReadinessQuotaQueryKey, useCreateCheckoutSession, useGetReadinessQuota } from "@workspace/api-client-react";
+import { getGetCurrentAuthUserQueryKey, getGetMyProfileQueryKey, getGetReadinessQuotaQueryKey, useCreateCheckoutSession, useGetReadinessQuota } from "@workspace/api-client-react";
 import { Button } from "@/components/ui-enhanced";
 import { useToast } from "@/hooks/use-toast";
 import { Check, ExternalLink, Loader2, ShieldCheck, Sparkles, X } from "lucide-react";
@@ -22,12 +23,7 @@ export function ReadinessQuotaModal({ open, onClose }: { open: boolean; onClose:
   useEffect(() => {
     if (!open) return;
     setSandboxMessage(null);
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handleEscape);
-    return () => window.removeEventListener("keydown", handleEscape);
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
   const quota = quotaQuery.data;
@@ -52,6 +48,7 @@ export function ReadinessQuotaModal({ open, onClose }: { open: boolean; onClose:
           queryClient.invalidateQueries({ queryKey: getGetReadinessQuotaQueryKey() }),
           queryClient.invalidateQueries({ queryKey: ["gap-analysis-usage"] }),
           queryClient.invalidateQueries({ queryKey: ["my-profile"] }),
+          queryClient.invalidateQueries({ queryKey: getGetMyProfileQueryKey() }),
           queryClient.invalidateQueries({ queryKey: getGetCurrentAuthUserQueryKey() }),
         ]);
         window.dispatchEvent(new CustomEvent("jobsage:readiness-upgraded"));
@@ -66,11 +63,14 @@ export function ReadinessQuotaModal({ open, onClose }: { open: boolean; onClose:
   }
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center p-3 sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-labelledby="readiness-quota-title">
-      <button type="button" data-testid="button-close-quota-backdrop" aria-label="Close Readiness Check quota" className="absolute inset-0 cursor-default bg-foreground/35 backdrop-blur-sm" onClick={onClose} />
-      <section className="relative max-h-[92dvh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-border bg-background shadow-2xl">
+    <DialogPrimitive.Root open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}>
+    <DialogPrimitive.Portal>
+      <DialogPrimitive.Overlay data-testid="button-close-quota-backdrop" className="fixed inset-0 z-[80] cursor-default bg-foreground/35 backdrop-blur-sm" />
+      <div className="pointer-events-none fixed inset-0 z-[81] flex items-end justify-center p-3 sm:items-center sm:p-6">
+      <DialogPrimitive.Content asChild aria-describedby={undefined}>
+      <section className="pointer-events-auto relative max-h-[92dvh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-border bg-background shadow-2xl">
         <div className="flex items-start justify-between border-b border-border/70 p-5 sm:p-7">
-          <div><p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">Readiness Checks</p><h2 id="readiness-quota-title" className="mt-2 text-2xl font-bold">Keep moving with a clearer application</h2><p className="mt-1 text-sm text-muted-foreground">Use checks to compare your profile and CV with the role criteria.</p></div>
+          <div><p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">Readiness Checks</p><DialogPrimitive.Title asChild><h2 className="mt-2 text-2xl font-bold">Keep moving with a clearer application</h2></DialogPrimitive.Title><p className="mt-1 text-sm text-muted-foreground">Use checks to compare your profile and CV with the role criteria.</p></div>
           <button type="button" data-testid="button-close-quota" aria-label="Close Readiness Check quota" onClick={onClose} className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><X className="h-5 w-5" /></button>
         </div>
         <div className="space-y-6 p-5 sm:p-7">
@@ -100,6 +100,9 @@ export function ReadinessQuotaModal({ open, onClose }: { open: boolean; onClose:
           <div className="flex flex-col gap-2 border-t border-border/70 pt-4 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between"><span>Need help with a receipt, cancellation or billing term?</span><Link href="/support#contact" onClick={onClose} className="inline-flex items-center gap-1 font-semibold text-primary hover:underline" data-testid="link-quota-support">Contact support <ExternalLink className="h-3 w-3" /></Link></div>
         </div>
       </section>
-    </div>
+      </DialogPrimitive.Content>
+      </div>
+    </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }
