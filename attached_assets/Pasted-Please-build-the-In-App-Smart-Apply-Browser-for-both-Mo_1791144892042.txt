@@ -1,0 +1,48 @@
+Please build the In-App Smart Apply Browser for both Mobile and Desktop directly within the JobSage web app, using our existing Chrome extension's battle-tested detection and prefill engine as the direct blueprint. 
+
+Candidates must be able to click "Smart Apply" and have the application form open inside an embedded in-app browser with a collapsible sidebar/drawer that prefills all fields in one click and auto-tracks submissions—with zero need to install an extension.
+
+Here is the exact implementation specification:
+
+1. Blueprint Code to Reuse from `artifacts/chrome-extension`:
+   - `artifacts/chrome-extension/src/lib/questionDetector.ts` (949 lines): Already detects free-text questions, char/word limits, required tags, and ATS fields on NHS Jobs, Trac, Workday, etc.
+   - `artifacts/chrome-extension/src/lib/prefill.ts` (307 lines): Already handles matching candidate profile data (Name, Contact, Address, NMC/GMC PIN, Qualifications, Eligibility) and safely populates DOM fields with real input/change events.
+   - `artifacts/chrome-extension/src/lib/trackerDetector.ts`: Already detects when an application reaches confirmation/thank-you screens to auto-track.
+   - `artifacts/chrome-extension/src/components/Sidebar.tsx`: Blueprint for the assistant UI.
+
+2. Backend Application Proxy Route (`artifacts/api-server/src/routes/smartApplyProxy.ts`):
+   - Create a secure streaming proxy endpoint: `GET /api/smart-apply/proxy?url=...` (authenticated with candidate session).
+   - When given an external apply URL (e.g. from NHS Jobs, Trac, or employer site):
+     a) Fetch the external HTML with cookie/session persistence.
+     b) Strip headers that block embedding in iframes: remove `X-Frame-Options` and sanitize restrictive `Content-Security-Policy` headers.
+     c) Rewrite relative links, stylesheets, scripts, and form action URLs so they route through the proxy.
+     d) Inject a lightweight client runtime script `<script src="/smart-apply-inpage-bridge.js"></script>` into the HTML `<head>`.
+     e) Forward POST requests from forms back to the destination server through the proxy.
+
+3. Injected In-Page Bridge (`smart-apply-inpage-bridge.js`):
+   - Package the logic from `questionDetector.ts`, `prefill.ts`, and `trackerDetector.ts` into a lightweight script.
+   - Communicates with the parent JobSage window via `window.postMessage`:
+     - On load: Scans DOM and sends `{ type: "QUESTIONS_DETECTED", count, questions }` to parent.
+     - When receiving `{ type: "PREFILL_REQUEST", candidateProfile }`: Runs `prefill.ts` logic to populate all matching inputs, selects, and textareas, and returns `{ type: "PREFILL_COMPLETE", summary }`.
+     - When `trackerDetector.ts` detects confirmation text (e.g. "Application received", "Thank you for applying", reference number): Dispatches `{ type: "APPLICATION_SUBMITTED", externalId, url }` to parent.
+
+4. Frontend In-App Smart Apply Modal (`artifacts/jobsage-web/src/components/InAppSmartApplyModal.tsx`):
+   - Create a modal that hosts the proxied application inside an embedded frame:
+     - On Desktop: Full-screen or large viewport with a collapsible right sidebar (inspired by `Sidebar.tsx`) showing:
+       * "Prefill All Details" one-click button.
+       * Detected questions list with AI-generated answers and "Insert" buttons.
+       * Candidate profile preview chip.
+     - On Mobile: Full-screen view with a floating bottom bar ("Smart Apply Assistant") that expands into a bottom drawer with 1-tap prefill and quick-copy chips (NMC/GMC PIN, personal statement).
+   - Tracking Listener: When the frame posts `APPLICATION_SUBMITTED`:
+     - Calls `POST /api/applications` with status `"applied"`.
+     - Displays a success celebration banner: "Application submitted and tracked in your JobSage pipeline!"
+
+5. Replace the "Extension Required" Gate:
+   - In `artifacts/jobsage-web/src/components/SmartApplyModal.tsx` and wherever `isExtensionInstalled()` or `ExtensionRequiredModal` is invoked:
+     - Allow candidates on both mobile and desktop to open the In-App Smart Apply Browser directly.
+     - Remove the hard block requiring the extension to be installed.
+
+6. Verification:
+   - Run existing unit tests (`npm test` or `pnpm test`).
+   - Test loading a mock NHS Jobs / Trac form through the proxy, ensuring fields are detected and 1-click prefill successfully populates the inputs.
+   - Verify that reaching the success page automatically marks the job as tracked in the database.
