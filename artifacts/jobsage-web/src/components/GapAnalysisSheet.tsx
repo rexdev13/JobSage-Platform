@@ -120,7 +120,7 @@ export function GapAnalysisSheet({
         window.dispatchEvent(new CustomEvent("jobsage:readiness-limit-reached"));
         toast({
           title: "Readiness Check limit reached",
-          description: "You have used all 10 of your Readiness Checks.",
+          description: `You have used all ${usage?.limit ?? 3} of your Readiness Checks.`,
           variant: "destructive",
         });
         throw new Error("LIMIT_REACHED");
@@ -179,7 +179,7 @@ export function GapAnalysisSheet({
   }
 
   // When a fresh (non-cached) result arrives, invalidate the usage counter so
-  // the X/10 badge reflects the new count without waiting for the 60s stale time.
+  // the usage badge reflects the new count without waiting for a stale-time window.
   useEffect(() => {
     if (data && !data.fromCache) {
       void queryClient.invalidateQueries({ queryKey: ["gap-analysis-usage"] });
@@ -237,7 +237,7 @@ export function GapAnalysisSheet({
                   Readiness Check limit reached
                 </p>
                 <p className="text-xs text-amber-700/80 dark:text-amber-400/70 mt-1">
-                  You have used all 10 of your Readiness Checks this month. New checks become available on{" "}
+                  You have used all {usage?.limit ?? 3} of your Readiness Checks this month. New checks become available on{" "}
                   {usage?.resetsAt
                     ? new Date(usage.resetsAt).toLocaleDateString("en-GB", { day: "numeric", month: "long" })
                     : "the first day of next month"}

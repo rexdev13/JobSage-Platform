@@ -10,7 +10,7 @@ import type { ReadinessQuotaPlan } from "./readinessQuotaPlan";
 export interface ReadinessQuota {
   /** @minimum 0 */
   used: number;
-  limit: 10;
+  limit: 3;
   /** @minimum 0 */
   bonusRemaining: number;
   plan: ReadinessQuotaPlan;

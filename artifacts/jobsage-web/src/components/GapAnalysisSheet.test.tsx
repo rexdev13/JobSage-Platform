@@ -89,7 +89,7 @@ describe("GapAnalysisSheet readiness claims", () => {
             : [],
         });
       }
-      if (url.endsWith("/gap-analyses/usage")) return jsonResponse({ used: 1, limit: 10 });
+      if (url.endsWith("/gap-analyses/usage")) return jsonResponse({ used: 1, limit: 3 });
       if (url.endsWith("/opportunities/roles/42/gap-analysis")) return jsonResponse(analysis);
       throw new Error(`Unexpected request: ${url}`);
     });
@@ -125,7 +125,7 @@ describe("GapAnalysisSheet readiness claims", () => {
         return jsonResponse({ error: "Temporary failure" }, 500);
       }
       if (url.endsWith("/readiness/claims")) return jsonResponse({ claims: [] });
-      if (url.endsWith("/gap-analyses/usage")) return jsonResponse({ used: 1, limit: 10 });
+      if (url.endsWith("/gap-analyses/usage")) return jsonResponse({ used: 1, limit: 3 });
       if (url.endsWith("/opportunities/roles/42/gap-analysis")) return jsonResponse(analysis);
       throw new Error(`Unexpected request: ${url}`);
     });
@@ -155,7 +155,7 @@ describe("GapAnalysisSheet readiness claims", () => {
           }],
         });
       }
-      if (url.endsWith("/gap-analyses/usage")) return jsonResponse({ used: 1, limit: 10 });
+      if (url.endsWith("/gap-analyses/usage")) return jsonResponse({ used: 1, limit: 3 });
       if (url.endsWith("/opportunities/roles/42/gap-analysis")) {
         return jsonResponse({
           ...analysis,
@@ -173,5 +173,25 @@ describe("GapAnalysisSheet readiness claims", () => {
     expect(screen.queryByRole("button", {
       name: "I already have this: Venipuncture experience is not shown",
     })).toBeNull();
+  });
+
+  it("shows the server quota in the badge, denial toast and limit banner", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/readiness/claims")) return jsonResponse({ claims: [] });
+      if (url.endsWith("/gap-analyses/usage")) return jsonResponse({ used: 3, limit: 3 });
+      if (url.endsWith("/opportunities/roles/42/gap-analysis")) {
+        return jsonResponse({ error: "Readiness Check limit reached." }, 429);
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    }));
+
+    renderSheet();
+    await screen.findByText("3/3 this month");
+    await screen.findByText(/You have used all 3 of your Readiness Checks this month/);
+    expect(toastMock).toHaveBeenCalledWith(expect.objectContaining({
+      title: "Readiness Check limit reached",
+      description: "You have used all 3 of your Readiness Checks.",
+    }));
   });
 });

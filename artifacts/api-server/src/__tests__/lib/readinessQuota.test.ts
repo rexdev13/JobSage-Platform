@@ -3,6 +3,7 @@ import {
   decideReadinessAccess,
   getNextReadinessReset,
   getReadinessMonthStart,
+  READINESS_CHECK_LIMIT,
 } from "../../lib/readinessQuota";
 
 describe("readiness monthly quota boundaries", () => {
@@ -20,12 +21,16 @@ describe("readiness monthly quota boundaries", () => {
 describe("readiness access decision", () => {
   const now = new Date("2026-09-30T12:00:00Z");
 
-  it("uses the monthly allowance before purchased checks", () => {
+  it("sets the free monthly allowance to three checks", () => {
+    expect(READINESS_CHECK_LIMIT).toBe(3);
+  });
+
+  it.each([0, 1, 2])("uses the monthly allowance before purchased checks at %i used", (used) => {
     expect(decideReadinessAccess({
       plan: "free",
       bonusReadinessChecks: 25,
       subscriptionExpiresAt: null,
-    }, 9, now)).toBe("monthly");
+    }, used, now)).toBe("monthly");
   });
 
   it("uses a purchased check after the free monthly allowance is exhausted", () => {
@@ -33,15 +38,15 @@ describe("readiness access decision", () => {
       plan: "free",
       bonusReadinessChecks: 1,
       subscriptionExpiresAt: null,
-    }, 10, now)).toBe("bonus");
+    }, 3, now)).toBe("bonus");
   });
 
-  it("blocks free users at the limit when no purchased checks remain", () => {
+  it.each([3, 4, 10])("blocks free users with no purchased checks at %i used", (used) => {
     expect(decideReadinessAccess({
       plan: "free",
       bonusReadinessChecks: 0,
       subscriptionExpiresAt: null,
-    }, 10, now)).toBe("denied");
+    }, used, now)).toBe("denied");
   });
 
   it("unlocks unlimited checks only while a Pro subscription is active", () => {
@@ -54,6 +59,6 @@ describe("readiness access decision", () => {
       plan: "pro",
       bonusReadinessChecks: 0,
       subscriptionExpiresAt: new Date("2026-09-30T11:59:59Z"),
-    }, 10, now)).toBe("denied");
+    }, 3, now)).toBe("denied");
   });
 });

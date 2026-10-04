@@ -32,7 +32,7 @@ export function ReadinessQuotaModal({ open, onClose }: { open: boolean; onClose:
   if (!open) return null;
   const quota = quotaQuery.data;
   const used = quota?.used ?? 0;
-  const limit = quota?.limit ?? 10;
+  const limit = quota?.limit ?? 3;
   const percent = quota ? Math.min(100, Math.round((used / limit) * 100)) : 0;
 
   async function beginCheckout(type: "booster_pack" | "pro_subscription") {

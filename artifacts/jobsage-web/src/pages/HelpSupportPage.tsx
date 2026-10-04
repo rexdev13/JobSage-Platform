@@ -42,7 +42,7 @@ const GROUPS: FaqGroup[] = [
     intro: "Understand what a check can tell you before you spend time on an application.",
     items: [
       { question: "How does the AI check my CV against employer criteria?", answer: "The analysis compares information from your profile and available CV evidence with the role requirements, then highlights matches, gaps and practical next steps. It is advisory: review the result and never treat an AI output as legal, regulatory or hiring advice." },
-      { question: "How do the 10 free monthly checks work?", answer: "Every free plan receives 10 Readiness Checks per calendar month. The quota card shows the next reset date at 00:00 UTC. Cached results and refreshes of an existing analysis are free; a new analysis uses one check." },
+      { question: "How do the 3 free monthly checks work?", answer: "Every free plan receives 3 Readiness Checks per calendar month. The quota card shows the next reset date at 00:00 UTC. Cached results and refreshes of an existing analysis are free; a new analysis uses one check." },
       { question: "What is the difference between a booster pack and Pro?", answer: "A Check Booster Pack adds 25 one-time checks for $5.99. JobSage Pro costs $19.99 per month and provides unlimited Readiness Checks plus priority AI gap analysis. Checkout availability is always shown clearly before you continue." },
     ],
   },

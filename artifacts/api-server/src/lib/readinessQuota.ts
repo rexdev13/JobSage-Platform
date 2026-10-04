@@ -6,7 +6,7 @@ import {
   usersTable,
 } from "@workspace/db";
 
-export const READINESS_CHECK_LIMIT = 10;
+export const READINESS_CHECK_LIMIT = 3;
 export const READINESS_BOOSTER_CHECKS = 25;
 
 export type ReadinessPlan = "free" | "pro";

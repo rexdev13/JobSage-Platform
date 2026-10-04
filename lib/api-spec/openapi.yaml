@@ -8566,7 +8566,7 @@ components:
           minimum: 0
         limit:
           type: integer
-          const: 10
+          const: 3
         bonusRemaining:
           type: integer
           minimum: 0

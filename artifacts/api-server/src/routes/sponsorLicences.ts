@@ -1166,7 +1166,7 @@ router.delete("/sponsor-licences/gap-analyses/:userId", requireRole("admin"), as
 
 // ── Gap Analysis ──────────────────────────────────────────────────────────────
 // Deep per-vacancy AI gap analysis. Cached for 7 days per user+vacancy.
-// Monthly limit: 10 new analyses per candidate (enforced in vacancyGapAnalysis.ts).
+// Monthly limit: READINESS_CHECK_LIMIT new analyses per candidate (enforced in vacancyGapAnalysis.ts).
 
 router.get("/sponsor-licences/vacancies/:vacancyId/gap-analysis", requireAuthenticated, async (req, res) => {
   try {
@@ -1183,7 +1183,7 @@ router.get("/sponsor-licences/vacancies/:vacancyId/gap-analysis", requireAuthent
   } catch (err) {
     if (err instanceof LimitReachedError) {
       res.status(429).json({
-        error: "You have used all 10 of your Readiness Checks this month.",
+        error: `You have used all ${READINESS_CHECK_LIMIT} of your Readiness Checks this month.`,
         resetsAt: getNextReadinessReset().toISOString(),
       });
       return;
