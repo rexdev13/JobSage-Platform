@@ -1,3 +1,5 @@
+import { beginAssistedApplication, shouldUseAssistedWorkspace } from "./assistedApplication";
+
 type ToastFn = (opts: { title: string; description: string; variant?: "default" | "destructive" }) => void;
 
 export type TrackedOutboundSource = "sponsor" | "careers" | "role-website";
@@ -46,6 +48,10 @@ export async function openTrackedOutbound({
   vacancy?: TrackedVacancyContext;
 }): Promise<void> {
   const outboundUrl = appendJobSageRef(url);
+  if (vacancy && shouldUseAssistedWorkspace()) {
+    await beginAssistedApplication(outboundUrl, vacancy, onTracked);
+    return;
+  }
   // A vacancy context is the explicit intent signal. Employer/careers-site
   // navigation deliberately omits it, so it never creates a vacancy record.
   if (vacancy) {

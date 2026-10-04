@@ -1791,6 +1791,7 @@ export const ListMyApplicationsResponse = zod.object({
       roleId: zod.number(),
       status: zod.enum([
         "link_clicked",
+        "in_progress",
         "applied",
         "shortlisted",
         "interview",
@@ -1863,10 +1864,10 @@ export const MarkApplicationBody = zod.object({
     .optional()
     .describe("Extension compatibility alias for applicationUrl."),
   status: zod
-    .enum(["link_clicked", "applied"])
+    .enum(["link_clicked", "in_progress", "applied"])
     .optional()
     .describe(
-      "Website clicks use link_clicked; extension confirmation upgrades the same URL to applied.",
+      "Desktop clicks use link_clicked and assisted applications use in_progress. Confirmation promotes the same URL to applied.",
     ),
 });
 
@@ -1876,6 +1877,7 @@ export const MarkApplicationResponse = zod.object({
   roleId: zod.number(),
   status: zod.enum([
     "link_clicked",
+    "in_progress",
     "applied",
     "shortlisted",
     "interview",
@@ -1937,6 +1939,7 @@ export const ConfirmApplicationSubmissionResponse = zod.object({
     roleId: zod.number(),
     status: zod.enum([
       "link_clicked",
+      "in_progress",
       "applied",
       "shortlisted",
       "interview",

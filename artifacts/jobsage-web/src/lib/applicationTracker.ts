@@ -43,6 +43,7 @@ export type ApplicationProcessStage = 0 | 1 | 2 | 3;
 export function getApplicationProcessStage(status: string): ApplicationProcessStage {
   switch (status) {
     case "link_clicked":
+    case "in_progress":
       return 0;
     case "interview":
     case "interview_invited":

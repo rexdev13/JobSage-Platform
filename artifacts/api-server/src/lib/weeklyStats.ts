@@ -38,6 +38,10 @@ export function buildWeeklyApplicationStats(
   for (const application of applications) {
     if (!isWithinLastSevenDays(application.appliedAt, now)) continue;
     stats.total += 1;
+    if (application.status === "in_progress") {
+      stats.link_clicked += 1;
+      continue;
+    }
     if (APPLICATION_STATUSES.includes(application.status as (typeof APPLICATION_STATUSES)[number])) {
       stats[application.status as (typeof APPLICATION_STATUSES)[number]] += 1;
     }

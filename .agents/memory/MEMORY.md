@@ -86,4 +86,5 @@
 - [Sponsor URL import fan-out](sponsor-url-import-fanout.md) — only fan out identical complete identities to blank rows; manual crosswalks select one target and held rows stay outside vacancy inputs.
 - [Secret scope verification](secret-scope-verification.md) — confirm published-app scope; production environment changes require republishing before they take effect.
 - [Git authentication and merge-safe pushes](git-auth-vs-connectors.md) — CLI auth is separate from connectors; inspect and preserve merge commits when Git-pane sync triggers a rebase.
-- [In-app Smart Apply scope](smart-apply-browser-scope.md) — mobile and desktop no-install flow; reuse extension engines and distinguish clicks from submissions.
+- [In-app Smart Apply scope](smart-apply-browser-scope.md) — preserve desktop extension; mobile/no-extension assisted flow uses no cloud browser and distinguishes starts from submissions.
+- [Mobile tab-return testing](mobile-tab-lifecycle-testing.md) — headless tab activation may not change focus/visibility; separate simulated handlers from genuine returns.

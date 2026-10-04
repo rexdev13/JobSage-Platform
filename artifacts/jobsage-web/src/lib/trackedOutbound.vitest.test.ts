@@ -1,8 +1,15 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { openTrackedOutbound, openTrackedSponsorVacancy } from "./trackedOutbound";
 
 describe("tracked outbound navigation", () => {
+  beforeEach(() => {
+    const marker = document.createElement("div");
+    marker.id = "jobsage-extension-root";
+    document.body.appendChild(marker);
+    vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false })));
+  });
   afterEach(() => {
+    document.getElementById("jobsage-extension-root")?.remove();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });

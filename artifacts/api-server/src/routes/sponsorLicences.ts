@@ -364,7 +364,7 @@ router.get("/sponsor-licences/:id/vacancies", requireAuthenticated, async (req, 
     ]);
     const appliedRoleIds = new Set(
       appliedApps
-        .filter((application) => application.status !== "link_clicked")
+        .filter((application) => application.status !== "link_clicked" && application.status !== "in_progress")
         .map((application) => application.roleId),
     );
     const cvSentRoleIds = new Set(

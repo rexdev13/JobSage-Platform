@@ -841,6 +841,7 @@ export type ApplicationStatus =
 
 export const ApplicationStatus = {
   link_clicked: "link_clicked",
+  in_progress: "in_progress",
   applied: "applied",
   shortlisted: "shortlisted",
   interview: "interview",
@@ -1014,13 +1015,14 @@ export const MarkApplicationRequestApplicationType = {
 } as const;
 
 /**
- * Website clicks use link_clicked; extension confirmation upgrades the same URL to applied.
+ * Desktop clicks use link_clicked and assisted applications use in_progress. Confirmation promotes the same URL to applied.
  */
 export type MarkApplicationRequestStatus =
   (typeof MarkApplicationRequestStatus)[keyof typeof MarkApplicationRequestStatus];
 
 export const MarkApplicationRequestStatus = {
   link_clicked: "link_clicked",
+  in_progress: "in_progress",
   applied: "applied",
 } as const;
 
@@ -1039,7 +1041,7 @@ export interface MarkApplicationRequest {
   jobTitle?: string;
   /** Extension compatibility alias for applicationUrl. */
   pageUrl?: string;
-  /** Website clicks use link_clicked; extension confirmation upgrades the same URL to applied. */
+  /** Desktop clicks use link_clicked and assisted applications use in_progress. Confirmation promotes the same URL to applied. */
   status?: MarkApplicationRequestStatus;
 }
 

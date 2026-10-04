@@ -222,7 +222,7 @@ function buildBehaviouralSignals(
       employer: application.companyName ?? savedRole?.employer ?? null,
       regulator: savedRole?.regulator ?? null,
       targetRegions: savedRole?.targetRegions ?? null,
-      kind: application.status === "link_clicked" ? "link_clicked" : "applied",
+      kind: application.status === "link_clicked" || application.status === "in_progress" ? "link_clicked" : "applied",
       occurredAt: application.appliedAt,
     };
   });
@@ -618,7 +618,7 @@ router.get("/roles", async (req, res): Promise<void> => {
   ])];
   const appliedRoleIds = [...new Set(
     appliedApps
-      .filter((application) => application.status !== "link_clicked")
+      .filter((application) => application.status !== "link_clicked" && application.status !== "in_progress")
       .map((application) => application.roleId),
   )];
   const behaviouralSignals = buildBehaviouralSignals(
@@ -1003,12 +1003,12 @@ router.get("/roles/my-matches", requireAuthenticated, async (req, res): Promise<
   ]);
   const completedApplicationRoleIds = new Set(
     applications
-      .filter((application) => application.status !== "link_clicked")
+      .filter((application) => application.status !== "link_clicked" && application.status !== "in_progress")
       .map((application) => application.roleId),
   );
   const completedApplicationUrls = new Set(
     applications
-      .filter((application) => application.status !== "link_clicked")
+      .filter((application) => application.status !== "link_clicked" && application.status !== "in_progress")
       .map((application) => normalizeApplicationUrl(application.applicationUrl))
       .filter((url): url is string => url !== null),
   );
@@ -1312,13 +1312,13 @@ router.get("/opportunities/recommended", requireAuthenticated, async (req, res):
   ]);
   const appliedIds = new Set(
     appliedRows
-      .filter((application) => application.status !== "link_clicked")
+      .filter((application) => application.status !== "link_clicked" && application.status !== "in_progress")
       .map((application) => application.roleId)
       .filter(Boolean) as number[],
   );
   const appliedUrls = new Set(
     appliedRows
-      .filter((application) => application.status !== "link_clicked")
+      .filter((application) => application.status !== "link_clicked" && application.status !== "in_progress")
       .map((application) => normalizeApplicationUrl(application.applicationUrl))
       .filter((url): url is string => url !== null),
   );

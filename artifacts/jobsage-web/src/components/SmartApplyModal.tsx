@@ -40,6 +40,8 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { SmartApplyAssistant } from "./SmartApplyAssistant";
 import { isExtensionInstalled, ExtensionRequiredModal } from "./SmartApplyExtensionPrompt";
+import { shouldUseAssistedWorkspace } from "@/lib/assistedApplication";
+import { openTrackedOutbound } from "@/lib/trackedOutbound";
 import { compileSmartApplyOutreach, SEND_CV_QUESTION_IDS } from "@/lib/smartApplyOutreach";
 
 function useCoverLetterStream() {
@@ -152,7 +154,36 @@ interface NextMatchRole {
   matchReason?: string | null;
 }
 
-export function SmartApplyModal({
+export function SmartApplyModal(props: SmartApplyModalProps) {
+  const assisted = !props.sendCvContext && shouldUseAssistedWorkspace();
+  const started = useRef(false);
+  useEffect(() => {
+    if (!assisted || started.current || !props.vacancyContext?.externalUrl) return;
+    started.current = true;
+    void openTrackedOutbound({
+      url: props.vacancyContext.externalUrl,
+      vacancy: {
+        roleId: props.roleId,
+        title: props.roleTitle,
+        employer: props.vacancyContext.employer ?? "",
+      },
+    });
+    props.onClose();
+  }, [assisted, props]);
+  if (!assisted) return <ExtensionSmartApplyModal {...props} />;
+  if (!props.vacancyContext?.externalUrl) return (
+    <div role="dialog" aria-modal="true" aria-label="Application link unavailable" className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="rounded-2xl bg-background p-6 max-w-md">
+        <h2 className="font-semibold">Application link unavailable</h2>
+        <p className="text-sm text-muted-foreground my-3">This role needs a verified employer application link before you can start Smart Apply.</p>
+        <Button onClick={props.onClose}>Close</Button>
+      </div>
+    </div>
+  );
+  return null;
+}
+
+function ExtensionSmartApplyModal({
   roleId,
   roleTitle,
   vacancyContext,

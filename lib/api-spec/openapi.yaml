@@ -5511,7 +5511,7 @@ components:
 
     ApplicationStatus:
       type: string
-      enum: [link_clicked, applied, shortlisted, interview, offer, rejected, no_response]
+      enum: [link_clicked, in_progress, applied, shortlisted, interview, offer, rejected, no_response]
 
     CvExtractedFields:
       type: object
@@ -5795,8 +5795,8 @@ components:
           description: Extension compatibility alias for applicationUrl.
         status:
           type: string
-          enum: [link_clicked, applied]
-          description: Website clicks use link_clicked; extension confirmation upgrades the same URL to applied.
+          enum: [link_clicked, in_progress, applied]
+          description: Desktop clicks use link_clicked and assisted applications use in_progress. Confirmation promotes the same URL to applied.
 
     ConfirmApplicationSubmissionRequest:
       type: object

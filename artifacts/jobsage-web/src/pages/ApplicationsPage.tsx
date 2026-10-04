@@ -37,6 +37,8 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { format } from "date-fns";
+import { confirmAssistedApplication, isRecentInProgress } from "@/lib/assistedApplication";
+import { refreshApplicationQueries } from "@/lib/applicationQueryRefresh";
 import { getListMyApplicationsQueryKey } from "@workspace/api-client-react";
 import { useGetMyAnalytics } from "@workspace/api-client-react";
 import { WeeklyApplicationStats } from "@/components/WeeklyApplicationStats";
@@ -63,6 +65,11 @@ const STATUS_CONFIG: Record<
   string,
   { label: string; icon: React.ElementType; className: string }
 > = {
+  in_progress: {
+    label: "In Progress",
+    icon: Clock,
+    className: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
+  },
   link_clicked: {
     label: "Started",
     icon: ExternalLink,
@@ -126,7 +133,7 @@ const STATUS_CONFIG: Record<
 };
 
 const PLATFORM_STATUSES = ["applied", "shortlisted", "under_review", "interview", "interview_invited", "offer", "rejected", "no_response"] as const;
-const WEBSITE_STATUSES = ["link_clicked", ...PLATFORM_STATUSES] as const;
+const WEBSITE_STATUSES = ["link_clicked", "in_progress", ...PLATFORM_STATUSES] as const;
 const SPECULATIVE_STATUSES = ["cv_sent", "under_review", "interview_invited", "offer", "rejected"] as const;
 
 // Statuses (standard + speculative) that indicate the employer has responded.
@@ -498,7 +505,7 @@ function ApplicationCard({
               )}
               <span className="flex items-center gap-1">
                 <Calendar className="w-3 h-3" />
-                {isSpeculative ? "Sent" : isWebsite && application.status === "link_clicked" ? "Started" : "Applied"} {format(new Date(application.appliedAt), "MMM d, yyyy")}
+                {isSpeculative ? "Sent" : isWebsite && (application.status === "link_clicked" || application.status === "in_progress") ? "Started" : "Applied"} {format(new Date(application.appliedAt), "MMM d, yyyy")}
               </span>
               <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold border ${kindBadge.className}`}>
                 <KindIcon className="w-2.5 h-2.5" />
@@ -741,6 +748,47 @@ function FavoriteCard({ favorite }: { favorite: VacancyFavorite }) {
         </div>
       </Card>
     </motion.div>
+  );
+}
+
+function InProgressSection({ items }: { items: EnrichedApplication[] }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [pendingId, setPendingId] = useState<number | null>(null);
+  if (items.length === 0) return null;
+  async function confirm(app: EnrichedApplication) {
+    if (!app.applicationUrl) return;
+    setPendingId(app.id);
+    try {
+      await confirmAssistedApplication(app.applicationUrl);
+      await refreshApplicationQueries(queryClient);
+      toast({ title: "Marked as applied", description: `${app.roleTitle ?? app.companyName ?? "Application"} is now in your tracker as applied.` });
+    } catch (e) {
+      toast({ title: "Could not confirm", description: e instanceof Error ? e.message : "Please try again.", variant: "destructive" });
+    } finally {
+      setPendingId(null);
+    }
+  }
+  return (
+    <section className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50/60 p-4 dark:border-amber-800/50 dark:bg-amber-900/10" data-testid="section-in-progress">
+      <div className="flex items-center gap-2">
+        <Clock className="w-4 h-4 text-amber-700" />
+        <h2 className="text-sm font-semibold text-foreground">Applications in progress</h2>
+        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-amber-100 text-amber-800">{items.length}</span>
+      </div>
+      <p className="text-xs text-muted-foreground">Started in the last 48 hours. Confirm only once you have submitted on the employer site.</p>
+      {items.map((app) => (
+        <div key={app.id} className="flex flex-col gap-2 rounded-xl border border-border bg-background p-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-foreground">{app.roleTitle ?? app.companyName ?? "Website application"}</p>
+            <p className="truncate text-xs text-muted-foreground">{app.companyName ?? "Employer"} · Started {format(new Date(app.appliedAt), "MMM d, HH:mm")}</p>
+          </div>
+          <Button size="sm" disabled={pendingId === app.id || !app.applicationUrl} onClick={() => void confirm(app)} className="min-h-11 w-full sm:w-auto" data-testid={`button-confirm-in-progress-${app.id}`}>
+            {pendingId === app.id ? "Confirming…" : "Yes, Mark as Applied"}
+          </Button>
+        </div>
+      ))}
+    </section>
   );
 }
 
@@ -1029,6 +1077,8 @@ export default function ApplicationsPage() {
             )}
           </div>
         )}
+
+        <InProgressSection items={applications.filter((a) => a.applicationKind === "website" && isRecentInProgress(a))} />
 
         {activeTab === "favorites" ? (
           <FavoritesList favorites={favorites} />

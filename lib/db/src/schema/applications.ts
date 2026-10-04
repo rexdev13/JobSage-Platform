@@ -3,6 +3,7 @@ import { z } from "zod/v4";
 
 export const ApplicationStatus = {
   link_clicked: "link_clicked",
+  in_progress: "in_progress",
   applied: "applied",
   shortlisted: "shortlisted",
   interview: "interview",
@@ -28,7 +29,7 @@ export const applicationsTable = pgTable("applications", {
   companyName: text("company_name"),
   jobTitle: text("job_title"),
   status: varchar("status", {
-    enum: ["link_clicked", "applied", "shortlisted", "interview", "interview_invited", "under_review", "offer", "rejected", "no_response"],
+    enum: ["link_clicked", "in_progress", "applied", "shortlisted", "interview", "interview_invited", "under_review", "offer", "rejected", "no_response"],
   })
     .notNull()
     .default("applied"),
@@ -40,5 +41,5 @@ export const applicationsTable = pgTable("applications", {
   jobsageEmail: text("jobsage_email"),
 });
 
-export const applicationStatusValues = z.enum(["link_clicked", "applied", "shortlisted", "interview", "interview_invited", "under_review", "offer", "rejected", "no_response"]);
+export const applicationStatusValues = z.enum(["link_clicked", "in_progress", "applied", "shortlisted", "interview", "interview_invited", "under_review", "offer", "rejected", "no_response"]);
 export type Application = typeof applicationsTable.$inferSelect;

@@ -306,7 +306,7 @@ router.post("/applications", requireAuthenticated, async (req: Request, res: Res
     pageUrl?: string;
     companyName?: string;
     jobTitle?: string;
-    status?: "link_clicked" | "applied";
+    status?: "link_clicked" | "in_progress" | "applied";
     cvDocumentId?: number | null;
   };
 
@@ -364,7 +364,7 @@ router.post("/applications", requireAuthenticated, async (req: Request, res: Res
         : typeof pageUrl === "string" && pageUrl.length > 0
           ? pageUrl
           : null;
-    const requestedStatus = status === "link_clicked" ? "link_clicked" : "applied";
+    const requestedStatus = status === "in_progress" ? "in_progress" : status === "link_clicked" ? "link_clicked" : "applied";
 
     const websiteApplication = await db.transaction(async (tx) => {
       // Serialise concurrent retries for the same candidate and exact outbound
@@ -386,8 +386,9 @@ router.post("/applications", requireAuthenticated, async (req: Request, res: Res
           );
 
         if (existing) {
-          const shouldUpgrade = requestedStatus === "applied" && existing.status === "link_clicked";
-          const isFirstPartyClick = requestedStatus === "link_clicked";
+          const pending = existing.status === "link_clicked" || existing.status === "in_progress";
+          const shouldUpgrade = requestedStatus === "applied" && pending;
+          const isFirstPartyClick = requestedStatus === "link_clicked" || requestedStatus === "in_progress";
           const jobsageEmail = existing.jobsageEmail ?? await resolveJobsageAlias(userId);
           const [updated] = await tx
             .update(applicationsTable)
@@ -408,7 +409,8 @@ router.post("/applications", requireAuthenticated, async (req: Request, res: Res
                 : existing.jobTitle || (typeof jobTitle === "string" && jobTitle.length > 0 ? jobTitle : null),
               applicationUrl: resolvedApplicationUrl,
               notes: typeof notes === "string" ? notes : existing.notes,
-              status: shouldUpgrade ? "applied" : existing.status,
+              status: shouldUpgrade ? "applied" : pending && requestedStatus === "in_progress" ? "in_progress" : existing.status,
+              appliedAt: pending && requestedStatus === "in_progress" ? new Date() : existing.appliedAt,
               cvDocumentId: cvDocumentId ?? existing.cvDocumentId,
               jobsageEmail,
             })
@@ -571,7 +573,7 @@ router.post("/applications/confirm-submission", requireAuthenticated, async (req
     // Only the initial click state may be promoted. A later candidate or
     // employer update (for example interview, offer, or rejection) always
     // wins over a delayed confirmation event from the browser extension.
-    if (existing.status !== "link_clicked") {
+    if (existing.status !== "link_clicked" && existing.status !== "in_progress") {
       return { application: existing, updated: false };
     }
 

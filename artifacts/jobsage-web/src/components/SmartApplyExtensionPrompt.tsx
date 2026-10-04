@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui-enhanced";
 import { X, Chrome, Download, Sparkles, ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { shouldUseAssistedWorkspace } from "@/lib/assistedApplication";
 
 const DISMISS_KEY = "smart-apply-extension-dismissed";
 const NUDGE_SHOWN_KEY = "smart-apply-extension-nudge-shown";
@@ -330,7 +331,7 @@ export function useExtensionGate() {
   const [gateOpen, setGateOpen] = useState(false);
 
   const requireExtension = useCallback((action: () => void) => {
-    if (isExtensionInstalled()) {
+    if (isExtensionInstalled() || shouldUseAssistedWorkspace()) {
       action();
     } else {
       setPendingAction(() => action);
@@ -354,6 +355,7 @@ export function useExtensionGate() {
 
 /** Returns true if the one-time post-apply nudge should show, marking it as shown. */
 export function shouldShowExtensionNudge(): boolean {
+  if (shouldUseAssistedWorkspace()) return false;
   try {
     if (localStorage.getItem(DISMISS_KEY) === "1") return false;
     if (localStorage.getItem(NUDGE_SHOWN_KEY) === "1") return false;

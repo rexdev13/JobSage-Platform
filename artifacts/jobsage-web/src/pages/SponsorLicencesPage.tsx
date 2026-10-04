@@ -11,6 +11,7 @@ import { getListMyApplicationsQueryKey } from "@workspace/api-client-react";
 import { openTrackedOutbound, normalizeWebsiteUrl } from "@/lib/trackedOutbound";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { useExtensionGate } from "@/components/SmartApplyExtensionPrompt";
+import { shouldUseAssistedWorkspace } from "@/lib/assistedApplication";
 import {
   useGetSponsorLicenceRoutes,
   useGetSponsorLicenceIndustryCounts,
@@ -1835,7 +1836,11 @@ export default function SponsorLicencesPage() {
                               requireExtension={requireExtension}
                                preferredRegions={profile?.preferredRegion ?? []}
                                onVacancyOutbound={handleVacancyOutbound}
-                               onSmartApply={(vacancy) => setSmartApplyVacancy(vacancy)}
+                               onSmartApply={(vacancy) => {
+                                 if (shouldUseAssistedWorkspace() && vacancy.url) {
+                                   void openTrackedOutbound({ url: vacancy.url, vacancy: { title: vacancy.title, employer: vacancy.companyName, roleId: vacancy.roleId } });
+                                 } else setSmartApplyVacancy(vacancy);
+                               }}
                             />
                           )}
                         </Card>
@@ -1981,7 +1986,13 @@ export default function SponsorLicencesPage() {
                   View Readiness Check
                 </button>
                 {hasUsableSendCvApplyRoute({ applyUrl: selectedVacancy.url, linkVerified: selectedVacancy.linkVerified, linkStatus: selectedVacancy.linkStatus }) && (
-                  <Button data-testid={`button-sponsor-detail-smart-apply-${selectedVacancy.id}`} variant="outline" className="gap-2" onClick={() => requireExtension(() => { setSelectedVacancy(null); setSmartApplyVacancy(selectedVacancy); })}>
+                  <Button data-testid={`button-sponsor-detail-smart-apply-${selectedVacancy.id}`} variant="outline" className="gap-2" onClick={() => requireExtension(() => {
+                    const vacancy = selectedVacancy;
+                    setSelectedVacancy(null);
+                    if (shouldUseAssistedWorkspace() && vacancy.url) {
+                      void openTrackedOutbound({ url: vacancy.url, vacancy: { title: vacancy.title, employer: vacancy.companyName, roleId: vacancy.roleId } });
+                    } else setSmartApplyVacancy(vacancy);
+                  })}>
                     <Sparkles className="w-4 h-4" /> Smart Apply
                   </Button>
                 )}

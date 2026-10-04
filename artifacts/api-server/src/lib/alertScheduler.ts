@@ -337,7 +337,7 @@ async function getTopAlertRoles(
       employer: application.companyName ?? roleCatalog.find((role) => role.id === application.roleId)?.employer ?? null,
       regulator: roleCatalog.find((role) => role.id === application.roleId)?.regulator ?? null,
       targetRegions: roleCatalog.find((role) => role.id === application.roleId)?.targetRegions ?? null,
-      kind: application.status === "link_clicked" ? "link_clicked" as const : "applied" as const,
+      kind: application.status === "link_clicked" || application.status === "in_progress" ? "link_clicked" as const : "applied" as const,
       occurredAt: application.appliedAt,
     })),
   };

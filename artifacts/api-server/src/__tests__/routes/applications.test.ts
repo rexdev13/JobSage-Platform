@@ -623,6 +623,42 @@ describe("POST /applications/confirm-submission", () => {
     expect(insertValues).toHaveLength(0);
   });
 
+  it("records mobile assisted starts as in_progress before submission", async () => {
+    const url = "https://employer.example/apply?ref=jobsage";
+    appResults.push([], [{ id: 55, userId: "cand-1", roleId: 42, applicationType: "website", status: "in_progress", applicationUrl: url, companyName: "Trust", jobTitle: "Nurse", appliedAt: new Date() }]);
+    const response = await request(buildApp()).post("/applications")
+      .set("Authorization", `Bearer ${SESS}`)
+      .send({ applicationType: "website", status: "in_progress", applicationUrl: url, companyName: "Trust", jobTitle: "Nurse", roleId: 42 });
+    expect(response.status).toBe(201);
+    expect(response.body.status).toBe("in_progress");
+    expect(insertValues[0]).toMatchObject({ status: "in_progress", userId: "cand-1", applicationUrl: url });
+  });
+
+  it("promotes an existing assisted start and never creates from confirmation", async () => {
+    const url = "https://employer.example/apply?ref=jobsage";
+    const existing = { id: 56, userId: "cand-1", roleId: 42, status: "in_progress", applicationType: "website", applicationUrl: url, companyName: "Trust", jobTitle: "Nurse", appliedAt: new Date() };
+    appResults.push([existing], [{ ...existing, status: "applied" }]);
+    const response = await request(buildApp()).post("/applications/confirm-submission")
+      .set("Authorization", `Bearer ${SESS}`).send({ applicationUrl: url });
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ updated: true, application: { status: "applied" } });
+    expect(updateSets[0]).toMatchObject({ status: "applied" });
+    expect(insertValues).toHaveLength(0);
+  });
+
+  it("does not downgrade an applied record when a mobile user reopens it", async () => {
+    const url = "https://employer.example/apply?ref=jobsage";
+    const existing = { id: 57, userId: "cand-1", roleId: 42, status: "applied", applicationType: "website", applicationUrl: url, companyName: "Trust", jobTitle: "Nurse", appliedAt: new Date() };
+    appResults.push([existing], [existing]);
+    const response = await request(buildApp()).post("/applications")
+      .set("Authorization", `Bearer ${SESS}`)
+      .send({ applicationType: "website", status: "in_progress", applicationUrl: url, companyName: "Trust", jobTitle: "Nurse", roleId: 42 });
+    expect(response.status).toBe(200);
+    expect(response.body.status).toBe("applied");
+    expect(updateSets[0].status).toBe("applied");
+    expect(insertValues).toHaveLength(0);
+  });
+
   it("rejects malformed confirmation URLs", async () => {
     const response = await request(buildApp())
       .post("/applications/confirm-submission")

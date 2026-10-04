@@ -1,3 +1,4 @@
+import { MobileAssistedWorkspaceHost } from "@/components/MobileAssistedWorkspaceHost";
 import { lazy, Suspense, useEffect } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -369,6 +370,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
         <Router />
+        <MobileAssistedWorkspaceHost />
         <QuickHelpMenu guestOnly />
       </WouterRouter>
       <Toaster />

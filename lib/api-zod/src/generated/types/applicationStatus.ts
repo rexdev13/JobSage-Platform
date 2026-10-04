@@ -11,6 +11,7 @@ export type ApplicationStatus =
 
 export const ApplicationStatus = {
   link_clicked: "link_clicked",
+  in_progress: "in_progress",
   applied: "applied",
   shortlisted: "shortlisted",
   interview: "interview",
