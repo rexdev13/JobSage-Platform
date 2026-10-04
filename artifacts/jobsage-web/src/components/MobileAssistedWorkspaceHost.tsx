@@ -12,14 +12,17 @@ import {
 import { AlertTriangle, CheckCircle2, Copy, ExternalLink, Loader2, Sparkles, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { refreshApplicationQueries } from "@/lib/applicationQueryRefresh";
+import { readDesktopApplicationState } from "@/lib/desktopApplicationReturn";
 import {
   ASSISTED_APPLICATION_EVENT,
   beginAssistedApplication,
   confirmAssistedApplication,
+  shouldUseAssistedWorkspace,
   type AssistedApplicationEvent,
 } from "@/lib/assistedApplication";
 
 const ADVANCED_OK = new Set(["in_progress", "link_clicked"]);
+const EXTENSION_CONFIRMATION_GRACE_MS = [300, 700, 1200] as const;
 
 async function writeClipboard(text: string): Promise<boolean> {
   try {
@@ -56,11 +59,13 @@ export function MobileAssistedWorkspaceHost() {
   const returned = useRef(false);
   const evRef = useRef<AssistedApplicationEvent | null>(null);
   const doneRef = useRef(false);
+  const extensionPresentRef = useRef(false);
+  const returnGeneration = useRef(0);
   const closeRef = useRef<HTMLButtonElement | null>(null);
   evRef.current = ev;
   doneRef.current = done;
 
-  const ready = ev?.phase === "ready";
+  const ready = ev?.phase === "ready" && ev.source !== "desktop-outbound";
 
   const evaluatePrompt = useCallback(() => {
     const cur = evRef.current;
@@ -73,6 +78,7 @@ export function MobileAssistedWorkspaceHost() {
   }, []);
 
   const reset = useCallback(() => {
+    returnGeneration.current += 1;
     abortRef.current?.abort();
     abortRef.current = null;
     setStmtPending(false);
@@ -93,9 +99,84 @@ export function MobileAssistedWorkspaceHost() {
 
   // Global session listeners
   useEffect(() => {
+    async function waitForExtensionConfirmation(applicationUrl: string, generation: number): Promise<void> {
+      let state: Awaited<ReturnType<typeof readDesktopApplicationState>> = "not-found";
+      for (const delay of [0, ...(extensionPresentRef.current ? EXTENSION_CONFIRMATION_GRACE_MS : [300])]) {
+        if (delay) await new Promise<void>((resolve) => window.setTimeout(resolve, delay));
+        if (generation !== returnGeneration.current) return;
+        try {
+          state = await readDesktopApplicationState(applicationUrl);
+        } catch {
+          // The user can still confirm; the confirmation endpoint refuses to create
+          // a record and reports a retryable error if this click wasn't persisted.
+          state = "not-found";
+          break;
+        }
+        if (state === "confirmed") {
+          const current = evRef.current;
+          if (current?.source === "desktop-outbound" && current.applicationUrl === applicationUrl) {
+            const confirmed: AssistedApplicationEvent = {
+              ...current,
+              application: { ...current.application!, status: "applied" },
+            };
+            evRef.current = confirmed;
+            setEv(confirmed);
+            armed.current = false;
+            setDone(true);
+            void refreshApplicationQueries(queryClient);
+          }
+          return;
+        }
+      }
+      if (generation !== returnGeneration.current) return;
+      const current = evRef.current;
+      if (current?.source !== "desktop-outbound" || current.applicationUrl !== applicationUrl) return;
+      returned.current = true;
+      evaluatePrompt();
+    }
+
+    function onDesktopOutbound(e: Event) {
+      if (shouldUseAssistedWorkspace()) return;
+      const detail = (e as CustomEvent<{
+        applicationUrl?: unknown;
+        roleId?: unknown;
+        jobTitle?: unknown;
+        employer?: unknown;
+      }>).detail;
+      if (
+        typeof detail?.applicationUrl !== "string" ||
+        typeof detail.roleId !== "number" ||
+        detail.roleId <= 0 ||
+        typeof detail.jobTitle !== "string" ||
+        !detail.jobTitle.trim() ||
+        typeof detail.employer !== "string" ||
+        !detail.employer.trim()
+      ) return;
+
+      returnGeneration.current += 1;
+      const next: AssistedApplicationEvent = {
+        applicationUrl: detail.applicationUrl,
+        source: "desktop-outbound",
+        phase: "ready",
+        vacancy: { roleId: detail.roleId, title: detail.jobTitle, employer: detail.employer },
+        application: { id: 0, status: "link_clicked", appliedAt: new Date().toISOString() },
+      };
+      extensionPresentRef.current = !!document.getElementById("jobsage-extension-root");
+      armed.current = true;
+      departed.current = document.visibilityState === "hidden" || !document.hasFocus();
+      returned.current = false;
+      setDone(false);
+      setPrompt(false);
+      setConfirmError(null);
+      evRef.current = next;
+      setEv(next);
+      setOpen(false);
+    }
+
     function onEvent(e: Event) {
       const d = (e as CustomEvent<AssistedApplicationEvent>).detail;
       if (!d) return;
+      if (d.source === "desktop-outbound") return;
       const prev = evRef.current;
       if (d.phase !== "saving" && prev && prev.applicationUrl !== d.applicationUrl) return;
       const sameApp = prev?.applicationUrl === d.applicationUrl;
@@ -135,7 +216,13 @@ export function MobileAssistedWorkspaceHost() {
       if (armed.current && departed.current) {
         departed.current = false;
         returned.current = true;
-        evaluatePrompt();
+        const current = evRef.current;
+        if (current?.source === "desktop-outbound") {
+          returned.current = false;
+          void waitForExtensionConfirmation(current.applicationUrl, returnGeneration.current);
+        } else {
+          evaluatePrompt();
+        }
       }
     }
     function onVis() {
@@ -150,12 +237,14 @@ export function MobileAssistedWorkspaceHost() {
       else back();
     }, 500);
     window.addEventListener(ASSISTED_APPLICATION_EVENT, onEvent);
+    window.addEventListener("jobsage:outbound-application", onDesktopOutbound);
     document.addEventListener("visibilitychange", onVis);
     window.addEventListener("blur", leave);
     window.addEventListener("focus", back);
     window.addEventListener("pageshow", back);
     return () => {
       window.removeEventListener(ASSISTED_APPLICATION_EVENT, onEvent);
+      window.removeEventListener("jobsage:outbound-application", onDesktopOutbound);
       document.removeEventListener("visibilitychange", onVis);
       window.removeEventListener("blur", leave);
       window.removeEventListener("focus", back);
@@ -314,6 +403,7 @@ export function MobileAssistedWorkspaceHost() {
   ].filter((c) => c.value);
 
   const label = ev ? `${ev.vacancy.title} at ${ev.vacancy.employer}` : "";
+  const desktopReturnPrompt = ev?.source === "desktop-assisted" || ev?.source === "desktop-outbound";
 
   const ui = (
     <>
@@ -583,17 +673,19 @@ export function MobileAssistedWorkspaceHost() {
                   className="min-h-11 rounded-xl border border-border px-3 text-sm font-semibold"
                   data-testid="button-still-in-progress"
                 >
-                  Still in Progress
+                  {desktopReturnPrompt ? "Still Applying" : "Still in Progress"}
                 </button>
-                <button
-                  type="button"
-                  disabled={confirming}
-                  onClick={() => { setPrompt(false); setConfirmError(null); }}
-                  className="min-h-11 rounded-xl border border-border px-3 text-sm font-semibold"
-                  data-testid="button-remind-later"
-                >
-                  Remind Me Later
-                </button>
+                {!desktopReturnPrompt && (
+                  <button
+                    type="button"
+                    disabled={confirming}
+                    onClick={() => { setPrompt(false); setConfirmError(null); }}
+                    className="min-h-11 rounded-xl border border-border px-3 text-sm font-semibold"
+                    data-testid="button-remind-later"
+                  >
+                    Remind Me Later
+                  </button>
+                )}
               </div>
             </motion.div>
           </motion.div>

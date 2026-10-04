@@ -5,6 +5,7 @@ export interface AssistedApplicationEvent {
   applicationUrl: string;
   vacancy: TrackedVacancyContext;
   phase: "saving" | "ready" | "error";
+  source?: "assisted" | "desktop-assisted" | "desktop-outbound";
   error?: string;
   application?: { id: number; status: string; appliedAt: string };
 }
@@ -20,7 +21,8 @@ function publish(detail: AssistedApplicationEvent) {
 
 /** Reserve the tab during the gesture, but never navigate until tracking commits. */
 export async function beginAssistedApplication(applicationUrl: string, vacancy: TrackedVacancyContext, onTracked?: () => void): Promise<void> {
-  const detail: AssistedApplicationEvent = { applicationUrl, vacancy, phase: "saving" };
+  const source = window.matchMedia?.("(min-width: 768px)").matches ? "desktop-assisted" : "assisted";
+  const detail: AssistedApplicationEvent = { applicationUrl, vacancy, phase: "saving", source };
   try {
     const target = new URL(applicationUrl);
     if (!["http:", "https:"].includes(target.protocol)) throw new Error();

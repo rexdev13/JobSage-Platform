@@ -34,6 +34,23 @@ describe("assisted application tracking", () => {
     window.removeEventListener(ASSISTED_APPLICATION_EVENT, events);
   });
 
+  it("tags an extensionless desktop assisted flow so it uses desktop prompt wording", async () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query === "(min-width: 768px)",
+    }));
+    const tab = { location: { replace: vi.fn() }, close: vi.fn(), opener: null };
+    vi.spyOn(window, "open").mockReturnValue(tab as unknown as Window);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ id: 2, status: "in_progress", appliedAt: new Date().toISOString() }), { status: 201 }),
+    ));
+    const events = vi.fn();
+    window.addEventListener(ASSISTED_APPLICATION_EVENT, events);
+    await beginAssistedApplication("https://employer.example/apply", { title: "Nurse", employer: "Trust", roleId: 41 });
+    expect(events.mock.calls[0]![0].detail).toMatchObject({ source: "desktop-assisted", phase: "saving" });
+    expect(events.mock.calls.at(-1)![0].detail).toMatchObject({ source: "desktop-assisted", phase: "ready" });
+    window.removeEventListener(ASSISTED_APPLICATION_EVENT, events);
+  });
+
   it("never navigates on tracking failure and surfaces retryable error", async () => {
     const tab = { location: { replace: vi.fn() }, close: vi.fn(), opener: null };
     vi.spyOn(window, "open").mockReturnValue(tab as unknown as Window);
