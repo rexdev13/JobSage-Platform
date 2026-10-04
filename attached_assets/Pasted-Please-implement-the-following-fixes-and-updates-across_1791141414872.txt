@@ -1,0 +1,38 @@
+Please implement the following fixes and updates across the pricing and quota system:
+
+1. Currency Conversion & Pricing Alignment (USD → GBP £):
+   - The platform operates in the UK, so convert all in-app modal and checkout pricing to British Pounds (GBP / £).
+   - In `artifacts/jobsage-web/src/components/ReadinessQuotaModal.tsx` and wherever the upgrade offers/checkout payloads are defined:
+     a) JobSage Pro: Convert from $19.99/month to the UK equivalent: £15.99/month (or £19.99/month if intended as parity, use £15.99/month).
+     b) Booster Pack: Convert price from $5.99 to £4.99 one-time.
+     c) Booster Pack Checks: Reduce the booster check count from 25 to 20 checks (e.g. "Check Booster Pack: 20 extra checks for £4.99").
+   - Update `artifacts/api-server/src/routes/checkout.ts`, `lib/api-spec/openapi.yaml`, and database/checkout helper schemas to handle:
+     - Currency: 'gbp' / 'GBP'
+     - Booster pack count: 20 checks instead of 25.
+     - Pro price/description in GBP.
+
+2. Fix Upgrade State Desync in GapAnalysisSheet:
+   - Issue: When a candidate hits the limit and buys checks/Pro in `ReadinessQuotaModal`, an already-mounted `GapAnalysisSheet` remains blocked because its local `limitReached` state does not automatically reset.
+   - Fix in `artifacts/jobsage-web/src/components/GapAnalysisSheet.tsx`:
+     a) When the modal successfully completes an upgrade or when usage query updates:
+        - Invalidate both `["gap-analysis-usage"]` and `["my-profile"]` / auth query in React Query.
+        - Add an effect or callback from `ReadinessQuotaModal` so that when an upgrade succeeds, `setLimitReached(false)` is immediately triggered in `GapAnalysisSheet`.
+        - Ensure `usage` evaluation in `GapAnalysisSheet` accounts for `isPro` (unlimited) or `bonusChecks > 0`, immediately resetting `limitReached` to `false` and allowing the user to generate their check without closing/reopening the sheet.
+
+3. Fix Admin Reset Quirk (Separate Counter vs Deleting Historical Analyses):
+   - Issue: Currently, `DELETE /sponsor-licences/gap-analyses/:userId` deletes the candidate's actual historical gap analysis records in order to reset their quota, destroying audit history.
+   - Fix:
+     a) Instead of deleting rows from `roleGapAnalysesTable` and `sponsorLicenceGapAnalysesTable`, introduce a clean quota override / reset mechanism:
+        - Add a column or separate table/field (such as `readinessQuotaResetAt: timestamp` on `profilesTable` / `usersTable`, or a quota ledger table) recording the admin reset timestamp.
+        - In `artifacts/api-server/src/lib/vacancyGapAnalysis.ts` and `artifacts/api-server/src/routes/roles.ts`, when counting monthly checks used:
+          Count checks where `generatedAt >= max(monthStart, candidate.readinessQuotaResetAt)`.
+     b) Update `DELETE` (or change to `POST /sponsor-licences/gap-analyses/:userId/reset`) in `artifacts/api-server/src/routes/sponsorLicences.ts` to set `readinessQuotaResetAt = new Date()`, leaving all generated gap analysis history intact.
+     c) Update `SuperAdminPage.tsx` so the admin reset button calls this non-destructive reset endpoint.
+
+4. Check Booster Pack Consistency:
+   - Verify all copies, badges, tooltips, and success notifications state "+20 checks" (instead of +25 checks).
+
+5. Verification:
+   - Run backend and frontend test suites (`npm test` or `pnpm test`).
+   - Verify that completing a sandbox purchase instantly unblocks an open `GapAnalysisSheet`.
+   - Verify that resetting quota via Admin panel preserves the candidate's previous gap analysis records.

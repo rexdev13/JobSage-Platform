@@ -5,8 +5,11 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { CheckoutInputCurrency } from "./checkoutInputCurrency";
 import type { CheckoutInputType } from "./checkoutInputType";
 
 export interface CheckoutInput {
   type: CheckoutInputType;
+  /** Prices are server-owned and charged in British pounds. */
+  currency?: CheckoutInputCurrency;
 }

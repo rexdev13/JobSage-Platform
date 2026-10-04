@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "readiness_quota_reset_at" timestamp with time zone;

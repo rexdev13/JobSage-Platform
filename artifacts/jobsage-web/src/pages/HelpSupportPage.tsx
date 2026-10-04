@@ -43,7 +43,7 @@ const GROUPS: FaqGroup[] = [
     items: [
       { question: "How does the AI check my CV against employer criteria?", answer: "The analysis compares information from your profile and available CV evidence with the role requirements, then highlights matches, gaps and practical next steps. It is advisory: review the result and never treat an AI output as legal, regulatory or hiring advice." },
       { question: "How do the 3 free monthly checks work?", answer: "Every free plan receives 3 Readiness Checks per calendar month. The quota card shows the next reset date at 00:00 UTC. Cached results and refreshes of an existing analysis are free; a new analysis uses one check." },
-      { question: "What is the difference between a booster pack and Pro?", answer: "A Check Booster Pack adds 25 one-time checks for $5.99. JobSage Pro costs $19.99 per month and provides unlimited Readiness Checks plus priority AI gap analysis. Checkout availability is always shown clearly before you continue." },
+      { question: "What is the difference between a booster pack and Pro?", answer: "A Check Booster Pack adds 20 one-time checks for £4.99. JobSage Pro costs £15.99 per month and provides unlimited Readiness Checks plus priority AI gap analysis. Checkout availability is always shown clearly before you continue." },
     ],
   },
   {
@@ -63,7 +63,7 @@ const GROUPS: FaqGroup[] = [
     intro: "Get clear answers about upgrades, billing and account access.",
     items: [
       { question: "How do I upgrade my Readiness Checks?", answer: "Open the quota card in the candidate workspace and choose a Check Booster Pack or JobSage Pro. If live checkout is unavailable, JOBSAGE will say so and will not claim that payment or access has completed." },
-      { question: "What are the billing terms?", answer: "The booster pack is a one-time $5.99 purchase. Pro is a $19.99 monthly subscription. Your final payment terms are confirmed by the checkout provider before payment." },
+      { question: "What are the billing terms?", answer: "The booster pack is a one-time £4.99 purchase. Pro is a £15.99 monthly subscription. Your final payment terms are confirmed by the checkout provider before payment." },
       { question: "How do I cancel Pro?", answer: "Contact support from this page with the account email and subject “Cancel Pro subscription”. We will confirm the next step and any applicable timing. Do not send card details in a support message." },
       { question: "Where can I find receipts?", answer: "Payment receipts are provided by the checkout provider. If you cannot find one, contact support with the approximate payment date and account email, without including full card details." },
     ],

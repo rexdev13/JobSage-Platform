@@ -1136,6 +1136,34 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /sponsor-licences/gap-analyses/{userId}/reset:
+    post:
+      tags: [Readiness]
+      operationId: resetCandidateReadinessQuota
+      summary: Reset a candidate's quota without deleting historical analyses (admin only)
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Quota reset; historical analyses and purchased checks preserved.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [reset]
+                properties:
+                  reset:
+                    type: boolean
+                    const: true
+        "403":
+          description: Admin access required.
+        "404":
+          description: Candidate not found.
+
   /checkout/create-session:
     post:
       tags: [Checkout]
@@ -8584,10 +8612,15 @@ components:
         type:
           type: string
           enum: [booster_pack, pro_subscription]
+        currency:
+          type: string
+          enum: [gbp]
+          default: gbp
+          description: Prices are server-owned and charged in British pounds.
 
     CheckoutSessionResult:
       type: object
-      required: [success, checkoutUrl, sandboxCompleted]
+      required: [success, checkoutUrl, sandboxCompleted, currency, amount, bonusChecks, description]
       properties:
         success:
           type: boolean
@@ -8596,6 +8629,19 @@ components:
           format: uri
         sandboxCompleted:
           type: boolean
+        currency:
+          type: string
+          const: gbp
+        amount:
+          type: integer
+          enum: [499, 1599]
+          description: Server-owned price in pence (GBP).
+        bonusChecks:
+          type: integer
+          enum: [0, 20]
+          description: Twenty checks for a booster, zero for unlimited Pro access.
+        description:
+          type: string
 
     FeedbackInput:
       type: object

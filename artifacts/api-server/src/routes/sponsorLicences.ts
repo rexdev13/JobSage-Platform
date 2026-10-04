@@ -1,7 +1,7 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type RequestHandler } from "express";
 import { db } from "@workspace/db";
 import { GetSponsorLicenceVacanciesParams, GetSponsorLicenceVacanciesResponse } from "@workspace/api-zod";
-import { sponsorLicencesTable, sponsorLicenceSyncLogTable, sponsorLicenceVacancyChecksTable, sponsorLicenceBookmarksTable, sponsorLicenceVacanciesTable, sponsorLicenceVacancyScoresTable, sponsorLicenceGapAnalysesTable, roleGapAnalysesTable, applicationsTable, speculativeApplicationsTable, profilesTable } from "@workspace/db";
+import { sponsorLicencesTable, sponsorLicenceSyncLogTable, sponsorLicenceVacancyChecksTable, sponsorLicenceBookmarksTable, sponsorLicenceVacanciesTable, sponsorLicenceVacancyScoresTable, applicationsTable, speculativeApplicationsTable, profilesTable, usersTable } from "@workspace/db";
 import { eq, ilike, and, desc, sql, isNotNull, isNull, inArray, gte, ne, or, type SQL } from "drizzle-orm";
 import { countyToRegion } from "../lib/countyToRegion";
 import {
@@ -15,7 +15,7 @@ import { runVacancyCheck } from "../lib/vacancyCheckHelper";
 import { startCheckAllVacancies, getCheckAllStatus } from "../lib/vacancyCheckAllRunner";
 import { scoreVacanciesForCompany } from "../lib/sponsorVacancyScoring";
 import { getOrGenerateGapAnalysis, LimitReachedError } from "../lib/vacancyGapAnalysis";
-import { getNextReadinessReset, getReadinessMonthStart, READINESS_CHECK_LIMIT } from "../lib/readinessQuota";
+import { getReadinessQuota, READINESS_CHECK_LIMIT } from "../lib/readinessQuota";
 import { getDirectContactEligibility } from "../lib/employerRecipient";
 import { SPONSOR_VACANCY_ID_OFFSET, classifyVacancyCategory, inferSafeguardingRequirements, inferVacancySponsorshipStatus } from "../lib/sponsorVacancyRoles";
 import { opportunityRegistrationLabel } from "../lib/opportunityProfession";
@@ -1090,27 +1090,7 @@ router.get("/sponsor-licences", requireAuthenticated, async (req, res) => {
 
 router.get("/sponsor-licences/gap-analyses/usage", requireAuthenticated, async (req, res) => {
   try {
-    const userId = req.user!.id;
-    const monthStart = getReadinessMonthStart();
-    const [[sponsorRow], [roleRow]] = await Promise.all([
-      db.select({ count: sql<number>`cast(count(*) as integer)` })
-        .from(sponsorLicenceGapAnalysesTable)
-        .where(and(
-          eq(sponsorLicenceGapAnalysesTable.userId, userId),
-          gte(sponsorLicenceGapAnalysesTable.generatedAt, monthStart),
-        )),
-      db.select({ count: sql<number>`cast(count(*) as integer)` })
-        .from(roleGapAnalysesTable)
-        .where(and(
-          eq(roleGapAnalysesTable.userId, userId),
-          gte(roleGapAnalysesTable.generatedAt, monthStart),
-        )),
-    ]);
-    res.json({
-      used: (sponsorRow?.count ?? 0) + (roleRow?.count ?? 0),
-      limit: READINESS_CHECK_LIMIT,
-      resetsAt: getNextReadinessReset().toISOString(),
-    });
+    res.json(await getReadinessQuota(req.user!.id));
   } catch (err) {
     console.error("[sponsor-licences] /gap-analyses/usage error:", err);
     res.status(500).json({ error: "Failed to fetch usage." });
@@ -1123,46 +1103,32 @@ router.get("/sponsor-licences/gap-analyses/usage/:userId", requireRole("admin"),
   try {
     const targetUserId = typeof req.params["userId"] === "string" ? req.params["userId"] : "";
     if (!targetUserId) return void res.status(400).json({ error: "Invalid user ID." });
-    const monthStart = getReadinessMonthStart();
-    const [[sponsorRow], [roleRow]] = await Promise.all([
-      db.select({ count: sql<number>`cast(count(*) as integer)` })
-        .from(sponsorLicenceGapAnalysesTable)
-        .where(and(
-          eq(sponsorLicenceGapAnalysesTable.userId, targetUserId),
-          gte(sponsorLicenceGapAnalysesTable.generatedAt, monthStart),
-        )),
-      db.select({ count: sql<number>`cast(count(*) as integer)` })
-        .from(roleGapAnalysesTable)
-        .where(and(
-          eq(roleGapAnalysesTable.userId, targetUserId),
-          gte(roleGapAnalysesTable.generatedAt, monthStart),
-        )),
-    ]);
-    res.json({
-      used: (sponsorRow?.count ?? 0) + (roleRow?.count ?? 0),
-      limit: READINESS_CHECK_LIMIT,
-      resetsAt: getNextReadinessReset().toISOString(),
-    });
+    res.json(await getReadinessQuota(targetUserId));
   } catch (err) {
     console.error("[sponsor-licences] /gap-analyses/usage/:userId error:", err);
     res.status(500).json({ error: "Failed to fetch usage." });
   }
 });
 
-router.delete("/sponsor-licences/gap-analyses/:userId", requireRole("admin"), async (req, res) => {
+const resetQuota: RequestHandler = async (req, res) => {
   try {
     const targetUserId = typeof req.params["userId"] === "string" ? req.params["userId"] : "";
     if (!targetUserId) return void res.status(400).json({ error: "Invalid user ID." });
-    await Promise.all([
-      db.delete(sponsorLicenceGapAnalysesTable).where(eq(sponsorLicenceGapAnalysesTable.userId, targetUserId)),
-      db.delete(roleGapAnalysesTable).where(eq(roleGapAnalysesTable.userId, targetUserId)),
-    ]);
+    const [updated] = await db.update(usersTable)
+      .set({ readinessQuotaResetAt: new Date() })
+      .where(eq(usersTable.id, targetUserId))
+      .returning({ id: usersTable.id });
+    if (!updated) return void res.status(404).json({ error: "Candidate not found." });
     res.json({ reset: true });
   } catch (err) {
-    console.error("[sponsor-licences] /gap-analyses/:userId DELETE error:", err);
+    req.log.error({ err }, "Failed to reset readiness quota");
     res.status(500).json({ error: "Failed to reset quota." });
   }
-});
+};
+
+router.post("/sponsor-licences/gap-analyses/:userId/reset", requireRole("admin"), resetQuota);
+// Keep legacy callers safe: this route no longer deletes analysis history.
+router.delete("/sponsor-licences/gap-analyses/:userId", requireRole("admin"), resetQuota);
 
 // ── Gap Analysis ──────────────────────────────────────────────────────────────
 // Deep per-vacancy AI gap analysis. Cached for 7 days per user+vacancy.

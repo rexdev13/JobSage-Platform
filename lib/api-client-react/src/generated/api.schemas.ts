@@ -2715,15 +2715,55 @@ export const CheckoutInputType = {
   pro_subscription: "pro_subscription",
 } as const;
 
+/**
+ * Prices are server-owned and charged in British pounds.
+ */
+export type CheckoutInputCurrency =
+  (typeof CheckoutInputCurrency)[keyof typeof CheckoutInputCurrency];
+
+export const CheckoutInputCurrency = {
+  gbp: "gbp",
+} as const;
+
 export interface CheckoutInput {
   type: CheckoutInputType;
+  /** Prices are server-owned and charged in British pounds. */
+  currency?: CheckoutInputCurrency;
 }
+
+/**
+ * Server-owned price in pence (GBP).
+ */
+export type CheckoutSessionResultAmount =
+  (typeof CheckoutSessionResultAmount)[keyof typeof CheckoutSessionResultAmount];
+
+export const CheckoutSessionResultAmount = {
+  NUMBER_499: 499,
+  NUMBER_1599: 1599,
+} as const;
+
+/**
+ * Twenty checks for a booster, zero for unlimited Pro access.
+ */
+export type CheckoutSessionResultBonusChecks =
+  (typeof CheckoutSessionResultBonusChecks)[keyof typeof CheckoutSessionResultBonusChecks];
+
+export const CheckoutSessionResultBonusChecks = {
+  NUMBER_0: 0,
+  NUMBER_20: 20,
+} as const;
 
 export interface CheckoutSessionResult {
   success: boolean;
   /** @nullable */
   checkoutUrl: string | null;
   sandboxCompleted: boolean;
+  currency: "gbp";
+  /** Server-owned price in pence (GBP). */
+  amount: CheckoutSessionResultAmount;
+  /** Twenty checks for a booster, zero for unlimited Pro access. */
+  bonusChecks: CheckoutSessionResultBonusChecks;
+  description: string;
 }
 
 export type FeedbackInputCategory =
@@ -2997,6 +3037,10 @@ export const ListMatchedRolesSource = {
   job_board: "job_board",
   company_site: "company_site",
 } as const;
+
+export type ResetCandidateReadinessQuota200 = {
+  reset: true;
+};
 
 export type ListAdminSupportTicketsParams = {
   status?: ListAdminSupportTicketsStatus;

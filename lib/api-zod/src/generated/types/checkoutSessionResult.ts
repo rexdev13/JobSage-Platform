@@ -5,10 +5,18 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { CheckoutSessionResultAmount } from "./checkoutSessionResultAmount";
+import type { CheckoutSessionResultBonusChecks } from "./checkoutSessionResultBonusChecks";
 
 export interface CheckoutSessionResult {
   success: boolean;
   /** @nullable */
   checkoutUrl: string | null;
   sandboxCompleted: boolean;
+  currency: "gbp";
+  /** Server-owned price in pence (GBP). */
+  amount: CheckoutSessionResultAmount;
+  /** Twenty checks for a booster, zero for unlimited Pro access. */
+  bonusChecks: CheckoutSessionResultBonusChecks;
+  description: string;
 }

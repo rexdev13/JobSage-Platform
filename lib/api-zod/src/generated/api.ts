@@ -1215,16 +1215,41 @@ export const GetReadinessQuotaResponse = zod.object({
 });
 
 /**
+ * @summary Reset a candidate's quota without deleting historical analyses (admin only)
+ */
+export const ResetCandidateReadinessQuotaParams = zod.object({
+  userId: zod.coerce.string(),
+});
+
+export const ResetCandidateReadinessQuotaResponse = zod.object({
+  reset: zod.boolean(),
+});
+
+/**
  * @summary Start a readiness check purchase
  */
+export const createCheckoutSessionBodyCurrencyDefault = `gbp`;
+
 export const CreateCheckoutSessionBody = zod.object({
   type: zod.enum(["booster_pack", "pro_subscription"]),
+  currency: zod
+    .enum(["gbp"])
+    .default(createCheckoutSessionBodyCurrencyDefault)
+    .describe("Prices are server-owned and charged in British pounds."),
 });
 
 export const CreateCheckoutSessionResponse = zod.object({
   success: zod.boolean(),
   checkoutUrl: zod.string().url().nullable(),
   sandboxCompleted: zod.boolean(),
+  currency: zod.literal("gbp"),
+  amount: zod
+    .union([zod.literal(499), zod.literal(1599)])
+    .describe("Server-owned price in pence (GBP)."),
+  bonusChecks: zod
+    .union([zod.literal(0), zod.literal(20)])
+    .describe("Twenty checks for a booster, zero for unlimited Pro access."),
+  description: zod.string(),
 });
 
 /**

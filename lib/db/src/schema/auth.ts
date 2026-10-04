@@ -28,6 +28,7 @@ export const usersTable = pgTable("users", {
   plan: varchar("plan", { enum: ["free", "pro"] }).notNull().default("free"),
   bonusReadinessChecks: integer("bonus_readiness_checks").notNull().default(0),
   subscriptionExpiresAt: timestamp("subscription_expires_at", { withTimezone: true }),
+  readinessQuotaResetAt: timestamp("readiness_quota_reset_at", { withTimezone: true }),
   stripeCustomerId: text("stripe_customer_id"),
   stripePaymentIntentId: text("stripe_payment_intent_id"),
   passwordHash: varchar("password_hash"),

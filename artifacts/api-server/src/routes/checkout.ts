@@ -3,6 +3,7 @@ import { CreateCheckoutSessionBody, CreateCheckoutSessionResponse } from "@works
 import { db, usersTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { requireAuthenticated } from "../middlewares/requireRole";
+import { READINESS_CURRENCY, READINESS_OFFERS } from "../lib/readinessQuota";
 
 const router: IRouter = Router();
 
@@ -34,6 +35,7 @@ router.post("/checkout/create-session", requireAuthenticated, async (req, res): 
   }
 
   const userId = req.user!.id;
+  const offer = READINESS_OFFERS[parsed.data.type];
   const now = new Date();
   const [user] = await db.select({
     subscriptionExpiresAt: usersTable.subscriptionExpiresAt,
@@ -46,7 +48,7 @@ router.post("/checkout/create-session", requireAuthenticated, async (req, res): 
   if (parsed.data.type === "booster_pack") {
     await db.update(usersTable)
       .set({
-        bonusReadinessChecks: sql`${usersTable.bonusReadinessChecks} + 25`,
+        bonusReadinessChecks: sql`${usersTable.bonusReadinessChecks} + ${offer.bonusChecks}`,
       })
       .where(eq(usersTable.id, userId));
   } else {
@@ -66,6 +68,10 @@ router.post("/checkout/create-session", requireAuthenticated, async (req, res): 
     success: true,
     checkoutUrl: null,
     sandboxCompleted: true,
+    currency: READINESS_CURRENCY,
+    amount: offer.amount,
+    bonusChecks: offer.bonusChecks,
+    description: offer.description,
   }));
 });
 

@@ -7,7 +7,12 @@ import {
 } from "@workspace/db";
 
 export const READINESS_CHECK_LIMIT = 3;
-export const READINESS_BOOSTER_CHECKS = 25;
+export const READINESS_BOOSTER_CHECKS = 20;
+export const READINESS_CURRENCY = "gbp" as const;
+export const READINESS_OFFERS = {
+  booster_pack: { amount: 499, bonusChecks: READINESS_BOOSTER_CHECKS, description: "20 extra Readiness Checks for £4.99 (one-time)" },
+  pro_subscription: { amount: 1599, bonusChecks: 0, description: "JobSage Pro — £15.99/month, unlimited Readiness Checks" },
+} as const;
 
 export type ReadinessPlan = "free" | "pro";
 
@@ -58,8 +63,13 @@ export function getNextReadinessReset(now = new Date()): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
 }
 
-async function getMonthlyReadinessUsage(userId: string, now = new Date()): Promise<number> {
+export function getReadinessUsageStart(now = new Date(), resetAt?: Date | null): Date {
   const monthStart = getReadinessMonthStart(now);
+  return resetAt && resetAt > monthStart ? resetAt : monthStart;
+}
+
+async function getMonthlyReadinessUsage(userId: string, now = new Date(), resetAt?: Date | null): Promise<number> {
+  const monthStart = getReadinessUsageStart(now, resetAt);
   const [[sponsorCount], [roleCount]] = await Promise.all([
     db.select({ count: sql<number>`cast(count(*) as integer)` })
       .from(sponsorLicenceGapAnalysesTable)
@@ -89,14 +99,13 @@ export async function getReadinessQuota(
   userId: string,
   now = new Date(),
 ): Promise<ReadinessQuotaSnapshot> {
-  const [[user], used] = await Promise.all([
-    db.select({
+  const [user] = await db.select({
       plan: usersTable.plan,
       bonusReadinessChecks: usersTable.bonusReadinessChecks,
       subscriptionExpiresAt: usersTable.subscriptionExpiresAt,
-    }).from(usersTable).where(eq(usersTable.id, userId)).limit(1),
-    getMonthlyReadinessUsage(userId, now),
-  ]);
+      readinessQuotaResetAt: usersTable.readinessQuotaResetAt,
+    }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+  const used = await getMonthlyReadinessUsage(userId, now, user?.readinessQuotaResetAt);
 
   return {
     used: Math.min(used, READINESS_CHECK_LIMIT),
@@ -122,13 +131,14 @@ export async function reserveReadinessCheck(
     plan: usersTable.plan,
     bonusReadinessChecks: usersTable.bonusReadinessChecks,
     subscriptionExpiresAt: usersTable.subscriptionExpiresAt,
+    readinessQuotaResetAt: usersTable.readinessQuotaResetAt,
   }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
 
   if (user && effectivePlan(user.plan, user.subscriptionExpiresAt, now) === "pro") {
     return { allowed: true, bonusReserved: false, plan: "pro" };
   }
 
-  const used = await getMonthlyReadinessUsage(userId, now);
+  const used = await getMonthlyReadinessUsage(userId, now, user?.readinessQuotaResetAt);
   const decision = decideReadinessAccess(user, used, now);
   if (decision === "monthly") {
     return { allowed: true, bonusReserved: false, plan: "free" };

@@ -44,7 +44,7 @@ interface GapAnalysisSheetProps {
   analysisSource?: "role" | "sponsor_vacancy";
 }
 
-interface UsageData { used: number; limit: number; resetsAt?: string; }
+interface UsageData { used: number; limit: number; resetsAt?: string; plan?: "free" | "pro"; bonusRemaining?: number; }
 
 export function GapAnalysisSheet({
   open,
@@ -100,10 +100,16 @@ export function GapAnalysisSheet({
   });
 
   useEffect(() => {
-    if (open && usage && usage.used < usage.limit) {
+    if (open && usage && (usage.used < usage.limit || usage.plan === "pro" || (usage.bonusRemaining ?? 0) > 0)) {
       setLimitReached(false);
     }
   }, [open, usage]);
+
+  useEffect(() => {
+    const handleUpgrade = () => setLimitReached(false);
+    window.addEventListener("jobsage:readiness-upgraded", handleUpgrade);
+    return () => window.removeEventListener("jobsage:readiness-upgraded", handleUpgrade);
+  }, []);
 
   const { data, isLoading, isError, error } = useQuery<GapAnalysisData>({
     queryKey: ["gap-analysis", analysisEndpoint ?? "sponsor-vacancy", vacancyId],

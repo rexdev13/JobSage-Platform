@@ -475,8 +475,8 @@ function UserDetailPanel({ userId, apiBase, onImpersonate, onAction }: { userId:
 
   async function handleResetGapAnalysis() {
     const limit = gapAnalysisUsage?.limit ?? 3;
-    if (!confirm(`Reset this candidate's Readiness Check quota? They will get a fresh ${limit} checks.`)) return;
-    if (await doAction(`/sponsor-licences/gap-analyses/${userId}`, "DELETE")) {
+    if (!confirm(`Reset this candidate's Readiness Check quota? They will get a fresh ${limit} checks. Previous analyses will be preserved.`)) return;
+    if (await doAction(`/sponsor-licences/gap-analyses/${userId}/reset`, "POST")) {
       setGapAnalysisUsage({ used: 0, limit });
       toast({ title: "Quota reset", description: `Gap analysis quota reset to 0 / ${limit}.` });
     }

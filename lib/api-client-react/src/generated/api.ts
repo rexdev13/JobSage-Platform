@@ -130,6 +130,7 @@ import type {
   RegressionTestResponse,
   RemediationPlan,
   RemediationStep,
+  ResetCandidateReadinessQuota200,
   ResetPasswordRequest,
   ReviewAnnotation,
   ReviewCaseDetail,
@@ -3584,6 +3585,93 @@ export function useGetReadinessQuota<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Reset a candidate's quota without deleting historical analyses (admin only)
+ */
+export const getResetCandidateReadinessQuotaUrl = (userId: string) => {
+  return `/api/sponsor-licences/gap-analyses/${userId}/reset`;
+};
+
+export const resetCandidateReadinessQuota = async (
+  userId: string,
+  options?: RequestInit,
+): Promise<ResetCandidateReadinessQuota200> => {
+  return customFetch<ResetCandidateReadinessQuota200>(
+    getResetCandidateReadinessQuotaUrl(userId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getResetCandidateReadinessQuotaMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resetCandidateReadinessQuota>>,
+    TError,
+    { userId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof resetCandidateReadinessQuota>>,
+  TError,
+  { userId: string },
+  TContext
+> => {
+  const mutationKey = ["resetCandidateReadinessQuota"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof resetCandidateReadinessQuota>>,
+    { userId: string }
+  > = (props) => {
+    const { userId } = props ?? {};
+
+    return resetCandidateReadinessQuota(userId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ResetCandidateReadinessQuotaMutationResult = NonNullable<
+  Awaited<ReturnType<typeof resetCandidateReadinessQuota>>
+>;
+
+export type ResetCandidateReadinessQuotaMutationError = ErrorType<void>;
+
+/**
+ * @summary Reset a candidate's quota without deleting historical analyses (admin only)
+ */
+export const useResetCandidateReadinessQuota = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resetCandidateReadinessQuota>>,
+    TError,
+    { userId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof resetCandidateReadinessQuota>>,
+  TError,
+  { userId: string },
+  TContext
+> => {
+  return useMutation(getResetCandidateReadinessQuotaMutationOptions(options));
+};
 
 /**
  * @summary Start a readiness check purchase

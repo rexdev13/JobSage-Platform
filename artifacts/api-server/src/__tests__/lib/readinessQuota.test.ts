@@ -3,6 +3,10 @@ import {
   decideReadinessAccess,
   getNextReadinessReset,
   getReadinessMonthStart,
+  getReadinessUsageStart,
+  READINESS_BOOSTER_CHECKS,
+  READINESS_CURRENCY,
+  READINESS_OFFERS,
   READINESS_CHECK_LIMIT,
 } from "../../lib/readinessQuota";
 
@@ -16,6 +20,23 @@ describe("readiness monthly quota boundaries", () => {
     expect(getNextReadinessReset(new Date("2026-12-15T12:00:00Z")).toISOString())
       .toBe("2027-01-01T00:00:00.000Z");
   });
+
+  it("counts only analyses after a reset in the current month", () => {
+    expect(getReadinessUsageStart(new Date("2026-10-04T12:00:00Z"), new Date("2026-10-03T09:00:00Z")).toISOString())
+      .toBe("2026-10-03T09:00:00.000Z");
+  });
+
+  it("ignores a reset from a previous month", () => {
+    expect(getReadinessUsageStart(new Date("2026-10-04T12:00:00Z"), new Date("2026-09-30T09:00:00Z")).toISOString())
+      .toBe("2026-10-01T00:00:00.000Z");
+  });
+
+  it("defines GBP offers with a twenty-check booster", () => {
+    expect(READINESS_CURRENCY).toBe("gbp");
+    expect(READINESS_BOOSTER_CHECKS).toBe(20);
+    expect(READINESS_OFFERS.booster_pack.amount).toBe(499);
+    expect(READINESS_OFFERS.pro_subscription.amount).toBe(1599);
+  });
 });
 
 describe("readiness access decision", () => {
@@ -28,7 +49,7 @@ describe("readiness access decision", () => {
   it.each([0, 1, 2])("uses the monthly allowance before purchased checks at %i used", (used) => {
     expect(decideReadinessAccess({
       plan: "free",
-      bonusReadinessChecks: 25,
+      bonusReadinessChecks: 20,
       subscriptionExpiresAt: null,
     }, used, now)).toBe("monthly");
   });
