@@ -1,0 +1,38 @@
+Please update the monthly Readiness Check (Gap Analysis) quota from 10 to 3 free checks per month across both the backend and frontend, making hardcoded strings dynamic where appropriate.
+
+Here is the exact breakdown of files and changes needed:
+
+1. Backend Quota Constant:
+   - In `artifacts/api-server/src/lib/readinessQuota.ts` (and `jobsage/artifacts/api-server/src/lib/readinessQuota.ts` if present):
+     Change `export const READINESS_CHECK_LIMIT = 10;` to:
+     `export const READINESS_CHECK_LIMIT = 3;`
+
+2. Backend Error Messages & Responses:
+   - In `artifacts/api-server/src/routes/roles.ts`:
+     Locate the 429 quota check around line 1850 and update the error message from:
+     "Readiness Check limit reached. You have used all 10 checks this month."
+     to:
+     `Readiness Check limit reached. You have used all ${READINESS_CHECK_LIMIT} checks this month.`
+   - In `artifacts/api-server/src/routes/sponsorLicences.ts`:
+     Locate `LimitReachedError` handling around line 1186 and update the error message from:
+     "You have used all 10 of your Readiness Checks this month."
+     to:
+     `You have used all ${READINESS_CHECK_LIMIT} of your Readiness Checks this month.`
+
+3. Frontend Quota Badge & Text:
+   - In `artifacts/jobsage-web/src/components/GapAnalysisSheet.tsx`:
+     - In the 429 toast (around line 122), update:
+       `description: "You have used all 10 of your Readiness Checks."`
+       to:
+       `description: \`You have used all \${usage?.limit ?? 3} of your Readiness Checks.\``
+     - In the limit reached banner (around line 239), change:
+       "You have used all 10 of your Readiness Checks this month."
+       to:
+       `You have used all {usage?.limit ?? 3} of your Readiness Checks this month.`
+   - In `artifacts/jobsage-web/src/pages/admin/SuperAdminPage.tsx`:
+     - In `handleResetGapAnalysis` (around line 477), update the confirm dialog from "fresh 10 checks" to "fresh 3 checks".
+     - Update `setGapAnalysisUsage({ used: 0, limit: 10 })` to `setGapAnalysisUsage({ used: 0, limit: 3 })`.
+     - Update the toast description from "0 / 10" to "0 / 3".
+
+4. Verification:
+   - Run the test suite (`npm test` or `pnpm test`) in `artifacts/api-server` and `artifacts/jobsage-web` to ensure no quota assertions are broken.

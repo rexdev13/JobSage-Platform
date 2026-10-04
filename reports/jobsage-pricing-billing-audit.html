@@ -1,0 +1,1611 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>JOBSAGE pricing, billing and entitlement audit</title><style>:root{font-family:Arial,sans-serif;color:#192532;background:#f2f5f8;line-height:1.6}body{margin:0}main{max-width:1200px;margin:auto;background:white;padding:36px}h1{font-size:32px;line-height:1.2}h2{border-top:2px solid #e5eaf0;padding-top:24px;margin-top:36px}h3{margin-top:24px}.meta{color:#5b6572}.verdict{padding:20px;background:#fff6e5;border-left:5px solid #b36b00}.table-wrap{overflow:auto}table{border-collapse:collapse;width:100%;font-size:13px;margin:18px 0}th,td{padding:11px;border:1px solid #dce3ea;text-align:left;vertical-align:top}th{background:#edf2f7}code{font-family:monospace;font-size:.9em}pre{white-space:pre;overflow:auto;background:#14202d;color:#e4edf6;padding:18px;border-radius:6px;font-size:12px;line-height:1.65}details{margin:16px 0;border:1px solid #dce3ea;border-radius:6px;padding:14px}summary{font-weight:700;cursor:pointer;overflow-wrap:anywhere}li{margin:8px 0}nav a{margin-right:18px;color:#185ea8}.small{font-size:13px;color:#5b6572}@media(max-width:700px){main{padding:18px}h1{font-size:26px}}@media print{body{background:white}main{padding:0}details{break-inside:avoid}pre{white-space:pre-wrap;color:#111;background:#f5f5f5}nav{display:none}}</style></head><body><main><h1>JOBSAGE pricing, billing and entitlement audit</h1><p class="meta">Workspace audit · 4 October 2026 · Read-only review of application code and contracts</p><nav><a href="#plans">Plans</a><a href="#routes">Routes</a><a href="#status">Implementation status</a><a href="#issues">Inconsistencies</a><a href="#inventory">File inventory</a><a href="#evidence">Exact source excerpts</a></nav><div class="verdict"><strong>Verdict: no working live payment system was found.</strong><p>The landing page advertises annual GBP plans, while the candidate upgrade dialog advertises different USD Readiness products. The backend understands only free/pro access and bonus checks. Checkout is explicitly development-only; production checkout and payment webhooks are disabled.</p></div><p>No application code, quota, database data, secrets or deployment settings were changed. The attached request to reduce the monthly allowance to three checks was not applied: the current allowance remains ten. This report describes current workspace code, not the published app’s deployed schema or actual provider/account state.</p><h2 id="plans">1. Prices, features and CTAs</h2><div class="table-wrap"><table><thead><tr><th>Plan/product</th><th>Price and interval</th><th>Trial</th><th>Exact advertised features / allowance</th><th>CTA and target</th><th>Status</th></tr></thead><tbody><tr><td>Individual</td><td>GBP £180 / year</td><td>3-day free trial included</td><td>Eligibility check (GMC · NMC · HCPC); Regulatory gap summary; Sponsor-licensed employer access; Remediation plan; Document upload</td><td>Start Free Trial → /register</td><td>Marketing only; no tier or checkout payload.</td></tr><tr><td>Premium Individual</td><td>GBP £420 / year</td><td>3-day free trial included</td><td>Everything in Individual; Advanced pathway intelligence; AI cover letter generation; Profile boost &amp; visibility; Visa sponsorship assessment; Human expert review access; Priority support</td><td>Start Free Trial → /register</td><td>Highlighted marketing card; no annual entitlement mapping.</td></tr><tr><td>Institutional</td><td>GBP £5,000 / year</td><td>None shown</td><td>Candidate pipeline (read-only); Headhunting &amp; talent search; Eligibility &amp; sponsorship filters; AI-ranked candidate shortlists; Direct candidate contact; CSV export &amp; reporting; Dedicated account manager</td><td>Contact Sales → /employer/register</td><td>Employer registration, not a sales/payment workflow.</td></tr><tr><td>Free (backend plan)</td><td>No charge configured</td><td>No trial state</td><td>10 new Readiness analyses per UTC calendar month across sponsor vacancies and ordinary roles; existing-result cache and refresh bypass initial reservation</td><td>Quota card/dialog</td><td>Implemented quota, not an annual marketed tier.</td></tr><tr><td>Check Booster Pack</td><td>Displayed $5.99, one-time (USD sign; no backend currency/amount)</td><td>None</td><td>25 additional checks; One-time purchase; Use whenever you need them</td><td>Upgrade Now → {type: booster_pack}</td><td>Development adds 25 checks without charging; live purchase disabled.</td></tr><tr><td>JobSage Pro</td><td>Displayed $19.99 /mo (USD sign; no backend currency/amount)</td><td>None</td><td>Unlimited Readiness Checks; Priority AI gap analysis; Monthly subscription</td><td>Upgrade Now → {type: pro_subscription}</td><td>Development grants one calendar month; unlimited gate implemented; priority/recurring billing not implemented.</td></tr></tbody></table></div><p>The annual pricing section is <code>id="pricing"</code> inside <code>LandingPage</code>. It mounts through <code>App.tsx → SmartHome → LandingPage</code> for guests at <code>/</code>; signed-in users go through the profile gate. There is no separate pricing page or subscription-management route. Both candidate cards send users to the same registration route without preserving the selected plan. The annual section says “Annual plans. 3-day free trial on all candidate plans. No credit card required to start.”</p><h3>Separate planning-only price model</h3><p>The unit-economics documentation is a third, independent pricing source. It assumes GBP, 8% paying conversion, £30 CAC amortised over twelve months, variable/fixed operating costs and 30%/50%/70% gross margins. It does not configure displayed products or charge customers.</p><div class="table-wrap"><table><thead><tr><th>MAU</th><th>30% margin / paying user / month</th><th>50% margin</th><th>70% margin</th></tr></thead><tbody><tr><td>100</td><td>£45.54</td><td>£63.75</td><td>£106.25</td></tr><tr><td>1,000</td><td>£20.54</td><td>£28.75</td><td>£47.92</td></tr><tr><td>10,000</td><td>£16.53</td><td>£23.14</td><td>£38.56</td></tr><tr><td>100,000</td><td>£15.66</td><td>£21.92</td><td>£36.53</td></tr><tr><td>1,000,000</td><td>£15.38</td><td>£21.54</td><td>£35.90</td></tr></tbody></table></div><h2 id="routes">2. API routes, authentication and behavior</h2><p>These route definitions are relative to the API router. <code>app.ts</code> mounts it at <code>/api</code>. Browser callers apply the web artifact base path; the shared client uses its configured base URL.</p><div class="table-wrap"><table><thead><tr><th>Route (after /api)</th><th>Guard</th><th>Actual behavior</th></tr></thead><tbody><tr><td>GET /readiness/quota</td><td>Authenticated</td><td>Returns used (capped at 10), limit, bonusRemaining, effective plan and resetsAt.</td></tr><tr><td>POST /checkout/create-session</td><td>Authenticated</td><td>Payload type=booster_pack|pro_subscription. Invalid payload 400; missing user 404; development without Stripe key directly mutates access; all other configurations 503.</td></tr><tr><td>POST /checkout/webhook</td><td>No auth middleware; disabled</td><td>Always 503. No signature validation, payment reconciliation or entitlement grant.</td></tr><tr><td>GET /sponsor-licences/gap-analyses/usage</td><td>Authenticated</td><td>Raw current-month sponsor + role counts, limit and reset; no plan or bonus state.</td></tr><tr><td>GET /sponsor-licences/gap-analyses/usage/:userId</td><td>requireRole(admin)</td><td>Admin reads target usage; same monthly count rules.</td></tr><tr><td>DELETE /sponsor-licences/gap-analyses/:userId</td><td>requireRole(admin)</td><td>Deletes BOTH analysis caches for the target user. Does not purchase/refund checks or change plan/expiry.</td></tr><tr><td>GET /sponsor-licences/vacancies/:vacancyId/gap-analysis</td><td>Authenticated</td><td>Cache/refresh or real AI analysis; denied new analysis returns 429.</td></tr><tr><td>GET /opportunities/roles/:roleId/gap-analysis</td><td>Authenticated</td><td>Same shared entitlement helper; denied new analysis returns 429.</td></tr><tr><td>POST /support/ticket</td><td>Public endpoint</td><td>Persists ticket and attempts notification email; manual billing help only.</td></tr><tr><td>GET /admin/super/support-tickets</td><td>requireRole(super_admin)</td><td>Lists support tickets.</td></tr><tr><td>PATCH /admin/super/support-tickets/:id</td><td>requireRole(super_admin)</td><td>Updates review status/notes; no subscription-provider operation.</td></tr></tbody></table></div><p>Checkout’s request carries only a product type. There are no backend charge amounts, currency settings, provider price/product IDs, annual tier IDs or trial parameters. The response shape is <code>{success, checkoutUrl, sandboxCompleted}</code>. The frontend can redirect to a hosted checkout URL, but the current backend never creates one.</p><h2>3. Persistence and entitlement rules</h2><ul><li><strong>users:</strong> plan defaults to free and permits only free/pro; bonus_readiness_checks defaults to zero and cannot be negative; subscription_expires_at is nullable; stripe_customer_id and stripe_payment_intent_id exist but no operational reads/writes were found beyond their definitions.</li><li><strong>role_gap_analyses and sponsor_licence_gap_analyses:</strong> per-user analysis/cache records provide monthly usage counts through generated_at. These are not payment or subscription ledgers.</li><li><strong>support_tickets:</strong> Account/Billing is a ticket category, not a billing transaction type.</li><li>No dedicated subscription, payment, invoice, checkout-session, provider-event or trial table was found in the database source.</li></ul><ol><li>An unexpired Pro entitlement permits unlimited new Readiness analyses.</li><li>Otherwise, allow new analyses while the current UTC month count is below ten.</li><li>Once that allowance is used, atomically decrement one bonus check if available.</li><li>Otherwise deny with HTTP 429. Both role and sponsor-vacancy analysis paths use the shared helper.</li><li>Existing analyses use a seven-day cache. Stale refreshes bypass initial quota reservation. Failed analyses refund a reserved bonus check.</li><li>The monthly boundary is 00:00 UTC on the first of each month. Expired Pro is treated as free without clearing the stored plan field.</li></ol><h2 id="status">4. Working, sandboxed and hardcoded behavior</h2><div class="table-wrap"><table><thead><tr><th>Capability</th><th>Assessment</th></tr></thead><tbody><tr><td>Annual cards and CTAs</td><td>Hardcoded but wired to navigation. They do not select a paid tier, start a timed trial or create a checkout.</td></tr><tr><td>Three-day free trial</td><td>Marketing text only. No trial date/status/enforcement or billing transition was found.</td></tr><tr><td>Candidate quota card/modal</td><td>API-backed quota display and upgrade trigger are wired. The modal handles loading/error/retry, active Pro and bonus counts.</td></tr><tr><td>Paid feature enforcement</td><td>Real server-side gate for new Readiness analyses only. No Individual/Premium/Institutional feature-entitlement mapping was found.</td></tr><tr><td>Booster/Pro checkout</td><td>A real database access mutation in the development sandbox, NOT verified billing. Repeated sandbox calls can grant more checks/time.</td></tr><tr><td>Production checkout</td><td>Explicit 503 before any entitlement mutation. Supplying STRIPE_SECRET_KEY does not enable payments; it disables the sandbox branch.</td></tr><tr><td>Provider webhook</td><td>Route exists but always 503. No verified provider events or reconciliation.</td></tr><tr><td>Hosted checkout redirect</td><td>Frontend capability exists; current server returns checkoutUrl=null for sandbox completions.</td></tr><tr><td>Recurring subscription lifecycle</td><td>No renewal charging, cancellation provider call, refund flow, invoice/receipt system or customer billing portal found.</td></tr><tr><td>Priority AI gap analysis</td><td>Advertised only; no plan-based queue priority or model routing found.</td></tr><tr><td>Cancellation help</td><td>Manual support-ticket instructions. Ticket submission/review is implemented but does not itself cancel a subscription.</td></tr><tr><td>Mobile app</td><td>No mobile billing/paywall/checkout/upgrade UI or native payment implementation found. Readiness score displays are not the paid analysis quota.</td></tr><tr><td>Chrome extension and mockup sandbox</td><td>No pricing/subscription/payment implementation found in their source scans.</td></tr><tr><td>Payment dependencies</td><td>No payment-provider SDK in inspected package dependencies. The stripe string in build.ts is a generic external package declaration, not an integration.</td></tr><tr><td>Unit-economics generator</td><td>Implemented offline documentation calculation; no connection to runtime plan prices.</td></tr></tbody></table></div><h2 id="issues">5. Important inconsistencies and gaps</h2><ol><li><strong>Two unrelated public price catalogs.</strong> Annual Individual/Premium/Institutional GBP plans do not correspond to free/pro or the USD booster/Pro products. There is no single price/entitlement source.</li><li><strong>Paid-upgrade recovery can remain blocked in an already mounted analysis sheet.</strong> A 429 sets local limitReached=true and disables its analysis query. It clears only when the legacy usage endpoint reports used &lt; limit. Buying bonus checks or activating Pro does not reduce used, and checkout invalidates only the newer quota query. This is a static code finding, not a browser-reproduced paid journey.</li><li><strong>Quota UI sources disagree.</strong> The newer quota endpoint caps used at ten and includes plan/bonus state; the legacy usage endpoint returns the raw monthly total and omits both. The analysis-sheet badge can therefore show exhausted/red usage for an allowed Pro/bonus user. The sidebar likewise shows the numerical monthly counter instead of “Unlimited”.</li><li><strong>Ten is duplicated.</strong> It appears in the server constant, OpenAPI const, generated TypeScript literal types, modal fallback, analysis-sheet/support/admin text and tests. The requested three-check policy is not current code.</li><li><strong>“Free refresh” is not a separate consumption ledger.</strong> Usage is derived from current-month generated_at timestamps. Refreshing an old analysis rewrites generated_at, so it can affect later monthly counts despite bypassing reservation at refresh time.</li><li><strong>Free allowance is not atomically reserved.</strong> The monthly path checks a count then allows work, unlike the conditional atomic bonus decrement. Concurrent new requests may exceed the intended free cap; this risk was not load-tested.</li><li><strong>Subscription duration is access time, not verified recurring billing.</strong> Sandbox Pro adds one calendar month from the later of now/current expiry. No provider subscription ID, renewal webhook, trial transition or price validation is present.</li><li><strong>Paid-journey test gaps.</strong> No dedicated checkout-route or quota-modal paid-upgrade test file was found. Existing tests do not establish real payment or post-upgrade sheet recovery.</li><li><strong>Admin reset is destructive to analysis history.</strong> It deletes both types of stored analysis, rather than resetting an independent usage counter; it leaves subscription/bonus fields unchanged.</li></ol><h2>6. Verification and limits</h2><p>Focused existing tests passed: API quota, sponsor analysis and role analysis — <strong>3 files / 11 tests</strong>; analysis-sheet frontend — <strong>1 file / 3 tests</strong>. These are unit/component tests with mocks, not live payment tests. The guest landing page loaded in the application preview without visible runtime errors. No checkout, webhook, purchase, admin reset or support-ticket mutation was exercised.</p><p>The review covered source, schemas/migration, API contracts/generated client, package/provider references, pricing documentation and mobile/extension/sandbox source searches. Build output, dependency internals, datasets and generated browser-report HTML were excluded from source inventory. Production DB migration status, live entitlement records and external provider configuration were not queried.</p><h2 id="inventory">7. Relevant source and documentation inventory</h2><div class="table-wrap"><table><thead><tr><th>Area</th><th>Path</th><th>Purpose</th></tr></thead><tbody><tr><td>Web pricing and navigation</td><td>artifacts/jobsage-web/src/pages/LandingPage.tsx</td><td>PRICING array, annual cards, trial copy, registration-only CTAs.</td></tr><tr><td>Web pricing and navigation</td><td>artifacts/jobsage-web/src/App.tsx</td><td>Guest home, registration, employer registration, help/support route mounts.</td></tr><tr><td>Web quota and upgrade UI</td><td>artifacts/jobsage-web/src/components/ReadinessQuotaModal.tsx</td><td>Hardcoded USD upgrade offers; quota API; checkout mutation; sandbox label.</td></tr><tr><td>Web quota and upgrade UI</td><td>artifacts/jobsage-web/src/components/layout/AppLayout.tsx</td><td>Mounts quota dialog; listens to both readiness events.</td></tr><tr><td>Web quota and upgrade UI</td><td>artifacts/jobsage-web/src/components/layout/AppSidebar.tsx</td><td>Candidate quota card and upgrade-dialog trigger.</td></tr><tr><td>Web quota and upgrade UI</td><td>artifacts/jobsage-web/src/components/QuickHelpMenu.tsx</td><td>Candidate Readiness dialog launcher.</td></tr><tr><td>Web feature gate</td><td>artifacts/jobsage-web/src/components/GapAnalysisSheet.tsx</td><td>429 handling, limit event, legacy usage count, hardcoded ten-check wording.</td></tr><tr><td>Web feature gate</td><td>artifacts/jobsage-web/src/pages/OpportunitiesPage.tsx</td><td>Mounts shared analysis sheet for sponsor vacancies and ordinary roles.</td></tr><tr><td>Web administration</td><td>artifacts/jobsage-web/src/pages/admin/SuperAdminPage.tsx</td><td>Usage display and destructive analysis reset; hardcoded ten-check state/copy.</td></tr><tr><td>Billing help</td><td>artifacts/jobsage-web/src/pages/HelpSupportPage.tsx</td><td>Booster/Pro FAQs, cancellation instructions, Account/Billing support form.</td></tr><tr><td>Billing help</td><td>artifacts/jobsage-web/src/pages/admin/AdminSupportTicketsTab.tsx</td><td>Manual support-ticket review; not provider subscription management.</td></tr><tr><td>Backend checkout</td><td>artifacts/api-server/src/routes/checkout.ts</td><td>Only development entitlement mutation; production and webhook return 503.</td></tr><tr><td>Backend quota</td><td>artifacts/api-server/src/routes/readiness.ts</td><td>Authenticated GET quota endpoint.</td></tr><tr><td>Backend quota</td><td>artifacts/api-server/src/lib/readinessQuota.ts</td><td>Ten-check UTC allowance, active Pro, atomic bonus debit/refund.</td></tr><tr><td>Backend feature gate</td><td>artifacts/api-server/src/lib/vacancyGapAnalysis.ts</td><td>Sponsor-vacancy cache, quota reservation, AI generation and bonus refund.</td></tr><tr><td>Backend feature gate</td><td>artifacts/api-server/src/routes/roles.ts</td><td>Ordinary-role gap-analysis cache, quota reservation and bonus refund.</td></tr><tr><td>Backend feature gate/admin</td><td>artifacts/api-server/src/routes/sponsorLicences.ts</td><td>Usage endpoints, admin reset and sponsor analysis 429 response.</td></tr><tr><td>Backend routing</td><td>artifacts/api-server/src/routes/index.ts</td><td>Mounts readiness/checkout/support/role/sponsor routers.</td></tr><tr><td>Backend routing</td><td>artifacts/api-server/src/app.ts</td><td>Mounts /api; captures raw JSON body but has no Stripe signature verification.</td></tr><tr><td>Backend billing help</td><td>artifacts/api-server/src/routes/support.ts</td><td>Persists support requests and exposes super-admin ticket review.</td></tr><tr><td>Backend billing help</td><td>artifacts/api-server/src/lib/email.ts</td><td>Support notification email; unrelated to payment receipts or provider reconciliation.</td></tr><tr><td>Database</td><td>lib/db/src/schema/auth.ts</td><td>users: free/pro, bonus checks, expiry and unused Stripe identity fields.</td></tr><tr><td>Database</td><td>lib/db/src/schema/roles.ts</td><td>role_gap_analyses cache/usage records.</td></tr><tr><td>Database</td><td>lib/db/src/schema/sponsorLicences.ts</td><td>sponsor_licence_gap_analyses cache/usage records.</td></tr><tr><td>Database</td><td>lib/db/src/schema/supportTickets.ts</td><td>support_tickets includes Account/Billing category.</td></tr><tr><td>Database migration</td><td>lib/db/drizzle/0038_readiness_paid_access.sql</td><td>Adds entitlement/Stripe fields and validity/nonnegative constraints.</td></tr><tr><td>API source contract</td><td>lib/api-spec/openapi.yaml</td><td>Readiness/checkout routes and schemas; quota limit const 10.</td></tr><tr><td>Generated client</td><td>lib/api-client-react/src/generated/api.ts</td><td>Readiness query, checkout mutation, webhook mutation.</td></tr><tr><td>Generated types</td><td>lib/api-client-react/src/generated/api.schemas.ts</td><td>ReadinessQuota (limit: 10), free/pro enum and checkout input/result.</td></tr><tr><td>Generated validation</td><td>lib/api-zod/src/generated/api.ts</td><td>Backend quota response and checkout request/response Zod schemas.</td></tr><tr><td>Generated leaf types</td><td>lib/api-zod/src/generated/types/readinessQuota.ts</td><td>Generated ReadinessQuota type.</td></tr><tr><td>Generated leaf types</td><td>lib/api-zod/src/generated/types/readinessQuotaPlan.ts</td><td>Generated free/pro values.</td></tr><tr><td>Generated leaf types</td><td>lib/api-zod/src/generated/types/checkoutInput.ts</td><td>Generated purchase-type payload.</td></tr><tr><td>Generated leaf types</td><td>lib/api-zod/src/generated/types/checkoutInputType.ts</td><td>Generated booster_pack/pro_subscription values.</td></tr><tr><td>Generated leaf types</td><td>lib/api-zod/src/generated/types/checkoutSessionResult.ts</td><td>Generated success/checkoutUrl/sandboxCompleted result.</td></tr><tr><td>Planning-only pricing</td><td>docs/pricing-assumptions.json</td><td>GBP unit-economics assumptions; NOT a runtime product catalog.</td></tr><tr><td>Planning-only pricing</td><td>scripts/generate-pricing-model.mjs</td><td>Calculates suggested monthly prices; writes Markdown and CSV only.</td></tr><tr><td>Planning-only pricing</td><td>scripts/package.json</td><td>Defines @workspace/scripts pricing:model command.</td></tr><tr><td>Planning-only pricing</td><td>docs/pricing-unit-economics.md</td><td>Generated cost model, price bands and limitations.</td></tr><tr><td>Planning-only pricing</td><td>docs/pricing-unit-economics.csv</td><td>Generated numerical cost/price model output.</td></tr><tr><td>Provider/dependency check</td><td>artifacts/api-server/package.json</td><td>No installed Stripe/Paddle/Lemon Squeezy/RevenueCat payment SDK.</td></tr><tr><td>Provider/dependency check</td><td>artifacts/api-server/build.ts</td><td>Lists stripe as a generic build external; does not implement a provider.</td></tr><tr><td>Provider/dependency check</td><td>artifacts/jobsage-web/package.json</td><td>No web payment SDK dependency.</td></tr><tr><td>Tests</td><td>artifacts/api-server/src/__tests__/lib/readinessQuota.test.ts</td><td>Allowance, bonus, active/expired Pro and UTC date boundaries.</td></tr><tr><td>Tests</td><td>artifacts/api-server/src/__tests__/lib/vacancyGapAnalysis.test.ts</td><td>Sponsor analysis behavior with quota/database mocks.</td></tr><tr><td>Tests</td><td>artifacts/api-server/src/__tests__/routes/roleReadinessGapAnalysis.test.ts</td><td>Role analysis and cached/stale quota behavior.</td></tr><tr><td>Tests</td><td>artifacts/jobsage-web/src/components/GapAnalysisSheet.test.tsx</td><td>Analysis-sheet UI tests; not a paid upgrade journey.</td></tr><tr><td>Adjacent support tests</td><td>artifacts/api-server/src/__tests__/routes/support.test.ts</td><td>Support-ticket API tests.</td></tr><tr><td>Adjacent support tests</td><td>artifacts/jobsage-web/src/pages/admin/AdminSupportTicketsTab.test.tsx</td><td>Manual support-ticket review UI tests.</td></tr></tbody></table></div><h2 id="evidence">8. Exact source excerpts</h2><p>Excerpts below reproduce current source with original line numbers. They are evidence, not suggested patches. Expanded pricing excerpts can be copied directly; the remaining sections can be opened as needed.</p><details open><summary>Annual pricing data structure</summary><p class="small">artifacts/jobsage-web/src/pages/LandingPage.tsx · lines 398–453</p><pre><code> 398 | const PRICING = [
+ 399 |   {
+ 400 |     name: &quot;Individual&quot;,
+ 401 |     price: &quot;£180&quot;,
+ 402 |     period: &quot;/ year&quot;,
+ 403 |     trial: &quot;3-day free trial included&quot;,
+ 404 |     desc: &quot;Everything a candidate needs to assess and plan their UK healthcare journey.&quot;,
+ 405 |     features: [
+ 406 |       &quot;Eligibility check (GMC · NMC · HCPC)&quot;,
+ 407 |       &quot;Regulatory gap summary&quot;,
+ 408 |       &quot;Sponsor-licensed employer access&quot;,
+ 409 |       &quot;Remediation plan&quot;,
+ 410 |       &quot;Document upload&quot;,
+ 411 |     ],
+ 412 |     cta: &quot;Start Free Trial&quot;,
+ 413 |     highlight: false,
+ 414 |   },
+ 415 |   {
+ 416 |     name: &quot;Premium Individual&quot;,
+ 417 |     price: &quot;£420&quot;,
+ 418 |     period: &quot;/ year&quot;,
+ 419 |     trial: &quot;3-day free trial included&quot;,
+ 420 |     desc: &quot;Advanced intelligence and priority support for professionals who need certainty.&quot;,
+ 421 |     features: [
+ 422 |       &quot;Everything in Individual&quot;,
+ 423 |       &quot;Advanced pathway intelligence&quot;,
+ 424 |       &quot;AI cover letter generation&quot;,
+ 425 |       &quot;Profile boost &amp; visibility&quot;,
+ 426 |       &quot;Visa sponsorship assessment&quot;,
+ 427 |       &quot;Human expert review access&quot;,
+ 428 |       &quot;Priority support&quot;,
+ 429 |     ],
+ 430 |     cta: &quot;Start Free Trial&quot;,
+ 431 |     highlight: true,
+ 432 |   },
+ 433 |   {
+ 434 |     name: &quot;Institutional&quot;,
+ 435 |     price: &quot;£5,000&quot;,
+ 436 |     period: &quot;/ year&quot;,
+ 437 |     trial: &quot;&quot;,
+ 438 |     desc: &quot;For NHS trusts, staffing agencies, and international employers.&quot;,
+ 439 |     features: [
+ 440 |       &quot;Candidate pipeline (read-only)&quot;,
+ 441 |       &quot;Headhunting &amp; talent search&quot;,
+ 442 |       &quot;Eligibility &amp; sponsorship filters&quot;,
+ 443 |       &quot;AI-ranked candidate shortlists&quot;,
+ 444 |       &quot;Direct candidate contact&quot;,
+ 445 |       &quot;CSV export &amp; reporting&quot;,
+ 446 |       &quot;Dedicated account manager&quot;,
+ 447 |     ],
+ 448 |     cta: &quot;Contact Sales&quot;,
+ 449 |     highlight: false,
+ 450 |   },
+ 451 | ];
+ 452 | 
+ 453 | const FAQS = [</code></pre></details><details open><summary>Annual pricing component and CTAs</summary><p class="small">artifacts/jobsage-web/src/pages/LandingPage.tsx · lines 1186–1247</p><pre><code>1186 |       &lt;section id=&quot;pricing&quot; className=&quot;py-24 px-4 bg-muted/30&quot;&gt;
+1187 |         &lt;div className=&quot;max-w-5xl mx-auto&quot;&gt;
+1188 |           &lt;SectionHeading
+1189 |             eyebrow=&quot;Pricing&quot;
+1190 |             title=&quot;Simple, transparent pricing.&quot;
+1191 |             subtitle=&quot;Annual plans. 3-day free trial on all candidate plans. No credit card required to start.&quot;
+1192 |           /&gt;
+1193 |           &lt;motion.div
+1194 |             variants={stagger}
+1195 |             initial=&quot;hidden&quot;
+1196 |             whileInView=&quot;show&quot;
+1197 |             viewport={{ once: true, margin: &quot;-40px&quot; }}
+1198 |             className=&quot;mt-14 grid grid-cols-1 md:grid-cols-3 gap-6 items-start&quot;
+1199 |           &gt;
+1200 |             {PRICING.map(({ name, price, period, trial, desc, features, cta, highlight }) =&gt; (
+1201 |               &lt;motion.div
+1202 |                 key={name}
+1203 |                 variants={fadeUp}
+1204 |                 className={`rounded-2xl p-7 border flex flex-col gap-5 ${
+1205 |                   highlight
+1206 |                     ? &quot;bg-primary text-primary-foreground border-primary shadow-xl shadow-primary/20 scale-105&quot;
+1207 |                     : &quot;bg-background border-border/50&quot;
+1208 |                 }`}
+1209 |               &gt;
+1210 |                 &lt;div&gt;
+1211 |                   &lt;p className={`text-xs font-bold uppercase tracking-widest mb-1 ${highlight ? &quot;text-primary-foreground/60&quot; : &quot;text-muted-foreground&quot;}`}&gt;
+1212 |                     {name}
+1213 |                   &lt;/p&gt;
+1214 |                   &lt;div className=&quot;flex items-end gap-1&quot;&gt;
+1215 |                     &lt;span className=&quot;text-4xl font-extrabold font-display&quot;&gt;{price}&lt;/span&gt;
+1216 |                     {period &amp;&amp; &lt;span className={`text-sm mb-1 ${highlight ? &quot;text-primary-foreground/70&quot; : &quot;text-muted-foreground&quot;}`}&gt;{period}&lt;/span&gt;}
+1217 |                   &lt;/div&gt;
+1218 |                   {trial &amp;&amp; (
+1219 |                     &lt;p className={`text-xs font-semibold mt-1 ${highlight ? &quot;text-primary-foreground/70&quot; : &quot;text-accent&quot;}`}&gt;
+1220 |                       {trial}
+1221 |                     &lt;/p&gt;
+1222 |                   )}
+1223 |                   &lt;p className={`text-sm mt-2 ${highlight ? &quot;text-primary-foreground/80&quot; : &quot;text-muted-foreground&quot;}`}&gt;{desc}&lt;/p&gt;
+1224 |                 &lt;/div&gt;
+1225 |                 &lt;ul className=&quot;flex flex-col gap-3 flex-1&quot;&gt;
+1226 |                   {features.map((f) =&gt; (
+1227 |                     &lt;li key={f} className=&quot;flex items-start gap-2 text-sm&quot;&gt;
+1228 |                       &lt;CheckCircle2 className={`w-4 h-4 mt-0.5 shrink-0 ${highlight ? &quot;text-primary-foreground/80&quot; : &quot;text-accent&quot;}`} /&gt;
+1229 |                       &lt;span className={highlight ? &quot;text-primary-foreground/90&quot; : &quot;text-foreground&quot;}&gt;{f}&lt;/span&gt;
+1230 |                     &lt;/li&gt;
+1231 |                   ))}
+1232 |                 &lt;/ul&gt;
+1233 |                 &lt;Button
+1234 |                   variant=&quot;outline&quot;
+1235 |                   onClick={() =&gt; setLocation(cta === &quot;Contact Sales&quot; ? &quot;/employer/register&quot; : &quot;/register&quot;)}
+1236 |                   className={`w-full ${highlight ? &quot;bg-white text-primary border-white hover:bg-white/90 font-bold&quot; : &quot;&quot;}`}
+1237 |                 &gt;
+1238 |                   {cta}
+1239 |                   &lt;ArrowRight className=&quot;w-4 h-4 ml-1&quot; /&gt;
+1240 |                 &lt;/Button&gt;
+1241 |               &lt;/motion.div&gt;
+1242 |             ))}
+1243 |           &lt;/motion.div&gt;
+1244 |           &lt;p className=&quot;mt-8 text-center text-sm text-muted-foreground&quot;&gt;
+1245 |             3-day free trial · No credit card required
+1246 |           &lt;/p&gt;
+1247 |         &lt;/div&gt;</code></pre></details><details><summary>Readiness quota / paid-offer component (complete)</summary><p class="small">artifacts/jobsage-web/src/components/ReadinessQuotaModal.tsx · lines 1–99</p><pre><code>   1 | import { useEffect, useState } from &quot;react&quot;;
+   2 | import { Link } from &quot;wouter&quot;;
+   3 | import { useQueryClient } from &quot;@tanstack/react-query&quot;;
+   4 | import { getGetReadinessQuotaQueryKey, useCreateCheckoutSession, useGetReadinessQuota } from &quot;@workspace/api-client-react&quot;;
+   5 | import { Button } from &quot;@/components/ui-enhanced&quot;;
+   6 | import { useToast } from &quot;@/hooks/use-toast&quot;;
+   7 | import { Check, ExternalLink, Loader2, ShieldCheck, Sparkles, X } from &quot;lucide-react&quot;;
+   8 | 
+   9 | export function ReadinessQuotaModal({ open, onClose }: { open: boolean; onClose: () =&gt; void }) {
+  10 |   const { toast } = useToast();
+  11 |   const queryClient = useQueryClient();
+  12 |   const quotaQuery = useGetReadinessQuota({
+  13 |     query: {
+  14 |       queryKey: getGetReadinessQuotaQueryKey(),
+  15 |       enabled: open,
+  16 |       staleTime: 0,
+  17 |     },
+  18 |   });
+  19 |   const checkout = useCreateCheckoutSession({});
+  20 |   const [sandboxMessage, setSandboxMessage] = useState&lt;string | null&gt;(null);
+  21 | 
+  22 |   useEffect(() =&gt; {
+  23 |     if (!open) return;
+  24 |     setSandboxMessage(null);
+  25 |     const handleEscape = (event: KeyboardEvent) =&gt; {
+  26 |       if (event.key === &quot;Escape&quot;) onClose();
+  27 |     };
+  28 |     window.addEventListener(&quot;keydown&quot;, handleEscape);
+  29 |     return () =&gt; window.removeEventListener(&quot;keydown&quot;, handleEscape);
+  30 |   }, [open, onClose]);
+  31 | 
+  32 |   if (!open) return null;
+  33 |   const quota = quotaQuery.data;
+  34 |   const used = quota?.used ?? 0;
+  35 |   const limit = quota?.limit ?? 10;
+  36 |   const percent = quota ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+  37 | 
+  38 |   async function beginCheckout(type: &quot;booster_pack&quot; | &quot;pro_subscription&quot;) {
+  39 |     try {
+  40 |       const result = await checkout.mutateAsync({ data: { type } });
+  41 |       if (!result.success) {
+  42 |         toast({ title: &quot;Checkout was not completed&quot;, description: &quot;Production checkout is not available right now. No payment or account access was confirmed.&quot;, variant: &quot;destructive&quot; });
+  43 |         return;
+  44 |       }
+  45 |       if (result.checkoutUrl) {
+  46 |         window.location.assign(result.checkoutUrl);
+  47 |         return;
+  48 |       }
+  49 |       if (result.sandboxCompleted) {
+  50 |         setSandboxMessage(&quot;SANDBOX COMPLETION — development only. No live payment was taken.&quot;);
+  51 |         await queryClient.invalidateQueries({ queryKey: getGetReadinessQuotaQueryKey() });
+  52 |         toast({ title: &quot;Sandbox checkout completed&quot;, description: &quot;This development-only sandbox completion has been labelled clearly. No live payment was taken.&quot; });
+  53 |         return;
+  54 |       }
+  55 |       toast({ title: &quot;Live checkout is unavailable&quot;, description: &quot;Production checkout is not available right now. No payment or account access was confirmed.&quot;, variant: &quot;destructive&quot; });
+  56 |     } catch (error) {
+  57 |       const message = error instanceof Error ? error.message : &quot;Production checkout is not available right now.&quot;;
+  58 |       toast({ title: &quot;Checkout could not start&quot;, description: `${message} No payment or access was confirmed.`, variant: &quot;destructive&quot; });
+  59 |     }
+  60 |   }
+  61 | 
+  62 |   return (
+  63 |     &lt;div className=&quot;fixed inset-0 z-[80] flex items-end justify-center p-3 sm:items-center sm:p-6&quot; role=&quot;dialog&quot; aria-modal=&quot;true&quot; aria-labelledby=&quot;readiness-quota-title&quot;&gt;
+  64 |       &lt;button type=&quot;button&quot; data-testid=&quot;button-close-quota-backdrop&quot; aria-label=&quot;Close Readiness Check quota&quot; className=&quot;absolute inset-0 cursor-default bg-foreground/35 backdrop-blur-sm&quot; onClick={onClose} /&gt;
+  65 |       &lt;section className=&quot;relative max-h-[92dvh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-border bg-background shadow-2xl&quot;&gt;
+  66 |         &lt;div className=&quot;flex items-start justify-between border-b border-border/70 p-5 sm:p-7&quot;&gt;
+  67 |           &lt;div&gt;&lt;p className=&quot;text-xs font-bold uppercase tracking-[0.18em] text-primary&quot;&gt;Readiness Checks&lt;/p&gt;&lt;h2 id=&quot;readiness-quota-title&quot; className=&quot;mt-2 text-2xl font-bold&quot;&gt;Keep moving with a clearer application&lt;/h2&gt;&lt;p className=&quot;mt-1 text-sm text-muted-foreground&quot;&gt;Use checks to compare your profile and CV with the role criteria.&lt;/p&gt;&lt;/div&gt;
+  68 |           &lt;button type=&quot;button&quot; data-testid=&quot;button-close-quota&quot; aria-label=&quot;Close Readiness Check quota&quot; onClick={onClose} className=&quot;rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring&quot;&gt;&lt;X className=&quot;h-5 w-5&quot; /&gt;&lt;/button&gt;
+  69 |         &lt;/div&gt;
+  70 |         &lt;div className=&quot;space-y-6 p-5 sm:p-7&quot;&gt;
+  71 |           &lt;div className=&quot;rounded-2xl border border-border bg-secondary/35 p-4&quot;&gt;
+  72 |              &lt;div className=&quot;mb-2 flex items-center justify-between gap-3 text-sm&quot;&gt;&lt;span className=&quot;font-semibold&quot;&gt;Monthly allowance&lt;/span&gt;&lt;span className=&quot;font-mono text-primary&quot; data-testid=&quot;text-readiness-usage&quot;&gt;{quotaQuery.isLoading ? &quot;Loading…&quot; : quota?.plan === &quot;pro&quot; ? &quot;Unlimited&quot; : quota ? `${used}/${limit}` : &quot;Unavailable&quot;}&lt;/span&gt;&lt;/div&gt;
+  73 |              {quota?.plan !== &quot;pro&quot; &amp;&amp; &lt;div className=&quot;h-2 overflow-hidden rounded-full bg-muted&quot;&gt;&lt;div className=&quot;h-full rounded-full bg-primary transition-[width]&quot; style={{ width: `${percent}%` }} /&gt;&lt;/div&gt;}
+  74 |              &lt;div className=&quot;mt-2 flex flex-wrap justify-between gap-2 text-xs text-muted-foreground&quot;&gt;&lt;span&gt;{quota?.plan === &quot;pro&quot; ? &quot;JobSage Pro is active&quot; : quota ? `${Math.max(0, limit - used)} free checks remaining` : &quot;Quota status unavailable&quot;}&lt;/span&gt;&lt;span&gt;{quota?.bonusRemaining ?? 0} bonus checks&lt;/span&gt;&lt;/div&gt;
+  75 |              {quota &amp;&amp; quota.plan !== &quot;pro&quot; &amp;&amp; &lt;p className=&quot;mt-2 text-xs text-muted-foreground&quot; data-testid=&quot;text-readiness-reset&quot;&gt;Free checks reset {new Date(quota.resetsAt).toLocaleDateString(undefined, { month: &quot;long&quot;, day: &quot;numeric&quot;, timeZone: &quot;UTC&quot; })} at 00:00 UTC.&lt;/p&gt;}
+  76 |           &lt;/div&gt;
+  77 |            {quotaQuery.isError &amp;&amp; &lt;p className=&quot;rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive&quot; role=&quot;alert&quot; data-testid=&quot;status-quota-error&quot;&gt;We could not refresh your quota. {quota ? &quot;The last available value is shown.&quot; : &quot;Please try again.&quot;} &lt;button type=&quot;button&quot; className=&quot;ml-1 font-semibold underline&quot; onClick={() =&gt; void quotaQuery.refetch()}&gt;Try again&lt;/button&gt;&lt;/p&gt;}
+  78 |           {sandboxMessage &amp;&amp; &lt;p className=&quot;rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm font-semibold text-amber-900&quot; role=&quot;status&quot; data-testid=&quot;status-sandbox-checkout&quot;&gt;{sandboxMessage}&lt;/p&gt;}
+  79 |           &lt;div className=&quot;grid gap-4 md:grid-cols-2&quot;&gt;
+  80 |             &lt;article className=&quot;rounded-2xl border border-border bg-card p-5&quot;&gt;
+  81 |               &lt;div className=&quot;flex items-start justify-between gap-3&quot;&gt;&lt;div&gt;&lt;p className=&quot;text-xs font-bold uppercase tracking-wider text-muted-foreground&quot;&gt;One-time&lt;/p&gt;&lt;h3 className=&quot;mt-1 text-xl font-bold&quot;&gt;Check Booster Pack&lt;/h3&gt;&lt;/div&gt;&lt;span className=&quot;text-2xl font-bold&quot;&gt;$5.99&lt;/span&gt;&lt;/div&gt;
+  82 |               &lt;p className=&quot;mt-3 text-sm text-muted-foreground&quot;&gt;Add 25 additional Readiness Checks when you need a focused burst of applications.&lt;/p&gt;
+  83 |               &lt;ul className=&quot;mt-4 space-y-2 text-sm&quot;&gt;{[&quot;25 additional checks&quot;, &quot;One-time purchase&quot;, &quot;Use whenever you need them&quot;].map((item) =&gt; &lt;li key={item} className=&quot;flex items-center gap-2&quot;&gt;&lt;Check className=&quot;h-4 w-4 text-primary&quot; /&gt;{item}&lt;/li&gt;)}&lt;/ul&gt;
+  84 |               &lt;Button type=&quot;button&quot; data-testid=&quot;button-buy-booster&quot; variant=&quot;outline&quot; className=&quot;mt-5 w-full&quot; onClick={() =&gt; void beginCheckout(&quot;booster_pack&quot;)} disabled={checkout.isPending}&gt;{checkout.isPending ? &lt;Loader2 className=&quot;mr-2 h-4 w-4 animate-spin&quot; /&gt; : &lt;Sparkles className=&quot;mr-2 h-4 w-4&quot; /&gt;}Upgrade Now&lt;/Button&gt;
+  85 |             &lt;/article&gt;
+  86 |             &lt;article className=&quot;relative rounded-2xl border-2 border-primary bg-primary/[0.06] p-5&quot;&gt;
+  87 |               &lt;span className=&quot;absolute -top-3 left-5 rounded-full bg-primary px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-primary-foreground&quot;&gt;For active applications&lt;/span&gt;
+  88 |               &lt;div className=&quot;flex items-start justify-between gap-3&quot;&gt;&lt;div&gt;&lt;p className=&quot;text-xs font-bold uppercase tracking-wider text-primary&quot;&gt;Monthly&lt;/p&gt;&lt;h3 className=&quot;mt-1 text-xl font-bold&quot;&gt;JobSage Pro&lt;/h3&gt;&lt;/div&gt;&lt;span className=&quot;text-2xl font-bold&quot;&gt;$19.99&lt;span className=&quot;text-sm font-medium text-muted-foreground&quot;&gt;/mo&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;
+  89 |               &lt;p className=&quot;mt-3 text-sm text-muted-foreground&quot;&gt;Remove the monthly limit while applications are moving quickly.&lt;/p&gt;
+  90 |               &lt;ul className=&quot;mt-4 space-y-2 text-sm&quot;&gt;{[&quot;Unlimited Readiness Checks&quot;, &quot;Priority AI gap analysis&quot;, &quot;Monthly subscription&quot;].map((item) =&gt; &lt;li key={item} className=&quot;flex items-center gap-2&quot;&gt;&lt;Check className=&quot;h-4 w-4 text-primary&quot; /&gt;{item}&lt;/li&gt;)}&lt;/ul&gt;
+  91 |               &lt;Button type=&quot;button&quot; data-testid=&quot;button-buy-pro&quot; className=&quot;mt-5 w-full&quot; onClick={() =&gt; void beginCheckout(&quot;pro_subscription&quot;)} disabled={checkout.isPending}&gt;{checkout.isPending ? &lt;Loader2 className=&quot;mr-2 h-4 w-4 animate-spin&quot; /&gt; : &lt;ShieldCheck className=&quot;mr-2 h-4 w-4&quot; /&gt;}Upgrade Now&lt;/Button&gt;
+  92 |             &lt;/article&gt;
+  93 |           &lt;/div&gt;
+  94 |           &lt;div className=&quot;flex flex-col gap-2 border-t border-border/70 pt-4 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between&quot;&gt;&lt;span&gt;Need help with a receipt, cancellation or billing term?&lt;/span&gt;&lt;Link href=&quot;/support#contact&quot; onClick={onClose} className=&quot;inline-flex items-center gap-1 font-semibold text-primary hover:underline&quot; data-testid=&quot;link-quota-support&quot;&gt;Contact support &lt;ExternalLink className=&quot;h-3 w-3&quot; /&gt;&lt;/Link&gt;&lt;/div&gt;
+  95 |         &lt;/div&gt;
+  96 |       &lt;/section&gt;
+  97 |     &lt;/div&gt;
+  98 |   );
+  99 | }</code></pre></details><details><summary>Guest landing-page mount</summary><p class="small">artifacts/jobsage-web/src/App.tsx · lines 151–162</p><pre><code> 151 | function SmartHome() {
+ 152 |   const { isAuthenticated, isLoading } = useAuth();
+ 153 | 
+ 154 |   if (isLoading) return &lt;LoadingScreen /&gt;;
+ 155 |   if (!isAuthenticated) return &lt;LandingPage /&gt;;
+ 156 | 
+ 157 |   return (
+ 158 |     &lt;AuthGuard&gt;
+ 159 |       &lt;ProfileGate /&gt;
+ 160 |     &lt;/AuthGuard&gt;
+ 161 |   );
+ 162 | }</code></pre></details><details><summary>Public route definitions</summary><p class="small">artifacts/jobsage-web/src/App.tsx · lines 245–274</p><pre><code> 245 |   return (
+ 246 |     // Single Suspense boundary — shows LoadingScreen while any lazy chunk loads.
+ 247 |     &lt;Suspense fallback={&lt;LoadingScreen /&gt;}&gt;
+ 248 |       &lt;Switch&gt;
+ 249 |         {/* Public home — LandingPage for guests, ProfileGate for signed-in users */}
+ 250 |         &lt;Route path=&quot;/&quot; component={SmartHome} /&gt;
+ 251 | 
+ 252 |         {/* Public auth routes */}
+ 253 |         &lt;Route path=&quot;/login&quot; component={LoginPage} /&gt;
+ 254 |         &lt;Route path=&quot;/admin/login&quot; component={AdminLoginPage} /&gt;
+ 255 |         &lt;Route path=&quot;/register&quot; component={RegisterPage} /&gt;
+ 256 |         &lt;Route path=&quot;/employer/register&quot; component={EmployerRegisterPage} /&gt;
+ 257 |         &lt;Route path=&quot;/forgot-password&quot; component={ForgotPasswordPage} /&gt;
+ 258 |         &lt;Route path=&quot;/reset-password&quot; component={ResetPasswordPage} /&gt;
+ 259 | 
+ 260 |         {/* Public privacy policy for the Smart Apply Chrome extension (required by the Chrome Web Store) */}
+ 261 |         &lt;Route path=&quot;/extension-privacy&quot; component={ExtensionPrivacyPage} /&gt;
+ 262 | 
+ 263 |         {/* Core legal and privacy pages */}
+ 264 |         &lt;Route path=&quot;/privacy&quot; component={PrivacyPolicyPage} /&gt;
+ 265 |         &lt;Route path=&quot;/terms&quot; component={TermsOfServicePage} /&gt;
+ 266 | 
+ 267 |         {/* Sprint release notes — public, print-ready */}
+ 268 |         &lt;Route path=&quot;/release-notes&quot; component={ReleaseNotesPage} /&gt;
+ 269 | 
+ 270 |         {/* Social media lead capture — traffic from Facebook, Instagram, LinkedIn */}
+ 271 |         &lt;Route path=&quot;/get-started&quot; component={GetStartedPage} /&gt;
+ 272 |         &lt;Route path=&quot;/help&quot; component={HelpSupportPage} /&gt;
+ 273 |         &lt;Route path=&quot;/support&quot; component={HelpSupportPage} /&gt;
+ 274 |         &lt;Route path=&quot;/book/:slug&quot; component={MarketerBookingPage} /&gt;</code></pre></details><details><summary>Quota dialog event wiring</summary><p class="small">artifacts/jobsage-web/src/components/layout/AppLayout.tsx · lines 47–55</p><pre><code>  47 |   React.useEffect(() =&gt; {
+  48 |     const openQuota = () =&gt; setQuotaOpen(true);
+  49 |     window.addEventListener(&quot;jobsage:readiness-limit-reached&quot;, openQuota);
+  50 |     window.addEventListener(&quot;jobsage:open-readiness-quota&quot;, openQuota);
+  51 |     return () =&gt; {
+  52 |       window.removeEventListener(&quot;jobsage:readiness-limit-reached&quot;, openQuota);
+  53 |       window.removeEventListener(&quot;jobsage:open-readiness-quota&quot;, openQuota);
+  54 |     };
+  55 |   }, []);</code></pre></details><details><summary>Quota dialog mount</summary><p class="small">artifacts/jobsage-web/src/components/layout/AppLayout.tsx · lines 124–129</p><pre><code> 124 |         &lt;/main&gt;
+ 125 |       &lt;/div&gt;
+ 126 |       &lt;ReadinessQuotaModal open={quotaOpen} onClose={() =&gt; setQuotaOpen(false)} /&gt;
+ 127 |       &lt;QuickHelpMenu onOpenReadiness={() =&gt; setQuotaOpen(true)} /&gt;
+ 128 |     &lt;/div&gt;
+ 129 |   );</code></pre></details><details><summary>Candidate quota card</summary><p class="small">artifacts/jobsage-web/src/components/layout/AppSidebar.tsx · lines 214–225</p><pre><code> 214 |         {role === &quot;candidate&quot; &amp;&amp; (
+ 215 |           &lt;&gt;
+ 216 |             &lt;AnalyticsMiniWidget /&gt;
+ 217 |             &lt;button
+ 218 |               type=&quot;button&quot;
+ 219 |               data-testid=&quot;button-open-readiness-quota&quot;
+ 220 |               onClick={() =&gt; window.dispatchEvent(new CustomEvent(&quot;jobsage:open-readiness-quota&quot;))}
+ 221 |               className=&quot;mx-4 mb-3 rounded-xl border border-primary/20 bg-primary/5 p-3 text-left transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring&quot;
+ 222 |             &gt;
+ 223 |               &lt;span className=&quot;flex items-center gap-2 text-xs font-bold text-foreground&quot;&gt;&lt;Sparkles className=&quot;h-3.5 w-3.5 text-primary&quot; /&gt; Readiness Checks&lt;/span&gt;
+ 224 |               &lt;span className=&quot;mt-1 block text-[11px] text-muted-foreground&quot;&gt;{readinessQuota ? `${readinessQuota.used}/${readinessQuota.limit} monthly used · ${readinessQuota.bonusRemaining} bonus` : &quot;View your monthly quota&quot;}&lt;/span&gt;
+ 225 |             &lt;/button&gt;</code></pre></details><details><summary>Quick-help quota launcher</summary><p class="small">artifacts/jobsage-web/src/components/QuickHelpMenu.tsx · lines 9–30</p><pre><code>   9 |   onOpenReadiness?: () =&gt; void;
+  10 | }
+  11 | 
+  12 | export function QuickHelpMenu({ guestOnly = false, onOpenReadiness }: QuickHelpMenuProps) {
+  13 |   const { isAuthenticated, isLoading, user } = useAuth();
+  14 |   const [menuOpen, setMenuOpen] = useState(false);
+  15 |   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  16 | 
+  17 |   if (isLoading || (guestOnly &amp;&amp; isAuthenticated)) return null;
+  18 | 
+  19 |   const canOpenReadiness = Boolean(onOpenReadiness &amp;&amp; user?.role === &quot;candidate&quot;);
+  20 | 
+  21 |   function shareFeedback() {
+  22 |     setMenuOpen(false);
+  23 |     setFeedbackOpen(true);
+  24 |   }
+  25 | 
+  26 |   function openReadiness() {
+  27 |     setMenuOpen(false);
+  28 |     onOpenReadiness?.();
+  29 |   }
+  30 | </code></pre></details><details><summary>Analysis-sheet limit handling and recovery</summary><p class="small">artifacts/jobsage-web/src/components/GapAnalysisSheet.tsx · lines 91–133</p><pre><code>  91 |   const { data: usage } = useQuery&lt;UsageData&gt;({
+  92 |     queryKey: [&quot;gap-analysis-usage&quot;],
+  93 |     enabled: open,
+  94 |     staleTime: 0,
+  95 |     queryFn: async () =&gt; {
+  96 |       const res = await fetch(`${API_BASE}/sponsor-licences/gap-analyses/usage`, { credentials: &quot;include&quot; });
+  97 |       if (!res.ok) throw new Error(&quot;Failed to fetch usage.&quot;);
+  98 |       return res.json() as Promise&lt;UsageData&gt;;
+  99 |     },
+ 100 |   });
+ 101 | 
+ 102 |   useEffect(() =&gt; {
+ 103 |     if (open &amp;&amp; usage &amp;&amp; usage.used &lt; usage.limit) {
+ 104 |       setLimitReached(false);
+ 105 |     }
+ 106 |   }, [open, usage]);
+ 107 | 
+ 108 |   const { data, isLoading, isError, error } = useQuery&lt;GapAnalysisData&gt;({
+ 109 |     queryKey: [&quot;gap-analysis&quot;, analysisEndpoint ?? &quot;sponsor-vacancy&quot;, vacancyId],
+ 110 |     enabled: open &amp;&amp; !limitReached,
+ 111 |     staleTime: 7 * 24 * 60 * 60 * 1000, // 7 days — matches server TTL
+ 112 |     retry: false,
+ 113 |     queryFn: async () =&gt; {
+ 114 |       const endpoint = analysisEndpoint
+ 115 |         ? `${API_BASE}${analysisEndpoint}`
+ 116 |         : `${API_BASE}/sponsor-licences/vacancies/${vacancyId}/gap-analysis`;
+ 117 |       const res = await fetch(endpoint, { credentials: &quot;include&quot; });
+ 118 |       if (res.status === 429) {
+ 119 |         setLimitReached(true);
+ 120 |         window.dispatchEvent(new CustomEvent(&quot;jobsage:readiness-limit-reached&quot;));
+ 121 |         toast({
+ 122 |           title: &quot;Readiness Check limit reached&quot;,
+ 123 |           description: &quot;You have used all 10 of your Readiness Checks.&quot;,
+ 124 |           variant: &quot;destructive&quot;,
+ 125 |         });
+ 126 |         throw new Error(&quot;LIMIT_REACHED&quot;);
+ 127 |       }
+ 128 |       if (!res.ok) {
+ 129 |         throw new Error(&quot;Failed to generate gap analysis.&quot;);
+ 130 |       }
+ 131 |       return res.json() as Promise&lt;GapAnalysisData&gt;;
+ 132 |     },
+ 133 |   });</code></pre></details><details><summary>Analysis-sheet usage display</summary><p class="small">artifacts/jobsage-web/src/components/GapAnalysisSheet.tsx · lines 181–214</p><pre><code> 181 |   // When a fresh (non-cached) result arrives, invalidate the usage counter so
+ 182 |   // the X/10 badge reflects the new count without waiting for the 60s stale time.
+ 183 |   useEffect(() =&gt; {
+ 184 |     if (data &amp;&amp; !data.fromCache) {
+ 185 |       void queryClient.invalidateQueries({ queryKey: [&quot;gap-analysis-usage&quot;] });
+ 186 |     }
+ 187 |   }, [data, queryClient]);
+ 188 | 
+ 189 |   return (
+ 190 |     &lt;Sheet open={open} onOpenChange={onOpenChange}&gt;
+ 191 |       &lt;SheetContent className=&quot;w-full sm:max-w-xl overflow-y-auto&quot;&gt;
+ 192 |         &lt;SheetHeader className=&quot;pb-4 border-b border-border&quot;&gt;
+ 193 |           &lt;div className=&quot;flex items-start gap-3&quot;&gt;
+ 194 |             &lt;div className=&quot;w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5&quot;&gt;
+ 195 |               &lt;Sparkles className=&quot;w-5 h-5 text-primary&quot; /&gt;
+ 196 |             &lt;/div&gt;
+ 197 |             &lt;div className=&quot;flex-1 min-w-0&quot;&gt;
+ 198 |               &lt;SheetTitle className=&quot;text-base leading-tight&quot;&gt;{vacancyTitle}&lt;/SheetTitle&gt;
+ 199 |               &lt;SheetDescription className=&quot;text-sm text-muted-foreground mt-0.5&quot;&gt;
+ 200 |                 {companyName} · Readiness Check
+ 201 |               &lt;/SheetDescription&gt;
+ 202 |             &lt;/div&gt;
+ 203 |             {usage &amp;&amp; (
+ 204 |               &lt;span
+ 205 |                 title={usage.resetsAt ? `Resets ${new Date(usage.resetsAt).toLocaleString(&quot;en-GB&quot;, { dateStyle: &quot;medium&quot;, timeStyle: &quot;short&quot; })}` : undefined}
+ 206 |                 className={`shrink-0 text-[11px] font-semibold px-2 py-1 rounded-full border ${
+ 207 |                 usage.used &gt;= usage.limit
+ 208 |                   ? &quot;bg-red-50 text-red-600 border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-800/40&quot;
+ 209 |                   : usage.used &gt;= usage.limit - 2
+ 210 |                   ? &quot;bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800/40&quot;
+ 211 |                   : &quot;bg-muted text-muted-foreground border-border&quot;
+ 212 |               }`}&gt;
+ 213 |                 {usage.used}/{usage.limit} this month
+ 214 |               &lt;/span&gt;</code></pre></details><details><summary>Opportunities shared role/sponsor gate</summary><p class="small">artifacts/jobsage-web/src/pages/OpportunitiesPage.tsx · lines 1939–1974</p><pre><code>1939 |       {gapAnalysisRole &amp;&amp; (() =&gt; {
+1940 |         // Sponsor vacancies are surfaced on the Opportunities page with
+1941 |         // id = vacancyId + SPONSOR_VACANCY_ID_OFFSET (2_000_000).
+1942 |         // Route to the sponsor-licences endpoint for those; fall back to the
+1943 |         // matched-roles endpoint for any real catalogue roles (future-proof).
+1944 |         const SPONSOR_OFFSET = 2_000_000;
+1945 |         const isSponsorVacancy = gapAnalysisRole.role.id &gt;= SPONSOR_OFFSET;
+1946 |         const vacancyId = isSponsorVacancy
+1947 |           ? gapAnalysisRole.role.id - SPONSOR_OFFSET
+1948 |           : gapAnalysisRole.role.id;
+1949 |         const endpoint = isSponsorVacancy
+1950 |           ? `/sponsor-licences/vacancies/${vacancyId}/gap-analysis`
+1951 |           : `/opportunities/roles/${gapAnalysisRole.role.id}/gap-analysis`;
+1952 |         return (
+1953 |           &lt;GapAnalysisSheet
+1954 |             open={gapAnalysisRole != null}
+1955 |             onOpenChange={(open) =&gt; { if (!open) setGapAnalysisRole(null); }}
+1956 |             vacancyId={vacancyId}
+1957 |             vacancyTitle={gapAnalysisRole.role.title}
+1958 |             companyName={gapAnalysisRole.role.employer}
+1959 |             vacancyUrl={gapAnalysisRole.applyUrl ?? null}
+1960 |             sourceType={gapAnalysisRole.role.sourceType}
+1961 |             trackVacancyIntent={!!gapAnalysisRole.applyUrl}
+1962 |             hasCvUploaded={!!myProfile}
+1963 |             analysisEndpoint={endpoint}
+1964 |             analysisSource={isSponsorVacancy ? &quot;sponsor_vacancy&quot; : &quot;role&quot;}
+1965 |           /&gt;
+1966 |         );
+1967 |       })()}
+1968 | 
+1969 |       {gateModal}
+1970 | 
+1971 |     &lt;/AppLayout&gt;
+1972 |   );
+1973 | }
+1974 | </code></pre></details><details><summary>Readiness and billing help copy</summary><p class="small">artifacts/jobsage-web/src/pages/HelpSupportPage.tsx · lines 40–68</p><pre><code>  40 |     label: &quot;Readiness Checks &amp; AI Analysis&quot;,
+  41 |     icon: Sparkles,
+  42 |     intro: &quot;Understand what a check can tell you before you spend time on an application.&quot;,
+  43 |     items: [
+  44 |       { question: &quot;How does the AI check my CV against employer criteria?&quot;, answer: &quot;The analysis compares information from your profile and available CV evidence with the role requirements, then highlights matches, gaps and practical next steps. It is advisory: review the result and never treat an AI output as legal, regulatory or hiring advice.&quot; },
+  45 |       { question: &quot;How do the 10 free monthly checks work?&quot;, answer: &quot;Every free plan receives 10 Readiness Checks per calendar month. The quota card shows the next reset date at 00:00 UTC. Cached results and refreshes of an existing analysis are free; a new analysis uses one check.&quot; },
+  46 |       { question: &quot;What is the difference between a booster pack and Pro?&quot;, answer: &quot;A Check Booster Pack adds 25 one-time checks for $5.99. JobSage Pro costs $19.99 per month and provides unlimited Readiness Checks plus priority AI gap analysis. Checkout availability is always shown clearly before you continue.&quot; },
+  47 |     ],
+  48 |   },
+  49 |   {
+  50 |     id: &quot;jobs&quot;,
+  51 |     label: &quot;Jobs &amp; Direct Feeds&quot;,
+  52 |     icon: Ticket,
+  53 |     intro: &quot;Know where vacancy information comes from and how verification works.&quot;,
+  54 |     items: [
+  55 |       { question: &quot;Are employers and vacancies verified?&quot;, answer: &quot;We prioritise UK employers that appear on the Home Office sponsor register and verify vacancy links and direct feeds where evidence is available. A verified employer or live link is not a promise that sponsorship is available for every role.&quot; },
+  56 |       { question: &quot;How are direct employer feeds checked?&quot;, answer: &quot;We use employer and job-board signals, link health checks and available source evidence to reduce stale or misleading listings. If something looks wrong, contact support with the vacancy title and employer so our team can investigate.&quot; },
+  57 |     ],
+  58 |   },
+  59 |   {
+  60 |     id: &quot;account&quot;,
+  61 |     label: &quot;Account &amp; Payments&quot;,
+  62 |     icon: CircleHelp,
+  63 |     intro: &quot;Get clear answers about upgrades, billing and account access.&quot;,
+  64 |     items: [
+  65 |       { question: &quot;How do I upgrade my Readiness Checks?&quot;, answer: &quot;Open the quota card in the candidate workspace and choose a Check Booster Pack or JobSage Pro. If live checkout is unavailable, JOBSAGE will say so and will not claim that payment or access has completed.&quot; },
+  66 |       { question: &quot;What are the billing terms?&quot;, answer: &quot;The booster pack is a one-time $5.99 purchase. Pro is a $19.99 monthly subscription. Your final payment terms are confirmed by the checkout provider before payment.&quot; },
+  67 |       { question: &quot;How do I cancel Pro?&quot;, answer: &quot;Contact support from this page with the account email and subject “Cancel Pro subscription”. We will confirm the next step and any applicable timing. Do not send card details in a support message.&quot; },
+  68 |       { question: &quot;Where can I find receipts?&quot;, answer: &quot;Payment receipts are provided by the checkout provider. If you cannot find one, contact support with the approximate payment date and account email, without including full card details.&quot; },</code></pre></details><details open><summary>Checkout and webhook route definitions (complete)</summary><p class="small">artifacts/api-server/src/routes/checkout.ts · lines 1–78</p><pre><code>   1 | import { Router, type IRouter } from &quot;express&quot;;
+   2 | import { CreateCheckoutSessionBody, CreateCheckoutSessionResponse } from &quot;@workspace/api-zod&quot;;
+   3 | import { db, usersTable } from &quot;@workspace/db&quot;;
+   4 | import { eq, sql } from &quot;drizzle-orm&quot;;
+   5 | import { requireAuthenticated } from &quot;../middlewares/requireRole&quot;;
+   6 | 
+   7 | const router: IRouter = Router();
+   8 | 
+   9 | function addOneCalendarMonth(from: Date): Date {
+  10 |   const day = from.getUTCDate();
+  11 |   const result = new Date(from);
+  12 |   result.setUTCDate(1);
+  13 |   result.setUTCMonth(result.getUTCMonth() + 1);
+  14 |   const lastDay = new Date(Date.UTC(result.getUTCFullYear(), result.getUTCMonth() + 1, 0)).getUTCDate();
+  15 |   result.setUTCDate(Math.min(day, lastDay));
+  16 |   return result;
+  17 | }
+  18 | 
+  19 | router.post(&quot;/checkout/create-session&quot;, requireAuthenticated, async (req, res): Promise&lt;void&gt; =&gt; {
+  20 |   const parsed = CreateCheckoutSessionBody.safeParse(req.body);
+  21 |   if (!parsed.success) {
+  22 |     res.status(400).json({ error: parsed.error.message });
+  23 |     return;
+  24 |   }
+  25 | 
+  26 |   // There is deliberately no unverified fallback in production. Until Stripe
+  27 |   // is connected and its webhook signature is verified, only the local
+  28 |   // development server can grant sandbox access.
+  29 |   if (process.env.NODE_ENV !== &quot;development&quot; || process.env.STRIPE_SECRET_KEY) {
+  30 |     res.status(503).json({
+  31 |       error: &quot;Live checkout is not available yet. No payment or access change was made.&quot;,
+  32 |     });
+  33 |     return;
+  34 |   }
+  35 | 
+  36 |   const userId = req.user!.id;
+  37 |   const now = new Date();
+  38 |   const [user] = await db.select({
+  39 |     subscriptionExpiresAt: usersTable.subscriptionExpiresAt,
+  40 |   }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+  41 |   if (!user) {
+  42 |     res.status(404).json({ error: &quot;Account not found.&quot; });
+  43 |     return;
+  44 |   }
+  45 | 
+  46 |   if (parsed.data.type === &quot;booster_pack&quot;) {
+  47 |     await db.update(usersTable)
+  48 |       .set({
+  49 |         bonusReadinessChecks: sql`${usersTable.bonusReadinessChecks} + 25`,
+  50 |       })
+  51 |       .where(eq(usersTable.id, userId));
+  52 |   } else {
+  53 |     const currentExpiry =
+  54 |       user.subscriptionExpiresAt &amp;&amp; user.subscriptionExpiresAt &gt; now
+  55 |         ? user.subscriptionExpiresAt
+  56 |         : now;
+  57 |     await db.update(usersTable)
+  58 |       .set({
+  59 |         plan: &quot;pro&quot;,
+  60 |         subscriptionExpiresAt: addOneCalendarMonth(currentExpiry),
+  61 |       })
+  62 |       .where(eq(usersTable.id, userId));
+  63 |   }
+  64 | 
+  65 |   res.json(CreateCheckoutSessionResponse.parse({
+  66 |     success: true,
+  67 |     checkoutUrl: null,
+  68 |     sandboxCompleted: true,
+  69 |   }));
+  70 | });
+  71 | 
+  72 | router.post(&quot;/checkout/webhook&quot;, (_req, res): void =&gt; {
+  73 |   res.status(503).json({
+  74 |     error: &quot;Payment webhooks are disabled until verified Stripe signature handling is configured.&quot;,
+  75 |   });
+  76 | });
+  77 | 
+  78 | export default router;</code></pre></details><details><summary>Quota constants, expiry rules, counting and reservation (complete)</summary><p class="small">artifacts/api-server/src/lib/readinessQuota.ts · lines 1–166</p><pre><code>   1 | import { and, eq, gte, gt, sql } from &quot;drizzle-orm&quot;;
+   2 | import {
+   3 |   db,
+   4 |   roleGapAnalysesTable,
+   5 |   sponsorLicenceGapAnalysesTable,
+   6 |   usersTable,
+   7 | } from &quot;@workspace/db&quot;;
+   8 | 
+   9 | export const READINESS_CHECK_LIMIT = 10;
+  10 | export const READINESS_BOOSTER_CHECKS = 25;
+  11 | 
+  12 | export type ReadinessPlan = &quot;free&quot; | &quot;pro&quot;;
+  13 | 
+  14 | export interface ReadinessQuotaSnapshot {
+  15 |   used: number;
+  16 |   limit: number;
+  17 |   bonusRemaining: number;
+  18 |   plan: ReadinessPlan;
+  19 |   resetsAt: string;
+  20 | }
+  21 | 
+  22 | export type ReadinessCheckReservation =
+  23 |   | { allowed: true; bonusReserved: boolean; plan: ReadinessPlan }
+  24 |   | { allowed: false; bonusReserved: false; plan: &quot;free&quot; };
+  25 | 
+  26 | export type ReadinessAccessDecision = &quot;pro&quot; | &quot;monthly&quot; | &quot;bonus&quot; | &quot;denied&quot;;
+  27 | 
+  28 | export function decideReadinessAccess(
+  29 |   user: {
+  30 |     plan: ReadinessPlan;
+  31 |     bonusReadinessChecks: number;
+  32 |     subscriptionExpiresAt: Date | null;
+  33 |   } | undefined,
+  34 |   used: number,
+  35 |   now = new Date(),
+  36 | ): ReadinessAccessDecision {
+  37 |   if (
+  38 |     user?.plan === &quot;pro&quot; &amp;&amp;
+  39 |     user.subscriptionExpiresAt !== null &amp;&amp;
+  40 |     user.subscriptionExpiresAt &gt; now
+  41 |   ) {
+  42 |     return &quot;pro&quot;;
+  43 |   }
+  44 |   if (used &lt; READINESS_CHECK_LIMIT) return &quot;monthly&quot;;
+  45 |   if ((user?.bonusReadinessChecks ?? 0) &gt; 0) return &quot;bonus&quot;;
+  46 |   return &quot;denied&quot;;
+  47 | }
+  48 | 
+  49 | /**
+  50 |  * Readiness quotas reset at 00:00 UTC on the first day of each calendar month.
+  51 |  * Using UTC keeps the boundary deterministic across API instances.
+  52 |  */
+  53 | export function getReadinessMonthStart(now = new Date()): Date {
+  54 |   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  55 | }
+  56 | 
+  57 | export function getNextReadinessReset(now = new Date()): Date {
+  58 |   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+  59 | }
+  60 | 
+  61 | async function getMonthlyReadinessUsage(userId: string, now = new Date()): Promise&lt;number&gt; {
+  62 |   const monthStart = getReadinessMonthStart(now);
+  63 |   const [[sponsorCount], [roleCount]] = await Promise.all([
+  64 |     db.select({ count: sql&lt;number&gt;`cast(count(*) as integer)` })
+  65 |       .from(sponsorLicenceGapAnalysesTable)
+  66 |       .where(and(
+  67 |         eq(sponsorLicenceGapAnalysesTable.userId, userId),
+  68 |         gte(sponsorLicenceGapAnalysesTable.generatedAt, monthStart),
+  69 |       )),
+  70 |     db.select({ count: sql&lt;number&gt;`cast(count(*) as integer)` })
+  71 |       .from(roleGapAnalysesTable)
+  72 |       .where(and(
+  73 |         eq(roleGapAnalysesTable.userId, userId),
+  74 |         gte(roleGapAnalysesTable.generatedAt, monthStart),
+  75 |       )),
+  76 |   ]);
+  77 |   return (sponsorCount?.count ?? 0) + (roleCount?.count ?? 0);
+  78 | }
+  79 | 
+  80 | function effectivePlan(
+  81 |   plan: ReadinessPlan,
+  82 |   subscriptionExpiresAt: Date | null,
+  83 |   now: Date,
+  84 | ): ReadinessPlan {
+  85 |   return plan === &quot;pro&quot; &amp;&amp; subscriptionExpiresAt &amp;&amp; subscriptionExpiresAt &gt; now ? &quot;pro&quot; : &quot;free&quot;;
+  86 | }
+  87 | 
+  88 | export async function getReadinessQuota(
+  89 |   userId: string,
+  90 |   now = new Date(),
+  91 | ): Promise&lt;ReadinessQuotaSnapshot&gt; {
+  92 |   const [[user], used] = await Promise.all([
+  93 |     db.select({
+  94 |       plan: usersTable.plan,
+  95 |       bonusReadinessChecks: usersTable.bonusReadinessChecks,
+  96 |       subscriptionExpiresAt: usersTable.subscriptionExpiresAt,
+  97 |     }).from(usersTable).where(eq(usersTable.id, userId)).limit(1),
+  98 |     getMonthlyReadinessUsage(userId, now),
+  99 |   ]);
+ 100 | 
+ 101 |   return {
+ 102 |     used: Math.min(used, READINESS_CHECK_LIMIT),
+ 103 |     limit: READINESS_CHECK_LIMIT,
+ 104 |     bonusRemaining: user?.bonusReadinessChecks ?? 0,
+ 105 |     plan: user
+ 106 |       ? effectivePlan(user.plan, user.subscriptionExpiresAt, now)
+ 107 |       : &quot;free&quot;,
+ 108 |     resetsAt: getNextReadinessReset(now).toISOString(),
+ 109 |   };
+ 110 | }
+ 111 | 
+ 112 | /**
+ 113 |  * Checks the free monthly allowance first, then atomically reserves one
+ 114 |  * purchased check only after the free allowance is exhausted. Callers must
+ 115 |  * refund a bonus reservation when the new analysis fails.
+ 116 |  */
+ 117 | export async function reserveReadinessCheck(
+ 118 |   userId: string,
+ 119 |   now = new Date(),
+ 120 | ): Promise&lt;ReadinessCheckReservation&gt; {
+ 121 |   const [user] = await db.select({
+ 122 |     plan: usersTable.plan,
+ 123 |     bonusReadinessChecks: usersTable.bonusReadinessChecks,
+ 124 |     subscriptionExpiresAt: usersTable.subscriptionExpiresAt,
+ 125 |   }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+ 126 | 
+ 127 |   if (user &amp;&amp; effectivePlan(user.plan, user.subscriptionExpiresAt, now) === &quot;pro&quot;) {
+ 128 |     return { allowed: true, bonusReserved: false, plan: &quot;pro&quot; };
+ 129 |   }
+ 130 | 
+ 131 |   const used = await getMonthlyReadinessUsage(userId, now);
+ 132 |   const decision = decideReadinessAccess(user, used, now);
+ 133 |   if (decision === &quot;monthly&quot;) {
+ 134 |     return { allowed: true, bonusReserved: false, plan: &quot;free&quot; };
+ 135 |   }
+ 136 |   if (decision === &quot;pro&quot;) {
+ 137 |     return { allowed: true, bonusReserved: false, plan: &quot;pro&quot; };
+ 138 |   }
+ 139 |   if (decision === &quot;denied&quot;) {
+ 140 |     return { allowed: false, bonusReserved: false, plan: &quot;free&quot; };
+ 141 |   }
+ 142 | 
+ 143 |   const [updated] = await db.update(usersTable)
+ 144 |     .set({
+ 145 |       bonusReadinessChecks: sql`${usersTable.bonusReadinessChecks} - 1`,
+ 146 |     })
+ 147 |     .where(and(
+ 148 |       eq(usersTable.id, userId),
+ 149 |       gt(usersTable.bonusReadinessChecks, 0),
+ 150 |     ))
+ 151 |     .returning({ bonusReadinessChecks: usersTable.bonusReadinessChecks });
+ 152 | 
+ 153 |   if (updated) {
+ 154 |     return { allowed: true, bonusReserved: true, plan: &quot;free&quot; };
+ 155 |   }
+ 156 | 
+ 157 |   return { allowed: false, bonusReserved: false, plan: &quot;free&quot; };
+ 158 | }
+ 159 | 
+ 160 | export async function refundReservedReadinessCheck(userId: string): Promise&lt;void&gt; {
+ 161 |   await db.update(usersTable)
+ 162 |     .set({
+ 163 |       bonusReadinessChecks: sql`${usersTable.bonusReadinessChecks} + 1`,
+ 164 |     })
+ 165 |     .where(eq(usersTable.id, userId));
+ 166 | }</code></pre></details><details><summary>Authenticated quota endpoint (complete)</summary><p class="small">artifacts/api-server/src/routes/readiness.ts · lines 1–21</p><pre><code>   1 | import { Router, type IRouter } from &quot;express&quot;;
+   2 | import { GetReadinessQuotaResponse } from &quot;@workspace/api-zod&quot;;
+   3 | import { getReadinessQuota } from &quot;../lib/readinessQuota&quot;;
+   4 | import { requireAuthenticated } from &quot;../middlewares/requireRole&quot;;
+   5 | 
+   6 | const router: IRouter = Router();
+   7 | 
+   8 | router.get(&quot;/readiness/quota&quot;, requireAuthenticated, async (req, res): Promise&lt;void&gt; =&gt; {
+   9 |   try {
+  10 |     const snapshot = await getReadinessQuota(req.user!.id);
+  11 |     res.json(GetReadinessQuotaResponse.parse({
+  12 |       ...snapshot,
+  13 |       resetsAt: new Date(snapshot.resetsAt),
+  14 |     }));
+  15 |   } catch (err) {
+  16 |     req.log.error({ err }, &quot;Could not load readiness quota&quot;);
+  17 |     res.status(500).json({ error: &quot;Failed to fetch readiness quota.&quot; });
+  18 |   }
+  19 | });
+  20 | 
+  21 | export default router;</code></pre></details><details><summary>Usage, admin reset and sponsor-analysis route definitions</summary><p class="small">artifacts/api-server/src/routes/sponsorLicences.ts · lines 1091–1194</p><pre><code>1091 | router.get(&quot;/sponsor-licences/gap-analyses/usage&quot;, requireAuthenticated, async (req, res) =&gt; {
+1092 |   try {
+1093 |     const userId = req.user!.id;
+1094 |     const monthStart = getReadinessMonthStart();
+1095 |     const [[sponsorRow], [roleRow]] = await Promise.all([
+1096 |       db.select({ count: sql&lt;number&gt;`cast(count(*) as integer)` })
+1097 |         .from(sponsorLicenceGapAnalysesTable)
+1098 |         .where(and(
+1099 |           eq(sponsorLicenceGapAnalysesTable.userId, userId),
+1100 |           gte(sponsorLicenceGapAnalysesTable.generatedAt, monthStart),
+1101 |         )),
+1102 |       db.select({ count: sql&lt;number&gt;`cast(count(*) as integer)` })
+1103 |         .from(roleGapAnalysesTable)
+1104 |         .where(and(
+1105 |           eq(roleGapAnalysesTable.userId, userId),
+1106 |           gte(roleGapAnalysesTable.generatedAt, monthStart),
+1107 |         )),
+1108 |     ]);
+1109 |     res.json({
+1110 |       used: (sponsorRow?.count ?? 0) + (roleRow?.count ?? 0),
+1111 |       limit: READINESS_CHECK_LIMIT,
+1112 |       resetsAt: getNextReadinessReset().toISOString(),
+1113 |     });
+1114 |   } catch (err) {
+1115 |     console.error(&quot;[sponsor-licences] /gap-analyses/usage error:&quot;, err);
+1116 |     res.status(500).json({ error: &quot;Failed to fetch usage.&quot; });
+1117 |   }
+1118 | });
+1119 | 
+1120 | // ── Gap Analysis Admin: view and reset a candidate's quota ────────────────────
+1121 | 
+1122 | router.get(&quot;/sponsor-licences/gap-analyses/usage/:userId&quot;, requireRole(&quot;admin&quot;), async (req, res) =&gt; {
+1123 |   try {
+1124 |     const targetUserId = typeof req.params[&quot;userId&quot;] === &quot;string&quot; ? req.params[&quot;userId&quot;] : &quot;&quot;;
+1125 |     if (!targetUserId) return void res.status(400).json({ error: &quot;Invalid user ID.&quot; });
+1126 |     const monthStart = getReadinessMonthStart();
+1127 |     const [[sponsorRow], [roleRow]] = await Promise.all([
+1128 |       db.select({ count: sql&lt;number&gt;`cast(count(*) as integer)` })
+1129 |         .from(sponsorLicenceGapAnalysesTable)
+1130 |         .where(and(
+1131 |           eq(sponsorLicenceGapAnalysesTable.userId, targetUserId),
+1132 |           gte(sponsorLicenceGapAnalysesTable.generatedAt, monthStart),
+1133 |         )),
+1134 |       db.select({ count: sql&lt;number&gt;`cast(count(*) as integer)` })
+1135 |         .from(roleGapAnalysesTable)
+1136 |         .where(and(
+1137 |           eq(roleGapAnalysesTable.userId, targetUserId),
+1138 |           gte(roleGapAnalysesTable.generatedAt, monthStart),
+1139 |         )),
+1140 |     ]);
+1141 |     res.json({
+1142 |       used: (sponsorRow?.count ?? 0) + (roleRow?.count ?? 0),
+1143 |       limit: READINESS_CHECK_LIMIT,
+1144 |       resetsAt: getNextReadinessReset().toISOString(),
+1145 |     });
+1146 |   } catch (err) {
+1147 |     console.error(&quot;[sponsor-licences] /gap-analyses/usage/:userId error:&quot;, err);
+1148 |     res.status(500).json({ error: &quot;Failed to fetch usage.&quot; });
+1149 |   }
+1150 | });
+1151 | 
+1152 | router.delete(&quot;/sponsor-licences/gap-analyses/:userId&quot;, requireRole(&quot;admin&quot;), async (req, res) =&gt; {
+1153 |   try {
+1154 |     const targetUserId = typeof req.params[&quot;userId&quot;] === &quot;string&quot; ? req.params[&quot;userId&quot;] : &quot;&quot;;
+1155 |     if (!targetUserId) return void res.status(400).json({ error: &quot;Invalid user ID.&quot; });
+1156 |     await Promise.all([
+1157 |       db.delete(sponsorLicenceGapAnalysesTable).where(eq(sponsorLicenceGapAnalysesTable.userId, targetUserId)),
+1158 |       db.delete(roleGapAnalysesTable).where(eq(roleGapAnalysesTable.userId, targetUserId)),
+1159 |     ]);
+1160 |     res.json({ reset: true });
+1161 |   } catch (err) {
+1162 |     console.error(&quot;[sponsor-licences] /gap-analyses/:userId DELETE error:&quot;, err);
+1163 |     res.status(500).json({ error: &quot;Failed to reset quota.&quot; });
+1164 |   }
+1165 | });
+1166 | 
+1167 | // ── Gap Analysis ──────────────────────────────────────────────────────────────
+1168 | // Deep per-vacancy AI gap analysis. Cached for 7 days per user+vacancy.
+1169 | // Monthly limit: 10 new analyses per candidate (enforced in vacancyGapAnalysis.ts).
+1170 | 
+1171 | router.get(&quot;/sponsor-licences/vacancies/:vacancyId/gap-analysis&quot;, requireAuthenticated, async (req, res) =&gt; {
+1172 |   try {
+1173 |     const userId = req.user!.id;
+1174 |     const rawId = typeof req.params[&quot;vacancyId&quot;] === &quot;string&quot; ? req.params[&quot;vacancyId&quot;] : &quot;&quot;;
+1175 |     const vacancyId = parseInt(rawId, 10);
+1176 |     if (!vacancyId || isNaN(vacancyId)) {
+1177 |       res.status(400).json({ error: &quot;Invalid vacancy ID.&quot; });
+1178 |       return;
+1179 |     }
+1180 | 
+1181 |     const result = await getOrGenerateGapAnalysis(userId, vacancyId);
+1182 |     res.json(result);
+1183 |   } catch (err) {
+1184 |     if (err instanceof LimitReachedError) {
+1185 |       res.status(429).json({
+1186 |         error: &quot;You have used all 10 of your Readiness Checks this month.&quot;,
+1187 |         resetsAt: getNextReadinessReset().toISOString(),
+1188 |       });
+1189 |       return;
+1190 |     }
+1191 |     console.error(&quot;[sponsor-licences] /gap-analysis error:&quot;, err);
+1192 |     res.status(500).json({ error: &quot;Failed to generate gap analysis.&quot; });
+1193 |   }
+1194 | });</code></pre></details><details><summary>Ordinary-role analysis gate</summary><p class="small">artifacts/api-server/src/routes/roles.ts · lines 1802–1853</p><pre><code>1802 |   const roleId = parseInt(typeof req.params[&quot;roleId&quot;] === &quot;string&quot; ? req.params[&quot;roleId&quot;] : &quot;&quot;, 10);
+1803 |   if (isNaN(roleId)) { res.status(400).json({ error: &quot;Invalid role ID.&quot; }); return; }
+1804 | 
+1805 |   let bonusReserved = false;
+1806 |   try {
+1807 |     const claims = await getCandidateReadinessClaims(userId);
+1808 | 
+1809 |     // 1. Check DB cache (7-day TTL, same as sponsor vacancy checks)
+1810 |     const [existing] = await db
+1811 |       .select()
+1812 |       .from(roleGapAnalysesTable)
+1813 |       .where(and(
+1814 |         eq(roleGapAnalysesTable.userId, userId),
+1815 |         eq(roleGapAnalysesTable.roleId, roleId),
+1816 |       ))
+1817 |       .limit(1);
+1818 | 
+1819 |     const existingAgeDays = existing
+1820 |       ? (Date.now() - existing.generatedAt.getTime()) / (1000 * 60 * 60 * 24)
+1821 |       : null;
+1822 |     if (existing &amp;&amp; existingAgeDays !== null &amp;&amp; existingAgeDays &lt; READINESS_CHECK_TTL_DAYS) {
+1823 |       res.json({
+1824 |         matchedRequirements: existing.matchedRequirements,
+1825 |         gaps: filterAcknowledgedGaps(existing.gaps, claims),
+1826 |         optimizationSteps: existing.optimizationSteps,
+1827 |         generatedAt: existing.generatedAt.toISOString(),
+1828 |         fromCache: true,
+1829 |       });
+1830 |       return;
+1831 |     }
+1832 | 
+1833 |     // 2. Fetch role + profile in parallel.
+1834 |     const [[role], [profile]] = await Promise.all([
+1835 |       db.select().from(rolesTable).where(eq(rolesTable.id, roleId)).limit(1),
+1836 |       db.select().from(profilesTable).where(eq(profilesTable.userId, userId)).limit(1),
+1837 |     ]);
+1838 |     if (!role) { res.status(404).json({ error: &quot;Role not found.&quot; }); return; }
+1839 |     if (!profile) { res.status(400).json({ error: &quot;No profile found. Complete your profile first.&quot; }); return; }
+1840 | 
+1841 |     // Cached results and stale refreshes remain free; only a first analysis
+1842 |     // reserves quota or one purchased check.
+1843 |     if (!existing) {
+1844 |       const reservation = await reserveReadinessCheck(userId);
+1845 |       if (!reservation.allowed) {
+1846 |         res.status(429).json({
+1847 |           error: `Readiness Check limit reached. You have used all ${READINESS_CHECK_LIMIT} checks this month.`,
+1848 |           resetsAt: getNextReadinessReset().toISOString(),
+1849 |         });
+1850 |         return;
+1851 |       }
+1852 |       bonusReserved = reservation.bonusReserved;
+1853 |     }</code></pre></details><details><summary>Role error/refund handling</summary><p class="small">artifacts/api-server/src/routes/roles.ts · lines 1935–1947</p><pre><code>1935 |     res.json({ matchedRequirements, gaps, optimizationSteps, generatedAt: new Date().toISOString(), fromCache: false });
+1936 |   } catch (err) {
+1937 |     if (bonusReserved) {
+1938 |       try {
+1939 |         await refundReservedReadinessCheck(userId);
+1940 |       } catch (refundError) {
+1941 |         req.log.error({ err: refundError, userId }, &quot;Could not refund a failed readiness check&quot;);
+1942 |       }
+1943 |     }
+1944 |     req.log.error({ err, userId, roleId }, &quot;Role readiness gap analysis failed&quot;);
+1945 |     res.status(500).json({ error: &quot;Failed to generate gap analysis.&quot; });
+1946 |   }
+1947 | });</code></pre></details><details><summary>Sponsor analysis cache and quota reservation</summary><p class="small">artifacts/api-server/src/lib/vacancyGapAnalysis.ts · lines 33–80</p><pre><code>  33 | 
+  34 | const CACHE_TTL_DAYS = 7;
+  35 | 
+  36 | export async function getOrGenerateGapAnalysis(
+  37 |   userId: string,
+  38 |   vacancyId: number,
+  39 | ): Promise&lt;GapAnalysisResult&gt; {
+  40 |   const claims = await getCandidateReadinessClaims(userId);
+  41 | 
+  42 |   // ── 1. Check for a fresh cached result ────────────────────────────────────
+  43 |   const [existing] = await db
+  44 |     .select()
+  45 |     .from(sponsorLicenceGapAnalysesTable)
+  46 |     .where(
+  47 |       and(
+  48 |         eq(sponsorLicenceGapAnalysesTable.userId, userId),
+  49 |         eq(sponsorLicenceGapAnalysesTable.vacancyId, vacancyId),
+  50 |       ),
+  51 |     )
+  52 |     .limit(1);
+  53 | 
+  54 |   if (existing) {
+  55 |     const ageMs = Date.now() - existing.generatedAt.getTime();
+  56 |     const ageDays = ageMs / (1000 * 60 * 60 * 24);
+  57 |     if (ageDays &lt; CACHE_TTL_DAYS) {
+  58 |       return {
+  59 |         matchedRequirements: existing.matchedRequirements,
+  60 |         gaps: filterAcknowledgedGaps(existing.gaps, claims),
+  61 |         optimizationSteps: existing.optimizationSteps,
+  62 |         generatedAt: existing.generatedAt.toISOString(),
+  63 |         fromCache: true,
+  64 |       };
+  65 |     }
+  66 |     // Stale — fall through to regenerate (count it as already-used, no limit deduction)
+  67 |   }
+  68 | 
+  69 |   // ── 2. Reserve a check only for a brand-new analysis ──────────────────────
+  70 |   let bonusReserved = false;
+  71 |   if (!existing) {
+  72 |     const reservation = await reserveReadinessCheck(userId);
+  73 |     if (!reservation.allowed) {
+  74 |       throw new LimitReachedError();
+  75 |     }
+  76 |     bonusReserved = reservation.bonusReserved;
+  77 |   }
+  78 | 
+  79 |   try {
+  80 |   // ── 3. Fetch candidate profile ────────────────────────────────────────────</code></pre></details><details><summary>Sponsor analysis bonus refund</summary><p class="small">artifacts/api-server/src/lib/vacancyGapAnalysis.ts · lines 239–247</p><pre><code> 239 |     fromCache: false,
+ 240 |   };
+ 241 |   } catch (error) {
+ 242 |     if (bonusReserved) {
+ 243 |       await refundReservedReadinessCheck(userId);
+ 244 |     }
+ 245 |     throw error;
+ 246 |   }
+ 247 | }</code></pre></details><details><summary>API router mounts</summary><p class="small">artifacts/api-server/src/routes/index.ts · lines 87–95</p><pre><code>  87 | router.use(readinessClaimsRouter);
+  88 | router.use(internalVacancyJobsRouter);
+  89 | router.use(marketerCalendarRouter);
+  90 | router.use(sponsorWebsiteImportRouter);
+  91 | router.use(internalCompanySiteWorkflowRouter);
+  92 | router.use(checkoutRouter);
+  93 | router.use(supportRouter);
+  94 | router.use(readinessRouter);
+  95 | router.use(feedbackRouter);</code></pre></details><details><summary>Raw-body capture and /api mount</summary><p class="small">artifacts/api-server/src/app.ts · lines 49–63</p><pre><code>  49 |   }),
+  50 | );
+  51 | app.use(cookieParser());
+  52 | app.use(
+  53 |   express.json({
+  54 |     // Capture raw body for webhook signature verification (Svix/Resend)
+  55 |     verify: (req: Request &amp; { rawBody?: Buffer }, _res, buf) =&gt; {
+  56 |       req.rawBody = buf;
+  57 |     },
+  58 |   }),
+  59 | );
+  60 | app.use(express.urlencoded({ extended: true }));
+  61 | app.use(authMiddleware);
+  62 | 
+  63 | app.use(&quot;/api&quot;, router);</code></pre></details><details><summary>Billing support persistence/review routes</summary><p class="small">artifacts/api-server/src/routes/support.ts · lines 1–115</p><pre><code>   1 | import { randomUUID } from &quot;node:crypto&quot;;
+   2 | import { Router, type IRouter } from &quot;express&quot;;
+   3 | import {
+   4 |   CreateSupportTicketBody,
+   5 |   ListAdminSupportTicketsQueryParams,
+   6 |   ListAdminSupportTicketsResponse,
+   7 |   UpdateAdminSupportTicketBody,
+   8 |   UpdateAdminSupportTicketParams,
+   9 |   UpdateAdminSupportTicketResponse,
+  10 | } from &quot;@workspace/api-zod&quot;;
+  11 | import { desc, eq } from &quot;drizzle-orm&quot;;
+  12 | import { db, supportTicketsTable } from &quot;@workspace/db&quot;;
+  13 | import { z } from &quot;zod/v4&quot;;
+  14 | import { sendSupportTicketNotification } from &quot;../lib/email&quot;;
+  15 | import { requireRole } from &quot;../middlewares/requireRole&quot;;
+  16 | import { writeAuditEvent } from &quot;../lib/audit&quot;;
+  17 | 
+  18 | const router: IRouter = Router();
+  19 | const SupportTicketResultSchema = z.object({
+  20 |   success: z.boolean(),
+  21 |   ticketId: z.string(),
+  22 | });
+  23 | 
+  24 | router.post(&quot;/support/ticket&quot;, async (req, res): Promise&lt;void&gt; =&gt; {
+  25 |   const parsed = CreateSupportTicketBody.safeParse(req.body);
+  26 |   if (!parsed.success) {
+  27 |     res.status(400).json({ error: parsed.error.message });
+  28 |     return;
+  29 |   }
+  30 | 
+  31 |   const ticketId = `JS-${randomUUID().replace(/-/g, &quot;&quot;).slice(0, 10).toUpperCase()}`;
+  32 |   await db.insert(supportTicketsTable).values({
+  33 |     ticketId,
+  34 |     ...parsed.data,
+  35 |     userId: req.user?.id ?? null,
+  36 |   });
+  37 | 
+  38 |   const delivery = await sendSupportTicketNotification({ ticketId, ...parsed.data });
+  39 |   if (!delivery.success) {
+  40 |     req.log.error(
+  41 |       { ticketId, error: delivery.error },
+  42 |       &quot;Support ticket was saved but its email notification could not be delivered&quot;,
+  43 |     );
+  44 |   }
+  45 | 
+  46 |   res.status(201).json(SupportTicketResultSchema.parse({
+  47 |     success: true,
+  48 |     ticketId,
+  49 |   }));
+  50 | });
+  51 | 
+  52 | router.get(
+  53 |   &quot;/admin/super/support-tickets&quot;,
+  54 |   requireRole(&quot;super_admin&quot;),
+  55 |   async (req, res): Promise&lt;void&gt; =&gt; {
+  56 |     const query = ListAdminSupportTicketsQueryParams.safeParse(req.query);
+  57 |     if (!query.success) {
+  58 |       res.status(400).json({ error: query.error.message });
+  59 |       return;
+  60 |     }
+  61 | 
+  62 |     const filter = query.data.status
+  63 |       ? eq(supportTicketsTable.status, query.data.status)
+  64 |       : undefined;
+  65 |     const tickets = await db
+  66 |       .select()
+  67 |       .from(supportTicketsTable)
+  68 |       .where(filter)
+  69 |       .orderBy(desc(supportTicketsTable.createdAt))
+  70 |       .limit(query.data.limit)
+  71 |       .offset(query.data.offset);
+  72 | 
+  73 |     res.json(ListAdminSupportTicketsResponse.parse(tickets));
+  74 |   },
+  75 | );
+  76 | 
+  77 | router.patch(
+  78 |   &quot;/admin/super/support-tickets/:id&quot;,
+  79 |   requireRole(&quot;super_admin&quot;),
+  80 |   async (req, res): Promise&lt;void&gt; =&gt; {
+  81 |     const params = UpdateAdminSupportTicketParams.safeParse(req.params);
+  82 |     if (!params.success) {
+  83 |       res.status(400).json({ error: params.error.message });
+  84 |       return;
+  85 |     }
+  86 |     const body = UpdateAdminSupportTicketBody.safeParse(req.body);
+  87 |     if (!body.success || Object.keys(body.data).length === 0) {
+  88 |       res.status(400).json({ error: body.success ? &quot;Provide a status or admin note to update.&quot; : body.error.message });
+  89 |       return;
+  90 |     }
+  91 | 
+  92 |     const [ticket] = await db
+  93 |       .update(supportTicketsTable)
+  94 |       .set({
+  95 |         ...body.data,
+  96 |         reviewedBy: req.user!.id,
+  97 |         reviewedAt: new Date(),
+  98 |       })
+  99 |       .where(eq(supportTicketsTable.id, params.data.id))
+ 100 |       .returning();
+ 101 | 
+ 102 |     if (!ticket) {
+ 103 |       res.status(404).json({ error: &quot;Support ticket not found.&quot; });
+ 104 |       return;
+ 105 |     }
+ 106 | 
+ 107 |     writeAuditEvent(req.user!.id, &quot;admin_update_support_ticket&quot;, String(ticket.id), {
+ 108 |       status: ticket.status,
+ 109 |     }).catch(() =&gt; {});
+ 110 | 
+ 111 |     res.json(UpdateAdminSupportTicketResponse.parse(ticket));
+ 112 |   },
+ 113 | );
+ 114 | 
+ 115 | export default router;</code></pre></details><details><summary>User entitlement and provider fields</summary><p class="small">lib/db/src/schema/auth.ts · lines 24–48</p><pre><code>  24 |   googleCalendarRefreshToken: text(&quot;google_calendar_refresh_token&quot;),
+  25 |   googleCalendarAccountEmail: varchar(&quot;google_calendar_account_email&quot;),
+  26 |   googleCalendarConnectedAt: timestamp(&quot;google_calendar_connected_at&quot;, { withTimezone: true }),
+  27 |   role: varchar(&quot;role&quot;, { enum: [&quot;candidate&quot;, &quot;admin&quot;, &quot;reviewer&quot;, &quot;employer&quot;, &quot;super_admin&quot;, &quot;marketing&quot;] }).notNull().default(&quot;candidate&quot;),
+  28 |   plan: varchar(&quot;plan&quot;, { enum: [&quot;free&quot;, &quot;pro&quot;] }).notNull().default(&quot;free&quot;),
+  29 |   bonusReadinessChecks: integer(&quot;bonus_readiness_checks&quot;).notNull().default(0),
+  30 |   subscriptionExpiresAt: timestamp(&quot;subscription_expires_at&quot;, { withTimezone: true }),
+  31 |   stripeCustomerId: text(&quot;stripe_customer_id&quot;),
+  32 |   stripePaymentIntentId: text(&quot;stripe_payment_intent_id&quot;),
+  33 |   passwordHash: varchar(&quot;password_hash&quot;),
+  34 |   emailVerified: boolean(&quot;email_verified&quot;).notNull().default(false),
+  35 |   emailVerifyToken: varchar(&quot;email_verify_token&quot;),
+  36 |   emailVerifyTokenExpires: timestamp(&quot;email_verify_token_expires&quot;, { withTimezone: true }),
+  37 |   passwordResetToken: varchar(&quot;password_reset_token&quot;),
+  38 |   passwordResetTokenExpires: timestamp(&quot;password_reset_token_expires&quot;, { withTimezone: true }),
+  39 |   suspendedAt: timestamp(&quot;suspended_at&quot;, { withTimezone: true }),
+  40 |   /** Auto-assigned JOBSAGE communication alias — assigned at registration and stable for life */
+  41 |   jobsageEmail: text(&quot;jobsage_email&quot;).unique(),
+  42 |   createdAt: timestamp(&quot;created_at&quot;, { withTimezone: true }).notNull().defaultNow(),
+  43 |   updatedAt: timestamp(&quot;updated_at&quot;, { withTimezone: true }).notNull().defaultNow().$onUpdate(() =&gt; new Date()),
+  44 | }, (table) =&gt; [
+  45 |   uniqueIndex(&quot;users_google_booking_slug_idx&quot;).on(table.googleBookingSlug),
+  46 |   check(&quot;users_bonus_readiness_checks_nonnegative&quot;, sql`${table.bonusReadinessChecks} &gt;= 0`),
+  47 |   check(&quot;users_plan_valid&quot;, sql`${table.plan} IN ('free', 'pro')`),
+  48 | ]);</code></pre></details><details><summary>Ordinary-role usage/cache table</summary><p class="small">lib/db/src/schema/roles.ts · lines 39–60</p><pre><code>  39 | export const roleGapAnalysesTable = pgTable(
+  40 |   &quot;role_gap_analyses&quot;,
+  41 |   {
+  42 |     id: serial(&quot;id&quot;).primaryKey(),
+  43 |     userId: varchar(&quot;user_id&quot;).notNull(),
+  44 |     roleId: integer(&quot;role_id&quot;).notNull(),
+  45 |     matchedRequirements: jsonb(&quot;matched_requirements&quot;).$type&lt;string[]&gt;().notNull(),
+  46 |     gaps: jsonb(&quot;gaps&quot;).$type&lt;string[]&gt;().notNull(),
+  47 |     optimizationSteps: jsonb(&quot;optimization_steps&quot;).$type&lt;string[]&gt;().notNull(),
+  48 |     generatedAt: timestamp(&quot;generated_at&quot;, { withTimezone: true }).notNull().defaultNow(),
+  49 |   },
+  50 |   (t) =&gt; [
+  51 |     foreignKey({
+  52 |       name: &quot;role_gap_analyses_role_id_fk&quot;,
+  53 |       columns: [t.roleId],
+  54 |       foreignColumns: [rolesTable.id],
+  55 |     }).onDelete(&quot;cascade&quot;),
+  56 |     uniqueIndex(&quot;role_gap_analyses_user_role_idx&quot;).on(t.userId, t.roleId),
+  57 |     index(&quot;role_gap_analyses_user_idx&quot;).on(t.userId),
+  58 |   ],
+  59 | );
+  60 | </code></pre></details><details><summary>Sponsor-vacancy usage/cache table</summary><p class="small">lib/db/src/schema/sponsorLicences.ts · lines 373–394</p><pre><code> 373 | export const sponsorLicenceGapAnalysesTable = pgTable(
+ 374 |   &quot;sponsor_licence_gap_analyses&quot;,
+ 375 |   {
+ 376 |     id: serial(&quot;id&quot;).primaryKey(),
+ 377 |     userId: varchar(&quot;user_id&quot;).notNull(),
+ 378 |     vacancyId: integer(&quot;vacancy_id&quot;).notNull(),
+ 379 |     matchedRequirements: jsonb(&quot;matched_requirements&quot;).$type&lt;string[]&gt;().notNull(),
+ 380 |     gaps: jsonb(&quot;gaps&quot;).$type&lt;string[]&gt;().notNull(),
+ 381 |     optimizationSteps: jsonb(&quot;optimization_steps&quot;).$type&lt;string[]&gt;().notNull(),
+ 382 |     generatedAt: timestamp(&quot;generated_at&quot;, { withTimezone: true }).notNull().defaultNow(),
+ 383 |   },
+ 384 |   (t) =&gt; [
+ 385 |     foreignKey({
+ 386 |       name: &quot;sl_gap_analyses_vacancy_id_fk&quot;,
+ 387 |       columns: [t.vacancyId],
+ 388 |       foreignColumns: [sponsorLicenceVacanciesTable.id],
+ 389 |     }).onDelete(&quot;cascade&quot;),
+ 390 |     uniqueIndex(&quot;sl_gap_analyses_user_vacancy_idx&quot;).on(t.userId, t.vacancyId),
+ 391 |     index(&quot;sl_gap_analyses_user_idx&quot;).on(t.userId),
+ 392 |   ],
+ 393 | );
+ 394 | </code></pre></details><details><summary>Paid-access schema migration (complete)</summary><p class="small">lib/db/drizzle/0038_readiness_paid_access.sql · lines 1–14</p><pre><code>   1 | ALTER TABLE &quot;users&quot;
+   2 |   ADD COLUMN &quot;plan&quot; varchar DEFAULT 'free' NOT NULL,
+   3 |   ADD COLUMN &quot;bonus_readiness_checks&quot; integer DEFAULT 0 NOT NULL,
+   4 |   ADD COLUMN &quot;subscription_expires_at&quot; timestamp with time zone,
+   5 |   ADD COLUMN &quot;stripe_customer_id&quot; text,
+   6 |   ADD COLUMN &quot;stripe_payment_intent_id&quot; text;
+   7 | --&gt; statement-breakpoint
+   8 | ALTER TABLE &quot;users&quot;
+   9 |   ADD CONSTRAINT &quot;users_bonus_readiness_checks_nonnegative&quot;
+  10 |   CHECK (&quot;bonus_readiness_checks&quot; &gt;= 0);
+  11 | --&gt; statement-breakpoint
+  12 | ALTER TABLE &quot;users&quot;
+  13 |   ADD CONSTRAINT &quot;users_plan_valid&quot;
+  14 |   CHECK (&quot;plan&quot; IN ('free', 'pro'));</code></pre></details><details><summary>OpenAPI quota/checkout/webhook route definitions</summary><p class="small">lib/api-spec/openapi.yaml · lines 1120–1190</p><pre><code>1120 |   /readiness/quota:
+1121 |     get:
+1122 |       tags: [Readiness]
+1123 |       operationId: getReadinessQuota
+1124 |       summary: Get the current candidate's readiness quota and plan
+1125 |       responses:
+1126 |         &quot;200&quot;:
+1127 |           description: Monthly usage and remaining purchased checks.
+1128 |           content:
+1129 |             application/json:
+1130 |               schema:
+1131 |                 $ref: &quot;#/components/schemas/ReadinessQuota&quot;
+1132 |         &quot;401&quot;:
+1133 |           description: Not authenticated.
+1134 |           content:
+1135 |             application/json:
+1136 |               schema:
+1137 |                 $ref: &quot;#/components/schemas/ErrorEnvelope&quot;
+1138 | 
+1139 |   /checkout/create-session:
+1140 |     post:
+1141 |       tags: [Checkout]
+1142 |       operationId: createCheckoutSession
+1143 |       summary: Start a readiness check purchase
+1144 |       requestBody:
+1145 |         required: true
+1146 |         content:
+1147 |           application/json:
+1148 |             schema:
+1149 |               $ref: &quot;#/components/schemas/CheckoutInput&quot;
+1150 |       responses:
+1151 |         &quot;200&quot;:
+1152 |           description: Hosted checkout URL, or a development-only sandbox completion.
+1153 |           content:
+1154 |             application/json:
+1155 |               schema:
+1156 |                 $ref: &quot;#/components/schemas/CheckoutSessionResult&quot;
+1157 |         &quot;400&quot;:
+1158 |           description: Invalid purchase type.
+1159 |           content:
+1160 |             application/json:
+1161 |               schema:
+1162 |                 $ref: &quot;#/components/schemas/ErrorEnvelope&quot;
+1163 |         &quot;401&quot;:
+1164 |           description: Not authenticated.
+1165 |           content:
+1166 |             application/json:
+1167 |               schema:
+1168 |                 $ref: &quot;#/components/schemas/ErrorEnvelope&quot;
+1169 |         &quot;503&quot;:
+1170 |           description: Live checkout is not configured.
+1171 |           content:
+1172 |             application/json:
+1173 |               schema:
+1174 |                 $ref: &quot;#/components/schemas/ErrorEnvelope&quot;
+1175 | 
+1176 |   /checkout/webhook:
+1177 |     post:
+1178 |       tags: [Checkout]
+1179 |       operationId: receiveCheckoutWebhook
+1180 |       summary: Receive verified checkout provider events
+1181 |       description: Disabled until live Stripe signature verification is configured. This endpoint never grants access without verified provider events.
+1182 |       responses:
+1183 |         &quot;503&quot;:
+1184 |           description: Payment provider webhook is not configured.
+1185 |           content:
+1186 |             application/json:
+1187 |               schema:
+1188 |                 $ref: &quot;#/components/schemas/ErrorEnvelope&quot;
+1189 | 
+1190 |   /support/ticket:</code></pre></details><details><summary>OpenAPI quota/checkout data schemas</summary><p class="small">lib/api-spec/openapi.yaml · lines 8560–8600</p><pre><code>8560 |     ReadinessQuota:
+8561 |       type: object
+8562 |       required: [used, limit, bonusRemaining, plan, resetsAt]
+8563 |       properties:
+8564 |         used:
+8565 |           type: integer
+8566 |           minimum: 0
+8567 |         limit:
+8568 |           type: integer
+8569 |           const: 10
+8570 |         bonusRemaining:
+8571 |           type: integer
+8572 |           minimum: 0
+8573 |         plan:
+8574 |           type: string
+8575 |           enum: [free, pro]
+8576 |         resetsAt:
+8577 |           type: string
+8578 |           format: date-time
+8579 | 
+8580 |     CheckoutInput:
+8581 |       type: object
+8582 |       required: [type]
+8583 |       properties:
+8584 |         type:
+8585 |           type: string
+8586 |           enum: [booster_pack, pro_subscription]
+8587 | 
+8588 |     CheckoutSessionResult:
+8589 |       type: object
+8590 |       required: [success, checkoutUrl, sandboxCompleted]
+8591 |       properties:
+8592 |         success:
+8593 |           type: boolean
+8594 |         checkoutUrl:
+8595 |           type: [&quot;string&quot;, &quot;null&quot;]
+8596 |           format: uri
+8597 |         sandboxCompleted:
+8598 |           type: boolean
+8599 | 
+8600 |     FeedbackInput:</code></pre></details><details><summary>Generated frontend quota/checkout types</summary><p class="small">lib/api-client-react/src/generated/api.schemas.ts · lines 2690–2730</p><pre><code>2690 | }
+2691 | 
+2692 | export type ReadinessQuotaPlan =
+2693 |   (typeof ReadinessQuotaPlan)[keyof typeof ReadinessQuotaPlan];
+2694 | 
+2695 | export const ReadinessQuotaPlan = {
+2696 |   free: &quot;free&quot;,
+2697 |   pro: &quot;pro&quot;,
+2698 | } as const;
+2699 | 
+2700 | export interface ReadinessQuota {
+2701 |   /** @minimum 0 */
+2702 |   used: number;
+2703 |   limit: 10;
+2704 |   /** @minimum 0 */
+2705 |   bonusRemaining: number;
+2706 |   plan: ReadinessQuotaPlan;
+2707 |   resetsAt: string;
+2708 | }
+2709 | 
+2710 | export type CheckoutInputType =
+2711 |   (typeof CheckoutInputType)[keyof typeof CheckoutInputType];
+2712 | 
+2713 | export const CheckoutInputType = {
+2714 |   booster_pack: &quot;booster_pack&quot;,
+2715 |   pro_subscription: &quot;pro_subscription&quot;,
+2716 | } as const;
+2717 | 
+2718 | export interface CheckoutInput {
+2719 |   type: CheckoutInputType;
+2720 | }
+2721 | 
+2722 | export interface CheckoutSessionResult {
+2723 |   success: boolean;
+2724 |   /** @nullable */
+2725 |   checkoutUrl: string | null;
+2726 |   sandboxCompleted: boolean;
+2727 | }
+2728 | 
+2729 | export type FeedbackInputCategory =
+2730 |   (typeof FeedbackInputCategory)[keyof typeof FeedbackInputCategory];</code></pre></details><details><summary>Generated backend quota/checkout validators</summary><p class="small">lib/api-zod/src/generated/api.ts · lines 1203–1233</p><pre><code>1203 |  * @summary Get the current candidate's readiness quota and plan
+1204 |  */
+1205 | export const getReadinessQuotaResponseUsedMin = 0;
+1206 | 
+1207 | export const getReadinessQuotaResponseBonusRemainingMin = 0;
+1208 | 
+1209 | export const GetReadinessQuotaResponse = zod.object({
+1210 |   used: zod.number().min(getReadinessQuotaResponseUsedMin),
+1211 |   limit: zod.number(),
+1212 |   bonusRemaining: zod.number().min(getReadinessQuotaResponseBonusRemainingMin),
+1213 |   plan: zod.enum([&quot;free&quot;, &quot;pro&quot;]),
+1214 |   resetsAt: zod.date(),
+1215 | });
+1216 | 
+1217 | /**
+1218 |  * @summary Start a readiness check purchase
+1219 |  */
+1220 | export const CreateCheckoutSessionBody = zod.object({
+1221 |   type: zod.enum([&quot;booster_pack&quot;, &quot;pro_subscription&quot;]),
+1222 | });
+1223 | 
+1224 | export const CreateCheckoutSessionResponse = zod.object({
+1225 |   success: zod.boolean(),
+1226 |   checkoutUrl: zod.string().url().nullable(),
+1227 |   sandboxCompleted: zod.boolean(),
+1228 | });
+1229 | 
+1230 | /**
+1231 |  * @summary Submit a help and support request
+1232 |  */
+1233 | export const createSupportTicketBodyNameMax = 120;</code></pre></details><details><summary>Offline price-model calculation</summary><p class="small">scripts/generate-pricing-model.mjs · lines 1–71</p><pre><code>   1 | import fs from &quot;node:fs&quot;;
+   2 | import path from &quot;node:path&quot;;
+   3 | import { fileURLToPath } from &quot;node:url&quot;;
+   4 | 
+   5 | const here = path.dirname(fileURLToPath(import.meta.url));
+   6 | const root = path.resolve(here, &quot;..&quot;);
+   7 | const assumptionsPath = path.join(root, &quot;docs&quot;, &quot;pricing-assumptions.json&quot;);
+   8 | const outputMarkdownPath = path.join(root, &quot;docs&quot;, &quot;pricing-unit-economics.md&quot;);
+   9 | const outputCsvPath = path.join(root, &quot;docs&quot;, &quot;pricing-unit-economics.csv&quot;);
+  10 | const assumptions = JSON.parse(fs.readFileSync(assumptionsPath, &quot;utf8&quot;));
+  11 | 
+  12 | const money = (value) =&gt; `£${value.toFixed(2)}`;
+  13 | const number = (value) =&gt; new Intl.NumberFormat(&quot;en-GB&quot;).format(value);
+  14 | const sum = (values) =&gt; values.reduce((total, value) =&gt; total + value, 0);
+  15 | const aiPerMau = sum(Object.values(assumptions.variableMonthlyCostPerMau.ai));
+  16 | const margins = [0.3, 0.5, 0.7];
+  17 | const categories = Object.keys(assumptions.fixedMonthlyCostByTier);
+  18 | 
+  19 | const rows = assumptions.scaleTiersMau.map((mau, index) =&gt; {
+  20 |   const payingUsers = mau * assumptions.conversion.payingUsersPercentOfMau / 100;
+  21 |   const fixed = Object.fromEntries(
+  22 |     categories.map((category) =&gt; [
+  23 |       category,
+  24 |       assumptions.fixedMonthlyCostByTier[category][index],
+  25 |     ]),
+  26 |   );
+  27 |   const variable = {
+  28 |     ai: mau * aiPerMau,
+  29 |     email: mau * assumptions.variableMonthlyCostPerMau.email,
+  30 |     objectStorage: mau * assumptions.variableMonthlyCostPerMau.objectStorage,
+  31 |     vacancyIngestionAndCron:
+  32 |       mau * assumptions.variableMonthlyCostPerMau.vacancyIngestionAndCron,
+  33 |     support: mau * assumptions.variableMonthlyCostPerMau.support,
+  34 |     analyticsAndObservability:
+  35 |       mau * assumptions.variableMonthlyCostPerMau.analyticsAndObservability,
+  36 |   };
+  37 |   const marketingCac = payingUsers *
+  38 |     assumptions.conversion.marketingCacPerPayingUser /
+  39 |     assumptions.conversion.cacAmortisationMonths;
+  40 |   const categoryTotals = {
+  41 |     hosting: fixed.hosting,
+  42 |     postgres: fixed.postgres,
+  43 |     objectStorage: fixed.objectStorage + variable.objectStorage,
+  44 |     email: fixed.email + variable.email,
+  45 |     vacancyIngestionAndCron:
+  46 |       fixed.vacancyIngestionAndCron + variable.vacancyIngestionAndCron,
+  47 |     ai: variable.ai,
+  48 |     support: fixed.support + variable.support,
+  49 |     analyticsAndObservability:
+  50 |       fixed.analyticsAndObservability + variable.analyticsAndObservability,
+  51 |     marketingCac,
+  52 |   };
+  53 |   const subtotal = sum(Object.values(fixed)) + sum(Object.values(variable));
+  54 |   const total = subtotal +
+  55 |     (assumptions.conversion.includeMarketingCacInSuggestedPrice ? marketingCac : 0);
+  56 |   const costPerPayingUser = total / Math.max(payingUsers, 1);
+  57 |   return {
+  58 |     mau,
+  59 |     payingUsers,
+  60 |     fixed,
+  61 |     variable,
+  62 |     categoryTotals,
+  63 |     marketingCac,
+  64 |     total,
+  65 |     costPerMau: total / mau,
+  66 |     costPerPayingUser,
+  67 |     prices: Object.fromEntries(
+  68 |       margins.map((margin) =&gt; [margin, costPerPayingUser / (1 - margin)]),
+  69 |     ),
+  70 |   };
+  71 | });</code></pre></details><details><summary>Exact planning assumptions (not runtime prices)</summary><p class="small">docs/pricing-assumptions.json · lines 1–121</p><pre><code>   1 | {
+   2 |   &quot;version&quot;: 1,
+   3 |   &quot;currency&quot;: &quot;GBP&quot;,
+   4 |   &quot;scaleTiersMau&quot;: [100, 1000, 10000, 100000, 1000000],
+   5 |   &quot;conversion&quot;: {
+   6 |     &quot;payingUsersPercentOfMau&quot;: 8,
+   7 |     &quot;marketingCacPerPayingUser&quot;: 30,
+   8 |     &quot;cacAmortisationMonths&quot;: 12,
+   9 |     &quot;includeMarketingCacInSuggestedPrice&quot;: true
+  10 |   },
+  11 |   &quot;variableMonthlyCostPerMau&quot;: {
+  12 |     &quot;ai&quot;: {
+  13 |       &quot;cvAndProfileExtraction&quot;: 0.08,
+  14 |       &quot;eligibilityOrRulesAssist&quot;: 0.04,
+  15 |       &quot;remediationAndWriting&quot;: 0.10,
+  16 |       &quot;opportunityScoring&quot;: 0.12,
+  17 |       &quot;otherAiAllowance&quot;: 0.06
+  18 |     },
+  19 |     &quot;email&quot;: 0.02,
+  20 |     &quot;objectStorage&quot;: 0.01,
+  21 |     &quot;vacancyIngestionAndCron&quot;: 0.01,
+  22 |     &quot;support&quot;: 0.20,
+  23 |     &quot;analyticsAndObservability&quot;: 0.01
+  24 |   },
+  25 |   &quot;fixedMonthlyCostByTier&quot;: {
+  26 |     &quot;hosting&quot;: [60, 120, 300, 1000, 4200],
+  27 |     &quot;postgres&quot;: [30, 60, 180, 750, 3600],
+  28 |     &quot;objectStorage&quot;: [15, 20, 40, 120, 500],
+  29 |     &quot;email&quot;: [20, 25, 45, 120, 400],
+  30 |     &quot;vacancyIngestionAndCron&quot;: [10, 15, 30, 90, 300],
+  31 |     &quot;analyticsAndObservability&quot;: [10, 20, 60, 250, 1000],
+  32 |     &quot;support&quot;: [25, 40, 100, 350, 1500]
+  33 |   },
+  34 |   &quot;hostingNotes&quot;: [
+  35 |     &quot;100–10,000 MAU assumes Replit Autoscale remains the primary web/API runtime.&quot;,
+  36 |     &quot;100,000 MAU assumes a Reserved VM or equivalent always-on worker capacity is added alongside Autoscale.&quot;,
+  37 |     &quot;1,000,000 MAU is a planning placeholder for multiple API workers, queue consumers, read replicas, and dedicated observability; it is not a claim that one Replit Autoscale instance can sustain that load.&quot;
+  38 |   ],
+  39 |   &quot;billingSourceNotes&quot;: [
+  40 |     {
+  41 |       &quot;category&quot;: &quot;hosting&quot;,
+  42 |       &quot;source&quot;: &quot;https://docs.replit.com/billing/about-usage-based-billing&quot;,
+  43 |       &quot;note&quot;: &quot;Autoscale uses a base fee plus usage-based compute units and requests; replace the hosting placeholder with the account usage dashboard and invoices.&quot;
+  44 |     },
+  45 |     {
+  46 |       &quot;category&quot;: &quot;postgres&quot;,
+  47 |       &quot;source&quot;: &quot;https://docs.replit.com/billing/about-usage-based-billing&quot;,
+  48 |       &quot;note&quot;: &quot;Production PostgreSQL is billed by compute time and data storage; development PostgreSQL is free.&quot;
+  49 |     },
+  50 |     {
+  51 |       &quot;category&quot;: &quot;objectStorage&quot;,
+  52 |       &quot;source&quot;: &quot;https://docs.replit.com/billing/object-storage-billing&quot;,
+  53 |       &quot;note&quot;: &quot;App Storage is billed by stored GiB, transfer, and operations; replace the placeholder with the account usage dashboard.&quot;
+  54 |     }
+  55 |   ],
+  56 |   &quot;measuredDevelopmentSnapshot&quot;: {
+  57 |     &quot;capturedAt&quot;: &quot;2026-09-23&quot;,
+  58 |     &quot;environment&quot;: &quot;development&quot;,
+  59 |     &quot;source&quot;: &quot;Aggregate read-only query against the development database; user counts include the synthetic k6 fixture and workload totals are development-only.&quot;,
+  60 |     &quot;usersTotal&quot;: 26,
+  61 |     &quot;verifiedUsers&quot;: 13,
+  62 |     &quot;cvEnhancementRows&quot;: 2,
+  63 |     &quot;cvEnhancementCount&quot;: 5,
+  64 |     &quot;cvEnhancementUsers&quot;: 1,
+  65 |     &quot;vacancyAiUsageDays&quot;: 0,
+  66 |     &quot;vacancyAiSearches&quot;: 0,
+  67 |     &quot;contactWebSearches&quot;: 1,
+  68 |     &quot;vacancySyncRowsLast30Days&quot;: 284,
+  69 |     &quot;vacancyCheckedLast30Days&quot;: 21415,
+  70 |     &quot;vacancySyncErrorsLast30Days&quot;: 977,
+  71 |     &quot;vacancySyncDurationMsLast30Days&quot;: 11159995
+  72 |   },
+  73 |   &quot;invoiceInputs&quot;: {
+  74 |     &quot;status&quot;: &quot;not_available_in_workspace&quot;,
+  75 |     &quot;requiredBeforePublicPricing&quot;: [
+  76 |       &quot;Replit Autoscale and production PostgreSQL usage-dashboard export or invoices&quot;,
+  77 |       &quot;App Storage usage and transfer totals&quot;,
+  78 |       &quot;Resend monthly invoice and delivered-message count&quot;,
+  79 |       &quot;AI integration model/token/cache/retry usage and invoice-equivalent cost&quot;,
+  80 |       &quot;Cron, observability, and support invoices&quot;,
+  81 |       &quot;Paid conversion and CAC from funnel data&quot;
+  82 |     ]
+  83 |   },
+  84 |   &quot;measuredFacts&quot;: [
+  85 |     {
+  86 |       &quot;fact&quot;: &quot;The project is configured for a Replit Autoscale deployment target.&quot;,
+  87 |       &quot;source&quot;: &quot;.replit deployment.target&quot;
+  88 |     },
+  89 |     {
+  90 |       &quot;fact&quot;: &quot;The application uses PostgreSQL through Drizzle ORM.&quot;,
+  91 |       &quot;source&quot;: &quot;replit.md architecture and lib/db&quot;
+  92 |     },
+  93 |     {
+  94 |       &quot;fact&quot;: &quot;The application uses Replit Object Storage for files.&quot;,
+  95 |       &quot;source&quot;: &quot;replit.md architecture and environment variables&quot;
+  96 |     },
+  97 |     {
+  98 |       &quot;fact&quot;: &quot;Transactional email is sent through Resend.&quot;,
+  99 |       &quot;source&quot;: &quot;replit.md and API email integration&quot;
+ 100 |     },
+ 101 |     {
+ 102 |       &quot;fact&quot;: &quot;AI features use the Replit OpenAI integration proxy.&quot;,
+ 103 |       &quot;source&quot;: &quot;replit.md and AI integration environment variables&quot;
+ 104 |     },
+ 105 |     {
+ 106 |       &quot;fact&quot;: &quot;Vacancy ingestion is split across board, company-site, probe, liveness, contact, Reed, and additional-board jobs.&quot;,
+ 107 |       &quot;source&quot;: &quot;docs/vacancy-jobs-http-cron.md&quot;
+ 108 |     },
+ 109 |     {
+ 110 |       &quot;fact&quot;: &quot;The recent production audit found company-site traffic materially above its intended hourly cadence and a high temporary-failure rate.&quot;,
+ 111 |       &quot;source&quot;: &quot;read-only production ingestion audit, September 2026&quot;
+ 112 |     }
+ 113 |   ],
+ 114 |   &quot;todoInputs&quot;: [
+ 115 |     &quot;Replace AI unit costs with the actual model, token, cache, and retry mix from invoices or provider usage.&quot;,
+ 116 |     &quot;Replace Replit hosting and PostgreSQL placeholders with the selected deployment/database plan invoices.&quot;,
+ 117 |     &quot;Replace Resend, object-storage, cron, observability, and support placeholders with actual monthly invoices.&quot;,
+ 118 |     &quot;Measure real monthly AI calls per active user by endpoint before committing to a public price.&quot;,
+ 119 |     &quot;Validate the 8% paying conversion and £30 CAC with funnel data.&quot;
+ 120 |   ]
+ 121 | }</code></pre></details><details><summary>Admin quota-reset component</summary><p class="small">artifacts/jobsage-web/src/pages/admin/SuperAdminPage.tsx · lines 476–482</p><pre><code> 476 |   async function handleResetGapAnalysis() {
+ 477 |     if (!confirm(&quot;Reset this candidate's Readiness Check quota? They will get a fresh 10 checks.&quot;)) return;
+ 478 |     if (await doAction(`/sponsor-licences/gap-analyses/${userId}`, &quot;DELETE&quot;)) {
+ 479 |       setGapAnalysisUsage({ used: 0, limit: 10 });
+ 480 |       toast({ title: &quot;Quota reset&quot;, description: &quot;Gap analysis quota reset to 0 / 10.&quot; });
+ 481 |     }
+ 482 |   }</code></pre></details><details><summary>Billing support-ticket schema</summary><p class="small">lib/db/src/schema/supportTickets.ts · lines 1–56</p><pre><code>   1 | import { createInsertSchema } from &quot;drizzle-zod&quot;;
+   2 | import { index, pgTable, serial, text, timestamp, uniqueIndex, varchar } from &quot;drizzle-orm/pg-core&quot;;
+   3 | import { z } from &quot;zod/v4&quot;;
+   4 | import { usersTable } from &quot;./auth&quot;;
+   5 | 
+   6 | export const supportTicketCategories = [
+   7 |   &quot;Visa Sponsorship&quot;,
+   8 |   &quot;Readiness Checks&quot;,
+   9 |   &quot;Account/Billing&quot;,
+  10 |   &quot;Technical Support&quot;,
+  11 |   &quot;Other&quot;,
+  12 | ] as const;
+  13 | 
+  14 | export const supportTicketStatuses = [&quot;new&quot;, &quot;in_review&quot;, &quot;resolved&quot;] as const;
+  15 | 
+  16 | export const supportTicketsTable = pgTable(
+  17 |   &quot;support_tickets&quot;,
+  18 |   {
+  19 |     id: serial(&quot;id&quot;).primaryKey(),
+  20 |     ticketId: varchar(&quot;ticket_id&quot;, { length: 13 }).notNull(),
+  21 |     name: varchar(&quot;name&quot;, { length: 120 }).notNull(),
+  22 |     email: varchar(&quot;email&quot;, { length: 254 }).notNull(),
+  23 |     category: varchar(&quot;category&quot;, { enum: supportTicketCategories }).notNull(),
+  24 |     subject: varchar(&quot;subject&quot;, { length: 180 }).notNull(),
+  25 |     message: text(&quot;message&quot;).notNull(),
+  26 |     userId: varchar(&quot;user_id&quot;).references(() =&gt; usersTable.id, { onDelete: &quot;set null&quot; }),
+  27 |     status: varchar(&quot;status&quot;, { enum: supportTicketStatuses }).notNull().default(&quot;new&quot;),
+  28 |     adminNotes: text(&quot;admin_notes&quot;),
+  29 |     reviewedBy: varchar(&quot;reviewed_by&quot;).references(() =&gt; usersTable.id, { onDelete: &quot;set null&quot; }),
+  30 |     reviewedAt: timestamp(&quot;reviewed_at&quot;, { withTimezone: true }),
+  31 |     createdAt: timestamp(&quot;created_at&quot;, { withTimezone: true }).notNull().defaultNow(),
+  32 |     updatedAt: timestamp(&quot;updated_at&quot;, { withTimezone: true })
+  33 |       .notNull()
+  34 |       .defaultNow()
+  35 |       .$onUpdate(() =&gt; new Date()),
+  36 |   },
+  37 |   (table) =&gt; [
+  38 |     uniqueIndex(&quot;support_tickets_ticket_id_unique&quot;).on(table.ticketId),
+  39 |     index(&quot;support_tickets_status_created_at_idx&quot;).on(table.status, table.createdAt),
+  40 |     index(&quot;support_tickets_user_id_idx&quot;).on(table.userId),
+  41 |   ],
+  42 | );
+  43 | 
+  44 | export const insertSupportTicketSchema = createInsertSchema(supportTicketsTable).omit({
+  45 |   id: true,
+  46 |   userId: true,
+  47 |   status: true,
+  48 |   adminNotes: true,
+  49 |   reviewedBy: true,
+  50 |   reviewedAt: true,
+  51 |   createdAt: true,
+  52 |   updatedAt: true,
+  53 | });
+  54 | 
+  55 | export type InsertSupportTicket = z.infer&lt;typeof insertSupportTicketSchema&gt;;
+  56 | export type SupportTicket = typeof supportTicketsTable.$inferSelect;</code></pre></details><details><summary>Generated quota query request</summary><p class="small">lib/api-client-react/src/generated/api.ts · lines 3516–3530</p><pre><code>3516 | export const getGetReadinessQuotaUrl = () =&gt; {
+3517 |   return `/api/readiness/quota`;
+3518 | };
+3519 | 
+3520 | export const getReadinessQuota = async (
+3521 |   options?: RequestInit,
+3522 | ): Promise&lt;ReadinessQuota&gt; =&gt; {
+3523 |   return customFetch&lt;ReadinessQuota&gt;(getGetReadinessQuotaUrl(), {
+3524 |     ...options,
+3525 |     method: &quot;GET&quot;,
+3526 |   });
+3527 | };
+3528 | 
+3529 | export const getGetReadinessQuotaQueryKey = () =&gt; {
+3530 |   return [`/api/readiness/quota`] as const;</code></pre></details><details><summary>Generated checkout request</summary><p class="small">lib/api-client-react/src/generated/api.ts · lines 3594–3610</p><pre><code>3594 | 
+3595 | export const createCheckoutSession = async (
+3596 |   checkoutInput: CheckoutInput,
+3597 |   options?: RequestInit,
+3598 | ): Promise&lt;CheckoutSessionResult&gt; =&gt; {
+3599 |   return customFetch&lt;CheckoutSessionResult&gt;(getCreateCheckoutSessionUrl(), {
+3600 |     ...options,
+3601 |     method: &quot;POST&quot;,
+3602 |     headers: { &quot;Content-Type&quot;: &quot;application/json&quot;, ...options?.headers },
+3603 |     body: JSON.stringify(checkoutInput),
+3604 |   });
+3605 | };
+3606 | 
+3607 | export const getCreateCheckoutSessionMutationOptions = &lt;
+3608 |   TError = ErrorType&lt;ErrorEnvelope&gt;,
+3609 |   TContext = unknown,
+3610 | &gt;(options?: {</code></pre></details><details><summary>Generated webhook request</summary><p class="small">lib/api-client-react/src/generated/api.ts · lines 3677–3691</p><pre><code>3677 |  */
+3678 | export const getReceiveCheckoutWebhookUrl = () =&gt; {
+3679 |   return `/api/checkout/webhook`;
+3680 | };
+3681 | 
+3682 | export const receiveCheckoutWebhook = async (
+3683 |   options?: RequestInit,
+3684 | ): Promise&lt;unknown&gt; =&gt; {
+3685 |   return customFetch&lt;unknown&gt;(getReceiveCheckoutWebhookUrl(), {
+3686 |     ...options,
+3687 |     method: &quot;POST&quot;,
+3688 |   });
+3689 | };
+3690 | 
+3691 | export const getReceiveCheckoutWebhookMutationOptions = &lt;</code></pre></details><p class="small">End of audit. No app implementation or entitlement changes were made.</p></main></body></html>
