@@ -166,6 +166,109 @@ export default function AdminSupportTicketsTab() {
     );
   }
 
+  function renderConversationPanel() {
+    return (
+      <Card data-testid="card-support-ticket-conversation" className="overflow-hidden">
+        <CardContent className="space-y-5 p-5 sm:p-6">
+          {detailQuery.isLoading ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">Loading conversation…</div>
+          ) : detailQuery.isError || !detailQuery.data ? (
+            <div className="space-y-3 py-6 text-center">
+              <p className="text-sm font-medium text-foreground">This conversation could not be loaded.</p>
+              <Button variant="outline" size="sm" onClick={() => void detailQuery.refetch()}>Try again</Button>
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <LifeBuoy className="h-5 w-5 text-primary" />
+                    <h3 className="text-lg font-semibold text-foreground">Conversation · {activeTicket?.ticketId}</h3>
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground">{activeTicket?.subject}</p>
+                </div>
+                <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-secondary-foreground">
+                  {activeTicket ? statusLabels[activeTicket.status] : ""}
+                </span>
+              </div>
+
+              <ol className="space-y-3" aria-label="Support reply history">
+                <li className="rounded-xl border border-border bg-muted/30 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-foreground">{activeTicket?.name}</p>
+                    <time className="text-xs text-muted-foreground" dateTime={activeTicket?.createdAt}>
+                      {activeTicket ? formatDate(activeTicket.createdAt) : ""}
+                    </time>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">Original support request</p>
+                  <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground">{activeTicket?.message}</p>
+                </li>
+                {detailQuery.data.replies.map((reply) => (
+                  <li key={reply.id} className="rounded-xl border border-primary/20 bg-primary/[0.035] p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-foreground">{reply.adminDisplayName}</p>
+                      <time className="text-xs text-muted-foreground" dateTime={reply.createdAt}>{formatDate(reply.createdAt)}</time>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Admin reply · {reply.deliveryStatus === "failed"
+                        ? "Email delivery failed"
+                        : `Sent via ${reply.deliveryChannel === "inbox" ? "candidate inbox" : "email"}`}
+                    </p>
+                    <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground">{reply.replyText}</p>
+                  </li>
+                ))}
+              </ol>
+
+              <div className="space-y-3 border-t border-border pt-5">
+                <div>
+                  <label htmlFor="support-ticket-reply" className="block text-sm font-semibold text-foreground">
+                    Reply to Candidate
+                  </label>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {activeTicket?.userId
+                      ? "Will be sent to Candidate's JobSage Inbox"
+                      : "Will be sent via email"}
+                  </p>
+                </div>
+                <textarea
+                  id="support-ticket-reply"
+                  data-testid="input-support-ticket-reply"
+                  value={replyText}
+                  onChange={(event) => setReplyText(event.target.value)}
+                  maxLength={5000}
+                  rows={5}
+                  placeholder="Write a clear response to the candidate…"
+                  className="field-support min-h-28 resize-y text-sm"
+                />
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    data-testid="button-send-reply-attended"
+                    onClick={() => sendReply("attended")}
+                    disabled={!replyText.trim() || replyingId === selectedTicketId}
+                    className="gap-2"
+                  >
+                    <Send className="h-4 w-4" />
+                    Send Reply &amp; Mark Attended
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    data-testid="button-send-reply-resolved"
+                    onClick={() => sendReply("resolved")}
+                    disabled={!replyText.trim() || replyingId === selectedTicketId}
+                  >
+                    Send Reply &amp; Mark Resolved
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <section className="space-y-5" aria-labelledby="support-inbox-title">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -256,8 +359,9 @@ export default function AdminSupportTicketsTab() {
       ) : (
         <div className="space-y-3">
           {tickets.map((ticket) => (
-            <Card key={ticket.id} data-testid={`card-support-ticket-${ticket.id}`} className="overflow-hidden">
-              <CardContent className="space-y-4 p-5">
+            <div key={ticket.id} data-testid={`support-ticket-thread-${ticket.id}`} className="space-y-3">
+              <Card data-testid={`card-support-ticket-${ticket.id}`} className="overflow-hidden">
+                <CardContent className="space-y-4 p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
@@ -347,111 +451,12 @@ export default function AdminSupportTicketsTab() {
                     </Button>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+              {selectedTicketId === ticket.id && renderConversationPanel()}
+            </div>
           ))}
         </div>
-      )}
-
-      {selectedTicketId !== null && (
-        <Card data-testid="card-support-ticket-conversation" className="overflow-hidden">
-          <CardContent className="space-y-5 p-5 sm:p-6">
-            {detailQuery.isLoading ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">Loading conversation…</div>
-            ) : detailQuery.isError || !detailQuery.data ? (
-              <div className="space-y-3 py-6 text-center">
-                <p className="text-sm font-medium text-foreground">This conversation could not be loaded.</p>
-                <Button variant="outline" size="sm" onClick={() => void detailQuery.refetch()}>Try again</Button>
-              </div>
-            ) : (
-              <>
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <LifeBuoy className="h-5 w-5 text-primary" />
-                      <h3 className="text-lg font-semibold text-foreground">Conversation · {activeTicket?.ticketId}</h3>
-                    </div>
-                    <p className="mt-1 text-sm text-muted-foreground">{activeTicket?.subject}</p>
-                  </div>
-                  <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-secondary-foreground">
-                    {activeTicket ? statusLabels[activeTicket.status] : ""}
-                  </span>
-                </div>
-
-                <ol className="space-y-3" aria-label="Support reply history">
-                  <li className="rounded-xl border border-border bg-muted/30 p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-sm font-semibold text-foreground">{activeTicket?.name}</p>
-                      <time className="text-xs text-muted-foreground" dateTime={activeTicket?.createdAt}>
-                        {activeTicket ? formatDate(activeTicket.createdAt) : ""}
-                      </time>
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">Original support request</p>
-                    <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground">{activeTicket?.message}</p>
-                  </li>
-                  {detailQuery.data.replies.map((reply) => (
-                    <li key={reply.id} className="rounded-xl border border-primary/20 bg-primary/[0.035] p-4">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-foreground">{reply.adminDisplayName}</p>
-                        <time className="text-xs text-muted-foreground" dateTime={reply.createdAt}>{formatDate(reply.createdAt)}</time>
-                      </div>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Admin reply · {reply.deliveryStatus === "failed"
-                          ? "Email delivery failed"
-                          : `Sent via ${reply.deliveryChannel === "inbox" ? "candidate inbox" : "email"}`}
-                      </p>
-                      <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground">{reply.replyText}</p>
-                    </li>
-                  ))}
-                </ol>
-
-                <div className="space-y-3 border-t border-border pt-5">
-                  <div>
-                    <label htmlFor="support-ticket-reply" className="block text-sm font-semibold text-foreground">
-                      Reply to Candidate
-                    </label>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {activeTicket?.userId
-                        ? "Will be sent to Candidate's JobSage Inbox"
-                        : "Will be sent via email"}
-                    </p>
-                  </div>
-                  <textarea
-                    id="support-ticket-reply"
-                    data-testid="input-support-ticket-reply"
-                    value={replyText}
-                    onChange={(event) => setReplyText(event.target.value)}
-                    maxLength={5000}
-                    rows={5}
-                    placeholder="Write a clear response to the candidate…"
-                    className="field-support min-h-28 resize-y text-sm"
-                  />
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      data-testid="button-send-reply-attended"
-                      onClick={() => sendReply("attended")}
-                      disabled={!replyText.trim() || replyingId === selectedTicketId}
-                      className="gap-2"
-                    >
-                      <Send className="h-4 w-4" />
-                      Send Reply &amp; Mark Attended
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      data-testid="button-send-reply-resolved"
-                      onClick={() => sendReply("resolved")}
-                      disabled={!replyText.trim() || replyingId === selectedTicketId}
-                    >
-                      Send Reply &amp; Mark Resolved
-                    </Button>
-                  </div>
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
       )}
     </section>
   );

@@ -110,10 +110,21 @@ describe("AdminSupportTicketsTab", () => {
   });
 
   it("shows the delivery channel and submits a reply with the displayed ticket version", () => {
+    useListMock.mockReturnValue({
+      data: [supportTicket, { ...supportTicket, id: 42, ticketId: "JS-SECOND1234" }],
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
     renderTab();
 
     fireEvent.click(screen.getByTestId("button-support-ticket-details-41"));
+    const thread = screen.getByTestId("support-ticket-thread-41");
+    const conversation = screen.getByTestId("card-support-ticket-conversation");
+    expect(thread.contains(conversation)).toBe(true);
+    expect(thread.nextElementSibling?.getAttribute("data-testid")).toBe("support-ticket-thread-42");
     expect(screen.getByText("Will be sent via email")).toBeTruthy();
+    expect(conversation.textContent).toContain("Reply to Candidate");
 
     fireEvent.change(screen.getByTestId("input-support-ticket-reply"), {
       target: { value: "We have sent a replacement link." },
