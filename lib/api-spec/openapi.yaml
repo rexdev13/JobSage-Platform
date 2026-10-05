@@ -1612,6 +1612,74 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /admin/super/feedback/{id}/replies:
+    post:
+      tags: [Feedback]
+      operationId: replyToAdminFeedback
+      summary: Reply to a submitted product feedback entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FeedbackReplyInput"
+      responses:
+        "200":
+          description: Feedback reply recorded and delivered.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminFeedbackReply"
+        "400":
+          description: Invalid reply.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Admin role required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Feedback entry not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Feedback entry changed since it was loaded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: No delivery address is available for this feedback entry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "502":
+          description: Email delivery failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
   /roles/my-matches:
     get:
       tags: [Roles]
@@ -8836,6 +8904,57 @@ components:
           type: string
           format: date-time
         updatedAt:
+          type: string
+          format: date-time
+        replies:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminFeedbackReply"
+
+    FeedbackReplyInput:
+      type: object
+      required: [replyText, expectedUpdatedAt]
+      properties:
+        replyText:
+          type: string
+          minLength: 1
+          maxLength: 5000
+        expectedUpdatedAt:
+          type: string
+          format: date-time
+
+    AdminFeedbackReply:
+      type: object
+      required:
+        - id
+        - feedbackId
+        - adminUserId
+        - adminDisplayName
+        - replyText
+        - deliveryChannel
+        - deliveryStatus
+        - candidateMessageId
+        - createdAt
+      properties:
+        id:
+          type: integer
+        feedbackId:
+          type: integer
+        adminUserId:
+          type: string
+        adminDisplayName:
+          type: string
+        replyText:
+          type: string
+        deliveryChannel:
+          type: string
+          enum: [inbox, email]
+        deliveryStatus:
+          type: string
+          enum: [sent, failed]
+        candidateMessageId:
+          type: ["integer", "null"]
+        createdAt:
           type: string
           format: date-time
 

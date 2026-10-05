@@ -30,5 +30,6 @@ export * from "./nhsVacancyOutageBackoffs";
 export * from "./readinessClaims";
 export * from "./marketerEvents";
 export * from "./feedback";
+export * from "./feedbackReplies";
 export * from "./supportTickets";
 export * from "./employerDescriptionFeedback";

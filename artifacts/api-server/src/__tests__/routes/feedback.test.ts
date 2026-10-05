@@ -8,11 +8,13 @@ const {
   insertedValues,
   updatedValues,
   mockGetSession,
+  mockSendProductFeedbackReply,
 } = vi.hoisted(() => ({
   dbResults: [] as any[],
   insertedValues: [] as any[],
   updatedValues: [] as any[],
   mockGetSession: vi.fn(),
+  mockSendProductFeedbackReply: vi.fn(),
 }));
 
 vi.mock("@workspace/db", async () => {
@@ -26,6 +28,7 @@ vi.mock("@workspace/db", async () => {
       orderBy() { return chain; },
       limit() { return chain; },
       offset() { return chain; },
+        for() { return chain; },
       then(resolve: any, reject?: any) {
         return Promise.resolve(dbResults.shift() ?? []).then(resolve, reject);
       },
@@ -56,8 +59,19 @@ vi.mock("@workspace/db", async () => {
       returning() {
         return Promise.resolve(dbResults.shift() ?? []);
       },
+      then(resolve: any, reject?: any) {
+        return Promise.resolve(dbResults.shift() ?? []).then(resolve, reject);
+      },
     };
     return chain;
+  }
+
+  function makeTransaction() {
+    return {
+      select: vi.fn(() => makeSelectChain()),
+      insert: vi.fn(() => makeInsertChain()),
+      update: vi.fn(() => makeUpdateChain()),
+    };
   }
 
   return {
@@ -66,6 +80,7 @@ vi.mock("@workspace/db", async () => {
       select: vi.fn(() => makeSelectChain()),
       insert: vi.fn(() => makeInsertChain()),
       update: vi.fn(() => makeUpdateChain()),
+      transaction: vi.fn(async (callback: (tx: ReturnType<typeof makeTransaction>) => unknown) => callback(makeTransaction())),
     },
   };
 });
@@ -81,6 +96,10 @@ vi.mock("../../lib/auth", async () => {
 
 vi.mock("../../lib/audit", () => ({
   writeAuditEvent: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("../../lib/email", () => ({
+  sendProductFeedbackReply: mockSendProductFeedbackReply,
 }));
 
 const feedbackRouter = (await import("../../routes/feedback")).default;
@@ -125,6 +144,21 @@ function feedbackRow(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function feedbackReplyRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 91,
+    feedbackId: 17,
+    adminUserId: "admin-1",
+    adminDisplayName: "Admin User",
+    replyText: "We have fixed this issue.",
+    deliveryChannel: "inbox",
+    deliveryStatus: "sent",
+    candidateMessageId: 83,
+    createdAt: new Date("2026-09-30T11:00:00.000Z"),
+    ...overrides,
+  };
+}
+
 function authAs(user: typeof candidate = candidate) {
   mockGetSession.mockResolvedValue({ user });
   return { Authorization: "Bearer feedback-test-session" };
@@ -136,6 +170,8 @@ describe("product feedback routes", () => {
     insertedValues.length = 0;
     updatedValues.length = 0;
     mockGetSession.mockResolvedValue(null);
+    mockSendProductFeedbackReply.mockReset();
+    mockSendProductFeedbackReply.mockResolvedValue({ success: true });
   });
 
   it("accepts guest feedback with an optional email and captures the user agent", async () => {
@@ -230,6 +266,7 @@ describe("product feedback routes", () => {
         { category: "idea", status: "resolved", total: "1" },
       ],
       [feedbackRow()],
+      [feedbackReplyRow()],
     );
 
     const response = await request(buildApp())
@@ -246,6 +283,8 @@ describe("product feedback routes", () => {
     });
     expect(response.body.items).toHaveLength(1);
     expect(response.body.items[0].message).toBe("The profile form did not save.");
+    expect(response.body.items[0].replies).toHaveLength(1);
+    expect(response.body.items[0].replies[0].replyText).toBe("We have fixed this issue.");
   });
 
   it("updates status and admin notes", async () => {
@@ -272,5 +311,103 @@ describe("product feedback routes", () => {
       adminNotes: "Reproduced and assigned to the product team.",
       reviewedBy: "admin-1",
     });
+  });
+
+  it("sends a reply to a signed-in feedback submitter's JOBSAGE inbox and records it", async () => {
+    mockGetSession.mockResolvedValue({
+      user: { ...candidate, role: "admin", id: "admin-1" },
+    });
+    dbResults.push(
+      [feedbackRow()],
+      [{ id: 83 }],
+      [feedbackReplyRow()],
+      [],
+    );
+
+    const response = await request(buildApp())
+      .post("/admin/super/feedback/17/replies")
+      .set("Authorization", "Bearer feedback-test-session")
+      .send({
+        replyText: "We have fixed this issue.",
+        expectedUpdatedAt: "2026-09-30T10:00:00.000Z",
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      id: 91,
+      feedbackId: 17,
+      deliveryChannel: "inbox",
+      deliveryStatus: "sent",
+      candidateMessageId: 83,
+    });
+    expect(insertedValues[0]).toMatchObject({
+      recipientUserId: candidate.id,
+      companyName: "JOBSAGE Support",
+      messageType: "support",
+      subject: "Reply to your JOBSAGE feedback",
+    });
+    expect(insertedValues[1]).toMatchObject({
+      feedbackId: 17,
+      adminUserId: "admin-1",
+      replyText: "We have fixed this issue.",
+      deliveryChannel: "inbox",
+      candidateMessageId: 83,
+    });
+    expect(mockSendProductFeedbackReply).not.toHaveBeenCalled();
+  });
+
+  it("emails guest feedback replies and records the delivery channel", async () => {
+    mockGetSession.mockResolvedValue({
+      user: { ...candidate, role: "super_admin", id: "admin-1" },
+    });
+    dbResults.push(
+      [feedbackRow({ userId: null, email: "guest@example.com" })],
+      [feedbackReplyRow({
+        deliveryChannel: "email",
+        candidateMessageId: null,
+      })],
+      [],
+    );
+
+    const response = await request(buildApp())
+      .post("/admin/super/feedback/17/replies")
+      .set("Authorization", "Bearer feedback-test-session")
+      .send({
+        replyText: "Thanks for the suggestion.",
+        expectedUpdatedAt: "2026-09-30T10:00:00.000Z",
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body.deliveryChannel).toBe("email");
+    expect(mockSendProductFeedbackReply).toHaveBeenCalledWith({
+      to: "guest@example.com",
+      feedbackId: 17,
+      replyText: "Thanks for the suggestion.",
+    });
+    expect(insertedValues[0]).toMatchObject({
+      feedbackId: 17,
+      deliveryChannel: "email",
+      deliveryStatus: "sent",
+      candidateMessageId: null,
+    });
+  });
+
+  it("refuses to send when a guest has no valid reply address", async () => {
+    mockGetSession.mockResolvedValue({
+      user: { ...candidate, role: "admin", id: "admin-1" },
+    });
+    dbResults.push([feedbackRow({ userId: null, email: null })]);
+
+    const response = await request(buildApp())
+      .post("/admin/super/feedback/17/replies")
+      .set("Authorization", "Bearer feedback-test-session")
+      .send({
+        replyText: "Thanks for the feedback.",
+        expectedUpdatedAt: "2026-09-30T10:00:00.000Z",
+      });
+
+    expect(response.status).toBe(422);
+    expect(insertedValues).toHaveLength(0);
+    expect(mockSendProductFeedbackReply).not.toHaveBeenCalled();
   });
 });

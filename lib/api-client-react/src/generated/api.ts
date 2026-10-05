@@ -21,6 +21,7 @@ import type {
   AdminAuditEventList,
   AdminDescriptionFeedbackInbox,
   AdminFeedbackInbox,
+  AdminFeedbackReply,
   AiRemediationSuggestions,
   AnnotateReviewCaseRequest,
   Application,
@@ -72,6 +73,7 @@ import type {
   ExportDecisionAuditParams,
   FeedbackInput,
   FeedbackItem,
+  FeedbackReplyInput,
   FeedbackSubmissionResult,
   FeedbackUpdate,
   ForgotPasswordRequest,
@@ -4676,6 +4678,93 @@ export const useUpdateAdminFeedback = <
   TContext
 > => {
   return useMutation(getUpdateAdminFeedbackMutationOptions(options));
+};
+
+/**
+ * @summary Reply to a submitted product feedback entry
+ */
+export const getReplyToAdminFeedbackUrl = (id: number) => {
+  return `/api/admin/super/feedback/${id}/replies`;
+};
+
+export const replyToAdminFeedback = async (
+  id: number,
+  feedbackReplyInput: FeedbackReplyInput,
+  options?: RequestInit,
+): Promise<AdminFeedbackReply> => {
+  return customFetch<AdminFeedbackReply>(getReplyToAdminFeedbackUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(feedbackReplyInput),
+  });
+};
+
+export const getReplyToAdminFeedbackMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof replyToAdminFeedback>>,
+    TError,
+    { id: number; data: BodyType<FeedbackReplyInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof replyToAdminFeedback>>,
+  TError,
+  { id: number; data: BodyType<FeedbackReplyInput> },
+  TContext
+> => {
+  const mutationKey = ["replyToAdminFeedback"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof replyToAdminFeedback>>,
+    { id: number; data: BodyType<FeedbackReplyInput> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return replyToAdminFeedback(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReplyToAdminFeedbackMutationResult = NonNullable<
+  Awaited<ReturnType<typeof replyToAdminFeedback>>
+>;
+export type ReplyToAdminFeedbackMutationBody = BodyType<FeedbackReplyInput>;
+export type ReplyToAdminFeedbackMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Reply to a submitted product feedback entry
+ */
+export const useReplyToAdminFeedback = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof replyToAdminFeedback>>,
+    TError,
+    { id: number; data: BodyType<FeedbackReplyInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof replyToAdminFeedback>>,
+  TError,
+  { id: number; data: BodyType<FeedbackReplyInput> },
+  TContext
+> => {
+  return useMutation(getReplyToAdminFeedbackMutationOptions(options));
 };
 
 /**

@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
-import { ExternalLink, LoaderCircle, MessageSquareText, RefreshCw, Save, UserRound } from "lucide-react";
+import { ExternalLink, LoaderCircle, MessageSquareText, RefreshCw, Save, Send, UserRound } from "lucide-react";
 import {
   getListAdminFeedbackQueryKey,
   useListAdminFeedback,
+  useReplyToAdminFeedback,
   useUpdateAdminFeedback,
   type FeedbackItem,
   type ListAdminFeedbackParams,
@@ -48,6 +49,9 @@ export function ProductFeedbackInbox() {
   const [filter, setFilter] = useState<FeedbackFilter>("all");
   const [notes, setNotes] = useState<Record<number, string>>({});
   const [savingId, setSavingId] = useState<number | null>(null);
+  const [replyDrafts, setReplyDrafts] = useState<Record<number, string>>({});
+  const [openReplyId, setOpenReplyId] = useState<number | null>(null);
+  const [replyingId, setReplyingId] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const params = useMemo<ListAdminFeedbackParams>(() => {
@@ -60,6 +64,7 @@ export function ProductFeedbackInbox() {
     query: { queryKey, refetchOnWindowFocus: false },
   });
   const updateFeedback = useUpdateAdminFeedback();
+  const replyToFeedback = useReplyToAdminFeedback();
   const items = data?.items ?? [];
   const summary = data?.summary;
 
@@ -82,6 +87,42 @@ export function ProductFeedbackInbox() {
         },
         onError: () => toast({ title: "Update failed", description: "Please try again.", variant: "destructive" }),
         onSettled: () => setSavingId(null),
+      },
+    );
+  }
+
+  function sendReply(item: FeedbackItem) {
+    const replyText = (replyDrafts[item.id] ?? "").trim();
+    if (!replyText || (!item.userId && !item.email)) return;
+
+    setReplyingId(item.id);
+    replyToFeedback.mutate(
+      { id: item.id, data: { replyText, expectedUpdatedAt: item.updatedAt } },
+      {
+        onSuccess: () => {
+          setReplyDrafts((current) => {
+            const next = { ...current };
+            delete next[item.id];
+            return next;
+          });
+          setOpenReplyId(null);
+          toast({
+            title: "Reply sent",
+            description: item.userId
+              ? "The reply was sent to the user's JOBSAGE inbox."
+              : "The reply was sent by email.",
+          });
+          refreshList();
+        },
+        onError: () => {
+          void queryClient.invalidateQueries({ queryKey: getListAdminFeedbackQueryKey() });
+          toast({
+            title: "Reply could not be sent",
+            description: "Check the delivery status and try again.",
+            variant: "destructive",
+          });
+        },
+        onSettled: () => setReplyingId(null),
       },
     );
   }
@@ -165,6 +206,12 @@ export function ProductFeedbackInbox() {
               onNoteChange={(value) => setNotes((current) => ({ ...current, [item.id]: value }))}
               onStatusChange={(status) => saveItem(item, { status })}
               onNotesSave={() => saveItem(item, { adminNotes: noteValue(item) || null })}
+              replyDraft={replyDrafts[item.id] ?? ""}
+              replyOpen={openReplyId === item.id}
+              replying={replyingId === item.id}
+              onReplyDraftChange={(value) => setReplyDrafts((current) => ({ ...current, [item.id]: value }))}
+              onToggleReply={() => setOpenReplyId((current) => current === item.id ? null : item.id)}
+              onReplySend={() => sendReply(item)}
             />
           ))}
         </div>
@@ -180,6 +227,12 @@ function FeedbackRow({
   onNoteChange,
   onStatusChange,
   onNotesSave,
+  replyDraft,
+  replyOpen,
+  replying,
+  onReplyDraftChange,
+  onToggleReply,
+  onReplySend,
 }: {
   item: FeedbackItem;
   note: string;
@@ -187,7 +240,16 @@ function FeedbackRow({
   onNoteChange: (value: string) => void;
   onStatusChange: (status: FeedbackStatus) => void;
   onNotesSave: () => void;
+  replyDraft: string;
+  replyOpen: boolean;
+  replying: boolean;
+  onReplyDraftChange: (value: string) => void;
+  onToggleReply: () => void;
+  onReplySend: () => void;
 }) {
+  const replies = item.replies ?? [];
+  const hasDeliveryRoute = Boolean(item.userId || item.email);
+
   return (
     <Card data-testid={`card-feedback-item-${item.id}`} className="overflow-hidden">
       <CardContent className="space-y-4 p-5">
@@ -225,6 +287,89 @@ function FeedbackRow({
           <ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <a href={item.pageUrl} target="_blank" rel="noreferrer" data-testid={`link-feedback-origin-${item.id}`} className="min-w-0 break-all hover:text-primary hover:underline">{item.pageUrl}</a>
           <span className="ml-auto shrink-0 border-l border-border pl-2">{item.screenResolution}</span>
+        </div>
+
+        <div className="space-y-3 border-t border-border/70 pt-4">
+          {replies.length > 0 && (
+            <div className="space-y-2" data-testid={`feedback-reply-history-${item.id}`}>
+              <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Reply history</h3>
+              {replies.map((reply) => (
+                <article
+                  key={reply.id}
+                  data-testid={`feedback-reply-${reply.id}`}
+                  className="rounded-xl border border-primary/15 bg-primary/[0.025] px-3 py-3"
+                >
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                    <span className="font-semibold text-foreground">{reply.adminDisplayName}</span>
+                    <span className="text-muted-foreground">{formatDate(reply.createdAt)}</span>
+                    <span className="rounded-full bg-background px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                      {reply.deliveryChannel === "inbox" ? "JOBSAGE inbox" : "Email"} · {reply.deliveryStatus}
+                    </span>
+                  </div>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-foreground">{reply.replyText}</p>
+                </article>
+              ))}
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">Reply to this feedback</h3>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {item.userId
+                  ? "The reply will be sent to the user's JOBSAGE inbox."
+                  : item.email
+                    ? `The reply will be sent to ${item.email}.`
+                    : "This submission has no account or email address for delivery."}
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              data-testid={`button-open-feedback-reply-${item.id}`}
+              aria-expanded={replyOpen}
+              aria-controls={`feedback-reply-composer-${item.id}`}
+              onClick={onToggleReply}
+              disabled={!hasDeliveryRoute || replying}
+              className="shrink-0 gap-2"
+            >
+              <MessageSquareText className="h-3.5 w-3.5" />
+              {replies.length > 0 ? "Reply again" : "Reply"}
+            </Button>
+          </div>
+
+          {replyOpen && hasDeliveryRoute && (
+            <div id={`feedback-reply-composer-${item.id}`} className="space-y-2 rounded-xl bg-muted/35 p-3">
+              <label htmlFor={`feedback-reply-input-${item.id}`} className="block text-xs font-semibold text-foreground">Your reply</label>
+              <textarea
+                id={`feedback-reply-input-${item.id}`}
+                data-testid={`input-feedback-reply-${item.id}`}
+                value={replyDraft}
+                onChange={(event) => onReplyDraftChange(event.target.value)}
+                maxLength={5000}
+                rows={3}
+                placeholder="Write a helpful response…"
+                className="field-support min-h-20 resize-y text-sm"
+              />
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs text-muted-foreground">
+                  {item.userId ? "Will be sent to the candidate's JOBSAGE inbox." : "Will be sent via email."}
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  data-testid={`button-send-feedback-reply-${item.id}`}
+                  onClick={onReplySend}
+                  disabled={!replyDraft.trim() || replying}
+                  className="gap-2"
+                >
+                  {replying ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                  {replying ? "Sending…" : "Send reply"}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="border-t border-border/70 pt-4">

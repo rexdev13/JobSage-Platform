@@ -2833,6 +2833,35 @@ export const FeedbackItemStatus = {
   resolved: "resolved",
 } as const;
 
+export type AdminFeedbackReplyDeliveryChannel =
+  (typeof AdminFeedbackReplyDeliveryChannel)[keyof typeof AdminFeedbackReplyDeliveryChannel];
+
+export const AdminFeedbackReplyDeliveryChannel = {
+  inbox: "inbox",
+  email: "email",
+} as const;
+
+export type AdminFeedbackReplyDeliveryStatus =
+  (typeof AdminFeedbackReplyDeliveryStatus)[keyof typeof AdminFeedbackReplyDeliveryStatus];
+
+export const AdminFeedbackReplyDeliveryStatus = {
+  sent: "sent",
+  failed: "failed",
+} as const;
+
+export interface AdminFeedbackReply {
+  id: number;
+  feedbackId: number;
+  adminUserId: string;
+  adminDisplayName: string;
+  replyText: string;
+  deliveryChannel: AdminFeedbackReplyDeliveryChannel;
+  deliveryStatus: AdminFeedbackReplyDeliveryStatus;
+  /** @nullable */
+  candidateMessageId: number | null;
+  createdAt: string;
+}
+
 export interface FeedbackItem {
   id: number;
   category: FeedbackItemCategory;
@@ -2854,6 +2883,16 @@ export interface FeedbackItem {
   reviewedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  replies?: AdminFeedbackReply[];
+}
+
+export interface FeedbackReplyInput {
+  /**
+   * @minLength 1
+   * @maxLength 5000
+   */
+  replyText: string;
+  expectedUpdatedAt: string;
 }
 
 export interface FeedbackSubmissionResult {

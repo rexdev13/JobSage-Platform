@@ -1554,6 +1554,21 @@ export const ListAdminFeedbackResponse = zod.object({
       reviewedAt: zod.date().nullable(),
       createdAt: zod.date(),
       updatedAt: zod.date(),
+      replies: zod
+        .array(
+          zod.object({
+            id: zod.number(),
+            feedbackId: zod.number(),
+            adminUserId: zod.string(),
+            adminDisplayName: zod.string(),
+            replyText: zod.string(),
+            deliveryChannel: zod.enum(["inbox", "email"]),
+            deliveryStatus: zod.enum(["sent", "failed"]),
+            candidateMessageId: zod.number().nullable(),
+            createdAt: zod.date(),
+          }),
+        )
+        .optional(),
     }),
   ),
   summary: zod.object({
@@ -1645,6 +1660,48 @@ export const UpdateAdminFeedbackResponse = zod.object({
   reviewedAt: zod.date().nullable(),
   createdAt: zod.date(),
   updatedAt: zod.date(),
+  replies: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        feedbackId: zod.number(),
+        adminUserId: zod.string(),
+        adminDisplayName: zod.string(),
+        replyText: zod.string(),
+        deliveryChannel: zod.enum(["inbox", "email"]),
+        deliveryStatus: zod.enum(["sent", "failed"]),
+        candidateMessageId: zod.number().nullable(),
+        createdAt: zod.date(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Reply to a submitted product feedback entry
+ */
+
+export const ReplyToAdminFeedbackParams = zod.object({
+  id: zod.coerce.number().min(1),
+});
+
+export const replyToAdminFeedbackBodyReplyTextMax = 5000;
+
+export const ReplyToAdminFeedbackBody = zod.object({
+  replyText: zod.string().min(1).max(replyToAdminFeedbackBodyReplyTextMax),
+  expectedUpdatedAt: zod.date(),
+});
+
+export const ReplyToAdminFeedbackResponse = zod.object({
+  id: zod.number(),
+  feedbackId: zod.number(),
+  adminUserId: zod.string(),
+  adminDisplayName: zod.string(),
+  replyText: zod.string(),
+  deliveryChannel: zod.enum(["inbox", "email"]),
+  deliveryStatus: zod.enum(["sent", "failed"]),
+  candidateMessageId: zod.number().nullable(),
+  createdAt: zod.date(),
 });
 
 /**

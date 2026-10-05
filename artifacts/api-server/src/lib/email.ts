@@ -156,6 +156,44 @@ export async function sendSupportTicketReply(opts: {
   }
 }
 
+export async function sendProductFeedbackReply(opts: {
+  to: string;
+  feedbackId: number;
+  replyText: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    assertEmailConfiguration("Product feedback replies");
+    const safeReply = escapeEmailHtml(opts.replyText).replace(/\r?\n/g, "<br />");
+    const result = await resend.emails.send({
+      from: `JOBSAGE <${FROM}>`,
+      to: opts.to,
+      subject: "JOBSAGE has replied to your feedback",
+      text: [
+        "JOBSAGE has replied to the feedback you shared with us.",
+        "",
+        opts.replyText,
+        "",
+        "The JOBSAGE Support team",
+      ].join("\n"),
+      html: `<!doctype html><html><body style="font-family:Arial,sans-serif;color:#162436;line-height:1.6">
+        <h1 style="font-size:20px">JOBSAGE has replied to your feedback</h1>
+        <p>Our team has responded to the feedback you shared with JOBSAGE.</p>
+        <div style="white-space:normal">${safeReply}</div>
+        <p>The JOBSAGE Support team</p>
+      </body></html>`,
+    });
+    if (result.error) {
+      return { success: false, error: result.error.message || "Email provider rejected the feedback reply." };
+    }
+    return { success: true };
+  } catch (error: unknown) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to send the feedback reply.",
+    };
+  }
+}
+
 export async function sendWaitlistWelcomeEmail(opts: {
   to: string;
   firstName: string;

@@ -5,6 +5,7 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { AdminFeedbackReply } from "./adminFeedbackReply";
 import type { FeedbackItemCategory } from "./feedbackItemCategory";
 import type { FeedbackItemStatus } from "./feedbackItemStatus";
 
@@ -29,4 +30,5 @@ export interface FeedbackItem {
   reviewedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  replies?: AdminFeedbackReply[];
 }
