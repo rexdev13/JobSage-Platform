@@ -1412,3 +1412,31 @@ mtime_ms = 1791140241755
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/f2aa8a5c-1474-4c48-bfca-19fec1ae3617/d92325f6-34fe-45c0-8f6d-326f3a3e2f13"
 storage_version_token = "1791140251089493"
 content_type = "text/html"
+
+[[outputs]]
+id = "q7ahpThhtHqprmeJWnnQB"
+uri = "file://artifacts/healthcare-sponsor-vacancy-live-scan-2026-10-05.csv"
+type = "table"
+title = "Healthcare sponsor live vacancy scan — CSV"
+description = "Read-only scan results for all 270 target employers, with target statuses, verified vacancy evidence, application-link checks, and inconclusive/excluded candidates."
+logical_id = "efb42ddc-a065-417f-9fab-dec2ca0a001e"
+content_hash = "sha256:470a395030ab6c00163c049509b5815e03e669d313ef87821a734eb0727cfd46"
+size = 386048
+mtime_ms = 1791226550309
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/efb42ddc-a065-417f-9fab-dec2ca0a001e/d1bdb577-6d30-4069-8456-8a13eb61ce5e"
+storage_version_token = "1791226621139801"
+content_type = "text/csv"
+
+[[outputs]]
+id = "Whf6_LZYItu_VILjiLJWI"
+uri = "file://artifacts/healthcare-sponsor-vacancy-live-scan-2026-10-05.md"
+type = "text"
+title = "Healthcare sponsor live vacancy scan — report"
+description = "Final coverage, vacancy, application-link, and fetch-outcome counts, with scan scope, limits, and the disclosed DuckDuckGo-only target exception."
+logical_id = "345a3507-0d59-41c7-b49d-1921e3f9560e"
+content_hash = "sha256:3b705826eeb6d046e98d7d30bafd201d6e4ed310d9ea26545879a1db3a549f84"
+size = 5176
+mtime_ms = 1791226550309
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/345a3507-0d59-41c7-b49d-1921e3f9560e/af92d6ab-c0b4-41ec-ae85-a9853eaa286f"
+storage_version_token = "1791226622016446"
+content_type = "text/markdown"
