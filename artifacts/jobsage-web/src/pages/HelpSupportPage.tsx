@@ -233,7 +233,6 @@ export default function HelpSupportPage() {
           <aside id="contact" className="scroll-mt-24">
             <div className="sticky top-24 rounded-2xl border border-primary/20 bg-primary/[0.06] p-5 sm:p-6">
               <div className="mb-5 flex items-start justify-between gap-4"><div><h2 className="text-2xl font-bold">Still need a hand?</h2><p className="mt-1 text-sm font-semibold text-primary">Talk to a person</p></div><div className="rounded-xl bg-primary p-2.5 text-primary-foreground"><Mail className="h-5 w-5" /></div></div>
-              <p className="mb-5 text-sm leading-6 text-muted-foreground">Tell us what you need help with.</p>
               <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-background px-3 py-1.5 text-xs font-semibold text-primary" data-testid="badge-support-sla"><span aria-hidden="true" className="h-2 w-2 rounded-full bg-primary" />We usually reply within 2 business hours.</p>
               <form onSubmit={submitTicket} className="space-y-4">
                 <div><label htmlFor="support-name" className="mb-1.5 block text-sm font-semibold">Name</label><input id="support-name" data-testid="input-support-name" value={form.name} onChange={(event) => updateField("name", event.target.value)} required maxLength={120} autoComplete="name" className="field-support" /></div>

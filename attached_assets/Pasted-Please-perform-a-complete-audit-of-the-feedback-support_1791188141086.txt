@@ -1,0 +1,37 @@
+Please perform a complete audit of the feedback, support, and help ticket implementation in this project, and report the findings so we can add candidate inbox replies and response logging.
+
+Part 1: Audit Current Implementation
+1. Database & Schemas:
+   - Identify the database tables/schemas used for feedback, help, or support tickets (e.g., feedbackTable, supportRequests, helpTickets, etc.).
+   - List all columns currently stored (user ID, candidate email/name, message, category, status, timestamps, etc.).
+
+2. Backend API Routes:
+   - Find the endpoints where feedback/support requests are submitted and fetched (e.g., in `artifacts/api-server/src/routes/...`).
+   - Check what admin endpoints exist to list, view, or update these tickets.
+
+3. Admin & Frontend UI:
+   - Where in the UI (e.g. `SuperAdminPage.tsx`, an Admin Support tab, or dedicated page) are these feedback/support items currently displayed?
+   - What actions can an admin currently take (e.g. can they only view them, or change status)?
+
+4. Candidate Inbox Integration (`candidate_messages` table):
+   - Review `lib/db/src/schema/candidateMessages.ts` and `artifacts/jobsage-web/src/pages/InboxPage.tsx`.
+   - Identify the existing route or query that inserts candidate messages (`recipientUserId`, `subject`, `messageText`, `companyName`, `messageType`).
+
+Part 2: Proposed Plan for Inbox Replies & Attendance Logging
+Based on the audit, outline how to add:
+1. "Reply to Candidate via Inbox":
+   - An admin reply textarea and "Send to Candidate Inbox" action that inserts an entry into `candidate_messages` for the ticket owner with `companyName: "JOBSAGE Support"` (or admin name).
+2. Response Logging & Multi-Admin Visibility:
+   - Record response history (response body, respondedBy admin ID/email, respondedAt timestamp).
+   - Ensure other admins viewing the ticket can see:
+     * Who responded and when.
+     * The exact message sent to the candidate.
+3. Status Lifecycle & Sorting:
+   - Mark tickets as `attended` / `resolved` once a response is sent (with an option to re-open if needed).
+   - Provide sorting and filtering tabs in the admin UI:
+     * "Needs Attention" (Pending / Unattended) first.
+     * "Attended" / "Resolved".
+     * Filter by category (Bug, Feedback, Account Help, General).
+     * Sort by newest / oldest submission.
+
+Please print the relevant file paths, existing schemas, and the draft plan.
