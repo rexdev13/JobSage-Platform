@@ -1,0 +1,50 @@
+Please implement the Support & Feedback candidate inbox reply flow, response logging, and sorting system as outlined in the audit plan:
+
+1. Database Schema Updates:
+   - Add a `support_ticket_replies` table (in `lib/db/src/schema/supportTickets.ts` or a new schema file):
+     * `id`: serial primary key
+     * `ticketId`: integer, references `support_tickets.id` (not null, onDelete cascade)
+     * `adminUserId`: varchar (not null)
+     * `adminDisplayName`: text (not null, admin name/email)
+     * `replyText`: text (not null)
+     * `deliveryChannel`: varchar (e.g. 'inbox' or 'email', not null)
+     * `candidateMessageId`: integer, references `candidate_messages.id` (nullable)
+     * `createdAt`: timestamp with timezone (defaultNow)
+   - In `support_tickets`:
+     * Add `'attended'` to the allowed ticket status enum/values (`new`, `in_review`, `attended`, `resolved`).
+   - In `candidate_messages` (`lib/db/src/schema/candidateMessages.ts`):
+     * Add `supportTicketId`: integer, references `support_tickets.id` (nullable).
+     * Add `'support'` to allowed `messageType` options.
+
+2. Backend API Routes (`artifacts/api-server/src/routes/support.ts`):
+   - Align permissions: Allow both `admin` and `super_admin` to view, update, and reply to support tickets (fixing the 403 access mismatch with the admin UI).
+   - Add Reply Endpoint: `POST /admin/super/support-tickets/:id/replies`
+     * Validates ticket existence and non-empty reply text.
+     * If the ticket has a `userId`: In a transaction, create an entry in `candidate_messages` (with `recipientUserId = ticket.userId`, `companyName = "JOBSAGE Support"`, `messageType = "support"`, `subject = "Reply to your support inquiry: " + ticket.subject`, `supportTicketId = ticket.id`), and insert the `support_ticket_replies` record.
+     * If the ticket is a guest (`userId` is null), record the reply and send the response via email to `ticket.email`.
+     * Automatically update the ticket status to `'attended'`, set `reviewedBy = adminUserId`, and `reviewedAt = new Date()`.
+   - Update `GET /admin/super/support-tickets/:id` (or include replies in ticket list) to return the full conversation timeline (all replies with admin name, date, and text).
+   - Add backend filtering and sorting to `GET /admin/super/support-tickets`:
+     * Support filters: `status` ('new', 'in_review', 'attended', 'resolved', or 'needs_attention' which returns new + in_review) and `category`.
+     * Sorting: newest first or oldest first.
+
+3. Candidate Inbox UI (`artifacts/jobsage-web/src/pages/InboxPage.tsx`):
+   - Support messages (`messageType === "support"` or with `supportTicketId`) should be clearly badged as "JOBSAGE Support" with a support icon.
+   - Group support replies into a clean support thread for the candidate.
+
+4. Admin UI Updates (`AdminSupportTicketsTab.tsx` / `FeedbackPage.tsx`):
+   - Ticket List & Sorting:
+     * Add status tabs: "Needs Attention" (default view: new & in_review), "Attended", "Resolved", and "All".
+     * Add category dropdown filter (Visa Sponsorship, Readiness Checks, Account/Billing, Technical Support, Other).
+     * Add sorting toggle (Newest first / Oldest first).
+   - Ticket Detail & Response Box:
+     * Display the full reply history timeline: shows who attended to it (Admin name/email), the exact timestamp, and the response text, so no two admins work on the same ticket twice.
+     * Add a clean "Reply to Candidate" box with:
+       - Textarea for the response.
+       - Indicator: "Will be sent to Candidate's JobSage Inbox" (if user has an account) or "Will be sent via email" (for guests).
+       - Action buttons: [ Send Reply & Mark Attended ] and [ Send Reply & Mark Resolved ].
+     * Allow changing status (e.g. Reopen, Mark Resolved) at any time.
+
+5. Contract & Verification:
+   - Update `lib/api-spec/openapi.yaml` to include the reply schema, new status, and support message type.
+   - Run tests (`npm test` or `pnpm test`) to verify permissions, reply creation, and status transitions.
