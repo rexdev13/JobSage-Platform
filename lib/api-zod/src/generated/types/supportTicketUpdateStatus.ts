@@ -12,5 +12,6 @@ export type SupportTicketUpdateStatus =
 export const SupportTicketUpdateStatus = {
   new: "new",
   in_review: "in_review",
+  attended: "attended",
   resolved: "resolved",
 } as const;

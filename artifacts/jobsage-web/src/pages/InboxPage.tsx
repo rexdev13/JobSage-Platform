@@ -8,9 +8,10 @@ import {
   getGetInboxUnreadCountQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Inbox, MailOpen, Archive, Building2, Info, ChevronRight, Send, Reply, CalendarCheck, Trophy, XCircle } from "lucide-react";
+import { Inbox, MailOpen, Archive, Building2, Info, ChevronRight, Send, Reply, CalendarCheck, Trophy, LifeBuoy } from "lucide-react";
 import { cn } from "@/components/ui-enhanced";
 import type { CandidateMessage } from "@workspace/api-client-react";
+import { buildThreads, type InboxThread } from "./inboxThreads";
 
 const STAGE_BADGE: Record<string, { label: string; className: string }> = {
   "Application received":                   { label: "Applied",       className: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300" },
@@ -56,53 +57,6 @@ function formatDate(iso: string) {
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
-interface Thread {
-  key: string;
-  applicationId: number | null;
-  messages: CandidateMessage[];
-  latestMessage: CandidateMessage;
-  unreadCount: number;
-  sender: string;
-}
-
-function buildThreads(messages: CandidateMessage[]): Thread[] {
-  const threadMap = new Map<string, CandidateMessage[]>();
-
-  for (const msg of messages) {
-    const key = msg.applicationId != null ? `app-${msg.applicationId}` : `msg-${msg.id}`;
-    if (!threadMap.has(key)) threadMap.set(key, []);
-    threadMap.get(key)!.push(msg);
-  }
-
-  const threads: Thread[] = [];
-  for (const [key, msgs] of threadMap.entries()) {
-    const sorted = [...msgs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    const latest = sorted[0];
-    const unreadCount = msgs.filter((m) => !m.isRead).length;
-    const sender =
-      latest.messageType === "system"
-        ? "JOBSAGE"
-        : latest.companyName ?? "Employer";
-
-    threads.push({
-      key,
-      applicationId: latest.applicationId ?? null,
-      messages: [...msgs].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()),
-      latestMessage: latest,
-      unreadCount,
-      sender,
-    });
-  }
-
-  threads.sort((a, b) => {
-    if (a.unreadCount > 0 && b.unreadCount === 0) return -1;
-    if (a.unreadCount === 0 && b.unreadCount > 0) return 1;
-    return new Date(b.latestMessage.createdAt).getTime() - new Date(a.latestMessage.createdAt).getTime();
-  });
-
-  return threads;
-}
-
 export default function InboxPage() {
   const qc = useQueryClient();
   const [selectedThread, setSelectedThread] = useState<string | null>(null);
@@ -133,12 +87,12 @@ export default function InboxPage() {
 
   const activeThread = threads.find((t) => t.key === selectedThread) ?? null;
 
-  function handleSelectThread(thread: Thread) {
+  function handleSelectThread(thread: InboxThread) {
     setSelectedThread(thread.key);
     thread.messages.filter((m) => !m.isRead).forEach((m) => markRead({ id: m.id }));
   }
 
-  function handleArchiveThread(thread: Thread) {
+  function handleArchiveThread(thread: InboxThread) {
     thread.messages.forEach((m) => archive({ id: m.id }));
   }
 
@@ -173,6 +127,7 @@ export default function InboxPage() {
                 {threads.map((thread) => {
                   const latest = thread.latestMessage;
                   const isActive = selectedThread === thread.key;
+                  const isSupport = latest.messageType === "support" || latest.supportTicketId != null;
                   const badge = STAGE_BADGE[latest.subject];
                   return (
                     <button
@@ -186,7 +141,11 @@ export default function InboxPage() {
                     >
                       <div className="flex items-start gap-2">
                         <div className="mt-0.5 shrink-0">
-                          {latest.messageType === "system" && latest.subject === "Speculative CV sent" ? (
+                          {isSupport ? (
+                            <div className="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                              <LifeBuoy className="w-4 h-4 text-emerald-700 dark:text-emerald-300" />
+                            </div>
+                          ) : latest.messageType === "system" && latest.subject === "Speculative CV sent" ? (
                             <div className="w-7 h-7 rounded-full bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center">
                               <Send className="w-4 h-4 text-teal-600" />
                             </div>
@@ -221,6 +180,11 @@ export default function InboxPage() {
                             {latest.messageType === "system" && badge && (
                               <span className={cn("shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide", badge.className)}>
                                 {badge.label}
+                              </span>
+                            )}
+                            {isSupport && (
+                              <span className="shrink-0 inline-flex items-center rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
+                                JOBSAGE Support
                               </span>
                             )}
                           </div>
@@ -272,13 +236,16 @@ export default function InboxPage() {
                   {activeThread.messages.map((msg) => {
                     const isSystem = msg.messageType === "system";
                     const isEmployerReply = msg.messageType === "employer_reply";
+                    const isSupport = msg.messageType === "support" || msg.supportTicketId != null;
                     const stageBadge = isSystem ? STAGE_BADGE[msg.subject] : undefined;
                     const replyMeta = isEmployerReply ? getEmployerReplyMeta(msg.subject) : null;
                     const ReplyIcon = replyMeta?.icon;
                     return (
                       <div key={msg.id} className={cn(
                         "rounded-xl p-5 border",
-                        isEmployerReply
+                        isSupport
+                          ? "bg-emerald-50/60 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800/50"
+                          : isEmployerReply
                           ? "bg-violet-50/50 dark:bg-violet-900/10 border-violet-200 dark:border-violet-800/50"
                           : "bg-muted/30 border-border"
                       )}>
@@ -286,7 +253,9 @@ export default function InboxPage() {
                           <div className="flex items-center gap-2">
                             <div className={cn(
                               "w-7 h-7 rounded-full flex items-center justify-center",
-                              isEmployerReply
+                              isSupport
+                                ? "bg-emerald-100 dark:bg-emerald-900/30"
+                                : isEmployerReply
                                 ? "bg-violet-100 dark:bg-violet-900/30"
                                 : isSystem && msg.subject === "Speculative CV sent"
                                 ? "bg-teal-100 dark:bg-teal-900/30"
@@ -294,7 +263,9 @@ export default function InboxPage() {
                                 ? "bg-blue-100 dark:bg-blue-900/30"
                                 : "bg-primary/10"
                             )}>
-                              {isEmployerReply && ReplyIcon
+                              {isSupport
+                                ? <LifeBuoy className="w-4 h-4 text-emerald-700 dark:text-emerald-300" />
+                                : isEmployerReply && ReplyIcon
                                 ? <ReplyIcon className="w-4 h-4 text-violet-600" />
                                 : isSystem && msg.subject === "Speculative CV sent"
                                 ? <Send className="w-4 h-4 text-teal-600" />
@@ -305,7 +276,7 @@ export default function InboxPage() {
                             </div>
                             <div>
                               <p className="text-xs font-semibold text-foreground">
-                                {isSystem ? "JOBSAGE" : (msg.companyName ?? "Employer")}
+                                {isSupport ? "JOBSAGE Support" : isSystem ? "JOBSAGE" : (msg.companyName ?? "Employer")}
                               </p>
                               <p className="text-[10px] text-muted-foreground">{formatDate(msg.createdAt)}</p>
                             </div>
@@ -319,6 +290,11 @@ export default function InboxPage() {
                             {stageBadge && (
                               <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide", stageBadge.className)}>
                                 {stageBadge.label}
+                              </span>
+                            )}
+                            {isSupport && (
+                              <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
+                                JOBSAGE Support
                               </span>
                             )}
                             {msg.isRead && (

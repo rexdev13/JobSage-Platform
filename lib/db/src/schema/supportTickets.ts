@@ -1,7 +1,8 @@
 import { createInsertSchema } from "drizzle-zod";
-import { index, pgTable, serial, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/pg-core";
+import { index, integer, pgTable, serial, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/pg-core";
 import { z } from "zod/v4";
 import { usersTable } from "./auth";
+import { candidateMessagesTable } from "./candidateMessages";
 
 export const supportTicketCategories = [
   "Visa Sponsorship",
@@ -11,7 +12,7 @@ export const supportTicketCategories = [
   "Other",
 ] as const;
 
-export const supportTicketStatuses = ["new", "in_review", "resolved"] as const;
+export const supportTicketStatuses = ["new", "in_review", "attended", "resolved"] as const;
 
 export const supportTicketsTable = pgTable(
   "support_tickets",
@@ -41,6 +42,29 @@ export const supportTicketsTable = pgTable(
   ],
 );
 
+export const supportTicketRepliesTable = pgTable(
+  "support_ticket_replies",
+  {
+    id: serial("id").primaryKey(),
+    ticketId: integer("ticket_id")
+      .notNull()
+      .references(() => supportTicketsTable.id, { onDelete: "cascade" }),
+    adminUserId: varchar("admin_user_id").notNull(),
+    adminDisplayName: text("admin_display_name").notNull(),
+    replyText: text("reply_text").notNull(),
+    deliveryChannel: varchar("delivery_channel", { enum: ["inbox", "email"] }).notNull(),
+    deliveryStatus: varchar("delivery_status", { enum: ["sent", "failed"] }).notNull(),
+    candidateMessageId: integer("candidate_message_id").references(() => candidateMessagesTable.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("support_ticket_replies_ticket_created_at_idx").on(table.ticketId, table.createdAt),
+    index("support_ticket_replies_admin_user_id_idx").on(table.adminUserId),
+  ],
+);
+
 export const insertSupportTicketSchema = createInsertSchema(supportTicketsTable).omit({
   id: true,
   userId: true,
@@ -54,3 +78,4 @@ export const insertSupportTicketSchema = createInsertSchema(supportTicketsTable)
 
 export type InsertSupportTicket = z.infer<typeof insertSupportTicketSchema>;
 export type SupportTicket = typeof supportTicketsTable.$inferSelect;
+export type SupportTicketReply = typeof supportTicketRepliesTable.$inferSelect;

@@ -1055,6 +1055,7 @@ router.get("/candidate/messages", requireAuthenticated, async (req, res): Promis
       createdAt: candidateMessagesTable.createdAt,
       vacancyId: candidateMessagesTable.vacancyId,
       applicationId: candidateMessagesTable.applicationId,
+      supportTicketId: candidateMessagesTable.supportTicketId,
       messageType: candidateMessagesTable.messageType,
       archivedAt: candidateMessagesTable.archivedAt,
       senderEmployerProfileId: candidateMessagesTable.senderEmployerProfileId,

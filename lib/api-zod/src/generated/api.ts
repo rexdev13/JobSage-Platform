@@ -1282,8 +1282,9 @@ export const CreateSupportTicketBody = zod.object({
 });
 
 /**
- * @summary List support tickets for super admins
+ * @summary List support tickets for admins
  */
+export const listAdminSupportTicketsQuerySortDefault = `newest`;
 export const listAdminSupportTicketsQueryLimitDefault = 50;
 export const listAdminSupportTicketsQueryLimitMax = 100;
 
@@ -1291,7 +1292,21 @@ export const listAdminSupportTicketsQueryOffsetDefault = 0;
 export const listAdminSupportTicketsQueryOffsetMin = 0;
 
 export const ListAdminSupportTicketsQueryParams = zod.object({
-  status: zod.enum(["new", "in_review", "resolved"]).optional(),
+  status: zod
+    .enum(["new", "in_review", "attended", "resolved", "needs_attention"])
+    .optional(),
+  category: zod
+    .enum([
+      "Visa Sponsorship",
+      "Readiness Checks",
+      "Account/Billing",
+      "Technical Support",
+      "Other",
+    ])
+    .optional(),
+  sort: zod
+    .enum(["newest", "oldest"])
+    .default(listAdminSupportTicketsQuerySortDefault),
   limit: zod.coerce
     .number()
     .min(1)
@@ -1318,7 +1333,7 @@ export const ListAdminSupportTicketsResponseItem = zod.object({
   subject: zod.string(),
   message: zod.string(),
   userId: zod.string().nullable(),
-  status: zod.enum(["new", "in_review", "resolved"]),
+  status: zod.enum(["new", "in_review", "attended", "resolved"]),
   adminNotes: zod.string().nullable(),
   reviewedBy: zod.string().nullable(),
   reviewedAt: zod.date().nullable(),
@@ -1328,6 +1343,52 @@ export const ListAdminSupportTicketsResponseItem = zod.object({
 export const ListAdminSupportTicketsResponse = zod.array(
   ListAdminSupportTicketsResponseItem,
 );
+
+/**
+ * @summary Get a support ticket and its reply history
+ */
+
+export const GetAdminSupportTicketParams = zod.object({
+  id: zod.coerce.number().min(1),
+});
+
+export const GetAdminSupportTicketResponse = zod.object({
+  ticket: zod.object({
+    id: zod.number(),
+    ticketId: zod.string(),
+    name: zod.string(),
+    email: zod.string().email(),
+    category: zod.enum([
+      "Visa Sponsorship",
+      "Readiness Checks",
+      "Account/Billing",
+      "Technical Support",
+      "Other",
+    ]),
+    subject: zod.string(),
+    message: zod.string(),
+    userId: zod.string().nullable(),
+    status: zod.enum(["new", "in_review", "attended", "resolved"]),
+    adminNotes: zod.string().nullable(),
+    reviewedBy: zod.string().nullable(),
+    reviewedAt: zod.date().nullable(),
+    createdAt: zod.date(),
+    updatedAt: zod.date(),
+  }),
+  replies: zod.array(
+    zod.object({
+      id: zod.number(),
+      ticketId: zod.number(),
+      adminUserId: zod.string(),
+      adminDisplayName: zod.string(),
+      replyText: zod.string(),
+      deliveryChannel: zod.enum(["inbox", "email"]),
+      deliveryStatus: zod.enum(["sent", "failed"]),
+      candidateMessageId: zod.number().nullable(),
+      createdAt: zod.date(),
+    }),
+  ),
+});
 
 /**
  * @summary Update support ticket status or internal notes
@@ -1340,7 +1401,7 @@ export const UpdateAdminSupportTicketParams = zod.object({
 export const updateAdminSupportTicketBodyAdminNotesMax = 5000;
 
 export const UpdateAdminSupportTicketBody = zod.object({
-  status: zod.enum(["new", "in_review", "resolved"]).optional(),
+  status: zod.enum(["new", "in_review", "attended", "resolved"]).optional(),
   adminNotes: zod
     .string()
     .max(updateAdminSupportTicketBodyAdminNotesMax)
@@ -1362,12 +1423,66 @@ export const UpdateAdminSupportTicketResponse = zod.object({
   subject: zod.string(),
   message: zod.string(),
   userId: zod.string().nullable(),
-  status: zod.enum(["new", "in_review", "resolved"]),
+  status: zod.enum(["new", "in_review", "attended", "resolved"]),
   adminNotes: zod.string().nullable(),
   reviewedBy: zod.string().nullable(),
   reviewedAt: zod.date().nullable(),
   createdAt: zod.date(),
   updatedAt: zod.date(),
+});
+
+/**
+ * @summary Reply to a support ticket and set its resulting status
+ */
+
+export const ReplyToAdminSupportTicketParams = zod.object({
+  id: zod.coerce.number().min(1),
+});
+
+export const replyToAdminSupportTicketBodyReplyTextMax = 5000;
+
+export const ReplyToAdminSupportTicketBody = zod.object({
+  replyText: zod.string().min(1).max(replyToAdminSupportTicketBodyReplyTextMax),
+  status: zod.enum(["attended", "resolved"]),
+  expectedUpdatedAt: zod.date(),
+});
+
+export const ReplyToAdminSupportTicketResponse = zod.object({
+  ticket: zod.object({
+    id: zod.number(),
+    ticketId: zod.string(),
+    name: zod.string(),
+    email: zod.string().email(),
+    category: zod.enum([
+      "Visa Sponsorship",
+      "Readiness Checks",
+      "Account/Billing",
+      "Technical Support",
+      "Other",
+    ]),
+    subject: zod.string(),
+    message: zod.string(),
+    userId: zod.string().nullable(),
+    status: zod.enum(["new", "in_review", "attended", "resolved"]),
+    adminNotes: zod.string().nullable(),
+    reviewedBy: zod.string().nullable(),
+    reviewedAt: zod.date().nullable(),
+    createdAt: zod.date(),
+    updatedAt: zod.date(),
+  }),
+  replies: zod.array(
+    zod.object({
+      id: zod.number(),
+      ticketId: zod.number(),
+      adminUserId: zod.string(),
+      adminDisplayName: zod.string(),
+      replyText: zod.string(),
+      deliveryChannel: zod.enum(["inbox", "email"]),
+      deliveryStatus: zod.enum(["sent", "failed"]),
+      candidateMessageId: zod.number().nullable(),
+      createdAt: zod.date(),
+    }),
+  ),
 });
 
 /**
@@ -2929,7 +3044,13 @@ export const GetCandidateMessagesResponse = zod.object({
       recipientUserId: zod.string(),
       vacancyId: zod.number().nullish(),
       applicationId: zod.number().nullish(),
-      messageType: zod.enum(["system", "employer", "employer_reply"]),
+      supportTicketId: zod.number().nullish(),
+      messageType: zod.enum([
+        "system",
+        "employer",
+        "employer_reply",
+        "support",
+      ]),
       messageText: zod.string(),
       subject: zod.string(),
       isRead: zod.boolean(),
@@ -2964,7 +3085,13 @@ export const MarkMessageReadResponse = zod.object({
       recipientUserId: zod.string(),
       vacancyId: zod.number().nullish(),
       applicationId: zod.number().nullish(),
-      messageType: zod.enum(["system", "employer", "employer_reply"]),
+      supportTicketId: zod.number().nullish(),
+      messageType: zod.enum([
+        "system",
+        "employer",
+        "employer_reply",
+        "support",
+      ]),
       messageText: zod.string(),
       subject: zod.string(),
       isRead: zod.boolean(),

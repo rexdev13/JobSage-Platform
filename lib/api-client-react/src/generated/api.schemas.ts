@@ -2354,6 +2354,7 @@ export const CandidateMessageMessageType = {
   system: "system",
   employer: "employer",
   employer_reply: "employer_reply",
+  support: "support",
 } as const;
 
 export interface CandidateMessage {
@@ -2362,6 +2363,7 @@ export interface CandidateMessage {
   recipientUserId: string;
   vacancyId?: number | null;
   applicationId?: number | null;
+  supportTicketId?: number | null;
   messageType: CandidateMessageMessageType;
   messageText: string;
   subject: string;
@@ -2920,6 +2922,7 @@ export type SupportTicketUpdateStatus =
 export const SupportTicketUpdateStatus = {
   new: "new",
   in_review: "in_review",
+  attended: "attended",
   resolved: "resolved",
 } as const;
 
@@ -2949,6 +2952,7 @@ export type SupportTicketItemStatus =
 export const SupportTicketItemStatus = {
   new: "new",
   in_review: "in_review",
+  attended: "attended",
   resolved: "resolved",
 } as const;
 
@@ -2971,6 +2975,58 @@ export interface SupportTicketItem {
   reviewedAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export type SupportTicketReplyInputStatus =
+  (typeof SupportTicketReplyInputStatus)[keyof typeof SupportTicketReplyInputStatus];
+
+export const SupportTicketReplyInputStatus = {
+  attended: "attended",
+  resolved: "resolved",
+} as const;
+
+export interface SupportTicketReplyInput {
+  /**
+   * @minLength 1
+   * @maxLength 5000
+   */
+  replyText: string;
+  status: SupportTicketReplyInputStatus;
+  expectedUpdatedAt: string;
+}
+
+export type SupportTicketReplyDeliveryChannel =
+  (typeof SupportTicketReplyDeliveryChannel)[keyof typeof SupportTicketReplyDeliveryChannel];
+
+export const SupportTicketReplyDeliveryChannel = {
+  inbox: "inbox",
+  email: "email",
+} as const;
+
+export type SupportTicketReplyDeliveryStatus =
+  (typeof SupportTicketReplyDeliveryStatus)[keyof typeof SupportTicketReplyDeliveryStatus];
+
+export const SupportTicketReplyDeliveryStatus = {
+  sent: "sent",
+  failed: "failed",
+} as const;
+
+export interface SupportTicketReply {
+  id: number;
+  ticketId: number;
+  adminUserId: string;
+  adminDisplayName: string;
+  replyText: string;
+  deliveryChannel: SupportTicketReplyDeliveryChannel;
+  deliveryStatus: SupportTicketReplyDeliveryStatus;
+  /** @nullable */
+  candidateMessageId: number | null;
+  createdAt: string;
+}
+
+export interface SupportTicketDetail {
+  ticket: SupportTicketItem;
+  replies: SupportTicketReply[];
 }
 
 export type VerifyEmailParams = {
@@ -3046,6 +3102,8 @@ export type ResetCandidateReadinessQuota200 = {
 
 export type ListAdminSupportTicketsParams = {
   status?: ListAdminSupportTicketsStatus;
+  category?: ListAdminSupportTicketsCategory;
+  sort?: ListAdminSupportTicketsSort;
   /**
    * @minimum 1
    * @maximum 100
@@ -3063,7 +3121,28 @@ export type ListAdminSupportTicketsStatus =
 export const ListAdminSupportTicketsStatus = {
   new: "new",
   in_review: "in_review",
+  attended: "attended",
   resolved: "resolved",
+  needs_attention: "needs_attention",
+} as const;
+
+export type ListAdminSupportTicketsCategory =
+  (typeof ListAdminSupportTicketsCategory)[keyof typeof ListAdminSupportTicketsCategory];
+
+export const ListAdminSupportTicketsCategory = {
+  Visa_Sponsorship: "Visa Sponsorship",
+  Readiness_Checks: "Readiness Checks",
+  "Account/Billing": "Account/Billing",
+  Technical_Support: "Technical Support",
+  Other: "Other",
+} as const;
+
+export type ListAdminSupportTicketsSort =
+  (typeof ListAdminSupportTicketsSort)[keyof typeof ListAdminSupportTicketsSort];
+
+export const ListAdminSupportTicketsSort = {
+  newest: "newest",
+  oldest: "oldest",
 } as const;
 
 export type ListAdminFeedbackParams = {

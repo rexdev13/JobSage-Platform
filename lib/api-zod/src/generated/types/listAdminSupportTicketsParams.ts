@@ -5,10 +5,14 @@
  * JOBSAGE Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { ListAdminSupportTicketsCategory } from "./listAdminSupportTicketsCategory";
+import type { ListAdminSupportTicketsSort } from "./listAdminSupportTicketsSort";
 import type { ListAdminSupportTicketsStatus } from "./listAdminSupportTicketsStatus";
 
 export type ListAdminSupportTicketsParams = {
   status?: ListAdminSupportTicketsStatus;
+  category?: ListAdminSupportTicketsCategory;
+  sort?: ListAdminSupportTicketsSort;
   /**
    * @minimum 1
    * @maximum 100

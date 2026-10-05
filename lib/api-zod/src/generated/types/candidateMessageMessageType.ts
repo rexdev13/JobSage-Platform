@@ -13,4 +13,5 @@ export const CandidateMessageMessageType = {
   system: "system",
   employer: "employer",
   employer_reply: "employer_reply",
+  support: "support",
 } as const;

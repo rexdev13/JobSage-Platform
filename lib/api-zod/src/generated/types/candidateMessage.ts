@@ -13,6 +13,7 @@ export interface CandidateMessage {
   recipientUserId: string;
   vacancyId?: number | null;
   applicationId?: number | null;
+  supportTicketId?: number | null;
   messageType: CandidateMessageMessageType;
   messageText: string;
   subject: string;

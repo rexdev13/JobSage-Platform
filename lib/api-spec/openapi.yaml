@@ -1244,13 +1244,24 @@ paths:
     get:
       tags: [Support]
       operationId: listAdminSupportTickets
-      summary: List support tickets for super admins
+      summary: List support tickets for admins
       parameters:
         - name: status
           in: query
           schema:
             type: string
-            enum: [new, in_review, resolved]
+            enum: [new, in_review, attended, resolved, needs_attention]
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [Visa Sponsorship, Readiness Checks, Account/Billing, Technical Support, Other]
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [newest, oldest]
+            default: newest
         - name: limit
           in: query
           schema:
@@ -1266,7 +1277,7 @@ paths:
             default: 0
       responses:
         "200":
-          description: Support tickets, newest first.
+          description: Filtered support tickets in the requested order.
           content:
             application/json:
               schema:
@@ -1280,13 +1291,49 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
         "403":
-          description: Super admin role required.
+          description: Admin role required.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
   /admin/super/support-tickets/{id}:
+    get:
+      tags: [Support]
+      operationId: getAdminSupportTicket
+      summary: Get a support ticket and its reply history
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Support ticket with its full reply timeline.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportTicketDetail"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Admin role required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Support ticket not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
     patch:
       tags: [Support]
       operationId: updateAdminSupportTicket
@@ -1324,13 +1371,74 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
         "403":
-          description: Super admin role required.
+          description: Admin role required.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
         "404":
           description: Support ticket not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /admin/super/support-tickets/{id}/replies:
+    post:
+      tags: [Support]
+      operationId: replyToAdminSupportTicket
+      summary: Reply to a support ticket and set its resulting status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupportTicketReplyInput"
+      responses:
+        "200":
+          description: Reply delivered and stored; ticket status updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportTicketDetail"
+        "400":
+          description: Invalid reply.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Admin role required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Support ticket not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Ticket changed since it was loaded; refresh before replying.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "502":
+          description: Guest email delivery failed; ticket status was not changed.
           content:
             application/json:
               schema:
@@ -7987,9 +8095,12 @@ components:
         applicationId:
           type: integer
           nullable: true
+        supportTicketId:
+          type: integer
+          nullable: true
         messageType:
           type: string
-          enum: [system, employer, employer_reply]
+          enum: [system, employer, employer_reply, support]
         messageText:
           type: string
         subject:
@@ -8807,7 +8918,7 @@ components:
       properties:
         status:
           type: string
-          enum: [new, in_review, resolved]
+          enum: [new, in_review, attended, resolved]
         adminNotes:
           type: ["string", "null"]
           maxLength: 5000
@@ -8850,7 +8961,7 @@ components:
           type: ["string", "null"]
         status:
           type: string
-          enum: [new, in_review, resolved]
+          enum: [new, in_review, attended, resolved]
         adminNotes:
           type: ["string", "null"]
         reviewedBy:
@@ -8864,3 +8975,55 @@ components:
         updatedAt:
           type: string
           format: date-time
+
+    SupportTicketReplyInput:
+      type: object
+      required: [replyText, status, expectedUpdatedAt]
+      properties:
+        replyText:
+          type: string
+          minLength: 1
+          maxLength: 5000
+        status:
+          type: string
+          enum: [attended, resolved]
+        expectedUpdatedAt:
+          type: string
+          format: date-time
+
+    SupportTicketReply:
+      type: object
+      required: [id, ticketId, adminUserId, adminDisplayName, replyText, deliveryChannel, deliveryStatus, candidateMessageId, createdAt]
+      properties:
+        id:
+          type: integer
+        ticketId:
+          type: integer
+        adminUserId:
+          type: string
+        adminDisplayName:
+          type: string
+        replyText:
+          type: string
+        deliveryChannel:
+          type: string
+          enum: [inbox, email]
+        deliveryStatus:
+          type: string
+          enum: [sent, failed]
+        candidateMessageId:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    SupportTicketDetail:
+      type: object
+      required: [ticket, replies]
+      properties:
+        ticket:
+          $ref: "#/components/schemas/SupportTicketItem"
+        replies:
+          type: array
+          items:
+            $ref: "#/components/schemas/SupportTicketReply"

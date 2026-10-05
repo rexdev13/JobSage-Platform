@@ -117,6 +117,45 @@ export async function sendSupportTicketNotification(opts: {
   }
 }
 
+export async function sendSupportTicketReply(opts: {
+  to: string;
+  ticketId: string;
+  subject: string;
+  replyText: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    assertEmailConfiguration("Support ticket replies");
+    const safeReply = escapeEmailHtml(opts.replyText).replace(/\r?\n/g, "<br />");
+    const result = await resend.emails.send({
+      from: `JOBSAGE <${FROM}>`,
+      to: opts.to,
+      subject: `Re: [Support ${opts.ticketId}] ${normalizeEmailSubject(opts.subject)}`,
+      text: [
+        `Reply to your JOBSAGE support request (${opts.ticketId})`,
+        "",
+        opts.replyText,
+        "",
+        "The JOBSAGE Support team",
+      ].join("\n"),
+      html: `<!doctype html><html><body style="font-family:Arial,sans-serif;color:#162436;line-height:1.6">
+        <h1 style="font-size:20px">JOBSAGE Support has replied</h1>
+        <p>Reply to your support request <strong>${escapeEmailHtml(opts.ticketId)}</strong> about <strong>${escapeEmailHtml(opts.subject)}</strong>:</p>
+        <div style="white-space:normal">${safeReply}</div>
+        <p>The JOBSAGE Support team</p>
+      </body></html>`,
+    });
+    if (result.error) {
+      return { success: false, error: result.error.message || "Email provider rejected the support reply." };
+    }
+    return { success: true };
+  } catch (error: unknown) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to send the support reply.",
+    };
+  }
+}
+
 export async function sendWaitlistWelcomeEmail(opts: {
   to: string;
   firstName: string;

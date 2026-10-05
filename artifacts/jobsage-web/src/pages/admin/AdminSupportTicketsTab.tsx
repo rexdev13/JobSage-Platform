@@ -1,8 +1,11 @@
 import { useMemo, useState } from "react";
-import { Mail, RefreshCw, Save, Ticket } from "lucide-react";
+import { LifeBuoy, Mail, RefreshCw, Save, Send, Ticket } from "lucide-react";
 import {
+  getGetAdminSupportTicketQueryKey,
   getListAdminSupportTicketsQueryKey,
+  useGetAdminSupportTicket,
   useListAdminSupportTickets,
+  useReplyToAdminSupportTicket,
   useUpdateAdminSupportTicket,
   type SupportTicketItem,
 } from "@workspace/api-client-react";
@@ -11,19 +14,34 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 
-type TicketStatus = "new" | "in_review" | "resolved";
-type TicketFilter = "all" | TicketStatus;
+type TicketStatus = "new" | "in_review" | "attended" | "resolved";
+type TicketFilter = "needs_attention" | "attended" | "resolved" | "all";
+type TicketCategory =
+  | "Visa Sponsorship"
+  | "Readiness Checks"
+  | "Account/Billing"
+  | "Technical Support"
+  | "Other";
 
 const filters: Array<{ id: TicketFilter; label: string }> = [
-  { id: "all", label: "All" },
-  { id: "new", label: "New" },
-  { id: "in_review", label: "In review" },
+  { id: "needs_attention", label: "Needs Attention" },
+  { id: "attended", label: "Attended" },
   { id: "resolved", label: "Resolved" },
+  { id: "all", label: "All" },
+];
+
+const categories: TicketCategory[] = [
+  "Visa Sponsorship",
+  "Readiness Checks",
+  "Account/Billing",
+  "Technical Support",
+  "Other",
 ];
 
 const statusLabels: Record<TicketStatus, string> = {
   new: "New",
   in_review: "In review",
+  attended: "Attended",
   resolved: "Resolved",
 };
 
@@ -37,26 +55,50 @@ function formatDate(value: string) {
   });
 }
 
+function getErrorStatus(error: unknown): number | undefined {
+  return typeof error === "object" && error !== null && "status" in error
+    ? Number((error as { status?: unknown }).status)
+    : undefined;
+}
+
 export default function AdminSupportTicketsTab() {
-  const [filter, setFilter] = useState<TicketFilter>("all");
+  const [filter, setFilter] = useState<TicketFilter>("needs_attention");
+  const [category, setCategory] = useState<TicketCategory | "all">("all");
+  const [sort, setSort] = useState<"newest" | "oldest">("newest");
   const [notes, setNotes] = useState<Record<number, string>>({});
+  const [replyText, setReplyText] = useState("");
+  const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
   const [savingId, setSavingId] = useState<number | null>(null);
+  const [replyingId, setReplyingId] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
   const params = useMemo(
     () => ({
       ...(filter === "all" ? {} : { status: filter }),
+      ...(category === "all" ? {} : { category }),
+      sort,
       limit: 100,
       offset: 0,
     }),
-    [filter],
+    [filter, category, sort],
   );
   const queryKey = getListAdminSupportTicketsQueryKey(params);
   const { data, isLoading, isError, refetch } = useListAdminSupportTickets(params, {
     query: { queryKey, refetchOnWindowFocus: false },
   });
+  const detailQuery = useGetAdminSupportTicket(selectedTicketId ?? 0, {
+    query: {
+      queryKey: getGetAdminSupportTicketQueryKey(selectedTicketId ?? 0),
+      enabled: selectedTicketId !== null,
+      refetchOnMount: "always",
+      refetchOnWindowFocus: true,
+    },
+  });
   const updateTicket = useUpdateAdminSupportTicket();
+  const replyToTicket = useReplyToAdminSupportTicket();
   const tickets = data ?? [];
+  const activeTicket = detailQuery.data?.ticket;
 
   function noteValue(ticket: SupportTicketItem) {
     return notes[ticket.id] ?? ticket.adminNotes ?? "";
@@ -64,6 +106,10 @@ export default function AdminSupportTicketsTab() {
 
   function refreshList() {
     void queryClient.invalidateQueries({ queryKey: getListAdminSupportTicketsQueryKey() });
+  }
+
+  function refreshDetail(ticketId: number) {
+    void queryClient.invalidateQueries({ queryKey: getGetAdminSupportTicketQueryKey(ticketId) });
   }
 
   function saveTicket(ticket: SupportTicketItem, update: { status?: TicketStatus; adminNotes?: string | null }) {
@@ -74,9 +120,48 @@ export default function AdminSupportTicketsTab() {
         onSuccess: () => {
           toast({ title: "Support ticket updated", description: `${ticket.ticketId} has been saved.` });
           refreshList();
+          refreshDetail(ticket.id);
         },
         onError: () => toast({ title: "Update failed", description: "Please try again.", variant: "destructive" }),
         onSettled: () => setSavingId(null),
+      },
+    );
+  }
+
+  function sendReply(status: "attended" | "resolved") {
+    if (!activeTicket || !replyText.trim()) return;
+    const ticketId = activeTicket.id;
+    setReplyingId(ticketId);
+    replyToTicket.mutate(
+      {
+        id: ticketId,
+        data: {
+          replyText,
+          status,
+          expectedUpdatedAt: activeTicket.updatedAt,
+        },
+      },
+      {
+        onSuccess: (detail) => {
+          setReplyText("");
+          toast({
+            title: status === "resolved" ? "Reply sent and ticket resolved" : "Reply sent and ticket attended",
+            description: `${detail.ticket.ticketId} was delivered via ${detail.replies.at(-1)?.deliveryChannel === "email" ? "email" : "the candidate inbox"}.`,
+          });
+          refreshList();
+          refreshDetail(ticketId);
+        },
+        onError: (error) => {
+          const statusCode = getErrorStatus(error);
+          const description = statusCode === 409
+            ? "Another admin changed this ticket. Refresh its details before replying."
+            : statusCode === 502
+              ? "The guest email could not be delivered. The ticket was not marked attended or resolved."
+              : "The reply was not sent. Please refresh the ticket and try again.";
+          toast({ title: "Reply failed", description, variant: "destructive" });
+          refreshDetail(ticketId);
+        },
+        onSettled: () => setReplyingId(null),
       },
     );
   }
@@ -86,7 +171,7 @@ export default function AdminSupportTicketsTab() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 id="support-inbox-title" className="font-display text-xl font-semibold text-foreground">Support tickets</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Requests from the Help &amp; Support page, newest first.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Review requests, see replies, and respond to candidates.</p>
         </div>
         <Button
           variant="outline"
@@ -101,22 +186,49 @@ export default function AdminSupportTicketsTab() {
         </Button>
       </div>
 
-      <div className="mobile-scroll-x flex gap-1 rounded-xl border border-border bg-muted/30 p-1" role="tablist" aria-label="Support ticket filters">
-        {filters.map((option) => (
-          <button
-            key={option.id}
-            type="button"
-            role="tab"
-            aria-selected={filter === option.id}
-            data-testid={`button-support-filter-${option.id}`}
-            onClick={() => setFilter(option.id)}
-            className={`whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-              filter === option.id ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"
-            }`}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="mobile-scroll-x flex gap-1 rounded-xl border border-border bg-muted/30 p-1" role="tablist" aria-label="Support ticket filters">
+          {filters.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              role="tab"
+              aria-selected={filter === option.id}
+              data-testid={`button-support-filter-${option.id}`}
+              onClick={() => setFilter(option.id)}
+              className={`whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                filter === option.id ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+
+        <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+          Category
+          <select
+            aria-label="Filter support tickets by category"
+            data-testid="select-support-ticket-category"
+            value={category}
+            onChange={(event) => setCategory(event.target.value as TicketCategory | "all")}
+            className="field-support min-h-9 w-auto py-1.5 text-xs"
           >
-            {option.label}
-          </button>
-        ))}
+            <option value="all">All categories</option>
+            {categories.map((item) => <option key={item} value={item}>{item}</option>)}
+          </select>
+        </label>
+
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          data-testid="button-support-ticket-sort"
+          aria-label={`Sort ${sort === "newest" ? "oldest first" : "newest first"}`}
+          onClick={() => setSort((current) => current === "newest" ? "oldest" : "newest")}
+        >
+          {sort === "newest" ? "Newest first" : "Oldest first"}
+        </Button>
       </div>
 
       {isError ? (
@@ -186,6 +298,26 @@ export default function AdminSupportTicketsTab() {
                   {ticket.message}
                 </p>
 
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/70 pt-3">
+                  <Button
+                    type="button"
+                    variant={selectedTicketId === ticket.id ? "default" : "outline"}
+                    size="sm"
+                    data-testid={`button-support-ticket-details-${ticket.id}`}
+                    onClick={() => {
+                      setSelectedTicketId((current) => current === ticket.id ? null : ticket.id);
+                      setReplyText("");
+                    }}
+                  >
+                    {selectedTicketId === ticket.id ? "Close conversation" : "View conversation"}
+                  </Button>
+                  {ticket.reviewedBy && ticket.reviewedAt && (
+                    <span className="text-xs text-muted-foreground">
+                      Last attended {formatDate(ticket.reviewedAt)}
+                    </span>
+                  )}
+                </div>
+
                 <div className="border-t border-border/70 pt-4">
                   <label htmlFor={`support-ticket-notes-${ticket.id}`} className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                     Internal notes
@@ -219,6 +351,107 @@ export default function AdminSupportTicketsTab() {
             </Card>
           ))}
         </div>
+      )}
+
+      {selectedTicketId !== null && (
+        <Card data-testid="card-support-ticket-conversation" className="overflow-hidden">
+          <CardContent className="space-y-5 p-5 sm:p-6">
+            {detailQuery.isLoading ? (
+              <div className="py-8 text-center text-sm text-muted-foreground">Loading conversation…</div>
+            ) : detailQuery.isError || !detailQuery.data ? (
+              <div className="space-y-3 py-6 text-center">
+                <p className="text-sm font-medium text-foreground">This conversation could not be loaded.</p>
+                <Button variant="outline" size="sm" onClick={() => void detailQuery.refetch()}>Try again</Button>
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <LifeBuoy className="h-5 w-5 text-primary" />
+                      <h3 className="text-lg font-semibold text-foreground">Conversation · {activeTicket?.ticketId}</h3>
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">{activeTicket?.subject}</p>
+                  </div>
+                  <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-secondary-foreground">
+                    {activeTicket ? statusLabels[activeTicket.status] : ""}
+                  </span>
+                </div>
+
+                <ol className="space-y-3" aria-label="Support reply history">
+                  <li className="rounded-xl border border-border bg-muted/30 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-foreground">{activeTicket?.name}</p>
+                      <time className="text-xs text-muted-foreground" dateTime={activeTicket?.createdAt}>
+                        {activeTicket ? formatDate(activeTicket.createdAt) : ""}
+                      </time>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">Original support request</p>
+                    <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground">{activeTicket?.message}</p>
+                  </li>
+                  {detailQuery.data.replies.map((reply) => (
+                    <li key={reply.id} className="rounded-xl border border-primary/20 bg-primary/[0.035] p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-foreground">{reply.adminDisplayName}</p>
+                        <time className="text-xs text-muted-foreground" dateTime={reply.createdAt}>{formatDate(reply.createdAt)}</time>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Admin reply · {reply.deliveryStatus === "failed"
+                          ? "Email delivery failed"
+                          : `Sent via ${reply.deliveryChannel === "inbox" ? "candidate inbox" : "email"}`}
+                      </p>
+                      <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground">{reply.replyText}</p>
+                    </li>
+                  ))}
+                </ol>
+
+                <div className="space-y-3 border-t border-border pt-5">
+                  <div>
+                    <label htmlFor="support-ticket-reply" className="block text-sm font-semibold text-foreground">
+                      Reply to Candidate
+                    </label>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {activeTicket?.userId
+                        ? "Will be sent to Candidate's JobSage Inbox"
+                        : "Will be sent via email"}
+                    </p>
+                  </div>
+                  <textarea
+                    id="support-ticket-reply"
+                    data-testid="input-support-ticket-reply"
+                    value={replyText}
+                    onChange={(event) => setReplyText(event.target.value)}
+                    maxLength={5000}
+                    rows={5}
+                    placeholder="Write a clear response to the candidate…"
+                    className="field-support min-h-28 resize-y text-sm"
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      data-testid="button-send-reply-attended"
+                      onClick={() => sendReply("attended")}
+                      disabled={!replyText.trim() || replyingId === selectedTicketId}
+                      className="gap-2"
+                    >
+                      <Send className="h-4 w-4" />
+                      Send Reply &amp; Mark Attended
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      data-testid="button-send-reply-resolved"
+                      onClick={() => sendReply("resolved")}
+                      disabled={!replyText.trim() || replyingId === selectedTicketId}
+                    >
+                      Send Reply &amp; Mark Resolved
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
       )}
     </section>
   );
