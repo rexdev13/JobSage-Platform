@@ -3849,6 +3849,7 @@ export const GetSponsorLicenceIndustryCountsResponse = zod.object({
       bookmarkedCount: zod.number().optional(),
     }),
   ),
+  totalSponsors: zod.number(),
 });
 
 /**

@@ -9,4 +9,5 @@ import type { SponsorLicenceIndustryCount } from "./sponsorLicenceIndustryCount"
 
 export interface SponsorLicenceIndustryCountsResponse {
   counts: SponsorLicenceIndustryCount[];
+  totalSponsors: number;
 }

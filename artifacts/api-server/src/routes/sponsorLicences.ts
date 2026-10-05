@@ -661,6 +661,10 @@ router.get("/sponsor-licences/industry-counts", requireAuthenticated, async (req
       .groupBy(sponsorLicencesTable.industry)
       .orderBy(desc(sql`count(*)`));
 
+    const [totalSponsorRow] = await db
+      .select({ count: sql<number>`cast(count(*) as integer)` })
+      .from(sponsorLicencesTable);
+
     const bookmarkRows = await db
       .select({
         industry: sponsorLicencesTable.industry,
@@ -686,7 +690,7 @@ router.get("/sponsor-licences/industry-counts", requireAuthenticated, async (req
         bookmarkedCount: bookmarkedByIndustry.get(r.industry as string) ?? 0,
       }));
 
-    res.json({ counts });
+    res.json({ counts, totalSponsors: totalSponsorRow?.count ?? 0 });
   } catch (err) {
     console.error("[sponsor-licences] /industry-counts error:", err);
     res.status(500).json({ error: "Failed to fetch industry counts." });

@@ -852,7 +852,7 @@ export default function SponsorLicencesPage() {
     return () => clearTimeout(t);
   }, [search]);
 
-  const { data: vacancyStats } = useGetSponsorLicenceVacancyStats();
+  const { data: vacancyStats, isLoading: vacancyStatsLoading } = useGetSponsorLicenceVacancyStats();
   const totalVacanciesFound = vacancyStats?.totalVacanciesFound ?? 0;
   const vacancyCompaniesCount = vacancyStats?.companiesWithVacancies ?? 0;
 
@@ -894,7 +894,7 @@ export default function SponsorLicencesPage() {
 
   const { data: countsData, isLoading: countsLoading } = useGetSponsorLicenceIndustryCounts();
   const sectorCounts = countsData?.counts ?? [];
-  const totalSponsors = sectorCounts.reduce((acc, s) => acc + s.count, 0);
+  const totalSponsors = countsData?.totalSponsors ?? 0;
 
   const sponsorListParams = {
     search: debouncedSearch || undefined,
@@ -1093,7 +1093,7 @@ export default function SponsorLicencesPage() {
                     <div>
                       <p className="text-xs text-muted-foreground">With JOBSAGE Vacancies</p>
                       <p className="text-xl font-bold text-foreground">
-                        {countsLoading ? "—" : withVacancies.toLocaleString()}
+                        {vacancyStatsLoading ? "—" : vacancyCompaniesCount.toLocaleString()}
                       </p>
                     </div>
                   </Card>

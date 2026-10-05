@@ -1770,6 +1770,7 @@ export interface SponsorLicenceIndustryCount {
 
 export interface SponsorLicenceIndustryCountsResponse {
   counts: SponsorLicenceIndustryCount[];
+  totalSponsors: number;
 }
 
 export interface VacancyListing {

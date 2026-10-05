@@ -7157,12 +7157,14 @@ components:
 
     SponsorLicenceIndustryCountsResponse:
       type: object
-      required: [counts]
+      required: [counts, totalSponsors]
       properties:
         counts:
           type: array
           items:
             $ref: "#/components/schemas/SponsorLicenceIndustryCount"
+        totalSponsors:
+          type: integer
 
     VacancyListing:
       type: object
