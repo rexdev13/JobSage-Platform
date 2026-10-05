@@ -20,3 +20,9 @@ Verify purchases launched from an already-open Readiness sheet in a real browser
 **Why:** Component tests passed while the actual sheet overlay intercepted clicks on the upgrade offer. Opening the quota control in the sidebar did not exercise the stacked-dialog failure.
 
 **How to apply:** Start from a vacancy card's Readiness Check on a role without a cached analysis, reach a real quota denial, and buy the offer while the same sheet remains mounted.
+
+For upgrade discovery, remove the sidebar quota card and keep a visible “Get more checks” action directly below the current usage count in the Readiness Check sheet. The action must be available before quota exhaustion; expand offers inline rather than stacking a second dialog over the sheet.
+
+**Why:** The user asked for the purchase entry point to be relevant to the active check and available before candidates use all monthly checks.
+
+**How to apply:** Keep the usage counter in the sheet header, render the get-more action at every quota level, and reveal the offer options inline on click or automatically after a quota denial.

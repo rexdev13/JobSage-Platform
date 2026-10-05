@@ -23,7 +23,6 @@ vi.mock("@/components/ui/sheet", () => ({
 }));
 
 import { GapAnalysisSheet } from "./GapAnalysisSheet";
-import { ReadinessQuotaModal } from "./ReadinessQuotaModal";
 import { getGetReadinessQuotaQueryKey } from "@workspace/api-client-react";
 
 const analysis = {
@@ -43,7 +42,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 function renderSheet(queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-}), showQuotaModal = false) {
+})) {
   const view = render(
     <QueryClientProvider client={queryClient}>
       <GapAnalysisSheet
@@ -58,7 +57,6 @@ function renderSheet(queryClient = new QueryClient({
         analysisSource="role"
         onApply={vi.fn()}
       />
-      {showQuotaModal && <ReadinessQuotaModal open onClose={vi.fn()} />}
     </QueryClientProvider>,
   );
   return { ...view, queryClient };
@@ -190,12 +188,33 @@ describe("GapAnalysisSheet readiness claims", () => {
     }));
 
     renderSheet();
+    expect(await screen.findByTestId("button-toggle-readiness-upgrades")).toBeTruthy();
     await screen.findByText("3/3 this month");
+    await screen.findByTestId("readiness-upgrade-options");
     await screen.findByText(/You have used all 3 of your Readiness Checks this month/);
     expect(toastMock).toHaveBeenCalledWith(expect.objectContaining({
       title: "Readiness Check limit reached",
       description: "You have used all 3 of your Readiness Checks.",
     }));
+  });
+
+  it("keeps the get-more-checks action available before the monthly quota is exhausted", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/readiness/claims")) return jsonResponse({ claims: [] });
+      if (url.endsWith("/gap-analyses/usage")) return jsonResponse({ used: 1, limit: 3 });
+      if (url.endsWith("/opportunities/roles/42/gap-analysis")) return jsonResponse(analysis);
+      throw new Error(`Unexpected request: ${url}`);
+    }));
+
+    renderSheet();
+    const count = await screen.findByText("1/3 this month");
+    const button = screen.getByTestId("button-toggle-readiness-upgrades");
+    expect(count.parentElement?.querySelector('[data-testid="button-toggle-readiness-upgrades"]')).toBe(button);
+
+    fireEvent.click(button);
+    expect(await screen.findByText("Check Booster Pack")).toBeTruthy();
+    expect(screen.getByText("JobSage Pro")).toBeTruthy();
   });
 
   it.each(["booster_pack", "pro_subscription"] as const)("unblocks the mounted sheet after a sandbox %s upgrade", async (purchase) => {
@@ -226,7 +245,7 @@ describe("GapAnalysisSheet readiness claims", () => {
       throw new Error(`Unexpected request: ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
-    const { queryClient } = renderSheet(undefined, true);
+    const { queryClient } = renderSheet();
     const invalidations = vi.spyOn(queryClient, "invalidateQueries");
     await screen.findByText(/You have used all 3 of your Readiness Checks this month/);
     expect(screen.getByText("£4.99")).toBeTruthy();

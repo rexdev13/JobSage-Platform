@@ -44,16 +44,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     fetchImpersonationState();
   }, []);
 
-  React.useEffect(() => {
-    const openQuota = () => setQuotaOpen(true);
-    window.addEventListener("jobsage:readiness-limit-reached", openQuota);
-    window.addEventListener("jobsage:open-readiness-quota", openQuota);
-    return () => {
-      window.removeEventListener("jobsage:readiness-limit-reached", openQuota);
-      window.removeEventListener("jobsage:open-readiness-quota", openQuota);
-    };
-  }, []);
-
   async function stopImpersonating() {
     await fetch(`${API_BASE}/admin/super/impersonate/stop`, { method: "POST", credentials: "include" }).catch(() => {});
     const base = import.meta.env.BASE_URL.replace(/\/$/, "");

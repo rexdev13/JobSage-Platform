@@ -9,6 +9,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui-enhanced";
+import { ReadinessUpgradeOptions } from "@/components/ReadinessUpgradeOptions";
 import { useToast } from "@/hooks/use-toast";
 import { Send, ExternalLink, CheckCircle2, XCircle, Lightbulb, Loader2, AlertTriangle, Sparkles, UserRoundCog } from "lucide-react";
 import { openTrackedOutbound, openTrackedSponsorVacancy } from "@/lib/trackedOutbound";
@@ -64,6 +65,7 @@ export function GapAnalysisSheet({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [limitReached, setLimitReached] = useState(false);
+  const [showUpgradeOptions, setShowUpgradeOptions] = useState(false);
   const [acknowledgingClaimKey, setAcknowledgingClaimKey] = useState<string | null>(null);
   const [acknowledgedThisSession, setAcknowledgedThisSession] = useState<Set<string>>(new Set());
   const [lastAcknowledged, setLastAcknowledged] = useState<string | null>(null);
@@ -107,7 +109,10 @@ export function GapAnalysisSheet({
   }, [open, usage]);
 
   useEffect(() => {
-    const handleUpgrade = () => setLimitReached(false);
+    const handleUpgrade = () => {
+      setLimitReached(false);
+      setShowUpgradeOptions(false);
+    };
     window.addEventListener("jobsage:readiness-upgraded", handleUpgrade);
     return () => window.removeEventListener("jobsage:readiness-upgraded", handleUpgrade);
   }, []);
@@ -124,7 +129,7 @@ export function GapAnalysisSheet({
       const res = await fetch(endpoint, { credentials: "include" });
       if (res.status === 429) {
         setLimitReached(true);
-        window.dispatchEvent(new CustomEvent("jobsage:readiness-limit-reached"));
+        setShowUpgradeOptions(true);
         toast({
           title: "Readiness Check limit reached",
           description: `You have used all ${usage?.limit ?? 3} of your Readiness Checks.`,
@@ -208,23 +213,50 @@ export function GapAnalysisSheet({
                 {companyName} · Readiness Check
               </SheetDescription>
             </div>
-            {usage && (
-              <span
-                title={usage.resetsAt ? `Resets ${new Date(usage.resetsAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}` : undefined}
-                className={`shrink-0 text-[11px] font-semibold px-2 py-1 rounded-full border ${
-                usage.used >= usage.limit
-                  ? "bg-red-50 text-red-600 border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-800/40"
-                  : usage.used >= usage.limit - 2
-                  ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800/40"
-                  : "bg-muted text-muted-foreground border-border"
-              }`}>
-                {usage.used}/{usage.limit} this month
-              </span>
-            )}
+            <div className="flex shrink-0 flex-col items-end gap-1">
+              {usage && (
+                <span
+                  title={usage.resetsAt ? `Resets ${new Date(usage.resetsAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}` : undefined}
+                  className={`text-[11px] font-semibold px-2 py-1 rounded-full border ${
+                    usage.used >= usage.limit
+                      ? "bg-red-50 text-red-600 border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-800/40"
+                      : usage.used >= usage.limit - 2
+                        ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800/40"
+                        : "bg-muted text-muted-foreground border-border"
+                  }`}
+                >
+                  {usage.used}/{usage.limit} this month
+                </span>
+              )}
+              <button
+                type="button"
+                aria-expanded={showUpgradeOptions}
+                aria-controls="readiness-upgrade-options"
+                data-testid="button-toggle-readiness-upgrades"
+                onClick={() => setShowUpgradeOptions((current) => !current)}
+                className="text-[11px] font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {showUpgradeOptions ? "Hide options" : "Get more checks"}
+              </button>
+            </div>
           </div>
         </SheetHeader>
 
         <div className="py-5 space-y-6">
+          {showUpgradeOptions && (
+            <section
+              id="readiness-upgrade-options"
+              aria-labelledby="readiness-upgrade-title"
+              data-testid="readiness-upgrade-options"
+              className="space-y-3 rounded-2xl border border-primary/20 bg-primary/[0.025] p-4"
+            >
+              <div>
+                <h3 id="readiness-upgrade-title" className="font-semibold text-foreground">Choose how to get more checks</h3>
+                <p className="mt-1 text-xs text-muted-foreground">Your current check count is above. Choose a one-time pack or monthly Pro.</p>
+              </div>
+              <ReadinessUpgradeOptions compact />
+            </section>
+          )}
           {/* ── Loading ── */}
           {isLoading && (
             <div className="flex flex-col items-center justify-center py-12 gap-3 text-muted-foreground">

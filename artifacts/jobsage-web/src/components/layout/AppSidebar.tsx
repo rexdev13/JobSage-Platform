@@ -9,7 +9,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/components/ui-enhanced";
 import { useGetMyAnalytics, useGetMyProgressReport, useGetInboxUnreadCount, getGetInboxUnreadCountQueryKey, useGetMyProfile, getGetMyProfileQueryKey } from "@workspace/api-client-react";
-import { getGetReadinessQuotaQueryKey, useGetReadinessQuota } from "@workspace/api-client-react";
 import { motion, useMotionValue, useTransform, animate } from "framer-motion";
 import { useEffect } from "react";
 import { MARKETING_NAVIGATION } from "@/lib/roleAccess";
@@ -147,14 +146,6 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
   ];
 
   const isCandidateLike = role === "candidate" || role === "reviewer" || role === "admin";
-  const { data: readinessQuota } = useGetReadinessQuota({
-    query: {
-      queryKey: getGetReadinessQuotaQueryKey(),
-      enabled: role === "candidate",
-      retry: false,
-    },
-  });
-
   function renderNavItem(item: NavItem) {
     if (!role || !item.roles.includes(role)) return null;
     const isActive = location === item.href;
@@ -211,20 +202,7 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
             {flatNavForOtherRoles.filter(item => !!role && item.roles.includes(role)).map(renderNavItem)}
           </div>
         )}
-        {role === "candidate" && (
-          <>
-            <AnalyticsMiniWidget />
-            <button
-              type="button"
-              data-testid="button-open-readiness-quota"
-              onClick={() => window.dispatchEvent(new CustomEvent("jobsage:open-readiness-quota"))}
-              className="mx-4 mb-3 rounded-xl border border-primary/20 bg-primary/5 p-3 text-left transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
-            >
-              <span className="flex items-center gap-2 text-xs font-bold text-foreground"><Sparkles className="h-3.5 w-3.5 text-primary" /> Readiness Checks</span>
-              <span className="mt-1 block text-[11px] text-muted-foreground">{readinessQuota ? `${readinessQuota.used}/${readinessQuota.limit} monthly used · ${readinessQuota.bonusRemaining} bonus` : "View your monthly quota"}</span>
-            </button>
-          </>
-        )}
+        {role === "candidate" && <AnalyticsMiniWidget />}
       </div>
 
       <div className="p-4 border-t border-sidebar-border shrink-0">
