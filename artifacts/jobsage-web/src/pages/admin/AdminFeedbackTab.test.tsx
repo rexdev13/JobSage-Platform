@@ -78,7 +78,10 @@ describe("ProductFeedbackInbox replies", () => {
   it("sends a signed-in user's reply to their JOBSAGE inbox", () => {
     renderInbox();
 
-    fireEvent.click(screen.getByTestId("button-open-feedback-reply-17"));
+    fireEvent.click(screen.getByTestId("button-feedback-conversation-17"));
+    const conversation = screen.getByTestId("feedback-conversation-17");
+    expect(conversation.textContent).toContain("Original product feedback");
+    expect(conversation.textContent).toContain("Reply to Candidate");
     expect(screen.getByText("Will be sent to the candidate's JOBSAGE inbox.")).toBeTruthy();
     fireEvent.change(screen.getByTestId("input-feedback-reply-17"), {
       target: { value: "We have fixed this issue." },
@@ -109,8 +112,11 @@ describe("ProductFeedbackInbox replies", () => {
     });
     renderInbox();
 
-    fireEvent.click(screen.getByTestId("button-open-feedback-reply-17"));
-    expect(screen.getByText("Will be sent via email.")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("button-feedback-conversation-17"));
+    const conversation = screen.getByTestId("feedback-conversation-17");
+    expect(conversation.textContent).toContain("Original product feedback");
+    expect(conversation.textContent).toContain("Reply to Submitter");
+    expect(screen.getByText("Will be sent via email to guest@example.com.")).toBeTruthy();
     fireEvent.change(screen.getByTestId("input-feedback-reply-17"), {
       target: { value: "Thanks for sharing this." },
     });

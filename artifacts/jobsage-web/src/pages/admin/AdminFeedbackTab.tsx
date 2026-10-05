@@ -50,7 +50,7 @@ export function ProductFeedbackInbox() {
   const [notes, setNotes] = useState<Record<number, string>>({});
   const [savingId, setSavingId] = useState<number | null>(null);
   const [replyDrafts, setReplyDrafts] = useState<Record<number, string>>({});
-  const [openReplyId, setOpenReplyId] = useState<number | null>(null);
+  const [openConversationId, setOpenConversationId] = useState<number | null>(null);
   const [replyingId, setReplyingId] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -105,7 +105,6 @@ export function ProductFeedbackInbox() {
             delete next[item.id];
             return next;
           });
-          setOpenReplyId(null);
           toast({
             title: "Reply sent",
             description: item.userId
@@ -207,10 +206,10 @@ export function ProductFeedbackInbox() {
               onStatusChange={(status) => saveItem(item, { status })}
               onNotesSave={() => saveItem(item, { adminNotes: noteValue(item) || null })}
               replyDraft={replyDrafts[item.id] ?? ""}
-              replyOpen={openReplyId === item.id}
+              conversationOpen={openConversationId === item.id}
               replying={replyingId === item.id}
               onReplyDraftChange={(value) => setReplyDrafts((current) => ({ ...current, [item.id]: value }))}
-              onToggleReply={() => setOpenReplyId((current) => current === item.id ? null : item.id)}
+              onToggleConversation={() => setOpenConversationId((current) => current === item.id ? null : item.id)}
               onReplySend={() => sendReply(item)}
             />
           ))}
@@ -228,10 +227,10 @@ function FeedbackRow({
   onStatusChange,
   onNotesSave,
   replyDraft,
-  replyOpen,
+  conversationOpen,
   replying,
   onReplyDraftChange,
-  onToggleReply,
+  onToggleConversation,
   onReplySend,
 }: {
   item: FeedbackItem;
@@ -241,10 +240,10 @@ function FeedbackRow({
   onStatusChange: (status: FeedbackStatus) => void;
   onNotesSave: () => void;
   replyDraft: string;
-  replyOpen: boolean;
+  conversationOpen: boolean;
   replying: boolean;
   onReplyDraftChange: (value: string) => void;
-  onToggleReply: () => void;
+  onToggleConversation: () => void;
   onReplySend: () => void;
 }) {
   const replies = item.replies ?? [];
@@ -281,7 +280,11 @@ function FeedbackRow({
           </select>
         </div>
 
-        <p data-testid={`text-feedback-message-${item.id}`} className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{item.message}</p>
+        {!conversationOpen && (
+          <p data-testid={`text-feedback-message-${item.id}`} className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+            {item.message}
+          </p>
+        )}
 
         <div className="flex min-w-0 items-start gap-2 rounded-xl bg-muted/45 px-3 py-2.5 text-xs text-muted-foreground">
           <ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -289,88 +292,115 @@ function FeedbackRow({
           <span className="ml-auto shrink-0 border-l border-border pl-2">{item.screenResolution}</span>
         </div>
 
-        <div className="space-y-3 border-t border-border/70 pt-4">
-          {replies.length > 0 && (
-            <div className="space-y-2" data-testid={`feedback-reply-history-${item.id}`}>
-              <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Reply history</h3>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/70 pt-3">
+          <Button
+            type="button"
+            variant={conversationOpen ? "default" : "outline"}
+            size="sm"
+            data-testid={`button-feedback-conversation-${item.id}`}
+            aria-expanded={conversationOpen}
+            aria-controls={`feedback-conversation-${item.id}`}
+            onClick={onToggleConversation}
+          >
+            {conversationOpen ? "Close conversation" : "View conversation"}
+          </Button>
+          {item.reviewedBy && item.reviewedAt && (
+            <span className="text-xs text-muted-foreground">Last attended {formatDate(item.reviewedAt)}</span>
+          )}
+        </div>
+
+        {conversationOpen && (
+          <section
+            id={`feedback-conversation-${item.id}`}
+            data-testid={`feedback-conversation-${item.id}`}
+            aria-label={`Feedback conversation for ${submitter(item)}`}
+            className="space-y-5 border-t border-border/70 pt-4"
+          >
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <MessageSquareText className="h-5 w-5 text-primary" />
+                  <h3 className="text-lg font-semibold text-foreground">Conversation · Feedback #{item.id}</h3>
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {item.category.charAt(0).toUpperCase() + item.category.slice(1)} feedback
+                </p>
+              </div>
+              <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-secondary-foreground">
+                {statusLabels[item.status]}
+              </span>
+            </div>
+
+            <ol className="space-y-3" aria-label="Feedback reply history">
+              <li className="rounded-xl border border-border bg-muted/30 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-foreground">{submitter(item)}</p>
+                  <time className="text-xs text-muted-foreground" dateTime={item.createdAt}>
+                    {formatDate(item.createdAt)}
+                  </time>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">Original product feedback</p>
+                <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground">{item.message}</p>
+              </li>
               {replies.map((reply) => (
-                <article
+                <li
                   key={reply.id}
                   data-testid={`feedback-reply-${reply.id}`}
-                  className="rounded-xl border border-primary/15 bg-primary/[0.025] px-3 py-3"
+                  className="rounded-xl border border-primary/20 bg-primary/[0.035] p-4"
                 >
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-                    <span className="font-semibold text-foreground">{reply.adminDisplayName}</span>
-                    <span className="text-muted-foreground">{formatDate(reply.createdAt)}</span>
-                    <span className="rounded-full bg-background px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                      {reply.deliveryChannel === "inbox" ? "JOBSAGE inbox" : "Email"} · {reply.deliveryStatus}
-                    </span>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-foreground">{reply.adminDisplayName}</p>
+                    <time className="text-xs text-muted-foreground" dateTime={reply.createdAt}>{formatDate(reply.createdAt)}</time>
                   </div>
-                  <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-foreground">{reply.replyText}</p>
-                </article>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Admin reply · {reply.deliveryStatus === "failed"
+                      ? "Email delivery failed"
+                      : `Sent via ${reply.deliveryChannel === "inbox" ? "candidate inbox" : "email"}`}
+                  </p>
+                  <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground">{reply.replyText}</p>
+                </li>
               ))}
-            </div>
-          )}
+            </ol>
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h3 className="text-sm font-semibold text-foreground">Reply to this feedback</h3>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {item.userId
-                  ? "The reply will be sent to the user's JOBSAGE inbox."
-                  : item.email
-                    ? `The reply will be sent to ${item.email}.`
-                    : "This submission has no account or email address for delivery."}
-              </p>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              data-testid={`button-open-feedback-reply-${item.id}`}
-              aria-expanded={replyOpen}
-              aria-controls={`feedback-reply-composer-${item.id}`}
-              onClick={onToggleReply}
-              disabled={!hasDeliveryRoute || replying}
-              className="shrink-0 gap-2"
-            >
-              <MessageSquareText className="h-3.5 w-3.5" />
-              {replies.length > 0 ? "Reply again" : "Reply"}
-            </Button>
-          </div>
-
-          {replyOpen && hasDeliveryRoute && (
-            <div id={`feedback-reply-composer-${item.id}`} className="space-y-2 rounded-xl bg-muted/35 p-3">
-              <label htmlFor={`feedback-reply-input-${item.id}`} className="block text-xs font-semibold text-foreground">Your reply</label>
+            <div className="space-y-3 border-t border-border pt-5">
+              <div>
+                <label htmlFor={`feedback-reply-input-${item.id}`} className="block text-sm font-semibold text-foreground">
+                  Reply to {item.userId ? "Candidate" : "Submitter"}
+                </label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {item.userId
+                    ? "Will be sent to the candidate's JOBSAGE inbox."
+                    : item.email
+                      ? `Will be sent via email to ${item.email}.`
+                      : "This submission has no account or email address for delivery."}
+                </p>
+              </div>
               <textarea
                 id={`feedback-reply-input-${item.id}`}
                 data-testid={`input-feedback-reply-${item.id}`}
                 value={replyDraft}
                 onChange={(event) => onReplyDraftChange(event.target.value)}
                 maxLength={5000}
-                rows={3}
-                placeholder="Write a helpful response…"
-                className="field-support min-h-20 resize-y text-sm"
+                rows={5}
+                disabled={!hasDeliveryRoute || replying}
+                placeholder="Write a clear response to the submitter…"
+                className="field-support min-h-28 resize-y text-sm"
               />
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs text-muted-foreground">
-                  {item.userId ? "Will be sent to the candidate's JOBSAGE inbox." : "Will be sent via email."}
-                </p>
+              <div className="flex flex-wrap gap-2">
                 <Button
                   type="button"
-                  size="sm"
                   data-testid={`button-send-feedback-reply-${item.id}`}
                   onClick={onReplySend}
-                  disabled={!replyDraft.trim() || replying}
+                  disabled={!hasDeliveryRoute || !replyDraft.trim() || replying}
                   className="gap-2"
                 >
-                  {replying ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                  {replying ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   {replying ? "Sending…" : "Send reply"}
                 </Button>
               </div>
             </div>
-          )}
-        </div>
+          </section>
+        )}
 
         <div className="border-t border-border/70 pt-4">
           <label htmlFor={`feedback-notes-${item.id}`} className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Admin notes</label>
