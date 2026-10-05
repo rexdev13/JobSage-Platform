@@ -1440,3 +1440,31 @@ mtime_ms = 1791226550309
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/345a3507-0d59-41c7-b49d-1921e3f9560e/af92d6ab-c0b4-41ec-ae85-a9853eaa286f"
 storage_version_token = "1791226622016446"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "RL3yWyJqNtHiU1RnWV8mC"
+uri = "file://artifacts/healthcare-sponsor-vacancy-live-validation-2026-10-06.csv"
+type = "table"
+title = "Healthcare vacancy live validation — CSV"
+description = "201 candidate URLs with live-page checks, duplicate results, application-link checks, READY/HOLD decisions, and a reason for each."
+logical_id = "13ad3cb5-d185-46bc-9637-65264fd6a100"
+content_hash = "sha256:59f18e168244f0c5282250a586d00934c3e2ae54f7d1aaf4cf359774661e20ec"
+size = 443265
+mtime_ms = 1791243103398
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/13ad3cb5-d185-46bc-9637-65264fd6a100/8a75793d-3478-45c4-8ee4-b73689bfc1a2"
+storage_version_token = "1791243242516895"
+content_type = "text/csv"
+
+[[outputs]]
+id = "Jr4XvEN8LVb1cArDry171"
+uri = "file://artifacts/healthcare-sponsor-vacancy-live-validation-2026-10-06.md"
+type = "text"
+title = "Healthcare vacancy live validation — report"
+description = "Summary totals, read-only database snapshot, validation method, and HOLD reason breakdown."
+logical_id = "956324c9-13b6-4928-9370-e1b7c928655e"
+content_hash = "sha256:294e5bfb465f57258419d7ea54b30fa80068bc7fcebd901dcb51ad7b29a74baf"
+size = 4272
+mtime_ms = 1791243207829
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/956324c9-13b6-4928-9370-e1b7c928655e/9b194095-366a-446b-bf0c-c4439248318d"
+storage_version_token = "1791243243196469"
+content_type = "text/markdown"
