@@ -1,0 +1,7 @@
+{
+  "capturedAt": "2026-10-06, before the guarded writer attempt",
+  "rowCount": 142847,
+  "blankWebsiteRows": 132456,
+  "blankAllThreeRows": 132456,
+  "note": "Read-only production snapshot. The writer preflight failed before connecting, so these remain pre-write counts, not a transaction receipt."
+}

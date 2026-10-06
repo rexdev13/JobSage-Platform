@@ -9,6 +9,7 @@
     "start": "node dist/index.cjs",
     "vacancy:jobs": "NODE_ENV=production node ./dist/vacancyJobs.cjs",
     "sponsor:stage1-ods-websites": "NODE_ENV=production tsx src/tools/applyStage1OdsWebsiteUpdates.ts",
+    "sponsor:stage2-ods-report": "tsx src/tools/generateStage2OdsWebsiteReport.ts",
     "seed:test-email-vacancy": "tsx src/scripts/seedTestEmailVacancy.ts",
     "seed:k6-fixture": "NODE_ENV=development tsx src/scripts/seedK6Fixture.ts",
     "promote:sponsor-websites:dev": "NODE_ENV=development tsx src/scripts/runSponsorWebsitePromotion.ts --apply-dev",

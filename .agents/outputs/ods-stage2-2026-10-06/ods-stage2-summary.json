@@ -1,0 +1,18 @@
+{
+  "generatedAt": "2026-10-06T17:31:48.539Z",
+  "candidateRows": 6804,
+  "sourceHealthcareRows": 6667,
+  "additionalRows": 137,
+  "odsSearchRecordCount": 544,
+  "odsDetailRecordCount": 78,
+  "counts": {
+    "NO_MATCH": 6725,
+    "CLEAN": 55,
+    "HELD": 15,
+    "CONFLICT": 9
+  },
+  "distinctCleanEmployers": 54,
+  "plannedTargets": 54,
+  "plannedWriteRows": 55,
+  "applyReceipt": null
+}
