@@ -20,9 +20,11 @@ import {
 } from "./stage2OdsWebsiteTargets";
 
 const WRITER_DATABASE_ENV = "COMPANY_SITE_WEBSITE_PRODUCTION_WRITE_DATABASE_URL";
+const DISCOVERY_READONLY_DATABASE_ENV = "COMPANY_SITE_DISCOVERY_READONLY_DATABASE_URL";
+const PROOF_DATABASE_ENV = "COMPANY_SITE_DISCOVERY_PROOF_DATABASE_URL";
 const READONLY_DATABASE_ENVS = [
-  "COMPANY_SITE_DISCOVERY_READONLY_DATABASE_URL",
-  "COMPANY_SITE_DISCOVERY_PROOF_DATABASE_URL",
+  DISCOVERY_READONLY_DATABASE_ENV,
+  PROOF_DATABASE_ENV,
 ] as const;
 const WORKSPACE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
 const FINGERPRINT_PATTERN = /^[0-9a-f]{32}$/i;
@@ -44,6 +46,7 @@ type RunOptions = {
   expectedFingerprint?: string;
   confirmed: boolean;
   confirmedRestore: boolean;
+  confirmProofCredentialReuse: boolean;
   stage2TargetsFile?: string;
   beforeImageFile?: string;
   restoreBeforeImageFile?: string;
@@ -115,6 +118,7 @@ function parseArguments(argv: readonly string[]): RunOptions {
       "expected-db-fingerprint",
       "confirm-production-ods-write",
       "confirm-production-ods-restore",
+      "confirm-proof-credential-reuse",
       "stage2-targets-file",
       "before-image-file",
       "restore-before-image-file",
@@ -133,12 +137,21 @@ function parseArguments(argv: readonly string[]): RunOptions {
   const apply = parseBoolean("apply");
   const confirmed = parseBoolean("confirm-production-ods-write");
   const confirmedRestore = parseBoolean("confirm-production-ods-restore");
+  const confirmProofCredentialReuse = parseBoolean("confirm-proof-credential-reuse");
   if (preflightOnly === apply) {
     throw new Error("Choose exactly one of --preflight-only=true or --apply=true.");
   }
   const stage2TargetsFile = values.get("stage2-targets-file");
   const beforeImageFile = values.get("before-image-file");
   const restoreBeforeImageFile = values.get("restore-before-image-file");
+  if (
+    confirmProofCredentialReuse &&
+    (!stage2TargetsFile || restoreBeforeImageFile)
+  ) {
+    throw new Error(
+      "--confirm-proof-credential-reuse=true is valid only for a Stage 2 ODS apply plan.",
+    );
+  }
   if (stage2TargetsFile && restoreBeforeImageFile) {
     throw new Error("Choose a Stage 2 apply plan or a before-image restore, not both.");
   }
@@ -175,6 +188,7 @@ function parseArguments(argv: readonly string[]): RunOptions {
     apply,
     confirmed,
     confirmedRestore,
+    confirmProofCredentialReuse,
     ...(stage2TargetsFile ? { stage2TargetsFile } : {}),
     ...(beforeImageFile ? { beforeImageFile } : {}),
     ...(restoreBeforeImageFile ? { restoreBeforeImageFile } : {}),
@@ -200,7 +214,10 @@ function credentialIdentity(value: string, environmentName: string): string {
   return `${decodeURIComponent(url.username)}\u0000${decodeURIComponent(url.password)}`;
 }
 
-function prepareWriterEnvironment(env: NodeJS.ProcessEnv): string {
+function prepareWriterEnvironment(
+  env: NodeJS.ProcessEnv,
+  confirmProofCredentialReuse: boolean,
+): string {
   if (env.NODE_ENV !== "production") {
     throw new Error("The production ODS writer requires NODE_ENV=production.");
   }
@@ -224,14 +241,22 @@ function prepareWriterEnvironment(env: NodeJS.ProcessEnv): string {
     throw new Error("Production writer resolves to the same database target as DATABASE_URL.");
   }
   const writerCredentials = credentialIdentity(writerUrl, WRITER_DATABASE_ENV);
+  const matchingCredentialEnvs: string[] = [];
   for (const key of READONLY_DATABASE_ENVS) {
     const readonlyUrl = env[key]?.trim();
-    if (
-      readonlyUrl &&
-      writerCredentials === credentialIdentity(readonlyUrl, key)
-    ) {
-      throw new Error("The production writer must use credentials separate from discovery and proof roles.");
+    if (readonlyUrl && writerCredentials === credentialIdentity(readonlyUrl, key)) {
+      matchingCredentialEnvs.push(key);
     }
+  }
+  const matchesProofCredential = matchingCredentialEnvs.includes(PROOF_DATABASE_ENV);
+  const matchesDiscoveryReadonlyCredential = matchingCredentialEnvs.includes(
+    DISCOVERY_READONLY_DATABASE_ENV,
+  );
+  if (matchesDiscoveryReadonlyCredential && !matchesProofCredential) {
+    throw new Error("The production writer cannot reuse the discovery read-only credentials.");
+  }
+  if (matchesProofCredential && !confirmProofCredentialReuse) {
+    throw new Error("Reusing proof credentials for the Stage 2 writer requires explicit confirmation.");
   }
 
   env.DATABASE_URL = writerUrl;
@@ -571,7 +596,10 @@ async function run(): Promise<void> {
   if (options.apply && beforeImagePath) {
     await assertFileDoesNotExist(beforeImagePath);
   }
-  prepareWriterEnvironment(process.env);
+  prepareWriterEnvironment(
+    process.env,
+    options.confirmProofCredentialReuse,
+  );
   const { db, pool } = await import("@workspace/db");
   try {
     const report = await db.transaction(async (transaction) => {
@@ -712,6 +740,7 @@ async function run(): Promise<void> {
             selectedEmployers: updates.length,
             plannedWriteRows: approvedWriteRows,
             writesAttempted: 0,
+            proofCredentialReuseConfirmed: options.confirmProofCredentialReuse,
             countsBefore,
             plannedUpdates: updates,
           };
@@ -781,6 +810,7 @@ async function run(): Promise<void> {
           selectedEmployers: updates.length,
           writesAttempted: updatedRows.length,
           updatedRows: updatedRows.length,
+          proofCredentialReuseConfirmed: options.confirmProofCredentialReuse,
           countsBefore,
           countsAfter,
           updated: updatedRows,
