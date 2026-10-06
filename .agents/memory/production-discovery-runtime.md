@@ -20,3 +20,11 @@ Read-only transaction settings do not mean the database role is least-privileged
 **Why:** The production proof connection used for discovery had both read-only settings enabled while its role retained broad privileges.
 
 **How to apply:** Keep proof runs on code paths that set the transaction read-only before querying and block every persistence path. Never reuse a proof credential in an importer or other write-enabled task; evaluate a separate approved credential and safeguards for authorized writes.
+
+## External database URL permissions
+
+Replit Secrets store connection strings; they do not create scoped URLs or set SQL permissions on an external PostgreSQL database. External database roles and grants are controlled by that database provider.
+
+**Why:** Repeatedly asking for a “Replit-scoped URL” confuses secret storage with database authorization and asks for a platform capability Replit does not provide.
+
+**How to apply:** Do not request a Replit-scoped URL. Check the credentials and grants actually configured at the database provider. If the available credential is also used for discovery or proof, do not bypass the separation guard or use it for writes.
