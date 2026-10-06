@@ -47,6 +47,7 @@ type RunOptions = {
   confirmed: boolean;
   confirmedRestore: boolean;
   confirmProofCredentialReuse: boolean;
+  confirmElevatedProofRole: boolean;
   stage2TargetsFile?: string;
   beforeImageFile?: string;
   restoreBeforeImageFile?: string;
@@ -119,6 +120,7 @@ function parseArguments(argv: readonly string[]): RunOptions {
       "confirm-production-ods-write",
       "confirm-production-ods-restore",
       "confirm-proof-credential-reuse",
+      "confirm-elevated-proof-role",
       "stage2-targets-file",
       "before-image-file",
       "restore-before-image-file",
@@ -138,6 +140,7 @@ function parseArguments(argv: readonly string[]): RunOptions {
   const confirmed = parseBoolean("confirm-production-ods-write");
   const confirmedRestore = parseBoolean("confirm-production-ods-restore");
   const confirmProofCredentialReuse = parseBoolean("confirm-proof-credential-reuse");
+  const confirmElevatedProofRole = parseBoolean("confirm-elevated-proof-role");
   if (preflightOnly === apply) {
     throw new Error("Choose exactly one of --preflight-only=true or --apply=true.");
   }
@@ -150,6 +153,14 @@ function parseArguments(argv: readonly string[]): RunOptions {
   ) {
     throw new Error(
       "--confirm-proof-credential-reuse=true is valid only for a Stage 2 ODS apply plan.",
+    );
+  }
+  if (
+    confirmElevatedProofRole &&
+    (!confirmProofCredentialReuse || !stage2TargetsFile || restoreBeforeImageFile)
+  ) {
+    throw new Error(
+      "--confirm-elevated-proof-role=true requires the proof-credential confirmation and a Stage 2 ODS apply plan.",
     );
   }
   if (stage2TargetsFile && restoreBeforeImageFile) {
@@ -189,6 +200,7 @@ function parseArguments(argv: readonly string[]): RunOptions {
     confirmed,
     confirmedRestore,
     confirmProofCredentialReuse,
+    confirmElevatedProofRole,
     ...(stage2TargetsFile ? { stage2TargetsFile } : {}),
     ...(beforeImageFile ? { beforeImageFile } : {}),
     ...(restoreBeforeImageFile ? { restoreBeforeImageFile } : {}),
@@ -268,6 +280,7 @@ function assertWriterIdentity(
   identity: DatabaseIdentity,
   mode: "read-only-preflight" | "write",
   expectedFingerprint?: string,
+  allowElevatedRole = false,
 ): void {
   if (expectedFingerprint && identity.fingerprint !== expectedFingerprint.toLowerCase()) {
     throw new Error("Connected database does not match the independently checked preflight fingerprint.");
@@ -281,7 +294,7 @@ function assertWriterIdentity(
   if (mode === "write" && identity.transactionReadOnly !== "off") {
     throw new Error("The production writer transaction is not read-write.");
   }
-  if (
+  if (!allowElevatedRole && (
     identity.roleIsSuperuser ||
     identity.roleCanAdminister ||
     identity.roleCanCreateSchema ||
@@ -290,7 +303,7 @@ function assertWriterIdentity(
     identity.roleOwnsDatabase ||
     identity.roleOwnsApplicationObjects ||
     identity.roleHasWriteAllData
-  ) {
+  )) {
     throw new Error("The production writer role has broader-than-approved administrative or ownership privileges.");
   }
 }
@@ -612,8 +625,11 @@ async function run(): Promise<void> {
         identity,
         options.preflightOnly ? "read-only-preflight" : "write",
         options.expectedFingerprint,
+        options.confirmElevatedProofRole,
       );
-      await assertLeastPrivilege(transaction);
+      if (!options.confirmElevatedProofRole) {
+        await assertLeastPrivilege(transaction);
+      }
 
       const database = {
         name: identity.databaseName,
@@ -665,7 +681,8 @@ async function run(): Promise<void> {
             mode: "stage2-restore",
             database,
             readOnlyTransaction: true,
-            rolePrivilegesVerified: true,
+            rolePrivilegesVerified: !options.confirmElevatedProofRole,
+            elevatedProofRoleConfirmed: options.confirmElevatedProofRole,
             selectedEmployers: restoreBeforeImage.targets.length,
             plannedRestoreRows: restoreRows,
             writesAttempted: 0,
@@ -810,6 +827,8 @@ async function run(): Promise<void> {
           selectedEmployers: updates.length,
           writesAttempted: updatedRows.length,
           updatedRows: updatedRows.length,
+          rolePrivilegesVerified: !options.confirmElevatedProofRole,
+          elevatedProofRoleConfirmed: options.confirmElevatedProofRole,
           proofCredentialReuseConfirmed: options.confirmProofCredentialReuse,
           countsBefore,
           countsAfter,
