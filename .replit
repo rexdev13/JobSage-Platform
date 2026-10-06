@@ -42,6 +42,7 @@ GOOGLE_CALENDAR_REDIRECT_URI = "https://jobsage.co.uk/api/marketer/calendar/goog
 [userenv.production]
 INTERNAL_SYNC_KEY = "dd1e3f9cbdc1ddb63409835bad58e09de58c0b73f5f0dd461cada94a6b4ae03e"
 COMPANY_SITE_SCHEMA_IMPORT_ENABLED = "true"
+COMPANY_SITE_REVIEWED_IMPORT_ENABLED = "true"
 
 [userenv.development]
 
