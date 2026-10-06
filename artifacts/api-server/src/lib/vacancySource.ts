@@ -96,7 +96,12 @@ function boardMetadata(url: URL): Omit<VacancySourceMetadata, "sourceType"> | nu
       externalListingId: path.match(/\/jobs\/([^/?#]+)/i)?.[1] ?? null,
     };
   }
-  if (hostMatches(host, "arbeitnow.com")) {
+  if (
+    hostMatches(host, "arbeitnow.com") ||
+    hostMatches(host, "arbeitnow.co.uk") ||
+    hostMatches(host, "arbeitnow.fr") ||
+    hostMatches(host, "arbeitnow.ch")
+  ) {
     return {
       boardName: "Arbeitnow",
       externalListingId: path.match(/\/jobs\/(?:companies\/[^/?#]+\/)?([^/?#]+)/i)?.[1] ?? null,

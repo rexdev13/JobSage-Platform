@@ -76,6 +76,15 @@ describe("job-board vacancy URL policy", () => {
       "https://www.arbeitnow.com/jobs/companies/dkbcodefactory/devops-engineer-berlin-20354",
     )).toBe(true);
     expect(isValidJobBoardVacancyDeepLink(
+      "https://www.arbeitnow.co.uk/jobs/companies/gymshark/senior-executive-creator-marketing-12m-ftc-solihull-293978",
+    )).toBe(true);
+    expect(isValidJobBoardVacancyDeepLink(
+      "https://www.arbeitnow.fr/jobs/companies/catonetworks/enterprise-sales-director-paris-paris-337612",
+    )).toBe(true);
+    expect(isValidJobBoardVacancyDeepLink(
+      "https://www.arbeitnow.ch/jobs/companies/example/senior-engineer-zurich-12345",
+    )).toBe(true);
+    expect(isValidJobBoardVacancyDeepLink(
       "https://jobicy.com/jobs/154706-crm-marketing-intern",
     )).toBe(true);
     expect(isValidJobBoardVacancyDeepLink(
@@ -91,6 +100,10 @@ describe("job-board vacancy URL policy", () => {
     expect(isValidJobBoardVacancyDeepLink(
       "https://www.arbeitnow.com/jobs/companies/dkbcodefactory",
     )).toBe(false);
+    expect(isValidJobBoardVacancyDeepLink(
+      "https://www.arbeitnow.co.uk/jobs/companies/gymshark",
+    )).toBe(false);
+    expect(isValidJobBoardVacancyDeepLink("https://www.arbeitnow.fr/jobs")).toBe(false);
     expect(isValidJobBoardVacancyDeepLink(
       "https://himalayas.app/companies/trillium-health-resources/jobs",
     )).toBe(false);

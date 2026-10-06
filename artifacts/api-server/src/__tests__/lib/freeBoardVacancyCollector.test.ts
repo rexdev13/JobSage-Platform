@@ -80,6 +80,13 @@ describe("free-board vacancy collector", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    Object.assign(storedState, {
+      parserVersion: "fixture-v1",
+      cursor: null,
+      sweepStartedAt: null,
+      consecutiveFailures: 0,
+      nextRetryAt: null,
+    });
     mocks.sources.splice(0);
     mocks.sources.push({
       id: "fixture-source",
@@ -188,6 +195,44 @@ describe("free-board vacancy collector", () => {
     expect(mocks.syncLogs[0]).toMatchObject({
       status: "error",
       jobKind: "free_board_sources",
+    });
+  });
+
+  it("retries immediately when a parser version changes during backoff", async () => {
+    Object.assign(storedState, {
+      parserVersion: "fixture-v0",
+      cursor: "old-cursor",
+      sweepStartedAt: new Date("2026-10-05T00:00:00.000Z"),
+      consecutiveFailures: 1,
+      nextRetryAt: new Date(Date.now() + 60_000),
+    });
+
+    const summary = await runFreeBoardVacancyCollector({
+      pagesPerSource: 1,
+      deadlineMs: Date.now() + 60_000,
+    });
+
+    expect(summary).toMatchObject({
+      selected: 1,
+      upserted: 1,
+      errors: 0,
+      done: false,
+      remaining: 1,
+      metrics: {
+        sources: [{
+          sourceId: "fixture-source",
+          outcome: "partial",
+          nextCursor: "cursor-2",
+        }],
+      },
+    });
+    expect(mocks.fetchPage).toHaveBeenCalledWith(
+      expect.objectContaining({ cursor: null }),
+    );
+    expect(mocks.stateWrites[0]).toMatchObject({
+      parserVersion: "fixture-v1",
+      cursor: null,
+      nextRetryAt: null,
     });
   });
 });

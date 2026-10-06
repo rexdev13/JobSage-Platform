@@ -41,6 +41,27 @@ describe("vacancy source metadata", () => {
       externalListingId: "devops-engineer-berlin-20354",
     });
     expect(classifyVacancySource(
+      "https://www.arbeitnow.co.uk/jobs/companies/gymshark/senior-executive-creator-marketing-12m-ftc-solihull-293978",
+    )).toEqual({
+      sourceType: "job_board",
+      boardName: "Arbeitnow",
+      externalListingId: "senior-executive-creator-marketing-12m-ftc-solihull-293978",
+    });
+    expect(classifyVacancySource(
+      "https://www.arbeitnow.fr/jobs/companies/catonetworks/enterprise-sales-director-paris-paris-337612",
+    )).toEqual({
+      sourceType: "job_board",
+      boardName: "Arbeitnow",
+      externalListingId: "enterprise-sales-director-paris-paris-337612",
+    });
+    expect(classifyVacancySource(
+      "https://www.arbeitnow.ch/jobs/companies/example/senior-engineer-zurich-12345",
+    )).toEqual({
+      sourceType: "job_board",
+      boardName: "Arbeitnow",
+      externalListingId: "senior-engineer-zurich-12345",
+    });
+    expect(classifyVacancySource(
       "https://jobicy.com/jobs/154706-crm-marketing-intern",
     )).toEqual({
       sourceType: "job_board",

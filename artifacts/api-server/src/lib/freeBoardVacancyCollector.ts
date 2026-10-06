@@ -269,8 +269,9 @@ export async function runFreeBoardVacancyCollector(options: {
       continue;
     }
 
+    const parserChanged = storedState.parserVersion !== source.parserVersion;
     const now = new Date();
-    if (storedState.nextRetryAt && storedState.nextRetryAt > now) {
+    if (!parserChanged && storedState.nextRetryAt && storedState.nextRetryAt > now) {
       remaining += 1;
       metrics.push({
         sourceId: source.id,
@@ -291,7 +292,6 @@ export async function runFreeBoardVacancyCollector(options: {
       continue;
     }
 
-    const parserChanged = storedState.parserVersion !== source.parserVersion;
     let cursor = parserChanged ? null : storedState.cursor;
     let sweepStartedAt = cursor
       ? storedState.sweepStartedAt ?? now

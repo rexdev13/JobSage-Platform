@@ -93,3 +93,4 @@
 - [Audit CSV alignment](scan-csv-alignment.md) — check named header/value pairings on target and candidate rows; equal column counts can still hide shifted fields.
 - [Healthcare industry classification](healthcare-industry-classification.md) — NHS Trust rows may be labeled Public Services, so supplement Healthcare filters with bounded NHS/hospital name searches.
 - [Cross-sector vacancy coverage](cross-sector-vacancy-coverage.md) — target dependable, evidence-based vacancy discovery across job boards and employer sites; report measured coverage, not completeness guarantees.
+- [Free-feed regional domains](free-feed-regional-domains.md) — live job feeds may use country-specific listing hosts that differ from their API endpoint.

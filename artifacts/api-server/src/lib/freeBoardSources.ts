@@ -599,7 +599,7 @@ export const FREE_BOARD_SOURCES: readonly FreeBoardSource[] = [
     id: "arbeitnow",
     provider: "arbeitnow",
     boardName: "Arbeitnow",
-    parserVersion: "arbeitnow-v1",
+    parserVersion: "arbeitnow-v3",
     maxPagesPerRun: 20,
     async fetchPage({ cursor, deadlineMs }) {
       const page = pageNumber(cursor);
@@ -615,7 +615,7 @@ export const FREE_BOARD_SOURCES: readonly FreeBoardSource[] = [
       }
       const jobs = response.data;
       const adverts = jobs.map((job) => makeAdvert(
-        { id: "arbeitnow", provider: "arbeitnow", boardName: "Arbeitnow", parserVersion: "arbeitnow-v1" },
+        { id: "arbeitnow", provider: "arbeitnow", boardName: "Arbeitnow", parserVersion: "arbeitnow-v3" },
         {
           externalId: job.slug,
           title: job.title,

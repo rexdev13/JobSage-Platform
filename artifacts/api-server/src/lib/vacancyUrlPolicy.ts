@@ -335,7 +335,12 @@ export function isValidJobBoardVacancyDeepLink(url: string | null | undefined): 
   if (hostMatches(host, "teaching-vacancies.service.gov.uk")) {
     return /^\/jobs\/[^/?#]+$/i.test(path);
   }
-  if (hostMatches(host, "arbeitnow.com")) {
+  if (
+    hostMatches(host, "arbeitnow.com") ||
+    hostMatches(host, "arbeitnow.co.uk") ||
+    hostMatches(host, "arbeitnow.fr") ||
+    hostMatches(host, "arbeitnow.ch")
+  ) {
     return /^\/jobs\/(?:companies\/[^/?#]+\/)?[^/?#]+$/i.test(path);
   }
   if (hostMatches(host, "jobicy.com")) {
