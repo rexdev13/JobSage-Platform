@@ -19,7 +19,15 @@ import {
   type LoadedEmployerInput,
 } from "./companySiteDiscoveryInput";
 import {
+  fetchCompanySiteEvidencePages,
+  type CompanySiteEvidenceAttempt,
+  type CompanySiteEvidencePage,
+} from "../lib/companySiteAtsEvidence";
+import {
+  classifyOperatorEvidenceAttempt,
+  classifyOperatorEvidenceOutcome,
   HEALTHCARE_SELECTOR,
+  isFirstPartyEvidenceHost,
   matchesHealthcareSelector,
   savedCareersOnlyPageUrls,
 } from "./companySiteAtsScope";
@@ -47,6 +55,7 @@ type Candidate = {
   boardId: string;
   careersUrl: string;
   evidenceUrl: string;
+  discoveryRoute: "employer_site" | "operator_supplied_first_party_evidence";
 };
 
 type PublicSource = {
@@ -188,12 +197,6 @@ function recruitmentSignal(source: PublicSource): boolean {
     .test(`${source.url.hostname} ${source.url.pathname} ${source.text}`);
 }
 
-function firstPartyHost(hostname: string, rootHostname: string): boolean {
-  const host = hostname.toLowerCase().replace(/\.$/, "");
-  const root = rootHostname.toLowerCase().replace(/\.$/, "");
-  return host === root || host.endsWith(`.${root}`);
-}
-
 function safeErrorCategory(value: unknown): string {
   const message = value instanceof Error ? value.message : String(value ?? "");
   if (/timeout|timed out|deadline|abort/i.test(message)) return "timeout";
@@ -229,6 +232,8 @@ function summarizeRecords(records: Record<string, unknown>[]) {
   const samplesByOutcome = Object.fromEntries(
     outcomes.map((outcome) => [outcome, [] as Record<string, unknown>[]]),
   ) as Record<SourceOutcome, Record<string, unknown>[]>;
+  const operatorEvidenceOutcomes: Record<string, number> = {};
+  const operatorEvidenceAttemptOutcomes: Record<string, number> = {};
   const unknownDomains = new Map<string, { count: number; employers: Set<string> }>();
 
   for (const record of records) {
@@ -236,6 +241,21 @@ function summarizeRecords(records: Record<string, unknown>[]) {
       ? record.outcome as SourceOutcome
       : "unresolved";
     counts[outcome] += 1;
+    const evidenceOutcome = typeof record.operatorEvidenceOutcome === "string"
+      ? record.operatorEvidenceOutcome
+      : "not_provided";
+    operatorEvidenceOutcomes[evidenceOutcome] =
+      (operatorEvidenceOutcomes[evidenceOutcome] ?? 0) + 1;
+    if (Array.isArray(record.operatorEvidenceAttempts)) {
+      for (const attempt of record.operatorEvidenceAttempts) {
+        if (!attempt || typeof attempt !== "object") continue;
+        const attemptOutcome = classifyOperatorEvidenceAttempt(
+          attempt as Parameters<typeof classifyOperatorEvidenceAttempt>[0],
+        );
+        operatorEvidenceAttemptOutcomes[attemptOutcome] =
+          (operatorEvidenceAttemptOutcomes[attemptOutcome] ?? 0) + 1;
+      }
+    }
     if (samplesByOutcome[outcome].length < 10) {
       samplesByOutcome[outcome].push({
         organisationName: record.organisationName,
@@ -244,6 +264,11 @@ function summarizeRecords(records: Record<string, unknown>[]) {
         boardId: record.boardId ?? null,
         careersUrl: record.careersUrl ?? null,
         outcome,
+        discoveryRoute: record.discoveryRoute ?? null,
+        operatorEvidenceOutcome: evidenceOutcome,
+        operatorEvidenceAttempts: Array.isArray(record.operatorEvidenceAttempts)
+          ? record.operatorEvidenceAttempts.slice(0, 5)
+          : [],
         rejectionReason: record.rejectionReason ?? null,
         feedIdentityStatus: record.feedIdentityStatus ?? null,
         identityClaims: Array.isArray(record.identityClaims)
@@ -279,6 +304,8 @@ function summarizeRecords(records: Record<string, unknown>[]) {
   return {
     employersByOutcome: counts,
     samplesByOutcome,
+    operatorEvidenceOutcomes,
+    operatorEvidenceAttemptOutcomes,
     unresolvedUnknownDomainCount: unknownDomains.size,
     topUnknownDomains,
   };
@@ -355,37 +382,91 @@ async function pagesForEmployer(
   helpers: DiscoveryHelpers,
   noHostState: boolean,
   savedCareersOnly: boolean,
-): Promise<Array<{ url: string; body: string }>> {
+): Promise<{ pages: Array<{
+  url: string;
+  body: string;
+  source: "employer_site" | "operator_supplied_first_party_evidence";
+}>; attempts: CompanySiteEvidenceAttempt[] }> {
   const root = safeUrl(employer.website);
-  if (!root) return [];
+  if (!root) return { pages: [], attempts: [] };
   const careers = employer.careers_url ? safeUrl(employer.careers_url) : null;
-  const preferredCareers = careers && careers.hostname.toLowerCase() === root.hostname.toLowerCase()
+  const preferredCareers = careers && isFirstPartyEvidenceHost(careers.hostname, root.hostname)
     ? careers.toString()
     : null;
-  const urls: string[] = savedCareersOnly
+  const employerUrls: string[] = savedCareersOnly
     ? savedCareersOnlyPageUrls(employer)
     : [preferredCareers ?? root.toString()];
   for (const saved of savedCareersOnly ? [] : [employer.careers_url, employer.ats_mapping_evidence_url]) {
     if (!saved) continue;
     const parsed = safeUrl(saved);
-    if (parsed && parsed.hostname.toLowerCase() === root.hostname.toLowerCase()) {
-      urls.push(parsed.toString());
+    if (parsed && isFirstPartyEvidenceHost(parsed.hostname, root.hostname)) {
+      employerUrls.push(parsed.toString());
     }
   }
-  if (!savedCareersOnly && preferredCareers) urls.push(root.toString());
-  const pages: Array<{ url: string; body: string }> = [];
-  for (const url of [...new Set(urls)].slice(0, MAX_PAGES_PER_EMPLOYER)) {
-    if (Date.now() >= deadlineMs) break;
-    const response = await helpers.fetchCompanySitePage(
+  if (!savedCareersOnly && preferredCareers) employerUrls.push(root.toString());
+  const operatorUrls = (employer.operator_evidence_urls ?? [])
+    .map((value) => safeUrl(value))
+    .filter((value): value is URL => value !== null);
+  const validOperatorUrls = operatorUrls.filter((url) => isFirstPartyEvidenceHost(url.hostname, root.hostname));
+  const invalidOperatorUrls = operatorUrls.filter((url) => !isFirstPartyEvidenceHost(url.hostname, root.hostname));
+  const operatorUrlSet = new Set(validOperatorUrls.map((url) => url.toString()));
+  const uniqueEmployerUrls = [...new Set(employerUrls)]
+    .filter((url) => !operatorUrlSet.has(url));
+  const alternativeSlots = Math.min(validOperatorUrls.length, MAX_PAGES_PER_EMPLOYER - 1);
+  const pageLimitForEmployerUrls = validOperatorUrls.length > 0
+    ? Math.max(1, MAX_PAGES_PER_EMPLOYER - alternativeSlots)
+    : MAX_PAGES_PER_EMPLOYER;
+  const scheduled: Array<{
+    url: string;
+    source: CompanySiteEvidencePage["source"];
+  }> = [
+    ...uniqueEmployerUrls.slice(0, pageLimitForEmployerUrls).map((url) => ({
       url,
-      root.hostname,
-      deadlineMs,
-      1_000_000,
-      { readOnly: true, noHostState },
-    );
-    if (response.ok) pages.push({ url: response.url, body: response.body });
-  }
-  return pages;
+      source: "employer_site" as const,
+    })),
+    ...validOperatorUrls.map((url) => ({
+      url: url.toString(),
+      source: "operator_supplied_first_party_evidence" as const,
+    })),
+  ].slice(0, MAX_PAGES_PER_EMPLOYER);
+  const invalidAttempts: CompanySiteEvidenceAttempt[] = invalidOperatorUrls.map((url) => ({
+    url: `${url.origin}${url.pathname}`,
+    source: "operator_supplied_first_party_evidence",
+    fetched: false,
+    failureKind: "unsafe",
+    reason: "operator evidence URL is not on the employer website or its subdomain",
+    invalidFirstParty: true,
+  }));
+  const scheduledOperatorUrlSet = new Set(
+    scheduled
+      .filter((item) => item.source === "operator_supplied_first_party_evidence")
+      .map((item) => item.url),
+  );
+  const pageLimitAttempts: CompanySiteEvidenceAttempt[] = validOperatorUrls
+    .filter((url) => !scheduledOperatorUrlSet.has(url.toString()))
+    .map((url) => ({
+      url: safePathUrl(url.toString()) ?? url.toString(),
+      source: "operator_supplied_first_party_evidence",
+      fetched: false,
+      failureKind: "not_attempted_page_limit",
+      reason: "not attempted because the per-employer page limit was reached",
+      notAttemptedReason: "page_limit",
+    }));
+  const fetched = await fetchCompanySiteEvidencePages({
+    scheduled,
+    originHostname: root.hostname,
+    deadlineMs,
+    noHostState,
+    fetchPage: helpers.fetchCompanySitePage,
+  });
+  const safeAttempts = fetched.attempts.map((attempt) => ({
+    ...attempt,
+    url: safePathUrl(attempt.url) ?? attempt.url,
+  }));
+  return {
+    pages: fetched.pages,
+    attempts: [...invalidAttempts, ...safeAttempts, ...pageLimitAttempts],
+  };
 }
 
 async function discoverEmployer(
@@ -416,13 +497,21 @@ async function discoverEmployer(
   }
 
   const employerDeadline = Date.now() + EMPLOYER_DEADLINE_MS;
-  const pages = await pagesForEmployer(
+  const { pages, attempts: pageAttempts } = await pagesForEmployer(
     employer,
     employerDeadline,
     helpers,
     noHostState,
     savedCareersOnly,
   );
+  const operatorEvidenceAttempts = pageAttempts.filter(
+    (attempt) => attempt.source === "operator_supplied_first_party_evidence",
+  );
+  const baseOperatorEvidenceOutcome = classifyOperatorEvidenceOutcome({
+    provided: (employer.operator_evidence_urls ?? []).length > 0,
+    verified: false,
+    attempts: operatorEvidenceAttempts,
+  });
   const candidates = new Map<string, Candidate>();
   const rejections: string[] = [];
   const unknownDomains = new Set<string>();
@@ -430,7 +519,7 @@ async function discoverEmployer(
     for (const source of publicSources(page.body, page.url)) {
       const provider = providerForHost(source.url.hostname);
       if (!provider) {
-        if (!firstPartyHost(source.url.hostname, root.hostname) && recruitmentSignal(source)) {
+        if (!isFirstPartyEvidenceHost(source.url.hostname, root.hostname) && recruitmentSignal(source)) {
           unknownDomains.add(source.url.hostname.toLowerCase());
         }
         continue;
@@ -450,6 +539,7 @@ async function discoverEmployer(
         boardId: mapping.boardId,
         careersUrl: mapping.evidenceUrl,
         evidenceUrl: page.url,
+        discoveryRoute: page.source,
       };
       candidates.set(`${candidate.provider}:${candidate.boardId.toLowerCase()}`, candidate);
     }
@@ -487,6 +577,7 @@ async function discoverEmployer(
     const verified = helpers.hasPositiveAtsFeedEvidence(identityEvidence, employer.organisation_name);
     const attempt = {
       provider: candidate.provider,
+      discoveryRoute: candidate.discoveryRoute,
       boardId: candidate.boardId,
       careersUrl: safePathUrl(candidate.careersUrl),
       evidenceUrl: safePathUrl(candidate.evidenceUrl),
@@ -509,10 +600,19 @@ async function discoverEmployer(
     candidateAttempts.push(attempt);
     if (!verified) continue;
 
+    const operatorEvidenceOutcome = classifyOperatorEvidenceOutcome({
+      provided: (employer.operator_evidence_urls ?? []).length > 0,
+      verified: candidate.discoveryRoute === "operator_supplied_first_party_evidence",
+      attempts: operatorEvidenceAttempts,
+    });
     return [{
       ...common,
       status: "verified_feed",
       outcome: "verified_ats_feed",
+      discoveryRoute: candidate.discoveryRoute,
+      operatorEvidenceOutcome,
+      operatorEvidenceAttempts,
+      pageAttempts,
       provider: candidate.provider,
       boardId: candidate.boardId,
       careersUrl: safePathUrl(candidate.careersUrl),
@@ -536,8 +636,9 @@ async function discoverEmployer(
     }];
   }
 
-  const fallbackSourceUrl = pages[0]?.url ??
-    (savedCareersOnly ? safePathUrl(employer.careers_url) : root.toString());
+  const fallbackSourceUrl = pages.find(
+    (page) => page.source === "operator_supplied_first_party_evidence",
+  )?.url ?? pages[0]?.url ?? null;
   let generic: Awaited<ReturnType<DiscoveryHelpers["discoverCompanySiteVacancies"]>> | null = null;
   if (fallbackSourceUrl && Date.now() < employerDeadline) {
     generic = await helpers.discoverCompanySiteVacancies(
@@ -557,7 +658,7 @@ async function discoverEmployer(
       try {
         const url = new URL(link.url);
         if (providerForHost(url.hostname) ||
-            firstPartyHost(url.hostname, root.hostname) ||
+            isFirstPartyEvidenceHost(url.hostname, root.hostname) ||
             !recruitmentSignal({ url, text: link.text, kind: "anchor" })) continue;
         unknownDomains.add(url.hostname.toLowerCase());
       } catch {
@@ -610,10 +711,22 @@ async function discoverEmployer(
     rejectionReason = "employer_deadline_reached_before_generic_fallback";
   } else if (savedCareersOnly && !fallbackSourceUrl) {
     rejectionReason = "saved_careers_page_unavailable";
+  } else if (pages.length === 0 && operatorEvidenceAttempts.some(
+    (attempt) => attempt.failureKind === "rate_limited",
+  )) {
+    rejectionReason = "operator_evidence_rate_limited";
+  } else if (pages.length === 0 && operatorEvidenceAttempts.some(
+    (attempt) => attempt.failureKind === "robots",
+  )) {
+    rejectionReason = "operator_evidence_robots_blocked";
   } else if (candidateAttempts.length === 0 && !rejections.length && unknownDomains.size === 0) {
     rejectionReason = fallbackDiagnostics?.pageFetches.find((fetch) => !fetch.fetched)?.failureKind
       ? `site_fetch_${fallbackDiagnostics.pageFetches.find((fetch) => !fetch.fetched)?.failureKind}`
-      : "no_ats_structured_jobposting_or_sitemap_listings";
+      : baseOperatorEvidenceOutcome === "rate_limited"
+        ? "operator_evidence_rate_limited"
+        : baseOperatorEvidenceOutcome === "robots_blocked"
+          ? "operator_evidence_robots_blocked"
+          : "no_ats_structured_jobposting_or_sitemap_listings";
   }
 
   const outcome = structuredVerified
@@ -629,6 +742,12 @@ async function discoverEmployer(
         ? "sitemap_job_listings"
         : "no_verified_direct_feed",
     outcome,
+    discoveryRoute: pages.find(
+      (page) => page.source === "operator_supplied_first_party_evidence",
+    ) ? "operator_supplied_first_party_evidence" : "employer_site",
+    operatorEvidenceOutcome: baseOperatorEvidenceOutcome,
+    operatorEvidenceAttempts,
+    pageAttempts,
     provider: typeof firstAttempt?.provider === "string"
       ? firstAttempt.provider
       : employer.ats_provider,

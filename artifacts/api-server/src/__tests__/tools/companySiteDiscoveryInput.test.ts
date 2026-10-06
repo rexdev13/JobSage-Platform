@@ -74,4 +74,34 @@ describe("company-site employer input provenance", () => {
     );
     await expect(loadEmployerInput(mixed)).rejects.toThrow("same source_environment");
   });
+
+  it("loads bounded first-party evidence URLs and strips query strings and fragments", async () => {
+    const filePath = await temporaryFile("evidence.json", JSON.stringify({
+      sourceEnvironment: "development",
+      sourceDescription: "operator-reviewed healthcare evidence",
+      employers: [{
+        organisation_name: "Example Employer",
+        website: "https://example.org",
+        operator_evidence_urls: [
+          "https://careers.example.org/open-roles?tracking=ignored#current",
+        ],
+      }],
+    }));
+    const input = await loadEmployerInput(filePath);
+    expect(input.employers[0]?.operator_evidence_urls)
+      .toEqual(["https://careers.example.org/open-roles"]);
+  });
+
+  it("rejects operator evidence URLs that are not public HTTPS URLs", async () => {
+    const filePath = await temporaryFile("unsafe-evidence.json", JSON.stringify({
+      sourceEnvironment: "development",
+      sourceDescription: "operator-reviewed healthcare evidence",
+      employers: [{
+        organisation_name: "Example Employer",
+        website: "https://example.org",
+        operator_evidence_urls: ["http://careers.example.org/jobs"],
+      }],
+    }));
+    await expect(loadEmployerInput(filePath)).rejects.toThrow("public HTTPS URLs");
+  });
 });

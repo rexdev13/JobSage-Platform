@@ -12,6 +12,7 @@ export type EmployerRow = {
   website: string;
   industry?: string | null;
   careers_url: string | null;
+  operator_evidence_urls: string[];
   ats_provider: string | null;
   ats_board_id: string | null;
   ats_mapping_status: string | null;
@@ -30,6 +31,37 @@ function optionalText(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+function operatorEvidenceUrls(value: unknown, index: number): string[] {
+  const values = Array.isArray(value)
+    ? value
+    : typeof value === "string" && value.trim()
+      ? value.split(";").map((url) => url.trim()).filter(Boolean)
+      : [];
+  if (values.length > 5) {
+    throw new Error(`Employer input row ${index + 1} may contain at most five operator_evidence_urls.`);
+  }
+  const urls: string[] = [];
+  for (const value of values) {
+    if (typeof value !== "string" || !value.trim()) {
+      throw new Error(`Employer input row ${index + 1} contains an invalid operator evidence URL.`);
+    }
+    let url: URL;
+    try {
+      url = new URL(value.trim());
+    } catch {
+      throw new Error(`Employer input row ${index + 1} contains an invalid operator evidence URL.`);
+    }
+    if (url.protocol !== "https:" || url.username || url.password || url.port) {
+      throw new Error(`Employer input row ${index + 1} operator evidence URLs must be public HTTPS URLs without credentials or custom ports.`);
+    }
+    url.search = "";
+    url.hash = "";
+    const canonical = url.toString();
+    if (!urls.includes(canonical)) urls.push(canonical);
+  }
+  return urls;
+}
+
 function employerFromInput(value: unknown, index: number): EmployerRow {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`Employer input row ${index + 1} must be an object.`);
@@ -45,6 +77,10 @@ function employerFromInput(value: unknown, index: number): EmployerRow {
     website,
     industry: optionalText(row.industry),
     careers_url: optionalText(row.careers_url ?? row.careersUrl),
+    operator_evidence_urls: operatorEvidenceUrls(
+      row.operator_evidence_urls ?? row.operatorEvidenceUrls,
+      index,
+    ),
     ats_provider: optionalText(row.ats_provider ?? row.atsProvider),
     ats_board_id: optionalText(row.ats_board_id ?? row.atsBoardId),
     ats_mapping_status: optionalText(row.ats_mapping_status ?? row.atsMappingStatus),
