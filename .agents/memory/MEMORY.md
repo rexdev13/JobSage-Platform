@@ -82,7 +82,7 @@
 - [Durable CodeExecution date handling](durable-codeexecution-date-handling.md) — use workspace TypeScript for time-zone parsing; the durable sandbox lacks Intl, TextDecoder, and Date.now.
 - [Durable CodeExecution file budget](durable-codeexecution-file-budget.md) — large read/modify/write callback batches can exceed the sandbox’s shared 3 MB per-block budget.
 - [External bulk lookup keys](external-bulk-lookup-keys.md) — third-party enrichment uploads should use synthetic row keys; keep internal database IDs in a local-only join map.
-- [Production sponsor import identity](production-sponsor-import-identity.md) — IDs differ across environments; use a fresh production crosswalk and the guarded blank-only admin importer.
+- [Production sponsor import identity](production-sponsor-import-identity.md) — environment-local IDs are never portable; resolve reviewed vacancy imports by name in the target DB and skip existing rows.
 - [Sponsor URL import fan-out](sponsor-url-import-fanout.md) — only fan out identical complete identities to blank rows; manual crosswalks select one target and held rows stay outside vacancy inputs.
 - [Secret scope verification](secret-scope-verification.md) — confirm published-app scope; production environment changes require republishing before they take effect.
 - [Git authentication and merge-safe pushes](git-auth-vs-connectors.md) — CLI auth is separate from connectors; inspect and preserve merge commits when Git-pane sync triggers a rebase.

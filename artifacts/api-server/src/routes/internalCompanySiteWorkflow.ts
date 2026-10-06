@@ -6,6 +6,14 @@ import {
   runReadOnlyDiscovery,
 } from "../lib/companySiteWorkflow";
 import { loadWorkflowReport, saveWorkflowReport } from "../lib/companySiteWorkflowReports";
+import {
+  applyReviewedCompanySiteCsv,
+  previewReviewedCompanySiteCsv,
+  REVIEWED_COMPANY_SITE_IMPORT_CONFIRMATION,
+  REVIEWED_COMPANY_SITE_IMPORT_MAX_BYTES,
+  ReviewedCompanySiteImportInputError,
+  ReviewedCompanySiteImportTokenError,
+} from "../lib/reviewedCompanySiteImport";
 import { runHealthcareCompanySiteBatch } from "../lib/healthcareCompanySiteBatch";
 import {
   HEALTHCARE_BATCH_APPLY_CONFIRMATION,
@@ -23,6 +31,10 @@ const router = Router();
 const reviewedMappingUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 1_000_000, files: 1, fields: 8 },
+}).single("file");
+const reviewedVacancyCsvUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: REVIEWED_COMPANY_SITE_IMPORT_MAX_BYTES, files: 1, fields: 4 },
 }).single("file");
 
 function authenticate(req: Request, res: Response): boolean {
@@ -50,6 +62,24 @@ function parseReviewedMappingUpload(req: Request, res: Response, next: () => voi
     }
     next();
   });
+}
+
+function parseReviewedVacancyCsvUpload(req: Request, res: Response, next: () => void): void {
+  reviewedVacancyCsvUpload(req, res, (error) => {
+    if (error) {
+      res.status(400).json({ error: "Reviewed vacancy CSV is invalid or exceeds the 1 MB limit." });
+      return;
+    }
+    next();
+  });
+}
+
+function requireReviewedVacancyImportEnabled(_req: Request, res: Response, next: () => void): void {
+  if (process.env.COMPANY_SITE_REVIEWED_IMPORT_ENABLED !== "true") {
+    res.status(503).json({ error: "Reviewed company-site import is disabled." });
+    return;
+  }
+  next();
 }
 
 router.post("/internal/company-site-discovery/read-only", async (req, res) => {
@@ -108,6 +138,87 @@ router.post("/internal/company-site-mappings/apply", async (req, res) => {
     res.status(400).json({ error: error instanceof Error ? error.message : "Workflow failed." });
   }
 });
+
+router.post(
+  "/internal/company-site-vacancies/reviewed-import/dry-run",
+  authenticateMiddleware,
+  requireReviewedVacancyImportEnabled,
+  parseReviewedVacancyCsvUpload,
+  async (req, res) => {
+    if (!req.file || !req.file.originalname.toLowerCase().endsWith(".csv")) {
+      res.status(400).json({ error: "Attach the reviewed validation snapshot as a .csv file named file." });
+      return;
+    }
+    try {
+      const preview = await previewReviewedCompanySiteCsv(req.file.buffer);
+      const { dryRunToken, tokenExpiresAt, ...auditableReport } = preview;
+      const saved = await saveWorkflowReport("dry-run", {
+        workflow: "reviewed_explicit_company_site_vacancy_import",
+        ...auditableReport,
+        uploadedSponsorAndDatabaseIdsIgnored: true,
+      });
+      res.status(200).json({ ...saved, dryRunToken, tokenExpiresAt });
+    } catch (error) {
+      if (error instanceof ReviewedCompanySiteImportInputError) {
+        res.status(400).json({ error: error.message });
+        return;
+      }
+      res.status(500).json({ error: "Reviewed vacancy dry-run failed; no vacancy rows were written." });
+    }
+  },
+);
+
+router.post(
+  "/internal/company-site-vacancies/reviewed-import/apply",
+  authenticateMiddleware,
+  requireReviewedVacancyImportEnabled,
+  parseReviewedVacancyCsvUpload,
+  async (req, res) => {
+    if (!req.file || !req.file.originalname.toLowerCase().endsWith(".csv")) {
+      res.status(400).json({ error: "Attach the reviewed validation snapshot as a .csv file named file." });
+      return;
+    }
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    if (body.confirmApply !== REVIEWED_COMPANY_SITE_IMPORT_CONFIRMATION) {
+      res.status(400).json({
+        error: `apply requires confirmApply to equal "${REVIEWED_COMPANY_SITE_IMPORT_CONFIRMATION}".`,
+      });
+      return;
+    }
+    if (typeof body.dryRunToken !== "string" || body.dryRunToken.length > 4096) {
+      res.status(400).json({ error: "A valid dryRunToken from the matching preview is required." });
+      return;
+    }
+    let report: Awaited<ReturnType<typeof applyReviewedCompanySiteCsv>>;
+    try {
+      report = await applyReviewedCompanySiteCsv(req.file.buffer, body.dryRunToken);
+    } catch (error) {
+      if (error instanceof ReviewedCompanySiteImportInputError) {
+        res.status(400).json({ error: error.message });
+        return;
+      }
+      if (error instanceof ReviewedCompanySiteImportTokenError) {
+        res.status(409).json({ error: error.message });
+        return;
+      }
+      res.status(500).json({ error: "Reviewed vacancy apply failed before the writer confirmed an outcome." });
+      return;
+    }
+    try {
+      const saved = await saveWorkflowReport("apply", {
+        workflow: "reviewed_explicit_company_site_vacancy_import",
+        ...report,
+        uploadedSponsorAndDatabaseIdsIgnored: true,
+      });
+      res.status(200).json(saved);
+    } catch {
+      res.status(500).json({
+        error: "Apply returned, but the durable audit report could not be saved. Do not assume the vacancy transaction was rolled back.",
+        applyResult: report,
+      });
+    }
+  },
+);
 
 /**
  * Reviewed named-employer company-site batch. Sector defaults to healthcare so

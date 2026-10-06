@@ -50,6 +50,8 @@ export interface BoardAdvert {
   closesAt?: Date | null;
   expiresAt?: Date | null;
   closedReason?: string | null;
+  /** Ephemeral import correlation only; never persisted to sponsor_licence_vacancies. */
+  reviewedSourceRow?: string;
   companyVacancyEvidence?: {
     kind: "json_ld_job_posting" | "microdata_job_posting" | "known_ats_posting" | "structured_job_card" | "strict_role_page";
     listingUrl?: string;
@@ -388,6 +390,28 @@ export interface UpsertBoardVacanciesOptions {
   organisationName?: string;
   queueVerifications?: boolean;
   requireExisting?: boolean;
+  /** Keep exact/canonical/fingerprint matches unchanged instead of merging them. */
+  skipExisting?: boolean;
+  /** Perform the same locked match check without inserting or updating rows. */
+  dryRun?: boolean;
+  /** Reviewed imports can opt out of both public-contact fetching and persistence. */
+  enrichContacts?: boolean;
+  /** Return per-advert outcomes for an explicit import report. */
+  includeOutcomes?: boolean;
+}
+
+export interface UpsertBoardVacancyOutcome {
+  sourceRow: string | null;
+  url: string;
+  status: "would_insert" | "inserted" | "already_present" | "updated" | "revived";
+  matchedBy?: "canonical_url" | "external_id" | "known_ats_identity" | "fingerprint";
+}
+
+export interface UpsertBoardVacanciesResult {
+  inserted: number;
+  updated: number;
+  revived: number;
+  outcomes?: UpsertBoardVacancyOutcome[];
 }
 
 type ContactWriteExecutor = {
@@ -453,10 +477,19 @@ export async function persistScrapedAdvertContacts(
 export async function upsertSharedBoardVacancies(
   input: readonly BoardAdvert[],
   options: UpsertBoardVacanciesOptions = {},
-): Promise<{ inserted: number; updated: number; revived: number }> {
+): Promise<UpsertBoardVacanciesResult> {
   const normalizedAdverts = normaliseAndDedupeBoardAdverts(input);
-  const adverts = await enrichAdvertContacts(normalizedAdverts);
-  if (adverts.length === 0) return { inserted: 0, updated: 0, revived: 0 };
+  const adverts = options.enrichContacts === false || options.dryRun
+    ? normalizedAdverts
+    : await enrichAdvertContacts(normalizedAdverts);
+  if (adverts.length === 0) {
+    return {
+      inserted: 0,
+      updated: 0,
+      revived: 0,
+      ...(options.includeOutcomes ? { outcomes: [] } : {}),
+    };
+  }
 
   const transactionResult = await db.transaction(async (tx) => {
   // Deterministically lock only the canonical URLs/fingerprints in this batch.
@@ -562,6 +595,7 @@ export async function upsertSharedBoardVacancies(
   let inserted = 0;
   let revived = 0;
   let updatedCount = 0;
+  const outcomes: UpsertBoardVacancyOutcome[] = [];
 
   for (const advert of adverts) {
     const sourceType = advert.sourceType ?? "job_board";
@@ -576,13 +610,48 @@ export async function upsertSharedBoardVacancies(
       ? undefined
       : byFingerprint.get(`${sourceType}\u0000${fingerprint}`);
     const existingRow = canonicalMatch ?? externalMatch ?? knownAtsMatch ?? fingerprintMatch;
+    const matchedBy = canonicalMatch
+      ? "canonical_url"
+      : externalMatch
+        ? "external_id"
+        : knownAtsMatch
+          ? "known_ats_identity"
+          : fingerprintMatch
+            ? "fingerprint"
+            : undefined;
     if (existingRow) {
+      if (options.skipExisting) {
+        outcomes.push({
+          sourceRow: advert.reviewedSourceRow ?? null,
+          url: advert.url,
+          status: "already_present",
+          ...(matchedBy ? { matchedBy } : {}),
+        });
+        continue;
+      }
       const incomingWins =
         canonicalMatch != null ||
         externalMatch != null ||
         knownAtsMatch != null ||
         boardPreference(advert.boardName) < boardPreference(existingRow.boardName);
-      if (!incomingWins) continue;
+      if (!incomingWins) {
+        outcomes.push({
+          sourceRow: advert.reviewedSourceRow ?? null,
+          url: advert.url,
+          status: "already_present",
+          ...(matchedBy ? { matchedBy } : {}),
+        });
+        continue;
+      }
+      if (options.dryRun) {
+        outcomes.push({
+          sourceRow: advert.reviewedSourceRow ?? null,
+          url: advert.url,
+          status: "already_present",
+          ...(matchedBy ? { matchedBy } : {}),
+        });
+        continue;
+      }
       const wasDead = existingRow.liveness === "dead";
       const mergedCompanyVacancyEvidence = mergeCompanyVacancyEvidence(existingRow, advert);
       const [updated] = await tx
@@ -628,6 +697,14 @@ export async function upsertSharedBoardVacancies(
         });
       if (options.verifiedLive && wasDead) revived += 1;
       if (updated) updatedCount += 1;
+      if (updated) {
+        outcomes.push({
+          sourceRow: advert.reviewedSourceRow ?? null,
+          url: advert.url,
+          status: options.verifiedLive && wasDead ? "revived" : "updated",
+          ...(matchedBy ? { matchedBy } : {}),
+        });
+      }
       if (updated && updated.liveness === "unverified") {
         toVerify.push({ source: "sponsor_vacancy", sourceType, ...updated });
       }
@@ -666,6 +743,15 @@ export async function upsertSharedBoardVacancies(
       );
     }
 
+    if (options.dryRun) {
+      outcomes.push({
+        sourceRow: advert.reviewedSourceRow ?? null,
+        url: advert.url,
+        status: "would_insert",
+      });
+      continue;
+    }
+
     const [created] = await tx
       .insert(sponsorLicenceVacanciesTable)
       .values([{
@@ -702,15 +788,22 @@ export async function upsertSharedBoardVacancies(
       });
     if (created) {
       inserted += 1;
+      outcomes.push({
+        sourceRow: advert.reviewedSourceRow ?? null,
+        url: advert.url,
+        status: "inserted",
+      });
       if (created.liveness === "unverified") {
         toVerify.push({ source: "sponsor_vacancy", sourceType, ...created });
       }
     }
   }
 
-  await persistScrapedAdvertContacts(tx as ContactWriteExecutor, adverts);
+  if (options.enrichContacts !== false && !options.dryRun) {
+    await persistScrapedAdvertContacts(tx as ContactWriteExecutor, adverts);
+  }
 
-  return { inserted, updated: updatedCount, revived, toVerify };
+  return { inserted, updated: updatedCount, revived, toVerify, outcomes };
   });
   // Do not let a separate verifier race rows that are not committed yet.
   const companySiteItems = transactionResult.toVerify
@@ -723,5 +816,10 @@ export async function upsertSharedBoardVacancies(
     queueCompanySiteVerificationBatch(companySiteItems);
     queueLinkVerificationBatch(boardItems);
   }
-  return { inserted: transactionResult.inserted, updated: transactionResult.updated, revived: transactionResult.revived };
+  return {
+    inserted: transactionResult.inserted,
+    updated: transactionResult.updated,
+    revived: transactionResult.revived,
+    ...(options.includeOutcomes ? { outcomes: transactionResult.outcomes } : {}),
+  };
 }

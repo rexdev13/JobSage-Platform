@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   load: vi.fn(),
   save: vi.fn(),
   healthcareBatch: vi.fn(),
+  reviewedImportPreview: vi.fn(),
+  reviewedImportApply: vi.fn(),
 }));
 vi.mock("../../lib/companySiteWorkflow", () => ({
   runReadOnlyDiscovery: mocks.discovery,
@@ -22,6 +24,14 @@ vi.mock("../../lib/companySiteWorkflowReports", () => ({
 vi.mock("../../lib/healthcareCompanySiteBatch", () => ({
   runHealthcareCompanySiteBatch: mocks.healthcareBatch,
 }));
+vi.mock("../../lib/reviewedCompanySiteImport", () => ({
+  previewReviewedCompanySiteCsv: mocks.reviewedImportPreview,
+  applyReviewedCompanySiteCsv: mocks.reviewedImportApply,
+  REVIEWED_COMPANY_SITE_IMPORT_CONFIRMATION: "apply-reviewed-company-site-vacancy-import",
+  REVIEWED_COMPANY_SITE_IMPORT_MAX_BYTES: 1_000_000,
+  ReviewedCompanySiteImportInputError: class extends Error {},
+  ReviewedCompanySiteImportTokenError: class extends Error {},
+}));
 const { default: router } = await import("../../routes/internalCompanySiteWorkflow");
 const app = express();
 app.use(express.json());
@@ -29,8 +39,10 @@ app.use(router);
 
 describe("internal company-site workflow routes", () => {
   const original = process.env.VACANCY_JOB_SECRET;
+  const originalReviewedImportFlag = process.env.COMPANY_SITE_REVIEWED_IMPORT_ENABLED;
   beforeEach(() => {
     process.env.VACANCY_JOB_SECRET = "test-job-secret";
+    process.env.COMPANY_SITE_REVIEWED_IMPORT_ENABLED = "true";
     mocks.discovery.mockResolvedValue({ reportId: "discovery-id", reportKind: "discovery" });
     mocks.dryRun.mockResolvedValue({ reportId: "dry-id", reportKind: "dry-run" });
     mocks.apply.mockResolvedValue({ reportId: "apply-id", reportKind: "apply" });
@@ -42,10 +54,29 @@ describe("internal company-site workflow routes", () => {
       generatedAt: "2026-09-29T00:00:00.000Z",
     }));
     mocks.healthcareBatch.mockResolvedValue({ apply: false, accepted: 1, inserted: 0 });
+    mocks.reviewedImportPreview.mockResolvedValue({
+      mode: "dry-run",
+      environment: "development",
+      inputSha256: "file-hash",
+      planHash: "plan-hash",
+      rows: [],
+      counts: { sourceRows: 0, wouldInsert: 0, inserted: 0, alreadyPresent: 0, held: 0, notImported: 0 },
+      dryRunToken: "signed-preview-token",
+      tokenExpiresAt: "2026-10-06T08:00:00.000Z",
+    });
+    mocks.reviewedImportApply.mockResolvedValue({
+      mode: "apply",
+      environment: "development",
+      inputSha256: "file-hash",
+      rows: [],
+      counts: { sourceRows: 0, wouldInsert: 0, inserted: 0, alreadyPresent: 0, held: 0, notImported: 0 },
+    });
   });
   afterEach(() => {
     if (original == null) delete process.env.VACANCY_JOB_SECRET;
     else process.env.VACANCY_JOB_SECRET = original;
+    if (originalReviewedImportFlag == null) delete process.env.COMPANY_SITE_REVIEWED_IMPORT_ENABLED;
+    else process.env.COMPANY_SITE_REVIEWED_IMPORT_ENABLED = originalReviewedImportFlag;
     vi.clearAllMocks();
   });
   it("fails closed without the secret or header", async () => {
@@ -229,5 +260,68 @@ describe("internal company-site workflow routes", () => {
 
     expect(response.status).toBe(401);
     expect(mocks.dryRun).not.toHaveBeenCalled();
+  });
+
+  describe("explicit reviewed vacancy import", () => {
+    const header = { "x-jobsage-job-secret": "test-job-secret" };
+    const csv = Buffer.from("source_row\n1\n", "utf8");
+
+    it("fails closed for unauthenticated or disabled requests", async () => {
+      const unauthenticated = await request(app)
+        .post("/internal/company-site-vacancies/reviewed-import/dry-run")
+        .attach("file", csv, { filename: "reviewed.csv", contentType: "text/csv" });
+      expect(unauthenticated.status).toBe(401);
+
+      process.env.COMPANY_SITE_REVIEWED_IMPORT_ENABLED = "false";
+      const disabled = await request(app)
+        .post("/internal/company-site-vacancies/reviewed-import/dry-run")
+        .set(header)
+        .attach("file", csv, { filename: "reviewed.csv", contentType: "text/csv" });
+      expect(disabled.status).toBe(503);
+      expect(mocks.reviewedImportPreview).not.toHaveBeenCalled();
+    });
+
+    it("returns a read-only preview and persists no reusable token in the audit report", async () => {
+      const response = await request(app)
+        .post("/internal/company-site-vacancies/reviewed-import/dry-run")
+        .set(header)
+        .attach("file", csv, { filename: "reviewed.csv", contentType: "text/csv" });
+
+      expect(response.status).toBe(200);
+      expect(response.body.dryRunToken).toBe("signed-preview-token");
+      expect(mocks.reviewedImportPreview).toHaveBeenCalledWith(csv);
+      expect(mocks.save).toHaveBeenCalledWith(
+        "dry-run",
+        expect.objectContaining({
+          workflow: "reviewed_explicit_company_site_vacancy_import",
+          uploadedSponsorAndDatabaseIdsIgnored: true,
+        }),
+      );
+      expect(mocks.save.mock.calls[0]?.[1]).not.toHaveProperty("dryRunToken");
+    });
+
+    it("requires both the exact confirmation and a matching preview token to apply", async () => {
+      const missingConfirmation = await request(app)
+        .post("/internal/company-site-vacancies/reviewed-import/apply")
+        .set(header)
+        .field("dryRunToken", "signed-preview-token")
+        .attach("file", csv, { filename: "reviewed.csv", contentType: "text/csv" });
+      expect(missingConfirmation.status).toBe(400);
+      expect(mocks.reviewedImportApply).not.toHaveBeenCalled();
+
+      const response = await request(app)
+        .post("/internal/company-site-vacancies/reviewed-import/apply")
+        .set(header)
+        .field("confirmApply", "apply-reviewed-company-site-vacancy-import")
+        .field("dryRunToken", "signed-preview-token")
+        .attach("file", csv, { filename: "reviewed.csv", contentType: "text/csv" });
+
+      expect(response.status).toBe(200);
+      expect(mocks.reviewedImportApply).toHaveBeenCalledWith(csv, "signed-preview-token");
+      expect(mocks.save).toHaveBeenCalledWith(
+        "apply",
+        expect.objectContaining({ workflow: "reviewed_explicit_company_site_vacancy_import" }),
+      );
+    });
   });
 });
