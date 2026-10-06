@@ -1552,3 +1552,17 @@ mtime_ms = 1791313684365
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/eaa616a7-0aae-4408-b95f-e07075413ca7/f8c0a66e-3350-4179-98b5-1bd4a04dd67a"
 storage_version_token = "1791313697894389"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "EC8AluS0G9wH3tXp8JSwy"
+uri = "file://artifacts/technology-engineering-route-pilot-2026-10-06/summary.md"
+type = "text"
+title = "Technology & Engineering route pilot summary"
+description = "Review-only results for 24 verified sponsor websites, with route counts, the confirmed sample vacancy, and scope limits."
+logical_id = "8b957291-3984-4f96-b1e3-bfddd677298a"
+content_hash = "sha256:0a71b8ac014f61d9c5f70ffb8057e1d803a64c84ccba43077a0148f68954aa1d"
+size = 2142
+mtime_ms = 1791314295565
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/8b957291-3984-4f96-b1e3-bfddd677298a/b9123ade-cb04-4ca9-8a48-5c14492d91b7"
+storage_version_token = "1791314353686397"
+content_type = "text/markdown"
