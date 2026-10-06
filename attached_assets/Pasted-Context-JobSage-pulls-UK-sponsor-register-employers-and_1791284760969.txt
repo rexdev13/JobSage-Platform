@@ -1,0 +1,20 @@
+Context: JobSage pulls UK sponsor register employers and collects vacancies from their own careers sites or ATS feeds. Existing pieces I do NOT want rebuilt: ATS adapters (Ashby, Greenhouse, Lever, SmartRecruiters, Recruitee, Personio, Pinpoint, Workday), the safe site probe (robots rules, URL safety, host pacing), the crawl state tables, the shared dedupe pipeline, the liveness verifier and the visibility gates.
+
+Task: build a Source Detector that finds and records the vacancy source for each employer, with NO AI calls anywhere in it.
+
+Scope for now: healthcare employers only. Make the sector a parameter so I can switch it on for other sectors later.
+
+For each employer, using the existing safe probe, try these steps in order and stop at the first success:
+1. Fetch the careers URL (or website if no careers URL). Search the HTML for ATS signatures: links, iframes and script sources pointing to known ATS domains. Extract provider and board ID.
+2. Verify the ATS match by calling the adapter once. Mark it verified only if the feed returns valid data AND the board or company name matches the employer. Some ATS systems return an empty 200 for unknown IDs, so empty alone is not proof. Name similarity alone is not proof either.
+3. If no ATS, look for schema.org JobPosting JSON LD on the page.
+4. If none, check robots.txt and sitemap.xml for specific job listing URLs.
+5. If still nothing, mark unresolved with a reason code.
+
+Store per employer: method, provider, board ID, confidence, last_checked_at, next_check_at, failure_reason. Do not recheck an employer inside a set cooldown (make it configurable, default 14 days). Unresolved employers get a retry date, not a retry loop.
+
+Rules: run in capped batches (default 200 employers), respect per host pacing, never raise concurrency to go faster, and never mark an employer's source verified unless identity is proven.
+
+Phase 1 is a DRY RUN. Write nothing to production. Output a report with: counts per outcome, a sample of 10 per outcome, and the top 20 unknown domains found on unresolved employers (this shows which ATS adapter to build next).
+
+Stop after the dry run report and wait for my approval before any writes.
