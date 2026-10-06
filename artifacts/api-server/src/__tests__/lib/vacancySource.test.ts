@@ -33,6 +33,27 @@ describe("vacancy source metadata", () => {
       boardName: "Teaching Vacancies",
       externalListingId: "teacher-of-law-example-school",
     });
+    expect(classifyVacancySource(
+      "https://www.arbeitnow.com/jobs/companies/dkbcodefactory/devops-engineer-berlin-20354",
+    )).toEqual({
+      sourceType: "job_board",
+      boardName: "Arbeitnow",
+      externalListingId: "devops-engineer-berlin-20354",
+    });
+    expect(classifyVacancySource(
+      "https://jobicy.com/jobs/154706-crm-marketing-intern",
+    )).toEqual({
+      sourceType: "job_board",
+      boardName: "Jobicy",
+      externalListingId: "154706-crm-marketing-intern",
+    });
+    expect(classifyVacancySource(
+      "https://himalayas.app/companies/trillium-health-resources/jobs/tribal-liaison",
+    )).toEqual({
+      sourceType: "job_board",
+      boardName: "Himalayas",
+      externalListingId: "tribal-liaison",
+    });
   });
 
   it("canonicalizes tracking variants to one organisation-and-URL key", () => {

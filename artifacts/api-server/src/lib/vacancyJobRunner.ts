@@ -1,4 +1,11 @@
-import { db, pool, vacancySyncLogTable } from "@workspace/db";
+import {
+  db,
+  pool,
+  sponsorLicenceCompanySiteChecksTable,
+  sponsorLicencesTable,
+  vacancySyncLogTable,
+} from "@workspace/db";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   runVacancyCheckBatch,
   DEFAULT_VACANCY_CHECK_BATCH_SIZE,
@@ -30,6 +37,8 @@ import {
   REED_PROFESSION_BACKFILL_TARGETS,
   runReedProfessionBackfill,
 } from "./reedProfessionBackfill";
+import { runFreeBoardVacancyCollector } from "./freeBoardVacancyCollector";
+import { REFERENCE_ATS_TARGETS } from "./referenceAtsTargets";
 
 export type VacancyJobKind =
   | "job_board"
@@ -39,7 +48,9 @@ export type VacancyJobKind =
   | "liveness"
   | "contact"
   | "reed_professions"
-  | "additional_boards";
+  | "additional_boards"
+  | "free_board_sources"
+  | "free_source_ats";
 
 export type VacancyJobSummary = {
   selected: number;
@@ -59,6 +70,7 @@ export type VacancyJobSummary = {
 
 export const PIPELINE_WRITER_LOCK = "jobsage:external-vacancy-pipeline-writer";
 export const COMPANY_SITE_HTTP_BUDGET_MS = 20_000;
+export const FREE_BOARD_HTTP_BUDGET_MS = 45_000;
 export const LIVENESS_HTTP_BUDGET_MS = 18_000;
 export const PROFESSION_BACKFILL_HTTP_BUDGET_MS = 22_000;
 export const PROFESSION_BACKFILL_HTTP_CATEGORY_LIMIT = 2;
@@ -80,6 +92,8 @@ export const CLI_JOB_LIMITS: Record<VacancyJobKind, number> = {
   contact: CONTACT_ENRICHMENT_BATCH_SIZE,
   reed_professions: PROFESSION_BACKFILL_HTTP_CATEGORY_LIMIT,
   additional_boards: PROFESSION_BACKFILL_HTTP_CATEGORY_LIMIT,
+  free_board_sources: 5,
+  free_source_ats: 5,
 };
 
 export type VacancyJobOptions = {
@@ -103,6 +117,48 @@ function firstBlockedCategoryIndex(
   categories: readonly { failed?: boolean; skippedByCooldown?: boolean }[],
 ): number {
   return categories.findIndex((category) => category.failed || category.skippedByCooldown);
+}
+
+async function getVerifiedReferenceAtsTargetNames(
+  targets: readonly (typeof REFERENCE_ATS_TARGETS)[number][],
+): Promise<string[]> {
+  if (targets.length === 0) return [];
+  const targetByEmployer = new Map(
+    targets.map((target) => [target.employer.trim().toLowerCase(), target]),
+  );
+  const employerKeys = [...targetByEmployer.keys()];
+  const rows = await db
+    .select({
+      employer: sponsorLicencesTable.organisationName,
+      provider: sponsorLicenceCompanySiteChecksTable.atsProvider,
+      boardId: sponsorLicenceCompanySiteChecksTable.atsBoardId,
+    })
+    .from(sponsorLicencesTable)
+    .innerJoin(
+      sponsorLicenceCompanySiteChecksTable,
+      sql`lower(btrim(${sponsorLicenceCompanySiteChecksTable.organisationName})) =
+          lower(btrim(${sponsorLicencesTable.organisationName}))`,
+    )
+    .where(and(
+      inArray(
+        sql<string>`lower(btrim(${sponsorLicencesTable.organisationName}))`,
+        employerKeys,
+      ),
+      eq(sponsorLicenceCompanySiteChecksTable.atsMappingStatus, "verified"),
+    ));
+  const matched = new Set<string>();
+  for (const row of rows) {
+    if (!row.provider || !row.boardId) continue;
+    const target = targetByEmployer.get(row.employer.trim().toLowerCase());
+    if (
+      target &&
+      row.provider.trim().toLowerCase() === target.provider &&
+      row.boardId.trim().toLowerCase() === target.boardId
+    ) {
+      matched.add(row.employer.trim());
+    }
+  }
+  return [...matched];
 }
 
 async function withPipelineWriter<T>(
@@ -296,6 +352,64 @@ export async function runVacancyJob(
           directFeedsOnly,
           batchId: summary.batchId,
           employerMetrics: summary.employerMetrics,
+        },
+      };
+    }
+
+    if (job === "free_board_sources") {
+      const summary = await runFreeBoardVacancyCollector({
+        pagesPerSource: batchLimit,
+        deadlineMs: options.deadlineMs ?? Date.now() + FREE_BOARD_HTTP_BUDGET_MS,
+      });
+      return {
+        selected: summary.selected,
+        upserted: summary.upserted,
+        live: 0,
+        dead: 0,
+        inconclusive: 0,
+        errors: summary.errors,
+        done: summary.done,
+        remaining: summary.remaining,
+        durationMs: summary.durationMs,
+        metrics: summary.metrics,
+      };
+    }
+
+    if (job === "free_source_ats") {
+      const cursor = Math.max(0, Math.floor(options.cursor ?? 0));
+      const targets = REFERENCE_ATS_TARGETS.slice(cursor, cursor + batchLimit);
+      const targetNames = await getVerifiedReferenceAtsTargetNames(targets);
+      let sourceSummary: Awaited<ReturnType<typeof runCompanySiteDiscoveryBatch>> = null;
+      if (targetNames.length > 0) {
+        sourceSummary = await runCompanySiteDiscoveryBatch({
+          batchSize: targetNames.length,
+          deadlineMs: options.deadlineMs ?? Date.now() + COMPANY_SITE_HTTP_BUDGET_MS,
+          organisationNames: targetNames,
+          directFeedsOnly: true,
+        });
+        if (!sourceSummary) return null;
+      }
+      const failed = (sourceSummary?.errors ?? 0) > 0 || sourceSummary?.done === false;
+      const nextCursor = failed ? cursor : cursor + targets.length;
+      const total = REFERENCE_ATS_TARGETS.length;
+      return {
+        selected: sourceSummary?.selected ?? 0,
+        upserted: sourceSummary
+          ? sourceSummary.inserted + sourceSummary.updated + sourceSummary.revived
+          : 0,
+        live: 0,
+        dead: 0,
+        inconclusive: 0,
+        errors: sourceSummary?.errors ?? 0,
+        done: nextCursor >= total,
+        remaining: Math.max(0, total - nextCursor),
+        cursor,
+        nextCursor,
+        durationMs: sourceSummary?.durationMs ?? 0,
+        metrics: {
+          referenceTargets: targets,
+          verifiedMatchingTargets: targetNames,
+          batch: sourceSummary,
         },
       };
     }

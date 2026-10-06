@@ -67,6 +67,34 @@ describe("job-board vacancy URL policy", () => {
     expect(isValidJobBoardVacancyDeepLink("https://www.trac.jobs/job-advert/1234567")).toBe(true);
     expect(isValidJobBoardVacancyDeepLink("https://www.healthjobsuk.com/job/UK/London/Trust/Nurse-v123456")).toBe(true);
   });
+
+  it("allows exact vacancy URLs from the free public feeds", () => {
+    expect(isValidJobBoardVacancyDeepLink(
+      "https://beta.jobs.nhs.uk/candidate/jobadvert/C9437-25-0950",
+    )).toBe(true);
+    expect(isValidJobBoardVacancyDeepLink(
+      "https://www.arbeitnow.com/jobs/companies/dkbcodefactory/devops-engineer-berlin-20354",
+    )).toBe(true);
+    expect(isValidJobBoardVacancyDeepLink(
+      "https://jobicy.com/jobs/154706-crm-marketing-intern",
+    )).toBe(true);
+    expect(isValidJobBoardVacancyDeepLink(
+      "https://himalayas.app/companies/trillium-health-resources/jobs/tribal-liaison",
+    )).toBe(true);
+    expect(isValidJobBoardVacancyDeepLink(
+      "https://himalayas.app/jobs/tribal-liaison",
+    )).toBe(true);
+  });
+
+  it("rejects public-feed search, company, and landing pages", () => {
+    expect(isValidJobBoardVacancyDeepLink("https://www.arbeitnow.com/jobs")).toBe(false);
+    expect(isValidJobBoardVacancyDeepLink(
+      "https://www.arbeitnow.com/jobs/companies/dkbcodefactory",
+    )).toBe(false);
+    expect(isValidJobBoardVacancyDeepLink(
+      "https://himalayas.app/companies/trillium-health-resources/jobs",
+    )).toBe(false);
+  });
 });
 
 describe("isValidVacancyDeepLink", () => {

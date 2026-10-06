@@ -38,8 +38,26 @@ vi.mock("@workspace/db", () => {
     sourceMissingSince: "sourceMissingSince",
     sourceMissingObservations: "sourceMissingObservations",
   };
+  const sourceObservations = {
+    id: "id",
+    vacancyId: "vacancyId",
+    sourceId: "sourceId",
+    provider: "provider",
+    sourceType: "sourceType",
+    boardName: "boardName",
+    externalId: "externalId",
+    url: "url",
+    canonicalUrl: "canonicalUrl",
+    applicationUrl: "applicationUrl",
+    sourceMetadata: "sourceMetadata",
+    parserVersion: "parserVersion",
+    firstSeenAt: "firstSeenAt",
+    lastSeenAt: "lastSeenAt",
+    missingSince: "missingSince",
+  };
   return {
     sponsorLicenceVacanciesTable: table,
+    vacancySourceObservationsTable: sourceObservations,
     db: { transaction: mocks.transaction },
   };
 });

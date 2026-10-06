@@ -40,6 +40,14 @@ Kinds and safe HTTP defaults:
 | `contact` | 5 employers | 5 |
 | `reed_professions` | 1 profession category | 2 categories |
 | `additional_boards` | 1 board/profession page | 2 board/profession pages |
+| `free_board_sources` | 2 pages per feed | 5 pages per feed |
+| `free_source_ats` | 5 verified ATS targets | 10 targets |
+
+`free_board_sources` resumes each public feed from its own stored cursor and
+does not accept a request cursor. Its `done` flag is true only after every feed
+finishes a clean sweep. `free_source_ats` accepts a numeric `cursor` and only
+uses ATS mappings that are already verified; reference slugs alone never verify
+a mapping.
 
 The normal response is returned after that batch finishes:
 
@@ -166,13 +174,24 @@ curl --fail-with-body -X POST https://jobsage.co.uk/api/internal/vacancy-jobs \
   -H "Content-Type: application/json" \
   -H "x-jobsage-job-secret: ${VACANCY_JOB_SECRET}" \
   --data '{"kind":"additional_boards","cursor":0,"limit":1}'
+
+curl --fail-with-body -X POST https://jobsage.co.uk/api/internal/vacancy-jobs \
+  -H "Content-Type: application/json" \
+  -H "x-jobsage-job-secret: ${VACANCY_JOB_SECRET}" \
+  --data '{"kind":"free_board_sources","limit":2}'
+
+curl --fail-with-body -X POST https://jobsage.co.uk/api/internal/vacancy-jobs \
+  -H "Content-Type: application/json" \
+  -H "x-jobsage-job-secret: ${VACANCY_JOB_SECRET}" \
+  --data '{"kind":"free_source_ats","cursor":0,"limit":5}'
 ```
 
-For a later profession page, replace `cursor` with the previous response's
-`nextCursor`. Do not increase the profession `limit` above `2`; the HTTP
-worker has a 22-second absolute budget and keeps the existing request
-timeouts, pacing, sponsor matching, direct-URL checks, and verified-live
-semantics.
+For later profession or ATS pages, replace `cursor` with the previous response's
+`nextCursor`. Do not increase the profession `limit` above `2`; the HTTP worker
+has a 22-second absolute budget and keeps the existing request timeouts, pacing,
+sponsor matching, direct-URL checks, and verified-live semantics. The free-board
+collector persists its per-feed cursors itself; send one bounded request and
+allow the next scheduled trigger to continue an unfinished sweep.
 
 Wait for each response before sending the next request. A `409` means another
 batch owns the shared PostgreSQL writer lock; honor `Retry-After` and retry
@@ -206,6 +225,12 @@ the production schedule. It defaults to five employers, is capped by the
 company-site server limit, and requires a verified direct ATS/feed mapping.
 Do not add it to cron-job.org until the staged rollout in
 `company-site-direct-feed-rollout.md` is approved.
+
+`free_board_sources` and `free_source_ats` are also accepted by the protected
+route but are not part of the production schedule documented here. No collection
+runs until an external caller invokes one of these kinds. Add cron jobs only
+after a separate rollout decision; keep requests serialized and do not use a
+blind retry loop to exhaust a feed in one trigger.
 
 Create one additional all-day probe job:
 

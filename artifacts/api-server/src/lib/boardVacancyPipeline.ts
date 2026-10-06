@@ -1,4 +1,8 @@
-import { db, sponsorLicenceVacanciesTable } from "@workspace/db";
+import {
+  db,
+  sponsorLicenceVacanciesTable,
+  vacancySourceObservationsTable,
+} from "@workspace/db";
 import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { isLikelyEditorialTitle, isManualLabourTitle } from "./vacancyTitlePolicy";
 import { canonicalVacancyUrl, classifyVacancySource } from "./vacancySource";
@@ -45,6 +49,10 @@ export interface BoardAdvert {
   boardName: string | null;
   externalId: string | null;
   sourceType?: "job_board" | "company_site";
+  /** Stable collector identity; never used as a candidate-facing URL. */
+  sourceId?: string;
+  /** Non-candidate source facts not represented by typed vacancy columns. */
+  sourceMetadata?: Record<string, unknown> | null;
   contactEmail?: string | null;
   contactEvidenceUrl?: string | null;
   closesAt?: Date | null;
@@ -296,6 +304,76 @@ function boardPreference(boardName: string | null): number {
       : 2;
 }
 
+function normalizedSourcePart(value: string): string {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+export function boardAdvertSourceId(advert: Pick<
+  BoardAdvert,
+  "sourceId" | "sourceType" | "organisationName" | "boardName" | "url" | "companyVacancyEvidence"
+>): string | null {
+  const explicit = advert.sourceId?.trim();
+  if (explicit) return explicit.toLowerCase();
+  const sourceType = advert.sourceType ?? classifyVacancySource(advert.url).sourceType;
+  if (!sourceType) return null;
+  if (sourceType === "company_site") {
+    const evidence = advert.companyVacancyEvidence;
+    const provider = evidence?.provider?.trim().toLowerCase();
+    const listingUrl = evidence?.listingUrl
+      ? canonicalVacancyUrl(evidence.listingUrl)
+      : null;
+    const employer = normalizedSourcePart(advert.organisationName);
+    if (evidence?.kind === "known_ats_posting" && provider && listingUrl) {
+      return `company_site:ats:${employer}:${provider}:${listingUrl}`;
+    }
+    let host = "";
+    try {
+      host = new URL(evidence?.listingUrl ?? advert.url).hostname.toLowerCase();
+    } catch {
+      return null;
+    }
+    return host ? `company_site:${employer}:${host}` : null;
+  }
+  const boardName = advert.boardName ?? classifyVacancySource(advert.url).boardName;
+  if (boardName?.trim()) return `job_board:${boardName.trim().toLowerCase()}`;
+  try {
+    return `job_board:${new URL(advert.url).hostname.toLowerCase()}`;
+  } catch {
+    return null;
+  }
+}
+
+function sourcePreference(advert: Pick<BoardAdvert, "sourceType" | "boardName" | "companyVacancyEvidence">): number {
+  if (advert.sourceType === "company_site") {
+    return advert.companyVacancyEvidence?.kind === "known_ats_posting" ? -2 : 0;
+  }
+  return boardPreference(advert.boardName) + 1;
+}
+
+function storedAdvertSourceId(row: {
+  sourceType: string | null;
+  organisationName: string;
+  boardName: string | null;
+  url: string | null;
+  companyVacancyEvidence: unknown;
+}): string | null {
+  const evidence =
+    row.companyVacancyEvidence && typeof row.companyVacancyEvidence === "object"
+      ? row.companyVacancyEvidence as BoardAdvert["companyVacancyEvidence"]
+      : null;
+  return row.url
+    ? boardAdvertSourceId({
+        sourceType: row.sourceType === "company_site" || row.sourceType === "job_board"
+          ? row.sourceType
+          : undefined,
+        organisationName: row.organisationName,
+        boardName: row.boardName,
+        url: row.url,
+        companyVacancyEvidence: evidence ?? undefined,
+      })
+    : null;
+}
+
 function knownAtsPostingIdentityKey(advert: {
   sourceType?: string | null;
   organisationName: string;
@@ -319,12 +397,11 @@ function knownAtsPostingIdentityKey(advert: {
   ].join("\u0000");
 }
 
-function advertPreference(advert: BoardAdvert): number {
-  return knownAtsPostingIdentityKey(advert) ? -1 : boardPreference(advert.boardName);
-}
-
-export function normaliseAndDedupeBoardAdverts(adverts: readonly BoardAdvert[]): BoardAdvert[] {
-  const byUrl = new Map<string, BoardAdvert>();
+export function normaliseAndDedupeBoardAdverts(
+  adverts: readonly BoardAdvert[],
+  options: { preserveCrossSourceRows?: boolean } = {},
+): BoardAdvert[] {
+  const normalizedAdverts: BoardAdvert[] = [];
   for (const advert of adverts) {
     if (isManualLabourTitle(advert.title)) continue;
     const url = canonicalVacancyUrl(advert.url);
@@ -351,38 +428,54 @@ export function normaliseAndDedupeBoardAdverts(adverts: readonly BoardAdvert[]):
       closedReason: advert.closedReason ?? (hasExplicitClosedPhrase(advert.description) ? "source page explicitly closed" : null),
       sourceType,
       boardName: sourceType === "company_site" ? null : source.boardName ?? advert.boardName,
+      sourceId:
+        boardAdvertSourceId({
+          ...advert,
+          sourceType,
+          boardName: sourceType === "company_site" ? null : source.boardName ?? advert.boardName,
+          url,
+        }) ?? advert.sourceId,
       // Direct employer-board connectors use the same Company Websites channel,
       // but their platform listing ID remains valuable for repeat-import
       // deduplication. Generic website extraction still has no external ID.
-      externalId: source.externalListingId ?? advert.externalId ?? null,
+      externalId: advert.externalId ?? source.externalListingId ?? null,
     };
-    const current = byUrl.get(`${sourceType}\u0000${url}`);
-    if (!current || advertPreference(normalized) < advertPreference(current)) {
-      byUrl.set(`${sourceType}\u0000${url}`, normalized);
+    const sourceId = boardAdvertSourceId(normalized);
+    const externalId = normalized.externalId?.trim() ?? "";
+    const canonicalUrl = canonicalVacancyUrl(normalized.url);
+    const fingerprint = boardVacancyFingerprint(normalized);
+    const duplicateIndex = sourceId
+      ? normalizedAdverts.findIndex((prior) => {
+          const priorSourceId = boardAdvertSourceId(prior);
+          if (!priorSourceId) return false;
+          const sameSource = priorSourceId === sourceId;
+          const priorExternalId = prior.externalId?.trim() ?? "";
+          if (
+            sameSource &&
+            externalId &&
+            priorExternalId &&
+            externalId !== priorExternalId
+          ) {
+            return false;
+          }
+          if (options.preserveCrossSourceRows && !sameSource) return false;
+          if (sameSource && externalId && priorExternalId === externalId) return true;
+          if (canonicalUrl && canonicalUrl === canonicalVacancyUrl(prior.url)) return true;
+          if (fingerprint !== boardVacancyFingerprint(prior)) return false;
+          return sameSource || prior.sourceType === normalized.sourceType;
+        })
+      : -1;
+    if (duplicateIndex < 0) {
+      normalizedAdverts.push(normalized);
+      continue;
+    }
+    const prior = normalizedAdverts[duplicateIndex]!;
+    const sameSource = boardAdvertSourceId(prior) === sourceId;
+    if (sameSource || sourcePreference(normalized) < sourcePreference(prior)) {
+      normalizedAdverts[duplicateIndex] = normalized;
     }
   }
-
-  const byFingerprint = new Map<string, BoardAdvert>();
-  const directAtsFingerprintBases = new Set<string>();
-  for (const advert of byUrl.values()) {
-    const fingerprintBase = `${advert.sourceType}\u0000${boardVacancyFingerprint(advert)}`;
-    const directAtsIdentity = knownAtsPostingIdentityKey(advert);
-    const fingerprintKey = directAtsIdentity
-      ? `known_ats\u0000${directAtsIdentity}`
-      : fingerprintBase;
-    if (directAtsIdentity) directAtsFingerprintBases.add(fingerprintBase);
-    const current = byFingerprint.get(fingerprintKey);
-    if (!current || advertPreference(advert) < advertPreference(current)) {
-      byFingerprint.set(fingerprintKey, advert);
-    }
-  }
-  for (const fingerprintBase of directAtsFingerprintBases) {
-    const genericMatch = byFingerprint.get(fingerprintBase);
-    if (genericMatch && !knownAtsPostingIdentityKey(genericMatch)) {
-      byFingerprint.delete(fingerprintBase);
-    }
-  }
-  return [...byFingerprint.values()];
+  return normalizedAdverts;
 }
 
 export interface UpsertBoardVacanciesOptions {
@@ -478,7 +571,9 @@ export async function upsertSharedBoardVacancies(
   input: readonly BoardAdvert[],
   options: UpsertBoardVacanciesOptions = {},
 ): Promise<UpsertBoardVacanciesResult> {
-  const normalizedAdverts = normaliseAndDedupeBoardAdverts(input);
+  const normalizedAdverts = normaliseAndDedupeBoardAdverts(input, {
+    preserveCrossSourceRows: true,
+  });
   const adverts = options.enrichContacts === false || options.dryRun
     ? normalizedAdverts
     : await enrichAdvertContacts(normalizedAdverts);
@@ -495,28 +590,27 @@ export async function upsertSharedBoardVacancies(
   // Deterministically lock only the canonical URLs/fingerprints in this batch.
   // The JSON expansion keeps a 300-result candidate refresh to one lock query
   // while still serializing cross-process writers for the same vacancy.
-  const lockKeys = [...new Set(adverts.flatMap((advert) => [
-    `${advert.sourceType ?? "job_board"}:url:${advert.url}`,
-    `${advert.sourceType ?? "job_board"}:fingerprint:${boardVacancyFingerprint(advert)}`,
-    ...(advert.externalId
-      ? [`${advert.sourceType ?? "job_board"}:external:${advert.boardName}|${advert.externalId}`]
-      : []),
-  ]))].sort();
+  const lockKeys = [...new Set(adverts.flatMap((advert) => {
+    const sourceId = boardAdvertSourceId(advert);
+    return [
+      `url:${canonicalVacancyUrl(advert.url) ?? advert.url}`,
+      `fingerprint:${boardVacancyFingerprint(advert)}`,
+      ...(advert.externalId && sourceId
+        ? [`external:${sourceId}|${advert.externalId}`]
+        : []),
+    ];
+  }))].sort();
   await tx.execute(sql`
     SELECT pg_advisory_xact_lock(hashtext(value))
     FROM jsonb_array_elements_text(${JSON.stringify(lockKeys)}::jsonb) AS value
     ORDER BY value
   `);
   const organisations = [...new Set(adverts.map((advert) => advert.organisationName))];
-  const sourceTypes = [...new Set(adverts.map((advert) => advert.sourceType ?? "job_board"))];
   const urls = adverts.map((advert) => advert.url);
   const urlBases = adverts.map((advert) =>
     advert.url.split(/[?#]/, 1)[0]!.toLowerCase().replace(/\/+$/, ""),
   );
   const fingerprints = adverts.map(boardVacancyFingerprint);
-  const externalKeys = adverts
-    .filter((advert) => advert.externalId)
-    .map((advert) => `${advert.boardName}|${advert.externalId}`);
   const storedFingerprint = sql<string>`
     btrim(regexp_replace(lower(trim(coalesce(${sponsorLicenceVacanciesTable.organisationName}, ''))), '[^a-z0-9]+', ' ', 'g'))
     || '|' ||
@@ -531,43 +625,100 @@ export async function upsertSharedBoardVacancies(
       ''
     )
   `;
-  const storedExternalKey = sql<string>`
-    coalesce(${sponsorLicenceVacanciesTable.boardName}, '')
-    || '|' ||
-    coalesce(${sponsorLicenceVacanciesTable.externalListingId}, '')
-  `;
-  const existing = await tx
+  let existing = await tx
     .select()
     .from(sponsorLicenceVacanciesTable)
     .where(
-      and(
-        inArray(sponsorLicenceVacanciesTable.sourceType, sourceTypes),
-        or(
-          inArray(sponsorLicenceVacanciesTable.organisationName, organisations),
-          inArray(sponsorLicenceVacanciesTable.url, urls),
-          inArray(storedUrlBase, urlBases),
-          inArray(storedFingerprint, fingerprints),
-          ...(externalKeys.length > 0 ? [inArray(storedExternalKey, externalKeys)] : []),
-        ),
+      or(
+        inArray(sponsorLicenceVacanciesTable.organisationName, organisations),
+        inArray(sponsorLicenceVacanciesTable.url, urls),
+        inArray(storedUrlBase, urlBases),
+        inArray(storedFingerprint, fingerprints),
       ),
     );
-  const byCanonical = new Map(
-    existing.flatMap((row) => {
-      const canonical = row.url ? canonicalVacancyUrl(row.url) : null;
-      return canonical
-        ? [[`${row.sourceType ?? "job_board"}\u0000${canonical}`, row] as const]
-        : [];
-    }),
+
+  const incomingSourcePairs = adverts.flatMap((advert) => {
+    const sourceId = boardAdvertSourceId(advert);
+    return sourceId && advert.externalId
+      ? [{ sourceId, externalId: advert.externalId }]
+      : [];
+  });
+  const incomingSourceIds = [...new Set(incomingSourcePairs.map((pair) => pair.sourceId))];
+  const incomingExternalIds = [...new Set(incomingSourcePairs.map((pair) => pair.externalId))];
+  const incomingPairKeys = new Set(
+    incomingSourcePairs.map((pair) => `${pair.sourceId}\u0000${pair.externalId}`),
   );
-  const byFingerprint = new Map<string, (typeof existing)[number]>();
+  const exactObservations = incomingSourceIds.length && incomingExternalIds.length
+    ? (await tx
+        .select()
+        .from(vacancySourceObservationsTable)
+        .where(and(
+          inArray(vacancySourceObservationsTable.sourceId, incomingSourceIds),
+          inArray(vacancySourceObservationsTable.externalId, incomingExternalIds),
+        )))
+        .filter((observation) =>
+          incomingPairKeys.has(`${observation.sourceId}\u0000${observation.externalId}`),
+        )
+    : [];
+  const exactObservationVacancyIds = [...new Set(exactObservations.map((observation) => observation.vacancyId))];
+  const existingIds = new Set(existing.map((row) => row.id));
+  const missingExactRows = exactObservationVacancyIds.filter((id) => !existingIds.has(id));
+  if (missingExactRows.length > 0) {
+    const exactRows = await tx
+      .select()
+      .from(sponsorLicenceVacanciesTable)
+      .where(inArray(sponsorLicenceVacanciesTable.id, missingExactRows));
+    existing = [...existing, ...exactRows];
+  }
+  const candidateVacancyIds = [...new Set([
+    ...existing.map((row) => row.id),
+    ...exactObservationVacancyIds,
+  ])];
+  const sourceObservations = candidateVacancyIds.length > 0
+    ? await tx
+        .select()
+        .from(vacancySourceObservationsTable)
+        .where(inArray(vacancySourceObservationsTable.vacancyId, candidateVacancyIds))
+    : [];
+  const rowsById = new Map(existing.map((row) => [row.id, row] as const));
+  const sourceIdsByVacancy = new Map<number, Set<string>>();
+  const addSourceForVacancy = (vacancyId: number, sourceId: string | null): void => {
+    if (!sourceId) return;
+    const sourceIds = sourceIdsByVacancy.get(vacancyId) ?? new Set<string>();
+    sourceIds.add(sourceId);
+    sourceIdsByVacancy.set(vacancyId, sourceIds);
+  };
+  for (const row of existing) addSourceForVacancy(row.id, storedAdvertSourceId(row));
+  for (const observation of sourceObservations) {
+    addSourceForVacancy(observation.vacancyId, observation.sourceId);
+  }
+
+  const byCanonical = new Map<string, (typeof existing)[number][]>();
+  const byFingerprint = new Map<string, (typeof existing)[number][]>();
   const byKnownAtsIdentity = new Map<string, (typeof existing)[number]>();
+  const byExternal = new Map<string, (typeof existing)[number]>();
+  const addCandidate = (
+    map: Map<string, (typeof existing)[number][]>,
+    key: string | null,
+    row: (typeof existing)[number],
+  ): void => {
+    if (!key) return;
+    const rows = map.get(key) ?? [];
+    if (!rows.some((candidate) => candidate.id === row.id)) rows.push(row);
+    map.set(key, rows);
+  };
   for (const row of existing) {
-    const fingerprintKey = `${row.sourceType ?? "job_board"}\u0000${boardVacancyFingerprint({
+    const canonical = row.url ? canonicalVacancyUrl(row.url) : null;
+    addCandidate(byCanonical, canonical, row);
+    addCandidate(byFingerprint, boardVacancyFingerprint({
         organisationName: row.organisationName,
         title: row.title,
         location: row.location,
-      })}`;
-    if (!byFingerprint.has(fingerprintKey)) byFingerprint.set(fingerprintKey, row);
+      }), row);
+    const sourceId = storedAdvertSourceId(row);
+    if (sourceId && row.externalListingId) {
+      byExternal.set(`${sourceId}\u0000${row.externalListingId}`, row);
+    }
     const directAtsIdentity = knownAtsPostingIdentityKey({
       sourceType: row.sourceType,
       organisationName: row.organisationName,
@@ -576,13 +727,10 @@ export async function upsertSharedBoardVacancies(
     });
     if (directAtsIdentity) byKnownAtsIdentity.set(directAtsIdentity, row);
   }
-  const byExternal = new Map(
-    existing.flatMap((row) =>
-      row.boardName && row.externalListingId
-        ? [[`${row.sourceType ?? "job_board"}\u0000${row.boardName}|${row.externalListingId}`, row] as const]
-        : [],
-    ),
-  );
+  for (const observation of sourceObservations) {
+    const row = rowsById.get(observation.vacancyId);
+    if (row) byExternal.set(`${observation.sourceId}\u0000${observation.externalId}`, row);
+  }
   const now = new Date();
   const checkDate = now.toISOString().slice(0, 10);
   const toVerify: Array<{
@@ -597,25 +745,105 @@ export async function upsertSharedBoardVacancies(
   let updatedCount = 0;
   const outcomes: UpsertBoardVacancyOutcome[] = [];
 
+  const addSourceObservation = async (
+    vacancyId: number,
+    advert: BoardAdvert,
+    clearVacancyMissingState = true,
+  ): Promise<void> => {
+    const sourceId = boardAdvertSourceId(advert);
+    const externalId = advert.externalId?.trim();
+    const canonicalUrl = canonicalVacancyUrl(advert.url);
+    if (!sourceId || !externalId || !canonicalUrl) return;
+    const provider =
+      typeof advert.sourceMetadata?.["provider"] === "string"
+        ? advert.sourceMetadata["provider"] as string
+        : sourceId;
+    const parserVersion =
+      typeof advert.sourceMetadata?.["parserVersion"] === "string"
+        ? advert.sourceMetadata["parserVersion"] as string
+        : "pipeline";
+    const observation = {
+      vacancyId,
+      sourceId,
+      provider,
+      sourceType: advert.sourceType ?? "job_board",
+      boardName: advert.boardName ?? "Company Website",
+      externalId,
+      url: advert.url,
+      canonicalUrl,
+      applicationUrl: advert.applicationUrl ?? null,
+      sourceMetadata: advert.sourceMetadata ?? null,
+      parserVersion,
+      lastSeenAt: now,
+      missingSince: null,
+    };
+    await tx
+      .insert(vacancySourceObservationsTable)
+      .values(observation)
+      .onConflictDoUpdate({
+        target: [
+          vacancySourceObservationsTable.sourceId,
+          vacancySourceObservationsTable.externalId,
+        ],
+        set: {
+          vacancyId,
+          provider,
+          sourceType: observation.sourceType,
+          boardName: observation.boardName,
+          url: advert.url,
+          canonicalUrl,
+          applicationUrl: observation.applicationUrl,
+          sourceMetadata: observation.sourceMetadata,
+          parserVersion,
+          lastSeenAt: now,
+          missingSince: null,
+        },
+      });
+    if (clearVacancyMissingState) {
+      await tx
+        .update(sponsorLicenceVacanciesTable)
+        .set({ sourceMissingSince: null, sourceMissingObservations: 0 })
+        .where(eq(sponsorLicenceVacanciesTable.id, vacancyId));
+    }
+    addSourceForVacancy(vacancyId, sourceId);
+    byExternal.set(`${sourceId}\u0000${externalId}`, rowsById.get(vacancyId)!);
+  };
+
+  const registerRow = (row: (typeof existing)[number]): void => {
+    rowsById.set(row.id, row);
+    addCandidate(byCanonical, row.url ? canonicalVacancyUrl(row.url) : null, row);
+    addCandidate(byFingerprint, boardVacancyFingerprint(row), row);
+    addSourceForVacancy(row.id, storedAdvertSourceId(row));
+  };
+
   for (const advert of adverts) {
     const sourceType = advert.sourceType ?? "job_board";
+    const sourceId = boardAdvertSourceId(advert);
     const fingerprint = boardVacancyFingerprint(advert);
     const directAtsIdentity = knownAtsPostingIdentityKey(advert);
-    const canonicalMatch = byCanonical.get(`${sourceType}\u0000${advert.url}`);
-    const externalMatch = advert.externalId
-      ? byExternal.get(`${sourceType}\u0000${advert.boardName}|${advert.externalId}`)
+    const sourceHasSeen = (row: (typeof existing)[number]): boolean =>
+      !!sourceId && sourceIdsByVacancy.get(row.id)?.has(sourceId) === true;
+    const crossSourceCandidate = (
+      candidates: (typeof existing)[number][] | undefined,
+    ): (typeof existing)[number] | undefined =>
+      candidates?.find((row) => storedAdvertSourceId(row) != null && !sourceHasSeen(row));
+    const canonicalMatch = sourceId
+      ? crossSourceCandidate(byCanonical.get(canonicalVacancyUrl(advert.url) ?? advert.url))
+      : undefined;
+    const externalMatch = advert.externalId && sourceId
+      ? byExternal.get(`${sourceId}\u0000${advert.externalId}`)
       : undefined;
     const knownAtsMatch = directAtsIdentity ? byKnownAtsIdentity.get(directAtsIdentity) : undefined;
-    const fingerprintMatch = directAtsIdentity
-      ? undefined
-      : byFingerprint.get(`${sourceType}\u0000${fingerprint}`);
-    const existingRow = canonicalMatch ?? externalMatch ?? knownAtsMatch ?? fingerprintMatch;
-    const matchedBy = canonicalMatch
-      ? "canonical_url"
-      : externalMatch
-        ? "external_id"
-        : knownAtsMatch
-          ? "known_ats_identity"
+    const fingerprintMatch = sourceId
+      ? crossSourceCandidate(byFingerprint.get(fingerprint))
+      : undefined;
+    const existingRow = externalMatch ?? knownAtsMatch ?? canonicalMatch ?? fingerprintMatch;
+    const matchedBy = externalMatch
+      ? "external_id"
+      : knownAtsMatch
+        ? "known_ats_identity"
+        : canonicalMatch
+          ? "canonical_url"
           : fingerprintMatch
             ? "fingerprint"
             : undefined;
@@ -629,12 +857,17 @@ export async function upsertSharedBoardVacancies(
         });
         continue;
       }
+      const existingSourcePreference = sourcePreference({
+        sourceType: existingRow.sourceType === "company_site" ? "company_site" : "job_board",
+        boardName: existingRow.boardName,
+        companyVacancyEvidence: existingRow.companyVacancyEvidence as BoardAdvert["companyVacancyEvidence"],
+      });
       const incomingWins =
-        canonicalMatch != null ||
-        externalMatch != null ||
+        sourceHasSeen(existingRow) ||
         knownAtsMatch != null ||
-        boardPreference(advert.boardName) < boardPreference(existingRow.boardName);
+        sourcePreference(advert) < existingSourcePreference;
       if (!incomingWins) {
+        await addSourceObservation(existingRow.id, advert);
         outcomes.push({
           sourceRow: advert.reviewedSourceRow ?? null,
           url: advert.url,
@@ -666,6 +899,7 @@ export async function upsertSharedBoardVacancies(
            applicationUrl: advert.applicationUrl ?? existingRow.applicationUrl ?? null,
           description: advert.description,
           postedDate: advert.postedDate,
+          sourceMetadata: advert.sourceMetadata ?? existingRow.sourceMetadata ?? null,
           targetRegions: advert.targetRegions ?? [],
           sourceType,
           boardName: sourceType === "company_site" ? null : advert.boardName,
@@ -708,31 +942,28 @@ export async function upsertSharedBoardVacancies(
       if (updated && updated.liveness === "unverified") {
         toVerify.push({ source: "sponsor_vacancy", sourceType, ...updated });
       }
-      byCanonical.set(
-        `${sourceType}\u0000${advert.url}`,
-        { ...existingRow, ...advert, url: advert.url } as typeof existingRow,
-      );
-      if (advert.externalId) {
-        byExternal.set(`${sourceType}\u0000${advert.boardName}|${advert.externalId}`, existingRow);
-      }
+      const updatedRow = {
+        ...existingRow,
+        ...advert,
+        id: existingRow.id,
+        sourceType,
+        boardName: sourceType === "company_site" ? null : advert.boardName,
+        externalListingId: advert.externalId,
+        url: advert.url,
+        applicationUrl: advert.applicationUrl ?? existingRow.applicationUrl ?? null,
+        sourceMetadata: advert.sourceMetadata ?? existingRow.sourceMetadata ?? null,
+        companyVacancyEvidence: mergedCompanyVacancyEvidence !== undefined
+          ? mergedCompanyVacancyEvidence
+          : existingRow.companyVacancyEvidence,
+        companyEvidenceLegacyUntil: mergedCompanyVacancyEvidence !== undefined
+          ? null
+          : existingRow.companyEvidenceLegacyUntil,
+        liveness: updated?.liveness ?? existingRow.liveness,
+      } as unknown as (typeof existing)[number];
+      registerRow(updatedRow);
+      await addSourceObservation(existingRow.id, advert);
       if (directAtsIdentity) {
-        byKnownAtsIdentity.set(directAtsIdentity, {
-          ...existingRow,
-          ...advert,
-          id: existingRow.id,
-          sourceType,
-          boardName: sourceType === "company_site" ? null : advert.boardName,
-          externalListingId: advert.externalId,
-          url: advert.url,
-          applicationUrl: advert.applicationUrl ?? existingRow.applicationUrl ?? null,
-          companyVacancyEvidence: mergedCompanyVacancyEvidence !== undefined
-            ? mergedCompanyVacancyEvidence
-            : existingRow.companyVacancyEvidence,
-          companyEvidenceLegacyUntil: mergedCompanyVacancyEvidence !== undefined
-            ? null
-            : existingRow.companyEvidenceLegacyUntil,
-          liveness: updated.liveness,
-        } as (typeof existing)[number]);
+        byKnownAtsIdentity.set(directAtsIdentity, updatedRow);
       }
       continue;
     }
@@ -768,6 +999,7 @@ export async function upsertSharedBoardVacancies(
         sourceType,
         boardName: sourceType === "company_site" ? null : advert.boardName,
         externalListingId: advert.externalId,
+         sourceMetadata: advert.sourceMetadata ?? null,
          closesAt: advert.closesAt ?? null,
          expiresAt: advert.expiresAt ?? null,
          closedReason: advert.closedReason ?? null,
@@ -788,6 +1020,20 @@ export async function upsertSharedBoardVacancies(
       });
     if (created) {
       inserted += 1;
+      const createdRow = {
+        ...advert,
+        id: created.id,
+        sourceType,
+        boardName: sourceType === "company_site" ? null : advert.boardName,
+        externalListingId: advert.externalId,
+        url: advert.url,
+        applicationUrl: advert.applicationUrl ?? null,
+        sourceMetadata: advert.sourceMetadata ?? null,
+        liveness: created.liveness,
+        companyVacancyEvidence: advert.companyVacancyEvidence ?? null,
+      } as unknown as (typeof existing)[number];
+      registerRow(createdRow);
+      await addSourceObservation(created.id, advert, false);
       outcomes.push({
         sourceRow: advert.reviewedSourceRow ?? null,
         url: advert.url,

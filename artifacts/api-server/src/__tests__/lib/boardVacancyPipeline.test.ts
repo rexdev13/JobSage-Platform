@@ -124,7 +124,7 @@ describe("shared board vacancy pipeline", () => {
     expect(adapter.complete).toHaveBeenCalledTimes(1);
   });
 
-  it("deduplicates canonical URLs and organisation/title/location fingerprints with NHS preference", () => {
+  it("keeps matching board candidates separate until the database can inspect their source identities", () => {
     const result = normaliseAndDedupeBoardAdverts([
       advert({
         boardName: "Reed",
@@ -133,10 +133,10 @@ describe("shared board vacancy pipeline", () => {
       }),
       advert(),
       advert({ url: "https://www.jobs.nhs.uk/candidate/jobadvert/C123?language=en&utm_medium=email" }),
-    ]);
+    ], { preserveCrossSourceRows: true });
 
-    expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({ boardName: "NHS Jobs", externalId: "C123" });
+    expect(result).toHaveLength(2);
+    expect(result.map((item) => item.boardName)).toEqual(["Reed", "NHS Jobs"]);
   });
 
   it("keeps a direct employer advert when a job-board advert has the same fingerprint", () => {
@@ -218,7 +218,27 @@ describe("shared board vacancy pipeline", () => {
     expect(result.map((item) => item.externalId).sort()).toEqual(["JR115988", "JR117009"]);
   });
 
-  it("deduplicates a repeated ATS ID and prefers verified ATS evidence over a generic crawl", () => {
+  it("preserves distinct public-board posting IDs even when their fingerprints match", () => {
+    const result = normaliseAndDedupeBoardAdverts([
+      advert({
+        sourceType: "job_board",
+        boardName: "Jobicy",
+        externalId: "job-101",
+        url: "https://jobicy.com/jobs/job-101-senior-data-engineer",
+      }),
+      advert({
+        sourceType: "job_board",
+        boardName: "Jobicy",
+        externalId: "job-102",
+        url: "https://jobicy.com/jobs/job-102-senior-data-engineer",
+      }),
+    ]);
+
+    expect(result).toHaveLength(2);
+    expect(result.map((item) => item.externalId)).toEqual(["job-101", "job-102"]);
+  });
+
+  it("keeps generic and ATS candidates intact for transaction-level provenance checks", () => {
     const direct = knownAtsAdvert("JR117009", "https://careers.example.nhs.uk/jobs/JR117009");
     const repeatedDirect = {
       ...direct,
@@ -236,13 +256,27 @@ describe("shared board vacancy pipeline", () => {
       },
     });
 
-    const result = normaliseAndDedupeBoardAdverts([generic, direct, repeatedDirect]);
+    const result = normaliseAndDedupeBoardAdverts(
+      [generic, direct, repeatedDirect],
+      { preserveCrossSourceRows: true },
+    );
 
-    expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({
-      externalId: "JR117009",
-      companyVacancyEvidence: { kind: "known_ats_posting" },
-    });
+    expect(result).toHaveLength(2);
+    expect(result.filter((item) => item.companyVacancyEvidence?.kind === "known_ats_posting"))
+      .toHaveLength(1);
+    expect(result.filter((item) => item.companyVacancyEvidence?.kind === "structured_job_card"))
+      .toHaveLength(1);
+  });
+
+  it("preserves a feed's explicit ID when the listing URL contains a different slug", () => {
+    const [normalized] = normaliseAndDedupeBoardAdverts([advert({
+      sourceType: "job_board",
+      boardName: "Jobicy",
+      url: "https://jobicy.com/jobs/154706-crm-marketing-intern",
+      externalId: "154706",
+    })]);
+
+    expect(normalized?.externalId).toBe("154706");
   });
 
   it("normalises fingerprint case, whitespace, and punctuation", () => {

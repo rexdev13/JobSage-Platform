@@ -302,6 +302,7 @@ export const sponsorLicenceVacanciesTable = pgTable(
       listingUrl?: string;
       provider?: string;
     } | null>(),
+    sourceMetadata: jsonb("source_metadata").$type<Record<string, unknown> | null>(),
     companyEvidenceLegacyUntil: timestamp("company_evidence_legacy_until", { withTimezone: true }),
     sourceMissingSince: timestamp("source_missing_since", { withTimezone: true }),
     sourceMissingObservations: integer("source_missing_observations").notNull().default(0),

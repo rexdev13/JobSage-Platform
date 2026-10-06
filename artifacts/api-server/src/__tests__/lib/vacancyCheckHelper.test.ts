@@ -59,6 +59,23 @@ vi.mock("@workspace/db", () => {
     livenessReason: "livenessReason",
     id: "id",
   },
+  vacancySourceObservationsTable: {
+    id: "id",
+    vacancyId: "vacancyId",
+    sourceId: "sourceId",
+    provider: "provider",
+    sourceType: "sourceType",
+    boardName: "boardName",
+    externalId: "externalId",
+    url: "url",
+    canonicalUrl: "canonicalUrl",
+    applicationUrl: "applicationUrl",
+    sourceMetadata: "sourceMetadata",
+    parserVersion: "parserVersion",
+    firstSeenAt: "firstSeenAt",
+    lastSeenAt: "lastSeenAt",
+    missingSince: "missingSince",
+  },
   sponsorLicencesTable: {},
   };
 });
@@ -126,9 +143,15 @@ describe("runVacancyCheck HTTP-first discovery", () => {
       .mockReturnValueOnce({
         from: () => ({ where: () => Promise.resolve([]) }),
       });
+    selectMock.mockReturnValue({
+      from: () => ({ where: () => Promise.resolve([]) }),
+    });
     cacheLimitMock.mockResolvedValue([]);
     priorWhereMock.mockResolvedValue([]);
-    insertValuesMock.mockReturnValue({ returning: () => Promise.resolve([{ checkedAt: new Date("2026-08-24T08:00:00.000Z") }]) });
+    insertValuesMock.mockReturnValue({
+      returning: () => Promise.resolve([{ checkedAt: new Date("2026-08-24T08:00:00.000Z") }]),
+      onConflictDoUpdate: vi.fn().mockResolvedValue(undefined),
+    });
     deleteWhereMock.mockResolvedValue(undefined);
     reserveNhsVacancyProbeMock.mockResolvedValue({
       allowed: true,

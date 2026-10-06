@@ -11,6 +11,7 @@ vi.mock("../../lib/vacancyJobRunner", () => ({
   PROFESSION_BACKFILL_HTTP_BUDGET_MS: 22_000,
   PROFESSION_BACKFILL_HTTP_CATEGORY_LIMIT: 1,
   PROFESSION_BACKFILL_HTTP_MAX_CATEGORY_LIMIT: 2,
+  FREE_BOARD_HTTP_BUDGET_MS: 45_000,
   runVacancyJob: runVacancyJobMock,
 }));
 
@@ -111,6 +112,8 @@ describe("POST /internal/vacancy-jobs", () => {
     ["company_site_probe", 999, 60],
     ["liveness", 999, 50],
     ["contact", 999, 5],
+    ["free_board_sources", 999, 5],
+    ["free_source_ats", 999, 10],
   ] as const)("caps %s HTTP batches", async (kind, requested, expected) => {
     const response = await request(app)
       .post("/internal/vacancy-jobs")
@@ -121,9 +124,11 @@ describe("POST /internal/vacancy-jobs", () => {
     expect(runVacancyJobMock).toHaveBeenCalledWith(
       kind,
       expected,
-      kind === "liveness" || kind === "company_site_probe"
+      kind === "liveness" || kind === "company_site_probe" || kind === "free_board_sources"
         ? { deadlineMs: expect.any(Number) }
-        : { deadlineMs: undefined },
+        : kind === "free_source_ats"
+          ? { deadlineMs: undefined, cursor: 0 }
+          : { deadlineMs: undefined },
     );
   });
 
@@ -251,6 +256,41 @@ describe("POST /internal/vacancy-jobs", () => {
       .send({ kind: "job_board", cursor: 1 });
     expect(invalid.status).toBe(400);
     expect(runVacancyJobMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("accepts free-board batches and resumable verified ATS targets", async () => {
+    const freeBoards = await request(app)
+      .post("/internal/vacancy-jobs")
+      .set("x-jobsage-job-secret", "test-job-secret")
+      .send({ kind: "free_board_sources" });
+
+    expect(freeBoards.status).toBe(200);
+    expect(runVacancyJobMock).toHaveBeenNthCalledWith(
+      1,
+      "free_board_sources",
+      2,
+      { deadlineMs: expect.any(Number) },
+    );
+
+    const atsTargets = await request(app)
+      .post("/internal/vacancy-jobs")
+      .set("x-jobsage-job-secret", "test-job-secret")
+      .send({ kind: "free_source_ats", cursor: 4, limit: 10 });
+
+    expect(atsTargets.status).toBe(200);
+    expect(runVacancyJobMock).toHaveBeenNthCalledWith(
+      2,
+      "free_source_ats",
+      10,
+      { deadlineMs: undefined, cursor: 4 },
+    );
+
+    const invalidCursor = await request(app)
+      .post("/internal/vacancy-jobs")
+      .set("x-jobsage-job-secret", "test-job-secret")
+      .send({ kind: "free_board_sources", cursor: 1 });
+    expect(invalidCursor.status).toBe(400);
+    expect(runVacancyJobMock).toHaveBeenCalledTimes(2);
   });
 
   it("returns 409 immediately when the shared writer is busy", async () => {

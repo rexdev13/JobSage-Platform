@@ -96,6 +96,24 @@ function boardMetadata(url: URL): Omit<VacancySourceMetadata, "sourceType"> | nu
       externalListingId: path.match(/\/jobs\/([^/?#]+)/i)?.[1] ?? null,
     };
   }
+  if (hostMatches(host, "arbeitnow.com")) {
+    return {
+      boardName: "Arbeitnow",
+      externalListingId: path.match(/\/jobs\/(?:companies\/[^/?#]+\/)?([^/?#]+)/i)?.[1] ?? null,
+    };
+  }
+  if (hostMatches(host, "jobicy.com")) {
+    return {
+      boardName: "Jobicy",
+      externalListingId: path.match(/\/(?:jobs|job)\/([^/?#]+(?:\/[^/?#]+)*)/i)?.[1] ?? null,
+    };
+  }
+  if (hostMatches(host, "himalayas.app")) {
+    return {
+      boardName: "Himalayas",
+      externalListingId: path.match(/\/(?:jobs\/|companies\/[^/?#]+\/jobs\/)([^/?#]+)/i)?.[1] ?? null,
+    };
+  }
   return null;
 }
 

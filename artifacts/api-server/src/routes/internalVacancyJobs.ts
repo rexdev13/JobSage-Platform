@@ -4,6 +4,7 @@ import {
   PROFESSION_BACKFILL_HTTP_BUDGET_MS,
   PROFESSION_BACKFILL_HTTP_CATEGORY_LIMIT,
   PROFESSION_BACKFILL_HTTP_MAX_CATEGORY_LIMIT,
+  FREE_BOARD_HTTP_BUDGET_MS,
   runVacancyJob,
   type VacancyJobKind,
 } from "../lib/vacancyJobRunner";
@@ -39,6 +40,8 @@ function getHttpDefaultLimits(): Record<VacancyJobKind, number> {
     contact: 5,
     reed_professions: PROFESSION_BACKFILL_HTTP_CATEGORY_LIMIT,
     additional_boards: PROFESSION_BACKFILL_HTTP_CATEGORY_LIMIT,
+    free_board_sources: 2,
+    free_source_ats: 5,
   };
 }
 
@@ -52,6 +55,8 @@ function getHttpMaxLimits(): Record<VacancyJobKind, number> {
     contact: 5,
     reed_professions: PROFESSION_BACKFILL_HTTP_MAX_CATEGORY_LIMIT,
     additional_boards: PROFESSION_BACKFILL_HTTP_MAX_CATEGORY_LIMIT,
+    free_board_sources: 5,
+    free_source_ats: 10,
   };
 }
 
@@ -79,10 +84,12 @@ router.post("/internal/vacancy-jobs", async (req: Request, res: Response): Promi
     requestedKind !== "liveness" &&
     requestedKind !== "contact" &&
     requestedKind !== "reed_professions" &&
-    requestedKind !== "additional_boards"
+    requestedKind !== "additional_boards" &&
+    requestedKind !== "free_board_sources" &&
+    requestedKind !== "free_source_ats"
   ) {
     res.status(400).json({
-      error: "kind must be job_board, company_site, company_site_direct_feed, company_site_probe, liveness, contact, reed_professions, or additional_boards.",
+      error: "kind must be job_board, company_site, company_site_direct_feed, company_site_probe, liveness, contact, reed_professions, additional_boards, free_board_sources, or free_source_ats.",
     });
     return;
   }
@@ -103,17 +110,18 @@ router.post("/internal/vacancy-jobs", async (req: Request, res: Response): Promi
 
   const isProfessionBackfill =
     kind === "reed_professions" || kind === "additional_boards";
+  const supportsCursor = isProfessionBackfill || kind === "free_source_ats";
   const requestedCursor = req.body?.cursor;
   if (
-    isProfessionBackfill &&
+    supportsCursor &&
     requestedCursor != null &&
     (!Number.isInteger(requestedCursor) || requestedCursor < 0)
   ) {
     res.status(400).json({ error: "cursor must be a non-negative integer." });
     return;
   }
-  if (!isProfessionBackfill && requestedCursor != null) {
-    res.status(400).json({ error: "cursor is only supported for profession backfills." });
+  if (!supportsCursor && requestedCursor != null) {
+    res.status(400).json({ error: "cursor is only supported for profession backfills and reference ATS targets." });
     return;
   }
 
@@ -158,6 +166,8 @@ router.post("/internal/vacancy-jobs", async (req: Request, res: Response): Promi
       ? Date.now() + LIVENESS_HTTP_BUDGET_MS
       : isProfessionBackfill
         ? Date.now() + PROFESSION_BACKFILL_HTTP_BUDGET_MS
+        : kind === "free_board_sources"
+          ? Date.now() + FREE_BOARD_HTTP_BUDGET_MS
         : undefined;
     const summary = isProfessionBackfill
       ? await runVacancyJob(kind, limit, {
@@ -165,6 +175,8 @@ router.post("/internal/vacancy-jobs", async (req: Request, res: Response): Promi
         cursor: requestedCursor ?? 0,
         categoryLimit: limit,
       })
+      : kind === "free_source_ats"
+        ? await runVacancyJob(kind, limit, { deadlineMs, cursor: requestedCursor ?? 0 })
       : organisationNames
         ? await runVacancyJob(kind, limit, { deadlineMs, organisationNames })
         : await runVacancyJob(kind, limit, { deadlineMs });

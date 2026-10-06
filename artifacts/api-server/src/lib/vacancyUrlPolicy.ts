@@ -335,6 +335,15 @@ export function isValidJobBoardVacancyDeepLink(url: string | null | undefined): 
   if (hostMatches(host, "teaching-vacancies.service.gov.uk")) {
     return /^\/jobs\/[^/?#]+$/i.test(path);
   }
+  if (hostMatches(host, "arbeitnow.com")) {
+    return /^\/jobs\/(?:companies\/[^/?#]+\/)?[^/?#]+$/i.test(path);
+  }
+  if (hostMatches(host, "jobicy.com")) {
+    return /^\/(?:jobs|job)\/[^?#]+$/i.test(path);
+  }
+  if (hostMatches(host, "himalayas.app")) {
+    return /^\/(?:jobs\/[^/?#]+|companies\/[^/?#]+\/jobs\/[^/?#]+)$/i.test(path);
+  }
   return false;
 }
 
