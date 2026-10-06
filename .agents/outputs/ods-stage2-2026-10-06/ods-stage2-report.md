@@ -1,6 +1,6 @@
 # Stage 2 NHS ODS website match report
 
-Generated: 2026-10-06T17:31:48.539Z
+Generated: 2026-10-06T17:48:13.867Z
 
 ## Scope and rules
 
@@ -23,7 +23,7 @@ A write was eligible only with one active RO197 NHS TRUST record, an exact norma
 | Planned write rows | 55 |
 | Planned write employers | 54 |
 | Writer preflight status | blocked_before_database_connection |
-| Writer preflight reason | The production writer secret is present, but its runtime value did not parse as a valid PostgreSQL URL. The writer stopped during environment validation before loading or opening the database pool. |
+| Writer preflight reason | The production writer credentials match the discovery or proof credentials. The writer stopped during environment validation before loading or opening the database pool. |
 | Production apply status | Not applied; preflight blocked before database connection |
 | Last read-only production sponsor rows | 142847 |
 | Last read-only blank websites | 132456 |
@@ -76,4 +76,4 @@ pnpm --filter @workspace/api-server sponsor:stage1-ods-websites -- --restore-bef
 
 The restore is conditional and will refuse if target values or row counts changed. These commands require the production writer secret to be a valid PostgreSQL URL.
 
-The production writer aborted before opening a database connection: The production writer secret is present, but its runtime value did not parse as a valid PostgreSQL URL. The writer stopped during environment validation before loading or opening the database pool. No production write or transaction before-image was created. The exact-match before-value snapshot is saved separately as production-exact-ods-writer-row-states.csv.
+The production writer aborted before opening a database connection: The production writer credentials match the discovery or proof credentials. The writer stopped during environment validation before loading or opening the database pool. No production write or transaction before-image was created. The exact-match before-value snapshot is saved separately as production-exact-ods-writer-row-states.csv.

@@ -1,6 +1,6 @@
 {
   "status": "blocked_before_database_connection",
-  "reason": "The production writer secret is present, but its runtime value did not parse as a valid PostgreSQL URL. The writer stopped during environment validation before loading or opening the database pool.",
+  "reason": "The production writer credentials match the discovery or proof credentials. The writer stopped during environment validation before loading or opening the database pool.",
   "databaseConnectionAttempted": false,
   "writesAttempted": 0,
   "beforeImageCreated": false
