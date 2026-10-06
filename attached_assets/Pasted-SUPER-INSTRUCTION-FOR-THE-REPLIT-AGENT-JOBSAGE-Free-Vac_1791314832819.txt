@@ -1,0 +1,94 @@
+SUPER INSTRUCTION FOR THE REPLIT AGENT: JOBSAGE Free Vacancy Collection
+You have three files:
+
+REPLIT-AGENT-SUPER-INSTRUCTION.md (this file): what to do, in order, and the rules you must not break.
+JOBSAGE-vacancy-collector-rebuild-guide.md: the full technical reference (endpoints, quirks, schema, dedupe, verification).
+jobsage-vacancy-collector.tar.gz: a working reference implementation (TypeScript, 29 passing tests). It produced 32,981 live, deduplicated vacancies (20,067 UK) from 54 free sources. Every sampled vacancy that could be checked was live with a matching title (277/277).
+Read all of this file before writing any code. When this file and the guide disagree, this file wins.
+
+MISSION
+Add high-volume, accurate, free vacancy collection to JOBSAGE by porting the reference implementation into JOBSAGE's existing vacancy pipeline. Do not build a second, parallel system. Success is measured by coverage against what each source reports, freshness, and sampled precision, not by raw row counts.
+
+NON-NEGOTIABLE RULES
+Reuse JOBSAGE's existing code. Before writing anything, read artifacts/api-server/src/lib/boardVacancyPipeline.ts, the existing NHS/Reed board adapters, the company-site connectors (Ashby, Greenhouse, Lever, SmartRecruiters, Recruitee, Personio, Pinpoint, Workday), the liveness fields, the candidate-visibility SQL, the internal cron endpoint and the DB schema. New sources must go through the existing shared upsert. Don't write one-off SQL, and don't create new vacancy tables if equivalents exist.
+Free and keyless sources only. Don't add paid APIs or API keys without asking the owner.
+Respect robots.txt, per-host pacing, timeouts, response-size caps, and retries with backoff. Never weaken existing SSRF, DNS, HTTPS, redirect or size protections. Don't use Remotive's API, SmartRecruiters' public API or DWP Find a Job: they forbid or block automated access.
+A failure is never "zero vacancies." Timeouts, 403s, robots blocks and exceptions must be recorded as retryable_failure, permanent_block, needs_review or partial, never as success_zero. Only a fully exhausted, error-free sweep may report zero.
+Never mark vacancies missing after a partial or failed run. Only a fully exhausted sweep may do that.
+Candidate visibility stays strict. A vacancy is shown only if all of these hold:
+it is live
+a successful sweep saw it in the last 48 hours
+it is not past its closing date
+it has a URL
+its link was not found dead
+Never crawl during a candidate HTTP request. Collection runs only from the protected internal cron endpoint (e.g. /api/internal/vacancy-jobs) as bounded jobs.
+Sponsorship comes from the vacancy's own text only. An employer being on the sponsor register does NOT mean a vacancy offers sponsorship.
+Apply, Smart Apply and Send CV: use only verified URLs and recipients. Never guess employer emails and never auto-submit application forms.
+Don't claim "all vacancies on the web." Report measured numbers only.
+THE FOUR FIXES YOU MUST COPY EXACTLY
+Each of these alone caused thousands of missed or wrong vacancies in testing.
+
+#	Where	Fix	Why
+1	NHS Jobs	Use https://www.jobs.nhs.uk/api/v1/search_xml?page={n}&limit=100&sort=publicationDateAsc	The default ordering repeats rows across pages, missing about 2,000 jobs. Coverage went from 82.9% to 99.8%.
+2	Teaching Vacancies	After paging /api/v1/jobs.json, read /sitemap.xml, find /jobs/{slug} URLs not yet seen, and fetch each from /api/v1/jobs/{slug}.json	The list API's pagination is unordered and misses about 1,280 jobs. Coverage went from 81.4% to 99.9%.
+3	Greenhouse URLs	Keep gh_jid when canonicalizing URLs. Strip only utm_*, gh_src, ref, source, src, lever-source and lever-origin	Stripping it merged every Stripe, Databricks and MongoDB job into one record.
+4	Dedupe	URL and fingerprint matches merge only across different sources. The fingerprint must NOT be a UNIQUE column	Two identical job titles at one school are two real jobs. Without this, about 1,100 jobs were wrongly merged.
+Also: timestamps must keep millisecond precision, otherwise missing-detection breaks.
+
+STEP-BY-STEP PLAN
+Step 1: Discover (no code changes). Read the files listed in rule 1. Write a short mapping note listing:
+
+which reference sources JOBSAGE already has (NHS, Greenhouse/Lever/Ashby connectors)
+which are new (Teaching Vacancies, Arbeitnow, Jobicy, Himalayas, the ATS employer list)
+how each reference field maps to JOBSAGE columns (see guide §10).
+Step 2: Fix the existing adapters first. Apply fixes 1, 3 and 4 to JOBSAGE's existing NHS adapter, Greenhouse connector and shared upsert. Add tests for each.
+
+Step 3: Add the new sources through the existing pipeline. Port these from the tarball (src/adapters/*):
+
+Teaching Vacancies, with sitemap reconciliation (fix 2).
+Greenhouse/Lever/Ashby employers from config/ats-employers.json (49 verified employers). Each employer is its own source, source_type = company_site, and the employer name comes from config, not the feed. Only add an employer after confirming the board belongs to them.
+Arbeitnow (20 pages per run, 1.5 s pacing), Jobicy (10 pages), Himalayas (100 pages, 600 ms; mark it "unverifiable" because its pages sit behind Cloudflare).
+Step 4: Pipeline behaviour. Make sure each source run:
+
+saves a cursor after every page (resumable)
+respects a page cap per run, which gives a partial outcome
+records one outcome from success_with_listings | success_zero | partial | retryable_failure | permanent_block | needs_review | skipped_backoff
+stores counts (raw, accepted, rejected by reason, new, updated, cross-source merges, marked missing) and the source's reported total
+uses a circuit breaker with exponential cooldown (15 min doubling up to 24 h; permanent blocks wait 24 h).
+Step 5: Normalization. Port src/normalize.ts rules. Reject with a stored reason, never silently:
+
+missing ID, title or employer
+non-role titles (general application, talent pool, …)
+invalid URL, or URL on a disallowed host
+past closing date
+posted in the future
+stale with no closing date (90 days for boards, 365 for employer ATS feeds)
+Detect country, sector (versioned rules, with evidence stored) and sponsorship (with an evidence snippet).
+
+Step 6: Precision check. Port src/verify.ts as an internal job. It samples random visible vacancies per provider and checks them:
+
+ATS jobs: re-check via the ATS API (Greenhouse /boards/{slug}/jobs/{id}, Lever /postings/{slug}/{id}, Ashby board lookup).
+Other jobs: fetch the listing page. Check for closure text and that at least 60% of the stored title's words appear.
+Treat 401/403 as "unverifiable", not wrong.
+Hide vacancies found dead or closed.
+Step 7: Schedule. Run collection every 3–6 hours from the protected cron endpoint. Run the precision sample daily.
+
+Step 8: Tests. Port the 29 tests from test/ (see guide §11) and adapt them to JOBSAGE's test setup. All existing JOBSAGE tests must still pass. Run typecheck and lint.
+
+DEFINITION OF DONE: report these numbers back
+After a full collection run plus verify with 40 samples per provider, report:
+
+A table per source: outcome, visible vacancies, source-reported total, coverage %, top reject reasons, error if any.
+Total candidate-visible vacancies, UK count, cross-source merges, and counts by sector and country.
+Sampled precision per provider (verified ÷ checkable), with unverifiable sources listed separately.
+Run duration and request count.
+Anything not done, and why.
+Targets based on the reference run:
+
+NHS Jobs at least 99% coverage, Teaching Vacancies at least 99%, and employer ATS boards about 90%+ (the rest rejected as stale or unlisted, with reasons).
+Overall sampled precision at least 97%.
+Zero sources recorded as success_zero because of an error.
+IF YOU GET STUCK
+If JOBSAGE's existing design conflicts with something here, keep JOBSAGE's safeguards and explain the conflict instead of bypassing them.
+If a source starts returning 403 or 429 or changes its robots.txt, record it as blocked or retryable and move on. Don't evade it with fake user agents or proxies.
+If you can't verify that an employer owns an ATS board, leave it out.
