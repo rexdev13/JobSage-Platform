@@ -182,13 +182,21 @@ function parseArguments(argv: readonly string[]): RunOptions {
   };
 }
 
-function connectionTarget(value: string): string {
-  const url = new URL(value);
+function parseConfiguredUrl(value: string, environmentName: string): URL {
+  try {
+    return new URL(value);
+  } catch {
+    throw new Error(`The ${environmentName} environment value is not a valid URL.`);
+  }
+}
+
+function connectionTarget(value: string, environmentName: string): string {
+  const url = parseConfiguredUrl(value, environmentName);
   return `${url.protocol}//${url.hostname.toLowerCase()}:${url.port || "5432"}${url.pathname}`;
 }
 
-function credentialIdentity(value: string): string {
-  const url = new URL(value);
+function credentialIdentity(value: string, environmentName: string): string {
+  const url = parseConfiguredUrl(value, environmentName);
   return `${decodeURIComponent(url.username)}\u0000${decodeURIComponent(url.password)}`;
 }
 
@@ -200,12 +208,7 @@ function prepareWriterEnvironment(env: NodeJS.ProcessEnv): string {
   if (!writerUrl) {
     throw new Error(`The production ODS writer requires the ${WRITER_DATABASE_ENV} secret.`);
   }
-  let parsed: URL;
-  try {
-    parsed = new URL(writerUrl);
-  } catch {
-    throw new Error("The production writer secret is not a valid database URL.");
-  }
+  const parsed = parseConfiguredUrl(writerUrl, WRITER_DATABASE_ENV);
   if (parsed.protocol !== "postgres:" && parsed.protocol !== "postgresql:") {
     throw new Error("The production writer secret must use the PostgreSQL protocol.");
   }
@@ -214,13 +217,19 @@ function prepareWriterEnvironment(env: NodeJS.ProcessEnv): string {
   if (!defaultUrl) {
     throw new Error("DATABASE_URL is required for a development-target separation check.");
   }
-  if (connectionTarget(writerUrl) === connectionTarget(defaultUrl)) {
+  if (
+    connectionTarget(writerUrl, WRITER_DATABASE_ENV) ===
+    connectionTarget(defaultUrl, "DATABASE_URL")
+  ) {
     throw new Error("Production writer resolves to the same database target as DATABASE_URL.");
   }
-  const writerCredentials = credentialIdentity(writerUrl);
+  const writerCredentials = credentialIdentity(writerUrl, WRITER_DATABASE_ENV);
   for (const key of READONLY_DATABASE_ENVS) {
     const readonlyUrl = env[key]?.trim();
-    if (readonlyUrl && writerCredentials === credentialIdentity(readonlyUrl)) {
+    if (
+      readonlyUrl &&
+      writerCredentials === credentialIdentity(readonlyUrl, key)
+    ) {
       throw new Error("The production writer must use credentials separate from discovery and proof roles.");
     }
   }
