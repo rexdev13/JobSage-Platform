@@ -149,18 +149,21 @@ function parseArguments(argv: readonly string[]): RunOptions {
   const restoreBeforeImageFile = values.get("restore-before-image-file");
   if (
     confirmProofCredentialReuse &&
-    (!stage2TargetsFile || restoreBeforeImageFile)
+    (!stage2TargetsFile && !restoreBeforeImageFile)
   ) {
     throw new Error(
-      "--confirm-proof-credential-reuse=true is valid only for a Stage 2 ODS apply plan.",
+      "--confirm-proof-credential-reuse=true is valid only for a Stage 2 apply plan or restore.",
     );
   }
   if (
     confirmElevatedProofRole &&
-    (!confirmProofCredentialReuse || !stage2TargetsFile || restoreBeforeImageFile)
+    (
+      !confirmProofCredentialReuse ||
+      (!stage2TargetsFile && !restoreBeforeImageFile)
+    )
   ) {
     throw new Error(
-      "--confirm-elevated-proof-role=true requires the proof-credential confirmation and a Stage 2 ODS apply plan.",
+      "--confirm-elevated-proof-role=true requires the proof-credential confirmation and a Stage 2 apply plan or restore.",
     );
   }
   if (stage2TargetsFile && restoreBeforeImageFile) {
@@ -402,6 +405,42 @@ async function assertLeastPrivilege(transaction: {
   }
 }
 
+async function assertStage2RequiredColumnAccess(transaction: {
+  execute: (query: ReturnType<typeof sql>) => Promise<{ rows: unknown[] }>;
+}): Promise<void> {
+  const result = await transaction.execute(sql`
+    SELECT
+      column_name,
+      has_column_privilege(
+        current_user,
+        'public.sponsor_licences',
+        column_name,
+        'SELECT'
+      ) AS can_select,
+      has_column_privilege(
+        current_user,
+        'public.sponsor_licences',
+        column_name,
+        'UPDATE'
+      ) AS can_update
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'sponsor_licences'
+  `);
+  const columns = result.rows as PrivilegeColumn[];
+  const byName = new Map(columns.map((column) => [column.column_name, column]));
+  for (const name of EXPECTED_SELECT_COLUMNS) {
+    if (!byName.get(name)?.can_select) {
+      throw new Error(`The production writer lacks required SELECT access to ${name}.`);
+    }
+  }
+  for (const name of EXPECTED_UPDATE_COLUMNS) {
+    if (!byName.get(name)?.can_update) {
+      throw new Error(`The production writer lacks required UPDATE access to ${name}.`);
+    }
+  }
+}
+
 function workspaceFilePath(value: string): string {
   if (!value.trim()) throw new Error("A nonblank workspace-relative file path is required.");
   const root = WORKSPACE_ROOT;
@@ -629,6 +668,8 @@ async function run(): Promise<void> {
       );
       if (!options.confirmElevatedProofRole) {
         await assertLeastPrivilege(transaction);
+      } else {
+        await assertStage2RequiredColumnAccess(transaction);
       }
 
       const database = {
@@ -682,7 +723,9 @@ async function run(): Promise<void> {
             database,
             readOnlyTransaction: true,
             rolePrivilegesVerified: !options.confirmElevatedProofRole,
+            requiredColumnAccessVerified: true,
             elevatedProofRoleConfirmed: options.confirmElevatedProofRole,
+            proofCredentialReuseConfirmed: options.confirmProofCredentialReuse,
             selectedEmployers: restoreBeforeImage.targets.length,
             plannedRestoreRows: restoreRows,
             writesAttempted: 0,
@@ -730,6 +773,10 @@ async function run(): Promise<void> {
           status: "restored",
           mode: "stage2-restore",
           database,
+          rolePrivilegesVerified: !options.confirmElevatedProofRole,
+          requiredColumnAccessVerified: true,
+          elevatedProofRoleConfirmed: options.confirmElevatedProofRole,
+          proofCredentialReuseConfirmed: options.confirmProofCredentialReuse,
           selectedEmployers: restoreBeforeImage.targets.length,
           writesAttempted: restoredRows,
           restoredRows: restored.length,
@@ -753,7 +800,9 @@ async function run(): Promise<void> {
             mode: "stage2",
             database,
             readOnlyTransaction: true,
-            rolePrivilegesVerified: true,
+            rolePrivilegesVerified: !options.confirmElevatedProofRole,
+            requiredColumnAccessVerified: true,
+            elevatedProofRoleConfirmed: options.confirmElevatedProofRole,
             selectedEmployers: updates.length,
             plannedWriteRows: approvedWriteRows,
             writesAttempted: 0,
@@ -828,6 +877,7 @@ async function run(): Promise<void> {
           writesAttempted: updatedRows.length,
           updatedRows: updatedRows.length,
           rolePrivilegesVerified: !options.confirmElevatedProofRole,
+          requiredColumnAccessVerified: true,
           elevatedProofRoleConfirmed: options.confirmElevatedProofRole,
           proofCredentialReuseConfirmed: options.confirmProofCredentialReuse,
           countsBefore,

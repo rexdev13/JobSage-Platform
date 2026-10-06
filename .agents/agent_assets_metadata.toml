@@ -1487,28 +1487,28 @@ content_type = "text/csv"
 id = "Kw_elPonEXSdZEiMDQR5Q"
 uri = "file://.agents/outputs/ods-stage2-2026-10-06/ods-stage2-report.xlsx"
 type = "table"
-title = "Updated Stage 2 NHS ODS report"
-description = "Current preflight status plus all 6,804 reviewed rows, split into Summary, Clean, Held, Conflict, and No match sheets."
+title = "Stage 2 NHS ODS report"
+description = "Workbook with counts, 55 clean matches, all 15 held rows, 9 conflicts, all 6,725 no-match reasons, ten examples, production apply results, and rollback instructions."
 logical_id = "f803358d-1b99-4b55-ac1c-4ee3b2650dff"
-content_hash = "sha256:08aa964f5801831ea608feb6ac904a732b5d1bdd553d5c49fe80f477ebb75de1"
-size = 5881855
-mtime_ms = 1791311235789
-storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/f803358d-1b99-4b55-ac1c-4ee3b2650dff/241c68b1-d579-4cb0-9898-9e6732543e3b"
-storage_version_token = "1791311255642240"
+content_hash = "sha256:26d11dd8a129adb2a92eacb780824bc90cf5c5d7161cf7bff3523882e039a47e"
+size = 5882119
+mtime_ms = 1791311844941
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/f803358d-1b99-4b55-ac1c-4ee3b2650dff/2eb47fe4-2692-4dee-ac62-596ed2c24753"
+storage_version_token = "1791311930799632"
 content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 [[outputs]]
 id = "Zjd2-Fg1nqOBnUdkDzsM2"
 uri = "file://.agents/outputs/ods-stage2-2026-10-06/ods-stage2-classification.csv"
 type = "table"
-title = "Full Stage 2 classification CSV"
-description = "Every candidate outcome and reason with ODS evidence and before/after fields."
+title = "Stage 2 NHS ODS row-level classification"
+description = "All 6,804 candidate rows with exact-match result, reason, source fields, ODS evidence, and before/after values."
 logical_id = "3d3a64ec-3f49-478a-8a26-d9074982751a"
 content_hash = "sha256:71a2eab755f1ce79da930ab797c4be375425433c81a2144933b21cd68e8124ab"
 size = 1108410
-mtime_ms = 1791311235121
-storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/3d3a64ec-3f49-478a-8a26-d9074982751a/bdbf8f3e-833f-4bd6-a2f6-44fc15b3612f"
-storage_version_token = "1791311256949578"
+mtime_ms = 1791311844445
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:23c98aa3-1203-40d8-a2e6-823a6b5f7f9b/3d3a64ec-3f49-478a-8a26-d9074982751a/da5d5a12-e14a-48a3-9ef1-2d86ebf8d536"
+storage_version_token = "1791311932189044"
 content_type = "text/csv"
 
 [[outputs]]

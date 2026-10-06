@@ -48,6 +48,10 @@ type ApplyReceipt = {
   selectedEmployers?: number;
   writesAttempted?: number;
   updatedRows?: number;
+  proofCredentialReuseConfirmed?: boolean;
+  elevatedProofRoleConfirmed?: boolean;
+  rolePrivilegesVerified?: boolean;
+  requiredColumnAccessVerified?: boolean;
   countsBefore?: Record<string, unknown>;
   countsAfter?: Record<string, unknown>;
 };
@@ -58,6 +62,10 @@ type PreflightReceipt = {
   databaseConnectionAttempted?: boolean;
   writesAttempted?: number;
   beforeImageCreated?: boolean;
+  proofCredentialReuseConfirmed?: boolean;
+  elevatedProofRoleConfirmed?: boolean;
+  rolePrivilegesVerified?: boolean;
+  requiredColumnAccessVerified?: boolean;
 };
 
 type ReadonlyCountSnapshot = {
@@ -224,6 +232,27 @@ function main(): void {
       ? "Not applied; preflight blocked before database connection"
       : "Not yet applied");
   const writerCountsNotRun = "No writer transaction ran";
+  const proofCredentialReuseConfirmed =
+    applyReceipt?.proofCredentialReuseConfirmed ??
+    preflightReceipt?.proofCredentialReuseConfirmed ??
+    false;
+  const elevatedProofRoleConfirmed =
+    applyReceipt?.elevatedProofRoleConfirmed ??
+    preflightReceipt?.elevatedProofRoleConfirmed ??
+    false;
+  const rolePrivilegesVerified =
+    applyReceipt?.rolePrivilegesVerified ??
+    preflightReceipt?.rolePrivilegesVerified ??
+    false;
+  const requiredColumnAccessVerified =
+    applyReceipt?.requiredColumnAccessVerified ??
+    preflightReceipt?.requiredColumnAccessVerified ??
+    false;
+  const rolePrivilegeStatus = elevatedProofRoleConfirmed
+    ? "Bypassed with explicit user confirmation"
+    : rolePrivilegesVerified
+      ? "Verified"
+      : "Not verified";
 
   const summaryRows: Record<string, unknown>[] = [
     { metric: "Candidate rows reviewed", value: candidates.length },
@@ -242,6 +271,10 @@ function main(): void {
     { metric: "Production writer preflight reason", value: preflightReceipt?.reason ?? "" },
     { metric: "Production apply status", value: applyStatus },
     { metric: "Rows written", value: applyReceipt?.writesAttempted ?? applyReceipt?.updatedRows ?? 0 },
+    { metric: "Proof credential reuse confirmed", value: proofCredentialReuseConfirmed },
+    { metric: "Elevated proof role confirmed", value: elevatedProofRoleConfirmed },
+    { metric: "Writer role privilege check", value: rolePrivilegeStatus },
+    { metric: "Required column access verified", value: requiredColumnAccessVerified },
     { metric: "Last read-only production sponsor rows", value: readonlySnapshot?.rowCount ?? "Not recorded" },
     { metric: "Last read-only blank websites", value: readonlySnapshot?.blankWebsiteRows ?? "Not recorded" },
     { metric: "Last read-only blank website/ODS rows", value: readonlySnapshot?.blankAllThreeRows ?? "Not recorded" },
@@ -328,9 +361,15 @@ function main(): void {
     markdownTableRow(["No exact NHS Trust match", counts.NO_MATCH ?? 0]),
     markdownTableRow(["Planned write rows", plan.targets.reduce((total, target) => total + target.expectedRowCount, 0)]),
     markdownTableRow(["Planned write employers", plan.targets.length]),
+    markdownTableRow(["Writes attempted", applyReceipt?.writesAttempted ?? 0]),
+    markdownTableRow(["Rows successfully updated", applyReceipt?.updatedRows ?? 0]),
     markdownTableRow(["Writer preflight status", preflightReceipt?.status ?? "Not run"]),
     markdownTableRow(["Writer preflight reason", preflightReceipt?.reason ?? ""]),
     markdownTableRow(["Production apply status", applyStatus]),
+    markdownTableRow(["Proof credential reuse confirmed", proofCredentialReuseConfirmed ? "Yes" : "No"]),
+    markdownTableRow(["Elevated proof role confirmed", elevatedProofRoleConfirmed ? "Yes" : "No"]),
+    markdownTableRow(["Writer role privilege check", rolePrivilegeStatus]),
+    markdownTableRow(["Required column access verified", requiredColumnAccessVerified ? "Yes" : "No"]),
     markdownTableRow(["Last read-only production sponsor rows", readonlySnapshot?.rowCount ?? "Not recorded"]),
     markdownTableRow(["Last read-only blank websites", readonlySnapshot?.blankWebsiteRows ?? "Not recorded"]),
     markdownTableRow(["Last read-only blank website/ODS rows", readonlySnapshot?.blankAllThreeRows ?? "Not recorded"]),
@@ -369,19 +408,19 @@ function main(): void {
     "",
     "## Undo",
     "",
-    "No production write occurred in this run. After a successful apply, the guarded writer will create `ods-stage2-before-image.json` in this directory before updating any rows. To undo a later successful apply, first run a read-only restore preflight:",
+    "After a successful apply, the guarded writer creates `ods-stage2-before-image.json` before updating any rows. To undo, first run a read-only restore preflight. Because this approved apply uses the elevated proof role, the restore commands require the same explicit confirmations:",
     "",
     "```sh",
-    "pnpm --filter @workspace/api-server sponsor:stage1-ods-websites -- --restore-before-image-file=.agents/outputs/ods-stage2-2026-10-06/ods-stage2-before-image.json --preflight-only=true",
+    "pnpm --filter @workspace/api-server sponsor:stage1-ods-websites -- --restore-before-image-file=.agents/outputs/ods-stage2-2026-10-06/ods-stage2-before-image.json --preflight-only=true --confirm-proof-credential-reuse=true --confirm-elevated-proof-role=true",
     "```",
     "",
     "If that preflight confirms every row still has the Stage 2 values, apply the restore with the fingerprint printed by that preflight:",
     "",
     "```sh",
-    "pnpm --filter @workspace/api-server sponsor:stage1-ods-websites -- --restore-before-image-file=.agents/outputs/ods-stage2-2026-10-06/ods-stage2-before-image.json --apply=true --expected-db-fingerprint=<restore-preflight-fingerprint> --confirm-production-ods-restore=true",
+    "pnpm --filter @workspace/api-server sponsor:stage1-ods-websites -- --restore-before-image-file=.agents/outputs/ods-stage2-2026-10-06/ods-stage2-before-image.json --apply=true --expected-db-fingerprint=<restore-preflight-fingerprint> --confirm-production-ods-restore=true --confirm-proof-credential-reuse=true --confirm-elevated-proof-role=true",
     "```",
     "",
-    "The restore is conditional and will refuse if target values or row counts changed. These commands require the production writer secret to be a valid PostgreSQL URL.",
+    "The restore is conditional and will refuse if target values or row counts changed. It verifies required column access but bypasses the elevated-role privilege checks only with these explicit flags.",
     "",
     preflightReceipt?.status?.startsWith("blocked")
       ? `The production writer preflight stopped: ${preflightReceipt.reason} A database connection was ${preflightReceipt.databaseConnectionAttempted ? "opened for the read-only preflight" : "not opened"}; no writes were attempted and no transaction before-image was created. The exact-match before-value snapshot is saved separately as production-exact-ods-writer-row-states.csv.`

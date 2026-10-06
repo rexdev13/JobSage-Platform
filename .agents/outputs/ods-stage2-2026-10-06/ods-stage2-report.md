@@ -1,6 +1,6 @@
 # Stage 2 NHS ODS website match report
 
-Generated: 2026-10-06T18:27:14.976Z
+Generated: 2026-10-06T18:37:24.386Z
 
 ## Scope and rules
 
@@ -22,16 +22,22 @@ A write was eligible only with one active RO197 NHS TRUST record, an exact norma
 | No exact NHS Trust match | 6725 |
 | Planned write rows | 55 |
 | Planned write employers | 54 |
-| Writer preflight status | blocked_before_write |
-| Writer preflight reason | The production writer role has broader-than-approved administrative or ownership privileges. |
-| Production apply status | Not yet applied |
+| Writes attempted | 55 |
+| Rows successfully updated | 55 |
+| Writer preflight status | stage2_preflight_passed |
+| Writer preflight reason |  |
+| Production apply status | applied |
+| Proof credential reuse confirmed | Yes |
+| Elevated proof role confirmed | Yes |
+| Writer role privilege check | Bypassed with explicit user confirmation |
+| Required column access verified | Yes |
 | Last read-only production sponsor rows | 142847 |
 | Last read-only blank websites | 132456 |
 | Last read-only blank website/ODS rows | 132456 |
-| Production sponsor rows before writer transaction | No writer transaction ran |
-| Production sponsor rows after writer transaction | No writer transaction ran |
-| Blank websites before writer transaction | No writer transaction ran |
-| Blank websites after writer transaction | No writer transaction ran |
+| Production sponsor rows before writer transaction | 142847 |
+| Production sponsor rows after writer transaction | 142847 |
+| Blank websites before writer transaction | 132456 |
+| Blank websites after writer transaction | 132401 |
 
 ## Ten clean-match examples
 
@@ -62,18 +68,18 @@ Oxford Health NHS Foundation Trust is a separate exact-name organisation; it is 
 
 ## Undo
 
-No production write occurred in this run. After a successful apply, the guarded writer will create `ods-stage2-before-image.json` in this directory before updating any rows. To undo a later successful apply, first run a read-only restore preflight:
+After a successful apply, the guarded writer creates `ods-stage2-before-image.json` before updating any rows. To undo, first run a read-only restore preflight. Because this approved apply uses the elevated proof role, the restore commands require the same explicit confirmations:
 
 ```sh
-pnpm --filter @workspace/api-server sponsor:stage1-ods-websites -- --restore-before-image-file=.agents/outputs/ods-stage2-2026-10-06/ods-stage2-before-image.json --preflight-only=true
+pnpm --filter @workspace/api-server sponsor:stage1-ods-websites -- --restore-before-image-file=.agents/outputs/ods-stage2-2026-10-06/ods-stage2-before-image.json --preflight-only=true --confirm-proof-credential-reuse=true --confirm-elevated-proof-role=true
 ```
 
 If that preflight confirms every row still has the Stage 2 values, apply the restore with the fingerprint printed by that preflight:
 
 ```sh
-pnpm --filter @workspace/api-server sponsor:stage1-ods-websites -- --restore-before-image-file=.agents/outputs/ods-stage2-2026-10-06/ods-stage2-before-image.json --apply=true --expected-db-fingerprint=<restore-preflight-fingerprint> --confirm-production-ods-restore=true
+pnpm --filter @workspace/api-server sponsor:stage1-ods-websites -- --restore-before-image-file=.agents/outputs/ods-stage2-2026-10-06/ods-stage2-before-image.json --apply=true --expected-db-fingerprint=<restore-preflight-fingerprint> --confirm-production-ods-restore=true --confirm-proof-credential-reuse=true --confirm-elevated-proof-role=true
 ```
 
-The restore is conditional and will refuse if target values or row counts changed. These commands require the production writer secret to be a valid PostgreSQL URL.
+The restore is conditional and will refuse if target values or row counts changed. It verifies required column access but bypasses the elevated-role privilege checks only with these explicit flags.
 
-The production writer preflight stopped: The production writer role has broader-than-approved administrative or ownership privileges. A database connection was opened for the read-only preflight; no writes were attempted and no transaction before-image was created. The exact-match before-value snapshot is saved separately as production-exact-ods-writer-row-states.csv.
+The accompanying workbook and CSV list every candidate row, including each held, conflict, and no-match reason. The before-image and guarded-writer receipt are separate files in this report directory.

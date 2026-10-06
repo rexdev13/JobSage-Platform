@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-06T18:27:14.976Z",
+  "generatedAt": "2026-10-06T18:37:24.386Z",
   "candidateRows": 6804,
   "sourceHealthcareRows": 6667,
   "additionalRows": 137,
@@ -14,5 +14,364 @@
   "distinctCleanEmployers": 54,
   "plannedTargets": 54,
   "plannedWriteRows": 55,
-  "applyReceipt": null
+  "applyReceipt": {
+    "status": "applied",
+    "mode": "stage2",
+    "database": {
+      "name": "neondb",
+      "host": "169.254.254.254/32",
+      "role": "neondb_owner",
+      "fingerprint": "e82e224b47898297c7943db3089ae9e3"
+    },
+    "selectedEmployers": 54,
+    "writesAttempted": 55,
+    "updatedRows": 55,
+    "rolePrivilegesVerified": false,
+    "requiredColumnAccessVerified": true,
+    "elevatedProofRoleConfirmed": true,
+    "proofCredentialReuseConfirmed": true,
+    "countsBefore": {
+      "rowCount": 142847,
+      "blankWebsiteRows": 132456,
+      "blankAllThreeRows": 132456
+    },
+    "countsAfter": {
+      "rowCount": 142847,
+      "blankWebsiteRows": 132401,
+      "blankAllThreeRows": 132401
+    },
+    "updated": [
+      {
+        "organisation_name": "Southport & Ormskirk Hospital (NHS) Trust",
+        "website": "https://www.southportandormskirk.nhs.uk/",
+        "website_ods_code": "RVY",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RVY"
+      },
+      {
+        "organisation_name": "Barking Havering and Redbridge University Hospitals NHS Trust",
+        "website": "https://www.bhrhospitals.nhs.uk/",
+        "website_ods_code": "RF4",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RF4"
+      },
+      {
+        "organisation_name": "Berkshire Healthcare NHS Foundation Trust",
+        "website": "https://www.berkshirehealthcare.nhs.uk/",
+        "website_ods_code": "RWX",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RWX"
+      },
+      {
+        "organisation_name": "Calderdale and Huddersfield NHS Foundation Trust",
+        "website": "https://www.cht.nhs.uk/HOME/",
+        "website_ods_code": "RWY",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RWY"
+      },
+      {
+        "organisation_name": "Cambridgeshire Community Services NHS Trust",
+        "website": "https://www.cambscommunityservices.nhs.uk/",
+        "website_ods_code": "RYV",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RYV"
+      },
+      {
+        "organisation_name": "Central London Community Healthcare NHS Trust",
+        "website": "https://www.clch.nhs.uk/",
+        "website_ods_code": "RYX",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RYX"
+      },
+      {
+        "organisation_name": "County Durham and Darlington NHS Foundation Trust",
+        "website": "https://www.cddft.nhs.uk/",
+        "website_ods_code": "RXP",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RXP"
+      },
+      {
+        "organisation_name": "Dartford and Gravesham NHS Trust",
+        "website": "https://www.dgt.nhs.uk/",
+        "website_ods_code": "RN7",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RN7"
+      },
+      {
+        "organisation_name": "Derbyshire Healthcare NHS Foundation Trust",
+        "website": "https://www.derbyshirehealthcareft.nhs.uk/",
+        "website_ods_code": "RXM",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RXM"
+      },
+      {
+        "organisation_name": "Devon Partnership NHS Trust",
+        "website": "https://www.dpt.nhs.uk/",
+        "website_ods_code": "RWV",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RWV"
+      },
+      {
+        "organisation_name": "Dorset County Hospital NHS Foundation Trust",
+        "website": "https://www.dchft.nhs.uk/PAGES/HOME1.ASPX",
+        "website_ods_code": "RBD",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RBD"
+      },
+      {
+        "organisation_name": "East Lancashire Hospitals NHS Trust",
+        "website": "https://elht.nhs.uk/",
+        "website_ods_code": "RXR",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RXR"
+      },
+      {
+        "organisation_name": "Essex Partnership University NHS Foundation Trust",
+        "website": "https://eput.nhs.uk/",
+        "website_ods_code": "R1L",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/R1L"
+      },
+      {
+        "organisation_name": "Frimley Health NHS Foundation Trust",
+        "website": "https://www.fhft.nhs.uk/",
+        "website_ods_code": "RDU",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RDU"
+      },
+      {
+        "organisation_name": "Hampshire Hospitals NHS Foundation Trust",
+        "website": "https://www.hampshirehospitals.nhs.uk/",
+        "website_ods_code": "RN5",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RN5"
+      },
+      {
+        "organisation_name": "Homerton Healthcare NHS Foundation Trust",
+        "website": "https://www.homerton.nhs.uk/",
+        "website_ods_code": "RQX",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RQX"
+      },
+      {
+        "organisation_name": "Hull University Teaching Hospitals NHS Trust",
+        "website": "https://www.hey.nhs.uk/",
+        "website_ods_code": "RWA",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RWA"
+      },
+      {
+        "organisation_name": "Isle of Wight NHS Trust",
+        "website": "https://www.iow.nhs.uk/",
+        "website_ods_code": "R1F",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/R1F"
+      },
+      {
+        "organisation_name": "James Paget University Hospitals NHS Foundation Trust",
+        "website": "https://www.jpaget.nhs.uk/",
+        "website_ods_code": "RGP",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RGP"
+      },
+      {
+        "organisation_name": "Kent Community Health NHS Foundation Trust",
+        "website": "https://www.kentcht.nhs.uk/",
+        "website_ods_code": "RYY",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RYY"
+      },
+      {
+        "organisation_name": "Lancashire and South Cumbria NHS Foundation Trust",
+        "website": "https://www.lscft.nhs.uk/",
+        "website_ods_code": "RW5",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RW5"
+      },
+      {
+        "organisation_name": "Leeds Community Healthcare NHS Trust",
+        "website": "https://www.leedscommunityhealthcare.nhs.uk/",
+        "website_ods_code": "RY6",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RY6"
+      },
+      {
+        "organisation_name": "Leicestershire Partnership NHS Trust",
+        "website": "https://www.leicspart.nhs.uk/",
+        "website_ods_code": "RT5",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RT5"
+      },
+      {
+        "organisation_name": "Lewisham & Greenwich NHS Trust",
+        "website": "https://www.lewishamandgreenwich.nhs.uk/",
+        "website_ods_code": "RJ2",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RJ2"
+      },
+      {
+        "organisation_name": "Lincolnshire Partnership NHS Foundation Trust",
+        "website": "https://www.lpft.nhs.uk/",
+        "website_ods_code": "RP7",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RP7"
+      },
+      {
+        "organisation_name": "London Ambulance Service NHS Trust",
+        "website": "https://www.londonambulance.nhs.uk/",
+        "website_ods_code": "RRU",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RRU"
+      },
+      {
+        "organisation_name": "Maidstone & Tunbridge Wells NHS Trust",
+        "website": "https://www.mtw.nhs.uk/",
+        "website_ods_code": "RWF",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RWF"
+      },
+      {
+        "organisation_name": "Medway NHS Foundation Trust",
+        "website": "https://www.medway.nhs.uk/",
+        "website_ods_code": "RPA",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RPA"
+      },
+      {
+        "organisation_name": "Mid Cheshire Hospitals NHS Foundation Trust",
+        "website": "https://www.mcht.nhs.uk/",
+        "website_ods_code": "RBT",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RBT"
+      },
+      {
+        "organisation_name": "Milton Keynes University Hospital NHS Foundation Trust",
+        "website": "https://www.mkuh.nhs.uk/",
+        "website_ods_code": "RD8",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RD8"
+      },
+      {
+        "organisation_name": "Oxford Health NHS Foundation Trust",
+        "website": "https://www.oxfordhealth.nhs.uk/",
+        "website_ods_code": "RNU",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RNU"
+      },
+      {
+        "organisation_name": "Portsmouth Hospitals University NHS Trust",
+        "website": "https://www.porthosp.nhs.uk/",
+        "website_ods_code": "RHU",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RHU"
+      },
+      {
+        "organisation_name": "Public Health Wales NHS Trust",
+        "website": "https://phw.nhs.wales/",
+        "website_ods_code": "RYT",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RYT"
+      },
+      {
+        "organisation_name": "Queen Victoria Hospital NHS Foundation Trust",
+        "website": "https://www.qvh.nhs.uk/",
+        "website_ods_code": "RPC",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RPC"
+      },
+      {
+        "organisation_name": "Royal Berkshire NHS Foundation Trust",
+        "website": "https://www.royalberkshire.nhs.uk/",
+        "website_ods_code": "RHW",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RHW"
+      },
+      {
+        "organisation_name": "Royal Cornwall Hospitals NHS Trust",
+        "website": "https://www.royalcornwall.nhs.uk/",
+        "website_ods_code": "REF",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/REF"
+      },
+      {
+        "organisation_name": "Royal National Orthopaedic Hospital NHS Trust",
+        "website": "https://www.rnoh.nhs.uk/",
+        "website_ods_code": "RAN",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RAN"
+      },
+      {
+        "organisation_name": "Royal Papworth Hospital NHS Foundation Trust",
+        "website": "https://royalpapworth.nhs.uk/",
+        "website_ods_code": "RGM",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RGM"
+      },
+      {
+        "organisation_name": "Royal Surrey NHS Foundation Trust",
+        "website": "https://www.royalsurrey.nhs.uk/",
+        "website_ods_code": "RA2",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RA2"
+      },
+      {
+        "organisation_name": "Shropshire Community Health NHS Trust",
+        "website": "https://www.shropscommunityhealth.nhs.uk/",
+        "website_ods_code": "R1D",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/R1D"
+      },
+      {
+        "organisation_name": "South Central Ambulance Service NHS Foundation Trust",
+        "website": "https://www.scas.nhs.uk/",
+        "website_ods_code": "RYE",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RYE"
+      },
+      {
+        "organisation_name": "South Tyneside and Sunderland NHS Foundation Trust",
+        "website": "https://www.stsft.nhs.uk/",
+        "website_ods_code": "R0B",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/R0B"
+      },
+      {
+        "organisation_name": "Stockport NHS Foundation Trust",
+        "website": "https://www.stockport.nhs.uk/",
+        "website_ods_code": "RWJ",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RWJ"
+      },
+      {
+        "organisation_name": "Stockport NHS Foundation Trust",
+        "website": "https://www.stockport.nhs.uk/",
+        "website_ods_code": "RWJ",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RWJ"
+      },
+      {
+        "organisation_name": "Surrey & Borders Partnership NHS Foundation Trust",
+        "website": "https://www.sabp.nhs.uk/",
+        "website_ods_code": "RXX",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RXX"
+      },
+      {
+        "organisation_name": "Sussex Partnership NHS Foundation Trust",
+        "website": "https://www.sussexpartnership.nhs.uk/",
+        "website_ods_code": "RX2",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RX2"
+      },
+      {
+        "organisation_name": "Tameside & Glossop Integrated Care NHS Foundation Trust",
+        "website": "https://www.tamesidehospital.nhs.uk/",
+        "website_ods_code": "RMP",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RMP"
+      },
+      {
+        "organisation_name": "Tavistock and Portman NHS Foundation Trust",
+        "website": "https://tavistockandportman.nhs.uk/",
+        "website_ods_code": "RNK",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RNK"
+      },
+      {
+        "organisation_name": "THE PRINCESS ALEXANDRA HOSPITAL NHS TRUST",
+        "website": "https://www.pah.nhs.uk/",
+        "website_ods_code": "RQW",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RQW"
+      },
+      {
+        "organisation_name": "The Royal Orthopaedic Hospital NHS Foundation Trust",
+        "website": "https://www.roh.nhs.uk/",
+        "website_ods_code": "RRJ",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RRJ"
+      },
+      {
+        "organisation_name": "The Royal Wolverhampton NHS Trust",
+        "website": "https://www.royalwolverhampton.nhs.uk/",
+        "website_ods_code": "RL4",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RL4"
+      },
+      {
+        "organisation_name": "University Hospitals Plymouth NHS Trust",
+        "website": "https://www.plymouthhospitals.nhs.uk/",
+        "website_ods_code": "RK9",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RK9"
+      },
+      {
+        "organisation_name": "West London NHS Trust",
+        "website": "https://www.westlondon.nhs.uk/",
+        "website_ods_code": "RKL",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RKL"
+      },
+      {
+        "organisation_name": "Wye Valley NHS Trust",
+        "website": "https://www.wyevalley.nhs.uk/",
+        "website_ods_code": "RLQ",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RLQ"
+      },
+      {
+        "organisation_name": "Yorkshire Ambulance Service NHS Trust",
+        "website": "https://www.yas.nhs.uk/",
+        "website_ods_code": "RX8",
+        "website_ods_record_url": "https://directory.spineservices.nhs.uk/ORD/2-0-0/organisations/RX8"
+      }
+    ],
+    "beforeImageFile": ".agents/outputs/ods-stage2-2026-10-06/ods-stage2-before-image.json"
+  }
 }
